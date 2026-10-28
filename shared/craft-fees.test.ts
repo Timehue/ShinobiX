@@ -6,6 +6,9 @@ import { SUPPLY_CRAFT_RECIPES } from './crafting-recipes.js';
 import { VILLAGE_SUPPLY_GOODS } from './gathering-supplies.js';
 import { GEAR_CRAFT_RYO, SUPPLY_CRAFT_RYO, gearCraftRyo, supplyCraftRyo } from './craft-fees.js';
 
+/** The fee both the server and the Crafter UI compute for a recipe. */
+const feeOf = (id: string) => supplyCraftRyo(id, ITEM_CATALOG[id]?.cost ?? 0, SUPPLY_CRAFT_RECIPES[id]?.count ?? 1);
+
 /** A bag holding exactly one batch of a recipe's first-listed materials. */
 const stocked = (id: string, quantity: number, ryo: number) => {
     const recipe = SUPPLY_CRAFT_RECIPES[id];
@@ -18,22 +21,33 @@ const stocked = (id: string, quantity: number, ryo: number) => {
 describe('crafter ryo fees', () => {
     it('every supply recipe charges a ryo fee', () => {
         for (const id of Object.keys(SUPPLY_CRAFT_RECIPES)) {
-            assert.ok(supplyCraftRyo(id) > 0, `${id} crafts for free`);
+            assert.ok(feeOf(id) > 0, `${id} crafts for free`);
         }
         for (const id of Object.keys(SUPPLY_CRAFT_RYO)) {
             assert.ok(Object.hasOwn(SUPPLY_CRAFT_RECIPES, id), `${id} has a fee but no recipe`);
             assert.ok(!Object.hasOwn(VILLAGE_SUPPLY_GOODS, id), `${id} would shadow its Village supply fee`);
+            assert.ok(!(ITEM_CATALOG[id]?.cost), `${id} is sold in the shop, so its fee should follow the shelf price`);
         }
     });
 
-    it('a shop-sold craft costs about a quarter of buying the same batch', () => {
+    it('a shop-sold craft costs a quarter of buying the same batch', () => {
+        let checked = 0;
         for (const [id, recipe] of Object.entries(SUPPLY_CRAFT_RECIPES)) {
             const item = ITEM_CATALOG[id];
             if (!item?.cost || recipe.currency || Object.hasOwn(VILLAGE_SUPPLY_GOODS, id)) continue;
-            const batchPrice = item.cost * (recipe.count ?? 1);
-            const share = supplyCraftRyo(id) / batchPrice;
-            assert.ok(share >= 0.2 && share <= 0.3, `${id}: fee ${supplyCraftRyo(id)} is ${(share * 100).toFixed(1)}% of ${batchPrice}`);
+            checked++;
+            assert.equal(feeOf(id), Math.floor(item.cost * (recipe.count ?? 1) / 4), id);
         }
+        assert.ok(checked >= 20, `only ${checked} shop-sold recipes checked`);
+    });
+
+    it('pins the fees players see', () => {
+        assert.equal(feeOf('thrown-shuriken'), 1_200, '3 Shuriken at 1,600 each');
+        assert.equal(feeOf('pet-treat'), 400);
+        assert.equal(feeOf('pve-apex-predator-fang'), 7_200);
+        assert.equal(feeOf('consum-second-wind'), 1_600);
+        assert.equal(feeOf('currency:aura-dust'), 1_500);
+        assert.equal(feeOf('beast-seal-master'), 8_000);
     });
 
     it('gear fees climb with rarity and sit beside the shelf prices', () => {
@@ -48,7 +62,7 @@ describe('crafter ryo fees', () => {
     });
 
     it('the server takes the fee from the bag and refuses a craft the player cannot pay for', () => {
-        const fee = supplyCraftRyo('thrown-shuriken');
+        const fee = feeOf('thrown-shuriken');
         assert.equal(fee, 1_200);
         const crafted = applyForge(stocked('thrown-shuriken', 2, fee * 2 + 5), 'supply', 'thrown-shuriken', 2);
         assert.ok(crafted);

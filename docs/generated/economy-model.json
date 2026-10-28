@@ -2168,12 +2168,30 @@
     },
     {
       "system": "craft",
+      "id": "village-supply-bundle",
+      "currency": "ryo",
+      "amount": 30,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "village-supply-crate",
+      "currency": "ryo",
+      "amount": 100,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
       "id": "pet-treat",
       "currency": "ryo",
       "amount": 400,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2182,7 +2200,7 @@
       "amount": 1000,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2191,7 +2209,7 @@
       "amount": 2000,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2200,7 +2218,7 @@
       "amount": 8000,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2209,7 +2227,7 @@
       "amount": 1500,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2218,7 +2236,7 @@
       "amount": 2500,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2227,7 +2245,7 @@
       "amount": 1200,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2236,7 +2254,7 @@
       "amount": 150,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2245,7 +2263,7 @@
       "amount": 400,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2254,7 +2272,7 @@
       "amount": 360,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2263,7 +2281,7 @@
       "amount": 320,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2272,7 +2290,7 @@
       "amount": 320,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2281,7 +2299,7 @@
       "amount": 1800,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2290,7 +2308,7 @@
       "amount": 3600,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2299,7 +2317,7 @@
       "amount": 3600,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2308,7 +2326,7 @@
       "amount": 4200,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2317,7 +2335,7 @@
       "amount": 4200,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2326,7 +2344,7 @@
       "amount": 4800,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2335,7 +2353,7 @@
       "amount": 5400,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2344,7 +2362,7 @@
       "amount": 3000,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2353,7 +2371,7 @@
       "amount": 6000,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2362,7 +2380,7 @@
       "amount": 6600,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2371,7 +2389,7 @@
       "amount": 7200,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2380,7 +2398,7 @@
       "amount": 960,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2389,7 +2407,7 @@
       "amount": 600,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2398,7 +2416,7 @@
       "amount": 1120,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2407,7 +2425,7 @@
       "amount": 1280,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2416,7 +2434,7 @@
       "amount": 1440,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "craft",
@@ -2425,7 +2443,7 @@
       "amount": 1600,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
-      "notes": "About a quarter of the shop price of one batch."
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "kage",

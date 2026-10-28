@@ -85,7 +85,7 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
         const recipe = Object.hasOwn(SUPPLY_CRAFT_RECIPES, recipeId) ? SUPPLY_CRAFT_RECIPES[recipeId] : undefined;
         if (!recipe || count(character.level) < (recipe.levelReq ?? 1)) return null;
         if (isVillageSupplyGood(recipeId) && !villageStoresEnabled()) return null;
-        const ryo = supplyCraftRyo(recipeId) * quantity;
+        const ryo = supplyCraftRyo(recipeId, ITEM_CATALOG[recipeId]?.cost ?? 0, recipe.count ?? 1) * quantity;
         if (count(character.ryo) < ryo) return null;
         const output = ITEM_CATALOG[recipeId];
         const cap = isPetFood(recipeId) ? 9999 : output?.slot === 'thrown' ? 50 : output?.slot === 'potion' ? 2

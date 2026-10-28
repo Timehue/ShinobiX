@@ -621,6 +621,7 @@ export function CentralHub({
     // All workshop tabs use the server's material-specific recipe definitions.
     // Fees live in shared/craft-fees.ts, the table the server charges from.
     const craftRyoForRarity = gearCraftRyo;
+    const supplyFeeFor = (id: string) => supplyCraftRyo(id, allHubItems.find(item => item.id === id)?.cost ?? 0, SUPPLY_CRAFT_RECIPES[id]?.count ?? 1);
     function recipeIngredients(id: string) {
         const supply = SUPPLY_CRAFT_RECIPES[id];
         if (supply) return supply.ingredients;
@@ -630,7 +631,7 @@ export function CentralHub({
 
     function gatheredIngredientsReady(id: string, quantity = 1): boolean {
         return recipeIngredients(id).length > 0 && planCraftIngredients(recipeIngredients(id), ownedCount, quantity) !== null
-            && character.ryo >= supplyCraftRyo(id) * quantity;
+            && character.ryo >= supplyFeeFor(id) * quantity;
     }
     function gatheredIngredientsLine(id: string, quantity = 1): string {
         return recipeIngredients(id).map(ingredient =>
@@ -645,7 +646,7 @@ export function CentralHub({
             materialImages: Object.fromEntries(recipeIngredients(id).flatMap(group => group.ids).map(material =>
                 [material, sharedImages['item:' + material] || allHubItems.find(entry => entry.id === material)?.image || ''])),
             output: (SUPPLY_CRAFT_RECIPES[id]?.count ?? SUPPLY_CRAFT_RECIPES[id]?.amount ?? 1) * quantity,
-            ryo: (kind === 'supply' ? supplyCraftRyo(id) : craftRyoForRarity(item?.rarity ?? 'rare')) * quantity };
+            ryo: (kind === 'supply' ? supplyFeeFor(id) : craftRyoForRarity(item?.rarity ?? 'rare')) * quantity };
         setPendingCraft(craft);
     }
     async function completeCraft(materials: CraftMaterialSelection): Promise<string | undefined> {
@@ -1650,7 +1651,7 @@ export function CentralHub({
                                     const img = itemImage(recipe.itemId);
                                     const ingredientsLine = gatheredIngredientsLine(recipe.itemId, craftQty);
                                     const supplyGood = VILLAGE_SUPPLY_GOODS[recipe.itemId];
-                                    const supplyFee = supplyCraftRyo(recipe.itemId);
+                                    const supplyFee = supplyFeeFor(recipe.itemId);
                                     return (
                                         <div key={recipe.name} className="cf-card">
                                             <div className="cf-card-top">

@@ -4,7 +4,6 @@ import crypto from 'node:crypto';
 import { syncBuiltinESMExports } from 'node:module';
 import { sealGatherFind } from './_gather.js';
 import { countOwned } from '../craft/_forge.js';
-import { SUPPLY_CRAFT_RYO } from '../../shared/craft-fees.js';
 import { MAX_PENDING_FINDS } from '../../shared/gathering.js';
 import { worldPositionModel } from '../../shared/continuous-world-layout.js';
 process.env.NODE_ENV='test';
@@ -125,7 +124,7 @@ test('one atomic explore seals the find, consumes one pool slot, and replays wit
     assert.equal(countOwned(forged,'thrown-shuriken'),3);
     assert.equal(countOwned(forged,'gather-iron-sand'),0);
     assert.equal(countOwned(forged,'hunt-beast-meat'),3,'forging throwing stars preserves food');
-    assert.equal(forged.ryo,5099-SUPPLY_CRAFT_RYO['thrown-shuriken'],'shuriken crafting charges its ryo fee');
+    assert.equal(forged.ryo,5099-1_200,'shuriken crafting charges its ryo fee');
     const craftRetry=await post(forge,player,craftBody);assert.equal(craftRetry.status,200);
     assert.equal(countOwned(craftRetry.body.character as Json,'thrown-shuriken'),3);
     const claimRetry=await post(claim,player,harvest);assert.equal(claimRetry.status,200);
