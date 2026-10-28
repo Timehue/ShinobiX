@@ -194,7 +194,13 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   the PR. The `Evidence size guard` workflow fails a PR that adds more than 20
   files or any image/video there. The one legitimate exception today is a pet
   shape review: `npm run check:pet-shape-review` re-hashes the evidence a receipt
-  cites from the repo, so that PR carries the `allow-evidence` label.
+  cites from the repo, so that PR carries the `allow-evidence` label. In CI that
+  re-hash (7.1 GB) runs in `CI / pet-review-evidence`, only when a change touches
+  `docs/{screenshots,evidence,audits,asset-sources}/`, the gate, or `ci.yml`
+  (`CI / changes` decides); every run still does the receipt half with
+  `--skip-evidence`. `client-quality` and the `server-contracts` shards check out
+  without `docs/screenshots` and `docs/evidence`, so a test that starts reading
+  those fails there; read it from `docs/audits` or ship the data elsewhere.
 - Do not commit secrets, API keys, Supabase service keys, passwords, or `.env` contents.
 - Always run the relevant tests before saying a task is complete.
 - For frontend changes, run `npm run lint` inside `shinobij.client/`.
