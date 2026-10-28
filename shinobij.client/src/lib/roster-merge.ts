@@ -1,15 +1,18 @@
 import type { Character, PlayerRecord } from "../types/character";
+import { playerSlug } from './utils';
+
+/** Updating the viewer must never evict other players from sector discovery. */
+export function mergeSelfRosterRow(current: PlayerRecord[], record: PlayerRecord): PlayerRecord[] {
+    const self = playerSlug(record.name);
+    return [record, ...current.filter(player => playerSlug(player.name) !== self)];
+}
 
 /** Full public snapshots replace profile fields while preserving roster order. */
 export function mergeRosterSnapshot(prev: PlayerRecord[], incoming: PlayerRecord[]): PlayerRecord[] {
-    const merged = [...prev];
+    const merged: PlayerRecord[] = [];
     const indices = new Map<string, number>();
-    for (let i = 0; i < merged.length; i++) {
-        const key = merged[i].name.toLowerCase();
-        if (!indices.has(key)) indices.set(key, i);
-    }
-    for (const record of incoming) {
-        const key = record.name.toLowerCase();
+    for (const record of [...prev, ...incoming]) {
+        const key = playerSlug(record.name);
         const index = indices.get(key);
         if (index !== undefined) merged[index] = { ...merged[index], ...record };
         else { indices.set(key, merged.length); merged.push(record); }
@@ -21,8 +24,7 @@ export function mergeRosterSnapshot(prev: PlayerRecord[], incoming: PlayerRecord
  * Merge server-reported active players into the local cross-device roster.
  *
  * Name-keyed (O(n)): existing entries update in place, new ones append, and the
- * prev-priority order is preserved on the 100-cap — matching the old findIndex +
- * slice(0, 100) behavior, minus its O(n²) scan. Each incoming character is run
+ * previous order is preserved without truncating sector targets. Each incoming character is run
  * through `normalize` so downstream social screens get a fully-shaped Character.
  *
  * The incoming records come from the heartbeat, which ships only a MINIMAL
@@ -41,20 +43,21 @@ export function mergePlayerRoster(
     incoming: PlayerRecord[],
     normalize: (c: Character) => Character,
 ): PlayerRecord[] {
-    const byName = new Map(prev.map((p) => [p.name, p] as const));
+    const byName = new Map(prev.map((p) => [playerSlug(p.name), p] as const));
     for (const rec of incoming) {
-        const existingRecord = byName.get(rec.name);
+        const existingRecord = byName.get(playerSlug(rec.name));
         const existingChar = existingRecord?.character as Character | undefined;
         const mergedChar = normalize({
             ...existingChar,
             ...(rec.character as Character),
         } as Character);
-        byName.set(rec.name, {
+        byName.set(playerSlug(rec.name), {
             ...existingRecord,
             ...rec,
+            sleeping: rec.sleeping === true,
             character: mergedChar,
             eligiblePets: Array.isArray(rec.eligiblePets) ? rec.eligiblePets : existingRecord?.eligiblePets,
         });
     }
-    return Array.from(byName.values()).slice(0, 100);
+    return Array.from(byName.values());
 }

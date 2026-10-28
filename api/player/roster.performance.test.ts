@@ -15,7 +15,7 @@ test('roster projection preserves settled vitals, travel, public profile and pet
     const now = Date.now();
     t.mock.method(Date, 'now', () => now);
     const character = {
-        name: 'ProjectionNinja', level: 20, village: 'Stormveil Village', specialty: 'Ninjutsu',
+        name: 'Projection Ninja', level: 20, village: 'Stormveil Village', specialty: 'Ninjutsu',
         hp: 5, maxHp: 100, chakra: 4, maxChakra: 100, stamina: 3, maxStamina: 100,
         ryo: 999, stats: {}, inventory: ['private-item'], pets: [],
         nindo: 'Stay true.', nindoBg: 'moon',
@@ -35,7 +35,7 @@ test('roster projection preserves settled vitals, travel, public profile and pet
         creatorEvents: [{ script: 'x'.repeat(100_000) }], savedImages: { private: 'large' },
     };
     await kv.set('save:projectionninja', save);
-    await kv.hset('player:registry', { projectionninja: { name: 'ProjectionNinja', level: 20 } });
+    await kv.hset('player:registry', { projectionninja: { name: 'Projection Ninja', level: 20 } });
     let projections = 0;
     kv.mgetProjected = async (keys, projection) => {
         projections++;
@@ -72,12 +72,14 @@ test('roster projection preserves settled vitals, travel, public profile and pet
     const { onlineStore } = await import('../_realtime/online-store.js');
     t.mock.method(onlineStore, 'list', () => [{
         name: 'projectionninja', sector: 39, lastSeenAt: now,
-        character: { name: 'ProjectionNinja', level: 20, unlockedAchievements: ['exam-special-jonin'], examsPassed: ['specialJonin'] },
+        character: { name: 'Projection Ninja', level: 20, unlockedAchievements: ['exam-special-jonin'], examsPassed: ['specialJonin'] },
     }] as unknown as ReturnType<typeof onlineStore.list>);
     __clearProcCache();
     await handler({ method: 'GET', query: {}, headers: {} } as never, res as never);
     const online = body!.players[0];
+    assert.equal(body!.players.length, 1, 'display name and live slug must not duplicate a player');
     assert.equal(online.online, true);
+    assert.equal(online.sleeping, false, 'a spaced display name must not be mistaken for an offline camp');
     const onlineCharacter = online.character as Record<string, unknown>;
     assert.deepEqual(onlineCharacter.unlockedAchievements, publicChar.unlockedAchievements);
     assert.deepEqual(onlineCharacter.achievementUnlockedAt, publicChar.achievementUnlockedAt);
