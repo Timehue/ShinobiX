@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ITEM_CATALOG } from '../api/pvp/_item-catalog.js';
 import { unitSaleValue } from '../api/inventory/_sale.js';
 import { sellCatalogItem } from '../api/shop/_sale.js';
-import { SHOP_PRICE_SCALE, saleCostBasis, shopPriceScale, withShopPrice } from './shop-pricing.js';
+import { saleCostBasis, shopPriceScale, withShopPrice } from './shop-pricing.js';
 
 /** The shelf as it stood before the 2026-10-27 price rise, from the shop screenshot that prompted it. */
 const OLD_GEAR_COSTS: Readonly<Record<string, number>> = {
@@ -17,7 +17,7 @@ const OLD_GEAR_COSTS: Readonly<Record<string, number>> = {
 
 describe('shop price scale', () => {
     it('prices every armor piece and basic gathering tool at exactly 75x its old cost', () => {
-        assert.equal(SHOP_PRICE_SCALE.gear, 75);
+        assert.equal(shopPriceScale({ id: 'cloth-hood', slot: 'head', rarity: 'common', cost: 120 }), 75);
         for (const [id, old] of Object.entries(OLD_GEAR_COSTS)) {
             assert.equal(ITEM_CATALOG[id].cost, old * 75, id);
             assert.equal(ITEM_CATALOG[id].saleBasis, old, id);

@@ -149,35 +149,37 @@ craft,named-forge,fateShards,200,per forge,shared/named-forge-economy.ts,
 craft,gear-rare,ryo,24000,per gear craft,shared/craft-fees.ts,Charged on top of the recipe materials.
 craft,gear-epic,ryo,56000,per gear craft,shared/craft-fees.ts,Charged on top of the recipe materials.
 craft,gear-legendary,ryo,140000,per gear craft,shared/craft-fees.ts,Charged on top of the recipe materials.
-craft,pet-treat,ryo,400,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,elemental-pet-treat,ryo,1000,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,ancient-pet-treat,ryo,2000,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,beast-seal-master,ryo,8000,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,currency:aura-dust,ryo,1500,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,currency:bone-charm,ryo,2500,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,thrown-shuriken,ryo,1200,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,thrown-senbon,ryo,150,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,thrown-serpent-dust,ryo,400,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,item-smoke-bomb,ryo,360,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,item-attack-pill,ryo,320,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,item-defense-pill,ryo,320,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,potion-rejuvenation,ryo,1800,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-hunters-bond-harness,ryo,3600,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-loyal-companion-bell,ryo,3600,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-frenzy-claw,ryo,4200,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-guardians-blessing,ryo,4200,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-sanguine-charm,ryo,4800,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-predators-fang,ryo,5400,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-avengers-pendant,ryo,3000,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-bloodbond-totem,ryo,6000,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-pack-alpha-crest,ryo,6600,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,pve-apex-predator-fang,ryo,7200,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,consum-phantom-charm,ryo,960,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,consum-smoke-pellet,ryo,600,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,consum-cleansing-incense,ryo,1120,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,consum-thornmail-oil,ryo,1280,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,consum-lifeline-elixir,ryo,1440,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
-craft,consum-second-wind,ryo,1600,per supply craft,shared/craft-fees.ts,About a quarter of the shop price of one batch.
+craft,village-supply-bundle,ryo,30,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,village-supply-crate,ryo,100,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pet-treat,ryo,400,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,elemental-pet-treat,ryo,1000,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,ancient-pet-treat,ryo,2000,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,beast-seal-master,ryo,8000,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,currency:aura-dust,ryo,1500,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,currency:bone-charm,ryo,2500,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,thrown-shuriken,ryo,1200,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,thrown-senbon,ryo,150,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,thrown-serpent-dust,ryo,400,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,item-smoke-bomb,ryo,360,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,item-attack-pill,ryo,320,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,item-defense-pill,ryo,320,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,potion-rejuvenation,ryo,1800,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-hunters-bond-harness,ryo,3600,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-loyal-companion-bell,ryo,3600,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-frenzy-claw,ryo,4200,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-guardians-blessing,ryo,4200,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-sanguine-charm,ryo,4800,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-predators-fang,ryo,5400,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-avengers-pendant,ryo,3000,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-bloodbond-totem,ryo,6000,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-pack-alpha-crest,ryo,6600,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,pve-apex-predator-fang,ryo,7200,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,consum-phantom-charm,ryo,960,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,consum-smoke-pellet,ryo,600,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,consum-cleansing-incense,ryo,1120,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,consum-thornmail-oil,ryo,1280,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,consum-lifeline-elixir,ryo,1440,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,consum-second-wind,ryo,1600,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
 kage,declare-challenge,ryo,400000,per challenge,api/village/_kage-challenge.ts,
 shrine,communal-offering,ryo,10-250000,per offering,shared/shrines.ts,Pure sink; no payout.
 war,declare-war,warResources,800,per declaration,api/_war-economy.ts,

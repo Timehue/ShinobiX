@@ -11,7 +11,7 @@ import { routeStoresDonation } from '../_treasury-stores-donate.js';
 import { applyTreasuryDonation } from '../_treasury-donate.js';
 import { gearCraftIngredients } from '../../shared/crafting-recipes.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
-import { GEAR_CRAFT_RYO, SUPPLY_CRAFT_RYO } from '../../shared/craft-fees.js';
+import { GEAR_CRAFT_RYO } from '../../shared/craft-fees.js';
 import { WILD_HIT_CEILING } from '../pet/_encounter.js';
 
 for (const level of [1, 49, 50, 100]) for (const chest of [true, false]) test(`exact overall rates and boundaries: level ${level}, chests ${chest}`, () => {
@@ -91,7 +91,7 @@ for(const id of ['elderbranch-katana','black-lotus-dagger','frostfang-oathblade'
 test('shuriken uses exact iron sand, preserves food, charges its ryo fee and keeps the 50 carry cap',()=>{
     const original={level:65,ryo:10_000,itemStacks:[{itemId:'hunt-beast-meat',count:6},{itemId:'gather-iron-sand',count:12},{itemId:'gather-heartwood-bark',count:2},{itemId:'gather-binding-fiber',count:4}]};
     const result=applyForge(original,'supply','thrown-shuriken',2)!;
-    assert.equal(countOwned(result,'thrown-shuriken'),6);assert.equal(countOwned(result,'hunt-beast-meat'),6);assert.equal(result.ryo,10_000-2*SUPPLY_CRAFT_RYO['thrown-shuriken']);
+    assert.equal(countOwned(result,'thrown-shuriken'),6);assert.equal(countOwned(result,'hunt-beast-meat'),6);assert.equal(result.ryo,10_000-2*1_200);
     assert.equal(applyForge({...original,inventory:Array(48).fill('thrown-shuriken')},'supply','thrown-shuriken',1),null);
     for(const id of [...COMMON_GATHER_IDS,...Object.values(BIOME_GATHER_IDS)])assert.equal(CRAFT_POINTS[id],undefined);
 });

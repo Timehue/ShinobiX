@@ -46,7 +46,8 @@ import { PROFILE_RESPEC_COST, PROFILE_TITLE_COST, PROFILE_TITLE_ICON_COST, PROFI
 import { STAT_RESPEC_FATE_COST } from '../api/save/_stat-entitlement.ts';
 import { BLACK_MARKET_COST, BLACK_MARKET_CERTIFICATE_COST } from '../api/festival/_black-market.ts';
 import { NAMED_FORGE_FATE_SHARD_COST } from '../shared/named-forge-economy.ts';
-import { GEAR_CRAFT_RYO, SUPPLY_CRAFT_RYO } from '../shared/craft-fees.ts';
+import { GEAR_CRAFT_RYO, supplyCraftRyo } from '../shared/craft-fees.ts';
+import { SUPPLY_CRAFT_RECIPES } from '../shared/crafting-recipes.ts';
 import { KAGE_DECLARE_RYO_COST } from '../api/village/_kage-challenge.ts';
 import { LOGIN_RYO_BASE, LOGIN_RYO_CAP, LOGIN_RYO_PER_LEVEL, STREAK_EARLY_SHARD_DAYS, STREAK_EARLY_SHARD_REWARD, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from '../api/player/_daily-login.ts';
 import { WAR_CRATE_BONE_CHARMS, WAR_CRATE_HONOR, WAR_CRATE_KEY_CHANCE, WAR_CRATE_RYO } from '../api/inventory/_war-crate.ts';
@@ -231,7 +232,7 @@ function economyExport() {
   }
   addFlow(sinks, 'craft', 'named-forge', 'fateShards', NAMED_FORGE_FATE_SHARD_COST, 'per forge', source('shared/named-forge-economy.ts'));
   for (const [rarity, fee] of Object.entries(GEAR_CRAFT_RYO)) addFlow(sinks, 'craft', `gear-${rarity}`, 'ryo', fee, 'per gear craft', source('shared/craft-fees.ts'), 'Charged on top of the recipe materials.');
-  for (const [id, fee] of Object.entries(SUPPLY_CRAFT_RYO)) addFlow(sinks, 'craft', id, 'ryo', fee, 'per supply craft', source('shared/craft-fees.ts'), 'About a quarter of the shop price of one batch.');
+  for (const [id, recipe] of Object.entries(SUPPLY_CRAFT_RECIPES)) addFlow(sinks, 'craft', id, 'ryo', supplyCraftRyo(id, ITEM_CATALOG[id]?.cost ?? 0, recipe.count ?? 1), 'per supply craft', source('shared/craft-fees.ts'), 'A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it.');
   addFlow(sinks, 'kage', 'declare-challenge', 'ryo', KAGE_DECLARE_RYO_COST, 'per challenge', source('api/village/_kage-challenge.ts'));
   addFlow(sinks, 'shrine', 'communal-offering', 'ryo', `${SHRINE_MIN_OFFERING}-${SHRINE_MAX_OFFERING}`, 'per offering', source('shared/shrines.ts'), 'Pure sink; no payout.');
   addFlow(sinks, 'war', 'declare-war', 'warResources', DECLARE_WAR_WR, 'per declaration', source('api/_war-economy.ts'));
