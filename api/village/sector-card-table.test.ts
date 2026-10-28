@@ -105,6 +105,43 @@ async function openLiveDuel(id: string) {
     assert.ok((answered.body?.session as { p1?: unknown }).p1, 'the defender is seated at a live match');
 }
 
+describe('Sector War card table — purse evidence', { concurrency: false }, () => {
+    for (const established of [false, true]) it(`records defeated-account eligibility=${established} without changing territory credit`, async () => {
+        const contest = await seedContest();
+        await kv.set(`save:${RAIDER}`, { character: { name: RAIDER, village: ATTACKER, level: established ? 20 : 19, createdAt: Date.now() - 1000 } });
+        await kv.set(`save:${HOLDOUT}`, { character: { name: HOLDOUT, village: DEFENDER, level: 20 } });
+        await openLiveDuel(contest.id);
+        const out = await call({ action: 'forfeit', playerName: RAIDER, sectorWarId: contest.id });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        const { mirror, row } = await receiptsOf(contest.id);
+        assert.equal(mirror.length, 1);
+        assert.equal(mirror[0].by, HOLDOUT);
+        assert.equal(mirror[0].purseEligible, established);
+        assert.ok(row.defenderPoints > 0);
+        const purse = await import('../war/_sector-purse.js');
+        assert.equal(purse.sectorPurseWinWeight(mirror[0]), established ? 1 : 0);
+    });
+    it('a failed evidence read returns 503; retry scores exactly once', async () => {
+        const contest = await seedContest();
+        await openLiveDuel(contest.id);
+        const { villageWarKey } = await import('../_war-state.js');
+        const realGet = kv.get.bind(kv);
+        let readingEvidence = false;
+        kv.get = (async (key: string) => {
+            if (key === villageWarKey(DEFENDER)) readingEvidence = true;
+            if (readingEvidence && key === `save:${RAIDER}`) throw new Error('injected eligibility read outage');
+            return realGet(key);
+        }) as typeof kv.get;
+        try {
+            const out = await call({ action: 'forfeit', playerName: RAIDER, sectorWarId: contest.id });
+            assert.equal(out.statusCode, 503, JSON.stringify(out.body));
+        } finally { kv.get = realGet; }
+        assert.equal((await receiptsOf(contest.id)).count, 0);
+        assert.equal((await call({ action: 'forfeit', playerName: RAIDER, sectorWarId: contest.id })).statusCode, 200);
+        assert.equal((await receiptsOf(contest.id)).count, 1);
+    });
+});
+
 describe('Sector War card table — wars that are over', { concurrency: false }, () => {
     it('a defended war (its row still lingering) opens no table', async () => {
         const contest = await seedContest({ expiredAt: Date.now() - 60_000, expiredReason: 'defended' });
@@ -225,6 +262,9 @@ describe('Sector War card table — a defender who arrives first', { concurrency
         const seated = await call({ action: 'join', playerName: HOLDOUT, sectorWarId: contest.id });
         assert.equal(seated.statusCode, 200, JSON.stringify(seated.body));
         assert.equal((seated.body?.session as { viewerSide: string }).viewerSide, 'p2');
+        const fresh = seated.body?.session as { p1: { lifePoints: number }; p2: { lifePoints: number } };
+        assert.equal(fresh.p1.lifePoints, 10_000, 'sector cards use the shared starting pool');
+        assert.equal(fresh.p2.lifePoints, 10_000, 'both seats start equally');
         assert.equal((await kv.get<{ status: string }>(`sector-card:${contest.id}`))?.status, 'active');
     });
 

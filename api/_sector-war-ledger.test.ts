@@ -101,6 +101,7 @@ async function seed(kv: KvLike, session: Session): Promise<Session> {
 
 type Battle = {
     battleId: string;
+    purseEligible?: boolean;
     attackerWon: boolean;
     by?: string;
     /** fought against the sealed garrison */
@@ -131,7 +132,7 @@ function score(kv: ReturnType<typeof faulty> | KvLike, contestId: string, b: Bat
                 garrisonBattle: !!b.garrison && b.attackerWon,
                 mercBattle: !!b.merc || (!!b.garrison && !b.attackerWon),
             });
-            return { kind: 'score', outcome, attackerWon: b.attackerWon, by: b.by ?? '', garrison: b.garrison, at: b.at };
+            return { kind: 'score', outcome, attackerWon: b.attackerWon, by: b.by ?? '', garrison: b.garrison, at: b.at, purseEligible: b.purseEligible };
         },
     });
 }
@@ -173,7 +174,7 @@ describe('sector-war ledger: the 200-receipt boundary is no longer a ceiling', {
         const contest = await seed(kv, fresh());
         const results = [];
         for (let i = 1; i <= 201; i += 1) {
-            const r = await score(kv, contest.id, { battleId: `b-${i}`, attackerWon: i % 3 !== 0, by: `p${i % 7}`, at: T0 + i * 1000 });
+            const r = await score(kv, contest.id, { battleId: `b-${i}`, attackerWon: i % 3 !== 0, by: `p${i % 7}`, at: T0 + i * 1000, ...(i === 201 ? { purseEligible: false } : {}) });
             results.push(r);
             if (i === 199 || i === 200 || i === 201) {
                 assert.equal(r.status, 'applied', `battle ${i} applies`);
@@ -186,6 +187,7 @@ describe('sector-war ledger: the 200-receipt boundary is no longer a ceiling', {
         assert.equal(external.length, 201, 'every battle has an external receipt');
         assert.equal(war.findSectorWarBattleReceipt(session, 'b-201'), null, 'the 201st lives only externally');
         assert.equal((await store.loadSectorWarExternalReceipt(session, 'b-201', kv))?.points, 5);
+        assert.equal((await store.loadSectorWarExternalReceipt(session, 'b-201', kv))?.purseEligible, false, 'currency evidence survives beyond the in-row mirror');
         assert.ok(session.battleLedger!.count > session.appliedBattles!.length,
             'the ledger knows the war holds receipts the row does not');
         // The mirror is exactly the first 200, newest first — the shape an older

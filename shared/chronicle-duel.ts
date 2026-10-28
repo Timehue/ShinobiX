@@ -22,7 +22,7 @@ import {
 export { WARDED_RULE_TEXT } from "./chronicle-keywords.js";
 
 export const CHRONICLE_RULES_VERSION = 10 as const;
-export const STARTING_LIFE_POINTS = 8_000;
+export const STARTING_LIFE_POINTS = 10_000;
 export const MAIN_DECK_SIZE = 40;
 export const OPENING_HAND_SIZE = 5;
 export const MONSTER_ZONE_COUNT = 5;

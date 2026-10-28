@@ -3,6 +3,7 @@ import { ChronicleCardView } from "./ChronicleCardView";
 import {
   CHRONICLE_ROOM_TITLE,
   CHRONICLE_RULES_VERSION,
+  STARTING_LIFE_POINTS,
   getChronicleCard,
   type ChronicleDisplayCard,
 } from "../lib/chronicle-duel";
@@ -16,7 +17,7 @@ const TUTORIAL_PAGES: ReadonlyArray<{ title: string; lines: readonly string[] }>
   {
     title: "Your turn",
     lines: [
-      "Start at 8,000 Health with a 40-card Deck and five cards. Draw, Standby, and End resolve automatically; you decide when to start or finish attacking during your Main Phases.",
+      `Start at ${STARTING_LIFE_POINTS.toLocaleString("en-US")} Health with a 40-card Deck and five cards. Draw, Standby, and End resolve automatically; you decide when to start or finish attacking during your Main Phases.`,
       "The first player skips its turn-one draw and cannot attack that turn.",
       "Smart Phase Assist finishes Battle automatically once none of your Monsters can attack. Switch it off in Match Options if you prefer every phase control.",
     ],

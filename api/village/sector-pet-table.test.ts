@@ -108,6 +108,47 @@ const receipts = async (id: string) => {
     return { count: row.battleLedger?.count ?? (row.appliedBattles?.length ?? 0), row };
 };
 
+describe('Sector War pet table — purse evidence', { concurrency: false }, () => {
+    for (const established of [false, true]) it(`records human-duel purse eligibility=${established} with unchanged territory points`, async () => {
+        for (const name of [RAIDER, HOLDOUT]) {
+            const save = await kv.get<{ character: Record<string, unknown> }>(`save:${name}`);
+            await kv.set(`save:${name}`, { ...save, character: { ...save!.character, level: established ? 20 : 19, createdAt: Date.now() - 1000 } });
+        }
+        const contest = await seedContest();
+        await call({ action: 'join', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
+        const answered = await call({ action: 'join', playerName: HOLDOUT, sectorWarId: contest.id, petId: 'def1' });
+        assert.equal(answered.statusCode, 200, JSON.stringify(answered.body));
+        const { count, row } = await receipts(contest.id);
+        assert.equal(count, 1);
+        const receipt = row.appliedBattles![0];
+        assert.equal(receipt.purseEligible, established);
+        assert.ok(receipt.points > 0);
+        assert.equal(receipt.attackerWon, session(answered).winner === 'p1');
+        const purse = await import('../war/_sector-purse.js');
+        assert.equal(purse.sectorPurseWinWeight(receipt), established ? 1 : 0);
+    });
+    it('an unavailable account read returns 503; retry preserves the duel and scores once', async () => {
+        const contest = await seedContest();
+        await call({ action: 'join', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
+        const realGet = kv.get.bind(kv);
+        let readingEvidence = false;
+        kv.get = (async (key: string) => {
+            if (key === villageWarKey(DEFENDER)) readingEvidence = true;
+            if (readingEvidence && key === `save:${RAIDER}`) throw new Error('injected eligibility read outage');
+            return realGet(key);
+        }) as typeof kv.get;
+        try {
+            const out = await call({ action: 'join', playerName: HOLDOUT, sectorWarId: contest.id, petId: 'def1' });
+            assert.equal(out.statusCode, 503, JSON.stringify(out.body));
+        } finally { kv.get = realGet; }
+        assert.equal((await receipts(contest.id)).count, 0);
+        const retried = await call({ action: 'join', playerName: HOLDOUT, sectorWarId: contest.id, petId: 'def1' });
+        assert.equal(retried.statusCode, 200, JSON.stringify(retried.body));
+        assert.equal(session(retried).status, 'done');
+        assert.equal((await receipts(contest.id)).count, 1);
+    });
+});
+
 describe('Sector War pet table — who sees what', { concurrency: false }, () => {
     it('the defender sees who opened the duel, never the team they sent, and may answer it', async () => {
         const contest = await seedContest();
