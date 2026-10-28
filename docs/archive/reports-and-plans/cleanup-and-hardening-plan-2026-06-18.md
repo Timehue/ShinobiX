@@ -115,9 +115,9 @@ regenerated `dist/` in the same change** (server change → cPanel parity; Railw
   off first paint. **Screens still load on demand — nothing removed.** **Risk: LOW-MED**
   (each lazy screen needs a Suspense fallback; verify no eager import drags it back in).
 - **5b — Backend easy wins:** add `Cache-Control: s-maxage=10` to
-  [api/village-guard/list.ts](../api/village-guard/list.ts) (currently full `kv.keys` scan, no
-  cache); raise [api/game-state.ts](../api/game-state.ts) village-state cache from `s-maxage=8`
-  → ~30s; single-parse the [heartbeat](../api/player/heartbeat.ts) body. **Additive.**
+  [api/village-guard/list.ts](../../../api/village-guard/list.ts) (currently full `kv.keys` scan, no
+  cache); raise [api/game-state.ts](../../../api/game-state.ts) village-state cache from `s-maxage=8`
+  → ~30s; single-parse the [heartbeat](../../../api/player/heartbeat.ts) body. **Additive.**
 - **5c — CSS (medium):** the 510 KB single stylesheet — split route blocks into lazy chunks /
   dedupe (no rule removal beyond confirmed dead).
 - **5d — Re-render (medium):** move heartbeat/presence into a context + `React.memo` heavy

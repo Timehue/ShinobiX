@@ -1,6 +1,6 @@
 # Stormveil level-65 boss pressure adjustment — 2026-10-19
 
-Fixture qualification: this historical comparison used the older four-nature synthetic harness. The [later unlock-level audit](story-late-balance-2026-10-19.md) enforces acquired two-nature loadouts. The outcomes below are preserved, with that preparation limit; the level-65 production values are unchanged by the later pass.
+Fixture qualification: this historical comparison used the older four-nature synthetic harness. The [later unlock-level audit](../../story-late-balance-2026-10-19.md) enforces acquired two-nature loadouts. The outcomes below are preserved, with that preparation limit; the level-65 production values are unchanged by the later pass.
 
 The user clarified that routinely finishing a level-65 story boss with over
 40% HP was too forgiving. The level-35 Frostfang fight was accepted and is

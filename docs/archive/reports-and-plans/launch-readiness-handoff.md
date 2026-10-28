@@ -53,7 +53,7 @@ The server side is done (`api/missions/report-ai-fight.ts`, **return-only**, rac
 - **Then:** `cd shinobij.client && npm run build` (client dist rebuild — commit `.js/.css/.html`; watch image churn, was 0 last build) + `npm run lint`. Add the characterization test to the `package.json` test list.
 
 ## 5. Remaining roadmap (after P0.2b client)
-- **P0.2c** — mint-token high-value PvE/Hollow-Gate drops + war crate (largest; App.tsx/Arena.tsx grant-site rewiring; per-surface flags). Grant sites enumerated in `docs/milestone-1-foundation-tickets.md` (P0.2c). Depends on P0.4 (done).
+- **P0.2c** — mint-token high-value PvE/Hollow-Gate drops + war crate (largest; App.tsx/Arena.tsx grant-site rewiring; per-surface flags). Grant sites enumerated in `docs/archive/reports-and-plans/milestone-1-foundation-tickets.md` (P0.2c). Depends on P0.4 (done).
 - **Deferred (do last, per user):**
   - P0.4 tilecards.ts + village/sector-card.ts `failClosed` — add only to the genuine WRITE-action locks; locks at `tilecards.ts:266/274` are opportunistic auto-resolve inside a *state READ* — blanket fail-closed would 500 routine polls. Flag-gated/inert systems.
   - P0.5 Village-map Central marker (`Village.tsx`) — needs a bespoke pixel-art icon to match the webp set + on-map placement verified at a real viewport.
@@ -71,7 +71,7 @@ The server side is done (`api/missions/report-ai-fight.ts`, **return-only**, rac
 **Confirmed INTENTIONAL — do NOT "fix":** Mythic-Seal lock / S-rank unobtainable; `statFactor` 1.85 cap (no stat-grind-to-win); identical legendary gear (anti-BiS); flat heal 750 (max even at L100); 40-AP utility / 60-AP damage split; jutsu mastery 40-50 PvP/seal gate; elements-via-weather (already a balanced axis); easy PvE band to L30.
 
 ## 8. Reference (in repo + memory)
-- `docs/milestone-1-foundation-tickets.md`, `docs/p0.1-ceiling-enforcement-spec.md`, `docs/cosmetic-economy-design.md` (cosmetic economy is a future flagship — not started).
+- `docs/archive/reports-and-plans/milestone-1-foundation-tickets.md`, `docs/p0.1-ceiling-enforcement-spec.md`, `docs/cosmetic-economy-design.md` (cosmetic economy is a future flagship — not started).
 - Memory: `project_launch_readiness_waves_impl.md` (live status), `feedback_balanced_pvp_design_pillar.md` (the pillar).
 - The full systems audit, Game-Director review, and master roadmap live in the prior chat transcript (not saved as docs).
 

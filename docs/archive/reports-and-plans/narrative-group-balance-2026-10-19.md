@@ -1,6 +1,6 @@
 # Narrative group encounter balance audit — 2026-10-19
 
-Fixture qualification: the [later unlock-level audit](story-late-balance-2026-10-19.md) found that this older harness did not validate ownership of its four technique natures. These outcomes remain synthetic engine evidence, not acquisition-valid character acceptance. The later audit enforces two acquired natures, free slot capacity and effective gear gates.
+Fixture qualification: the [later unlock-level audit](../../story-late-balance-2026-10-19.md) found that this older harness did not validate ownership of its four technique natures. These outcomes remain synthetic engine evidence, not acquisition-valid character acceptance. The later audit enforces two acquired natures, free slot capacity and effective gear gates.
 
 Follow-up: the user requested stronger level-65 boss pressure. The Stormveil
 factor/results below describe the first pass and are superseded by

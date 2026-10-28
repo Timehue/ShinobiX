@@ -646,7 +646,7 @@ If tool or context limits force a stop:
 - Leave no partially enabled feature
 - Commit completed work
 - Leave the working tree clean
-- Update `docs/aaa-program-status.md`
+- Update `docs/archive/reports-and-plans/aaa-program-status.md`
 - Record exact remaining steps and commands
 - Do not call the entire program complete
 
@@ -660,7 +660,7 @@ Before modifying behavior, establish the verified baseline.
 
 Create:
 
-docs/aaa-program-baseline.md
+docs/archive/reports-and-plans/aaa-program-baseline.md
 
 Record:
 
@@ -2405,9 +2405,9 @@ Do not call a rollout reversible merely because Git can revert source code.
 Create and maintain:
 
 - CODEX_AAA_HANDOFF.md
-- docs/aaa-program-baseline.md
+- docs/archive/reports-and-plans/aaa-program-baseline.md
 - docs/architecture/verified-mode-authority.md
-- docs/aaa-program-status.md
+- docs/archive/reports-and-plans/aaa-program-status.md
 - docs/aaa-program-implementation-report.md
 - docs/aaa-program-regression-report.md
 - docs/aaa-program-capacity-report.md

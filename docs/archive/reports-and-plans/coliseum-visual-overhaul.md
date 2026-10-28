@@ -7,7 +7,7 @@
 > battle screenshot. Scope: presentation only. The deterministic engine
 > (`runPetArenaBattle`), the event queue (`buildPetAnimationEvents`), and all
 > balance math are untouched — same guardrails as
-> docs/pet-battle-coliseum-remake.md.
+> docs/archive/reports-and-plans/pet-battle-coliseum-remake.md.
 >
 > Progress:
 > - **Phase 1 — grounded + facing** ✅ shipped (Y-locked billboards, alpha-trim
