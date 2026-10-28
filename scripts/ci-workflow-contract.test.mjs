@@ -91,10 +91,9 @@ test('split CI preserves every release gate and builds each artifact once', () =
     assert.ok(workflow.includes('node-version-file: .nvmrc'), 'CI must take its Node version from .nvmrc');
 });
 
-test('client release artifact requires the complete pet asset chain', () => {
+test('the pet asset chain still fails the run, while the client build starts without waiting for it', () => {
     const quality = workflow.split('  client_quality:\n')[1]?.split('\n  release_artifact:\n')[0];
     assert.ok(quality, 'client quality job must exist');
-    const build = quality.indexOf('run: npm run build --prefix shinobij.client');
     for (const command of [
         'npm run qa:pet-models --prefix shinobij.client',
         'npm run check:warfront-pet-lods --prefix shinobij.client',
@@ -102,10 +101,49 @@ test('client release artifact requires the complete pet asset chain', () => {
     ]) {
         const step = quality.split('      - name: ').find((value) => value.includes(`run: ${command}`));
         assert.ok(step, `missing pet asset release gate: ${command}`);
-        assert.ok(quality.indexOf(`run: ${command}`) < build, `${command} must certify assets before the release build`);
         assert.doesNotMatch(step, /continue-on-error/, `${command} must fail the client quality job`);
     }
-    assert.match(workflow, /release_artifact:\n[\s\S]*?needs: \[server_build_security, client_quality\]/);
+    // The browser jobs consume the artifact client-build produces. They used to
+    // wait for client-quality too, which delayed ~45 jobs by ~16 minutes while
+    // the runner pool sat idle. The gate is not weaker for it: test-build still
+    // requires client-quality, so a red certification fails the run.
+    assert.match(workflow, /release_artifact:\n[\s\S]*?needs: \[server_build_security, client_build\]/);
+    assert.ok(!quality.includes('needs:'), 'client-quality must not wait on another job, or the build starts late again');
+    const testBuild = workflow.split('  test_build:\n')[1];
+    assert.ok(testBuild, 'the test-build aggregate must exist');
+    for (const job of ['client_build', 'client_quality']) {
+        assert.match(testBuild, new RegExp(`      - ${job}\\n`), `test-build must require ${job}`);
+        assert.match(testBuild, new RegExp(`test "\\$${job.toUpperCase()}" = success`), `test-build must fail unless ${job} succeeded`);
+    }
+});
+
+test('the pet review screenshots are re-hashed only when relevant, and never silently', () => {
+    const quality = workflow.split('  client_quality:\n')[1]?.split('\n  release_artifact:\n')[0];
+    assert.ok(quality, 'client quality job must exist');
+    // Every run keeps the receipt half; only the 7 GB screenshot half moved.
+    assert.match(quality, /npm run check:pet-shape-review --prefix shinobij\.client -- --skip-evidence/);
+    assert.match(quality, /!\/docs\/screenshots\/\n\s+!\/docs\/evidence\//, 'client-quality must not fetch the screenshots');
+    const matrix = workflow.split('  server_contracts_matrix:\n')[1]?.split('\n  server_contracts:\n')[0];
+    assert.match(matrix, /!\/docs\/screenshots\/\n\s+!\/docs\/evidence\//, 'the server shards must not fetch the screenshots');
+    const evidence = workflow.split('  pet_review_evidence:\n')[1]?.split('\n  # The client release artifact')[0];
+    assert.ok(evidence, 'the evidence job must exist');
+    assert.match(evidence, /npm run check:pet-shape-review --prefix shinobij\.client 2>&1/);
+    assert.doesNotMatch(evidence, /--skip-evidence/, 'the evidence job is the half that hashes the screenshots');
+    assert.doesNotMatch(evidence, /sparse-checkout/, 'the evidence job needs the whole tree');
+    assert.match(evidence, /needs\.changes\.outputs\.evidence == 'true'/);
+    assert.match(evidence, /id: checkout\n\s+uses: actions\/checkout@v7\n\s+timeout-minutes: 12\n\s+continue-on-error: true/, 'the full checkout must be bounded');
+    assert.match(evidence, /if: steps\.checkout\.outcome != 'success'/, 'a stalled checkout must be retried');
+    // `changes` must fail open: unknown means run the gate.
+    const changes = workflow.split('  changes:\n')[1]?.split(/\n  # /)[0];
+    assert.ok(changes, 'the changes job must exist');
+    assert.match(changes, /needed=true\n/, 'the default must be to run the evidence gate');
+    assert.match(changes, /docs\/\(screenshots\|evidence\|audits\|asset-sources\)\//);
+    assert.match(changes, /check-pet-shape-review\\\.mjs/);
+    assert.match(changes, /count" -lt "\$limit"/, 'a truncated file list must not count as proof');
+    const testBuild = workflow.split('  test_build:\n')[1];
+    assert.match(testBuild, /test "\$PET_REVIEW_EVIDENCE" = success/);
+    assert.match(testBuild, /test "\$PET_REVIEW_EVIDENCE" = skipped/);
+    assert.match(testBuild, /test "\$CHANGES" = success/);
 });
 
 test('responsive browser discovery installs runtime and direct QA build dependencies', () => {

@@ -35,7 +35,7 @@ const BLOODLINE_ONLY = new Set([
 ]);
 const WOUND_BY_RARITY: Record<string, number> = { mythic: 35, legendary: 35, rare: 30, basic: 25 };
 const CAP_BY_RARITY: Record<string, number> = { mythic: 40, legendary: 40, rare: 35, basic: 30 };
-const EP_BY_RARITY: Record<string, number> = { mythic: 40, legendary: 40, rare: 38, basic: 36 };
+const EP_BY_RARITY: Record<string, number> = { mythic: 42, legendary: 40, rare: 38, basic: 36 };
 
 function rarityOf(j: LegacyCatalogJutsu): string {
     return LEGACY_BY_ID.get(j.legacyId)!.rarity;
@@ -69,6 +69,20 @@ describe('legacy jutsu ⇄ legacy defs linkage', () => {
 });
 
 describe('legacy jutsu tier rules (locked design)', () => {
+    it('no mythic signature is mechanically identical to a lower-tier reward', () => {
+        const mechanics = (j: LegacyCatalogJutsu) => JSON.stringify({
+            type: j.type, element: j.element, ap: j.ap, range: j.range, effectPower: j.effectPower,
+            cooldown: j.cooldown, chakraCost: j.chakraCost, staminaCost: j.staminaCost,
+            target: j.target, method: j.method, bloodlineRank: j.bloodlineRank,
+            tags: [...j.tags].sort((a, b) => a.name.localeCompare(b.name)),
+        });
+        for (const mythic of ALL.filter(j => rarityOf(j) === 'mythic')) {
+            for (const other of ALL.filter(j => rarityOf(j) !== 'mythic')) {
+                assert.notEqual(mechanics(mythic), mechanics(other), `${mythic.legacyId} duplicates ${other.legacyId}`);
+            }
+        }
+    });
+
     it('cooldown 10 and element "None" on all 100', () => {
         for (const j of ALL) {
             assert.equal(j.cooldown, 10, `${j.id}: legacy signatures all run cooldown 10`);
@@ -81,7 +95,9 @@ describe('legacy jutsu tier rules (locked design)', () => {
             const rarity = rarityOf(j);
             assert.ok(j.ap === 60 || j.ap === 40, `${j.id}: AP must be 60 or 40`);
             if (j.ap === 60) {
-                assert.equal(j.effectPower, EP_BY_RARITY[rarity], `${j.id}: ${rarity} damage EP must be ${EP_BY_RARITY[rarity]}`);
+                const expectedEp = j.tags.some(t => t.name === 'Move') ? Math.min(40, EP_BY_RARITY[rarity]) : EP_BY_RARITY[rarity];
+                assert.equal(j.effectPower, expectedEp, `${j.id}: ${rarity} damage EP must be ${expectedEp}`);
+                if (rarity === 'mythic' && j.tags.some(t => t.name === 'Move')) assert.equal(j.range, 5, 'mythic movement keeps its EP cap and earns extra reach');
                 assert.equal(j.chakraCost, 250, `${j.id}: 60-AP costs 250/250`);
                 assert.equal(j.staminaCost, 250, `${j.id}: 60-AP costs 250/250`);
             } else {

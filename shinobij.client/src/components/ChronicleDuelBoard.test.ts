@@ -52,7 +52,7 @@ test("duel board exposes mirrored zones, Health Points, and the active Field Car
   assert.match(html, /Volcano/);
   assert.match(html, /Fire \+300 ATK \| Wind -200 ATK/);
   assert.match(html, /chronicle\/fields\/volcano\.webp/);
-  assert.match(html, /8,000 <small>HP<\/small>/);
+  assert.match(html, /10,000 <small>HP<\/small>/);
   assert.match(html, /Akari portrait/);
   assert.match(html, /Ren portrait/);
   assert.match(html, /data-field="volcano"/);
@@ -275,7 +275,7 @@ test("a fresh duel opens with the Showdown splash; a resumed board does not", ()
   assert.match(fresh, /chronicle-splash intro/);
   assert.match(fresh, /takes the first turn/);
   // Animated HP readout still renders the full formatted value.
-  assert.match(fresh, /8,000 <small>HP<\/small>/);
+  assert.match(fresh, /10,000 <small>HP<\/small>/);
   state.turnNumber = 5;
   const resumed = render();
   assert.doesNotMatch(resumed, /chronicle-splash/);

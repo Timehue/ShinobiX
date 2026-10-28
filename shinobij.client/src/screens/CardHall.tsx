@@ -1130,7 +1130,7 @@ function Rules() {
       <p>
         The founding ruleset of the {CHRONICLE_FOUNDING_FORMAT.latestLegalSet}:
         a lean, mastery-first duel built on the original Shinobi card pool. Start
-        with 8,000 Health, a 40-card Deck and a five-card opening hand.
+        with {CHRONICLE_FOUNDING_FORMAT.startingLifePoints.toLocaleString("en-US")} Health, a 40-card Deck and a five-card opening hand.
       </p>
       <p>
         <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End.

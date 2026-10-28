@@ -1,6 +1,7 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { Character, PlayerRecord } from "../types/character";
 import { isIdleVitalsOnlyChange } from "./loaded-vitals";
+import { mergeSelfRosterRow } from './roster-merge';
 
 /**
  * Keeps the viewer's own row at the head of the local player roster (moved out
@@ -30,7 +31,7 @@ export function useSelfRosterRow(character: Character | null, currentSector: num
                 currentSector,
                 lastSeenAt: Date.now(),
             };
-            return [record, ...current.filter((player) => player.name !== character.name)].slice(0, 30);
+            return mergeSelfRosterRow(current, record);
         });
     }, [character, currentSector, setPlayerRoster]);
 }

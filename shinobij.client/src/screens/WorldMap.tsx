@@ -59,6 +59,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorHud } from "../components/SectorHud";
 import { sectorPlayerRoster, projectSectorPlayers } from "../lib/sector-player-roster";
+import { useSectorSleepers } from "../lib/use-sector-sleepers";
 import { findSectorSpectatorBattle } from "../lib/sector-spectate";
 import { useSectorPlayerAction } from "../lib/use-sector-player-action";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
@@ -812,14 +813,13 @@ function WorldMapContent({
         const stop = visiblePoll(load, 20000);
         return () => { alive = false; stop(); };
     }, [selectedSector, character.name, character.village, villageWarViewOpen, presentHere]);
-    // Only trust the contest when it was polled FOR the sector on screen (the
-    // roster lags a sector change by one poll), and narrow it to a war this
-    // player is actually IN — a bystander village keeps plain world PvP.
+    // Trust only this sector's contest and wars the viewer participates in; bystanders keep ordinary PvP.
     const sectorWarContest = viewerSectorContest(mercRoster.sector === selectedSector ? mercRoster.contest : null, selectedSector ?? -1, character.village, Date.now());
     const rosterState = useSectorRosterState();
+    const sectorSleepers = useSectorSleepers(presentHere && globalViewOpen ? selectedSector : null, playerRoster);
     function selectedSectorRoster(live = liveSectorPlayers) {
         return sectorPlayerRoster({ sector: selectedSector, currentSector, viewer: character.name,
-            live, registered: playerRoster, recentlyStruckDown: isRecentlyStruckDown });
+            live, registered: sectorSleepers, recentlyStruckDown: isRecentlyStruckDown });
     }
     function selectedSectorPlayerRows(live = liveSectorPlayers) {
         const admission = mutationAvailability();

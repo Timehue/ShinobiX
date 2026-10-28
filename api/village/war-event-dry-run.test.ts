@@ -58,6 +58,10 @@ before(async () => {
 beforeEach(async () => {
     const keys = await kv.keys('*');
     if (keys.length) await kv.del(...keys);
+    // A real admitted PvP battle has both accounts. The receipt now reads
+    // those saves for currency eligibility, independently of territory score.
+    await kv.set(`save:${RAIDER}`, { character: { name: RAIDER, village: ATTACKER, level: 20 } });
+    await kv.set(`save:${HOLDOUT}`, { character: { name: HOLDOUT, village: DEFENDER, level: 20 } });
     delete process.env.DISABLE_VILLAGE_WAR;
 });
 
