@@ -24,7 +24,7 @@ The complete audit and evidence matrix is in [TOOLING_INTEGRATION_AUDIT.md](TOOL
 
 **What and why.** A provider-neutral event boundary now exposes eleven explicit product events and fourteen allowlisted categorical properties. The optional PostHog adapter calls its capture endpoint directly; there is no SDK, autocapture, replay, cookie, persisted queue, person profile, stable player/device/session identifier, raw error, request ID, balance, save, inventory, or freeform text. Every event uses one global aggregate sentinel and `$process_person_profile: false`. Canonical server events are emitted only after account, save/creation, mission, purchase, breeding, or ranked settlement authority succeeds. Landing, explicit feature-entry, creation-start, and recoverable-boundary events are client-observed. All dispatches are bounded to 1.5 seconds, fire-and-forget, and disabled by default.
 
-**Primary files.** `shared/product-analytics.ts`, `api/_product-analytics.ts`, `shinobij.client/src/lib/analytics/**`, selected authoritative call sites, [PRODUCT_ANALYTICS_DATA_INVENTORY.md](PRODUCT_ANALYTICS_DATA_INVENTORY.md), `.env.example`, and `Dockerfile`.
+**Primary files.** `shared/product-analytics.ts`, `api/_product-analytics.ts`, `shinobij.client/src/lib/analytics/**`, selected authoritative call sites, [PRODUCT_ANALYTICS_DATA_INVENTORY.md](../../PRODUCT_ANALYTICS_DATA_INVENTORY.md), `.env.example`, and `Dockerfile`.
 
 **Verification.** Eight focused schema, server, and client tests passed. Disabled builds retain only the small no-op boundary; validation and transport code are lazy. A deployment test now proves Railway's Docker build declares and forwards every client analytics gate.
 
@@ -44,7 +44,7 @@ The complete audit and evidence matrix is in [TOOLING_INTEGRATION_AUDIT.md](TOOL
 
 **What and why.** Four deterministic Windows/Chromium baselines protect the desktop/mobile landing hero, character-creator entry, and authenticated Central Hub shell. Motion and time are fixed; carets are hidden; unstable canvas/video output is masked; baselines have explicit manual-update and byte-count gates. Percy was rejected because native Playwright supplies the required comparison without another paid service or artifact boundary.
 
-**Primary files.** `shinobij.client/playwright.visual.config.ts`, `shinobij.client/e2e-visual/**`, `shinobij.client/scripts/check-visual-baselines.mjs`, `.github/workflows/visual-regression.yml`, and [VISUAL_REGRESSION.md](VISUAL_REGRESSION.md).
+**Primary files.** `shinobij.client/playwright.visual.config.ts`, `shinobij.client/e2e-visual/**`, `shinobij.client/scripts/check-visual-baselines.mjs`, `.github/workflows/visual-regression.yml`, and [VISUAL_REGRESSION.md](../../VISUAL_REGRESSION.md).
 
 **Verification.** All 4 comparisons passed. The 4 baseline PNGs total 2,634,130 bytes, below the 8-file/3 MiB caps. Each baseline was visually inspected after generation.
 
@@ -54,7 +54,7 @@ The complete audit and evidence matrix is in [TOOLING_INTEGRATION_AUDIT.md](TOOL
 
 **What and why.** The existing Node harness was extended instead of adding k6. It now uses the real Socket.IO client with configurable connection ramp, sector spread, periodic presence and snapshot traffic, explicit expected-versus-unexpected disconnect accounting, forced reconnects, reconnect-success and p95 gates, orphan cleanup accounting, bounded reservoir samples, fail-closed remote-target confirmation, production denylisting, disposable credentials, and machine-readable JSON.
 
-**Primary files.** `shinobij.client/scripts/staging-load-harness.mjs`, `shinobij.client/scripts/staging-load-core.mjs`, their tests, and [staging-load-and-reconnect-runbook.md](staging-load-and-reconnect-runbook.md).
+**Primary files.** `shinobij.client/scripts/staging-load-harness.mjs`, `shinobij.client/scripts/staging-load-core.mjs`, their tests, and [staging-load-and-reconnect-runbook.md](../../staging-load-and-reconnect-runbook.md).
 
 **Verification.** A disposable local release-gate run completed 40 HTTP requests at 1.63 ms p95 with zero request/server/status errors. Both requested sockets connected and produced snapshots; 40 presence updates ran; all 6 forced reconnect attempts succeeded at 400.22 ms p95; socket errors, unexpected disconnects, and local orphans were all zero. Load-generator RSS growth was -1.03%. This is a safe local proof of the protocol and gates, not a claim about Railway capacity.
 
@@ -64,7 +64,7 @@ The complete audit and evidence matrix is in [TOOLING_INTEGRATION_AUDIT.md](TOOL
 
 **What and why.** Generated, source-derived JSON handoffs give designers and economy reviewers reproducible inputs without making an external account a runtime or source-of-truth dependency. The design export contains 180 CSS tokens, 6 responsive ranges, and 48 adaptive authority queries. The economy export inventories 88 faucets, 149 sinks, and 126 shop/catalog items from code-owned constants. A check mode detects drift.
 
-**Primary files.** `scripts/export-tooling-handoffs.mjs`, `docs/generated/design-tokens.json`, `docs/generated/economy-model.json`, `docs/FIGMA_HANDOFF.md`, `docs/MACHINATIONS_HANDOFF.md`, and [EXTERNAL_TOOL_WORKFLOWS.md](EXTERNAL_TOOL_WORKFLOWS.md).
+**Primary files.** `scripts/export-tooling-handoffs.mjs`, `docs/generated/design-tokens.json`, `docs/generated/economy-model.json`, `docs/FIGMA_HANDOFF.md`, `docs/archive/reports-and-plans/MACHINATIONS_HANDOFF.md`, and [EXTERNAL_TOOL_WORKFLOWS.md](../../EXTERNAL_TOOL_WORKFLOWS.md).
 
 **Verification.** `npm run check:tooling-handoffs` regenerated in memory and matched both committed artifacts. The Figma workflow was shaped by the repository's existing design system and a disposable v0 prototype-review boundary; neither tool was added to runtime.
 
@@ -72,7 +72,7 @@ The complete audit and evidence matrix is in [TOOLING_INTEGRATION_AUDIT.md](TOOL
 
 ### Narrative, asset, and multiplayer decisions
 
-**What and why.** [NARRATIVE_TOOLING_ADR.md](NARRATIVE_TOOLING_ADR.md) preserves TypeScript/server authority and defines the evidence, stable-ID, intermediate-schema, localization, validation, save-compatibility, and ownership gates required before an Arcweave pilot. [MULTIPLAYER_BACKEND_ADR.md](MULTIPLAYER_BACKEND_ADR.md) compares the current stack, a Socket.IO adapter, Colyseus, and Nakama; it retains one Railway service and defines measurable scaling/recovery triggers. Meshy, Rive, BrowserStack, and v0 receive constrained external workflows or adoption gates rather than speculative packages.
+**What and why.** [NARRATIVE_TOOLING_ADR.md](../../NARRATIVE_TOOLING_ADR.md) preserves TypeScript/server authority and defines the evidence, stable-ID, intermediate-schema, localization, validation, save-compatibility, and ownership gates required before an Arcweave pilot. [MULTIPLAYER_BACKEND_ADR.md](../../MULTIPLAYER_BACKEND_ADR.md) compares the current stack, a Socket.IO adapter, Colyseus, and Nakama; it retains one Railway service and defines measurable scaling/recovery triggers. Meshy, Rive, BrowserStack, and v0 receive constrained external workflows or adoption gates rather than speculative packages.
 
 **Verification.** The decisions are tied to inspected repository authorities and official [Socket.IO multi-node](https://socket.io/docs/v4/using-multiple-nodes/), [Socket.IO recovery](https://socket.io/docs/v4/connection-state-recovery), [Colyseus room/state](https://docs.colyseus.io/room), and [Nakama authoritative multiplayer](https://heroiclabs.com/docs/nakama/concepts/multiplayer/authoritative/) documentation. The existing pet pipeline certified 160 forms across 160 assets; 18 roster angle, 18 roster motion, 2 starter angle, and 2 starter motion contact sheets were generated, with no form requiring multi-angle silhouette review.
 

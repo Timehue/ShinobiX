@@ -3,7 +3,7 @@
  * DO NOT hand-edit. Regenerate with:
  *   node --import tsx scripts/_pet-pool-probe.ts   (then paste the rows below)
  *
- * The api/ bundle can't import the client (tsconfig.cpanel excludes
+ * The api/ bundle can't import the client (tsconfig.server excludes
  * shinobij.client), so the Gauntlet re-simulator (gauntlet-sim.ts) reads THIS
  * table instead of the client POOL (rawPetPool.map(balanceBuiltInPetTemplate),
  * minus GAUNTLET_EXCLUDED_IDS). _gauntlet-pool.test.ts re-derives from the live

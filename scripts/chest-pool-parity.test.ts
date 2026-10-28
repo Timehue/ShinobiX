@@ -19,7 +19,7 @@ import { starterItems } from '../shinobij.client/src/data/starter-items.ts';
  * silently shrinks the chest, or hands out an id the client cannot render.
  *
  * This lives in scripts/ because it imports BOTH sides: api/** is compiled by
- * tsconfig.cpanel.json (which excludes shinobij.client), so a server-side test
+ * tsconfig.server.json (which excludes shinobij.client), so a server-side test
  * cannot import client data. scripts/ is excluded from that build and is a
  * run-tests.mjs scan root — the same home as the other cross-boundary parity
  * tests (pet-catalog, spire-parity, warfront-parity).

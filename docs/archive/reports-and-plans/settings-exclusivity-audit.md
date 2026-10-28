@@ -40,4 +40,4 @@ Browser checks use local deterministic account fixtures; no real Google account 
 
 The production browser artifact is isolated under `shinobij.client/.tmp/settings-exclusive-dist`, so concurrent work cannot replace its hashed assets. Removing the unused `primePetSfx` import after this build changes no runtime behavior.
 
-See [Settings and account deletion](settings-and-account-deletion.md) for the original implementation contract and previous validation results. This audit is local and does not deploy the changes.
+See [Settings and account deletion](../../settings-and-account-deletion.md) for the original implementation contract and previous validation results. This audit is local and does not deploy the changes.

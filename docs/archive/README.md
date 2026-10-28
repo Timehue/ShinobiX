@@ -40,7 +40,7 @@ no inbound references at all.
 `COMBAT_PARITY_AUDIT.md` is the one worth flagging: two LIVE docs still mention
 it, and both mention it to say it is wrong.
 `docs/architecture/verified-mode-authority.md` records that "both the diagnosis
-and proposed owner are stale", and `docs/aaa-program-status.md` notes it is
+and proposed owner are stale", and `docs/archive/reports-and-plans/aaa-program-status.md` notes it is
 "bannered as superseded". Those references still read correctly with the file
 here.
 
@@ -51,3 +51,16 @@ silently change which pushes run that certification;
 `PUBLIC_BETA_LAUNCH_RECOMMENDATION.md`, still cited by
 `docs/LIVE_PRODUCT_STATUS.md`; and `RAILWAY_SETUP.md`, which documents the live
 host.
+
+## reports-and-plans/
+
+116 dated audits, plans, handoffs, release notes and balance-run results moved
+out of the top level of docs/ in October 2026, when it held 290 loose files.
+Each one was checked before moving: no code, test, workflow or script references
+it by name, and no live doc links to it. Links among the moved files, and from
+them back to the live docs, were rewritten to the new paths.
+
+What stayed at the top level of docs/: anything referenced from code, CI or a
+test; runbooks, policies and ADRs; the design docs the live systems still point
+at; script-generated files (legacy-roster.md, the warfront audit JSON); and
+anything dated 2026-10-20 or later, which other branches may still be editing.

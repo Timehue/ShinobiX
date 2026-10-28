@@ -17,7 +17,7 @@ The requested Earthquake, Blizzard, Hydro Pump, Thunder and Flamethrower example
 
 ## Verification
 
-- `node --import tsx scripts/showdown-vfx-audit.mjs --out=docs/pet-colosseum-move-vfx-audit-2026-09-09.json`: **160 pets, 945 slots, zero repeated primary effect assignments within a loadout**.
+- `node --import tsx scripts/showdown-vfx-audit.mjs --out=docs/archive/reports-and-plans/pet-colosseum-move-vfx-audit-2026-09-09.json`: **160 pets, 945 slots, zero repeated primary effect assignments within a loadout**.
 - Roster tests repeat the check at levels 1, 30 and 100 and reverse every kit's slot ordering.
 - 57 tests pass across move identity, effect envelopes, blocked/missed contact, normal/fast timing, melee routing, camera framing and postprocessing.
 - Client type checking and ESLint pass. The final production bundle and distribution verification pass. Product JS/CSS is **8,181,340 bytes**, below the existing **8,200,000-byte** ceiling; the ceiling was not changed.

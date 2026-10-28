@@ -13,7 +13,7 @@ test('test:ci preserves the complete root test runner while bypassing only the l
 });
 
 test('split build entry points retain the complete developer and release build', () => {
-    assert.equal(rootPackage.scripts['build:server'], 'tsc -p tsconfig.cpanel.json');
+    assert.equal(rootPackage.scripts['build:server'], 'tsc -p tsconfig.server.json');
     assert.match(rootPackage.scripts['build:client'], /scripts\/build-client\.mjs/);
     assert.equal(
         rootPackage.scripts.build,

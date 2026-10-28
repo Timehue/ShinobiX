@@ -7,7 +7,7 @@
         "node": ">=24"
     },
     "scripts": {
-        "build:server": "tsc -p tsconfig.cpanel.json",
+        "build:server": "tsc -p tsconfig.server.json",
         "build:client": "npm run check:story-content && node scripts/build-client.mjs",
         "build": "npm run build:server && npm run build:client && npm run verify:dist && npm run sizecheck",
         "verify:dist": "node scripts/verify-dist.mjs && node --import tsx scripts/check-chronicle-runtime.ts",

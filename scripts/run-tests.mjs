@@ -10,7 +10,7 @@ const root = resolve(import.meta.dirname, '..');
 // showdown contracts). Its one test file sat invisible to this runner for its
 // whole life — passing locally, never once executed by CI.
 const scanRoots = ['api', 'scripts', 'shared', 'shinobij.client/src', 'shinobij.client/scripts'];
-const files = ['cpanel-dns.test.cjs', 'server-routes.test.ts'];
+const files = ['supabase-dns.test.cjs', 'server-routes.test.ts'];
 
 function collect(dir) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
