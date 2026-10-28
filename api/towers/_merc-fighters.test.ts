@@ -61,7 +61,7 @@ test('only the hired NPC policy uses its catalog weapon; the player snapshot is 
     const sealed = sealTowerFighter(save.character, save as unknown as Record<string, unknown>, {}, null);
     const prior = structuredClone(sealed);
     const result = probeWarMercenary(buildMercCharacter(100), sealed, 1);
-    assert.ok(result.actions.some(a => a.actor === 'merc-0' && a.type === 'weapon' && a.applied));
+    assert.ok(result.actions.some(a => a.actor === 'merc-0' && a.type === 'weapon' && a.id === 'worldsplitter-katana' && a.applied));
     assert.ok(!result.actions.some(a => a.actor === 'sq-0' && a.type === 'weapon'), 'human snapshot retains existing auto policy');
     const markedHuman = { ...sealed, warMercenaryProfile: { classification: 'special-npc' } };
     const spoofed = probeWarMercenary(buildMercCharacter(100), markedHuman, 1);
@@ -72,5 +72,5 @@ test('only the hired NPC policy uses its catalog weapon; the player snapshot is 
     const clone = buildMercCharacter(100);
     delete clone.warMercenaryProfile;
     const legacyPolicy = probeWarMercenary(clone, sealed, 1);
-    assert.ok(!legacyPolicy.actions.some(a => a.actor === 'merc-0' && a.type === 'weapon'), 'no global enemy/PvP AI change');
+    assert.ok(!legacyPolicy.actions.some(a => a.actor === 'merc-0' && a.type === 'weapon' && a.id === 'worldsplitter-katana'), 'the veteran hand-weapon policy still requires its NPC classification');
 });

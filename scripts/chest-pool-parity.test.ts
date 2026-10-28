@@ -54,10 +54,9 @@ describe('ancient chest pools mirror the client catalogs', () => {
             .filter((item) => item.rarity === rarity && item.slot !== 'item' && !item.serviceItem && !isStepItemId(item.id))
             .map((item) => item.id).sort();
         assert.deepEqual(poolFor(0.3, 'itemId'), eligible('common'));
-        // The Senbon became uncommon in the 2026-10 item-use pass (a cheaper,
-        // lower-level bleed throw) but keeps its place in the chest's fixed rare
-        // band, so the chest's drop odds did not move.
-        assert.deepEqual(poolFor(0.6, 'itemId'), [...eligible('rare'), 'thrown-senbon'].sort());
+        // Senbon is rare again and remains in the same fixed chest band;
+        // enumerate it once through the catalog without changing drop odds.
+        assert.deepEqual(poolFor(0.6, 'itemId'), eligible('rare'));
     });
 
     it('never rolls an id outside the catalogs the client renders from', () => {

@@ -1,5 +1,6 @@
 import { narrativeGroupFor } from '../../shared/narrative-groups.js';
-import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { resolveAiProfileJutsu, withPveGapClosingJutsu } from '../_ai-opponent-loadout.js';
+import type { AiOpponentJutsu } from '../_ai-opponent-loadout.js';
 import type { SoloPveSession } from './_session.js';
 import { projectHuntCombat } from './_hunt-combat.js';
 import { createTowerSession, type TowerActor } from '../towers/_tower-session.js';
@@ -7,22 +8,19 @@ import { runAiUntilHuman, startRound } from '../towers/_engine.js';
 import { makeRng } from '../towers/_sim.js';
 import type { TowerFloor } from '../towers/_floor-catalog.js';
 import { narrativeEnemyIdentity } from '../../shared/narrative-enemy-identity.js';
+import { combatFormationPositions } from '../combat-core/spawns.js';
+import { pveAiItemCharges, distributePveAiItems } from '../combat-core/ai-items.js';
 
 /** An additive embedded battlefield: the original solo record still owns auth,
  * action receipts, expiry, inventory costs and its mode's existing reward. */
 export function attachNarrativeGroupCombat(session: SoloPveSession, profileId: string, variant?: unknown): void {
     const group = narrativeGroupFor(profileId, variant, session.enemy.name);
     if (!group || session.huntCombat) return;
-    const occupied = new Set(session.environment.blockedTiles);
-    const enemySpawns = [44, 92, 20, 18, 42, 66, 90, 114, 22, 46, 70, 94, 118];
-    const spawn = (preferred: number, enemy = false) => {
-        const candidates = [preferred, ...(enemy ? enemySpawns : []), ...Array.from({ length: 120 }, (_, i) => i).filter(i => !enemy || i % 12 >= 6)];
-        const tile = candidates.find(i => !occupied.has(i));
-        if (tile === undefined) throw new Error('The encounter has no free spawn tiles.');
-        occupied.add(tile); return tile;
-    };
+    const spawns = combatFormationPositions(session.sessionId, { allies: [62],
+        enemies: [44, 92, 20, 18, 42, 66, 90, 114, 22, 46, 70, 94, 118].slice(0, group.members.length),
+        blockedTiles: session.environment.blockedTiles });
     const player: TowerActor = { ...structuredClone(session.player), id: 'player', side: 'squad', ownerSlug: session.ownerSlug,
-        ai: false, pos: spawn(62), cooldowns: {}, itemCharges: { ...session.itemCharges }, itemsUsed: {} };
+        ai: false, pos: spawns.allies[0]!, cooldowns: {}, itemCharges: { ...session.itemCharges }, itemsUsed: {} };
     const base = session.enemy;
     const stats = base.character.stats as Record<string, number>;
     const specialty = String(base.character.specialty).toLowerCase();
@@ -32,9 +30,10 @@ export function attachNarrativeGroupCombat(session: SoloPveSession, profileId: s
     let remainingHp = base.maxHp;
     const enemies = group.members.map((member, i): TowerActor => {
         const identity = narrativeEnemyIdentity(member.visual);
-        const jutsu = resolveAiProfileJutsu(member.jutsuIds).map((j, index) => ({ ...j,
+        const jutsu = withPveGapClosingJutsu(resolveAiProfileJutsu(member.jutsuIds).map((j, index) => ({ ...j,
             ...(identity?.moveNames?.[index] ? { name: identity.moveNames[index] } : {}),
-            ...(identity?.moveDescriptions?.[index] ? { battleDescription: identity.moveDescriptions[index] } : {}) }));
+            ...(identity?.moveDescriptions?.[index] ? { battleDescription: identity.moveDescriptions[index] } : {}) })),
+            (base.character.jutsu ?? []) as AiOpponentJutsu[]);
         const memberStats = { ...stats };
         // Share the previous encounter's health and offensive pressure across
         // actual bodies. Never duplicate a full-strength boss for each guard.
@@ -45,7 +44,7 @@ export function attachNarrativeGroupCombat(session: SoloPveSession, profileId: s
         const hp = i === group.members.length - 1 ? remainingHp : Math.max(1, Math.floor(base.maxHp * member.weight / totalWeight));
         remainingHp -= hp;
         return { ...structuredClone(base), id: member.id, name: member.name, side: 'enemy', ownerSlug: null, ai: true,
-            hp, maxHp: hp, pos: spawn(enemySpawns[i] ?? 57, true), cooldowns: {},
+            hp, maxHp: hp, pos: spawns.enemies[i]!, cooldowns: {}, itemCharges: pveAiItemCharges(base.character), itemsUsed: {},
             character: { ...structuredClone(base.character), name: member.name, visual: member.visual, avatarImage: member.portrait,
                 specialty: member.specialty, stats: memberStats, jutsu, jutsuMastery: jutsu.map(j => ({ jutsuId: j.id, level: 0 })),
                 aiRules: [], missionTactics: false, boss: false,
@@ -55,6 +54,7 @@ export function attachNarrativeGroupCombat(session: SoloPveSession, profileId: s
                 towerDmgScale: group.damageScale ?? 1,
                 aiRole: member.specialty === 'Genjutsu' ? 'controller' : 'skirmisher' } };
     });
+    distributePveAiItems(enemies, pveAiItemCharges(base.character));
     const floor: TowerFloor = { id: Number(base.character.level) || 1, name: group.name ?? base.name,
         biome: session.environment.biome as TowerFloor['biome'], objective: 'defeat-all', roundBudget: 30,
         map: { width: 12, height: 10 }, fieldRule: { kind: 'none' }, enemies: [], firstClearReward: {}, balanceFor: 1,

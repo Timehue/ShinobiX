@@ -366,6 +366,10 @@ test("the field lesson notice collapses without activating Study or moving the c
 });
 
 test("Tomoe provides a complete, responsive seven-chapter pet battle course", async ({ page }, testInfo: TestInfo) => {
+    // This visits lesson pages, decodes full-size art and runs axe. Keep the
+    // individual assertions bounded while allowing the whole course workflow
+    // to complete on WebKit alongside the full responsive suite.
+    test.setTimeout(90_000);
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
     page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });

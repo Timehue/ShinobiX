@@ -57,10 +57,11 @@ export function shrineFixture(level:number, kind:HollowGateCombatKind, sustain=f
 }
 
 export type BalanceResult={outcome:string|null;rounds:number;endHp:number;minHp:number;enemyHeals:number;enemyCasts:number;enemyMaxHp:number;playerMaxHp:number;actions:number;playerCounters?:{heal:number;clear:number;cleanse:number}};
-export function simulateBalance(source:SoloPveSession,sustain:boolean,choices:{openingDebuff?:boolean;reverseDamage?:boolean;useCounters?:boolean}={}):BalanceResult {
+export function simulateBalance(source:SoloPveSession,sustain:boolean,choices:{openingDebuff?:boolean;reverseDamage?:boolean;useCounters?:boolean;observe?:(session:Readonly<SoloPveSession>)=>void}={}):BalanceResult {
     let s=structuredClone(source),minHp=s.player.hp,enemyHeals=0,enemyCasts=0,actions=0;
     const playerCounters={heal:0,clear:0,cleanse:0};
     while(s.status==='active' && actions++<240) {
+        choices.observe?.(s);
         const b=s.huntCombat?.battle;
         if(b && !b.actors.some(a=>a.side==='enemy' && a.hp>0)) {
             const next=applySoloPveAction(s,{type:'huntAction',action:{type:'wait'}});
@@ -84,18 +85,42 @@ export function simulateBalance(source:SoloPveSession,sustain:boolean,choices:{o
                     ...(player.character.jutsu as SoloPveJutsu[]).filter(j=>Number(j.effectPower)>1&&Number(j.ap)<=ap
                         &&hexDistance(player.pos,foe.pos,width)<=Number(j.range??1)).map(j=>({type:'huntAction' as const,
                         action:{type:'jutsu' as const,jutsuId:j.id,targetId:'id' in foe?String(foe.id):''}}))];
-                const finish=finishers.map(action=>applySoloPveAction(s,action)).find(result=>result.applied&&result.session.outcome==='win');
+                let finish:ReturnType<typeof applySoloPveAction>|undefined;
+                for(const action of finishers) {
+                    const result=applySoloPveAction(s,action);
+                    if(result.applied&&result.session.outcome==='win'){finish=result;break;}
+                    const next=result.session.huntCombat?.battle;
+                    // A paid 40+60 (or 40+40) kill can be safer than recovery.
+                    // Look only within this human turn, never through an AI turn.
+                    if(!result.applied||!next||next.round!==b.round||next.turnQueue[next.activeIndex]!==('id' in player?String(player.id):'')) continue;
+                    for(const followup of finishers) {
+                        if(followup.type!=='huntAction')continue;
+                        if(followup.action.type==='attack'&&next.activeAp<40)continue;
+                        if(followup.action.type==='jutsu') {
+                            const jutsuId=followup.action.jutsuId;
+                            const move=(player.character.jutsu as SoloPveJutsu[]).find(j=>j.id===jutsuId);
+                            if(!move||Number(move.ap)>next.activeAp)continue;
+                        }
+                        const final=applySoloPveAction(result.session,followup);
+                        if(final.applied&&final.session.outcome==='win'){finish=result;break;}
+                    }
+                    if(finish)break;
+                }
                 if(finish) {s=finish.session;minHp=Math.min(minHp,s.player.hp);continue;}
             }
             const negative=player.statuses.filter(t=>t.kind==='negative'&&t.rounds>0);
             const counters:SoloPveAction[]=[];
+            if(player.hp<player.maxHp*.45) counters.push({type:'huntAction',action:{type:'heal'}});
             if(!player.statuses.some(t=>t.name==='Cleanse Prevent'&&active(t))&&negative.some(t=>['Poison','Ignition','Elemental Seal','Bloodline Seal'].includes(t.name)
                 || t.name==='Wound'&&player.hp<player.maxHp*.45)) counters.push({type:'huntAction',action:{type:'cleanse'}});
-            if(!foe.statuses.some(t=>t.name==='Clear Prevent'&&active(t))&&(foe.shield>=foe.maxHp*.1 || foe.statuses.some(t=>t.name==='Decrease Damage Taken'&&active(t))))
+            if(!foe.statuses.some(t=>t.name==='Clear Prevent'&&active(t))&&(foe.shield>=foe.maxHp*.1 || foe.statuses.some(t=>t.name==='Decrease Damage Taken'&&active(t)&&t.source!=='item-defense-pill')))
                 counters.push({type:'huntAction',action:{type:'clear',targetId:'id' in foe?String(foe.id):''}});
-            if(player.hp<player.maxHp*.45) counters.push({type:'huntAction',action:{type:'heal'}});
             // Real legality is authoritative, including range, AP and cooldowns.
-            const accepted=counters.map(action=>({action,result:applySoloPveAction(s,action)})).find(({result})=>result.applied);
+            let accepted:{action:SoloPveAction;result:ReturnType<typeof applySoloPveAction>}|undefined;
+            for(const action of counters) {
+                const result=applySoloPveAction(s,action);
+                if(result.applied){accepted={action,result};break;}
+            }
             if(accepted) {
                 const action=accepted.action;
                 if(action.type==='huntAction'&&['heal','clear','cleanse'].includes(action.action.type)) playerCounters[action.action.type as keyof typeof playerCounters]++;
@@ -109,6 +134,7 @@ export function simulateBalance(source:SoloPveSession,sustain:boolean,choices:{o
         const attacks=casts.filter(j=>Number(j.effectPower)>0 && Number(j.ap)>=60);
         const attack=choices.reverseDamage ? attacks.at(-1) : attacks[0];
         const debuff=choices.openingDebuff ? casts.find(j=>j.target==='OPPONENT' && !Number(j.effectPower)
+            && (!attack||Number(j.ap??40)+Number(attack.ap??60)<=ap)
             && j.tags?.some(t=>['Increase Damage Taken','Ignition','Poison','Decrease Damage Given'].includes(t.name)
                 && !foe.statuses.some(s=>s.name===t.name && s.rounds>0))) : undefined;
         const support=sustain
@@ -120,6 +146,23 @@ export function simulateBalance(source:SoloPveSession,sustain:boolean,choices:{o
             : {type:'jutsu',jutsuId:jutsu.id};
         else if(hexDistance(player.pos,foe.pos,width)<=1 && ap>=40) action=b?{type:'huntAction',action:{type:'attack',targetId:'id' in foe?String(foe.id):''}}:{type:'basicAttack'};
         else {
+            // Use the learned, affordable mobility before spending an entire
+            // opening on basic steps. Keep enough AP for the ranged follow-up.
+            const flicker=kit.find(j=>j.id==='starter-universal-flicker'&&(cds[j.id]??0)<=0
+                && player.chakra>=Number(j.chakraCost??0)&&player.stamina>=Number(j.staminaCost??0));
+            const attacksInKit=kit.filter(j=>Number(j.effectPower)>0&&Number(j.ap)>=60);
+            const desiredRange=Math.max(1,...attacksInKit.map(j=>Number(j.range??1)));
+            const landing=flicker&&ap>=Number(flicker.ap??20)+Math.min(...attacksInKit.map(j=>Number(j.ap)))
+                ? Array.from({length:width*(b?.map.height??10)},(_,tile)=>tile)
+                    .filter(tile=>tile!==player.pos&&tile!==foe.pos&&!(b?.map.blockedTiles??s.environment.blockedTiles).includes(tile)
+                        &&!b?.actors.some(a=>a.hp>0&&a.pos===tile)
+                        &&hexDistance(player.pos,tile,width)<=Number(flicker.range??5)&&hexDistance(tile,foe.pos,width)<=desiredRange)
+                    .sort((a,c)=>hexDistance(c,foe.pos,width)-hexDistance(a,foe.pos,width)||hexDistance(player.pos,a,width)-hexDistance(player.pos,c,width)||a-c)[0]
+                :undefined;
+            if(landing!==undefined) {
+                const moved=applySoloPveAction(s,b?{type:'huntAction',action:{type:'jutsu',jutsuId:flicker!.id,tile:landing}}:{type:'jutsu',jutsuId:flicker!.id,tile:landing});
+                if(moved.applied) {s=moved.session;minHp=Math.min(minHp,s.player.hp);continue;}
+            }
             const tile=hexNeighbors(player.pos,width,b?.map.height ?? 10).filter(t=>t!==foe.pos && !(b?.map.blockedTiles ?? s.environment.blockedTiles).includes(t)
                 && !b?.actors.some(a=>a.hp>0 && a.pos===t))
                 .sort((a,c)=>hexDistance(a,foe.pos,width)-hexDistance(c,foe.pos,width) || a-c)[0];

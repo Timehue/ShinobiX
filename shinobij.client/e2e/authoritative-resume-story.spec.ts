@@ -86,6 +86,7 @@ async function finishAndReoffer(page: Page, info: TestInfo) {
     await expect(scene(page)).toHaveCount(0);
     await info.attach('resumed-combat-without-story-overlay', { body: await page.screenshot(), contentType: 'image/png' });
     await page.locator('#combat').getByRole('button', { name: /^Attack\b/ }).click();
+    await page.locator('#combat button.hex-tile.hex-enemy.jutsu-target-tile').click();
     const result = page.getByRole('dialog', { name: 'Fight won', exact: true });
     await expect(result).toBeVisible();
     await expect(scene(page)).toHaveCount(0);

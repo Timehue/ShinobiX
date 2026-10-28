@@ -7,8 +7,9 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 import {
-    WEEKLY_CLAIMABLE_CATALOG,
-    pickWeeklyBoardForPlayer,
+    weeklyMissionById,
+    resolveWeeklyBoardForRecord,
+    WEEKLY_BOARD_SIZE,
     weekKey,
     weekEndsAt,
     computeProgress,
@@ -16,11 +17,14 @@ import {
     type WeeklyMission,
 } from './_weekly-board.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody } from './_eligibility.js';
+import { rankedLevelEligible } from '../../shared/ranked-eligibility.js';
+import { readPetRankedSeasonGateFresh } from '../pet/_ranked-preparation.js';
+import { rankedSeasonAdmissionsPaused, SEASON_CURRENT_KEY, type RankedSeason } from '../cron/_ranked-season.js';
 
 const RECORD_PREFIX = 'weekly-board:';
 const RECORD_TTL_SECONDS = 16 * 24 * 60 * 60;
 
-type WeeklyRecord = { baseline: Record<string, number>; claimed: string[] };
+type WeeklyRecord = { baseline: Record<string, number>; claimed: string[]; missionIds?: string[] };
 
 function num(v: unknown): number {
     const n = Number(v);
@@ -37,11 +41,24 @@ function villageStateKey(village: unknown): string {
 
 async function missionEligibilityContextFor(char: Record<string, unknown>, now: number) {
     const village = String(char.village ?? '');
-    const villageState = village ? await kv.get<Record<string, unknown>>(villageStateKey(village)).catch(() => null) : null;
+    const rankedAvailable = rankedLevelEligible(char.level) ? (async () => {
+        const [gate, season] = await Promise.all([
+            readPetRankedSeasonGateFresh(kv), kv.get<RankedSeason>(SEASON_CURRENT_KEY),
+        ]);
+        return Boolean(gate && gate.state === 'open' && gate.seasonId === Number(season?.id)
+            && !await rankedSeasonAdmissionsPaused(kv, gate.seasonId));
+    })() : Promise.resolve(false);
+    // A failed availability read must not persist replacement assignments.
+    // Preserve unfinished work and let the player retry the board refresh.
+    const [villageState, ranked] = await Promise.all([
+        village ? kv.get<Record<string, unknown>>(villageStateKey(village)) : null,
+        rankedAvailable,
+    ]);
     const hollowGateUntil = Number(villageState?.hollowGateUnlockedUntil ?? 0);
     return {
         systems: {
             hollowGate: hollowGateUntil > now,
+            ranked,
         },
         now,
     };
@@ -77,12 +94,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const recordRead = kv.get<WeeklyRecord>(key);
             recordRead.catch(() => undefined);
             const eligibilityContext = await missionEligibilityContextFor(char, now);
-            const board = pickWeeklyBoardForPlayer(wk, char, undefined, eligibilityContext);
             let record = await recordRead;
             if (!record) {
                 const fresh: WeeklyRecord = { baseline: snapshotCounters(char), claimed: [] };
+                fresh.missionIds = resolveWeeklyBoardForRecord(wk, char, fresh, eligibilityContext).map((mission) => mission.id);
                 const placed = await kv.set(key, fresh, { nx: true, ex: RECORD_TTL_SECONDS } as never);
                 record = placed ? fresh : (await kv.get<WeeklyRecord>(key)) ?? fresh;
+            }
+            const counters = snapshotCounters(char);
+            const missingCounters = Object.keys(counters).filter((counter) => record!.baseline[counter] === undefined);
+            const updated: WeeklyRecord = { ...record, baseline: { ...record.baseline } };
+            for (const counter of missingCounters) updated.baseline[counter] = counters[counter as keyof typeof counters];
+            const board = resolveWeeklyBoardForRecord(wk, char, updated, eligibilityContext);
+            updated.missionIds = board.map((mission) => mission.id);
+            const assignmentsChanged = !Array.isArray(record.missionIds)
+                || record.missionIds.join('\n') !== updated.missionIds.join('\n');
+            if (missingCounters.length > 0 || assignmentsChanged) {
+                // Preserve concurrent claims when adding activity baselines to
+                // a board that was first opened before this catalog update.
+                if (!await kv.compareSet(key, record, updated, { ex: RECORD_TTL_SECONDS })) {
+                    return res.status(503).json(SAVE_VERSION_CONFLICT_REPLY);
+                }
+                record = updated;
             }
             const missions = board.map((m) => {
                 const progress = Math.min(m.target, computeProgress(m, record!.baseline, char));
@@ -98,7 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const missionId = typeof (body as Record<string, unknown>).missionId === 'string'
             ? (body as Record<string, unknown>).missionId as string
             : '';
-        const requestedCatalogMission = WEEKLY_CLAIMABLE_CATALOG.find((m) => m.id === missionId);
+        const requestedCatalogMission = weeklyMissionById(wk, missionId);
         if (!requestedCatalogMission) return res.status(400).json({ error: 'That mission is not on this week\'s board.' });
 
         type Reply = { status: number; body: Record<string, unknown> };
@@ -107,18 +140,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         try {
             committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
                 const eligibilityContext = await missionEligibilityContextFor(char, now);
-                const board = pickWeeklyBoardForPlayer(wk, char, undefined, eligibilityContext);
+                let record = await kv.get<WeeklyRecord>(key);
+                if (!record) record = { baseline: snapshotCounters(char), claimed: [] };
+                const board = resolveWeeklyBoardForRecord(wk, char, record, eligibilityContext);
                 const mission: WeeklyMission | undefined = board.find((m) => m.id === missionId);
                 if (!mission) {
                     const check = canPlayerClaimMission(char, requestedCatalogMission, eligibilityContext);
                     if (!check.ok) return answer(char, { status: 403, body: missionEligibilityFailureBody(check) });
                     return answer(char, { status: 400, body: { error: 'That mission is not on this week\'s board.' } });
                 }
-                const claimEligibility = canPlayerClaimMission(char, mission, eligibilityContext);
-                if (!claimEligibility.ok) return answer(char, { status: 403, body: missionEligibilityFailureBody(claimEligibility) });
-
-                let record = await kv.get<WeeklyRecord>(key);
-                if (!record) record = { baseline: snapshotCounters(char), claimed: [] };
                 if (record.claimed.includes(mission.id)) {
                     return answer(char, { status: 200, body: {
                         ok: true,
@@ -127,6 +157,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     } });
                 }
                 const progress = computeProgress(mission, record.baseline, char);
+                // An assigned objective already completed from server-owned
+                // counters stays earned through a season pause or gate expiry.
+                const earnedAssignment = record.missionIds?.includes(mission.id) && progress >= mission.target;
+                const claimEligibility = canPlayerClaimMission(char, mission, eligibilityContext);
+                if (!earnedAssignment && !claimEligibility.ok) return answer(char, { status: 403, body: missionEligibilityFailureBody(claimEligibility) });
+                if (record.claimed.length >= WEEKLY_BOARD_SIZE) {
+                    return answer(char, { status: 400, body: { error: 'All four weekly rewards have already been claimed.' } });
+                }
                 if (progress < mission.target) {
                     return answer(char, { status: 400, body: { error: 'That mission is not complete yet.', progress, target: mission.target } });
                 }
@@ -138,26 +176,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     fateShards: num(char.fateShards) + (r.fateShards ?? 0),
                     boneCharms: num(char.boneCharms) + (r.boneCharms ?? 0),
                 };
-                // The claim is recorded BEFORE the payout, so a failed claim
-                // write can never pay twice. If the payout then loses its
-                // compare-and-set, nothing was paid, and onConflict takes this
-                // one claim back out so the player's retry still pays.
-                const nextRecord: WeeklyRecord = { baseline: record.baseline, claimed: [...record.claimed, mission.id] };
-                await kv.set(key, nextRecord, { ex: RECORD_TTL_SECONDS } as never);
+                // Claim, save and currency ledger commit in one transaction.
+                // A failed write cannot strand a claim, and a baseline upgrade
+                // racing this claim refuses the whole write without a payout.
+                const nextRecord: WeeklyRecord = { ...record, missionIds: board.map((m) => m.id), claimed: [...record.claimed, mission.id] };
                 return {
                     ok: true,
                     character: nextChar,
+                    atomicProof: { key, expected: record, value: nextRecord, ex: RECORD_TTL_SECONDS },
                     value: { status: 200, body: {
                         ok: true,
                         reward: r,
                         missionId: mission.id,
                         balances: { ryo: num(nextChar.ryo), fateShards: num(nextChar.fateShards), boneCharms: num(nextChar.boneCharms) },
                     } },
-                    onConflict: async () => {
-                        const current = await kv.get<WeeklyRecord>(key);
-                        if (!current?.claimed.includes(mission.id)) return;
-                        await kv.set(key, { ...current, claimed: current.claimed.filter((id) => id !== mission.id) }, { ex: RECORD_TTL_SECONDS } as never);
-                    },
                 };
             });
         } catch (error) {

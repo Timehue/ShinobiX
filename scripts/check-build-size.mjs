@@ -932,7 +932,13 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // headroom, the same margin earlier raises kept. Startup gzip measures
 // 396,975 B against the unchanged 399,000 B gate; per-chunk, CSS and
 // runtime-asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_765_000;
+// 2026-10-28 WEEKLY + TARGET CONFIRMATION: the combined mission guidance,
+// throwable metadata and explicit self-target confirmation in the three lazy
+// combat screens measure 9,766,323 B after integration with current main
+// (+11,593 B over its measured local baseline). Allow 9.780 MB, retaining
+// about 13.7 KB of headroom. Startup is 397,293 B gzip against the unchanged
+// 399,000 B gate; per-chunk, CSS and runtime-asset gates stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_780_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

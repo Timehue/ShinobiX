@@ -121,7 +121,7 @@ shop,shinobi-vest,ryo,4500,per unit,api/pvp/_item-catalog.ts,common body
 shop,spirit-leech-wakizashi,ryo,34000,per unit,api/pvp/_item-catalog.ts,epic hand
 shop,stormcoil-kusarigama,ryo,38000,per unit,api/pvp/_item-catalog.ts,epic hand
 shop,tempest-fang-blade,fateShards,100,per unit,api/pvp/_item-catalog.ts,legendary hand
-shop,thrown-senbon,ryo,600,per unit,api/pvp/_item-catalog.ts,uncommon thrown
+shop,thrown-senbon,ryo,1600,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-serpent-dust,ryo,1600,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-shuriken,ryo,1600,per unit,api/pvp/_item-catalog.ts,common thrown
 shop,tool-basic-fishing-pole,ryo,11250,per unit,api/pvp/_item-catalog.ts,common fishingPole
@@ -158,7 +158,7 @@ craft,beast-seal-master,ryo,8000,per supply craft,shared/craft-fees.ts,"A quarte
 craft,currency:aura-dust,ryo,1500,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
 craft,currency:bone-charm,ryo,2500,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
 craft,thrown-shuriken,ryo,1200,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
-craft,thrown-senbon,ryo,150,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+craft,thrown-senbon,ryo,400,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
 craft,thrown-serpent-dust,ryo,400,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
 craft,item-smoke-bomb,ryo,360,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
 craft,item-attack-pill,ryo,320,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."

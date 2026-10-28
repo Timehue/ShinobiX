@@ -12,7 +12,7 @@ const squad = (size: number) => Array.from({ length: size }, (_, i) => ({
     id: `sq-${i}`, name: `Player ${i}`, ownerSlug: `player${i}`, ai: false,
     character: { level: 30, maxHp: 3400, maxChakra: 3600, maxStamina: 3600, stats: {} },
 }));
-const build = (floor: TowerFloor, size = 4) => buildTowerEncounter({ floor, squad: squad(size), partySize: size, runId: 'balance-test', seed: 101, now: 0 });
+const build = (floor: TowerFloor, size = 4) => buildTowerEncounter({ floor, squad: squad(size), partySize: size, runId: 'balance-test', seed: 101, now: 0, gapClosingJutsu: [] });
 const enemies = (session: ReturnType<typeof build>) => [...session.actors,
     ...(session.pendingEnemyWaves ?? []).flatMap(wave => wave.actors)].filter(actor => actor.side === 'enemy');
 

@@ -93,7 +93,7 @@ export const SUPPLY_CRAFT_RECIPES: Readonly<Record<string, SupplyCraftRecipe>> =
     // a Lv1-29 crafter used to make Lv30 consumables they could only sell (2026-10
     // item-use pass). The Shuriken is common, so its recipe stays open.
     'thrown-shuriken': { ingredients: [iron(6), fuel(1), fiber(2)], count: 3 },
-    'thrown-senbon': { ingredients: [iron(3, 1), fuel(1), fiber(2)], levelReq: RARITY_LEVEL_FLOOR.uncommon },
+    'thrown-senbon': { ingredients: [iron(3, 1), fuel(1), fiber(2)], levelReq: RARITY_LEVEL_FLOOR.rare },
     'thrown-serpent-dust': { ingredients: [herb(6), threadOrPelt(1), feather(2)], levelReq: RARITY_LEVEL_FLOOR.rare },
     'item-smoke-bomb': { ingredients: [bark(1), herb(4), fiber(2)], levelReq: RARITY_LEVEL_FLOOR.rare },
     'item-attack-pill': { ingredients: [herb(4), material('hunt-beast-meat', 2), bark(1)], levelReq: RARITY_LEVEL_FLOOR.rare },

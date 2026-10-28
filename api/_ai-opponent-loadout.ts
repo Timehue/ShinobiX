@@ -25,14 +25,16 @@ import { JUTSU_CATALOG } from './pvp/_jutsu-catalog.js';
 import { sanitizeJutsuList } from './pvp/session.js';
 import type { AdminCombatContent } from './_admin-content.js';
 import type { CombatJutsu } from './combat-core/types.js';
+import { isDamagingAiGapCloser, isAiFlicker } from './combat-core/ai-mobility.js';
+import { equipPveAiItems } from './combat-core/ai-items.js';
 
 /** Runtime-neutral AI jutsu seal. Tower's EnemyJutsu is a structural subset;
  * solo PvE keeps the additional resolver fields instead of dropping them at a
  * Tower-specific type boundary. */
 export type AiOpponentJutsu = CombatJutsu & { visualEffect?: string };
 
-/** An AI never fights with more than this many jutsu (the fattest built-in
- *  loadout is 6; the cap only bounds a hand-authored `shared:ai-profiles` entry). */
+/** Cap on profile-selected jutsu (the fattest built-in loadout is 6).
+ * Server-authored PvE may supplement this with Ambush, Blitz and Flicker. */
 export const MAX_AI_LOADOUT_JUTSU = 8;
 /** Explicit veteran challenges may learn up to the player's baseline capacity.
  * Unclassified hosts and admin-authored profiles retain the historical cap. */
@@ -127,4 +129,68 @@ export function resolveAiProfileJutsu(
     return (sanitizeJutsuList(picked) as Record<string, unknown>[])
         .map(toEnemyJutsu)
         .filter((j): j is AiOpponentJutsu => j !== null);
+}
+
+/** Published names, not historical IDs: an old Blitz ID was republished as
+ * Overload. Never turn that unrelated utility into an NPC movement attack. */
+export function resolvePveGapClosingJutsu(admin: AdminCombatContent | null = null): AiOpponentJutsu[] {
+    const catalog = new Map<string, Record<string, unknown>>([
+        ...[...(admin?.jutsu ?? [])],
+        ...Object.entries(JUTSU_CATALOG),
+    ]);
+    const ids = [...catalog.values()]
+        .filter(j => /^(ambush|blitz)$/i.test(String(j.name ?? '').trim()))
+        .sort((a, b) => Number(b.updatedAt ?? 0) - Number(a.updatedAt ?? 0) || String(a.id).localeCompare(String(b.id)))
+        .map(j => String(j.id));
+    const seenNames = new Set<string>();
+    const result: AiOpponentJutsu[] = [];
+    for (const id of ids) {
+        const jutsu = resolveAiProfileJutsu([id], admin)[0];
+        if (!jutsu || !isDamagingAiGapCloser(jutsu)) continue;
+        const name = jutsu.name.trim().toLowerCase();
+        if (seenNames.has(name)) continue;
+        seenNames.add(name);
+        result.push(jutsu);
+        if (result.length === 2) break;
+    }
+    return result;
+}
+
+/** The profile's capped kit stays intact (including scripted rule references).
+ * Two authoritative movement strikes plus Flicker supplement it; no copied player
+ * loadout or published technique is rewritten. */
+export function withPveGapClosingJutsu<T extends { id: string }>(kit: readonly T[], mobility: readonly T[]): T[] {
+    const result = [...kit];
+    for (const jutsu of mobility.filter(j => /^(ambush|blitz)$/i.test(String((j as { name?: string }).name ?? '').trim())
+        && isDamagingAiGapCloser(j))) {
+        if (!result.some(existing => existing.id === jutsu.id || (isDamagingAiGapCloser(existing)
+            && String((existing as { name?: string }).name ?? '').trim().toLowerCase()
+                === String((jutsu as { name?: string }).name ?? '').trim().toLowerCase()))) result.push(structuredClone(jutsu));
+        if (result.length - kit.length >= 2) break;
+    }
+    if (!result.some(isAiFlicker)) {
+        const flicker = resolveAiProfileJutsu(['starter-universal-flicker'])[0];
+        if (flicker) result.push(structuredClone(flicker) as unknown as T);
+    }
+    return result;
+}
+
+/** Supplement a newly sealed NPC after any boss-specific kit normalization.
+ * Preserve its original mastery policy, stats, signatures and resource pools. */
+export function teachPveGapClosingJutsu(character: Record<string, unknown>, mobility: readonly AiOpponentJutsu[]): void {
+    equipPveAiItems(character);
+    const original = Array.isArray(character.jutsu) ? character.jutsu as AiOpponentJutsu[] : [];
+    const kit = withPveGapClosingJutsu(original, mobility);
+    character.jutsu = kit;
+    if (Array.isArray(character.jutsuMastery)) {
+        const mastery = character.jutsuMastery as Array<{ jutsuId: string; level: number }>;
+        const level = mastery[0]?.level ?? 0;
+        character.jutsuMastery = [...mastery, ...kit.filter(j => !mastery.some(m => m.jutsuId === j.id))
+            .map(j => ({ jutsuId: j.id, level }))];
+    }
+    if (character.summonTemplate && typeof character.summonTemplate === 'object') {
+        const template = structuredClone(character.summonTemplate) as Record<string, unknown>;
+        template.jutsu = withPveGapClosingJutsu(Array.isArray(template.jutsu) ? template.jutsu as AiOpponentJutsu[] : [], mobility);
+        character.summonTemplate = template;
+    }
 }

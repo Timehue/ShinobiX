@@ -43,7 +43,9 @@ test('mission reward guidance distinguishes ryo claims from the shared growth bu
     await page.getByRole('tab', { name: 'Combat', exact: true }).click();
     await page.getByText('How rewards grow your shinobi', { exact: true }).click();
     await expect(page.getByText('Hunt claims, field jobs and eligible AI and player wins share 60 stat points per UTC day.', { exact: true })).toBeVisible();
-    await expect(page.getByText(/Their mission claim does not award combat-growth points/)).toBeVisible();
+    await expect(page.getByText('Combat missions pay 1 stat point plus ryo when claimed.', { exact: true })).toBeVisible();
+    await expect(page.getByText(/The claim point is unboosted and uses the same shared daily budget/)).toBeVisible();
+    await expect(page.locator('.mh-combat-rewards').getByText('+1 Stat Pt', { exact: true })).toHaveCount(6);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 

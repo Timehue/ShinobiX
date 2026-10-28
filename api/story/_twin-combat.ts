@@ -1,11 +1,13 @@
 import { storyTwinTrial } from '../../shared/story-twin-trials.js';
-import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { resolveAiProfileJutsu, withPveGapClosingJutsu, type AiOpponentJutsu } from '../_ai-opponent-loadout.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import { projectHuntCombat } from '../solo-pve/_hunt-combat.js';
 import { createTowerSession, type TowerActor } from '../towers/_tower-session.js';
 import { runAiUntilHuman, startRound } from '../towers/_engine.js';
 import { makeRng } from '../towers/_sim.js';
 import type { TowerFloor } from '../towers/_floor-catalog.js';
+import { combatFormationPositions } from '../combat-core/spawns.js';
+import { pveAiItemCharges, distributePveAiItems } from '../combat-core/ai-items.js';
 
 /** Reuse the existing embedded multi-actor engine and Solo-PvE lifecycle.
  * The legacy huntCombat field is also used by these two authored pair trials;
@@ -13,15 +15,9 @@ import type { TowerFloor } from '../towers/_floor-catalog.js';
 export function attachStoryTwinCombat(session: SoloPveSession): void {
     const twins = storyTwinTrial(session.encounter.sourceId ?? '');
     if (!twins || session.encounter.kind !== 'story-boss') return;
-    const occupied = new Set(session.environment.blockedTiles);
-    const spawn = (preferred: number) => {
-        const tile = [preferred, ...Array.from({ length: 120 }, (_, i) => i)].find(pos => !occupied.has(pos));
-        if (tile === undefined) throw new Error('The trial has no free spawn tiles.');
-        occupied.add(tile);
-        return tile;
-    };
+    const spawns = combatFormationPositions(session.sessionId, { allies: [62], enemies: [45, 81], blockedTiles: session.environment.blockedTiles });
     const player: TowerActor = { ...structuredClone(session.player), id: 'player', side: 'squad', ownerSlug: session.ownerSlug,
-        ai: false, pos: spawn(62), cooldowns: {}, itemCharges: { ...session.itemCharges }, itemsUsed: {} };
+        ai: false, pos: spawns.allies[0]!, cooldowns: {}, itemCharges: { ...session.itemCharges }, itemsUsed: {} };
     const base = session.enemy;
     const stats = base.character.stats as Record<string, number>;
     const primary = String(base.character.specialty).toLowerCase();
@@ -29,8 +25,8 @@ export function attachStoryTwinCombat(session: SoloPveSession): void {
     const defense = Number(stats[`${primary}Defense`]) || 800;
     const bladeHp = Math.floor(base.maxHp * .55);
     const enemies = twins.map((twin, index): TowerActor => {
-        const jutsu = resolveAiProfileJutsu([...twin.jutsuIds]).map((move, i) => ({ ...move,
-            name: twin.moveNames[i], battleDescription: twin.descriptions[i] }));
+        const jutsu = withPveGapClosingJutsu(resolveAiProfileJutsu([...twin.jutsuIds]).map((move, i) => ({ ...move,
+            name: twin.moveNames[i], battleDescription: twin.descriptions[i] })), (base.character.jutsu ?? []) as AiOpponentJutsu[]);
         const twinStats = { ...stats };
         // Two turns now exert pressure each round. Split the old total HP and
         // reduce each fighter's offense, instead of duplicating a full boss.
@@ -40,7 +36,7 @@ export function attachStoryTwinCombat(session: SoloPveSession): void {
         }
         const hp = index === 0 ? bladeHp : base.maxHp - bladeHp;
         return { ...structuredClone(base), id: twin.id, side: 'enemy', ownerSlug: null, ai: true,
-            name: twin.name, hp, maxHp: hp, pos: spawn(index === 0 ? 45 : 81), cooldowns: {},
+            name: twin.name, hp, maxHp: hp, pos: spawns.enemies[index]!, cooldowns: {}, itemCharges: pveAiItemCharges(base.character), itemsUsed: {},
             character: { ...structuredClone(base.character), name: twin.name, visual: twin.id, avatarImage: twin.art,
                 specialty: twin.specialty, stats: twinStats, jutsu, jutsuMastery: jutsu.map(move => ({ jutsuId: move.id, level: 0 })),
                 aiRole: index === 0 ? 'skirmisher' : 'controller', storyTwin: true },
@@ -51,6 +47,7 @@ export function attachStoryTwinCombat(session: SoloPveSession): void {
         enemies: [], firstClearReward: {}, balanceFor: 1,
         briefing: { situation: 'Both twins fight at once, each with their own health, turns and techniques.',
             tactics: ['Defeat both twins to pass the trial.', 'Select either twin on the field to target them. The surviving twin keeps fighting.'], warnings: ['Two independent opponents'] } };
+    distributePveAiItems(enemies, pveAiItemCharges(base.character));
     const battle = createTowerSession({ towerId: 'story-twin-trial', runId: session.sessionId, floor: 50,
         seed: 50, partySize: 1, now: session.createdAt, actors: [player, ...enemies],
         map: { ...floor.map, biome: floor.biome, blockedTiles: [...session.environment.blockedTiles], hazardTiles: [], objectiveTiles: [] },

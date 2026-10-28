@@ -20,7 +20,8 @@ import { makeRng } from './_sim.js';
 import type { TowerFloor } from './_floor-catalog.js';
 import { jutsuLevelCapForLevel, statCapForLevel } from '../combat-core/formulas.js';
 import { startingItemShield } from '../combat-core/shields.js';
-import { resolveAiProfileJutsu, MAX_CHALLENGE_AI_LOADOUT_JUTSU } from '../_ai-opponent-loadout.js';
+import { pveAiItemCharges } from '../combat-core/ai-items.js';
+import { resolveAiProfileJutsu, MAX_CHALLENGE_AI_LOADOUT_JUTSU, teachPveGapClosingJutsu, type AiOpponentJutsu } from '../_ai-opponent-loadout.js';
 import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import { maxHpForLevel, maxChakraForLevel, maxStaminaForLevel } from '../_xp-engine.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
@@ -130,8 +131,11 @@ export function resolveMercBattle(args: {
     mercLevel: number;
     seed: number;
     now: number;
+    gapClosingJutsu?: readonly AiOpponentJutsu[];
 }): MercBattleResult {
     const merc = mercActor(args.mercLevel);
+    teachPveGapClosingJutsu(merc.character, args.gapClosingJutsu ?? []);
+    merc.itemCharges = pveAiItemCharges(merc.character);
     const player = playerActorFromSealed(args.playerName, args.playerSlug, args.playerSealedChar);
     const session = createTowerSession({
         towerId: 'merc-skirmish',

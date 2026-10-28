@@ -1,5 +1,7 @@
 import { kv } from '../_storage.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
+import { resolvePveGapClosingJutsu, teachPveGapClosingJutsu, type AiOpponentJutsu } from '../_ai-opponent-loadout.js';
+import { pveAiItemCharges } from '../combat-core/ai-items.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { isIncapacitated, settleVitalsRegen } from '../_elapsed-state.js';
 import { applyAiMasteryToActor } from '../_pve-ai-mastery.js';
@@ -72,6 +74,7 @@ export function buildWorldBossTeamEncounter(input: {
     runId: string;
     seed: number;
     now: number;
+    gapClosingJutsu?: readonly AiOpponentJutsu[];
 }) {
     const floor = worldBossFloor(input.event.bossId, input.event.bossName);
     const bossTemplate: EnemyTemplate = {
@@ -110,6 +113,8 @@ export function buildWorldBossTeamEncounter(input: {
     for (const [index, actor] of session.actors.filter(a => a.side === 'enemy').entries()) {
         const isBoss = actor.id === boss.id;
         sealTeamBossChallengeKit(actor, isBoss, index);
+        teachPveGapClosingJutsu(actor.character, input.gapClosingJutsu ?? []);
+        actor.itemCharges = pveAiItemCharges(actor.character);
         if (!isBoss) actor.character.combatRole = index % 2 ? 'skirmisher' : 'vanguard';
     }
     // Reuse the existing visible-buff Clear/Cleanse competence without applying
@@ -200,6 +205,7 @@ export async function createWorldBossEncounter(input: {
             event: input.event, matchId: input.match.matchId, squad, runId: proposedRunId,
             seed: Number.parseInt(input.match.matchId.slice(0, 8), 16) || input.now,
             now: input.now,
+            gapClosingJutsu: resolvePveGapClosingJutsu(admin),
         });
         const seededVitals: Record<string, { hp?: number }> = {};
         for (const member of members) {

@@ -45,7 +45,8 @@ for (const entry of groupCombatCases) {
         const { session } = groupCombatFixture(entry.key, entry.name);
         const b = session.huntCombat!.battle;
         b.map.blockedTiles = [];
-        const positions = Array.from({ length: 120 }, (_, i) => i).filter(i => i !== 62 && hexDistance(62, i, 12) <= 3);
+        const playerPos = b.actors[0].pos;
+        const positions = Array.from({ length: 120 }, (_, i) => i).filter(i => i !== playerPos && hexDistance(playerPos, i, 12) <= 3);
         b.actors.slice(1).forEach((a, i) => { a.pos = positions[i]; });
         const result = applySoloPveAction(session, { type: 'huntAction', action: { type: 'wait' } });
         assert.equal(result.applied, true);

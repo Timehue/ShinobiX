@@ -115,8 +115,9 @@ test('story starts seal the correct roster, total authored HP, stat caps and rea
             assert.equal(s.huntCombat, undefined, 'keep the real single-opponent engine');
             assert.equal(s.enemy.character.aiTurnPolicy, STANDARD_PVE_AI_POLICY);
             assert.equal(s.enemy.character.specialty, 'Bukijutsu');
-            const kit = s.enemy.character.jutsu as Array<{ type: string; element: string }>;
-            assert.ok(kit.every(j => j.type === 'Bukijutsu' && j.element === 'Wind'));
+            const kit = s.enemy.character.jutsu as Array<{ id: string; type: string; element: string }>;
+            assert.ok(kit.filter(j => j.id !== 'starter-universal-flicker').every(j => j.type === 'Bukijutsu' && j.element === 'Wind'));
+            assert.ok(kit.some(j => j.id === 'starter-universal-flicker'));
         }
     }
 });

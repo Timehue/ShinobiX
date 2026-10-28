@@ -9,7 +9,7 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
-import { DAILY_MISSION_LIMIT, FETCH_S_MISSION_ID, FIELD_MISSION_STAT_POINTS } from "../constants/game";
+import { DAILY_MISSION_LIMIT, FETCH_S_MISSION_ID, FIELD_MISSION_STAT_POINTS, COMBAT_MISSION_STAT_POINTS } from "../constants/game";
 import { dailyStatBudgetToday, missionDropChanceText, missionStatPointText } from "../lib/progression-dials";
 import { DailyProfessionMissions } from "../screens/DailyProfessionMissions";
 import { WeeklyBoard } from "../components/WeeklyBoard";
@@ -545,7 +545,7 @@ export function Missions({
                 <section className="mh-section rookie-orders-card">
                     <h3 className="mh-section-title" style={{ marginTop: 0 }}>Rookie Orders</h3>
                     <p className="hint" style={{ marginTop: 0 }}>
-                        Build toward the level-20 Genin Advancement Exam: you earn the Genin title at level 15, then this later gate qualifies you to keep progressing. Train stats and clear your field and hunt dailies — those are what level you. Combat missions and the Arena pay the ryo that funds your gear and jutsu.
+                        Build toward the level-20 Genin Advancement Exam: you earn the Genin title at level 15, then this later gate qualifies you to keep progressing. Train stats, clear field and hunt dailies, and claim combat missions to earn stat points and level up. Each combat mission claim grants 1 stat point plus ryo for gear and jutsu.
                     </p>
                     <div className="rookie-orders-actions">
                         <button className="start-primary-btn" onClick={() => setActiveMissionTab("combat")}>
@@ -614,7 +614,7 @@ export function Missions({
             <section className="mh-section">
                 <h3 className="mh-section-title">Combat Missions</h3>
                 <p className="hint">Defeat the assigned enemy, then return here to claim your reward. New shinobi should start with the E-Rank Drill.</p>
-                <p className="hint">Mission claims pay ryo for gear and jutsu lessons. For stat points and levels, use training and field/hunt dailies.</p>
+                <p className="hint">Each combat mission claim pays 1 stat point plus ryo for gear and jutsu lessons.</p>
                 <GrowthRewardGuide />
                 {pendingCombatClaims > 0 && (
                     <p className="mh-claim-banner" role="status">
@@ -648,6 +648,7 @@ export function Missions({
                                             : <span className="mh-tag mh-tag-req">Lv {mission.min}+</span>}
                                     </div>
                                     <div className="mh-combat-rewards">
+                                        <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />+{COMBAT_MISSION_STAT_POINTS} Stat Pt</span>
                                         <span><GameIcon name="ryo" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
                                     </div>
                                 </div>
@@ -738,7 +739,7 @@ export function Missions({
                                         <p className="mh-field-description">{mission.description}</p>
                                         {recommended && <p className="mh-field-next-step">Explore Sector 18 three times. Then travel to one of the other three villages and raid its guard from the outskirts. Claim your reward here.</p>}
                                         <div className="mh-field-objectives" aria-label="Mission objectives">
-                                            <span><small>Sweep</small><strong>×{mission.exploreCount}</strong></span>
+                                            <span><small>Explore</small><strong>×{mission.exploreCount}</strong></span>
                                             {raidReq > 0 && <span><small>Raid</small><strong>×{raidReq}</strong></span>}
                                         </div>
                                         <div className="mh-fetch-rewards">

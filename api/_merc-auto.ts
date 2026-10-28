@@ -31,6 +31,8 @@
  */
 import { kv } from './_storage.js';
 import { loadAdminCombatContent } from './_admin-content.js';
+import { loadAdminJutsuObjects } from './_admin-jutsu-catalog.js';
+import { resolvePveGapClosingJutsu, type AiOpponentJutsu } from './_ai-opponent-loadout.js';
 import { withKvLock } from './_lock.js';
 import { safeName } from './_utils.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug, type MercLease, type MercLeaseContext } from './_war-state.js';
@@ -136,10 +138,11 @@ export async function claimAndResolveMerc(
     const onCooldown = deps.isOnCooldown ?? isMercTargetOnCooldown;
     const stampCooldown = deps.stampCooldown ?? setMercTargetCooldown;
     const prepareFighter = deps.prepareFighter ?? defaultPrepareFighter;
+    let gapClosingJutsu: AiOpponentJutsu[] = [];
     const runFight = deps.runFight ?? ((sealed, a) => resolveMercBattle({
         playerName: a.targetPlayer, playerSlug: a.targetPlayer,
         playerSealedChar: sealed as Parameters<typeof resolveMercBattle>[0]['playerSealedChar'],
-        mercLevel: a.mercLevel, seed: a.seed, now: a.now,
+        mercLevel: a.mercLevel, seed: a.seed, now: a.now, gapClosingJutsu,
     }));
 
     const targetSaveKey = `save:${args.targetPlayer}`;
@@ -161,6 +164,7 @@ export async function claimAndResolveMerc(
     // (2) Everything that can fail without a fight happening, before any spend.
     const sealed = await prepareFighter(snapshot);
     if (!sealed) return null;
+    if (!deps.runFight) gapClosingJutsu = resolvePveGapClosingJutsu({ jutsu: await loadAdminJutsuObjects(), items: new Map() });
 
     // (3) Re-check under the lock and only THEN spend a band member. Keeping the
     // cooldown check and stamp inside that lock also prevents two concurrent

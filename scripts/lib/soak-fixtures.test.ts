@@ -37,3 +37,13 @@ test('setup diagnostics distinguish missing tokens and transport exceptions usin
     const diagnostic = setupFailureDiagnostic({ player: 'private-token', phase: 'private-token', attempt: 'private-token', status: 'private-token', reason: 'private-token' });
     assert.doesNotMatch(diagnostic, /private-token/);
 });
+
+test('Clan Boss fixture names reroll blocked random text while retaining the player label', () => {
+    assert.equal(moderation.isCleanPlayerName('op4p3d08e27'), false, 'the certification CI failure was a rejected random identity');
+    const suffixes = ['p3d0', 'abcdef'];
+    let attempts = 0;
+    const name = createSoakName('op4p3', moderation, () => suffixes[attempts++]);
+    assert.equal(name, 'soakabcdefop4p3');
+    assert.equal(attempts, 2);
+    assert.equal(moderation.isCleanPlayerName(name), true);
+});

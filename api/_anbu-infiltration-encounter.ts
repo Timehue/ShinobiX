@@ -10,6 +10,7 @@ import {
 } from './solo-pve/_session.js';
 import type { SealedSectorWeather } from './_sector-weather-seal.js';
 import { startingItemShield } from './combat-core/shields.js';
+import { combatSpawnPositions } from './combat-core/spawns.js';
 
 export const INFILTRATION_MAP = { width: 12, height: 10 } as const;
 export const INFILTRATION_ROUND_BUDGET = 25;
@@ -81,10 +82,9 @@ export interface BuildInfiltrationParams {
 
 export function buildInfiltrationEncounter(params: BuildInfiltrationParams): SoloPveSession {
     const biome = biomeForTerrain(params.terrain);
-    const middleRow = Math.floor(INFILTRATION_MAP.height / 2);
-    const middleColumn = Math.floor(INFILTRATION_MAP.width / 2);
-    const player = fighter(params.raider, middleRow * INFILTRATION_MAP.width + middleColumn - 2);
-    const enemy = fighter(params.anbu, middleRow * INFILTRATION_MAP.width + middleColumn + 2, true);
+    const spawns = combatSpawnPositions(params.runId, { openingDistance: 4 });
+    const player = fighter(params.raider, spawns.allies[0]!);
+    const enemy = fighter(params.anbu, spawns.enemies[0]!, true);
     return createSoloPveSession({
         sessionId: params.runId,
         ownerSlug: params.raider.slug,
