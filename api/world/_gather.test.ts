@@ -11,6 +11,7 @@ import { routeStoresDonation } from '../_treasury-stores-donate.js';
 import { applyTreasuryDonation } from '../_treasury-donate.js';
 import { gearCraftIngredients } from '../../shared/crafting-recipes.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { GEAR_CRAFT_RYO } from '../../shared/craft-fees.js';
 import { WILD_HIT_CEILING } from '../pet/_encounter.js';
 
 for (const level of [1, 49, 50, 100]) for (const chest of [true, false]) test(`exact overall rates and boundaries: level ${level}, chests ${chest}`, () => {
@@ -68,7 +69,7 @@ test('gather credits only a tile and obeys the normal daily limit', () => {
     assert.equal(applySectorExploreReward({serverExploreDate:'2026-09-27',serverExploresToday:100},33,'2026-09-27','tile').ok,false);
 });
 function stocked(id:string, quantity=1) {
-    return {level:65,ryo:10000,inventory:[],itemStacks:[
+    return {level:65,ryo:1_000_000,inventory:[],itemStacks:[
         ...(id.includes('supply')
             ? Object.entries(GATHER_RECIPE_INGREDIENTS[id]).map(([itemId,count])=>({itemId,count:count*quantity}))
             : gearCraftIngredients(ITEM_CATALOG[id]).map(ingredient=>({itemId:ingredient.ids[0],count:ingredient.count*quantity}))),
@@ -78,7 +79,7 @@ for(const id of ['elderbranch-katana','black-lotus-dagger','frostfang-oathblade'
     for(const q of [1,2]){
         const original=stocked(id,q);const before=structuredClone(original);
         const result=applyForge(original,'weapon',id,q)!;assert.ok(result);
-        assert.equal(result.ryo,10000-3500*q);assert.equal(craftPointTotal(result),0);assert.equal(countOwned(result,id),q);
+        assert.equal(result.ryo,1_000_000-GEAR_CRAFT_RYO.legendary*q);assert.equal(craftPointTotal(result),0);assert.equal(countOwned(result,id),q);
         for(const {itemId} of original.itemStacks)assert.equal(countOwned(result,itemId),0);
         assert.deepEqual(original,before);assert.equal(applyForge({...original,level:64},'weapon',id,q),null);
         for(const {itemId:material} of original.itemStacks){
@@ -87,10 +88,10 @@ for(const id of ['elderbranch-katana','black-lotus-dagger','frostfang-oathblade'
         }
     }
 });
-test('shuriken uses exact iron sand, preserves food, has no ryo charge and keeps the 50 carry cap',()=>{
-    const original={level:65,ryo:0,itemStacks:[{itemId:'hunt-beast-meat',count:6},{itemId:'gather-iron-sand',count:12},{itemId:'gather-heartwood-bark',count:2},{itemId:'gather-binding-fiber',count:4}]};
+test('shuriken uses exact iron sand, preserves food, charges its ryo fee and keeps the 50 carry cap',()=>{
+    const original={level:65,ryo:10_000,itemStacks:[{itemId:'hunt-beast-meat',count:6},{itemId:'gather-iron-sand',count:12},{itemId:'gather-heartwood-bark',count:2},{itemId:'gather-binding-fiber',count:4}]};
     const result=applyForge(original,'supply','thrown-shuriken',2)!;
-    assert.equal(countOwned(result,'thrown-shuriken'),6);assert.equal(countOwned(result,'hunt-beast-meat'),6);assert.equal(result.ryo,0);
+    assert.equal(countOwned(result,'thrown-shuriken'),6);assert.equal(countOwned(result,'hunt-beast-meat'),6);assert.equal(result.ryo,10_000-2*1_200);
     assert.equal(applyForge({...original,inventory:Array(48).fill('thrown-shuriken')},'supply','thrown-shuriken',1),null);
     for(const id of [...COMMON_GATHER_IDS,...Object.values(BIOME_GATHER_IDS)])assert.equal(CRAFT_POINTS[id],undefined);
 });
@@ -112,7 +113,7 @@ test('containers cost exact inputs, are disabled safely, and donate actual provi
     try{
         for(const [id,provisions,ryo]of [['village-supply-bundle',10,30],['village-supply-crate',40,100]] as const){
             const base=stocked(id);const result=applyForge(base,'supply',id,1)!;assert.ok(result);
-            assert.equal(result.ryo,10000-ryo);assert.equal(craftPointTotal(result),craftPointTotal(base));
+            assert.equal(result.ryo,1_000_000-ryo);assert.equal(craftPointTotal(result),craftPointTotal(base));
             assert.deepEqual(storesDonationRouting(id,1,CRAFT_POINTS),{store:'provisions',amount:provisions});
             const donation={kind:'item' as const,itemId:id,count:1};
             const outcome=applyTreasuryDonation({},result,donation,{allowedCurrencies:[],currencyCaps:{},itemCountCap:1000});

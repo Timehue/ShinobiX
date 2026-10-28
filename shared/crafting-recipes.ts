@@ -119,7 +119,8 @@ export const SUPPLY_CRAFT_RECIPES: Readonly<Record<string, SupplyCraftRecipe>> =
 
 /*
  * NPC buy-back cap for crafted goods (2026-10 economy rebalance, framework 2.11 /
- * 5.1, #33). A supply recipe charges no ryo and its outputs used to sell for half
+ * 5.1, #33). A supply recipe charged no ryo then (it pays the shared/craft-fees.ts
+ * fee now) and its outputs used to sell for half
  * their catalog cost, so crafting turned unsellable gathered materials, and hunt
  * materials at 1.65-17x their own sale price, into ryo. A crafted good now sells
  * for at most 7/10 of the cheapest NPC value its recipe accepts, so crafting to

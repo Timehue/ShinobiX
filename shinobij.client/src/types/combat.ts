@@ -105,6 +105,9 @@ export type GameItem = {
     slot: EquipmentSlot;
     rarity: "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic";
     cost: number;
+    /** Pre-scale cost of an item whose shelf price was raised (shared/shop-pricing.ts).
+     *  NPC buy-back is priced from this, so a higher price never raises a sale. */
+    saleBasis?: number;
     description: string;
     /** Priced utility item, not gear; keeps its authored level gate despite rarity. */
     serviceItem?: boolean;

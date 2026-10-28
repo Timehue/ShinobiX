@@ -1,4 +1,5 @@
-import { VILLAGE_SUPPLY_GOODS, isVillageSupplyGood } from '../../shared/gathering.js';
+import { isVillageSupplyGood } from '../../shared/gathering.js';
+import { gearCraftRyo, supplyCraftRyo } from '../../shared/craft-fees.js';
 import { villageStoresEnabled } from '../_release-flags.js';
 import { ITEM_CATALOG, type CatalogItem } from '../pvp/_item-catalog.js';
 import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
@@ -66,7 +67,7 @@ export function craftPointTotal(character: Record<string, unknown>): number {
     return Object.entries(CRAFT_POINTS).reduce((sum, [id, points]) => sum + countOwned(character, id) * points, 0);
 }
 
-function ryoFor(item: CatalogItem): number { return item.rarity === 'rare' ? 600 : item.rarity === 'epic' ? 1400 : 3500; }
+function ryoFor(item: CatalogItem): number { return gearCraftRyo(item.rarity); }
 export function consumeRecipeIngredients(character: Record<string, unknown>, ingredients: readonly CraftIngredient[], quantity = 1, materials?: unknown): Record<string, unknown> | null {
     const owned = (id: string) => countOwned(character, id);
     const plan = materials === undefined ? planCraftIngredients(ingredients, owned, quantity) : planSelectedCraftIngredients(ingredients, owned, quantity, materials);
@@ -84,7 +85,7 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
         const recipe = Object.hasOwn(SUPPLY_CRAFT_RECIPES, recipeId) ? SUPPLY_CRAFT_RECIPES[recipeId] : undefined;
         if (!recipe || count(character.level) < (recipe.levelReq ?? 1)) return null;
         if (isVillageSupplyGood(recipeId) && !villageStoresEnabled()) return null;
-        const ryo = (VILLAGE_SUPPLY_GOODS[recipeId]?.ryo ?? 0) * quantity;
+        const ryo = supplyCraftRyo(recipeId, ITEM_CATALOG[recipeId]?.cost ?? 0, recipe.count ?? 1) * quantity;
         if (count(character.ryo) < ryo) return null;
         const output = ITEM_CATALOG[recipeId];
         const cap = isPetFood(recipeId) ? 9999 : output?.slot === 'thrown' ? 50 : output?.slot === 'potion' ? 2

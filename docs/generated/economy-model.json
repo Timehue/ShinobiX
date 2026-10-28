@@ -820,7 +820,7 @@
       "system": "shop",
       "id": "ash-wrapped-tanto",
       "currency": "ryo",
-      "amount": 220,
+      "amount": 8800,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common hand"
@@ -838,7 +838,7 @@
       "system": "shop",
       "id": "ashen-leaf-saber",
       "currency": "ryo",
-      "amount": 480,
+      "amount": 19200,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare hand"
@@ -847,7 +847,7 @@
       "system": "shop",
       "id": "ashglass-katana",
       "currency": "ryo",
-      "amount": 1050,
+      "amount": 42000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic hand"
@@ -865,7 +865,7 @@
       "system": "shop",
       "id": "beast-seal-reinforced",
       "currency": "ryo",
-      "amount": 240,
+      "amount": 3600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon item"
@@ -874,7 +874,7 @@
       "system": "shop",
       "id": "beast-seal-worn",
       "currency": "ryo",
-      "amount": 80,
+      "amount": 1200,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common item"
@@ -892,7 +892,7 @@
       "system": "shop",
       "id": "blue-thread-dagger",
       "currency": "ryo",
-      "amount": 420,
+      "amount": 16800,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare hand"
@@ -955,7 +955,7 @@
       "system": "shop",
       "id": "chain-obi",
       "currency": "ryo",
-      "amount": 320,
+      "amount": 24000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare waist"
@@ -964,7 +964,7 @@
       "system": "shop",
       "id": "cloth-hood",
       "currency": "ryo",
-      "amount": 120,
+      "amount": 9000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common head"
@@ -973,7 +973,7 @@
       "system": "shop",
       "id": "cloth-pants",
       "currency": "ryo",
-      "amount": 105,
+      "amount": 7875,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common legs"
@@ -982,7 +982,7 @@
       "system": "shop",
       "id": "cloth-robe",
       "currency": "ryo",
-      "amount": 150,
+      "amount": 11250,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common body"
@@ -991,7 +991,7 @@
       "system": "shop",
       "id": "cloth-sandals",
       "currency": "ryo",
-      "amount": 75,
+      "amount": 5625,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common feet"
@@ -1000,7 +1000,7 @@
       "system": "shop",
       "id": "cloth-sash",
       "currency": "ryo",
-      "amount": 90,
+      "amount": 6750,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common waist"
@@ -1108,7 +1108,7 @@
       "system": "shop",
       "id": "consum-cleansing-incense",
       "currency": "ryo",
-      "amount": 1120,
+      "amount": 4480,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon item"
@@ -1117,7 +1117,7 @@
       "system": "shop",
       "id": "consum-lifeline-elixir",
       "currency": "ryo",
-      "amount": 1440,
+      "amount": 5760,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare item"
@@ -1126,7 +1126,7 @@
       "system": "shop",
       "id": "consum-phantom-charm",
       "currency": "ryo",
-      "amount": 960,
+      "amount": 3840,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon item"
@@ -1135,7 +1135,7 @@
       "system": "shop",
       "id": "consum-second-wind",
       "currency": "ryo",
-      "amount": 1600,
+      "amount": 6400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare item"
@@ -1144,7 +1144,7 @@
       "system": "shop",
       "id": "consum-smoke-pellet",
       "currency": "ryo",
-      "amount": 600,
+      "amount": 2400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon item"
@@ -1153,7 +1153,7 @@
       "system": "shop",
       "id": "consum-thornmail-oil",
       "currency": "ryo",
-      "amount": 1280,
+      "amount": 5120,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare item"
@@ -1162,7 +1162,7 @@
       "system": "shop",
       "id": "cracked-bone-dagger",
       "currency": "ryo",
-      "amount": 235,
+      "amount": 9400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common hand"
@@ -1270,7 +1270,7 @@
       "system": "shop",
       "id": "frostbite-cleaver",
       "currency": "ryo",
-      "amount": 980,
+      "amount": 39200,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic hand"
@@ -1306,7 +1306,7 @@
       "system": "shop",
       "id": "iron-fang-knuckles",
       "currency": "ryo",
-      "amount": 510,
+      "amount": 20400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare hand"
@@ -1315,7 +1315,7 @@
       "system": "shop",
       "id": "iron-kabuto",
       "currency": "ryo",
-      "amount": 400,
+      "amount": 30000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare head"
@@ -1378,7 +1378,7 @@
       "system": "shop",
       "id": "item-attack-pill",
       "currency": "ryo",
-      "amount": 320,
+      "amount": 1280,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare item"
@@ -1387,7 +1387,7 @@
       "system": "shop",
       "id": "item-defense-pill",
       "currency": "ryo",
-      "amount": 320,
+      "amount": 1280,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare item"
@@ -1396,7 +1396,7 @@
       "system": "shop",
       "id": "item-smoke-bomb",
       "currency": "ryo",
-      "amount": 360,
+      "amount": 1440,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare item"
@@ -1405,7 +1405,7 @@
       "system": "shop",
       "id": "leather-belt",
       "currency": "ryo",
-      "amount": 210,
+      "amount": 15750,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon waist"
@@ -1414,7 +1414,7 @@
       "system": "shop",
       "id": "leather-headband",
       "currency": "ryo",
-      "amount": 270,
+      "amount": 20250,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon head"
@@ -1531,7 +1531,7 @@
       "system": "shop",
       "id": "mistfang-tanto",
       "currency": "ryo",
-      "amount": 450,
+      "amount": 18000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare hand"
@@ -1540,7 +1540,7 @@
       "system": "shop",
       "id": "moonshadow-needleblade",
       "currency": "ryo",
-      "amount": 900,
+      "amount": 36000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic hand"
@@ -1549,7 +1549,7 @@
       "system": "shop",
       "id": "padded-leggings",
       "currency": "ryo",
-      "amount": 240,
+      "amount": 18000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon legs"
@@ -1558,7 +1558,7 @@
       "system": "shop",
       "id": "pet-treat",
       "currency": "ryo",
-      "amount": 400,
+      "amount": 1600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common item"
@@ -1567,7 +1567,7 @@
       "system": "shop",
       "id": "potion-rejuvenation",
       "currency": "ryo",
-      "amount": 1800,
+      "amount": 7200,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare potion"
@@ -1585,7 +1585,7 @@
       "system": "shop",
       "id": "pve-apex-predator-fang",
       "currency": "ryo",
-      "amount": 9600,
+      "amount": 28800,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1594,7 +1594,7 @@
       "system": "shop",
       "id": "pve-avengers-pendant",
       "currency": "ryo",
-      "amount": 4000,
+      "amount": 12000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1603,7 +1603,7 @@
       "system": "shop",
       "id": "pve-bloodbond-totem",
       "currency": "ryo",
-      "amount": 8000,
+      "amount": 24000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1612,7 +1612,7 @@
       "system": "shop",
       "id": "pve-frenzy-claw",
       "currency": "ryo",
-      "amount": 5600,
+      "amount": 16800,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1621,7 +1621,7 @@
       "system": "shop",
       "id": "pve-guardians-blessing",
       "currency": "ryo",
-      "amount": 5600,
+      "amount": 16800,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1630,7 +1630,7 @@
       "system": "shop",
       "id": "pve-hunters-bond-harness",
       "currency": "ryo",
-      "amount": 4800,
+      "amount": 14400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1639,7 +1639,7 @@
       "system": "shop",
       "id": "pve-loyal-companion-bell",
       "currency": "ryo",
-      "amount": 4800,
+      "amount": 14400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1648,7 +1648,7 @@
       "system": "shop",
       "id": "pve-pack-alpha-crest",
       "currency": "ryo",
-      "amount": 8800,
+      "amount": 26400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1657,7 +1657,7 @@
       "system": "shop",
       "id": "pve-predators-fang",
       "currency": "ryo",
-      "amount": 7200,
+      "amount": 21600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1666,7 +1666,7 @@
       "system": "shop",
       "id": "pve-sanguine-charm",
       "currency": "ryo",
-      "amount": 6400,
+      "amount": 19200,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic item"
@@ -1765,7 +1765,7 @@
       "system": "shop",
       "id": "rare-chest-plate",
       "currency": "ryo",
-      "amount": 500,
+      "amount": 37500,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare body"
@@ -1774,7 +1774,7 @@
       "system": "shop",
       "id": "rare-greaves",
       "currency": "ryo",
-      "amount": 360,
+      "amount": 27000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare legs"
@@ -1783,7 +1783,7 @@
       "system": "shop",
       "id": "rare-tabi",
       "currency": "ryo",
-      "amount": 300,
+      "amount": 22500,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare feet"
@@ -1792,7 +1792,7 @@
       "system": "shop",
       "id": "reinforced-vest",
       "currency": "ryo",
-      "amount": 330,
+      "amount": 24750,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon body"
@@ -1801,7 +1801,7 @@
       "system": "shop",
       "id": "riverbone-spear",
       "currency": "ryo",
-      "amount": 430,
+      "amount": 17200,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare hand"
@@ -1810,7 +1810,7 @@
       "system": "shop",
       "id": "rookie-chain-sickle",
       "currency": "ryo",
-      "amount": 210,
+      "amount": 8400,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common hand"
@@ -1819,7 +1819,7 @@
       "system": "shop",
       "id": "rustfang-kunai",
       "currency": "ryo",
-      "amount": 225,
+      "amount": 9000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common hand"
@@ -1873,7 +1873,7 @@
       "system": "shop",
       "id": "shinobi-boots",
       "currency": "ryo",
-      "amount": 195,
+      "amount": 14625,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon feet"
@@ -1882,7 +1882,7 @@
       "system": "shop",
       "id": "shinobi-vest",
       "currency": "ryo",
-      "amount": 60,
+      "amount": 4500,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common body"
@@ -1891,7 +1891,7 @@
       "system": "shop",
       "id": "spirit-leech-wakizashi",
       "currency": "ryo",
-      "amount": 850,
+      "amount": 34000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic hand"
@@ -1900,7 +1900,7 @@
       "system": "shop",
       "id": "stormcoil-kusarigama",
       "currency": "ryo",
-      "amount": 950,
+      "amount": 38000,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "epic hand"
@@ -1918,7 +1918,7 @@
       "system": "shop",
       "id": "thrown-senbon",
       "currency": "ryo",
-      "amount": 150,
+      "amount": 600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "uncommon thrown"
@@ -1927,7 +1927,7 @@
       "system": "shop",
       "id": "thrown-serpent-dust",
       "currency": "ryo",
-      "amount": 400,
+      "amount": 1600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "rare thrown"
@@ -1936,7 +1936,7 @@
       "system": "shop",
       "id": "thrown-shuriken",
       "currency": "ryo",
-      "amount": 400,
+      "amount": 1600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common thrown"
@@ -1945,7 +1945,7 @@
       "system": "shop",
       "id": "tool-basic-fishing-pole",
       "currency": "ryo",
-      "amount": 150,
+      "amount": 11250,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common fishingPole"
@@ -1954,7 +1954,7 @@
       "system": "shop",
       "id": "tool-basic-pickaxe",
       "currency": "ryo",
-      "amount": 150,
+      "amount": 11250,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common pickaxe"
@@ -1981,7 +1981,7 @@
       "system": "shop",
       "id": "training-katana",
       "currency": "ryo",
-      "amount": 240,
+      "amount": 9600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
       "notes": "common hand"
@@ -2138,6 +2138,312 @@
       "cadence": "per forge",
       "authority": "shared/named-forge-economy.ts",
       "notes": ""
+    },
+    {
+      "system": "craft",
+      "id": "gear-rare",
+      "currency": "ryo",
+      "amount": 24000,
+      "cadence": "per gear craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "Charged on top of the recipe materials."
+    },
+    {
+      "system": "craft",
+      "id": "gear-epic",
+      "currency": "ryo",
+      "amount": 56000,
+      "cadence": "per gear craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "Charged on top of the recipe materials."
+    },
+    {
+      "system": "craft",
+      "id": "gear-legendary",
+      "currency": "ryo",
+      "amount": 140000,
+      "cadence": "per gear craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "Charged on top of the recipe materials."
+    },
+    {
+      "system": "craft",
+      "id": "village-supply-bundle",
+      "currency": "ryo",
+      "amount": 30,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "village-supply-crate",
+      "currency": "ryo",
+      "amount": 100,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pet-treat",
+      "currency": "ryo",
+      "amount": 400,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "elemental-pet-treat",
+      "currency": "ryo",
+      "amount": 1000,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "ancient-pet-treat",
+      "currency": "ryo",
+      "amount": 2000,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "beast-seal-master",
+      "currency": "ryo",
+      "amount": 8000,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "currency:aura-dust",
+      "currency": "ryo",
+      "amount": 1500,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "currency:bone-charm",
+      "currency": "ryo",
+      "amount": 2500,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "thrown-shuriken",
+      "currency": "ryo",
+      "amount": 1200,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "thrown-senbon",
+      "currency": "ryo",
+      "amount": 150,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "thrown-serpent-dust",
+      "currency": "ryo",
+      "amount": 400,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "item-smoke-bomb",
+      "currency": "ryo",
+      "amount": 360,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "item-attack-pill",
+      "currency": "ryo",
+      "amount": 320,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "item-defense-pill",
+      "currency": "ryo",
+      "amount": 320,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "potion-rejuvenation",
+      "currency": "ryo",
+      "amount": 1800,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-hunters-bond-harness",
+      "currency": "ryo",
+      "amount": 3600,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-loyal-companion-bell",
+      "currency": "ryo",
+      "amount": 3600,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-frenzy-claw",
+      "currency": "ryo",
+      "amount": 4200,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-guardians-blessing",
+      "currency": "ryo",
+      "amount": 4200,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-sanguine-charm",
+      "currency": "ryo",
+      "amount": 4800,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-predators-fang",
+      "currency": "ryo",
+      "amount": 5400,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-avengers-pendant",
+      "currency": "ryo",
+      "amount": 3000,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-bloodbond-totem",
+      "currency": "ryo",
+      "amount": 6000,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-pack-alpha-crest",
+      "currency": "ryo",
+      "amount": 6600,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "pve-apex-predator-fang",
+      "currency": "ryo",
+      "amount": 7200,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "consum-phantom-charm",
+      "currency": "ryo",
+      "amount": 960,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "consum-smoke-pellet",
+      "currency": "ryo",
+      "amount": 600,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "consum-cleansing-incense",
+      "currency": "ryo",
+      "amount": 1120,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "consum-thornmail-oil",
+      "currency": "ryo",
+      "amount": 1280,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "consum-lifeline-elixir",
+      "currency": "ryo",
+      "amount": 1440,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+    },
+    {
+      "system": "craft",
+      "id": "consum-second-wind",
+      "currency": "ryo",
+      "amount": 1600,
+      "cadence": "per supply craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
       "system": "kage",
@@ -2354,7 +2660,7 @@
       "rarity": "common",
       "slot": "hand",
       "levelReq": 1,
-      "baseCost": 220,
+      "baseCost": 8800,
       "currency": "ryo"
     },
     {
@@ -2372,7 +2678,7 @@
       "rarity": "rare",
       "slot": "hand",
       "levelReq": 10,
-      "baseCost": 480,
+      "baseCost": 19200,
       "currency": "ryo"
     },
     {
@@ -2381,7 +2687,7 @@
       "rarity": "epic",
       "slot": "hand",
       "levelReq": 25,
-      "baseCost": 1050,
+      "baseCost": 42000,
       "currency": "ryo"
     },
     {
@@ -2399,7 +2705,7 @@
       "rarity": "uncommon",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 240,
+      "baseCost": 3600,
       "currency": "ryo"
     },
     {
@@ -2408,7 +2714,7 @@
       "rarity": "common",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 80,
+      "baseCost": 1200,
       "currency": "ryo"
     },
     {
@@ -2426,7 +2732,7 @@
       "rarity": "rare",
       "slot": "hand",
       "levelReq": 10,
-      "baseCost": 420,
+      "baseCost": 16800,
       "currency": "ryo"
     },
     {
@@ -2489,7 +2795,7 @@
       "rarity": "rare",
       "slot": "waist",
       "levelReq": 20,
-      "baseCost": 320,
+      "baseCost": 24000,
       "currency": "ryo"
     },
     {
@@ -2498,7 +2804,7 @@
       "rarity": "common",
       "slot": "head",
       "levelReq": 1,
-      "baseCost": 120,
+      "baseCost": 9000,
       "currency": "ryo"
     },
     {
@@ -2507,7 +2813,7 @@
       "rarity": "common",
       "slot": "legs",
       "levelReq": 1,
-      "baseCost": 105,
+      "baseCost": 7875,
       "currency": "ryo"
     },
     {
@@ -2516,7 +2822,7 @@
       "rarity": "common",
       "slot": "body",
       "levelReq": 1,
-      "baseCost": 150,
+      "baseCost": 11250,
       "currency": "ryo"
     },
     {
@@ -2525,7 +2831,7 @@
       "rarity": "common",
       "slot": "feet",
       "levelReq": 1,
-      "baseCost": 75,
+      "baseCost": 5625,
       "currency": "ryo"
     },
     {
@@ -2534,7 +2840,7 @@
       "rarity": "common",
       "slot": "waist",
       "levelReq": 1,
-      "baseCost": 90,
+      "baseCost": 6750,
       "currency": "ryo"
     },
     {
@@ -2642,7 +2948,7 @@
       "rarity": "uncommon",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 1120,
+      "baseCost": 4480,
       "currency": "ryo"
     },
     {
@@ -2651,7 +2957,7 @@
       "rarity": "rare",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 1440,
+      "baseCost": 5760,
       "currency": "ryo"
     },
     {
@@ -2660,7 +2966,7 @@
       "rarity": "uncommon",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 960,
+      "baseCost": 3840,
       "currency": "ryo"
     },
     {
@@ -2669,7 +2975,7 @@
       "rarity": "rare",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 1600,
+      "baseCost": 6400,
       "currency": "ryo"
     },
     {
@@ -2678,7 +2984,7 @@
       "rarity": "uncommon",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 600,
+      "baseCost": 2400,
       "currency": "ryo"
     },
     {
@@ -2687,7 +2993,7 @@
       "rarity": "rare",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 1280,
+      "baseCost": 5120,
       "currency": "ryo"
     },
     {
@@ -2696,7 +3002,7 @@
       "rarity": "common",
       "slot": "hand",
       "levelReq": 1,
-      "baseCost": 235,
+      "baseCost": 9400,
       "currency": "ryo"
     },
     {
@@ -2804,7 +3110,7 @@
       "rarity": "epic",
       "slot": "hand",
       "levelReq": 25,
-      "baseCost": 980,
+      "baseCost": 39200,
       "currency": "ryo"
     },
     {
@@ -2840,7 +3146,7 @@
       "rarity": "rare",
       "slot": "hand",
       "levelReq": 10,
-      "baseCost": 510,
+      "baseCost": 20400,
       "currency": "ryo"
     },
     {
@@ -2849,7 +3155,7 @@
       "rarity": "rare",
       "slot": "head",
       "levelReq": 20,
-      "baseCost": 400,
+      "baseCost": 30000,
       "currency": "ryo"
     },
     {
@@ -2912,7 +3218,7 @@
       "rarity": "rare",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 320,
+      "baseCost": 1280,
       "currency": "ryo"
     },
     {
@@ -2921,7 +3227,7 @@
       "rarity": "rare",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 320,
+      "baseCost": 1280,
       "currency": "ryo"
     },
     {
@@ -2930,7 +3236,7 @@
       "rarity": "rare",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 360,
+      "baseCost": 1440,
       "currency": "ryo"
     },
     {
@@ -2939,7 +3245,7 @@
       "rarity": "uncommon",
       "slot": "waist",
       "levelReq": 5,
-      "baseCost": 210,
+      "baseCost": 15750,
       "currency": "ryo"
     },
     {
@@ -2948,7 +3254,7 @@
       "rarity": "uncommon",
       "slot": "head",
       "levelReq": 5,
-      "baseCost": 270,
+      "baseCost": 20250,
       "currency": "ryo"
     },
     {
@@ -3065,7 +3371,7 @@
       "rarity": "rare",
       "slot": "hand",
       "levelReq": 10,
-      "baseCost": 450,
+      "baseCost": 18000,
       "currency": "ryo"
     },
     {
@@ -3074,7 +3380,7 @@
       "rarity": "epic",
       "slot": "hand",
       "levelReq": 25,
-      "baseCost": 900,
+      "baseCost": 36000,
       "currency": "ryo"
     },
     {
@@ -3083,7 +3389,7 @@
       "rarity": "uncommon",
       "slot": "legs",
       "levelReq": 5,
-      "baseCost": 240,
+      "baseCost": 18000,
       "currency": "ryo"
     },
     {
@@ -3092,7 +3398,7 @@
       "rarity": "common",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 400,
+      "baseCost": 1600,
       "currency": "ryo"
     },
     {
@@ -3101,7 +3407,7 @@
       "rarity": "rare",
       "slot": "potion",
       "levelReq": 1,
-      "baseCost": 1800,
+      "baseCost": 7200,
       "currency": "ryo"
     },
     {
@@ -3119,7 +3425,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 9600,
+      "baseCost": 28800,
       "currency": "ryo"
     },
     {
@@ -3128,7 +3434,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 4000,
+      "baseCost": 12000,
       "currency": "ryo"
     },
     {
@@ -3137,7 +3443,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 8000,
+      "baseCost": 24000,
       "currency": "ryo"
     },
     {
@@ -3146,7 +3452,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 5600,
+      "baseCost": 16800,
       "currency": "ryo"
     },
     {
@@ -3155,7 +3461,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 5600,
+      "baseCost": 16800,
       "currency": "ryo"
     },
     {
@@ -3164,7 +3470,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 4800,
+      "baseCost": 14400,
       "currency": "ryo"
     },
     {
@@ -3173,7 +3479,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 4800,
+      "baseCost": 14400,
       "currency": "ryo"
     },
     {
@@ -3182,7 +3488,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 8800,
+      "baseCost": 26400,
       "currency": "ryo"
     },
     {
@@ -3191,7 +3497,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 7200,
+      "baseCost": 21600,
       "currency": "ryo"
     },
     {
@@ -3200,7 +3506,7 @@
       "rarity": "epic",
       "slot": "item",
       "levelReq": 1,
-      "baseCost": 6400,
+      "baseCost": 19200,
       "currency": "ryo"
     },
     {
@@ -3299,7 +3605,7 @@
       "rarity": "rare",
       "slot": "body",
       "levelReq": 20,
-      "baseCost": 500,
+      "baseCost": 37500,
       "currency": "ryo"
     },
     {
@@ -3308,7 +3614,7 @@
       "rarity": "rare",
       "slot": "legs",
       "levelReq": 20,
-      "baseCost": 360,
+      "baseCost": 27000,
       "currency": "ryo"
     },
     {
@@ -3317,7 +3623,7 @@
       "rarity": "rare",
       "slot": "feet",
       "levelReq": 20,
-      "baseCost": 300,
+      "baseCost": 22500,
       "currency": "ryo"
     },
     {
@@ -3326,7 +3632,7 @@
       "rarity": "uncommon",
       "slot": "body",
       "levelReq": 5,
-      "baseCost": 330,
+      "baseCost": 24750,
       "currency": "ryo"
     },
     {
@@ -3335,7 +3641,7 @@
       "rarity": "rare",
       "slot": "hand",
       "levelReq": 10,
-      "baseCost": 430,
+      "baseCost": 17200,
       "currency": "ryo"
     },
     {
@@ -3344,7 +3650,7 @@
       "rarity": "common",
       "slot": "hand",
       "levelReq": 1,
-      "baseCost": 210,
+      "baseCost": 8400,
       "currency": "ryo"
     },
     {
@@ -3353,7 +3659,7 @@
       "rarity": "common",
       "slot": "hand",
       "levelReq": 1,
-      "baseCost": 225,
+      "baseCost": 9000,
       "currency": "ryo"
     },
     {
@@ -3407,7 +3713,7 @@
       "rarity": "uncommon",
       "slot": "feet",
       "levelReq": 5,
-      "baseCost": 195,
+      "baseCost": 14625,
       "currency": "ryo"
     },
     {
@@ -3416,7 +3722,7 @@
       "rarity": "common",
       "slot": "body",
       "levelReq": 1,
-      "baseCost": 60,
+      "baseCost": 4500,
       "currency": "ryo"
     },
     {
@@ -3425,7 +3731,7 @@
       "rarity": "epic",
       "slot": "hand",
       "levelReq": 25,
-      "baseCost": 850,
+      "baseCost": 34000,
       "currency": "ryo"
     },
     {
@@ -3434,7 +3740,7 @@
       "rarity": "epic",
       "slot": "hand",
       "levelReq": 25,
-      "baseCost": 950,
+      "baseCost": 38000,
       "currency": "ryo"
     },
     {
@@ -3452,7 +3758,7 @@
       "rarity": "uncommon",
       "slot": "thrown",
       "levelReq": 1,
-      "baseCost": 150,
+      "baseCost": 600,
       "currency": "ryo"
     },
     {
@@ -3461,7 +3767,7 @@
       "rarity": "rare",
       "slot": "thrown",
       "levelReq": 1,
-      "baseCost": 400,
+      "baseCost": 1600,
       "currency": "ryo"
     },
     {
@@ -3470,7 +3776,7 @@
       "rarity": "common",
       "slot": "thrown",
       "levelReq": 1,
-      "baseCost": 400,
+      "baseCost": 1600,
       "currency": "ryo"
     },
     {
@@ -3479,7 +3785,7 @@
       "rarity": "common",
       "slot": "fishingPole",
       "levelReq": 1,
-      "baseCost": 150,
+      "baseCost": 11250,
       "currency": "ryo"
     },
     {
@@ -3488,7 +3794,7 @@
       "rarity": "common",
       "slot": "pickaxe",
       "levelReq": 1,
-      "baseCost": 150,
+      "baseCost": 11250,
       "currency": "ryo"
     },
     {
@@ -3515,7 +3821,7 @@
       "rarity": "common",
       "slot": "hand",
       "levelReq": 1,
-      "baseCost": 240,
+      "baseCost": 9600,
       "currency": "ryo"
     },
     {

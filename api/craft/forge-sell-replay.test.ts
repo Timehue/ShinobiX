@@ -46,7 +46,7 @@ test('a replayed forge request returns the receipt without bumping _saveVersion'
     const player = 'forgereplay1';
     const dust = SUPPLY_CRAFT_RECIPES['currency:aura-dust'];
     await kv.set(`save:${player}`, { _saveVersion: 1, character: {
-        name: player, level: 100, ryo: 0, auraDust: 5, inventory: [],
+        name: player, level: 100, ryo: 10_000, auraDust: 5, inventory: [],
         itemStacks: dust.ingredients.map((row) => ({ itemId: row.ids[0], count: row.count })),
     } });
     const body = {

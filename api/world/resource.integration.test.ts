@@ -496,17 +496,17 @@ for (const challenge of [
 }
 
 test('both shop tool kinds persist their price, lifetime and independent equipment slots', async () => {
-    const name = 'resourcealltools'; await seed(name, { equipment: {}, ryo: 1000, fateShards: 150 });
+    const name = 'resourcealltools'; await seed(name, { equipment: {}, ryo: 100_000, fateShards: 150 });
     for (const [index, id] of ['tool-basic-pickaxe', 'tool-basic-fishing-pole', 'tool-golden-pickaxe', 'tool-golden-fishing-pole'].entries()) {
         const body = { playerName: name, itemId: id, qty: 99, requestId: `resource-shop-tools-00${index}` };
         const purchase = await post(name, body, true, purchaseHandler); assert.equal(purchase.status, 200);
         const premium = id.includes('golden');
-        assert.deepEqual(purchase.body.purchase, { id, qty: 1, currency: premium ? 'fateShards' : 'ryo', unitCost: premium ? 50 : 150, totalCost: premium ? 50 : 150 });
+        assert.deepEqual(purchase.body.purchase, { id, qty: 1, currency: premium ? 'fateShards' : 'ryo', unitCost: premium ? 50 : 11_250, totalCost: premium ? 50 : 11_250 });
         const replay = await post(name, body, true, purchaseHandler); assert.equal(replay.status, 200); assert.equal(replay.body.replayed, true);
         assert.equal((await post(name, { action: 'equip', itemId: id })).status, 200);
     }
     const saved = (await kv.get<Json>(`save:${name}`))!.character as Json;
-    assert.equal(saved.ryo, 700); assert.equal(saved.fateShards, 50);
+    assert.equal(saved.ryo, 100_000 - 2 * 11_250); assert.equal(saved.fateShards, 50);
     assert.deepEqual(saved.equipment, { pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole' });
     assert.equal((saved.gatheringToolUses as Json)['tool-basic-pickaxe'], 0);
     assert.equal((saved.gatheringToolUses as Json)['tool-basic-fishing-pole'], 0);

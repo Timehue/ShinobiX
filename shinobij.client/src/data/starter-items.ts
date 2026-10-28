@@ -1,6 +1,7 @@
 import { NON_STORY_RELICS } from '../../../shared/relics';
 import { outpostItems } from './outpost-items';
 import { buildGearSteps } from '../../../shared/gear-steps';
+import { withShopPrice } from '../../../shared/shop-pricing';
 /*
  * starterItems — the full catalog of canonical game items (armor / weapons /
  * consumables / event-specific drops / hunting materials).
@@ -1053,8 +1054,13 @@ for (const item of baseStarterItems) {
 /**
  * Base items plus their gear step drops (shared/gear-steps.ts). Step items use
  * the base item's art until their own art ships.
+ *
+ * The authored costs above are the pre-2026-10-27 prices. withShopPrice raises
+ * the ryo-priced shelf items to their current price and keeps the old cost as
+ * `saleBasis`, so buy-back is unchanged (shared/shop-pricing.ts). Gear steps are
+ * built from the authored items and cost 0, so the order here does not matter.
  */
-export const starterItems: GameItem[] = [...baseStarterItems, ...buildGearSteps(baseStarterItems), ...outpostItems];
+export const starterItems: GameItem[] = [...baseStarterItems, ...buildGearSteps(baseStarterItems), ...outpostItems].map(withShopPrice);
 
 /** Canonical fallback for server-sealed fighters whose compact item rows omit art. */
 const starterItemArtworkById = new Map(
