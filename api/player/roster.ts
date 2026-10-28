@@ -12,6 +12,8 @@ import { earnedStatPoints } from '../_xp-engine.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { readKvProjection } from '../_storage-projection.js';
 import { publicAchievementRecord } from '../achievements/_public.js';
+import { sectorSleepers } from './_sector-sleepers.js';
+import { isWildSector } from '../../shared/sector-geo.js';
 
 const FULL_ROSTER_CACHE_KEY = 'player:roster:full';
 const FULL_ROSTER_CACHE_TTL_MS = 60_000;
@@ -184,6 +186,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // PET_PUBLIC_FIELDS whitelist before going out.
 
     try {
+        if (req.query.sector !== undefined) {
+            const sector = Number(req.query.sector);
+            if (typeof req.query.sector !== 'string' || (!isWildSector(sector) && sector !== 99))
+                return res.status(400).json({ error: 'Invalid sector.' });
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(200).json({ sector, sleepers: await sectorSleepers(sector) });
+        }
         // Live presence comes from the in-memory store (no DB scan). `name` is
         // already lowercased; `character` is the slim presence character.
         const presenceEntries = onlineStore.list();
@@ -246,7 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const save = rawSave
                     ? settleSaveRecord(rawSave, { battleLocked: battleLocks.get(key) === true }).record
                     : null;
-                const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
+                const livePresence = livePresenceByName.get(safeName(String(entry.name ?? key)));
                 const slug = safeName(String(entry.name ?? key));
                 let sleeperCamp = livePresence ? undefined : sleeperCamps.get(slug);
                 const persistedTravel = parseTravelLease(rawTravelLeases[i]);
@@ -325,7 +334,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     level: entry.level ?? 1,
                     village: entry.village ?? '',
                     specialty: entry.specialty ?? '',
-                    online: onlineNames.has((entry.name ?? '').toLowerCase()),
+                    online: onlineNames.has(slug),
                     character,
                     eligiblePets: projectEligibleRosterPets(fullCharacter),
                     currentSector: livePresence ? normalizeSector(livePresence.sector, 0) : (sleeperCamp?.sector ?? 0),
@@ -361,7 +370,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // or the rare window where a save's registry upsert lagged. We already
         // hold every live presence (no extra reads), so source the supplement
         // from there instead of scanning the save tree.
-        const seen = new Set(players.map(p => p.name.toLowerCase()));
+        const seen = new Set(players.map(p => safeName(p.name)));
         for (const entry of presenceEntries) {
             const lname = entry.name.toLowerCase();
             if (seen.has(lname)) continue;
