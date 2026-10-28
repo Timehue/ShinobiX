@@ -47,6 +47,10 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
     const { runtimePetModels } = await import('./lib/pet-runtime-audit.mjs');
     const repo = resolve(import.meta.dirname, '../..');
     const base = process.argv.find(a => a.startsWith('--changed-from='))?.slice(15);
+    // The receipt checks above (asset, LOD, atlas and renderer hashes, clips, views) need no
+    // screenshots. Re-hashing every cited screenshot reads ~7 GB; CI runs that half only when
+    // something under docs/ or this gate changed (the pet-review-evidence job).
+    const skipEvidence = process.argv.includes('--skip-evidence');
     const receiptPath = process.argv.find(a => a.startsWith('--receipts='))?.slice(11) ?? resolve(repo, 'docs/audits/pet-animation-shape-reviews.json');
     const receipts = JSON.parse(await readFile(receiptPath, 'utf8'));
     let selected = runtimePetModels;
@@ -69,7 +73,7 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
             atlasSha256:createHash('sha256').update(await readFile(resolve(repo,'shinobij.client/public/pet-models/warfront-impostors',local.replace(/\.glb$/,'.webp')))).digest('hex'), rendererSha256 });
     }
     const failures = petShapeReviewFailures(models,receipts.pets);
-    for(const model of models)if(receipts.pets[model.id])failures.push(...(await petReviewEvidenceFailures(repo,receipts.pets[model.id])).map(f=>`${model.id}: ${f}`));
-    console.log(JSON.stringify({ reviewedModels:models.length, scope:base ? 'changed-models' : 'entire-roster', failures },null,2));
+    if(!skipEvidence)for(const model of models)if(receipts.pets[model.id])failures.push(...(await petReviewEvidenceFailures(repo,receipts.pets[model.id])).map(f=>`${model.id}: ${f}`));
+    console.log(JSON.stringify({ reviewedModels:models.length, scope:base ? 'changed-models' : 'entire-roster', evidence:skipEvidence ? 'skipped' : 'verified', failures },null,2));
     if (failures.length) process.exitCode=1;
 }
