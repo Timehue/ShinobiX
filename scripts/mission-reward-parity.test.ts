@@ -13,7 +13,7 @@ import { COMBAT_MISSIONS as CLIENT_COMBAT } from '../shinobij.client/src/data/co
  * stale rewards on the cards.
  *
  * It lives in scripts/ because it imports BOTH sides: api/** is compiled by
- * tsconfig.cpanel.json, which excludes shinobij.client, so a server-side test
+ * tsconfig.server.json, which excludes shinobij.client, so a server-side test
  * cannot import client data (the same home as chest-pool-parity).
  */
 

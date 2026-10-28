@@ -2,7 +2,7 @@
  * Post-build sanity check for the cPanel/Passenger bundle.
  *
  * `dist/` is committed and served by Passenger (app.js → require('./dist/server.js')),
- * and `tsconfig.cpanel.json` sets noEmitOnError:false so a broken or empty
+ * and `tsconfig.server.json` sets noEmitOnError:false so a broken or empty
  * compile can still leave a half-written server.js behind. This guard runs at
  * the end of `npm run build` and fails the build LOUDLY if the server bundle is
  * missing or obviously truncated — far better than committing a stale/broken

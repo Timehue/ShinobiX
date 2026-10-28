@@ -2,9 +2,9 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
-const { buildHardcodedDnsMap, cleanDnsHost, cleanIpv4, makeCustomLookup } = require('./cpanel-dns.cjs');
+const { buildHardcodedDnsMap, cleanDnsHost, cleanIpv4, makeCustomLookup } = require('./supabase-dns.cjs');
 
-describe('cpanel-dns', () => {
+describe('supabase-dns', () => {
     it('stays disabled when no cPanel DNS env is configured', () => {
         assert.deepEqual(buildHardcodedDnsMap({}), {});
     });

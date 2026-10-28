@@ -88,7 +88,7 @@ describe('buildShowdownAiTeam', () => {
     // lives client-side, in shinobij.client/src/lib/pet-showdown-identity.test
     // .ts. It has to: the approved roster is a CLIENT module, and importing it
     // from here drags the client's ESM sources into the server's CommonJS build
-    // (`tsc -p tsconfig.cpanel.json`), which fails the build even though tsx
+    // (`tsc -p tsconfig.server.json`), which fails the build even though tsx
     // runs the test happily. The two pools are held equal by the existing pet
     // catalog parity test.
 

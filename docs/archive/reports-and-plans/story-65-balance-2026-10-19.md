@@ -1,6 +1,6 @@
 # Level-65 village story boss balance — 2026-10-19
 
-**Historical pass:** the [two-nature follow-up](story-65-two-nature-balance-2026-10-19.md) supersedes this report's level-65 acceptance evidence and makes a small further damage reduction. The recorded results below describe the earlier four-nature fixture and settings.
+**Historical pass:** the [two-nature follow-up](../../story-65-two-nature-balance-2026-10-19.md) supersedes this report's level-65 acceptance evidence and makes a small further damage reduction. The recorded results below describe the earlier four-nature fixture and settings.
 
 The other level-65 bosses needed different changes. Ashen Leaf and Frostfang were too forgiving; Moonshadow's burst and uneven school defenses made three ordinary builds lose. All eight tested builds now clear each boss with less than 40% HP remaining. Stormveil's production tuning is unchanged.
 
@@ -23,7 +23,7 @@ The group damage scales use the existing resolver multiplier already consumed by
 
 ## Method and practical limits
 
-**Follow-up qualification:** the [level-75/85/100 audit](story-late-balance-2026-10-19.md) added nature-ownership validation. The older fixture used techniques from four natures, so its point budgets and engine results remain synthetic evidence, not proof for a normally acquired two-nature character. The later audit uses strictly acquired two-nature fixtures. This qualification does not change the level-65 production settings or the recorded outcomes below.
+**Follow-up qualification:** the [level-75/85/100 audit](../../story-late-balance-2026-10-19.md) added nature-ownership validation. The older fixture used techniques from four natures, so its point budgets and engine results remain synthetic evidence, not proof for a normally acquired two-nature character. The later audit uses strictly acquired two-nature fixtures. This qualification does not change the level-65 production settings or the recorded outcomes below.
 
 Each standard set contains all four schools, each with balanced and focused legal stat allocations at exactly level 65. Loadouts use ordinary level-five shop armor (1,245 ryo), mastery capped at 10, real catalog techniques, and no pet, bloodline, relic, consumable or resource reset. The player policy uses visible HP, range and effects: attacks, movement, healing, Clear and Cleanse. It does not simulate future enemy turns to choose an outcome or optimize every utility technique.
 

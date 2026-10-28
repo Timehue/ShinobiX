@@ -30,7 +30,7 @@
 - No reward rate, currency payout, drop chance, daily cap, combat formula, or save schema changes without a separate balance and implementation review.
 - Keep environmental presentation inexpensive: prefer static art, restrained transitions, and clear UI cues over continuous particles, extra canvases, or per-tile animation.
 
-See the current owners: [Hollow Gate gameplay loop](hollow-gate-loop.md), [Hollow Gate server and augment contract](hollow-gate-augments.md), and [Stronghold design and validation](stronghold/README.md). The existing [Anbu Infiltration plan](anbu-infiltration-plan.md) remains the owner for raid rewards and economy boundaries.
+See the current owners: [Hollow Gate gameplay loop](../../hollow-gate-loop.md), [Hollow Gate server and augment contract](../../hollow-gate-augments.md), and [Stronghold design and validation](../../stronghold/README.md). The existing [Anbu Infiltration plan](../../anbu-infiltration-plan.md) remains the owner for raid rewards and economy boundaries.
 
 ## Recommended sequence
 

@@ -10,8 +10,13 @@ on:
     branches: [main]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Per-COMMIT on push, per-branch on pull_request (same shape as codeql.yml).
+  # A single main group let each push cancel the previous main run mid-flight:
+  # 66 of the last 300 CI runs were cancelled, so many main commits never got a
+  # full result and the railway-deploy-branch workflow, which waits on green CI
+  # for main, had nothing to promote. PRs still collapse onto the branch head.
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Every gate below pipes to `tee` to retain evidence. GitHub's DEFAULT shell for
 # `run:` is `bash -e {0}` with NO pipefail, so a piped step reports `tee`'s exit
