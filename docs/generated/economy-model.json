@@ -1918,10 +1918,10 @@
       "system": "shop",
       "id": "thrown-senbon",
       "currency": "ryo",
-      "amount": 600,
+      "amount": 1600,
       "cadence": "per unit",
       "authority": "api/pvp/_item-catalog.ts",
-      "notes": "uncommon thrown"
+      "notes": "rare thrown"
     },
     {
       "system": "shop",
@@ -2251,7 +2251,7 @@
       "system": "craft",
       "id": "thrown-senbon",
       "currency": "ryo",
-      "amount": 150,
+      "amount": 400,
       "cadence": "per supply craft",
       "authority": "shared/craft-fees.ts",
       "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
@@ -3755,10 +3755,10 @@
     {
       "id": "thrown-senbon",
       "name": "Senbon",
-      "rarity": "uncommon",
+      "rarity": "rare",
       "slot": "thrown",
       "levelReq": 1,
-      "baseCost": 600,
+      "baseCost": 1600,
       "currency": "ryo"
     },
     {

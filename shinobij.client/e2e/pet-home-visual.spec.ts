@@ -473,22 +473,32 @@ async function expectCompanionAvatars(page: Page, selector: string, expected: nu
     for (let index = 0; index < expected; index += 1) {
         const frame = frames.nth(index);
         await frame.scrollIntoViewIfNeeded();
-        const image = frame.locator("img");
-        await expect(image).toHaveCount(1);
-        await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
-        await expect(image).toHaveAttribute("data-pet-art", "scenic");
-        await expect(image).toHaveCSS("object-fit", "contain");
-        await expect(image).toHaveCSS("object-position", "50% 50%");
-        await expect(image).toHaveCSS("padding", "0px");
-        const bounds = await frame.boundingBox();
-        expect(bounds).not.toBeNull();
-        expect(Math.abs(bounds!.width - bounds!.height)).toBeLessThan(1.5);
-        expect(await image.evaluate((node: HTMLImageElement) => {
-            const art = node.parentElement!.getBoundingClientRect();
-            const avatar = node.getBoundingClientRect();
-            return avatar.left >= art.left - 1 && avatar.top >= art.top - 1
-                && avatar.right <= art.right + 1 && avatar.bottom <= art.bottom + 1;
-        })).toBe(true);
+        // Read the same image and geometry requirements together. Individual
+        // browser round trips for every CSS property exhaust slow WebKit runs
+        // before this multi-screen workflow reaches Sanctuary and the Hatchery.
+        await expect.poll(() => frame.evaluate(element => {
+            const images = element.querySelectorAll<HTMLImageElement>("img");
+            const image = images[0];
+            if (!image) return { imageCount: images.length };
+            const style = getComputedStyle(image);
+            const bounds = element.getBoundingClientRect();
+            const art = image.parentElement!.getBoundingClientRect();
+            const avatar = image.getBoundingClientRect();
+            return {
+                imageCount: images.length,
+                loaded: image.complete && image.naturalWidth > 0,
+                art: image.getAttribute("data-pet-art"),
+                objectFit: style.objectFit,
+                objectPosition: style.objectPosition,
+                padding: style.padding,
+                square: bounds.width > 0 && Math.abs(bounds.width - bounds.height) < 1.5,
+                contained: avatar.left >= art.left - 1 && avatar.top >= art.top - 1
+                    && avatar.right <= art.right + 1 && avatar.bottom <= art.bottom + 1,
+            };
+        })).toEqual({
+            imageCount: 1, loaded: true, art: "scenic", objectFit: "contain",
+            objectPosition: "50% 50%", padding: "0px", square: true, contained: true,
+        });
     }
 }
 

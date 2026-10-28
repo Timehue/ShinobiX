@@ -24,7 +24,7 @@ export type PlayerSaveMutation<T> =
         character: PlayerCharacter;
         value: T;
         recordPatch?: PlayerSaveRecord;
-        atomicProof?: { key: string; value: unknown; ex: number };
+        atomicProof?: { key: string; expected?: unknown; value: unknown; ex: number };
         write?: boolean;
         /**
          * Overrides the call's `options.hollowGateCurrencySource` for this one
@@ -86,7 +86,7 @@ export type PlayerSaveMutationResult<T> =
 
 /** Write options shared by the versioned writers. */
 export type VersionedWriteOptions = {
-    atomicProof?: { key: string; value: unknown; ex: number };
+    atomicProof?: { key: string; expected?: unknown; value: unknown; ex: number };
     /** The regeneration cursor to carry (see bumpSaveVersion); omitted = fence to now. */
     regenAt?: number;
     /** Run rewards are already recorded in the run ledger; sanctify absorbs the external baseline. */

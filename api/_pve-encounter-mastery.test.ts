@@ -40,8 +40,14 @@ test('builder seals tier mastery, difficulty and safe identity art for this enco
             jutsu: [{ id: 'hit', name: 'Hit', type: 'Ninjutsu', ap: 60, effectPower: 36, cooldown: 7 }] },
     });
     const standard = build('standard'), elite = build('elite');
-    assert.deepEqual(standard.enemy.character.jutsuMastery, [{ jutsuId: 'hit', level: 50 }]);
-    assert.deepEqual(elite.enemy.character.jutsuMastery, [{ jutsuId: 'hit', level: 50 }]);
+    for (const encounter of [standard, elite]) {
+        const mastery = encounter.enemy.character.jutsuMastery as Array<{ jutsuId: string; level: number }>;
+        const kit = encounter.enemy.character.jutsu as Array<{ id: string }>;
+        assert.equal(mastery.find(entry => entry.jutsuId === 'hit')?.level, 50, 'the authored technique keeps its tier mastery');
+        assert.equal(mastery.find(entry => entry.jutsuId === 'starter-universal-flicker')?.level, 50, 'learned movement uses the same tier mastery');
+        assert.deepEqual(mastery.map(entry => entry.jutsuId).sort(), kit.map(jutsu => jutsu.id).sort(), 'every sealed technique has exactly one mastery entry');
+        assert.ok(mastery.every(entry => entry.level === 50), 'supplemental techniques do not inflate mastery');
+    }
     assert.equal(standard.enemy.character.avatarImage, '/portraits/npc.webp');
     assert.equal(standard.enemy.character.pveDifficulty, 'standard');
     assert.equal(standard.enemy.maxHp, elite.enemy.maxHp, 'mastery adds no HP');

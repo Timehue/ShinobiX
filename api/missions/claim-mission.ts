@@ -12,7 +12,7 @@ import { advanceLastDailyReset } from '../_daily-reset-stamp.js';
 import { randomInt } from 'node:crypto';
 import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 import { combinedStatBoost } from '../_stat-growth.js';
-import { reserveDailyStatPoints, type DailyStatBudgetView } from '../_daily-stat-budget.js';
+import { dailyStatBudgetReply, reserveDailyStatPoints, type DailyStatBudgetView } from '../_daily-stat-budget.js';
 import { boostMultiplier } from '../_boost-event.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
@@ -58,6 +58,7 @@ import {
     ACADEMY_TRIAL,
     ACADEMY_CHECKLIST,
     FIELD_MISSION_STAT_POINTS,
+    COMBAT_MISSION_STAT_POINTS,
     ACADEMY_TRIAL_STAT_POINTS,
     ACADEMY_CHECKLIST_STAT_POINTS,
     DROP_ROLL_SCALE,
@@ -275,7 +276,7 @@ type ClaimOutcome =
         };
         combat?: { aiProfileId: string; missionKey: string };
         completion: 'daily' | 'total' | 'none' | 'hunt';
-        /** The shared daily stat-point budget after a hunt / field claim (owner A9). */
+        /** The shared daily stat-point budget after a repeatable mission claim. */
         statBudget?: DailyStatBudgetView;
         replayed?: boolean;
         combatRunId?: string;
@@ -1039,7 +1040,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // is baseStatPoints — pool points on every field/hunt claim, drawn
             // from the shared daily stat-point budget, and one-time capstones
             // (apex, academy) outside it.
-            // Repeatable combat-mission slots pay ryo only (the farm-bound).
+            // Combat claims pay one unboosted point within that same budget.
             let baseRyo = 0, baseStamina = 0;
             let baseStatPoints = 0;
             let boostStatPoints = false; // true only for the budgeted hunt / field claims
@@ -1101,10 +1102,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
                 // A cap-blocked claim leaves that authority untouched so it can be
                 // used after the daily reset.
-                // Repeatable combat-mission slots are the unlimited-repeat channel:
-                // ryo only, no stat points (the once-per-day checklist and
-                // training are where growth lives).
+                // Seal one unboosted pool point with the existing run-bound
+                // payout, so retries cannot award the point twice.
                 baseRyo = combatDef.ryo;
+                baseStatPoints = COMBAT_MISSION_STAT_POINTS;
                 combat = { aiProfileId: combatDef.aiProfileId, missionKey: combatDef.key };
                 completion = 'daily';
             } else if (missionType === 'field') {
@@ -1259,12 +1260,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // their fixed value outside the budget.
             let statPointsGranted = 0;
             let statBudget: DailyStatBudgetView | undefined;
-            if (baseStatPoints > 0 && boostStatPoints) {
-                const requested = Math.max(0, Math.round(baseStatPoints * combinedStatBoost(bonusPct + huntRankBonusPct) * growthEventBoost));
+            if (baseStatPoints > 0 && (boostStatPoints || combatToken)) {
+                const requested = boostStatPoints
+                    ? Math.max(0, Math.round(baseStatPoints * combinedStatBoost(bonusPct + huntRankBonusPct) * growthEventBoost))
+                    : baseStatPoints;
                 const reserved = await reserveDailyStatPoints(kv, {
                     playerName,
-                    receiptId: `mission:${missionReceipt}`,
-                    eventAt: Date.now(),
+                    // A repeatable combat mission needs one allocation per won
+                    // run. Anchor retries to its authoritative win day so a
+                    // retry across UTC midnight cannot reserve a second day.
+                    receiptId: combatToken ? `mission-combat:${combatToken.runId}` : `mission:${missionReceipt}`,
+                    eventAt: combatToken ? combatToken.wonAt : Date.now(),
                     requested,
                 });
                 statPointsGranted = reserved.points;
@@ -1554,7 +1560,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 combatSettlementFingerprint: _combatSettlementFingerprint,
                 ...body
             } = outcome;
-            return res.status(200).json({ ok: true, ...body, character: finalCharacter, _saveVersion: finalSaveVersion });
+            // Combat receipts also replay after a lost response or payout
+            // recovery. Always refresh the display-only current-day budget;
+            // the sealed reward itself stays unchanged.
+            const combatBudget = outcome.combat ? await dailyStatBudgetReply(kv, playerName) : {};
+            return res.status(200).json({ ok: true, ...body, ...combatBudget, character: finalCharacter, _saveVersion: finalSaveVersion });
         }
         // Aggregate-only beta signal for hostile/replayed and failed reward
         // attempts. No player identifier or request body is recorded.

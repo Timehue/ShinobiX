@@ -330,7 +330,8 @@ const baseStarterItems: GameItem[] = [
         rarity: "common",
         cost: 400,
         image: "/items/shop-shuriken-v1.webp",
-        description: "Standard-issue throwing star. Deals 18 EP damage at range 4.",
+        description: "A throwing star with 18 EP and range 4. Deals immediate damage with no lingering effect. Costs 20 AP, has a 5-round cooldown, and consumes one Shuriken per throw.",
+        weaponRange: 4,
         weaponEp: 18,
         apCost: 20,
         weaponCooldown: 5,
@@ -340,15 +341,13 @@ const baseStarterItems: GameItem[] = [
         id: "thrown-senbon",
         name: "Senbon",
         slot: "thrown",
-        // Uncommon at 150 (2026-10 item-use pass): the cheap bleed throw. At 400 ryo
-        // and Lv30 it lost to the Lv1, 400-ryo Shuriken on every count.
-        rarity: "uncommon",
-        cost: 150,
+        rarity: "rare",
+        cost: 400,
         image: "/items/shop-senbon-v1.webp",
-        description: "Throwing needles that deal damage and apply Wound. Starting next round, the target bleeds for 25% of the damage dealt per turn for 2 rounds, and the bleed still lands through Smoke Bomb. Cleanse can remove the bleed.",
-        weaponEp: 0,
+        description: "Throwing needles with 10 EP and range 4. A damaging hit applies Wound: starting next round, the target bleeds for 25% of the damage dealt at turn end for 2 rounds. Cleanse can remove the bleed. Costs 20 AP, has a 5-round cooldown, and consumes one Senbon per throw.",
+        weaponRange: 4,
+        weaponEp: 10,
         weaponEffect: "Wound",
-        // The applied value: thrown Wound is capped at 25% of the hit (combat-core/formulas.ts).
         weaponEffectValue: 25,
         apCost: 20,
         weaponCooldown: 5,
@@ -361,12 +360,13 @@ const baseStarterItems: GameItem[] = [
         rarity: "rare",
         cost: 400,
         image: "/items/shop-serpent-dust-v1.webp",
-        description: "A throwable poison powder. Applies Poison for 2 rounds, starting next round. The target loses HP when a jutsu spends chakra or stamina; free casts do not trigger Poison.",
+        description: "Poison powder that deals a light hit at range 4 and applies 6% Poison for 2 rounds, starting next round. Poison damage scales with chakra or stamina spent on jutsu; free casts do not trigger it. Cleanse can remove the poison. Costs 20 AP, has a 5-round cooldown, and consumes one Serpent Dust per throw.",
+        weaponRange: 4,
         weaponEp: 0,
         weaponEffect: "Poison",
-        // Poison potency, not the amp scale: 55 made one 20-AP throw cost the victim
-        // ~24% of max HP per 60-AP cast. 10 is the basic Poison ceiling.
-        weaponEffectValue: 10,
+        // Exertion-based potency: 6% × POISON_SPEND_FACTOR (12) = 72% of
+        // resources spent as HP damage before mitigation, not 6% of max HP.
+        weaponEffectValue: 6,
         apCost: 20,
         weaponCooldown: 5,
         bonuses: {},

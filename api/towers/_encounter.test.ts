@@ -26,6 +26,20 @@ function build(floor: TowerFloor, squad: SquadMemberInput[], over: Partial<Param
 }
 
 describe('Battle Towers encounter builder (P1.B)', () => {
+    it('seals one finite NPC pouch across the roster and delayed waves', () => {
+        const floor = FLOOR_CATALOG.find(candidate => candidate.enemies.some(row => Number(row.spawnRound) > 1))!;
+        assert.ok(floor);
+        const session = build(floor, [strongMember('sq-0')], { gapClosingJutsu: [] });
+        assert.ok(session.pendingEnemyWaves?.length);
+        const enemies = [...session.actors, ...(session.pendingEnemyWaves ?? []).flatMap(wave => wave.actors)]
+            .filter(actor => actor.side === 'enemy');
+        assert.ok(enemies.length > 1);
+        for (const id of ['thrown-shuriken', 'item-attack-pill', 'item-defense-pill', 'item-smoke-bomb']) {
+            assert.equal(enemies.reduce((n, actor) => n + (actor.itemCharges?.[id] ?? 0), 0), 1);
+            assert.equal(enemies.reduce((n, actor) => n + (actor.character.inventory as string[]).filter(item => item === id).length, 0), 1);
+        }
+        for (const actor of enemies) assert.ok((actor.character.jutsu as Array<{id: string}>).some(j => j.id === 'starter-universal-flicker'));
+    });
     it('builds squad + enemy actors with sane sides and in-bounds positions', () => {
         const s = build(smallFloor(), [strongMember('sq-0'), strongMember('sq-1')]);
         assert.equal(s.actors.filter(a => a.side === 'squad').length, 2);

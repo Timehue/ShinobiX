@@ -140,6 +140,7 @@ test('sealed ordinary identity, level and real portrait survive refresh, victory
     if (await actionsTab.isVisible()) await actionsTab.click();
 
     await page.getByRole('button', { name: /^Attack\b/ }).click();
+    await page.locator('#combat button.hex-tile.hex-enemy.jutsu-target-tile').click();
     const victory = page.getByRole('dialog', { name: 'Fight won', exact: true });
     await expect(victory).toBeVisible({ timeout: 30_000 });
     await expect(victory.getByRole('heading')).toHaveText(`${encounter.name} defeated.`);

@@ -39,12 +39,16 @@ test('authored groups finish through original routes and pay/progress exactly on
             // Controlled last hits keep lifecycle testing independent of balance.
             s.huntCombat!.battle.actors[0].hp = s.huntCombat!.battle.actors[0].maxHp;
             s.huntCombat!.battle.actors[0].character.jutsu = [groupFinisher];
-            s.huntCombat!.battle.actors.find(a => a.id === id)!.hp = 1;
-            await writeSoloPveSession(s);
             if (i) {
+                await writeSoloPveSession(s);
                 const wait = await call(action, name, { sessionId: s.sessionId, expectedVersion: s.version, moveToken: `group-wait-${++seq}`, type: 'huntAction', action: { type: 'wait' } });
                 assert.equal(wait.status, 200, JSON.stringify(wait.body)); s = wait.body.session as SoloPveSession;
             }
+            // The enemy turn may add shields or smoke. Set up the controlled
+            // last hit afterwards; this test owns settlement, not AI balance.
+            const target = s.huntCombat!.battle.actors.find(a => a.id === id)!;
+            target.hp = 1; target.shield = 0; target.statuses = [];
+            await writeSoloPveSession(s);
             const hit = await call(action, name, { sessionId: s.sessionId, expectedVersion: s.version, moveToken: `group-hit-${++seq}`, type: 'huntAction', action: { type: 'jutsu', jutsuId: groupFinisher.id, targetId: id } });
             assert.equal(hit.status, 200, JSON.stringify(hit.body)); assert.equal(hit.body.applied, true, JSON.stringify(hit.body));
             s = hit.body.session as SoloPveSession;

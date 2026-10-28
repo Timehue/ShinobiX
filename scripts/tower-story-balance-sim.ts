@@ -144,7 +144,7 @@ export function simulateStoryFloor(floorId: number, size = 4, seeds = 12, level?
     for (let index = 0; index < seeds; index++) {
         const seed = 101 + (index + (options.seedOffset ?? 0)) * 7919;
         const session = buildTowerEncounter({ floor, squad: storySquad(level ?? floor.recommendedLevel ?? 30, size, composition, prepared, options.gearProfile),
-            partySize: size, runId: `story-sim-${floorId}-${index}`, seed, now: 0 });
+            partySize: size, runId: `story-sim-${floorId}-${index}`, seed, now: 0, gapClosingJutsu: [] });
         // Match /start's deployed setup, including enemy mastery and the PvE
         // damage guard. Omitting either misrepresents real encounter pressure.
         applyTowerRouteChoice(session, options.routeChoice ?? 'rest-shrine');

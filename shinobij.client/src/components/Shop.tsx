@@ -409,10 +409,10 @@ function ShopBase({
                                     <p><strong>Rarity:</strong> {selectedItem.rarity}</p>
                                     <p><strong>Item Type:</strong> {equipmentSlotLabel(selectedItem.slot)}</p>
                                     <p><strong>Hidden:</strong> no</p>
-                                    <p><strong>Range:</strong> {selectedItem.weaponRange ?? 0}</p>
+                                    <p><strong>Range:</strong> {selectedItem.weaponRange ?? (normalizeEquipmentSlot(selectedItem.slot) === "thrown" ? 4 : 0)}</p>
                                     <p><strong>Destroy on use:</strong> {stackableItemIds.has(selectedItem.id) ? "yes" : "no"}</p>
-                                    <p><strong>Action Usage:</strong> {selectedItem.weaponEp ? `${selectedItem.apCost ?? 40} AP` : "0%"}</p>
-                                    <p><strong>Target:</strong> self</p>
+                                    <p><strong>Action Usage:</strong> {selectedItem.apCost != null || selectedItem.weaponEp ? `${selectedItem.apCost ?? 40} AP` : "0%"}</p>
+                                    <p><strong>Target:</strong> {normalizeEquipmentSlot(selectedItem.slot) === "thrown" ? "opponent" : "self"}</p>
                                     <p><strong>Method:</strong> single</p>
                                     <p><strong>Weapon:</strong> {normalizeEquipmentSlot(selectedItem.slot) === "hand" ? "yes" : "none"}</p>
                                     <p><strong>Equip:</strong> {!stackableItemIds.has(selectedItem.id) && ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? "yes" : "no"}</p>

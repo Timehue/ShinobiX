@@ -670,6 +670,7 @@ test('real built client completes and recovers a server-owned combat mission', a
     await claimableMission.getByRole('button', { name: /Claim reward/ }).click();
     const claimed = await (await claimResponse).json() as Record<string, unknown>;
     expect(claimed.applied).toBe(true);
+    expect(claimed.reward).toMatchObject({ statPoints: 1 });
     const claimedCharacter = claimed.character as Record<string, unknown>;
     const achievementSync = await (await achievementSyncResponse).json() as Record<string, unknown> & {
         reward?: { ryo?: unknown };

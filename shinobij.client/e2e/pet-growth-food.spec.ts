@@ -22,7 +22,10 @@ test('growth specializes beyond five with rounded previews, persisted investment
     const openGrowth = () => page.getByRole('navigation', { name: 'Pet Yard activities' }).getByRole('button', { name: /Growth & training/ }).click();
     await openGrowth();
     await expect(page.getByText('27 unspent / 27 earned points')).toBeVisible();
-    for (let i = 0; i < 27; i++) await page.getByRole('button', { name: 'Add Power point', exact: true }).click();
+    // Exercise all 27 real button activations through keyboard input. Repeating
+    // pointer geometry stabilization for every point dominates slow WebKit runs.
+    const addPower = page.getByRole('button', { name: 'Add Power point', exact: true });
+    for (let i = 0; i < 27; i++) await addPower.press('Enter');
     await expect(page.getByText('ATTACK: 43 → 52 (+9)', { exact: true })).toBeVisible();
     await expect(page.getByText('0 unspent / 27 earned points')).toBeVisible();
     await page.locator('.pet-evolve-panel').first().screenshot({ path: testInfo.outputPath('growth-specialization-preview.png') });

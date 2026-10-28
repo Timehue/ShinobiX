@@ -3,6 +3,7 @@ import { enemyStatusValue, enemyTurnValue, type EnemyTurnSnapshot } from '../sol
 import { pveEasyBandHoldsBurst, pveEasyBandAllowsLethal, pveAiCompetence, pveDifficultyBand } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
+import { aiGapCloserLandingTile, aiApproachLandingTile, aiRangedAttackReach, isDamagingAiGapCloser, isDistantAiGapCloser, prefersAiGapClosingMovement, aiJustFlickered, isAiFlicker } from '../combat-core/ai-mobility.js';
 import type { TowerAction } from './_engine.js';
 import type { TowerActor, TowerSession } from './_tower-session.js';
 
@@ -20,6 +21,7 @@ function healthGate(actor: TowerActor, j: HuntJutsu): boolean {
  * sessions, beginner contracts and every multi-creature formation keep their
  * original clock. The resolver still owns AP, mastery and easy-band caps. */
 export function huntHoldsBurst(session: TowerSession, actor: TowerActor): boolean {
+    if (aiJustFlickered((actor.character.jutsu ?? []) as HuntJutsu[], actor.cooldowns, session.actionsThisTurn)) return false;
     if (actor.character.huntReactivePolicy === HUNT_REACTIVE_POLICY && session.round === 2
         && Number(actor.character.level) > 15 && ['C','B','A','S'].includes(String(actor.character.huntRank))
         && actor.hp <= actor.maxHp * .75
@@ -29,7 +31,8 @@ export function huntHoldsBurst(session: TowerSession, actor: TowerActor): boolea
     return pveEasyBandHoldsBurst(Number(actor.character.level) || 1, session.round);
 }
 export function huntOpeningIsPreparation(session: TowerSession, actor: TowerActor): boolean {
-    return session.round===1 && pveDifficultyBand(Number(actor.character.level) || 1)==='easy';
+    return session.round===1 && pveDifficultyBand(Number(actor.character.level) || 1)==='easy'
+        && !aiJustFlickered((actor.character.jutsu ?? []) as HuntJutsu[], actor.cooldowns, session.actionsThisTurn);
 }
 
 type Hooks = {
@@ -74,7 +77,8 @@ export function pickHuntAiAction(session: TowerSession, actor: TowerActor, hooks
         const preparation=huntOpeningIsPreparation(s,self);
         const actions: TowerAction[] = preparation?[]:[{ actorId: self.id, type: 'attack', targetId: foe.id }];
         const step = hooks.step(s,self,foe);
-        if (step !== self.pos) actions.push({actorId:self.id,type:'move',tile:step});
+        if (step !== self.pos && !prefersAiGapClosingMovement((self.character.jutsu ?? []) as HuntJutsu[],
+            hexDistance(self.pos,foe.pos,s.map.width))) actions.push({actorId:self.id,type:'move',tile:step});
         const comp = pveAiCompetence(Number(self.character.level) || 1);
         const buffs = pveMeaningfulBuffCount(activeCombatStatuses(foe.statuses,s.round));
         if (Number.isFinite(comp.clearBuffThreshold) && buffs + Number(foe.shield >= foe.maxHp * .1) >= comp.clearBuffThreshold)
@@ -84,9 +88,20 @@ export function pickHuntAiAction(session: TowerSession, actor: TowerActor, hooks
         for (const j of (self.character.jutsu ?? []) as HuntJutsu[]) {
             if (!healthGate(self,j)) continue;
             if (preparation && Number(j.effectPower)>0 && j.target!=='SELF' && !j.tags?.some(t=>t.name==='Move')) continue;
-            if (huntHoldsBurst(s,self) && Number(j.ap ?? 40) >= 60) continue;
+            if (huntHoldsBurst(s,self) && Number(j.ap ?? 40) >= 60
+                && !isDistantAiGapCloser(j, hexDistance(self.pos, foe.pos, s.map.width))) continue;
             if (j.tags?.some(t=>t.name==='Move')) {
-                const tile = Array.from({length:s.map.width*s.map.height},(_,i)=>i)
+                const tile = isDamagingAiGapCloser(j) ? aiGapCloserLandingTile({
+                    jutsu: j, from: self.pos, target: foe.pos, width: s.map.width, height: s.map.height,
+                    blocked: i => s.map.blockedTiles.includes(i) || s.actors.some(a => a.hp > 0 && a.pos === i),
+                }) : isAiFlicker(j) ? aiApproachLandingTile({
+                    range: Number(j.range ?? 5), reach: aiRangedAttackReach(((self.character.jutsu ?? []) as HuntJutsu[])
+                        .filter(next => hooks.ready(s,self,next.id) && Number(next.ap??40)+Number(j.ap??20) <= s.activeAp
+                            && Number(next.chakraCost??0)+Number(j.chakraCost??0)<=self.chakra
+                            && Number(next.staminaCost??0)+Number(j.staminaCost??0)<=self.stamina)),
+                    from: self.pos, target: foe.pos, width: s.map.width, height: s.map.height,
+                    blocked: i => s.map.blockedTiles.includes(i) || s.actors.some(a => a.hp > 0 && a.pos === i),
+                }) : Array.from({length:s.map.width*s.map.height},(_,i)=>i)
                     .filter(i=>i!==self.pos && hexDistance(self.pos,i,s.map.width)<=Number(j.range ?? 5)
                         && !s.map.blockedTiles.includes(i) && !s.actors.some(a=>a.hp>0 && a.pos===i))
                     .sort((a,b)=>hexDistance(a,foe.pos,s.map.width)-hexDistance(b,foe.pos,s.map.width) || a-b)[0];

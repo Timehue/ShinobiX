@@ -10,6 +10,7 @@ import { resolveAscensionModifiers, weeklySpireBlessing, type AscensionSeal } fr
 import { weekIndex } from '../missions/_weekly-board.js';
 import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
+import { resolvePveGapClosingJutsu } from '../_ai-opponent-loadout.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { startRound, runAiUntilHuman } from './_engine.js';
 import { makeRng } from './_sim.js';
@@ -577,7 +578,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const now = Date.now();
-        const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now, ascension, spireBossId });
+        const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now, ascension, spireBossId,
+            gapClosingJutsu: resolvePveGapClosingJutsu(admin) });
         applyTowerRouteChoice(session, authoritativeParty ? authoritativeParty.binding.routeChoice : body.routeChoice);
         if (authoritativeParty) {
             const bound = session as PartyBoundSession;

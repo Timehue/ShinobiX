@@ -93,6 +93,22 @@ test('authority proofs publish with free or paid save changes and refuse the who
 });
 
 describe('fast path — currency did not move', () => {
+    test('an existing claim record changes atomically with the save and currency ledger', async () => {
+        const before = saveRecord(1);
+        const next = saveRecord(2, { ryo: 1100 });
+        const key = 'weekly-board:coinkeeper:w148';
+        const baseline = { baseline: { fishingXp: 0 }, claimed: [] };
+        const claimed = { ...baseline, claimed: ['wk-fishing-50'] };
+        await store.set(SAVE, before);
+        await store.set(key, baseline);
+        const proof = { key, expected: baseline, value: claimed, ex: 3600 };
+        assert.equal(await commit(store, before, next, { atomicProof: proof }), true);
+        assert.deepEqual(await store.get(key), claimed);
+        assert.deepEqual(await store.get(SAVE), next);
+        assert.equal(await commit(store, next, saveRecord(3, { ryo: 1200 }), { atomicProof: proof }), false);
+        assert.deepEqual(await store.get(SAVE), next);
+        assert.deepEqual(await store.get(key), claimed);
+    });
     test('one compare-and-set, no ledger read or write', async () => {
         const before = saveRecord(4);
         await store.set(SAVE, before);

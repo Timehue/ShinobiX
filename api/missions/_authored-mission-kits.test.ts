@@ -36,7 +36,8 @@ describe('authored ordinary mission scope and sealing', () => {
             assert.equal(t.missionTactics,true);
             assert.ok(validateServerAiRules(t.rules,t.jutsuIds!).ok);
             const s = missionSession(key);
-            assert.deepEqual((s.enemy.character.jutsu as Array<{id:string}>).map(j=>j.id),t.jutsuIds);
+            assert.deepEqual((s.enemy.character.jutsu as Array<{id:string}>).map(j=>j.id),
+                [...t.jutsuIds!, ...(t.jutsuIds!.includes('starter-universal-flicker') ? [] : ['starter-universal-flicker'])]);
             assert.equal(s.enemy.character.missionTactics,true);
             assert.equal(s.difficultyGuard?.enemyLevel,t.level);
             const shared = builtinAiProfile(def.aiProfileId)!;
@@ -86,10 +87,10 @@ describe('distinct actual rule execution', () => {
         assert.equal(s.events[1].before.enemy.chakra-s.events[1].after.enemy.chakra,250);
         const far = board('combat-c-patrol',6); runSoloPveAiUntilPlayer(far);
         assert.equal(enemyActions(far)[0],'starter-universal-flicker');
-        assert.ok(!enemyActions(far).includes('starter-tai-fire-2'));
+        assert.deepEqual(enemyActions(far).slice(0,2),['starter-universal-flicker','starter-tai-fire-2'],'Flicker preserves a real 60-AP ranged follow-up');
         const easy = board('combat-c-patrol',4,1); runSoloPveAiUntilPlayer(easy);
         assert.ok(!enemyActions(easy).includes('starter-tai-fire-2'),'easy-band burst delay preserved');
-        assert.deepEqual(enemyActions(easy).slice(0,3),['starter-universal-flicker','starter-tai-earth-1','basicAttack']);
+        assert.deepEqual(enemyActions(easy).slice(0,3),['starter-tai-earth-1','starter-universal-flicker','basicAttack']);
     });
     it('Frost protects itself and weakens attacks; Clear and Cleanse affect different fighters', () => {
         const s = board('combat-b-escort'); runSoloPveAiUntilPlayer(s);
@@ -106,6 +107,30 @@ describe('distinct actual rule execution', () => {
         runSoloPveAiUntilPlayer(gap); assert.ok(!names(gap,'enemy').includes('Decrease Damage Taken'));
         assert.ok(!enemyActions(gap).includes('basicHeal'));
     });
+    for (const opening of ['full budget', 'walk-in budget'] as const) it(`Shadow preserves its poison signature across a distant ${opening}`, () => {
+        let s = board('combat-a-hunt', 6, 1);
+        if (opening === 'walk-in budget') { s.enemy.pos = 102; s.player.pos = 17; }
+        assert.equal(s.enemy.stamina, 500, 'retain the real finite mission pool');
+        runSoloPveAiUntilPlayer(s);
+        if (opening === 'walk-in budget') {
+            assert.ok(!enemyActions(s).includes('starter-universal-flicker'), 'a paid step must not downgrade the ranged landing to an unfunded melee combo');
+            assert.ok(hexDistance(s.enemy.pos, s.player.pos) > 1);
+            s = applySoloPveAction(s, { type: 'wait' }).session;
+        }
+        const actions = enemyActions(s);
+        const flicker = actions.indexOf('starter-universal-flicker');
+        const poison = actions.indexOf('starter-gen-water-2');
+        assert.ok(flicker >= 0 && poison > flicker, 'Flicker must fund the authored Poison before Siphon spends its resources');
+        assert.ok(!actions.slice(0, poison).includes('starter-gen-earth-2'));
+        const hit = s.events.find(e => e.actor === 'enemy' && e.actionId === 'starter-gen-water-2')!;
+        assert.equal(hit.before.enemy.stamina - hit.after.enemy.stamina, 250);
+        assert.equal(hexDistance(hit.before.enemy.pos, hit.before.player.pos), 4);
+        assert.ok(names(s, 'player').includes('Poison'));
+        for (const event of s.events.filter(e => e.actor === 'enemy')) {
+            assert.ok(event.after.ap.enemy >= 0 && event.after.enemy.chakra >= 0 && event.after.enemy.stamina >= 0);
+            if (event.action === 'move') assert.ok(hexDistance(event.before.enemy.pos, event.before.player.pos) > 6, 'no paid basic walking within six hexes');
+        }
+    });
     it('Shadow holds range after poisoning; closing suppresses its cast and Cleanse removes the tax', () => {
         const s = board('combat-a-hunt'); const pos=s.enemy.pos; runSoloPveAiUntilPlayer(s);
         assert.equal(enemyActions(s)[0],'starter-gen-water-2'); assert.equal(s.enemy.pos,pos);
@@ -113,7 +138,7 @@ describe('distinct actual rule execution', () => {
         const clean=applySoloPveAction(s,{type:'cleanse'});
         assert.ok(clean.applied); assert.ok(!names(clean.session,'player').includes('Poison'));
         const near = board('combat-a-hunt',1); runSoloPveAiUntilPlayer(near);
-        assert.deepEqual(enemyActions(near).filter(a=>a!=='wait'),['basicAttack','basicAttack']);
+        assert.deepEqual(enemyActions(near).filter(a=>a!=='wait'),['basicAttack','basicAttack','thrown-shuriken']);
         const follow = board('combat-a-hunt'); follow.player.statuses=[{name:'Poison',kind:'negative',rounds:2,percent:6}];
         runSoloPveAiUntilPlayer(follow); assert.equal(enemyActions(follow)[0],'starter-gen-earth-2');
     });
@@ -171,11 +196,13 @@ describe('mission legality, budgets, and progression', () => {
     it('admits ordinary earned-stat builds across four disciplines and rewards later progression', () => {
         for(const key of MISSION_KEYS) for(const d of DISCIPLINES) {
             const min=combatMissionByKey(key)!.min;
-            const early=simulate(missionSession(key,min,d)).metrics;
+            const earlyRun=simulate(missionSession(key,min,d)), early=earlyRun.metrics;
             const later=simulate(missionSession(key,Math.min(100,min+25),d)).metrics;
             assert.equal(early.outcome,'win',`${key} ${d}`);
             assert.equal(later.outcome,'win'); assert.ok(later.rounds<=early.rounds);
-            assert.deepEqual(early.consumables,{}); assert.equal(early.idleTurns,0);
+            assert.deepEqual(early.consumables,{});
+            assert.ok(earlyRun.session.events.filter(e=>e.actor==='enemy'&&e.action==='move')
+                .every(e=>hexDistance(e.before.enemy.pos,e.before.player.pos)>6), 'save basic walking for openings beyond six hexes');
             assert.ok(early.rounds<=13,`${key} ${d}: ${early.rounds}`);
         }
     });
@@ -184,11 +211,15 @@ describe('mission legality, budgets, and progression', () => {
             ['combat-c-patrol','Bukijutsu','guard'],
             ['combat-b-escort','Ninjutsu','guard'],
             ['combat-a-hunt','Ninjutsu','close'],
-            ['combat-a-hunt','Ninjutsu','answer'],
-            ['combat-s-crisis','Ninjutsu','guard'],
+            ['combat-a-hunt','Genjutsu','answer'],
+            ['combat-s-crisis','Bukijutsu','answer'],
         ] as const;
         for(const [key,discipline,policy] of comparisons) {
             const initial=missionSession(key,undefined,discipline);
+            // Pin the new six-hex opening: nearer random spawns can end this
+            // short introductory fight before its marked attack reaches us.
+            if(key==='combat-c-patrol') initial.enemy.pos=Array.from({length:120},(_,tile)=>tile)
+                .find(tile=>!initial.environment.blockedTiles.includes(tile)&&hexDistance(tile,initial.player.pos)===6)!;
             const damage=simulate(initial,'damage').metrics;
             const response=simulate(initial,policy).metrics;
             assert.equal(response.outcome,'win');

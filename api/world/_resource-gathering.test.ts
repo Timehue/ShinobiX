@@ -11,6 +11,7 @@ import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { applyCookRecipe, cookRecipe } from '../player/_cafeteria.js';
 import { purchaseCatalogItem } from '../shop/_purchase.js';
 import { FRACTURE_TEMPLATES, fractureTemplatePool } from '../../shared/fracture-chain.js';
+import { WEEKLY_CATALOG, snapshotCounters, computeProgress } from '../missions/_weekly-board.js';
 const now = Date.parse('2026-10-07T12:00:00Z');
 const node = resourceNode('resource-17')!;
 const player: OnlinePlayer = { name: 'miner', displayName: 'Miner', sector: node.sector, tile: node.approach, lastSeenAt: now, connectedAt: now, pendingAttacker: null, character: null, movementSeq: 4 };
@@ -54,6 +55,30 @@ test('failed mining reports fracture damage separately from the unchanged extrac
         assert.equal(result.receipt.miningFailure, reason); assert.equal(result.receipt.outcome, 'failed');
         assert.equal(result.receipt.itemId, undefined); assert.equal(result.receipt.xp, 3);
         assert.equal(resourceActionsToday(result.character, now), 1);
+    }
+});
+test('real fishing and mining settlements advance their weekly goals exactly once, including at max skill', () => {
+    for (const activity of ['fishing', 'mining'] as const) {
+        const site = RESOURCE_NODES.find((n) => n.activity === activity)!;
+        const presence = { ...player, sector: site.sector, tile: site.approach };
+        const character = { ...base(), resourceGathering: { fishingXp: 3200, miningXp: 3200 },
+            equipment: { pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole' } };
+        const counter = activity === 'fishing' ? 'fishingXp' : 'miningXp';
+        const mission = WEEKLY_CATALOG.find((m) => m.counter === counter)!;
+        const baseline = snapshotCounters(character);
+        for (const outcome of ['success', 'failed', 'cancelled'] as const) {
+            const seal = { ...mintResourceSeal(character, site, `weekly-${activity}-${outcome}`, 'relaxed', presence, now),
+                successDraw: outcome === 'success' ? 0 : .999, traceDraw: 1 };
+            const admitted = admitResourceAttempt(character, seal, now)!;
+            assert.ok(admitted);
+            const settled = resolveResourceAttempt(admitted, seal.id, { cancel: outcome === 'cancelled' }, presence, now + 5000, seal);
+            assert.ok(settled.ok); if (!settled.ok) continue;
+            const earned = outcome === 'success' ? 10 : outcome === 'failed' ? 3 : 0;
+            assert.equal(computeProgress(mission, baseline, settled.character), earned);
+            const replay = resolveResourceAttempt(settled.character, seal.id, {}, presence, now + 6000);
+            assert.ok(replay.ok); if (!replay.ok) continue;
+            assert.equal(computeProgress(mission, baseline, replay.character), earned);
+        }
     }
 });
 test('all 84 active nodes have reviewed water/rock targets and walkable adjacent approaches', () => {

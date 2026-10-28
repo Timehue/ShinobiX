@@ -95,6 +95,10 @@ for (const exit of ['Stop watching', 'browser Back'] as const) test(`leaving a r
     await expect(page.getByRole('button', { name: 'Spectate', exact: true })).toHaveClass(/active/);
     await expect.poll(() => leaves.length).toBeGreaterThan(0);
     expect(await page.evaluate(() => localStorage.getItem('pvpSession.v1'))).toBeNull();
+    // The selected tab paints before its passive persistence effect completes.
+    // Confirm the preference is durable before deliberately replacing the document.
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('arenaTab.v1:auditninja:district')),
+        { message: 'the recovered spectator tab is persisted before reload' }).toBe('spectate');
     await reloadWithTransientAssetRecovery(page, () => expect(screen(page, 'arenaDistrict')).toBeVisible());
     await expect(page.getByRole('button', { name: 'Spectate', exact: true })).toHaveClass(/active/);
 });

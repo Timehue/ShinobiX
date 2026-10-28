@@ -4,7 +4,7 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { ActiveJutsuTraining } from "../types/combat";
 import { mutateJutsuRyoTraining } from "./jutsu-ryo-api";
 import { isServerSettlementReady } from "./server-settlement-gate";
-import { serverNow } from "./server-clock";
+import { hasServerClockSample, serverNow } from "./server-clock";
 
 export function jutsuRyoTrainCap(level: number): number {
     return Math.min(JUTSU_TRAINING_CAP, jutsuLevelCapForLevel(level));
@@ -102,7 +102,7 @@ export function useJutsuTrainingQueueRunner(
         // is due. A device clock change cannot advance or delay the queue.
         const waitUntilDue = () => {
             if (cancelled) return;
-            const remaining = activeJutsuTraining.endsAt - serverNow();
+            const remaining = hasServerClockSample() ? activeJutsuTraining.endsAt - serverNow() : 1000;
             if (remaining <= 0) { void reconcile(); return; }
             timer = window.setTimeout(waitUntilDue, Math.min(1000, remaining + 50));
         };

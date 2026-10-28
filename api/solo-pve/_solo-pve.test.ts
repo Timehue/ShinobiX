@@ -135,6 +135,27 @@ describe('solo-PvE session and store boundaries', () => {
 });
 
 describe('generic AI solo-PvE encounter seal', () => {
+    it('varies safe opening tiles between fights and persists them through storage', async () => {
+        const seen = new Set<string>();
+        for (let i = 0; i < 20; i++) {
+            const session = buildSoloPveAiEncounter({
+                sessionId: `random-opening-${i}`, playerName: 'alice', now: NOW, admin: null,
+                save: { character: { name: 'Alice', level: 12, hp: 300, maxHp: 500, equipment: {}, inventory: [] } },
+                profile: { id: 'sealed-rival', name: 'Rival', level: 5, hp: 500, chakra: 300, stamina: 300, stats: {}, jutsuIds: [] },
+                environment: { biome: 'central', blockedTiles: [62, 57, 33] },
+            });
+            const positions = [session.player.pos, session.enemy.pos];
+            assert.ok(positions.every(tile => !session.environment.blockedTiles.includes(tile)));
+            assert.equal(hexDistance(positions[0]!, positions[1]!), 7);
+            const kv = fakeKv();
+            await writeSoloPveSession(session, { kv });
+            const restored = await readSoloPveSession(session.sessionId, { kv });
+            assert.deepEqual([restored!.player.pos, restored!.enemy.pos], positions);
+            seen.add(positions.join(':'));
+        }
+        assert.ok(seen.size >= 3);
+    });
+
     it('hydrates the exact canonical player fighter and seals the enemy without Tower fields', () => {
         const playerJutsu = { id: 'authored-player-hit', name: 'Player Hit', type: 'Taijutsu', ap: 40, effectPower: 25, isUtility: false };
         const enemyJutsu = { id: 'authored-enemy-hit', name: 'Enemy Hit', type: 'Ninjutsu', ap: 40, range: 3, effectPower: 22, isUtility: false };
@@ -254,7 +275,7 @@ describe('generic AI solo-PvE encounter seal', () => {
         const honest = buildSoloPveAiEncounter({ ...common, sessionId: 'honest', hostLoadout: {} });
         const forged = buildSoloPveAiEncounter({
             ...common,
-            sessionId: 'forged',
+            sessionId: 'honest',
             hostLoadout: {
                 level: 100, hp: 9_999_999, maxHp: 9_999_999,
                 stats: { ninjutsuOffense: 9_999_999 },

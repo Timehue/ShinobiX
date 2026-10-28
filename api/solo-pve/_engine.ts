@@ -33,6 +33,8 @@ import {
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { expireShield, shieldExpiryForGrant } from '../combat-core/shields.js';
 import { isZeroDamageFortyApJutsu, weatherMultiplier } from '../combat-core/formulas.js';
+import { aiGapCloserLandingTile, aiApproachLandingTile, aiRangedAttackReach, isDamagingAiGapCloser, isDistantAiGapCloser, prefersAiGapClosingMovement, aiJustFlickered, isAiFlicker } from '../combat-core/ai-mobility.js';
+import { pveAiFillerItems } from '../combat-core/ai-items.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { adjustedApCost } from '../combat-core/resources.js';
@@ -1027,7 +1029,15 @@ function normalizeSlot(slot: string | undefined): string {
     return slot ?? '';
 }
 
-function spendItemCharge(session: SoloPveSession, itemId: string): boolean {
+function spendItemCharge(session: SoloPveSession, itemId: string, side: SoloPveSide): boolean {
+    if (side === 'enemy') {
+        const inventory = Array.isArray(session.enemy.character.inventory) ? [...session.enemy.character.inventory] : [];
+        const index = inventory.indexOf(itemId);
+        if (index < 0) return false;
+        inventory.splice(index, 1);
+        session.enemy.character.inventory = inventory;
+        return true;
+    }
     if (session.itemCharges[itemId] === undefined) return true;
     if (session.itemCharges[itemId] <= 0) return false;
     session.itemCharges[itemId] -= 1;
@@ -1299,7 +1309,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         if (!canAct(session, side, cost)) return { applied: false, reason: 'cannot-act' };
         if ((session.cooldowns[side][cooldownKey] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
         if (hexDistance(self.pos, opponent.pos) > range) return { applied: false, reason: 'out-of-range' };
-        if (slot === 'thrown' && !spendItemCharge(session, item.id ?? '')) return { applied: false, reason: 'out-of-item' };
+        if (slot === 'thrown' && !spendItemCharge(session, item.id ?? '', side)) return { applied: false, reason: 'out-of-item' };
         const tags = item.weaponTags?.length ? item.weaponTags : item.weaponEffect ? [{ name: item.weaponEffect, percent: item.weaponEffectValue }] : [];
         const weapon: SoloPveJutsu = {
             id: `weapon-${item.id ?? 'equipped'}`,
@@ -1332,7 +1342,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         const cooldown = Math.max(0, Math.floor(Number(item.weaponCooldown ?? 0)));
         if (!canAct(session, side, cost)) return { applied: false, reason: 'cannot-act' };
         if ((session.cooldowns[side][cooldownKey] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
-        if (!spendItemCharge(session, item.id ?? '')) return { applied: false, reason: 'out-of-item' };
+        if (!spendItemCharge(session, item.id ?? '', side)) return { applied: false, reason: 'out-of-item' };
         const restoreChakra = Math.max(0, Number(item.restoreChakra ?? 0));
         const restoreStamina = Math.max(0, Number(item.restoreStamina ?? 0));
         let resolution: CombatResolutionFacts | undefined;
@@ -1526,6 +1536,28 @@ function directAction(
 
 function aiTileForJutsu(session: SoloPveSession, jutsu: SoloPveJutsu): number | undefined {
     if (jutsu.target !== 'EMPTY_GROUND' && !hasMoveTag(jutsu)) return undefined;
+    if (isDamagingAiGapCloser(jutsu)) return aiGapCloserLandingTile({
+        jutsu, from: session.enemy.pos, target: session.player.pos, width: GRID_W, height: GRID_H,
+        blocked: tile => !validOpenTile(session, 'enemy', tile, Math.max(1, Number(jutsu.range) || 4)),
+    });
+    if (isAiFlicker(jutsu)) {
+        const sealed = activeStatuses(session.enemy, session.round).some(s => s.name === 'Elemental Seal');
+        const remaining = session.ap.enemy - actionCost(session,'enemy',Number(jutsu.ap ?? 20));
+        // A partial turn must not turn an authored ranged role into melee.
+        // The approach preview still requires a payable follow-up before moving.
+        const preserveSignatureReach = session.encounter.kind === 'mission' && session.enemy.character.missionTactics === true
+            && !pveEasyBandHoldsBurst(Math.max(1, Number(session.enemy.character.level) || 1), session.round);
+        const kit = jutsuList(session.enemy).filter(j => (session.cooldowns.enemy[j.id] ?? 0) <= 0
+            && (!sealed || !['Earth','Wind','Water','Lightning','Fire'].includes(String(j.element)))
+            && (preserveSignatureReach || actionCost(session,'enemy',Number(j.ap ?? 40)) <= remaining)
+            && Number(j.chakraCost ?? 0) + Number(jutsu.chakraCost ?? 0) <= session.enemy.chakra
+            && Number(j.staminaCost ?? 0) + Number(jutsu.staminaCost ?? 0) <= session.enemy.stamina);
+        const reach = aiRangedAttackReach(kit);
+        if (reach <= 1 && remaining < actionCost(session,'enemy',BASIC_ATTACK_AP)) return undefined;
+        return aiApproachLandingTile({ range: Math.max(1, Number(jutsu.range) || 5), reach,
+            from: session.enemy.pos, target: session.player.pos, width: GRID_W, height: GRID_H,
+            blocked: tile => !validOpenTile(session, 'enemy', tile, Math.max(1, Number(jutsu.range) || 5)) });
+    }
     const range = Math.max(1, Number(jutsu.range) || 4);
     const method = normalizedMethod(jutsu);
     const tiles = Array.from({ length: GRID_W * GRID_H }, (_, tile) => tile)
@@ -1625,7 +1657,8 @@ function aiJutsuCandidates(session: SoloPveSession): AiJutsuCandidate[] {
             const range = Math.max(0, Number(jutsu.range ?? 0));
             return !affectsOpponent || range <= 0 || distance <= range;
         })
-        .filter((jutsu) => !pveEasyBandHoldsBurst(level, session.round) || Number(jutsu.ap ?? 40) < 60)
+        .filter((jutsu) => !pveEasyBandHoldsBurst(level, session.round) || Number(jutsu.ap ?? 40) < 60
+            || isDistantAiGapCloser(jutsu, distance) || aiJustFlickered(jutsuList(enemy), session.cooldowns.enemy, session.actionsThisTurn))
         .filter((jutsu) => canAct(session, 'enemy', Math.max(1, Number(jutsu.ap ?? 40))))
         .map((jutsu): AiJutsuCandidate => {
             const tile = aiTileForJutsu(session, jutsu);
@@ -1639,9 +1672,66 @@ function aiJutsu(session: SoloPveSession): AiJutsuCandidate | null {
     return aiJutsuCandidates(session)[0] ?? null;
 }
 
-function aiTacticalAction(session: SoloPveSession): SoloPveAction | null {
+/** Use the damaging dash itself to approach within six hexes. A more distant
+ * foe may walk into that zone, preserving the normal cast gates. */
+function distantGapClosingAction(session: SoloPveSession): SoloPveAction | null {
+    const flickered = aiJustFlickered(jutsuList(session.enemy), session.cooldowns.enemy, session.actionsThisTurn);
+    if (hexDistance(session.enemy.pos, session.player.pos) <= 1 && !flickered) return null;
+    const kit = jutsuList(session.enemy).filter(isDamagingAiGapCloser)
+        .sort((a, b) => Number(b.effectPower) - Number(a.effectPower) || a.id.localeCompare(b.id));
+    const suppliedNpc = Array.isArray(session.enemy.character.inventory);
+    if (!kit.length && !suppliedNpc) return null;
+    const impact = (state: SoloPveSession): SoloPveAction | null => {
+        for (const jutsu of kit) {
+            const tile = aiTileForJutsu(state, jutsu);
+            const plan = jutsuActionPlan(state, 'enemy', jutsu, tile);
+            const distance = hexDistance(state.enemy.pos, state.player.pos);
+            if (plan.accepted && (plan.hitsOpponent || (distance <= 6 && tile !== undefined
+                && hexDistance(tile, state.player.pos) < distance)) && (isDistantAiGapCloser(jutsu, distance) || flickered)) {
+                return { type: 'jutsu', jutsuId: jutsu.id, tile };
+            }
+        }
+        return null;
+    };
+    const ranged = aiJutsuCandidates(session).find(candidate => {
+        if (hasMoveTag(candidate.jutsu) || Number(candidate.jutsu.effectPower) <= 0 || isZeroDamageFortyApJutsu(candidate.jutsu)) return false;
+        const plan = jutsuActionPlan(session, 'enemy', candidate.jutsu, candidate.tile);
+        return plan.accepted && plan.hitsOpponent;
+    });
+    if (ranged) return flickered ? jutsuCandidateAction(ranged) : null;
+    const cast = impact(session);
+    if (cast?.type === 'jutsu' && cast.tile !== undefined && hexDistance(cast.tile, session.player.pos) === 1) return cast;
+    for (const flicker of jutsuList(session.enemy).filter(isAiFlicker)) {
+        if (hexDistance(session.enemy.pos, session.player.pos) > 6) break;
+        const tile = aiTileForJutsu(session, flicker);
+        if (tile === undefined || hexDistance(tile, session.player.pos) >= hexDistance(session.enemy.pos, session.player.pos)) continue;
+        const move: SoloPveAction = { type: 'jutsu', jutsuId: flicker.id, tile };
+        const preview = cloneSession(session);
+        if (!directAction(preview, 'enemy', move, {}).applied) continue;
+        const followup = jutsuList(preview.enemy).some(j => {
+            if (hasMoveTag(j) || j.target === 'SELF' || isZeroDamageFortyApJutsu(j) || Number(j.effectPower) <= 0) return false;
+            const plan = jutsuActionPlan(preview, 'enemy', j, aiTileForJutsu(preview, j));
+            return plan.accepted && plan.hitsOpponent;
+        });
+        if (followup || enemyActionLegal(preview, { type: 'basicAttack' })) return move;
+    }
+    if (cast) return cast;
+    if (!kit.length) return null;
+    const step = enemyMoveTowardPlayerAction(session);
+    if (!step) return null;
+    const preview = cloneSession(session);
+    return directAction(preview, 'enemy', step, {}).applied && impact(preview) ? step : null;
+}
+
+function aiTacticalAction(session: SoloPveSession, recoveryFirst = false): SoloPveAction | null {
     const level = Math.max(1, Number(session.enemy.character.level) || 1);
     const competence = pveAiCompetence(level, session.enemy.character.masterAi === true);
+    const healThreshold = competence.band === 'easy' ? 0.3 : competence.band === 'medium' ? 0.42 : 0.55;
+    const heal: SoloPveAction | null = session.enemy.hp / Math.max(1, session.enemy.maxHp) <= healThreshold
+        && canAct(session, 'enemy', BASIC_HEAL_AP)
+        && (session.cooldowns.enemy.basicHeal ?? 0) <= 0
+        && session.enemy.chakra >= BASIC_HEAL_CHAKRA ? { type: 'basicHeal' } : null;
+    if (recoveryFirst && heal) return heal;
     if (Number.isFinite(competence.clearBuffThreshold)
         && canAct(session, 'enemy', CLEAR_AP)
         && (session.cooldowns.enemy.clear ?? 0) <= 0
@@ -1655,14 +1745,7 @@ function aiTacticalAction(session: SoloPveSession): SoloPveAction | null {
         && activeStatuses(session.enemy, session.round).filter((status) => status.kind === 'negative').length >= competence.cleanseSelfThreshold) {
         return { type: 'cleanse' };
     }
-    const healThreshold = competence.band === 'easy' ? 0.3 : competence.band === 'medium' ? 0.42 : 0.55;
-    if (session.enemy.hp / Math.max(1, session.enemy.maxHp) <= healThreshold
-        && canAct(session, 'enemy', BASIC_HEAL_AP)
-        && (session.cooldowns.enemy.basicHeal ?? 0) <= 0
-        && session.enemy.chakra >= BASIC_HEAL_CHAKRA) {
-        return { type: 'basicHeal' };
-    }
-    return null;
+    return heal;
 }
 
 function enemyClearHasBenefit(session: SoloPveSession, threshold: number): boolean {
@@ -1683,6 +1766,7 @@ function enemyCleanseHasBenefit(session: SoloPveSession, threshold: number): boo
 }
 
 function enemyMoveTowardPlayerAction(session: SoloPveSession): SoloPveAction | null {
+    if (prefersAiGapClosingMovement(jutsuList(session.enemy), hexDistance(session.enemy.pos, session.player.pos))) return null;
     if (!canAct(session, 'enemy', MOVE_AP)) return null;
     const candidates = hexNeighbors(session.enemy.pos)
         .filter((tile) => tile !== session.player.pos && !session.environment.blockedTiles.includes(tile))
@@ -1862,6 +1946,7 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
     const companion = session.companion;
     if (!companion || !canAct(session, 'enemy', hexDistance(session.enemy.pos, companion.pos) > 1 ? MOVE_AP : BASIC_ATTACK_AP)) return false;
     if (hexDistance(session.enemy.pos, companion.pos) > 1) {
+        if (prefersAiGapClosingMovement(jutsuList(session.enemy), hexDistance(session.enemy.pos, companion.pos))) return false;
         const candidates = hexNeighbors(session.enemy.pos)
             .filter((tile) => tile !== session.player.pos && tile !== companion.pos && !tileBlocked(session, tile))
             .sort((a, b) => hexDistance(a, companion.pos) - hexDistance(b, companion.pos) || a - b);
@@ -1961,7 +2046,8 @@ function enemyActionLegal(session: SoloPveSession, action: SoloPveAction): boole
         }
         case 'move': {
             const tile = Math.floor(action.tile);
-            return canAct(session, 'enemy', MOVE_AP)
+            return !prefersAiGapClosingMovement(jutsuList(enemy), hexDistance(enemy.pos, session.player.pos))
+                && canAct(session, 'enemy', MOVE_AP)
                 && tile >= 0 && tile < GRID_W * GRID_H
                 && hexNeighbors(enemy.pos).includes(tile)
                 && tile !== session.player.pos
@@ -1972,11 +2058,20 @@ function enemyActionLegal(session: SoloPveSession, action: SoloPveAction): boole
                 && hexDistance(enemy.pos, session.player.pos) <= 1
                 && enemy.stamina >= BASIC_ATTACK_STAMINA;
         case 'weapon': {
-            const item = enemyHandWeapon(session);
+            const thrown = equippedItem(enemy, action.itemId);
+            const item = thrown?.slot === 'thrown' && Array.isArray(enemy.character.inventory)
+                && enemy.character.inventory.includes(action.itemId) ? thrown : enemyHandWeapon(session);
             return !!item && item.id === action.itemId
                 && canAct(session, 'enemy', Math.max(1, Number(item.apCost ?? 40)))
                 && (session.cooldowns.enemy[`weapon:${item.id}`] ?? 0) <= 0
                 && hexDistance(enemy.pos, session.player.pos) <= Math.max(1, Number(item.weaponRange ?? 1));
+        }
+        case 'item': {
+            const item = equippedItem(enemy, action.itemId);
+            return !!item && !['hand', 'thrown'].includes(normalizeSlot(item.slot))
+                && Array.isArray(enemy.character.inventory) && enemy.character.inventory.includes(action.itemId)
+                && canAct(session, 'enemy', Math.max(1, Number(item.apCost ?? 35)))
+                && (session.cooldowns.enemy[`item:${item.id}`] ?? 0) <= 0;
         }
         case 'basicHeal':
             return canAct(session, 'enemy', BASIC_HEAL_AP)
@@ -1998,6 +2093,26 @@ function jutsuCandidateAction(candidate: AiJutsuCandidate): SoloPveAction {
     return { type: 'jutsu', jutsuId: candidate.jutsu.id, ...(candidate.tile === undefined ? {} : { tile: candidate.tile }) };
 }
 
+function enemyFillerAction(session: SoloPveSession): SoloPveAction | null {
+    const kit=jutsuList(session.enemy);
+    const shrineRecoveryAllowed=!session.shrineAi || (session.shrineAi.healsUsed<session.shrineAi.healLimit
+        && (session.shrineAi.supportLimit===undefined||(session.shrineAi.supportsUsed??0)<session.shrineAi.supportLimit)
+        && (session.shrineAi.lastSupportRound??-2)<session.round);
+    const canRecoverSoon=shrineRecoveryAllowed && ((session.cooldowns.enemy.basicHeal??0)<=1 && session.enemy.chakra>=BASIC_HEAL_CHAKRA
+        || kit.some(j=>tagNames(j).includes('Heal')&&(session.cooldowns.enemy[j.id]??0)<=1
+            && Number(j.ap??40)<=100&&Number(j.chakraCost??0)<=session.enemy.chakra&&Number(j.staminaCost??0)<=session.enemy.stamina));
+    const smokeWindow = session.ap.enemy >= 40 && session.ap.enemy < BASIC_HEAL_AP
+        && activeStatuses(session.enemy,session.round).some(s=>s.source==='item-smoke-bomb')
+        && !kit.some(j=>(isZeroDamageFortyApJutsu(j)||tagNames(j).includes('Pierce'))
+            && enemyActionLegal(session,{type:'jutsu',jutsuId:j.id}));
+    for (const itemId of pveAiFillerItems({ ap: smokeWindow ? Math.min(session.ap.enemy,39) : session.ap.enemy, round: session.round, canRecoverSoon,
+        distance: hexDistance(session.enemy.pos, session.player.pos), self: session.enemy, foe: session.player })) {
+        const action: SoloPveAction = itemId === 'thrown-shuriken' ? { type: 'weapon', itemId } : { type: 'item', itemId };
+        if (enemyActionLegal(session, action)) return action;
+    }
+    return null;
+}
+
 /** The existing scorer's ranking, restricted to casts the resolver accepts. */
 function legalJutsuCandidates(session: SoloPveSession): AiJutsuCandidate[] {
     return aiJutsuCandidates(session).filter((candidate) => enemyActionLegal(session, jutsuCandidateAction(candidate)));
@@ -2012,13 +2127,26 @@ function legalJutsuCandidates(session: SoloPveSession): AiJutsuCandidate[] {
 function plannerEnemyActions(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction[] {
     const competence = pveAiCompetence(Math.max(1, Number(session.enemy.character.level) || 1), session.enemy.character.masterAi === true);
     const actions: SoloPveAction[] = [];
-    const push = (action: SoloPveAction | null) => { if (action && enemyActionLegal(session, action)) actions.push(action); };
+    const push = (action: SoloPveAction | null) => {
+        if (action?.type === 'move' && prefersAiGapClosingMovement(jutsuList(session.enemy),
+            hexDistance(session.enemy.pos, session.player.pos))) return;
+        if (action && enemyActionLegal(session, action)) actions.push(action);
+    };
     // The real resolver scores these below; do not resolve every jutsu twice
     // with the old power/count scorer at every node in a search tree.
     for (const jutsu of jutsuList(session.enemy)) {
-        if (pveEasyBandHoldsBurst(Number(session.enemy.character.level) || 1, session.round) && Number(jutsu.ap ?? 40) >= 60) continue;
+        if (pveEasyBandHoldsBurst(Number(session.enemy.character.level) || 1, session.round) && Number(jutsu.ap ?? 40) >= 60
+            && !isDistantAiGapCloser(jutsu, hexDistance(session.enemy.pos, session.player.pos))
+            && !aiJustFlickered(jutsuList(session.enemy), session.cooldowns.enemy, session.actionsThisTurn)) continue;
         const tile = aiTileForJutsu(session, jutsu);
         push({ type: 'jutsu', jutsuId: jutsu.id, ...(tile === undefined ? {} : { tile }) });
+        if (policy.lookahead >= 3 && isAiFlicker(jutsu) && jutsuList(session.enemy)
+            .filter(j => !hasMoveTag(j) && !isZeroDamageFortyApJutsu(j) && Number(j.ap) === 40 && Number(j.range) === 1).length >= 2) {
+            const melee = aiApproachLandingTile({ range: Math.max(1,Number(jutsu.range)||5), reach: 1,
+                from: session.enemy.pos, target: session.player.pos, width: GRID_W, height: GRID_H,
+                blocked: i => !validOpenTile(session,'enemy',i,Math.max(1,Number(jutsu.range)||5)) });
+            if (melee !== undefined && melee !== tile) push({ type: 'jutsu', jutsuId: jutsu.id, tile: melee });
+        }
         if (policy.considersSurvival && hasMoveTag(jutsu) && session.enemy.hp < session.enemy.maxHp * 0.35) {
             const retreat = Array.from({ length: GRID_W * GRID_H }, (_, index) => index)
                 .filter((index) => validOpenTile(session, 'enemy', index, Math.max(1, Number(jutsu.range) || 4)))
@@ -2212,8 +2340,14 @@ function bestJutsuForPolicy(session: SoloPveSession, policy: EnemyTurnPolicy): S
  * generic fallback are decided by the bracket policy.
  */
 function chooseStandardPveEnemyAction(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction | null {
+    const filler = enemyFillerAction(session);
+    if (filler) return filler;
     const tactic = policy.tier === 'novice' ? aiTacticalAction(session) : null;
     if (tactic && enemyActionLegal(session, tactic)) return tactic;
+    if (!policy.considersSurvival || session.enemy.hp >= session.enemy.maxHp * .35) {
+        const approach = distantGapClosingAction(session);
+        if (approach) return approach;
+    }
     const budget: PlannerBudget = { simulations: 0 };
     let planned: SoloPveAction | null | undefined;
     const getPlan = () => planned === undefined ? planned = plannedEnemyAction(session, policy, false, budget) : planned;
@@ -2269,9 +2403,15 @@ function runStandardPveEnemyTurn(
         kind: session.encounter.kind, difficulty: session.enemy.character.pveDifficulty,
     }),
 ): void {
-    const turnOver = () => session.actionsThisTurn >= MAX_ACTIONS || (policy.legacyTurnEnd && session.ap.enemy < 30);
+    const turnOver = () => session.actionsThisTurn >= MAX_ACTIONS
+        || (policy.legacyTurnEnd && session.ap.enemy < 30 && !enemyFillerAction(session));
     let guard = 0;
     while (session.status === 'active' && session.activeSide === 'enemy' && guard++ < MAX_ACTIONS + 2) {
+        const filler = enemyFillerAction(session);
+        if (filler) {
+            if (!directAction(session, 'enemy', filler, {}).applied) { endSoloPveTurn(session); break; }
+            continue;
+        }
         if (enemyTargetsCompanion(session) && enemyActsOnCompanion(session)) {
             if (session.status === 'active' && session.activeSide === 'enemy' && turnOver()) endSoloPveTurn(session);
             continue;
@@ -2312,15 +2452,30 @@ export function runSoloPveAiUntilPlayer(session: SoloPveSession): void {
     }
     let guard = 0;
     while (session.status === 'active' && session.activeSide === 'enemy' && guard++ < MAX_ACTIONS + 2) {
+        const filler = enemyFillerAction(session);
+        if (filler) {
+            if (!directAction(session, 'enemy', filler, {}).applied) { endSoloPveTurn(session); break; }
+            continue;
+        }
         if (enemyTargetsCompanion(session) && enemyActsOnCompanion(session)) {
-            if (session.status === 'active' && session.activeSide === 'enemy' && (session.actionsThisTurn >= MAX_ACTIONS || session.ap.enemy < 30)) endSoloPveTurn(session);
+            if (session.status === 'active' && session.activeSide === 'enemy' && (session.actionsThisTurn >= MAX_ACTIONS
+                || (session.ap.enemy < 30 && !enemyFillerAction(session)))) endSoloPveTurn(session);
             continue;
         }
         // This sealed opt-in belongs only to the four authored mission slots.
         // Shared NPCs and pre-existing sessions keep generic counter/heal priority.
         const missionTactics = session.encounter.kind === 'mission' && session.enemy.character.missionTactics === true;
-        const tactic = missionTactics ? null : aiTacticalAction(session);
-        const authored = tactic ? null : (authoredAiAction(session, missionTactics) ?? (missionTactics ? { type: 'wait' as const } : null));
+        const flickered = aiJustFlickered(jutsuList(session.enemy), session.cooldowns.enemy, session.actionsThisTurn);
+        const continuation = flickered ? distantGapClosingAction(session) : null;
+        const continuationJutsu = continuation?.type === 'jutsu'
+            ? jutsuList(session.enemy).find(jutsu => jutsu.id === continuation.jutsuId) : undefined;
+        const continuationPlan = continuationJutsu && continuation?.type === 'jutsu'
+            ? jutsuActionPlan(session, 'enemy', continuationJutsu, continuation.tile) : null;
+        const fundedHit = continuationPlan?.accepted && continuationPlan.hitsOpponent ? continuation : null;
+        let tactic = missionTactics ? null : aiTacticalAction(session, !!fundedHit);
+        const approach = fundedHit && tactic?.type !== 'basicHeal' ? fundedHit : tactic ? null : distantGapClosingAction(session);
+        if (approach) tactic = null;
+        const authored = tactic ? null : (approach ?? authoredAiAction(session, missionTactics) ?? (missionTactics ? { type: 'wait' as const } : null));
         const jutsu = tactic || authored ? null : aiJutsu(session);
         // A chosen action the resolver refuses (Elemental Seal on an elemental
         // jutsu, a jutsu range the scorer treats as unlimited) changes nothing, so
@@ -2334,7 +2489,8 @@ export function runSoloPveAiUntilPlayer(session: SoloPveSession): void {
                 && directAction(session, 'enemy', { type: 'basicAttack' }, {}).applied;
             if (!attacked && !moveEnemyTowardPlayer(session)) endSoloPveTurn(session);
         }
-        if (session.status === 'active' && session.activeSide === 'enemy' && (session.actionsThisTurn >= MAX_ACTIONS || session.ap.enemy < 30)) {
+        if (session.status === 'active' && session.activeSide === 'enemy' && (session.actionsThisTurn >= MAX_ACTIONS
+            || (session.ap.enemy < 30 && !enemyFillerAction(session)))) {
             endSoloPveTurn(session);
         }
     }

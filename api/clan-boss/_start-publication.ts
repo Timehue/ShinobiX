@@ -12,6 +12,9 @@ import { loadAssault, saveAssault } from './_assault.js';
 import { resolveClanBossDef, loadClanBossProgress, saveClanBossProgress, clanBossProgressKey, type ClanBossWeek, type ClanBossStartReceipt } from './_storage.js';
 import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
+import { loadAdminJutsuObjects } from '../_admin-jutsu-catalog.js';
+import { resolvePveGapClosingJutsu, teachPveGapClosingJutsu } from '../_ai-opponent-loadout.js';
+import { pveAiItemCharges } from '../combat-core/ai-items.js';
 
 export const clanBossStartLocatorKey = (host: string, request: string) => `clan-boss:start:${host}:${request}`;
 export const clanBossStartInputsKey = (runId: string) => `clan-boss:start-input:${runId}`;
@@ -29,6 +32,7 @@ export async function publishClanBossStart(input: {
     const boss = resolveClanBossDef(week);
     const floor = boss && getFloor(boss.floorId);
     if (!boss || !floor) throw new Error('Clan Boss floor missing.');
+    const gapClosingJutsu = resolvePveGapClosingJutsu({ jutsu: await loadAdminJutsuObjects(), items: new Map() });
     const session = await withTowerSessionMutation(receipt.runId, async () => {
         let current = await readSession(receipt.runId);
         const assault = await loadAssault(receipt.runId);
@@ -59,6 +63,10 @@ export async function publishClanBossStart(input: {
             current = buildTowerEncounter({ floor, squad: squad!, runId: receipt.runId, seed: receipt.seed,
                 partySize: squad!.length, towerId: 'clan-boss', clanBossRulesVersion: receipt.rulesVersion, now: receipt.at });
             configureClanBossEncounter(current, floor, receipt.bossHp, receipt);
+            for (const actor of current.actors) if (actor.side === 'enemy') {
+                teachPveGapClosingJutsu(actor.character, gapClosingJutsu);
+                actor.itemCharges = pveAiItemCharges(actor.character);
+            }
             startRound(current);
             runAiUntilHuman(current, floor, makeRng(receipt.seed));
             stampTurnClock(current, receipt.at);

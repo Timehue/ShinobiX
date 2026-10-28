@@ -14,6 +14,7 @@ import {
 } from './_pvp-session.js';
 import { endTurn } from './_engine.js';
 import { TURN_AFK_MS } from './_tower-mp.js';
+import { hexDistance } from '../combat-core/grid.js';
 
 const MATCH_ID = `tpvp-${'a'.repeat(32)}`;
 const NOW = 1_800_000_000_000;
@@ -46,6 +47,23 @@ function match() {
 }
 
 describe('Tower MPvP session authority', () => {
+    it('seals varied mirrored positions once without changing the roster', () => {
+        const seen = new Set<string>();
+        for (let seed = 0; seed < 20; seed++) {
+            const input = { matchId: MATCH_ID, fighters: seeds(), seed, now: NOW };
+            const created = createTowerPvpMatch(input);
+            const positions = Object.fromEntries(created.combat.actors.map(a => [a.id, a.pos]));
+            assert.deepEqual(created, createTowerPvpMatch(input));
+            assert.equal(new Set(Object.values(positions)).size, 4);
+            for (let i = 0; i < 2; i++) {
+                assert.equal(positions[`violet-${i}`], 119 - positions[`amber-${i}`]!);
+                assert.equal(hexDistance(positions[`amber-${i}`]!, positions[`violet-${i}`]!), 9);
+            }
+            seen.add(JSON.stringify(positions));
+        }
+        assert.ok(seen.size > 5);
+    });
+
     it('assigns exact balanced 2v2 teams independently of queue order', () => {
         const roster = assignTowerPvpTeams([seeds()[2]!, seeds()[0]!, seeds()[3]!, seeds()[1]!]);
         assert.deepEqual(roster.filter(member => member.teamId === 'amber').map(member => member.slug), ['alpha', 'delta']);
@@ -102,12 +120,15 @@ describe('Tower MPvP session authority', () => {
         assert.equal(violet.combat.actors[0]?.statuses[0]?.source, 'tower-grid:test-barrier',
             'response projection preserves the server-authored Barrier grid provenance');
         assert.equal(violet.combat.winner, 'squad');
+        assert.deepEqual(violet.combat.actors.map(actor => [actor.id, actor.pos]),
+            created.combat.actors.map(actor => [actor.id, actor.pos]), 'both seats see the same sealed board coordinates');
         assert.equal(created.combat.actors.find(actor => actor.ownerSlug === 'bravo')?.side, 'enemy');
         assert.equal(created.combat.groundEffects[0]?.owner, 'p1');
     });
 
     it('starts only when all four members are ready', () => {
         const created = match();
+        const positions = created.combat.actors.map(actor => actor.pos);
         created.roster.slice(0, 3).forEach(member => { member.ready = true; });
         assert.equal(activateReadyTowerPvpMatch(created, NOW + 1), false);
         assert.equal(created.combat.turnQueue.length, 0);
@@ -116,6 +137,7 @@ describe('Tower MPvP session authority', () => {
         assert.equal(created.status, 'active');
         assert.deepEqual(created.combat.turnQueue, ['amber-0', 'amber-1', 'violet-0', 'violet-1']);
         assert.equal(created.combat.turnStartedAt, NOW + 2);
+        assert.deepEqual(created.combat.actors.map(actor => actor.pos), positions, 'ready acknowledgements do not reroll spawns');
     });
 
     it('gives one AFK pass then defeats only the repeat offender', () => {

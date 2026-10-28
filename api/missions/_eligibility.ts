@@ -1,3 +1,5 @@
+import { RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
+
 export type MissionSystemRequirement =
     | 'pvp'
     | 'ranked'
@@ -148,7 +150,7 @@ export function normalizeMissionEligibility(mission: MissionLike): MissionEligib
         out.requiresVillage = true;
     }
     if (/\branked\b|rankedwins/.test(text)) {
-        out.minLevel = mergedMinLevel(out.minLevel, COMPETITIVE_PVP_LEVEL);
+        out.minLevel = mergedMinLevel(out.minLevel, RANKED_MIN_LEVEL);
         out.requiresRankedUnlocked = true;
     } else if (/\bpvp\b|\bplayer duel\b|\bdefeat .*players?\b/.test(text)) {
         out.minLevel = mergedMinLevel(out.minLevel, COMPETITIVE_PVP_LEVEL);
@@ -206,7 +208,7 @@ function isSystemUnlocked(
         case 'pvp':
             return level >= COMPETITIVE_PVP_LEVEL;
         case 'ranked':
-            return level >= COMPETITIVE_PVP_LEVEL;
+            return level >= RANKED_MIN_LEVEL;
         case 'pet':
             return hasPet(character);
         case 'expedition':

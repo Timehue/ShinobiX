@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
+import { hexDistance } from '../combat-core/grid.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -122,6 +123,41 @@ test('new real-player casual sessions stamp v1 and expose zero consumable charge
     assert.equal(session?.itemCharges?.p1?.['thrown-shuriken'], 2, 'p1 thrown budget is the owned count from the save');
     assert.equal(session?.itemCharges?.p2?.['thrown-shuriken'], 2, 'p2 thrown budget is the owned count from the save');
     assert.deepEqual(session?.itemsUsed, { p1: {}, p2: {} });
+    assert.equal(session.p2.pos, 119 - session.p1.pos);
+    assert.equal(hexDistance(session.p1.pos, session.p2.pos), 7);
+    const positions = [session.p1.pos, session.p2.pos];
+    const stored = await kv.get<import('./session.js').PvpSession>(`pvp:${session.battleId}`);
+    assert.deepEqual([stored!.p1.pos, stored!.p2.pos], positions);
+    const reload = response();
+    await handler({ method: 'GET', query: { id: session.battleId },
+        headers: { 'x-player-token': token, 'x-forwarded-for': '127.0.0.1' },
+        socket: { remoteAddress: '127.0.0.1' } } as never, reload.res);
+    assert.equal(reload.out.statusCode, 200);
+    assert.deepEqual([reload.out.body!.p1.pos, reload.out.body!.p2.pos], positions);
+    const replay = response();
+    await handler(createRequest('casualone', 'Casual One', 'Casual Two', session.battleId), replay.res);
+    assert.equal(replay.out.statusCode, 200, JSON.stringify(replay.out.body));
+    assert.deepEqual([replay.out.body!.session.p1.pos, replay.out.body!.session.p2.pos], positions);
+});
+
+test('real 1v1 creation chooses varied server-owned tiles rather than client positions', async () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 16; i++) {
+        const p1 = `spawnleft${i}`, p2 = `spawnright${i}`;
+        await seedPlayers(p1, p2);
+        const battleId = `pvp-${i.toString(16).padStart(8, '0')}-2345-4234-8234-123456789012`;
+        const req = createRequest(p1, p1, p2, battleId, `127.0.2.${i + 1}`) as unknown as { body: Record<string, unknown> };
+        req.body.p1Character = { name: p1, pos: 0 };
+        req.body.p2Character = { name: p2, pos: 1 };
+        const result = response();
+        await handler(req as never, result.res);
+        assert.equal(result.out.statusCode, 200, JSON.stringify(result.out.body));
+        const s = result.out.body!.session;
+        assert.equal(s.p2.pos, 119 - s.p1.pos);
+        assert.equal(hexDistance(s.p1.pos, s.p2.pos), 7);
+        seen.add(`${s.p1.pos}:${s.p2.pos}`);
+    }
+    assert.ok(seen.size > 1, 'new sessions must not all use the old fixed spawn');
 });
 
 test('world session creation seals the actual guard role and delivers defense credit without the map notification', async () => {
