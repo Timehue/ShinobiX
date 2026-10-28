@@ -63,7 +63,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                         const exit = props.roadExits.find(e => e.tile === tile);
                         engine.current?.go(exit?.destinationSector ?? props.sector, exit?.destinationTile ?? tile);
                     }} />)}
-                {props.showLivePeers && !props.suspended && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} />}
+                {props.showLivePeers && !props.suspended && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} sleepers={props.sleeperPeers} />}
                 <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
                     {!props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}
                         traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
