@@ -117,6 +117,35 @@ test('the pet asset chain still fails the run, while the client build starts wit
     }
 });
 
+test('the pet review screenshots are re-hashed only when relevant, and never silently', () => {
+    const quality = workflow.split('  client_quality:\n')[1]?.split('\n  release_artifact:\n')[0];
+    assert.ok(quality, 'client quality job must exist');
+    // Every run keeps the receipt half; only the 7 GB screenshot half moved.
+    assert.match(quality, /npm run check:pet-shape-review --prefix shinobij\.client -- --skip-evidence/);
+    assert.match(quality, /!\/docs\/screenshots\/\n\s+!\/docs\/evidence\//, 'client-quality must not fetch the screenshots');
+    const matrix = workflow.split('  server_contracts_matrix:\n')[1]?.split('\n  server_contracts:\n')[0];
+    assert.match(matrix, /!\/docs\/screenshots\/\n\s+!\/docs\/evidence\//, 'the server shards must not fetch the screenshots');
+    const evidence = workflow.split('  pet_review_evidence:\n')[1]?.split('\n  # The client release artifact')[0];
+    assert.ok(evidence, 'the evidence job must exist');
+    assert.match(evidence, /npm run check:pet-shape-review --prefix shinobij\.client 2>&1/);
+    assert.doesNotMatch(evidence, /--skip-evidence/, 'the evidence job is the half that hashes the screenshots');
+    assert.doesNotMatch(evidence, /sparse-checkout/, 'the evidence job needs the whole tree');
+    assert.match(evidence, /needs\.changes\.outputs\.evidence == 'true'/);
+    assert.match(evidence, /id: checkout\n\s+uses: actions\/checkout@v7\n\s+timeout-minutes: 12\n\s+continue-on-error: true/, 'the full checkout must be bounded');
+    assert.match(evidence, /if: steps\.checkout\.outcome != 'success'/, 'a stalled checkout must be retried');
+    // `changes` must fail open: unknown means run the gate.
+    const changes = workflow.split('  changes:\n')[1]?.split(/\n  # /)[0];
+    assert.ok(changes, 'the changes job must exist');
+    assert.match(changes, /needed=true\n/, 'the default must be to run the evidence gate');
+    assert.match(changes, /docs\/\(screenshots\|evidence\|audits\|asset-sources\)\//);
+    assert.match(changes, /check-pet-shape-review\\\.mjs/);
+    assert.match(changes, /count" -lt "\$limit"/, 'a truncated file list must not count as proof');
+    const testBuild = workflow.split('  test_build:\n')[1];
+    assert.match(testBuild, /test "\$PET_REVIEW_EVIDENCE" = success/);
+    assert.match(testBuild, /test "\$PET_REVIEW_EVIDENCE" = skipped/);
+    assert.match(testBuild, /test "\$CHANGES" = success/);
+});
+
 test('responsive browser discovery installs runtime and direct QA build dependencies', () => {
     // A client-only install passes locally when an earlier root install exists,
     // but fails while discovering the ranked replay fixture on a fresh runner.
