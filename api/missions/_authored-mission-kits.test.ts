@@ -107,6 +107,30 @@ describe('distinct actual rule execution', () => {
         runSoloPveAiUntilPlayer(gap); assert.ok(!names(gap,'enemy').includes('Decrease Damage Taken'));
         assert.ok(!enemyActions(gap).includes('basicHeal'));
     });
+    for (const opening of ['full budget', 'walk-in budget'] as const) it(`Shadow preserves its poison signature across a distant ${opening}`, () => {
+        let s = board('combat-a-hunt', 6, 1);
+        if (opening === 'walk-in budget') { s.enemy.pos = 102; s.player.pos = 17; }
+        assert.equal(s.enemy.stamina, 500, 'retain the real finite mission pool');
+        runSoloPveAiUntilPlayer(s);
+        if (opening === 'walk-in budget') {
+            assert.ok(!enemyActions(s).includes('starter-universal-flicker'), 'a paid step must not downgrade the ranged landing to an unfunded melee combo');
+            assert.ok(hexDistance(s.enemy.pos, s.player.pos) > 1);
+            s = applySoloPveAction(s, { type: 'wait' }).session;
+        }
+        const actions = enemyActions(s);
+        const flicker = actions.indexOf('starter-universal-flicker');
+        const poison = actions.indexOf('starter-gen-water-2');
+        assert.ok(flicker >= 0 && poison > flicker, 'Flicker must fund the authored Poison before Siphon spends its resources');
+        assert.ok(!actions.slice(0, poison).includes('starter-gen-earth-2'));
+        const hit = s.events.find(e => e.actor === 'enemy' && e.actionId === 'starter-gen-water-2')!;
+        assert.equal(hit.before.enemy.stamina - hit.after.enemy.stamina, 250);
+        assert.equal(hexDistance(hit.before.enemy.pos, hit.before.player.pos), 4);
+        assert.ok(names(s, 'player').includes('Poison'));
+        for (const event of s.events.filter(e => e.actor === 'enemy')) {
+            assert.ok(event.after.ap.enemy >= 0 && event.after.enemy.chakra >= 0 && event.after.enemy.stamina >= 0);
+            if (event.action === 'move') assert.ok(hexDistance(event.before.enemy.pos, event.before.player.pos) > 6, 'no paid basic walking within six hexes');
+        }
+    });
     it('Shadow holds range after poisoning; closing suppresses its cast and Cleanse removes the tax', () => {
         const s = board('combat-a-hunt'); const pos=s.enemy.pos; runSoloPveAiUntilPlayer(s);
         assert.equal(enemyActions(s)[0],'starter-gen-water-2'); assert.equal(s.enemy.pos,pos);

@@ -1543,9 +1543,13 @@ function aiTileForJutsu(session: SoloPveSession, jutsu: SoloPveJutsu): number | 
     if (isAiFlicker(jutsu)) {
         const sealed = activeStatuses(session.enemy, session.round).some(s => s.name === 'Elemental Seal');
         const remaining = session.ap.enemy - actionCost(session,'enemy',Number(jutsu.ap ?? 20));
+        // A partial turn must not turn an authored ranged role into melee.
+        // The approach preview still requires a payable follow-up before moving.
+        const preserveSignatureReach = session.encounter.kind === 'mission' && session.enemy.character.missionTactics === true
+            && !pveEasyBandHoldsBurst(Math.max(1, Number(session.enemy.character.level) || 1), session.round);
         const kit = jutsuList(session.enemy).filter(j => (session.cooldowns.enemy[j.id] ?? 0) <= 0
             && (!sealed || !['Earth','Wind','Water','Lightning','Fire'].includes(String(j.element)))
-            && actionCost(session,'enemy',Number(j.ap ?? 40)) <= remaining
+            && (preserveSignatureReach || actionCost(session,'enemy',Number(j.ap ?? 40)) <= remaining)
             && Number(j.chakraCost ?? 0) + Number(jutsu.chakraCost ?? 0) <= session.enemy.chakra
             && Number(j.staminaCost ?? 0) + Number(jutsu.staminaCost ?? 0) <= session.enemy.stamina);
         const reach = aiRangedAttackReach(kit);
