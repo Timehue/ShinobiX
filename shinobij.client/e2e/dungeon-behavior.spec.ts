@@ -79,6 +79,7 @@ for (const entry of ['key', 'free'] as const) {
         await page.keyboard.press('Escape');
         expect(abandonCalls).toBe(0);
         await page.locator('.mission-arena-fight').getByRole('button', { name: /^Attack\b/ }).click();
+        await page.locator('.mission-arena-fight button.hex-tile.hex-enemy.jutsu-target-tile').click();
         const result = page.getByRole('dialog', { name: 'Fight won', exact: true });
         await expect(result.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
         expect(runtime.serverSave().character?.activeDungeonRun?.wardenDefeated).not.toBe(true);

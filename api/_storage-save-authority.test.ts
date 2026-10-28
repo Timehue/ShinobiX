@@ -62,7 +62,7 @@ function settleInOtherProcess(key: string, value: unknown): void {
     database.set(key, structuredClone(value));
 }
 
-for (const key of ['clan:mission-claimed:shadowcell:2026-W38:missions', 'economy-settlement:clan-exchange-recovery']) {
+for (const key of ['clan:mission-claimed:shadowcell:2026-W38:missions', 'economy-settlement:clan-exchange-recovery', 'weekly-board:cache-race:w148']) {
     test(`${key} reads current recovery evidence after another worker commits`, async () => {
         await workerA._pgKvForTest.set(key, {state:'pending', ownerId:'sealed-owner'});
         assert.deepEqual(await workerA._pgKvForTest.get(key), {state:'pending', ownerId:'sealed-owner'});

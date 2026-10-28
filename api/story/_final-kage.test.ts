@@ -72,7 +72,7 @@ test('all four story finales seal the highest legal policy, mastery and player c
         assert.ok(Object.values(session.enemy.character.stats as Record<string, number>).every((value) => value <= 2_500));
         const kit = session.enemy.character.jutsu as SoloPveJutsu[];
         assert.deepEqual(kit.map((move) => move.id), [...authored.jutsuIds]);
-        assert.equal(kit.length, 12, 'the authored finale uses the challenge slot budget');
+        assert.equal(kit.length, 12, 'the authored finale already includes shared Flicker');
         assert.equal(new Set(kit.map((move) => move.id)).size, 12, 'every equipped technique is distinct');
         assert.equal(kit.filter((move) => Number(move.effectPower) > 1).length, 6, 'six real damaging moves, independent of utility slots');
         assert.ok(kit.every((move) => !move.tags?.some((tag) => tag.name === 'Stun')), 'no stun loop in the authored kit');

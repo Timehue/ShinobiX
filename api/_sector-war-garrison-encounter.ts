@@ -24,6 +24,7 @@
  * they share a shape and both read a real defender's sealed loadout.
  */
 import type { PvpFighter } from './pvp/session.js';
+import { combatSpawnPositions } from './combat-core/spawns.js';
 import {
     createSoloPveSession,
     type SoloPveSession,
@@ -104,10 +105,9 @@ export interface BuildGarrisonParams {
 
 export function buildGarrisonEncounter(params: BuildGarrisonParams): SoloPveSession {
     const biome = biomeForTerrain(params.terrain);
-    const middleRow = Math.floor(GARRISON_MAP.height / 2);
-    const middleColumn = Math.floor(GARRISON_MAP.width / 2);
-    const player = fighter(params.attacker, middleRow * GARRISON_MAP.width + middleColumn - 2);
-    const enemy = fighter(params.anbu, middleRow * GARRISON_MAP.width + middleColumn + 2, true);
+    const spawns = combatSpawnPositions(params.runId, { openingDistance: 4 });
+    const player = fighter(params.attacker, spawns.allies[0]!);
+    const enemy = fighter(params.anbu, spawns.enemies[0]!, true);
     return createSoloPveSession({
         sessionId: params.runId,
         ownerSlug: params.attacker.slug,

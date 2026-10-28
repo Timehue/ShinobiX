@@ -182,6 +182,7 @@ export const FETCH_S_MISSION_ID = "fetch-s-shadow-front";
 // One Honor Seal shaves this many minutes off an active jutsu lesson. Mirror of
 // api/jutsu/speedup.ts MINUTES_PER_SEAL.
 export const SEAL_SPEEDUP_MINUTES_PER_SEAL = 5;
+export const COMBAT_MISSION_STAT_POINTS = 1;
 
 // ── Item IDs (special / shared) ──────────────────────────────────────────
 export const WEEKLY_BOSS_CORE_ID = "weekly-boss-core";

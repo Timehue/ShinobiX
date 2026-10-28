@@ -9,6 +9,7 @@ import { TOWER_TURN_AFK_MS } from '../src/lib/towers-api';
 // Many calls here follow browser-only work of arbitrary length; see the helper.
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { sampleStableGrid } from '../scripts/combat-layout-settling';
+import { assertTargetConfirmation } from './helpers/target-confirmation';
 
 // The loadout's scroll container. Phones wrap basic commands and the loadout in
 // one `.combat-action-tray` scrollport. Desktop PvP/PvE trays are `display:
@@ -1242,15 +1243,15 @@ async function measureStable(page: Page, rootSelector: string, diagnostic?: Meas
  *
  * measureStable is counted in animation frames: settleLayout plus four agreeing
  * grid samples is at least ten. Chromium renders those in about half a second,
- * so 10s allows many attempts. Playwright's WebKit on Windows does not on the
- * solo arena: it repaints the whole view each time that screen's 1 Hz round
- * countdown ticks, and at desktop widths that repaint takes about a second, so
- * a single measurement costs about 10s. A flat 10s budget then ran out while
+ * so 10s allows many attempts. Historically Windows WebKit repainted the Solo
+ * view on each 1 Hz countdown tick, costing about a second at desktop widths;
+ * a single measurement could cost about 10s. A flat 10s budget ran out while
  * the first attempt was still measuring, with every bound satisfied, and toPass
  * reported a bare timeout. Measured 2026-09-10: 1.0-1.35s to paint one tick at
  * 1920x1080 against 12ms in Chromium on the same machine, and 53 fps once the
- * countdown was frozen. (The PvP matrix pins its countdown, and the Tower shell
- * stays near 60 fps while its countdown ticks.) CI's Linux WebKit runs the whole
+ * countdown was frozen. Both arena fixtures now pin their countdowns to hold
+ * one turn; the measurement-based budget still accommodates slow paint frames.
+ * CI's Linux WebKit runs the whole
  * Solo test in about two minutes. Scaling by what the viewport's first
  * measurement cost leaves a slow renderer room for at least two full
  * re-measurements; the floor leaves fast engines exactly where they were.
@@ -2034,6 +2035,22 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
 }
 
 test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInfo) => {
+    // Hold one turn throughout this multi-minute geometry sweep, as the PvP
+    // fixture does. Solo's countdown decrements a local interval, so freezing
+    // Date alone cannot stop its automatic Wait from clearing an armed action
+    // between the pointer checks. Leave rAF, input and other timer cadences running.
+    await page.addInitScript(() => {
+        const schedule = window.setInterval.bind(window);
+        window.setInterval = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+            const soloTimer = delay === 1_000 && document.querySelector('.mission-arena-fight .round-timer-display[role="timer"]');
+            return schedule(handler, soloTimer ? 3_600_000 : delay, ...args);
+        }) as typeof window.setInterval;
+    });
+    let unexpectedWaits = 0;
+    page.on('request', request => {
+        if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/solo-pve/action'
+            && request.postDataJSON()?.type === 'wait') unexpectedWaits += 1;
+    });
     const { name, token } = await seedAccount(request, testInfo, 'solo');
     // Prime the device preview with the exact post-sanitization server record.
     // Otherwise the async divergence detector can raise a save-conflict banner
@@ -2055,13 +2072,14 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     });
     // Linux WebKit in CI runs this whole test in about two minutes. Playwright's
     // WebKit on Windows has needed almost eight on a loaded machine, because the
-    // solo arena's live countdown makes every desktop-width frame cost about a
-    // second (see layoutRetryBudget), and the suite-wide 240s would end a
+    // arena's large viewport sweep can spend seconds on paint frames (see
+    // layoutRetryBudget), and the suite-wide 240s would end a
     // healthy run. Extend the allowance from here, where the frame-bound work
     // (the arming traces, then the viewport matrix) begins, so a hang while
     // signing in or starting the mission still fails at 240s. setTimeout counts
     // from the test's start, so 600s is the whole test's total.
     test.setTimeout(600_000);
+    await assertTargetConfirmation(page, '.mission-arena-fight', 'solo', name);
     await assertJutsuSelectionGeometryStable(page, '.mission-arena-fight', true);
     await page.setViewportSize({ width: 1440, height: 900 });
     const soloRoot = page.locator('.mission-arena-fight');
@@ -2127,6 +2145,7 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     expect(resultAnimation.cinematic.some((rule) => rule.delay === '2.2s'),
         'authored story chapters must keep their explicit final-bark beat').toBe(true);
     await captureMatrix(page, 'solo', '.mission-arena-fight', testInfo);
+    expect(unexpectedWaits, 'the geometry fixture must hold its player turn throughout the sweep').toBe(0);
 });
 
 test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) => {
@@ -2214,6 +2233,7 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         enemyMarkers: 1,
         minimumEnemySprites: 0,
     });
+    await assertTargetConfirmation(page, '.pvp-battle-layout', 'pvp', activeAccount.name);
     await assertJutsuSelectionGeometryStable(page, '.pvp-battle-layout', false);
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
 
@@ -2275,7 +2295,24 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
     await firstFloor.click();
     const started = page.waitForResponse(response => response.url().includes('/api/towers/start') && response.request().method() === 'POST');
     await page.getByRole('button', { name: /Enter Floor 1/ }).click();
-    const launch = await (await started).json() as { session: { turnStartedAt: number } };
+    const launch = await (await started).json() as {
+        runId: string;
+        session: { status: string; round: number; turnStartedAt: number };
+    };
+    expect(launch.session.status, 'real Tower launch must be active').toBe('active');
+    expect(launch.session.round, 'geometry must start from the real opening round').toBe(1);
+    expect(launch.session.turnStartedAt).toBeGreaterThan(0);
+    // State reads enforce the server's 75-second AFK auto-pass, even on our
+    // turn. Replay the complete real opening snapshot only in this geometry
+    // fixture: the exhaustive sweep can outlast several live turns. Production
+    // AFK behavior and the separate authoritative action journeys stay live.
+    let geometryPolls = 0;
+    await page.route('**/api/towers/state?**', async route => {
+        if (route.request().method() !== 'GET'
+            || new URL(route.request().url()).searchParams.get('runId') !== launch.runId) return route.fallback();
+        geometryPolls += 1;
+        await route.fulfill({ json: { session: launch.session } });
+    });
     await expect(page.locator('.screen-battleTowerFight')).toBeVisible();
     // Check the launch turn before the long viewport sweep can advance it.
     await assertTowerCountdownGeometryStable(page, testInfo, launch.session.turnStartedAt);
@@ -2296,18 +2333,34 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
     // off at 600s with no action hung. Timing each phase (2026-09-10) put
     // WebKit's sweep at 1.75 times Chromium's: the frame waits right after a
     // resize, an arm and a cancel took three to four times as long, and no
-    // single phase dominates. Unlike the solo countdown, nothing idle drives that
-    // cost, so there is nothing to hold still. Keep this exhaustive test
-    // no-retry, but extend the allowance only here, so a hang during setup still
+    // single phase dominates. Hold the opening clock after the independent
+    // countdown-width check; state polling above retains the same real board.
+    // Keep this exhaustive test no-retry and extend the allowance only here,
+    // so a hang during setup still
     // fails at the suite's 240s. setTimeout counts from the test's start.
     test.setTimeout(900_000);
-    await assertJutsuSelectionGeometryStable(
-        page,
-        '.screen-battleTowerFight',
-        true,
-        `tower-${testInfo.project.name}`,
-        true,
-    );
+    await page.clock.setFixedTime(launch.session.turnStartedAt + 1_000);
+    await assertTargetConfirmation(page, '.screen-battleTowerFight', 'tower', name);
+    const unexpectedActions: string[] = [];
+    const observeAction = (request: BrowserRequest) => {
+        if (request.method() !== 'POST' || new URL(request.url()).pathname !== '/api/towers/action') return;
+        const body = request.postDataJSON() as { type?: string };
+        unexpectedActions.push(body.type ?? 'unknown');
+    };
+    page.on('request', observeAction);
+    try {
+        await assertJutsuSelectionGeometryStable(
+            page,
+            '.screen-battleTowerFight',
+            true,
+            `tower-${testInfo.project.name}`,
+            true,
+        );
+        expect(unexpectedActions, 'arming/cancelling must never submit an action or automatic Wait').toEqual([]);
+        expect(geometryPolls, 'the sweep must exercise the opening-state polling fixture').toBeGreaterThan(0);
+    } finally {
+        page.off('request', observeAction);
+    }
 });
 
 async function assertTowerCountdownGeometryStable(page: Page, testInfo: TestInfo, turnStartedAt: number): Promise<void> {

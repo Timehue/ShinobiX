@@ -61,6 +61,7 @@ test('selected level 100 is sealed, survives reconnect and releases navigation o
     expect(server.starts).toBe(1);
     server.hold();
     await page.getByRole('button', { name: /^Attack/ }).click();
+    await page.locator('#combat button.hex-tile.hex-enemy.jutsu-target-tile').click();
     const result = page.getByRole('dialog', { name: 'Fight won' });
     await expect(result).toBeVisible();
     await expect(result.getByText('Lv 100', { exact: true })).toBeVisible();

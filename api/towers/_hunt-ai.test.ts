@@ -67,14 +67,14 @@ test('hunt chooser retains authored HP conditions and cannot affect public Tower
     assert.deepEqual(pickAiAction(s,enemy,()=>.5),sealed);
 });
 
-test('ordinary easy hunts telegraph an approach before a gap-closing basic chain',()=>{
+test('ordinary easy hunts telegraph Flicker and allow its opening follow-up attacks',()=>{
     let s=huntFixture(20,'hunt-frost-wolf');
     const initialHp=s.player.hp;
     const e=s.huntCombat!.battle.actors.find(a=>a.side==='enemy')!,initialPos=e.pos;
-    assert.match(s.log.join('\n'),/Basic attacks begin on round 2/);
+    assert.match(s.log.join('\n'),/Flicker can close the gap and enable follow-up attacks/);
     let next=applySoloPveAction(s,{type:'huntAction',action:{type:'wait'}});
     assert.ok(next.applied);s=next.session;
-    assert.equal(s.player.hp,initialHp);
+    assert.ok(s.player.hp<initialHp,'Flicker preserves enough AP to attack during the opening round');
     assert.notEqual(s.huntCombat!.battle.actors.find(a=>a.side==='enemy')!.pos,initialPos);
     next=applySoloPveAction(s,{type:'huntAction',action:{type:'wait'}});
     assert.ok(next.applied);s=next.session;

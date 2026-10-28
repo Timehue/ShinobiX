@@ -15,14 +15,20 @@ import { makeRng } from '../api/towers/_sim.js';
 import type { TowerFloor } from '../api/towers/_floor-catalog.js';
 import { startingItemShield } from '../api/combat-core/shields.js';
 import { closeFightSave, closeFixtureAudit } from './pve-close-fights-benchmark.js';
+import { teachPveGapClosingJutsu } from '../api/_ai-opponent-loadout.js';
+import { pveAiItemCharges } from '../api/combat-core/ai-items.js';
 
 const FLOOR: TowerFloor = { id: 1, name: 'Mercenary Skirmish', biome: 'central', objective: 'defeat-all',
     roundBudget: 25, map: { width: 12, height: 10 }, fieldRule: { kind: 'none' }, enemies: [], firstClearReward: {} };
 function actor(character: Record<string, any>, enemy: boolean): TowerActor {
+    // Match resolveMercBattle's NPC preparation before measuring it. Human
+    // snapshots retain their sealed kit and never receive NPC supplies.
+    if (enemy) teachPveGapClosingJutsu(character, []);
     return { id: enemy ? 'merc-0' : 'sq-0', name: enemy ? 'Mercenary' : 'Defender', side: enemy ? 'enemy' : 'squad',
         ai: true, ownerSlug: enemy ? null : 'offline-fixture', hp: character.maxHp, maxHp: character.maxHp,
         chakra: character.maxChakra, maxChakra: character.maxChakra, stamina: character.maxStamina, maxStamina: character.maxStamina,
-        shield: startingItemShield(character), statuses: [], cooldowns: {}, pos: enemy ? 60 : 10, character };
+        shield: startingItemShield(character), statuses: [], cooldowns: {}, pos: enemy ? 60 : 10, character,
+        ...(enemy ? { itemCharges: pveAiItemCharges(character) } : {}) };
 }
 export function probeWarMercenary(merc: Record<string, any>, defender: Record<string, any>, seed: number) {
     const actors = [actor(structuredClone(defender), false), actor(structuredClone(merc), true)];

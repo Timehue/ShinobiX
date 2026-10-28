@@ -212,8 +212,16 @@ for (const skew of [-180000, 180000]) {
             const realNow = Date.now.bind(Date);
             Date.now = () => realNow() + offset;
         }, skew);
-        await page.route('**/api/player/heartbeat', route => route.fulfill({ json: { serverNow: Date.now(), sectorMates: [], allPlayers: [] } }));
         const requests: number[] = [];
+        let firstHeartbeat = true;
+        await page.route('**/api/player/heartbeat', async route => {
+            if (firstHeartbeat) {
+                firstHeartbeat = false;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                expect(requests, 'automatic settlement waits for the first server clock sample').toHaveLength(0);
+            }
+            await route.fulfill({ json: { serverNow: Date.now(), sectorMates: [], allPlayers: [] } });
+        });
         await page.route('**/api/training/jutsu-ryo', async route => {
             requests.push(Date.now());
             const character = { ...save.character, jutsuMastery: [{ jutsuId: 'starter-universal-flicker', level: 2, xp: 0 }] };

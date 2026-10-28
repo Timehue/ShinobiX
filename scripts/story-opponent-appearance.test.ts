@@ -56,7 +56,8 @@ test('all chapter enemies seal their own portrait, role, element and actual tech
         if (identity.body) realPublicImage(identity.body);
         assert.equal(session.enemy.character.specialty, identity.specialty);
         const techniques = session.enemy.character.jutsu as Array<Record<string, unknown>>;
-        assert.ok(techniques.every(jutsu => jutsu.element === identity.element), id);
+        assert.ok(techniques.filter(jutsu => jutsu.id !== 'starter-universal-flicker')
+            .every(jutsu => jutsu.element === identity.element), id);
         assert.ok(techniques.some(jutsu => jutsu.name === identity.signature), id);
         assert.ok(!techniques.some(jutsu => String(jutsu.name).endsWith(' Signature')), id);
         assert.ok(battlefieldAiSprite(id));
@@ -79,7 +80,7 @@ test('Mira, the wooden guardian and the snow beast cannot fall back to a generic
 test('named road, quest and personal enemies seal real thematic kits and keep their canonical faces', () => {
     const custom = seal({ id: 'custom-fighter-with-rift-art', name: 'Custom Fighter', visual: 'rift-boss-engine-echo',
         avatarImage: '/portraits/pve/defender.webp', jutsuIds: ['starter-tai-water-2'] });
-    assert.deepEqual((custom.enemy.character.jutsu as Array<{id:string}>).map(jutsu => jutsu.id), ['starter-tai-water-2'], 'reusing artwork alone must not replace an authored combat kit');
+    assert.deepEqual((custom.enemy.character.jutsu as Array<{id:string}>).map(jutsu => jutsu.id), ['starter-tai-water-2', 'starter-universal-flicker'], 'reusing artwork alone must not replace an authored combat kit; shared Flicker is additive');
     assert.equal(custom.enemy.character.avatarImage, '/portraits/pve/defender.webp');
     for (const [id, identity] of Object.entries(NARRATIVE_ENEMY_IDENTITIES)) {
         realPublicImage(identity.portrait);
@@ -92,7 +93,7 @@ test('named road, quest and personal enemies seal real thematic kits and keep th
         if (group) { assertGroupPresentation(session, group); continue; }
         assert.equal(session.enemy.character.avatarImage, identity.portrait, runtimeId);
         const techniques = session.enemy.character.jutsu as Array<Record<string, unknown>>;
-        const expectedIds = narrativeEnemyJutsuIds(identity);
+        const expectedIds = [...new Set([...narrativeEnemyJutsuIds(identity), 'starter-universal-flicker'])];
         assert.deepEqual(techniques.map(jutsu => jutsu.id), expectedIds, runtimeId);
         const canonical = resolveAiProfileJutsu(expectedIds);
         assert.equal(canonical.length, expectedIds.length, `${id}: no technique silently drops out`);

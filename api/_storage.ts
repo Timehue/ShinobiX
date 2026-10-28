@@ -77,6 +77,9 @@ const _noCachePrefixes = [
     // proofs. A worker-local pending snapshot must not hide another worker's
     // completion or make that join disagree immediately after a retry.
     'clan:mission-claimed:', 'economy-settlement:clan-exchange-',
+    // Weekly baselines and payout claims are shared transaction authority.
+    // Every worker must see the current claim before deciding a payout.
+    'weekly-board:',
     // Mentor records hold pending milestone settlements and are only ever
     // replaced by exact CAS; the pointers and student markers beside them are
     // compare-and-delete guarded. A worker-local snapshot would turn every

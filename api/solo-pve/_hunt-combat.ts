@@ -11,6 +11,10 @@ import { companionConsumableHealPct } from '../combat-core/companion.js';
 import { huntMissionById } from '../missions/_mission-catalog.js';
 import { HUNT_AI_POLICY, HUNT_REACTIVE_POLICY } from '../towers/_hunt-ai.js';
 import { pveEasyBandHoldsBurst, pveDifficultyBand } from '../_pve-difficulty.js';
+import { combatFormationPositions } from '../combat-core/spawns.js';
+import { pveAiItemCharges } from '../combat-core/ai-items.js';
+import { isDamagingAiGapCloser, isAiFlicker } from '../combat-core/ai-mobility.js';
+import type { CombatJutsu } from '../combat-core/types.js';
 
 export type HuntCombatState = {
     purpose?: 'story-twins' | 'narrative-group';
@@ -30,14 +34,8 @@ function fighterActor(fighter: PvpFighter, id: string, ownerSlug: string | null,
 export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightContext): void {
     const formation = context.huntFormation;
     if (!formation || !context.huntRunId || (context.kind !== 'hunt-pack' && context.kind !== 'hunt-target')) return;
-    const occupied = new Set(session.environment.blockedTiles);
-    const spawn = (preferred: number) => {
-        const pos = [preferred, ...Array.from({ length: 120 }, (_, tile) => tile)].find(tile => !occupied.has(tile));
-        if (pos === undefined) throw new Error('The hunt battlefield has no free spawn tiles.');
-        occupied.add(pos);
-        return pos;
-    };
-    const player = fighterActor(session.player, 'player', session.ownerSlug, spawn(62));
+    const spawns = combatFormationPositions(session.sessionId, { allies: [62], enemies: [33, 57, 81].slice(0, formation.count), blockedTiles: session.environment.blockedTiles });
+    const player = fighterActor(session.player, 'player', session.ownerSlug, spawns.allies[0]!);
     const requirement = huntMissionById(context.missionId ?? context.sourceId)?.levelReq ?? 1;
     const rank = requirement >= 70 ? 'S' : requirement >= 50 ? 'A' : requirement >= 30 ? 'B' : requirement >= 15 ? 'C' : 'D';
     // Simultaneous easy-band packs already chain several enemy turns. Preserve
@@ -48,7 +46,8 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
         && pveDifficultyBand(Number(session.enemy.character.level)) === 'easy';
     player.itemCharges = { ...session.itemCharges };
     const enemies = Array.from({ length: formation.count }, (_, index) => {
-        const actor = fighterActor(session.enemy, `hunt-enemy-${index}`, null, spawn([33, 57, 81][index]!));
+        const actor = fighterActor(session.enemy, `hunt-enemy-${index}`, null, spawns.enemies[index]!);
+        actor.itemCharges = pveAiItemCharges(actor.character);
         // Every creature keeps the encounter's full HP, so a pack costs as much
         // effort as the three fights it replaces. Only a simultaneous pack trims
         // offensive strength, because all members can act in the same round.
@@ -88,9 +87,13 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
     battle.weather = { positiveElement: session.environment.weatherPositiveElement, negativeElement: session.environment.weatherNegativeElement };
     battle.log.push(`${label}: ${session.enemy.name}.`);
     const heavyRound = !pveEasyBandHoldsBurst(Number(session.enemy.character.level), 1) ? 1 : 3;
-    if(tacticalHunt&&pveDifficultyBand(Number(session.enemy.character.level))==='easy')
+    const hasFlicker = enemies.some(enemy => (enemy.character.jutsu as CombatJutsu[]).some(isAiFlicker));
+    if (hasFlicker) battle.log.push('Flicker can close the gap and enable follow-up attacks during the opening round.');
+    if(tacticalHunt&&pveDifficultyBand(Number(session.enemy.character.level))==='easy' && !hasFlicker)
         battle.log.push('The creature spends the opening round approaching and preparing. Basic attacks begin on round 2.');
-    battle.log.push(`${rank}-rank hunt: watch for afflictions and gap-closing techniques. Heavy techniques begin on round ${heavyRound}. Cleanse removes afflictions; Clear strips active defenses.`);
+    battle.log.push(`${rank}-rank hunt: watch for afflictions and gap-closing techniques. Heavy techniques begin on round ${heavyRound}${hasFlicker ? ', or earlier after Flicker' : ''}. Cleanse removes afflictions; Clear strips active defenses.`);
+    if (enemies.some(enemy => (enemy.character.jutsu as CombatJutsu[]).some(isDamagingAiGapCloser)))
+        battle.log.push('Gap-closing movement strikes can hit during the opening approach from long range.');
     if (reactiveHunt) battle.log.push('Wounded retaliation: this lone creature can use heavy techniques from round 2 at 75% HP or below. Use defensive techniques to blunt the response or create distance before wounding it.');
     session.huntCombat = { formation, battle };
     startRound(battle);

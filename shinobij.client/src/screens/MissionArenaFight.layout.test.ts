@@ -194,8 +194,8 @@ test("the enemy HP badge clears the AI's full-body sprite instead of its face", 
 });
 
 test("the mission summon command contains its icon and long lock copy", () => {
-    assert.match(missionSource, /className="summon-pet-command"/);
-    assert.equal((missionSource.match(/type: "summon"/g) ?? []).length, 1, "mission combat must render one authoritative summon control");
+    assert.match(missionSource, /className=\{`summon-pet-command/);
+    assert.equal((missionSource.match(/armBasicAction\("summon"\)/g) ?? []).length, 1, "mission combat must render one summon control that arms targeting");
     assert.match(missionSource, /<CombatHudLayout className="combat-log-wide" hasActionNotice=\{!mobileCombat\}>/);
     assert.doesNotMatch(missionSource, /combat-companion-panel|combat-companion-summon/);
     assert.match(

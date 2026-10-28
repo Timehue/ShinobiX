@@ -99,8 +99,8 @@ export type PlayerSaveCommit = {
 };
 
 export type PlayerSaveCommitOptions = {
-    /** Publish an authority proof atomically with its save/ledger mutation. */
-    atomicProof?: { key: string; value: unknown; ex: number };
+    /** Publish or replace a proof with its save/ledger mutation; defaults to NX. */
+    atomicProof?: { key: string; expected?: unknown; value: unknown; ex: number };
     /** Test seam for the fail-closed gate (defaults to CURRENCY_LEDGER_GATE_ENFORCED). */
     gateEnforced?: boolean;
     now?: number;
@@ -136,7 +136,7 @@ async function commitInScope(
     if (proof && (proof.key.startsWith('save:') || proof.key.startsWith('ledger:') || !store.compareSetMany)) {
         throw new Error('Invalid atomic player-save proof');
     }
-    const proofOps = proof ? [{ op: 'cas' as const, key: proof.key, expected: null, value: proof.value, ex: proof.ex }] : [];
+    const proofOps = proof ? [{ op: 'cas' as const, key: proof.key, expected: proof.expected ?? null, value: proof.value, ex: proof.ex }] : [];
     const after = projectBalances(characterOf(intended));
     const movesCurrency = Object.keys(after).length > 0
         && balancesDiffer(projectBalances(characterOf(expected)), after);

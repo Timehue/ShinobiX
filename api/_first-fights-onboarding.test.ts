@@ -10,6 +10,7 @@ import { validateServerAiRules } from './combat-core/ai-authoring.js';
 import { hexDistance, hexNeighbors } from './combat-core/grid.js';
 import { JUTSU_CATALOG } from './pvp/_jutsu-catalog.js';
 import type { SoloPveAction, SoloPveSession } from './solo-pve/_session.js';
+import { STANDARD_PVE_AI_POLICY } from './solo-pve/_ai-turn-policy.js';
 
 /*
  * The first authored fights of a brand-new shinobi, played through the live
@@ -322,5 +323,31 @@ describe('every bloodline gets the same lessons', () => {
         s.activeSide = 'enemy';
         runSoloPveAiUntilPlayer(s);
         assert.ok(hexDistance(s.player.pos, s.enemy.pos) >= 4, 'the partner never walks past casting range');
+    });
+});
+
+describe('live starts retain the teaching sequence with the standard PvE policy sealed',()=>{
+    const standard=(s:SoloPveSession)=>{s.enemy.character.aiTurnPolicy=STANDARD_PVE_AI_POLICY;return s;};
+    it('the dummy still falls to the walking beginner before a hit lands',()=>{
+        const terminal=play(standard(spar()),expressTurn);
+        assert.equal(terminal.winner,'player');
+        assert.equal(terminal.player.hp,terminal.player.maxHp);
+    });
+    it('the Drill and Sentinel hold casting range and retain passive-rookie safety',()=>{
+        for(const key of['combat-e-drill','combat-d-errand']as const){
+            const initial=standard(mission(key,rookieSave(key==='combat-d-errand'?5:1)));
+            const passive=waitRounds(initial,8);
+            assert.equal(passive.status,'active');
+            assert.equal(hexDistance(passive.player.pos,passive.enemy.pos),4);
+            assert.ok(passive.player.hp>=passive.player.maxHp*(key==='combat-e-drill'?.8:.75));
+            assert.equal(play(initial,naiveTurn).winner,'player');
+        }
+    });
+    it('the guardian braces before moving and can still be defeated naively',()=>{
+        const initial=standard(chapterOne());
+        const first=act(initial,{type:'wait'}).session;
+        assert.ok(first.enemy.shield>200);
+        assert.ok(names(first.enemy.statuses).includes('Absorb'));
+        assert.equal(play(initial,naiveTurn).winner,'player');
     });
 });

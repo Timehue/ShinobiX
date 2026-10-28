@@ -40,10 +40,12 @@ test('server classification seals veteran gear without ratcheting HP, altering i
     assert.equal((standard.enemy.character.equipment as Record<string, unknown>)?.hand, 'worldsplitter-katana');
     assert.equal(standard.enemy.character.pveWeaponPolicy, CATALOG_CHALLENGE_WEAPON_POLICY);
     assert.equal(weaker.enemy.character.pveWeaponPolicy, undefined);
-    assert.equal(weaker.enemy.character.equipment, undefined);
-    assert.equal(build({ ...ordinaryAiProfile({ ...descriptor, difficulty: 'standard' }), pveDifficulty: undefined }).enemy.character.equipment, undefined);
-    assert.equal(build(ordinaryAiProfile({ ...descriptor, difficulty: 'standard' }), false).enemy.character.equipment, undefined);
-    assert.ok((standard.enemy.character.jutsu as unknown[]).length <= 12);
+    // NPC combat supplies do not grant a veteran hand weapon or weapon policy.
+    const hand = (character: Record<string, unknown>) => (character.equipment as Record<string, unknown>)?.hand;
+    assert.equal(hand(weaker.enemy.character), undefined);
+    assert.equal(hand(build({ ...ordinaryAiProfile({ ...descriptor, difficulty: 'standard' }), pveDifficulty: undefined }).enemy.character), undefined);
+    assert.equal(hand(build(ordinaryAiProfile({ ...descriptor, difficulty: 'standard' }), false).enemy.character), undefined);
+    assert.ok((standard.enemy.character.jutsu as unknown[]).length <= 13, 'the profile cap plus the shared Flicker');
 });
 
 test('named source opt-in restores specialty allocation and preserves low-level and nonchallenge construction', () => {
@@ -67,7 +69,7 @@ test('each final Kage keeps its exclusive policy, legal full rotation and exact 
         assert.equal(s.enemy.maxHp, profile.hp, 'equipping the challenge weapon does not alter the authored HP budget');
         assert.equal(profile.pveDifficulty, 'final-kage');
         assert.equal(s.enemy.character.masterAi, true);
-        assert.equal((s.enemy.character.jutsu as unknown[]).length, 12);
+        assert.equal((s.enemy.character.jutsu as unknown[]).length, 12, 'the authored rotation already includes shared Flicker');
         assert.equal((s.enemy.character.equipment as Record<string, unknown>)?.hand, 'worldsplitter-katana');
         assert.equal(s.enemy.character.pveWeaponPolicy, CATALOG_CHALLENGE_WEAPON_POLICY);
     }

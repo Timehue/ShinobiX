@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
+import { resolvePveGapClosingJutsu } from '../_ai-opponent-loadout.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -111,6 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 towerId: WORLD_CRISIS_80_TOWER_ID,
                 embedFloor: true,
                 enemyTemplates: buildWorldCrisis80EnemyTemplates(encounter, character.level, admin),
+                gapClosingJutsu: resolvePveGapClosingJutsu(admin),
             });
             session.floorProvenance = {
                 kind: 'embedded',

@@ -28,6 +28,7 @@ const OFFSET_DEADBAND_MS = 1_000;
 const MAX_SAMPLE_AGE_MS = 5_000;
 
 let offsetMs = 0;
+let sampled = false;
 
 /**
  * Record a server timestamp. `sentAt` (when the request left) is optional: pass
@@ -43,6 +44,7 @@ export function noteServerTime(serverNow: unknown, sentAt?: number, receivedAt: 
         if (roundTrip < 0 || roundTrip > MAX_SAMPLE_AGE_MS) return;
         reference = sentAt + roundTrip / 2;
     }
+    sampled = true;
     const sample = stamp - reference;
     if (Math.abs(sample - offsetMs) <= OFFSET_DEADBAND_MS) return;
     offsetMs = sample;
@@ -58,7 +60,13 @@ export function serverClockOffsetMs(): number {
     return offsetMs;
 }
 
+/** Automatic settlement must wait for a real clock sample, even at zero drift. */
+export function hasServerClockSample(): boolean {
+    return sampled;
+}
+
 /** Test seam — the offset is module state that would otherwise leak across cases. */
 export function resetServerClock(): void {
     offsetMs = 0;
+    sampled = false;
 }

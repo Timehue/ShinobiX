@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
 import {
     canPlayerClaimMission,
     canPlayerReceiveMission,
@@ -64,6 +65,14 @@ test('profession, pet, and ranked gates return machine-readable reasons', () => 
         { name: 'Ranked Grinder', eligibility: { minLevel: 10, requiresRankedUnlocked: true } },
         { systems: { ranked: false } },
     ).reason, 'system-locked');
+});
+
+test('ranked mission access matches the actual ranked queue floor', () => {
+    const mission = { name: 'Ranked Grinder', counter: 'rankedWins' };
+    assert.equal(normalizeMissionEligibility(mission).minLevel, RANKED_MIN_LEVEL);
+    assert.equal(canPlayerReceiveMission({ level: RANKED_MIN_LEVEL - 1 }, mission).ok, false);
+    assert.equal(canPlayerReceiveMission({ level: RANKED_MIN_LEVEL }, mission).ok, true);
+    assert.equal(canPlayerReceiveMission({ level: RANKED_MIN_LEVEL }, mission, { systems: { ranked: false } }).ok, false);
 });
 
 test('claim rejects ineligible weekly Warden mission even if posted manually', () => {
