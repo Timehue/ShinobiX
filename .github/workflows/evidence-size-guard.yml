@@ -1,0 +1,42 @@
+name: Evidence size guard
+
+# docs/screenshots, docs/evidence and docs/audits hold ~9 GB of review evidence,
+# which is why the tree needs a lean deploy branch and a sparse checkout in every
+# CI job. This check keeps new bulk evidence out of those folders while the files
+# are moved out of git. It reads the PR's file list from the API, so it needs no
+# real checkout. Add the `allow-evidence` label to a PR that must commit evidence.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: evidence-size-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Evidence size guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.nvmrc
+            /scripts/check-evidence-growth.mjs
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Check evidence growth
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" > "$RUNNER_TEMP/files.json"
+          node scripts/check-evidence-growth.mjs "$RUNNER_TEMP/files.json"

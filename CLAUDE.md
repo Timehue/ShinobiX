@@ -186,6 +186,15 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   `main`, so a committed `dist/` is served by no one, and a source rebuild only
   churns it on line-endings.
 - Keep CORS headers in `api/_utils.ts` and `server.ts` synchronized.
+- **Do not commit bulk review evidence** (screenshots, renders, audit dumps) to
+  `docs/screenshots/`, `docs/evidence/` or `docs/audits/`. Those folders are 9 GB
+  of the ~10.5 GB tree and are being moved out of git (the sparse checkouts in
+  `ci.yml` and the `railway-deploy` branch exist only because of them). Write
+  evidence to the gitignored `.ci-evidence/` and attach what a reviewer needs to
+  the PR. The `Evidence size guard` workflow fails a PR that adds more than 20
+  files or any image/video there. The one legitimate exception today is a pet
+  shape review: `npm run check:pet-shape-review` re-hashes the evidence a receipt
+  cites from the repo, so that PR carries the `allow-evidence` label.
 - Do not commit secrets, API keys, Supabase service keys, passwords, or `.env` contents.
 - Always run the relevant tests before saying a task is complete.
 - For frontend changes, run `npm run lint` inside `shinobij.client/`.
