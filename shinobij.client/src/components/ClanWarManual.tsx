@@ -1,4 +1,5 @@
 import { GameArtIcon } from "./GameArtIcon";
+import { STARTING_LIFE_POINTS } from "../../../shared/chronicle-duel";
 
 /*
  * Clan War quick-reference manual. Popped open from a "?" button on the
@@ -188,7 +189,7 @@ export function ClanWarManual({ onClose,legacy=false }: { onClose: () => void;le
       >
         <strong style={{ color: "var(--blue-400)" }}>Chronicle Showdowns:</strong>{" "}
         bring a legal <strong>40-card Main Deck</strong>. Both challengers begin at{" "}
-        <strong>8,000 Health Points</strong> and alternate server-validated
+        <strong>{STARTING_LIFE_POINTS.toLocaleString("en-US")} Health Points</strong> and alternate server-validated
         actions through Main, Battle and End phases. Monster, Jutsu and Snare
         Zones use the same rules as the Card Hall; the server credits the winner
         once.

@@ -1,4 +1,5 @@
 import { kv } from '../_storage.js';
+import { sectorWarPurseEligible } from '../_sector-war-purse-eligibility.js';
 import { safeName } from '../_utils.js';
 import {
     normalizeVillageWarRecord,
@@ -409,7 +410,13 @@ export async function settlePvpSectorWarContinuation(
                 ),
                 by: winnerName,
             });
-            return { kind: 'score', outcome, attackerWon, by: winnerName, at: clock.endedAt };
+            const purseEligible = await sectorWarPurseEligible({
+                winnerName, loserName: loserSide === 'p1' ? p1Name : p2Name,
+                endedAt: clock.endedAt,
+                winnerLevel: session[winnerSide].character.level,
+                loserLevel: session[loserSide].character.level,
+            });
+            return { kind: 'score', outcome, attackerWon, by: winnerName, at: clock.endedAt, purseEligible };
         },
         verifyPrior: (existing) => {
             if (existing.attackerWon !== attackerWon

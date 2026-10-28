@@ -11,6 +11,7 @@ import { sectorWarRoleOf, sectorControlSwing, ROLE_VILLAGER } from '../_war-role
 import { applyContestBattleByWinner, contestGarrisonReady, isSectorWarActive, lastGarrisonBattleAt, sectorWarGarrisonIdle, GARRISON_UNLOCK_IDLE_MS } from '../_sector-war.js';
 import { fieldGarrisonDefender, maskedGarrisonDefenderName, NO_GARRISON_DEFENDER_ERROR } from '../_sector-war-garrison-defender.js';
 import { commitSectorWarBattle, loadSectorWar, type SectorWarBattleCommit, type SectorWarBattleDecision } from '../_sector-war-store.js';
+import { sectorWarPurseEligible, SectorWarPurseEvidenceUnavailableError } from '../_sector-war-purse-eligibility.js';
 import { resolveWarDuel, type WarDuelInput } from '../_pet-showdown/war-duel.js';
 import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
 import { sealWarTeam } from '../_pet-showdown/war-team.js';
@@ -296,6 +297,7 @@ async function applyPetOutcomeToContest(session: SectorPetSession): Promise<Sect
                 // on, and a loss must start that cooldown too. garrisonPointsInWar
                 // filters on attackerWon, so a hold never eats the attacker's cap.
                 ...(session.garrison ? { garrison: true } : {}),
+                ...(!session.garrison ? { purseEligible: await sectorWarPurseEligible({ winnerName, loserName, endedAt }) } : {}),
             };
         },
     });
@@ -603,6 +605,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(result.status).json(result.body);
     } catch (err) {
+        if (err instanceof SectorWarPurseEvidenceUnavailableError) {
+            return res.status(503).json({ error: 'Battle reward eligibility is temporarily unavailable. Try again in a moment.' });
+        }
         if (err instanceof LockContendedError) {
             return res.status(503).json({ error: 'That pet duel is busy right now — try again in a moment.' });
         }
