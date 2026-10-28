@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { STORY_INTERLUDE_DEFS } from './_story-interludes.js';
 // The client data module is import-safe here on purpose: it has zero imports
 // (see its header comment). Dynamic import because this file type-checks as
-// CommonJS under tsconfig.cpanel.json while the client package is ESM; tsx
+// CommonJS under tsconfig.server.json while the client package is ESM; tsx
 // executes it fine either way. If the import breaks, fix the data module,
 // not this test.
 type ClientChoice = { text: string; conclusion: string; trait: string; lane: string; nextPage: number };

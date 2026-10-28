@@ -8,7 +8,7 @@ import * as preview from '../shinobij.client/src/lib/daily-login-preview.ts';
  * shinobij.client/src/lib/daily-login-preview.ts, which re-declares the server's
  * ryo curve and shard schedule (api/player/_daily-login.ts) so the briefing does
  * not pull in server code. This pins the two together. It lives in scripts/
- * because api/** is compiled by tsconfig.cpanel.json, which excludes the client.
+ * because api/** is compiled by tsconfig.server.json, which excludes the client.
  */
 
 describe('daily login preview mirrors the server reward', () => {

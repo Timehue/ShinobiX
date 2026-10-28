@@ -1,7 +1,7 @@
 /*
  * Emit the GAUNTLET_POOL table literal for api/_pet-sim/_gauntlet-pool.ts — the
  * server's copy of the balanced Pet Gauntlet draft pool. The api/ bundle can't
- * import the client (tsconfig.cpanel excludes shinobij.client), so we GENERATE
+ * import the client (tsconfig.server excludes shinobij.client), so we GENERATE
  * the balanced pool here from the client's own transform and paste it, guarded by
  * api/_pet-sim/_gauntlet-pool.test.ts against drift (same pattern as _card-probe).
  *

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 //
 // Deliberately NOT asserted here: the companion "ESM syntax in a file loaded as
 // CommonJS" warning for the `shared/*.ts` modules. The repository root is a
-// CommonJS package scope on purpose — `tsc -p tsconfig.cpanel.json` emits the
+// CommonJS package scope on purpose — `tsc -p tsconfig.server.json` emits the
 // CJS `dist/server.js` + `dist/api/**` that Railway runs, and those `require()`
 // the emitted `dist/shared/*.js`. Marking `shared/` as ESM fails that build with
 // TS1479, so the warning stands until the whole root scope migrates.

@@ -1,24 +1,24 @@
 /**
- * cPanel / Phusion Passenger entry point (CommonJS).
+ * Local-run entry point (CommonJS): `npm start` / `npm run dev`.
  *
- * Passenger's node-loader uses require() to load this file.
+ * Railway does not use this file; it runs `node dist/server.js` directly.
  * This is plain CommonJS — no ESM import/export.
  *
- * 1. Optionally maps cPanel-only Supabase DNS via env (CageFS can block port 53).
+ * 1. Optionally maps Supabase DNS via env, for networks that cannot resolve it.
  * 2. Forces IPv4 for all outbound fetch/undici connections.
  * 3. Loads .env from the same directory.
  * 4. Requires the compiled Express server from dist/server.js.
  */
 
-// Load .env FIRST so cPanel DNS bypass env (and other vars) are available when
+// Load .env FIRST so the DNS bypass env (and other vars) are available when
 // the DNS map below is built at module load.
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
-// Optional cPanel-only DNS bypass. Configure BOTH SUPABASE_DNS_HOST and
-// SUPABASE_HARDCODED_IP when CageFS cannot resolve the Supabase hostname;
+// Optional DNS bypass. Configure BOTH SUPABASE_DNS_HOST and
+// SUPABASE_HARDCODED_IP when the local network cannot resolve the Supabase hostname;
 // source code deliberately contains no project hostname or fallback IP because
 // those are host-specific and can rotate.
-const { buildHardcodedDnsMap, makeCustomLookup } = require('./cpanel-dns.cjs');
+const { buildHardcodedDnsMap, makeCustomLookup } = require('./supabase-dns.cjs');
 const HARDCODED_DNS = buildHardcodedDnsMap(process.env);
 const HARDCODED_DNS_ENABLED = Object.keys(HARDCODED_DNS).length > 0;
 
