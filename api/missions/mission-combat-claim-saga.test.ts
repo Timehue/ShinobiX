@@ -69,6 +69,7 @@ beforeEach(async () => {
         'mission-combat-binding:missionsaga*',
         'missions:combat-claim:missionsaga*',
         'pve-outcome:missionsaga*',
+        'combat-stat-count:missionsaga*',
         'lock:*missionsaga*',
     ]) {
         const keys = await kv.keys(pattern);
@@ -656,6 +657,112 @@ describe('mission queue publication recovery', { concurrency: false }, () => {
 });
 
 describe('mission payout receipt recovery', { concurrency: false }, () => {
+    it('distinct runs of the same mission reserve distinct points from the shared daily budget', async () => {
+        const { reserveDailyStatPoints, readDailyStatBudget } = await import('../_daily-stat-budget.js');
+        const player = 'missionsagasharedstat';
+        await seedPlayer(player);
+        await reserveDailyStatPoints(kv, { playerName: player, receiptId: 'other-activity', eventAt: Date.now(), requested: 58 });
+        for (let index = 0; index < 3; index++) {
+            const runId = await seedWonRun(player, `sharedstat${index}`);
+            assert.equal((await queue(player, runId)).statusCode, 200);
+            const paid = await claim(player);
+            assert.equal(paid.statusCode, 200);
+            assert.equal((paid.body!.reward as Record<string, unknown>).statPoints, index < 2 ? 1 : 0);
+            await claim(player);
+            assert.equal((await savedCharacter(player)).unspentStats, Math.min(index + 1, 2), 'retries cannot double-credit a run');
+        }
+        assert.equal((await readDailyStatBudget(kv, player, Date.now())).spent, 60);
+    });
+
+    it('a combat claim crossing UTC midnight uses the authoritative win-day allocation', async (t) => {
+        const { readDailyStatBudget } = await import('../_daily-stat-budget.js');
+        const wonAt = Date.parse('2026-10-28T23:59:59Z');
+        t.mock.timers.enable({ apis: ['Date'], now: wonAt });
+        const player = 'missionsagamidnightstat';
+        await seedPlayer(player);
+        const runId = await seedWonRun(player, 'midnightstat');
+        assert.equal((await queue(player, runId)).statusCode, 200);
+        const interrupted = await withSetFault(
+            (key) => key === tokenKey(player, MISSION_ID),
+            'throw-before-commit', () => claim(player),
+        );
+        assert.equal(interrupted.statusCode, 500);
+        assert.equal((await savedCharacter(player)).unspentStats, 0);
+        assert.equal((await readDailyStatBudget(kv, player, wonAt)).spent, 1);
+        t.mock.timers.tick(2000);
+        assert.equal((await claim(player)).statusCode, 200);
+        assert.equal((await savedCharacter(player)).unspentStats, 1);
+        assert.equal((await readDailyStatBudget(kv, player, wonAt)).spent, 1);
+        assert.equal((await readDailyStatBudget(kv, player, Date.now())).spent, 0);
+        await claim(player);
+        assert.equal((await savedCharacter(player)).unspentStats, 1);
+    });
+
+    it('the combat claim point stays exactly one during growth events and mission bonuses', async () => {
+        const { BOOST_EVENT_KEY } = await import('../_boost-event.js');
+        const { invalidateProcCache } = await import('../_proc-cache.js');
+        const now = Date.now();
+        await kv.set(BOOST_EVENT_KEY, { id: 'mission-stat-audit', multiplier: 2, targets: ['growth'], startsAt: now - 1000, endsAt: now + 3600000 });
+        invalidateProcCache('boost-event');
+        try {
+            const player = 'missionsagafixedstat';
+            await seedPlayer(player);
+            const save = (await kv.get<Record<string, unknown>>(`save:${player}`))!;
+            await kv.set(`save:${player}`, { ...save, character: { ...(save.character as Record<string, unknown>), villageUpgrades: { missionHall: 50 } } });
+            const runId = await seedWonRun(player, 'fixedstat');
+            assert.equal((await queue(player, runId)).statusCode, 200);
+            const paid = await claim(player);
+            assert.equal(paid.statusCode, 200);
+            assert.equal((paid.body!.reward as Record<string, unknown>).statPoints, 1);
+            assert.equal((await savedCharacter(player)).unspentStats, 1);
+        } finally {
+            await kv.del(BOOST_EVENT_KEY);
+            invalidateProcCache('boost-event');
+        }
+    });
+
+    it('a full daily mission allowance grants no point and preserves the win until a slot is available', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+        const player = 'missionsagadailystat';
+        await seedPlayer(player);
+        const runId = await seedWonRun(player, 'dailystat');
+        assert.equal((await queue(player, runId)).statusCode, 200);
+        const save = (await kv.get<Record<string, unknown>>(`save:${player}`))!;
+        await kv.set(`save:${player}`, { ...save, character: { ...(save.character as Record<string, unknown>),
+            lastDailyReset: new Date().toISOString().slice(0, 10), dailyMissionsCompleted: 20 } });
+        const blocked = await claim(player);
+        assert.equal(blocked.body!.reason, 'daily-cap');
+        assert.equal((await savedCharacter(player)).unspentStats, 0);
+        assert.ok(await kv.get(tokenKey(player, MISSION_ID)));
+        const capped = (await kv.get<Record<string, unknown>>(`save:${player}`))!;
+        await kv.set(`save:${player}`, { ...capped, character: { ...(capped.character as Record<string, unknown>), dailyMissionsCompleted: 19 } });
+        const paid = await claim(player);
+        assert.equal(paid.statusCode, 200);
+        assert.equal((paid.body!.reward as Record<string, unknown>).statPoints, 1);
+        assert.equal((await savedCharacter(player)).unspentStats, 1);
+        assert.equal((await savedCharacter(player)).dailyMissionsCompleted, 20);
+        await claim(player);
+        assert.equal((await savedCharacter(player)).unspentStats, 1);
+        assert.equal((await savedCharacter(player)).dailyMissionsCompleted, 20);
+    });
+    it('every combat rank pays one stat point and retries preserve that exact grant', async () => {
+        for (const [index, missionId] of ['combat-e-drill', 'combat-d-errand', 'combat-c-patrol', 'combat-b-escort', 'combat-a-hunt', 'combat-s-crisis'].entries()) {
+            const player = `missionsagastatpoint${index}`;
+            await seedPlayer(player);
+            const saved = (await kv.get<Record<string, unknown>>(`save:${player}`))!;
+            saved.character = { ...(saved.character as Record<string, unknown>), level: 100 };
+            await kv.set(`save:${player}`, saved);
+            const runId = await seedWonRun(player, `statpoint${index}`, missionId);
+            assert.equal((await post(queueHandler, player, { missionId, runId })).statusCode, 200);
+            const paid = await post(claimHandler, player, { missionType: 'combat', missionId });
+            assert.equal(paid.statusCode, 200);
+            assert.equal((paid.body!.reward as Record<string, unknown>).statPoints, 1);
+            assert.equal((await savedCharacter(player)).unspentStats, 1);
+            const replay = await post(claimHandler, player, { missionType: 'combat', missionId });
+            assert.equal(replay.statusCode, 200);
+            assert.equal((await savedCharacter(player)).unspentStats, 1);
+        }
+    });
     it('S-rank reward settlement credits IV/V fresh campaigns exactly once after a rejected payout write', async () => {
         const priorFlag = process.env.ENABLE_LEGACY;
         process.env.ENABLE_LEGACY = '1';
@@ -940,6 +1047,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         );
         assert.equal(first.statusCode, 200);
         const paidCharacter = await savedCharacter(player);
+        assert.equal(paidCharacter.unspentStats, 1, 'a lost commit reply preserves the exact stat grant');
         assert.equal(Number(paidCharacter.ryo) > before, true);
         assert.deepEqual(paidCharacter.elderWinDays, [{ day: new Date().toISOString().slice(0, 10), village: 'frostfangvillage', pvp: 0, pve: 1 }]);
         assert.equal((first.body?.reward as Record<string, unknown>)?.territoryScrolls, 0);
@@ -959,6 +1067,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         assert.deepEqual(replay.body?.character, first.body?.character);
         assert.equal(replay.body?._saveVersion, first.body?._saveVersion);
         assert.equal(Number((await savedCharacter(player)).ryo), paidRyo);
+        assert.equal((await savedCharacter(player)).unspentStats, 1);
     });
 
     it('fences the old worker before a payout commit whose acknowledgement is lost', async () => {
@@ -1016,6 +1125,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
                 () => claim(player),
             );
             assert.equal(failed.statusCode, 500);
+            assert.equal((await savedCharacter(player)).unspentStats, 0, 'failed payout grants no stat point');
             assert.equal(Number((await savedCharacter(player)).ryo), before);
             assert.equal(((await savedCharacter(player)).firstContract as { completedAt?: number }).completedAt, undefined);
             const reservation = await kv.get<unknown>(tokenKey(player, MISSION_ID));
@@ -1026,6 +1136,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
 
             const retry = await claim(player);
             assert.equal(retry.statusCode, 200);
+            assert.equal((await savedCharacter(player)).unspentStats, 1, 'reservation recovery pays exactly one stat point');
             const paid = Number((await savedCharacter(player)).ryo);
             assert.equal(paid > before, true);
             const journal = (await savedCharacter(player)).firstContract as { completedAt: number; evidence: unknown };
@@ -1033,6 +1144,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             assert.deepEqual(journal.evidence, { kind: 'combat-claim' });
             assert.equal((await claim(player)).statusCode, 200);
             assert.equal(Number((await savedCharacter(player)).ryo), paid);
+            assert.equal((await savedCharacter(player)).unspentStats, 1);
             assert.deepEqual((await savedCharacter(player)).firstContract, journal, 'replay does not rewrite the completed journal');
         });
     }

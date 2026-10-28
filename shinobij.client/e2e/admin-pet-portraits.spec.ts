@@ -3,10 +3,14 @@ import { openLandingLogin } from './helpers/landing-navigation';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 import { PET_SCENIC_PORTRAITS } from '../src/lib/pet-portrait-assets.generated';
 
-const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1cAAAAASUVORK5CYII=', 'base64');
+const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=', 'base64');
 
 for (const role of ['full', 'content'] as const) {
     test(`the ${role} admin sees current companion portraits and publishes card overrides`, async ({ page }, testInfo) => {
+        // Decode the complete portrait catalog, capture the editor and exercise
+        // both upload paths. The full WebKit workflow needs more than one
+        // screen's budget; individual polling deadlines remain unchanged.
+        test.setTimeout(90_000);
         await installUiAuditRuntime(page);
         await page.addInitScript(() => {
             for (const key of ['ninjav-admin-build-v1', 'ninjav-player-accounts-v1', 'shinobix:activePlayerPersist', 'shinobix:activeTokenPersist', 'shinobix:pinnedPetAvatars']) localStorage.removeItem(key);

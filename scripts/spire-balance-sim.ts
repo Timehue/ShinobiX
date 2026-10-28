@@ -89,8 +89,7 @@ function bestJutsu(session: TowerSession, actor: TowerActor, dist: number, utili
             && j.target !== 'EMPTY_GROUND' && j.target !== 'SELF')
         .sort((a, b) => Number(b.effectPower ?? 0) - Number(a.effectPower ?? 0) || (String(a.id) < String(b.id) ? -1 : 1))[0];
 }
-function priorityTarget(session: TowerSession, actor: TowerActor): TowerActor | undefined {
-    void actor;
+function priorityTarget(session: TowerSession, actor: TowerActor, catalogUtility = false): TowerActor | undefined {
     const enemies = session.actors.filter(a => a.side === 'enemy' && a.hp > 0);
     if (!enemies.length) return undefined;
     const boss = session.actors.find(a => a.id === session.phaseState.bossId && a.hp > 0);
@@ -98,6 +97,22 @@ function priorityTarget(session: TowerSession, actor: TowerActor): TowerActor | 
     const addsGate = !!boss && ['defeat-all-then-boss', 'kill-adds-first'].includes(session.objectiveState.kind);
     const guards = enemies.filter(e => e.id !== boss?.id);
     const pool = (bulwark || addsGate) && guards.length ? guards : enemies;
+    if (catalogUtility) {
+        // Mobile opponents can step between the squad and a wounded distant
+        // enemy. Use an available hit rather than walking past a live threat
+        // toward the lowest absolute HP on the whole board.
+        const distance = (target: TowerActor) => hexDistance(actor.pos, target.pos, session.map.width);
+        const hand = (actor.character.equipment as Record<string, string> | undefined)?.hand;
+        const weapon = (actor.character.pvpItems as Array<{ id: string; weaponEp?: number; weaponRange?: number; apCost?: number }> | undefined)
+            ?.find(item => item.id === hand && Number(item.weaponEp) > 0);
+        const canHit = (target: TowerActor) => bestJutsu(session, actor, distance(target))
+            || (weapon && distance(target) <= Number(weapon.weaponRange ?? 1)
+                && session.activeAp >= towerAdjustedApCost(session, actor, Number(weapon.apCost ?? BASIC_ATTACK_AP))
+                && (actor.cooldowns[`weapon:${weapon.id}`] ?? 0) <= 0)
+            || (distance(target) <= 1 && session.activeAp >= towerAdjustedApCost(session, actor, BASIC_ATTACK_AP));
+        const reachable = pool.filter(canHit);
+        if (reachable.length) return reachable.sort((a, b) => a.hp - b.hp || a.id.localeCompare(b.id))[0];
+    }
     return pool.slice().sort((a, b) => (a.hp - b.hp) || (a.id < b.id ? -1 : 1))[0]; // concentrate fire on the softest
 }
 export function smartSquadAction(session: TowerSession, actor: TowerActor, catalogUtility = false): TowerAction {
@@ -117,7 +132,10 @@ export function smartSquadAction(session: TowerSession, actor: TowerActor, catal
     }
     if (catalogUtility && session.actionsThisTurn < MAX_ACTIONS
         && session.activeAp >= towerAdjustedApCost(session, actor, CLEANSE_AP) && (actor.cooldowns.cleanse ?? 0) <= 0) {
-        const debuffs = activeCombatStatuses(actor.statuses, session.round).filter(status => status.kind === 'negative');
+        // Field Drain is reapplied every round. Removing it alongside one
+        // attack debuff costs a full cast without escaping the field rule.
+        const debuffs = activeCombatStatuses(actor.statuses, session.round).filter(status => status.kind === 'negative'
+            && status.source !== 'tower-field');
         const damagingKit = (actor.character.jutsu as J[] | undefined)?.filter(jutsu => Number(jutsu.effectPower) > 0) ?? [];
         const sealedKit = damagingKit.length > 0 && damagingKit.every(jutsu => isElementallySealed(session, actor, jutsu));
         if (!debuffs.some(status => status.name === 'Cleanse Prevent') && (sealedKit || debuffs.length >= 2)) {
@@ -128,7 +146,7 @@ export function smartSquadAction(session: TowerSession, actor: TowerActor, catal
         && actor.chakra >= HEAL_CHAKRA && session.activeAp >= towerAdjustedApCost(session, actor, HEAL_AP) && session.actionsThisTurn < MAX_ACTIONS) {
         return { actorId: actor.id, type: 'heal' };
     }
-    const target = priorityTarget(session, actor);
+    const target = priorityTarget(session, actor, catalogUtility);
     if (!target) return { actorId: actor.id, type: 'wait' };
     const dist = hexDistance(actor.pos, target.pos, w);
     if (catalogUtility && session.activeAp >= towerAdjustedApCost(session, actor, CLEAR_AP) && session.actionsThisTurn < MAX_ACTIONS

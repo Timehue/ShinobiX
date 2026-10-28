@@ -145,10 +145,14 @@ describe('Tower MPvP queue and ready coordinator', () => {
     it('replays any original queue command after its matched response is lost', async () => {
         const deps = setup();
         await joinFour(deps);
+        const original = await readTowerPvpMatch(MATCH_ID, deps);
+        const positions = original!.combat.actors.map(actor => actor.pos);
         await deps.kv.del(towerPvpPlayerKey('alpha'));
         const replay = await joinTowerPvpQueue({ fighter: roster[0]!, requestId: request('alpha') }, deps);
         assert.equal(replay.replayed, true);
         assert.equal(replay.presence.state, 'matched');
+        const restored = await readTowerPvpMatch(MATCH_ID, deps);
+        assert.deepEqual(restored!.combat.actors.map(actor => actor.pos), positions, 'recovery retains the stored random formation');
         await assert.rejects(
             joinTowerPvpQueue({ fighter: roster[0]!, requestId: request('alpha', 'different') }, deps),
             /already-matched/,

@@ -1,5 +1,6 @@
 import { AI_PROFILE_CATALOG } from '../_ai-profile-catalog.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
+import { resolvePveGapClosingJutsu } from '../_ai-opponent-loadout.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
@@ -141,7 +142,8 @@ async function startTowerCaravanCombat(player: string, runId: string): Promise<T
         const seed = stableHash(`${run.day}:${run.seed}:${run.combat.nodeId}:tower`) || 1;
         const now = Date.now();
         const tower = buildTowerEncounter({ floor, squad, runId: run.combat.sessionId, seed, partySize: 1, now,
-            towerId: 'sunscar-caravan-ambush', embedFloor: true, enemyTemplates: templates });
+            towerId: 'sunscar-caravan-ambush', embedFloor: true, enemyTemplates: templates,
+            gapClosingJutsu: resolvePveGapClosingJutsu(admin) });
         const actor = tower.actors.find(candidate => candidate.id === 'sq-0')!;
         actor.hp = Math.max(1, Math.min(actor.maxHp, Number(character.hp) || actor.maxHp));
         actor.chakra = Math.max(0, Math.min(actor.maxChakra, Number(character.chakra) || 0));

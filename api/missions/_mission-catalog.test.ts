@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import {
     COMBAT_MISSIONS, FIELD_MISSIONS, ACADEMY_TRIAL, ACADEMY_CHECKLIST,
     combatMissionByKey, fieldMissionById, huntMissionById, huntMissionByAiProfileId, HUNT_MISSION_IDS,
@@ -7,7 +8,7 @@ import {
     hasDailyMissionSlot, dailyMissionsCompleted, markMissionCompletedFields,
     hasDailyHuntSlot, dailyHuntsCompleted, dailyHuntCap, markHuntCompletedFields,
     applyCurrencyRewardFields, grantItemsToInventory, grantItemsToCharacter,
-    DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, FIELD_MISSION_SCROLLS, HUNT_MISSION_SCROLLS,
+    DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, FIELD_MISSION_SCROLLS, HUNT_MISSION_SCROLLS, COMBAT_MISSION_STAT_POINTS,
     FETCH_S_MISSION_ID, DROP_ROLL_SCALE, HUNT_FS_CHANCE_DEFAULT, HUNT_AS_CHANCE_DEFAULT,
     huntFsChance, huntAsChance, missionDropCurrency, withMissionDrops,
     academyTrialRyo, academyChecklistRyo, academyChecklistGoalsMet,
@@ -288,6 +289,13 @@ describe('hunt daily-cap accounting matches character-progress.ts (hunt pool)', 
 });
 
 describe('reward application helpers', () => {
+    it('server and combat-card stat points agree on exactly one point', () => {
+        assert.equal(COMBAT_MISSION_STAT_POINTS, 1);
+        const client = readFileSync('shinobij.client/src/constants/game.ts', 'utf8');
+        const display = /export const COMBAT_MISSION_STAT_POINTS = (\d+);/.exec(client);
+        assert.ok(display);
+        assert.equal(Number(display[1]), COMBAT_MISSION_STAT_POINTS);
+    });
     it('grantItemsToInventory appends literal item ids, dropping blanks/non-strings', () => {
         assert.deepEqual(grantItemsToInventory({ inventory: ['a'] }, ['x', 'y']), ['a', 'x', 'y']);
         assert.deepEqual(grantItemsToInventory({}, ['x']), ['x']);

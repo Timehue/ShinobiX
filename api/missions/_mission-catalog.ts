@@ -34,10 +34,11 @@ export const HUNT_MISSION_SCROLLS = 0;
 // instead, boosted by the mission bonuses, and reserves them against the ONE
 // shared daily stat-point budget (DAILY_STAT_POINT_CAP, default 60, owner ruling
 // A1) that PvE and PvP wins also draw from; a claim pays what is left of it.
-// Profession dailies stay on their own profession-XP track. Repeatable
-// combat-mission slots pay ryo only. The one-time academy capstones below are
+// Profession dailies stay on their own profession-XP track. Combat claims
+// pay one unboosted point from the same budget. Academy capstones below are
 // outside the budget and unboosted.
 export const FIELD_MISSION_STAT_POINTS = 3;
+export const COMBAT_MISSION_STAT_POINTS = 1;
 export const ACADEMY_TRIAL_STAT_POINTS = 5;
 export const ACADEMY_CHECKLIST_STAT_POINTS = 10;
 

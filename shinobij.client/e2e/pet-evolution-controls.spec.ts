@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { STARTER_PETS } from "../src/data/starter-pets";
 import { ASCENSION_STONE_ID, AWAKENING_STONE_ID, evolvePet, evolutionLineFor } from "../src/data/pet-evolutions";
 import { EVOLUTION_TOTAL_MS } from "../src/lib/pet-evolution-cutscene";
+import { PET_SCENE_RECALL_MAX_WAIT_MS } from "../src/lib/pet-scene-recall";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
 
 async function prepare(page: Page) {
@@ -40,10 +41,11 @@ async function evolve(page: Page, manualClock = false) {
 
 async function expectEvolutionClosed(page: Page, manualClock = false) {
     if (manualClock) {
-        // Continue keeps the stage mounted until the pet's card recall finishes.
-        // A paused layout clock must advance those frames before asserting close.
+        // Continue waits for card recall or its bounded stalled-canvas fallback.
+        // Jump past that deadline: rendering 2.5 s of simulated WebKit frames
+        // can exceed this assertion's wall-clock budget on a loaded machine.
         await expect.poll(async () => {
-            await page.clock.runFor(100);
+            await page.clock.fastForward(PET_SCENE_RECALL_MAX_WAIT_MS + 1);
             return page.locator(".pet-evo-cutscene").count();
         }, { intervals: [100] }).toBe(0);
     } else await expect(page.locator(".pet-evo-cutscene")).toHaveCount(0);

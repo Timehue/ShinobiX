@@ -43,8 +43,9 @@ for (const village of ['Stormveil Village', 'Frostfang Village']) {
             assert.equal(storyTwinArt(enemy.id), definitions[i].art);
             assert.ok(existsSync(resolve('shinobij.client/public', definitions[i].art.slice(1))));
             const jutsu = enemy.character.jutsu as Array<Record<string, unknown>>;
-            assert.deepEqual(jutsu.map(j => j.id), definitions[i].jutsuIds);
-            assert.deepEqual(jutsu.map(j => j.tags), resolveAiProfileJutsu([...definitions[i].jutsuIds]).map(j => j.tags));
+            const expected = [...new Set([...definitions[i].jutsuIds, 'starter-universal-flicker'])];
+            assert.deepEqual(jutsu.map(j => j.id), expected);
+            assert.deepEqual(jutsu.map(j => j.tags), resolveAiProfileJutsu(expected).map(j => j.tags));
         }
         assert.notDeepEqual(enemies[0].character.jutsu, enemies[1].character.jutsu);
         assert.notEqual(enemies[0].cooldowns, enemies[1].cooldowns);

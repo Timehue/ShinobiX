@@ -49,13 +49,13 @@ test("mode-only chat and pet controls stay owned by their battle screens", () =>
     );
     assert.match(
         solo,
-        /<CombatCommandBar>[\s\S]*?type: "summon"[\s\S]*?<\/CombatCommandBar>/,
-        "authoritative PvE pet summon must remain inside the shared command slot",
+        /<CombatCommandBar>[\s\S]*?aria-pressed=\{mode === "summon"\}[\s\S]*?armBasicAction\("summon"\)[\s\S]*?<\/CombatCommandBar>/,
+        "authoritative PvE pet summon must arm inside the shared command slot before target confirmation",
     );
     assert.match(
         tacticalPve,
-        /<CombatCommandBar[\s\S]*?type: "summon"[\s\S]*?<span>Summon<\/span>[\s\S]*?<\/CombatCommandBar>/,
-        "tactical PvE must expose the server-owned pet summon when a companion is sealed",
+        /<CombatCommandBar[\s\S]*?aria-pressed=\{mode === "summon"\}[\s\S]*?toggleMode\("summon"\)[\s\S]*?<span>Summon<\/span>[\s\S]*?<\/CombatCommandBar>/,
+        "tactical PvE must arm the server-owned pet summon when a companion is sealed",
     );
     assert.match(solo, /<span>Summon<\/span>/, "authoritative PvE must label the summon consistently");
 });

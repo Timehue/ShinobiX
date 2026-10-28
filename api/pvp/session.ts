@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import type { ActionReceipt } from '../_receipts.js';
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { isDeepStrictEqual } from 'node:util';
+import { combatSpawnPositions } from '../combat-core/spawns.js';
 import { kv } from '../_storage.js';
 import { storedValueEquals } from '../_stored-value.js';
 import { withKvLock } from '../_lock.js';
@@ -737,7 +738,8 @@ export function trimPvpLog(log: string[]): string[] {
     return [`… (${dropped} earlier lines trimmed)`, ...log.slice(-PVP_LOG_MAX_LINES + 1)];
 }
 
-// Starting positions matching arena (p1 left side, p2 right side)
+// Legacy defaults retained for callers constructing fighters directly. New
+// sessions seal a random mirrored formation instead.
 export const P1_START = 62;
 export const P2_START = 57;
 
@@ -2950,6 +2952,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 finalP2Character,
                 (p2Save?.character as Record<string, unknown>) ?? null,
             );
+            const spawns = combatSpawnPositions(randomUUID(), { mirrored: true });
             const session: PvpSession = {
                 ...(rewardAuthority === 'world' ? { villageWarEspionage: (await Promise.all([
                     sealEspionageBattleEvidence(safeName(p1Name), String(finalP2Character.village ?? ''), safeName(p2Name)),
@@ -2958,8 +2961,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 battleId,
                 createRequestFingerprint: createRequestFingerprintFor(battleId),
                 stateRevision: INITIAL_PVP_STATE_REVISION,
-                p1: makePvpFighter(p1HomeTerrain ? { ...finalP1Character, homeTerrainType: p1HomeTerrain } : finalP1Character, P1_START, useCurrentVitals === true, humanPvp),
-                p2: makePvpFighter(p2HomeTerrain ? { ...finalP2Character, homeTerrainType: p2HomeTerrain } : finalP2Character, P2_START, useCurrentVitals === true, humanPvp),
+                p1: makePvpFighter(p1HomeTerrain ? { ...finalP1Character, homeTerrainType: p1HomeTerrain } : finalP1Character, spawns.allies[0]!, useCurrentVitals === true, humanPvp),
+                p2: makePvpFighter(p2HomeTerrain ? { ...finalP2Character, homeTerrainType: p2HomeTerrain } : finalP2Character, spawns.enemies[0]!, useCurrentVitals === true, humanPvp),
                 round: 1,
                 activePlayer: firstActor,
                 roundOpener: firstActor,

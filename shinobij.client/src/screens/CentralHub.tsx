@@ -1384,9 +1384,9 @@ export function CentralHub({
                     { name: "Aura Dust", desc: "+50 Aura Dust", itemId: "currency:aura-dust" },
                     { name: "Bone Charm", desc: "+1 Bone Charm", itemId: "currency:bone-charm" },
                     // Thrown weapons
-                    { name: "Shuriken ×3", desc: "3× Shuriken (18 EP thrown)", itemId: "thrown-shuriken", per: 3 },
-                    { name: "Senbon ×1", desc: "1× Senbon (bleeds 25% of the hit, 2 rounds)", itemId: "thrown-senbon", per: 1 },
-                    { name: "Serpent Dust ×1", desc: "1× Serpent Dust (10% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
+                    { name: "Shuriken ×3", desc: "3× Shuriken (18 EP immediate damage, range 4)", itemId: "thrown-shuriken", per: 3 },
+                    { name: "Senbon ×1", desc: "1× Senbon (10 EP hit + Wound: 25% of damage dealt per round for 2 rounds, starting next round)", itemId: "thrown-senbon", per: 1 },
+                    { name: "Serpent Dust ×1", desc: "1× Serpent Dust (6% poison for 2 rounds, starting next round; light hit + HP damage when the target spends resources on jutsu)", itemId: "thrown-serpent-dust", per: 1 },
                     // Combat items
                     { name: "Smoke Bomb ×1", desc: "1× Smoke Bomb (blocks direct damage for both players for 1 round; Pierce and Wound, Poison, and Drain damage still land)", itemId: "item-smoke-bomb", per: 1 },
                     { name: "Attack Pill ×1", desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", itemId: "item-attack-pill", per: 1 },

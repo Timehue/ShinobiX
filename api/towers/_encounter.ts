@@ -20,6 +20,8 @@ import { applyPartyScaling, towerNeighbors } from './_engine.js';
 import { startingItemShield } from '../combat-core/shields.js';
 import { requireEnemyTemplate, type EnemyTemplate } from './_enemy-templates.js';
 import { storyTowerEnemy } from './_story-balance.js';
+import { teachPveGapClosingJutsu, type AiOpponentJutsu } from '../_ai-opponent-loadout.js';
+import { distributePveAiItems, pveAiItemCharges } from '../combat-core/ai-items.js';
 import { hexZone, type TowerFloor, type TowerFeature } from './_floor-catalog.js';
 import { pickTowerElements, rollTowerEnvironment, placeTowerEnvironment } from '../../shared/tower-environment.js';
 export { pickTowerElements } from '../../shared/tower-environment.js';
@@ -273,6 +275,8 @@ export type BuildEncounterParams = {
     /** Optional server-built ordinary enemy templates for a sealed non-catalog
      * encounter. Catalog runs never provide this map. */
     enemyTemplates?: Readonly<Record<string, EnemyTemplate>>;
+    /** Already-resolved published NPC movement strikes, sealed at creation. */
+    gapClosingJutsu?: readonly AiOpponentJutsu[];
     /** Persist the server-built floor on the session so action/AFK resolution can use it. */
     embedFloor?: boolean;
     /** Mode label used by clients/operations; defaults to the Celestial Tower id. */
@@ -472,6 +476,15 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         actors.push(templateActor('npc-0', 'npc', requireEnemyTemplate(floor.npc.aiId), pos));
     }
 
+    if (p.gapClosingJutsu) {
+        const enemies = [...actors, ...[...pendingEnemyWaves.values()].flat()].filter(actor => actor.side === 'enemy');
+        for (const actor of enemies) {
+            teachPveGapClosingJutsu(actor.character, p.gapClosingJutsu);
+        }
+        // A floor owns one finite pouch, including delayed waves. Giving every
+        // actor a fresh pouch multiplies the authored encounter's pressure.
+        distributePveAiItems(enemies, pveAiItemCharges(enemies[0]?.character ?? {}));
+    }
     const session = createTowerSession({
         towerId: p.towerId ?? (p.ascension ? 'endless-spire' : 'celestial'),
         runId: p.runId,

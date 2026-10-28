@@ -94,7 +94,7 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
     return (
         <section className="mh-section">
             <h3 className="mh-section-title"><GameArtIcon kind="mission" size={25} /> Weekly Board</h3>
-            <p className="hint">A rotating set of cross-system goals, the same for everyone. Resets every Monday{board ? <SharedClockLeaf>{() => timeLeftLabel(board.endsAt)}</SharedClockLeaf> : ""}. Progress counts from when you first open the board each week.</p>
+            <p className="hint">Four rotating goals matched to your level and available activities. Resets every Monday{board ? <SharedClockLeaf>{() => timeLeftLabel(board.endsAt)}</SharedClockLeaf> : ""}. Progress counts from when you first open the board each week.</p>
             {loading
                 ? <p className="hint">Loading weekly board…</p>
                 : !board || board.missions.length === 0

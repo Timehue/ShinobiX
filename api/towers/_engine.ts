@@ -2,7 +2,7 @@ import { clanBossGuardMultiplier, syncClanBossGuard, clanBossGuardSnapshot, note
 import { petSignatureMastery } from '../../shared/pet-ability-mastery.js';
 import { clanBossOutcomeLog } from '../../shared/clan-boss-operation.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
-import { HUNT_AI_POLICY, pickHuntAiAction } from './_hunt-ai.js';
+import { HUNT_AI_POLICY, huntOpeningIsPreparation, pickHuntAiAction } from './_hunt-ai.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
 import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
@@ -24,6 +24,9 @@ import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-prog
  */
 import { filledDiskTiles } from '../combat-core/aoe.js';
 import { hexDistance } from '../combat-core/grid.js';
+import { aiGapCloserLandingTile, aiApproachLandingTile, aiRangedAttackReach, isDamagingAiGapCloser, isDistantAiGapCloser, prefersAiGapClosingMovement, aiJustFlickered, isAiFlicker } from '../combat-core/ai-mobility.js';
+import { pveAiFillerItems } from '../combat-core/ai-items.js';
+import { isZeroDamageFortyApJutsu } from '../combat-core/formulas.js';
 import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement, poisonSpendDamage } from '../pvp/move.js';
 import { catalogWeaponFlatTags, reconcileGroundStatuses } from '../pvp/move.js';
@@ -3137,6 +3140,103 @@ function bestGroundJutsu(session: TowerSession, actor: TowerActor, target: Tower
             || (String(a.id) < String(b.id) ? -1 : 1))[0];
 }
 
+function aiProtectedAlly(session: TowerSession, actor: TowerActor): TowerActor | undefined {
+    if (!session.towerTactics || actor.side !== 'enemy' || actor.character.combatRole !== 'vanguard') return;
+    return session.actors.filter(a => a.id !== actor.id && a.side === 'enemy' && a.hp > 0
+        && ['artillery', 'controller', 'boss'].includes(String(a.character.combatRole)))
+        .sort((a, b) => hexDistance(actor.pos, a.pos, session.map.width) - hexDistance(actor.pos, b.pos, session.map.width)
+            || a.id.localeCompare(b.id))[0];
+}
+
+function aiSkipsBasicMovement(session: TowerSession, actor: TowerActor, target: TowerActor): boolean {
+    return actor.side === 'enemy' && isAiCombatant(actor)
+        && prefersAiGapClosingMovement((actor.character.jutsu ?? []) as JutsuLike[],
+            hexDistance(actor.pos, target.pos, session.map.width));
+}
+
+function npcFillerItem(session: TowerSession, actor: TowerActor, setupOnly = false, fillUnusedAp = false): TowerAction | undefined {
+    if (actor.side !== 'enemy' || !isAiCombatant(actor)) return;
+    const target = nearestOpponent(session, actor);
+    if (!target) return;
+    const kit=(actor.character.jutsu??[]) as JutsuLike[];
+    const canRecoverSoon=kit.some(j=>aiTagNames(j).has('Heal')&&towerJutsuTargetsSelf(j)
+        && (actor.cooldowns[j.id??'']??0)<=1&&Number(j.ap??40)<=100
+        && Number(j.chakraCost??0)<=actor.chakra&&Number(j.staminaCost??0)<=actor.stamina);
+    const smokeWindow=session.activeAp>=40&&session.activeAp<HEAL_AP
+        && activeCombatStatuses(actor.statuses,session.round).some(s=>s.source==='item-smoke-bomb')
+        && !bestSelfUtilityJutsu(session,actor)
+        && !kit.some(j=>aiTagNames(j).has('Pierce')&&aiJutsuReady(session,actor,j));
+    for (const id of pveAiFillerItems({ ap: fillUnusedAp||smokeWindow ? Math.min(session.activeAp,39) : session.activeAp, round: session.round, canRecoverSoon,
+        distance: hexDistance(actor.pos, target.pos, session.map.width), self: actor, foe: target })) {
+        if (setupOnly && id === 'thrown-shuriken') continue;
+        if (id === 'item-smoke-bomb' && session.actors.some(ally => ally.id !== actor.id && ally.side === actor.side
+            && ally.hp > ally.maxHp * .5)) continue; // Do not cancel a healthy allied team's pressure.
+        const item = equippedItem(actor, id);
+        const weapon = item?.slot === 'thrown';
+        if (!item || !canAct(session, Number(item.apCost ?? 20), actor) || (actor.itemCharges?.[id] ?? 0) <= 0
+            || (actor.cooldowns[`${weapon ? 'weapon' : 'item'}:${id}`] ?? 0) > 0) continue;
+        return weapon ? { actorId: actor.id, type: 'weapon', itemId: id, targetId: target.id }
+            : { actorId: actor.id, type: 'item', itemId: id };
+    }
+}
+
+function bestFlickerApproach(session: TowerSession, actor: TowerActor, target: TowerActor): TowerAction | undefined {
+    if (!aiSkipsBasicMovement(session, actor, target) || hexDistance(actor.pos, target.pos, session.map.width) <= 1) return;
+    const kit = (actor.character.jutsu ?? []) as JutsuLike[];
+    const danger = aiDangerTiles(session, actor);
+    const protect = aiProtectedAlly(session, actor);
+    if (protect && hexDistance(actor.pos, protect.pos, session.map.width) <= 1) return;
+    for (const flicker of kit.filter(j => isAiFlicker(j) && aiJutsuReady(session, actor, j))) {
+        const remaining = session.activeAp - towerAdjustedApCost(session, actor, Number(flicker.ap ?? 20));
+        const reach = protect ? 1 : aiRangedAttackReach(kit.filter(j => aiJutsuReady(session,actor,j)
+            && remaining >= towerAdjustedApCost(session,actor,Number(j.ap??40))
+            && actor.chakra >= Number(flicker.chakraCost??0)+Number(j.chakraCost??0)
+            && actor.stamina >= Number(flicker.staminaCost??0)+Number(j.staminaCost??0)));
+        if (reach <= 1 && remaining < towerAdjustedApCost(session,actor,BASIC_ATTACK_AP)) continue;
+        const tile = aiApproachLandingTile({ range: Number(flicker.range ?? 5), reach, from: actor.pos, target: (protect ?? target).pos,
+            width: session.map.width, height: session.map.height, blocked: i => isTileBlocked(session,i,actor.id) || danger.has(i) });
+        if (tile === undefined) continue;
+        if (session.actionsThisTurn + 1 >= MAX_ACTIONS) continue;
+        const canHit = hexDistance(tile,target.pos,session.map.width) <= 1 && remaining >= towerAdjustedApCost(session, actor, BASIC_ATTACK_AP)
+            || kit.some(j => j.id !== flicker.id && Number(j.effectPower) > 0 && !isZeroDamageFortyApJutsu({ ...j, id: j.id ?? '' })
+                && j.target !== 'SELF' && aiJutsuReady(session, actor, j)
+                && hexDistance(tile,target.pos,session.map.width) <= Math.max(1,Number(j.range ?? 1))
+                && remaining >= towerAdjustedApCost(session, actor, Number(j.ap ?? 40))
+                && actor.chakra >= Number(flicker.chakraCost ?? 0) + Number(j.chakraCost ?? 0)
+                && actor.stamina >= Number(flicker.staminaCost ?? 0) + Number(j.staminaCost ?? 0));
+        if (canHit || protect && hexDistance(tile, protect.pos, session.map.width) <= 1) {
+            return { actorId: actor.id, type: 'jutsu', jutsuId: flicker.id!, tile };
+        }
+    }
+}
+
+/** Ownerless PvE foes spend AP on the damaging dash itself within six hexes,
+ * aiming for impact first and otherwise landing closer without a basic step. */
+function bestGapClosingJutsu(session: TowerSession, actor: TowerActor, target: TowerActor): TowerAction | undefined {
+    if (actor.side !== 'enemy' || !isAiCombatant(actor)) return undefined;
+    const distance = hexDistance(actor.pos, target.pos, session.map.width);
+    const band = pveBandFor(session, actor);
+    const list = Array.isArray(actor.character.jutsu) ? actor.character.jutsu as JutsuLike[] : [];
+    const flickered = aiJustFlickered(list, actor.cooldowns, session.actionsThisTurn);
+    if (distance <= 1 && !flickered) return undefined;
+    const danger = aiDangerTiles(session, actor);
+    const ready = list.filter(j => isDamagingAiGapCloser(j) && aiJutsuReady(session, actor, j));
+    const protect = aiProtectedAlly(session, actor);
+    const choices = ready
+        .filter(j => !band || !pveEasyBandHoldsBurst(band.enemyLevel, session.round)
+            || !pveIsBurstJutsuAp(Number(j.ap ?? 40)) || isDistantAiGapCloser(j, distance) || flickered)
+        .map(jutsu => ({ jutsu, tile: aiGapCloserLandingTile({ jutsu, from: actor.pos, target: target.pos,
+            width: session.map.width, height: session.map.height, blocked: tile => isTileBlocked(session, tile, actor.id) || danger.has(tile)
+                || !!protect && hexDistance(tile, protect.pos, session.map.width) > 1 }) }))
+        .filter((choice): choice is { jutsu: JutsuLike; tile: number } => choice.tile !== undefined)
+        .sort((a, b) => Number(b.jutsu.aiPriority ?? 0) - Number(a.jutsu.aiPriority ?? 0)
+            || estimateAiHit(actor, target, b.jutsu) - estimateAiHit(actor, target, a.jutsu)
+            || String(a.jutsu.id).localeCompare(String(b.jutsu.id)));
+    const best = choices[0];
+    if (best) return { actorId: actor.id, type: 'jutsu', jutsuId: best.jutsu.id!, tile: best.tile };
+    return undefined;
+}
+
 // ─── Deterministic AI policy (v1 — nearest-target; richer policy = P1.A3) ─────
 function bestAffordableJutsu(session: TowerSession, actor: TowerActor, dist: number, target?: TowerActor): JutsuLike | undefined {
     const list = actor.character.jutsu;
@@ -3145,7 +3245,8 @@ function bestAffordableJutsu(session: TowerSession, actor: TowerActor, dist: num
     // "Teach, don't ambush": an easy-band foe holds its 60+ AP burst jutsu for
     // the opening rounds, so a new player meets the weaker attacks first.
     // Mirrors Arena.tsx's applyEasyBurstHold; a strict no-op elsewhere.
-    const holdsBurst = !!band && pveEasyBandHoldsBurst(band.enemyLevel, session.round);
+    const holdsBurst = !!band && pveEasyBandHoldsBurst(band.enemyLevel, session.round)
+        && !aiJustFlickered(list as JutsuLike[], actor.cooldowns, session.actionsThisTurn);
     const opts = (list as JutsuLike[])
         .filter(j => j && typeof j.id === 'string')
         .filter(j => aiJutsuHealthGate(actor, j))
@@ -3157,6 +3258,7 @@ function bestAffordableJutsu(session: TowerSession, actor: TowerActor, dist: num
         .filter(j => actor.chakra >= Math.max(0, Number(j.chakraCost ?? 0)) && actor.stamina >= Math.max(0, Number(j.staminaCost ?? 0)))
         // skip zero-damage utility + ground-placed jutsu — the AI casts straightforward damage
         .filter(j => Number(j.effectPower ?? 0) > 0 && !['EMPTY_GROUND', 'SELF'].includes(String(j.target ?? '')))
+        .filter(j => !aiTagNames(j).has('Move'))
         .filter(j => !holdsBurst || !pveIsBurstJutsuAp(Number(j.ap ?? 40)))
         // deterministic: highest effectPower, ties by id
         .sort((a, b) => (Number(b.aiPriority ?? 0) - Number(a.aiPriority ?? 0))
@@ -3387,6 +3489,24 @@ function towerEscapeStep(session: TowerSession, actor: TowerActor): number | und
 }
 
 export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () => number): TowerAction {
+    // Split narrative bodies share one old enemy's offensive budget. Beginner
+    // hunts move their preparation-window hit earlier, without adding a second
+    // chain on top. Solo/high-tier foes retain full 20+40+40 turn planning.
+    const splitRoster = ['narrative-group','story-twin-trial'].includes(session.towerId);
+    const crowdedRoster = session.actors.filter(a=>a.side==='enemy'&&a.hp>0).length > 2;
+    const noviceRoster = pveAiCompetence(Number(actor.character.level)||1).band === 'easy';
+    const pacedEncounter = splitRoster && (noviceRoster || session.round <= 2 || crowdedRoster)
+        || session.towerId === 'hunt' && pveEasyBandHoldsBurst(Number(actor.character.level) || 1,session.round);
+    const paidHit = pacedEncounter && actor.side === 'enemy' && isAiCombatant(actor)
+        && Object.values(session.pveGuard?.dealtThisTurn ?? {}).some(damage => damage > 0);
+    const preparingHunt = session.towerId === 'hunt' && actor.side === 'enemy'
+        && actor.character.huntAiPolicy === HUNT_AI_POLICY && huntOpeningIsPreparation(session,actor);
+    const filler = npcFillerItem(session, actor, paidHit || preparingHunt, paidHit);
+    if (filler) return filler;
+    if (paidHit) {
+        const setup = bestSelfUtilityJutsu(session,actor);
+        return setup?.id ? {actorId:actor.id,type:'jutsu',jutsuId:setup.id} : {actorId:actor.id,type:'wait'};
+    }
     if (session.towerId === 'hunt' && actor.side === 'enemy' && actor.character.huntAiPolicy === HUNT_AI_POLICY) {
         return pickHuntAiAction(session, actor, {
             apply: (copy, action) => applyAction(copy, copy.encounterFloor!, action, () => .5),
@@ -3396,7 +3516,8 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
     }
     if (session.towerTactics?.telegraph?.kind === 'charge' && actor.id === session.phaseState.bossId) return { actorId: actor.id, type: 'wait' };
     const escape = towerEscapeStep(session, actor);
-    if (escape !== undefined) return { actorId: actor.id, type: 'move', tile: escape };
+    const nearest = nearestOpponent(session, actor);
+    if (escape !== undefined && (!nearest || !aiSkipsBasicMovement(session, actor, nearest))) return { actorId: actor.id, type: 'move', tile: escape };
     void rng;
     if (actor.character.towerGenericAiProfile === 'story-recruit-v1') {
         return pickNoviceRecruitAction(session, actor);
@@ -3427,6 +3548,21 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
         if (wounded) return { actorId: actor.id, type: 'support', targetId: wounded.id };
     }
     const dist = hexDistance(actor.pos, target.pos, session.map.width);
+    // Flicker is chosen only with a funded attack in reach. Complete that
+    // sequence before discretionary Clear/Cleanse can spend its follow-up AP.
+    // Objective/escape handling above and a ready self-heal retain priority.
+    if (actor.side === 'enemy' && actor.ownerSlug == null && isAiCombatant(actor)
+        && aiJustFlickered((actor.character.jutsu ?? []) as JutsuLike[], actor.cooldowns, session.actionsThisTurn)) {
+        const recovery = bestSelfUtilityJutsu(session, actor);
+        if (!(recovery && aiTagNames(recovery).has('Heal'))) {
+            const burst = bestTargetedAoe(session, actor, target);
+            if (burst?.jutsu.id) return { actorId: actor.id, type: 'jutsu', jutsuId: burst.jutsu.id, targetId: burst.target.id };
+            const hit = bestAffordableJutsu(session, actor, dist, target);
+            if (hit?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: hit.id, targetId: target.id };
+            const closingHit = bestGapClosingJutsu(session, actor, target);
+            if (closingHit) return closingHit;
+        }
+    }
     // Band competence (standard PvE only): strip the player's stacked buffs, or
     // shed our own debuffs, before committing the turn to damage. Mirrors the
     // client's order — Arena.tsx runs this block ahead of the jutsu pick. Easy
@@ -3465,8 +3601,19 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
     // Both emit ordinary actions and resolve through the same authoritative gates
     // as a player's cast; AI never mutates combat state directly.
     const selfUtility = bestSelfUtilityJutsu(session, actor);
-    if (selfUtility?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: selfUtility.id };
+    const gapCloser = bestGapClosingJutsu(session, actor, target);
+    const ranged = bestAffordableJutsu(session, actor, dist, target);
     const ground = bestGroundJutsu(session, actor, target);
+    const aoe = bestTargetedAoe(session, actor, target);
+    if (!ranged && !ground && !aoe && (!gapCloser || gapCloser.type !== 'jutsu' || gapCloser.tile === undefined
+        || hexDistance(gapCloser.tile, target.pos, session.map.width) > 1)
+        && !(selfUtility && aiTagNames(selfUtility).has('Heal'))) {
+        const flicker = bestFlickerApproach(session, actor, target);
+        if (flicker) return flicker;
+    }
+    if (gapCloser && !ranged && !(selfUtility && aiTagNames(selfUtility).has('Heal'))) return gapCloser;
+    if (selfUtility?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: selfUtility.id };
+    if (gapCloser && !ranged) return gapCloser;
     if (ground?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: ground.id, tile: target.pos };
     // Hired war NPCs are sealed by _merc-fighters, never by a player save.
     // Their catalog weapon is a real cooldown action, allowing a 40+60 turn.
@@ -3481,7 +3628,6 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
             return { actorId: actor.id, type: 'weapon', itemId: item.id, targetId: target.id };
         }
     }
-    const aoe = bestTargetedAoe(session, actor, target);
     if (aoe?.jutsu.id) {
         return { actorId: actor.id, type: 'jutsu', jutsuId: aoe.jutsu.id, targetId: aoe.target.id };
     }
@@ -3489,7 +3635,7 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
     const j = bestAffordableJutsu(session, actor, dist, target);
     if (j && j.id) return { actorId: actor.id, type: 'jutsu', jutsuId: j.id, targetId: target.id };
     if (dist <= 1 && canAct(session, BASIC_ATTACK_AP, actor)) return { actorId: actor.id, type: 'attack', targetId: target.id };
-    if (canAct(session, MOVE_AP, actor)) {
+    if (canAct(session, MOVE_AP, actor) && !aiSkipsBasicMovement(session, actor, target)) {
         // Can't attack → move. Head for a board object worth holding (or hold a shrine we're on),
         // else approach the target — and step there while dodging danger tiles.
         const danger = aiDangerTiles(session, actor);
@@ -3500,8 +3646,7 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
             const boon = aiBeneficialGoal(session, actor);
             if (boon !== undefined) dest = boon;
             else if (session.towerTactics && actor.side === 'enemy' && actor.character.combatRole === 'vanguard') {
-                const protect = session.actors.filter(a => a.id !== actor.id && a.side === 'enemy' && a.hp > 0 && ['artillery','controller','boss'].includes(String(a.character.combatRole)))
-                    .sort((a,b) => hexDistance(actor.pos,a.pos,session.map.width)-hexDistance(actor.pos,b.pos,session.map.width) || a.id.localeCompare(b.id))[0];
+                const protect = aiProtectedAlly(session, actor);
                 if (protect) dest = hexDistance(actor.pos,protect.pos,session.map.width) <= 1 ? actor.pos : protect.pos;
             }
         }

@@ -200,6 +200,10 @@ describe('awakened bloodline combat integration', () => {
         });
         const neutral = build('custom-bloodline-neutral');
         const boosted = build('custom-bloodline-fire-weather', 'Fire');
+        // Compare weather at the same adjacent positions, independently of
+        // each encounter's randomized opening formation.
+        neutral.player.pos = 62;
+        boosted.player.pos = 62;
         neutral.enemy.pos = 63;
         boosted.enemy.pos = 63;
 

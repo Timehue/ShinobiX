@@ -13,6 +13,7 @@ import type {
 } from '../../shared/tower-pvp.js';
 import { TOWER_PVP_MATCH_SIZE, TOWER_PVP_TEAM_SIZE, TOWER_PVP_TURN_MS } from '../../shared/tower-pvp.js';
 import { MAX_ROUNDS } from '../combat-core/constants.js';
+import { combatSpawnPositions } from '../combat-core/spawns.js';
 import { startingItemShield } from '../combat-core/shields.js';
 import type { TowerFloor } from './_floor-catalog.js';
 import {
@@ -240,12 +241,16 @@ export function createTowerPvpMatch(input: {
         ? assignFixedTowerPvpTeams(input.fighters, input.teams)
         : assignTowerPvpTeams(input.fighters);
     const bySlug = new Map(input.fighters.map(fighter => [fighter.slug, fighter] as const));
-    const positions: Record<string, number> = {
-        'amber-0': 25,
-        'amber-1': 85,
-        'violet-0': 34,
-        'violet-1': 94,
-    };
+    const spawns = combatSpawnPositions(`${input.matchId}:${input.seed}`, {
+        allies: solo ? 1 : TOWER_PVP_TEAM_SIZE,
+        enemies: solo ? 1 : TOWER_PVP_TEAM_SIZE,
+        mirrored: true,
+        openingDistance: 9,
+    });
+    const positions: Record<string, number> = Object.fromEntries([
+        ...spawns.allies.map((pos, i) => [`amber-${i}`, pos]),
+        ...spawns.enemies.map((pos, i) => [`violet-${i}`, pos]),
+    ]);
     const actors = roster.map(member => fighterActor(bySlug.get(member.slug)!, member, positions[member.actorId]!));
     const combat = createTowerSession({
         towerId: TOWER_PVP_TOWER_ID,

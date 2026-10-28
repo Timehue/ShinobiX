@@ -371,6 +371,7 @@ for (const outcome of ['win', 'loss'] as const) test(`practice ${outcome} waits 
     const startingHp = api.character()?.hp;
     await chooseLevelAndStart(page);
     await combatSurface(page).getByRole('button', { name: /^Attack/ }).click();
+    await combatSurface(page).locator('button.hex-tile.hex-enemy.jutsu-target-tile').click();
     const result = page.getByRole('dialog', { name: outcome === 'win' ? 'Fight won' : 'Fight lost', exact: true });
     await expect(result.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
     api.allowPracticeSettle();
@@ -527,6 +528,10 @@ test("desktop Battle Arena seals practice combat, surfaces retry, acts, and resu
     const attack = combatSurface(page).getByRole("button", { name: /^Attack/ });
     await attack.focus();
     await page.keyboard.press("Enter");
+    await expect(attack).toHaveAttribute('aria-pressed', 'true');
+    expect(api.actionPayloads()).toHaveLength(0);
+    await combatSurface(page).locator('button.hex-tile.hex-enemy.jutsu-target-tile').focus();
+    await page.keyboard.press('Enter');
     await expect.poll(() => api.actionPayloads().length).toBe(1);
     expect(api.actionPayloads()[0]).toMatchObject({
         sessionId: SESSION_ID,
@@ -669,6 +674,9 @@ test("mobile Battle Arena exposes the same sealed board, commands, and battle lo
     const attack = combat.getByRole("button", { name: /^Attack/ });
     const actionsTab = combat.getByRole("tab", { name: "Actions" });
     await attack.click();
+    await expect(attack).toHaveAttribute('aria-pressed', 'true');
+    expect(api.actionPayloads()).toHaveLength(0);
+    await combat.locator('button.hex-tile.hex-enemy.jutsu-target-tile').click();
     await expect.poll(() => api.actionPayloads().length).toBe(1);
     const battleLogTab = combat.getByRole("tab", { name: /^Battle log/ });
     await battleLogTab.click();
@@ -723,6 +731,7 @@ test("mobile Battle Arena exposes the same sealed board, commands, and battle lo
 
     await actionsTab.click();
     await combat.getByRole("button", { name: /^Attack/ }).click();
+    await combat.locator('button.hex-tile.hex-enemy.jutsu-target-tile').click();
     await expect.poll(() => api.actionPayloads().length).toBe(2);
     expect(api.actionPayloads()[1].expectedVersion).toBe(2);
     expect(api.practiceStartCount()).toBe(1);

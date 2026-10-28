@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { applySoloPveAction } from './solo-pve/_engine.js';
+import { hexDistance } from './combat-core/grid.js';
 import {
     buildGarrisonEncounter,
     garrisonSessionMatches,
@@ -107,13 +108,13 @@ test('the attacker walks in with the HP their save holds, never a free full pool
     assert.equal(at(undefined).player.hp, 9_000, 'a save with no HP field is a full pool');
 });
 
-test('attacker and ANBU start on the same row with tight duel spacing', () => {
+test('attacker and ANBU start on opposing halves with tight duel spacing', () => {
     const session = build();
     const width = GARRISON_MAP.width;
     const middle = Math.floor(width / 2);
-    assert.equal(session.player.pos % width, middle - 2);
-    assert.equal(session.enemy.pos % width, middle + 2);
-    assert.equal(Math.floor(session.player.pos / width), Math.floor(session.enemy.pos / width));
+    assert.ok(session.player.pos % width < middle);
+    assert.ok(session.enemy.pos % width >= middle);
+    assert.equal(hexDistance(session.player.pos, session.enemy.pos), 4);
 });
 
 test('builder is deterministic for the same authoritative inputs', () => {

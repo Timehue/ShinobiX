@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
+import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 import { rollWanderers, wandererDayBucketFromMs } from '../../shared/wanderer-roster';
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 
@@ -19,8 +19,8 @@ for (const verified of [false, true]) test(`epic boss progress uses its fight re
         activeQuestbook: { id: 'qb-bell', stage: 3, baseline: 10, target: 1, choices: { curse: 'cleanse' } },
         worldAiContextWins: verified ? [{ kind: 'questbook-boss', sourceId: 'qb-bell', stage: 3, sealVersion: 'qb-bell:3:10:1234', proofId: 'verified-wraith' }] : [],
     };
-    await installUiAuditRuntime(page, save);
-    await page.goto('/#/worldMap');
+    const runtime = await installUiAuditRuntime(page, save);
+    await expectUiAuditBoot(page, runtime, 'worldMap');
     const returnButton = page.getByRole('button', { name: 'Return to sector' });
     await expect.poll(async () => await returnButton.isVisible() || await page.locator('.sector-image-map').isVisible()).toBe(true);
     if (await returnButton.isVisible()) await returnButton.click();
