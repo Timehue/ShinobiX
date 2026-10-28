@@ -244,7 +244,7 @@ describe('pet bond decay — PvE summon ONLY', () => {
     ];
 
     /** Walk up from cwd to the repo root. `import.meta` is unavailable here —
-     *  api/** compiles to CommonJS (tsconfig.cpanel.json), which rejects it. */
+     *  api/** compiles to CommonJS (tsconfig.server.json), which rejects it. */
     async function repoRoot(): Promise<string> {
         const { access } = await import('node:fs/promises');
         const { dirname, resolve } = await import('node:path');

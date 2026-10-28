@@ -100,7 +100,7 @@ unreachable. `server-routes.test.ts` enforces this both ways
   spelled out — a bare `scripts` means the repo-root one only. A test file
   **outside** those roots is invisible to the runner unless it is named in the
   short explicit list at the top of that script — which is why the two repo-root
-  files (`cpanel-dns.test.cjs`, `server-routes.test.ts`) are listed there. Put new
+  files (`supabase-dns.test.cjs`, `server-routes.test.ts`) are listed there. Put new
   tests under a scan root, or they silently never run.
 - **`*.pg-integration.test.ts` files run against a real Postgres** and skip
   unless `PG_INTEGRATION_DATABASE_URL` names a throwaway database, so `npm test`

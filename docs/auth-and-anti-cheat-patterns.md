@@ -510,7 +510,7 @@ could force a 50 MB buffer + parse before a handler's auth check. Player saves g
 a dedicated 1 MB parser, so an oversized save is rejected at the parser boundary
 (matching the save handler's 1 MB cap) rather than after a 5 MB parse.
 
-### 5.5 cPanel DNS fallback cannot recurse (`app.js`, `cpanel-dns.cjs`)
+### 5.5 cPanel DNS fallback cannot recurse (`app.js`, `supabase-dns.cjs`)
 
 `makeCustomLookup()` binds the ORIGINAL `dns.lookup` captured **before** the global
 patch, so a failed `resolve4` terminates in Node's real resolver instead of
