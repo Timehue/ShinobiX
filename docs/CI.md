@@ -41,13 +41,30 @@ same commit as the workflow.
 | `CI / server-contracts` | `server_contracts` | 15 min | Fail-closed aggregate over the three root test shards (see below). Locked root install; deployment, rollback, mission, asset, pet-breeding, and tooling contracts; then requires every shard to have succeeded. |
 | `CI / server-build-security` | `server_build_security` | 30 min | Locked root install; backup/restore contract, root audit, one server build, checksum/provenance generation, and server artifact production. A high-severity advisory fails the audit at once; only an audit endpoint that returns no verdict is retried, for up to three attempts. |
 | `CI / pg-integration` | `pg_integration` | 30 min | Locked root install; runs `kv.compareSetMany` (the multi-key compare-and-set every currency-moving save write commits through) against a real `postgres:16` service container: jsonb equality, `ON CONFLICT ... WHERE`, `FOR SHARE` holds, rollback, opposite-order batches, and lock-lease fencing. The schema is read from `supabase-schema.sql`. `PG_INTEGRATION_REQUIRED=1` fails the job if the suite would skip. Required through `CI / test-build` (see below), not yet as its own context. The ceiling includes checkout of the immutable visual evidence as well as the complete test suite. |
-| `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification; lint, the visual-baseline-size gate, and the client audit (with the same retry rule as the root audit). It does not build: `client_build` does, in parallel. |
+| `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification; pet shape-review receipts (not the screenshots, see below); lint, the visual-baseline-size gate, and the client audit (with the same retry rule as the root audit). It does not build: `client_build` does, in parallel. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
 | `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all nineteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 5 min | Fail-closed aggregate requiring both Warfront browser shards (`e2e_warfront_matrix`) to succeed. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; ten live Express player-journey steps retain separate real servers and all existing cases. |
+
+The pet shape-review gate has two halves. The receipt half (each pet's asset,
+LOD, atlas and renderer hashes, clips and views against its review) runs in
+`CI / client-quality` on every run, with `--skip-evidence`. The evidence half
+re-hashes every screenshot a receipt cites, 12,480 files and 7.1 GB, and runs in
+`CI / pet-review-evidence` (`pet_review_evidence`, 35 minutes). `CI / changes`
+(`changes`, 5 minutes) decides whether it runs: the screenshots are fixed files
+in git, so the result can only change in a commit that touches
+`docs/{screenshots,evidence,audits,asset-sources}/`, the gate, or `ci.yml`. A
+manual run, a push whose file list cannot be read, or one too long to be
+complete always runs it. `CI / test-build` requires it to have succeeded when it
+was needed and to have been skipped when it was not. It is the only job that
+checks out the whole tree: that checkout is bounded to 12 minutes and retried
+once, because a full checkout on a pull request stalled for 30-35 minutes on
+2026-10-28. `client-quality` and the `server-contracts` shards check out
+without `docs/screenshots` and `docs/evidence`. The three server shards pass
+with identical counts without them.
 
 `CI / client-build` (`client_build`, 20 minutes) is where the client release
 artifact is built: locked installs, the story-content/TypeScript/production
