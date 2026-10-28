@@ -92,8 +92,11 @@ export function sectorPurseMarker(ledger: Pick<SectorWarPurseLedger, 'contestId'
 }
 
 /** How much one battle receipt counts toward its winner's purse, in wins. */
-export function sectorPurseWinWeight(receipt: Pick<SectorWarBattleReceipt, 'battleId' | 'attackerWon' | 'points' | 'by' | 'garrison'>): number {
+export function sectorPurseWinWeight(receipt: Pick<SectorWarBattleReceipt, 'battleId' | 'attackerWon' | 'points' | 'by' | 'garrison' | 'purseEligible'>): number {
     if (!(Number(receipt.points) > 0) || !safeName(String(receipt.by ?? ''))) return 0;
+    // Older receipts retain their earned credit. New ineligible human wins
+    // still score territory but cannot mint a later sector-war purse.
+    if (receipt.purseEligible === false) return 0;
     // A garrison that held the sector by itself: an AI won it, no player did.
     if (receipt.garrison && !receipt.attackerWon) return 0;
     if (receipt.garrison) return GARRISON_POINTS_FRACTION;

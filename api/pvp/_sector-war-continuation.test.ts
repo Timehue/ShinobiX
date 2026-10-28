@@ -44,6 +44,8 @@ before(async () => {
 beforeEach(async () => {
     const keys = await kv.keys('*');
     if (keys.length) await kv.del(...keys);
+    await kv.set(`save:${RAIDER}`, { character: { name: RAIDER, village: ATTACKER, level: 20 } });
+    await kv.set(`save:${HOLDOUT}`, { character: { name: HOLDOUT, village: DEFENDER, level: 20 } });
 });
 
 after(async () => {
@@ -128,6 +130,42 @@ function failEraWarBattleWrites(t: TestContext): () => void {
         if (many) many.mock.restore();
     };
 }
+
+describe('world PvP sector purse eligibility', { concurrency: false }, () => {
+    for (const winner of ['p1', 'p2'] as const) it(`${winner} scores territory but no purse credit against a fresh low-level opponent`, async () => {
+        const w = await contest();
+        const now = Date.now();
+        const fight = battle({ createdAt: now - 1000, endedAt: now - 10, winner });
+        fight.p1.character.level = 19;
+        fight.p2.character.level = 19;
+        const loser = winner === 'p1' ? HOLDOUT : RAIDER;
+        await kv.set(`save:${loser}`, { character: { level: 100, createdAt: now - 60_000 } });
+        await register(fight, w.id);
+        const result = await settle(fight);
+        assert.equal(result.outcome, 'applied');
+        const receipt = (await row(w.id)).appliedBattles![0];
+        assert.ok(receipt.points > 0);
+        assert.equal(receipt.purseEligible, false, 'sealed level19 wins over the later saved level100');
+        assert.equal(receipt.by, winner === 'p1' ? RAIDER : HOLDOUT);
+    });
+    it('unavailable account evidence leaves the continuation retryable, then pays an eligible result once', async () => {
+        const w = await contest();
+        const now = Date.now();
+        const fight = battle({ createdAt: now - 1000, endedAt: now - 10, winner: 'p1' });
+        await register(fight, w.id);
+        const saved = await kv.get(`save:${HOLDOUT}`);
+        await kv.del(`save:${HOLDOUT}`);
+        await assert.rejects(settle(fight), /account-evidence-unavailable/);
+        assert.equal((await row(w.id)).attackerPoints, 0);
+        assert.equal(await store.loadSectorWarResolutionReceipt(fight.battleId), null);
+        await kv.set(`save:${HOLDOUT}`, saved);
+        assert.equal((await settle(fight)).outcome, 'applied');
+        const committed = await row(w.id);
+        assert.equal(committed.appliedBattles![0].purseEligible, true);
+        await settle(fight);
+        assert.equal((await row(w.id)).attackerPoints, committed.attackerPoints);
+    });
+});
 
 describe('world PvP sector continuation past the old 200-receipt ceiling', { concurrency: false }, () => {
     it('scores the 201st battle of a war (it used to throw and stall both fighters\' rewards)', async () => {

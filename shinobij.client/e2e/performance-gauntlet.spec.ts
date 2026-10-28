@@ -45,10 +45,14 @@ test('the bloodline gallery loads on demand and stops polling after the archive 
 test('sector travel does not restart the full public-roster request', async ({ page }) => {
     const runtime = await installUiAuditRuntime(page);
     let rosterRequests = 0;
+    const sleeperSectors: number[] = [];
     let travels = 0;
     page.on('request', request => {
-        const pathname = new URL(request.url()).pathname;
-        if (pathname === '/api/player/roster') rosterRequests++;
+        const url = new URL(request.url()), pathname = url.pathname;
+        if (pathname === '/api/player/roster') {
+            if (url.searchParams.has('sector')) sleeperSectors.push(Number(url.searchParams.get('sector')));
+            else rosterRequests++;
+        }
         if (pathname === '/api/player/travel') travels++;
     });
     await expectUiAuditBoot(page, runtime, 'worldMap');
@@ -62,5 +66,6 @@ test('sector travel does not restart the full public-roster request', async ({ p
     await expect.poll(() => travels).toBe(1);
     await expect(page.locator('.sector-hud-region')).toBeVisible();
     await expect(page.locator('.sector-hud-region')).toContainText('Sector 39 ·');
+    await expect.poll(() => sleeperSectors.includes(39)).toBe(true);
     expect(rosterRequests).toBe(initialRequests);
 });

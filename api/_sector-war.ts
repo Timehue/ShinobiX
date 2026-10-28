@@ -131,6 +131,8 @@ export interface SectorWarBattleReceipt {
     by: string;
     /** True when the points came from a garrison assault (feeds the garrison cap). */
     garrison?: boolean;
+    /** Prospective currency gate only; absent on historic receipts. Never changes territory points. */
+    purseEligible?: boolean;
     at: number;
 }
 
@@ -217,7 +219,7 @@ function parseSectorWarBattleReceiptEntry(entry: unknown, legacyFields: boolean)
     }
     const value = entry as Record<string, unknown>;
     const allowed = new Set([
-        'battleId', 'attackerWon', 'points', 'by', 'garrison', 'at',
+        'battleId', 'attackerWon', 'points', 'by', 'garrison', 'purseEligible', 'at',
         // Pre-scored-model receipt fields retained for bounded migration.
         ...(legacyFields ? ['hpDealt', 'hpRegen'] : []),
     ]);
@@ -238,6 +240,7 @@ function parseSectorWarBattleReceiptEntry(entry: unknown, legacyFields: boolean)
         || (currentShape && (value.hpDealt !== undefined || value.hpRegen !== undefined))
         || (value.by !== undefined && typeof value.by !== 'string')
         || (value.garrison !== undefined && value.garrison !== true)
+        || (value.purseEligible !== undefined && typeof value.purseEligible !== 'boolean')
         || !Number.isSafeInteger(value.at)
         || Number(value.at) <= 0) {
         throw new Error('sector-war-battle-receipt-ledger-invalid');
@@ -248,6 +251,7 @@ function parseSectorWarBattleReceiptEntry(entry: unknown, legacyFields: boolean)
         points,
         by: typeof value.by === 'string' ? value.by : '',
         ...(value.garrison === true ? { garrison: true } : {}),
+        ...(typeof value.purseEligible === 'boolean' ? { purseEligible: value.purseEligible } : {}),
         at: Number(value.at),
     };
 }
@@ -773,7 +777,7 @@ export function applyContestBattleByWinner(
  */
 export function recordSectorWarBattleOutcome(
     outcome: SectorBattleOutcome,
-    args: { battleId: string; attackerWon: boolean; by?: string; garrison?: boolean; at: number },
+    args: { battleId: string; attackerWon: boolean; by?: string; garrison?: boolean; purseEligible?: boolean; at: number },
 ): { session: SectorWarSession; receipt: SectorWarBattleReceipt } {
     const prior = findSectorWarBattleReceipt(outcome.session, args.battleId);
     if (prior) return { session: outcome.session, receipt: prior };
@@ -783,6 +787,7 @@ export function recordSectorWarBattleOutcome(
         points: outcome.awarded,
         by: String(args.by ?? '').trim(),
         ...(args.garrison ? { garrison: true } : {}),
+        ...(typeof args.purseEligible === 'boolean' ? { purseEligible: args.purseEligible } : {}),
         at: args.at,
     };
     const mirror = outcome.session.appliedBattles ?? [];

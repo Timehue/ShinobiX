@@ -485,6 +485,7 @@ export type SectorWarBattleDecision =
         attackerWon: boolean;
         by: string;
         garrison?: boolean;
+        purseEligible?: boolean;
         at: number;
     };
 
@@ -566,7 +567,7 @@ export async function commitSectorWarBattle(args: {
                 : new Set<string>();
             const recorded = recordSectorWarBattleOutcome(
                 { ...decision.outcome, session: clearSectorWarLedgerPending(decision.outcome.session, confirmed) },
-                { battleId, attackerWon: decision.attackerWon, by: decision.by, garrison: decision.garrison, at: decision.at },
+                { battleId, attackerWon: decision.attackerWon, by: decision.by, garrison: decision.garrison, purseEligible: decision.purseEligible, at: decision.at },
             );
 
             let committed = false;

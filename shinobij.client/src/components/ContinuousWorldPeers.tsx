@@ -7,27 +7,31 @@ import { SectorPortrait } from './SectorPortrait';
 import type { WorldPosition } from '../../../shared/world-position';
 import type { WorldPoint } from '../../../shared/continuous-world-space';
 import type { PlayerRecord } from '../types/character';
+import type { SectorPeer } from './SectorPeers';
+import { worldPeerRoster } from '../lib/world-peer-roster';
+import { playerSlug } from '../lib/utils';
+import { GameIcon } from './icons/GameIcon';
 
 // `peer` is the record last reconciled; `element`/`x`/`y` the transform last written.
 type Motion = { cursor: WorldPosition; point: WorldPoint; points: WorldPoint[]; sequence: number;
     peer: PlayerRecord; element?: HTMLDivElement; x?: number; y?: number };
-type PeerFigure = { name: string; level: PlayerRecord['level']; src: string };
+type PeerFigure = { name: string; level: PlayerRecord['level']; src: string; sleeping: boolean };
 // A poll reply is plain JSON, so equal text means equal records.
 const samePlayers = (a: PlayerRecord[], b: PlayerRecord[]) => a.length === b.length && JSON.stringify(a) === JSON.stringify(b);
 const sameFigures = (a: PeerFigure[], b: PeerFigure[]) => a.length === b.length
-    && a.every((figure, i) => figure.name === b[i].name && Object.is(figure.level, b[i].level) && figure.src === b[i].src);
+    && a.every((figure, i) => figure.name === b[i].name && Object.is(figure.level, b[i].level) && figure.src === b[i].src && figure.sleeping === b[i].sleeping);
 /** The figures alone: a peer walking changes none of their inputs, so a move message skips this subtree. */
 const PeerFigures = memo(function PeerFigures({ figures, elements }: { figures: PeerFigure[]; elements: RefObject<Map<string, HTMLDivElement>> }) {
-    return <>{figures.map(({ name, level, src }) => <div key={name}
+    return <>{figures.map(({ name, level, src, sleeping }) => <div key={name}
         ref={node => { if (node) elements.current.set(name, node); else elements.current.delete(name); }}
-        className="sector-avatar-figure continuous-world-peer" title={`${name} (Lv ${level})`}>
+        className="sector-avatar-figure continuous-world-peer" title={`${name} (Lv ${level})${sleeping ? ' — Sleeping' : ''}`}>
         <span className="sector-avatar-shadow" /><span className="sector-avatar-sprite"><span className="sector-avatar-body">
             <SectorPortrait src={src} name={name} />
-            <span className="sector-avatar-pin" /></span></span><span className="sector-peer-label">{name}</span>
+            <span className="sector-avatar-pin" /></span></span><span className="sector-peer-label">{name}{sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
     </div>)}</>;
 }, (a, b) => a.elements === b.elements && sameFigures(a.figures, b.figures));
 /** Bounded nearby presentation; actions remain in the current sector's HUD. */
-export function ContinuousWorldPeers({ sector, selfName, sharedImages }: { sector: number; selfName: string; sharedImages: Record<string, string> }) {
+export function ContinuousWorldPeers({ sector, selfName, sharedImages, sleepers }: { sector: number; selfName: string; sharedImages: Record<string, string>; sleepers: SectorPeer[] }) {
     const live = useLiveSectorPlayers();
     const [nearby, setNearby] = useState<PlayerRecord[]>([]);
     useEffect(() => {
@@ -42,14 +46,10 @@ export function ContinuousWorldPeers({ sector, selfName, sharedImages }: { secto
         };
         void poll(); return () => { abort.abort(); clearTimeout(timer); };
     }, [selfName]);
-    const byName = new Map<string, PlayerRecord>();
-    for (const peer of [...nearby, ...live.filter(p => p.currentSector === sector)]) {
-        const key = peer.name.toLowerCase(), previous = byName.get(key);
-        if (!previous || (peer.movementSequence ?? 0) >= (previous.movementSequence ?? 0)) byName.set(key, peer);
-    }
-    const peers = [...byName.values()].filter(p => p.name.toLowerCase() !== selfName.toLowerCase() && !p.stronghold).slice(0, 48);
+    const allPeers = worldPeerRoster(sector, selfName, nearby, live, sleepers);
+    const peers = allPeers.slice(0, 48);
     const figures = peers.map((peer): PeerFigure => ({ name: peer.name, level: peer.level,
-        src: sharedImages[`avatar:${peer.name.toLowerCase()}`] || peer.character?.avatarImage || '' }));
+        src: sharedImages[`avatar:${playerSlug(peer.name)}`] || peer.character?.avatarImage || '', sleeping: peer.sleeping === true }));
     const latest = useRef(peers), elements = useRef(new Map<string, HTMLDivElement>()), root = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => { latest.current = peers; });
     useEffect(() => {
@@ -75,7 +75,9 @@ export function ContinuousWorldPeers({ sector, selfName, sharedImages }: { secto
                     if (item?.peer !== peer) {
                         const cursor = world.model.read(peer.worldPosition) ?? world.model.fallback(peer.currentSector ?? sector, peer.tile ?? playerNameTile(peer.name));
                         if (!cursor) continue;
-                        if (!item) { const point = world.model.point(cursor); item = { cursor, point, points: [point], sequence: peer.movementSequence ?? 0, peer }; motion.set(peer.name, item); }
+                        // Camps have no live movement sequence. Reset on sleep/wake so
+                        // a previous session's sequence cannot pin the marker offscreen.
+                        if (!item || Boolean(item.peer.sleeping) !== Boolean(peer.sleeping)) { const point = world.model.point(cursor); item = { cursor, point, points: [point], sequence: peer.movementSequence ?? 0, peer }; motion.set(peer.name, item); }
                         else if ((peer.movementSequence ?? 0) >= item.sequence && JSON.stringify(cursor) !== JSON.stringify(item.cursor)) {
                             // Finish the buffered graph path before adopting the next partial edge.
                             const path = peerWorldPath(world.nodes, item.cursor, cursor);
@@ -103,5 +105,6 @@ export function ContinuousWorldPeers({ sector, selfName, sharedImages }: { secto
         }).catch(() => { /* The terrain connection shows its own retry state. */ });
         return () => { alive = false; cancelAnimationFrame(frame); resize?.disconnect(); };
     }, [sector]);
-    return <div className="continuous-world-peers" ref={root} aria-hidden="true"><PeerFigures figures={figures} elements={elements} /></div>;
+    return <div className="continuous-world-peers" ref={root} aria-hidden="true"><PeerFigures figures={figures} elements={elements} />
+        {allPeers.length > peers.length && <div className="sector-peers-overflow">+{allPeers.length - peers.length} more here</div>}</div>;
 }

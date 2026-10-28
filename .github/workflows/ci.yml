@@ -34,8 +34,15 @@ defaults:
 # them (sparse checkout also makes actions/checkout fetch with blob:none, so the
 # skipped blobs are never downloaded). Specs that WRITE audit output there still
 # can; the folder is simply untracked on the runner. client-quality and the
-# server-contracts matrix jobs keep a full checkout: the pet certification and shape
-# review gates read evidence under docs/screenshots.
+# server-contracts matrix skip docs/screenshots and docs/evidence too (they keep
+# docs/audits: the receipts and several tests read it). They used to take the whole
+# tree and on pull requests that checkout stalled 30-35 minutes and hit the job
+# ceiling (three runs in a row on 2026-10-28, on PRs that did not touch CI).
+# Measured 2026-10-28: the three server-contracts shards pass with identical counts
+# (6033, 6476 of 6505, 6091 of 6092, same skips) with both folders absent, and of
+# the client-quality gates only the shape-review evidence re-hash reads them.
+# That re-hash (12,480 screenshots, 7.1 GB) now runs in `pet-review-evidence`, only
+# when a change touches the evidence or the gate; see the `changes` job.
 
 env:
   VITE_SENTRY_DSN: https://public@example.invalid/1
@@ -73,6 +80,13 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the screenshot and evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -131,9 +145,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           # These six contracts read source, runtime assets and generated data.
-          # Review evidence is only needed by the full matrix and
-          # client-quality jobs, whose checkouts remain unchanged. Fetching it
-          # here exhausted the 15-minute gate before any contract could run.
+          # Fetching review evidence here exhausted the 15-minute gate before
+          # any contract could run. Only pet-review-evidence needs it now.
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /*
@@ -344,6 +357,194 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  # Decides whether the pet review evidence re-hash has anything to say. The
+  # screenshots are fixed files in git, so the re-hash can only change in a commit
+  # that edits them, the receipts that cite them, or the gate itself. Anything this
+  # job cannot prove irrelevant counts as relevant: other events, a missing or
+  # truncated file list (GitHub caps a compare at 300 files, a PR at 3000), an API
+  # error. `workflow_dispatch` therefore always runs the full re-hash.
+  changes:
+    name: CI / changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      evidence: ${{ steps.scope.outputs.evidence }}
+    steps:
+      - id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          needed=true
+          ok=0
+          limit=300
+          files=""
+          case "$EVENT" in
+            pull_request)
+              limit=3000
+              files="$(gh api "repos/$GH_REPO/pulls/$PR/files" --paginate --jq '.[].filename')" && ok=1
+              ;;
+            push)
+              # An all-zero BEFORE is a new branch: no base to compare with.
+              if [ -n "$BEFORE" ] && [ -n "${BEFORE//0/}" ]; then
+                files="$(gh api "repos/$GH_REPO/compare/$BEFORE...$AFTER" --jq '.files[].filename')" && ok=1
+              fi
+              ;;
+          esac
+          count="$(printf '%s\n' "$files" | grep -c . || true)"
+          if [ "$ok" = 1 ] && [ "$count" -lt "$limit" ]; then
+            if printf '%s\n' "$files" | grep -Eq '^(docs/(screenshots|evidence|audits|asset-sources)/|shinobij\.client/scripts/(check-pet-shape-review\.mjs|lib/pet-runtime-audit\.mjs)$|\.github/workflows/ci\.yml$)'; then
+              needed=true
+            else
+              needed=false
+            fi
+          fi
+          printf 'event=%s files=%s evidence=%s\n' "$EVENT" "$count" "$needed"
+          echo "evidence=$needed" >> "$GITHUB_OUTPUT"
+
+  # The screenshot half of the pet shape-review gate: re-hash every screenshot a
+  # receipt cites (12,480 files, 7.1 GB). It needs the whole tree, and a full
+  # checkout on a pull request stalled for 30-35 minutes on 2026-10-28, so the
+  # checkout is bounded and retried once.
+  pet_review_evidence:
+    name: CI / pet-review-evidence
+    needs: changes
+    if: ${{ needs.changes.outputs.evidence == 'true' }}
+    runs-on: ubuntu-latest
+    # Two 12-minute checkout attempts, installs, and the 2-minute re-hash.
+    timeout-minutes: 35
+    steps:
+      - id: checkout
+        uses: actions/checkout@v7
+        timeout-minutes: 12
+        continue-on-error: true
+      - name: Clear a stalled checkout
+        if: steps.checkout.outcome != 'success'
+        run: find . -mindepth 1 -delete
+      - name: Check out again
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/pet-review-evidence
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/pet-review-evidence/provenance.txt
+      - name: Install root tooling dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/pet-review-evidence/root-install.log
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/pet-review-evidence/client-install.log
+      - name: Re-hash every cited pet review screenshot
+        run: npm run check:pet-shape-review --prefix shinobij.client 2>&1 | tee .ci-evidence/pet-review-evidence/shape-review.log
+      - name: Retain pet review evidence log
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-pet-review-evidence-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/pet-review-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # The client release artifact is built here, on its own, so the ~45 browser jobs
+  # that consume it no longer wait for client-quality. On run 40713008054 the
+  # browser jobs started at +21 min, after client-quality's 6.7m full checkout,
+  # its pet certifications and lint, and only 1.5m of that job was the build. For
+  # those 16 minutes five jobs ran and the rest of the runner pool sat idle; the
+  # browser jobs then queued for the pool for another 54. Build and size gate are
+  # about 5 minutes with a sparse checkout, so release-artifact can start at +5.
+  #
+  # Nothing is gated less. client-quality still certifies the pet assets, lints
+  # and audits, and `CI / test-build` still requires it, so a red client-quality
+  # fails the run whatever the browser jobs said. What changed is only that a PR
+  # which fails those checks now also spends its browser minutes. This artifact
+  # is for the browser jobs alone: Railway builds from source (see CLAUDE.md), so
+  # certification no longer has to precede the build for the deploy to be safe.
+  client_build:
+    name: CI / client-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          # The Docker build runs without them, so this build does not need them.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/client-build
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/client-build/provenance.txt
+      - name: Install root tooling dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/client-build/root-install.log
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/client-build/client-install.log
+      - name: Story-content, TypeScript, and production client build
+        run: npm run build --prefix shinobij.client 2>&1 | tee .ci-evidence/client-build/client-build.log
+      - name: Build-size gate
+        # This step once carried its own `shell: bash`, because `| tee` under the
+        # default pipefail-less shell reported success while the gate printed its
+        # own failure. It mattered — an over-budget initial graph reached main
+        # under a green check, and the next thing to notice was the Railway image
+        # build, which runs `npm run build` (sizecheck included) unpiped and simply
+        # stops deploying. That per-step override was the right call when it was
+        # the only one; the workflow-level `defaults.run.shell` above now does the
+        # same for all the piped steps, so keeping it here would only imply the
+        # other steps lack the protection. The history is the point of this note.
+        # It runs before the upload so an over-budget build never reaches the
+        # browser jobs: release-artifact needs this job to succeed.
+        run: npm run sizecheck 2>&1 | tee .ci-evidence/client-build/build-size.log
+      - name: Package immutable client artifact
+        run: |
+          mkdir -p .ci-artifacts/client
+          tar -czf .ci-artifacts/client/client-dist.tgz shinobij.client/dist
+          cd .ci-artifacts/client
+          sha256sum client-dist.tgz > client-dist.tgz.sha256
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
+      - name: Upload client artifact
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: client-dist-${{ github.sha }}-${{ github.run_id }}
+          overwrite: true
+          path: .ci-artifacts/client/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain client build evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-client-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/client-build/
+          if-no-files-found: warn
+          retention-days: 14
+
   client_quality:
     name: CI / client-quality
     runs-on: ubuntu-latest
@@ -352,6 +553,14 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Skips the screenshot and evidence folders; see SPARSE CHECKOUT at the top.
+          # The receipts the shape-review gate reads live in docs/audits, which stays.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -372,26 +581,17 @@ jobs:
       - name: Check facial deformation, rig normalization and review evidence
         run: node --test shinobij.client/scripts/oni-hound-skull.test.mjs shinobij.client/scripts/pet-deformation-probe.test.mjs shinobij.client/scripts/normalize-reviewed-pet-rig-scale.test.mjs shinobij.client/scripts/check-pet-shape-review.test.mjs shinobij.client/scripts/pet-dune-viper-no-coil.test.mjs 2>&1 | tee .ci-evidence/client-quality/pet-facial-shape.log
       - name: Require current animation shape reviews for every pet
-        run: npm run check:pet-shape-review --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/pet-shape-review.log
+        # The receipt half: every pet's asset, LOD, atlas and renderer hashes, clips
+        # and views against its review. The screenshot re-hash is `pet-review-evidence`.
+        run: npm run check:pet-shape-review --prefix shinobij.client -- --skip-evidence 2>&1 | tee .ci-evidence/client-quality/pet-shape-review.log
       - name: Certify all Warfront and Rally LODs
         run: npm run check:warfront-pet-lods --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/pet-lods.log
       - name: Certify all Warfront impostors
         run: npm run check:warfront-pet-impostors --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/pet-impostors.log
       - name: Client lint
         run: npm run lint --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/lint.log
-      - name: Story-content, TypeScript, and production client build
-        run: npm run build --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/client-build.log
-      - name: Build-size gate
-        # This step once carried its own `shell: bash`, because `| tee` under the
-        # default pipefail-less shell reported success while the gate printed its
-        # own failure. It mattered — an over-budget initial graph reached main
-        # under a green check, and the next thing to notice was the Railway image
-        # build, which runs `npm run build` (sizecheck included) unpiped and simply
-        # stops deploying. That per-step override was the right call when it was
-        # the only one; the workflow-level `defaults.run.shell` above now does the
-        # same for all 42 piped steps, so keeping it here would only imply the
-        # other steps lack the protection. The history is the point of this note.
-        run: npm run sizecheck 2>&1 | tee .ci-evidence/client-quality/build-size.log
+      # The production build and the build-size gate run in client-build, in
+      # parallel with this job; see the comment above that job.
       - name: Visual-baseline size gate
         run: npm run test:e2e:visual:size --prefix shinobij.client 2>&1 | tee .ci-evidence/client-quality/visual-size.log
       - name: Client dependency audit
@@ -422,22 +622,6 @@ jobs:
           done
           echo "::error::npm audit endpoint returned no verdict in 3 attempts."
           exit 1
-      - name: Package immutable client artifact
-        run: |
-          mkdir -p .ci-artifacts/client
-          tar -czf .ci-artifacts/client/client-dist.tgz shinobij.client/dist
-          cd .ci-artifacts/client
-          sha256sum client-dist.tgz > client-dist.tgz.sha256
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nnode=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$(node -v)" > provenance.txt
-      - name: Upload client artifact
-        uses: actions/upload-artifact@v7
-        with:
-          include-hidden-files: true
-          name: client-dist-${{ github.sha }}-${{ github.run_id }}
-          overwrite: true
-          path: .ci-artifacts/client/
-          if-no-files-found: error
-          retention-days: 14
       - name: Retain client quality evidence
         if: always()
         continue-on-error: true
@@ -451,7 +635,7 @@ jobs:
 
   release_artifact:
     name: CI / release-artifact
-    needs: [server_build_security, client_quality]
+    needs: [server_build_security, client_build]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     # The joined server and client distributions occasionally take longer than
@@ -473,11 +657,11 @@ jobs:
           mkdir -p .ci-evidence/release-artifact
           printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/release-artifact/provenance.txt
       - name: Require successful build inputs
-        if: ${{ needs.server_build_security.result != 'success' || needs.client_quality.result != 'success' }}
+        if: ${{ needs.server_build_security.result != 'success' || needs.client_build.result != 'success' }}
         run: |
           printf '%s\n' \
             "server-build-security=${{ needs.server_build_security.result }}" \
-            "client-quality=${{ needs.client_quality.result }}" \
+            "client-build=${{ needs.client_build.result }}" \
             | tee .ci-evidence/release-artifact/upstream-results.log
           exit 1
       - uses: actions/setup-node@v7
@@ -1486,6 +1670,9 @@ jobs:
       - server_contracts
       - server_build_security
       - pg_integration
+      - changes
+      - pet_review_evidence
+      - client_build
       - client_quality
       - release_artifact
       - release_certification
@@ -1503,6 +1690,10 @@ jobs:
           SERVER_CONTRACTS: ${{ needs.server_contracts.result }}
           SERVER_BUILD_SECURITY: ${{ needs.server_build_security.result }}
           PG_INTEGRATION: ${{ needs.pg_integration.result }}
+          CHANGES: ${{ needs.changes.result }}
+          EVIDENCE_NEEDED: ${{ needs.changes.outputs.evidence }}
+          PET_REVIEW_EVIDENCE: ${{ needs.pet_review_evidence.result }}
+          CLIENT_BUILD: ${{ needs.client_build.result }}
           CLIENT_QUALITY: ${{ needs.client_quality.result }}
           RELEASE_ARTIFACT: ${{ needs.release_artifact.result }}
           RELEASE_CERTIFICATION: ${{ needs.release_certification.result }}
@@ -1519,6 +1710,10 @@ jobs:
             "server-contracts=$SERVER_CONTRACTS" \
             "server-build-security=$SERVER_BUILD_SECURITY" \
             "pg-integration=$PG_INTEGRATION" \
+            "changes=$CHANGES" \
+            "pet-review-evidence-needed=$EVIDENCE_NEEDED" \
+            "pet-review-evidence=$PET_REVIEW_EVIDENCE" \
+            "client-build=$CLIENT_BUILD" \
             "client-quality=$CLIENT_QUALITY" \
             "release-artifact=$RELEASE_ARTIFACT" \
             "release-certification=$RELEASE_CERTIFICATION" \
@@ -1532,6 +1727,16 @@ jobs:
           test "$SERVER_CONTRACTS" = success
           test "$SERVER_BUILD_SECURITY" = success
           test "$PG_INTEGRATION" = success
+          test "$CHANGES" = success
+          # The screenshot re-hash is skipped only when `changes` proved nothing
+          # relevant moved; when it was needed it must have succeeded.
+          if [ "$EVIDENCE_NEEDED" = true ]; then
+            test "$PET_REVIEW_EVIDENCE" = success
+          else
+            test "$EVIDENCE_NEEDED" = false
+            test "$PET_REVIEW_EVIDENCE" = skipped
+          fi
+          test "$CLIENT_BUILD" = success
           test "$CLIENT_QUALITY" = success
           test "$RELEASE_ARTIFACT" = success
           test "$RELEASE_CERTIFICATION" = success
