@@ -12,6 +12,8 @@
  */
 import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
+import * as moderation from '../api/_text-moderation.js';
+import { createSoakName } from './lib/soak-fixtures.mjs';
 
 // Let the OS reserve an available port by default. A fixed QA port made this
 // otherwise-hermetic certification intermittently fail with EADDRINUSE on
@@ -95,7 +97,7 @@ function certificationCharacter(name: string, clan: string): Json {
 async function registerPlayers(count: number, clan: string, kv: Json, prefix = `op${count}p`): Promise<Player[]> {
     const players: Player[] = [];
     for (let index = 0; index < count; index += 1) {
-        const name = `${prefix}${index}${SUFFIX}`.slice(0, 20);
+        const name = createSoakName(`${prefix}${index}`, moderation);
         const password = `Operation-${index}-${SUFFIX}A1!`;
         const registered = await http('/api/player-auth', { method: 'POST', body: { action: 'register', name, password } });
         if (!check(registered.status === 200 && typeof registered.body.token === 'string', `${name} registers with token auth`)) continue;
