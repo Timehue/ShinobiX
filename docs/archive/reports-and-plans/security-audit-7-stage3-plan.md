@@ -3,8 +3,8 @@
 > **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
 
 Status: **PLAN + sign-off granted for Phase 0 + Phase 1** (2026-06-01).
-Companion: `docs/security-audit-handoff.md` (overall audit status),
-`docs/security-audit-triage.md` (per-item evidence). This doc is the design +
+Companion: `docs/archive/reports-and-plans/security-audit-handoff.md` (overall audit status),
+`docs/archive/reports-and-plans/security-audit-triage.md` (per-item evidence). This doc is the design +
 roadmap for the one substantive remaining code item: making PERSONAL player
 reward crediting (ryo / XP-level / honorSeals / rankedRating) server-authoritative.
 

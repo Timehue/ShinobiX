@@ -4,14 +4,14 @@
 
 Status as of commit `bf37f0b` (pushed to `origin/main`, working tree clean).
 This continues the 30-item "full audit consolidation" handoff. The companion
-file `docs/security-audit-triage.md` has the per-item evidence; this file is
+file `docs/archive/reports-and-plans/security-audit-triage.md` has the per-item evidence; this file is
 the **what's-done / what's-left + how-to**.
 
 ---
 
 ## TL;DR for the next session
 
-1. **Read `docs/security-audit-triage.md` first** — it classifies all 30 items
+1. **Read `docs/archive/reports-and-plans/security-audit-triage.md` first** — it classifies all 30 items
    REAL / FALSE / ALREADY-HANDLED with file:line evidence. Don't re-audit.
 2. **Two non-code items are still open and are the user's job, not yours:**
    - 🔴 **Rotate the leaked secrets** (dashboards) — see "Open: secrets" below.
@@ -95,7 +95,7 @@ the **what's-done / what's-left + how-to**.
 |--------|------|
 | `1db7542` | **cPanel route parity** — registered all 28 client-used handlers in `server.ts`; added `server-routes.test.ts` parity guard; `.cpanel.yml` fails loudly if `dist/server.js` missing; `scripts/verify-dist.mjs`; restart endpoint hardened (dedicated `RESTART_TOKEN`, constant-time, rate-limited, audit-logged); removed unused `cpanel-deploy/`. |
 | `0069b0f` | **Secret scrub** — removed hardcoded OpenAI key (`ShinobiJ.Server/appsettings.Development.json`) + Postgres password (`scripts/check-images.mjs`); env-only + fail-closed; `.gitignore` + `.example` template. **Does NOT revoke the live secrets — rotation still required.** |
-| `60f2d91` | **Triage doc** (`docs/security-audit-triage.md`) — read-only verification of all 30 items. |
+| `60f2d91` | **Triage doc** (`docs/archive/reports-and-plans/security-audit-triage.md`) — read-only verification of all 30 items. |
 | `63682a4` | **Batch 1+2** — #6 admin→`isFullAdmin` (save-snapshot, snapshot cron, moderation; moderation also dropped body-password); #21 challenge DELETE ownership gate; #28 crypto `randomUUID` for battleId + ranked challenge id; #20 world-state GET 503 `degraded` on KV failure (no silent empty map); #22 guard char projected via shared `stripNonCombatFields`; #23 images GET error → `no-store`; #24 roster sensitive-field-name regex guard. |
 | `7e6dca6` | **Batch 4** — #3 KV proxy IP-allowlist (opt-in) + per-IP failed-auth throttle + audit logs; #11 `enforceRateLimitKv({strict})` per-instance fallback on KV outage (applied to `generate-image`); #29 `admin/players` single `mget` instead of N gets; #26 `.NET Program.cs` 404s all `/api` outside Development; added `api/_ratelimit.test.ts`. |
 | `5b17321` | **Batch 3** — #12 `warGroundBountyDate` clamped to server UTC; #13 registry built from sanitized payload not raw; #7 claim-rewards fail-open scoped to NX reserve only (real errors now 500); #25 weekly-boss crash-resumable + exactly-once distribution (per-`(week,player)` NX receipt, `creditedPlayers[]`, flag flipped only after all credits land). **No payout/rate/formula changes.** |
@@ -340,7 +340,7 @@ raw password, that's a further step on top of this.
 ## Partially-addressed (note for completeness)
 
 - **#7 server-authoritative rewards — Stage 3 ran 2026-06-01; see
-  `docs/security-audit-7-stage3-plan.md` for the full design + outcome.** Shipped
+  `docs/archive/reports-and-plans/security-audit-7-stage3-plan.md` for the full design + outcome.** Shipped
   to `main`: Phase 0 (`_credit-player`/`_ranked-rating`/`_xp-engine` cores), Phase 1
   (ranked rating, player + pet — server-authoritative incl. sanitizer reject),
   Phase 2 (village daily-agenda + map-control personal rewards), Phase 3 (PvP-win
@@ -366,7 +366,7 @@ raw password, that's a further step on top of this.
 
 1. `cd` into the worktree, `git fetch origin`, confirm `git rev-parse HEAD ==
    origin/main` (should be `5b17321` or later).
-2. Skim `docs/security-audit-triage.md`.
+2. Skim `docs/archive/reports-and-plans/security-audit-triage.md`.
 3. Pick ONE larger/rollout item, write a short plan, get user sign-off.
 4. Edit TS source → `npx tsc -p tsconfig.cpanel.json` → `npm test` →
    `npm run build:server` (commit rebuilt dist) → client `npm run lint` if client

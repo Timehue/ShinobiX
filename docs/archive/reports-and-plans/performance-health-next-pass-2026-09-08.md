@@ -4,7 +4,7 @@ Reviewed on the refactor branch at `330f9cbdd`. This proposal records the eviden
 
 ## Current evidence
 
-- The integration audit passed 9,701 unit/contract tests and four live Express cases. The broader browser evidence and its two focused reruns are recorded in [the refactor completion audit](refactor-roadmap-completion-audit.md).
+- The integration audit passed 9,701 unit/contract tests and four live Express cases. The broader browser evidence and its two focused reruns are recorded in [the refactor completion audit](../../refactor-roadmap-completion-audit.md).
 - The production startup graph is 382,769 B gzip. Its global stylesheet is 114,385 B gzip / 588,893 B raw: approximately 30% of compressed startup JS/CSS. Three.js remains lazy.
 - A fresh local soak provisioned all 100 requested accounts. With 30 seconds of configured load, a five-second ramp and completion of outstanding loops, it measured 1,987 calls over 46 seconds. Health latency was p95 4 ms / p99 6 ms; heartbeat p95 9 ms / p99 13 ms; autosave p95 6 ms / p99 7 ms.
 - There were no unexpected HTTP errors. Autosave returned 759 successful writes and 100 expected version conflicts; all 100 conflict refetches succeeded. The harness treats 409/429 as designed responses and reports their counts separately.

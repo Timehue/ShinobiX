@@ -156,12 +156,12 @@ Run a controlled event with production-like participation before automating the 
 
 ## Project references
 
-- [Weekly Boss server flow](../api/weekly-boss.ts)
-- [Weekly Boss roaming rules](../shinobij.client/src/lib/weekly-boss-roam.ts)
-- [Weekly Boss player screen](../shinobij.client/src/screens/WeeklyBossArena.tsx)
-- [Clan Boss party contribution model](../shared/clan-boss-operation.ts)
-- [Tower N-actor engine](../api/towers/_engine.ts)
-- [Sector geography](../shared/sector-geo.ts) and [sector links](../shared/sector-links.ts)
-- [Era definitions](../api/_era-defs.ts)
-- [Village upgrade ownership](../shinobij.client/src/lib/village-upgrades.ts)
-- [Donkaku walk sprite specification](visual-concepts/donkaku-walk-v1.txt) and [key art specification](visual-concepts/donkaku-key-art-v1.txt)
+- [Weekly Boss server flow](../../../api/weekly-boss.ts)
+- [Weekly Boss roaming rules](../../../shinobij.client/src/lib/weekly-boss-roam.ts)
+- [Weekly Boss player screen](../../../shinobij.client/src/screens/WeeklyBossArena.tsx)
+- [Clan Boss party contribution model](../../../shared/clan-boss-operation.ts)
+- [Tower N-actor engine](../../../api/towers/_engine.ts)
+- [Sector geography](../../../shared/sector-geo.ts) and [sector links](../../../shared/sector-links.ts)
+- [Era definitions](../../../api/_era-defs.ts)
+- [Village upgrade ownership](../../../shinobij.client/src/lib/village-upgrades.ts)
+- [Donkaku walk sprite specification](../../visual-concepts/donkaku-walk-v1.txt) and [key art specification](../../visual-concepts/donkaku-key-art-v1.txt)

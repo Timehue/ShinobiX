@@ -1,6 +1,6 @@
 # Pet Arena — implementation state
 
-Canonical design: [balance plan](pet-battle-balance-plan-2026-10-10.md).
+Canonical design: [balance plan](../../pet-battle-balance-plan-2026-10-10.md).
 
 User authorized implementation of the two-player, 12-pet prototype on 2026-10-10.
 Current owner correction: player-facing name stays **Pet Arena**. New ranked
@@ -17,7 +17,7 @@ currency or owned-pet mutations. Existing sessions retain their original rules.
 Prototype modules implemented: shared contract/12-pet roster, isolated server
 engine and lifecycle, authenticated endpoint, Pet Arena entry, squad builder,
 private lead preview and command deck, and cinematic script adapter. Rules are
-documented in [the prototype specification](pet-tactics-prototype.md).
+documented in [the prototype specification](../../pet-tactics-prototype.md).
 
 Earlier sparring checkpoint: server and production client builds passed. All 140 selected regression
 tests pass, including 22 new combat/lifecycle/endpoint tests. Runtime registry
@@ -62,7 +62,7 @@ admission controls were removed; the private UI namespace is compact. The
 earlier local client build, packaged-asset validation and unchanged size gates
 passed (9,349,516 bytes against the 9,350,000-byte ceiling). Full production
 settings and newer live-main changes were checked subsequently; see
-[the main integration notes](audits/pet-tactics-prototype/main-integration-2026-10-10.md)
+[the main integration notes](../../audits/pet-tactics-prototype/main-integration-2026-10-10.md)
 for that measured total-code allowance and release evidence. No new human
 playtest is claimed.
 
@@ -80,7 +80,7 @@ retaining the experimental numeric configuration; no numeric tuning was promoted
 Storm Hawk/Gale Chick and Granite Tortoise/Abyssal Leviathan remain tuning watch
 items under controlled lead substitutions. Full owned-pet direct duels and NPC
 rules stay separate from this 12-species balance claim. Findings and reproduction
-are in [the review](audits/pet-tactics-prototype/review-2026-10-10.md).
+are in [the review](../../audits/pet-tactics-prototype/review-2026-10-10.md).
 
 ## Current follow-up — October 11
 
@@ -107,5 +107,5 @@ Unversioned sessions, descriptors and input-only historical proofs keep their
 legacy rules. Competitive twelve-pet and Beastfront numbers remain unchanged.
 
 Automated evidence and final validation are maintained in
-[the current audit](audits/pet-battle-unification/README.md). These simulations
+[the current audit](../../audits/pet-battle-unification/README.md). These simulations
 do not establish a final human meta or complete full-roster PvP expansion.

@@ -17,7 +17,7 @@ mode-authority section below preserve the Phase-0 interpretation available when
 this baseline was sealed. Later call-path inspection superseded those two
 present-tense conclusions. Current factual precedence belongs to
 `shared/runtime-mode-registry.ts`, `docs/generated/runtime-mode-registry.md`, and
-`docs/aaa-program-status.md`; this baseline must not be used as a current runtime
+`docs/archive/reports-and-plans/aaa-program-status.md`; this baseline must not be used as a current runtime
 inventory.
 
 ## Source and environment

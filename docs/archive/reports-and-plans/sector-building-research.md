@@ -4,7 +4,7 @@ References verified during the session audit on 2026-10-23. The earlier guide
 listed the implemented services without retaining the requested research links.
 This crosswalk supplies that missing evidence; it does not claim these links
 were recorded before implementation. Building identities and gameplay rules
-remain in [the building guide](sector-building-system.md).
+remain in [the building guide](../../sector-building-system.md).
 
 ## Publisher sources
 

@@ -95,7 +95,7 @@ journal is expanded. Routes to or from the isolated Obsidian arena open the
 existing atlas travel flow; they never pretend to be connected walking roads.
 
 The MMORPG research and ranked adaptation list are recorded in
-[`sector-building-research.md`](sector-building-research.md). These comparisons
+[`sector-building-research.md`](archive/reports-and-plans/sector-building-research.md). These comparisons
 explain the design approach; the rules below and the registry remain authoritative.
 
 ## Repair economy and persistence

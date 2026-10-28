@@ -2,7 +2,7 @@
 
 The desktop right menu and mobile menu now expose **Settings** immediately beside Logout. Account controls have moved out of Character, including account-name changes. Settings contains the Cinematic/Classic reader preference, master volume, mute, Google linking, password changes, recovery codes, and account deletion.
 
-The [follow-up exclusivity audit](settings-exclusivity-audit.md) records the remaining intro/combat audio and guest-link controls removed afterward, the unified legacy audio preferences, and the latest validation results.
+The [follow-up exclusivity audit](archive/reports-and-plans/settings-exclusivity-audit.md) records the remaining intro/combat audio and guest-link controls removed afterward, the unified legacy audio preferences, and the latest validation results.
 
 Cinematic remains the default. Existing explicit Classic preferences remain valid. Reader-mode switching and the audio button were removed from the cinematic stage; its reading-accessibility controls remain available. Audio and reader preferences remain device-local. Master volume scales battle music, story music, ambience, and sound effects while preserving the separate mute preference.
 
