@@ -117,14 +117,20 @@ test('two ranked players enter one live PvP session and can advance its first tu
             return (await response.json() as { activePlayer: string }).activePlayer;
         }).not.toBe(session.activePlayer);
         const nextPage = session.activePlayer === 'p1' ? bobPage : alicePage;
-        await expect(nextPage.locator('.combat-item-button', { hasText: 'Attack Pill' })).toBeEnabled();
-        await nextPage.locator('.combat-item-button', { hasText: 'Attack Pill' }).click();
+        const attackPill = nextPage.locator('.combat-item-button', { hasText: 'Attack Pill' });
+        await expect(attackPill).toBeEnabled();
+        await attackPill.click();
+        await expect(attackPill).toHaveAttribute('aria-pressed', 'true');
         const nextRole = session.activePlayer === 'p1' ? 'p2' : 'p1';
-        await expect.poll(async () => {
+        const pillUses = async () => {
             const response = await request.get(`/api/pvp/session?id=${battleId}`, { headers: alice.headers });
             const current = await response.json() as { itemsUsed?: Record<string, Record<string, number>> };
             return current.itemsUsed?.[nextRole]?.['item-attack-pill'] ?? 0;
-        }).toBe(1);
+        };
+        expect(await pillUses(), 'arming must not consume the pill').toBe(0);
+        await nextPage.locator('button.hex-tile.hex-player').click();
+        await expect.poll(pillUses).toBe(1);
+        await expect(attackPill).toHaveAttribute('aria-pressed', 'false');
         await expect(alicePage.locator('.pvp-countdown-overlay')).toHaveCount(0);
         await expect(bobPage.locator('.pvp-countdown-overlay')).toHaveCount(0);
         await alicePage.screenshot({ path: info.outputPath('ranked-initiator.png') });
