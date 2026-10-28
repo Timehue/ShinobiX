@@ -10,6 +10,7 @@ import { GEAR_STEP_SELL_RYO, isStepItemId } from '../../shared/gear-steps.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { NAMED_GEAR_SELL_RYO, isNamedGearId } from '../../shared/named-gear-rules.js';
 import { standardSaleUnitValue } from '../../shared/crafting-recipes.js';
+import { saleCostBasis } from '../../shared/shop-pricing.js';
 export { HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
 
 export type InventorySaleSource = 'backpack' | 'equipped';
@@ -43,8 +44,9 @@ export function unitSaleValue(item: SettlementItem): number {
     if (isNamedGearId(item.id)) return NAMED_GEAR_SELL_RYO;
     if (item.cost <= 0 && item.id in HUNT_MATERIAL_SELL_RYO) return HUNT_MATERIAL_SELL_RYO[item.id];
     // Half the cost, capped for crafted goods at 7/10 of their inputs' NPC value
-    // (2026-10 rebalance #33, shared/crafting-recipes.ts).
-    return standardSaleUnitValue(item.id, item.cost);
+    // (2026-10 rebalance #33, shared/crafting-recipes.ts). Priced from the
+    // pre-scale cost: the 2026-10-27 shelf-price rise must not raise buy-back.
+    return standardSaleUnitValue(item.id, saleCostBasis(item));
 }
 
 export function isSellableItem(item: SettlementItem): boolean {
@@ -53,7 +55,7 @@ export function isSellableItem(item: SettlementItem): boolean {
     if (item.id in HUNT_MATERIAL_SELL_RYO) return true;
     // A crafted good made only of gathered materials is worth nothing to the
     // shop, so it is refused rather than sold for 0.
-    return item.cost > 0 && standardSaleUnitValue(item.id, item.cost) > 0
+    return item.cost > 0 && standardSaleUnitValue(item.id, saleCostBasis(item)) > 0
         && (item.armorQuality != null || SELLABLE_SLOTS.has(normalizeSlot(item.slot)));
 }
 

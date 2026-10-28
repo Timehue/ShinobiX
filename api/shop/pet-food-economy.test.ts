@@ -9,7 +9,7 @@ import { SUPPLY_CRAFT_RECIPES } from '../../shared/crafting-recipes.js';
 
 const buyer = () => ({ level: 100, ryo: 100000, fateShards: 1000, inventory: ['keepsake', 'pet-treat'], itemStacks: [{ itemId: 'pet-treat', count: 4 }] });
 test('ordinary and premium food prices and batch buys stack without weakening unique gear', () => {
-    assert.equal(ITEM_CATALOG['pet-treat'].cost, 400);
+    assert.equal(ITEM_CATALOG['pet-treat'].cost, 1600);
     assert.equal(ITEM_CATALOG['golden-apple'].cost, 40);
     for (const id of ['pet-treat','golden-apple']) {
         const direct = purchaseCatalogItem(buyer(), id, 20); assert.ok(direct.ok);

@@ -14,7 +14,7 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     expect(registered.status(), await registered.text()).toBe(200);
     const token = String((await registered.json()).token), headers = { 'x-player-name': name, 'x-player-token': token };
     const save = uiAuditSave(); save.currentSector = 0;
-    save.character = { ...save.character, name, level: 85, ryo: 5000,
+    save.character = { ...save.character, name, level: 85, ryo: 100_000,
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [],
         villageUpgrades: {}, clanUpgradeLevels: {}, clanDoctrine: undefined, elderFocus: undefined,
         itemStacks: [
@@ -202,7 +202,7 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     expect(await owned('gather-iron-sand-fine')).toBe(5); expect(await owned('gather-iron-sand-superior')).toBe(2);
     expect(await owned('gather-iron-sand-pristine')).toBe(2); expect(await owned('hunt-torn-hide')).toBe(0);
     expect(await owned('hunt-frost-pelt')).toBe(3); expect(await owned('weekly-boss-core')).toBe(10);
-    expect((await readCharacter()).ryo).toBe(beforeArmorRyo - 600);
+    expect((await readCharacter()).ryo).toBe(beforeArmorRyo - 24_000); // the rare gear fee, shared/craft-fees.ts
     await page.goto('/#/cafeteria', { waitUntil: 'domcontentloaded' });
     await page.reload({ waitUntil: 'domcontentloaded' });
     const kitchen = page.locator('.cafe-kitchen');
@@ -218,7 +218,7 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     await expect(kitchen.getByRole('button', { name: /^Field Rations/ })).toBeDisabled();
     await expect(kitchen).toContainText('Needs 1 Heartwood Bark for cooking fuel');
     expect(await owned('hunt-frost-pelt')).toBe(3); expect(await owned('hunt-ash-scale')).toBe(3);
-    expect((await readCharacter()).ryo).toBe(beforeArmorRyo - 710);
+    expect((await readCharacter()).ryo).toBe(beforeArmorRyo - 24_110); // the gear fee plus the 110 ryo of cooking
     await page.reload(); await expect(kitchen).toBeVisible();
     await expect(kitchen).toContainText('Cooked today: 25/40 rations');
     expect(await owned('rare-chest-plate')).toBe(1);

@@ -11,6 +11,8 @@ import {
 } from '../../shared/crafting-recipes.js';
 import { HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
+import { gearCraftRyo } from '../../shared/craft-fees.js';
+import { saleCostBasis } from '../../shared/shop-pricing.js';
 import { isNamedGearId } from '../../shared/named-gear-rules.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import type { SettlementItem } from '../shop/_catalog.js';
@@ -27,8 +29,9 @@ import { sellCatalogItem } from '../shop/_sale.js';
  * table, so the hunt-material re-price cannot break these tests.
  */
 
-const catalog = ITEM_CATALOG as Record<string, { id: string; slot: string; rarity: string; cost?: number; weaponEp?: number; armorQuality?: string }>;
-const costOf = (id: string) => Math.max(0, Math.floor(Number(catalog[id]?.cost) || 0));
+const catalog = ITEM_CATALOG as Record<string, { id: string; slot: string; rarity: string; cost?: number; saleBasis?: number; weaponEp?: number; armorQuality?: string }>;
+// What NPC buy-back prices from: the pre-scale cost of a repriced item (shared/shop-pricing.ts).
+const costOf = (id: string) => Math.max(0, Math.floor(saleCostBasis({ cost: Number(catalog[id]?.cost) || 0, saleBasis: catalog[id]?.saleBasis })));
 const half = (id: string) => Math.floor(costOf(id) / 2);
 const itemRecipes = Object.entries(SUPPLY_CRAFT_RECIPES).filter(([id, recipe]) => !recipe.currency && catalog[id]);
 
@@ -120,8 +123,8 @@ describe('crafted goods sell for at most 7/10 of their inputs', () => {
     });
 
     it('crafted gear already sells for no more than 0.7 x its craft fee', () => {
-        // api/craft/_forge.ts ryoFor: rare 600, epic 1,400, legendary 3,500.
-        const fee = (rarity: string) => rarity === 'rare' ? 600 : rarity === 'epic' ? 1400 : 3500;
+        // api/craft/_forge.ts ryoFor reads shared/craft-fees.ts gearCraftRyo.
+        const fee = gearCraftRyo;
         let checked = 0;
         for (const item of Object.values(catalog)) {
             if (item.id.startsWith('named-') || isStepItemId(item.id)) continue;
@@ -195,7 +198,7 @@ describe('both sale routes and the Inventory preview apply the crafted-goods cap
     it('the Inventory preview prices through the same shared helper', () => {
         const src = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'screens', 'Inventory.tsx'), 'utf8');
         const fn = src.slice(src.indexOf('function sellValueForItem('), src.indexOf('async function sellSelectedItem('));
-        assert.match(fn, /standardSaleUnitValue\(item\.id, item\.cost \?\? 0\)/, 'the preview must call standardSaleUnitValue');
+        assert.match(fn, /standardSaleUnitValue\(item\.id, saleCostBasis\(/, 'the preview must call standardSaleUnitValue');
         assert.doesNotMatch(fn, /Math\.floor\(Math\.max\(0, \(item\.cost \?\? 0\)\) \/ 2\)/, 'the preview still prices crafted goods at half cost');
     });
 });

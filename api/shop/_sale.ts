@@ -3,6 +3,7 @@ import { removeOwned, countOwned } from '../craft/_forge.js';
 import { canonicalEquipmentSlot, resolvedEquipmentEntries, REFERENCE_EQUIPMENT_SLOTS } from '../_equipment-ownership.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
 import { standardSaleUnitValue } from '../../shared/crafting-recipes.js';
+import { saleCostBasis } from '../../shared/shop-pricing.js';
 import { unitSaleValue } from '../inventory/_sale.js';
 import { petUnlockLeftWithoutCopy } from '../pet/_pet-unlocks.js';
 import type { SettlementItem } from './_catalog.js';
@@ -14,7 +15,7 @@ export function sellCatalogItem(character: Record<string, unknown>, itemIdRaw: u
     const stepDrop = !!item && isStepItemId(itemId);
     if (!item || (whole(item.cost) <= 0 && !stepDrop)) return { ok: false as const, reason: 'item-not-sellable' as const };
     // A crafted good capped to 0 (gathered-only inputs) is refused, never sold for nothing.
-    if (!stepDrop && standardSaleUnitValue(itemId, whole(item.cost)) <= 0) return { ok: false as const, reason: 'item-not-sellable' as const };
+    if (!stepDrop && standardSaleUnitValue(itemId, saleCostBasis({ cost: whole(item.cost), saleBasis: item.saleBasis })) <= 0) return { ok: false as const, reason: 'item-not-sellable' as const };
     const slot = String(item.slot ?? '');
     // The same slots /inventory/sell buys (api/inventory/_sale.ts SELLABLE_SLOTS):
     // never the potion slot.

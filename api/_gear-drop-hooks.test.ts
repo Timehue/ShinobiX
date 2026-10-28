@@ -153,6 +153,6 @@ describe('ancient chest drop', () => {
     it('still pays an ordinary unique item only once, as before, and the second copy as its sale value', () => {
         assert.deepEqual(settleLoot(['cloth-hood'], 'cloth-hood'), ['cloth-hood']);
         const settled = settleAncientChestLoot({ inventory: ['cloth-hood'], itemStacks: [], tileCards: [], level: 1, xp: 0 }, { xp: 0, itemId: 'cloth-hood' });
-        assert.equal(settled.character.ryo, Math.floor(Number(ITEM_CATALOG['cloth-hood'].cost) / 2));
+        assert.equal(settled.character.ryo, Math.floor(Number(ITEM_CATALOG['cloth-hood'].saleBasis) / 2), 'buy-back prices from the pre-scale cost');
     });
 });

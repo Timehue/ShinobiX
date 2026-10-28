@@ -19,7 +19,7 @@ test.beforeEach(async ({ page, request, context }) => {
     const token = String((await registered.json()).token);
     const headers = { 'x-player-name': name, 'x-player-token': token };
     const save = uiAuditSave(); save.currentSector = 0;
-    save.character = { ...save.character, name, level: 85, ryo: 5000, auraDust: 0, boneCharms: 0,
+    save.character = { ...save.character, name, level: 85, ryo: 100_000, auraDust: 0, boneCharms: 0,
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], itemStacks: [
             { itemId: 'gather-stormglass-shard-fine', count: 8 },
             { itemId: 'gather-field-herb', count: 10 }, { itemId: 'gather-heartwood-bark', count: 10 },
