@@ -6,6 +6,7 @@ import { BattleTowerFight } from "./BattleTowerFight";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { fetchTowerPvpSession, submitTowerPvpActionWithLostResponseRetry, type TowerPvpMatch } from "../lib/tower-pvp-api";
 import { readClanWar2v2Stash, settleClanWar2v2, startClanWar2v2 } from "../lib/clan-war-2v2-api";
+import { useClanWarBattleKey } from "../lib/use-clan-war-battle-key";
 
 /*
  * Clan War shinobi 2v2 screen.
@@ -20,15 +21,23 @@ import { readClanWar2v2Stash, settleClanWar2v2, startClanWar2v2 } from "../lib/c
  * them onto one published match, so a reload or a late joiner lands in the same
  * fight rather than minting a second one.
  */
-export function ClanWar2v2Battle({ character, setScreen, sharedImages, onVersionedCharacter }: {
+type ClanWar2v2BattleProps = {
     character: Character; setScreen: (s: Screen) => void;
     sharedImages?: Record<string, string>; onVersionedCharacter?: VersionedCharacterCommit;
-}) {
+};
+
+export function ClanWar2v2Battle(props: ClanWar2v2BattleProps) {
+    const battleKey = useClanWarBattleKey();
+    return <ClanWar2v2BattleView key={battleKey} {...props} />;
+}
+
+function ClanWar2v2BattleView({ character, setScreen, sharedImages, onVersionedCharacter }: ClanWar2v2BattleProps) {
     const stash = readClanWar2v2Stash();
     const warId = String(stash.warId ?? "");
     const challengeId = String(stash.challengeId ?? "");
     const [match, setMatch] = useState<TowerPvpMatch | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [loadAttempt, setLoadAttempt] = useState(0);
     const mountedRef = useRef(true);
 
     const back = useCallback(() => setScreen(prepareClanWarReturn()), [setScreen]);
@@ -48,7 +57,7 @@ export function ClanWar2v2Battle({ character, setScreen, sharedImages, onVersion
             .then(resolved => { if (alive) setMatch(resolved); })
             .catch(startError => { if (alive) setError(String((startError as Error)?.message ?? startError)); });
         return () => { alive = false; };
-    }, [challengeId, character.name, warId]);
+    }, [challengeId, character.name, warId, loadAttempt]);
 
     const missingDuel = !warId || !challengeId;
 
@@ -57,6 +66,7 @@ export function ClanWar2v2Battle({ character, setScreen, sharedImages, onVersion
             <div className="clan-war-2v2-gate" role="alert" style={{ maxWidth: 640, margin: "2rem auto", padding: "0 1rem" }}>
                 <h2><GameArtIcon kind="attack" size={20} /> Clan War 2v2</h2>
                 <p>{error ?? "No Clan War duel is selected."}</p>
+                {!missingDuel && <button type="button" onClick={() => { setError(null); setLoadAttempt(n => n + 1); }}>Retry loading battle</button>}
                 <button type="button" onClick={back}>← Back to Clan Hall</button>
             </div>
         );

@@ -211,6 +211,15 @@ test("the Arena view preserves whether the one-time PvE pet summon was consumed"
     assert.equal(soloPveSessionForArena(source).companionUsed, true);
 });
 
+test("the Arena view preserves the server-sealed summon price", () => {
+    for (const summonApCost of [0, 20]) {
+        const source = session();
+        source.pendingCompanion = { petId: 'pet-1', name: 'Pet', hp: 200, damage: 50,
+            happiness: 100, loyal: false, moves: [], pveGearId: '', summonApCost };
+        assert.equal(soloPveSessionForArena(source).pendingCompanion?.summonApCost, summonApCost);
+    }
+});
+
 test("a lost response retries the same versioned intent token", async () => {
     const originalFetch = globalThis.fetch;
     const bodies: Array<Record<string, unknown>> = [];

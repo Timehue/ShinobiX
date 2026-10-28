@@ -6,7 +6,12 @@ Each attribute independently gives 1% of its immutable base per point through
 Automatic growth remains 0.75% of base per level. Stats round once after adding
 the trait, automatic growth and specialization. Free respec refunds all points;
 active battles, uncollected training/expeditions and Hatchery incubation block it.
-Agility currently has no combat effect in adventure summons' fixed action phase.
+Adventure summons seal the owned pet's Speed at admission. Following the owner's
+2026-10-28 decision, Speed improves movement efficiency within the existing action
+phase; it does not change turn order, strike cost, action limit or four-phase lifespan.
+`api/combat-core/companion.ts` owns the bounded movement discount. Retained combat
+snapshots without Speed keep their previous movement cost. See the
+[summon audit](pve-pet-summon-audit-2026-10-28.md) for execution evidence.
 
 ## Preservation and authority
 

@@ -16,6 +16,7 @@ import {
 } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { MAX_ACTIONS, MAX_ROUNDS, GRID_H, GRID_W, SPIRAL_RADIUS } from '../combat-core/constants.js';
+import { sealedPetSummonApCost } from '../../shared/pet-summon.js';
 import {
     COMPANION_FIELD_ROUNDS,
     COMPANION_MAX_DAMAGE_FRAC,
@@ -24,9 +25,12 @@ import {
     companionHealOnSummonPct,
     companionConsumableHealPct,
     companionMoveDamage,
+    companionMoveAp,
+    isCompanionSupportMove,
     companionIncomingDamage,
     companionObeys,
     companionOwnerLifestealPct,
+    companionReviveHp,
     pickCompanionMove,
     type CompanionMove,
 } from '../combat-core/companion.js';
@@ -431,9 +435,10 @@ function playerHasLegalAction(session: SoloPveSession): boolean {
     const self = session.player;
     const opponent = session.enemy;
 
-    // Summoning is deliberately free in this runtime, so preserve the chance to
-    // use it even when AP is exhausted (provided an adjacent landing tile exists).
-    if (session.pendingCompanion && hexNeighbors(self.pos).some((tile) => tile !== opponent.pos && !tileBlocked(session, tile))) {
+    // The once-per-fight summon does not consume an action slot. Only a sealed
+    // max-rank Pet Tamer discount keeps it available at zero AP.
+    if (session.pendingCompanion && session.ap.player >= sealedPetSummonApCost(session.pendingCompanion, self.character)
+        && hexNeighbors(self.pos).some((tile) => tile !== opponent.pos && !tileBlocked(session, tile))) {
         return true;
     }
     if (session.actionsThisTurn >= MAX_ACTIONS) return false;
@@ -750,6 +755,13 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     return resolution;
 }
 
+function reviveSoloCompanion(session: SoloPveSession, companion: SoloPveCompanion): void {
+    if (companion.hp > 0 || !companion.reviveAvailable || companion.roundsLeft <= 0) return;
+    companion.reviveAvailable = false;
+    companion.hp = companionReviveHp(companion.maxHp);
+    session.log.push(`${companion.name} revives through Alpha Bond with ${companion.hp} HP.`);
+}
+
 function runSoloPveCompanionPhase(session: SoloPveSession): void {
     const companion = session.companion;
     if (!companion || companion.hp <= 0 || session.status !== 'active') return;
@@ -764,6 +776,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
     const dots = applyDoTs(companion, session.round);
     session.companion = Object.assign(companion, dots.fighter);
     session.log.push(...dots.lines);
+    reviveSoloCompanion(session, companion);
     if (session.log.length > effectsLogStart || companion.hp <= 0) {
         if (companion.hp <= 0) session.log.push(`${companion.name} is knocked out. The fight continues.`);
         appendCompanionEvent(session, effectsBefore, effectsLogStart, 'companionWait', 'Ongoing Effects', 'companion');
@@ -780,11 +793,12 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
     } else {
         let ap = 100;
         let actions = 0;
-        while (ap >= MOVE_AP && actions < MAX_ACTIONS && session.status === 'active' && companion.hp > 0) {
+        const moveAp = companionMoveAp(companion.speed, MOVE_AP);
+        while (ap >= moveAp && actions < MAX_ACTIONS && session.status === 'active' && companion.hp > 0) {
             const move = pickCompanionMove(companion.moves, companion.cooldowns, companion.hp / Math.max(1, companion.maxHp),
                 companion.statuses.some(status => status.kind === 'negative'),
                 companion.signatureReadyAfter === undefined ? undefined : { ordinaryActions: companion.ordinaryActions ?? 0, requiredActions: companion.signatureReadyAfter });
-            const selfCast = !!move && companionMoveDamage(1, move) === 0;
+            const selfCast = isCompanionSupportMove(move);
             if (!selfCast && hexDistance(companion.pos, session.enemy.pos) > COMPANION_RANGE) {
                 const candidates = hexNeighbors(companion.pos)
                     .filter((tile) => tile !== session.player.pos && tile !== session.enemy.pos && !tileBlocked(session, tile))
@@ -796,7 +810,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
                 companion.pos = tile;
                 companion.statuses = reconcileGroundStatuses(companion, session.groundEffects, 'p1').statuses;
                 session.log.push(`${companion.name} closes in on ${session.enemy.name}.`);
-                ap -= MOVE_AP;
+                ap -= moveAp;
                 actions += 1;
                 appendCompanionEvent(session, before, logStart, 'companionMove', 'Move', 'tile', tile);
                 continue;
@@ -814,7 +828,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
                 logStart,
                 'companionMove',
                 move?.name ?? 'Basic Strike',
-                move && companionMoveDamage(1, move) === 0 ? 'companion' : 'enemy',
+                isCompanionSupportMove(move) ? 'companion' : 'enemy',
                 undefined,
                 resolution,
             );
@@ -1181,10 +1195,13 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         if (side !== 'player') return { applied: false, reason: 'enemy-cannot-summon' };
         const seal = session.pendingCompanion;
         if (!seal) return { applied: false, reason: session.companion ? 'already-summoned' : 'no-companion' };
+        const summonAp = sealedPetSummonApCost(seal, self.character);
+        if (session.ap.player < summonAp) return { applied: false, reason: 'insufficient-ap' };
         const spot = hexNeighbors(self.pos)
             .sort((a, b) => a - b)
             .find((tile) => tile !== opponent.pos && !tileBlocked(session, tile));
         if (spot === undefined) return { applied: false, reason: 'no-space' };
+        session.ap.player -= summonAp;
         session.companion = {
             name: seal.name,
             hp: seal.hp,
@@ -1202,6 +1219,8 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 } : {} },
             pos: spot,
             petId: seal.petId,
+            ...(seal.reviveOnce ? { reviveAvailable: true } : {}),
+            ...(seal.speed !== undefined ? { speed: seal.speed } : {}),
             ...(seal.rulesetVersion === 'progression-v3' ? { signatureReadyAfter: 2, ordinaryActions: 0 } : {}),
             ...(seal.rulesetVersion === 'progression-v3' ? { defense: seal.defense, spDefense: seal.spDefense, referenceHp: seal.referenceHp } : {}),
             baseDamage: seal.damage,
@@ -1979,6 +1998,7 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
     companion.hp = Math.max(0, companion.hp - damage);
     spendAction(session, 'enemy', BASIC_ATTACK_AP);
     session.log.push(`${session.enemy.name} attacks ${companion.name} for ${damage} damage${blocked ? ` (${blocked} blocked)` : ''}.`);
+    reviveSoloCompanion(session, companion);
     if (companion.hp <= 0) {
         session.log.push(`${companion.name} is knocked out. The fight continues.`);
         session.companion = undefined;

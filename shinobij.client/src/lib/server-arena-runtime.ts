@@ -139,7 +139,7 @@ export type ServerArenaSession = {
         tags: Array<{ name: string; percent?: number; amount?: number }>;
     }>;
     weather?: { positiveElement?: string; negativeElement?: string };
-    pendingCompanion?: { petId: string; name: string; hp: number; damage: number };
+    pendingCompanion?: { petId: string; name: string; hp: number; damage: number; summonApCost?: number };
     /** True after this fight's one sealed companion summon has been consumed. */
     companionUsed?: boolean;
     /** Rolling window of server-authored VFX plates (see ServerArenaVfxEvent). */

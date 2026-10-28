@@ -164,6 +164,7 @@ export type SoloPveSession = {
     cooldowns: { player: Record<string, number>; enemy: Record<string, number> };
     groundEffects: SoloPveGroundEffect[];
     pendingCompanion?: {
+        summonApCost?: number;
         petId: string;
         name: string;
         hp: number;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { Pet } from "../types/pet";
 import { visiblePoll } from "../lib/poll";
 import { PetShowdownReplay } from "./PetShowdownReplay";
@@ -69,13 +69,20 @@ export type PetDuelReplayConfig<S> = {
     pickerless?: { loading: string; missing: string };
 };
 
-export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: PetDuelReplayConfig<S> }) {
+export function PetDuelReplayScreen<S>({ pets, config, sharedImages }: { pets: Pet[]; config: PetDuelReplayConfig<S>; sharedImages?: Record<string, string> }) {
     const { ready, fetchState, submit, resolved: isResolved, watch, banner, waiting, onBack, nextDuel, pickerless } = config;
     const [selectedPetId, setSelectedPetId] = useState(pets[0]?.id ?? "");
+    const availablePetId = pets.some(p => p.id === selectedPetId) ? selectedPetId : pets[0]?.id ?? "";
     const [session, setSession] = useState<S | null>(null);
     /** The mount read found no session (only shown for a `pickerless` screen). */
     const [sessionMissing, setSessionMissing] = useState(false);
     const [error, setError] = useState("");
+    const [loadError, setLoadError] = useState("");
+    const [loadAttempt, setLoadAttempt] = useState(0);
+    const [loadedAttempt, setLoadedAttempt] = useState(-1);
+    const [replayError, setReplayError] = useState("");
+    const [watchAttempt, setWatchAttempt] = useState(0);
+    const submitting = useRef(false);
     const [busy, setBusy] = useState(false);
     /** undefined = not fetched yet · null = decided but unwatchable · script = play it */
     const [script, setScript] = useState<ShowdownReplayScript | null | undefined>(undefined);
@@ -95,9 +102,11 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         let alive = true;
         void watch()
             .then((s) => { if (alive) setScript(s); })
-            .catch(() => { if (alive) setScript(null); });
+            .catch((reason: unknown) => {
+                if (alive) setReplayError(reason instanceof Error ? reason.message : "The battle could not be loaded. Please retry.");
+            });
         return () => { alive = false; };
-    }, [resolved, script]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [resolved, script, watchAttempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Adopt an already-open session on mount, so a refresh mid-duel (or the second
     // player arriving after the first has fielded a pet) lands in the right state
@@ -110,9 +119,11 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
             if (!s) return void setSessionMissing(true);
             setSession(s);
             if (nextDuel && isResolved(s) && nextDuel(s)) setArrivedDecided(true);
-        }).catch(() => { if (alive) setSessionMissing(true); /* none yet */ });
+        }).catch((reason: unknown) => {
+            if (alive) setLoadError(reason instanceof Error ? reason.message : "The battle could not be loaded. Please retry.");
+        }).finally(() => { if (alive) setLoadedAttempt(loadAttempt); });
         return () => { alive = false; };
-    }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [ready, loadAttempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Poll until the duel resolves. The server settles the instant the last pet is
     // in — the sim is deterministic, so there are no turns to wait through. Keyed
@@ -121,20 +132,23 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         if (!ready || !session || resolved) return;
         let alive = true;
         const stop = visiblePoll(() => {
-            void fetchState().then((s) => { if (alive && s) setSession(s); }).catch(() => { /* best-effort */ });
+            return fetchState().then((s) => {
+                if (alive && s) setSession(current => current && isResolved(current) ? current : s);
+            }).catch(() => { /* best-effort */ });
         }, 4000);
         return () => { alive = false; stop(); };
     }, [ready, !!session, !!resolved]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const send = useCallback(async () => {
-        if (!ready || !selectedPetId) return;
+        if (!ready || !availablePetId || submitting.current) return;
+        submitting.current = true;
         setBusy(true); setError("");
         try {
-            const d = await submit(selectedPetId);
+            const d = await submit(availablePetId);
             if (d.session) setSession(d.session); else setError(d.error ?? config.submitErrorText);
         } catch (e) { setError(String((e as Error).message || e)); }
-        finally { setBusy(false); }
-    }, [ready, selectedPetId]); // eslint-disable-line react-hooks/exhaustive-deps
+        finally { submitting.current = false; setBusy(false); }
+    }, [ready, availablePetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Leave a decided duel for the next one: back to the picker. The decided
     // session is dropped locally; the server replaces it when the next duel
@@ -145,6 +159,7 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         setArrivedDecided(false);
         setReplayFromCard(false);
         setError("");
+        setReplayError("");
     }, []);
 
     const card = (body: React.ReactNode) => (
@@ -155,9 +170,19 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         return card(<><p>{config.missingText}</p><button onClick={onBack}>{config.backLabel}</button></>);
     }
 
+    if (!session && loadedAttempt !== loadAttempt) {
+        return card(<><h3>{config.title}</h3><p role="status">Loading the battle…</p><button onClick={onBack}>{config.backLabel}</button></>);
+    }
+    if (!session && loadError) {
+        return card(<><h3>{config.title}</h3><p role="alert">{loadError}</p><button onClick={() => { setLoadError(""); setSessionMissing(false); setLoadAttempt(n => n + 1); }}>Retry loading battle</button><button onClick={onBack}>{config.backLabel}</button></>);
+    }
+
     // Resolved → play the server's own script through the Showdown arena.
     if (session && resolved) {
         const nextLabel = nextDuel ? nextDuel(session) : null;
+        if (replayError) {
+            return card(<><h3>{config.title}</h3><p>{banner(session)}</p><p role="alert">{replayError}</p><button onClick={() => { setReplayError(""); setWatchAttempt(n => n + 1); }}>Retry loading replay</button>{nextLabel && <button onClick={startNextDuel}>{nextLabel}</button>}<button onClick={onBack}>{config.backLabel}</button></>);
+        }
         // A configured screen shows a duel that was decided before the viewer
         // arrived (or one that cannot be replayed) as a result card with a way
         // on to the next duel. One decided while the viewer watched still plays.
@@ -184,7 +209,7 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         }
         if (script === null) {
             // Decided, but not watchable (a session from before the engine
-            // cutover, or the fetch failed). The verdict still stands.
+            // cutover). A failed fetch stays retryable above. The verdict still stands.
             return card(
                 <>
                     <h3>{config.title}</h3>
@@ -197,7 +222,7 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         return (
             <div>
                 <div style={{ textAlign: "center", padding: 8, fontWeight: 700 }}>{banner(session)}</div>
-                <PetShowdownReplay script={script} playerPets={pets} onExit={replayFromCard ? () => setArrivedDecided(true) : onBack}
+                <PetShowdownReplay script={script} playerPets={pets} sharedImages={sharedImages} onExit={replayFromCard ? () => setArrivedDecided(true) : onBack}
                     exitLabel={replayFromCard ? 'Back to battle result' : config.backLabel} />
             </div>
         );
@@ -206,7 +231,7 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
     // A battle fought before the screen opened has no picker to fall back to:
     // until its decided session arrives, there is nothing else to show.
     if (pickerless) {
-        return card(<><h3>{config.title}</h3><p className="hint">{sessionMissing ? pickerless.missing : pickerless.loading}</p><button onClick={onBack}>{config.backLabel}</button></>);
+        return card(<><h3>{config.title}</h3><p className="hint">{sessionMissing ? pickerless.missing : pickerless.loading}</p><button onClick={() => { setSessionMissing(false); setLoadAttempt(n => n + 1); }}>Retry loading battle</button><button onClick={onBack}>{config.backLabel}</button></>);
     }
 
     // My pets are in; waiting on the other side.
@@ -229,10 +254,10 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
             <p className="hint">{config.intro}</p>
             {pets.length === 0 ? <p>You have no pets to send into battle.</p> : (
                 <>
-                    <select value={selectedPetId} onChange={(e) => setSelectedPetId(e.target.value)} disabled={busy} style={{ margin: "8px 0" }}>
+                    <select value={availablePetId} onChange={(e) => setSelectedPetId(e.target.value)} disabled={busy} style={{ margin: "8px 0" }}>
                         {pets.map((p) => <option key={p.id} value={p.id}>{p.name} · Lv {p.level} · {p.element}</option>)}
                     </select>
-                    <div><button onClick={send} disabled={busy || !selectedPetId}>{busy ? "…" : config.submitLabel}</button></div>
+                    <div><button onClick={send} disabled={busy || !availablePetId}>{busy ? "…" : config.submitLabel}</button></div>
                 </>
             )}
             {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}

@@ -1,5 +1,6 @@
 import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, HOLLOW_GATE_LEGACY_SHINOBI_ROUND_LIMIT } from '../../../shared/hollow-gate-round-limit';
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { sealedPetSummonApCost } from "../../../shared/pet-summon";
 import { CombatGridAppearanceControls, CombatGridOutline } from "../components/CombatGridAppearance";
 import { useCombatGridAppearance } from "../lib/use-combat-grid-appearance";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
@@ -948,6 +949,7 @@ export function MissionArenaFight({
     const attackAp = adjustedActionAp(ATTACK_AP);
     const moveAp = adjustedActionAp(MOVE_AP);
     const utilityAp = adjustedActionAp(UTILITY_AP);
+    const summonAp = sealedPetSummonApCost(session.pendingCompanion, myActor?.character);
     const fleeAp = adjustedActionAp(100);
     const healCd = Number(myActor?.cooldowns?.basicHeal ?? 0);
     const clearCd = Number(myActor?.cooldowns?.clear ?? 0);
@@ -1704,14 +1706,14 @@ export function MissionArenaFight({
                             <button onClick={() => armBasicAction("cleanse")} aria-pressed={mode === "cleanse"} className={mode === "cleanse" ? "selected-action" : ""}
                                 disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {cleanseCd}</span></small></button>
                             <button
-                                className={`summon-pet-command${mode === "summon" ? " selected-action" : ""}`}
+                                className={`summon-pet-command${session.pendingCompanion ? " has-summon-price" : ""}${mode === "summon" ? " selected-action" : ""}`}
                                 aria-pressed={mode === "summon"}
                                 onClick={() => armBasicAction("summon")}
-                                disabled={busy || !myTurn || !session.pendingCompanion || !!companion || session.companionUsed}
+                                disabled={busy || !myTurn || !session.pendingCompanion || !!companion || session.companionUsed || myAp < summonAp}
                                 title={companion
                                     ? `${companion.name} is already on the field`
                                     : session.pendingCompanion
-                                        ? `Summon ${session.pendingCompanion.name}`
+                                        ? `Summon ${session.pendingCompanion.name} · ${summonAp} AP${summonAp === 0 ? " · Max-rank Pet Tamer" : ""}`
                                         : session.companionUsed
                                             ? "Your pet summon was already used in this fight"
                                             : unavailableCompanionCopy.title}
@@ -1721,7 +1723,7 @@ export function MissionArenaFight({
                                 <small>{companion
                                     ? `${companion.name} · ${companionRoundsLeft}⟳`
                                     : session.pendingCompanion
-                                        ? session.pendingCompanion.name
+                                        ? `${summonAp} AP · ${session.pendingCompanion.name}`
                                         : session.companionUsed
                                             ? "Already used"
                                             : unavailableCompanionCopy.short}</small>

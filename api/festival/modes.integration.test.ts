@@ -177,6 +177,42 @@ test('traveling without a companion never seals the globally active pet into com
     assert.equal(opened.session.pendingCompanion, undefined);
 });
 
+for (const rank of [9, 10]) test(`Caravan seals the selected pet and rank-${rank} AP price through real action retries`, async () => {
+    const record = await stored();
+    const selected = record.character.pets[0];
+    selected.level = 50;
+    selected.nickname = 'Caravan Companion';
+    record.character.pets.push({ ...structuredClone(selected), id: 'other-pet', nickname: 'Other Companion' });
+    record.character.activePetId = 'other-pet';
+    record.character.profession = 'petTamer';
+    record.character.professionRank = rank;
+    record.character.masterySpec = rank === 10 ? { 'pet-damage': 2, 'pet-hp': 2, 'alpha-bond': 1 } : {};
+    await kv.set(`save:${player}`, record);
+    const opened = await prepareFight();
+    const price = rank === 10 ? 0 : 20;
+    assert.equal(opened.session.pendingCompanion.petId, petId, 'Caravan selection overrides the ordinary active pet');
+    assert.equal(opened.session.pendingCompanion.name, 'Caravan Companion');
+    assert.equal(opened.session.pendingCompanion.summonApCost, price);
+    assert.equal(opened.session.pendingCompanion.hp, Math.round(selected.hp * (rank === 10 ? 1.08 : 1)));
+    assert.equal(opened.session.pendingCompanion.reviveOnce, rank === 10 ? true : undefined);
+    const { towerActionVersion } = await import('../towers/_action-idempotency.js');
+    const request = { runId: opened.session.runId, type: 'summon', expectedVersion: towerActionVersion(opened.session),
+        moveToken: randomUUID(), summonApCost: 0, professionRank: 10 };
+    const result = ok(await call(towerAction, request));
+    assert.equal(result.applied, true);
+    assert.equal(result.session.activeAp, opened.session.activeAp - price, 'request-body pricing cannot override the server seal');
+    assert.equal(result.session.pendingCompanion, undefined);
+    assert.equal(result.session.actors.filter((actor: Obj) => actor.character.companion).length, 1);
+    assert.equal(result.session.companionUsage.petId, petId);
+    const replay = ok(await call(towerAction, request));
+    assert.equal(replay.replayed, true);
+    assert.equal(replay.session.activeAp, result.session.activeAp);
+    assert.equal(replay.session.actors.filter((actor: Obj) => actor.character.companion).length, 1);
+    const resumed = ok(await call(caravan, { action: 'combat', runId: opened.progress.current.id }));
+    assert.equal(resumed.session.activeAp, result.session.activeAp);
+    assert.equal(resumed.session.pendingCompanion, undefined);
+});
+
 test('a real combat victory resumes the route and charges a summoned companion only once', async () => {
     const record = await stored();
     record.character.pets[0].level = 50;
