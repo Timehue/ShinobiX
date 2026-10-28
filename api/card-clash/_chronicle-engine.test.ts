@@ -3270,17 +3270,17 @@ test("Normal Magic resolves to Graveyard and Equip remains attached", () => {
   if (!summoned.ok) return;
   state = summoned.state;
   state[actor].hand[0] = "chronicle-medical-salve";
-  state[actor].lifePoints = 7_900;
+  state[actor].lifePoints = STARTING_LIFE_POINTS - 100;
   const healed = activateMagic(state, actor, {
     action: "activate-magic",
     handIndex: 0,
   });
   assert.equal(healed.ok, true);
   if (!healed.ok) return;
-  // Healing is uncapped, so it can lift Health above the starting 8,000.
+  // Healing is uncapped, so it can lift Health above the starting pool.
   const salve = getChronicleCard("chronicle-medical-salve");
   assert.ok(salve?.cardClass === "magic");
-  assert.equal(healed.state[actor].lifePoints, 7_900 + (salve.effect.amount ?? 0));
+  assert.equal(healed.state[actor].lifePoints, STARTING_LIFE_POINTS - 100 + (salve.effect.amount ?? 0));
   assert.ok(healed.state[actor].lifePoints > STARTING_LIFE_POINTS);
   assert.equal(healed.state[actor].graveyard.at(-1), "chronicle-medical-salve");
   healed.state[actor].hand[0] = "chronicle-tempered-kunai";
