@@ -178,7 +178,7 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
         await expect(popup).toContainText('50 gathering attempts');
         await healthy(); await page.screenshot({ path: info.outputPath(`${tool.id}-shop.png`), fullPage: true });
         const purchased = page.waitForResponse(response => response.url().endsWith('/shop/purchase') && response.request().postDataJSON().itemId === tool.id);
-        await popup.getByRole('button', { name: 'Buy for 11,250 ryo', exact: true }).click();
+        await popup.getByRole('button', { name: 'Buy for 11250 ryo', exact: true }).click();
         expect((await purchased).status()).toBe(200);
         await expect(popup).toHaveCount(0);
     }
@@ -359,7 +359,7 @@ test('a tool purchase overtaken by a later save keeps the tool and closes its po
     await page.getByRole('button', { name: /Basic Pickaxe/ }).click();
     const popup = page.getByRole('dialog', { name: 'Basic Pickaxe item details' });
     const purchased = page.waitForResponse(response => response.url().endsWith('/shop/purchase'));
-    await popup.getByRole('button', { name: 'Buy for 11,250 ryo', exact: true }).click();
+    await popup.getByRole('button', { name: 'Buy for 11250 ryo', exact: true }).click();
     expect((await purchased).status()).toBe(200);
     expect(order).toEqual(['sync-held', 'sync', 'purchase']);
     await expect(popup).toHaveCount(0);
