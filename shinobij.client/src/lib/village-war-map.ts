@@ -356,10 +356,19 @@ export function garrisonSectorPet(playerName: string, sectorWarId: string, petId
     return postJson("/api/village/sector-pet", { action: "garrison-duel", playerName, sectorWarId, petId });
 }
 export function sectorPetState(playerName: string, sectorWarId: string, garrison = false, engageId = "") {
-    return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}), ...(engageId ? { engageId } : {}) });
+    return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}), ...(engageId ? { engageId } : {}) }, AbortSignal.timeout(12_000)).catch((error: unknown) => {
+        if (error instanceof WarMapRequestError && error.status === 404) return { session: null };
+        throw error;
+    });
 }
 export function sectorPetWatch(playerName: string, sectorWarId: string, garrison = false, engageId = "") {
-    return postJson("/api/village/sector-pet", { action: "watch", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}), ...(engageId ? { engageId } : {}) });
+    return postJson("/api/village/sector-pet", { action: "watch", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}), ...(engageId ? { engageId } : {}) }, AbortSignal.timeout(12_000)).then(data => {
+        if (!data.script) throw new Error("The pet battle replay could not be loaded. Please retry.");
+        return data;
+    }).catch((error: unknown) => {
+        if (error instanceof WarMapRequestError && error.status === 409 && error.data.error === "This battle predates the new arena and cannot be replayed.") return { script: null };
+        throw error;
+    });
 }
 /**
  * An open-world battle against one enemy standing in this Pet or Card war's

@@ -126,6 +126,8 @@ Mission counters track **unique targets** where applicable.
 
 Pet-focused profession. Makes pets stronger in PvE, trains pets faster, gets better expedition rewards.
 
+At maximum rank (10), summoning your pet in PvE costs **0 AP**. All other characters pay **20 AP**. The cost is sealed from the saved profession when the battle starts; the summon remains once per fight and lasts four phases.
+
 ### Phased rollout
 
 **Phase 1 (launches with profession system):** PvE pet damage multiplier only — no new infrastructure required.

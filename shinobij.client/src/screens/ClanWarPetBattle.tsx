@@ -34,7 +34,7 @@ type Stash = {
     campaignVersion?:number;
 };
 
-export function ClanWarPetBattle({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void }) {
+export function ClanWarPetBattle({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages?: Record<string, string> }) {
     const stash: Stash = (() => {
         try { return JSON.parse(sessionStorage.getItem("clanWarChallenge.v1") ?? "{}") as Stash; } catch { return {}; }
     })();
@@ -45,7 +45,9 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
 
     return (
         <PetDuelReplayScreen<ClanWarPetSession>
+            key={`${warId}:${challengeId}`}
             pets={activeCarriedPets(character)}
+            sharedImages={sharedImages}
             config={{
                 title: "Clan War Pet Battle",
                 intro: "Send a pet to fight for your clan. The battle is resolved by the server and replays here — no result is reported from your client.",
@@ -70,7 +72,11 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
                 waiting: (s) => {
                     const mine = mySide === "to" ? s.to : s.from;
                     const needed = s.mode === "pet2v2" ? 2 : 1;
-                    if (s.status === "done" || mine.length < needed) return null;
+                    if (s.status === "done" || !mine.some(f => f.name.toLowerCase() === character.name.toLowerCase())) return null;
+                    if (mine.length < needed) return {
+                        headline: "Waiting for your teammate to send their pet…",
+                        detail: "Your pet is ready. Each teammate sends their own pet before the battle begins.",
+                    };
                     return {
                         headline: `Waiting for the opposing clan to send ${needed > 1 ? "their pets" : "their pet"}…`,
                         detail: `${mine.map((f) => f.pet?.name).filter(Boolean).join(" & ")} stands ready. The battle resolves on the server the moment they answer, then replays here.`,

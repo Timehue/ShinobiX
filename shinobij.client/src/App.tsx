@@ -236,7 +236,7 @@ const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
-import { BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
+import { isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
 import { readScreenPreference } from "./lib/navigation-trail";
 import { usePlayerAccountNameMirror } from "./lib/use-player-account-name-mirror";
 import { useAiFightCloseNavigation } from "./lib/use-ai-fight-close-navigation";
@@ -247,7 +247,7 @@ import { overlayVnImages } from './lib/vn-shared-artwork';
 import { imageEntries, parseImageManifest } from "./lib/shared-image-manifest";
 import { visiblePoll } from "./lib/poll";
 import { BATTLE_LEAVE_NOTICE, useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
-import { isBattleFlowScreen as resolveBattleFlowScreen } from "./lib/battle-flow-screen";
+import { blocksClanWarAutoLaunch, visibleClanWarChallengeId, isBattleFlowScreen as resolveBattleFlowScreen } from "./lib/battle-flow-screen";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { usePetHomeReturn, petHomeReturnLabel } from "./lib/pet-home-navigation";
 import { mergePlayerRoster, mergeRosterSnapshot } from "./lib/roster-merge";
@@ -1571,14 +1571,12 @@ export default function App() {
     const autoLaunchedClanWarChallenges = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!gameplayMutationsOpen || !character) return;
+        const visibleChallenge = visibleClanWarChallengeId(screen, undefined, pvpBattleContext);
+        if (visibleChallenge) autoLaunchedClanWarChallenges.current.add(`${accountKey(character.name)}:${saveSessionEpochRef.current}:${visibleChallenge}`);
         // Don't yank players out of an active battle / story / boss screen.
         // Mixed pet/tower screens stay launchable until their active owner says
         // the player is actually committed to another fight.
-        const mixedPetScreen = screen === "petArena" || screen === "petColiseum" || screen === "petLadder";
-        const blocksBattleScreen = BATTLE_SCREENS.has(screen)
-            && (!mixedPetScreen || petBattleActive || !!pendingPetBattleOpponent)
-            && (screen !== "battleTowers" || hasActiveTowerFight());
-        if (blocksBattleScreen || (screen === 'arenaDistrict' && hasActiveTowerFight())) return;
+        if (blocksClanWarAutoLaunch(screen, petBattleActive || !!pendingPetBattleOpponent, hasActiveTowerFight())) return;
 
         const me = character.name.toLowerCase();
         for (const war of Object.values(sharedClanWarCache)) {
@@ -1597,7 +1595,7 @@ export default function App() {
                 return; // launch one at a time
             }
         }
-    }, [character, screen, clanWarStateVersion, launchClanWarBattle, petBattleActive, pendingPetBattleOpponent, gameplayMutationsOpen]);
+    }, [character, screen, clanWarStateVersion, launchClanWarBattle, petBattleActive, pendingPetBattleOpponent, gameplayMutationsOpen, pvpBattleContext]);
 
     // Keeps the app-level battle lock active while a rift Chronicle ambush is
     // on screen. The server run and match id remain the actual seal authority.
@@ -5896,10 +5894,10 @@ export default function App() {
                 )}
                 {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} playerRoster={playerRoster} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "villageWarMap" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "sectorCard" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarCardBattle character={character} setScreen={setScreen} onVersionedCharacter={commitVersionedCharacter} />}
-                {!activeTriggeredEvent && screen === "sectorPet" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "sectorCard" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarCardBattle character={character} setScreen={setScreen} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} />}
+                {!activeTriggeredEvent && screen === "sectorPet" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarPetBattle character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "sectorGarrison" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarGarrisonAssault character={character} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "clanWarPet" && character && <ClanWarPetBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "clanWarPet" && character && <ClanWarPetBattle character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "clanWar2v2" && character && <ClanWar2v2Battle character={character} setScreen={setScreen} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} onBack={goBack} />}

@@ -12,6 +12,8 @@ import { currentPetHappiness } from '../pet/_happiness.js';
 import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
 import { petSignatureMastery, petUnmasteredPower } from '../../shared/pet-ability-mastery.js';
 import { petBattleChannels } from '../../shared/pet-battle-stats.js';
+import { petSummonApCost } from '../../shared/pet-summon.js';
+import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { derivePetGrowthStats, sanitizeGrowthAllocation } from '../pet/_growth.js';
 import {
     PET_HAPPINESS_OBEDIENT,
@@ -92,6 +94,9 @@ export function companionStrikeDamage(pet: PetLike): number {
 }
 
 export type CompanionSeal = {
+    summonApCost?: number;
+    /** Alpha Bond belongs to this admitted summon, once for the whole fight. */
+    reviveOnce?: boolean;
     petId: string;
     name: string;
     hp: number;
@@ -103,6 +108,8 @@ export type CompanionSeal = {
     defense?: number;
     spDefense?: number;
     referenceHp?: number;
+    /** Absent on retained sessions, which keep their original movement cost. */
+    speed?: number;
     pveGearId: string;
     consumableId?: string;
 };
@@ -142,9 +149,18 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
     const pveGearId = Number(pet.loadout?.pveDurability ?? 0) > 0 ? String(pet.loadout?.pve ?? '') : '';
     // Only a real battle consumable heals on summon; a stray id in the slot is inert.
     const consumableId = petConsumableById(pet.loadout?.consumable) ? String(pet.loadout?.consumable) : '';
+    // Match the existing PvE pet-battle profession/mastery bonuses. Seal them
+    // once so neither reconnects nor later save edits can stack the benefits.
+    const rank = Math.max(0, Math.min(10, Number(char.professionRank) || 0));
+    const damageMult = char.profession === 'petTamer'
+        ? 1 + (5 + rank * 1.5 + masteryBonus(char.profession, char.masterySpec, 'petPveDamagePct')) / 100 : 1;
+    const hpMult = 1 + masteryBonus(char.profession, char.masterySpec, 'petPveHpPct') / 100;
     return {
         petId: String(pet.id ?? ''),
+        summonApCost: petSummonApCost(char),
+        ...(masteryHasCapstone(char.profession, char.masterySpec, 'alpha-bond') ? { reviveOnce: true } : {}),
         rulesetVersion: 'progression-v3',
+        speed: boundedDefense(pet.speed),
         defense: boundedDefense(pet.defense),
         spDefense: petBattleChannels({ attack: Number(pet.attack) || 1, defense: boundedDefense(pet.defense), role: pet.role }).spDefense,
         // Opponent threat uses the same species/level/trait baseline. Vitality
@@ -153,16 +169,21 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
             growthAllocation: { ...sanitizeGrowthAllocation(pet.growthAllocation, pet.level), vitality: 0 } }).hp
             : Math.max(1, Math.floor(Number(pet.hp) || 1)),
         name: String(pet.nickname?.trim() || pet.name || 'Companion').slice(0, 40),
-        hp: Math.max(1, Math.floor(Number(pet.hp ?? 0)) || 1),
+        hp: Math.max(1, Math.round((Math.max(1, Math.floor(Number(pet.hp ?? 0)) || 1)) * hpMult)),
         // A neglected companion hits softer (x0.9 unhappy / x0.8 neglected).
         // The multiplier is 1 at 50+, so a maintained pet is untouched.
-        damage: Math.max(1, Math.floor(companionStrikeDamage(pet) * petHappinessCombatMult(happiness))),
+        damage: Math.max(1, Math.floor(companionStrikeDamage(pet) * petHappinessCombatMult(happiness) * damageMult)),
         happiness,
         loyal: pveGearId ? petPveLoyalty(asGearedPet(pveGearId)) === true : false,
         moves,
         pveGearId,
         ...(consumableId ? { consumableId } : {}),
     };
+}
+
+/** Alpha Bond restores the same 40% HP used by the standalone PvE pet simulator. */
+export function companionReviveHp(maxHp: number): number {
+    return Math.max(1, Math.round(maxHp * 0.4));
 }
 
 export function companionConsumableHealPct(consumableId: string | undefined): number {
@@ -194,6 +215,18 @@ export function companionHealOnSummonPct(gearId: string): number {
  */
 export function companionObeys(happiness: number, loyal: boolean, roll: number): boolean {
     return loyal || roll >= petHappinessDisobeyChance(happiness);
+}
+
+/** Kind, not rounded damage, decides whether a cast needs an enemy in range. */
+export function isCompanionSupportMove(move: CompanionMove | null): boolean {
+    return !!move && SELF_KINDS.has(move.kind);
+}
+
+/** Speed discounts movement only: one AP per 20 Speed, bounded to ten AP.
+ * The turn's AP, action limit, strike cost and four-phase lifespan stay fixed. */
+export function companionMoveAp(speed: unknown, baseCost = 30): number {
+    const discount = Math.min(10, Math.floor(boundedDefense(speed) / 20));
+    return Math.max(1, baseCost - discount);
 }
 
 export function pickCompanionMove(

@@ -165,7 +165,13 @@ test('two clans declare, use every battle host, enter a physical bonus shrine, s
         }
         await expect.poll(async()=> (await list()).campaignView.matches.find((match:Json)=>match.id===bonus)?.status).toBe('completed');
         expect((await list()).campaignView.normal.clanUsed).toBe(normalUses);
-        for(const client of [page,rival])await client.getByRole('button',{name:'Return to Clan War',exact:true}).or(client.getByRole('button',{name:'Leave the Showdown',exact:true})).click();
+        for(const client of [page,rival]){
+            // Server settlement precedes the sealed battle's visual replay.
+            // Wait for its result control rather than applying the 30s action budget to playback.
+            const leave=client.getByRole('button',{name:'Return to Clan War',exact:true}).or(client.getByRole('button',{name:'Leave the Showdown',exact:true}));
+            await expect(leave).toBeVisible({timeout:120_000});
+            await leave.click();
+        }
         await expect(room).toBeVisible();await expect(enemyRoom).toBeVisible();
         await room.getByRole('button',{name:'Leave shrine',exact:true}).click();await enemyRoom.getByRole('button',{name:'Leave shrine',exact:true}).click();
         await post(request,'/api/_qa/clan-campaign',admin,{action:'end-clock',warId,instanceId});

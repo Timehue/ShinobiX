@@ -41,9 +41,13 @@ async function post(body: Record<string, unknown>): Promise<PetResponse> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(12_000),
     });
     const data = await r.json().catch(() => ({})) as PetResponse;
-    if (!r.ok) return { error: data.error ?? "Your clan war pet duel could not be confirmed. Reopen the battle to check its status." };
+    if (!r.ok) {
+        if (body.action === "state" && r.status === 404) return {};
+        throw new Error(data.error ?? "Your clan war pet duel could not be confirmed. Please retry.");
+    }
     return data;
 }
 
@@ -63,9 +67,12 @@ export async function clanWarPetWatch(warId: string, challengeId: string): Promi
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "watch", warId, challengeId }),
+        signal: AbortSignal.timeout(12_000),
     });
-    const data = await r.json().catch(() => ({})) as { script?: ShowdownReplayScript };
-    return r.ok && data.script ? data.script : null;
+    const data = await r.json() as { script?: ShowdownReplayScript; error?: string };
+    if (r.status === 409 && data.error === "This battle predates the new arena and cannot be replayed.") return null;
+    if (!r.ok || !data.script) throw new Error(data.error ?? "The pet battle replay could not be loaded. Please retry.");
+    return data.script;
 }
 
 /** Which side of the challenge a player is on, for banner wording. */

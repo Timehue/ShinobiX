@@ -2233,6 +2233,10 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         enemyMarkers: 1,
         minimumEnemySprites: 0,
     });
+    // Match Solo's bounded sweep allowance once real combat is ready. CI WebKit
+    // reached the zoom matrix with valid geometry but exhausted the 240s setup
+    // budget; all arming, viewport and zoom assertions must still complete.
+    test.setTimeout(600_000);
     await assertTargetConfirmation(page, '.pvp-battle-layout', 'pvp', activeAccount.name);
     await assertJutsuSelectionGeometryStable(page, '.pvp-battle-layout', false);
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);

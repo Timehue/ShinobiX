@@ -180,7 +180,7 @@ export type TowerSession = {
     weather?: { positiveElement?: string; negativeElement?: string };
     /** the player's sealed active pet, summonable onto the field once via {type:'summon'};
      *  server-consumed on use, so its presence is what enables the Pet action */
-    pendingCompanion?: { petId: string; name: string; hp: number; damage: number };
+    pendingCompanion?: { petId: string; name: string; hp: number; damage: number; summonApCost?: number };
     caravanAmbush?: { runId: string; playerSlug: string; nodeId: string };
     companionUsage?: { petId: string; pveGearId?: string; consumableId?: string };
     // ── Endless Spire (sealed at entry; present only on ascension runs) ──────────

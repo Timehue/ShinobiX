@@ -7315,12 +7315,10 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:focus-visi
         white-space: nowrap !important;
     }
 
-    /* Summon Pet is Solo's one two-word command, and the one whose cost line
-       is a pet name rather than a number — truncated to "Kotarou the" it says
-       less than nothing. Give the label both text rows (the wider Solo tiers
-       already wrap it) and clip the name to the accessible name; the button
-       title still carries the full summon copy. */
-    #combat .combat-action-tray > .shinobi-command-bar > button.summon-pet-command > span {
+    /* A pending summon uses the normal cost row so its AP price stays visible.
+       For unavailable/used summons, keep the longer pet detail accessible while
+       giving the command label both rows. */
+    #combat .combat-action-tray > .shinobi-command-bar > button.summon-pet-command:not(.has-summon-price) > span {
         grid-row: 2 / span 2 !important;
         align-self: center !important;
         max-height: 18px !important;
@@ -7329,7 +7327,7 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:focus-visi
         white-space: normal !important;
     }
 
-    #combat .combat-action-tray > .shinobi-command-bar > button.summon-pet-command > small {
+    #combat .combat-action-tray > .shinobi-command-bar > button.summon-pet-command:not(.has-summon-price) > small {
         position: absolute !important;
         width: 1px !important;
         height: 1px !important;

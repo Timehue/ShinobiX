@@ -32,6 +32,8 @@ export function companionActor(
         character: {
             companion: true,
             companionDamage: seal.damage,
+            ...(seal.reviveOnce ? { companionReviveAvailable: true } : {}),
+            ...(seal.speed !== undefined ? { companionSpeed: seal.speed } : {}),
             companionRoundsLeft: Math.max(1, Math.floor(rounds)),
             companionHappiness: seal.happiness,
             companionLoyal: seal.loyal,

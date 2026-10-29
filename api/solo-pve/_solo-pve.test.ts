@@ -1166,7 +1166,7 @@ describe('solo-PvE engine', () => {
         });
         const summoned = applySoloPveAction(session, { type: 'summon' });
         assert.equal(summoned.applied, true);
-        assert.equal(summoned.session.ap.player, 100, 'summoning is free like the normal Arena');
+        assert.equal(summoned.session.ap.player, 80, 'ordinary summoning costs 20 AP');
         assert.equal(summoned.session.actionsThisTurn, 0);
         assert.equal(summoned.session.pendingCompanion, undefined);
         assert.equal(summoned.session.companion?.petId, 'pet-1');

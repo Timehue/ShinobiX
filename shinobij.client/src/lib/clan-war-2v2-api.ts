@@ -28,6 +28,7 @@ async function post(body: Record<string, unknown>): Promise<Record<string, unkno
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(12_000),
     });
     const data = await response.json().catch(() => ({})) as Record<string, unknown>;
     if (!response.ok) throw new Error(String(data.error ?? "Clan War 2v2 request failed."));

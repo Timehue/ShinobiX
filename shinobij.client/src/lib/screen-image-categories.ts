@@ -18,7 +18,7 @@ export function imageCategoriesForScreen(screen: Screen): readonly ScreenImageCa
     switch (screen) {
         case "worldMap": return ["avatar", "event", "landmark", "shrine", "ai", "pet"];
         case "worldCrisis": return ["avatar", "landmark", "ai", "jutsu", "item"];
-        case "home": case "pets": case "petArena": case "petLadder": case "eventPetBattle": case "sectorPet": case "firstPact": return ["pet", "avatar"];
+        case "home": case "pets": case "petArena": case "petLadder": case "eventPetBattle": case "clanWarPet": case "sectorPet": case "firstPact": return ["pet", "avatar"];
         case "jutsuTraining": return ["jutsu"];
         case "professions": return ["pet"];
         case "shop": case "inventory": case "grandMarketplace": return ["item"];
@@ -35,7 +35,7 @@ export function imageCategoriesForScreen(screen: Screen): readonly ScreenImageCa
         case "centralHub": return ["bloodline", "item", "jutsu"];
         case "userView": return ["avatar", "pet"];
         case "userHub": case "townHall": case "tavern": return ["avatar"];
-        case "pvpBattle": return ["avatar", "jutsu", "item"];
+        case "pvpBattle": case "clanWar2v2": return ["avatar", "jutsu", "item"];
         case "weeklyBoss": return ["ai", "jutsu", "item"];
         case "battleTowers": case "clan": return ["avatar", "jutsu", "item"];
         default: return NONE;

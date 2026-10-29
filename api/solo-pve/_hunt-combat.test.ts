@@ -193,7 +193,9 @@ describe('Tower-powered hunt encounters', () => {
         assert.equal(summoned.applied, true, summoned.reason ?? 'summon accepted');
         assert.deepEqual(summoned.session.companionUsage, { petId: 'pet-1', consumableId: 'consum-second-wind' });
         assert.equal(summoned.session.pendingCompanion, undefined);
-        assert.ok(summoned.session.player.hp > used.session.player.hp);
+        assert.equal(summoned.session.player.hp, Math.min(used.session.player.maxHp,
+            used.session.player.hp + Math.floor(used.session.player.maxHp * .25)),
+        'the shared engine pays the consumable heal once; the adapter only projects usage');
         assert.equal(applySoloPveAction(summoned.session, { type: 'huntAction', action: { type: 'summon' } }).applied, false);
         const terminal = applySoloPveAction(summoned.session, { type: 'abandon' }).session;
         assert.deepEqual(terminal.companionUsage, summoned.session.companionUsage);

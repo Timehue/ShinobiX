@@ -90,13 +90,13 @@ test('Tower keeps the turn while a cheaper charged item remains usable', async (
     assert.equal(result.body?.session?.turnQueue[result.body.session.activeIndex], 'sq');
 });
 
-test('a free summon keeps an otherwise spent Tower turn available', () => {
-    const session = sessionFor('auto-turn-free-summon');
+test('an affordable summon keeps an otherwise spent Tower turn available', () => {
+    const session = sessionFor('auto-turn-affordable-summon');
     session.activeAp = 20;
     assert.equal(humanHasTowerAction(session, session.actors[0]!), false);
     session.pendingCompanion = {
         petId: 'pet', name: 'Pet', hp: 100, damage: 10, happiness: 100,
-        loyal: true, moves: [], pveGearId: '',
+        loyal: true, moves: [], pveGearId: '', summonApCost: 20,
     };
     assert.equal(humanHasTowerAction(session, session.actors[0]!), true);
 });

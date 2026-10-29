@@ -52,7 +52,7 @@ type PetSession = {
     warResult?: SectorWarResult;
 };
 
-type SectorWarPetBattleProps = { character: Character; setScreen: (s: Screen) => void };
+type SectorWarPetBattleProps = { character: Character; setScreen: (s: Screen) => void; sharedImages?: Record<string, string> };
 
 export function SectorWarPetBattle(props: SectorWarPetBattleProps) {
     // A new open battle for a player already on this screen remounts the battle,
@@ -61,7 +61,7 @@ export function SectorWarPetBattle(props: SectorWarPetBattleProps) {
     return <SectorWarPetBattleView key={generation} {...props} />;
 }
 
-function SectorWarPetBattleView({ character, setScreen }: SectorWarPetBattleProps) {
+function SectorWarPetBattleView({ character, setScreen, sharedImages }: SectorWarPetBattleProps) {
     const sectorWarId = (() => {
         try { return String((JSON.parse(sessionStorage.getItem("sectorWarPet.v1") ?? "{}") as { sectorWarId?: string }).sectorWarId ?? ""); } catch { return ""; }
     })();
@@ -81,6 +81,7 @@ function SectorWarPetBattleView({ character, setScreen }: SectorWarPetBattleProp
     return (
         <PetDuelReplayScreen<PetSession>
             pets={activeCarriedPets(character)}
+            sharedImages={sharedImages}
             config={{
                 title: engageId ? "Pet Battle — Sector War" : "Pet Duel — Sector War",
                 intro: "Send a pet to fight for this sector. The duel resolves server-side and replays here.",
