@@ -16,7 +16,7 @@
 //
 // COSMETIC / UI ONLY: no balance, saves, rewards, or travel logic here.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getWorldMapRegionView, WORLD_MAP_ASPECT_RATIO, WORLD_MAP_MOBILE_QUERY, type WorldMapRegionId } from "./world-map-regions";
 export { WORLD_MAP_ASPECT_RATIO } from "./world-map-regions";
 import { normalizeOnboardingStep } from "./onboarding-step";
@@ -513,7 +513,15 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
 
     // Tag <html> so the CSS override (fit-to-screen + reset marker sizing) applies
     // only in zoom mode; the legacy fixed-canvas rules stay the fallback.
-    useEffect(() => {
+    //
+    // A LAYOUT effect, deliberately. As a passive effect the class landed after
+    // the browser had already painted the atlas in the legacy layout, so every
+    // phone saw the map paint tall and then snap into the fitted frame — a
+    // layout shift of 0.63 (nearly the whole viewport) measured on a throttled
+    // 390x844 restore, invisible on desktop only because desktop never enters
+    // zoom mode. Toggling the class before paint puts the first frame in the
+    // right layout; the measurement below still runs in the same task.
+    useLayoutEffect(() => {
         if (typeof document === "undefined") return;
         const root = document.documentElement;
         if (active) root.classList.add("wm-zoom");
