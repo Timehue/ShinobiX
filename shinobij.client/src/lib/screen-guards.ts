@@ -6,7 +6,6 @@
 // the navigation lock share one definition instead of drifting apart.
 
 import type { Screen } from "../types/core";
-import { BATTLE_LOCK_ID_KEY } from "./battle-save";
 import { isWildSector } from "../../../shared/sector-geo";
 
 export { isWildSector };
@@ -208,10 +207,15 @@ export function hasActiveTeamArenaMatch(): boolean {
 }
 
 export function hasActiveTowerFight(): boolean {
+    return !!towerFightRunKey();
+}
+
+/** The stored Tower run key, or null. Notifications read its prefix to find the host. */
+export function towerFightRunKey(): string | null {
     try {
-        return !!localStorage.getItem(TOWER_RUN_KEY);
+        return localStorage.getItem(TOWER_RUN_KEY);
     } catch {
-        return false;
+        return null;
     }
 }
 
@@ -238,16 +242,6 @@ export function setScreenFightActive(screen: Screen, active: boolean): void {
 
 export function hasLiveScreenFight(screen: Screen): boolean {
     return screensWithLiveFight.has(screen);
-}
-
-/** Compatibility marker for supported legacy hosts and passive notification suppression.
- * It does not establish an active fight in the retired local Arena lobby. */
-export function hasActiveBattleLock(): boolean {
-    try {
-        return !!localStorage.getItem(BATTLE_LOCK_ID_KEY);
-    } catch {
-        return false;
-    }
 }
 
 // Runtime signals (all App-level state) the navigation lock reads to decide

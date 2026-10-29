@@ -18,8 +18,10 @@ export interface GameNotification {
     tone: NotifTone;
     /** Click target. Omitted ⇒ the chip is informational (not navigable). */
     screen?: Screen;
-    /** Optional destination within a multi-tab screen. */
-    targetView?: "territory";
+    /** Optional destination within a multi-tab screen ("reckoning" = World Crisis Level 80). */
+    targetView?: "territory" | "reckoning";
+    /** Tooltip; defaults to "Go to <label>" for navigable chips. */
+    title?: string;
 }
 
 // Screens that are battle-ONLY (no lobby state) — simply being on one means an
@@ -37,7 +39,7 @@ const BATTLE_ONLY_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 ]);
 
 // Screens that have BOTH a lobby and a fight state. Being on one isn't enough to
-// say "in battle" — the orchestrator gates these on a live battle-lock signal.
+// say "in battle"; their fights hide the side rails through shouldHideBattleChrome.
 const LOBBY_FIGHT_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "arena", "battleArena", "arenaDistrict", "petArena", "petShowdown", "petLadder",
 ]);
@@ -53,7 +55,7 @@ export function isLobbyFightScreen(screen: Screen): boolean {
 // Screens that render the actual fight board. Being on one means the player is
 // already looking at the battle, so the "In battle" chip is redundant there — it
 // should only surface as a reminder when a fight is in progress but the player is
-// on a different screen (e.g. an arena / pet-arena lobby with a live battle-lock).
+// on a different screen (see liveFightScreen below).
 const BATTLE_VIEW_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     ...BATTLE_ONLY_SCREENS, "arena", "battleArena", "battleTowers",
 ]);
@@ -83,9 +85,51 @@ export function shouldHideBattleChrome(inputs: BattleChromeInputs): boolean {
         || inputs.screen === "firstPact";
 }
 
+/** The save fields that hold a run a player can be pulled away from. */
+export interface SavedRunFields {
+    hollowGateRun?: { completed: boolean } | null;
+    activeDungeonRun?: { token: string } | null;
+}
+
+/** Screen that resumes the player's saved Hollow Gate or dungeon run, or null. */
+export function savedRunScreen(save: SavedRunFields | null | undefined): Screen | null {
+    if (save?.hollowGateRun && !save.hollowGateRun.completed) return "hollowGateShrine";
+    if (save?.activeDungeonRun?.token) return "dungeon";
+    return null;
+}
+
+// Screens that host a Tower-session fight themselves. The run key alone cannot
+// say which of them owns it, so none of them points the player elsewhere.
+const TOWER_HOST_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
+    "battleTowers", "worldCrisis", "arenaDistrict", "battleArena",
+]);
+
+/**
+ * Where the player's live fight is when they are NOT looking at it, or null.
+ *
+ * Only state that outlives leaving the fight counts: a saved Hollow Gate or
+ * dungeon run, and the Battle Towers run key. Fights held in a screen's own
+ * React state end when that screen unmounts, and the legacy battle-lock marker
+ * can outlive a finished fight, so neither of those is read here.
+ */
+export function liveFightScreen(screen: Screen, savedRun: Screen | null, towerRunKey: string | null): Screen | null {
+    // An admitted player cannot leave the Hospital, so the chip could not act there.
+    if (isBattleViewScreen(screen) || screen === "hospital") return null;
+    if (savedRun) return savedRun === screen ? null : savedRun;
+    if (!towerRunKey || TOWER_HOST_SCREENS.has(screen)) return null;
+    // A "pvp:" match seen from another screen is a Team Arena 2v2: ranked and
+    // tournament matches lock Arena District until they end, but the Battle
+    // Arena can be left mid-match. It opens its Team Arena tab for this key and
+    // re-enters the match from server presence, which also clears a stale key.
+    if (towerRunKey.startsWith("pvp:")) return "battleArena";
+    // World Crisis stores its tower runs ("wcr80-<hex>") and pet fronts
+    // ("wcr80pet:<session>") under the same key as Battle Towers.
+    return towerRunKey.startsWith("wcr80") ? "worldCrisis" : "battleTowers";
+}
+
 export interface NotifInputs {
-    /** True when the player is committed to an unresolved fight right now. */
-    inBattle: boolean;
+    /** Screen hosting a live fight the player has stepped away from, or null. */
+    battle: Screen | null;
     /** Active clan war the player's clan is fighting, or null. */
     clanWar: { enemy: string } | null;
     /** Most urgent breached sector owned by the player's clan. */
@@ -103,10 +147,13 @@ export interface NotifInputs {
 export function buildNotifications(inputs: NotifInputs): GameNotification[] {
     const out: GameNotification[] = [];
 
-    if (inputs.inBattle) {
-        // Informational: you're already looking at the fight, and the nav lock
-        // blocks leaving it — so no click target.
-        out.push({ id: "battle", icon: "⚔️", label: "In battle", tone: "danger" });
+    if (inputs.battle) {
+        out.push({
+            id: "battle", icon: "⚔️", label: "In battle", tone: "danger", screen: inputs.battle, title: "Return to your battle",
+            // World Crisis opens on its Level 37 chronicle; the Level 80 tab is
+            // the one that resumes a Reckoning fight.
+            ...(inputs.battle === "worldCrisis" ? { targetView: "reckoning" as const } : {}),
+        });
     }
 
     if (inputs.territoryBreach) {

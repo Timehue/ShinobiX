@@ -22,13 +22,15 @@ export function MobileNotificationBar({
     screen,
     clan,
     village,
+    savedRun = null,
 }: {
     navigate: (screen: Screen) => void;
     screen: Screen;
     clan: string;
     village: string;
+    savedRun?: Screen | null;
 }) {
-    const notes = useNotifications(screen, clan, village);
+    const notes = useNotifications(screen, clan, village, savedRun);
 
     if (notes.length === 0) return null;
 
@@ -39,7 +41,7 @@ export function MobileNotificationBar({
                     key={n.id}
                     type="button"
                     className={`notif-chip tone-${n.tone}${n.screen ? "" : " static"}`}
-                    title={n.screen ? `Go to ${n.label}` : n.label}
+                    title={n.title ?? (n.screen ? `Go to ${n.label}` : n.label)}
                     aria-label={n.label}
                     onClick={n.screen ? () => activateGameNotification(n, navigate) : undefined}
                 >

@@ -18,6 +18,7 @@ import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { DISCORD_INVITE_URL, isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
 import { preloadScreen } from "../lib/screen-preload";
+import { savedRunScreen } from "../lib/notifications-core";
 import { useOwnAvatar } from "../lib/own-avatar";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
@@ -119,6 +120,7 @@ export const MobileNav = memo(function MobileNav({
                     screen={screen}
                     clan={character.clan ?? ""}
                     village={character.village}
+                    savedRun={savedRunScreen(character)}
                 />
             )}
 
