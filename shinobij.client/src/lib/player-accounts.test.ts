@@ -2,6 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { accountKey, forgetAccountToken, loadPlayerAccounts, rememberedShinobi, savePlayerAccounts } from "./player-accounts";
 import { PLAYER_ACCOUNTS_STORAGE } from "../constants/game";
+import { clearGuestSessionFor, loadGuestSession, rememberGuestSession } from "./guest-play";
 
 // These helpers were drained out of App.tsx. The reason they get tests now: they
 // carry a load-bearing security invariant for the token-first auth model — a
@@ -124,12 +125,27 @@ test("rememberedShinobi still offers a guest whose token lapsed", () => {
     // chip stays pressable long after the token behind it dies.
     installLocalStorage({
         "shinobix:guestName": "rill",
+        "shinobix:guestResume": "resume-key-for-rill-0001",
         [PLAYER_ACCOUNTS_STORAGE]: JSON.stringify({
             rill: { token: tokenExpiring(Date.now() - 60_000) },
         }),
     });
 
     assert.deepEqual(rememberedShinobi(), [{ name: "rill", guest: true }]);
+});
+
+test("a second guest in the same browser keeps the first guest's way back in", () => {
+    installLocalStorage({
+        "shinobix:guestName": "Rill",
+        "shinobix:guestResume": "resume-key-for-rill-0001",
+    });
+    rememberGuestSession({ name: "Kaida", resume: "resume-key-for-kaida-01" });
+
+    assert.deepEqual(rememberedShinobi(), [{ name: "rill", guest: true }, { name: "kaida", guest: true }]);
+    assert.equal(loadGuestSession("rill")?.resume, "resume-key-for-rill-0001");
+    assert.equal(loadGuestSession("kaida")?.resume, "resume-key-for-kaida-01");
+    clearGuestSessionFor("RILL", (a, b) => a.toLowerCase() === b.toLowerCase());
+    assert.deepEqual(rememberedShinobi(), [{ name: "kaida", guest: true }], "claiming one guest forgets only that one");
 });
 
 test("rememberedShinobi keeps a token it cannot read an expiry from", () => {

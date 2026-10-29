@@ -45,7 +45,9 @@ export function publicCapabilities(env: NodeJS.ProcessEnv = process.env): Public
                 : unavailable('configuration-unavailable'),
         guestPlay: maintenance
             ? unavailable('maintenance')
-            : env.DISABLE_GUEST_PLAY === '1'
+            // A guest is a NEW account, which both switches refuse at the route
+            // boundary (_launch-controls.ts `guest`); the button must not show.
+            : env.DISABLE_GUEST_PLAY === '1' || env.DISABLE_NEW_REGISTRATIONS === '1' || unsafeHttpActionsPaused
                 ? unavailable()
                 : playerSessionsEnabled(env)
                     ? available

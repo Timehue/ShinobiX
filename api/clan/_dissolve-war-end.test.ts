@@ -64,4 +64,17 @@ describe('clan dissolution ending its wars', () => {
         assert.equal(await kv.get(clanWarCooldownKey('Storm', 'Tide')), '1', 'the rematch cooldown is stamped');
         assert.equal(await kv.get(clanKey), null, 'the clan itself is gone');
     });
+
+    it('takes the Honor Seal pool with it, so a new clan of the same name starts empty', async () => {
+        const clanKey = 'save:clan-ember';
+        await kv.set(clanKey, { name: 'Ember', founderName: 'hono', members: [{ name: 'hono' }], createdAt: 1 });
+        await kv.set('save:hono', { _saveVersion: 1, character: { name: 'hono', clan: 'Ember' } });
+        await kv.set('clan-seal-pool:ember', { clanName: 'Ember', balance: 5000, log: [] });
+
+        await dissolveClanUnderLock(clanKey, await kv.get(clanKey), 'hono');
+
+        assert.equal(await kv.get('clan-seal-pool:ember'), null);
+        const { loadPool } = await import('./seal-pool/_storage.js');
+        assert.equal((await loadPool('Ember')).balance, 0, 'a clan founded later under this name inherits nothing');
+    });
 });

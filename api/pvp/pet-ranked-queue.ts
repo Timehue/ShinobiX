@@ -24,6 +24,7 @@ import {
 import { petRankedQueueEnabled, PET_RANKED_QUEUE_DISABLED_REASON } from '../pet/_ranked-settlement.js';
 import { rankedArenaQueue } from '../_pet-tactics/ranked.js';
 import { TacticsError } from '../_pet-tactics/engine.js';
+import { rankedSeasonAdmissionsPaused, SEASON_CURRENT_KEY } from '../cron/_ranked-season.js';
 
 /*
  * /api/pvp/pet-ranked-queue — live ranked pet matchmaking.
@@ -176,6 +177,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // New ranked admissions are player-controlled. Only retained legacy
         // proofs fall through to their historical recovery/receipt path.
         if (action === 'join' && !petRankedQueueEnabled()) return res.status(503).json({ error: PET_RANKED_QUEUE_DISABLED_REASON });
+        // The season pause (admin stop, and the monthly close while it drains)
+        // holds new ranked admissions here exactly as it does for the player
+        // queue (ranked-queue.ts). Pet Arena ranked used to keep pairing.
+        if (action === 'join') {
+            const currentSeason = await kv.get<{ id?: unknown }>(SEASON_CURRENT_KEY);
+            if (await rankedSeasonAdmissionsPaused(kv, Number(currentSeason?.id))) {
+                return res.status(503).json({ error: 'Ranked is paused between seasons. Try again shortly.' });
+            }
+        }
         const arena = await rankedArenaQueue(me, action, body);
         if (action === 'join' || arena.state !== 'idle') return res.status(200).json(arena);
 

@@ -401,6 +401,23 @@ describe('player auth hardening', () => {
             }
         });
 
+        it('keeps an ACTIVE guest\'s key valid past its stamp, and drops it after 14 idle days', async (t) => {
+            let now = Date.now();
+            t.mock.method(Date, 'now', () => now);
+            const created = await post({ action: 'guest', name: 'activeguest' });
+            const day = 24 * 60 * 60 * 1000;
+            // Playing every day slides the token, never the resume stamp.
+            now += 20 * day;
+            store.set('save:activeguest', { _saveAt: now - day, character: { name: 'activeguest' } });
+            const resumed = await post({ action: 'guest-resume', name: 'activeguest', guestResume: created.body?.guestResume });
+            assert.equal(resumed.statusCode, 200, JSON.stringify(resumed.body));
+            assert.ok((store.get('auth:activeguest') as { guestResumeExpiresAt: number }).guestResumeExpiresAt > now, 'the resume re-stamps it');
+
+            now += 15 * day;
+            const idle = await post({ action: 'guest-resume', name: 'activeguest', guestResume: created.body?.guestResume });
+            assert.equal(idle.statusCode, 410, 'a guest idle past the sweep window has no way back in');
+        });
+
         it('refreshes expiry after valid resume, but a ban makes no authority change', async (t) => {
             let now = Date.now();
             t.mock.method(Date, 'now', () => now);

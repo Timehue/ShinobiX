@@ -258,6 +258,7 @@ import { builtinAis, balanceExistingAiProfiles } from "./lib/combat-ai";
 import { extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, saveVillageState, setSharedGameStateOwnerName, subscribeSharedWorldStateLateChanges, unlockVillageKageSystem, weatherForSector } from "./lib/world-state";
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
+import { useGuardDutyRefresh } from "./lib/use-guard-duty-refresh";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { createHeartbeatGate, scheduleHeartbeat } from "./lib/heartbeat-cadence";
 import { attackSectorPlayer, routeOpenSectorBattleNotice } from "./lib/sector-attack";
@@ -1065,6 +1066,7 @@ export default function App() {
     // eight home sectors. Server-idempotent per UTC day; the debit must be adopted
     // here because ryo is client-owned in the save ledger.
     useVillageTax(gameplayMutationsOpen ? character : null, setCharacter, (version) => { acceptExternalSaveVersion(version, character?.name ?? currentAccountName); }, gameToast);
+    useGuardDutyRefresh(gameplayMutationsOpen ? character : null, setCharacter, gameToast);
 
     // Light-weight clan war polling — keeps sharedClanWarCache fresh so
     // ended-war rewards auto-claim. 30s cadence is enough (7-day claim window).
@@ -3039,16 +3041,13 @@ export default function App() {
             // reauthBusy forever, and the modal disables its buttons on busy —
             // the exact trap this modal exists to prevent. The 15s deadline
             // lands in the catch below as a normal connection error.
-            const res = await sessionLoadFetch('/api/player-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'verify', name: (char.accountName || name).toLowerCase(), password: reauthPw }),
-            });
-            const data = await res.json().catch(() => null) as { ok?: boolean; token?: string } | null;
+            // Guest and Google accounts have no password (lib/session-reauth.ts).
+            const { reauthenticate } = await import("./lib/session-reauth");
+            const data = await reauthenticate(char.accountName || name, reauthPw, sessionLoadFetch, resumeGuestFor);
             // "Log out instead" is clickable while this was in flight; if the
             // player took it, the session is gone — don't resurrect credentials.
             if (!characterRef.current) return;
-            if (res.ok && data?.ok) {
+            if (data.status === "ok") {
                 if (data.token) {
                     // Fresh token → future requests authenticate again, and
                     // setActiveToken re-arms the expiry latch in authFetch.
@@ -3070,7 +3069,7 @@ export default function App() {
                 setReauthPw("");
                 return;
             }
-            setReauthError("Incorrect password. Try again.");
+            setReauthError(data.message);
         } catch {
             setReauthError("Couldn't reach the server. Check your connection and try again.");
         } finally {
@@ -4071,7 +4070,7 @@ export default function App() {
             const clearBody = { action: 'delete', name: name.trim().toLowerCase(), ...(password ? { password } : {}) };
             void fetch('/api/player-auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clearBody) });
             unwindToLoginForm();
-            alert(`No save data was found for "${name}". Your login lock has been cleared — please create a new character with the same name and password.`);
+            alert(`No save data was found for "${name}". Your login lock has been cleared, so you can create a new character with the same name.`);
         } else {
             alert(SAVE_UNREACHABLE_MESSAGE);
         }

@@ -1,6 +1,7 @@
 import { creditElderWinDeltas } from '../../shared/elder-elections.js';
 import { recordFirstContractActivity } from '../../shared/first-contract.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { addClanContrib } from '../_clan-contrib-month.js';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -741,7 +742,6 @@ async function applyReservedCombatMissionPayout(params: {
     const settlementDay = utcDateKey(settlementDate);
     const settlementMonth = settlementDate.toISOString().slice(0, 7);
     const currentDailyDay = typeof next.lastDailyReset === 'string' ? next.lastDailyReset : '';
-    const currentClanMonth = typeof next.clanContribMonth === 'string' ? next.clanContribMonth : '';
     next = {
         ...next,
         totalMissionsCompleted: Number(next.totalMissionsCompleted ?? 0) + 1,
@@ -757,14 +757,10 @@ async function applyReservedCombatMissionPayout(params: {
                     : 1,
                 lastDailyReset: settlementDay,
             }),
-        ...(currentClanMonth > settlementMonth
-            ? {}
-            : {
-                clanMissionContrib: currentClanMonth === settlementMonth
-                    ? Number(next.clanMissionContrib ?? 0) + 1
-                    : 1,
-                clanContribMonth: settlementMonth,
-            }),
+        // A settlement from an earlier month than the stored stamp counts toward
+        // no month (addClanContrib returns nothing); a newer month zeroes ALL
+        // three counters before adding (api/_clan-contrib-month.ts).
+        ...addClanContrib(next, 'clanMissionContrib', settlementMonth),
     };
     next = recordPetBreedingProgress(next, {
         kind: 'mission-complete',
@@ -1326,9 +1322,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } else if (completion === 'total') {
                 next = {
                     ...next,
-                    clanMissionContrib: Number(next.clanMissionContrib ?? 0) + 1,
+                    ...addClanContrib(next, 'clanMissionContrib', monthKey),
                     totalMissionsCompleted: Number(next.totalMissionsCompleted ?? 0) + 1,
-                    clanContribMonth: monthKey,
                 };
             }
             if (academyTrialClaimed) next = {

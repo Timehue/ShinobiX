@@ -96,7 +96,12 @@ async function protectOpenDuelLoser(session:Session){const winner=session.state?
 // a row (shared/chronicle-duel.ts advanceExpiredChronicleTurn); applyOutcome then
 // scores that forfeit on the contest like any other result. Returns whether the
 // clock settled anything, so the handler can keep it even when it refuses the request.
-function timeout(session:Session,now:number):boolean{if(!session.state||session.state.status!=='active')return false;const state=advanceExpiredChronicleTurn(session.state,now);const advanced=state!==session.state;if(!advanced)return false;session.state=state;session.status=state.status==='complete'?'done':'active';session.updatedAt=now;/* A clock ending is not a played duel: it earns no Chronicle Points. */if(session.status==='done'&&session.participation)session.participation.endedBy='timeout';return true}
+//
+// `catchUp`: only a duelist's request stores the clock here, so a duel both
+// duelists walked out of needed one stored request per missed turn and never
+// ended; the sector's only table stayed locked for the row's two hours. Every
+// turn already due is now passed at once, at its own deadline.
+function timeout(session:Session,now:number):boolean{if(!session.state||session.state.status!=='active')return false;const state=advanceExpiredChronicleTurn(session.state,now,{catchUp:true});const advanced=state!==session.state;if(!advanced)return false;session.state=state;session.status=state.status==='complete'?'done':'active';session.updatedAt=now;/* A clock ending is not a played duel: it earns no Chronicle Points. */if(session.status==='done'&&session.participation)session.participation.endedBy='timeout';return true}
 /** Count one applied move toward the duel's participation record. */
 function noteMove(session:Session,side:ChronicleSideKey,action:string,now:number){session.participation=recordFreePlayParticipation(session.participation??{startedAt:now,p1Actions:0,p2Actions:0},side,action,session.status==='done')}
 function intent(body:Record<string,unknown>,action:string):ChronicleActionIntent{return{action,handIndex:idx(body.handIndex),zoneIndex:idx(body.zoneIndex),tributeZoneIndexes:Array.isArray(body.tributeZoneIndexes)?body.tributeZoneIndexes.map(idx).filter((n):n is number=>n!==undefined):undefined,attackerZoneIndex:idx(body.attackerZoneIndex),targetZoneIndex:body.targetZoneIndex===null?null:idx(body.targetZoneIndex),targetSide:body.targetSide==='p1'||body.targetSide==='p2'?body.targetSide:undefined,graveyardIndex:idx(body.graveyardIndex),...(body.position==='attack'||body.position==='defense'?{position:body.position}:{})}}
@@ -393,6 +398,22 @@ function seatedProjection(session: Session, side: ChronicleSideKey): Record<stri
  * answered 403 forever. They now get a waiting answer, and `seatOpen` once
  * there is a seat for them to take with a `join`. Never the match itself.
  */
+/*
+ * A waiting attacker's own `state` poll refreshes the table every
+ * AWAITING_SEAT_REFRESH_MS. One left unrefreshed past this was walked away
+ * from: it used to block every other attacker of that village for the row's
+ * full two hours, and a defender who arrived was seated against the empty
+ * chair and handed the war a clock-forfeit "win".
+ */
+const STALE_AWAITING_MS = AWAITING_SEAT_REFRESH_MS + 5 * 60_000;
+function abandonedWait(session: Session | null, now: number): boolean {
+    return !!session && session.status === 'awaiting-defender' && now - session.updatedAt >= STALE_AWAITING_MS;
+}
+/** No live or waiting duel holds this table, so an attacker may open a new one. */
+function tableFree(session: Session | null, now: number): boolean {
+    return !session || session.status === 'done' || session.status === 'void' || abandonedWait(session, now);
+}
+
 async function unseatedState(session: Session | null, sectorWarId: string, me: string, now: number): Promise<TableReply> {
     const village = await villageOf(me);
     if (!session) {
@@ -403,8 +424,8 @@ async function unseatedState(session: Session | null, sectorWarId: string, me: s
         return { status: 404, body: { error: 'No card duel session yet.' } };
     }
     if (village === session.defenderVillage) {
+        if (tableFree(session, now)) return { status: 200, body: { session: waitingTable('awaiting-attacker', null) } };
         if (session.status === 'awaiting-defender') return { status: 200, body: { session: waitingTable('awaiting-defender', null), seatOpen: true } };
-        if (session.status === 'done') return { status: 200, body: { session: waitingTable('awaiting-attacker', null) } };
         return { status: 409, body: { error: 'The defender seat is unavailable.' } };
     }
     return { status: 403, body: { error: 'Only duelists may inspect this battle.' } };
@@ -418,8 +439,19 @@ async function runTable(me: string, admin: boolean, sectorWarId: string, action:
     const viewer: ChronicleSideKey | null = session
         ? safeName(session.p1Name) === safeName(me) ? 'p1' : session.p2Name && safeName(session.p2Name) === safeName(me) ? 'p2' : null
         : null;
-    /* A duelist's (or an admin's) request scores and stores what the clock settled before it is judged, so a refused move cannot drop it. Nobody else moves a duel's clock; a join that replaces a finished table scores it first (below). A state poll persists it itself. */
+    /* A duelist's (or an admin's) request scores and stores what the clock settled before it is judged, so a refused move cannot drop it. Nobody else moves a duel's clock; a join that replaces a finished table scores it first (below), and timeout() catches up every turn already due, so a duel both duelists walked out of reads as finished to the next attacker. A state poll persists it itself. */
     if (session && advanced && action !== 'state' && (viewer || admin)) await persist(session);
+
+    // The attacker who opened a waiting table can call it off; leaving the
+    // waiting screen does. A void table is free for the next attacker.
+    if (action === 'cancel') {
+        if (session && viewer === 'p1' && session.status === 'awaiting-defender') {
+            session.status = 'void';
+            session.updatedAt = now;
+            await saveSession(session);
+        }
+        return { status: 200, body: { session: waitingTable('awaiting-attacker', null) } };
+    }
 
     if (action === 'state') {
         if (!viewer && !admin) return unseatedState(session, sectorWarId, me, now);
@@ -445,7 +477,7 @@ async function runTable(me: string, admin: boolean, sectorWarId: string, action:
         // A duelist already seated at a live table re-enters it (a refresh):
         // no deck work and no contest gate — a match in progress always
         // finishes, and its result scores by the duel's own clock.
-        if (session && session.status !== 'done' && viewer) {
+        if (session && session.status !== 'done' && session.status !== 'void' && viewer) {
             return { status: 200, body: { session: seatedProjection(session, viewer) } };
         }
         const contest = await loadSectorWar(sectorWarId);
@@ -459,7 +491,7 @@ async function runTable(me: string, admin: boolean, sectorWarId: string, action:
         const attacker = myVillage === contest.attackerVillage;
         const defender = myVillage === contest.defenderVillage;
         if (!attacker && !defender) return { status: 403, body: { error: 'You are not a participant in this sector war.' } };
-        if (!session || session.status === 'done') {
+        if (!session || tableFree(session, now)) {
             // A defender who arrives before any attacker waits for one: a
             // waiting answer their screen polls through, not an error.
             if (!attacker) return { status: 200, body: { session: waitingTable('awaiting-attacker', null) } };

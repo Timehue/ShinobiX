@@ -11,7 +11,11 @@ import { evaluateAllLegacies, getLegacyOverlay } from '../_legacy-score.js';
  * POST /api/legacy/evaluate { playerName } — recompute eligibility and cache
  * it at legacy:eligibility:<player>. Player-facing responses stay vague
  * (one total eligible count); the full per-requirement breakdown is only in the
- * cache, which the ADMIN dashboard reads (api/admin/legacy.ts).
+ * cache.
+ *
+ * No client screen calls this route today, and nothing reads the cache: the
+ * ADMIN dashboard (api/admin/legacy.ts) recomputes eligibility live with the
+ * same evaluateAllLegacies. It is kept as an on-demand recompute for operators.
  */
 
 const ELIGIBILITY_TTL_SECONDS = 7 * 24 * 60 * 60;

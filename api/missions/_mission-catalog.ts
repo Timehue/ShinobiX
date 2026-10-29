@@ -15,6 +15,7 @@
 // drift on either side must change both (that's the point).
 import { economyDial } from '../_economy-dials.js';
 import { advanceLastDailyReset } from '../_daily-reset-stamp.js';
+import { addClanContrib } from '../_clan-contrib-month.js';
 import { grantItemIds } from '../../shared/stacked-materials.js';
 
 export const AURA_SPHERE_ITEM_ID = 'aura-sphere';
@@ -332,11 +333,10 @@ export function hasDailyHuntSlot(char: CatalogChar, todayKey: string): boolean {
 // char. Bumps the clan/lifetime aggregates like a mission, plus the hunt counter.
 export function markHuntCompletedFields(char: CatalogChar, todayKey: string, monthKey: string) {
     return {
-        clanMissionContrib: Number(char.clanMissionContrib ?? 0) + 1,
+        ...addClanContrib(char, 'clanMissionContrib', monthKey),
         totalMissionsCompleted: Number(char.totalMissionsCompleted ?? 0) + 1,
         dailyHuntsCompleted: dailyHuntsCompleted(char, todayKey) + 1,
         lastHuntReset: todayKey,
-        clanContribMonth: monthKey,
     };
 }
 
@@ -348,11 +348,10 @@ export function markHuntCompletedFields(char: CatalogChar, todayKey: string, mon
 export function markMissionCompletedFields(char: CatalogChar, todayKey: string, monthKey: string) {
     return {
         ...advanceLastDailyReset(char, todayKey),
-        clanMissionContrib: Number(char.clanMissionContrib ?? 0) + 1,
+        ...addClanContrib(char, 'clanMissionContrib', monthKey),
         totalMissionsCompleted: Number(char.totalMissionsCompleted ?? 0) + 1,
         dailyMissionsCompleted: dailyMissionsCompleted(char, todayKey) + 1,
         lastDailyReset: todayKey,
-        clanContribMonth: monthKey,
     };
 }
 

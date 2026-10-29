@@ -201,6 +201,14 @@ export async function dissolveClanUnderLock(
         if (!(await kv.delIfEqual(clanKey, currentClan))) throw new Error('clan-dissolution-delete-conflict');
     }
 
+    // The Honor Seal pool is keyed by clan NAME only (seal-pool/_storage.ts), and
+    // nothing can reach it once the clan is gone. Left in place, the next clan
+    // founded under the same name inherited the balance and its founder could
+    // distribute it or fund a war with it. It goes with the clan, under the lock
+    // its donate/declare writers take.
+    const sealPoolKey = `clan-seal-pool:${receipt.clanName.toLowerCase()}`;
+    await withKvLock(sealPoolKey, () => kv.del(sealPoolKey), { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
+
     const founder = receipt.founder;
     const orderedMembers = [...receipt.memberNames].sort((a, b) => {
         const aFounder = safeName(a) === founder ? 1 : 0;

@@ -183,10 +183,16 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
         setTrainingBusy(true);
         try {
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token }) });
-            const data = await res.json().catch(() => ({})) as { granted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; overflow?: number; cap?: number; error?: string };
+            const data = await res.json().catch(() => ({})) as { granted?: boolean; alreadyGranted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; overflow?: number; cap?: number; error?: string };
             if (!res.ok || !data?.granted || !data?.character) return alert(trainingResponseError(res.status, data?.error, 'Training could not be collected.'));
             // Collected even if refused as stale (see startTraining).
             if (onVersionedCharacter(data.character, data._saveVersion)) setActiveTraining(data.activeTraining ?? null);
+            // A retry after a lost reply finds the session already collected, and
+            // the replay carries no applied/cap figures to report.
+            if (data.alreadyGranted) {
+                setTrainingNotice(`${activeTraining.label} was already collected. Your stats are up to date.`);
+                return;
+            }
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             const cap = Math.max(0, Math.floor(Number(data.cap) || 0));
             // Points past the rank cap are NOT lost — applyTrainingGrant rolls
