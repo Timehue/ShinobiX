@@ -13,18 +13,18 @@ const REFRESH_MS = 5000;
 export const CLAN_VIEW_REQUEST_EVENT = "shinobij:clan-view-request";
 
 function listKey(notes: GameNotification[]): string {
-    return notes.map((n) => `${n.id}:${n.label}`).join("|");
+    return notes.map((n) => `${n.id}:${n.label}:${n.screen ?? ""}`).join("|");
 }
 
-export function useNotifications(screen: Screen, clan: string, village: string): GameNotification[] {
+export function useNotifications(screen: Screen, clan: string, village: string, savedRun: Screen | null = null): GameNotification[] {
     const [notes, setNotes] = useState<GameNotification[]>(() =>
-        computeNotifications({ screen, clan, village }),
+        computeNotifications({ screen, clan, village, savedRun }),
     );
     const lastKey = useRef(listKey(notes));
 
     useEffect(() => {
         function refresh() {
-            const next = computeNotifications({ screen, clan, village });
+            const next = computeNotifications({ screen, clan, village, savedRun });
             const key = listKey(next);
             if (key !== lastKey.current) {
                 lastKey.current = key;
@@ -33,7 +33,7 @@ export function useNotifications(screen: Screen, clan: string, village: string):
         }
         refresh(); // re-derive immediately when screen/clan/village change
         return visiblePoll(refresh, REFRESH_MS);
-    }, [screen, clan, village]);
+    }, [screen, clan, village, savedRun]);
 
     return notes;
 }
@@ -43,6 +43,10 @@ export function activateGameNotification(
     navigate: (screen: Screen) => void,
 ): void {
     if (!note.screen) return;
+    if (note.targetView === "reckoning") {
+        // Same hand-off the World Crisis news report uses to open the Level 80 tab.
+        try { sessionStorage.setItem("worldCrisis.focus", "80"); } catch { /* opens on Level 37 */ }
+    }
     let repeatClanViewRequest = false;
     if (note.targetView === "territory") {
         try { sessionStorage.setItem("clan.initialView", "territory"); } catch { /* navigation still works */ }

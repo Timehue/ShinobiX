@@ -5,11 +5,13 @@ import {
     isBattleOnlyScreen,
     isBattleViewScreen,
     isLobbyFightScreen,
+    liveFightScreen,
+    savedRunScreen,
     shouldHideBattleChrome,
     type NotifInputs,
 } from "./notifications-core";
 
-const EMPTY: NotifInputs = { inBattle: false, territoryBreach: null, clanWar: null, villageWar: null, tournament: null };
+const EMPTY: NotifInputs = { battle: null, territoryBreach: null, clanWar: null, villageWar: null, tournament: null };
 
 test("ranked pet lobby retains chrome; its fullscreen battle hides it", () => {
     assert.equal(isLobbyFightScreen("petLadder"), true);
@@ -21,12 +23,61 @@ test("no signals → no notifications", () => {
     assert.deepEqual(buildNotifications(EMPTY), []);
 });
 
-test("in-battle chip is informational (no click target)", () => {
-    const notes = buildNotifications({ ...EMPTY, inBattle: true });
+test("in-battle chip links back to the screen hosting the fight", () => {
+    const notes = buildNotifications({ ...EMPTY, battle: "hollowGateShrine" });
     assert.equal(notes.length, 1);
     assert.equal(notes[0].id, "battle");
     assert.equal(notes[0].tone, "danger");
-    assert.equal(notes[0].screen, undefined);
+    assert.equal(notes[0].screen, "hollowGateShrine");
+    assert.equal(notes[0].title, "Return to your battle");
+});
+
+test("lobbies with no live fight show no in-battle chip (Pet Colosseum report)", () => {
+    // The old chip trusted the legacy battle-lock marker, which a finished
+    // Story Boss fight could leave behind; opening any lobby then said "In battle".
+    for (const screen of ["petArena", "petColiseum", "petShowdown", "petLadder", "arenaDistrict", "centralHub"] as const) {
+        assert.equal(liveFightScreen(screen, null, null), null, screen);
+    }
+});
+
+test("a saved run away from its screen points back to it", () => {
+    assert.equal(savedRunScreen({ hollowGateRun: { completed: false } }), "hollowGateShrine");
+    assert.equal(savedRunScreen({ hollowGateRun: { completed: true } }), null);
+    assert.equal(savedRunScreen({ activeDungeonRun: { token: "run-1" } }), "dungeon");
+    assert.equal(savedRunScreen({ activeDungeonRun: null, hollowGateRun: null }), null);
+    assert.equal(savedRunScreen(null), null);
+
+    assert.equal(liveFightScreen("village", "hollowGateShrine", null), "hollowGateShrine");
+    assert.equal(liveFightScreen("petArena", "dungeon", null), "dungeon");
+    // On the run's own screen, or any fight board, the chip is redundant.
+    assert.equal(liveFightScreen("hollowGateShrine", "hollowGateShrine", null), null);
+    assert.equal(liveFightScreen("hollowGateTiles", "hollowGateShrine", null), null);
+    assert.equal(liveFightScreen("dungeon", "dungeon", null), null);
+});
+
+test("a Tower run key points to its host, never from a screen that hosts Tower fights", () => {
+    assert.equal(liveFightScreen("village", null, "tower-0123abcd"), "battleTowers");
+    assert.equal(liveFightScreen("village", null, "wcr80-0123abcd"), "worldCrisis");
+    assert.equal(liveFightScreen("village", null, "wcr80pet:s1"), "worldCrisis");
+    // Only the Team Arena can be left mid-match; Arena District locks until
+    // ranked and tournament matches end.
+    assert.equal(liveFightScreen("village", null, "pvp:tpvp-0123"), "battleArena");
+    for (const screen of ["battleTowers", "worldCrisis", "arenaDistrict", "battleArena"] as const) {
+        assert.equal(liveFightScreen(screen, null, "tower-0123abcd"), null, screen);
+        assert.equal(liveFightScreen(screen, null, "pvp:tpvp-0123"), null, screen);
+    }
+});
+
+test("no in-battle chip on the Hospital, which an admitted player cannot leave", () => {
+    assert.equal(liveFightScreen("hospital", "dungeon", "tower-0123abcd"), null);
+});
+
+test("a World Crisis chip asks for the Level 80 tab, the one that resumes the fight", () => {
+    const [crisis] = buildNotifications({ ...EMPTY, battle: "worldCrisis" });
+    assert.equal(crisis.screen, "worldCrisis");
+    assert.equal(crisis.targetView, "reckoning");
+    const [towers] = buildNotifications({ ...EMPTY, battle: "battleTowers" });
+    assert.equal(towers.targetView, undefined);
 });
 
 test("clan war chip names the enemy and links to the clan screen", () => {
@@ -73,7 +124,7 @@ test("tournament chip links to the arena district; falls back to a generic label
 
 test("notifications are ordered: battle → territory breach → clan war → village war → tournament", () => {
     const notes = buildNotifications({
-        inBattle: true,
+        battle: "dungeon",
         territoryBreach: { sector: 40, minutesLeft: 30 },
         clanWar: { enemy: "A" },
         villageWar: { enemy: "B", pending: false },

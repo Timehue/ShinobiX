@@ -248,7 +248,7 @@ import { imageEntries, parseImageManifest } from "./lib/shared-image-manifest";
 import { visiblePoll } from "./lib/poll";
 import { BATTLE_LEAVE_NOTICE, useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
 import { blocksClanWarAutoLaunch, visibleClanWarChallengeId, isBattleFlowScreen as resolveBattleFlowScreen } from "./lib/battle-flow-screen";
-import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
+import { isBattleViewScreen, savedRunScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { usePetHomeReturn, petHomeReturnLabel } from "./lib/pet-home-navigation";
 import { mergePlayerRoster, mergeRosterSnapshot } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
@@ -5169,7 +5169,7 @@ export default function App() {
                         characterVillage={character?.village ?? ""} storyVillage={character?.storyVillage ?? character?.village ?? ""} characterClan={character?.clan ?? ""}
                         profession={character?.profession ?? null}
                         screen={screen}
-                        currentSector={currentSector} openWorldMapOverview={openWorldMapOverview}
+                        currentSector={currentSector} openWorldMapOverview={openWorldMapOverview} savedRun={savedRunScreen(character)}
                     />
                     <MobileNav
                         navigate={stableNavigate} adminLoggedIn={adminLoggedIn} logoutPlayer={stableLogout}

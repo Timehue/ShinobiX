@@ -48,6 +48,7 @@ export const RightMenu = memo(function RightMenu({
     screen,
     currentSector,
     openWorldMapOverview,
+    savedRun = null,
 }: {
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
@@ -60,6 +61,8 @@ export const RightMenu = memo(function RightMenu({
     screen: Screen;
     currentSector: number;
     openWorldMapOverview: () => void;
+    /** savedRunScreen() of the save, so the "In battle" chip can lead back to it. */
+    savedRun?: Screen | null;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
     // Menu screens only change the panel, not the player's town. Preserve which
@@ -93,6 +96,7 @@ export const RightMenu = memo(function RightMenu({
                 screen={screen}
                 clan={characterClan}
                 village={characterVillage}
+                savedRun={savedRun}
                 compact={!menuOpen}
             />
 
