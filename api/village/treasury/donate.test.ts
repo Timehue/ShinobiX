@@ -144,11 +144,40 @@ describe('village treasury donation merit', () => {
 
     it('pays Honor Seals and Bone Charms their ryo-value, which a seal used to round to nothing', async () => {
         await seedDonor({ honorSeals: 400, boneCharms: 50 });
-        assert.equal((await post({ currency: 'honorSeals', amount: 160 })).statusCode, 200);
-        assert.equal(await meritOf(), 10, '160 seals x 62.5 = 10,000 ryo of value');
+        assert.equal((await post({ currency: 'honorSeals', amount: 80 })).statusCode, 200);
+        assert.equal(await meritOf(), 5, '80 seals x 62.5 = 5,000 ryo of value');
         assert.equal((await post({ currency: 'boneCharms', amount: 10 })).statusCode, 200);
-        assert.equal(await meritOf(), 15, '10 charms x 500 = 5,000 ryo of value');
-        assert.equal((await kv.get<{ treasury: { honorSeals: number; boneCharms: number } }>(VILLAGE_KEY))?.treasury.honorSeals, 160);
+        assert.equal(await meritOf(), 10, '10 charms x 500 = 5,000 ryo of value');
+        assert.equal((await kv.get<{ treasury: { honorSeals: number; boneCharms: number } }>(VILLAGE_KEY))?.treasury.honorSeals, 80);
+    });
+
+    it('caps seal and charm merit at a daily allowance, so a Kage gift-back loop cannot farm the Kage gate', async (t) => {
+        // The seated Kage gifts treasury seals out untaxed. Without the
+        // allowance, 400 seals donated, gifted back and donated again earned
+        // 25 merit a round trip; ten trips cleared the 250-merit gate.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-29T10:00:00Z') });
+        await seedDonor({ honorSeals: 2_000, boneCharms: 100 });
+        assert.equal((await post({ currency: 'honorSeals', amount: 400 })).statusCode, 200);
+        assert.equal(await meritOf(), 10, 'only the first 10,000 ryo of value counts today');
+        for (let i = 0; i < 3; i += 1) {
+            (await import('../../_ratelimit.js')).__resetRateLimitsForTest();
+            assert.equal((await post({ currency: 'honorSeals', amount: 400, requestId: `village-seal-loop-${String(i).padStart(6, '0')}` })).statusCode, 200);
+        }
+        assert.equal((await post({ currency: 'boneCharms', amount: 50 })).statusCode, 200);
+        assert.equal(await meritOf(), 10, 'past the allowance seals and charms earn nothing more today');
+        const treasury = (await kv.get<{ treasury: { honorSeals: number; boneCharms: number } }>(VILLAGE_KEY))?.treasury;
+        assert.deepEqual([treasury?.honorSeals, treasury?.boneCharms], [1_600, 50], 'the treasury still receives every seal and charm');
+        const donor = (await kv.get<{ character: Record<string, unknown> }>(`save:${PLAYER}`))?.character;
+        assert.deepEqual([donor?.villageRareMeritDate, donor?.villageRareMeritToday], ['2026-10-29', 10_000]);
+
+        t.mock.timers.setTime(Date.parse('2026-10-30T00:05:00Z'));
+        (await import('../../_ratelimit.js')).__resetRateLimitsForTest();
+        assert.equal((await post({ currency: 'honorSeals', amount: 16 })).statusCode, 200);
+        assert.equal(await meritOf(), 11, 'a new UTC day opens a new allowance');
+
+        (await import('../../_ratelimit.js')).__resetRateLimitsForTest();
+        assert.equal((await post({ currency: 'ryo', amount: 25_000 })).statusCode, 200);
+        assert.equal(await meritOf(), 36, 'ryo is outside the allowance: every ryo gift back is taxed');
     });
 
     it('sends Fate Shards and Aura Stones to the clan and takes no Mythic Seals', async () => {
@@ -225,6 +254,44 @@ describe('village treasury donation retries (issue #179)', () => {
         assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLAYER}`))?.character.ryo, 95_000, 'no second debit');
         assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 5_000, 'credited once');
         assert.equal(await meritOf(), 5, 'merit earned once');
+    });
+
+    it('a Fate Shard donation debited under the old rule still finishes on its retry', async (t) => {
+        // Before the hall split the Town Hall took Fate Shards. A donation whose
+        // debit committed then, and whose credit never landed, must finish on
+        // the donor's retry rather than meet the new refusal. Build it the way
+        // the old handler did: same saga, identity and credit plan.
+        const { runSaveDebitSaga } = await import('../../_save-debit-saga.js');
+        const { VILLAGE_DONATION_SAGA } = await import('../../_save-debit-kinds.js');
+        const { applyTreasuryDonation, treasuryCreditPlan } = await import('../../_treasury-donate.js');
+        await seedDonor({ fateShards: 10 });
+        const requestId = 'village-donate-old-rule-01';
+        const donation = { kind: 'currency' as const, currency: 'fateShards', amount: 3 };
+        const original = kv.set.bind(kv);
+        let broken = true;
+        t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+            if (broken && args[0] === VILLAGE_KEY) throw new Error('injected village-row write failure');
+            return original(...args);
+        });
+        await assert.rejects(runSaveDebitSaga({
+            definition: VILLAGE_DONATION_SAGA, playerName: PLAYER, requestId,
+            identity: { village: 'leaf', donation }, sharedKey: VILLAGE_KEY,
+            resource: 'fateShards', amount: 3, meta: { village: VILLAGE },
+            decide: async ({ character, shared }) => {
+                const outcome = applyTreasuryDonation((shared ?? {}).treasury as Record<string, unknown> | undefined, character, donation,
+                    { allowedCurrencies: ['ryo', 'honorSeals', 'fateShards'], currencyCaps: { fateShards: 100_000 }, itemCountCap: 1_000 });
+                if (!outcome.ok) return outcome;
+                return { ok: true, character: outcome.nextDonorChar, plan: { treasury: treasuryCreditPlan(donation, null) }, result: {} };
+            },
+        }), /not finished|not yet added|pending/i);
+        assert.equal((await kv.get<{ character: { fateShards: number } }>(`save:${PLAYER}`))?.character.fateShards, 7, 'debited under the old rule');
+        broken = false;
+        const retry = await post({ currency: 'fateShards', amount: 3, requestId });
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.equal((await kv.get<{ treasury: { fateShards: number } }>(VILLAGE_KEY))?.treasury.fateShards, 3, 'credited once');
+        assert.equal((await kv.get<{ character: { fateShards: number } }>(`save:${PLAYER}`))?.character.fateShards, 7, 'no second debit');
+        const fresh = await post({ currency: 'fateShards', amount: 3, requestId: 'village-donate-new-rule-01' });
+        assert.equal(fresh.statusCode, 400, 'a new Fate Shard donation is refused');
     });
 
     it('concurrent duplicates donate once', async () => {

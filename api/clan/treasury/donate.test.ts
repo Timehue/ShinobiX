@@ -664,8 +664,14 @@ test('item clan XP follows the item value instead of a flat 50 per call', async 
     const junk = 'item-smoke-bomb';
     assert.equal(clanItemDonationXp(junk, 1, null), Math.floor(npcUnitSaleValue(junk) / 35));
     assert.ok(clanItemDonationXp(junk, 1, null) < 50, 'a smoke bomb earned 50 before');
-    // A stack earns per unit, so forty rations are not worth one.
+    // A stack of rations earns per unit, so forty are not worth one. Rations
+    // are eaten by the clan's wars, never gifted back.
     assert.equal(clanItemDonationXp('ration-pack', 40, { store: 'provisions' }), Math.floor(40 * 500 / 35));
+    // A loose item can be gifted back untaxed, so no donation of one earns
+    // more than the old flat 50: ten legendary materials (2,400 ryo) stop there.
+    const dear = 'hunt-legendary-material';
+    assert.ok(Math.floor(10 * npcUnitSaleValue(dear) / 35) > 50, 'the fixture is worth more than the cap');
+    assert.equal(clanItemDonationXp(dear, 10, null), 50);
     assert.equal(clanItemDonationXp('territory-control-scroll', 3, null), 60);
 
     await seedRyo(0, { itemStacks: [{ itemId: junk, count: 5 }] });
