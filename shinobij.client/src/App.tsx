@@ -160,6 +160,7 @@ const Inventory = lazyWithRetry(() => import("./screens/Inventory").then(m => ({
 const PetEggIncubator = lazyWithRetry(() => import('./components/PetEggIncubator').then(m => ({ default: m.PetEggIncubator })));
 const BattleLogScreen = lazyWithRetry(() => import("./screens/BattleLogScreen").then(m => ({ default: m.BattleLogScreen })));
 const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
+const GuardDutyRefresher = lazyWithRetry(() => import("./components/GuardDutyRefresher").then(m => ({ default: m.GuardDutyRefresher })));
 const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
 const AdminLogin = lazyWithRetry(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminLogin })));
 const Cafeteria = lazyWithRetry(() => import("./screens/Cafeteria").then(m => ({ default: m.Cafeteria })));
@@ -258,7 +259,6 @@ import { builtinAis, balanceExistingAiProfiles } from "./lib/combat-ai";
 import { extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, saveVillageState, setSharedGameStateOwnerName, subscribeSharedWorldStateLateChanges, unlockVillageKageSystem, weatherForSector } from "./lib/world-state";
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { useVillageTax } from "./lib/use-village-tax";
-import { useGuardDutyRefresh } from "./lib/use-guard-duty-refresh";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { createHeartbeatGate, scheduleHeartbeat } from "./lib/heartbeat-cadence";
 import { attackSectorPlayer, routeOpenSectorBattleNotice } from "./lib/sector-attack";
@@ -1066,7 +1066,6 @@ export default function App() {
     // eight home sectors. Server-idempotent per UTC day; the debit must be adopted
     // here because ryo is client-owned in the save ledger.
     useVillageTax(gameplayMutationsOpen ? character : null, setCharacter, (version) => { acceptExternalSaveVersion(version, character?.name ?? currentAccountName); }, gameToast);
-    useGuardDutyRefresh(gameplayMutationsOpen ? character : null, setCharacter, gameToast);
 
     // Light-weight clan war polling — keeps sharedClanWarCache fresh so
     // ended-war rewards auto-claim. 30s cadence is enough (7-day claim window).
@@ -5212,6 +5211,7 @@ export default function App() {
             <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} onOutcome={commitVersionedCharacter} onFightOpenChange={setStoryFightOpen} />
             {character && <Suspense fallback={null}><StoryDeliveryHost {...storyDeliveryProps} /></Suspense>}
             {character && <PlayGameServicesLoader character={character} commitVersionedCharacter={commitVersionedCharacter} confirm={gameConfirm} toast={gameToast} />}
+            {character?.guardQueued && gameplayMutationsOpen && <Suspense fallback={null}><GuardDutyRefresher character={character} setCharacter={setCharacter} notify={gameToast} /></Suspense>}
             {/* Sealed AI fights (hunts, guards, ambushes, raids, field missions). The host fails closed unless it receives a canonical solo-PvE session; there is no rewarding local-Arena fallback. Hooks only mirror the remaining non-world UI side effects. Both hosts are code-split (fallback null — they render nothing until a fight is requested); their chunks are fetched from App's FIRST render, i.e. before any lazy launch screen is even requested, so the request-bus listener is live long before a launch site can exist. */}
             <AiFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} hooks={{ onMissionRaidComplete: (sector, missionIds) => recordMissionRaid(sector, undefined, missionIds, character?.name ?? "") }} onSettled={(result) => {
                 if (result.character && !commitVersionedCharacter(result.character, result._saveVersion)) return;

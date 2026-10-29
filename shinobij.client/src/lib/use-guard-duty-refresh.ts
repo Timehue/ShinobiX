@@ -1,11 +1,7 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { Character } from "../types/character";
-
-// This hook runs from App, so anything it imports statically lands in the
-// startup graph, which has well under 1 KB of gzip budget left
-// (scripts/check-build-size.mjs). The guard API and bonus helpers only matter
-// once a player is on duty, so they load on the first refresh.
-const loadGuardApi = () => Promise.all([import("./clan-api"), import("./village-upgrades")]);
+import { postGuardQueue } from "./clan-api";
+import { getTownDefenseGuardBonus } from "./village-upgrades";
 
 /**
  * How often an on-duty client re-signs its guard post. The server keeps a
@@ -57,9 +53,6 @@ export function useGuardDutyRefresh(
             const current = characterRef.current;
             if (!current?.guardQueued || current.name !== name) return;
             try {
-                // A failed chunk load rejects here too; it is not a refusal, so
-                // duty stands and the next interval tries again.
-                const [{ postGuardQueue }, { getTownDefenseGuardBonus }] = await loadGuardApi();
                 await postGuardQueue("queue", {
                     name,
                     village,
