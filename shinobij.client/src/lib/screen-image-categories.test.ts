@@ -23,3 +23,12 @@ test("image-heavy routes load every category their first paint consumes", () => 
     expectCategories("userView", ["avatar", "pet"]);
     expectCategories("professions", ["pet"]);
 });
+
+test("every PvP battle host can load its art from a cold route entry", () => {
+    for (const screen of ["pvpBattle", "clanWar2v2"] as const)
+        expectCategories(screen, ["avatar", "jutsu", "item"]);
+    for (const screen of ["clanWarPet", "sectorPet", "eventPetBattle", "petArena", "petLadder"] as const)
+        expectCategories(screen, ["pet", "avatar"]);
+    for (const screen of ["tilecardsDuel", "sectorCard", "cardClashFreePlay", "eventTiles"] as const)
+        expectCategories(screen, ["card"]);
+});

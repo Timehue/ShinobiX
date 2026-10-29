@@ -10,7 +10,9 @@ readiness. No production player save or logged-in game was used for validation.
 Vitality increases HP; Power increases both offense channels; Guard increases
 both defense channels and adds a bounded stamina contribution; Agility changes
 initiative and spatial timing without damage, random dodge or extra actions.
-Fixed-phase adventure summons still cast once per player turn. Role-derived
+Adventure summons retain one action phase per player turn, with their existing
+AP and action limits. Speed now improves movement within that phase, following
+the [2026-10-28 owner decision](../pet-growth-food-redesign.md). Role-derived
 special channels retain species identity. Happiness remains relevant to
 adventure summons and training, without a Showdown failure roll.
 

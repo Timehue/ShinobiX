@@ -107,6 +107,8 @@ export type SoloPveFighterEventState = {
 };
 
 export type SoloPveCompanion = PvpFighter & {
+    reviveAvailable?: boolean;
+    speed?: number;
     signatureReadyAfter?: number;
     ordinaryActions?: number;
     defense?: number;

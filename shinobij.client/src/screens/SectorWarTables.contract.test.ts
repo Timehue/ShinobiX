@@ -19,6 +19,15 @@ const petScreen = read("./SectorWarPetBattle.tsx");
 const clanPet = read("./ClanWarPetBattle.tsx");
 const petShell = read("../components/PetDuelReplayScreen.tsx");
 
+test("war battle hosts forward shared portraits to their card and pet renderers", () => {
+    const app = read("../App.tsx");
+    for (const host of ["SectorWarCardBattle", "SectorWarPetBattle", "ClanWarPetBattle"]) {
+        assert.match(app, new RegExp(`<${host}[^>]*sharedImages=\\{sharedImages\\}`));
+    }
+    for (const host of [petScreen, clanPet]) assert.match(host, /<PetDuelReplayScreen[^>]*>[\s\S]*?sharedImages=\{sharedImages\}|sharedImages=\{sharedImages\}/);
+    assert.match(petShell, /<PetShowdownReplay[^>]*sharedImages=\{sharedImages\}/);
+});
+
 test("a finished assault always reaches its result screen, even under a newer save", () => {
     // `if (... && !onVersionedCharacter(...)) return r;` left the player on
     // "Reporting the outcome…" for good whenever a newer save was installed.

@@ -211,6 +211,7 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
                 name: session.pendingCompanion.name,
                 hp: session.pendingCompanion.hp,
                 damage: session.pendingCompanion.damage,
+                summonApCost: session.pendingCompanion.summonApCost,
             },
         } : {}),
     };

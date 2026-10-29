@@ -359,20 +359,22 @@ describe('Tower AP modifier parity for every action family', () => {
         });
     }
 
-    it('keeps wait and companion summon explicitly free under Lag', () => {
+    it('keeps wait free and uses the sealed summon price under Lag', () => {
         const waitSession = apMatrixSession([{ name: 'Lag', rounds: 2, percent: 99, kind: 'negative' }]);
         assert.equal(applyAction(waitSession, floor(), { actorId: 'caster', type: 'wait' }, makeRng(1)).applied, true);
         assert.equal(waitSession.activeAp, 100);
         assert.equal(waitSession.actionsThisTurn, 0);
 
-        const summonSession = apMatrixSession([{ name: 'Lag', rounds: 2, percent: 99, kind: 'negative' }]);
-        summonSession.pendingCompanion = {
-            petId: 'pet-1', name: 'Pet', hp: 100, damage: 10, happiness: 100,
-            loyal: true, moves: [], pveGearId: '',
-        };
-        assert.equal(applyAction(summonSession, floor(), { actorId: 'caster', type: 'summon' }, makeRng(1)).applied, true);
-        assert.equal(summonSession.activeAp, 100);
-        assert.equal(summonSession.actionsThisTurn, 0);
+        for (const summonApCost of [20, 0]) {
+            const summonSession = apMatrixSession([{ name: 'Lag', rounds: 2, percent: 99, kind: 'negative' }]);
+            summonSession.pendingCompanion = {
+                petId: 'pet-1', name: 'Pet', hp: 100, damage: 10, happiness: 100,
+                loyal: true, moves: [], pveGearId: '', summonApCost,
+            };
+            assert.equal(applyAction(summonSession, floor(), { actorId: 'caster', type: 'summon' }, makeRng(1)).applied, true);
+            assert.equal(summonSession.activeAp, 100 - summonApCost);
+            assert.equal(summonSession.actionsThisTurn, 0);
+        }
     });
 });
 

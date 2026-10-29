@@ -3,6 +3,7 @@ import { clanBossGuardMultiplier } from '../../../shared/clan-boss-guard';
 import { TowerResultHeader } from "../components/TowerResultHeader";
 import { clanBossOutcomeLog } from "../../../shared/clan-boss-operation";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
+import { sealedPetSummonApCost } from "../../../shared/pet-summon";
 import { TowerPersonalBestReceipt } from "../components/TowerPersonalBestReceipt";
 import { TOWER_DISRUPT_AP, TOWER_SIGNATURES, TOWER_HONORS, towerSignaturePattern } from "../../../shared/tower-progression";
 import { towerImpactCues, type TowerImpactCue } from "../lib/tower-impact-cues";
@@ -1240,6 +1241,7 @@ export function BattleTowerFight({
     const attackAp = adjustedActionAp(40);
     const moveAp = adjustedActionAp(30);
     const utilityAp = adjustedActionAp(60);
+    const summonAp = sealedPetSummonApCost(session.pendingCompanion, myActor?.character);
     const disruptAp = adjustedActionAp(TOWER_DISRUPT_AP);
     const nearbyPylon = session.towerTactics && myActor ? session.map.features?.find(feature => feature.kind === "pylon" && feature.tiles[0] != null && !session.towerTactics!.disruptedPylons.includes(feature.tiles[0]) && towerHexDistance(myActor.pos, feature.tiles[0], w) <= 1) : undefined;
     // The weapon currently armed for targeting (when in weapon mode).
@@ -1526,6 +1528,9 @@ export function BattleTowerFight({
         }
     }
 
+    function playerAvatarFor(a: TowerActor): string {
+        return resolveOwnAvatar({ name: a.name, avatarImage: typeof a.character?.avatarImage === "string" ? a.character.avatarImage : undefined }, sharedImages);
+    }
     function avatarFor(a: TowerActor): string | null {
         if (isHunt && a.side === 'enemy' && enemyAvatarOverride) return enemyAvatarOverride;
         // Player's own actor → the live avatar prop; allies → their sealed avatar if present;
@@ -1536,7 +1541,11 @@ export function BattleTowerFight({
             if (ownAvatar) return ownAvatar;
         }
         const sealed = a.character?.avatarImage;
-        if ((isTeamPvp || isNarrativeGroup) && typeof sealed === "string" && sealed) return sealed;
+        if (isTeamPvp) {
+            const portrait = playerAvatarFor(a);
+            if (portrait) return portrait;
+        }
+        if (isNarrativeGroup && typeof sealed === "string" && sealed) return sealed;
         if (a.side === "enemy") {
             return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).src;
         }
@@ -1547,10 +1556,12 @@ export function BattleTowerFight({
     function isUnknownCombatant(a: TowerActor): boolean {
         if (isHunt && enemyAvatarOverride) return false;
         if (a.side !== "enemy") return false;
-        if ((isTeamPvp || isNarrativeGroup) && typeof a.character?.avatarImage === "string" && a.character.avatarImage) return false;
+        if (isTeamPvp && a.ai === false) return false;
+        if (isNarrativeGroup && typeof a.character?.avatarImage === "string" && a.character.avatarImage) return false;
         return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).kind === "unknown";
     }
     function fallbackArtFor(a: TowerActor): string {
+        if (isTeamPvp && a.ai === false) return roleDefenderFallback;
         return a.side === "enemy" ? towerWardenFallback : roleDefenderFallback;
     }
 
@@ -2283,13 +2294,13 @@ export function BattleTowerFight({
                                 <button
                                     className={mode === "summon" ? "selected-action" : ""}
                                     aria-pressed={mode === "summon"} onClick={() => toggleMode("summon")}
-                                    disabled={!myTurn || busy || !session.pendingCompanion || !!summonedCompanion}
+                                    disabled={!myTurn || busy || !session.pendingCompanion || !!summonedCompanion || session.activeAp < summonAp}
                                     title={summonedCompanion
                                         ? `${summonedCompanion.name} is already on the field`
-                                        : `Summon ${session.pendingCompanion?.name ?? "your active pet"}`}
+                                        : `Summon ${session.pendingCompanion?.name ?? "your active pet"} · ${summonAp} AP${summonAp === 0 ? " · Max-rank Pet Tamer" : ""}`}
                                 >
                                     <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i><span>Summon</span>
-                                    <small>{summonedCompanion?.name ?? session.pendingCompanion?.name ?? "Active pet"}</small>
+                                    <small>{summonedCompanion?.name ?? `${summonAp} AP · ${session.pendingCompanion?.name ?? "Active pet"}`}</small>
                                 </button>
                             )}
                             <button onClick={() => void send({ type: "wait" })} disabled={!myTurn || busy}>

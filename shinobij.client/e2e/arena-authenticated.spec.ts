@@ -156,6 +156,7 @@ async function installArenaApi(page: Page, options: {
     holdAndFailFirstPracticeStart?: boolean;
     certifyRankedQueueLifecycle?: boolean;
     finishPracticeOutcome?: 'win' | 'loss';
+    summonPricing?: { cost: number; ap: number };
 } = {}) {
     let save: SavePayload | null = null;
     let saveVersion = 0;
@@ -246,6 +247,11 @@ async function installArenaApi(page: Page, options: {
                     return json(route, { error: "Practice authority temporarily unavailable." }, 503);
                 }
                 activeSession = practiceSession();
+                if (options.summonPricing) {
+                    activeSession.ap.player = options.summonPricing.ap;
+                    activeSession.pendingCompanion = { petId: 'priced-pet', name: 'Price Check Pet', hp: 200, damage: 40,
+                        happiness: 100, loyal: false, moves: [], pveGearId: '', summonApCost: options.summonPricing.cost };
+                }
                 return json(route, {
                     token: PRACTICE_TOKEN,
                     sessionId: SESSION_ID,
@@ -387,7 +393,9 @@ for (const outcome of ['win', 'loss'] as const) test(`practice ${outcome} waits 
 });
 
 async function createAccount(page: Page) {
-    await page.goto("/", { waitUntil: "networkidle" });
+    // Decorative asset requests can remain active after the creator is usable.
+    // The controls below provide the readiness checks this journey needs.
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.getByTestId("start-create").click();
     await page.getByRole("button", { name: "Choose village" }).click();
     await page.locator(".cc-village-card").first().click();
@@ -436,6 +444,34 @@ async function openBattleArena(page: Page) {
 
 function combatSurface(page: Page) {
     return page.locator(".mission-arena-fight");
+}
+
+for (const { cost, ap } of [{ cost: 20, ap: 19 }, { cost: 20, ap: 20 }, { cost: 0, ap: 0 }]) {
+    test(`pet summon displays sealed ${cost} AP cost with ${ap} AP available`, async ({ page }, info) => {
+        test.setTimeout(120_000);
+        const api = await installArenaApi(page, { summonPricing: { cost, ap } });
+        await createAccount(page);
+        await expect.poll(api.hasSave).toBe(true);
+        // Let registration finish its own navigation before entering combat.
+        await expect(page.getByRole('button', { name: 'Enter Battle Arena' })).toBeVisible({ timeout: 30_000 });
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await openBattleArena(page);
+        await chooseLevelAndStart(page);
+        const button = combatSurface(page).locator('.summon-pet-command');
+        await expect(button).toContainText(`${cost} AP`);
+        await expect(button.locator('small')).toHaveCSS('clip-path', 'none');
+        if (ap < cost) {
+            await expect(button).toBeDisabled();
+        } else {
+            await expect(button).toBeEnabled();
+            await button.click();
+            await expect(button).toHaveAttribute('aria-pressed', 'true');
+            expect(api.actionPayloads().length).toBe(0, 'arming does not submit or spend AP');
+            await combatSurface(page).locator('button.hex-tile.jutsu-self-target-tile').click();
+            await expect.poll(() => api.actionPayloads().filter(action => action.type === 'summon').length).toBe(1);
+        }
+        await page.screenshot({ path: info.outputPath(`summon-${cost}-ap-${ap}.png`), fullPage: true });
+    });
 }
 
 async function chooseLevelAndStart(page: Page) {

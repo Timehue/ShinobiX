@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useClanWarBattleKey } from "../lib/use-clan-war-battle-key";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import {clanWarReturnTarget,prepareClanWarReturn} from '../lib/clan-war-navigation';
@@ -138,6 +139,7 @@ export function CardClashDuelScreen({
   const waitEnded = Boolean(!view && waitingInfo && config.waitingEnded?.(waitingInfo));
   const seatJoinInFlight = useRef(false);
   const joined = useRef(false);
+  const [joinFailed, setJoinFailed] = useState(false);
   const actionInFlight = useRef(false);
   const requestOrder = useRef(createChronicleRequestOrder());
   const stateRequestController = useRef<AbortController | null>(null);
@@ -182,7 +184,9 @@ export function CardClashDuelScreen({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action, ...stash, ...extra }),
-          signal: stateController?.signal,
+          signal: stateController
+            ? AbortSignal.any([stateController.signal, AbortSignal.timeout(12_000)])
+            : AbortSignal.timeout(12_000),
         });
         const body = await response.json().catch(() => ({}));
         if (!response.ok)
@@ -235,8 +239,19 @@ export function CardClashDuelScreen({
   useEffect(() => {
     if (!stash || joined.current) return;
     joined.current = true;
-    void post("join", { deck }).catch(() => undefined);
+    void post("join", { deck }).catch(() => setJoinFailed(true));
   }, [deck, post, stash]);
+
+  async function retryJoin() {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
+    setBusy(true);
+    try {
+      await post("join", { deck });
+      setJoinFailed(false);
+    } catch { /* Keep the retry available until admission succeeds. */ }
+    finally { actionInFlight.current = false; setBusy(false); }
+  }
 
   // A viewer who arrived before the other side (a Sector War defender who
   // opened the table before any attacker) is seated the moment the server says
@@ -397,6 +412,7 @@ export function CardClashDuelScreen({
         <section className="chronicle-panel" aria-live="polite">
           <h2>{waitEnded ? "Duel called off" : "Preparing the table"}</h2>
           <p>{config.waitingNote && waitingInfo ? config.waitingNote(waitingInfo) : config.awaitingNote}</p>
+          {joinFailed && !waitEnded ? <button disabled={busy} onClick={() => void retryJoin()}>Retry joining battle</button> : null}
           {waitEnded ? null : (
             <p>
               The server is validating both 40-card decks and will choose the
@@ -449,8 +465,10 @@ export function ClanWarTileCardDuel({
   sharedImages?: Record<string, string>;
   onVersionedCharacter?: (character: Character, saveVersion: number) => boolean;
 }) {
+  const battleKey = useClanWarBattleKey();
   return (
     <CardClashDuelScreen
+      key={battleKey}
       character={character}
       setScreen={screen=>setScreen(screen===clanWarReturnTarget()?prepareClanWarReturn():screen)}
       config={{...CLAN_WAR_DUEL_CONFIG,backScreen:clanWarReturnTarget(),backLabel:'Return to Clan War',

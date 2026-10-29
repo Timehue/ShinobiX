@@ -7,7 +7,6 @@ import { createTowerSession, activeActor, type TowerActor, type TowerSession } f
 import { applyAction, checkTowerWinner, endTurn, humanHasTowerAction, runAiUntilHuman, startRound, type TowerAction } from '../towers/_engine.js';
 import type { TowerFloor } from '../towers/_floor-catalog.js';
 import { makeRng } from '../towers/_sim.js';
-import { companionConsumableHealPct } from '../combat-core/companion.js';
 import { huntMissionById } from '../missions/_mission-catalog.js';
 import { HUNT_AI_POLICY, HUNT_REACTIVE_POLICY } from '../towers/_hunt-ai.js';
 import { pveEasyBandHoldsBurst, pveDifficultyBand } from '../_pve-difficulty.js';
@@ -163,8 +162,8 @@ export function applyHuntCombatAction(source: SoloPveSession, command: SoloPveAc
         if (intent.type === 'summon' && companion && !battle.pendingCompanion) {
             session.companionUsage = { petId: companion.petId, ...(companion.pveGearId ? { pveGearId: companion.pveGearId } : {}), ...(companion.consumableId ? { consumableId: companion.consumableId } : {}) };
             delete session.pendingCompanion;
-            const bonus = companionConsumableHealPct(companion.consumableId);
-            if (bonus > 0 && player.hp > 0) player.hp = Math.min(player.maxHp, player.hp + Math.max(1, Math.floor(player.maxHp * bonus / 100)));
+            // applyAction already paid the sealed gear/consumable heal. Only
+            // carry its usage receipt into the outer Solo-PvE settlement.
         }
         checkTowerWinner(battle, floor);
         if (battle.status === 'active' && (intent.type === 'wait' || !humanHasTowerAction(battle, player))) {

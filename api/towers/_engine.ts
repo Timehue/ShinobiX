@@ -1,5 +1,6 @@
 import { clanBossGuardMultiplier, syncClanBossGuard, clanBossGuardSnapshot, noteClanBossGuardAction, openClanBossGuard, isHuman, clanBossPhasePercent } from '../clan-boss/_combat-guard.js';
 import { petSignatureMastery } from '../../shared/pet-ability-mastery.js';
+import { sealedPetSummonApCost } from '../../shared/pet-summon.js';
 import { clanBossOutcomeLog } from '../../shared/clan-boss-operation.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { HUNT_AI_POLICY, huntOpeningIsPreparation, pickHuntAiAction } from './_hunt-ai.js';
@@ -48,7 +49,7 @@ import {
 } from '../combat-core/n-actor.js';
 import {
     COMPANION_ACTOR_ID, COMPANION_MAX_DAMAGE_FRAC, COMPANION_RANGE, companionActor, companionConsumableHealPct, companionGearDamageMult,
-    companionHealOnSummonPct, companionMoveDamage, companionObeys, companionOwnerLifestealPct,
+    companionHealOnSummonPct, companionMoveDamage, companionMoveAp, isCompanionSupportMove, companionObeys, companionOwnerLifestealPct, companionReviveHp,
     isCompanionActor, pickCompanionMove, type CompanionMove,
 } from './_companion.js';
 // statusDurationFor: towers used to keep its own copy of the duration table;
@@ -1709,6 +1710,8 @@ function resolveHit(
         const caught = runAoeJutsu(session, actor, target, jutsu, wMult, radius, protectedBossId, areaCenter, excludeAreaCenter);
         if (caught.length) session.log.push(`The blast also catches ${caught.join(', ')}.`);
     } else runJutsu(session, actor, target, jutsu, wMult);
+    // Restore Alpha Bond pets before displacement can treat their occupied tiles as empty.
+    reviveCompanions(session);
     // Push/Pull displacement resolves AFTER the hit + splash (so the blast still centred on the
     // struck tile) — moves the primary target on the tower grid to parity with PvP.
     if (!selfCast) applyDisplacement(session, actor, target, jutsu);
@@ -1934,6 +1937,7 @@ export function humanHasTowerAction(session: TowerSession, actor: TowerActor, mo
     const { width: w, height: h } = session.map;
     const openNeighbor = towerNeighbors(actor.pos, w, h).some(tile => !isTileBlocked(session, tile));
     if (mode === 'pve' && session.pendingCompanion
+        && session.activeAp >= sealedPetSummonApCost(session.pendingCompanion, actor.character)
         && !session.actors.some(a => a.id === COMPANION_ACTOR_ID) && openNeighbor) return true;
     if (session.actionsThisTurn >= MAX_ACTIONS) return false;
 
@@ -2056,6 +2060,17 @@ function refreshAp(session: TowerSession): void {
     }
     session.actionsThisTurn = 0;
 }
+function reviveCompanions(session: TowerSession): void {
+    if (session.status !== 'active') return;
+    for (const actor of session.actors) {
+        if (!isCompanionActor(actor) || actor.hp > 0 || actor.character.companionReviveAvailable !== true
+            || Number(actor.character.companionRoundsLeft ?? 0) <= 0) continue;
+        actor.character.companionReviveAvailable = false;
+        actor.hp = companionReviveHp(actor.maxHp);
+        session.log.push(`${actor.name} revives through Alpha Bond with ${actor.hp} HP.`);
+    }
+}
+
 // A summoned companion only holds the field for COMPANION_FIELD_ROUNDS rounds (the
 // Arena's PET_FIELD_TURNS). Ticked at the top of each round — BEFORE the queue is
 // rebuilt — so an expired or KO'd pet is off the board rather than queued for a turn.
@@ -2078,6 +2093,7 @@ function expireCompanions(session: TowerSession): void {
 }
 
 export function startRound(session: TowerSession): void {
+    reviveCompanions(session);
     syncClanBossGuard(session);
     if (session.clanBossGuard) tickBossPhases(session);
     const marker = `--- Round ${session.round} ---`;
@@ -2252,6 +2268,7 @@ function pushOutcomeLog(session: TowerSession, floor: TowerFloor, line: string):
 }
 
 export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void {
+    reviveCompanions(session);
     if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
     recordTowerKnockouts(session);
     if (session.status !== 'active') return;
@@ -2475,18 +2492,21 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
     }
 
 
-    // Summon the sealed companion (pet) beside the caller. Free (no AP / no action
-    // charge), once per fight — matching the Arena's summon button. The pet is
+    // Summon the sealed companion beside the caller for its sealed AP price,
+    // once per fight without charging an action slot. The pet is
     // spliced in directly AFTER the summoner so the order reads You → Pet → Enemy
     // like the Arena, instead of rebuilding the queue mid-turn.
     if (action.type === 'summon') {
         if (isCompanionActor(actor)) return { applied: false, reason: 'companion-cannot-summon' };
         const seal = session.pendingCompanion;
         if (!seal) return { applied: false, reason: 'no-companion' };
+        const summonAp = sealedPetSummonApCost(seal, actor.character);
+        if (session.activeAp < summonAp) return { applied: false, reason: 'insufficient-ap' };
         if (session.actors.some(a => a.id === COMPANION_ACTOR_ID)) return { applied: false, reason: 'already-summoned' };
         const spot = towerNeighbors(actor.pos, session.map.width, session.map.height)
             .find(t => !isTileBlocked(session, t));
         if (spot === undefined) return { applied: false, reason: 'no-space' };
+        session.activeAp -= summonAp;
         session.actors.push(companionActor(seal, spot));
         session.pendingCompanion = undefined;
         session.companionUsage = {
@@ -3821,7 +3841,7 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
         // A pet is a field actor, not a disposable projectile. If it begins an action on a
         // telegraphed/hazard tile, spend one legal step escaping before choosing its cast.
         if (danger.has(actor.pos)) {
-            const moveCost = towerAdjustedApCost(session, actor, MOVE_AP);
+            const moveCost = towerAdjustedApCost(session, actor, companionMoveAp(c.companionSpeed, MOVE_AP));
             if (ap >= moveCost) {
                 const safe = aiSafeStepToward(session, actor, target.pos, danger);
                 if (safe !== actor.pos && !isTileBlocked(session, safe, actor.id)) {
@@ -3838,10 +3858,10 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
             c.companionSignatureReadyAfter === undefined ? undefined : {
                 ordinaryActions: Number(c.companionOrdinaryActions ?? 0), requiredActions: Number(c.companionSignatureReadyAfter),
             });
-        const selfCast = !!move && companionMoveDamage(1, move) === 0;
+        const selfCast = isCompanionSupportMove(move);
         // Out of reach for anything offensive → spend a step closing the distance.
         if (!selfCast && hexDistance(actor.pos, target.pos, session.map.width) > COMPANION_RANGE) {
-            const moveCost = towerAdjustedApCost(session, actor, MOVE_AP);
+            const moveCost = towerAdjustedApCost(session, actor, companionMoveAp(c.companionSpeed, MOVE_AP));
             if (ap < moveCost) break;
             const step = aiSafeStepToward(session, actor, target.pos, danger);
             if (step === actor.pos || isTileBlocked(session, step, actor.id)) break;
