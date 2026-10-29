@@ -226,21 +226,21 @@ async function clanXpTotal(): Promise<number> {
 }
 
 test('non-ryo donation clan XP stops at the daily cap, while the donation itself still lands', async () => {
-    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo: 0, mythicSeals: 20, inventory: [] } });
+    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo: 0, fateShards: 20, inventory: [] } });
     for (let i = 0; i < 11; i += 1) {
         resetRateLimits();
-        const out = await call({ currency: 'mythicSeals', amount: 1, requestId: `clan-donate-xpcap-${String(i).padStart(6, '0')}` });
+        const out = await call({ currency: 'fateShards', amount: 1, requestId: `clan-donate-xpcap-${String(i).padStart(6, '0')}` });
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
     }
     assert.equal(await clanXpTotal(), 2_000, 'ten paying donations; the eleventh grants no XP');
-    assert.equal((await clan()).treasury.mythicSeals, 11, 'every seal still reached the treasury');
-    assert.equal((await donor()).mythicSeals, 9);
+    assert.equal((await clan()).treasury.fateShards, 11, 'every seal still reached the treasury');
+    assert.equal((await donor()).fateShards, 9);
 });
 
 test('parallel non-ryo donations cannot read the same counter and overshoot the cap', async () => {
-    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo: 0, mythicSeals: 40, inventory: [] } });
+    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo: 0, fateShards: 40, inventory: [] } });
     const burst = await Promise.all(Array.from({ length: 12 }, (_, i) =>
-        call({ currency: 'mythicSeals', amount: 1, requestId: `clan-donate-burst-${String(i).padStart(6, '0')}` })));
+        call({ currency: 'fateShards', amount: 1, requestId: `clan-donate-burst-${String(i).padStart(6, '0')}` })));
     const landed = burst.filter((out) => out.statusCode === 200).length;
     assert.ok(landed >= 1, JSON.stringify(burst.map((out) => out.statusCode)));
     for (const out of burst) assert.ok(out.statusCode === 200 || out.statusCode === 503, `unexpected ${out.statusCode}: ${JSON.stringify(out.body)}`);
@@ -249,9 +249,9 @@ test('parallel non-ryo donations cannot read the same counter and overshoot the 
 });
 
 async function seedSeals(seals = 40): Promise<void> {
-    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo: 100_000, mythicSeals: seals, inventory: [] } });
+    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo: 100_000, fateShards: seals, inventory: [] } });
 }
-const sealDonation = (requestId: string, amount = 10) => ({ currency: 'mythicSeals', amount, requestId });
+const sealDonation = (requestId: string, amount = 10) => ({ currency: 'fateShards', amount, requestId });
 const quota = async () => (await donor()).clanDonationXp;
 
 test('pending credits reserve XP before a new donation, and retry grants only the sealed amount', async (t) => {
@@ -265,7 +265,7 @@ test('pending credits reserve XP before a new donation, and retry grants only th
     const first = await call(sealDonation('clan-xp-pending-first-01'));
     assert.equal(first.statusCode, 503, JSON.stringify(first.body));
     assert.deepEqual(await quota(), { day: today(), used: 2_000, week: thisWeek(), weekUsed: 2_000 });
-    assert.equal((await donor()).mythicSeals, 30, 'quota and debit committed together');
+    assert.equal((await donor()).fateShards, 30, 'quota and debit committed together');
     broken = false;
     assert.equal((await call(sealDonation('clan-xp-pending-second-1'))).statusCode, 200);
     assert.equal(await clanXpTotal(), 0, 'the pending donation already reserved the full cap');
@@ -273,8 +273,8 @@ test('pending credits reserve XP before a new donation, and retry grants only th
     assert.equal(await clanXpTotal(), 2_000);
     assert.equal((await call(sealDonation('clan-xp-pending-first-01'))).body?.replayed, true);
     assert.equal(await clanXpTotal(), 2_000);
-    assert.equal((await donor()).mythicSeals, 20);
-    assert.equal((await clan()).treasury.mythicSeals, 20);
+    assert.equal((await donor()).fateShards, 20);
+    assert.equal((await clan()).treasury.fateShards, 20);
 });
 
 test('there is no secondary quota write to lose after a completed donation', async (t) => {
@@ -321,7 +321,7 @@ test('a rejected donor commit consumes neither seals nor XP quota', async (t) =>
     });
     const id = 'clan-xp-debit-failure-01';
     assert.equal((await call(sealDonation(id))).statusCode, 500);
-    assert.equal((await donor()).mythicSeals, 40);
+    assert.equal((await donor()).fateShards, 40);
     assert.equal(await quota(), undefined);
     assert.equal(await clanXpTotal(), 0);
     assert.equal((await call(sealDonation(id))).statusCode, 200);
@@ -361,7 +361,7 @@ test('a new UTC day inside the same ISO week grants no more XP once the weekly b
     assert.equal((await call(sealDonation('clan-xp-week-binds-day2'))).statusCode, 200, 'the donation itself still lands');
     assert.deepEqual(await quota(), { day: '2026-10-21', used: 0, week: '2026-W43', weekUsed: 2_000 });
     assert.equal(await clanXpTotal(), 2_000, 'the daily cap refreshed, the weekly budget did not');
-    assert.equal((await clan()).treasury.mythicSeals, 20);
+    assert.equal((await clan()).treasury.fateShards, 20);
 });
 
 test('crossing midnight during initialization keeps one admission day and leaves an unexpected new-day counter intact', async (t) => {
@@ -379,7 +379,7 @@ test('crossing midnight during initialization keeps one admission day and leaves
     assert.equal(next.statusCode, 409, 'a partial rollout counter cannot prove the remaining quota');
     assert.equal(next.body?.review, true);
     assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000, week: '2026-W43', weekUsed: 2_000 });
-    assert.equal((await donor()).mythicSeals, 30, 'review refusal takes nothing');
+    assert.equal((await donor()).fateShards, 30, 'review refusal takes nothing');
     assert.equal(await clanXpTotal(), 2_000);
     assert.equal(await kv.get(`clan-donate-xp:${DONOR}:2026-10-21`), 1_500, 'legacy counters are never overwritten');
 });
@@ -406,7 +406,7 @@ test('an unexpected partial-rollout counter needs review without blocking an old
     assert.equal(next.statusCode, 409);
     assert.equal(next.body?.review, true);
     assert.equal(await quota(), undefined);
-    assert.equal((await donor()).mythicSeals, 35);
+    assert.equal((await donor()).fateShards, 35);
     assert.equal(await clanXpTotal(), 600);
     const txId = saveDebitTransactionId('clan-treasury-donate', DONOR, pendingId);
     assert.equal((await adminReconcile({ txId })).body?.status, 'completed');
@@ -424,7 +424,7 @@ test('a new-protocol receipt with its co-written quota missing is held instead o
     assert.equal(next.body?.review, true);
     assert.equal(await clanXpTotal(), 2_000);
     assert.equal(await quota(), undefined);
-    assert.equal((await donor()).mythicSeals, 30);
+    assert.equal((await donor()).fateShards, 30);
 });
 
 test('pre-cap donation receipts do not retroactively consume the introduced daily budget', async () => {
@@ -432,7 +432,7 @@ test('pre-cap donation receipts do not retroactively consume the introduced dail
     const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
     saved.character.serverSettlementReceipts = [{
         requestId: 'clan-xp-before-cap-0001', fingerprint: 'server-fingerprint', settledAt: Date.now(),
-        value: { kind: 'clan-treasury-donate', plan: { treasury: { kind: 'currency', currency: 'mythicSeals', amount: 100 }, clanXp: 20_000 } },
+        value: { kind: 'clan-treasury-donate', plan: { treasury: { kind: 'currency', currency: 'fateShards', amount: 100 }, clanXp: 20_000 } },
     }];
     await kv.set(`save:${DONOR}`, saved);
     assert.equal((await call(sealDonation('clan-xp-first-cap-budget'))).statusCode, 200);
@@ -451,12 +451,12 @@ test('malformed/future quota or legacy history is an explicit review refusal bef
         const out = await call(sealDonation(`clan-xp-malformed-${String(i).padStart(4, '0')}`));
         assert.equal(out.statusCode, 409, JSON.stringify(out.body));
         assert.equal(out.body?.review, true);
-        assert.equal((await donor()).mythicSeals, 40);
+        assert.equal((await donor()).fateShards, 40);
     }
     await seedSeals();
     await kv.set(`clan-donate-xp:${DONOR}:${day}`, 'unreadable');
     assert.equal((await call(sealDonation('clan-xp-malformed-legacy'))).statusCode, 409);
-    assert.equal((await donor()).mythicSeals, 40);
+    assert.equal((await donor()).fateShards, 40);
     assert.equal((await call({ currency: 'ryo', amount: 1_000, requestId: 'clan-xp-ryo-unaffected-1' })).statusCode, 200, 'ryo uses its own weekly budget');
 });
 
@@ -469,13 +469,13 @@ test('unrelated rolling receipt history does not prevent first-rollout initializ
     await kv.set(`save:${DONOR}`, saved);
     const out = await call(sealDonation('clan-xp-truncated-legacy'));
     assert.equal(out.statusCode, 200, 'initialization makes no claim that historical receipt lists are complete');
-    assert.equal((await donor()).mythicSeals, 30);
+    assert.equal((await donor()).fateShards, 30);
     const after = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
     delete after.character.clanDonationXp;
     await kv.set(`save:${DONOR}`, after);
     await kv.set(`clan-donate-xp:${DONOR}:${new Date().toISOString().slice(0, 10)}`, 2_000);
     assert.equal((await call(sealDonation('clan-xp-truncated-capped'))).statusCode, 200, 'known exhausted cap still permits the gift');
-    assert.equal((await donor()).mythicSeals, 20);
+    assert.equal((await donor()).fateShards, 20);
     assert.equal(await clanXpTotal(), 2_000, 'the saturated legacy budget adds zero XP');
 });
 
@@ -490,7 +490,7 @@ test('a legacy receipt window shortened by a refund cannot manufacture spare quo
     saved.character.serverSettlementReceipts = Array.from({ length: 49 }, (_, i) => ({
         requestId: `refund-pruned-history-${String(i).padStart(4, '0')}`, fingerprint: 'server-fingerprint', settledAt: Date.now(),
         value: i < 2
-            ? { kind: 'clan-treasury-donate', plan: { treasury: { kind: 'currency', currency: 'mythicSeals', amount: 1 }, clanXp: 200 } }
+            ? { kind: 'clan-treasury-donate', plan: { treasury: { kind: 'currency', currency: 'fateShards', amount: 1 }, clanXp: 200 } }
             : { kind: 'other' },
     }));
     await kv.set(`save:${DONOR}`, saved);
@@ -498,7 +498,7 @@ test('a legacy receipt window shortened by a refund cannot manufacture spare quo
     const out = await call(sealDonation('clan-xp-refund-pruned-01'));
     assert.equal(out.statusCode, 409);
     assert.equal(out.body?.review, true);
-    assert.equal((await donor()).mythicSeals, 40);
+    assert.equal((await donor()).fateShards, 40);
 });
 
 test('malformed current protocol days need review, while clearly older malformed metadata does not block today', async () => {
@@ -509,7 +509,7 @@ test('malformed current protocol days need review, while clearly older malformed
     }];
     await kv.set(`save:${DONOR}`, saved);
     assert.equal((await call(sealDonation('clan-xp-invalid-plan-01'))).statusCode, 409);
-    assert.equal((await donor()).mythicSeals, 40);
+    assert.equal((await donor()).fateShards, 40);
     (saved.character.serverSettlementReceipts as Array<{ settledAt: number }>)[0].settledAt -= 86_400_000;
     await kv.set(`save:${DONOR}`, saved);
     assert.equal((await call(sealDonation('clan-xp-invalid-plan-02'))).statusCode, 200, 'clearly older malformed metadata does not consume or block today');
@@ -532,15 +532,15 @@ test('an already-admitted donation still recovers when its quota later needs rev
     await kv.set(`save:${DONOR}`, saved);
     assert.equal((await call(sealDonation(id))).statusCode, 200, 'the sealed obligation is finished before fresh eligibility');
     assert.equal(await clanXpTotal(), 2_000);
-    assert.equal((await donor()).mythicSeals, 30);
+    assert.equal((await donor()).fateShards, 30);
     assert.equal((await call(sealDonation('clan-xp-review-new-0001'))).statusCode, 409);
-    assert.equal((await donor()).mythicSeals, 30, 'only new debit admission is held');
+    assert.equal((await donor()).fateShards, 30, 'only new debit admission is held');
 });
 
 // ── The weekly budget covers ryo too (economy rebalance 2026-10, #39) ────────
 
 async function seedRyo(ryo = 400_000, extra: Record<string, unknown> = {}): Promise<void> {
-    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo, mythicSeals: 40, inventory: [], ...extra } });
+    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo, fateShards: 40, inventory: [], ...extra } });
 }
 
 test('ryo donation clan XP stops at the weekly budget while the treasury still receives every ryo', async (t) => {
@@ -577,7 +577,7 @@ test('ryo and non-ryo donations draw from one weekly budget and keep each other\
     assert.deepEqual(await quota(), { day: '2026-10-20', used: 1_000, week: '2026-W43', weekUsed: 2_000 });
     assert.equal(await clanXpTotal(), 2_000);
     assert.equal((await clan()).treasury.ryo, 70_000);
-    assert.equal((await clan()).treasury.mythicSeals, 10);
+    assert.equal((await clan()).treasury.fateShards, 10);
 });
 
 test('a malformed or future weekly stamp is a review refusal before any debit, for ryo and non-ryo alike', async (t) => {
@@ -594,7 +594,7 @@ test('a malformed or future weekly stamp is a review refusal before any debit, f
         const seal = await call(sealDonation(`clan-xp-bad-week-seal-${String(i).padStart(3, '0')}`));
         assert.equal(seal.statusCode, 409, JSON.stringify(quotaValue));
         assert.equal((await donor()).ryo, 400_000, 'nothing was debited');
-        assert.equal((await donor()).mythicSeals, 40);
+        assert.equal((await donor()).fateShards, 40);
     }
     assert.equal((await clan()).treasury.ryo, 0);
 });
@@ -640,5 +640,35 @@ test('the monthly contribution counts whole thousands of ryo and currency units,
     assert.equal((await call({ itemId: 'item-smoke-bomb', count: 3, requestId: 'clan-contrib-items-0001' })).statusCode, 200);
     assert.equal((await donor()).clanEventContrib, 2, 'an item can be gifted back untaxed, so it counts nothing');
     assert.equal((await call(sealDonation('clan-contrib-seals-00001', 3))).statusCode, 200);
-    assert.equal((await donor()).clanEventContrib, 5, 'one per Fate Shard, Bone Charm, Aura Stone or Mythic Seal');
+    assert.equal((await donor()).clanEventContrib, 5, 'one per Fate Shard or Aura Stone');
+});
+
+// ── Clan Hall / Town Hall split (shared/treasury-donation-split.ts) ──────────
+
+test('Bone Charms, Honor Seals and Mythic Seals are refused before anything moves', async () => {
+    await seedRyo(0, { boneCharms: 5, honorSeals: 5, fateShards: 0 });
+    for (const [currency, hint] of [['boneCharms', /Town Hall/], ['honorSeals', /Seal Pool/], ['mythicSeals', /cannot be donated/]] as const) {
+        const out = await call({ currency, amount: 1, requestId: `clan-split-${currency}-0001` });
+        assert.equal(out.statusCode, 400, JSON.stringify(out.body));
+        assert.match(String(out.body?.error), hint);
+    }
+    assert.equal((await donor()).boneCharms, 5);
+    assert.equal(await clanXpTotal(), 0);
+});
+
+test('item clan XP follows the item value instead of a flat 50 per call', async () => {
+    const { clanItemDonationXp } = await import('./_donation-xp.js');
+    const { npcUnitSaleValue } = await import('../../village/_donation-merit.js');
+    // A junk item no shop buys earns nothing, so forty single donations no
+    // longer fill the 2,000 weekly budget.
+    const junk = 'item-smoke-bomb';
+    assert.equal(clanItemDonationXp(junk, 1, null), Math.floor(npcUnitSaleValue(junk) / 35));
+    assert.ok(clanItemDonationXp(junk, 1, null) < 50, 'a smoke bomb earned 50 before');
+    // A stack earns per unit, so forty rations are not worth one.
+    assert.equal(clanItemDonationXp('ration-pack', 40, { store: 'provisions' }), Math.floor(40 * 500 / 35));
+    assert.equal(clanItemDonationXp('territory-control-scroll', 3, null), 60);
+
+    await seedRyo(0, { itemStacks: [{ itemId: junk, count: 5 }] });
+    assert.equal((await call({ itemId: junk, count: 5, requestId: 'clan-item-xp-value-0001' })).statusCode, 200);
+    assert.equal(await clanXpTotal(), clanItemDonationXp(junk, 5, null));
 });
