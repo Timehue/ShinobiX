@@ -24,8 +24,10 @@ describe("Village Guard duty refresh", () => {
         assert.equal(guardRefusalEndsDuty(new Error("other")), false);
     });
 
-    it("is mounted by the App while gameplay is open", () => {
+    it("is mounted by the App, lazily, while on duty and gameplay is open", () => {
         const app = source("../App.tsx");
-        assert.match(app, /useGuardDutyRefresh\(gameplayMutationsOpen \? character : null, setCharacter, gameToast\);/);
+        assert.match(app, /character\?\.guardQueued && gameplayMutationsOpen && <Suspense fallback=\{null\}><GuardDutyRefresher /);
+        assert.match(app, /const GuardDutyRefresher = lazyWithRetry\(\(\) => import\("\.\/components\/GuardDutyRefresher"\)/);
+        assert.match(source("../components/GuardDutyRefresher.tsx"), /useGuardDutyRefresh\(character, setCharacter, notify\)/);
     });
 });
