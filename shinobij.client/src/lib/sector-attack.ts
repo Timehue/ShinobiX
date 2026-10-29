@@ -90,7 +90,13 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
     // The world path's admission gate — Academy protection and the
     // engaged/traveling/in-battle refusals. See lib/world-attack-claim.
     const claim = await claimWorldAttack(opponent.name, character.name, createScope.signal);
-    if (!createIsCurrent()) return; if (claim.ok !== true) return void alert(claim.error);
+    if (!createIsCurrent()) return;
+    // A Card or Pet war between the two of you: the server refused the shinobi
+    // fight (it would score nothing), so start the war's own battle instead.
+    if (claim.ok !== true) {
+        if (claim.sectorContest) return (await import("./village-war-map")).engageRefusedSectorAttack(claim.sectorContest, character.name, opponent.name, setScreen);
+        return void alert(claim.error);
+    }
     // Use local character data for the request body. The server hydrates both
     // fighters from their saves and rejects this player attack if either save
     // cannot be loaded, including its named gear.

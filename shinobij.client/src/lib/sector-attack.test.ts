@@ -123,6 +123,35 @@ describe("the claim gate", () => {
         assert.deepEqual(rec.calls, [], "a refused claim must not create or route a battle");
     });
 
+    it("starts the war's own battle when the server says the sector's war is a Card or Pet war", async () => {
+        // The World Map's copy of the contest was missing or stale, so it asked
+        // for a shinobi fight. The server refused it and named the war instead.
+        const { opts, rec, stubFetch } = harness();
+        const engageId = "a".repeat(24);
+        stubFetch((url) => url.includes("/api/player/attack")
+            ? { ok: false, status: 409, json: async () => ({ error: "This sector's war is fought with card battles.", sectorContest: { kind: "card", sectorWarId: "war-1" } }) }
+            : { ok: true, status: 200, json: async () => ({ engageId }) });
+
+        await attackSectorPlayer(opts);
+
+        assert.deepEqual(alerts, [], "the player is taken to the duel, not told about a refusal");
+        assert.equal(rec.fetches.length, 2);
+        assert.match(rec.fetches[1], /\/api\/village\/sector-card$/, "the war's own battle is started");
+        assert.deepEqual(rec.calls, ['setScreen("sectorCard")'], "no shinobi fight is created");
+    });
+
+    it("shows the reason when the war's own battle is refused too", async () => {
+        const { opts, rec, stubFetch } = harness();
+        stubFetch((url) => url.includes("/api/player/attack")
+            ? { ok: false, status: 409, json: async () => ({ error: "Nope.", sectorContest: { kind: "pet", sectorWarId: "war-1" } }) }
+            : { ok: false, status: 409, json: async () => ({ error: "That shinobi just lost a battle and is recovering." }) });
+
+        await attackSectorPlayer(opts);
+
+        assert.deepEqual(alerts, ["That shinobi just lost a battle and is recovering."]);
+        assert.deepEqual(rec.calls, []);
+    });
+
     it("treats an unreachable server as a refusal rather than a crash", async () => {
         const { opts, rec, stubFetch } = harness();
         stubFetch(() => { throw new TypeError("network down"); });
