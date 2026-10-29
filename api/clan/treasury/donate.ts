@@ -1,4 +1,5 @@
 import { isVillageSupplyGood } from '../../../shared/gathering.js';
+import { CLAN_DONATION_CURRENCIES, clanDonationCurrencyRefusal } from '../../../shared/treasury-donation-split.js';
 import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
@@ -12,7 +13,7 @@ import { runSaveDebitSaga, SaveDebitRefusal } from '../../_save-debit-saga.js';
 import { CLAN_DONATION_SAGA } from '../../_save-debit-kinds.js';
 import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
-import { reserveClanDonationXp, reserveClanRyoDonationXp } from './_donation-xp.js';
+import { CLAN_XP_RYO_PER_POINT, clanItemDonationXp, reserveClanDonationXp, reserveClanRyoDonationXp } from './_donation-xp.js';
 
 /*
  * /api/clan/treasury/donate  — POST only
@@ -48,8 +49,8 @@ import { reserveClanDonationXp, reserveClanRyoDonationXp } from './_donation-xp.
  * because its debit also moved items and the monthly contribution.
  */
 
-// Player-donatable clan currencies. warSupply is war-earned, not donated.
-const CLAN_CURRENCIES = ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals'] as const;
+// Player-donatable clan currencies live in shared/treasury-donation-split.ts.
+// warSupply is war-earned, not donated.
 
 // Per-call sanity ceilings. Unlike the validator's defense-in-depth caps,
 // crediting a clan treasury is not itself an attack (funds leave the donor and
@@ -62,12 +63,9 @@ const CURRENCY_CAPS: Record<string, number> = {
     // the donate->gift round trip a bulk laundering channel (2026-08-17).
     ryo: 200_000,
     fateShards: 100_000,
-    boneCharms: 100_000,
     auraStones: 100_000,
-    mythicSeals: 100_000,
 };
 const ITEM_COUNT_CAP = 1_000;
-const TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
 
 const AUDIT_LOG_PREFIX = 'audit:clan-treasury-donate:';
 
@@ -114,6 +112,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!donation) {
             return res.status(400).json({ error: 'Provide exactly one of (currency + amount) or (itemId).' });
         }
+        const currencyRefusal = donation.kind === 'currency' ? clanDonationCurrencyRefusal(donation.currency) : null;
+        if (currencyRefusal) return res.status(400).json({ error: currencyRefusal });
         const requestId = parseSettlementRequestId(body.requestId);
         if (body.requestId !== undefined && body.requestId !== null && !requestId) {
             return res.status(400).json({ error: 'Invalid requestId.' });
@@ -163,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     clanRec.treasury as Record<string, unknown> | undefined,
                     donorChar,
                     donation,
-                    { allowedCurrencies: CLAN_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP },
+                    { allowedCurrencies: CLAN_DONATION_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP },
                 );
                 if (!outcome.ok) return outcome;
                 // Village Stores clan mirror: ration-pack → clanTreasury.provisions
@@ -191,8 +191,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const nextDonorChar = { ...outcome.nextDonorChar, clanEventContrib: priorContribution + contribution, clanContribMonth: month };
 
                 const rawClanXp = donation.kind === 'currency'
-                    ? donation.currency === 'ryo' ? Math.floor(donation.amount / 35) : Math.floor(donation.amount) * 200
-                    : donation.itemId === TERRITORY_CONTROL_SCROLL_ID ? Math.floor(donation.count) * 20 : 50;
+                    ? donation.currency === 'ryo' ? Math.floor(donation.amount / CLAN_XP_RYO_PER_POINT) : Math.floor(donation.amount) * 200
+                    : clanItemDonationXp(donation.itemId, donation.count, routed);
                 // Ryo reserves from the weekly budget alone; every other kind
                 // also from its daily one. The treasury is credited in full
                 // either way: only the clan XP is held to the budget.
