@@ -558,7 +558,7 @@ export function HollowGateShrineView({
                                 <div>
                                     <p className="act-label" style={nativePresentationStyle0}>
                                         {run.variant?.label ? run.variant.label.toUpperCase() : "HOLLOW GATE · ANCIENT CAVERN"}
-                                        {run.variant && <span className={isQuestRift ? 'hg-rift-badge' : undefined} style={isQuestRift ? undefined : { marginLeft: 8, fontSize: 10, color: "#e6c477", border: "1px solid #b45309", borderRadius: 999, padding: "1px 8px", letterSpacing: 1 }}>{isQuestRift ? 'RIFT' : 'EVENT'}</span>}
+                                        {run.variant && !isQuestRift && <span style={{ marginLeft: 8, fontSize: 10, color: "#e6c477", border: "1px solid #b45309", borderRadius: 999, padding: "1px 8px", letterSpacing: 1 }}>EVENT</span>}
                                     </p>
                                     <h2 style={{ margin: 0, color: "#faf5ff" }}>{isQuestRift ? <><span className="hg-rift-depth">Depth {String(run.floor).padStart(2, '0')} / {String(maxFloor).padStart(2, '0')}</span>{run.completed ? 'The Rift Falls Silent' : floorProfile.name}</> : <>Floor {run.floor} / {maxFloor} · {run.completed ? `${bossName} Defeated` : floorProfile.name}</>}</h2>
                                 </div>

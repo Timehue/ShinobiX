@@ -2,14 +2,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const fight = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
+const fight = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8")
+    + readFileSync(new URL("../lib/tower-round-presentation.ts", import.meta.url), "utf8");
 const tacticalCss = readFileSync(new URL("../styles/tower-tactical.css", import.meta.url), "utf8");
 
 test("Tower round copy distinguishes score par, timed holds, and hard limits", () => {
     assert.match(fight, /function towerRoundPresentation\(session: TowerSession\)/);
     assert.match(fight, /debriefLabel: "Hold duration"[\s\S]{0,240}?hudLabel: goal > 0 \? `Hold \$\{held\}\/\$\{goal\}`/);
-    assert.match(fight, /debriefLabel: "Rounds \/ par"[\s\S]{0,180}?`\$\{session\.round\} · Par \$\{goal\}`/);
-    assert.match(fight, /Par \$\{goal\} affects clear score only; the Story fight continues beyond it/);
+    assert.match(fight, /debriefLabel: "Rounds \/ par"/);
+    assert.match(fight, /Clear by the end of round/);
     assert.match(fight, /debriefLabel: "Round limit"[\s\S]{0,220}?`Round \$\{session\.round\}\/\$\{hardLimit\} · limit`/);
     assert.doesNotMatch(fight, /const roundBudget = session\.sealedCatalogFloor\?\.roundBudget \?\? session\.roundCap/);
     assert.match(fight, /objective === "survive" \? `Held \$\{roundsSurvived\}/);

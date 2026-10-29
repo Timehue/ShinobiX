@@ -24,6 +24,7 @@
 
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
+import { cleanWorldExploreAuthorityReceipt, worldExploreAuthorityKey } from './_explore-authority.js';
 
 export type PendingWorldReward = {
     kind: 'explore' | 'chest';
@@ -90,6 +91,15 @@ export async function addPendingWorldReward(
     const key = pendingWorldRewardsKey(playerName);
     return withKvLock(key, async () => {
         const current = cleanPendingWorldRewards(await kv.get(key));
+        // /open-chest publishes payout proof before retiring the pending row.
+        // Recheck under this same mirror lock: an older Explore response may
+        // reach here after that retirement, with an unopened snapshot in hand.
+        const authority = cleanWorldExploreAuthorityReceipt(await kv.get(worldExploreAuthorityKey(playerName, entry.requestId)));
+        if (authority?.outcome?.openedLoot) {
+            const next = current.filter(item => item.requestId !== entry.requestId);
+            if (next.length !== current.length) await writePendingWorldRewards(playerName, next);
+            return next;
+        }
         const existing = current.find((item) => item.requestId === entry.requestId);
         const next = existing
             ? current.map((item) => item === existing ? { ...item, kind: entry.kind, sector: entry.sector } : item)

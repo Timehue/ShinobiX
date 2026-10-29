@@ -1,3 +1,4 @@
+import { towerRoundPresentation } from "../lib/tower-round-presentation";
 import { ClanBossGuardBanner } from '../components/ClanBossGuardBanner';
 import { clanBossGuardMultiplier } from '../../../shared/clan-boss-guard';
 import { TowerResultHeader } from "../components/TowerResultHeader";
@@ -299,67 +300,6 @@ function adoptTowerSession(current: TowerSession, next: TowerSession): TowerSess
     if (nextVersion < currentVersion) return current;
     if (nextVersion === currentVersion && sameJsonValue(next, current)) return current;
     return next;
-}
-
-type TowerRoundPresentation = {
-    debriefLabel: string;
-    debriefValue: string;
-    hudLabel: string;
-    hudTitle: string;
-    hardLimit: number | null;
-};
-
-/**
- * Keep Story score pace, timed objectives, and true hard limits visually distinct.
- * Story `roundBudget` is a par used for score pacing; only protect/survive objectives
- * and sealed Spire/embedded `roundCap` values are deadlines.
- */
-function towerRoundPresentation(session: TowerSession): TowerRoundPresentation {
-    const objective = session.objectiveState.kind;
-    const goal = Number((session.sealedCatalogFloor ?? session.encounterFloor)?.roundBudget ?? 0);
-    const isTimedHold = objective === "protect-npc" || objective === "survive";
-    if (isTimedHold) {
-        const held = Math.max(0, Number(session.objectiveState.roundsSurvived ?? 0));
-        return {
-            debriefLabel: "Hold duration",
-            debriefValue: goal > 0 ? `${held} / ${goal} rounds` : `${held} rounds`,
-            hudLabel: goal > 0 ? `Hold ${held}/${goal}` : `Held ${held} rounds`,
-            hudTitle: goal > 0 ? `Hold the objective for ${goal} completed rounds.` : "Completed objective-hold rounds.",
-            hardLimit: goal > 0 ? goal : null,
-        };
-    }
-
-    const isStory = session.towerId === "celestial"
-        && Number(session.ascensionTier ?? 0) === 0
-        && session.floor >= 1 && session.floor <= 15;
-    if (isStory && goal > 0) {
-        return {
-            debriefLabel: "Rounds / par",
-            debriefValue: `${session.round} · Par ${goal}`,
-            hudLabel: `Round ${session.round} · Par ${goal}`,
-            hudTitle: `Par ${goal} affects clear score only; the Story fight continues beyond it.`,
-            hardLimit: null,
-        };
-    }
-
-    const hardLimit = Math.max(0, Number(session.roundCap ?? 0));
-    if (hardLimit > 0) {
-        return {
-            debriefLabel: "Round limit",
-            debriefValue: `${session.round} / ${hardLimit}`,
-            hudLabel: `Round ${session.round}/${hardLimit} · limit`,
-            hudTitle: `The encounter ends after round ${hardLimit}.`,
-            hardLimit,
-        };
-    }
-
-    return {
-        debriefLabel: "Rounds",
-        debriefValue: String(session.round),
-        hudLabel: `Round ${session.round}`,
-        hudTitle: `Current round ${session.round}.`,
-        hardLimit: null,
-    };
 }
 
 function TowerBattleDebrief({ session, score, teamLabel = "Squad", objectiveLabel, worldBossReceipt, roundsLabel }: { session: TowerSession; score?: number; teamLabel?: string; objectiveLabel?: string; worldBossReceipt?: WorldBossRaidReceipt; roundsLabel?: string }) {

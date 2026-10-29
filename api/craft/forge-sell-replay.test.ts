@@ -42,6 +42,41 @@ async function call(endpoint: Handler, player: string, body: Json) {
 
 const version = async (player: string) => Number((await kv.get<Json>(`save:${player}`))?._saveVersion);
 
+test('five Pet Treats debit 2,000 ryo with selected materials exactly once', async () => {
+    const player = 'treatbatchfive';
+    const recipe = SUPPLY_CRAFT_RECIPES['pet-treat'];
+    const materials = recipe.ingredients.map(row => ({ [row.ids[0]]: row.count * 5 }));
+    await kv.set(`save:${player}`, { _saveVersion: 1, character: {
+        name: player, level: 100, ryo: 3000, inventory: [], equipment: {},
+        itemStacks: recipe.ingredients.map(row => ({ itemId: row.ids[0], count: row.count * 5 })),
+    } });
+    const body = { requestId: 'pet-treat-batch-0001', kind: 'supply', recipeId: 'pet-treat', quantity: 5, materials };
+    const first = await call(forge, player, body);
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    const paid = first.body.character as Json;
+    assert.equal(paid.ryo, 1000);
+    assert.equal((paid.itemStacks as Array<{ itemId: string; count: number }>).find(row => row.itemId === 'pet-treat')?.count, 5);
+    const saved = await kv.get(`save:${player}`);
+    const replay = await call(forge, player, body);
+    assert.equal(replay.status, 200, JSON.stringify(replay.body));
+    assert.equal(replay.body.replayed, true);
+    assert.equal((replay.body.character as Json).ryo, 1000);
+    assert.deepEqual(await kv.get(`save:${player}`), saved, 'retry neither pays nor produces twice');
+});
+
+test('an unaffordable five-treat batch changes neither materials nor currency', async () => {
+    const player = 'treatbatchpoor';
+    const recipe = SUPPLY_CRAFT_RECIPES['pet-treat'];
+    const saved = { _saveVersion: 1, character: { name: player, level: 100, ryo: 1999, inventory: [],
+        itemStacks: recipe.ingredients.map(row => ({ itemId: row.ids[0], count: row.count * 5 })),
+    } };
+    await kv.set(`save:${player}`, saved);
+    const result = await call(forge, player, { requestId: 'pet-treat-batch-0002', kind: 'supply', recipeId: 'pet-treat', quantity: 5,
+        materials: recipe.ingredients.map(row => ({ [row.ids[0]]: row.count * 5 })) });
+    assert.equal(result.status, 409);
+    assert.deepEqual(await kv.get(`save:${player}`), saved);
+});
+
 test('a replayed forge request returns the receipt without bumping _saveVersion', async () => {
     const player = 'forgereplay1';
     const dust = SUPPLY_CRAFT_RECIPES['currency:aura-dust'];

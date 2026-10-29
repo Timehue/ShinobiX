@@ -1,3 +1,4 @@
+import { withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
 import { isOpenWorldBattleKind } from './_ai-fight-token.js';
 import { openWorldContinuousVitalsEnabled } from '../_release-flags.js';
 import { safeLogValue } from '../_safe-log.js';
@@ -203,7 +204,7 @@ function genericStartBody(recovered: { pointer: AiFightActivePointer; token: AiF
 async function sealAiFightEncounter(
     playerName: string,
     body: Record<string, unknown>,
-    rawSave: Record<string, unknown>,
+    _rawSave: Record<string, unknown>,
     worldSpec?: WorldAiFightSpec,
     genericAuthority?: GenericAiFightAuthority,
 ): Promise<{ sessionId: string; session: SoloPveSession } | null> {
@@ -211,61 +212,63 @@ async function sealAiFightEncounter(
         if (!profile) return null;
         // Same augmentation combat-start applies, so a forged weapon resolves to
         // its real definition instead of being dropped from the sealed loadout.
-        const save = await augmentSaveWithForgedDefs(rawSave);
-        if (!save?.character) throw new Error('Authoritative player save is unavailable.');
-        const sessionId = `aifight-${randomUUID().replace(/-/g, '')}`;
+        return withCombatAdmissionSave(playerName, async (fresh) => {
+            const save = await augmentSaveWithForgedDefs(fresh);
+            if (!save?.character) throw new Error('Authoritative player save is unavailable.');
+            const sessionId = `aifight-${randomUUID().replace(/-/g, '')}`;
 
-        // Step 3c: scaling from SERVER state. `body.opponentLevel` is never read
-        // for the encounter — a client-chosen level is a client-chosen
-        // difficulty. The authority resolver separately validates Arena's
-        // explicit consensual practiceLevel. Other non-mission entry points
-        // keep their authored level or dedicated server-owned scaling.
-        const scaling = worldSpec ? undefined : genericAuthority?.scaling ?? resolveAiFightScaling({
-            opponentId: body.opponentId,
-            battleKind: body.battleKind,
-            playerLevel: (save.character as Record<string, unknown> | undefined)?.level,
+            // Step 3c: scaling from SERVER state. `body.opponentLevel` is never read
+            // for the encounter — a client-chosen level is a client-chosen
+            // difficulty. The authority resolver separately validates Arena's
+            // explicit consensual practiceLevel. Other non-mission entry points
+            // keep their authored level or dedicated server-owned scaling.
+            const scaling = worldSpec ? undefined : genericAuthority?.scaling ?? resolveAiFightScaling({
+                opponentId: body.opponentId,
+                battleKind: body.battleKind,
+                playerLevel: (save.character as Record<string, unknown> | undefined)?.level,
+            });
+            const now = Date.now();
+            // A world encounter's sector is its validated context; an exploration or
+            // raid fight's is the one its receipt / token proved. Practice, dungeon
+            // and the sectorless Apex hunt have none and stay weatherless.
+            const sky = await sealedSectorWeather(worldSpec ? worldSpec.context.sector : genericAuthority?.sector, now);
+            const session = buildSoloPveAiEncounter({
+                playerName,
+                save,
+                profile,
+                sessionId,
+                now,
+                ...(scaling ? { scaling } : {}),
+                // Generic fights keep their central board, and only the sky is added.
+                environment: worldSpec ? { ...worldSpec.environment, ...sky } : { biome: 'central', ...sky },
+                ...(worldSpec ? {
+                    encounter: {
+                        kind: 'world-ai',
+                        id: worldSpec.context.kind,
+                        sourceId: worldSpec.context.sourceId,
+                        bindingId: worldSpec.context.chainId ?? worldSpec.context.decisionId,
+                        metadata: { sector: worldSpec.context.sector, stage: worldSpec.context.stage },
+                    },
+                } : {}),
+                // Open-world fights are continuous: seeded from the vitals the player
+                // actually has, and settled back the same way. Instanced and practice
+                // fights keep their fresh pool.
+                continuousVitals: openWorldContinuousVitalsEnabled()
+                    && isOpenWorldBattleKind(worldSpec ? 'world' : (genericAuthority?.battleKind ?? body.battleKind)),
+                // A practice bout is a spar: it never sends anyone to the hospital
+                // and leaves HP as it found it (api/missions/_ai-fight-outcome.ts).
+                // Sealed on the session so every settlement path reads the same
+                // answer — the report, the lapse reconciler and an abandon.
+                spar: !worldSpec && genericAuthority?.battleKind === 'practice',
+                admin: await loadAdminCombatContent(),
+                // Standard PvE (generic and world AI fights): the bracket-scaled
+                // turn planner (api/solo-pve/_ai-turn-policy.ts).
+                aiTurnPolicy: STANDARD_PVE_AI_POLICY,
+            });
+            if (worldSpec?.context.huntFormation) attachHuntCombat(session, worldSpec.context);
+            await writeSoloPveSession(session);
+            return { sessionId, session };
         });
-        const now = Date.now();
-        // A world encounter's sector is its validated context; an exploration or
-        // raid fight's is the one its receipt / token proved. Practice, dungeon
-        // and the sectorless Apex hunt have none and stay weatherless.
-        const sky = await sealedSectorWeather(worldSpec ? worldSpec.context.sector : genericAuthority?.sector, now);
-        const session = buildSoloPveAiEncounter({
-            playerName,
-            save,
-            profile,
-            sessionId,
-            now,
-            ...(scaling ? { scaling } : {}),
-            // Generic fights keep their central board, and only the sky is added.
-            environment: worldSpec ? { ...worldSpec.environment, ...sky } : { biome: 'central', ...sky },
-            ...(worldSpec ? {
-                encounter: {
-                    kind: 'world-ai',
-                    id: worldSpec.context.kind,
-                    sourceId: worldSpec.context.sourceId,
-                    bindingId: worldSpec.context.chainId ?? worldSpec.context.decisionId,
-                    metadata: { sector: worldSpec.context.sector, stage: worldSpec.context.stage },
-                },
-            } : {}),
-            // Open-world fights are continuous: seeded from the vitals the player
-            // actually has, and settled back the same way. Instanced and practice
-            // fights keep their fresh pool.
-            continuousVitals: openWorldContinuousVitalsEnabled()
-                && isOpenWorldBattleKind(worldSpec ? 'world' : (genericAuthority?.battleKind ?? body.battleKind)),
-            // A practice bout is a spar: it never sends anyone to the hospital
-            // and leaves HP as it found it (api/missions/_ai-fight-outcome.ts).
-            // Sealed on the session so every settlement path reads the same
-            // answer — the report, the lapse reconciler and an abandon.
-            spar: !worldSpec && genericAuthority?.battleKind === 'practice',
-            admin: await loadAdminCombatContent(),
-            // Standard PvE (generic and world AI fights): the bracket-scaled
-            // turn planner (api/solo-pve/_ai-turn-policy.ts).
-            aiTurnPolicy: STANDARD_PVE_AI_POLICY,
-        });
-        if (worldSpec?.context.huntFormation) attachHuntCombat(session, worldSpec.context);
-        await writeSoloPveSession(session);
-        return { sessionId, session };
 }
 
 function isNaturalWorldEncounter(context: WorldAiFightContext): boolean {
