@@ -21,6 +21,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
+        // Either admin role may read the approved list (Admin 2 curates items), the same
+        // gate as the POST below. It used to answer anyone; its only caller is the admin
+        // panel, which sends the admin password.
+        if (!isAdmin(req)) {
+            return res.status(401).json({ error: 'Unauthorized.' });
+        }
         try {
             const approved = await loadApprovedItems();
             res.setHeader('Cache-Control', 'no-store');
