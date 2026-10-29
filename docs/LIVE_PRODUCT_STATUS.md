@@ -68,7 +68,7 @@ The following are emergency safeguards, not launch labels:
 - The gameplay-mutation capability pauses admission of new unsafe-method player HTTP requests. GET-triggered settlement, scheduled jobs, realtime sessions, and storage writers require separate controls.
 - Registration can be paused independently.
 - Village War, Clan Boss, Clan Boss parties, new pet-breeding starts, and the Weekly Boss guard cycle have scoped disable controls.
-- Scheduled jobs can be paused independently. That pause does not cover the five-second tournament clock or boot-time territory seeding (`docs/EMERGENCY_LAUNCH_CONTROLS.md`).
+- Scheduled jobs can be paused independently.
 
 Admin authentication, content/economy moderation, image generation, dangerous recovery actions, and creator administration remain permission-based. No public status document broadens those boundaries.
 
