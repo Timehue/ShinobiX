@@ -7,7 +7,7 @@
  *   • clan wars   ← sharedClanWarCache (refreshed every 30s)
  *   • village wars ← world-state cache (refreshed every 15s)
  *   • tournament  ← arena-tournament cache (refreshed every 5s via game-state)
- * plus the localStorage battle-lock flags. The component re-derives on a short
+ * plus the saved Hollow Gate / dungeon run and the Tower run key. The component re-derives on a short
  * interval, so a chip appears/clears within a few seconds of the cache moving.
  */
 import type { Screen } from "../types/core";
@@ -18,33 +18,21 @@ import {
     loadArenaTournament,
     territoryBreachMinsLeft,
 } from "./world-state";
-import { hasActiveBattleLock, hasActiveTowerFight } from "./screen-guards";
+import { towerFightRunKey } from "./screen-guards";
 import {
     buildNotifications,
-    isBattleOnlyScreen,
-    isBattleViewScreen,
-    isLobbyFightScreen,
+    liveFightScreen,
     type GameNotification,
 } from "./notifications-core";
 
 export type { GameNotification } from "./notifications-core";
 
-/** True when the player is committed to an unresolved fight right now. */
-export function isInBattle(screen: Screen): boolean {
-    if (isBattleOnlyScreen(screen)) return true;
-    // Battle Towers resumes from the server session; the run id in localStorage
-    // doubles as the "fight on the board" signal (see lib/screen-guards).
-    if (screen === "battleTowers") return hasActiveTowerFight();
-    // Arena / pet-arena lobbies are freely navigable; only an active server
-    // battle-lock means a fight is actually in progress.
-    if (isLobbyFightScreen(screen)) return hasActiveBattleLock();
-    return false;
-}
-
 export interface NotifContext {
     screen: Screen;
     clan?: string;
     village?: string;
+    /** savedRunScreen() of the player's save: a Hollow Gate or dungeon run. */
+    savedRun?: Screen | null;
     /** Injectable for tests; defaults to Date.now(). */
     now?: number;
 }
@@ -98,8 +86,8 @@ export function computeNotifications(ctx: NotifContext): GameNotification[] {
     return buildNotifications({
         // Only a reminder when you've stepped AWAY from a live fight — on the
         // battle board itself the chip is redundant (you're looking at it) and
-        // just overlaps the field on mobile.
-        inBattle: isInBattle(ctx.screen) && !isBattleViewScreen(ctx.screen),
+        // just overlaps the field on mobile. Clicking it takes you back.
+        battle: liveFightScreen(ctx.screen, ctx.savedRun ?? null, towerFightRunKey()),
         territoryBreach,
         clanWar,
         villageWar,
