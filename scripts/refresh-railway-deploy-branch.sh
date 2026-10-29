@@ -56,9 +56,16 @@ for required in Dockerfile railway.json package.json server.ts api shinobij.clie
   fi
 done
 
-COMMIT="$(git commit-tree "$TREE" -p "$SHA" -m "Railway deploy branch: $SHA minus folders the Docker image already excludes
+# Railway's deployment list shows this commit's message, so the first line is the
+# source commit's own subject ("Merge pull request #526 from ...") and a deploy
+# can be matched to its PR at a glance. The explanation goes in the body.
+SUBJECT="$(git log -1 --format=%s "$SHA")"
+[ -n "$SUBJECT" ] || SUBJECT="Railway deploy branch: $SHA"
 
-Same code as $SHA. docs/, release-audit, mobile, android and the art sources
+COMMIT="$(git commit-tree "$TREE" -p "$SHA" -m "$SUBJECT
+
+Railway deploy of $SHA minus folders the Docker image already excludes.
+Same code as $SHA: docs/, release-audit, mobile, android and the art sources
 are in .dockerignore, so the built image is unchanged; the source snapshot
 Railway fetches shrinks from about 10 GB to about 1 GB.
 
