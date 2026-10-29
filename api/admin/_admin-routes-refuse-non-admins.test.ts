@@ -32,18 +32,13 @@ const ALLOWED = new Set([401, 403, 405]);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 
 /**
- * Known public reads. Each is a deliberate exception, named with the exact keys it
- * may return, so it cannot grow quietly. Today there is one:
- *
- * item-review GET answers anyone with the approved item ids and nothing else. Its
- * only caller is the admin panel, which already sends the admin password, so the
- * read does not need to be public; making it admin-only is a one-line isAdmin() on
- * the GET branch, held back because it changes admin auth. When that lands, delete
- * this entry and the test will then require the refusal.
+ * Known public reads. A route that must answer anonymous callers is a deliberate
+ * exception: name it here with the exact keys it may return, so it cannot grow
+ * quietly, and say why. There are none today. The one that existed, item-review GET
+ * (approved item ids, read only by the admin panel, which sends the admin password),
+ * was made admin-only under issue #18.
  */
-const KNOWN_PUBLIC_READS: Record<string, { keys: string[]; why: string }> = {
-    'item-review.ts GET': { keys: ['approvedItems'], why: 'approved item ids only (issue #18)' },
-};
+const KNOWN_PUBLIC_READS: Record<string, { keys: string[]; why: string }> = {};
 
 function publicReadProblem(name: string, method: string, body: unknown): string | null {
     const known = KNOWN_PUBLIC_READS[`${name} ${method}`];
@@ -158,6 +153,15 @@ describe('every api/admin route refuses everyone who is not an admin', () => {
             const r = await call(name, method, {});
             assert.equal(r.status, 200, `${entry} now refuses anonymous callers: delete it from KNOWN_PUBLIC_READS so the test requires the refusal`);
         }
+    });
+
+    it('item-review GET, once public, still serves both admin roles (the admin panel reads it)', async () => {
+        for (const password of [process.env.ADMIN_PASSWORD!, process.env.ADMIN_CONTENT_PASSWORD!]) {
+            const r = await call('item-review.ts', 'GET', { 'x-admin-password': password });
+            assert.equal(r.status, 200);
+            assert.deepEqual(Object.keys(r.body as object), ['approvedItems']);
+        }
+        assert.equal((await call('item-review.ts', 'GET', {})).status, 401);
     });
 
     it('control: the real admin password gets past the gate on the same harness', async () => {
