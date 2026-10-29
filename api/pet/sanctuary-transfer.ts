@@ -82,9 +82,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!existing) return { ok: false, status: 404, error: 'pet-not-carried' };
                     return { ok: true, character, pet: existing.pet, version: Number(record._saveVersion ?? 0), action, replayed: true };
                 }
-                const [activeBattle, coliseumDefense, tacticalDefense] = await Promise.all([
+                // Only the Warfront defense is a live assignment. The retired Colosseum
+                // ladder answers 410 to every POST, so an old `petladder:coliseum:def`
+                // doc can never be replaced and must not lock its pets.
+                const [activeBattle, tacticalDefense] = await Promise.all([
                     kv.get(`battle-lock:${playerName}`),
-                    kv.get(`petladder:coliseum:def:${playerName}`),
                     kv.get(`petladder:tactical:def:${playerName}`),
                 ]);
                 if (activeBattle) {
@@ -93,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (await sealedFightOwesConsumable(playerName, petId)) {
                     return { ok: false, status: 409, error: 'pet-is-in-active-battle', message: 'This companion is still in a pet battle. Finish that fight before moving it to the Sanctuary.' };
                 }
-                const assignmentIds = [...defensePetIds(coliseumDefense), ...defensePetIds(tacticalDefense)];
+                const assignmentIds = defensePetIds(tacticalDefense);
                 const busy = petBusyReason(character, carriedPet, Date.now(), {
                     includeActive: false,
                     includeReserve: false,

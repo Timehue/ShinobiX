@@ -4368,6 +4368,22 @@ test("legacy deck migration is immutable, trims copies, grants starter core, and
 
 const clockAfter = (state: ChronicleMatch) => state.turnStartedAt + TURN_TIMEOUT_MS;
 
+test("catchUp passes every overdue turn at its own deadline, so a walked-out duel ends on one call", () => {
+  const state = match();
+  const longGone = state.turnStartedAt + 20 * TURN_TIMEOUT_MS;
+
+  const single = advanceExpiredChronicleTurn(state, longGone);
+  assert.equal(single.status, "active", "without catchUp one call passes one turn");
+
+  const caughtUp = advanceExpiredChronicleTurn(state, longGone, { catchUp: true });
+  assert.equal(caughtUp.status, "complete", "both duelists absent: the first to miss two turns forfeits");
+  assert.equal(caughtUp.winner, state.activePlayer === "p1" ? "p2" : "p1");
+  assert.ok(caughtUp.log.some((line) => line.includes(`run out ${CHRONICLE_AFK_STRIKE_LIMIT} turns in a row`)));
+
+  const notYet = advanceExpiredChronicleTurn(state, clockAfter(state) - 1, { catchUp: true });
+  assert.equal(notYet, state, "nothing due returns the same object");
+});
+
 test("two turns in a row with no action forfeit the duel to the player who stayed", () => {
   let state = match();
   const absent = state.activePlayer;

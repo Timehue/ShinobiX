@@ -35,7 +35,7 @@ export function GoogleLinkCard({ playerName }: { playerName: string }) {
     const [passwordAsked, setPasswordAsked] = useState(false);
     // A guest is the player this card is really for, so say so directly rather
     // than offering the same neutral copy to someone who already has a password.
-    const [isGuest] = useState(() => loadGuestSession()?.name.toLowerCase() === playerName.toLowerCase());
+    const [isGuest] = useState(() => loadGuestSession(playerName) !== null);
 
     // Warm a cold store; a fresh lease is reused, and the answer arrives above.
     useEffect(() => {

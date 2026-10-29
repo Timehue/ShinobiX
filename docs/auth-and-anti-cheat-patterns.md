@@ -362,7 +362,7 @@ cross-check (single-player / client-driven activities):
 | Activity | Mint | Redeem | Notes |
 |----------|------|--------|-------|
 | **Pet expeditions** (M1) | `api/missions/expedition-start.ts` | `api/missions/report-pet-event.ts` | Token seals `expType`/`duration`/`petLevel` (**duration derived from `expType` server-side** so scout's Ryo rate can't ride ruins' 4h). `endsAt` time-gate (must fully elapse, 60s skew grace). Single-use. **No fallback.** 12/day mint cap. Client stores the token in the persisted `pet.expedition.token` (survives reload). |
-| **AI raids** | `api/missions/raid-start.ts` | `api/missions/report-raid.ts` | Sibling pattern. 5-min `raid-token`. **Keeps a fallback** for stale clients (rate-limit-only when absent). |
+| **AI raids** | `api/missions/raid-start.ts` | `api/missions/report-ai-fight.ts` (via `missions/_generic-ai-fight-authority.ts` `settleRaidAiToken`) | Sibling pattern. 5-min `raid-token`, minted as `authorityVersion: 2` only. The fight is sealed by `ai-fight-start` and settled from its recorded outcome. `report-raid.ts` refuses a v2 token (409 `ai-fight-owned-raid-token`); its old token branch only answers replays. |
 | **PvP raids / PvP-win** | — | `report-raid.ts` / `report-pvp-win.ts` | No token needed: cross-validate `battleId` against the real `PvpSession` (done + winner + recency) + NX idempotency. |
 | **PvP reward claim** | — | `api/pvp/claim-rewards.ts` | Loads the session, verifies caller is the recorded winner/loser, recomputes Elo + base reward under lock with an NX receipt (exactly-once). |
 

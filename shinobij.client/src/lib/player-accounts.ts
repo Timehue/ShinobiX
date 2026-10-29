@@ -8,6 +8,7 @@
 // the token-first auth model holds even for users upgrading from a build that
 // did persist one. Do not "simplify" either of those away.
 import type { Character } from "../types/character";
+import { guestNames } from "./guest-play";
 import type { Biome } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { PLAYER_ACCOUNTS_STORAGE } from "../constants/game";
@@ -66,8 +67,7 @@ export function accountKey(name: string) {
  */
 export function rememberedShinobi(): { name: string; accountName?: string; guest: boolean }[] {
     const accounts = loadPlayerAccounts();
-    let guestName = "";
-    try { guestName = (localStorage.getItem("shinobix:guestName") ?? "").toLowerCase(); } catch { /* private mode */ }
+    const guests = guestNames();
 
     // A token whose own expiry has passed is not a way back in: pressing its
     // chip would re-install a dead credential, every call would 401, and the
@@ -77,8 +77,8 @@ export function rememberedShinobi(): { name: string; accountName?: string; guest
     const named = Object.entries(accounts)
         .filter(([, account]) => Boolean(account?.token) && !isTokenExpired(account.token!))
         .map(([key]) => key);
-    const all = guestName && !named.includes(guestName) ? [...named, guestName] : named;
-    return all.slice(0, 4).map((name) => ({ name, ...(accounts[name]?.accountName ? { accountName: accounts[name].accountName } : {}), guest: name === guestName }));
+    const all = [...named, ...guests.filter((guest) => !named.includes(guest))];
+    return all.slice(0, 4).map((name) => ({ name, ...(accounts[name]?.accountName ? { accountName: accounts[name].accountName } : {}), guest: guests.includes(name) }));
 }
 
 /**
