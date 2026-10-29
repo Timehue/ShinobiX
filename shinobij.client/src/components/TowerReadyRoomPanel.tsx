@@ -1,3 +1,4 @@
+import { COMBAT_MAX_ROUNDS } from "../../../shared/combat-limits";
 import { TOWER_ROUTE_CHOICES, type TowerRouteChoiceId } from "../lib/towers-api";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { visiblePoll } from "../lib/poll";
@@ -177,7 +178,7 @@ function readyRoomObjectiveLabel(objective: string): string {
 function readyRoomPaceLabel(floor: TowerFloorMeta): string {
     if (floor.objective === "protect-npc") return `Hold ${floor.roundBudget} rounds`;
     if (floor.objective === "survive") return `Survive ${floor.roundBudget} rounds`;
-    return `Par / score pace · ${floor.roundBudget} rounds`;
+    return `Par / score pace · ${floor.roundBudget} rounds · Limit ${COMBAT_MAX_ROUNDS} rounds`;
 }
 
 function readyRoomEnemyLabel(floor: TowerFloorMeta): string {

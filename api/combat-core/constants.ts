@@ -4,7 +4,7 @@
 
 export const GRID_W = 12;
 export const GRID_H = 10;
-export const MAX_ROUNDS = 25;
+export { COMBAT_MAX_ROUNDS as MAX_ROUNDS } from '../../shared/combat-limits.js';
 export const MAX_ACTIONS = 5;
 
 // AOE_SPIRAL ground-nova footprint radius. Mirror in the client preview

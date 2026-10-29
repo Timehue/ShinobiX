@@ -363,12 +363,13 @@ export async function settleIdleRecovery(
     record: PlayerSaveRecord,
     opts: { ownBattleLock?: (lock: unknown) => boolean } = {},
 ): Promise<{ character: PlayerCharacter; regen: { excluded: boolean; cursor: number } }> {
-    const [{ battleLockKey, settleVitalsRegen }, { safeName }] = await Promise.all([
+    const [{ battleLockKey, soloBattleStateKey, blocksSoloIdleRecovery, settleVitalsRegen }, { safeName }] = await Promise.all([
         import('../_elapsed-state.js'),
         import('../_utils.js'),
     ]);
     const slug = safeName(playerName);
     const lock = slug ? await store.get<unknown>(battleLockKey(slug)) : null;
+    const solo = slug ? await store.get<unknown>(soloBattleStateKey(slug)) : null;
     const now = Date.now();
     const lockStartedAt = Number((lock as { startedAt?: unknown } | null)?.startedAt);
     const ownLockStart = lock && opts.ownBattleLock?.(lock) === true && Number.isFinite(lockStartedAt) && lockStartedAt > 0
@@ -376,7 +377,7 @@ export async function settleIdleRecovery(
         : null;
     const regen = settleVitalsRegen(record, {
         now: ownLockStart ?? now,
-        battleLocked: Boolean(lock) && ownLockStart === null,
+        battleLocked: (Boolean(lock) && ownLockStart === null) || blocksSoloIdleRecovery(solo),
     });
     return {
         character: (regen.record.character ?? record.character) as PlayerCharacter,

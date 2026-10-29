@@ -79,7 +79,7 @@ async function seed(playerName: string, character: Record<string, unknown> = {})
 
 function chestReceipt(player: string, requestId: string, sector: number, at = Date.now()) {
     return {
-        version: 1,
+        version: 1 as const,
         playerName: player,
         requestId,
         sector,
@@ -90,6 +90,50 @@ function chestReceipt(player: string, requestId: string, sector: number, at = Da
 }
 
 describe('world-reward:pending account mirror', () => {
+    it('opening before the discovery mirror exists seals payout proof before a delayed Explore write', async () => {
+        const player = 'pendmirrorearlyopen', requestId = 'earlyopenchest01';
+        const receipt = chestReceipt(player, requestId, 41);
+        await seed(player, { serverChestDate: receipt.outcome.reservationDate, serverChestsToday: 1,
+            redeemedSectorExplorations: [{ id: requestId, sector: 41, reward: receipt.reward, outcome: receipt.outcome, at: receipt.at }] });
+        const body = { sector: 41, requestId, worldExploreRequestId: requestId };
+        const opened = await post(openChest, player, body);
+        assert.equal(opened.statusCode, 200, JSON.stringify(opened.body));
+        const paid = await kv.get<{ outcome?: { openedLoot?: unknown } }>(`world-explore-receipt:${player}:${requestId}`);
+        assert.ok(paid?.outcome?.openedLoot);
+        assert.deepEqual(JSON.parse(JSON.stringify(paid.outcome.openedLoot)), JSON.parse(JSON.stringify(opened.body?.loot)));
+        const saved = await kv.get(`save:${player}`);
+        const { storeWorldExploreAuthority } = await import('./_store-explore-authority.js');
+        await storeWorldExploreAuthority(receipt);
+        await pending.addPendingWorldReward(player, { kind: 'explore', requestId, sector: 41 });
+        assert.deepEqual(await pending.readPendingWorldRewards(player), []);
+        const replayed = await post(openChest, player, body);
+        assert.equal(replayed.statusCode, 200);
+        assert.equal(replayed.body?.replayed, true);
+        assert.deepEqual(JSON.parse(JSON.stringify(replayed.body?.loot)), JSON.parse(JSON.stringify(opened.body?.loot)));
+        assert.deepEqual(await kv.get(`save:${player}`), saved, 'no second reward, counter increment, or save write');
+    });
+    it('a delayed discovery persistence cannot overwrite a newer paid chest receipt', async () => {
+        const { storeWorldExploreAuthority } = await import('./_store-explore-authority.js');
+        const receipt = chestReceipt('pendmirrorauthority', 'paidchestproof01', 41);
+        await storeWorldExploreAuthority(receipt);
+        const paid = { ...receipt, outcome: { ...receipt.outcome, openedLoot: { xp: 0, ryo: 345, auraDust: 10 }, chestOpenedAt: Date.now() } };
+        await storeWorldExploreAuthority(paid);
+        assert.deepEqual(await storeWorldExploreAuthority(receipt), paid);
+        assert.deepEqual(await kv.get(`world-explore-receipt:${receipt.playerName}:${receipt.requestId}`), paid);
+    });
+    it('a delayed exploration response cannot relist a chest that was already paid', async () => {
+        const player = 'pendmirrordelayed';
+        const requestId = 'delayedchest0001';
+        const receipt = chestReceipt(player, requestId, 41);
+        await kv.set(`world-explore-receipt:${player}:${requestId}`, {
+            ...receipt, outcome: { ...receipt.outcome, openedLoot: { xp: 0, ryo: 345, itemId: 'rustfang-kunai', auraDust: 10 }, chestOpenedAt: Date.now() },
+        });
+        // /open-chest has finished. An older /explore response now reaches its
+        // post-commit mirror write using the unopened receipt it read earlier.
+        const listed = await pending.addPendingWorldReward(player, { kind: 'explore', requestId, sector: 41 });
+        assert.deepEqual(listed, []);
+        assert.deepEqual(await pending.readPendingWorldRewards(player), []);
+    });
     it('adds, dedupes by request id, caps at 50 (oldest out), and removes on settle', async () => {
         const player = 'pendmirrorlist';
         await pending.addPendingWorldReward(player, { kind: 'explore', requestId: 'firstrequest0001', sector: 41 });

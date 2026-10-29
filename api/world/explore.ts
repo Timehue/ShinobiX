@@ -3,6 +3,7 @@ import { sealGatherFind } from './_gather.js';
 import { gatherGroundOrigin } from './_harvest-ground.js';
 import { onlineStore as gatheringPresence } from '../_realtime/online-store.js';
 import { safeLogValue } from '../_safe-log.js';
+import { storeWorldExploreAuthority } from './_store-explore-authority.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -26,7 +27,6 @@ import {
 import { resolveFreeDungeonMiss, unresolvedFreeDungeonMiss } from '../dungeon/_run.js';
 import {
     cleanWorldExploreAuthorityReceipt,
-    WORLD_EXPLORE_RECEIPT_TTL_SECONDS,
     worldExploreAuthorityKey,
     type WorldExploreAuthorityReceipt,
 } from './_explore-authority.js';
@@ -536,7 +536,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : {}),
                     at: Math.floor(Number(result.value.exploreReceiptAt) || Date.now()),
                 } satisfies WorldExploreAuthorityReceipt;
-                await kv.set(durableKey, authority, { ex: WORLD_EXPLORE_RECEIPT_TTL_SECONDS });
+                authority = await storeWorldExploreAuthority(authority);
             }
             const fieldProgress = await creditFieldExploreProgress({
                 playerName,

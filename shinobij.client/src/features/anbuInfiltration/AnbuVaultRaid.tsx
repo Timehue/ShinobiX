@@ -1,6 +1,7 @@
 /* Sector stronghold: shared exploration, movement patrols, and the final Anbu raid. */
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { StrongholdExplore } from "./StrongholdExplore";
+import { useEmbeddedCombat } from '../../lib/use-embedded-combat';
 import { strongholdRequest } from "./stronghold-api";
 import { StrongholdDialog } from "./StrongholdDialog";
 import { useVillageCampaign, type VillageCampaignState } from '../../lib/use-village-campaign';
@@ -146,6 +147,7 @@ function AnbuVaultRaidLegacy({
         if (isDeathsGateStronghold(sector)) return null;
         try { return localStorage.getItem(runKey) ?? localStorage.getItem(INFIL_RUN_KEY) ?? ''; } catch { return ''; }
     });
+    useEmbeddedCombat(character.name, phase === 'fight' || starting || startUncertain || resumeRunId !== null);
     useEffect(() => {
         if (resumeRunId === null) return;
         if (!recoveryAvailable) return;

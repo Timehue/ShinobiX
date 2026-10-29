@@ -84,6 +84,30 @@ function frontline(squadChar = STRONG, enemyChar = WEAK): TowerActor[] {
 }
 
 describe('Battle Towers engine (P1.A2)', () => {
+    it('Story par is not a timeout, but an uncleared floor fails after round 25', () => {
+        const floor = makeFloor('defeat-all', { id: 7, roundBudget: 16 });
+        const session = makeSession([makeActor('sq', 'squad', 0), makeActor('enemy', 'enemy', 63)], { towerId: 'celestial', floor: 7 });
+        session.round = 16;
+        startRound(session);
+        while (session.round === 16 && session.status === 'active') endTurn(session, floor);
+        assert.equal(session.status, 'active');
+        session.round = 25;
+        startRound(session);
+        while (session.round === 25 && session.status === 'active') endTurn(session, floor);
+        assert.equal(session.status, 'done');
+        assert.equal(session.winner, 'enemy');
+    });
+
+    it('a successful round-25 objective wins before the safety cap fails the floor', () => {
+        const floor = makeFloor('survive', { roundBudget: 25 });
+        const session = makeSession([makeActor('sq', 'squad', 0), makeActor('enemy', 'enemy', 63)], { objectiveKind: 'survive' });
+        session.round = 25;
+        session.objectiveState.roundsSurvived = 24;
+        startRound(session);
+        while (session.round === 25 && session.status === 'active') endTurn(session, floor);
+        assert.equal(session.status, 'done');
+        assert.equal(session.winner, 'squad');
+    });
     it('expires starting shields after two rounds', () => {
         const shielded = makeActor('sq-1', 'squad', 0, { shield: 300 });
         const session = makeSession([shielded, makeActor('en-1', 'enemy', 63)]);

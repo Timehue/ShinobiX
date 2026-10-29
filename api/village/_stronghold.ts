@@ -1,3 +1,4 @@
+import { withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
 import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { readKvProjection } from '../_storage-projection.js';
@@ -189,6 +190,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
             await kv.set(key, visit, { ex: TTL });
         }
         if (visit.patrolId) {
+            const patrolId = visit.patrolId;
             let session = await readSoloPveSession(visit.patrolId);
             if (!session) {
                 const authority = await resolveBattleAuthority(playerName, battleEvidenceFrom(await kv.mget(...battleAuthorityKeys(playerName))));
@@ -197,31 +199,31 @@ export async function handleStrongholdAction(playerName: string, action: string,
                 // patrol is sealed from the save (api/pve/_held-fights.ts).
                 const held = await settleHeldFights(playerName, { except: visit.patrolId });
                 if (!held.ok) return fail(held.error, held.status);
-                const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
-                const character = save?.character as Record<string, unknown> | undefined;
-                if (!save || !character || isIncapacitated(character, Date.now())) return fail('Recover before facing the patrol.');
-                const profiles = ['story-ai-ashen-leaf-village-15', 'story-ai-stormveil-village-15', 'story-ai-frostfang-village-25'];
-                const profile = builtinAiProfile(profiles[(Math.floor(visit.steps / 25) - 1) % profiles.length]);
-                if (!profile) return fail('The patrol could not be prepared.', 503);
-                // The sector's sky, the same one the vault fight in this
-                // stronghold seals (api/village/anbu-infiltration.ts).
-                const sky = await sealedSectorWeather(sector, Date.now());
-                session = buildSoloPveAiEncounter({ sessionId: visit.patrolId, playerName, save, now: Date.now(),
-                    admin: await loadAdminCombatContent(), profile: { ...profile, name: (isDeathsGateStronghold(sector)
-                        ? ['Cinder Sentry', 'Ash Stalker', 'Obsidian Warden']
-                        : ['Stronghold Sentry', 'Stronghold Skirmisher', 'Stronghold Sealkeeper'])[(Math.floor(visit.steps / 25) - 1) % 3] },
-                    scaling: { level: Math.max(1, Math.min(100, Number(character.level) - 10)) },
-                    continuousVitals: true, encounter: { kind: 'stronghold-patrol', id: String(sector), bindingId: visit.id, metadata: { sector } },
-                    environment: { biome: sectorPlace(sector)?.biome ?? 'central', ...sky },
-                });
-                // An attack may have been reserved while the loadout was loading.
-                if (onlineStore.get(playerName)?.inBattle || onlineStore.get(playerName)?.pendingAttacker) return snapshot(playerName, visit, { combatBlocked: true });
-                const admission = await withWorldBossPvpLock([playerName], async () => {
+                const admission = await withWorldBossPvpLock([playerName], () => withCombatAdmissionSave(playerName, async (fresh) => {
+                    if (onlineStore.get(playerName)?.pendingAttacker || await unrelatedStrongholdBattle(playerName)) return false;
+                    const save = await augmentSaveWithForgedDefs(fresh);
+                    const character = save?.character as Record<string, unknown> | undefined;
+                    if (!save || !character || isIncapacitated(character, Date.now())) return { failure: fail('Recover before facing the patrol.') };
+                    const profiles = ['story-ai-ashen-leaf-village-15', 'story-ai-stormveil-village-15', 'story-ai-frostfang-village-25'];
+                    const profile = builtinAiProfile(profiles[(Math.floor(visit.steps / 25) - 1) % profiles.length]);
+                    if (!profile) return { failure: fail('The patrol could not be prepared.', 503) };
+                    // The sector's sky, the same one the vault fight in this
+                    // stronghold seals (api/village/anbu-infiltration.ts).
+                    const sky = await sealedSectorWeather(sector, Date.now());
+                    session = buildSoloPveAiEncounter({ sessionId: patrolId, playerName, save, now: Date.now(),
+                        admin: await loadAdminCombatContent(), profile: { ...profile, name: (isDeathsGateStronghold(sector)
+                            ? ['Cinder Sentry', 'Ash Stalker', 'Obsidian Warden']
+                            : ['Stronghold Sentry', 'Stronghold Skirmisher', 'Stronghold Sealkeeper'])[(Math.floor(visit.steps / 25) - 1) % 3] },
+                        scaling: { level: Math.max(1, Math.min(100, Number(character.level) - 10)) },
+                        continuousVitals: true, encounter: { kind: 'stronghold-patrol', id: String(sector), bindingId: visit.id, metadata: { sector } },
+                        environment: { biome: sectorPlace(sector)?.biome ?? 'central', ...sky },
+                    });
                     if (onlineStore.get(playerName)?.pendingAttacker || await unrelatedStrongholdBattle(playerName)) return false;
                     await writeSoloPveSession(session!);
                     return true;
-                });
+                }));
                 if (!admission.ok || !admission.value) return snapshot(playerName, visit, { combatBlocked: true });
+                if (typeof admission.value === 'object') return admission.value.failure;
             } else if (session.status === 'active' && session.expiresAt <= Date.now()) {
                 const lapsed = await terminalizeLapsedSoloPveSession(session.sessionId);
                 if (lapsed.ok && lapsed.session) session = lapsed.session;
