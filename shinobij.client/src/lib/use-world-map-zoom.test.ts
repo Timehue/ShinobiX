@@ -147,6 +147,10 @@ test("the mount focus survives activation and the address-bar resize", () => {
     // The ref callback measures in the LEGACY layout; the zoom class changes the
     // box, so the viewport must be measured again in the same task as the class.
     assert.match(source, /classList\.add\("wm-zoom"\);[\s\S]*?measureRef\.current\(\);/);
+    // The class must be on <html> BEFORE the first paint. As a passive effect it
+    // landed one frame late, so phones painted the legacy tall atlas and then
+    // snapped to the fitted frame (a 0.63 layout shift on a throttled restore).
+    assert.match(source, /useLayoutEffect\(\(\) => \{\s*if \(typeof document === "undefined"\) return;\s*const root = document\.documentElement;\s*if \(active\) root\.classList\.add\("wm-zoom"\);/);
     // A resize snaps back to the home view only when the camera IS home (floor
     // zoom AND cover pan), so a trail focus sitting at the floor is kept.
     assert.match(source, /const atHome = !previousSize\.w \|\| \([\s\S]*?Math\.abs\(current\.tx - previousCover\.tx\) <= 1/);
