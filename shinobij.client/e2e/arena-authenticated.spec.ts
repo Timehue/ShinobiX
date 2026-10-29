@@ -393,7 +393,9 @@ for (const outcome of ['win', 'loss'] as const) test(`practice ${outcome} waits 
 });
 
 async function createAccount(page: Page) {
-    await page.goto("/", { waitUntil: "networkidle" });
+    // Decorative asset requests can remain active after the creator is usable.
+    // The controls below provide the readiness checks this journey needs.
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.getByTestId("start-create").click();
     await page.getByRole("button", { name: "Choose village" }).click();
     await page.locator(".cc-village-card").first().click();
@@ -452,7 +454,7 @@ for (const { cost, ap } of [{ cost: 20, ap: 19 }, { cost: 20, ap: 20 }, { cost: 
         await expect.poll(api.hasSave).toBe(true);
         // Let registration finish its own navigation before entering combat.
         await expect(page.getByRole('button', { name: 'Enter Battle Arena' })).toBeVisible({ timeout: 30_000 });
-        await page.reload({ waitUntil: 'networkidle' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await openBattleArena(page);
         await chooseLevelAndStart(page);
         const button = combatSurface(page).locator('.summon-pet-command');
