@@ -8,6 +8,7 @@ import { kickPlayer } from '../_realtime/notify.js';
 import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { activeContestOnSector } from '../_sector-war-store.js';
+import type { SectorWarSession } from '../_sector-war.js';
 import { alertSectorPreparation } from '../_war-preparations.js';
 import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
 import { worldBossPvpProtectionBlock, withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
@@ -84,9 +85,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // which are capped at 3 per target per day, nothing capped the attacks.
         // The offline path already refused this ("Target has already been
         // defeated.", api/player/sleeper-kill.ts); the online path now agrees.
+        // The war on the target's sector, when this attack is between its two sides.
+        let war: { contest: SectorWarSession; targetVillage: string } | null = null;
         if (!identity.admin) {
             const targetSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${safeName(targetName)}`);
             const targetChar = targetSave?.character;
+            if (targetPresence) war = await warBetween(identity.name, targetChar, targetPresence.sector);
+            // In a Card or Pet war the two sides fight in the war's own game. A
+            // shinobi fight here would score nothing for the war, so it never
+            // starts. The client normally routes there itself
+            // (lib/sector-war-engagement.ts), but its copy of the contest can be
+            // missing or stale; the refusal names the contest so it can start the
+            // right battle instead.
+            if (war && war.contest.winCondition !== 'combat') {
+                return res.status(409).json({
+                    error: `This sector's war is fought with ${war.contest.winCondition} battles.`,
+                    sectorContest: { kind: war.contest.winCondition, sectorWarId: war.contest.id },
+                });
+            }
             if (targetChar) {
                 const now = Date.now();
                 if (isIncapacitated(targetChar, now)) {
@@ -112,26 +128,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // is the authoritative path that reads + clears pendingAttacker). No-op if
         // the target has no socket / realtime is off — the poll still delivers it.
         kickPlayer(targetName, 'attack');
-        if (!identity.admin && attacker && targetPresence) {
+        if (!identity.admin && attacker && war) {
             // Only an admitted world attack between this contest's two sides.
-            await (async () => {
-                const contest = await activeContestOnSector(targetPresence.sector);
-                if (!contest || contest.winCondition !== 'combat') return;
-                const [from, to] = await Promise.all([
-                    kv.get<{ character?: { village?: string } }>(`save:${identity.name}`),
-                    kv.get<{ character?: { village?: string } }>(`save:${safeName(targetName)}`),
-                ]);
-                const a = from?.character?.village, b = to?.character?.village;
-                if (a && b && a !== b && [contest.attackerVillage, contest.defenderVillage].includes(a)
-                    && [contest.attackerVillage, contest.defenderVillage].includes(b)) {
-                    const now = Date.now();
-                    await alertSectorPreparation(contest, `combat:${identity.name}:${safeName(targetName)}:${now}`, 'combat', now, b);
-                }
-            })().catch(() => undefined);
+            const now = Date.now();
+            await alertSectorPreparation(war.contest, `combat:${identity.name}:${safeName(targetName)}:${now}`, 'combat', now, war.targetVillage)
+                .catch(() => undefined);
         }
         return res.status(200).json({ ok: true });
     } catch (err) {
         console.error('[attack]', err);
         return res.status(500).json({ error: 'Internal server error.' });
+    }
+}
+
+/**
+ * The active sector war on `sector`, when the attacker and the target are its
+ * two sides. Fails open to null: an unreadable war leaves the attack the plain
+ * fight it always was, which scores nothing but blocks nobody.
+ */
+async function warBetween(
+    attackerName: string,
+    targetChar: Record<string, unknown> | undefined,
+    sector: number,
+): Promise<{ contest: SectorWarSession; targetVillage: string } | null> {
+    try {
+        const contest = await activeContestOnSector(sector);
+        if (!contest) return null;
+        const from = await kv.get<{ character?: { village?: string } }>(`save:${attackerName}`);
+        const a = String(from?.character?.village ?? '').trim();
+        const b = String(targetChar?.village ?? '').trim();
+        const sides = [contest.attackerVillage, contest.defenderVillage];
+        return a && b && a !== b && sides.includes(a) && sides.includes(b) ? { contest, targetVillage: b } : null;
+    } catch {
+        return null;
     }
 }

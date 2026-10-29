@@ -38,6 +38,19 @@ describe("world attack claim", () => {
         assert.match(result.ok === false ? result.error : "", /Academy protection/);
     });
 
+    it("carries the Card or Pet war a refusal names, so the attack can start that war's battle", async () => {
+        stubFetch(() => ({ ok: false, body: { error: "This sector's war is fought with card battles.", sectorContest: { kind: "card", sectorWarId: "war-1" } } }));
+        const result = await claimWorldAttack("Quarry", "Raider");
+        assert.deepEqual(result, { ok: false, error: "This sector's war is fought with card battles.", sectorContest: { kind: "card", sectorWarId: "war-1" } });
+    });
+
+    it("ignores a war it cannot route on", async () => {
+        for (const sectorContest of [{ kind: "combat", sectorWarId: "war-1" }, { kind: "pet", sectorWarId: "" }, { kind: "pet" }, "card"]) {
+            stubFetch(() => ({ ok: false, body: { error: "No.", sectorContest } }));
+            assert.deepEqual(await claimWorldAttack("Quarry", "Raider"), { ok: false, error: "No." });
+        }
+    });
+
     it("treats an unconfirmable claim as a refusal, never as granted", async () => {
         // Fail-closed: opening a fight on a claim we could not confirm is exactly
         // the bypass this gate exists to prevent.
