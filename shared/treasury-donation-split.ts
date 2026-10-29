@@ -84,3 +84,50 @@ export function villageCurrencyDonationRyoValue(currency: string, amount: number
     const rate = VILLAGE_DONATION_RYO_VALUE[currency as VillageDonationCurrency] ?? 0;
     return Math.floor(Math.max(0, Math.floor(Number(amount) || 0)) * rate);
 }
+
+/*
+ * The seated Kage can gift treasury Honor Seals back out untaxed and Bone Charms
+ * at a 10% levy (api/_treasury-gift-tax.ts). Once a donated seal earned Merit,
+ * a Kage and a friend could pass the same 200 seals back and forth and reach
+ * the 250-Merit Kage-challenge gate in about 21 round trips, at no cost, and
+ * the Legacy `villageDonations` count with it. So seals and charms earn Merit
+ * and Legacy credit only up to a daily ryo-value allowance per donor. The
+ * treasury still receives every seal and charm donated past it.
+ *
+ * 10,000 ryo-value is 160 seals, a little over a Vanguard's 150-a-day PvP seal
+ * cap, so an honest day's seals still count in full. It is 10 Merit a day, half
+ * of what the daily agenda pays for nothing. Ryo keeps its old uncapped basis:
+ * every ryo gift is taxed.
+ */
+export const VILLAGE_RARE_MERIT_DAILY_RYO = 10_000;
+export const VILLAGE_RARE_MERIT_DATE_FIELD = 'villageRareMeritDate';
+export const VILLAGE_RARE_MERIT_VALUE_FIELD = 'villageRareMeritToday';
+
+function nonNegative(value: unknown): number {
+    const n = Math.floor(Number(value) || 0);
+    return n > 0 ? n : 0;
+}
+
+/** Seal and charm ryo-value this donor has already had counted toward Merit today (UTC). */
+export function villageRareMeritUsedToday(character: object, now: number = Date.now()): number {
+    const c = character as Record<string, unknown>;
+    return String(c[VILLAGE_RARE_MERIT_DATE_FIELD] ?? '') === new Date(now).toISOString().slice(0, 10)
+        ? nonNegative(c[VILLAGE_RARE_MERIT_VALUE_FIELD]) : 0;
+}
+
+/**
+ * The ryo-value of a currency donation that earns Village Merit and Legacy
+ * credit, and the counter fields to write on the donor. Ryo counts in full and
+ * writes nothing; seals and charms count up to what is left of today's
+ * allowance.
+ */
+export function villageDonationMeritPlan(character: object, currency: string, amount: number, now: number = Date.now()): { ryoValue: number; stamp: Record<string, unknown> } {
+    const value = villageCurrencyDonationRyoValue(currency, amount);
+    if (currency === 'ryo') return { ryoValue: value, stamp: {} };
+    const used = villageRareMeritUsedToday(character, now);
+    const counted = Math.min(value, Math.max(0, VILLAGE_RARE_MERIT_DAILY_RYO - used));
+    return {
+        ryoValue: counted,
+        stamp: { [VILLAGE_RARE_MERIT_DATE_FIELD]: new Date(now).toISOString().slice(0, 10), [VILLAGE_RARE_MERIT_VALUE_FIELD]: used + counted },
+    };
+}

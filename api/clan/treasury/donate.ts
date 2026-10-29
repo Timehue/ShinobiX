@@ -112,8 +112,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!donation) {
             return res.status(400).json({ error: 'Provide exactly one of (currency + amount) or (itemId).' });
         }
-        const currencyRefusal = donation.kind === 'currency' ? clanDonationCurrencyRefusal(donation.currency) : null;
-        if (currencyRefusal) return res.status(400).json({ error: currencyRefusal });
         const requestId = parseSettlementRequestId(body.requestId);
         if (body.requestId !== undefined && body.requestId !== null && !requestId) {
             return res.status(400).json({ error: 'Invalid requestId.' });
@@ -158,6 +156,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return { ok: false, status: 403, error: 'You are not a member of this clan.' };
                     }
                 }
+                // The Clan Hall takes only what a clan keeps
+                // (shared/treasury-donation-split.ts). Refused inside the saga,
+                // so a donation debited before this rule shipped still finishes
+                // on its retry (a pending credit rolls forward without decide).
+                const currencyRefusal = donation.kind === 'currency' ? clanDonationCurrencyRefusal(donation.currency) : null;
+                if (currencyRefusal) return { ok: false, status: 400, error: currencyRefusal };
 
                 let outcome = applyTreasuryDonation(
                     clanRec.treasury as Record<string, unknown> | undefined,
