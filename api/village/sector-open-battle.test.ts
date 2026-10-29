@@ -10,7 +10,7 @@ delete process.env.DISABLE_VILLAGE_WAR;
  * Open-world battles in a Pet or Card sector war (owner ruling 2026-10-08),
  * through the real handlers on the memory store. A member of either side who
  * attacks an enemy standing in the contested sector fights THAT player in the
- * war's own game, and the winner's village scores — the way a Combat war is
+ * war's own game, and the winner's village scores â€” the way a Combat war is
  * fought in the open. The war's table is untouched.
  */
 
@@ -29,6 +29,9 @@ const BYSTANDER = 'openbystander';
 let petHandler: Handler;
 let cardHandler: Handler;
 let OPEN_BATTLE_LOSER_SHIELD_MS: number;
+let OPEN_CARD_CALLED_OFF_MS: number;
+let OPEN_CARD_TARGET_BREATHER_MS: number;
+let attackHandler: Handler;
 let PVP_RAID_SHIELD_MS: number;
 let kv: typeof import('../_storage.js').kv;
 let war: typeof import('../_sector-war.js');
@@ -54,7 +57,8 @@ before(async () => {
     ({ onlineStore } = await import('../_realtime/online-store.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
-    ({ OPEN_BATTLE_LOSER_SHIELD_MS } = await import('../_sector-contest-engage.js'));
+    ({ OPEN_BATTLE_LOSER_SHIELD_MS, OPEN_CARD_CALLED_OFF_MS, OPEN_CARD_TARGET_BREATHER_MS } = await import('../_sector-contest-engage.js'));
+    attackHandler = (await import('../player/attack.js')).default as unknown as Handler;
     ({ PVP_RAID_SHIELD_MS } = await import('../pvp/_vitals-settlement.js'));
     const petModule = await import('./sector-pet.js');
     const cardModule = await import('./sector-card.js');
@@ -440,7 +444,7 @@ describe('an open-world attack in a Card war is a card duel with that player', {
         assert.match(String(elsewhere.body?.error), /You already have a card duel waiting/);
     });
 
-    it('a duel its challenger calls off frees both at once; only that challenger waits to ask that player again', async () => {
+    it('a duel its challenger calls off frees both at once; that challenger waits two minutes to ask that player again', async () => {
         const contest = await seedContest('card');
         const engageId = await engage(contest.id);
         await call(cardHandler, { action: 'cancel', playerName: RAIDER, sectorWarId: contest.id, engageId });
@@ -448,9 +452,37 @@ describe('an open-world attack in a Card war is a card duel with that player', {
         const sameAgain = await call(cardHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
         assert.equal(sameAgain.statusCode, 409, 'no pulling a player into a duel and out of it on repeat');
         assert.match(String(sameAgain.body?.error), /called off a duel with them/);
-        assert.ok(await engage(contest.id, SECOND, HOLDOUT), 'another challenger may take the freed target');
         onlineStore.clearPendingAttacker(GUARD);
         assert.ok(await engage(contest.id, RAIDER, GUARD), 'the challenger is free to fight someone else');
+    });
+
+    it('after any called-off duel its target has a breather from every challenger, so a group cannot take turns pulling them', async () => {
+        const contest = await seedContest('card');
+        const engageId = await engage(contest.id);
+        await call(cardHandler, { action: 'cancel', playerName: RAIDER, sectorWarId: contest.id, engageId });
+        onlineStore.clearPendingAttacker(HOLDOUT);
+
+        const next = await call(cardHandler, { action: 'engage', playerName: SECOND, sectorWarId: contest.id, target: HOLDOUT });
+        assert.equal(next.statusCode, 409, 'a second challenger cannot pull them straight back in');
+        assert.match(String(next.body?.error), /was just called off/);
+        assert.ok(next.body?.retryAfterMs > 0 && next.body?.retryAfterMs <= OPEN_CARD_TARGET_BREATHER_MS);
+
+        // The breather runs out, and the freed target may be challenged again.
+        await kv.set(`sector-open-battle:breather:${contest.id}:${HOLDOUT}`, { until: Date.now() - 1 });
+        assert.ok(await engage(contest.id, SECOND, HOLDOUT), 'another challenger may take them once it is over');
+    });
+
+    it('the breather is shorter than the challenger\'s own wait, so one enemy-side alt cannot keep a friend safe', () => {
+        assert.ok(OPEN_CARD_TARGET_BREATHER_MS < OPEN_CARD_CALLED_OFF_MS / 2);
+    });
+
+    it('a target who starts a duel of their own ends their breather', async () => {
+        const contest = await seedContest('card');
+        const engageId = await engage(contest.id);
+        await call(cardHandler, { action: 'cancel', playerName: RAIDER, sectorWarId: contest.id, engageId });
+        onlineStore.clearPendingAttacker(HOLDOUT);
+        assert.ok(await engage(contest.id, HOLDOUT, SECOND), 'they may still challenge anyone');
+        assert.equal(await kv.get(`sector-open-battle:breather:${contest.id}:${HOLDOUT}`), null);
     });
 
     it('the notice leaves the target\'s inbox when they sit down, or when the duel is called off', async () => {
@@ -489,6 +521,42 @@ describe('an open-world attack in a Card war is a card duel with that player', {
         await shield(HOLDOUT);
         await engage(contest.id, HOLDOUT, RAIDER);
         assert.equal(await shieldSpent(HOLDOUT), true);
+    });
+
+    it('a world attack between the war\'s two sides is refused as a shinobi fight and names the war\'s battle', async () => {
+        // The client normally routes a Card/Pet war attack to `engage` itself, but
+        // its copy of the contest can be missing or stale. The shinobi fight it
+        // would start instead scores nothing, so the server refuses it.
+        for (const kind of ['card', 'pet'] as const) {
+            const keys = await kv.keys('shared:sector-war:*');
+            if (keys.length) await kv.del(...keys);
+            const contest = await seedContest(kind);
+            const out = await call(attackHandler, { playerName: RAIDER, targetName: HOLDOUT, attacker: { name: RAIDER } });
+            assert.equal(out.statusCode, 409, JSON.stringify(out.body));
+            assert.deepEqual(out.body?.sectorContest, { kind, sectorWarId: contest.id });
+            assert.match(String(out.body?.error), new RegExp(`${kind} battles`));
+            assert.equal(onlineStore.get(HOLDOUT)?.pendingAttacker ?? null, null, 'a refused attack leaves the target unengaged');
+        }
+    });
+
+    it('a world attack from outside the war, or in a Combat war, is still the shinobi fight', async () => {
+        await seedContest('card');
+        const outsider = await call(attackHandler, { playerName: BYSTANDER, targetName: HOLDOUT, attacker: { name: BYSTANDER } });
+        assert.equal(outsider.statusCode, 200, JSON.stringify(outsider.body));
+        onlineStore.clearPendingAttacker(HOLDOUT);
+        const ally = await call(attackHandler, { playerName: SECOND, targetName: RAIDER, attacker: { name: SECOND } });
+        assert.equal(ally.statusCode, 200, 'two members of one side are not fighting the war');
+
+        const keys = await kv.keys('shared:sector-war:*');
+        if (keys.length) await kv.del(...keys);
+        const combat = war.newSectorWarSession({
+            sector: SECTOR, attackerVillage: ATTACKER, defenderVillage: DEFENDER, winCondition: 'combat', now: Date.now() - 60 * 60 * 1000,
+        });
+        await kv.set(war.sectorWarKey(combat.id), combat);
+        onlineStore.clearPendingAttacker(HOLDOUT);
+        const fight = await call(attackHandler, { playerName: GUARD, targetName: SECOND, attacker: { name: GUARD } });
+        assert.equal(fight.statusCode, 200, JSON.stringify(fight.body));
+        assert.equal(fight.body?.sectorContest, undefined);
     });
 
     it('the war\'s table still works as before', async () => {

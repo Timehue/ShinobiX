@@ -9,6 +9,7 @@ import type { WarPreparation, WarPreparationKey } from '../../../shared/war-prep
 /** A preparation tier's whole price: WR plus treasury ryo and Bone Charms. */
 export interface WarPreparationQuote { wr: number; ryo: number; boneCharms: number }
 import type { OpenSectorBattle } from "./sector-war-engagement";
+import type { Screen } from "../types/core";
 
 export type WinCondition = "combat" | "card" | "pet";
 
@@ -383,6 +384,21 @@ export async function engageOpenSectorBattle(kind: "card" | "pet", playerName: s
     const engageId = typeof data.engageId === "string" ? data.engageId : "";
     if (!engageId) throw new WarMapRequestError(502, { error: "The battle could not be started." });
     return { kind, sectorWarId, engageId };
+}
+/**
+ * Start the war's own battle after the server refused a shinobi fight in a
+ * Card or Pet war sector (api/player/attack.ts). The World Map normally routes
+ * there before attacking; this covers its copy of the contest being missing or
+ * stale. A refusal shows the server's own sentence.
+ */
+export async function engageRefusedSectorAttack(contest: { kind: "card" | "pet"; sectorWarId: string }, playerName: string, target: string, setScreen: (screen: Screen) => void): Promise<void> {
+    try {
+        const battle = await engageOpenSectorBattle(contest.kind, playerName, contest.sectorWarId, target);
+        const { beginOpenSectorBattle } = await import("./sector-war-engagement");
+        setScreen(beginOpenSectorBattle(battle, "worldMap"));
+    } catch (error) {
+        alert(error instanceof Error ? error.message : "The battle could not be started.");
+    }
 }
 export function setSectorWinCondition(playerName: string, village: string, sector: number, winCondition: WinCondition) {
     return postJson("/api/village/war-win-condition", { playerName, village, sector, winCondition });
