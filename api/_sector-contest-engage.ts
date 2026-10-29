@@ -57,6 +57,13 @@ export const OPEN_CARD_JOIN_WINDOW_MS = 60_000;
  *  it hears of one, so without this a challenger could pull someone into a duel
  *  and back out of it over and over. */
 export const OPEN_CARD_CALLED_OFF_MS = 2 * 60_000;
+/** After any challenger calls off a card duel, its target cannot be challenged
+ *  by ANYONE for this long. The per-challenger wait above alone let a group take
+ *  turns pulling one player into duels and backing out, each pull costing them
+ *  nothing. Kept short and well under OPEN_CARD_CALLED_OFF_MS, because an
+ *  enemy-side alt could otherwise call off duels to keep a friend safe: one alt
+ *  buys this much cover per OPEN_CARD_CALLED_OFF_MS, not the whole window. */
+export const OPEN_CARD_TARGET_BREATHER_MS = 30_000;
 /** A pet battle is fought inside one request, and both fighters are held only
  *  while it is: two challengers cannot fight one player at the same moment. The
  *  hold is released the moment the battle is decided; this bounds a crash. */
@@ -165,6 +172,11 @@ function calledOffKey(contestId: string, from: string, to: string): string {
     return `sector-open-battle:called-off:${contestId}:${safeName(from)}:${safeName(to)}`;
 }
 
+/** A target's breather after any duel on them was called off (OPEN_CARD_TARGET_BREATHER_MS). */
+function breatherKey(contestId: string, slug: string): string {
+    return `sector-open-battle:breather:${contestId}:${safeName(slug)}`;
+}
+
 /** Each fighter's hold, by game. A pet battle is decided inside its request; a
  *  card duel is not a match until the challenged player sits down, and until
  *  then neither duelist counts as in a battle. Either way the hold keeps both
@@ -227,6 +239,10 @@ export async function claimOpenSectorBattle(args: {
     if (calledOffLeft > 0) {
         return refuse(`You called off a duel with them moments ago. You can challenge them again in ${inMinutes(calledOffLeft)}.`, calledOffLeft);
     }
+    const breatherLeft = args.kind === 'card' ? await msLeftOn(breatherKey(args.contestId, args.target), args.now) : 0;
+    if (breatherLeft > 0) {
+        return refuse(`A duel with that shinobi was just called off. You can challenge them in ${Math.ceil(breatherLeft / 1000)} seconds.`, breatherLeft);
+    }
     const claimed: string[] = [];
     const release = async () => { if (claimed.length) await kv.del(...claimed).catch(() => 0); };
     const hold = FIGHTER_HOLD[args.kind];
@@ -259,15 +275,19 @@ export async function protectOpenBattleLoser(contestId: string, loser: string, n
     if (slug) await stampFor(loserShieldKey(contestId, slug), OPEN_BATTLE_LOSER_SHIELD_MS, now);
 }
 
-/** Starting a battle ends the challenger's own loser protection in this war. */
+/** Starting a battle ends the challenger's own loser protection and breather in this war. */
 export async function endOwnOpenBattleProtection(contestId: string, me: string): Promise<void> {
-    await kv.del(loserShieldKey(contestId, me)).catch(() => 0);
+    await kv.del(loserShieldKey(contestId, me), breatherKey(contestId, me)).catch(() => 0);
 }
 
 /** A challenger called off a card duel: they cannot challenge that target again
- *  for OPEN_CARD_CALLED_OFF_MS. Anyone else may, and the target may challenge them. */
+ *  for OPEN_CARD_CALLED_OFF_MS, and nobody may for OPEN_CARD_TARGET_BREATHER_MS.
+ *  The target may challenge anyone, which ends their breather. */
 export async function noteCalledOffOpenDuel(contestId: string, from: string, to: string, now: number): Promise<void> {
-    await stampFor(calledOffKey(contestId, from, to), OPEN_CARD_CALLED_OFF_MS, now);
+    await Promise.all([
+        stampFor(calledOffKey(contestId, from, to), OPEN_CARD_CALLED_OFF_MS, now),
+        stampFor(breatherKey(contestId, to), OPEN_CARD_TARGET_BREATHER_MS, now),
+    ]);
 }
 
 /** A fresh id for one open-world battle. */

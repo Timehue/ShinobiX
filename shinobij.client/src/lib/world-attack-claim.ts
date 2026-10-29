@@ -35,8 +35,11 @@
  * first. Academy is the one genuinely new refusal.
  */
 
-/** `error` is already player-facing — it is the server's own refusal text. */
-export type WorldAttackClaim = { ok: true } | { ok: false; error: string };
+/** `error` is already player-facing — it is the server's own refusal text.
+ *  `sectorContest` is set when the target's sector has a Card or Pet war between
+ *  the two of you: the attack is that war's battle, not a shinobi fight. */
+export type SectorContestRef = { kind: "card" | "pet"; sectorWarId: string };
+export type WorldAttackClaim = { ok: true } | { ok: false; error: string; sectorContest?: SectorContestRef };
 
 const GENERIC_REFUSAL = "They cannot be attacked right now.";
 
@@ -62,8 +65,11 @@ export async function claimWorldAttack(
             ...(signal ? { signal } : {}),
         });
         if (res.ok) return { ok: true };
-        const body = await res.json().catch(() => null) as { error?: string } | null;
-        return { ok: false, error: body?.error || GENERIC_REFUSAL };
+        const body = await res.json().catch(() => null) as { error?: string; sectorContest?: Partial<SectorContestRef> } | null;
+        const contest = body?.sectorContest;
+        const sectorContest = (contest?.kind === "card" || contest?.kind === "pet") && typeof contest.sectorWarId === "string" && contest.sectorWarId
+            ? { kind: contest.kind, sectorWarId: contest.sectorWarId } : undefined;
+        return { ok: false, error: body?.error || GENERIC_REFUSAL, ...(sectorContest ? { sectorContest } : {}) };
     } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") throw error;
         return { ok: false, error: "Could not reach the server. Try again." };
