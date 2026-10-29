@@ -17,9 +17,12 @@ const DAILY_CAP_NON_ADMIN = 40;
 // both a verb AND a target noun so legitimate game-art prompts ("act as a
 // fierce guardian", "ignore the background") don't trip them.
 const INJECTION_PATTERNS = [
-    /\bignore\s+(all|the|previous|prior|above|earlier)\s+(instructions|rules|prompts|messages|system|context|guidelines)\b/i,
-    /\b(disregard|override|replace)\s+(the|all|previous|prior|above|earlier)\s+(instructions|rules|prompts|messages|system|guidelines)\b/i,
-    /\b(reveal|show|repeat|expose|print|output)\s+(your\s+)?(system\s+(prompt|message)|initial\s+instructions)\b/i,
+    // Up to three stacked qualifiers, so the classic "ignore ALL PREVIOUS instructions"
+    // is caught as well as "ignore previous instructions". "ignore the background"
+    // still passes: the noun must be one of the instruction words.
+    /\bignore\s+(?:(?:all|any|the|previous|prior|above|earlier)\s+){1,3}(instructions|rules|prompts|messages|system|context|guidelines)\b/i,
+    /\b(disregard|override|replace)\s+(?:(?:the|all|any|previous|prior|above|earlier)\s+){1,3}(instructions|rules|prompts|messages|system|guidelines)\b/i,
+    /\b(reveal|show|repeat|expose|print|output)\s+(?:(?:me\s+)?(?:your|the)\s+)?(system\s+(prompt|message)|initial\s+instructions)\b/i,
     /\byou\s+are\s+now\s+(an?\s+|the\s+)?[a-z ]{0,40}(ai|model|assistant|chatbot|persona|bot|agent)\b/i,
     /\b(act|pretend|behave|roleplay|role-play)\s+as\s+(an?\s+|the\s+)?(different|new|other|alternative|jailbroken|uncensored|unfiltered)\s+(ai|model|assistant|chatbot|persona|character)\b/i,
     /\bjailbreak\b/i,
