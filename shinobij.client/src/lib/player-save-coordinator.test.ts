@@ -152,6 +152,14 @@ test("versioned commits reject stale or foreign characters and synchronously pub
     assert.equal(f.characterRef.current?.level, 2);
 });
 
+test('a stale craft reply cannot restore the pre-batch wallet or erase a newer purchase', () => {
+    const f = fixture();
+    assert.equal(f.owner.commitVersionedCharacter({ ...f.initial, ryo: 2500 }, 7), true);
+    assert.equal(f.owner.commitVersionedCharacter({ ...f.initial, ryo: 5000 }, 6), false);
+    assert.equal(f.characterRef.current?.ryo, 2500);
+    assert.equal(f.owner.latestSaveRef.current?.character.ryo, 2500);
+});
+
 test("a newer recovery mutation replaces the defeated preview even when it overtakes the boot owner read", () => {
     const f = fixture();
     const key = "ninjav-save-preview-v1:rookie";

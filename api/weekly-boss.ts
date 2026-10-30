@@ -1195,7 +1195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     },
                                 );
                                 return { ok: true, character: nextChar, value: null };
-                            });
+                            }, { ownSoloBattle: run!.runId });
                             return charged.ok ? { character: charged.character, saveVersion: charged._saveVersion } : null;
                         });
                         if (!staminaCharge) {

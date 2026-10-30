@@ -73,6 +73,29 @@ test('an adjacent solid furnishing rejects movement without charging threat or s
 });
 const visitOf = (result: Awaited<ReturnType<typeof action>>) => result.body.visit as StrongholdVisit;
 
+test('a new patrol settles earned HP and a restored patrol retains its sealed HP', async t => {
+    let now = Date.UTC(2026, 9, 29, 12);
+    t.mock.method(Date, 'now', () => now);
+    const name = 'shpatrolregen'; await seed(name);
+    const key = `save:${name}`;
+    const original = (await kv.get<{ character: Record<string, unknown> }>(key))!;
+    await kv.set(key, { ...original, _saveAt: now - 60_000, _regenAt: now - 60_000,
+        character: { ...original.character, hp: 5000 } });
+    let visit = visitOf(await action(name, 'stronghold-enter', { sector }));
+    for (let step = 1; step <= 25; step++) {
+        const result = await action(name, 'stronghold-step', { sector, version: visit.version, tile: STRONGHOLD_SPAWN + step % 2 });
+        assert.equal(result.status, 200, JSON.stringify(result.body));
+        visit = visitOf(result);
+    }
+    const { vitalRegenPerTick } = await import('../_elapsed-state.js');
+    const patrol = (await solo.readSoloPveSession(visit.patrolId!))!;
+    assert.equal(patrol.player.hp, 5000 + 60 * vitalRegenPerTick(10000));
+    now += 60_000;
+    const restored = await action(name, 'stronghold-state', { sector });
+    assert.equal(restored.status, 200, JSON.stringify(restored.body));
+    assert.deepEqual(restored.body.patrol, patrol);
+});
+
 test('Obsidian Stronghold admits level 50, opens the altar, and patrol victory adds no bonus rewards', async () => {
     const name = 'shobsidian', sector = 99;
     await seed('shobsidianlow', 49, sector);

@@ -1,3 +1,4 @@
+import { CombatAdmissionConflictError, withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
 import { handleStrongholdAction, strongholdVaultReady } from './_stronghold.js';
 import { villageCampaignStronghold } from '../_village-war-campaign.js';
 import { seatedKageOf } from '../_sector-war-garrison-defender.js';
@@ -149,6 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             default: return res.status(400).json({ error: 'Unknown action.' });
         }
     } catch (err) {
+        if (err instanceof CombatAdmissionConflictError) return res.status(409).json({ error: err.message, errorCode: 'combat-active' });
         console.error('[village/anbu-infiltration]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
@@ -267,7 +269,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         // Seal both sides through the canonical server hydrator. Client-computed
         // loadout fields are deliberately ignored; equipped content and passives
         // resolve from the authoritative save and admin catalogs.
-        const raiderCharacter = hydrateCharacterFromSave(char, {}, rec ?? null, await loadAdminCombatContent());
+        const adminCombatContent = await loadAdminCombatContent();
 
         // Defender: least-recently-defended Anbu, sealed daily from their save.
         const anbuSlug = await pickAnbuDefender(targetVillage, appointees);
@@ -280,13 +282,6 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         const now = Date.now();
         const shortVillage = targetVillage.replace(/\s+Village$/i, '').trim();
         const maskedAnbuName = `The ${shortVillage || 'Village'} Anbu`;
-        const session = buildInfiltrationEncounter({
-            runId, now,
-            raider: { slug: playerName, name: String(char.name ?? playerName), character: raiderCharacter, itemCharges: sealItemCharges(raiderCharacter, char) },
-            anbu: { slug: snapshot.slug, name: maskedAnbuName, character: snapshot.character },
-            terrain, sector, targetVillage,
-            weather: await sealedSectorWeather(sector, now),
-        });
         const run: InfilRun = {
             runId, raiderSlug: playerName, sector, targetVillage,
             anbuSlug: snapshot.slug, anbuName: maskedAnbuName, terrain,
@@ -295,10 +290,22 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         };
 
         // Persist a resumable prepared run before consuming the daily attempt.
-        const commit = async () => {
+        const commit = () => withCombatAdmissionSave(playerName, async (fresh) => {
             if (!identity.admin && !await strongholdVaultReady(playerName, sector)) {
                 return { status: 409 as const, body: { error: 'Reach the Anbu inside the stronghold and clear any patrol first.' } };
             }
+            rec = await augmentSaveWithForgedDefs(fresh);
+            char = rec?.character as Record<string, unknown> | undefined;
+            if (!char) throw new Error('Player save vanished at infiltration admission.');
+            if (!identity.admin && isIncapacitated(char)) return hospitalized;
+            const raiderCharacter = hydrateCharacterFromSave(char, {}, rec ?? null, adminCombatContent);
+            const session = buildInfiltrationEncounter({
+                runId, now,
+                raider: { slug: playerName, name: String(char.name ?? playerName), character: raiderCharacter, itemCharges: sealItemCharges(raiderCharacter, char) },
+                anbu: { slug: snapshot.slug, name: maskedAnbuName, character: snapshot.character },
+                terrain, sector, targetVillage,
+                weather: await sealedSectorWeather(sector, now),
+            });
             await writeInfilRun(run);
             await kv.set(activeKey, runId, { ex: INFIL_RUN_TTL });
             await writeSoloPveSession(session);
@@ -312,9 +319,9 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
             await writeInfilRun({ ...run, startState: 'ready' });
             return { status: 200 as const, body: {
                 ok: true, replayed: attempt.replayed, runId, sector, targetVillage,
-                anbu: { name: maskedAnbuName }, session,
+                anbu: { name: maskedAnbuName }, session, _saveVersion: fresh._saveVersion,
             } };
-        };
+        });
         const admission = identity.admin ? { ok: true as const, value: await commit() } : await withWorldBossPvpLock([playerName], commit);
         return admission.ok ? admission.value : { status: 409 as const, body: { error: 'Leave the world boss queue or finish its fight before challenging the Anbu.' } };
     }, { failClosed: true, ttlSec: 30 });

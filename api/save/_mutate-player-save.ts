@@ -225,6 +225,8 @@ export async function writeVersionedPlayerSave(
 
 /** Options a domain mutation may pass to the versioned write. */
 export type PlayerSaveMutationOptions = Pick<VersionedWriteOptions, 'hollowGateCurrencySource'> & {
+    /** A prepared Solo-PvE start may credit only the idle time before its own publication. */
+    ownSoloBattle?: string;
     /** The save lock's TTL in seconds, for a caller that held it longer as a raw writer (default 5). */
     lockTtlSec?: number;
 };
@@ -251,7 +253,7 @@ type SaveWrite = Pick<Extract<PlayerSaveMutation<unknown>, { ok: true }>,
 type CommittedSave = { record: PlayerSaveRecord; character: PlayerCharacter; _saveVersion: number };
 
 /** Read and settle one save. The caller already holds its lock. */
-async function loadSettledSave(playerName: string, saveKey: string): Promise<LoadedSave | MissingSave> {
+async function loadSettledSave(playerName: string, saveKey: string, options: PlayerSaveMutationOptions = {}): Promise<LoadedSave | MissingSave> {
     const { kv } = await import('../_storage.js');
     const record = await kv.get<PlayerSaveRecord>(saveKey);
     const storedCharacter = (record?.character ?? null) as PlayerCharacter | null;
@@ -274,7 +276,13 @@ async function loadSettledSave(playerName: string, saveKey: string): Promise<Loa
         import('../pet/_owned-pet.js'),
         import('../pet/_breeding-requirements.js'),
     ]);
-    const regen = settleVitalsRegen(record, { now, battleLocked: await battleLockedFor(playerName) });
+    const solo = options.ownSoloBattle ? await kv.get<{ kind?: string; sessionId?: string; startedAt?: number }>(`battle-state:${playerName}`) : null;
+    const ownSoloStart = solo?.kind === 'solo-pve' && solo.sessionId === options.ownSoloBattle
+        && Number.isFinite(solo.startedAt) && Number(solo.startedAt) > 0 ? Math.min(now, Number(solo.startedAt)) : null;
+    const regen = settleVitalsRegen(record, {
+        now: ownSoloStart ?? now,
+        battleLocked: ownSoloStart === null ? await battleLockedFor(playerName) : Boolean(await kv.get(`battle-lock:${playerName}`)),
+    });
     const settledCharacter = (regen.record.character ?? storedCharacter) as PlayerCharacter;
 
     // Every authoritative mutation sees the same idempotent owned-pet
@@ -363,12 +371,13 @@ export async function settleIdleRecovery(
     record: PlayerSaveRecord,
     opts: { ownBattleLock?: (lock: unknown) => boolean } = {},
 ): Promise<{ character: PlayerCharacter; regen: { excluded: boolean; cursor: number } }> {
-    const [{ battleLockKey, settleVitalsRegen }, { safeName }] = await Promise.all([
+    const [{ battleLockKey, soloBattleStateKey, blocksSoloIdleRecovery, settleVitalsRegen }, { safeName }] = await Promise.all([
         import('../_elapsed-state.js'),
         import('../_utils.js'),
     ]);
     const slug = safeName(playerName);
     const lock = slug ? await store.get<unknown>(battleLockKey(slug)) : null;
+    const solo = slug ? await store.get<unknown>(soloBattleStateKey(slug)) : null;
     const now = Date.now();
     const lockStartedAt = Number((lock as { startedAt?: unknown } | null)?.startedAt);
     const ownLockStart = lock && opts.ownBattleLock?.(lock) === true && Number.isFinite(lockStartedAt) && lockStartedAt > 0
@@ -376,7 +385,7 @@ export async function settleIdleRecovery(
         : null;
     const regen = settleVitalsRegen(record, {
         now: ownLockStart ?? now,
-        battleLocked: Boolean(lock) && ownLockStart === null,
+        battleLocked: (Boolean(lock) && ownLockStart === null) || blocksSoloIdleRecovery(solo),
     });
     return {
         character: (regen.record.character ?? record.character) as PlayerCharacter,
@@ -466,7 +475,7 @@ async function mutateLockedSave<T>(
     mutate: (ctx: PlayerSaveMutationContext) => Promise<PlayerSaveMutation<T>> | PlayerSaveMutation<T>,
     options: PlayerSaveMutationOptions,
 ): Promise<PlayerSaveMutationResult<T>> {
-    const loaded = await loadSettledSave(playerName, saveKey);
+    const loaded = await loadSettledSave(playerName, saveKey, options);
     if (!('ctx' in loaded)) return loaded;
     const decision = await mutate(loaded.ctx);
     if (!decision.ok) return decision;

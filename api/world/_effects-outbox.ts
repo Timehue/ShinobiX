@@ -5,6 +5,7 @@ import { safeName } from '../_utils.js';
 import { creditSectorIntel, INTEL_PER_EXPLORE } from '../_village-intel.js';
 import { creditSectorContractProgress } from '../_sector-contracts.js';
 import type { SectorPoolOwner } from './_sector-pool.js';
+import { cleanWorldExploreAuthorityReceipt, worldExploreAuthorityKey } from './_explore-authority.js';
 
 /*
  * F17 — durable delivery of the gameplay side effects an exploration owes.
@@ -19,18 +20,19 @@ import type { SectorPoolOwner } from './_sector-pool.js';
  * The effect is now an OBLIGATION: it is attempted immediately, and on failure
  * it is parked in the player's outbox, keyed by (kind, requestId) so the same
  * effect can never be listed twice. The outbox drains at the start of the
- * player's next exploration. Delivery is at-least-once: an apply that succeeds
- * but whose removal is lost is applied again on the next drain, a rare double
- * tick, versus the silent loss it replaces.
+ * player's next exploration. Contract delivery deduplicates the discovery id
+ * atomically with progress and uses the original event time. Intel delivery
+ * remains at-least-once; a lost removal can still repeat that separate effect.
  */
 
 export type WorldEffect =
     | { kind: 'intel'; requestId: string; village?: string; sector: number }
-    | { kind: 'contract'; requestId: string; sector: number };
+    | { kind: 'contract'; requestId: string; sector: number; at?: number };
 
 export const WORLD_EFFECTS_OUTBOX_CAP = 20;
 export const WORLD_EFFECTS_OUTBOX_TTL_SEC = 3 * 24 * 60 * 60;
 const DRAIN_BATCH = 8;
+class MissingContractDiscoveryTimeError extends Error {}
 
 export function worldEffectsOutboxKey(playerName: string): string {
     return `world-effects:${safeName(playerName)}`;
@@ -50,7 +52,10 @@ function cleanEffect(raw: unknown): WorldEffect | null {
         const village = typeof value.village === 'string' && value.village.trim() ? value.village.trim() : undefined;
         return { kind: 'intel', requestId, sector, ...(village ? { village } : {}) };
     }
-    if (value.kind === 'contract') return { kind: 'contract', requestId, sector };
+    if (value.kind === 'contract') {
+        const at = Math.floor(Number(value.at));
+        return { kind: 'contract', requestId, sector, ...(Number.isSafeInteger(at) && at > 0 ? { at } : {}) };
+    }
     return null;
 }
 
@@ -71,7 +76,23 @@ export async function applyWorldEffect(playerName: string, effect: WorldEffect, 
         await creditSectorIntel(effect.village, effect.sector, INTEL_PER_EXPLORE, now, deps.owner);
         return;
     }
-    await creditSectorContractProgress(playerName, effect.sector, now, { failLoudly: true });
+    let at = effect.at;
+    // Older outboxes did not seal event time. Recover it from the exact
+    // discovery rather than crediting a different day's or daylight's posting.
+    if (!at) {
+        const authority = cleanWorldExploreAuthorityReceipt(await kv.get(worldExploreAuthorityKey(playerName, effect.requestId)));
+        if (authority?.sector === effect.sector) at = authority.at;
+        else {
+            const save = await kv.get<{ character?: { redeemedSectorExplorations?: Array<Record<string, unknown>> } }>(`save:${safeName(playerName)}`);
+            const receipt = save?.character?.redeemedSectorExplorations?.find(row => row.id === effect.requestId && row.sector === effect.sector);
+            at = Number(receipt?.at);
+        }
+    }
+    if (!Number.isSafeInteger(at) || !at || at <= 0) throw new MissingContractDiscoveryTimeError('Contract effect is missing its discovery time.');
+    // Explore receipts outlive the delivery outbox. Do not recreate expired
+    // progress after its deduplication proof has legitimately aged out.
+    if (now - at >= WORLD_EFFECTS_OUTBOX_TTL_SEC * 1000) return;
+    await creditSectorContractProgress(playerName, effect.sector, at, { failLoudly: true, requestId: effect.requestId });
 }
 
 export async function parkWorldEffect(playerName: string, effect: WorldEffect): Promise<void> {
@@ -116,17 +137,21 @@ export async function deliverWorldEffect(playerName: string, effect: WorldEffect
 
 /**
  * Deliver what the outbox still owes, oldest first, stopping at the first
- * effect that fails again (it and everything after it wait for the next
- * drain). Returns how many were delivered. Never throws.
+ * infrastructure failure. Unresolvable legacy timestamps remain stored but
+ * do not block later valid effects. Returns deliveries completed. Never throws.
  */
 export async function drainWorldEffects(playerName: string, deps: WorldEffectDeps = {}): Promise<number> {
     let delivered = 0;
     try {
         const pending = parseWorldEffects(await kv.get(worldEffectsOutboxKey(playerName)));
-        for (const effect of pending.slice(0, DRAIN_BATCH)) {
+        for (const effect of pending) {
+            if (delivered >= DRAIN_BATCH) break;
             try {
                 await applyWorldEffect(playerName, effect, deps);
-            } catch {
+            } catch (error) {
+                // Keep the unresolved legacy evidence, but do not strand later
+                // valid work behind it. Storage failures still pause the drain.
+                if (error instanceof MissingContractDiscoveryTimeError) continue;
                 break;
             }
             await removeWorldEffect(playerName, effect);

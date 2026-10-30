@@ -52,6 +52,26 @@ test('a lost start response recovers the exact admitted Anbu run without its bro
     assert.equal((await post('anotheraccount', 'recover')).status, 404, 'an active pointer is scoped to its authenticated account');
 });
 
+test('vault admission settles earned HP once and recovery preserves the sealed fight', async t => {
+    let now = Date.UTC(2026, 9, 29, 12);
+    t.mock.method(Date, 'now', () => now);
+    const name = 'anbuelapsedhp'; await seed(name);
+    const save = (await kv.get<Record<string, unknown>>(`save:${name}`))!;
+    await kv.set(`save:${name}`, { ...save, _regenAt: now - 60_000, _saveAt: now - 60_000,
+        character: { ...(save.character as Record<string, unknown>), hp: 5000 } });
+    const started = await post(name, 'start');
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    const { vitalRegenPerTick } = await import('../_elapsed-state.js');
+    const session = started.body.session as { player: { hp: number } };
+    assert.equal(session.player.hp, 5000 + 60 * vitalRegenPerTick(12000));
+    const admittedSave = await kv.get(`save:${name}`);
+    now += 60_000;
+    const recovered = await post(name, 'recover');
+    assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
+    assert.deepEqual(recovered.body.session, started.body.session);
+    assert.deepEqual(await kv.get(`save:${name}`), admittedSave);
+});
+
 test('recovery distinguishes no saved fight from an invalid sector', async () => {
     assert.equal((await post('anbunoactive', 'recover')).status, 404);
     assert.equal((await post('anbunoactive', 'recover', { sector: 99 })).status, 400);

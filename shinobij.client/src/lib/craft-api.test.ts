@@ -2,6 +2,25 @@ import { afterEach, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { forgeServer, hasPendingNamedForgeRoll, rollNamedForgeServer } from './craft-api';
+
+test('a five-treat retry preserves the exact batch and material selection', async () => {
+    const original = globalThis.fetch;
+    const bodies: Array<Record<string, unknown>> = [];
+    const materials = [{ 'gather-heartwood-bark': 20 }, { 'gather-medicinal-herb': 10 }];
+    globalThis.fetch = async (_url, init) => {
+        bodies.push(JSON.parse(String(init?.body)));
+        if (bodies.length === 1) throw new TypeError('Lost batch acknowledgement');
+        return new Response(JSON.stringify({ character: { name: 'treatbatchclient', ryo: 1000 }, _saveVersion: 2, replayed: true }));
+    };
+    try {
+        await forgeServer('treatbatchclient', 'supply', 'pet-treat', 5, materials);
+        const result = await forgeServer('treatbatchclient', 'supply', 'pet-treat', 5, materials);
+        assert.deepEqual(bodies[0], bodies[1]);
+        assert.equal(bodies[0].quantity, 5);
+        assert.deepEqual(bodies[0].materials, materials);
+        assert.equal(result.character?.ryo, 1000);
+    } finally { globalThis.fetch = original; }
+});
 import { canPayNamedForge } from '../../../shared/named-forge-economy';
 import { namedForgeShortfall } from '../../../shared/named-forge-materials';
 
