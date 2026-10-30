@@ -15,7 +15,7 @@
 // drift on either side must change both (that's the point).
 import { economyDial } from '../_economy-dials.js';
 import { advanceLastDailyReset } from '../_daily-reset-stamp.js';
-import { addClanContrib } from '../_clan-contrib-month.js';
+import { addClanContrib, nextMissionTotal } from '../_clan-contrib-month.js';
 import { grantItemIds } from '../../shared/stacked-materials.js';
 
 export const AURA_SPHERE_ITEM_ID = 'aura-sphere';
@@ -334,7 +334,7 @@ export function hasDailyHuntSlot(char: CatalogChar, todayKey: string): boolean {
 export function markHuntCompletedFields(char: CatalogChar, todayKey: string, monthKey: string) {
     return {
         ...addClanContrib(char, 'clanMissionContrib', monthKey),
-        totalMissionsCompleted: Number(char.totalMissionsCompleted ?? 0) + 1,
+        totalMissionsCompleted: nextMissionTotal(char),
         dailyHuntsCompleted: dailyHuntsCompleted(char, todayKey) + 1,
         lastHuntReset: todayKey,
     };
@@ -349,7 +349,7 @@ export function markMissionCompletedFields(char: CatalogChar, todayKey: string, 
     return {
         ...advanceLastDailyReset(char, todayKey),
         ...addClanContrib(char, 'clanMissionContrib', monthKey),
-        totalMissionsCompleted: Number(char.totalMissionsCompleted ?? 0) + 1,
+        totalMissionsCompleted: nextMissionTotal(char),
         dailyMissionsCompleted: dailyMissionsCompleted(char, todayKey) + 1,
         lastDailyReset: todayKey,
     };

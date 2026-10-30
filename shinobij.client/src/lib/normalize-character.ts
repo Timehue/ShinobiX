@@ -98,11 +98,9 @@ export function normalizeCharacter(parsed: Character): Character {
         lifetimeClanPoints: Math.max(0, Math.floor(Number(parsed.lifetimeClanPoints ?? 0) || 0)),
         clanPointHistory: Array.isArray(parsed.clanPointHistory) ? parsed.clanPointHistory : [],
         clanExchangePurchases: (parsed.clanExchangePurchases && typeof parsed.clanExchangePurchases === "object" && !Array.isArray(parsed.clanExchangePurchases)) ? parsed.clanExchangePurchases : { weekly: {}, monthly: {}, oneTime: {} },
-        // Monthly counters under one stamp: a stale month counts for nothing
-        // (mirror of api/_clan-contrib-month.ts, which the server writers use).
-        clanBattleContrib: parsed.clanContribMonth === currentMonth ? parsed.clanBattleContrib ?? 0 : 0,
-        clanEventContrib: parsed.clanContribMonth === currentMonth ? parsed.clanEventContrib ?? 0 : 0,
-        clanMissionContrib: parsed.clanContribMonth === currentMonth ? parsed.clanMissionContrib ?? 0 : 0,
+        clanBattleContrib: parsed.clanBattleContrib ?? 0,
+        clanEventContrib: parsed.clanEventContrib ?? 0,
+        clanMissionContrib: parsed.clanMissionContrib ?? 0,
         totalStatsTrained: parsed.totalStatsTrained ?? 0,
         totalMissionsCompleted: parsed.totalMissionsCompleted ?? parsed.clanMissionContrib ?? 0,
         totalAiKills: parsed.totalAiKills ?? 0,

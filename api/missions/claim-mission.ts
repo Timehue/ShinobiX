@@ -1,7 +1,7 @@
 import { creditElderWinDeltas } from '../../shared/elder-elections.js';
 import { recordFirstContractActivity } from '../../shared/first-contract.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { addClanContrib } from '../_clan-contrib-month.js';
+import { addClanContrib, nextMissionTotal } from '../_clan-contrib-month.js';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -744,7 +744,7 @@ async function applyReservedCombatMissionPayout(params: {
     const currentDailyDay = typeof next.lastDailyReset === 'string' ? next.lastDailyReset : '';
     next = {
         ...next,
-        totalMissionsCompleted: Number(next.totalMissionsCompleted ?? 0) + 1,
+        totalMissionsCompleted: nextMissionTotal(next),
         // A settlement from an earlier day than the stored stamp counts toward
         // no day. Otherwise it may roll the day, and then the other counters
         // keyed to lastDailyReset are zeroed with it (api/_daily-reset-stamp.ts).
@@ -1323,7 +1323,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next = {
                     ...next,
                     ...addClanContrib(next, 'clanMissionContrib', monthKey),
-                    totalMissionsCompleted: Number(next.totalMissionsCompleted ?? 0) + 1,
+                    totalMissionsCompleted: nextMissionTotal(next),
                 };
             }
             if (academyTrialClaimed) next = {
