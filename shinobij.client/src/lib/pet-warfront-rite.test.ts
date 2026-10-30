@@ -100,7 +100,11 @@ test("actors stay in bounds, never share an idle cell, and face their target", (
         for (const actor of snapshot.actors.filter((entry) => entry.hp > 0)) {
             assert.ok(Math.abs(actor.x) <= WARFRONT_ARENA_X && Math.abs(actor.y) <= WARFRONT_ARENA_Y);
             const key = `${Math.round(actor.x / 3.2)},${Math.round(actor.y / 3)}`;
-            if (actor.state !== "dash") { assert.ok(!occupied.has(key), `two actors occupied ${key} at tick ${snapshot.t}`); occupied.add(key); }
+            // Hit reactions can replace a dash pose while its reserved path
+            // continues. Check actual cell centres, not the animation label.
+            const atCentre = Math.abs(actor.x / 3.2 - Math.round(actor.x / 3.2)) < .002
+                && Math.abs(actor.y / 3 - Math.round(actor.y / 3)) < .002;
+            if (atCentre) { assert.ok(!occupied.has(key), `two actors occupied ${key} at tick ${snapshot.t}`); occupied.add(key); }
             if (!actor.targetId) continue;
             const target = snapshot.actors.find((entry) => entry.id === actor.targetId && entry.hp > 0);
             if (!target) continue;
@@ -126,7 +130,7 @@ test("real terrain changes routes and wall cells remain empty", () => {
     assert.equal(WARFRONT_MAZE_WALLS.length, 2);
     const result = runPetSquadDuelCinematic(band("b"), band("r"), 5, false, true, false, [1, 4, 7, 8], [1, 4, 7, 8]);
     for (const snapshot of result.snapshots) for (const actor of snapshot.actors.filter((entry) => entry.hp > 0 && entry.state !== "dash")) {
-        assert.ok(!(Math.abs(actor.x) < 0.2 && (Math.abs(actor.y - 3) < 0.2 || Math.abs(actor.y + 3) < 0.2)), "actor occupied a shoji wall cell");
+        assert.ok(!(Math.abs(actor.x) < 0.2 && (Math.abs(actor.y - 3) < 0.2 || Math.abs(actor.y + 3) < 0.2)), "actor occupied a pillar cell");
     }
 });
 
@@ -182,28 +186,30 @@ test("best of three stops when a side reaches two", () => {
 });
 
 test("exact cumulative exit health stays below the survivor floor until the next clash", () => {
-    // Retain the authored-kit transcript that exercises this exact survivor-floor edge.
     const retained = (prefix: string) => band(prefix).map(pet => ({ ...pet, battleLoadoutVersion: 'legacy-v1' as const }));
-    const result = runWarfrontRite(retained("carry-blue"), retained("carry-red"), 4, plan(), plan());
-    assert.equal(result.clashes.length, 3, "carry-floor fixture must reach the deciding clash");
-    const clash = result.clashes[1];
-    const combatant = clash.red.find((entry) => entry.slot === 1);
-    assert.ok(combatant, "carry-floor fixture lost red slot 1");
-    const actor = clash.result.snapshots.at(-1)?.actors
-        .find((entry) => entry.team === "enemy" && entry.slot === combatant.lane);
-    assert.ok(actor, "carry-floor fixture lost red slot 1's final actor");
-    const localExitRatio = actor.maxHp > 0 ? actor.hp / actor.maxHp : 0;
-    const expectedExitHp = combatant.entryHp * localExitRatio;
-    assert.ok(Math.abs(combatant.exitHp - expectedExitHp) <= 1e-12);
-    assert.ok(combatant.exitHp > 0 && combatant.exitHp < RITE_MIN_ENTRY_HP,
-        "the exact exit transcript was incorrectly raised to the next-entry floor");
-
-    const next = result.clashes[2].red.find((entry) => entry.slot === combatant.slot);
-    assert.ok(next, "carry-floor fixture lost red slot 1 from the next clash");
-    const share = clash.winner === null || clash.winner === "red" ? RITE_REGROUP : RITE_LOSER_REGROUP;
-    const expectedNextEntry = RITE_MIN_ENTRY_HP + (1 - RITE_MIN_ENTRY_HP) * share;
-    assert.ok(Math.abs(next.entryHp - expectedNextEntry) <= 1e-12,
-        `next-clash floor/regroup mismatch: expected ${expectedNextEntry}, got ${next.entryHp}`);
+    let exercised = 0;
+    // Tactical decisions can change the survivor. Check the health invariant
+    // across a fixed cohort instead of pinning it to one pet's old outcome.
+    for (let seed = 1; seed <= 20; seed++) {
+        const result = runWarfrontRite(retained("carry-blue"), retained("carry-red"), seed, plan(), plan());
+        for (let index = 0; index < result.clashes.length - 1; index++) {
+            const clash = result.clashes[index];
+            for (const [side, team] of [['blue', 'player'], ['red', 'enemy']] as const) for (const combatant of clash[side]) {
+                if (combatant.exitHp <= 0 || combatant.exitHp >= RITE_MIN_ENTRY_HP) continue;
+                const actor = clash.result.snapshots.at(-1)?.actors.find(entry => entry.team === team && entry.slot === combatant.lane);
+                assert.ok(actor);
+                assert.ok(Math.abs(combatant.exitHp - combatant.entryHp * actor.hp / actor.maxHp) <= 1e-12,
+                    "exit health must preserve the exact simulation result below the admission floor");
+                const next = result.clashes[index + 1][side].find(entry => entry.slot === combatant.slot);
+                assert.ok(next);
+                const share = clash.winner === null || clash.winner === side ? RITE_REGROUP : RITE_LOSER_REGROUP;
+                const expected = RITE_MIN_ENTRY_HP + (1 - RITE_MIN_ENTRY_HP) * share;
+                assert.ok(Math.abs(next.entryHp - expected) <= 1e-12, "floor and regroup apply only at the next admission");
+                exercised++;
+            }
+        }
+    }
+    assert.ok(exercised > 0, "cohort must exercise a survivor below the entry floor");
 });
 
 test('fresh progression carry preserves exact exit health and regroups only the next admission', () => {

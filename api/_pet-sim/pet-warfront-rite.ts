@@ -276,7 +276,7 @@ export interface RiteCounterMove {
     toNode: number;
     observedOpponentSlot: number | null;
     observedOpponentPetId: string | null;
-    evidence: "first-fall" | "lowest-health";
+    evidence: "opening-pressure" | "first-fall" | "lowest-health";
     threatEvidence: "last-hit" | "highest-damage" | "formation-fallback";
     formation: number[];
     deployment: number[];
@@ -470,9 +470,9 @@ function riteReformAfter(plan: RitePlan, clashIndex: number): RiteReform | null 
 /**
  * One public-evidence counter for the losing side between clashes.
  *
- * The first fallen pet retreats to an unoccupied rear mark farthest from the
- * rival that last hit it. If no knockout occurred, the lowest-health pet and
- * highest-damage rival provide deterministic fallbacks. Crucially this reads
+ * Break the observed opening focus by moving its exposed pet to a rear mark
+ * away from the attacker. A late knockout elsewhere must not leave the same
+ * failed opening intact. First fall and lowest health are fallbacks. This reads
  * only the completed clash object: a player's still-unsealed next formation is
  * not an argument and therefore cannot affect the move.
  */
@@ -491,7 +491,9 @@ export function deterministicRiteCounterMove(clash: RiteClash, side: RiteSide): 
 
     const firstFallEvent = clash.result.events.find((event) => event.type === "ko" && event.side === ownTeam);
     const firstFall = firstFallEvent ? ownByActor.get(firstFallEvent.actorId) ?? null : null;
-    const mover = firstFall ?? [...own].sort((a, b) => a.exitHp - b.exitHp || a.slot - b.slot)[0] ?? null;
+    const openingHit = clash.result.events.find(event => event.type === "hit" && event.side === foeTeam && event.targetId);
+    const exposed = openingHit?.targetId ? ownByActor.get(openingHit.targetId) : null;
+    const mover = exposed ?? firstFall ?? [...own].sort((a, b) => a.exitHp - b.exitHp || a.slot - b.slot)[0] ?? null;
     if (!mover) return null;
 
     const moverActorId = actorId(ownTeam, mover.lane);
@@ -539,7 +541,7 @@ export function deterministicRiteCounterMove(clash: RiteClash, side: RiteSide): 
         toNode,
         observedOpponentSlot: observedAttacker?.slot ?? null,
         observedOpponentPetId: observedAttacker?.petId ?? null,
-        evidence: firstFall ? "first-fall" : "lowest-health",
+        evidence: exposed ? "opening-pressure" : firstFall ? "first-fall" : "lowest-health",
         threatEvidence,
         formation,
         deployment,

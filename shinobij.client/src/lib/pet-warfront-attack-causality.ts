@@ -17,7 +17,7 @@ export const BODY_LUNGE_LEAD_TICKS = 3;
 export const BODY_LUNGE_RELEASE_TICKS = 3;
 export const BODY_RECOIL_RECOVERY_TICKS = 9;
 export const BODY_KO_EXIT_TICKS = 24;
-export const BODY_LUNGE_DISTANCE = 0.42;
+export const BODY_LUNGE_DISTANCE = 0.16;
 export const BODY_RECOIL_DISTANCE = 0.52;
 export const BODY_KO_EXIT_DISTANCE = 1.8;
 
@@ -32,6 +32,8 @@ export type WarfrontAttackCue = Readonly<{
     hits: number;
     lethal: boolean;
     koTick: number | null;
+    /** The caster's release pose already owns projectile launch. */
+    ranged?: boolean;
 }>;
 
 /**
@@ -87,6 +89,7 @@ export function warfrontAttackCues(events: readonly DuelEvent[]): WarfrontAttack
         hits: number;
         lethal: boolean;
         koTick: number | null;
+        ranged?: boolean;
     }> = [];
 
     for (const event of events) {
@@ -120,6 +123,7 @@ export function warfrontAttackCues(events: readonly DuelEvent[]): WarfrontAttack
             hits: 1,
             lethal: false,
             koTick: null,
+            ...(event.ranged ? { ranged: true } : {}),
         });
     }
     // KO records are authoritative and ordered after their damage edge. When
@@ -191,7 +195,9 @@ export function warfrontBodyContactBeats(cues: readonly WarfrontAttackCue[]): Ma
         }
     };
     for (const cue of cues) {
-        append(cue.actorId, "attacker", cue);
+        // A projectile landing must not interrupt the caster's next action
+        // with a second attack pose. Only its recipient reacts at impact.
+        if (!cue.ranged) append(cue.actorId, "attacker", cue);
         append(cue.targetId, "target", cue);
     }
     for (const beats of beatsByActor.values()) beats.sort((a, b) => a.tick - b.tick || (a.role === "attacker" ? -1 : 1));

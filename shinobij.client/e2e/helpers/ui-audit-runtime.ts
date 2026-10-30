@@ -23,7 +23,7 @@ function json(route: Route, body: unknown, status = 200) {
 // fallback below would fail to decode, the image guard would hide the <img>,
 // and the artwork audit would then report broken art that is really this stub.
 // No stubbed screen requested /api/img when this was added (2026-09-10).
-const IMAGE_PLACEHOLDER = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1cAAAAASUVORK5CYII=", "base64");
+const IMAGE_PLACEHOLDER = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=", "base64");
 
 export function uiAuditSave(): UiAuditSave {
     const stats = {
