@@ -40,7 +40,7 @@ import { useCapabilityViewAvailability } from "../lib/live-capabilities-context"
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import type { BattleHistoryEntry } from "../types/character";
 import type { GameItem, SavedBloodline } from "../types/combat";
-import { buildHostLoadoutFromItems } from "../lib/host-loadout";
+import { buildHostLoadout } from "../lib/host-loadout";
 import { TERRITORY_CAPTURE_MIN_MEMBERS, TERRITORY_CAPTURE_SCROLLS, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import type { WeatherType, Screen } from "../types/core";
 import { clanMissionProgress } from "../lib/clan-math";
@@ -80,6 +80,7 @@ import { CLAN_VIEW_REQUEST_EVENT } from "../lib/use-notifications";
 import { useActivitySectionRequests } from "../lib/use-activity-section";
 
 export function ClanHall({ character, updateCharacter, onVersionedCharacter, creatorItems, savedBloodlines, setScreen, sharedImages, onRecordBattle,onLaunchClanWarBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; creatorItems: GameItem[]; savedBloodlines: SavedBloodline[]; setScreen: (s: Screen) => void; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void;onLaunchClanWarBattle?:(challenge:CwChallenge,warId:string)=>void }) {
+    const towerHostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
     const lore = clanLore[character.village];
     const isInClan = !!character.clan;
     const [clanName, setClanName] = useState("");
@@ -182,12 +183,6 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         // Village supplies go only to the Town Hall (api/clan/treasury/donate.ts refuses them).
         () => inventoryItemStacks(character, allClanItems).filter((stack) => !isVillageSupplyGood(stack.itemId)),
         [carriedInventory, carriedItemStacks, allClanItems],
-    );
-    // Only the Boss tab (<ClanBoss>) consumes the host loadout; skip building it
-    // on every other view (it would rebuild each regen tick for nothing).
-    const towerHostLoadout = useMemo(
-        () => view === "boss" ? buildHostLoadoutFromItems(character, savedBloodlines, allClanItems) : undefined,
-        [view, character, savedBloodlines, allClanItems],
     );
     const clanTreasuryItems = cleanTreasuryItems(clanData?.treasury.items);
     // ── Village Stores clan mirror (display) ────────────────────────────────

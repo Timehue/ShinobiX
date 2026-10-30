@@ -1,13 +1,9 @@
-import { memo } from "react";
 import { petDisplayName } from "../lib/pet";
 import type { Pet } from "../types/pet";
 import { PetArtwork } from "./PetArtwork";
 
-/** The same portrait and identity hierarchy in every Companion Home surface.
- *  Memoized: it renders only from its props, and callers pass a pet from
- *  `character.pets` (kept by reference across idle-regen ticks) plus the shared
- *  image map, so grids of these skip the parent's every-second re-render. */
-export const CompanionIdentity = memo(function CompanionIdentity({ pet, sharedImages, compact = false, loading }: {
+/** The same portrait and identity hierarchy in every Companion Home surface. */
+export function CompanionIdentity({ pet, sharedImages, compact = false, loading }: {
     pet: Pet;
     sharedImages: Record<string, string>;
     compact?: boolean;
@@ -25,4 +21,4 @@ export const CompanionIdentity = memo(function CompanionIdentity({ pet, sharedIm
             </span>
         </span>
     </span>;
-});
+}

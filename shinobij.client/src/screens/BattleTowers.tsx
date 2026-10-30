@@ -5,8 +5,7 @@ import { BattleTowersLobby } from "./BattleTowersLobby";
 import { BattleTowerFight } from "./BattleTowerFight";
 import { fetchTowerState, TowerStateApiError, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
 import type { GameItem, SavedBloodline } from "../types/combat";
-import { buildHostLoadoutFromItems } from "../lib/host-loadout";
-import { getAllItems } from "../lib/items";
+import { buildHostLoadout } from "../lib/host-loadout";
 import { setTowerFightRunId, towerPvpMatchIdFromRunKey, TOWER_RUN_KEY } from "../lib/screen-guards";
 import {
 } from "../lib/tower-pvp-api";
@@ -60,8 +59,7 @@ function clearRunKeys() {
 const RESUME_TIMEOUT_MS = 12_000;
 
 export function BattleTowers({ character, creatorItems, savedBloodlines, updateCharacter, onVersionedCharacter, sharedImages, onExit, onWorldBossExit, onRecordBattle }: { character: Character; creatorItems: GameItem[]; savedBloodlines: SavedBloodline[]; updateCharacter: (c: Character) => void; onVersionedCharacter: VersionedCharacterCommit; sharedImages?: Record<string, string>; onExit: () => void; onWorldBossExit?: () => void; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
-    const allItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
-    const hostLoadout: TowerHostLoadout = useMemo(() => buildHostLoadoutFromItems(character, savedBloodlines, allItems), [character, savedBloodlines, allItems]);
+    const hostLoadout: TowerHostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
     // If a runId survived a refresh, start by checking the server; otherwise the
     // lobby shows immediately (no resume flash on a fresh entry).
     const [view, setView] = useState<View>(() => {

@@ -257,8 +257,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             return hasFixedEffectPower(next) ? { ...next, effectPower: next.ap === 60 ? 40 : 0 } : next;
         }));
     }
-    // Same inputs (jutsus, rank) as totalPoints above, in the same render.
-    const currentTotalPoints = totalPoints;
+    const currentTotalPoints = bloodlinePoints(jutsus, rank);
     const pointLimit = pointBudgetForRank(rank);
     const overLimit = currentTotalPoints > pointLimit;
 

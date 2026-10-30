@@ -1,5 +1,5 @@
 import {warSectionCard,warActionRow,warFlexibleField,warMutedHeading,warPrimaryButton,warSmallButton} from '../lib/clan-battles-styles';
-/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { visiblePoll } from "../lib/poll";
 import { GameArtIcon } from "../components/GameArtIcon";
@@ -93,13 +93,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
     // Eligible clans to declare war on: any clan that exists in the
     // roster, isn't mine, and isn't currently in a clan war.
-    // Memoized on `wars` (its only input) so eligibleTargets below stops
-    // recomputing on every render because of a fresh Set identity.
-    const clansInWar = useMemo(() => {
-        const set = new Set<string>();
-        for (const w of wars) if (!w.endedAt) for (const c of w.clans) set.add(c);
-        return set;
-    }, [wars]);
+    const clansInWar = new Set<string>();
+    for (const w of wars) if (!w.endedAt) for (const c of w.clans) clansInWar.add(c);
     const eligibleTargets: string[] = useMemo(() => {
         const set = new Set<string>();
         for (const p of playerRoster) {

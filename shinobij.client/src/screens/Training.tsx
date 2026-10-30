@@ -9,7 +9,7 @@ import { getAllJutsus } from "../lib/jutsu-loadout";
  */
 import type React from "react";
 import { serverNow } from "../lib/server-clock";
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import "../styles/training-skin.css";
 import "../styles/hub-screens-skin.css";
 import "../styles/jutsu-training-skin.css";
@@ -385,14 +385,6 @@ function sealLessonFrom(fromLevel: number, character: Character): { cost: number
     return cost > 0 ? { cost } : null;
 }
 
-const lessonMinutes = (ms: number) => `${Math.round(ms / 60000)} min`;
-
-function jutsuTrainingCost(level: number) {
-    return level < 10
-        ? 2500 + Math.max(0, level) * 500
-        : 8000 + Math.max(0, level - 10) * 1200;
-}
-
 /** "150 ryo" or "20 Honor Seals" — what a lesson was paid with. */
 function lessonPrice(lesson: { currency?: string; ryoCost: number; sealCost?: number }, share = 1): string {
     return lesson.currency === "honorSeals"
@@ -654,11 +646,11 @@ export function JutsuTrainingHall({
         // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the fields read (see above)
         [savedBloodlines, characterBloodline, equippedBloodlineId],
     );
-    const bloodlineLabel = useCallback((jutsu: Jutsu) => {
+    const bloodlineLabel = (jutsu: Jutsu) => {
         if (!hasBloodlineMarker(jutsu, bloodlineJutsuNames)) return "";
         const name = bloodlineJutsuNames.get(jutsu.id);
         return name ? `◆ Bloodline · ${name}` : "◆ Bloodline";
-    }, [bloodlineJutsuNames]);
+    };
     const academyJutsuStep = normalizeOnboardingStep(character.onboardingStep) === "jutsu";
     const academyUntrainedJutsuId = availableJutsus.find((jutsu) => getJutsuMastery(character, jutsu.id).level < 1)?.id ?? "";
     const [selectedJutsuId, setSelectedJutsuId] = useState(
@@ -701,12 +693,18 @@ export function JutsuTrainingHall({
 
     // A running jutsu-speed boost event (shared/boost-event.ts) divides lesson
     // time on the server (api/training/jutsu-ryo.ts), so the preview does too.
-    // Stable per boost value so the memoized library below can depend on it.
     const jutsuEventBoost = boostMultiplierAt(loadBoostEvent(), "jutsu", serverNow());
-    const jutsuTrainingDuration = useCallback((level: number) => {
+    function jutsuTrainingDuration(level: number) {
         const base = level < 10 ? 10 * 60 * 1000 : 30 * 60 * 1000;
         return Math.max(60_000, Math.floor(base / jutsuEventBoost));
-    }, [jutsuEventBoost]);
+    }
+    const lessonMinutes = (ms: number) => `${Math.round(ms / 60000)} min`;
+
+    function jutsuTrainingCost(level: number) {
+        return level < 10
+            ? 2500 + Math.max(0, level) * 500
+            : 8000 + Math.max(0, level - 10) * 1200;
+    }
 
     // Ryo "finish now": 500 ryo per remaining minute (prorated, so a near-done
     // training closes out cheap and a fresh 30-min one costs ~15k). A pure ryo
@@ -928,9 +926,7 @@ export function JutsuTrainingHall({
         ? (character.honorSeals ?? 0) < mobileInfoSealLesson.cost
         : !!mobileInfoMastery && mobileInfoMastery.level > 0 && character.ryo < mobileInfoCost;
 
-    // Stable while its inputs hold (character, the boost-scaled duration, the
-    // bloodline names), so the 1s lesson tick does not re-render the library.
-    const renderJutsuDetails = useCallback((jutsu: Jutsu) => {
+    function renderJutsuDetails(jutsu: Jutsu) {
         const mastery = getJutsuMastery(character, jutsu.id);
         const scaled = scaleJutsuByLevel(jutsu, mastery.level);
         const cost = jutsuTrainingCost(mastery.level);
@@ -962,32 +958,9 @@ export function JutsuTrainingHall({
                 <JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
             </div>
         );
-    }, [character, ryoTrainCap, tagLensDiscipline, jutsuTrainingDuration, bloodlineLabel]);
-    // Library selection only calls state setters, so it never changes identity.
-    const selectJutsuFromLibrary = useCallback((jutsu: Jutsu) => {
-        setSelectedJutsuId(jutsu.id);
-        if (typeof window !== "undefined" && window.matchMedia("(max-width: 800px)").matches) {
-            setMobileJutsuInfoId(jutsu.id);
-        }
-    }, []);
+    }
 
     const showAcademyJutsuHint = academyJutsuStep;
-    // The library element is rebuilt only when a prop it receives changes; the
-    // list reads nothing but its props and its own filter state.
-    const libraryEmptyText = ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu.";
-    const libraryHighlightId = showAcademyJutsuHint && selectedMastery?.level !== 0 ? academyUntrainedJutsuId : undefined;
-    const jutsuLibrary = useMemo(() => (
-        <JutsuDropdownList
-            jutsus={availableJutsus}
-            label="Jutsu library"
-            emptyText={libraryEmptyText}
-            selectedJutsuId={selectedJutsuId}
-            highlightJutsuId={libraryHighlightId}
-            renderDetails={renderJutsuDetails}
-            bloodlineJutsuNames={bloodlineJutsuNames}
-            onSelectJutsu={selectJutsuFromLibrary}
-        />
-    ), [availableJutsus, libraryEmptyText, selectedJutsuId, libraryHighlightId, renderJutsuDetails, bloodlineJutsuNames, selectJutsuFromLibrary]);
     const queued = activeJutsuTraining?.next ?? null;
     const moraleName = String(warMorale.morale);
     const moraleJutsuTimeMult = moraleName === "rallying" ? 0.9 : 1;
@@ -1174,7 +1147,21 @@ export function JutsuTrainingHall({
                     <div><span className="jutsu-eyebrow">Technique archive</span><h3 id="jutsu-library-title">Choose your next jutsu</h3></div>
                     <p>Select a card to update the curriculum panel. Use the filters to narrow a large collection.</p>
                 </div>
-                {jutsuLibrary}
+                <JutsuDropdownList
+                    jutsus={availableJutsus}
+                    label="Jutsu library"
+                    emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."}
+                    selectedJutsuId={selectedJutsuId}
+                    highlightJutsuId={showAcademyJutsuHint && selectedMastery?.level !== 0 ? academyUntrainedJutsuId : undefined}
+                    renderDetails={renderJutsuDetails}
+                    bloodlineJutsuNames={bloodlineJutsuNames}
+                    onSelectJutsu={(jutsu) => {
+                        setSelectedJutsuId(jutsu.id);
+                        if (typeof window !== "undefined" && window.matchMedia("(max-width: 800px)").matches) {
+                            setMobileJutsuInfoId(jutsu.id);
+                        }
+                    }}
+                />
             </section>
 
             <Modal
