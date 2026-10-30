@@ -12,6 +12,13 @@ import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, namedForgeCostE
 import { recordForgedItem } from '../_forged-item-registry.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 
+/**
+ * The save sanitizer keeps up to 500 creatorItems (_sanitize-creator-items.ts,
+ * pinned by named-creator-cap.test.ts). A roll used to keep only the newest 200,
+ * so a large record silently lost its oldest forged-item definitions.
+ */
+export const CREATOR_ITEM_CAP = 500;
+
 const cleanToken = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9]{16,96}$/.test(v) ? v : '';
 const REGISTRY_UNAVAILABLE = 'Named gear storage is temporarily unavailable. Retry this forge with the same roll.';
 
@@ -95,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!(await registerNamedItem(item))) {
                     return { ok: false as const, status: 503, error: REGISTRY_UNAVAILABLE };
                 }
-                return { ok: true as const, character: forgedCharacter, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item, roll } };
+                return { ok: true as const, character: forgedCharacter, recordPatch: { creatorItems: [...creatorItems.slice(-(CREATOR_ITEM_CAP - 1)), item] }, value: { replayed: false, item, roll } };
             });
             if (!result.ok) return res.status(result.status).json({ error: result.error });
             return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
@@ -138,7 +145,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!(await registerNamedItem(item))) {
                 return { ok: false as const, status: 503, error: REGISTRY_UNAVAILABLE };
             }
-            return { ok: true as const, character: forgedCharacter, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item } };
+            return { ok: true as const, character: forgedCharacter, recordPatch: { creatorItems: [...creatorItems.slice(-(CREATOR_ITEM_CAP - 1)), item] }, value: { replayed: false, item } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         await kv.del(`named-forge:${playerName}:${token}`).catch(() => undefined);

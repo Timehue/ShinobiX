@@ -36,6 +36,13 @@ describe('public capability projection', () => {
         assert.doesNotMatch(publicJson, /ENABLE_|DISABLE_|MAINTENANCE_MODE|FREEZE_ECONOMY|TOKEN|PASSWORD|SECRET/);
     });
 
+    it('hides guest play whenever the route boundary would refuse a new guest', () => {
+        const secret = { SESSION_SECRET: 'x'.repeat(32) };
+        assert.equal(publicCapabilities(secret).guestPlay.state, 'available');
+        assert.equal(publicCapabilities({ ...secret, DISABLE_NEW_REGISTRATIONS: '1' }).guestPlay.state, 'temporarily-unavailable');
+        assert.equal(publicCapabilities({ ...secret, FREEZE_ECONOMY_REWARDS: '1' }).guestPlay.state, 'temporarily-unavailable');
+    });
+
     it('projects emergency and feature switches as bounded public reason codes', () => {
         const capabilities = publicCapabilities({
             MAINTENANCE_MODE: '1',

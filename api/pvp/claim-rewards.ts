@@ -38,6 +38,7 @@ import {
     type PvpSession,
 } from './session.js';
 import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt } from './_reward-settlement.js';
+import { addClanContrib } from '../_clan-contrib-month.js';
 import {
     settlePlayerRankedJournal,
 } from './_player-ranked-journal.js';
@@ -892,6 +893,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             totalPvpKills: Math.max(0, Math.floor(Number(finalChar.totalPvpKills) || 0)) + 1,
                             monthlyPvpKills: monthlyKills,
                             pvpKillMonth: month,
+                            // +1 clan battle contribution per PvP win, the source the
+                            // save sanitizer budgets for. Nothing wrote it, so the
+                            // "Win 20 Battles" clan mission and the Clan Patriot
+                            // achievement could never be reached. A win from an
+                            // earlier month than the stored stamp counts toward none.
+                            ...addClanContrib(finalChar, 'clanBattleContrib', eventMonth),
                         };
                         summary = {
                             ...summary,

@@ -11,6 +11,7 @@
  * NOT here: `applyVillageWarDamage` already persists through the shared
  * world-state channel, which is server-side. This owns only the character half.
  */
+import { addClanContrib, nextMissionTotal } from '../_clan-contrib-month.js';
 
 // Keep in sync with lib/world-state.ts (guarded by _war-mission.test.ts).
 export const VILLAGE_WAR_DAILY_MISSIONS = 2;
@@ -57,9 +58,8 @@ export function applyVillageWarMissionClaim(
             // War missions deliberately skip dailyMissionsCompleted — they have
             // their own once-per-day-per-mission cap and don't consume the
             // shared daily mission allowance.
-            clanMissionContrib: Math.max(0, Math.floor(num(character.clanMissionContrib))) + 1,
-            totalMissionsCompleted: Math.max(0, Math.floor(num(character.totalMissionsCompleted))) + 1,
-            clanContribMonth: month,
+            ...addClanContrib(character, 'clanMissionContrib', month),
+            totalMissionsCompleted: nextMissionTotal(character),
             villageWarMissionDate: today,
             villageWarRaidProgress: progress,
             villageWarMissionsCompleted: completed + 1,

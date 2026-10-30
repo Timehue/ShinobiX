@@ -193,6 +193,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!kageState?.kageSystemUnlocked || !seated || seated !== identity.name) {
                 return res.status(403).json({ error: 'Only the seated Kage may transfer village treasury.' });
             }
+            // The seat names a slug, and slugs are reusable after an account is
+            // deleted. The caller must also still live in this village, the
+            // check every other village order makes (_village-order-role.ts).
+            const callerSave = await kv.get<{ character?: { village?: unknown } }>(`save:${identity.name}`);
+            if (String(callerSave?.character?.village ?? '').trim().toLowerCase() !== village.trim().toLowerCase()) {
+                return res.status(403).json({ error: 'Only the seated Kage may transfer village treasury.' });
+            }
         }
 
         // ── Recipient membership: must belong to this village ──────────

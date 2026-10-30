@@ -103,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return { ok: false as const, error: 'Settle your current wave first.', errorCode: 'endless-wave-unsettled' };
                     }
                     if (verdict === 'lost') {
-                        return { ok: false as const, error: 'Your last wave was left unfinished and counts as lost. Abandon this run to start a new one.', errorCode: 'endless-wave-lost' };
+                        return { ok: false as const, error: 'Your last wave was left unfinished and counts as lost. End or retreat from this run in the Endless Tower lobby to start a new one.', errorCode: 'endless-wave-lost' };
                     }
                 }
 

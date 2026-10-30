@@ -301,6 +301,13 @@ it('recomputes the boss week after a delayed retry and honors kill switches with
     assert.equal(await initializeClanBoss(), true);
     assert.equal(await initializeTerritory(), true);
     delete process.env.DISABLE_CLAN_BOSS;
+    delete process.env.DISABLE_VILLAGE_WAR;
     process.env.DISABLE_SCHEDULED_JOBS = '1';
     assert.equal(await initializeClanBoss(), true);
+    // The global switch stops boot-time territory seeding too (storage throws above).
+    assert.equal(await initializeTerritory(), true);
+    const { startTournamentClock } = await import('./tournaments/_store.js');
+    const stop = startTournamentClock();
+    assert.equal(typeof stop, 'function');
+    stop();
 });

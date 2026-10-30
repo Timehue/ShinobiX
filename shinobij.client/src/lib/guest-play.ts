@@ -35,26 +35,63 @@ export function signupRequestBody(name: string, credential: SignupCredential): R
 
 export type GuestSession = { name: string; resume: string };
 
-export function loadGuestSession(): GuestSession | null {
+/*
+ * One resume credential PER guest, keyed by lower-cased name. The browser used
+ * to hold a single slot, so pressing "Play as a guest" a second time overwrote
+ * the first guest's only way back in, and that character was swept two weeks
+ * later. The old single slot is folded in on read and dropped on the next write.
+ */
+const GUEST_SESSIONS_STORAGE = "shinobix:guestSessions";
+const GUEST_SESSIONS_CAP = 4;
+
+function readGuests(): Record<string, string> {
     try {
-        const resume = localStorage.getItem(GUEST_RESUME_STORAGE) ?? "";
-        const name = localStorage.getItem(GUEST_NAME_STORAGE) ?? "";
-        return resume && name ? { name, resume } : null;
+        const parsed: unknown = JSON.parse(localStorage.getItem(GUEST_SESSIONS_STORAGE) ?? "{}");
+        const guests: Record<string, string> = {};
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            for (const [name, resume] of Object.entries(parsed)) if (typeof resume === "string" && resume) guests[name] = resume;
+        }
+        const legacyName = (localStorage.getItem(GUEST_NAME_STORAGE) ?? "").toLowerCase();
+        const legacyResume = localStorage.getItem(GUEST_RESUME_STORAGE) ?? "";
+        if (legacyName && legacyResume && !guests[legacyName]) guests[legacyName] = legacyResume;
+        return guests;
     } catch {
-        return null;
+        return {};
     }
 }
 
-export function rememberGuestSession(session: GuestSession | null): void {
+function writeGuests(guests: Record<string, string>): void {
     try {
-        if (!session) {
-            localStorage.removeItem(GUEST_RESUME_STORAGE);
-            localStorage.removeItem(GUEST_NAME_STORAGE);
-            return;
-        }
-        localStorage.setItem(GUEST_RESUME_STORAGE, session.resume);
-        localStorage.setItem(GUEST_NAME_STORAGE, session.name);
+        localStorage.setItem(GUEST_SESSIONS_STORAGE, JSON.stringify(Object.fromEntries(Object.entries(guests).slice(-GUEST_SESSIONS_CAP))));
+        localStorage.removeItem(GUEST_RESUME_STORAGE);
+        localStorage.removeItem(GUEST_NAME_STORAGE);
     } catch { /* private mode — the guest simply cannot be resumed later */ }
+}
+
+/** Every guest character this browser can still return to (lower-cased names). */
+export function guestNames(): string[] {
+    return Object.keys(readGuests());
+}
+
+/** The stored credential for `name`, or (with no name) the most recently stored guest. */
+export function loadGuestSession(name?: string): GuestSession | null {
+    const entries = Object.entries(readGuests());
+    const found = name ? entries.find(([key]) => key === name.toLowerCase()) : entries.at(-1);
+    return found ? { name: found[0], resume: found[1] } : null;
+}
+
+/** Store a guest's credential beside any others. `null` forgets every guest. */
+export function rememberGuestSession(session: GuestSession | null): void {
+    if (!session) return writeGuests({});
+    const guests = readGuests();
+    delete guests[session.name.toLowerCase()];
+    writeGuests({ ...guests, [session.name.toLowerCase()]: session.resume });
+}
+
+function forgetGuestSession(name: string): void {
+    const guests = readGuests();
+    delete guests[name.toLowerCase()];
+    writeGuests(guests);
 }
 
 export type GuestResumeResult =
@@ -79,8 +116,7 @@ export type GuestResumeResult =
  * but leaving this behind would keep listing a claimed character as a guest.
  */
 export function clearGuestSessionFor(name: string, matches: (a: string, b: string) => boolean): void {
-    const guest = loadGuestSession();
-    if (guest && matches(guest.name, name)) rememberGuestSession(null);
+    for (const guest of guestNames()) if (matches(guest, name)) forgetGuestSession(guest);
 }
 
 /**
@@ -92,8 +128,9 @@ export async function resumeGuestFor(
     name: string,
     matches: (a: string, b: string) => boolean,
 ): Promise<{ name: string; token?: string } | null> {
-    const guest = loadGuestSession();
-    if (!guest || !matches(guest.name, name)) return null;
+    const stored = guestNames().find((guest) => matches(guest, name));
+    const guest = stored ? loadGuestSession(stored) : null;
+    if (!guest) return null;
     const resumed = await resumeGuestSession(guest);
     return resumed.status === "resumed" ? { name: resumed.name, token: resumed.token } : null;
 }
@@ -107,7 +144,7 @@ export async function resumeGuestSession(session: GuestSession): Promise<GuestRe
         });
         const data = await response.json().catch(() => null) as { name?: string; token?: string } | null;
         if (response.status === 410 || response.status === 409) {
-            rememberGuestSession(null);
+            forgetGuestSession(session.name);
             return { status: "gone" };
         }
         if (!response.ok || !data?.name) return { status: "failed" };

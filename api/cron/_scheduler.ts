@@ -34,6 +34,7 @@ import { recoverPendingMentorSettlements } from '../clan/_mentor-settlement.js';
 import { recoverPendingPlayerTrades } from '../player/_trade-settlement.js';
 import { withScheduledJobLease } from './_job-lease.js';
 import { runGuestSweep } from './_guest-sweep.js';
+import { runClanWarCampaignSweep } from '../clan/war/_campaign-sweep.js';
 import { runKageInactivityPass } from '../village/_kage-inactivity.js';
 import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
 import { clanBossWeekId } from '../clan-boss/_storage.js';
@@ -97,6 +98,7 @@ const LEASE_TTL = {
     rankedSettlement: 4 * 60,
     currencyLedgerSweep: 9 * 60,
     guestSweep: 20 * 60 * 60,
+    clanWarCampaignSweep: 20 * 60 * 60,
     kageInactivity: 20 * 60 * 60,
 } as const;
 
@@ -522,6 +524,18 @@ async function fireCore(): Promise<void> {
         }
     } catch (err) {
         console.error('[cron-scheduler] kage inactivity pass threw:', (err as Error).message);
+    }
+    // Close clan-war campaigns whose clock ran out and pay what they owe. Only a
+    // participant's read used to do this, so a campaign nobody reopened never
+    // paid, and stopped being payable 60 days after it ended.
+    try {
+        const cw = await runLeasedJob('clan-war-campaign-sweep', LEASE_TTL.clanWarCampaignSweep, () => runClanWarCampaignSweep());
+        if (cw && (cw.reconciled.length > 0 || cw.failures.length > 0)) {
+            console.log(`[cron-scheduler] clan-war campaign sweep: reconciled ${cw.reconciled.length} of ${cw.scanned}${cw.failures.length ? `, ${cw.failures.length} failures` : ''}.`);
+            if (cw.failures.length) console.warn(`[cron-scheduler] clan-war campaign sweep failures: ${cw.failures.slice(0, 5).join('; ')}`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] clan-war campaign sweep threw:', (err as Error).message);
     }
     // Reclaim abandoned guest accounts. Reports what it would take unless
     // GUEST_SWEEP_ENABLED=1, so the first cycles can be read before anything is

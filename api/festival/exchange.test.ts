@@ -346,8 +346,19 @@ it('blocks active, training and ladder-defense pets from being escrowed', async 
     await patch('seller', { activePetId: null, pets: [{ ...pet, training: { endsAt: Date.now() + 100000 } }] });
     assert.equal((await list({ kind: 'pet', assetId: pet.id })).status, 409);
     await patch('seller', { pets: [pet] });
-    await kv.set('petladder:coliseum:def:seller', { pets: [pet] });
+    await kv.set('petladder:tactical:def:seller', { pets: [pet] });
     assert.equal((await list({ kind: 'pet', assetId: pet.id })).status, 409);
+});
+
+it('does not hold a companion for a retired Colosseum ladder defense, which can never be replaced', async () => {
+    const { createOwnedPet } = await import('../pet/_owned-pet.js');
+    const { PET_CATALOG } = await import('../pet/_catalog.js');
+    const pet = createOwnedPet(Object.keys(PET_CATALOG)[0], { origin: 'wild' });
+    await patch('seller', { pets: [pet] });
+    await kv.set('petladder:coliseum:def:seller', { pets: [pet] });
+    const snapshot = await post({ action: 'browse', playerName: 'seller' });
+    assert.equal(snapshot.body.inventory.find((asset: Obj) => asset.id === pet.id).unavailable, undefined);
+    assert.equal((await list({ kind: 'pet', assetId: pet.id })).status, 200);
 });
 
 it('recovers a crash after escrow but before the listing becomes active', async () => {
@@ -514,7 +525,7 @@ it('shows the ladder-defense restriction in sell inventory before a player submi
     const { PET_CATALOG } = await import('../pet/_catalog.js');
     const pet = createOwnedPet(Object.keys(PET_CATALOG)[0], { origin: 'wild' });
     await patch('seller', { pets: [pet] });
-    await kv.set('petladder:coliseum:def:seller', { pets: [pet] });
+    await kv.set('petladder:tactical:def:seller', { pets: [pet] });
     const snapshot = await post({ action: 'browse', playerName: 'seller' });
     assert.match(snapshot.body.inventory.find((asset: Obj) => asset.id === pet.id).unavailable, /ladder defense/);
 });

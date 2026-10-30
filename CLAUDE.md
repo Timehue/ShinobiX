@@ -156,7 +156,7 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   endpoint mints a token (daily cap, reward params *sealed in*), and the report
   endpoint requires it, atomically deletes it on use, and pays out from the sealed
   values — not the client body. Examples: `expedition-start` → `report-pet-event`
-  (pet expeditions), `raid-start` → `report-raid` (AI raids). PvP cross-validates
+  (pet expeditions), `raid-start` → `report-ai-fight` (AI raids). PvP cross-validates
   the real `PvpSession` instead.
 - **Shared-state read-modify-write** (treasury, seal pool, bank, territory) goes
   through `withKvLock` (`api/_lock.ts`) with `{ failClosed: true }` for currency

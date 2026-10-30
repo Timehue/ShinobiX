@@ -14,6 +14,7 @@ import { useState } from "react";
 import { setActiveToken, setActivePlayer } from "../authFetch";
 import { PLAYER_PASSWORD_MAX_LENGTH, playerPasswordPolicyError } from "../lib/player-auth-policy";
 import { refreshAccountStatus } from "../lib/account-status";
+import { clearGuestSessionFor } from "../lib/guest-play";
 import { RecoveryCodeReveal } from "./RecoveryCodeCard";
 
 export function ChangePasswordCard({ playerName }: { playerName: string }) {
@@ -67,6 +68,10 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                 // the standing rather than assuming, and it lifts without a
                 // reload. Harmless for an ordinary password change.
                 void refreshAccountStatus();
+                // The server has retired this guest's resume key, so the browser
+                // must stop listing the character as a guest ("Guest" chip, the
+                // two-week release warning).
+                clearGuestSessionFor(playerName, (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase());
                 // The same call that opens those surfaces is the one that
                 // retires the browser's resume key, so this is also where the
                 // replacement credential arrives.
