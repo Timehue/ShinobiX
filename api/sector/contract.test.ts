@@ -145,6 +145,20 @@ describe('/api/sector/contract', () => {
         assert.equal(await ryoOnSave(), paid);
     });
 
+    it('reads and pays a receipt-bearing progress row without changing its proof', async () => {
+        const progress = { version: 1, progress: CONTRACT.target, receipts: ['contract-discovery-001'] };
+        await kv.set(contractProgressKey(PLAYER, POSTED, DAY), progress);
+        const status = await call('GET', { playerName: PLAYER, sector: POSTED });
+        assert.equal(status.body?.progress, CONTRACT.target);
+        assert.equal(status.body?.claimable, true);
+        const paid = await call('POST', { playerName: PLAYER, sector: POSTED });
+        assert.equal(paid.body?.ok, true);
+        assert.equal(await ryoOnSave(), START_RYO + CONTRACT.ryo);
+        assert.deepEqual(await kv.get(contractProgressKey(PLAYER, POSTED, DAY)), progress);
+        assert.equal((await call('POST', { playerName: PLAYER, sector: POSTED })).body?.reason, 'already-claimed');
+        assert.equal(await ryoOnSave(), START_RYO + CONTRACT.ryo);
+    });
+
     it('never pays from the request body — a forged reward is ignored', async () => {
         await kv.set(contractProgressKey(PLAYER, POSTED, DAY), CONTRACT.target);
         const out = await call('POST', {

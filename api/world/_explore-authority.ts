@@ -8,6 +8,7 @@ export type WorldExploreAuthorityReceipt = {
     reward: Record<string, unknown>;
     outcome?: Record<string, unknown>;
     petMissRequestId?: string;
+    contractEffectVersion?: 1;
     at: number;
 };
 
@@ -41,6 +42,7 @@ export function cleanWorldExploreAuthorityReceipt(raw: unknown): WorldExploreAut
         reward: value.reward as Record<string, unknown>,
         ...(outcome ? { outcome } : {}),
         ...(petMissRequestId ? { petMissRequestId } : {}),
+        ...(value.contractEffectVersion === 1 ? { contractEffectVersion: 1 as const } : {}),
         at,
     };
 }
