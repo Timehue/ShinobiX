@@ -97,11 +97,15 @@ test('World fight start accepts the destination when its travel lease matured be
 
     assert.equal(output.out.statusCode, 200, JSON.stringify(output.out.body));
     assert.equal((output.out.body?.worldContext as Record<string, unknown>)?.sector, 2);
-    assert.equal(output.out.body?._saveVersion, 2);
+    // Arrival commits v2; combat admission commits settled vitals/cursor as v3.
+    assert.equal(output.out.body?._saveVersion, 3);
     const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
     assert.equal(save?.currentSector, 2);
     assert.equal(save?.pendingTravel, null);
-    assert.equal(save?._saveVersion, 2);
+    assert.equal(save?._saveVersion, 3);
+    assert.equal((output.out.body?.session as { player: { hp: number } }).player.hp, 600);
+    assert.ok(Number(save?._regenAt) > arrivalAt, 'arrival recovery is committed before combat is sealed');
+    assert.ok(Number(save?._regenAt) <= Number(save?._saveAt));
     assert.equal(await getTravelLease(playerName), null);
 });
 

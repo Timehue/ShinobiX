@@ -451,13 +451,13 @@ describe('a settlement that still lands late charges what the save lost since', 
         assert.equal(await hp('lategate'), 170, '570 less the 400 lost elsewhere, not 570');
     });
 
-    it('a prompt report still writes exactly the HP the fight left, with idle recovery accrued during it', async (t) => {
+    it('a prompt report keeps pre-fight recovery and writes exactly the HP the fight left', async (t) => {
         const now = freezeClock(t);
         // Two minutes of idle recovery are owed on the save (1 HP a second
-        // at a 600 pool), and nothing battle-locks a Solo-PvE fight.
+        // at a 600 pool). Admission credits it before sealing the fighter.
         await seedPlayer('promptreport', { hp: 300 }, { _saveAt: now - 120_000, _regenAt: now - 120_000 });
         const fight = await startExplore('promptreport');
-        assert.equal(fight.session.player.hp, 300, 'the start seeds from the save as stored');
+        assert.equal(fight.session.player.hp, 420, 'the start includes the two minutes earned before combat');
         await finish(fight.sessionId, 'win', { hp: 250 });
 
         const reported = await call('reportAiFight', 'promptreport', { playerName: 'promptreport', aiFightToken: fight.token });

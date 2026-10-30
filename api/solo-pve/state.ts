@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
-import { readSoloPveSession } from './_store.js';
+import { readSoloPveSession, repairSoloPveTerminalPublication } from './_store.js';
 import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
 import { isSoloPveSessionLapsed, soloPveSessionForResponse } from './_session.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
@@ -31,6 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // A reconnect repairs an interrupted physical settlement FIRST (a no-op
         // on an active row), so a still-readable expired terminal session never
         // answers 410 with its outcome unsettled.
+        await repairSoloPveTerminalPublication(session);
         const outcome = await reconcileTerminalSoloPveOutcome(session, playerName);
         if (outcome && !outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
         // A finished Sector War garrison assault is settled on sight (a no-op

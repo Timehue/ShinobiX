@@ -89,6 +89,10 @@ for (const mode of ['tower', 'spire', 'clan'] as const) for (const winner of ['s
         }
         const combat = page.locator('.screen-battleTowerFight');
         await expect(combat).toBeVisible();
+        if (mode === 'tower') {
+            await expect(combat.locator('.tower-round-readout')).toHaveText(`Round 1/25 · Par ${floor.roundBudget}`);
+            await expect(combat.locator('.tower-round-readout')).toHaveAccessibleName(/Clear by the end of round 25 or the floor fails/);
+        }
         const intro = page.getByRole('button', { name: 'Enter battle', exact: true });
         if (await intro.isVisible()) await intro.click();
         for (const enemy of session.actors.filter(actor => actor.side === 'enemy')) {

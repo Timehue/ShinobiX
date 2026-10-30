@@ -1848,7 +1848,7 @@ export function BattleTowerFight({
                         <span className="tower-round-readout" title={roundPresentation.hudTitle} aria-label={roundPresentation.hudTitle} style={{
                             color: roundPresentation.hardLimit && session.round >= roundPresentation.hardLimit - 2 ? "var(--red-400)"
                                 : roundPresentation.hardLimit && session.round >= Math.floor(roundPresentation.hardLimit * 0.66) ? "var(--gold)" : "var(--text-dim)",
-                        }}>{roundPresentation.debriefLabel === "Rounds / par" ? `Round ${session.round}` : roundPresentation.hudLabel}</span>
+                        }}>{roundPresentation.hudLabel}</span>
                         {turnLabel && (
                             <span className="tower-fight-turn-pill" data-own-turn={myTurn} data-side={activeActor?.side}>
                                 <span className="tower-fight-turn-label" aria-live="polite">{turnLabel}</span>

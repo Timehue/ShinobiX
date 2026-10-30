@@ -1,4 +1,4 @@
-import { withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
+import { CombatAdmissionConflictError, withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
 import { isOpenWorldBattleKind } from './_ai-fight-token.js';
 import { openWorldContinuousVitalsEnabled } from '../_release-flags.js';
 import { safeLogValue } from '../_safe-log.js';
@@ -706,8 +706,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }, { failClosed: true });
         if (genericResponse.status === 204) return res.status(204).end();
-        return res.status(genericResponse.status).json(genericResponse.body);
+        const latest = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
+        const saveVersion = Math.floor(Number(latest?._saveVersion));
+        return res.status(genericResponse.status).json({ ...genericResponse.body,
+            ...(Number.isSafeInteger(saveVersion) && saveVersion > 0 ? { _saveVersion: saveVersion } : {}),
+        });
     } catch (err) {
+        if (err instanceof CombatAdmissionConflictError) return res.status(409).json({ error: err.message, errorCode: 'combat-active' });
         console.error('[missions/ai-fight-start]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
