@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { towerRoundPresentation } from "../lib/tower-round-presentation";
+import type { TowerSession } from "../lib/towers-api";
 
 const fight = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8")
     + readFileSync(new URL("../lib/tower-round-presentation.ts", import.meta.url), "utf8");
@@ -9,9 +11,12 @@ const tacticalCss = readFileSync(new URL("../styles/tower-tactical.css", import.
 test("Tower round copy distinguishes score par, timed holds, and hard limits", () => {
     assert.match(fight, /function towerRoundPresentation\(session: TowerSession\)/);
     assert.match(fight, /debriefLabel: "Hold duration"[\s\S]{0,240}?hudLabel: goal > 0 \? `Hold \$\{held\}\/\$\{goal\}`/);
-    assert.match(fight, /debriefLabel: "Rounds \/ par"/);
+    const story = { towerId: "celestial", floor: 7, round: 17, objectiveState: { kind: "defeat-all" }, sealedCatalogFloor: { roundBudget: 16 } } as TowerSession;
+    assert.equal(towerRoundPresentation(story).debriefLabel, "Rounds / par");
     assert.match(fight, /Clear by the end of round/);
-    assert.match(fight, /debriefLabel: "Round limit"[\s\S]{0,220}?`Round \$\{session\.round\}\/\$\{hardLimit\} · limit`/);
+    const limit = towerRoundPresentation({ ...story, ascensionTier: 1 });
+    assert.equal(limit.debriefLabel, "Round limit");
+    assert.equal(limit.hudLabel, "Round 17/25 · limit");
     assert.doesNotMatch(fight, /const roundBudget = session\.sealedCatalogFloor\?\.roundBudget \?\? session\.roundCap/);
     assert.match(fight, /objective === "survive" \? `Held \$\{roundsSurvived\}/);
 });
