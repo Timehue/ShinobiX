@@ -129,8 +129,11 @@ export function WorldBossQueueDialog({
             hostLoadout={hostLoadout}
             runId={fight.runId}
             initialSession={fight.session}
-            onExit={() => { setDismissedRunId(fight.runId); setFight(null); void refresh(); }}
-            onLeaveActive={() => { setDismissedRunId(fight.runId); setFight(null); void refresh(); }}
+            // No explicit refresh here: clearing `fight` changes `refresh`'s
+            // identity, so the mount effect above re-fetches on the very next
+            // commit. A call from this handler only issued the same GET twice.
+            onExit={() => { setDismissedRunId(fight.runId); setFight(null); }}
+            onLeaveActive={() => { setDismissedRunId(fight.runId); setFight(null); }}
             onRecordBattle={onRecordBattle}
             settleFn={settle}
             settleOnAnyDone

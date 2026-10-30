@@ -131,12 +131,19 @@ export async function cancelTournament(event: Tournament) {
 export function entryForPlayer(event: Tournament, id: string): TournamentEntry | undefined {
     return event.entries.find(e => e.members.some(m => m.id === id));
 }
-export async function tickTournaments() {
+/**
+ * Advances a tournament that is due. Resolves to the event it read when nothing
+ * was due and nothing was written, so a caller can skip reading it again; to
+ * undefined whenever the event may have moved since (a tick ran, or another
+ * worker holds this interval's tick).
+ */
+export async function tickTournaments(): Promise<Tournament | null | undefined> {
     const current = await readTournament();
-    if (!current || (!current.cancelRequested && current.status !== 'live' && (current.status !== 'signup' || current.signupEndsAt > Date.now()))) return;
+    if (!current || (!current.cancelRequested && current.status !== 'live' && (current.status !== 'signup' || current.signupEndsAt > Date.now()))) return current;
     // Many spectators can poll the board; only one worker scans combat per interval.
-    if (await kv.set('game:tournaments:tick', current.id, { nx: true, ex: 3 }) === null) return;
+    if (await kv.set('game:tournaments:tick', current.id, { nx: true, ex: 3 }) === null) return undefined;
     await tournamentLock(async () => { const event = await readTournament(); if (event) await progressTournament(event); });
+    return undefined;
 }
 export function startTournamentClock() {
     // DISABLE_SCHEDULED_JOBS pauses every periodic writer. A tournament still

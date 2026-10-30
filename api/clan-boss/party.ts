@@ -22,6 +22,7 @@ import {
     heartbeatParty,
     indexPartyMembers,
     loadPartyPlayerContext,
+    loadPartyViewerContext,
     mutateParty,
     partyPlayerKey,
     partyEnvelope,
@@ -70,15 +71,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only manage your own party presence.' });
         if (!enforceRateLimit(req, res, 'clan-boss-party', req.method === 'GET' ? 90 : 45, 60_000, identity.admin ? playerName : identity.name)) return;
+        if (req.method === 'GET') {
+            // The GET reads only the viewer's slug and clan, so it loads
+            // `character.clan` through a projection instead of the whole save.
+            // Same 400 rule as loadPartyPlayerContext below.
+            const viewer = await loadPartyViewerContext(playerName);
+            if (!viewer) return res.status(400).json({ error: 'Join a clan before forming an operation party.' });
+            const current = await activePartyForPlayer(viewer.slug);
+            if (current) await heartbeatParty(current.id, viewer.slug);
+            res.setHeader('Cache-Control', 'private, no-store');
+            return res.status(200).json(await partyEnvelope(viewer));
+        }
+
         const player = await loadPartyPlayerContext(playerName);
         if (!player) return res.status(400).json({ error: 'Join a clan before forming an operation party.' });
-
-        if (req.method === 'GET') {
-            const current = await activePartyForPlayer(player.slug);
-            if (current) await heartbeatParty(current.id, player.slug);
-            res.setHeader('Cache-Control', 'private, no-store');
-            return res.status(200).json(await partyEnvelope(player));
-        }
 
         const body = input as Record<string, unknown>;
         const action = String(body.action ?? '');

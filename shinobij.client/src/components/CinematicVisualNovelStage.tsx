@@ -3,6 +3,7 @@ import {
     useCallback,
     useEffect,
     useId,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -297,6 +298,12 @@ export function CinematicVisualNovelStage({
         });
     }, []);
 
+    // Latest-ref: parents pass a fresh `onAdvance` on every render (idle regen
+    // re-renders them each second). Depending on it directly re-created
+    // `advance`, which restarted the auto-read timer below before it could fire.
+    const onAdvanceRef = useRef(onAdvance);
+    useLayoutEffect(() => { onAdvanceRef.current = onAdvance; });
+
     const advance = useCallback(() => {
         startVnAmbience(presentation.ambience);
         startVnScore(scoreKey);
@@ -305,8 +312,8 @@ export function CinematicVisualNovelStage({
             return;
         }
         if (!allowStageAdvance || Date.now() - lastCompleteRef.current < 240) return;
-        onAdvance();
-    }, [allowStageAdvance, completeTyping, onAdvance, presentation.ambience, scoreKey, typingDone]);
+        onAdvanceRef.current();
+    }, [allowStageAdvance, completeTyping, presentation.ambience, scoreKey, typingDone]);
 
     useEffect(() => {
         if (!autoRead || !typingDone || !allowStageAdvance || settingsOpen) return;

@@ -59,6 +59,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only query for your own profession.' });
         }
 
+        // The registry read does not depend on the healer's save, so it runs
+        // alongside it (as in hospital-ward.ts). It is awaited only after every
+        // healer check below, so a 404/403/400 still answers exactly as before,
+        // and its rejection is never unhandled.
+        const registryRead = kv.hgetall<Record<string, unknown>>(REGISTRY_KEY);
+        registryRead.catch(() => undefined);
         const healerRecord = await kv.get<Record<string, unknown>>(`save:${healerName}`);
         const healerChar = healerRecord?.character as Record<string, unknown> | undefined;
         if (!healerChar) return res.status(404).json({ error: 'Healer character not found.' });
@@ -86,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // instead of scanning the whole save:* keyspace, then filter to same-village
         // injured players. Same-village filter applied server-side so we never leak
         // other villages' player data through this endpoint.
-        const registry = await kv.hgetall<Record<string, unknown>>(REGISTRY_KEY);
+        const registry = await registryRead;
         const playerSlugs = Object.entries(registry ?? {})
             .filter(([slug]) => !slug.startsWith('clan-') && !slug.toLowerCase().startsWith('admin'))
             // The index already carries each player's village, so read only the
