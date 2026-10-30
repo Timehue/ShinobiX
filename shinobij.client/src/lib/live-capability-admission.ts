@@ -107,7 +107,7 @@ export function registrationAdmissionMessage(availability: CapabilityAvailabilit
 export function playerLoginAdmissionMessage(availability: CapabilityAvailability): string {
     return availability === "unknown"
         ? "Checking live service availability. Player login will open when the check completes; admin and legal access remain available."
-        : "ShinobiX is temporarily unavailable for maintenance. Player login and registration are paused; admin and legal access remain available.";
+        : "Shinobi Journey is temporarily unavailable for maintenance. Player login and registration are paused; admin and legal access remain available.";
 }
 
 export function mutationAdmissionMessage(availability: CapabilityAvailability): string {

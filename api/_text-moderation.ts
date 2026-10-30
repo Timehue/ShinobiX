@@ -96,7 +96,17 @@ const NAME_PROFANITY: ReadonlyArray<string> = [
 // "Yamashita" passes, "YamashitaShit" does not.
 const NAME_PROFANITY_EXEMPT: ReadonlyArray<string> = [
     'yamashita', 'kinoshita', 'morishita', 'matsushita', 'takeshita', 'miyashita',
-    'kishita', 'oshita', 'shitake', 'thorny', 'swank',
+    'kishita', 'oshita', 'shitake', 'thorny', 'swank', 'nazir', 'dickens', 'riddick',
+];
+
+// Ordinary words and surnames that contain a BLOCKLIST entry as a substring.
+// A name has no word boundaries, so without this "Grape", "Therapist",
+// "Torpedo", "Spice" and "Nigeria" were refused at every sign-up door. Cut
+// out before the scan exactly like NAME_PROFANITY_EXEMPT: the remainder is
+// still checked, so "GrapeRapist" is still refused.
+const BLOCKLIST_NAME_EXEMPT: ReadonlyArray<string> = [
+    'grape', 'scrape', 'draper', 'drape', 'crape', 'therapist', 'torpedo',
+    'spicer', 'spice', 'spicy', 'nigeria', 'scunthorpe', 'kikelomo', 'vandyke',
 ];
 
 // Leetspeak normalization — common substitutions players try when bypassing
@@ -160,6 +170,7 @@ function leetCollapseStripSpace(text: string): string {
 const COLLAPSED_BLOCKLIST: ReadonlyArray<string> = BLOCKLIST.map(w => leetCollapse(w));
 const COLLAPSED_NAME_PROFANITY: ReadonlyArray<string> = NAME_PROFANITY.map(w => leetCollapse(w));
 const COLLAPSED_NAME_PROFANITY_EXEMPT: ReadonlyArray<string> = NAME_PROFANITY_EXEMPT.map(w => leetCollapse(w));
+const COLLAPSED_BLOCKLIST_NAME_EXEMPT: ReadonlyArray<string> = BLOCKLIST_NAME_EXEMPT.map(w => leetCollapse(w));
 
 /** True when a name, compacted the way isCleanPlayerName compacts it, holds a swear. */
 export function hasNameProfanity(input: unknown): boolean {
@@ -236,16 +247,33 @@ export function isCleanText(input: unknown): boolean {
     if (typeof input !== 'string') return true;
     const collapsedWithSpace = leetCollapsePreserveSpace(input);
     const collapsedNoSpace = leetCollapseStripSpace(input);
-    // Also join punctuation-separated letters so an in-chat spelling like
-    // "n-i-g-g-e-r" cannot evade the normal word-boundary scan. Restrict this
-    // compact pass to longer blocked terms to avoid accidental matches inside
-    // ordinary prose from short abbreviations.
-    const collapsedCompact = leetCollapse(collapsedNoSpace.replace(/[^a-z0-9]/g, ''));
+    // Also catch the two spellings the word-boundary scans miss: letters joined
+    // by punctuation inside ONE word ("n-i-g-g-e-r", "n.i.g.g.e.r") and a word
+    // spelled as a run of very short tokens ("n i g g e r", "ra pe"). Each of
+    // those is compacted ON ITS OWN. This pass used to compact the WHOLE
+    // message, so letters from adjacent ordinary words formed a blocked term
+    // ("for a pet", "let's pick", "who really", "such ink", "candy kept") and
+    // the whole line was refused in every chat. Restricted to longer blocked
+    // terms to avoid accidental matches from short abbreviations.
+    const compactCandidates: string[] = [];
+    let shortRun: string[] = [];
+    const flushShortRun = () => {
+        if (shortRun.length >= 2) compactCandidates.push(leetCollapse(shortRun.join('')));
+        shortRun = [];
+    };
+    for (const token of collapsedWithSpace.split(/\s+/)) {
+        const compact = token.replace(/[^a-z0-9]/g, '');
+        if (!compact) { flushShortRun(); continue; }
+        if (compact !== token) compactCandidates.push(leetCollapse(compact));
+        if (compact.length <= 2) shortRun.push(compact);
+        else flushShortRun();
+    }
+    flushShortRun();
     for (const canonical of COLLAPSED_BLOCKLIST) {
         const re = new RegExp(`(^|[^a-z0-9])(${canonical})(?=[^a-z0-9]|$)`, 'i');
         if (re.test(collapsedWithSpace) || re.test(collapsedNoSpace)) return false;
         const compactTerm = canonical.replace(/[^a-z0-9]/g, '');
-        if (compactTerm.length >= 4 && collapsedCompact.includes(compactTerm)) return false;
+        if (compactTerm.length >= 4 && compactCandidates.some((candidate) => candidate.includes(compactTerm))) return false;
     }
     return true;
 }
@@ -265,9 +293,11 @@ export function isCleanPlayerName(input: unknown): boolean {
     // 2026-10-15). No franchise/trademark list: players may name themselves
     // anything that is not offensive.
     if (hasNameProfanity(input)) return false;
+    let scan = canonical;
+    for (const safe of COLLAPSED_BLOCKLIST_NAME_EXEMPT) scan = scan.split(safe).join(' ');
     return !COLLAPSED_BLOCKLIST
         .filter((term) => term.length >= 4)
-        .some((term) => canonical.includes(term));
+        .some((term) => scan.includes(term));
 }
 
 // ─── Custom-title moderation (docs/legacy-system-plan.md §11.4) ─────────────

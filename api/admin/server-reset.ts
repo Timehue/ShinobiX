@@ -9,6 +9,9 @@ import { copyImageToR2, forgetImageLists, legacyHashWriteEnabled, perImageKey } 
 import { deletePlayerFirstPactState } from '../_delete-player-account.js';
 import { readKvProjection } from '../_storage-projection.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { clanBossEnabled, villageWarMapEnabled } from '../_release-flags.js';
+import { seedHomeSectorOwnership } from '../world-state.js';
+import { runClanBossWeekly } from '../cron/_clan-boss-weekly.js';
 import {
     cancelOrParkSubscription,
     isSubscriptionCancelConfigured,
@@ -588,6 +591,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // via the per-client cache hydration on next /api/game-state fetch.
         }
 
+        // The sweep above deleted every `world:territory:*` row and the current
+        // `clan-boss:week:*`, and their seeders only run at process boot
+        // (api/_startup-initialization.ts). A reset mid-process therefore left
+        // every village's home sectors unowned and the Clan Boss week dark until
+        // the next deploy or the 03:00 UTC pass. Both seeders are idempotent
+        // (home sectors only fill where nothing owns them; the week spawn is
+        // week-keyed), and a failure here is reported, not fatal.
+        let homeSectorsSeeded = 0;
+        let clanBossWeekSpawned: string | null = null;
+        if (villageWarMapEnabled()) {
+            try {
+                homeSectorsSeeded = (await seedHomeSectorOwnership()).seeded;
+            } catch (err) {
+                console.error('[admin/server-reset] home sector re-seed failed:', err);
+            }
+        }
+        if (clanBossEnabled()) {
+            try {
+                clanBossWeekSpawned = (await runClanBossWeekly()).spawned;
+            } catch (err) {
+                console.error('[admin/server-reset] clan boss week re-seed failed:', err);
+            }
+        }
+
         return res.status(200).json({
             ok: true,
             dryRun: false,
@@ -599,6 +626,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             subscriptionsParked: subscriptionReport.parked,
             deletedByNamespace: summarizeByNamespace(doomed),
             leadershipPortraitsReseeded: leaderReseed,
+            homeSectorsSeeded,
+            clanBossWeekSpawned,
             protectedStandingStripped: standingStripped,
             deleted: doomed.slice(0, DELETED_SAMPLE_CAP),
             deletedTruncated: doomed.length > DELETED_SAMPLE_CAP,

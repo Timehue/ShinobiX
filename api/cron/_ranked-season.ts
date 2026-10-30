@@ -25,6 +25,7 @@ import { storedValueEquals } from '../_stored-value.js';
 import { mergePreservingImages } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
+import { RESERVED_USERNAMES } from '../player-auth.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import { commitPlayerSave } from '../save/_commit-player-save.js';
@@ -97,7 +98,10 @@ export function isRankedSeasonPlayerSaveKey(key: string): boolean {
         && !name.startsWith('health-probe-')
         && !name.startsWith('clan-')
         && !name.startsWith('Admin ')
-        && name !== 'Rill';
+        && name !== 'Rill'
+        // Save keys are lowercase slugs, so the capitalised exclusion above
+        // never matched the real admin saves and both entered every ladder.
+        && !RESERVED_USERNAMES.has(name.toLowerCase());
 }
 
 // Reward table. Champion (#1) of each ladder gets the relic; the whole podium
