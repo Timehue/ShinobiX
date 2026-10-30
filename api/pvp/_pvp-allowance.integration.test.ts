@@ -144,8 +144,11 @@ test('a short KO pays the winner half and the loser nothing; stat points still f
     assert.equal(out.win.base.reward.credit.short, true);
     assert.ok(out.win.base.reward.combatGrowth > 0, 'a short KO is still a credited win');
     assert.equal(out.loss?.base?.reward?.ryo, 0, 'no loss pay below the 3-round, 60 s floor');
-    const kills = (await kv.get<Record<string, any>>('save:validshortwin'))!.character.totalPvpKills;
-    assert.equal(kills, 1);
+    const winner = (await kv.get<Record<string, any>>('save:validshortwin'))!.character;
+    assert.equal(winner.totalPvpKills, 1);
+    // The clan "Win 20 Battles" mission and Clan Patriot count this; nothing used to.
+    assert.equal(winner.clanBattleContrib, 1);
+    assert.equal(winner.clanContribMonth, '2026-10');
 });
 
 test('an engaged loser earns 0.4 of the win purse, once', async (t) => {

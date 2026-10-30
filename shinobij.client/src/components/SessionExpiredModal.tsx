@@ -54,7 +54,7 @@ export function SessionExpiredModal({ password, error, busy, onPasswordChange, o
             >
                 <h3 id="session-expired-title" style={{ marginTop: 0, color: "#e2e8f0" }}>Session timed out</h3>
                 <p id="session-expired-body" style={{ color: "#cbd5e1", fontSize: "0.95rem" }}>
-                    Your login session expired. Enter your password to keep playing —{" "}
+                    Your login session expired. Enter your password to keep playing (a guest can just press Continue playing) —{" "}
                     <strong>your progress is safe and will be saved.</strong>
                 </p>
                 <input

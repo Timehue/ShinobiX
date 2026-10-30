@@ -15,6 +15,7 @@ const raider = (over: Record<string, unknown> = {}) => ({
     villageWarRaidProgress: 6,
     villageWarMissionsCompleted: 0,
     clanMissionContrib: 4,
+    clanContribMonth: MONTH,
     totalMissionsCompleted: 11,
     ...over,
 });

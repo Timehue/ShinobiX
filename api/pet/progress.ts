@@ -294,16 +294,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     value: { action, pet: nextPet, gearBroke: spend.gearBroke, consumableSpent: spend.consumableSpent },
                 };
             } else if (action === 'release') {
-                const [activeBattle, coliseumDefense, tacticalDefense] = await Promise.all([
+                // Only the Warfront defense is a live assignment; the retired Colosseum
+                // ladder's old defense docs can never be replaced (see sanctuary-transfer).
+                const [activeBattle, tacticalDefense] = await Promise.all([
                     kv.get(`battle-lock:${playerName}`),
-                    kv.get(`petladder:coliseum:def:${playerName}`),
                     kv.get(`petladder:tactical:def:${playerName}`),
                 ]);
                 if (activeBattle) return { ok: false as const, status: 409, error: 'Finish or resume your active battle before releasing a companion.' };
                 const releaseBusy = petBusyReason(character, pet, now, {
                     includeActive: false,
                     includeReserve: false,
-                    assignmentIds: [...defensePetIds(coliseumDefense), ...defensePetIds(tacticalDefense)],
+                    assignmentIds: defensePetIds(tacticalDefense),
                 });
                 if (releaseBusy) return { ok: false as const, status: 409, error: petBusyMessage(releaseBusy).replace('before breeding', 'before releasing it') };
                 const remaining = pets.filter((_, i) => i !== index);

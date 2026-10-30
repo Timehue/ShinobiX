@@ -1,4 +1,5 @@
 import { runBackgroundWork } from '../_background-work.js';
+import { scheduledJobsDisabled } from '../_launch-controls.js';
 import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -138,6 +139,10 @@ export async function tickTournaments() {
     await tournamentLock(async () => { const event = await readTournament(); if (event) await progressTournament(event); });
 }
 export function startTournamentClock() {
+    // DISABLE_SCHEDULED_JOBS pauses every periodic writer. A tournament still
+    // advances whenever its board is read or acted on, so this ticker only
+    // keeps an unwatched bracket moving.
+    if (scheduledJobsDisabled()) return () => {};
     let running = false;
     const tick = async () => {
         if (running) return;

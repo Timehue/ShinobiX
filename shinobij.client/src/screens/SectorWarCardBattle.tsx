@@ -67,6 +67,11 @@ function SectorWarCardTable({ character, setScreen, sharedImages = {}, onVersion
             backScreen,
             backLabel,
             emptyBackLabel: backLabel,
+            // Leaving the sector table's waiting screen calls the table off, so
+            // the next attacker can open one and a late defender is never
+            // seated against an empty chair (api/village/sector-card.ts
+            // `cancel`). The garrison has no seat to wait on.
+            cancelOnLeave: !garrison,
             emptyNote: backScreen === "worldMap"
                 ? "The battle context was lost. Return to the world map."
                 : SECTOR_CARD_CONFIG.emptyNote,

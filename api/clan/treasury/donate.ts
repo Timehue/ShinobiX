@@ -14,6 +14,7 @@ import { CLAN_DONATION_SAGA } from '../../_save-debit-kinds.js';
 import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
 import { CLAN_XP_RYO_PER_POINT, clanItemDonationXp, reserveClanDonationXp, reserveClanRyoDonationXp } from './_donation-xp.js';
+import { addClanContrib } from '../../_clan-contrib-month.js';
 
 /*
  * /api/clan/treasury/donate  — POST only
@@ -191,8 +192,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : 0;
                 const now = Date.now();
                 const month = new Date(now).toISOString().slice(0, 7);
-                const priorContribution = donorChar.clanContribMonth === month ? Math.max(0, Number(donorChar.clanEventContrib) || 0) : 0;
-                const nextDonorChar = { ...outcome.nextDonorChar, clanEventContrib: priorContribution + contribution, clanContribMonth: month };
+                const nextDonorChar = { ...outcome.nextDonorChar, ...addClanContrib(donorChar, 'clanEventContrib', month, contribution) };
 
                 const rawClanXp = donation.kind === 'currency'
                     ? donation.currency === 'ryo' ? Math.floor(donation.amount / CLAN_XP_RYO_PER_POINT) : Math.floor(donation.amount) * 200

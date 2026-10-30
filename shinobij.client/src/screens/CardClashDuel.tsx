@@ -159,10 +159,12 @@ export function CardClashDuel({
                     : resumeMatchId
                     ? await chronicleAiAction(resumeMatchId, { action: "state" })
                     : await startFresh();
-                // A Keeper's Path pointer can outlive its duel (expired, or
-                // settled in another tab). The server seals the node anyway,
-                // so a dead resume simply deals the node's duel afresh.
-                if (keeperRun?.resumeMatchId && (!result.ok || !result.session)) {
+                // A Keeper's Path or Echoes of War pointer can outlive its duel
+                // (expired, or settled in another tab). The server seals the
+                // node or encounter anyway, so a dead resume simply deals that
+                // duel afresh. An Echoes pointer used to survive "Leave
+                // encounter" and fail the same way on every Resume.
+                if ((keeperRun?.resumeMatchId || echoes?.resumeMatchId) && (!result.ok || !result.session)) {
                     resumeMatchId = undefined;
                     result = await startFresh();
                 }
