@@ -412,7 +412,7 @@ test('Warfront settlement follows the commanded formation replay and its authori
             role,
         } as Pet & { role: typeof role };
     });
-    const replaySeed = 1;
+    const replaySeed = 2;
     const baseline = runWarfrontRite(bluePets, redPets, replaySeed);
     // Select the slowest legal formation for this fixed roster. Beastbound Warfront
     // makes all ten deployment cells role-agnostic, so authority must replay the

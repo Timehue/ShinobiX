@@ -140,8 +140,8 @@ test("Rite carry health stays cumulative across both mirrors, the next clash, an
     const redPlan = holdPlan();
     // Solid-terrain routing changes the damage sequence. This seed retains
     // the counterfactual: blue wins cumulative health but loses local ratios.
-    const client = clientRun(blue, red, 3, bluePlan, redPlan);
-    const server = serverRun(blue, red, 3, bluePlan, redPlan);
+    const client = clientRun(blue, red, 68, bluePlan, redPlan);
+    const server = serverRun(blue, red, 68, bluePlan, redPlan);
 
     assert.equal(JSON.stringify(server), JSON.stringify(client), "Rite mirrors are not byte-identical");
     assertCumulativeCarry(client, "client");

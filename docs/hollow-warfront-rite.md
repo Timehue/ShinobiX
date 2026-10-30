@@ -53,6 +53,13 @@ pressure the same enemy. Movement uses deterministic breadth-first search over
 the board and eight-tick cell interpolation; facing is reconciled after movement
 so pets look at the target they are actually fighting.
 
+The board crosses the centre file on three rows. Rows 0 and 4 each run through a
+stone terrace: its four corner walls leave a lane a pet can run straight through
+in one two-cell move, without stopping inside. The terrace still blocks sight.
+Keep at least these three crossings: when the terraces were fully solid, the
+centre cell was the only link between the two halves, so one pet standing there
+left the other pets idle.
+
 Signatures require valid range and line of sight. Supports heal or shield real
 allies, shadows can open with Shadow Step, and area attacks splash nearby cells.
 The event stream records movement, casts, projectiles, impacts, protection,
