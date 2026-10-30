@@ -1,7 +1,7 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
-import { isAdmin } from '../_auth.js';
+import { isAdmin, isFullAdmin } from '../_auth.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
@@ -42,6 +42,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
     if (!isAdmin(req)) return res.status(401).json({ error: 'Admin authentication required.' });
+    // Putting an item in a player's inventory is an act-as-player power, which
+    // the 2026-10-15 security audit took away from the content role. Owner
+    // ruling 2026-10-29: full admin only, like grant-subscription.
+    if (!isFullAdmin(req)) return res.status(403).json({ error: 'Full admin access required.' });
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;

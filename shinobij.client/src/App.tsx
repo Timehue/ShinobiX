@@ -161,6 +161,7 @@ const Inventory = lazyWithRetry(() => import("./screens/Inventory").then(m => ({
 const PetEggIncubator = lazyWithRetry(() => import('./components/PetEggIncubator').then(m => ({ default: m.PetEggIncubator })));
 const BattleLogScreen = lazyWithRetry(() => import("./screens/BattleLogScreen").then(m => ({ default: m.BattleLogScreen })));
 const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
+const GuardDutyRefresher = lazyWithRetry(() => import("./components/GuardDutyRefresher").then(m => ({ default: m.GuardDutyRefresher })));
 const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
 const AdminLogin = lazyWithRetry(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminLogin })));
 const Cafeteria = lazyWithRetry(() => import("./screens/Cafeteria").then(m => ({ default: m.Cafeteria })));
@@ -3040,16 +3041,13 @@ export default function App() {
             // reauthBusy forever, and the modal disables its buttons on busy —
             // the exact trap this modal exists to prevent. The 15s deadline
             // lands in the catch below as a normal connection error.
-            const res = await sessionLoadFetch('/api/player-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'verify', name: (char.accountName || name).toLowerCase(), password: reauthPw }),
-            });
-            const data = await res.json().catch(() => null) as { ok?: boolean; token?: string } | null;
+            // Guest and Google accounts have no password (lib/session-reauth.ts).
+            const { reauthenticate } = await import("./lib/session-reauth");
+            const data = await reauthenticate(char.accountName || name, reauthPw, sessionLoadFetch, resumeGuestFor);
             // "Log out instead" is clickable while this was in flight; if the
             // player took it, the session is gone — don't resurrect credentials.
             if (!characterRef.current) return;
-            if (res.ok && data?.ok) {
+            if (data.status === "ok") {
                 if (data.token) {
                     // Fresh token → future requests authenticate again, and
                     // setActiveToken re-arms the expiry latch in authFetch.
@@ -3071,7 +3069,7 @@ export default function App() {
                 setReauthPw("");
                 return;
             }
-            setReauthError("Incorrect password. Try again.");
+            setReauthError(data.message);
         } catch {
             setReauthError("Couldn't reach the server. Check your connection and try again.");
         } finally {
@@ -4072,7 +4070,7 @@ export default function App() {
             const clearBody = { action: 'delete', name: name.trim().toLowerCase(), ...(password ? { password } : {}) };
             void fetch('/api/player-auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(clearBody) });
             unwindToLoginForm();
-            alert(`No save data was found for "${name}". Your login lock has been cleared — please create a new character with the same name and password.`);
+            alert(`No save data was found for "${name}". Your login lock has been cleared, so you can create a new character with the same name.`);
         } else {
             alert(SAVE_UNREACHABLE_MESSAGE);
         }
@@ -5214,6 +5212,7 @@ export default function App() {
             <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} onOutcome={commitVersionedCharacter} onFightOpenChange={setStoryFightOpen} />
             {character && <Suspense fallback={null}><StoryDeliveryHost {...storyDeliveryProps} /></Suspense>}
             {character && <PlayGameServicesLoader character={character} commitVersionedCharacter={commitVersionedCharacter} confirm={gameConfirm} toast={gameToast} />}
+            {character?.guardQueued && gameplayMutationsOpen && <Suspense fallback={null}><GuardDutyRefresher character={character} setCharacter={setCharacter} notify={gameToast} /></Suspense>}
             {/* Sealed AI fights (hunts, guards, ambushes, raids, field missions). The host fails closed unless it receives a canonical solo-PvE session; there is no rewarding local-Arena fallback. Hooks only mirror the remaining non-world UI side effects. Both hosts are code-split (fallback null — they render nothing until a fight is requested); their chunks are fetched from App's FIRST render, i.e. before any lazy launch screen is even requested, so the request-bus listener is live long before a launch site can exist. */}
             <AiFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} hooks={{ onMissionRaidComplete: (sector, missionIds) => recordMissionRaid(sector, undefined, missionIds, character?.name ?? "") }} onSettled={(result) => {
                 if (result.character && !commitVersionedCharacter(result.character, result._saveVersion)) return;

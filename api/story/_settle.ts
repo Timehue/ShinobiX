@@ -1,4 +1,5 @@
 import { applyDerivedLevel } from '../_xp-engine.js';
+import { addClanContrib, currentClanContribMonth } from '../_clan-contrib-month.js';
 import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
 import {
@@ -118,8 +119,7 @@ export function applyStoryBossSettlement(
         stamina: Math.min(maxStamina, Math.max(0, Number(leveled.stamina) || 0) + 20),
         chakra: Math.min(maxChakra, Math.max(0, Number(leveled.chakra) || 0) + 20),
         storyProgress: progress + 1,
-        clanBattleContrib: Math.max(0, Math.floor(Number(leveled.clanBattleContrib) || 0)) + 1,
-        clanContribMonth: new Date().toISOString().slice(0, 7),
+        ...addClanContrib(leveled, 'clanBattleContrib', currentClanContribMonth()),
         ...(finale ? {
             storyTitle: title,
             rankTitle: title,

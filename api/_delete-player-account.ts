@@ -33,6 +33,7 @@ import { recoveryCodeKey } from './_recovery-code.js';
 import { currencyLedgerKey } from './_currency-ledger.js';
 import { REGISTRY_KEY } from './player/_public-index.js';
 import { clanSlugBare } from './clan/_kick-core.js';
+import { applyClanSuccession, resolveClanSuccession } from './clan/_succession.js';
 import { cancelSubscriptionForDeletedAccount } from './tebex/_cancel-subscription.js';
 import { IMG_OWNER_PREFIX, removeStoredImages, storedImageExists } from './images.js';
 
@@ -59,6 +60,7 @@ export async function deletePlayerFirstPactState(rawName: string): Promise<strin
 }
 
 type ClanRecord = {
+    founderName?: string;
     members?: Array<Record<string, unknown>>;
     roleOverrides?: Record<string, string>;
     joinRequests?: Array<Record<string, unknown>>;
@@ -80,20 +82,29 @@ async function detachFromClan(slug: string, clanName: string, result: DeletePlay
             };
             const members = Array.isArray(record.members) ? record.members : [];
             const joinRequests = Array.isArray(record.joinRequests) ? record.joinRequests : [];
-            const nextMembers = members.filter((m) => !named(m));
             const nextRequests = joinRequests.filter((r) => !named(r));
-            const nextRoles = { ...(record.roleOverrides ?? {}) };
-            const hadRole = Object.prototype.hasOwnProperty.call(nextRoles, slug);
-            delete nextRoles[slug];
+            // A departing founder hands the clan on exactly as Leave does
+            // (clan/_succession.ts). Deletion used to drop them from the roster
+            // but keep `founderName`, so nobody could dissolve the clan,
+            // distribute its seal pool or run any other founder-only action.
+            const succession = resolveClanSuccession(record, slug);
+            const next = applyClanSuccession(record, slug, succession);
+            const rolesBefore = Object.keys(record.roleOverrides ?? {}).length;
 
-            if (nextMembers.length === members.length && nextRequests.length === joinRequests.length && !hadRole) return;
+            if (next.members.length === members.length
+                && nextRequests.length === joinRequests.length
+                && Object.keys(next.roleOverrides).length === rolesBefore
+                && succession.kind !== 'succeeded') return;
             await kv.set(clanKey, {
                 ...record,
-                members: nextMembers,
+                members: next.members,
                 joinRequests: nextRequests,
-                roleOverrides: nextRoles,
+                roleOverrides: next.roleOverrides,
+                ...(succession.kind === 'succeeded' ? { founderName: next.founderName } : {}),
             });
             result.detached.push(clanKey);
+            // `founderName` is the authority every founder gate reads; the
+            // successor's `clanFounder` hint self-corrects on their next clan load.
         }, { failClosed: true });
     } catch (err) {
         result.failures.push(`clan ${clanSlug}: ${(err as Error).message}`);
@@ -250,6 +261,15 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
     }
 
     if (clanName) await detachFromClan(slug, clanName, result);
+    // A deleted Kage would otherwise hold the seat forever (and a reused slug
+    // would inherit it). Loaded lazily: the village modules pull in the save
+    // pipeline, which this module's importers must not depend on.
+    try {
+        const { vacateKageSeatsOf } = await import('./village/_kage-inactivity.js');
+        for (const village of await vacateKageSeatsOf(slug)) result.detached.push(`kage-seat:${village}`);
+    } catch (err) {
+        result.failures.push(`kage seat: ${(err as Error).message}`);
+    }
     await detachFromModerationIndexes(slug, result);
     await releasePlayerImages(slug, save, result);
     return result;

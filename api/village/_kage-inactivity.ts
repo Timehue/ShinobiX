@@ -71,25 +71,35 @@ export type KageInactivityPassResult = {
  * under the SAME kage-key lock the kage endpoints use, so a concurrent duel
  * settlement / admin seat change can never be clobbered by a stale dethrone.
  */
-async function processVillage(village: string, now: number): Promise<KageInactivityVillageResult> {
+async function processVillage(
+    village: string,
+    now: number,
+    /** Set by account deletion: this slug's account is going, so its seat opens now. */
+    departedSlug?: string,
+): Promise<KageInactivityVillageResult> {
     const key = kageKey(village);
     const state = await kv.get<KageStateLike>(key);
     const kage = String(state?.seatedKage ?? '').trim();
     if (!state?.kageSystemUnlocked || !kage) return { village, outcome: 'vacant' };
+    if (departedSlug && safeName(kage) !== departedSlug) return { village, outcome: 'active', kage, lastActiveAt: now };
 
-    let save: unknown;
-    try {
-        save = await kv.get<unknown>(`save:${safeName(kage)}`);
-    } catch (err) {
-        console.warn(`[kage-inactivity] ${village}: save for ${kage} unreadable — skipping.`, (err as Error).message);
-        return { village, outcome: 'skipped-unreadable', kage };
+    let lastActiveAt = now;
+    if (!departedSlug) {
+        let save: unknown;
+        try {
+            save = await kv.get<unknown>(`save:${safeName(kage)}`);
+        } catch (err) {
+            console.warn(`[kage-inactivity] ${village}: save for ${kage} unreadable — skipping.`, (err as Error).message);
+            return { village, outcome: 'skipped-unreadable', kage };
+        }
+        const savedAt = saveAtFromRecord(save);
+        if (savedAt == null) {
+            console.warn(`[kage-inactivity] ${village}: save for ${kage} missing or has no _saveAt — skipping.`);
+            return { village, outcome: 'skipped-unreadable', kage };
+        }
+        lastActiveAt = savedAt;
+        if (!kageInactiveSince(lastActiveAt, now)) return { village, outcome: 'active', kage, lastActiveAt };
     }
-    const lastActiveAt = saveAtFromRecord(save);
-    if (lastActiveAt == null) {
-        console.warn(`[kage-inactivity] ${village}: save for ${kage} missing or has no _saveAt — skipping.`);
-        return { village, outcome: 'skipped-unreadable', kage };
-    }
-    if (!kageInactiveSince(lastActiveAt, now)) return { village, outcome: 'active', kage, lastActiveAt };
 
     let seatedAt = 0;
     let clearedChallenge: KageChallenge | null = null;
@@ -98,8 +108,10 @@ async function processVillage(village: string, now: number): Promise<KageInactiv
         if (!fresh?.kageSystemUnlocked || safeName(fresh.seatedKage ?? '') !== safeName(kage)) return false;
         // Re-read the save under the lock: a Kage who logged in between the
         // outside read and now keeps the seat.
-        const freshSaveAt = saveAtFromRecord(await kv.get<unknown>(`save:${safeName(kage)}`));
-        if (freshSaveAt == null || !kageInactiveSince(freshSaveAt, now)) return false;
+        if (!departedSlug) {
+            const freshSaveAt = saveAtFromRecord(await kv.get<unknown>(`save:${safeName(kage)}`));
+            if (freshSaveAt == null || !kageInactiveSince(freshSaveAt, now)) return false;
+        }
         seatedAt = fresh.seatedAt ?? fresh.unlockedAt ?? 0;
         clearedChallenge = fresh.challenge ?? null;
         const closed = closeCurrentReign(fresh, village, now, 'inactive');
@@ -126,12 +138,16 @@ async function processVillage(village: string, now: number): Promise<KageInactiv
             type: 'kage_inactive',
             importance: 'high',
             title: 'The Seat Stands Empty',
-            message: `${kage} has not been seen in ${village} for ${KAGE_INACTIVITY_DAYS} days. The Kage seat is open to any challenger.`,
+            message: departedSlug
+                ? `${kage} has left ${village}. The Kage seat is open to any challenger.`
+                : `${kage} has not been seen in ${village} for ${KAGE_INACTIVITY_DAYS} days. The Kage seat is open to any challenger.`,
             player: kage,
             village,
         }, { receiptId: `kage-inactive:${village}:${seatedAt}` });
     } catch { /* best-effort */ }
-    try {
+    // A departing account has nobody left to read a notice (and its slug may be
+    // registered again), so only an absent Kage gets one.
+    if (!departedSlug) try {
         // `tenureMs` lets the notice say what the absence actually cost. It is
         // omitted (not zero) for a legacy reign with no recorded seatedAt.
         await pushOfflineNotice(kage, {
@@ -399,6 +415,27 @@ async function refundClearedChallenge(village: string, challenge: KageChallenge,
     } catch (err) {
         console.warn(`[kage-inactivity] ${village}: stake refund for ${slug} stays pending.`, (err as Error).message);
     }
+}
+
+/**
+ * Open every Kage seat held by an account that is being deleted.
+ *
+ * The daily pass never dethrones a Kage whose save is missing, and a deleted
+ * account cannot be challenged (challenges are online-only), so a deleted Kage
+ * held the seat forever. Worse, slugs are reusable: whoever registered the
+ * freed name next would be "seated" with a fresh save, and the treasury gift
+ * gate authorises on the seated name alone. Account deletion calls this before
+ * the save goes. Same locked commit, herald and stake refund as an absent Kage.
+ */
+export async function vacateKageSeatsOf(rawName: string, now: number = Date.now()): Promise<string[]> {
+    const slug = safeName(rawName);
+    if (!slug) return [];
+    const vacated: string[] = [];
+    for (const village of WAR_VILLAGES) {
+        const result = await processVillage(village, now, slug);
+        if (result.outcome === 'dethroned') vacated.push(village);
+    }
+    return vacated;
 }
 
 /** Daily pass over the four villages. Idempotent; never throws per village. */

@@ -80,15 +80,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!carriedIds.has(parent1Id) || !carriedIds.has(parent2Id)) {
                 return { ok: false, status: 409, error: 'pet-preserved-overflow', message: 'Move both parents into your carried roster before breeding.' };
             }
-            const [activeBattle, coliseumDefense, tacticalDefense] = await Promise.all([
+            // Only the Warfront defense is a live assignment; the retired Colosseum
+            // ladder's old defense docs can never be replaced (see sanctuary-transfer).
+            const [activeBattle, tacticalDefense] = await Promise.all([
                 kv.get(`battle-lock:${playerName}`),
-                kv.get(`petladder:coliseum:def:${playerName}`),
                 kv.get(`petladder:tactical:def:${playerName}`),
             ]);
             if (activeBattle) {
                 return { ok: false, status: 409, error: 'pet-is-in-active-battle', message: 'Finish or resume your active battle before committing companions to breeding.' };
             }
-            const assignmentIds = [...defensePetIds(coliseumDefense), ...defensePetIds(tacticalDefense)];
+            const assignmentIds = defensePetIds(tacticalDefense);
             const eligible1 = petBreedingEligibility(character, parent1, now, { assignmentIds });
             if (!eligible1.ok) return { ok: false, status: 409, error: eligible1.code, message: eligible1.message };
             const eligible2 = petBreedingEligibility(character, parent2, now, { assignmentIds });

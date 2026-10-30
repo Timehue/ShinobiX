@@ -176,6 +176,66 @@ describe('Sector War card table', { concurrency: false }, () => {
         assert.equal((await kv.get<Stored>(tableKey(id)))?.status, 'active', 'the refused request wrote nothing');
         assert.equal((await loadSectorWar(id))!.appliedBattles?.length ?? 0, 0, 'and scored nothing on the war');
     });
+
+    it('frees the table when both duelists walked out with no strikes on the clock', async () => {
+        // A real tab close: nobody has missed a turn yet, and nobody comes back.
+        // The clock passes one turn per call, and a stranger's request is never
+        // stored, so every later attacker used to be refused for two hours.
+        const id = await openLiveDuel();
+        await kv.set(`save:${SECOND_RAIDER}`, { character: { name: SECOND_RAIDER, village: ATTACKER_VILLAGE } });
+        const session = (await kv.get<Stored>(tableKey(id)))!;
+        session.state!.afkStrikes = {};
+        session.state!.actedThisTurn = false;
+        session.state!.turnStartedAt = Date.now() - 10 * TURN_TIMEOUT_MS;
+        await kv.set(tableKey(id), session);
+
+        const next = await call(sectorCard, { action: 'join', playerName: SECOND_RAIDER, sectorWarId: id });
+        assert.equal(next.statusCode, 200, JSON.stringify(next.body));
+        assert.equal((next.body?.session as { status?: string }).status, 'awaiting-defender', 'a new table opened');
+        const war = (await loadSectorWar(id))!;
+        assert.equal(war.appliedBattles?.length, 1, 'the walked-out duel was decided by its clock and scored');
+        assert.equal(war.appliedBattles![0]!.battleId, `card:${id}:${session.createdAt}`);
+    });
+
+    it('a waiting table the attacker walked away from opens to the next attacker, not to a defender', async () => {
+        await kv.set(`save:${RAIDER}`, { character: { name: RAIDER, village: ATTACKER_VILLAGE } });
+        await kv.set(`save:${HOLDOUT}`, { character: { name: HOLDOUT, village: DEFENDER_VILLAGE } });
+        await kv.set(`save:${SECOND_RAIDER}`, { character: { name: SECOND_RAIDER, village: ATTACKER_VILLAGE } });
+        const contest = newSectorWarSession({
+            sector: SECTOR, attackerVillage: ATTACKER_VILLAGE, defenderVillage: DEFENDER_VILLAGE,
+            winCondition: 'card', now: Date.now() - 60 * 60 * 1000,
+        });
+        await kv.set(sectorWarKey(contest.id), contest);
+        assert.equal((await call(sectorCard, { action: 'join', playerName: RAIDER, sectorWarId: contest.id })).statusCode, 200);
+        const waiting = (await kv.get<Stored & { updatedAt: number }>(tableKey(contest.id)))!;
+        await kv.set(tableKey(contest.id), { ...waiting, updatedAt: Date.now() - 60 * 60_000 });
+
+        const defender = await call(sectorCard, { action: 'join', playerName: HOLDOUT, sectorWarId: contest.id });
+        assert.equal((defender.body?.session as { status?: string }).status, 'awaiting-attacker', 'no duel against an empty chair');
+        const second = await call(sectorCard, { action: 'join', playerName: SECOND_RAIDER, sectorWarId: contest.id });
+        assert.equal(second.statusCode, 200, JSON.stringify(second.body));
+        assert.equal((await kv.get<Stored>(tableKey(contest.id)))?.p1Name, SECOND_RAIDER);
+    });
+
+    it('the attacker can call off a waiting table, which frees it at once', async () => {
+        await kv.set(`save:${RAIDER}`, { character: { name: RAIDER, village: ATTACKER_VILLAGE } });
+        await kv.set(`save:${SECOND_RAIDER}`, { character: { name: SECOND_RAIDER, village: ATTACKER_VILLAGE } });
+        const contest = newSectorWarSession({
+            sector: SECTOR, attackerVillage: ATTACKER_VILLAGE, defenderVillage: DEFENDER_VILLAGE,
+            winCondition: 'card', now: Date.now() - 60 * 60 * 1000,
+        });
+        await kv.set(sectorWarKey(contest.id), contest);
+        assert.equal((await call(sectorCard, { action: 'join', playerName: RAIDER, sectorWarId: contest.id })).statusCode, 200);
+        const blocked = await call(sectorCard, { action: 'join', playerName: SECOND_RAIDER, sectorWarId: contest.id });
+        assert.equal(blocked.statusCode, 409, 'a live waiting table still holds the seat');
+
+        assert.equal((await call(sectorCard, { action: 'cancel', playerName: SECOND_RAIDER, sectorWarId: contest.id })).statusCode, 200);
+        assert.equal((await kv.get<Stored>(tableKey(contest.id)))?.status, 'awaiting-defender', 'only the attacker who opened it can call it off');
+        assert.equal((await call(sectorCard, { action: 'cancel', playerName: RAIDER, sectorWarId: contest.id })).statusCode, 200);
+        const second = await call(sectorCard, { action: 'join', playerName: SECOND_RAIDER, sectorWarId: contest.id });
+        assert.equal(second.statusCode, 200, JSON.stringify(second.body));
+        assert.equal((await kv.get<Stored>(tableKey(contest.id)))?.p1Name, SECOND_RAIDER);
+    });
 });
 
 describe('Clan War card duel', { concurrency: false }, () => {

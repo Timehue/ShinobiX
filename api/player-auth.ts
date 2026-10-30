@@ -931,8 +931,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         || !/^[a-f0-9]{64}$/.test(record.guestResumeHash)
                         || !safeStringEqual(record.guestResumeHash, digest)
                         || typeof record.guestResumeExpiresAt !== 'number'
-                        || !Number.isFinite(record.guestResumeExpiresAt)
-                        || record.guestResumeExpiresAt <= Date.now()) return unavailable();
+                        || !Number.isFinite(record.guestResumeExpiresAt)) return unavailable();
+                    // The stamp is only re-set by a resume, and an active guest
+                    // never resumes (the sliding token keeps them in), so it ran
+                    // out 14 days after creation however often they played. The
+                    // bound is INACTIVITY, the rule the guest sweep reclaims by:
+                    // a save written in the last 14 days keeps the key valid.
+                    if (record.guestResumeExpiresAt <= Date.now()) {
+                        const save = await kv.get<{ _saveAt?: unknown }>(`save:${safeName(name)}`);
+                        const savedAt = Number(save?._saveAt);
+                        if (!Number.isFinite(savedAt) || savedAt <= 0 || savedAt + GUEST_INACTIVITY_MS <= Date.now()) return unavailable();
+                    }
                 } else {
                     // A name-only index is sufficient only for a never-reused
                     // epoch-zero legacy account, or with current token proof.
