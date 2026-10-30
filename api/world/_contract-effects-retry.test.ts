@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { before, test } from 'node:test';
 import { contractSectorsForDay, sectorContractFor } from '../../shared/sector-contracts.js';
 import { WORLD_HOUR_MS } from '../../shared/world-clock.js';
+import type { KvCasOp } from '../_storage.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -54,11 +55,11 @@ test('a committed progress write with a lost acknowledgment replays once under c
     const effect = { kind: 'contract' as const, requestId: 'progress-ack-001', sector, at };
     const key = contracts.contractProgressKey(player, sector, day);
     await kv.set(key, 3); // Upgrade an existing numeric counter without losing it.
-    const originalSet = kv.set.bind(kv);
+    const originalMany = kv.compareSetMany!.bind(kv);
     let fail = true;
-    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
-        const result = await originalSet(...args);
-        if (fail && args[0] === key) { fail = false; throw new Error('progress acknowledgment lost'); }
+    t.mock.method(kv as Required<typeof kv>, 'compareSetMany', async (ops: readonly KvCasOp[]) => {
+        const result = await originalMany(ops);
+        if (fail && ops.some(op => op.key === key)) { fail = false; throw new Error('progress acknowledgment lost'); }
         return result;
     });
     assert.equal(await effects.deliverWorldEffect(player, effect), 'parked');
@@ -66,6 +67,31 @@ test('a committed progress write with a lost acknowledgment replays once under c
     await Promise.all([effects.drainWorldEffects(player), effects.drainWorldEffects(player)]);
     assert.equal((await contracts.readSectorContractStatus(player, sector, at)).progress, 4);
     assert.equal(await kv.get(effects.worldEffectsOutboxKey(player)), null);
+});
+
+test('numeric counters remain compatible with legacy increments before and during receipt commits', async t => {
+    const player = 'contractrolling', at = midnight + 23 * WORLD_HOUR_MS;
+    t.mock.method(Date, 'now', () => at);
+    const key = contracts.contractProgressKey(player, sector, day);
+    await effects.applyWorldEffect(player, { kind: 'contract', requestId: 'new-worker-event-001', sector, at });
+    assert.equal(await kv.get(key), 1);
+    // The old worker has no receipt support and still calls kv.incr directly.
+    assert.equal(await kv.incr(key, { ex: contracts.CONTRACT_TTL_SECONDS }), 2);
+    const originalMany = kv.compareSetMany!.bind(kv);
+    let overlap = true;
+    t.mock.method(kv as Required<typeof kv>, 'compareSetMany', async (ops: readonly KvCasOp[]) => {
+        if (overlap && ops.some(op => op.key === key)) {
+            overlap = false;
+            await kv.incr(key, { ex: contracts.CONTRACT_TTL_SECONDS });
+        }
+        return originalMany(ops);
+    });
+    const next = { kind: 'contract' as const, requestId: 'new-worker-event-002', sector, at };
+    await effects.applyWorldEffect(player, next);
+    assert.equal(await kv.get(key), 4, 'CAS retries preserve the overlapping legacy increment');
+    await effects.applyWorldEffect(player, next);
+    assert.equal(await kv.get(key), 4, 'the new event still deduplicates');
+    assert.deepEqual(await kv.get(contracts.contractReceiptKey(player, sector, day)), ['new-worker-event-001', 'new-worker-event-002']);
 });
 
 test('legacy effects recover their original time from discovery; missing proof stays pending', async t => {
@@ -79,6 +105,27 @@ test('legacy effects recover their original time from discovery; missing proof s
     await effects.parkWorldEffect(player, { kind: 'contract', requestId: 'missing-discovery-001', sector });
     assert.equal(await effects.drainWorldEffects(player), 0);
     assert.equal(effects.parseWorldEffects(await kv.get(effects.worldEffectsOutboxKey(player))).length, 1);
+});
+
+test('unresolvable legacy effects retain evidence without blocking valid contract and intel suffixes', async t => {
+    const player = 'contractsuffix', at = midnight + 23 * WORLD_HOUR_MS;
+    t.mock.method(Date, 'now', () => at);
+    // More missing entries than the drain batch must not starve valid work.
+    for (let index = 0; index < 9; index++) {
+        await effects.parkWorldEffect(player, { kind: 'contract', requestId: `missing-time-${index}`, sector });
+    }
+    await effects.parkWorldEffect(player, { kind: 'contract', requestId: 'valid-suffix-contract', sector, at });
+    await effects.parkWorldEffect(player, { kind: 'intel', requestId: 'valid-suffix-intel', sector, village: 'Stormveil Village' });
+    const { villageIntelKey } = await import('../_village-intel.js');
+    const intelKey = villageIntelKey('Stormveil Village');
+    await kv.del(intelKey);
+    assert.equal(await effects.drainWorldEffects(player), 2);
+    assert.equal((await contracts.readSectorContractStatus(player, sector, at)).progress, 1);
+    const intel = await kv.get<{ sectors: Record<string, { points: number }> }>(intelKey);
+    assert.equal(intel?.sectors[String(sector)]?.points, 1);
+    const remaining = effects.parseWorldEffects(await kv.get(effects.worldEffectsOutboxKey(player)));
+    assert.equal(remaining.length, 9);
+    assert.ok(remaining.every(effect => effect.requestId.startsWith('missing-time-')));
 });
 
 test('daylight work retried at night does not acquire night-contract eligibility', async t => {
@@ -139,10 +186,14 @@ test(`a new chest and paid 345-ryo replay keep separate counters through ${failO
         'an unmarked historical receipt must not receive a retroactive tick');
     const originalSet = kv.set.bind(kv);
     let failCredit = true, failParking = failOutbox;
-    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
-        if (failCredit && args[0] === contracts.contractProgressKey(player, sector, day)) {
+    const originalMany = kv.compareSetMany!.bind(kv);
+    t.mock.method(kv as Required<typeof kv>, 'compareSetMany', async (ops: readonly KvCasOp[]) => {
+        if (failCredit && ops.some(op => op.key === contracts.contractProgressKey(player, sector, day))) {
             failCredit = false; throw new Error('contract counter temporarily unavailable');
         }
+        return originalMany(ops);
+    });
+    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
         if (failParking && args[0] === effects.worldEffectsOutboxKey(player)) {
             failParking = false; throw new Error('outbox write unavailable');
         }
