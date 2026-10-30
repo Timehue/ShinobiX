@@ -71,10 +71,44 @@ describe('sanitizeUserText', () => {
         assert.equal(isCleanText('Title with numbers 123'), true);
     });
 
+    // The compact pass used to join the WHOLE line, so letters from adjacent
+    // ordinary words formed a blocked term and every chat refused the line.
+    it('does not join letters across ordinary words into a blocked term', () => {
+        for (const line of [
+            'looking for a pet for my team', "let's pick a team", 'that is suspicious',
+            'who really won that?', 'such ink on that scroll', 'candy kept me going',
+            'my therapist says relax', 'torpedo the plan', 'a grape for the road',
+            'I am ok, are we go?', 'is it ok to go now',
+        ]) {
+            assert.equal(isCleanText(line), true, `"${line}" must pass`);
+        }
+    });
+
+    it('still catches a blocked term spelled as short tokens or joined by punctuation', () => {
+        for (const line of [
+            'you are a n i g g e r lol', 'go n.i.g.g.e.r now', 'such a wh or e', 'ra pe jokes',
+            'n_i_g_g_e_r', 'k-i-k-e',
+        ]) {
+            assert.equal(isCleanText(line), false, `"${line}" must be refused`);
+        }
+    });
+
     it('rejects blocked terms embedded in normalized player names without blocking normal fantasy names', () => {
         assert.equal(isCleanPlayerName('n1gger-ninja'), false);
         assert.equal(isCleanPlayerName('Hidden Leaf'), true);
         assert.equal(isCleanPlayerName('SkyStorm'), true);
+    });
+
+    it('lets ordinary names that merely contain a blocked substring through, but not the term beside them', () => {
+        for (const name of [
+            'Grape', 'Scrape', 'Draper', 'Therapist', 'Torpedo', 'Spice', 'Spicy', 'Spicer',
+            'Nigeria', 'Scunthorpe', 'Kikelomo', 'Vandyke', 'Nazir', 'Dickens', 'Riddick',
+        ]) {
+            assert.equal(isCleanPlayerName(name), true, `"${name}" must remain usable`);
+        }
+        for (const name of ['GrapeRapist', 'Therapist Whore', 'SpiceSpic', 'NaziNazir', 'DickensDick']) {
+            assert.equal(isCleanPlayerName(name), false, `"${name}" must be refused`);
+        }
     });
 });
 

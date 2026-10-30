@@ -14,8 +14,14 @@ import { advanceTacticsSession, createArenaSession, joinArenaSession, roomResult
 const WAITING = 'pet:tactics:ranked:waiting';
 const PENDING = 'pet:tactics:ranked:admission';
 /** A queued player and the four carried companions they will bring. Entries
- *  queued before 2026-10-26 carried loaner builds instead; they are dropped. */
-type Waiting = { name: string; rating: number; joinedAt: number; petIds: string[] };
+ *  queued before 2026-10-26 carried loaner builds instead; they are dropped.
+ *  `seenAt` is the last poll: an entry nobody polls for WAITING_TTL_MS is an
+ *  abandoned tab. `joinedAt` stays the wait clock that widens the rating window. */
+type Waiting = { name: string; rating: number; joinedAt: number; petIds: string[]; seenAt?: number };
+/** A player whose tab stopped polling this long ago leaves the queue. A player
+ *  still polling keeps searching: on an empty server the search used to end after
+ *  three minutes with a message blaming their companions. */
+const WAITING_TTL_MS = 3 * 60_000;
 type Admission = { session: TacticsSession; token: RankedPetMatchToken };
 export type RankedArenaStore = Pick<typeof kv, 'get' | 'set' | 'del' | 'delIfEqual'>;
 export type RankedArenaDependencies = { store: RankedArenaStore; lock<T>(key: string, fn: () => Promise<T>): Promise<T>; now(): number;
@@ -77,9 +83,10 @@ export async function rankedArenaQueue(name: string, action: string, body: Recor
         } else if (current && current.phase !== 'finished' && action === 'join') throw new TacticsError('Finish your current Pet Arena battle before joining ranked.', 409);
         const raw = await store.get<Waiting[]>(WAITING);
         let waiting = Array.isArray(raw) ? raw.filter(p => p && typeof p.name === 'string' && Number.isFinite(p.rating)
-            && Array.isArray(p.petIds) && p.joinedAt <= now && now - p.joinedAt < 3 * 60_000) : [];
+            && Array.isArray(p.petIds) && p.joinedAt <= now && now - (p.seenAt ?? p.joinedAt) < WAITING_TTL_MS) : [];
         if (action === 'leave') waiting = waiting.filter(p => p.name !== name);
         if (action !== 'join') {
+            if (action === 'poll') waiting = waiting.map(p => p.name === name ? { ...p, seenAt: now } : p);
             await store.set(WAITING, waiting, { ex: 60 * 60 });
             const index = waiting.findIndex(p => p.name === name);
             return index < 0 ? { state: 'idle' } : { state: 'queued', queuePosition: index + 1, waiting: waiting.length, teamIds: [...waiting[index].petIds], control: PET_ARENA_RANKED_CONTROL };
@@ -93,7 +100,7 @@ export async function rankedArenaQueue(name: string, action: string, body: Recor
         const old = waiting.find(p => p.name === name);
         // The four companions are checked against the save now and again at pairing.
         const ownPets = chooseArenaPets(character, body.petIds);
-        const own: Waiting = { name, rating: Math.max(0, Math.round(petRatingOf(save))), joinedAt: old?.joinedAt ?? now, petIds: ownPets.map(p => String(p.id)) };
+        const own: Waiting = { name, rating: Math.max(0, Math.round(petRatingOf(save))), joinedAt: old?.joinedAt ?? now, seenAt: now, petIds: ownPets.map(p => String(p.id)) };
         waiting = waiting.filter(p => p.name !== name).sort((a, b) => a.joinedAt - b.joinedAt);
         let opponent: Waiting | undefined;
         let opponentPets: Pet[] = [];

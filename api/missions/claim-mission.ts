@@ -110,6 +110,7 @@ import {
     type CombatMissionClaimResult,
     type CombatMissionClaimSettlement,
     type CombatMissionClaimToken,
+    COMBAT_MISSION_CLAIM_TOKEN_TTL_SECONDS,
 } from './_combat-claim-authority.js';
 import { serverFieldMissionRun, withoutServerFieldMissionRun } from './_field-trail.js';
 
@@ -1095,9 +1096,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims as string[] : [];
                 if (!pending.includes(combatDef.key)) return { applied: false, reason: 'not-queued' };
-                if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
-                // A cap-blocked claim leaves that authority untouched so it can be
-                // used after the daily reset.
+                if (!hasDailyMissionSlot(char, todayKey)) {
+                    // A cap-blocked claim leaves that authority in place so it
+                    // can be used after the daily reset, and keeps it alive that
+                    // long: the token's six-hour TTL usually ran out before the
+                    // UTC reset, so a won fight silently became a re-fight.
+                    if (combatTokenRaw !== null) {
+                        const now = Date.now();
+                        const msToReset = Date.UTC(
+                            new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), new Date(now).getUTCDate() + 1,
+                        ) - now;
+                        const ex = Math.max(COMBAT_MISSION_CLAIM_TOKEN_TTL_SECONDS, Math.ceil(msToReset / 1000) + 60 * 60);
+                        await kv.compareSet(combatTokenKey, combatTokenRaw, combatTokenRaw, { ex }).catch((error) => {
+                            console.warn('[claim-mission] cap-blocked combat token TTL not extended', String(error));
+                        });
+                    }
+                    return { applied: false, reason: 'daily-cap' };
+                }
                 // Seal one unboosted pool point with the existing run-bound
                 // payout, so retries cannot award the point twice.
                 baseRyo = combatDef.ryo;

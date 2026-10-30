@@ -721,6 +721,26 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         }
     });
 
+    it('a cap-blocked win keeps its claim authority alive until after the UTC reset', async (t) => {
+        // Noon UTC: the reset is 12 hours away, twice the token's six-hour TTL.
+        // The token used to keep that TTL, so a win blocked by the daily cap
+        // usually expired before the reset and silently became a re-fight.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 10, 2, 12, 0, 0) });
+        const player = 'missionsagacapttl';
+        await seedPlayer(player);
+        const runId = await seedWonRun(player, 'capttl');
+        assert.equal((await queue(player, runId)).statusCode, 200);
+        const save = (await kv.get<Record<string, unknown>>(`save:${player}`))!;
+        await kv.set(`save:${player}`, { ...save, character: { ...(save.character as Record<string, unknown>),
+            lastDailyReset: new Date().toISOString().slice(0, 10), dailyMissionsCompleted: 20 } });
+        const blocked = await claim(player);
+        assert.equal(blocked.body!.reason, 'daily-cap');
+        t.mock.timers.tick(7 * 60 * 60 * 1000);
+        assert.ok(await kv.get(tokenKey(player, MISSION_ID)), 'the authority outlives its original six-hour TTL');
+        t.mock.timers.tick(6 * 60 * 60 * 1000 + 60_000);
+        assert.equal(await kv.get(tokenKey(player, MISSION_ID)), null, 'and still expires an hour past the reset');
+    });
+
     it('a full daily mission allowance grants no point and preserves the win until a slot is available', async (t) => {
         t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const player = 'missionsagadailystat';

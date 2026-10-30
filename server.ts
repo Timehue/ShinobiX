@@ -24,7 +24,7 @@ import { onlineStore } from './api/_realtime/online-store.js';
 import { runtimeMetricsSampler } from './api/_runtime-metrics.js';
 import { restorePresenceSnapshot, savePresenceSnapshot, startPresenceSnapshots, stopPresenceSnapshots } from './api/_realtime/presence-snapshot.js';
 import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
-import { closeStoragePool, storagePoolStats } from './api/_storage.js';
+import { closeStoragePool, kv, storagePoolStats } from './api/_storage.js';
 import { handOffLiveStreams } from './api/pvp/_stream-handoff.js';
 import { flushBetaMetrics } from './api/_beta-metrics.js';
 import { drainBackgroundWork, stopBackgroundWork } from './api/_background-work.js';
@@ -96,6 +96,12 @@ if (process.env.SENTRY_DSN) {
             tracesSampleRate: 0,
             sendDefaultPii: false,
             beforeSend: (event) => sanitizeSentryEvent(event),
+            // Sentry's default uncaughtException integration captures, flushes
+            // and calls process.exit on its own, which skipped gracefulShutdown
+            // below and severed whatever save or reward write was in flight.
+            // With this off it only captures when another handler is registered
+            // (ours below), and that handler drains before exiting.
+            integrations: [Sentry.onUncaughtExceptionIntegration({ exitEvenIfOtherHandlersAreRegistered: false })],
         });
         console.log('[sentry] server error reporting enabled');
     } catch (err) {
@@ -166,27 +172,27 @@ function gracefulShutdown(code: number, reason: string): void {
     });
 }
 
-// Last-resort crash guards — but ONLY when Sentry is not active. Sentry's Node
-// SDK registers its own uncaughtException/unhandledRejection integrations
-// (capture + flush + exit); registering ours alongside would fight it. So on
-// Railway (Sentry on) Sentry owns this path; on cPanel (Sentry usually absent —
-// it needs a manual "Run NPM Install") these are the only net. Without them a
-// single stray async throw kills the worker mid-response as a 502 AND leaves no
-// app-level stack trace (the blind spot this investigation hit). An
-// unhandledRejection is logged and SURVIVED — Node 22 would otherwise crash the
-// worker, and a rejection is rarely process-corrupting. An uncaughtException is
-// logged with its stack, then drained-and-exited: the process state is undefined
-// after one, so we don't resume — but we exit cleanly instead of hard-crashing.
-if (!Sentry) {
-    process.on('unhandledRejection', (reason) => {
-        console.error('[fatal-guard] unhandledRejection (surviving):',
-            reason instanceof Error ? (reason.stack ?? reason.message) : reason);
-    });
-    process.on('uncaughtException', (err) => {
-        console.error('[fatal-guard] uncaughtException:', err?.stack ?? err);
-        gracefulShutdown(1, 'uncaughtException');
-    });
-}
+// Last-resort crash guards. These used to be registered only when Sentry was
+// off, because Sentry's default uncaughtException integration captures,
+// flushes and exits on its own; but that exit was a bare process.exit that
+// skipped gracefulShutdown, so on Railway (Sentry on) a crash severed whatever
+// save or reward write was in flight. Sentry is now initialised with
+// exitEvenIfOtherHandlersAreRegistered: false (above), so it still captures the
+// error and leaves the exit to the handler here. Without these a single stray
+// async throw kills the worker mid-response as a 502 AND leaves no app-level
+// stack trace. An unhandledRejection is logged and SURVIVED — Node 22 would
+// otherwise crash the worker, and a rejection is rarely process-corrupting
+// (Sentry's own rejection handler only warns). An uncaughtException is logged
+// with its stack, then drained-and-exited: the process state is undefined after
+// one, so we don't resume — but we exit cleanly instead of hard-crashing.
+process.on('unhandledRejection', (reason) => {
+    console.error('[fatal-guard] unhandledRejection (surviving):',
+        reason instanceof Error ? (reason.stack ?? reason.message) : reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[fatal-guard] uncaughtException:', err?.stack ?? err);
+    gracefulShutdown(1, 'uncaughtException');
+});
 
 // Railway and other container supervisors use SIGTERM for deploy replacement.
 // Drain exactly the same way as an operator restart or fatal exception so an
@@ -1142,6 +1148,27 @@ server.listen(PORT, () => {
     // A secret that is set but weak (short, still the .env.example placeholder,
     // or shared between roles) is just as invisible. Names only, never values.
     for (const warning of weakSecretWarnings()) console.error(`[startup] ${warning}`);
+    // Nothing storage-related is awaited before the port binds: /health must not
+    // flap on a database blip, so Railway keeps the deploy. The cost is that a
+    // wrong DATABASE_URL / PG_SSL boots "healthy" while every gameplay request
+    // fails, and the first explicit signal used to be the 03:00 snapshot finding
+    // zero saves. One read here says so in the deploy log instead.
+    void kv.get('startup:storage-probe').then(
+        () => console.log('[startup] storage reachable'),
+        (err: unknown) => console.error(
+            '[startup] STORAGE UNREACHABLE: every save, login and reward request will fail until '
+            + 'DATABASE_URL / PG_SSL are fixed and the service is redeployed:', safeLogValue(err),
+        ),
+    );
+    // Tebex: a storefront with a public token but no webhook secret shows prices
+    // and takes money, then refuses every delivery webhook (api/tebex/webhook.ts
+    // fails closed on an empty secret). That is a paid purchase nobody receives.
+    if (String(process.env.TEBEX_PUBLIC_TOKEN ?? '').trim() && !String(process.env.TEBEX_WEBHOOK_SECRET ?? '').trim()) {
+        console.error(
+            '[startup] Tebex is CONFIGURED BUT CANNOT DELIVER PURCHASES: TEBEX_PUBLIC_TOKEN is set and '
+            + 'TEBEX_WEBHOOK_SECRET is not, so every payment webhook is refused.',
+        );
+    }
     // Google sign-in fails in ways the operator never sees: a redirect URI that
     // does not match the Cloud Console entry exactly produces a
     // `redirect_uri_mismatch` on GOOGLE's page, in front of the player. Say so

@@ -90,6 +90,11 @@ describe('ranked season transition durability', () => {
 
         assert.equal(isRankedSeasonPlayerSaveKey('save:health-probe-1-1784020032064'), false);
         assert.equal(isRankedSeasonPlayerSaveKey('save:clan-jilin'), false);
+        // The admin accounts' real save keys are lowercase slugs; the old
+        // capitalised 'Rill' exclusion let both onto every ladder.
+        assert.equal(isRankedSeasonPlayerSaveKey('save:rill'), false);
+        assert.equal(isRankedSeasonPlayerSaveKey('save:shanks'), false);
+        assert.equal(isRankedSeasonPlayerSaveKey('save:rillian'), true);
         const rolled = await runRankedSeasonRolloverWithStore(store, NOW + 1, { force: true, lock });
 
         assert.equal(rolled.ok, true, String(rolled.error ?? 'ranked rollover failed'));
