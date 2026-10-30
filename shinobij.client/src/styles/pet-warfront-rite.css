@@ -34,8 +34,8 @@
 }
 .wfr-root::before {
     z-index: 0;
-    background: url("/assets/warfront/kage-tactics-temple-court-v3-landscape.webp") center 50% / cover no-repeat;
-    transform: scale(1.006);
+    background: url("/assets/warfront/training-garden-v1-landscape.webp") center / cover no-repeat;
+    transform: none;
     transform-origin: 50% 50%;
 }
 .wfr-root[data-wfr-canvas-camera="true"]::before {
@@ -52,7 +52,7 @@
     box-shadow: inset 0 0 96px rgba(0, 0, 0, 0.48);
 }
 
-.wfr-stage { position: absolute; inset: calc(var(--wfr-hud-height, 184px) + 8px) 12px 54px; z-index: 1; }
+.wfr-stage { position: absolute; inset: 0; z-index: 1; }
 .wfr-canvas { position: relative; display: block; width: 100%; height: 100%; background: transparent; }
 .wfr-canvas-static,
 .wfr-canvas-surface { position: absolute; inset: 0; display: block; width: 100%; height: 100%; background: transparent; }
@@ -61,7 +61,8 @@
 
 @media (orientation: portrait) {
     .wfr-root::before {
-        background-image: url("/assets/warfront/kage-tactics-temple-court-v3-portrait.webp");
+        background-image: url("/assets/warfront/training-garden-v1-portrait.webp");
+        background-size: 100% 100%;
         background-position: center 50%;
     }
     .wfr-root::after {
@@ -348,7 +349,7 @@
     border: 1px solid rgba(196, 82, 73, 0.52);
     background:
         linear-gradient(90deg, rgba(98, 20, 24, 0.48), rgba(31, 12, 17, 0.62) 46%, rgba(10, 15, 20, 0.8)),
-        url("/assets/warfront/kage-tactics-temple-court-v3-landscape.webp") right 44% / 100% auto no-repeat;
+        url("/assets/warfront/training-garden-v1-landscape.webp") right 44% / 100% auto no-repeat;
     border-radius: 3px 12px 3px 12px;
     padding: 12px 14px;
     box-shadow: inset 3px 0 0 rgba(210, 74, 69, 0.72), inset 0 1px rgba(255, 190, 160, 0.08);
@@ -405,7 +406,7 @@
     border: 1px solid rgba(209, 167, 88, 0.4);
     background:
         linear-gradient(rgba(3, 8, 12, 0.28), rgba(3, 8, 12, 0.46)),
-        url("/assets/warfront/kage-tactics-temple-court-v3-landscape.webp") center 58% / cover no-repeat;
+        url("/assets/warfront/training-garden-v1-landscape.webp") center 58% / cover no-repeat;
     overflow: hidden;
     box-shadow: inset 0 0 34px rgba(0, 0, 0, 0.66), 0 10px 28px rgba(0, 0, 0, 0.25);
 }
@@ -672,6 +673,10 @@
 .wfr-rule-state > strong { min-width: 0; padding: 2px 6px; color: #cdb8e3; border: 1px solid rgba(184, 134, 255, 0.28); border-radius: 999px; background: rgba(12, 10, 20, 0.66); box-shadow: 0 0 10px rgba(157, 92, 224, 0.14); }
 .wfr-rule-state .is-blue { color: #55dff3; }
 .wfr-rule-state .is-red { color: #ff7380; }
+.wfr-rule-state > strong[data-side="player"] { color: #79dce8; }
+.wfr-rule-state > strong[data-side="enemy"] { color: #ff899b; }
+.wfr-roster li[data-tactic="ally"] { background: rgba(112, 218, 233, .12); box-shadow: inset 0 -1px #79dce8; }
+.wfr-roster li[data-tactic="target"] { outline: 1px solid rgba(242, 218, 174, .65); outline-offset: -1px; }
 .wfr-sound-gate {
     position: fixed;
     left: max(10px, env(safe-area-inset-left));
@@ -705,7 +710,7 @@
     background:
         radial-gradient(ellipse at 50% 50%, rgba(6, 15, 21, 0.64), rgba(3, 8, 13, 0.92) 70%),
         linear-gradient(90deg, rgba(0, 61, 76, 0.13), transparent 38% 62%, rgba(91, 17, 22, 0.14)),
-        url("/assets/warfront/kage-tactics-temple-court-v3-landscape.webp") center / cover no-repeat;
+        url("/assets/warfront/training-garden-v1-landscape.webp") center / cover no-repeat;
     box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.82);
     animation: wfr-fade 260ms ease both;
 }
@@ -878,7 +883,7 @@
 /* ── Mobile ────────────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
-    .wfr-stage { left: 6px; right: 6px; bottom: 58px; }
+    .wfr-stage { inset: 0; }
     .wfr-hud {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1007,7 +1012,9 @@
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
-    .wfr-stage { left: 6px; right: 6px; bottom: 48px; }
+    /* Keep the whole garden below the compact HUD when a phone rotates. */
+    .wfr-root::before { background-size: auto 85%; background-position: center calc(50% + 90px); }
+    .wfr-stage { inset: 0; }
     .wfr-hud { padding-top: max(5px, env(safe-area-inset-top)); }
     .wfr-roster { gap: 1px; }
     .wfr-roster li { padding-block: 1px; }

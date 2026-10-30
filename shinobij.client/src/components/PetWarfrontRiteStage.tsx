@@ -1,7 +1,13 @@
+import { writeWarfrontHeroMetrics } from "../lib/pet-warfront-hero-telemetry";
+import { warfrontMetric } from "../lib/pet-warfront-telemetry";
 import { buildWarfrontActionTimeline, warfrontActionProgress } from "../lib/pet-warfront-action-vfx";
+import { buildWarfrontTechniqueTimeline } from "../lib/pet-warfront-techniques";
+import { WARFRONT_TERRAIN, WARFRONT_TERRAIN_SIGNATURE, warfrontTerrainPoint } from "../lib/pet-warfront-contract";
+import { drawWarfrontTerrain, WARFRONT_TERRAIN_ART } from "../lib/pet-warfront-terrain-canvas";
+import { drawWarfrontTechnique, warmWarfrontTechniqueArt, WARFRONT_TECHNIQUE_ART } from "../lib/pet-warfront-techniques-canvas";
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type ReactNode } from "react";
 import type { Pet } from "../types/pet";
-import { DUEL_TPS, type DuelObjectiveSnap, type DuelResult } from "../lib/pet-duel-sim";
+import { DUEL_TPS, type DuelResult } from "../lib/pet-duel-sim";
 import { WARFRONT_ARENA_X, WARFRONT_ARENA_Y } from "../lib/pet-duel-cinematic";
 import { petCombatModel } from "../lib/pet-3d-models";
 import {
@@ -36,6 +42,7 @@ import {
     sampleActorByIdInto,
     sampleActorInto,
     type ActorPose,
+    RITE_ACTOR_SCALE,
 } from "../lib/pet-warfront-rite-presentation";
 import { WARFRONT_PREFLIGHT_THRESHOLD_MS, WARFRONT_ROUTE_STORAGE_KEY, warfront3dQaCanaryRequested, warfrontShouldAttempt3d } from "../lib/pet-warfront-render-budget";
 import { warfrontStageRoute } from "../lib/pet-warfront-stage-fallback";
@@ -43,29 +50,12 @@ import { warfrontCanvasFrame } from "../lib/pet-warfront-camera";
 import { PET_ELEMENT_IMPACT_ATLAS_URL } from "../lib/pet-element-vfx";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import {
-    WARFRONT_HERO_AXIS_TAIL_PX,
-    WARFRONT_HERO_BURST_HOLD_TICKS,
-    WARFRONT_HERO_BURST_PX,
-    WARFRONT_HERO_CONTACT_LAYER_COUNT,
-    WARFRONT_HERO_CONTACT_TARGET_WIDTHS,
-    WARFRONT_HERO_FIRE_CONTACT_LAYERS,
-    WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_X,
-    WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_Y,
-    WARFRONT_HERO_FIRE_IMPACT_SPRITE_ASYMMETRY,
-    WARFRONT_HERO_FIRE_IMPACT_SPRITE_LEFT_RIGHT_REACH_RATIO,
     WARFRONT_HERO_FIRE_IMPACT_SPRITE_SOURCE_PX,
     WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL,
-    WARFRONT_HERO_FIRE_RESIDUE_LAYERS,
-    WARFRONT_HERO_FIRE_VFX_GRAMMAR,
     WARFRONT_HERO_FLARE_MIN_PX,
-    WARFRONT_HERO_IMPACT_HOLD_TICKS,
-    WARFRONT_HERO_IMPACT_MIN_PX,
-    WARFRONT_HERO_RESIDUE_LAYER_COUNT,
     WARFRONT_HERO_TRAVEL_CORE_PX,
-    WARFRONT_HERO_TRAVEL_MIN_SPAN_FRACTION,
     WARFRONT_HERO_TRAVEL_PLUME_PX,
     WARFRONT_SPECTACLE_OVERLAP_CAP,
-    WARFRONT_SPECTACLE_RESULT_TICKS,
     createWarfrontSpectaclePhase,
     warfrontElementSignature,
     warfrontHeroAttackCue,
@@ -311,9 +301,6 @@ function drawCanvasActorHealthRail(
     return { x: left, y: top, width, height };
 }
 
-const ARENA_FLOOR_DECAL_ALPHA_CAP = 0.18;
-const ARENA_OBJECTIVE_DECAL_RADIUS_WORLD = 0.285;
-
 type CanvasArenaSubmissionMetrics = Readonly<{
     prototypeDressingDraws: number;
     floorDecalDraws: number;
@@ -328,29 +315,10 @@ const EMPTY_CANVAS_ARENA_METRICS: CanvasArenaSubmissionMetrics = {
     floorDecalMaxRadiusPx: 0,
 };
 
-function sampleForbiddenScroll(result: DuelResult, tick: number): DuelObjectiveSnap | null {
-    if (!result.snapshots.length) return null;
-    const clamped = Math.max(0, Math.min(result.snapshots.length - 1, tick));
-    const index = Math.floor(clamped);
-    const mix = clamped - index;
-    const current = result.snapshots[index]?.objectives?.find((objective) => objective.id === "forbidden-scroll");
-    const next = result.snapshots[Math.min(index + 1, result.snapshots.length - 1)]?.objectives
-        ?.find((objective) => objective.id === "forbidden-scroll");
-    if (!current) return null;
-    if (!next || next.state !== current.state || next.carrierId !== current.carrierId) return current;
-    return {
-        ...current,
-        x: current.x + (next.x - current.x) * mix,
-        y: current.y + (next.y - current.y) * mix,
-        progress: current.progress + (next.progress - current.progress) * mix,
-    };
-}
-
 function drawArena(
     target: HTMLCanvasElement,
     width: number,
     height: number,
-    project: (x: number, z: number) => readonly [number, number],
 ): CanvasArenaSubmissionMetrics {
     const targetWidth = Math.max(1, Math.round(width));
     const targetHeight = Math.max(1, Math.round(height));
@@ -359,102 +327,8 @@ function drawArena(
     const context = target.getContext("2d")!;
     context.clearRect(0, 0, width, height);
 
-    // Keep the generated temple court visible. The Canvas2D stage owns only a
-    // calm, coordinate-true floor treatment and the legal blocker silhouettes.
-    // This also keeps first paint cheap: the static layer is rebuilt only when
-    // the viewport changes, never per combat frame.
-    const atmosphere = context.createLinearGradient(0, 0, 0, height);
-    atmosphere.addColorStop(0, "rgba(1, 5, 9, .2)");
-    atmosphere.addColorStop(0.24, "rgba(4, 10, 13, .02)");
-    atmosphere.addColorStop(0.78, "rgba(3, 8, 10, .04)");
-    atmosphere.addColorStop(1, "rgba(1, 4, 7, .3)");
-    context.fillStyle = atmosphere;
-    context.fillRect(0, 0, width, height);
-
-    // The generated court already supplies the stone. Keep the live tactical
-    // layer inside the same chamfered courtyard silhouette instead of laying a
-    // second opaque rectangle over it.
-    const courtPoints = [
-        project(-WARFRONT_ARENA_X * 0.82, -WARFRONT_ARENA_Y),
-        project(WARFRONT_ARENA_X * 0.82, -WARFRONT_ARENA_Y),
-        project(WARFRONT_ARENA_X, -WARFRONT_ARENA_Y * 0.78),
-        project(WARFRONT_ARENA_X, WARFRONT_ARENA_Y * 0.78),
-        project(WARFRONT_ARENA_X * 0.82, WARFRONT_ARENA_Y),
-        project(-WARFRONT_ARENA_X * 0.82, WARFRONT_ARENA_Y),
-        project(-WARFRONT_ARENA_X, WARFRONT_ARENA_Y * 0.78),
-        project(-WARFRONT_ARENA_X, -WARFRONT_ARENA_Y * 0.78),
-    ] as const;
-
-    const boardPath = () => {
-        context.beginPath();
-        context.moveTo(...courtPoints[0]);
-        for (let index = 1; index < courtPoints.length; index++) context.lineTo(...courtPoints[index]);
-        context.closePath();
-    };
-    const boardShade = context.createLinearGradient(courtPoints[0][0], courtPoints[0][1], courtPoints[4][0], courtPoints[4][1]);
-    boardShade.addColorStop(0, "rgba(19, 56, 63, .07)");
-    boardShade.addColorStop(0.5, "rgba(24, 26, 24, .025)");
-    boardShade.addColorStop(1, "rgba(68, 30, 26, .065)");
-    boardPath();
-    context.fillStyle = boardShade;
-    context.fill();
-
-    context.save();
-    boardPath();
-    context.clip();
-
-    const factionWash = context.createLinearGradient(courtPoints[7][0], 0, courtPoints[2][0], 0);
-    factionWash.addColorStop(0, "rgba(35, 169, 196, .045)");
-    factionWash.addColorStop(0.36, "rgba(16, 56, 64, .008)");
-    factionWash.addColorStop(0.64, "rgba(68, 30, 28, .008)");
-    factionWash.addColorStop(1, "rgba(190, 64, 52, .04)");
-    context.fillStyle = factionWash;
-    context.fillRect(0, 0, width, height);
-
-    // Three calm lane seams and tiny flush node studs preserve tactical
-    // orientation without rebuilding the floor as thirty-five raised tiles.
-    let floorDecalDraws = 0;
-    let floorDecalMaxRadiusPx = 0;
-    context.strokeStyle = "rgba(200, 171, 116, .12)";
-    context.lineWidth = Math.max(0.65, Math.min(width, height) / 1250);
-    for (const laneX of [-3.2, 0, 3.2] as const) {
-        const start = project(laneX, -WARFRONT_ARENA_Y * 0.88);
-        const end = project(laneX, WARFRONT_ARENA_Y * 0.88);
-        context.beginPath(); context.moveTo(...start); context.lineTo(...end); context.stroke();
-        floorDecalDraws++;
-    }
-    context.fillStyle = "rgba(213, 190, 143, .13)";
-    for (let row = 0; row < 5; row++) for (let column = 0; column < 7; column++) {
-        const node = project((column - 3) * 3.2, (row - 2) * 3);
-        const nodeRadius = Math.max(0.65, Math.min(width, height) * 0.00125);
-        context.beginPath(); context.ellipse(node[0], node[1], nodeRadius, nodeRadius * 0.62, 0, 0, Math.PI * 2); context.fill();
-        floorDecalDraws++;
-        floorDecalMaxRadiusPx = Math.max(floorDecalMaxRadiusPx, nodeRadius);
-    }
-    context.restore();
-
-    // Flush stone-and-bronze inlays trace the authored courtyard edge. They are
-    // deliberately hairline-thin: no second plinth and no neon perimeter rail.
-    boardPath();
-    context.strokeStyle = "rgba(8, 13, 14, .16)";
-    context.lineWidth = Math.max(2, Math.min(width, height) * 0.0035);
-    context.stroke();
-    floorDecalDraws++;
-    boardPath();
-    context.strokeStyle = "rgba(184, 143, 78, .18)";
-    context.lineWidth = Math.max(0.8, Math.min(width, height) * 0.0015);
-    context.stroke();
-    floorDecalDraws++;
-
-    // Collision remains authoritative simulation data. No live shoji, torii,
-    // pedestal, lantern, bottle or debris geometry is composited over the
-    // generated court in the lightweight route.
-    return {
-        prototypeDressingDraws: 0,
-        floorDecalDraws,
-        floorDecalMaxAlpha: ARENA_FLOOR_DECAL_ALPHA_CAP,
-        floorDecalMaxRadiusPx,
-    };
+    // The authored background is the floor; do not trace a second board over it.
+    return EMPTY_CANVAS_ARENA_METRICS;
 }
 
 function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSummonsComplete, result, fighters, clockRef, quality, reducedMotion, onReady, onLoadProgress, onRendererAvailability, onAssetFailure }: PetWarfrontRiteStageProps & Readonly<{ onAssetFailure: () => void }>) {
@@ -467,6 +341,9 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
     const [heroImpactSprite, setHeroImpactSprite] = useState<HTMLImageElement | null>(null);
     const [elementImpactAtlas, setElementImpactAtlas] = useState<HTMLImageElement | null>(null);
     const [sealImage, setSealImage] = useState<HTMLImageElement | null>(null);
+    const [techniqueImages, setTechniqueImages] = useState<ReadonlyMap<string, HTMLImageElement>>(new Map());
+    const [terrainImages, setTerrainImages] = useState<ReadonlyMap<string, HTMLImageElement>>(new Map());
+    const techniqueTimeline = useMemo(() => buildWarfrontTechniqueTimeline(result), [result]);
     const actionTimeline = useMemo(() => buildWarfrontActionTimeline(result, new Map(fighters.map((fighter) =>
         [`${fighter.team}-${fighter.lane}`, fighter.pet.element]))), [result, fighters]);
     const cues = useMemo(() => warfrontAttackCues(result.events), [result.events]);
@@ -526,12 +403,20 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             ? loadImpostorImage(url)
             : Promise.reject<HTMLImageElement>(new Error("Missing exact Warfront impostor")));
         const optionalImpactAtlas = loadImpostorImage(PET_ELEMENT_IMPACT_ATLAS_URL).catch(() => null);
-        void Promise.all([Promise.all(load), loadImpostorImage(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL), optionalImpactAtlas, loadImpostorImage('/items/beast-seal-reinforced.webp')]).then(([loaded, impactSprite, impactAtlas, seal]) => {
+        const optionalTechniqueArt = Promise.all(Object.entries(WARFRONT_TECHNIQUE_ART).map(async ([element, url]) => {
+            const image = await loadImpostorImage(url).catch(() => null);
+            if (image) await warmWarfrontTechniqueArt(image);
+            return image ? [element, image] as const : null;
+        }));
+        const terrainArt = Promise.all(Object.entries(WARFRONT_TERRAIN_ART).map(async ([kind, url]) => [kind, await loadImpostorImage(url)] as const));
+        void Promise.all([Promise.all(load), loadImpostorImage(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL), optionalImpactAtlas, loadImpostorImage('/items/beast-seal-reinforced.webp'), optionalTechniqueArt, terrainArt]).then(([loaded, impactSprite, impactAtlas, seal, techniqueArt, terrain]) => {
             if (active) {
                 setImages(loaded);
                 setHeroImpactSprite(impactSprite);
                 setElementImpactAtlas(impactAtlas);
                 setSealImage(seal);
+                setTechniqueImages(new Map(techniqueArt.filter(entry => entry !== null)));
+                setTerrainImages(new Map(terrain));
             }
         }).catch(() => {
             if (active) onAssetFailure();
@@ -641,7 +526,7 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             if (document.hidden) { frame = 0; return; }
             const cardDelta = Math.min(.05, Math.max(0, now - cardFrameAt) / 1000);
             cardFrameAt = now;
-            if (actionQaEnabled) canvas.dataset.riteRenderFrame = String(++paintCount);
+            if (actionQaEnabled) warfrontMetric(canvas, "RenderFrame", ++paintCount);
             const cssWidth = Math.max(1, canvas.clientWidth);
             const cssHeight = Math.max(1, canvas.clientHeight);
             const dpr = Math.min(1.15, window.devicePixelRatio || 1);
@@ -689,101 +574,33 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             const focusVisualStrength = focusVisualPhase
                 ? Math.max(focusVisualPhase.tell * 0.42, focusVisualPhase.travel, focusVisualPhase.contact, focusVisualPhase.result * 0.82)
                 : 0;
-            // The HUD owns its own area; fit every deployment cell in the remaining stage.
+            // Camera and painted court share the full viewport, independent of HUD height.
             const portrait = cssHeight > cssWidth;
             const root = canvas.closest(".wfr-root") as HTMLElement | null;
             const topSafe = 0, bottomSafe = 0;
             const boardFrame = warfrontCanvasFrame(cssWidth, cssHeight, WARFRONT_ARENA_X, WARFRONT_ARENA_Y);
-            const viewCenterX = boardFrame.centerX, viewCenterY = boardFrame.centerY;
             const xScale = boardFrame.xScale, zScale = boardFrame.zScale;
             cameraState.x = 0;
             cameraState.z = 0;
             cameraState.zoom = 1;
             cameraState.initialized = true;
             cameraState.focusId = focusCue ? cueKey(focusCue) : "formation";
-            const project = (x: number, z: number) => [
-                viewCenterX + (x - cameraState.x) * xScale,
-                viewCenterY + (z - cameraState.z) * zScale,
-            ] as const;
+            const project = boardFrame.project;
             if (root) {
                 root.dataset.wfrCanvasCamera = "true";
                 root.style.setProperty("--wfr-camera-zoom", cameraState.zoom.toFixed(4));
-                root.style.setProperty("--wfr-camera-shift-x", `${(viewCenterX - cssWidth * 0.5 - cameraState.x * xScale).toFixed(2)}px`);
-                root.style.setProperty("--wfr-camera-shift-y", `${(viewCenterY - cssHeight * 0.5 - cameraState.z * zScale).toFixed(2)}px`);
+                root.style.setProperty("--wfr-camera-shift-x", "0px");
+                root.style.setProperty("--wfr-camera-shift-y", "0px");
             }
             const sizeKey = `${Math.round(cssWidth)}:${Math.round(cssHeight)}:${Math.round(cameraState.x * xScale)}:${Math.round(cameraState.z * zScale)}:${Math.round(cameraState.zoom * 100)}`;
             if (staticSize.current !== sizeKey && staticCanvasRef.current) {
-                staticArenaMetrics.current = drawArena(staticCanvasRef.current, cssWidth, cssHeight, project);
+                staticArenaMetrics.current = drawArena(staticCanvasRef.current, cssWidth, cssHeight);
                 staticSize.current = sizeKey;
             }
             context.save();
             context.beginPath();
             context.rect(0, topSafe, cssWidth, Math.max(1, cssHeight - topSafe - bottomSafe));
             context.clip();
-
-            // One compact scroll supplies objective identity. Its hairline
-            // state decal is floor-flush and the prop is painted before pets,
-            // so even a carrier always remains the foreground silhouette.
-            const scroll = sampleForbiddenScroll(result, tick) ?? {
-                x: 0,
-                y: 0,
-                state: "sealed" as const,
-                carrierId: null,
-                owner: null,
-            };
-            let objectiveFloorDecalDraws = 0;
-            let objectiveFloorDecalMaxAlpha: number;
-            let objectiveFloorDecalMaxRadiusPx: number;
-            let scrollPropDraws = 0;
-            {
-                const [objectiveX, objectiveY] = project(scroll.x, scroll.y);
-                const [objectiveRadiusX] = project(scroll.x + ARENA_OBJECTIVE_DECAL_RADIUS_WORLD, scroll.y);
-                const [, objectiveRadiusY] = project(scroll.x, scroll.y + ARENA_OBJECTIVE_DECAL_RADIUS_WORLD);
-                const radiusX = Math.abs(objectiveRadiusX - objectiveX);
-                const radiusY = Math.abs(objectiveRadiusY - objectiveY);
-                const objectiveTeam = scroll.carrierId?.startsWith("player-") ? "player"
-                    : scroll.carrierId?.startsWith("enemy-") ? "enemy"
-                        : scroll.owner;
-                const objectiveColor = objectiveTeam ? RITE_TEAM_COLOR[objectiveTeam] : "#d6b775";
-                const decalAlpha = Math.min(ARENA_FLOOR_DECAL_ALPHA_CAP,
-                    scroll.state === "dropped" ? 0.18 : scroll.state === "carried" ? 0.14 : 0.12);
-                context.save();
-                context.globalAlpha = decalAlpha;
-                context.strokeStyle = objectiveColor;
-                context.lineWidth = Math.max(0.65, Math.min(1, Math.min(cssWidth, cssHeight) * 0.0011));
-                context.beginPath();
-                context.ellipse(objectiveX, objectiveY + 1, radiusX, radiusY * 0.72, 0, 0, Math.PI * 2);
-                context.stroke();
-                context.restore();
-                objectiveFloorDecalDraws++;
-                objectiveFloorDecalMaxAlpha = decalAlpha;
-                objectiveFloorDecalMaxRadiusPx = Math.max(radiusX, radiusY);
-
-                const scrollWidth = Math.max(8, Math.min(16, Math.abs(project(scroll.x + 0.56, scroll.y)[0] - objectiveX)));
-                const scrollHeight = scrollWidth * 0.4;
-                context.save();
-                context.translate(objectiveX, objectiveY - 1);
-                context.rotate(Math.sin(tick * 0.025) * 0.04);
-                context.globalAlpha = scroll.state === "carried" ? 0.82 : 0.92;
-                context.fillStyle = "#d9c391";
-                context.fillRect(-scrollWidth * 0.38, -scrollHeight * 0.5, scrollWidth * 0.76, scrollHeight);
-                scrollPropDraws++;
-                context.strokeStyle = "rgba(67, 38, 24, .82)";
-                context.lineWidth = Math.max(0.6, scrollWidth * 0.055);
-                context.strokeRect(-scrollWidth * 0.38, -scrollHeight * 0.5, scrollWidth * 0.76, scrollHeight);
-                scrollPropDraws++;
-                context.fillStyle = "#503020";
-                for (const side of [-1, 1] as const) {
-                    context.beginPath();
-                    context.ellipse(side * scrollWidth * 0.43, 0, scrollWidth * 0.09, scrollHeight * 0.62, 0, 0, Math.PI * 2);
-                    context.fill();
-                    scrollPropDraws++;
-                }
-                context.fillStyle = objectiveColor;
-                context.fillRect(-scrollWidth * 0.035, -scrollHeight * 0.56, scrollWidth * 0.07, scrollHeight * 1.12);
-                scrollPropDraws++;
-                context.restore();
-            }
 
             let contacts = 0;
             let longestDistance = 0;
@@ -979,9 +796,26 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             let groundingFootprints = "";
             let petCardPhases = "";
             const authoritativeGroundingActorId = authoritativeGroundingActorAt(cues, tick);
-            ordered.sort((a, b) => a.pose.z - b.pose.z || a.fighter.lane - b.fighter.lane);
+            ordered.sort((a, b) => project(a.pose.x, a.pose.z)[1] - project(b.pose.x, b.pose.z)[1] || a.fighter.lane - b.fighter.lane);
+            const terrain = [...SOLID_TERRAIN].sort((a, b) => project(...warfrontTerrainPoint(a.col, a.row))[1] - project(...warfrontTerrainPoint(b.col, b.row))[1]);
+            let terrainIndex = 0;
+            const paintTerrain = (cell: typeof WARFRONT_TERRAIN[number]) => {
+                const image = terrainImages.get(cell.kind === "mist" ? "mist" : portrait ? "portrait" : "landscape");
+                if (image) drawWarfrontTerrain(context, cell, image, project, cssWidth, cssHeight);
+            };
+            for (const cell of WARFRONT_TERRAIN) if (cell.kind === "mist") paintTerrain(cell);
+            const grandTechniques = techniqueTimeline[Math.floor(tick)] ?? [];
+            for (const technique of grandTechniques) {
+                const image = techniqueImages.get(technique.element);
+                if (!image) continue;
+                const [x, y] = project(technique.x, technique.z);
+                drawWarfrontTechnique(context, technique, image, tick, x, y,
+                    RITE_ACTOR_SCALE * Math.max(54, Math.min(140, Math.min(cssWidth, cssHeight) * 0.22)), reducedMotion);
+            }
+            if (actionQaEnabled) warfrontMetric(canvas, "GrandTechniques", grandTechniques.map(a => a.element).join(","));
             for (const actor of ordered) {
                 const { fighter, pose } = actor;
+                while (terrainIndex < terrain.length && project(...warfrontTerrainPoint(terrain[terrainIndex].col, terrain[terrainIndex].row))[1] <= project(pose.x, pose.z)[1]) paintTerrain(terrain[terrainIndex++]);
                 const id = `${fighter.team}-${fighter.lane}`;
                 if (pose.state !== actor.lastState || tick < actor.stateSince) { actor.lastState = pose.state; actor.stateSince = tick; }
                 const stateAge = Math.max(0, (pose.state === "dead" ? presentationTick : tick) - actor.stateSince);
@@ -1038,7 +872,7 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 const cardPose = fighter.team === 'player' ? petCardStatePose(actor.card) : { visible: true, scale: 1, lift: 0 };
                 const isFocusActor = focusCue?.actorId === id || focusCue?.targetId === id;
                 const focusScale = focusVisualStrength > 0.12 ? (isFocusActor ? 1.16 : 0.88) : 1;
-                const baseSize = Math.max(54, Math.min(portrait ? 128 : 140,
+                const baseSize = RITE_ACTOR_SCALE * Math.max(54, Math.min(portrait ? 128 : 140,
                     Math.min(cssWidth, cssHeight) * 0.22 * Math.min(1.22, Math.sqrt(cameraState.zoom)) * focusScale,
                 ));
                 const targetReaction = beat?.role === "target";
@@ -1051,7 +885,9 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 if (visualState === "idle" && alive) idleGroundingActors++;
                 if (!alive) deadGroundingActors++;
                 const deathVisibility = fighter.team !== 'player' && visualState === "dead" ? Math.max(0, 1 - Math.max(0, stateAge - 18) / 10) : 1;
-                const actorVisibility = (cardPose.visible ? deathVisibility : 0) * (focusVisualStrength > 0.18 && !isFocusActor ? 0.46 : 1);
+                // A featured hit may lead the eye, but teammates must remain
+                // solid enough to read the formation and the supporting fire.
+                const actorVisibility = (cardPose.visible ? deathVisibility : 0) * (focusVisualStrength > 0.18 && !isFocusActor ? 0.88 : 1);
 
                 // Natural contact AO: a compact, fully feathered falloff whose
                 // transparent edge reveals the authored wet slate. This is not
@@ -1253,12 +1089,15 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 }
                 if (beat) {
                     const causesKo = beat.lethal || beat.cues.some((cue) => cue.lethal);
-                    canvas.dataset.riteBodyReactionLast = `${id}:${beat.role}@${beat.tick}${causesKo ? ":ko" : ""}`;
-                    if (causesKo) canvas.dataset.riteBodyLethalLast = `${id}:${beat.role}@${beat.tick}`;
+                    warfrontMetric(canvas, "BodyReactionLast", `${id}:${beat.role}@${beat.tick}${causesKo ? ":ko" : ""}`);
+                    if (causesKo) warfrontMetric(canvas, "BodyLethalLast", `${id}:${beat.role}@${beat.tick}`);
                 }
             }
             // Local rails are painted after every body so the eight identities
-            // remain readable when mirrored pets cross. Contact/result VFX and
+            while (terrainIndex < terrain.length) paintTerrain(terrain[terrainIndex++]);
+            warfrontMetric(canvas, "Terrain", WARFRONT_TERRAIN_SIGNATURE);
+            warfrontMetric(canvas, "Arena", "training-garden-v1");
+            // Local rails remain readable when mirrored pets cross. Contact/result VFX and
             // the existing hero damage callout may still layer above them.
             let actorLocalHpBars = 0;
             let actorLocalHpPlayerRails = 0;
@@ -1311,9 +1150,9 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 if (actionQaEnabled) elementalActorsSeen.add(action.actorId);
             }
             if (actionQaEnabled) {
-                canvas.dataset.riteElementalActorsSeen = [...elementalActorsSeen].join(",");
-                canvas.dataset.riteElementalActionsActive = String(actionVisuals.length);
-                canvas.dataset.riteElementalActorsActive = actionVisuals.map((action) => action.actorId).join(",");
+                warfrontMetric(canvas, "ElementalActorsSeen", [...elementalActorsSeen].join(","));
+                warfrontMetric(canvas, "ElementalActionsActive", actionVisuals.length);
+                warfrontMetric(canvas, "ElementalActorsActive", actionVisuals.map((action) => action.actorId).join(","));
             }
             // Contact/result paint after bodies: the target owns the brightest
             // edge while the directional tracer remains behind silhouettes.
@@ -1461,14 +1300,14 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             maxSpectacleParticles = Math.max(maxSpectacleParticles, particles);
             maxBodyActive = Math.max(maxBodyActive, bodyActive);
             maxGroundingActiveRings = Math.max(maxGroundingActiveRings, activeGroundingRings);
-            canvas.dataset.riteGroundingPermanentPads = "0";
-            canvas.dataset.riteGroundingWideAuras = "0";
-            canvas.dataset.riteGroundingShadowMode = "feathered-ao";
-            canvas.dataset.riteGroundingActiveRings = String(activeGroundingRings);
-            canvas.dataset.riteGroundingMaxActiveRings = String(maxGroundingActiveRings);
-            canvas.dataset.riteGroundingIdleActors = String(idleGroundingActors);
-            canvas.dataset.riteGroundingDeadActors = String(deadGroundingActors);
-            canvas.dataset.ritePetCardPhases = petCardPhases;
+            warfrontMetric(canvas, "GroundingPermanentPads", "0");
+            warfrontMetric(canvas, "GroundingWideAuras", "0");
+            warfrontMetric(canvas, "GroundingShadowMode", "feathered-ao");
+            warfrontMetric(canvas, "GroundingActiveRings", activeGroundingRings);
+            warfrontMetric(canvas, "GroundingMaxActiveRings", maxGroundingActiveRings);
+            warfrontMetric(canvas, "GroundingIdleActors", idleGroundingActors);
+            warfrontMetric(canvas, "GroundingDeadActors", deadGroundingActors);
+            warfrontMetric(canvas, "PetCardPhases", petCardPhases);
             if (recalling && actorsRef.current.every(actor => actor.fighter.team !== 'player' || actor.card.phase === 'hidden')) {
                 exitResolve.current?.(); exitResolve.current = null;
             }
@@ -1476,36 +1315,36 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 summonsReported.current = true;
                 onSummonsComplete?.();
             }
-            canvas.dataset.riteGroundingIdleRings = String(idleGroundingRings);
-            canvas.dataset.riteGroundingDeadRings = String(deadGroundingRings);
-            canvas.dataset.riteGroundingSubmittedAoCount = String(submittedAoCount);
-            canvas.dataset.riteGroundingSubmittedAoMaxAlpha = submittedAoCount ? "0.420" : "0";
-            canvas.dataset.riteGroundingSubmittedAoMaxRadiusPx = submittedAoMaxRadiusPx.toFixed(3);
-            canvas.dataset.riteGroundingSubmittedAoMaxRadiusRatio = submittedAoMaxRadiusRatio.toFixed(3);
-            canvas.dataset.riteGroundingSubmittedRimCount = String(submittedRimCount);
-            canvas.dataset.riteGroundingSubmittedRimMaxAlpha = submittedRimCount ? "0.340" : "0";
-            canvas.dataset.riteGroundingSubmittedRimMaxRadiusPx = submittedRimMaxRadiusPx.toFixed(3);
-            canvas.dataset.riteGroundingSubmittedPlanarImpactCount = "0";
-            canvas.dataset.riteGroundingAuthoritativeActor = authoritativeGroundingActorId ?? "";
-            canvas.dataset.riteActorLocalHpBars = String(actorLocalHpBars);
-            canvas.dataset.riteActorLocalHpBarsMax = String(maxActorLocalHpBars);
-            canvas.dataset.riteActorLocalHpBarsExpected = String(fighters.length);
-            canvas.dataset.riteActorLocalHpPlayerRails = String(actorLocalHpPlayerRails);
-            canvas.dataset.riteActorLocalHpEnemyRails = String(actorLocalHpEnemyRails);
-            canvas.dataset.riteActorLocalHpAnchorMode = "sampled-actor-screen-position";
-            canvas.dataset.riteActorLocalHpAnchorsMoved = String(actorLocalHpAnchorsMoved);
-            canvas.dataset.riteActorLocalHpAnchors = actorLocalHpAnchors.join(";");
-            canvas.dataset.riteActorLocalHpMinWidthPx = Number.isFinite(actorLocalHpMinWidth) ? actorLocalHpMinWidth.toFixed(1) : "0";
-            canvas.dataset.riteActorLocalHpMaxWidthPx = actorLocalHpMaxWidth.toFixed(1);
-            canvas.dataset.riteActorLocalHpMinHeightPx = Number.isFinite(actorLocalHpMinHeight) ? actorLocalHpMinHeight.toFixed(1) : "0";
-            canvas.dataset.riteActorLocalHpTeamColors = `player:${RITE_TEAM_COLOR.player},enemy:${RITE_TEAM_COLOR.enemy}`;
-            canvas.dataset.riteArenaPrototypeDressingDraws = String(staticArenaMetrics.current.prototypeDressingDraws);
-            canvas.dataset.riteArenaPrototypeDressingMeshes = "0";
-            canvas.dataset.riteArenaGlyphDebrisDraws = "0";
-            canvas.dataset.riteArenaGlyphDebrisMeshes = "0";
-            canvas.dataset.riteArenaFloorDecalDraws = String(staticArenaMetrics.current.floorDecalDraws + objectiveFloorDecalDraws);
-            canvas.dataset.riteArenaFloorDecalMaxAlpha = Math.max(staticArenaMetrics.current.floorDecalMaxAlpha, objectiveFloorDecalMaxAlpha).toFixed(3);
-            canvas.dataset.riteArenaFloorDecalMaxRadiusPx = Math.max(staticArenaMetrics.current.floorDecalMaxRadiusPx, objectiveFloorDecalMaxRadiusPx).toFixed(3);
+            warfrontMetric(canvas, "GroundingIdleRings", idleGroundingRings);
+            warfrontMetric(canvas, "GroundingDeadRings", deadGroundingRings);
+            warfrontMetric(canvas, "GroundingSubmittedAoCount", submittedAoCount);
+            warfrontMetric(canvas, "GroundingSubmittedAoMaxAlpha", submittedAoCount ? "0.420" : "0");
+            warfrontMetric(canvas, "GroundingSubmittedAoMaxRadiusPx", submittedAoMaxRadiusPx.toFixed(3));
+            warfrontMetric(canvas, "GroundingSubmittedAoMaxRadiusRatio", submittedAoMaxRadiusRatio.toFixed(3));
+            warfrontMetric(canvas, "GroundingSubmittedRimCount", submittedRimCount);
+            warfrontMetric(canvas, "GroundingSubmittedRimMaxAlpha", submittedRimCount ? "0.340" : "0");
+            warfrontMetric(canvas, "GroundingSubmittedRimMaxRadiusPx", submittedRimMaxRadiusPx.toFixed(3));
+            warfrontMetric(canvas, "GroundingSubmittedPlanarImpactCount", "0");
+            warfrontMetric(canvas, "GroundingAuthoritativeActor", authoritativeGroundingActorId ?? "");
+            warfrontMetric(canvas, "ActorLocalHpBars", actorLocalHpBars);
+            warfrontMetric(canvas, "ActorLocalHpBarsMax", maxActorLocalHpBars);
+            warfrontMetric(canvas, "ActorLocalHpBarsExpected", fighters.length);
+            warfrontMetric(canvas, "ActorLocalHpPlayerRails", actorLocalHpPlayerRails);
+            warfrontMetric(canvas, "ActorLocalHpEnemyRails", actorLocalHpEnemyRails);
+            warfrontMetric(canvas, "ActorLocalHpAnchorMode", "sampled-actor-screen-position");
+            warfrontMetric(canvas, "ActorLocalHpAnchorsMoved", actorLocalHpAnchorsMoved);
+            warfrontMetric(canvas, "ActorLocalHpAnchors", actorLocalHpAnchors.join(";"));
+            warfrontMetric(canvas, "ActorLocalHpMinWidthPx", Number.isFinite(actorLocalHpMinWidth) ? actorLocalHpMinWidth.toFixed(1) : "0");
+            warfrontMetric(canvas, "ActorLocalHpMaxWidthPx", actorLocalHpMaxWidth.toFixed(1));
+            warfrontMetric(canvas, "ActorLocalHpMinHeightPx", Number.isFinite(actorLocalHpMinHeight) ? actorLocalHpMinHeight.toFixed(1) : "0");
+            warfrontMetric(canvas, "ActorLocalHpTeamColors", `player:${RITE_TEAM_COLOR.player},enemy:${RITE_TEAM_COLOR.enemy}`);
+            warfrontMetric(canvas, "ArenaPrototypeDressingDraws", staticArenaMetrics.current.prototypeDressingDraws);
+            warfrontMetric(canvas, "ArenaPrototypeDressingMeshes", "0");
+            warfrontMetric(canvas, "ArenaGlyphDebrisDraws", "0");
+            warfrontMetric(canvas, "ArenaGlyphDebrisMeshes", "0");
+            warfrontMetric(canvas, "ArenaFloorDecalDraws", staticArenaMetrics.current.floorDecalDraws);
+            warfrontMetric(canvas, "ArenaFloorDecalMaxAlpha", staticArenaMetrics.current.floorDecalMaxAlpha.toFixed(3));
+            warfrontMetric(canvas, "ArenaFloorDecalMaxRadiusPx", staticArenaMetrics.current.floorDecalMaxRadiusPx.toFixed(3));
             let actorsPresent = 0;
             let actorsInSafeViewport = 0;
             let minLivingActorPx = Number.POSITIVE_INFINITY;
@@ -1524,133 +1363,115 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             }
             const heroActorPresent = Boolean(heroCue && (renderedActors.get(heroCue.actorId)?.visibility ?? 0) > 0.001);
             const heroTargetPresent = Boolean(heroCue && (renderedActors.get(heroCue.targetId)?.visibility ?? 0) > 0.001);
-            canvas.dataset.riteActorsPresent = String(actorsPresent);
-            canvas.dataset.riteActorsInSafeViewport = String(actorsInSafeViewport);
-            canvas.dataset.riteMinLivingActorPx = Number.isFinite(minLivingActorPx) ? minLivingActorPx.toFixed(1) : "0";
-            canvas.dataset.riteCameraMode = "full-formation";
-            canvas.dataset.riteCameraFocus = cameraState.focusId;
-            canvas.dataset.riteCameraFocusActorSafe = String(Boolean(focusCue && actorIsSafe(renderedActors.get(focusCue.actorId))));
-            canvas.dataset.riteCameraFocusTargetSafe = String(Boolean(focusCue && actorIsSafe(renderedActors.get(focusCue.targetId))));
-            canvas.dataset.riteCameraFocusActorPx = focusCue ? (renderedActors.get(focusCue.actorId)?.baseSize ?? 0).toFixed(1) : "0";
-            canvas.dataset.riteCameraFocusTargetPx = focusCue ? (renderedActors.get(focusCue.targetId)?.baseSize ?? 0).toFixed(1) : "0";
-            canvas.dataset.riteBroadcastFocusLabel = broadcastFocusLabel;
-            canvas.dataset.riteBroadcastImpactVisible = String(Boolean(broadcastImpactX || broadcastImpactY));
-            canvas.dataset.riteBroadcastNonFocusOpacity = focusVisualStrength > 0.18 ? "0.46" : "1";
-            canvas.dataset.riteCameraZoom = cameraState.zoom.toFixed(4);
-            canvas.dataset.riteCameraMaxPanPerFrame = cameraState.maxPanPerFrame.toFixed(4);
-            canvas.dataset.riteCameraMaxZoomPerFrame = cameraState.maxZoomPerFrame.toFixed(4);
-            canvas.dataset.riteCameraTopSafePx = topSafe.toFixed(1);
-            canvas.dataset.riteCameraMaxDelta = cameraState.maxPanPerFrame.toFixed(4);
-            canvas.dataset.riteFacingPolicy = "live-target-screen-space-hysteresis";
-            canvas.dataset.riteFacingNativeSign = "-1";
-            canvas.dataset.riteFacingFlips = String(ordered.reduce((sum, actor) => sum + actor.facingFlips, 0));
-            canvas.dataset.riteHeroActorPresent = String(heroActorPresent);
-            canvas.dataset.riteHeroTargetPresent = String(heroTargetPresent);
-            canvas.dataset.riteArenaFloorDecalMaxRadiusWorld = ARENA_OBJECTIVE_DECAL_RADIUS_WORLD.toFixed(3);
-            canvas.dataset.riteArenaScrollPropDraws = String(scrollPropDraws);
-            canvas.dataset.riteArenaScrollPropMeshes = "0";
-            canvas.dataset.riteArenaActorLightMode = "position-aware-multiply-mask";
-            canvas.dataset.riteArenaActorLightOverlays = String(submittedArenaLightOverlays);
-            canvas.dataset.riteArenaActorLightMaxAlpha = submittedArenaLightMaxAlpha.toFixed(3);
-            canvas.dataset.riteArenaActorLightMultiplyMaxAlpha = submittedArenaLightMultiplyMaxAlpha.toFixed(3);
-            canvas.dataset.riteArenaActorLightMultiplyCap = "0.170";
-            canvas.dataset.riteArenaActorLightEdgeRecoveryMaxAlpha = submittedArenaLightEdgeRecoveryMaxAlpha.toFixed(3);
-            canvas.dataset.riteArenaSideLights = "0";
-            if (groundingQaEnabled) canvas.dataset.riteGroundingFootprints = groundingFootprints;
-            canvas.dataset.riteAttackCausalityActive = String(activeCues);
-            canvas.dataset.riteAttackContactsActive = String(contacts);
-            canvas.dataset.riteAttackCausalityMaxActive = String(maxActiveCues);
-            canvas.dataset.riteAttackLongestDistance = longestDistance.toFixed(3);
-            canvas.dataset.riteAttackLongestEndpoints = longestEndpoints;
-            canvas.dataset.riteSpectacleGrammar = "elemental-v1";
-            canvas.dataset.riteSpectacleOverlapCap = String(WARFRONT_SPECTACLE_OVERLAP_CAP);
-            canvas.dataset.riteSpectacleTellActive = String(tells);
-            canvas.dataset.riteSpectacleContactActive = String(contacts);
-            canvas.dataset.riteSpectacleResultActive = String(results);
-            canvas.dataset.riteSpectacleParticlesActive = String(particles);
-            canvas.dataset.riteSpectacleParticlesMax = String(maxSpectacleParticles);
-            canvas.dataset.riteSpectacleElementsSeen = [...spectacleElementsSeen].sort().join(",");
-            canvas.dataset.riteHeroElement = heroCue ? "Fire" : "";
-            canvas.dataset.riteHeroActor = heroCue?.actorId ?? "";
-            canvas.dataset.riteHeroTarget = heroCue?.targetId ?? "";
-            canvas.dataset.riteHeroTellTick = heroCue ? String(heroCue.tellTick) : "";
-            canvas.dataset.riteHeroContactTick = heroCue ? String(heroCue.contactTick) : "";
-            canvas.dataset.riteHeroStage = heroStageName;
-            canvas.dataset.riteHeroVfxGrammar = heroCue ? WARFRONT_HERO_FIRE_VFX_GRAMMAR : "";
-            canvas.dataset.riteHeroShape = heroCue ? warfrontHeroFireShape(heroStageName) : "";
-            canvas.dataset.riteHeroOriginAnchor = heroOriginAnchor;
-            canvas.dataset.riteHeroTargetAnchor = heroTargetAnchor;
-            canvas.dataset.riteHeroCorridorLength = heroCorridorLength.toFixed(2);
-            canvas.dataset.riteHeroHpDelta = heroHpDelta.toFixed(2);
-            canvas.dataset.riteHeroLocalHpVisible = String(heroLocalHpVisible);
-            canvas.dataset.riteHeroTargetRecoil = heroTargetRecoil.toFixed(3);
-            canvas.dataset.riteHeroFlareMinPx = heroCue ? String(WARFRONT_HERO_FLARE_MIN_PX) : "0";
-            canvas.dataset.riteHeroTravelCorePx = heroCue ? String(WARFRONT_HERO_TRAVEL_CORE_PX) : "0";
-            canvas.dataset.riteHeroTravelPlumePx = heroCue ? String(WARFRONT_HERO_TRAVEL_PLUME_PX) : "0";
-            canvas.dataset.riteHeroTravelMinSpanFraction = heroCue ? WARFRONT_HERO_TRAVEL_MIN_SPAN_FRACTION.toFixed(6) : "0";
-            canvas.dataset.riteHeroTravelSpanFraction = heroTravelSpanFraction.toFixed(6);
-            canvas.dataset.riteHeroTravelAxis = heroCue ? `${heroTravelAxisX.toFixed(6)},${heroTravelAxisY.toFixed(6)}` : "";
-            canvas.dataset.riteHeroAxisTailPx = heroCue ? String(WARFRONT_HERO_AXIS_TAIL_PX) : "0";
-            canvas.dataset.riteHeroAxisTailVisible = String(heroAxisTailVisible);
-            canvas.dataset.riteHeroAxisTailStrength = heroAxisTailStrength.toFixed(3);
-            canvas.dataset.riteHeroAxisTailAxis = heroAxisTailAxis;
-            canvas.dataset.riteHeroBurstPx = heroCue ? String(WARFRONT_HERO_BURST_PX) : "0";
-            canvas.dataset.riteHeroBurstHoldTicks = heroCue ? String(WARFRONT_HERO_BURST_HOLD_TICKS) : "0";
-            canvas.dataset.riteHeroImpactMinPx = heroCue ? String(WARFRONT_HERO_IMPACT_MIN_PX) : "0";
-            canvas.dataset.riteHeroImpactHoldTicks = heroCue ? String(WARFRONT_HERO_IMPACT_HOLD_TICKS) : "0";
-            canvas.dataset.riteHeroFlareVisiblePx = heroFlareVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroTravelCoreVisiblePx = heroTravelCoreVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroTravelPlumeVisiblePx = heroTravelPlumeVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroBurstVisiblePx = heroBurstVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroBurstHoldActive = String(heroBurstHoldActive);
-            canvas.dataset.riteHeroImpactVisiblePx = heroImpactVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroImpactHoldActive = String(heroImpactHoldActive);
-            canvas.dataset.riteHeroContactRenderer = heroCue ? "canvas" : "";
-            canvas.dataset.riteHeroContactLayer = heroCue ? "target-anchored-authored-sprite" : "";
-            canvas.dataset.riteHeroContactLayerCount = heroCue ? String(WARFRONT_HERO_CONTACT_LAYER_COUNT) : "0";
-            canvas.dataset.riteHeroContactLayers = heroCue ? WARFRONT_HERO_FIRE_CONTACT_LAYERS.join(",") : "";
-            canvas.dataset.riteHeroContactTargetWidths = heroCue ? String(WARFRONT_HERO_CONTACT_TARGET_WIDTHS) : "0";
-            canvas.dataset.riteHeroContactTargetWidthPx = heroContactTargetWidthPx.toFixed(1);
-            canvas.dataset.riteHeroContactSpanPx = heroContactSpanPx.toFixed(1);
-            canvas.dataset.riteHeroContactTargetWidthRatio = heroContactTargetWidthPx > 0
+            warfrontMetric(canvas, "ActorsPresent", actorsPresent);
+            warfrontMetric(canvas, "ActorsInSafeViewport", actorsInSafeViewport);
+            warfrontMetric(canvas, "MinLivingActorPx", Number.isFinite(minLivingActorPx) ? minLivingActorPx.toFixed(1) : "0");
+            warfrontMetric(canvas, "CameraMode", "full-formation");
+            warfrontMetric(canvas, "CameraFocus", cameraState.focusId);
+            warfrontMetric(canvas, "CameraFocusActorSafe", Boolean(focusCue && actorIsSafe(renderedActors.get(focusCue.actorId))));
+            warfrontMetric(canvas, "CameraFocusTargetSafe", Boolean(focusCue && actorIsSafe(renderedActors.get(focusCue.targetId))));
+            warfrontMetric(canvas, "CameraFocusActorPx", focusCue ? (renderedActors.get(focusCue.actorId)?.baseSize ?? 0).toFixed(1) : "0");
+            warfrontMetric(canvas, "CameraFocusTargetPx", focusCue ? (renderedActors.get(focusCue.targetId)?.baseSize ?? 0).toFixed(1) : "0");
+            warfrontMetric(canvas, "BroadcastFocusLabel", broadcastFocusLabel);
+            warfrontMetric(canvas, "BroadcastImpactVisible", Boolean(broadcastImpactX || broadcastImpactY));
+            warfrontMetric(canvas, "BroadcastNonFocusOpacity", focusVisualStrength > 0.18 ? "0.46" : "1");
+            warfrontMetric(canvas, "CameraZoom", cameraState.zoom.toFixed(4));
+            warfrontMetric(canvas, "CameraMaxPanPerFrame", cameraState.maxPanPerFrame.toFixed(4));
+            warfrontMetric(canvas, "CameraMaxZoomPerFrame", cameraState.maxZoomPerFrame.toFixed(4));
+            warfrontMetric(canvas, "CameraTopSafePx", topSafe.toFixed(1));
+            warfrontMetric(canvas, "CameraMaxDelta", cameraState.maxPanPerFrame.toFixed(4));
+            warfrontMetric(canvas, "FacingPolicy", "live-target-screen-space-hysteresis");
+            warfrontMetric(canvas, "FacingNativeSign", "-1");
+            warfrontMetric(canvas, "FacingFlips", ordered.reduce((sum, actor) => sum + actor.facingFlips, 0));
+            warfrontMetric(canvas, "HeroActorPresent", heroActorPresent);
+            warfrontMetric(canvas, "HeroTargetPresent", heroTargetPresent);
+            warfrontMetric(canvas, "ArenaFloorDecalMaxRadiusWorld", "0");
+            warfrontMetric(canvas, "ArenaActorLightMode", "position-aware-multiply-mask");
+            warfrontMetric(canvas, "ArenaActorLightOverlays", submittedArenaLightOverlays);
+            warfrontMetric(canvas, "ArenaActorLightMaxAlpha", submittedArenaLightMaxAlpha.toFixed(3));
+            warfrontMetric(canvas, "ArenaActorLightMultiplyMaxAlpha", submittedArenaLightMultiplyMaxAlpha.toFixed(3));
+            warfrontMetric(canvas, "ArenaActorLightMultiplyCap", "0.170");
+            warfrontMetric(canvas, "ArenaActorLightEdgeRecoveryMaxAlpha", submittedArenaLightEdgeRecoveryMaxAlpha.toFixed(3));
+            warfrontMetric(canvas, "ArenaSideLights", "0");
+            if (groundingQaEnabled) warfrontMetric(canvas, "GroundingFootprints", groundingFootprints);
+            warfrontMetric(canvas, "AttackCausalityActive", activeCues);
+            warfrontMetric(canvas, "AttackContactsActive", contacts);
+            warfrontMetric(canvas, "AttackCausalityMaxActive", maxActiveCues);
+            warfrontMetric(canvas, "AttackLongestDistance", longestDistance.toFixed(3));
+            warfrontMetric(canvas, "AttackLongestEndpoints", longestEndpoints);
+            warfrontMetric(canvas, "SpectacleGrammar", "elemental-v1");
+            warfrontMetric(canvas, "SpectacleOverlapCap", WARFRONT_SPECTACLE_OVERLAP_CAP);
+            warfrontMetric(canvas, "SpectacleTellActive", tells);
+            warfrontMetric(canvas, "SpectacleContactActive", contacts);
+            warfrontMetric(canvas, "SpectacleResultActive", results);
+            warfrontMetric(canvas, "SpectacleParticlesActive", particles);
+            warfrontMetric(canvas, "SpectacleParticlesMax", maxSpectacleParticles);
+            warfrontMetric(canvas, "SpectacleElementsSeen", [...spectacleElementsSeen].sort().join(","));
+            writeWarfrontHeroMetrics(canvas, heroCue);
+
+            warfrontMetric(canvas, "HeroStage", heroStageName);
+
+            warfrontMetric(canvas, "HeroShape", heroCue ? warfrontHeroFireShape(heroStageName) : "");
+            warfrontMetric(canvas, "HeroOriginAnchor", heroOriginAnchor);
+            warfrontMetric(canvas, "HeroTargetAnchor", heroTargetAnchor);
+            warfrontMetric(canvas, "HeroCorridorLength", heroCorridorLength.toFixed(2));
+            warfrontMetric(canvas, "HeroHpDelta", heroHpDelta.toFixed(2));
+            warfrontMetric(canvas, "HeroLocalHpVisible", heroLocalHpVisible);
+            warfrontMetric(canvas, "HeroTargetRecoil", heroTargetRecoil.toFixed(3));
+
+            warfrontMetric(canvas, "HeroTravelSpanFraction", heroTravelSpanFraction.toFixed(6));
+
+            warfrontMetric(canvas, "HeroTravelAxis", heroCue ? `${heroTravelAxisX.toFixed(6)},${heroTravelAxisY.toFixed(6)}` : "");
+
+            warfrontMetric(canvas, "HeroAxisTailVisible", heroAxisTailVisible);
+            warfrontMetric(canvas, "HeroAxisTailStrength", heroAxisTailStrength.toFixed(3));
+            warfrontMetric(canvas, "HeroAxisTailAxis", heroAxisTailAxis);
+
+            warfrontMetric(canvas, "HeroFlareVisiblePx", heroFlareVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroTravelCoreVisiblePx", heroTravelCoreVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroTravelPlumeVisiblePx", heroTravelPlumeVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroBurstVisiblePx", heroBurstVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroBurstHoldActive", heroBurstHoldActive);
+            warfrontMetric(canvas, "HeroImpactVisiblePx", heroImpactVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroImpactHoldActive", heroImpactHoldActive);
+            warfrontMetric(canvas, "HeroContactRenderer", heroCue ? "canvas" : "");
+
+            warfrontMetric(canvas, "HeroContactTargetWidthPx", heroContactTargetWidthPx.toFixed(1));
+            warfrontMetric(canvas, "HeroContactSpanPx", heroContactSpanPx.toFixed(1));
+            warfrontMetric(canvas, "HeroContactTargetWidthRatio", heroContactTargetWidthPx > 0
                 ? (heroContactSpanPx / heroContactTargetWidthPx).toFixed(3)
-                : "0";
-            canvas.dataset.riteHeroContactFrontHoldTicks = heroCue ? String(WARFRONT_HERO_BURST_HOLD_TICKS) : "0";
-            canvas.dataset.riteHeroContactFrontActive = String(heroContactFrontActive);
-            canvas.dataset.riteHeroImpactSpriteUrl = heroCue ? WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL : "";
-            canvas.dataset.riteHeroImpactSpriteLoaded = String(impactSpriteImage.complete
+                : "0");
+
+            warfrontMetric(canvas, "HeroContactFrontActive", heroContactFrontActive);
+
+            warfrontMetric(canvas, "HeroImpactSpriteLoaded", impactSpriteImage.complete
                 && impactSpriteImage.naturalWidth === WARFRONT_HERO_FIRE_IMPACT_SPRITE_SOURCE_PX
                 && impactSpriteImage.naturalHeight === WARFRONT_HERO_FIRE_IMPACT_SPRITE_SOURCE_PX);
-            canvas.dataset.riteHeroImpactSpriteSourceWidth = String(impactSpriteImage.naturalWidth);
-            canvas.dataset.riteHeroImpactSpriteSourceHeight = String(impactSpriteImage.naturalHeight);
-            canvas.dataset.riteHeroImpactSpriteAnchor = `${WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_X.toFixed(6)},${WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_Y.toFixed(6)}`;
-            canvas.dataset.riteHeroImpactSpriteAsymmetry = WARFRONT_HERO_FIRE_IMPACT_SPRITE_ASYMMETRY;
-            canvas.dataset.riteHeroImpactSpriteLeftRightReachRatio = WARFRONT_HERO_FIRE_IMPACT_SPRITE_LEFT_RIGHT_REACH_RATIO.toFixed(3);
-            canvas.dataset.riteHeroImpactSpriteVisible = String(heroImpactSpriteVisible);
-            canvas.dataset.riteHeroImpactSpriteDraws = heroImpactSpriteVisible ? "1" : "0";
-            canvas.dataset.riteHeroImpactSpriteRotationRad = heroImpactSpriteRotationRad.toFixed(6);
-            canvas.dataset.riteHeroImpactSpriteAxis = heroImpactSpriteAxis;
-            canvas.dataset.riteHeroImpactSpriteFootprintPx = heroImpactSpriteFootprintPx.toFixed(1);
-            canvas.dataset.riteHeroImpactSpriteTargetWidthRatio = heroContactTargetWidthPx > 0
+            warfrontMetric(canvas, "HeroImpactSpriteSourceWidth", impactSpriteImage.naturalWidth);
+            warfrontMetric(canvas, "HeroImpactSpriteSourceHeight", impactSpriteImage.naturalHeight);
+
+            warfrontMetric(canvas, "HeroImpactSpriteVisible", heroImpactSpriteVisible);
+            warfrontMetric(canvas, "HeroImpactSpriteDraws", heroImpactSpriteVisible ? "1" : "0");
+            warfrontMetric(canvas, "HeroImpactSpriteRotationRad", heroImpactSpriteRotationRad.toFixed(6));
+            warfrontMetric(canvas, "HeroImpactSpriteAxis", heroImpactSpriteAxis);
+            warfrontMetric(canvas, "HeroImpactSpriteFootprintPx", heroImpactSpriteFootprintPx.toFixed(1));
+            warfrontMetric(canvas, "HeroImpactSpriteTargetWidthRatio", heroContactTargetWidthPx > 0
                 ? (heroImpactSpriteFootprintPx / heroContactTargetWidthPx).toFixed(3)
-                : "0";
-            canvas.dataset.riteHeroImpactSpritePrewarmed = "true";
-            canvas.dataset.riteHeroImpactLegacyPrimitiveDraws = "0";
-            canvas.dataset.riteHeroResidueTicks = heroCue ? String(WARFRONT_SPECTACLE_RESULT_TICKS) : "0";
-            canvas.dataset.riteHeroResidueLayerCount = heroCue ? String(WARFRONT_HERO_RESIDUE_LAYER_COUNT) : "0";
-            canvas.dataset.riteHeroResidueLayers = heroCue ? WARFRONT_HERO_FIRE_RESIDUE_LAYERS.join(",") : "";
-            canvas.dataset.riteHeroResidueVisible = String(heroResidueVisible);
-            canvas.dataset.riteHeroResidueSpanPx = heroResidueSpanPx.toFixed(1);
-            canvas.dataset.riteHeroResidueMaterialStrength = heroResidueMaterialStrength.toFixed(3);
-            canvas.dataset.riteBodyLungeActive = String(lunges);
-            canvas.dataset.riteBodyLethalLungeActive = String(lethalLunges);
-            canvas.dataset.riteBodyRecoilActive = String(recoils);
-            canvas.dataset.riteBodyKoExitActive = String(koExits);
-            canvas.dataset.riteBodyLungeSeen = String(lungeSeen);
-            canvas.dataset.riteBodyRecoilSeen = String(recoilSeen);
-            canvas.dataset.riteBodyKoExitSeen = String(koSeen);
-            canvas.dataset.riteBodyReactionMaxActive = String(maxBodyActive);
-            canvas.dataset.riteBodyReactionMaxOffset = maxBodyOffset.toFixed(3);
+                : "0");
+            warfrontMetric(canvas, "HeroImpactSpritePrewarmed", "true");
+
+            warfrontMetric(canvas, "HeroResidueVisible", heroResidueVisible);
+            warfrontMetric(canvas, "HeroResidueSpanPx", heroResidueSpanPx.toFixed(1));
+            warfrontMetric(canvas, "HeroResidueMaterialStrength", heroResidueMaterialStrength.toFixed(3));
+            warfrontMetric(canvas, "BodyLungeActive", lunges);
+            warfrontMetric(canvas, "BodyLethalLungeActive", lethalLunges);
+            warfrontMetric(canvas, "BodyRecoilActive", recoils);
+            warfrontMetric(canvas, "BodyKoExitActive", koExits);
+            warfrontMetric(canvas, "BodyLungeSeen", lungeSeen);
+            warfrontMetric(canvas, "BodyRecoilSeen", recoilSeen);
+            warfrontMetric(canvas, "BodyKoExitSeen", koSeen);
+            warfrontMetric(canvas, "BodyReactionMaxActive", maxBodyActive);
+            warfrontMetric(canvas, "BodyReactionMaxOffset", maxBodyOffset.toFixed(3));
 
             context.restore();
             if (!performanceStarted && tick > 0 && typeof PerformanceObserver !== "undefined") {
@@ -1660,18 +1481,18 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 sampleWindow = { warmup, end };
                 let tasks = 0;
                 let maxTask = 0;
-                canvas.dataset.riteLongTaskSample = "warming";
+                warfrontMetric(canvas, "LongTaskSample", "warming");
                 performanceObserver = new PerformanceObserver((list) => {
                     for (const entry of list.getEntries()) if (entry.startTime >= warmup && entry.startTime < end && entry.duration > 100) { tasks++; maxTask = Math.max(maxTask, entry.duration); }
                 });
                 performanceObserver.observe({ type: "longtask", buffered: false });
                 performanceTimer = window.setTimeout(() => {
                     performanceObserver?.disconnect();
-                    canvas.dataset.riteLongTaskSample = "complete";
-                    canvas.dataset.riteLongTasksOver100ms = String(tasks);
-                    canvas.dataset.riteLongTaskMaxMs = maxTask.toFixed(1);
-                    canvas.dataset.riteFrameGapsOver100ms = String(gaps);
-                    canvas.dataset.riteFrameGapMaxMs = maxGap.toFixed(1);
+                    warfrontMetric(canvas, "LongTaskSample", "complete");
+                    warfrontMetric(canvas, "LongTasksOver100ms", tasks);
+                    warfrontMetric(canvas, "LongTaskMaxMs", maxTask.toFixed(1));
+                    warfrontMetric(canvas, "FrameGapsOver100ms", gaps);
+                    warfrontMetric(canvas, "FrameGapMaxMs", maxGap.toFixed(1));
                 }, 12_050);
             }
             if (lastFrameAt !== null && sampleWindow && now >= sampleWindow.warmup && now < sampleWindow.end) {
@@ -1705,7 +1526,7 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 root.style.removeProperty("--wfr-camera-shift-y");
             }
         };
-    }, [actionTimeline, paused, recalling, entrancePlaying, onSummonsComplete, clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result, sealImage]);
+    }, [actionTimeline, techniqueTimeline, techniqueImages, terrainImages, paused, recalling, entrancePlaying, onSummonsComplete, clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result, sealImage]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -1800,8 +1621,6 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             riteArenaFloorDecalMaxAlpha: "0",
             riteArenaFloorDecalMaxRadiusPx: "0",
             riteArenaFloorDecalMaxRadiusWorld: "0",
-            riteArenaScrollPropDraws: "0",
-            riteArenaScrollPropMeshes: "0",
             riteArenaActorLightMode: "position-aware-multiply-mask",
             riteArenaActorLightOverlays: "0",
             riteArenaActorLightMaxAlpha: "0",
@@ -1991,3 +1810,5 @@ export function PetWarfrontRiteStage(props: PetWarfrontRiteStageProps) {
     const WebGlStage = module.PetWarfrontRiteStage3D;
     return <WarfrontRenderBoundary key="webgl" onFail={handleWebGlFailure}><WebGlStage {...props} onReady={handleReady} onGraphicsFailure={handleWebGlFailure} /></WarfrontRenderBoundary>;
 }
+
+const SOLID_TERRAIN = WARFRONT_TERRAIN.filter(cell => cell.kind !== "mist").sort((a, b) => a.row - b.row);

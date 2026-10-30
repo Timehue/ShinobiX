@@ -38,6 +38,7 @@ import { epicTexture, type SetPieceSpawn, type VfxBeat } from "./PetShowdownVfx"
 import { showdownAttackRhythm, showdownChargeEnvelope } from "../lib/pet-showdown-choreography";
 import { showdownBeatProgress } from "../lib/showdown-playback";
 import { makeVolumeMaterial } from "../lib/showdown-volume-shaders";
+import { warfrontEnergyMaterial } from "../lib/warfront-energy-material";
 import { makeGpuCloud, type GpuParticleMode } from "../lib/showdown-gpu-particles";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import {
@@ -89,8 +90,8 @@ const ELEMENT_GLOW: Record<string, string> = {
 };
 
 /** Piece-life clock: 0..1 across the spawn, matching the flat layer. */
-function pieceT(spawn: Pick<SetPieceSpawn, "startedAt" | "durationMs">): number {
-    return (performance.now() - spawn.startedAt) / spawn.durationMs;
+function pieceT(spawn: Pick<SetPieceSpawn, "startedAt" | "durationMs" | "progress">): number {
+    return spawn.progress ? spawn.progress() : (performance.now() - spawn.startedAt) / spawn.durationMs;
 }
 
 // ─── Procedural canvas textures (cached per key) ─────────────────────────────
@@ -330,10 +331,23 @@ function WaveVolume({ spawn }: { spawn: SetPieceSpawn }) {
 
 // ─── Fire: crown of flame cards ──────────────────────────────────────────────
 
-function FlameVolume({ spawn }: { spawn: SetPieceSpawn }) {
+function FlameVolume({ spawn, rounded = false }: { spawn: SetPieceSpawn; rounded?: boolean }) {
     const group = useRef<THREE.Group>(null);
     const cardRefs = useRef<Array<THREE.Mesh | null>>([]);
     const count = spawn.superCast ? 9 : 6;
+    const shell = useMemo(() => {
+        if (!rounded) return null;
+        const geometry = new THREE.CylinderGeometry(0.025, 0.42, 1, 12, 6, true);
+        const position = geometry.attributes.position;
+        for (let i = 0; i < position.count; i++) {
+            const rise = position.getY(i) + 0.5;
+            position.setX(i, position.getX(i) + Math.sin(rise * 2.8) * rise * 0.22);
+            position.setZ(i, position.getZ(i) + rise * rise * 0.14);
+        }
+        geometry.computeVertexNormals();
+        return geometry;
+    }, [rounded]);
+    useEffect(() => () => shell?.dispose(), [shell]);
     const ring = spawn.superCast ? 1.7 : 1.25;
     const cards = useMemo(() => {
         const rand = seededRand(spawn.key * 17 + 3);
@@ -348,10 +362,15 @@ function FlameVolume({ spawn }: { spawn: SetPieceSpawn }) {
     // seed and heat tint — living fire that licks and erodes, not a painted
     // slice or a frame-stepped flipbook. Materials are owned here and
     // disposed on unmount.
-    const materials = useMemo(() => cards.map((c, i) => makeVolumeMaterial("flame", {
-        seed: c.phase * 9.7 + i,
-        tint: ["#ffffff", "#ffd9a0", "#ffb27a"][i % 3],
-    })), [cards]);
+    const materials = useMemo(() => cards.map((c, i) => {
+        if (rounded) {
+            const material = warfrontEnergyMaterial(0);
+            material.color.set("#ff681c");
+            return material;
+        }
+        return makeVolumeMaterial("flame", { seed: c.phase * 9.7 + i,
+            tint: ["#ffffff", "#ffd9a0", "#ffb27a"][i % 3] });
+    }), [cards, rounded]);
     useEffect(() => () => { for (const m of materials) m.dispose(); }, [materials]);
     useFrame(() => {
         if (!group.current) return;
@@ -371,16 +390,23 @@ function FlameVolume({ spawn }: { spawn: SetPieceSpawn }) {
             m.scale.set(c.w * flick, c.h * rise * flick, 1);
             m.rotation.y = c.angle + Math.PI / 2 + Math.sin(t * 7 + c.phase * 5) * 0.08;
             // Uniforms reached through the MESH ref (react-compiler rule).
-            const sm = m.material as THREE.ShaderMaterial;
-            sm.uniforms.uTime.value = t * 1.9 + c.phase * 3.1;
-            sm.uniforms.uOpacity.value = (t < 0.1 ? t / 0.1 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1) * 0.96;
+            const opacity = t < 0.1 ? t / 0.1 : t > 0.72 ? Math.max(0, (1 - t) / 0.28) : 1;
+            if (rounded) {
+                const material = m.material as THREE.MeshBasicMaterial;
+                material.userData.replayTime.value = t * 1.9 + c.phase * 3.1;
+                material.opacity = opacity * 0.78;
+            } else {
+                const sm = m.material as THREE.ShaderMaterial;
+                sm.uniforms.uTime.value = t * 1.9 + c.phase * 3.1;
+                sm.uniforms.uOpacity.value = opacity * 0.96;
+            }
         });
     });
     return (
         <group ref={group} visible={false}>
             {cards.map((c, i) => (
                 <mesh key={i} ref={(el) => { cardRefs.current[i] = el; }} material={materials[i]}>
-                    <planeGeometry args={[1, 1]} />
+                    {shell ? <primitive object={shell} attach="geometry" /> : <planeGeometry args={[1, 1]} />}
                 </mesh>
             ))}
         </group>
@@ -460,7 +486,7 @@ function rockGeometry(seed: number, r: number, h: number): THREE.ConeGeometry {
     return g;
 }
 
-function EruptionVolume({ spawn }: { spawn: SetPieceSpawn }) {
+function EruptionVolume({ spawn, slate = false }: { spawn: SetPieceSpawn; slate?: boolean }) {
     const group = useRef<THREE.Group>(null);
     const rockRefs = useRef<Array<THREE.Mesh | null>>([]);
     const count = spawn.superCast ? 7 : 5;
@@ -509,7 +535,7 @@ function EruptionVolume({ spawn }: { spawn: SetPieceSpawn }) {
                         hemisphere lights shade the facets, which is what makes
                         the rocks read as solid from every camera. Dark granite
                         base — pale stone read as paper in close-ups. */}
-                    <meshStandardMaterial color={new THREE.Color(0.42 * r.dark, 0.35 * r.dark, 0.27 * r.dark)} roughness={0.95} flatShading emissive="#8a4f16" emissiveIntensity={0.22} />
+                    <meshStandardMaterial color={slate ? "#434947" : new THREE.Color(0.42 * r.dark, 0.35 * r.dark, 0.27 * r.dark)} roughness={0.95} flatShading emissive="#8a4f16" emissiveIntensity={slate ? 0.04 : 0.22} />
                 </mesh>
             ))}
         </group>
@@ -1819,7 +1845,7 @@ function GpuBurst({ spawn, spec, density }: { spawn: SetPieceSpawn; spec: GpuClo
 
 /** The 3D structure for one staged cast. Rendered alongside the floor
  *  takeover and the slimmed painted accents by SetPieceOnce. */
-export function VolumetricSetPiece({ spawn, quality }: { spawn: SetPieceSpawn; quality: PetVisualQualityConfig }) {
+export function VolumetricSetPiece({ spawn, quality, warfront = false }: { spawn: SetPieceSpawn; quality: PetVisualQualityConfig; warfront?: boolean }) {
     const glow = ELEMENT_GLOW[spawn.element];
     if (!glow) return null;
     const baseSpec = PARTICLES[spawn.element](spawn.superCast === true);
@@ -1830,9 +1856,9 @@ export function VolumetricSetPiece({ spawn, quality }: { spawn: SetPieceSpawn; q
     return (
         <group>
             {spawn.element === "Water" && <WaveVolume spawn={spawn} />}
-            {spawn.element === "Fire" && <FlameVolume spawn={spawn} />}
+            {spawn.element === "Fire" && <FlameVolume spawn={spawn} rounded={warfront} />}
             {spawn.element === "Wind" && <VortexVolume spawn={spawn} />}
-            {spawn.element === "Earth" && <EruptionVolume spawn={spawn} />}
+            {spawn.element === "Earth" && <EruptionVolume spawn={spawn} slate={warfront} />}
             {spawn.element === "Lightning" && <BoltVolume spawn={spawn} />}
             <ParticleCloud spawn={spawn} spec={spec} />
             {/* Signatures get the GPU tier: hundreds of droplets/embers/sparks
@@ -1841,7 +1867,7 @@ export function VolumetricSetPiece({ spawn, quality }: { spawn: SetPieceSpawn; q
             {spawn.superCast && GPU_SUPER_CLOUDS[spawn.element] && (
                 <GpuBurst spawn={spawn} spec={GPU_SUPER_CLOUDS[spawn.element]} density={quality.setPieceParticles / 52} />
             )}
-            <ShockRing spawn={spawn} color={glow} size={spawn.superCast ? 5.6 : 4.2} />
+            {!warfront && <ShockRing spawn={spawn} color={glow} size={spawn.superCast ? 5.6 : 4.2} />}
             {quality.dynamicPetLight && <PieceLight spawn={spawn} color={glow} intensity={spawn.superCast ? 17 : 11} strobeWindows={strobe} />}
         </group>
     );

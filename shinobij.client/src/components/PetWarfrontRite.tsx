@@ -54,6 +54,7 @@ import { PET_VISUAL_QUALITY_PRESETS, petVisualQuality } from "../lib/pet-visual-
 import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic, stopBattleMusic } from "../lib/pet-music";
 import { buildWarfrontAudioPlan } from "../lib/pet-warfront-spectacle";
+import { warfrontTeamwork } from "../lib/pet-warfront-teamwork";
 import {
     advanceRitePlaybackTick,
     boundedRitePlaybackDelta,
@@ -412,7 +413,7 @@ function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit
                     <p className="wfr-eyebrow">Beastbound Warfront</p>
                     <h2>Set your formation</h2>
                     <p className="wfr-deploy-copy">
-                        <strong>Starting cells decide first contact.</strong> Trained stats carry in: speed controls movement and attacks; defense absorbs damage. Forward brings pressure sooner; rear protects range and support; split files blunt area hits. First to {RITE_CLASHES_TO_WIN} clashes wins.
+                        <strong>Starting cells decide first contact.</strong> Stone islands block paths and shots. Sheltered terraces reduce ranged damage; mist obscures fire. Place defenders forward, protect casters, or flank outside. First to {RITE_CLASHES_TO_WIN} clashes wins.
                     </p>
                 </header>
 
@@ -526,6 +527,8 @@ function ClashHud({ active, clash, blueBand, redBand, clockRef, sharedImages, ro
     const clockOut = useRef<HTMLOutputElement>(null);
     const audioProbe = useRef<HTMLButtonElement>(null);
     const hud = useRef<HTMLDivElement>(null);
+    const tacticBadge = useRef<HTMLElement>(null);
+    const teamwork = useMemo(() => warfrontTeamwork(clash.result), [clash]);
     useLayoutEffect(() => {
         const element = hud.current;
         const root = element?.parentElement;
@@ -543,6 +546,12 @@ function ClashHud({ active, clash, blueBand, redBand, clockRef, sharedImages, ro
         const snaps = clash.result.snapshots;
         const paint = () => {
             const t = Math.max(0, Math.min(snaps.length - 1, clockRef.current));
+            const tactic = teamwork.find(cue => t >= cue.tick && t < cue.until);
+            if (tacticBadge.current) {
+                const text = tactic ? `${tactic.side === "player" ? "AZURE" : "CRIMSON"} · ${tactic.label}` : "FORMATION LIVE · 28s VERDICT";
+                if (tacticBadge.current.textContent !== text) tacticBadge.current.textContent = text;
+                tacticBadge.current.dataset.side = tactic?.side ?? "";
+            }
             let poseIndex = 0;
             let blueStanding = 0;
             let redStanding = 0;
@@ -557,6 +566,8 @@ function ClashHud({ active, clash, blueBand, redBand, clockRef, sharedImages, ro
                     }
                     const row = rosterRows.current[`${team}-${combatant.lane}`];
                     if (row && row.dataset.fallen !== String(!alive)) row.dataset.fallen = String(!alive);
+                    if (row) row.dataset.tactic = tactic?.allies.includes(`${team}-${combatant.lane}`) ? "ally"
+                        : tactic?.target === `${team}-${combatant.lane}` ? "target" : "";
                     const bar = bars.current[`${team}-${combatant.lane}`];
                     if (bar) {
                         bar.style.width = `${(frac * 100).toFixed(1)}%`;
@@ -577,7 +588,7 @@ function ClashHud({ active, clash, blueBand, redBand, clockRef, sharedImages, ro
         };
         raf = requestAnimationFrame(paint);
         return () => cancelAnimationFrame(raf);
-    }, [active, audioDispatches, clash, clockRef, poseSlots]);
+    }, [active, audioDispatches, clash, clockRef, poseSlots, teamwork]);
 
     const row = (side: RiteCombatant[], band: Pet[], team: "player" | "enemy", label: string) => (
         <ul className={`wfr-roster is-${team === "player" ? "blue" : "red"}`} aria-label={label}>
@@ -617,7 +628,7 @@ function ClashHud({ active, clash, blueBand, redBand, clockRef, sharedImages, ro
                 </span>
                 <span ref={standing} className="wfr-standing" aria-live="polite" aria-atomic="true">{clash.blue.length} vs {clash.red.length} standing</span>
                 <span className="wfr-rule-state" aria-label="Formation combat rules">
-                    <strong>FORMATION LIVE · 28s VERDICT</strong>
+                    <strong ref={tacticBadge} data-testid="wfr-teamwork">FORMATION LIVE · 28s VERDICT</strong>
                 </span>
             </div>
             {row(clash.red, redBand, "enemy", "Their band")}

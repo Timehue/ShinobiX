@@ -1,4 +1,5 @@
 import { petSignatureMastery } from "../../../shared/pet-ability-mastery";
+import { WARFRONT_TERRAIN } from "./pet-warfront-contract";
 import { petSpatialTechniquePower } from "../../../shared/pet-spatial-power";
 import { petBattleJutsus } from "../../../shared/pet-battle-loadout";
 // ─────────────────────────────────────────────────────────────────────────────
@@ -154,8 +155,8 @@ export const WARFRONT_DEPLOYMENT_NODES = Object.freeze([
 /** Roster-indexed fallback used by legacy replays which pre-date free deploy. */
 export const WARFRONT_DEFAULT_DEPLOYMENT = Object.freeze([3, 4, 7, 8] as const);
 export const WARFRONT_ANCHOR_SLOT = 3;
-/** Beastbound Warfront has no invisible collision. These shoji cells are shared by the
- * simulation, renderer and deployment legend. */
+/** Legacy shoji rectangles for pre-grid replay paths. Current grid collision
+ * and both renderers use WARFRONT_TERRAIN. */
 export const WARFRONT_WARD_Y = Object.freeze([] as const);
 export type WarfrontMazeWall = Readonly<{ x: number; y: number; halfX: number; halfY: number; variant: number }>;
 export const WARFRONT_MAZE_WALLS: readonly WarfrontMazeWall[] = Object.freeze([
@@ -4009,13 +4010,16 @@ interface KageUnit {
     openingJob: KageOpeningJob;
     openingCol: number; openingRow: number; openingTargetId: string | null;
     openingContactEstablished: boolean; openingWaitTicks: number;
+    volleyRepositioned: boolean;
+    escapeSteps: number;
     chakra: number; shadowStepReady: boolean; koSent: boolean; quietTicks: number;
 }
 interface KageProjectile extends Projectile { born: number }
 
-const KAGE_BLOCKED = new Set(["3,1", "3,3"]);
-const KAGE_SMOKE = new Set(["2,2", "4,2"]);
-const KAGE_COVER = new Set(["2,0", "4,4"]);
+const kageTerrainCells = (kind: typeof WARFRONT_TERRAIN[number]["kind"]) => new Set(WARFRONT_TERRAIN.filter(cell => cell.kind === kind).map(cell => `${cell.col},${cell.row}`));
+const KAGE_SOLIDS = WARFRONT_TERRAIN.filter(cell => cell.kind !== "mist");
+const KAGE_BLOCKED = new Set(KAGE_SOLIDS.map(cell => `${cell.col},${cell.row}`));
+const KAGE_SMOKE = kageTerrainCells("mist");
 const KAGE_VERDICT_TICK = DUEL_TPS * 28;
 const KAGE_CAP_TICKS = DUEL_TPS * 38;
 /** Orders persist long enough to read, then the squad takes a fresh battlefield
@@ -4041,7 +4045,7 @@ const kageCell = (x: number, y: number): [number, number] => [
     clamp(Math.round(x / WARFRONT_CELL_X + (WARFRONT_GRID_COLS - 1) / 2), 0, WARFRONT_GRID_COLS - 1),
     clamp(Math.round(y / WARFRONT_CELL_Y + (WARFRONT_GRID_ROWS - 1) / 2), 0, WARFRONT_GRID_ROWS - 1),
 ];
-const kageRange = (a: KageUnit, b: KageUnit) => Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row));
+const kageRange = (a: Pick<KageUnit, "col" | "row">, b: Pick<KageUnit, "col" | "row">) => Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row));
 const kageRole = (fighter: Fighter): KageRole => {
     if (fighter.pet.role === "assassin" || fighter.pet.subRole === "assassin") return "shadow";
     if (fighter.pet.role === "sage" || fighter.pet.subRole === "support") return "support";
@@ -4055,14 +4059,24 @@ const kageRole = (fighter: Fighter): KageRole => {
         default: return fighter.basicRanged ? "ranger" : "striker";
     }
 };
-const kagePreferredRange = (unit: KageUnit) => unit.role === "ranger" ? 3 : unit.role === "support" ? 3 : unit.role === "vanguard" ? 1 : 1;
-const kageBlockedLine = (a: KageUnit, b: KageUnit): boolean => {
-    const steps = Math.max(Math.abs(a.col - b.col), Math.abs(a.row - b.row));
-    for (let step = 1; step < steps; step++) {
-        const t = step / steps;
-        const col = Math.round(a.col + (b.col - a.col) * t);
-        const row = Math.round(a.row + (b.row - a.row) * t);
-        if (KAGE_BLOCKED.has(kageKey(col, row))) return true;
+const kageRanged = (unit: KageUnit) => unit.role === "ranger" || unit.role === "support";
+const kagePreferredRange = (unit: KageUnit) => kageRanged(unit) ? 3 : 1;
+const kageBlockedLine = (a: Pick<KageUnit, "col" | "row">, b: Pick<KageUnit, "col" | "row">): boolean => {
+    // Segment/footprint intersection also catches oblique shots that the old
+    // rounded-cell sampling let cut through a terrace corner.
+    for (const cell of KAGE_SOLIDS) {
+        let enter = 0, leave = 1;
+        for (const axis of ["col", "row"] as const) {
+            const delta = b[axis] - a[axis], low = cell[axis] - .48, high = cell[axis] + .48;
+            if (Math.abs(delta) < 1e-8) {
+                if (a[axis] < low || a[axis] > high) { leave = -1; break; }
+            } else {
+                const first = (low - a[axis]) / delta, last = (high - a[axis]) / delta;
+                enter = Math.max(enter, Math.min(first, last));
+                leave = Math.min(leave, Math.max(first, last));
+            }
+        }
+        if (enter <= leave) return true;
     }
     return false;
 };
@@ -4075,8 +4089,36 @@ const kageSmokeLine = (a: KageUnit, b: KageUnit): boolean => {
     return false;
 };
 
+/** Public battlefield information only: no future RNG rolls or hidden orders.
+ * Ranged pets price every enemy's reach, then prefer a nearby friendly screen. */
+const kageExposure = (unit: KageUnit, col: number, row: number, nearby: readonly KageUnit[]) => {
+    const position = { ...unit, col, row };
+    let danger = 0;
+    for (const foe of nearby) {
+        if (foe.fighter.hp <= 0 || foe.fighter.team === unit.fighter.team) continue;
+        const range = kageRange(position, foe);
+        if (kageBlockedLine(position, foe)) continue;
+        const ranged = kageRanged(foe);
+        const reach = range <= 1 ? 18 : range <= 2 && !ranged ? 5 : range <= 3 && ranged ? 3 : 0;
+        danger += reach * elementMult(foe.fighter.element, unit.fighter.element);
+    }
+    return danger;
+};
+
+/** A deliberately conservative reservation, not damage resolution. Dodges,
+ * shields and critical rolls still belong exclusively to applyDamage. */
+const kageCommittedDamage = (target: KageUnit, nearby: readonly KageUnit[], except: KageUnit) => nearby.reduce((total, ally) => {
+    if (ally === except || ally.fighter.hp <= 0 || ally.fighter.team !== except.fighter.team
+        || ally.windLeft <= 0 || ally.pendingTargetId !== target.fighter.id) return total;
+    const ability = ally.pendingIdx >= 0 ? ally.fighter.abilities[ally.pendingIdx] : null;
+    if (ability?.cls === "support" || kageBlockedLine(ally, target) || kageRange(ally, target) > (ability?.cls === "ranged" || !ability && (kageRanged(ally)) ? 3 : 1)) return total;
+    const damage = ally.fighter.atk * DMG_SCALE * (ability ? ability.power / 100 : 1)
+        * elementMult(ally.fighter.element, target.fighter.element) / (1 + target.fighter.def / (160 + ally.fighter.atk * 2.5));
+    return total + damage * 0.65;
+}, 0);
+
 /** One deterministic breadth-first route step toward a legal attack cell. The
- * old one-step gradient could bounce on opposite sides of a shoji forever; this
+ * old one-step gradient could bounce on opposite sides of an obstacle forever; this
  * searches the whole 35-cell board once, then publishes only the first step. */
 const kageRouteStep = (
     unit: KageUnit,
@@ -4111,8 +4153,8 @@ const kageRouteStep = (
     const parent = new Map<string, string | null>([[startKey, null]]);
     const distance = new Map<string, number>([[startKey, 0]]);
     const dirs: ReadonlyArray<readonly [number, number]> = unit.fighter.team === "player"
-        ? [[1, 0], [0, -1], [0, 1], [-1, 0]]
-        : [[-1, 0], [0, 1], [0, -1], [1, 0]];
+        ? [[1, 0], [0, -1], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, -1], [-1, 1]]
+        : [[-1, 0], [0, 1], [0, -1], [1, 0], [-1, 1], [-1, -1], [1, 1], [1, -1]];
     for (let cursor = 0; cursor < queue.length; cursor++) {
         const [col, row] = queue[cursor];
         const key = kageKey(col, row);
@@ -4120,6 +4162,10 @@ const kageRouteStep = (
             const nextCol = col + dc, nextRow = row + dr, nextKey = kageKey(nextCol, nextRow);
             if (key === startKey && avoidFirstKey === nextKey) continue;
             if (!kageWalkable(nextCol, nextRow) || occupied.has(nextKey) || parent.has(nextKey)) continue;
+            // A diagonal needs both side cells clear: its centreline alone
+            // can miss a stone while the pet's body clips through its corner.
+            if (occupied.has(kageKey((col + nextCol) / 2, (row + nextRow) / 2))
+                || !kageWalkable(nextCol, row) || !kageWalkable(col, nextRow)) continue;
             if (forbidPile && createsVisualPile(nextCol, nextRow)) continue;
             parent.set(nextKey, key);
             distance.set(nextKey, (distance.get(key) ?? 0) + 1);
@@ -4127,7 +4173,7 @@ const kageRouteStep = (
         }
     }
     const desired = kagePreferredRange(unit);
-    const ranged = unit.role === "ranger" || unit.role === "support";
+    const ranged = kageRanged(unit);
     // Keep the approach in the deployed lane until the last two files. Shadows
     // take an outside corridor; everybody else preserves the row the player
     // deliberately bought with placement. This is the formation's route plan,
@@ -4141,19 +4187,21 @@ const kageRouteStep = (
         const blockedLine = ranged && kageBlockedLine(phantom, target);
         const legalBand = ranged ? range >= 2 && range <= 3 && !blockedLine : range <= 1;
         const neighbors = nearby.filter((other) => other !== unit && other !== target && other.fighter.hp > 0
-            && Math.max(Math.abs(other.col - col), Math.abs(other.row - row)) <= 1);
-        const touchesTarget = Math.max(Math.abs(target.col - col), Math.abs(target.row - row)) <= 1;
+            && kageRange(other, { col, row }) <= 1);
+        const touchesTarget = kageRange(target, { col, row }) <= 1;
         const bridgesThroughTarget = touchesTarget && nearby.some((other) => other !== unit && other !== target
             && other.fighter.hp > 0
-            && Math.max(Math.abs(other.col - target.col), Math.abs(other.row - target.row)) <= 1);
+            && kageRange(other, target) <= 1);
         const alliedNeighbors = neighbors.filter((other) => other.fighter.team === unit.fighter.team).length;
         const crowd = neighbors.length;
         const pileRisk = crowd >= 2 || (touchesTarget && crowd > 0) || bridgesThroughTarget;
+        const screen = nearby.some(other => other !== unit && other.fighter.team === unit.fighter.team && other.role === "vanguard"
+            && kageRange(phantom, other) <= 2);
         const tactical = Math.abs(range - desired) * 7
+            + (ranged ? kageExposure(unit, col, row, nearby) * (unit.fighter.hp < unit.fighter.maxHp * 0.4 ? 1.5 : 1) - (screen ? 4 : 0) : 0)
             + (blockedLine ? 42 : 0)
             + (ranged && range < 2 ? 18 : 0)
             + (legalBand ? -18 : 0)
-            + (KAGE_COVER.has(kageKey(col, row)) && ranged ? -5 : 0)
             + (KAGE_SMOKE.has(kageKey(col, row)) && unit.role === "shadow" ? -3 : 0)
             + Math.abs(row - approachRow) * (unit.role === "shadow" ? 3.4 : 2.2)
             // One screen plus one cross-cover attacker is readable. A fourth
@@ -4204,7 +4252,7 @@ const kageOpeningStep = (
         : [[0, rowDirection], [colDirection, 0], [-colDirection, 0], [0, -rowDirection]];
     const dirs = candidates.filter(([dc, dr], index) => (dc !== 0 || dr !== 0)
         && candidates.findIndex(([otherDc, otherDr]) => otherDc === dc && otherDr === dr) === index);
-    for (const fallback of [[1, 0], [0, -1], [0, 1], [-1, 0]] as const) {
+    for (const fallback of [[1, 0], [0, -1], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, -1], [-1, 1]] as const) {
         if (!dirs.some(([dc, dr]) => dc === fallback[0] && dr === fallback[1])) dirs.push([...fallback]);
     }
     const queue: Array<[number, number]> = [[unit.col, unit.row]];
@@ -4216,6 +4264,8 @@ const kageOpeningStep = (
             const nextCol = col + dc, nextRow = row + dr, nextKey = kageKey(nextCol, nextRow);
             if (key === startKey && nextKey === avoidFirstKey) continue;
             if (!kageWalkable(nextCol, nextRow) || occupied.has(nextKey) || parent.has(nextKey)) continue;
+            if (occupied.has(kageKey((col + nextCol) / 2, (row + nextRow) / 2))
+                || !kageWalkable(nextCol, row) || !kageWalkable(col, nextRow)) continue;
             parent.set(nextKey, key);
             queue.push([nextCol, nextRow]);
         }
@@ -4252,6 +4302,8 @@ function kageFormationSim(
             targetReturnLocks: {}, targetHistory: [],
             openingJob: "wing", openingCol: col, openingRow: row, openingTargetId: null,
             openingContactEstablished: false, openingWaitTicks: 0,
+            volleyRepositioned: true,
+            escapeSteps: 0,
             shadowStepReady: kageRole(fighter) === "shadow", koSent: false, quietTicks: 0,
         };
     });
@@ -4266,7 +4318,10 @@ function kageFormationSim(
             // body is still visibly crossing its old cell for eight ticks, so
             // reserve that cell too; otherwise a following pet walks through it
             // and several legal one-cell moves render as one central knot.
-            if (unit.moveLeft > 0) cells.add(kageKey(unit.fromCol, unit.fromRow));
+            if (unit.moveLeft > 0) {
+                cells.add(kageKey(unit.fromCol, unit.fromRow));
+                cells.add(kageKey((unit.fromCol + unit.col) / 2, (unit.fromRow + unit.row) / 2));
+            }
         }
         return cells;
     };
@@ -4302,13 +4357,16 @@ function kageFormationSim(
     const enemyOpening = openingTeams.find((entry) => entry.team === "enemy")!;
     const frontHomes = [playerOpening.front, enemyOpening.front].filter(Boolean) as KageUnit[];
     const averageFrontRow = frontHomes.reduce((sum, unit) => sum + unit.homeRow, 0) / Math.max(1, frontHomes.length);
-    // Even files are uninterrupted through the two centre shoji.  This keeps
+    // Even files are uninterrupted through the two centre pillars.  This keeps
     // the shared front visible instead of letting a wall arbitrarily pick one
     // of four private contacts.
     const openingFrontRow = [0, 2, 4]
         .sort((a, b) => Math.abs(a - averageFrontRow) - Math.abs(b - averageFrontRow)
             || (((a + seed) & 1) - ((b + seed) & 1)) || a - b)[0];
-    const playerFrontCol = (seed & 1) === 0 ? 2 : 3;
+    // Keep the deployed flank meaningful: shift its contact pair around a
+    // terrace, rather than silently moving that formation into the centre.
+    const playerFrontCol = ((seed & 1) === 0 ? [2, 3] : [3, 2])
+        .find(col => kageWalkable(col, openingFrontRow) && kageWalkable(col + 1, openingFrontRow)) ?? 2;
     const enemyFrontCol = playerFrontCol + 1;
     if (playerOpening.front) {
         Object.assign(playerOpening.front, { openingJob: "front" as const, openingCol: playerFrontCol, openingRow: openingFrontRow });
@@ -4329,7 +4387,7 @@ function kageFormationSim(
     for (const opening of openingTeams) {
         const playerSide = opening.team === "player";
         opening.cover.forEach((unit) => {
-            unit.openingJob = unit.role === "ranger" || unit.role === "support" ? "cover" : "wing";
+            unit.openingJob = kageRanged(unit) ? "cover" : "wing";
             // Advance one cell in the committed file. Front-rank ranged pets
             // gain earlier contact but less protection; rear-rank pets hold a
             // longer firing lane. Only an occupied socket may change the row.
@@ -4337,7 +4395,7 @@ function kageFormationSim(
                 : Math.max(enemyFrontCol + 1, unit.homeCol - 1);
             unit.openingRow = Array.from({ length: WARFRONT_GRID_ROWS }, (_, row) => row)
                 .sort((a, b) => Math.abs(a - unit.homeRow) - Math.abs(b - unit.homeRow) || a - b)
-                .find((row) => !openingReservations.has(kageKey(unit.openingCol, row))) ?? unit.homeRow;
+                .find((row) => kageWalkable(unit.openingCol, row) && !openingReservations.has(kageKey(unit.openingCol, row))) ?? unit.homeRow;
             openingReservations.add(kageKey(unit.openingCol, unit.openingRow));
         });
         if (opening.flank) {
@@ -4347,13 +4405,24 @@ function kageFormationSim(
         }
     }
     if (playerOpening.front && enemyOpening.front) {
+        const coverTarget = (unit: KageUnit, opposing: typeof playerOpening) => {
+            const socket = { ...unit, col: unit.openingCol, row: unit.openingRow };
+            return [...opposing.members].filter((foe) => {
+                const contact = { ...foe, col: foe.openingCol, row: foe.openingRow };
+                return kageRange(socket, contact) <= 3 && !kageBlockedLine(socket, contact);
+            }).sort((a, b) => {
+                const score = (foe: KageUnit) => (elementMult(unit.fighter.element, foe.fighter.element) - 1) * 80
+                    + (foe === opposing.front ? 8 : 0) - Math.abs(unit.homeRow - foe.homeRow) * 3.2;
+                return score(b) - score(a) || a.fighter.slot - b.fighter.slot;
+            })[0] ?? opposing.front;
+        };
         playerOpening.front.openingTargetId = enemyOpening.front.fighter.id;
         enemyOpening.front.openingTargetId = playerOpening.front.fighter.id;
         for (const unit of playerOpening.cover) {
-            unit.openingTargetId = unit.openingJob === "cover" ? enemyOpening.front.fighter.id : null;
+            unit.openingTargetId = unit.openingJob === "cover" ? coverTarget(unit, enemyOpening)?.fighter.id ?? null : null;
         }
         for (const unit of enemyOpening.cover) {
-            unit.openingTargetId = unit.openingJob === "cover" ? playerOpening.front.fighter.id : null;
+            unit.openingTargetId = unit.openingJob === "cover" ? coverTarget(unit, playerOpening)?.fighter.id ?? null : null;
         }
     }
     const nearestBackline = (attacker: KageUnit | undefined, opening: typeof playerOpening) => attacker
@@ -4371,9 +4440,6 @@ function kageFormationSim(
             ?? playerOpening.front)?.fighter.id ?? null;
     }
 
-    const homeAdvance = (unit: KageUnit) => unit.fighter.team === "player"
-        ? unit.homeCol
-        : WARFRONT_GRID_COLS - 1 - unit.homeCol;
     const roleOrder = (unit: KageUnit) => {
         switch (unit.role) {
             case "vanguard": return 0;
@@ -4383,6 +4449,7 @@ function kageFormationSim(
             case "support": return 4;
         }
     };
+    const focusOrders = new Map<Fighter["team"], { targetId: string; members: string[]; until: number }>();
     const chooseTargets = () => {
         // A killed assignment is cancelled before another frame is published.
         // In particular, a wind-up never spends the next third-second aiming at
@@ -4410,7 +4477,48 @@ function kageFormationSim(
             const claimed = new Map<string, number>();
             const allies = alive(team).sort((a, b) => roleOrder(a) - roleOrder(b) || a.fighter.slot - b.fighter.slot);
             const foes = alive(team === "player" ? "enemy" : "player");
+            // Commit a reachable two-pet attack, using only the visible board.
+            // One partner supplies ranged pressure; the remaining pets retain
+            // their screen/flank jobs instead of joining a four-body pile.
+            let focus = focusOrders.get(team);
+            if (tick >= KAGE_OPENING_SHAPE_TICKS && (!focus || tick >= focus.until
+                || !byId(focus.targetId)?.fighter.hp || focus.members.some(id => !byId(id)?.fighter.hp))) {
+                const options = foes.flatMap(foe => {
+                    const partners = allies.filter(ally => elementMult(ally.fighter.element, foe.fighter.element) >= 1 && !kageBlockedLine(ally, foe)
+                        && kageRange(ally, foe) <= (kageRanged(ally) ? 3 : 2));
+                    return partners.flatMap((first, index) => partners.slice(index + 1).flatMap(second => {
+                        if (![first, second].some(kageRanged)) return [];
+                        const pair = [first, second];
+                        const score = foe.fighter.hp / foe.fighter.maxHp * 12
+                            + pair.reduce((sum, ally) => sum + kageRange(ally, foe) * 2
+                                - (elementMult(ally.fighter.element, foe.fighter.element) - 1) * 30
+                                - (ally.fighter.targetId === foe.fighter.id ? 3 : 0), 0);
+                        return [{ targetId: foe.fighter.id, members: pair.map(ally => ally.fighter.id), score }];
+                    }));
+                }).sort((a, b) => a.score - b.score || a.targetId.localeCompare(b.targetId));
+                focus = options[0] ? { ...options[0], until: tick + KAGE_ORDER_LOCK_TICKS } : undefined;
+                if (focus) focusOrders.set(team, focus); else focusOrders.delete(team);
+            }
             for (const unit of allies) {
+                // A shared order cannot turn an already committed cast toward
+                // a different pet while its sealed attack still hits the old one.
+                const committed = unit.windLeft > 0 ? byId(unit.pendingTargetId) : null;
+                if (committed?.fighter.hp) {
+                    unit.fighter.targetId = committed.fighter.id;
+                    claimed.set(committed.fighter.id, (claimed.get(committed.fighter.id) ?? 0) + 1);
+                    continue;
+                }
+                const threatenedAlly = (foe: KageUnit) => allies.some(ally => ally !== unit
+                    && (kageRanged(ally))
+                    && (kageRange(foe, ally) <= 1 || kageRange(unit, foe) <= 1 && foe.windLeft > 0 && foe.pendingTargetId === ally.fighter.id
+                        && (foe.pendingIdx < 0 || foe.fighter.abilities[foe.pendingIdx]?.cls !== "support")));
+                const peel = unit.role === "vanguard" && tick >= KAGE_OPENING_SHAPE_TICKS && unit.windLeft === 0 && unit.moveLeft === 0
+                    ? foes.filter(foe => kageRange(unit, foe) <= 2 && !kageBlockedLine(unit, foe) && threatenedAlly(foe))
+                        .sort((a, b) => {
+                            const priority = (foe: KageUnit) => kageRange(unit, foe) - (allies.some(ally =>
+                                (kageRanged(ally)) && foe.fighter.targetId === ally.fighter.id) ? 4 : 0);
+                            return priority(a) - priority(b) || a.fighter.slot - b.fighter.slot;
+                        })[0] : undefined;
                 const openingTarget = tick < KAGE_OPENING_SHAPE_TICKS ? byId(unit.openingTargetId) : null;
                 if (openingTarget?.fighter.hp) {
                     const previousTargetId = unit.fighter.targetId;
@@ -4434,7 +4542,16 @@ function kageFormationSim(
                     continue;
                 }
                 const current = byId(unit.fighter.targetId);
-                if (current && current.fighter.hp > 0 && unit.targetLockLeft > 0) {
+                const coveredKill = current && foes.length > 1 && unit.windLeft === 0
+                    && kageCommittedDamage(current, allies, unit) >= current.fighter.hp + current.fighter.statuses.shieldHp;
+                const sharedTarget = focus?.members.includes(unit.fighter.id) ? byId(focus.targetId) : null;
+                const assist = sharedTarget?.fighter.hp && !unit.targetReturnLocks[sharedTarget.fighter.id]
+                    && (claimed.get(sharedTarget.fighter.id) ?? 0) < 2
+                    && kageCommittedDamage(sharedTarget, allies, unit) < sharedTarget.fighter.hp + sharedTarget.fighter.statuses.shieldHp
+                    ? sharedTarget : null;
+                if (current && current.fighter.hp > 0 && unit.targetLockLeft > 0 && !coveredKill
+                    && (!assist || assist === current || unit.moveLeft > 0)
+                    && (!peel || peel === current || unit.fighter.aiPlan === "protect the firing rank")) {
                     claimed.set(current.fighter.id, (claimed.get(current.fighter.id) ?? 0) + 1);
                     continue;
                 }
@@ -4451,7 +4568,7 @@ function kageFormationSim(
                 const unlockedFoes = foes.filter((foe) => !unit.targetReturnLocks[foe.fighter.id]);
                 const unlockedWithoutLoop = unlockedFoes.filter((foe) => !wouldResumeAlternation(foe));
                 const anyWithoutLoop = foes.filter((foe) => !wouldResumeAlternation(foe));
-                const candidates = unlockedWithoutLoop.length > 0 ? unlockedWithoutLoop
+                const candidates = peel ? [peel] : assist && !wouldResumeAlternation(assist) ? [assist] : unlockedWithoutLoop.length > 0 ? unlockedWithoutLoop
                     : anyWithoutLoop.length > 0 ? anyWithoutLoop
                         : unlockedFoes.length > 0 ? unlockedFoes : foes;
                 let best: KageUnit | null = null, bestScore = Infinity, bestLoad = 0, bestScreened = false;
@@ -4462,16 +4579,26 @@ function kageFormationSim(
                     const hp = foe.fighter.hp / foe.fighter.maxHp;
                     const backline = (foe.fighter.team === "enemy" ? foe.homeCol : WARFRONT_GRID_COLS - 1 - foe.homeCol);
                     const foeCrowd = alive().filter((other) => other !== unit && other !== foe && kageRange(other, foe) <= 1).length;
-                    const screened = foes.some((screen) => screen !== foe
-                        && homeAdvance(screen) > homeAdvance(foe)
-                        && Math.abs(screen.homeRow - foe.homeRow) <= 1);
+                    const screened = foes.some((screen) => screen !== foe && screen.role === "vanguard"
+                        && kageRange(screen, foe) <= 1 && kageRange(unit, screen) <= range);
                     // The first front actor establishes contact. A ranged or
                     // support actor deliberately becomes its cross-cover; a
                     // third claim is forbidden unless there is no living choice.
                     const loadCost = load >= 2 ? 80 + load * 20
-                        : load === 1 ? (unit.role === "ranger" || unit.role === "support" ? -9 : 7)
+                        : load === 1 ? (kageRanged(unit) ? -9 : 7)
                             : 0;
-                    let score = range * 4 + rowGap * 3.2 + loadCost + hp * 1.5 + foeCrowd * 3.5 + foe.fighter.slot * 0.01;
+                    const matchup = elementMult(unit.fighter.element, foe.fighter.element);
+                    // Counter an accessible foe and finish an ally's wounded
+                    // contact. Distance, screens and the two-attacker limit
+                    // still prevent a whole band chasing one pet across lanes.
+                    const counterPriority = (matchup - 1) * 80;
+                    const finishPriority = load === 1 ? (1 - hp) * 9 : 0;
+                    let score = range * 4 + rowGap * 3.2 + loadCost + hp * 1.5 + foeCrowd * 3.5
+                        - counterPriority - finishPriority + foe.fighter.slot * 0.01;
+                    if (foes.length > 1 && kageCommittedDamage(foe, allies, unit) >= foe.fighter.hp + foe.fighter.statuses.shieldHp) score += 65;
+                    if (unit.role !== "support" && unit.fighter.abilities.some(ability => ability.aoe && ability.cdLeft <= 0)) {
+                        score -= foes.filter(other => other !== foe && kageRange(foe, other) <= 1).length * 6;
+                    }
                     if (screened && unit.role !== "shadow") score += 15;
                     if (unit.role === "shadow") {
                         score += hp * 5 - backline * 1.5
@@ -4479,7 +4606,7 @@ function kageFormationSim(
                             + load * 12;
                     }
                     if (unit.role === "vanguard") score += foe.role === "shadow" ? -7 : 0;
-                    if (unit.role === "ranger" || unit.role === "support") score += kageBlockedLine(unit, foe) ? 10 : 0;
+                    if (kageRanged(unit)) score += kageBlockedLine(unit, foe) ? 10 : 0;
                     if (score < bestScore) { bestScore = score; best = foe; bestLoad = load; bestScreened = screened; }
                 }
                 const previousTargetId = unit.fighter.targetId;
@@ -4494,16 +4621,21 @@ function kageFormationSim(
                 unit.targetLockLeft = best ? KAGE_ORDER_LOCK_TICKS : 0;
                 if (best) {
                     claimed.set(best.fighter.id, bestLoad + 1);
-                    const crossCover = bestLoad === 1 && (unit.role === "ranger" || unit.role === "support");
+                    const crossCover = bestLoad === 1 && (kageRanged(unit));
                     const aiState: DuelAiState = unit.role === "shadow" ? "flank"
                         : unit.role === "vanguard" ? "hold position"
                             : crossCover ? "prepare combo" : "engage";
-                    const plan = unit.role === "shadow" ? "take the outside lane and pressure the firing rank"
+                    const plan = best === peel ? "protect the firing rank"
+                        : best === assist ? "coordinate a two-pet focus"
+                        : unit.role === "shadow" ? "take the outside lane and pressure the firing rank"
                         : unit.role === "vanguard" ? "screen the formation and intercept the nearest breach"
                             : crossCover ? "cross-cover the front contact"
                                 : "hold the deployed lane and contest its threat";
-                    const reason = crossCover ? `${best.fighter.id} is the screen's visible focus`
-                        : bestScreened && unit.role === "shadow" ? `${best.fighter.id} is exposed behind its screen`
+                    const reason = best === peel ? `${best.fighter.id} threatens a vulnerable teammate`
+                        : elementMult(unit.fighter.element, best.fighter.element) > 1
+                        ? `${best.fighter.id} is vulnerable to ${unit.fighter.element}${crossCover ? "; coordinate cross-cover" : " in this lane"}`
+                        : crossCover ? `${best.fighter.id} is the screen's visible focus`
+                        : !bestScreened && unit.role === "shadow" ? `${best.fighter.id} is exposed behind its screen`
                             : `${best.fighter.id} is the best threat in this lane`;
                     setIntent(unit.fighter, aiState, kagePreferredRange(unit), plan, reason);
                 }
@@ -4512,7 +4644,7 @@ function kageFormationSim(
     };
 
     const moveUnit = (unit: KageUnit, col: number, row: number, duration = 8, name?: string) => {
-        duration = kageDuration(unit, duration * (unit.fighter.statuses.slowLeft > 0 ? 1.4 : 1)
+        duration = kageDuration(unit, duration * Math.hypot(col - unit.col, row - unit.row) * (unit.fighter.statuses.slowLeft > 0 ? 1.4 : 1)
             / (unit.fighter.statuses.hasteLeft > 0 ? 1.25 : 1));
         unit.fromCol = unit.col; unit.fromRow = unit.row;
         unit.col = col; unit.row = row; unit.moveTotal = duration; unit.moveLeft = duration;
@@ -4525,9 +4657,20 @@ function kageFormationSim(
         const ready = unit.fighter.abilities
             .map((ability, index) => ({ ability, index }))
             .filter(({ ability }) => !ability.isMove && ability.cdLeft <= 0);
+        const allies = alive(unit.fighter.team);
+        const foes = alive(target.fighter.team);
+        const reservedKill = foes.length > 1 && kageCommittedDamage(target, allies, unit) >= target.fighter.hp + target.fighter.statuses.shieldHp;
+        const offensive = ready.filter(({ ability }) => ability.cls !== "support" && !reservedKill
+            && (ability.cls === "ranged" ? kageRange(unit, target) <= 3 && !kageBlockedLine(unit, target) : kageRange(unit, target) <= 1))
+            .sort((a, b) => {
+                const score = (ability: Ability) => (ability.aoe ? foes.filter(foe => kageRange(target, foe) <= 1).length - 1 : 0) * 20
+                    + (COUNTER_KINDS.has(ability.kind) && target.windLeft > 0 ? 16 : 0) + Math.min(100, ability.power) * 0.05;
+                return score(b.ability) - score(a.ability) || a.index - b.index;
+            });
         let selected = unit.chakra >= 95 ? ready.find(({ ability }) => {
             if (!ability.signature) return false;
             if (ability.cls === "support") return alive(unit.fighter.team).length > 1;
+            if (reservedKill) return false;
             if (ability.cls === "ranged") return kageRange(unit, target) <= 3 && !kageBlockedLine(unit, target);
             return kageRange(unit, target) <= 1;
         }) : undefined;
@@ -4543,15 +4686,17 @@ function kageFormationSim(
             });
             if (needsHelp) selected = supportMove;
         }
-        if (!selected) selected = ready.find(({ ability }) => ability.cls !== "support" && (ability.cls === "ranged" || kageRange(unit, target) <= 1));
+        if (!selected) selected = offensive[0];
         const idx = selected?.index ?? -1;
         const ability = idx >= 0 ? unit.fighter.abilities[idx] : null;
         const supporting = ability?.cls === "support";
-        const ranged = ability ? ability.cls === "ranged" : unit.role === "ranger" || unit.role === "support";
+        const ranged = ability ? ability.cls === "ranged" : kageRanged(unit);
         if (!supporting && ranged && (kageRange(unit, target) > 3 || kageBlockedLine(unit, target))) return false;
         if (!supporting && !ranged && kageRange(unit, target) > 1) return false;
         if (idx < 0 && unit.fighter.basicCdLeft > 0) return false;
         unit.pendingIdx = idx; unit.pendingTargetId = target.fighter.id;
+        unit.volleyRepositioned = false;
+        unit.escapeSteps = 0;
         unit.quietTicks = 0;
         unit.windLeft = kageDuration(unit, ability?.signature ? 15 : ranged ? 10 : 8);
         unit.fighter.state = "windup"; unit.fighter.stateLeft = unit.windLeft;
@@ -4572,7 +4717,7 @@ function kageFormationSim(
         fighter.state = "strike";
         if (ability?.cls === "support") {
             // A healer cannot protect an isolated flanker across the board or
-            // through a shoji. Backline placement must keep allies in reach.
+            // through a pillar. Backline placement must keep allies in reach.
             const ally = alive(fighter.team).filter((entry) => kageRange(unit, entry) <= 3 && !kageBlockedLine(unit, entry)).sort((a, b) => {
                 if (ability.kind === "barrier") {
                     const shieldOrder = a.fighter.statuses.shieldHp - b.fighter.statuses.shieldHp;
@@ -4612,8 +4757,10 @@ function kageFormationSim(
             ability.cdLeft = ability.cdTicks; unit.recoverLeft = kageDuration(unit, 12); return;
         }
         if (!target || target.fighter.hp <= 0) { events.push({ t: tick, type: "whiff", side: fighter.team, actorId: fighter.id }); unit.recoverLeft = 7; return; }
-        const ranged = ability ? ability.cls === "ranged" : unit.role === "ranger" || unit.role === "support";
-        if ((ranged && (kageRange(unit, target) > 3 || kageBlockedLine(unit, target))) || (!ranged && kageRange(unit, target) > 1)) {
+        const ranged = ability ? ability.cls === "ranged" : kageRanged(unit);
+        const actualPoint = (entry: KageUnit) => ({ col: entry.fighter.x / WARFRONT_CELL_X + 3, row: entry.fighter.y / WARFRONT_CELL_Y + 2 });
+        if ((ranged && (kageRange(unit, target) > 3 || kageBlockedLine(unit, target)
+            || kageBlockedLine(actualPoint(unit), actualPoint(target)))) || (!ranged && kageRange(unit, target) > 1)) {
             events.push({ t: tick, type: "whiff", side: fighter.team, actorId: fighter.id, targetId: target.fighter.id, move: ability?.name });
             unit.recoverLeft = 7; return;
         }
@@ -4624,16 +4771,9 @@ function kageFormationSim(
             const oldPositions = units.map((entry) => [entry.fighter.x, entry.fighter.y] as const);
             const hpBefore = target.fighter.hp;
             const splashTargets = ability?.aoe ? alive(target.fighter.team).filter(entry => entry === target
-                || Math.max(Math.abs(entry.col - target.col), Math.abs(entry.row - target.row)) <= 1) : [target];
+                || kageRange(entry, target) <= 1) : [target];
             const sharedBudget = fighter.pet.battleLoadoutVersion === 'progression-v3' && ability?.aoe;
             applyDamage(fighter, target.fighter, ability, rng, tick, events, ranged, undefined, true, sharedBudget ? 1 / splashTargets.length : 1);
-            if (ranged && KAGE_COVER.has(kageKey(target.col, target.row))) {
-                const dealt = Math.max(0, hpBefore - target.fighter.hp);
-                const restore = Math.round(dealt * 0.28);
-                target.fighter.hp = Math.min(hpBefore, target.fighter.hp + restore);
-                const hit = [...events].reverse().find((event) => event.t === tick && event.type === "hit" && event.actorId === fighter.id && event.targetId === target.fighter.id);
-                if (hit?.dmg) hit.dmg = Math.max(0, hit.dmg - restore);
-            }
             const verdict = clamp((tick - KAGE_VERDICT_TICK) / Math.max(1, KAGE_CAP_TICKS - KAGE_VERDICT_TICK), 0, 1);
             const dealtAfterCover = Math.max(0, hpBefore - target.fighter.hp);
             if (verdict > 0 && dealtAfterCover > 0 && target.fighter.hp > 0) {
@@ -4650,7 +4790,7 @@ function kageFormationSim(
             target.chakra = Math.min(100, target.chakra + 12);
             if (ranged) projectiles.push({ id: nextProjectile++, ownerId: fighter.id, team: fighter.team, targetId: target.fighter.id, abilityIdx: ability ? fighter.abilities.indexOf(ability) : -1, x: fighter.x, y: fighter.y, speed: 0.72, ttl: 24, element: fighter.element, kind: ability?.kind ?? "damage", born: tick });
             if (ability?.aoe) for (const splash of alive(target.fighter.team)) {
-                if (splash === target || Math.max(Math.abs(splash.col - target.col), Math.abs(splash.row - target.row)) > 1) continue;
+                if (splash === target || kageRange(splash, target) > 1) continue;
                 const splashDmg = Math.max(1, Math.round(Math.max(0, hpBefore - target.fighter.hp) * (sharedBudget ? 1 : .45)));
                 splash.fighter.hp -= splashDmg;
                 events.push({ t: tick, type: "hit", side: fighter.team, actorId: fighter.id, targetId: splash.fighter.id, dmg: splashDmg, element: fighter.element, kind: ability.kind, ranged: true, move: ability.name, signature: ability.signature, combo: "FORMATION BREAK" });
@@ -4705,7 +4845,7 @@ function kageFormationSim(
             const openingAnchor = tick < KAGE_OPENING_SHAPE_TICKS ? byId(unit.openingTargetId) : null;
             const holdsOpeningSocket = Boolean(openingAnchor?.fighter.hp) && unit.openingJob !== "wing";
             const atOpeningSocket = unit.col === unit.openingCol && unit.row === unit.openingRow;
-            const openingReach = unit.role === "ranger" || unit.role === "support" ? 3 : 1;
+            const openingReach = kageRanged(unit) ? 3 : 1;
             const openingContactLegal = Boolean(openingAnchor
                 && kageRange(unit, openingAnchor) <= openingReach
                 && (openingReach <= 1 || !kageBlockedLine(unit, openingAnchor)));
@@ -4753,25 +4893,11 @@ function kageFormationSim(
                 continue;
             }
             if (unit.role === "shadow" && unit.shadowStepReady && tick > KAGE_OPENING_SHAPE_TICKS) {
-                const behind = target.fighter.team === "enemy" ? 1 : -1;
-                const preferred = [
-                    [target.col + behind, target.row], [target.col + behind, target.row - 1], [target.col + behind, target.row + 1],
-                    [target.col, target.row - 1], [target.col, target.row + 1], [target.col - behind, target.row],
-                ];
-                const fallback = Array.from({ length: WARFRONT_GRID_COLS * WARFRONT_GRID_ROWS }, (_, index) => [index % WARFRONT_GRID_COLS, Math.floor(index / WARFRONT_GRID_COLS)])
-                    .sort((a, b) => Math.max(Math.abs(a[0] - target.col), Math.abs(a[1] - target.row)) - Math.max(Math.abs(b[0] - target.col), Math.abs(b[1] - target.row)));
-                const landing = [...preferred, ...fallback]
-                    .filter(([col, row]) => kageWalkable(col, row) && !occupied(unit).has(kageKey(col, row)))
-                    .map(([col, row]) => {
-                        const distance = Math.max(Math.abs(col - target.col), Math.abs(row - target.row));
-                        const crowd = alive().filter((other) => other !== unit && other !== target
-                            && Math.max(Math.abs(other.col - col), Math.abs(other.row - row)) <= 1).length;
-                        const flankRow = unit.homeRow < 2 ? 0 : unit.homeRow > 2 ? WARFRONT_GRID_ROWS - 1 : (unit.fighter.slot % 2 ? WARFRONT_GRID_ROWS - 1 : 0);
-                        return { col, row, score: distance * 20 + crowd * 9 + Math.abs(row - flankRow) * 2 };
-                    })
-                    .sort((a, b) => a.score - b.score || a.col - b.col || a.row - b.row)[0];
-                if (landing) {
-                    unit.shadowStepReady = false; moveUnit(unit, landing.col, landing.row, 11, "SHADOW STEP"); continue;
+                // A dash follows a legal corridor. The former long straight
+                // interpolation crossed every wall between origin and landing.
+                const step = kageRouteStep(unit, target, occupied(unit), alive());
+                if (step) {
+                    unit.shadowStepReady = false; moveUnit(unit, step[0], step[1], 11, "SHADOW STEP"); continue;
                 }
             }
             // A malformed imported pet cooldown or an exotic support-only kit
@@ -4779,6 +4905,25 @@ function kageFormationSim(
             // move/cast opens a basic attack window; ordinary kits never touch
             // this guard because their real cooldown is only 25 ticks.
             if (unit.quietTicks > DUEL_TPS * 2) fighter.basicCdLeft = 0;
+            // Evaluate escape BEFORE attacking: a ready basic used to keep a
+            // ranger firing at point-blank range forever. A trapped pet still
+            // fights, but an open firing lane takes priority over head-butting.
+            const pressure = (kageRanged(unit))
+                ? alive(fighter.team === "player" ? "enemy" : "player")
+                    .filter((foe) => kageRange(unit, foe) < 2)
+                    .sort((a, b) => kageRange(unit, a) - kageRange(unit, b) || a.fighter.slot - b.fighter.slot)[0]
+                : undefined;
+            if (pressure && unit.escapeSteps < 2) {
+                const retreat = kageRouteStep(unit, pressure, occupied(unit), alive());
+                if (retreat && Math.max(Math.abs(retreat[0] - pressure.col), Math.abs(retreat[1] - pressure.row)) >= kageRange(unit, pressure)) {
+                    unit.openingTargetId = null;
+                    unit.openingJob = "wing";
+                    unit.escapeSteps++;
+                    setIntent(fighter, "reposition", kagePreferredRange(unit), "restore the firing lane", "enemy pressure reached the backline");
+                    moveUnit(unit, retreat[0], retreat[1]);
+                    continue;
+                }
+            }
             if (startAttack(unit, target)) continue;
             // A unit which has reached its reserved opening socket fights from
             // that socket.  Ranged pets do not erase their own firing lane by
@@ -4786,9 +4931,21 @@ function kageFormationSim(
             // back into the front after reaching the outside rank.
             if (holdsOpeningSocket) { unit.blockedTicks = 0; continue; }
 
+            if (!unit.volleyRepositioned && (kageRanged(unit))) {
+                unit.volleyRepositioned = true;
+                if (alive(fighter.team).some(ally => ally !== unit && ally.fighter.targetId === target.fighter.id)) {
+                    const step = kageRouteStep(unit, target, occupied(unit), alive());
+                    if (step && kageRange({ col: step[0], row: step[1] }, target) >= 2) {
+                        setIntent(fighter, "reposition", 3, "open a crossfire lane", "a teammate holds the shared target while this pet changes angle");
+                        moveUnit(unit, step[0], step[1]);
+                        continue;
+                    }
+                }
+            }
+
             const want = kagePreferredRange(unit);
-            const tooClose = (unit.role === "ranger" || unit.role === "support") && kageRange(unit, target) < 2;
-            const ranged = unit.role === "ranger" || unit.role === "support";
+            const tooClose = (kageRanged(unit)) && kageRange(unit, target) < 2;
+            const ranged = kageRanged(unit);
             const needsPosition = tooClose || kageRange(unit, target) > want || (ranged && kageBlockedLine(unit, target));
             if (!needsPosition) { unit.blockedTicks = 0; continue; }
             const occupiedCells = occupied(unit);
@@ -4864,7 +5021,7 @@ export function runPetSquadDuelCinematic(
         const [x, y] = postFor(enemyDeployment, slot);
         // Beastbound Warfront bands face each other across the vertical centre line.
         // Mirror X only so North remains North and both seats have identical
-        // access to shoji, smoke and cover.
+        // access to pillars, mist and cover.
         fighters.push(buildFighter(pet, "enemy", slot, x, y, playerSquad[slot]?.element ?? leadElement(playerSquad), 1, 1, false, applyItems));
     });
     return kageFormationSim(fighters, seed, accuracyEnabled, debugTrace);

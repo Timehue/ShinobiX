@@ -186,6 +186,7 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
         stance: 'balanced',
         doctrine: 'none',
         buyPolicy: 'balanced',
+        bluePets: [{ id: 'warfront-pet-1', hp: 1, attack: 1, defense: 1, speed: 1 }],
     };
     const started = response();
     const concurrent = response();
@@ -234,6 +235,12 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.equal(responseBlue.length, 4);
     assert.equal(responseRed.length, 4);
     assert.deepEqual(responseBlue.map((pet) => pet.id), startBody.playerPetIds);
+    for (const [index, pet] of responseBlue.entries()) {
+        const stored = winningWitnessPet(index + 1);
+        for (const stat of ['level', 'hp', 'attack', 'defense', 'speed'] as const) {
+            assert.equal(pet[stat], stored[stat], `${stat} must come from the owned trained pet, never request data or normalization`);
+        }
+    }
     assert.ok(responseBlue.every((pet) => !('image' in pet) && !('bodyImage' in pet)), 'authority response must omit unbounded inline art');
     assert.ok(responseRed.every((pet) => !('image' in pet) && !('bodyImage' in pet)), 'sealed rivals must omit unbounded inline art');
 
@@ -247,6 +254,7 @@ test('Warfront start mints its own resumable seed and a battle-result-compatible
     assert.equal(seal?.opponentBuyPolicy, 'balanced');
     const sealedBlue = seal?.bluePets as Array<Record<string, unknown>>;
     const sealedRed = seal?.redPets as Array<Record<string, unknown>>;
+    assert.deepEqual(sealedBlue, responseBlue, 'playback must receive the exact trained stats that settlement replays');
     assert.ok([...sealedBlue, ...sealedRed].every((pet) => pet.battleLoadoutVersion === 'progression-v3'),
         'fresh authority must seal progression kits for both sides before replay and clock validation');
     assert.ok([...sealedBlue, ...sealedRed].every((pet) => (pet.jutsus as Array<Record<string, unknown>>)
@@ -404,7 +412,7 @@ test('Warfront settlement follows the commanded formation replay and its authori
             role,
         } as Pet & { role: typeof role };
     });
-    const replaySeed = 42;
+    const replaySeed = 1;
     const baseline = runWarfrontRite(bluePets, redPets, replaySeed);
     // Select the slowest legal formation for this fixed roster. Beastbound Warfront
     // makes all ten deployment cells role-agnostic, so authority must replay the
@@ -434,7 +442,7 @@ test('Warfront settlement follows the commanded formation replay and its authori
     // once THAT duel chain could have played at real time, less 5s skew.
     const commandedSettleAfter = playbackStartedAt + Math.max(0, commandedDurationMs - 5_000);
     assert.ok(commandedDurationMs > baselineDurationMs,
-        'fixture: the slowest commanded formation must outlast the sealed baseline, so a baseline clock would settle early');
+        'fixture: the slowest commanded formation must outlast the sealed baseline, so commanded timing cannot be inferred from the baseline');
     assert.ok(commandedSettleAfter > playbackStartedAt + 1_000, 'fixture: the commanded fight must be long enough to probe early');
 
     const token = 'slowercommandedwarfront';
@@ -526,7 +534,7 @@ test('a mid-match re-form is settled from the server\u2019s own replay of that p
 
     // Certified against the current grid/stat balance: moving only slot 0
     // after the opening changes the winner from red to blue at this seed.
-    const seed = 9;
+    const seed = 2;
     const reformPlan: RitePlan = {
         formation: [0, 1, 2, 3], deployment: [...WARFRONT_DEFAULT_DEPLOYMENT],
         reformAfterClash: null, reform: null, reformDeployment: null,

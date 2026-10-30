@@ -3,33 +3,74 @@ import test from "node:test";
 import { PerspectiveCamera, Vector3 } from "three";
 import { warfrontCameraFrame, warfrontCanvasFrame } from "./pet-warfront-camera";
 
-test("the complete board and standing models fit desktop, tablet, phone and landscape phone", () => {
-    for (const [width, height] of [[1416, 714], [796, 994], [378, 610], [400, 681], [832, 237]]) {
-        const halfX = 11.4 * 0.7 + 1.2;
-        const halfZ = 7.2 * 0.7 + 1.2;
-        const frame = warfrontCameraFrame(width, height, halfX, halfZ);
-        assert.deepEqual(frame.target, [0, 1, 0], "resizing must keep the camera centered on the board");
-        const camera = new PerspectiveCamera(frame.fov, width / height, 0.1, frame.far);
-        camera.position.set(...frame.position);
-        camera.lookAt(...frame.target);
-        camera.updateMatrixWorld();
-        for (const x of [-halfX, 0, halfX]) for (const z of [-halfZ, 0, halfZ]) for (const y of [0, 1.95, 3.4]) {
-            const point = new Vector3(x, y, z).project(camera);
-            assert.ok(Math.abs(point.x) <= 0.94001 && Math.abs(point.y) <= 0.94001,
-                `${width}×${height} clipped ${x}, ${y}, ${z}: ${point.toArray()}`);
-            assert.ok(point.z > -1 && point.z < 1);
+const cameraAt = (width: number, height: number) => {
+    const frame = warfrontCameraFrame(width, height, 11.4 * .7, 7.2 * .7);
+    const camera = new PerspectiveCamera(frame.fov, width / height, .1, frame.far);
+    camera.position.set(...frame.position); camera.lookAt(...frame.target);
+    camera.updateMatrixWorld(); camera.projectionMatrix.elements[5] *= frame.verticalScale; camera.projectionMatrix.elements[9] -= frame.shiftY;
+    if (frame.orthographic) {
+        const { halfWidth, halfHeight } = frame.orthographic;
+        camera.projectionMatrix.makeOrthographic(-halfWidth, halfWidth, halfHeight, -halfHeight, .1, frame.far);
+        camera.projectionMatrix.elements[13] = .044;
+    }
+    return camera;
+};
+// Measured vertices of the painted landscape floor, not a rectangle inferred
+// from the renderer. A previous frustum-only test missed pets walking on roofs.
+const floor = [[630,155],[1450,369],[1250,849],[217,432]].map(([x,y])=>[x*1280/1672,y*720/941]);
+const insideFloor = (x: number, y: number) => floor.every(([ax,ay], i) => {
+    const [bx,by] = floor[(i + 1) % floor.length];
+    return (bx - ax) * (y - ay) - (by - ay) * (x - ax) >= 0;
+});
+
+test("all 35 collision cells sit on the painted court in both desktop renderers", () => {
+    for (const [width,height] of [[1280,720],[1440,900],[1818,950]]) {
+        const camera = cameraAt(width,height);
+        const canvas = warfrontCanvasFrame(width,height,11.4,7.2);
+        const scale = Math.max(width / 1280, height / 720);
+        let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity;
+        for (let row=0;row<5;row++) for (let col=0;col<7;col++) {
+            const x=(col-3)*3.2, z=(row-2)*3;
+            const point = new Vector3(x*.7,0,z*.7).project(camera);
+            const px=(point.x+1)*width/2, py=(1-point.y)*height/2;
+            const artX=(px+(1280*scale-width)/2)/scale;
+            const artY=(py+(720*scale-height)/2)/scale;
+            assert.ok(insideFloor(artX,artY), `cell ${col},${row} left painted slate at ${artX},${artY}`);
+            const fallback=canvas.project(x,z);
+            assert.ok(Math.hypot(px-fallback[0],py-fallback[1])<.001, "renderer switches must not move the ground");
+            minY=Math.min(minY,artY);maxY=Math.max(maxY,artY);minX=Math.min(minX,artX);maxX=Math.max(maxX,artX);
+        }
+        assert.ok(maxY-minY>320 && maxX-minX>550, "playable cells must span the upper, lower and side lanes");
+    }
+});
+
+test("phone ground positions remain on the portrait floor with room for heads and tails", () => {
+    for (const [width,height] of [[390,844],[430,932],[820,1180]]) {
+        const frame=warfrontCanvasFrame(width,height,11.4,7.2);
+        const camera=cameraAt(width,height);
+        for(let row=0;row<5;row++) for(let col=0;col<7;col++) {
+            const x=(col-3)*3.2, z=(row-2)*3;
+            const p=new Vector3(x*.7,0,z*.7).project(camera);
+            const [px,py]=frame.project(x,z);
+            assert.ok(Math.hypot((p.x+1)*width/2-px,(1-p.y)*height/2-py)<.001,
+                "portrait renderer switches must preserve terrain registration");
+        }
+        for (const x of [-9.6,9.6]) for (const z of [-6,6]) {
+            const [px,py]=frame.project(x,z);
+            assert.ok(px>width*.18 && px<width*.82);
+            assert.ok(py>height*.30 && py<height*.66);
+            assert.ok(py-frame.actorSize>height*.16 && py+frame.actorSize*.3<height*.75);
         }
     }
 });
 
-test("the Canvas fallback keeps edge pets, heads, and health rails inside the stage", () => {
-    for (const [width, height] of [[1416, 714], [796, 994], [378, 610], [400, 681], [832, 237]]) {
-        const frame = warfrontCanvasFrame(width, height, 11.4, 7.2);
-        for (const x of [-11.4, 11.4]) for (const z of [-7.2, 7.2]) {
-            const px = frame.centerX + x * frame.xScale;
-            const py = frame.centerY + z * frame.zScale;
-            assert.ok(px - frame.actorSize * 0.65 >= 9 && px + frame.actorSize * 0.65 <= width - 9);
-            assert.ok(py - frame.actorSize * 0.95 >= 15 && py + frame.actorSize * 0.3 <= height - 9);
+test("rotated phones retain every lane below the compact HUD", () => {
+    for(const [width,height] of [[844,390],[1040,480]]) {
+        const camera=cameraAt(width,height);
+        for(const x of [-9.6,9.6]) for(const z of [-6,6]) for(const y of [0,2.5]) {
+            const p=new Vector3(x*.7,y,z*.7).project(camera);
+            const py=(1-p.y)*height/2;
+            assert.ok(py>145 && py<height-15, `${width}x${height}: a pet leaves the HUD-safe garden`);
         }
     }
 });

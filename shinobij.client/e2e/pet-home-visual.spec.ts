@@ -229,6 +229,10 @@ const SHELL_BOOT_PATHS = [
     "/api/village/intel",
     "/api/missions/ai-fight-start",
     "/api/achievements/sync",
+    // These background reads/claims have no rewards in this pet-only fixture.
+    // Keep their existing generic response out of WebKit's interception gap.
+    "/api/weekly-boss",
+    "/api/war/claim-reward",
     "/api/messages",
     "/api/world-crisis",
     "/api/world-crisis-80",

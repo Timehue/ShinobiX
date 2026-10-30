@@ -1,6 +1,7 @@
 import type { DuelResult } from "./pet-duel-sim";
 import { warfrontAttackCues } from "./pet-warfront-attack-causality";
 import { createActorPoseSample, sampleActorByIdInto } from "./pet-warfront-rite-presentation";
+import { warfrontReleaseTick } from "./pet-warfront-rig-motion";
 
 export type WarfrontActionVisual = Readonly<{
     actorId: string;
@@ -29,7 +30,7 @@ export function buildWarfrontActionTimeline(
         const key = `${actorId}:${contact}`;
         if (seen.has(key)) return;
         seen.add(key);
-        const start = Math.max(0, Math.min(contact - 6, Math.max(tell, contact - 10)));
+        const start = warfrontReleaseTick(tell, contact);
         sampleActorByIdInto(result, actorId, start, origin);
         sampleActorByIdInto(result, targetId, contact, target);
         actions.push({ actorId, targetId, element: element ?? elements.get(actorId) ?? null, kind,
