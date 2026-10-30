@@ -12,7 +12,7 @@ async function openMenu(page: Page, name: string) {
     await target.click();
 }
 
-test.beforeEach(async ({ page, request, context }) => {
+test.beforeEach(async ({ page, request, context }, info) => {
     const name = uniquePlayerName(stamp => `craftlife${stamp}`);
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password: 'CraftJourney!1234' } });
     expect(registered.status(), await registered.text()).toBe(200);
@@ -23,9 +23,13 @@ test.beforeEach(async ({ page, request, context }) => {
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], itemStacks: [
             { itemId: 'gather-stormglass-shard-fine', count: 8 },
             { itemId: 'gather-field-herb', count: 10 }, { itemId: 'gather-heartwood-bark', count: 10 },
-            { itemId: 'gather-binding-fiber', count: 10 }, { itemId: 'hunt-beast-meat', count: 2 },
+            { itemId: 'gather-binding-fiber', count: 10 }, { itemId: 'hunt-beast-meat', count: 20 },
             { itemId: 'hunt-cracked-horn', count: 12 }, { itemId: 'hunt-small-fang', count: 8 },
         ] };
+    if (info.title.includes('established crafter')) {
+        // Seed the server receipt shape; the client type still permits legacy ids.
+        Object.assign(save.character, { redeemedCrafts: [{ id: 'prior-craft-receipt-001', kind: 'supply', recipeId: 'pet-treat', quantity: 1, at: Date.now() }] });
+    }
     const seeded = await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: save });
     expect(seeded.status(), await seeded.text()).toBe(200);
     expect((await request.post(`/api/save/${name}?ack=1`, { headers })).status()).toBe(200);
@@ -47,6 +51,88 @@ test.beforeEach(async ({ page, request, context }) => {
     await page.getByRole('button', { name: 'Visit the Crafter in Central', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Crafter', exact: true })).toBeVisible();
 });
+
+for (const firstCraft of [false, true]) {
+for (const loseAcknowledgment of [false, true]) {
+    test(`five treats charge the displayed fee for ${firstCraft ? 'a first-time' : 'an established'} crafter${loseAcknowledgment ? ' after a lost acknowledgment' : ''}`, async ({ page, request }) => {
+        page.setDefaultTimeout(15_000);
+        const auth = await page.evaluate(() => {
+            const name = localStorage.getItem('shinobix:activePlayerPersist')!;
+            const token = localStorage.getItem('shinobix:activeTokenPersist')!;
+            return { name, token };
+        });
+        const headers = { 'x-player-name': auth.name, 'x-player-token': auth.token };
+        const readSave = async () => {
+            const reply = await request.get(`/api/save/${auth.name}`, { headers });
+            expect(reply.status(), await reply.text()).toBe(200);
+            return reply.json();
+        };
+        await expect.poll(async () => Array.isArray((await readSave()).character.claimedAchievementRewards)).toBe(true);
+        const before = await readSave();
+        expect(before.character.claimedAchievementRewards.includes('craft-first')).toBe(!firstCraft);
+        const crafter = page.getByRole('dialog', { name: 'Crafter', exact: true });
+        await crafter.locator('.cf-batch').scrollIntoViewIfNeeded();
+        await crafter.getByRole('button', { name: /^\u00d7\s*5$/ }).click({ timeout: 15_000 });
+        const card = crafter.locator('.cf-card').filter({ has: page.getByText('Pet Treats', { exact: true }) });
+        await expect(card).toContainText('Costs 2,000 ryo');
+        await card.getByRole('button', { name: /^Craft \u00d75$/ }).click();
+        const picker = page.getByRole('dialog', { name: 'Choose crafting materials', exact: true });
+        await expect(picker.locator('.craft-picker-summary')).toContainText('2,000 ryo');
+        await picker.getByRole('spinbutton', { name: 'Beast Meat quantity', exact: true }).fill('20');
+        const payloads: Array<Record<string, unknown>> = [];
+        const replies: Array<{ character: { ryo: number }; _saveVersion: number; replayed?: boolean }> = [];
+        const firstCraftReward = firstCraft ? page.waitForResponse(async response => {
+            if (!response.url().endsWith('/api/achievements/sync') || !response.ok()) return false;
+            return ((await response.json()).newlyRewarded ?? []).includes('craft-first');
+        }) : null;
+        await page.route('**/api/craft/forge', async route => {
+            payloads.push(route.request().postDataJSON());
+            const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
+            expect(response.status(), await response.text()).toBe(200);
+            replies.push(await response.json());
+            if (loseAcknowledgment && replies.length === 1) await route.abort('failed');
+            else await route.fulfill({ response });
+        });
+        await picker.getByRole('button', { name: 'Confirm craft', exact: true }).click();
+        if (loseAcknowledgment) {
+            await expect(picker.getByRole('alert')).toContainText('unreachable');
+            const committed = await readSave();
+            const earned = firstCraft && committed.character.claimedAchievementRewards.includes('craft-first') ? 2000 : 0;
+            expect(committed.character.ryo).toBe(before.character.ryo - 2000 + earned);
+            await picker.getByRole('button', { name: 'Confirm craft', exact: true }).click();
+        }
+        await expect(picker).toContainText('5 items added to your inventory.');
+        await expect(picker.getByRole('button', { name: 'Back to Crafter', exact: true })).toBeVisible();
+        expect(payloads).toHaveLength(loseAcknowledgment ? 2 : 1);
+        for (const payload of payloads) {
+            expect(payload.quantity).toBe(5);
+            expect(payload.recipeId).toBe('pet-treat');
+            expect(payload.requestId).toBe(payloads[0].requestId);
+            expect(payload.materials).toEqual(expect.arrayContaining([
+                expect.objectContaining({ 'hunt-beast-meat': 20 }), expect.objectContaining({ 'gather-field-herb': 10 }),
+            ]));
+        }
+        expect(replies[0].character.ryo).toBe(before.character.ryo - 2000);
+        expect(replies[0]._saveVersion).toBeGreaterThan(before._saveVersion);
+        if (loseAcknowledgment) {
+            expect(replies[1].replayed).toBe(true);
+        }
+        if (firstCraftReward) expect((await (await firstCraftReward).json()).reward.ryo).toBe(2000);
+        const expectedRyo = before.character.ryo - 2000 + (firstCraft ? 2000 : 0);
+        await page.goto('/#/profile', { waitUntil: 'domcontentloaded' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'profile');
+        const wallet = page.locator('.profile-dossier-row').filter({ has: page.getByText('Ryo', { exact: true }) });
+        await expect(wallet.locator('strong')).toHaveText(expectedRyo.toLocaleString('en-US'));
+        const after = await readSave();
+        expect(after.character.ryo).toBe(expectedRyo);
+        const count = (id: string) => after.character.itemStacks.find((row: { itemId: string }) => row.itemId === id)?.count ?? 0;
+        expect(count('pet-treat')).toBe(5);
+        expect(count('hunt-beast-meat')).toBe(0);
+        expect(count('gather-field-herb')).toBe(0);
+    });
+}
+}
 
 test('currency crafts credit the wallet and describe the actual reward', async ({ page }, info) => {
     const crafter = page.getByRole('dialog', { name: 'Crafter', exact: true });

@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const claimKey = contractClaimKey(playerName, sector, day);
             const [progress, claimedAt] = await Promise.all([
-                kv.get<number>(contractProgressKey(playerName, sector, day)),
+                kv.get<unknown>(contractProgressKey(playerName, sector, day)),
                 kv.get<number>(claimKey),
             ]);
             const status = sectorContractStatus(contract, progress, claimedAt, now);

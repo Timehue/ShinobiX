@@ -170,6 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     outcome: authority.outcome,
                     replayed: true,
                     exploreReceiptAt: Number(authority.at),
+                    contractEffectVersion: 'contractEffectVersion' in authority ? authority.contractEffectVersion : undefined,
                     ...(activePet?.outcome === 'miss'
                         && activePet.requestId === requestId
                         && activePet.sector === Number(authority.sector)
@@ -430,6 +431,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 reward: applied.reward,
                 ...(outcome ? { outcome } : {}),
                 at: exploredAt,
+                contractEffectVersion: 1 as const,
             };
             const nextCharacterBeforeDungeonResolution = outcome?.kind === 'chest'
                 ? {
@@ -458,6 +460,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     outcome,
                     replayed: false,
                     exploreReceiptAt: exploredAt,
+                    contractEffectVersion: 1 as const,
                     ...(petMissRequestId ? { petMissRequestId } : {}),
                 },
             };
@@ -514,10 +517,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // that already paid. A replay does not tick, so a retried request
             // cannot inflate progress.
             await deliverWorldEffect(playerName, { kind: 'intel', requestId, village: pool.village, sector: scoutedSector }, { owner: pool.frame?.owner });
-            // Sector Contracts ride the same receipt for the same reason: the
-            // server watched this explore land, so contract progress is never a
-            // client tally.
-            await deliverWorldEffect(playerName, { kind: 'contract', requestId, sector: scoutedSector });
+        }
+        // New receipt generations can redeliver after an outbox write fails or
+        // a process stops between the save commit and delivery. Older receipts
+        // lack deduplication proof, so replaying those must not mint a new tick.
+        if (!result.value.replayed || result.value.contractEffectVersion === 1) {
+            const scoutedSector = Math.floor(Number((result.value.reward as Record<string, unknown>)?.sector ?? body.sector));
+            await deliverWorldEffect(playerName, { kind: 'contract', requestId, sector: scoutedSector,
+                at: Math.floor(Number(result.value.exploreReceiptAt) || Date.now()) });
         }
         let authority = durable;
         try {
@@ -535,6 +542,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ? { petMissRequestId: result.value.petMissRequestId }
                         : {}),
                     at: Math.floor(Number(result.value.exploreReceiptAt) || Date.now()),
+                    ...(result.value.contractEffectVersion === 1 ? { contractEffectVersion: 1 as const } : {}),
                 } satisfies WorldExploreAuthorityReceipt;
                 authority = await storeWorldExploreAuthority(authority);
             }
