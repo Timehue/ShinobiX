@@ -11,8 +11,10 @@
  */
 export const WARFRONT_TPS = 30;
 /** One court definition for movement, sight, cover and both renderers.
- * Planted islands and stone terraces block movement and sight. Mist stays
- * traversable; the centre passage and routes around each island stay open. */
+ * Planted islands and stone terraces block sight, and no pet stops on one.
+ * Islands block movement outright; a terrace's corner walls leave a lane a pet
+ * can run straight through along its row, so rows 0, 2 and 4 all cross the board.
+ * Mist stays traversable. */
 export const WARFRONT_TERRAIN = [
     { kind: "pillar", col: 3, row: 1 }, { kind: "pillar", col: 3, row: 3 },
     { kind: "cover", col: 2, row: 0 }, { kind: "cover", col: 4, row: 4 },

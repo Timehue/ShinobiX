@@ -11,7 +11,7 @@ const clash = (element: Pet["element"], chaseSpeed = 90) => runPetSquadDuelCinem
     [pet("screen", "None", "defender", "tank"), pet("ranger", element)],
     [{ ...pet("wind", "Wind", "defender", "tank"), speed: chaseSpeed }, { ...pet("water", "Water", "defender", "tank"), speed: chaseSpeed }],
     // Stage the screen below the island and its ranged partner in the centre:
-    // both opposing matchups have a legal route around the solid terraces.
+    // both opposing matchups have a legal route across the board.
     20, false, false, true, [7, 4], [7, 5],
 );
 
@@ -19,9 +19,18 @@ test("elemental counters guide cross-cover without pulling the whole formation o
     const fire = clash("Fire"), earth = clash("Earth"), neutral = clash("None");
     const laterTargets = (result: typeof fire) => new Set(result.snapshots.filter(s => s.t > 240)
         .map(s => s.actors.find(a => a.id === "player-1")!.targetId));
-    assert.deepEqual(laterTargets(fire), new Set(["enemy-0"]), "Fire should keep cross-cover on Wind despite Water pressure");
+    const reach = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+        Math.max(Math.abs(a.x - b.x) / WARFRONT_CELL_X, Math.abs(a.y - b.y) / WARFRONT_CELL_Y);
+    // Water can now chase the ranger across the board. Fire may answer the pet
+    // beside it once Wind is out of reach, but never while Wind is still a shot.
+    const firstSwitch = fire.snapshots.find(s => s.t > 240 && s.actors.find(a => a.id === "player-1")!.targetId === "enemy-1")!;
+    assert.ok(firstSwitch, "exercise a real chase by Water");
+    assert.ok(reach(firstSwitch.actors.find(a => a.id === "player-1")!, firstSwitch.actors.find(a => a.id === "enemy-0")!) > 3,
+        "Fire should keep cross-cover on Wind despite Water pressure");
     assert.ok(laterTargets(earth).has("enemy-1"), "Earth should take the accessible Water matchup");
     const waterHits = (result: typeof fire) => result.events.filter(e => e.type === "hit" && e.actorId === "player-1" && e.targetId === "enemy-1").length;
+    const windHits = fire.events.filter(e => e.type === "hit" && e.actorId === "player-1" && e.targetId === "enemy-0").length;
+    assert.ok(windHits > waterHits(fire), "Fire must spend most of its shots on the matchup it counters");
     assert.ok(waterHits(earth) > waterHits(neutral), "Earth must favor Water more than the same neutral ranger, even when both react to pressure");
     const hits = fire.events.filter(e => e.type === "hit" && e.targetId === "enemy-0");
     assert.ok(hits.some(e => e.actorId === "player-0") && hits.some(e => e.actorId === "player-1"),

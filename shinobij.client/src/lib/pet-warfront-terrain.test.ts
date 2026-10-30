@@ -20,6 +20,11 @@ test("the server and both visual routes share the same tactical terrain", () => 
         reached.add(key); queue.push([c, r]);
     }
     assert.equal(reached.size, 35 - blocked.size, "solid terraces must leave every open cell and both deployment sides connected");
+    // Connected is not enough: with both terrace rows sealed, the centre cell was
+    // the only crossing and one pet standing on it split the board in two.
+    for (const { col, row } of WARFRONT_TERRAIN.filter(c => c.kind === "cover")) {
+        for (const side of [col - 1, col + 1]) assert.ok(!blocked.has(`${side},${row}`), `the lane through the ${col},${row} terrace must stay open`);
+    }
 });
 
 test("retained shrine meshes fit inside the terrain collision cells", () => {
