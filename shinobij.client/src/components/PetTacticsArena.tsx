@@ -96,6 +96,10 @@ export function PetTacticsArena({ playerName, character, sharedImages = {}, onEx
             }
             setQueued(queue.state === 'queued');
             if (queue.state !== 'idle' && queue.state !== 'queued') throw new Error('Finish your retained ranked result in the Pet Ladder before starting another match.');
+            // This poll only runs while queued, so `idle` means the server dropped
+            // the entry: one of the four companions became ineligible (stored,
+            // sent on an expedition). It used to vanish without a word.
+            if (action === 'queue-poll' && queue.state === 'idle') throw new Error('You are no longer in the ranked queue. One of your companions may be away or in storage. Choose four ready companions and queue again.');
             return null;
         }
         const next = await petTacticsRequest(action, { ...(live.current ? { roomId: live.current.roomId } : {}), ...payload });

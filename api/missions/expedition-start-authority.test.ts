@@ -119,6 +119,20 @@ test('concurrent starts for one pet commit one lease and consume one daily allow
     assert.deepEqual(await kv.keys(`pet-exp-token:${player}:*`), [`pet-exp-token:${player}:${String(success.body?.token)}`]);
 });
 
+test('a companion escorting a Sunscar caravan cannot be sent on an expedition', async () => {
+    const player = 'expeditioncaravanescort';
+    await seedPlayer(player, { allowance: 0, petLevel: 80 });
+    const save = (await kv.get<Record<string, unknown>>(`save:${player}`))!;
+    const character = save.character as Record<string, unknown>;
+    await kv.set(`save:${player}`, { ...save, character: { ...character, sunscarCaravan: { current: { selectedPetId: 'pet-1' } } } });
+
+    const out = await post(player, { petId: 'pet-1', expType: 'scout', launchId: '00000000-0000-4000-8000-000000000151' }, '127.0.0.15');
+    assert.equal(out.statusCode, 409, JSON.stringify(out.body));
+    assert.match(String(out.body?.error), /caravan/);
+    const after = (await kv.get<Record<string, unknown>>(`save:${player}`))!;
+    assert.equal(((after.character as Record<string, unknown>).pets as Array<Record<string, unknown>>)[0].expedition, undefined);
+});
+
 test('lost-response retry with the same launchId returns the exact launch without another write or charge', async () => {
     const player = 'expeditionlostresponse';
     await seedPlayer(player, { allowance: 7, petLevel: 80 });

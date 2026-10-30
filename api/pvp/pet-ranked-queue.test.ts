@@ -84,6 +84,31 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
         assert.match(source, /action === 'join' \|\| arena.state !== 'idle'/);
     });
 
+    it('holds new joins while the ranked season pauses admissions, like the player queue', async () => {
+        const name = 'petrankedpaused';
+        const out: { status: number; body?: Record<string, unknown> } = { status: 200 };
+        const res = {
+            setHeader: () => res,
+            status: (status: number) => { out.status = status; return res; },
+            json: (body: Record<string, unknown>) => { out.body = body; return res; },
+            end: () => res,
+        };
+        const { SEASON_CURRENT_KEY, SEASON_ADMISSIONS_PAUSED_KEY } = await import('../cron/_ranked-season.js');
+        await kv.set(`save:${name}`, { character: { name, level: 40 } });
+        await kv.set(SEASON_CURRENT_KEY, { id: 7 });
+        await kv.set(SEASON_ADMISSIONS_PAUSED_KEY, 7);
+        try {
+            await queueHandler({ method: 'POST', body: { action: 'join', name,
+                petIds: ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'] }, headers: {
+                'content-type': 'application/json', 'x-player-token': issuePlayerToken(name) ?? '',
+            }, socket: { remoteAddress: '127.0.0.89' } } as never, res as never);
+        } finally {
+            await kv.del(SEASON_CURRENT_KEY, SEASON_ADMISSIONS_PAUSED_KEY);
+        }
+        assert.equal(out.status, 503, JSON.stringify(out.body));
+        assert.match(String(out.body?.error), /paused/);
+    });
+
     it('blocks level 10 from the live queue and admits level 11 past the level gate', async () => {
         const name = 'petrankedfloor';
         const post = async () => {

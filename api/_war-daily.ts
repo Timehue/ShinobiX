@@ -148,6 +148,38 @@ async function defaultIsAtWar(village: string): Promise<boolean> {
     return (await listActiveSectorWars()).some((c) => c.attackerVillage === village || c.defenderVillage === village);
 }
 
+/**
+ * DISABLE_VILLAGE_WAR stops the war, not the Village Stores (owner ruling
+ * 2026-10-29). The pass used to return before the stores, so donations kept
+ * filling them with no spoilage, and clan wars, which this switch does not
+ * stop, ate no rations. With the war off the village step runs frozen (no merc
+ * upkeep, no War Resource conversion, spoilage only), and every active clan war
+ * burns its rations as usual. Both steps are exactly-once per day on their own
+ * receipts, so the war-on pass the same day pays nothing twice.
+ */
+async function runStoresWithWarOff(deps: NonNullable<Parameters<typeof runVillageWarDailyPass>[0]>): Promise<VillageWarDailyResult> {
+    const off: VillageWarDailyResult = { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsSettled: 0, failed: [], complete: true };
+    if (!(deps.storesEnabled ?? villageStoresEnabled())) return off;
+    const store: WarStore = deps.store ?? kv;
+    const lock: LockRunner = deps.lock ?? ((key, fn) => withKvLock(key, fn, { failClosed: true }));
+    const now = deps.now ?? Date.now();
+    const today = utcDateString(now);
+    for (const village of WAR_VILLAGES) {
+        try {
+            await runVillageStoresStep({ village, today, now, wars: [], store, lock, notifyUnfed: deps.notifyUnfed, warFrozen: true });
+        } catch (err) {
+            console.error(`[village-war] stores step (war off) failed for ${village}:`, (err as Error).message);
+        }
+    }
+    try {
+        const wars = await (deps.listClanWars ?? (async () => loadAllClanWars() as Promise<ClanWarLike[]>))();
+        await runClanStoresDailyPass({ today, now, wars, warKeyOf: (w) => clanWarKey(w.clans[0], w.clans[1]), store, lock });
+    } catch (err) {
+        console.error('[village-war] clan stores pass (war off) failed:', (err as Error).message);
+    }
+    return off;
+}
+
 /** Run the daily pass across all villages. Default deps use the live kv + lock;
  *  tests inject an in-memory store + passthrough lock and `enabled: true`. */
 export async function runVillageWarDailyPass(
@@ -172,7 +204,7 @@ export async function runVillageWarDailyPass(
     } = {},
 ): Promise<VillageWarDailyResult> {
     const enabled = deps.enabled ?? villageWarMapEnabled();
-    if (!enabled) return { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsSettled: 0, failed: [], complete: true };
+    if (!enabled) return runStoresWithWarOff(deps);
 
     const store: WarStore = deps.store ?? kv;
     const lock: LockRunner = deps.lock ?? ((key, fn) => withKvLock(key, fn, { failClosed: true }));
