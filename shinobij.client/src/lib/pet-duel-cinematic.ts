@@ -4037,7 +4037,19 @@ const kageDuration = (unit: KageUnit, ticks: number) => Math.max(3, Math.round(t
 const kageKey = (col: number, row: number) => `${col},${row}`;
 const kageInside = (col: number, row: number) => col >= 0 && col < WARFRONT_GRID_COLS && row >= 0 && row < WARFRONT_GRID_ROWS;
 const kageWalkable = (col: number, row: number) => kageInside(col, row) && !KAGE_BLOCKED.has(kageKey(col, row));
-const kagePoint = (col: number, row: number): [number, number] => [
+/** A stone terrace is four corner walls around an open lane, so a pet may run
+ * straight through it along its row. The cell stays solid for sockets and sight:
+ * the run is one two-cell move that never stops inside. Without these runs each
+ * terrace seals its row, and a single cell joins the two halves of the board. */
+const KAGE_TERRACE_RUNS = new Map<string, Array<readonly [number, number]>>();
+for (const { col, row } of KAGE_SOLIDS.filter(cell => cell.kind === "cover")) {
+    for (const side of [-1, 1]) {
+        if (!kageWalkable(col - side, row) || !kageWalkable(col + side, row)) continue;
+        const key = kageKey(col - side, row);
+        KAGE_TERRACE_RUNS.set(key, [...(KAGE_TERRACE_RUNS.get(key) ?? []), [side * 2, 0]]);
+    }
+}
+const kagePoint =(col: number, row: number): [number, number] => [
     quant((col - (WARFRONT_GRID_COLS - 1) / 2) * WARFRONT_CELL_X),
     quant((row - (WARFRONT_GRID_ROWS - 1) / 2) * WARFRONT_CELL_Y),
 ];
@@ -4158,7 +4170,7 @@ const kageRouteStep = (
     for (let cursor = 0; cursor < queue.length; cursor++) {
         const [col, row] = queue[cursor];
         const key = kageKey(col, row);
-        for (const [dc, dr] of dirs) {
+        for (const [dc, dr] of [...dirs, ...(KAGE_TERRACE_RUNS.get(key) ?? [])]) {
             const nextCol = col + dc, nextRow = row + dr, nextKey = kageKey(nextCol, nextRow);
             if (key === startKey && avoidFirstKey === nextKey) continue;
             if (!kageWalkable(nextCol, nextRow) || occupied.has(nextKey) || parent.has(nextKey)) continue;
@@ -4168,7 +4180,7 @@ const kageRouteStep = (
                 || !kageWalkable(nextCol, row) || !kageWalkable(col, nextRow)) continue;
             if (forbidPile && createsVisualPile(nextCol, nextRow)) continue;
             parent.set(nextKey, key);
-            distance.set(nextKey, (distance.get(key) ?? 0) + 1);
+            distance.set(nextKey, (distance.get(key) ?? 0) + Math.max(Math.abs(dc), Math.abs(dr)));
             queue.push([nextCol, nextRow]);
         }
     }
@@ -4260,7 +4272,7 @@ const kageOpeningStep = (
     for (let cursor = 0; cursor < queue.length && !parent.has(goalKey); cursor++) {
         const [col, row] = queue[cursor];
         const key = kageKey(col, row);
-        for (const [dc, dr] of dirs) {
+        for (const [dc, dr] of [...dirs, ...(KAGE_TERRACE_RUNS.get(key) ?? [])]) {
             const nextCol = col + dc, nextRow = row + dr, nextKey = kageKey(nextCol, nextRow);
             if (key === startKey && nextKey === avoidFirstKey) continue;
             if (!kageWalkable(nextCol, nextRow) || occupied.has(nextKey) || parent.has(nextKey)) continue;
@@ -4954,7 +4966,9 @@ function kageFormationSim(
                 : undefined;
             // An immediate A→B→A reversal is not a plan. Seek any other legal
             // first step before allowing the previous cell as a last resort.
-            const openingSpacing = tick < KAGE_OPENING_SHAPE_TICKS;
+            // The opening spacing shapes a formation; it must not park a pet for
+            // the rest of the opening once every open socket risks a pile.
+            const openingSpacing = tick < KAGE_OPENING_SHAPE_TICKS && unit.quietTicks <= DUEL_TPS;
             const step = kageRouteStep(unit, target, occupiedCells, alive(), previousKey, openingSpacing)
                 ?? kageRouteStep(unit, target, occupiedCells, alive(), undefined, openingSpacing);
             if (step) moveUnit(unit, step[0], step[1], 8);
