@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { addClanContrib, clanContribForMonth } from './_clan-contrib-month.js';
+import { addClanContrib, clanContribForMonth, nextMissionTotal } from './_clan-contrib-month.js';
 import { markHuntCompletedFields, markMissionCompletedFields } from './missions/_mission-catalog.js';
 import { applyVillageWarMissionClaim } from './village/_war-mission.js';
 
@@ -28,6 +28,16 @@ describe('monthly clan contribution counters', () => {
         assert.deepEqual(addClanContrib({ clanMissionContrib: 7 }, 'clanMissionContrib', '2026-11'), {
             clanBattleContrib: 0, clanEventContrib: 0, clanMissionContrib: 1, clanContribMonth: '2026-11',
         });
+    });
+
+    it('folds an old save\'s clan-only mission history into the lifetime total before a month roll zeroes it', () => {
+        // The exam reads max(totalMissionsCompleted, clanMissionContrib); a legacy
+        // save kept its history only in the clan counter.
+        const legacy = { totalMissionsCompleted: 0, clanMissionContrib: 50, clanContribMonth: '2026-09' };
+        const fields = markMissionCompletedFields({ ...legacy }, '2026-11-01', '2026-11');
+        assert.equal(fields.clanMissionContrib, 1);
+        assert.equal(fields.totalMissionsCompleted, 51, 'exam progress survives the roll');
+        assert.equal(nextMissionTotal({ totalMissionsCompleted: 70, clanMissionContrib: 3 }), 71);
     });
 
     it('is what the daily mission, hunt and war mission claims apply', () => {

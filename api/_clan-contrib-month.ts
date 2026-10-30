@@ -45,3 +45,16 @@ export function addClanContrib(
 }
 
 export const currentClanContribMonth = (now = Date.now()) => new Date(now).toISOString().slice(0, 7);
+
+/**
+ * The lifetime mission count after one more completion. The exam and the
+ * mission gates read max(totalMissionsCompleted, clanMissionContrib)
+ * (api/exams/_pass.ts), because old saves kept their only mission history in
+ * clanMissionContrib. A month roll now zeroes that counter, so every mission
+ * writer folds it into the lifetime total first, or such a save would lose its
+ * exam progress on its first mission of a new month.
+ */
+export function nextMissionTotal(character: Record<string, unknown>): number {
+    const count = (value: unknown) => Math.max(0, Math.floor(Number(value) || 0));
+    return Math.max(count(character.totalMissionsCompleted), count(character.clanMissionContrib)) + 1;
+}
