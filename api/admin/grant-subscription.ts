@@ -3,6 +3,7 @@ import { cors, safeName } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { applyAdminSubscription } from '../_subscription.js';
+import { recordAudit } from '../_audit.js';
 
 /*
  * POST /api/admin/grant-subscription   (x-admin-password / x-admin-token)
@@ -37,6 +38,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const result = await applyAdminSubscription(playerName, active ? { active: true, days } : { active: false });
         if (!result) return res.status(404).json({ error: 'No server save found for that player.' });
+        // A comp grants paid perks for free, so it leaves the same audit trail
+        // as an item grant (grant-item.ts). Best-effort: recordAudit never throws.
+        await recordAudit({ domain: 'reward', actor: 'admin', action: active ? 'subscription.grant' : 'subscription.revoke', entityType: 'player', entityId: playerName, after: { active, ...(active ? { days } : {}) } });
         return res.status(200).json({ ok: true, ...result });
     } catch (err) {
         console.error('[admin/grant-subscription]', err);

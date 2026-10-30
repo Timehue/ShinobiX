@@ -6,6 +6,7 @@ import { defaultVillageWarRecord, villageWarKey, type VillageWarRecord } from '.
 import { sectorWarKey } from './_sector-war.js';
 import { clearMercSkipInRecord } from './_merc-auto.js';
 import { homeSectorsForVillage } from './_war-map-sectors.js';
+import { clanWarKey } from './clan/war/_storage.js';
 
 const NOW = Date.UTC(2026, 7, 22, 4, 0, 0);
 const TODAY = '2026-08-22';
@@ -31,6 +32,29 @@ const lock = <T>(_k: string, fn: () => Promise<T>) => fn();
 const war = (id: string, over: Record<string, unknown> = {}) => ({
     id, sector: 26, attackerVillage: MOON, defenderVillage: FROST, winCondition: 'combat',
     attackerPoints: 0, defenderPoints: 0, startedAt: NOW - 1000, endsAt: NOW + 1000, updatedAt: NOW, flipped: false, ...over,
+});
+
+describe('Village Stores with the war switched off (owner ruling 2026-10-29)', () => {
+    it('runs frozen: spoilage only, no merc upkeep, no War Resources, and clan wars still eat rations', async () => {
+        const store = memStore();
+        store.m.set(STATE, { treasury: { provisions: 100, materialPoints: 95 } });
+        store.m.set(WAR, { ...defaultVillageWarRecord(FROST), warResources: 10, mercLeases: [{ tierId: 'merc-ronin', player: 'hirer', expiresAt: NOW + 9999, count: 3 }] });
+        store.m.set('save:clan-azure', { name: 'Azure', treasury: { provisions: 100 } });
+        store.m.set('save:clan-ember', { name: 'Ember', treasury: { provisions: 100 } });
+        store.m.set(clanWarKey('Azure', 'Ember'), { id: 'azure-vs-ember', clans: ['Azure', 'Ember'] });
+        const r = await runVillageWarDailyPass({ store, lock, now: NOW, enabled: false, storesEnabled: true, notifyUnfed: async () => {},
+            listClanWars: async () => [{ id: 'azure-vs-ember', clans: ['Azure', 'Ember'] }] });
+        assert.equal(r.enabled, false);
+        assert.equal(store.m.has('war:daily-pass:done'), false, 'no done-marker: switching the war back on still runs its pass');
+        const state = store.m.get(STATE) as { treasury: Record<string, number> };
+        assert.equal(state.treasury.provisions, 95, 'spoilage only: no merc upkeep while mercs cannot act');
+        assert.equal(state.treasury.materialPoints, 95, 'the depot converts nothing');
+        const rec = store.m.get(WAR) as VillageWarRecord;
+        assert.equal(rec.warResources, 10, 'no War Resources minted');
+        assert.equal(rec.mercLeases[0].skipNextAutoDeploy, undefined, 'a frozen merc band is not marked unfed');
+        const azure = store.m.get('save:clan-azure') as { treasury: Record<string, number> };
+        assert.ok(azure.treasury.provisions < 100, 'a clan war, which this switch does not stop, still eats its rations');
+    });
 });
 
 describe('runVillageStoresStep (IO orchestration)', () => {

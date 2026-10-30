@@ -52,8 +52,10 @@ describe("Pet Home cross-layer integrity wiring", () => {
 
         for (const route of [transfer, breedingStart]) {
             assert.ok(route.includes("battle-lock:${playerName}"));
-            assert.ok(route.includes("petladder:coliseum:def:${playerName}"));
             assert.ok(route.includes("petladder:tactical:def:${playerName}"));
+            // The Colosseum ladder is retired (every POST answers 410), so its old
+            // defense docs can never be replaced and must not hold pets.
+            assert.ok(!route.includes("petladder:coliseum:def:"));
         }
         assert.ok(progress.includes("battle-lock:${playerName}"));
         assert.ok(progress.includes("petBusyReason(character, pet"));

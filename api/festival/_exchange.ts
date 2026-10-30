@@ -142,7 +142,8 @@ async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'esc
         if (leg === 'escrow') {
             if (await battleLockedFor(actor)) throw new ExchangeError('Finish your current battle before listing an asset.');
             if (listing.asset.kind === 'pet') {
-                const defenses = await Promise.all(['coliseum', 'tactical'].map(mode => kv.get<Obj>(`petladder:${mode}:def:${actor}`)));
+                // Warfront only: the retired Colosseum ladder's defense docs can never be replaced.
+                const defenses = [await kv.get<Obj>(`petladder:tactical:def:${actor}`)];
                 if (defenses.some(defense => objects(defense?.pets).some(p => p.id === listing.asset.id))) throw new ExchangeError('Remove this companion from your ladder defense before listing it.');
             }
             const sealed = sealAsset(await recoverExchangeDefinitions({ ...record, character }), catalogs!, listing.asset.kind, listing.asset.id);
@@ -454,7 +455,7 @@ export async function exchangeSnapshot(player: string, options: { market?: Excha
     // when nothing needed persisting, the committed one otherwise — so the
     // character, inventory, definitions and version can never disagree.
     const record = out.record;
-    const defenses = await Promise.all(['coliseum', 'tactical'].map(mode => kv.get<Obj>(`petladder:${mode}:def:${player}`)));
+    const defenses = [await kv.get<Obj>(`petladder:tactical:def:${player}`)];
     const defenseIds = new Set(defenses.flatMap(defense => objects(defense?.pets).map(p => String(p.id))));
     const market = options.market
         ? { market: await exchangeMarketPage(player, options.market) }

@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
-import { activeBreedingParentIds } from '../pet/_pet-busy.js';
+import { activeBreedingParentIds, festivalAssignedPetIds, petBusyMessage } from '../pet/_pet-busy.js';
 import { activeCarriedPetIds, PET_CAP_SUB } from '../_entitlements.js';
 import { removePetItem } from '../pet/_progress.js';
 import { currentPetHappiness } from '../pet/_happiness.js';
@@ -190,6 +190,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const requiredLevel = PET_EXPEDITION_ROUTES[expType].requiredLevel;
             if (realLevel < requiredLevel) return { ok: false as const, status: 409, error: `Pet must reach level ${requiredLevel} for ${PET_EXPEDITION_ROUTES[expType].label}.` };
             if (pet.training || pet.expedition) return { ok: false as const, status: 409, error: 'Pet is already busy.' };
+            // A Sunscar caravan seals its companion from the save, and a pet on
+            // an expedition is dropped from that seal, so the escort used to lose
+            // its companion mid-route. Release, breeding and storage already
+            // refuse a festival pet (_pet-busy.ts).
+            if (festivalAssignedPetIds(character).has(petId)) {
+                return { ok: false as const, status: 409, error: petBusyMessage('pet-is-at-festival') };
+            }
             // Gate on the happiness the pet ACTUALLY has, not the stored number:
             // happiness decays at every daily reset (shared/pet-happiness.ts), so a
             // pet stored at 7 that has missed a reset really holds 2 and must not

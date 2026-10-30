@@ -227,6 +227,12 @@ export async function runVillageStoresStep(args: {
     lock?: StoresLock;
     /** Override the herald / Kage notice (tests). Defaults to the live announce + inbox. */
     notifyUnfed?: (args: { village: string; war: StoresWarLike; kage: string; today: string; now: number }) => Promise<void>;
+    /**
+     * DISABLE_VILLAGE_WAR is on (api/_war-daily.ts war-off path). Mercenaries
+     * cannot act, so their bands neither eat rations nor count as unfed, and the
+     * Supply Depot converts nothing into War Resources. Spoilage still applies.
+     */
+    warFrozen?: boolean;
 }): Promise<VillageStoresStepResult> {
     const store: StoresStore = args.store ?? kv;
     const lock: StoresLock = args.lock ?? ((key, fn) => withKvLock(key, fn, { failClosed: true }));
@@ -282,12 +288,14 @@ export async function runVillageStoresStep(args: {
             if (burn > 0) ledger.push({ at: now, kind: 'home-loss', amount: burn, ref: `sector:${s}` });
         }
 
-        const live = activeMercLeases(record, now);
+        const live = args.warFrozen ? [] : activeMercLeases(record, now);
         const day = stepVillageStoresDay({
             provisions,
             materialPoints: stores.materialPoints,
             warResources: record.warResources,
-            wrPoolCap: WR_POOL_CAP,
+            // No War Resources are minted while the war is switched off: a zero
+            // pool cap leaves the depot no room, so no materials are converted.
+            wrPoolCap: args.warFrozen ? 0 : WR_POOL_CAP,
             depotLevel: effectiveLevel(record, 'supplyDepot'),
             // Legacy-tolerant: a pre-split row still carries the single trio.
             wars: myWars.map((w) => ({ id: w.id, garrisonFed: normalizeGarrisonFeed(w as unknown as Record<string, unknown>)?.[village]?.on === true })),
