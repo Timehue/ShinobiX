@@ -137,7 +137,7 @@ export function drawWarfrontElementTravel(
     context.lineCap = "round";
     context.lineJoin = "round";
     context.globalAlpha = 0.28 + strength * 0.62;
-    context.lineWidth = signature.shape === "fault" ? 3.2 : signature.shape === "bolt" ? 2.6 : 2.4;
+    context.lineWidth = signature.shape === "fault" ? 5 : signature.shape === "bolt" ? 4 : 3.8;
     context.beginPath();
     for (let step = 0; step <= 5; step++) {
         const p = tail + (progress - tail) * step / 5;
@@ -160,6 +160,7 @@ export function drawWarfrontElementTravel(
     const angle = Math.atan2(headY - before[1], headX - before[0]);
     context.translate(headX, headY);
     context.rotate(angle);
+    context.scale(1.4, 1.4);
     if (signature.shape === "bolt") {
         lightningForks(context, 7, seed);
     } else if (signature.shape === "impact") {

@@ -17,75 +17,23 @@ export type GpuParticleMode = "spray" | "embers" | "sparks" | "dust";
 
 const MODE_INDEX: Record<GpuParticleMode, number> = { spray: 0, embers: 1, sparks: 2, dust: 3 };
 
+// attribute vec4 aSeed; // angle, radiusFrac, speed, phase
+// Each particle loops its own sub-life inside the cloud's window.
+// SPRAY: ballistic — out and up, arcing down under gravity.
+// EMBERS: climb with wobble, drifting outward as they rise.
+// SPARKS: hard radial burst, dying fast.
+// DUST: low outward billow, hanging.
+// uSize is authored in screen-pixel territory. The old 240 multiplier
+// expanded an 8px mote into 100–300px translucent discs in normal battle
+// shots, so particles read as cheap bokeh bubbles and covered the move.
+// Keep perspective falloff, but bound every mote to a crisp support scale.
 const PARTICLE_VERTEX = /* glsl */ `
-uniform float uTime;
-uniform float uMode;
-uniform float uRadius;
-uniform float uHeight;
-uniform float uSize;
-attribute vec4 aSeed; // angle, radiusFrac, speed, phase
-varying float vLife;
-
-void main() {
-    float angle = aSeed.x;
-    float rFrac = aSeed.y;
-    float speed = aSeed.z;
-    float phase = aSeed.w;
-    // Each particle loops its own sub-life inside the cloud's window.
-    float life = fract(uTime * speed + phase);
-    vLife = life;
-    vec3 p = vec3(0.0);
-    if (uMode < 0.5) {
-        // SPRAY: ballistic — out and up, arcing down under gravity.
-        float d = uRadius * rFrac * life * 1.8;
-        p.x = cos(angle) * d;
-        p.z = sin(angle) * d;
-        p.y = 0.25 + uHeight * (life * (0.9 + rFrac * 0.8) - life * life * 1.25);
-    } else if (uMode < 1.5) {
-        // EMBERS: climb with wobble, drifting outward as they rise.
-        float rise = life * uHeight;
-        p.x = cos(angle) * uRadius * rFrac * (0.5 + life * 0.7) + sin(life * 11.0 + phase * 8.0) * 0.16;
-        p.z = sin(angle) * uRadius * rFrac * (0.5 + life * 0.7) + cos(life * 9.0 + phase * 7.0) * 0.16;
-        p.y = 0.15 + rise;
-    } else if (uMode < 2.5) {
-        // SPARKS: hard radial burst, dying fast.
-        float d = uRadius * (0.15 + life * 2.2) * (0.5 + rFrac);
-        p.x = cos(angle) * d;
-        p.z = sin(angle) * d;
-        p.y = 0.4 + sin(min(1.0, life) * 3.14159) * uHeight * rFrac * 0.8 - life * life * 0.9;
-    } else {
-        // DUST: low outward billow, hanging.
-        float d = uRadius * rFrac * (0.3 + life * 1.4);
-        p.x = cos(angle) * d;
-        p.z = sin(angle) * d;
-        p.y = 0.12 + sin(min(1.0, life) * 3.14159) * uHeight * (0.25 + rFrac * 0.5);
-    }
-    p.y = max(p.y, 0.05);
-    vec4 mv = modelViewMatrix * vec4(p, 1.0);
-    gl_Position = projectionMatrix * mv;
-    float sizeJitter = 0.55 + rFrac * 0.9;
-    // uSize is authored in screen-pixel territory. The old 240 multiplier
-    // expanded an 8px mote into 100–300px translucent discs in normal battle
-    // shots, so particles read as cheap bokeh bubbles and covered the move.
-    // Keep perspective falloff, but bound every mote to a crisp support scale.
-    gl_PointSize = clamp(uSize * sizeJitter * (18.0 / max(6.0, -mv.z)), 1.5, 12.0);
-}
+uniform float uTime;uniform float uMode;uniform float uRadius;uniform float uHeight;uniform float uSize;attribute vec4 aSeed;varying float vLife;void main(){float angle=aSeed.x;float rFrac=aSeed.y;float speed=aSeed.z;float phase=aSeed.w;float life=fract(uTime*speed+phase);vLife=life;vec3 p=vec3(0.);if(uMode<0.5){float d=uRadius*rFrac*life*1.8;p.x=cos(angle)*d;p.z=sin(angle)*d;p.y=0.25+uHeight*(life*(0.9+rFrac*0.8)-life*life*1.25);}else if(uMode<1.5){float rise=life*uHeight;p.x=cos(angle)*uRadius*rFrac*(0.5+life*0.7)+sin(life*11.+phase*8.)*0.16;p.z=sin(angle)*uRadius*rFrac*(0.5+life*0.7)+cos(life*9.+phase*7.)*0.16;p.y=0.15+rise;}else if(uMode<2.5){float d=uRadius*(0.15+life*2.2)*(0.5+rFrac);p.x=cos(angle)*d;p.z=sin(angle)*d;p.y=0.4+sin(min(1.,life)*3.14159)*uHeight*rFrac*0.8-life*life*0.9;}else{float d=uRadius*rFrac*(0.3+life*1.4);p.x=cos(angle)*d;p.z=sin(angle)*d;p.y=0.12+sin(min(1.,life)*3.14159)*uHeight*(0.25+rFrac*0.5);}p.y=max(p.y,0.05);vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;float sizeJitter=0.55+rFrac*0.9;gl_PointSize=clamp(uSize*sizeJitter*(18./max(6.,-mv.z)),1.5,12.);}
 `;
 
+// Bright young, fading out through the sub-life.
 const PARTICLE_FRAGMENT = /* glsl */ `
-uniform vec3 uTint;
-uniform float uOpacity;
-varying float vLife;
-
-void main() {
-    vec2 d = gl_PointCoord - vec2(0.5);
-    float r = length(d) * 2.0;
-    float dot = smoothstep(1.0, 0.15, r);
-    // Bright young, fading out through the sub-life.
-    float fade = (1.0 - smoothstep(0.55, 1.0, vLife));
-    gl_FragColor = vec4(uTint, dot * fade * uOpacity);
-    if (gl_FragColor.a < 0.01) discard;
-}
+uniform vec3 uTint;uniform float uOpacity;varying float vLife;void main(){vec2 d=gl_PointCoord-vec2(0.5);float r=length(d)*2.;float dot=smoothstep(1.,0.15,r);float fade=(1.-smoothstep(0.55,1.,vLife));gl_FragColor=vec4(uTint,dot*fade*uOpacity);if(gl_FragColor.a<0.01)discard;}
 `;
 
 function mulberry(seed: number): () => number {

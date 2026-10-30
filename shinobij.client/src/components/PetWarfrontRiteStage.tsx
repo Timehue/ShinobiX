@@ -1,7 +1,11 @@
 import { buildWarfrontActionTimeline, warfrontActionProgress } from "../lib/pet-warfront-action-vfx";
+import { buildWarfrontTechniqueTimeline } from "../lib/pet-warfront-techniques";
+import { WARFRONT_TERRAIN, WARFRONT_TERRAIN_SIGNATURE, warfrontTerrainPoint } from "../lib/pet-warfront-contract";
+import { drawWarfrontTerrain, WARFRONT_TERRAIN_ART } from "../lib/pet-warfront-terrain-canvas";
+import { drawWarfrontTechnique, warmWarfrontTechniqueArt, WARFRONT_TECHNIQUE_ART } from "../lib/pet-warfront-techniques-canvas";
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type ReactNode } from "react";
 import type { Pet } from "../types/pet";
-import { DUEL_TPS, type DuelObjectiveSnap, type DuelResult } from "../lib/pet-duel-sim";
+import { DUEL_TPS, type DuelResult } from "../lib/pet-duel-sim";
 import { WARFRONT_ARENA_X, WARFRONT_ARENA_Y } from "../lib/pet-duel-cinematic";
 import { petCombatModel } from "../lib/pet-3d-models";
 import {
@@ -36,6 +40,7 @@ import {
     sampleActorByIdInto,
     sampleActorInto,
     type ActorPose,
+    RITE_ACTOR_SCALE,
 } from "../lib/pet-warfront-rite-presentation";
 import { WARFRONT_PREFLIGHT_THRESHOLD_MS, WARFRONT_ROUTE_STORAGE_KEY, warfront3dQaCanaryRequested, warfrontShouldAttempt3d } from "../lib/pet-warfront-render-budget";
 import { warfrontStageRoute } from "../lib/pet-warfront-stage-fallback";
@@ -311,8 +316,6 @@ function drawCanvasActorHealthRail(
     return { x: left, y: top, width, height };
 }
 
-const ARENA_FLOOR_DECAL_ALPHA_CAP = 0.18;
-const ARENA_OBJECTIVE_DECAL_RADIUS_WORLD = 0.285;
 
 type CanvasArenaSubmissionMetrics = Readonly<{
     prototypeDressingDraws: number;
@@ -328,29 +331,10 @@ const EMPTY_CANVAS_ARENA_METRICS: CanvasArenaSubmissionMetrics = {
     floorDecalMaxRadiusPx: 0,
 };
 
-function sampleForbiddenScroll(result: DuelResult, tick: number): DuelObjectiveSnap | null {
-    if (!result.snapshots.length) return null;
-    const clamped = Math.max(0, Math.min(result.snapshots.length - 1, tick));
-    const index = Math.floor(clamped);
-    const mix = clamped - index;
-    const current = result.snapshots[index]?.objectives?.find((objective) => objective.id === "forbidden-scroll");
-    const next = result.snapshots[Math.min(index + 1, result.snapshots.length - 1)]?.objectives
-        ?.find((objective) => objective.id === "forbidden-scroll");
-    if (!current) return null;
-    if (!next || next.state !== current.state || next.carrierId !== current.carrierId) return current;
-    return {
-        ...current,
-        x: current.x + (next.x - current.x) * mix,
-        y: current.y + (next.y - current.y) * mix,
-        progress: current.progress + (next.progress - current.progress) * mix,
-    };
-}
-
 function drawArena(
     target: HTMLCanvasElement,
     width: number,
     height: number,
-    project: (x: number, z: number) => readonly [number, number],
 ): CanvasArenaSubmissionMetrics {
     const targetWidth = Math.max(1, Math.round(width));
     const targetHeight = Math.max(1, Math.round(height));
@@ -359,102 +343,8 @@ function drawArena(
     const context = target.getContext("2d")!;
     context.clearRect(0, 0, width, height);
 
-    // Keep the generated temple court visible. The Canvas2D stage owns only a
-    // calm, coordinate-true floor treatment and the legal blocker silhouettes.
-    // This also keeps first paint cheap: the static layer is rebuilt only when
-    // the viewport changes, never per combat frame.
-    const atmosphere = context.createLinearGradient(0, 0, 0, height);
-    atmosphere.addColorStop(0, "rgba(1, 5, 9, .2)");
-    atmosphere.addColorStop(0.24, "rgba(4, 10, 13, .02)");
-    atmosphere.addColorStop(0.78, "rgba(3, 8, 10, .04)");
-    atmosphere.addColorStop(1, "rgba(1, 4, 7, .3)");
-    context.fillStyle = atmosphere;
-    context.fillRect(0, 0, width, height);
-
-    // The generated court already supplies the stone. Keep the live tactical
-    // layer inside the same chamfered courtyard silhouette instead of laying a
-    // second opaque rectangle over it.
-    const courtPoints = [
-        project(-WARFRONT_ARENA_X * 0.82, -WARFRONT_ARENA_Y),
-        project(WARFRONT_ARENA_X * 0.82, -WARFRONT_ARENA_Y),
-        project(WARFRONT_ARENA_X, -WARFRONT_ARENA_Y * 0.78),
-        project(WARFRONT_ARENA_X, WARFRONT_ARENA_Y * 0.78),
-        project(WARFRONT_ARENA_X * 0.82, WARFRONT_ARENA_Y),
-        project(-WARFRONT_ARENA_X * 0.82, WARFRONT_ARENA_Y),
-        project(-WARFRONT_ARENA_X, WARFRONT_ARENA_Y * 0.78),
-        project(-WARFRONT_ARENA_X, -WARFRONT_ARENA_Y * 0.78),
-    ] as const;
-
-    const boardPath = () => {
-        context.beginPath();
-        context.moveTo(...courtPoints[0]);
-        for (let index = 1; index < courtPoints.length; index++) context.lineTo(...courtPoints[index]);
-        context.closePath();
-    };
-    const boardShade = context.createLinearGradient(courtPoints[0][0], courtPoints[0][1], courtPoints[4][0], courtPoints[4][1]);
-    boardShade.addColorStop(0, "rgba(19, 56, 63, .07)");
-    boardShade.addColorStop(0.5, "rgba(24, 26, 24, .025)");
-    boardShade.addColorStop(1, "rgba(68, 30, 26, .065)");
-    boardPath();
-    context.fillStyle = boardShade;
-    context.fill();
-
-    context.save();
-    boardPath();
-    context.clip();
-
-    const factionWash = context.createLinearGradient(courtPoints[7][0], 0, courtPoints[2][0], 0);
-    factionWash.addColorStop(0, "rgba(35, 169, 196, .045)");
-    factionWash.addColorStop(0.36, "rgba(16, 56, 64, .008)");
-    factionWash.addColorStop(0.64, "rgba(68, 30, 28, .008)");
-    factionWash.addColorStop(1, "rgba(190, 64, 52, .04)");
-    context.fillStyle = factionWash;
-    context.fillRect(0, 0, width, height);
-
-    // Three calm lane seams and tiny flush node studs preserve tactical
-    // orientation without rebuilding the floor as thirty-five raised tiles.
-    let floorDecalDraws = 0;
-    let floorDecalMaxRadiusPx = 0;
-    context.strokeStyle = "rgba(200, 171, 116, .12)";
-    context.lineWidth = Math.max(0.65, Math.min(width, height) / 1250);
-    for (const laneX of [-3.2, 0, 3.2] as const) {
-        const start = project(laneX, -WARFRONT_ARENA_Y * 0.88);
-        const end = project(laneX, WARFRONT_ARENA_Y * 0.88);
-        context.beginPath(); context.moveTo(...start); context.lineTo(...end); context.stroke();
-        floorDecalDraws++;
-    }
-    context.fillStyle = "rgba(213, 190, 143, .13)";
-    for (let row = 0; row < 5; row++) for (let column = 0; column < 7; column++) {
-        const node = project((column - 3) * 3.2, (row - 2) * 3);
-        const nodeRadius = Math.max(0.65, Math.min(width, height) * 0.00125);
-        context.beginPath(); context.ellipse(node[0], node[1], nodeRadius, nodeRadius * 0.62, 0, 0, Math.PI * 2); context.fill();
-        floorDecalDraws++;
-        floorDecalMaxRadiusPx = Math.max(floorDecalMaxRadiusPx, nodeRadius);
-    }
-    context.restore();
-
-    // Flush stone-and-bronze inlays trace the authored courtyard edge. They are
-    // deliberately hairline-thin: no second plinth and no neon perimeter rail.
-    boardPath();
-    context.strokeStyle = "rgba(8, 13, 14, .16)";
-    context.lineWidth = Math.max(2, Math.min(width, height) * 0.0035);
-    context.stroke();
-    floorDecalDraws++;
-    boardPath();
-    context.strokeStyle = "rgba(184, 143, 78, .18)";
-    context.lineWidth = Math.max(0.8, Math.min(width, height) * 0.0015);
-    context.stroke();
-    floorDecalDraws++;
-
-    // Collision remains authoritative simulation data. No live shoji, torii,
-    // pedestal, lantern, bottle or debris geometry is composited over the
-    // generated court in the lightweight route.
-    return {
-        prototypeDressingDraws: 0,
-        floorDecalDraws,
-        floorDecalMaxAlpha: ARENA_FLOOR_DECAL_ALPHA_CAP,
-        floorDecalMaxRadiusPx,
-    };
+    // The authored background is the floor; do not trace a second board over it.
+    return EMPTY_CANVAS_ARENA_METRICS;
 }
 
 function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSummonsComplete, result, fighters, clockRef, quality, reducedMotion, onReady, onLoadProgress, onRendererAvailability, onAssetFailure }: PetWarfrontRiteStageProps & Readonly<{ onAssetFailure: () => void }>) {
@@ -467,6 +357,9 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
     const [heroImpactSprite, setHeroImpactSprite] = useState<HTMLImageElement | null>(null);
     const [elementImpactAtlas, setElementImpactAtlas] = useState<HTMLImageElement | null>(null);
     const [sealImage, setSealImage] = useState<HTMLImageElement | null>(null);
+    const [techniqueImages, setTechniqueImages] = useState<ReadonlyMap<string, HTMLImageElement>>(new Map());
+    const [terrainImages, setTerrainImages] = useState<ReadonlyMap<string, HTMLImageElement>>(new Map());
+    const techniqueTimeline = useMemo(() => buildWarfrontTechniqueTimeline(result), [result]);
     const actionTimeline = useMemo(() => buildWarfrontActionTimeline(result, new Map(fighters.map((fighter) =>
         [`${fighter.team}-${fighter.lane}`, fighter.pet.element]))), [result, fighters]);
     const cues = useMemo(() => warfrontAttackCues(result.events), [result.events]);
@@ -526,12 +419,20 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             ? loadImpostorImage(url)
             : Promise.reject<HTMLImageElement>(new Error("Missing exact Warfront impostor")));
         const optionalImpactAtlas = loadImpostorImage(PET_ELEMENT_IMPACT_ATLAS_URL).catch(() => null);
-        void Promise.all([Promise.all(load), loadImpostorImage(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL), optionalImpactAtlas, loadImpostorImage('/items/beast-seal-reinforced.webp')]).then(([loaded, impactSprite, impactAtlas, seal]) => {
+        const optionalTechniqueArt = Promise.all(Object.entries(WARFRONT_TECHNIQUE_ART).map(async ([element, url]) => {
+            const image = await loadImpostorImage(url).catch(() => null);
+            if (image) await warmWarfrontTechniqueArt(image);
+            return image ? [element, image] as const : null;
+        }));
+        const terrainArt = Promise.all(Object.entries(WARFRONT_TERRAIN_ART).map(async ([kind, url]) => [kind, await loadImpostorImage(url)] as const));
+        void Promise.all([Promise.all(load), loadImpostorImage(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL), optionalImpactAtlas, loadImpostorImage('/items/beast-seal-reinforced.webp'), optionalTechniqueArt, terrainArt]).then(([loaded, impactSprite, impactAtlas, seal, techniqueArt, terrain]) => {
             if (active) {
                 setImages(loaded);
                 setHeroImpactSprite(impactSprite);
                 setElementImpactAtlas(impactAtlas);
                 setSealImage(seal);
+                setTechniqueImages(new Map(techniqueArt.filter(entry => entry !== null)));
+                setTerrainImages(new Map(terrain));
             }
         }).catch(() => {
             if (active) onAssetFailure();
@@ -689,101 +590,33 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             const focusVisualStrength = focusVisualPhase
                 ? Math.max(focusVisualPhase.tell * 0.42, focusVisualPhase.travel, focusVisualPhase.contact, focusVisualPhase.result * 0.82)
                 : 0;
-            // The HUD owns its own area; fit every deployment cell in the remaining stage.
+            // Camera and painted court share the full viewport, independent of HUD height.
             const portrait = cssHeight > cssWidth;
             const root = canvas.closest(".wfr-root") as HTMLElement | null;
             const topSafe = 0, bottomSafe = 0;
             const boardFrame = warfrontCanvasFrame(cssWidth, cssHeight, WARFRONT_ARENA_X, WARFRONT_ARENA_Y);
-            const viewCenterX = boardFrame.centerX, viewCenterY = boardFrame.centerY;
             const xScale = boardFrame.xScale, zScale = boardFrame.zScale;
             cameraState.x = 0;
             cameraState.z = 0;
             cameraState.zoom = 1;
             cameraState.initialized = true;
             cameraState.focusId = focusCue ? cueKey(focusCue) : "formation";
-            const project = (x: number, z: number) => [
-                viewCenterX + (x - cameraState.x) * xScale,
-                viewCenterY + (z - cameraState.z) * zScale,
-            ] as const;
+            const project = boardFrame.project;
             if (root) {
                 root.dataset.wfrCanvasCamera = "true";
                 root.style.setProperty("--wfr-camera-zoom", cameraState.zoom.toFixed(4));
-                root.style.setProperty("--wfr-camera-shift-x", `${(viewCenterX - cssWidth * 0.5 - cameraState.x * xScale).toFixed(2)}px`);
-                root.style.setProperty("--wfr-camera-shift-y", `${(viewCenterY - cssHeight * 0.5 - cameraState.z * zScale).toFixed(2)}px`);
+                root.style.setProperty("--wfr-camera-shift-x", "0px");
+                root.style.setProperty("--wfr-camera-shift-y", "0px");
             }
             const sizeKey = `${Math.round(cssWidth)}:${Math.round(cssHeight)}:${Math.round(cameraState.x * xScale)}:${Math.round(cameraState.z * zScale)}:${Math.round(cameraState.zoom * 100)}`;
             if (staticSize.current !== sizeKey && staticCanvasRef.current) {
-                staticArenaMetrics.current = drawArena(staticCanvasRef.current, cssWidth, cssHeight, project);
+                staticArenaMetrics.current = drawArena(staticCanvasRef.current, cssWidth, cssHeight);
                 staticSize.current = sizeKey;
             }
             context.save();
             context.beginPath();
             context.rect(0, topSafe, cssWidth, Math.max(1, cssHeight - topSafe - bottomSafe));
             context.clip();
-
-            // One compact scroll supplies objective identity. Its hairline
-            // state decal is floor-flush and the prop is painted before pets,
-            // so even a carrier always remains the foreground silhouette.
-            const scroll = sampleForbiddenScroll(result, tick) ?? {
-                x: 0,
-                y: 0,
-                state: "sealed" as const,
-                carrierId: null,
-                owner: null,
-            };
-            let objectiveFloorDecalDraws = 0;
-            let objectiveFloorDecalMaxAlpha: number;
-            let objectiveFloorDecalMaxRadiusPx: number;
-            let scrollPropDraws = 0;
-            {
-                const [objectiveX, objectiveY] = project(scroll.x, scroll.y);
-                const [objectiveRadiusX] = project(scroll.x + ARENA_OBJECTIVE_DECAL_RADIUS_WORLD, scroll.y);
-                const [, objectiveRadiusY] = project(scroll.x, scroll.y + ARENA_OBJECTIVE_DECAL_RADIUS_WORLD);
-                const radiusX = Math.abs(objectiveRadiusX - objectiveX);
-                const radiusY = Math.abs(objectiveRadiusY - objectiveY);
-                const objectiveTeam = scroll.carrierId?.startsWith("player-") ? "player"
-                    : scroll.carrierId?.startsWith("enemy-") ? "enemy"
-                        : scroll.owner;
-                const objectiveColor = objectiveTeam ? RITE_TEAM_COLOR[objectiveTeam] : "#d6b775";
-                const decalAlpha = Math.min(ARENA_FLOOR_DECAL_ALPHA_CAP,
-                    scroll.state === "dropped" ? 0.18 : scroll.state === "carried" ? 0.14 : 0.12);
-                context.save();
-                context.globalAlpha = decalAlpha;
-                context.strokeStyle = objectiveColor;
-                context.lineWidth = Math.max(0.65, Math.min(1, Math.min(cssWidth, cssHeight) * 0.0011));
-                context.beginPath();
-                context.ellipse(objectiveX, objectiveY + 1, radiusX, radiusY * 0.72, 0, 0, Math.PI * 2);
-                context.stroke();
-                context.restore();
-                objectiveFloorDecalDraws++;
-                objectiveFloorDecalMaxAlpha = decalAlpha;
-                objectiveFloorDecalMaxRadiusPx = Math.max(radiusX, radiusY);
-
-                const scrollWidth = Math.max(8, Math.min(16, Math.abs(project(scroll.x + 0.56, scroll.y)[0] - objectiveX)));
-                const scrollHeight = scrollWidth * 0.4;
-                context.save();
-                context.translate(objectiveX, objectiveY - 1);
-                context.rotate(Math.sin(tick * 0.025) * 0.04);
-                context.globalAlpha = scroll.state === "carried" ? 0.82 : 0.92;
-                context.fillStyle = "#d9c391";
-                context.fillRect(-scrollWidth * 0.38, -scrollHeight * 0.5, scrollWidth * 0.76, scrollHeight);
-                scrollPropDraws++;
-                context.strokeStyle = "rgba(67, 38, 24, .82)";
-                context.lineWidth = Math.max(0.6, scrollWidth * 0.055);
-                context.strokeRect(-scrollWidth * 0.38, -scrollHeight * 0.5, scrollWidth * 0.76, scrollHeight);
-                scrollPropDraws++;
-                context.fillStyle = "#503020";
-                for (const side of [-1, 1] as const) {
-                    context.beginPath();
-                    context.ellipse(side * scrollWidth * 0.43, 0, scrollWidth * 0.09, scrollHeight * 0.62, 0, 0, Math.PI * 2);
-                    context.fill();
-                    scrollPropDraws++;
-                }
-                context.fillStyle = objectiveColor;
-                context.fillRect(-scrollWidth * 0.035, -scrollHeight * 0.56, scrollWidth * 0.07, scrollHeight * 1.12);
-                scrollPropDraws++;
-                context.restore();
-            }
 
             let contacts = 0;
             let longestDistance = 0;
@@ -979,9 +812,26 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             let groundingFootprints = "";
             let petCardPhases = "";
             const authoritativeGroundingActorId = authoritativeGroundingActorAt(cues, tick);
-            ordered.sort((a, b) => a.pose.z - b.pose.z || a.fighter.lane - b.fighter.lane);
+            ordered.sort((a, b) => project(a.pose.x, a.pose.z)[1] - project(b.pose.x, b.pose.z)[1] || a.fighter.lane - b.fighter.lane);
+            const terrain = [...SOLID_TERRAIN].sort((a, b) => project(...warfrontTerrainPoint(a.col, a.row))[1] - project(...warfrontTerrainPoint(b.col, b.row))[1]);
+            let terrainIndex = 0;
+            const paintTerrain = (cell: typeof WARFRONT_TERRAIN[number]) => {
+                const image = terrainImages.get(cell.kind === "mist" ? "mist" : portrait ? "portrait" : "landscape");
+                if (image) drawWarfrontTerrain(context, cell, image, project, cssWidth, cssHeight);
+            };
+            for (const cell of WARFRONT_TERRAIN) if (cell.kind === "mist") paintTerrain(cell);
+            const grandTechniques = techniqueTimeline[Math.floor(tick)] ?? [];
+            for (const technique of grandTechniques) {
+                const image = techniqueImages.get(technique.element);
+                if (!image) continue;
+                const [x, y] = project(technique.x, technique.z);
+                drawWarfrontTechnique(context, technique, image, tick, x, y,
+                    RITE_ACTOR_SCALE * Math.max(54, Math.min(140, Math.min(cssWidth, cssHeight) * 0.22)), reducedMotion);
+            }
+            if (actionQaEnabled) canvas.dataset.riteGrandTechniques = grandTechniques.map(a => a.element).join(",");
             for (const actor of ordered) {
                 const { fighter, pose } = actor;
+                while (terrainIndex < terrain.length && project(...warfrontTerrainPoint(terrain[terrainIndex].col, terrain[terrainIndex].row))[1] <= project(pose.x, pose.z)[1]) paintTerrain(terrain[terrainIndex++]);
                 const id = `${fighter.team}-${fighter.lane}`;
                 if (pose.state !== actor.lastState || tick < actor.stateSince) { actor.lastState = pose.state; actor.stateSince = tick; }
                 const stateAge = Math.max(0, (pose.state === "dead" ? presentationTick : tick) - actor.stateSince);
@@ -1038,7 +888,7 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 const cardPose = fighter.team === 'player' ? petCardStatePose(actor.card) : { visible: true, scale: 1, lift: 0 };
                 const isFocusActor = focusCue?.actorId === id || focusCue?.targetId === id;
                 const focusScale = focusVisualStrength > 0.12 ? (isFocusActor ? 1.16 : 0.88) : 1;
-                const baseSize = Math.max(54, Math.min(portrait ? 128 : 140,
+                const baseSize = RITE_ACTOR_SCALE * Math.max(54, Math.min(portrait ? 128 : 140,
                     Math.min(cssWidth, cssHeight) * 0.22 * Math.min(1.22, Math.sqrt(cameraState.zoom)) * focusScale,
                 ));
                 const targetReaction = beat?.role === "target";
@@ -1051,7 +901,9 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 if (visualState === "idle" && alive) idleGroundingActors++;
                 if (!alive) deadGroundingActors++;
                 const deathVisibility = fighter.team !== 'player' && visualState === "dead" ? Math.max(0, 1 - Math.max(0, stateAge - 18) / 10) : 1;
-                const actorVisibility = (cardPose.visible ? deathVisibility : 0) * (focusVisualStrength > 0.18 && !isFocusActor ? 0.46 : 1);
+                // A featured hit may lead the eye, but teammates must remain
+                // solid enough to read the formation and the supporting fire.
+                const actorVisibility = (cardPose.visible ? deathVisibility : 0) * (focusVisualStrength > 0.18 && !isFocusActor ? 0.88 : 1);
 
                 // Natural contact AO: a compact, fully feathered falloff whose
                 // transparent edge reveals the authored wet slate. This is not
@@ -1258,7 +1110,10 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 }
             }
             // Local rails are painted after every body so the eight identities
-            // remain readable when mirrored pets cross. Contact/result VFX and
+            while (terrainIndex < terrain.length) paintTerrain(terrain[terrainIndex++]);
+            canvas.dataset.riteTerrain = WARFRONT_TERRAIN_SIGNATURE;
+            canvas.dataset.riteArena = "training-garden-v1";
+            // Local rails remain readable when mirrored pets cross. Contact/result VFX and
             // the existing hero damage callout may still layer above them.
             let actorLocalHpBars = 0;
             let actorLocalHpPlayerRails = 0;
@@ -1503,9 +1358,9 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             canvas.dataset.riteArenaPrototypeDressingMeshes = "0";
             canvas.dataset.riteArenaGlyphDebrisDraws = "0";
             canvas.dataset.riteArenaGlyphDebrisMeshes = "0";
-            canvas.dataset.riteArenaFloorDecalDraws = String(staticArenaMetrics.current.floorDecalDraws + objectiveFloorDecalDraws);
-            canvas.dataset.riteArenaFloorDecalMaxAlpha = Math.max(staticArenaMetrics.current.floorDecalMaxAlpha, objectiveFloorDecalMaxAlpha).toFixed(3);
-            canvas.dataset.riteArenaFloorDecalMaxRadiusPx = Math.max(staticArenaMetrics.current.floorDecalMaxRadiusPx, objectiveFloorDecalMaxRadiusPx).toFixed(3);
+            canvas.dataset.riteArenaFloorDecalDraws = String(staticArenaMetrics.current.floorDecalDraws);
+            canvas.dataset.riteArenaFloorDecalMaxAlpha = staticArenaMetrics.current.floorDecalMaxAlpha.toFixed(3);
+            canvas.dataset.riteArenaFloorDecalMaxRadiusPx = staticArenaMetrics.current.floorDecalMaxRadiusPx.toFixed(3);
             let actorsPresent = 0;
             let actorsInSafeViewport = 0;
             let minLivingActorPx = Number.POSITIVE_INFINITY;
@@ -1546,9 +1401,7 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             canvas.dataset.riteFacingFlips = String(ordered.reduce((sum, actor) => sum + actor.facingFlips, 0));
             canvas.dataset.riteHeroActorPresent = String(heroActorPresent);
             canvas.dataset.riteHeroTargetPresent = String(heroTargetPresent);
-            canvas.dataset.riteArenaFloorDecalMaxRadiusWorld = ARENA_OBJECTIVE_DECAL_RADIUS_WORLD.toFixed(3);
-            canvas.dataset.riteArenaScrollPropDraws = String(scrollPropDraws);
-            canvas.dataset.riteArenaScrollPropMeshes = "0";
+            canvas.dataset.riteArenaFloorDecalMaxRadiusWorld = "0";
             canvas.dataset.riteArenaActorLightMode = "position-aware-multiply-mask";
             canvas.dataset.riteArenaActorLightOverlays = String(submittedArenaLightOverlays);
             canvas.dataset.riteArenaActorLightMaxAlpha = submittedArenaLightMaxAlpha.toFixed(3);
@@ -1705,7 +1558,7 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
                 root.style.removeProperty("--wfr-camera-shift-y");
             }
         };
-    }, [actionTimeline, paused, recalling, entrancePlaying, onSummonsComplete, clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result, sealImage]);
+    }, [actionTimeline, techniqueTimeline, techniqueImages, terrainImages, paused, recalling, entrancePlaying, onSummonsComplete, clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result, sealImage]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -1800,8 +1653,6 @@ function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSum
             riteArenaFloorDecalMaxAlpha: "0",
             riteArenaFloorDecalMaxRadiusPx: "0",
             riteArenaFloorDecalMaxRadiusWorld: "0",
-            riteArenaScrollPropDraws: "0",
-            riteArenaScrollPropMeshes: "0",
             riteArenaActorLightMode: "position-aware-multiply-mask",
             riteArenaActorLightOverlays: "0",
             riteArenaActorLightMaxAlpha: "0",
@@ -1991,3 +1842,5 @@ export function PetWarfrontRiteStage(props: PetWarfrontRiteStageProps) {
     const WebGlStage = module.PetWarfrontRiteStage3D;
     return <WarfrontRenderBoundary key="webgl" onFail={handleWebGlFailure}><WebGlStage {...props} onReady={handleReady} onGraphicsFailure={handleWebGlFailure} /></WarfrontRenderBoundary>;
 }
+
+const SOLID_TERRAIN = WARFRONT_TERRAIN.filter(cell => cell.kind !== "mist").sort((a, b) => a.row - b.row);

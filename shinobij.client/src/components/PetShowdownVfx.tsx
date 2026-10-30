@@ -218,6 +218,8 @@ export interface SetPieceSpawn {
     to: readonly [number, number, number];
     startedAt: number;
     durationMs: number;
+    /** Optional replay-owned clock. Colosseum retains its wall-clock default. */
+    progress?: () => number;
     /** Signature cast: the element stages its SUPER choreography — the bigger
      *  multi-layer sequence under the letterbox — instead of the heavy piece. */
     superCast?: boolean;

@@ -2,6 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { DuelEvent } from "./pet-duel-sim";
 import type { WarfrontAttackCue } from "./pet-warfront-attack-causality";
+
+test("windup sound inherits the actor's element without moving the impact cue", () => {
+    const plan = buildWarfrontAudioPlan([
+        { t: 10, type: "windup", side: "player", actorId: "player-0", targetId: "enemy-0" },
+        { t: 25, type: "hit", side: "player", actorId: "player-0", targetId: "enemy-0", element: "Fire" },
+    ]);
+    assert.equal(plan[0].element, "Fire");
+    assert.equal(plan[0].sfx, WARFRONT_ELEMENT_SIGNATURES.Fire.audioTell);
+    assert.equal(plan[1].tick, 25);
+    assert.equal(plan[1].phase, "contact");
+});
 import {
     WARFRONT_ELEMENT_SIGNATURES,
     WARFRONT_AUDIO_MIN_GAP_TICKS,

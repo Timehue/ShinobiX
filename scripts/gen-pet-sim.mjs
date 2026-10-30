@@ -96,6 +96,7 @@ write("pet-duel-sim.ts", "lib/pet-duel-sim.ts", sim);
 //    import set is IDENTICAL to pet-duel-sim's (pet-types / pet-arena-walkmask /
 //    pet-coliseum-flag / pet-config) plus pet-duel-sim, so no new siblings needed.
 let cine = read("lib/pet-duel-cinematic.ts")
+    .replace(/from "\.\/pet-warfront-contract"/g, 'from "./pet-warfront-contract.js"')
     .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
     .replace(/from "\.\/pet-arena-walkmask"/g, 'from "./pet-arena-walkmask.js"')
     .replace(/import \{ petAccuracyEnabled \} from "\.\/pet-coliseum-flag";/,
