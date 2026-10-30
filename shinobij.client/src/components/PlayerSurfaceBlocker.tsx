@@ -68,11 +68,11 @@ export function PlayerSurfaceBlocker({
             ) : (
                 <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}>
                     <section className="card" role="status" aria-live="polite" style={{ maxWidth: 620, padding: "1.4rem" }}>
-                        <h1 id="player-surface-blocker-title">ShinobiX is temporarily unavailable</h1>
+                        <h1 id="player-surface-blocker-title">Shinobi Journey is temporarily unavailable</h1>
                         <p>
                             The game is under maintenance, so actions are paused. Keep this screen open; you can resume when maintenance ends.
                         </p>
-                        <button type="button" autoFocus onClick={onOperatorRecovery}>Operator recovery</button>
+                        <button type="button" onClick={onOperatorRecovery}>Operator recovery</button>
                         <p style={{ marginBottom: 0 }}>
                             <a href="/terms">Terms</a>{" · "}<a href="/privacy">Privacy</a>
                         </p>

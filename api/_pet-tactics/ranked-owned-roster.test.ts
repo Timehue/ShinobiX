@@ -51,6 +51,21 @@ test('a queued companion sent on expedition cannot be matched from the stale que
     assert.equal((await rankedArenaQueue('alice', 'poll', {}, deps)).state, 'idle');
 });
 
+test('a player who keeps polling stays in the queue; only a tab that stopped polling is pruned', async () => {
+    const { deps, petIds } = harness();
+    let now = 1_900_000_000_000;
+    deps.now = () => now;
+    assert.equal((await rankedArenaQueue('alice', 'join', { petIds }, deps)).state, 'queued');
+    // On an empty server the entry used to be dropped three minutes after the
+    // JOIN, and the client then blamed the player's companions.
+    for (let minute = 2; minute <= 12; minute += 2) {
+        now = 1_900_000_000_000 + minute * 60_000;
+        assert.equal((await rankedArenaQueue('alice', 'poll', {}, deps)).state, 'queued', `still searching at minute ${minute}`);
+    }
+    now += 3 * 60_000 + 1;
+    assert.equal((await rankedArenaQueue('alice', 'poll', {}, deps)).state, 'idle', 'three silent minutes is an abandoned tab');
+});
+
 test('missing or foreign companions never create a ranked admission', async () => {
     const { rows, deps, petIds } = harness();
     await assert.rejects(() => rankedArenaQueue('alice', 'join', {}, deps), /four different companions/);

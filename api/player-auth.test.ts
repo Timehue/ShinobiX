@@ -315,6 +315,22 @@ describe('player auth hardening', () => {
             assert.notEqual((record as { guestResumeHash?: string }).guestResumeHash, resume);
         });
 
+        it('does not spend the guest budget on a name that is already taken', async () => {
+            // The fingerprint budget is 3 per hour. It used to be charged before
+            // the name was checked, so three popular names in a row locked a new
+            // player out of guest play for an hour with a bare "temporarily
+            // unavailable". Every request here shares the `none` fingerprint.
+            assert.equal((await post({ action: 'guest', name: 'Wanderer' })).statusCode, 200);
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+                const taken = await post({ action: 'guest', name: 'Wanderer' });
+                assert.equal(taken.statusCode, 409, `attempt ${attempt + 1} on a taken name`);
+                assert.equal(taken.body?.error, 'That account name is already taken.');
+            }
+            const fresh = await post({ action: 'guest', name: 'Pilgrim' });
+            assert.equal(fresh.statusCode, 200, 'a second real guest still fits in the budget');
+            assert.equal(fresh.body?.name, 'pilgrim');
+        });
+
         it('remains resumable when optional legacy-index publication fails', async () => {
             beforeStoreSet = (key) => {
                 if (!key.startsWith('guest-resume:')) return;

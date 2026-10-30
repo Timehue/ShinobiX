@@ -207,8 +207,13 @@ export type TowerSession = {
      * (F08). A row that predates the field lapses at lastActionAt + TTL.
      */
     expiresAt?: number;
-    /** Set only when the run was terminalized because it lapsed (F08): its expiry. */
+    /** Set only when the run was terminalized because it lapsed (F08): its expiry.
+     *  A voluntary forfeit (api/towers/_lapse.ts forfeitTowerRun) stamps it too,
+     *  with the forfeit's own clock, so the same receipt-idempotent consequences
+     *  retry until they all succeed. */
     lapsedAt?: number;
+    /** Set only when a solo run's owner forfeited it on purpose. */
+    forfeitedAt?: number;
     /**
      * Wall-clock of the first write that saw the run terminal, stamped by the
      * store (writeSession, writeTowerPvpMatch) and never moved after. With

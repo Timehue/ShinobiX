@@ -10,6 +10,7 @@ import { isTowerActionType } from './_action-types.js';
 import { makeRng } from './_sim.js';
 import { isPublicTowerRun, isSpireRun, readSession, needsTowerLapseReconciliation, writeSession } from './_tower-store.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
+import { forfeitTowerRun } from './_lapse.js';
 import { autoPassAfkHumans, stampTurnClock } from './_tower-mp.js';
 import { recordClanBossContribution, snapshotContributionState } from '../clan-boss/_contribution.js';
 import { recordWorldBossContribution, snapshotWorldBossContribution } from '../world-boss-event/_contribution.js';
@@ -96,6 +97,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (peek && needsTowerLapseReconciliation(peek)) {
             const recovery = await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, identity.admin ? undefined : identity.name);
             if (recovery.error) return res.status(503).json({ error: 'Tower recovery is pending. Please retry.', errorCode: 'run-recovery-pending' });
+        }
+
+        // A solo Story/Spire run's owner may give it up. This is an owner
+        // command, not a turn action: it never reaches the engine, and it ends
+        // the run exactly as a lapse does (enemy win, nothing paid, the entry
+        // spent, HP as left, the account lease released), only now instead of
+        // thirty minutes later. Without it, leaving the view kept the lease and
+        // every other combat start answered "finish your Battle Towers run".
+        if (String(body.type ?? '') === 'forfeit') {
+            const current = await readSession(runId);
+            if (!current) return res.status(404).json({ error: 'Run not found.' });
+            const forfeiter = identity.admin ? playerName : identity.name;
+            if (!identity.admin && !towerBattleLeaseMembers(current).includes(forfeiter)) {
+                return res.status(403).json({ error: 'Not a member of this run.' });
+            }
+            const result = await forfeitTowerRun(runId, forfeiter);
+            if (!result.ok) {
+                // A 503 means the run is already terminal and its consequences
+                // (HP settlement, lease release) are still owed; every later
+                // read of the run retries them, exactly like a lapse.
+                const after = result.status === 503 ? await readSession(runId) : null;
+                const session = after ?? current;
+                return res.status(result.status).json({
+                    applied: false,
+                    reason: result.status === 503 ? 'run-recovery-pending' : 'cannot-forfeit',
+                    error: result.error,
+                    ...(result.status === 503 ? { errorCode: 'run-recovery-pending' } : {}),
+                    session,
+                    currentVersion: towerActionVersion(session),
+                });
+            }
+            const session = result.session ?? current;
+            if (!result.transitioned) {
+                return res.status(200).json({ applied: false, reason: 'session-done', session, currentVersion: towerActionVersion(session) });
+            }
+            publishTowerSessionKick(session, 'action');
+            return res.status(200).json({ applied: true, replayed: false, session, currentVersion: towerActionVersion(session) });
         }
         const outcome = await withTowerSessionMutation(runId, async (): Promise<{ status: number; body: unknown }> => {
             const session = await readSession(runId);

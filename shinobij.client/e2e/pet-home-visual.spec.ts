@@ -888,7 +888,10 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     colosseum = readiness.locator('[data-circuit="colosseum"]');
     await expect(warfront).toContainText("Expedition results unclaimed");
     await expect(warfront.getByRole("button", { name: /Collect expedition results/ })).toBeDisabled();
-    await expect(colosseum.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
+    // The Colosseum follows the same server rule (api/pet/_showdown-readiness.ts):
+    // an expedition keeps the companion busy until its result is collected.
+    await expect(colosseum).toContainText("Expedition results unclaimed");
+    await expect(colosseum.getByRole("button", { name: /Expedition results unclaimed/ })).toBeDisabled();
 
     delete selectedPet.expedition;
     state.character.petBreeding = session("breeding");

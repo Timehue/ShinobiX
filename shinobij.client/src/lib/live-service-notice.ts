@@ -55,7 +55,7 @@ export function liveServiceNotice(
 ): LiveServiceNotice | null {
     if (capabilities.gameplay.state !== "available") {
         return {
-            title: "ShinobiX is temporarily unavailable",
+            title: "Shinobi Journey is temporarily unavailable",
             body: "The game is in maintenance. Your saved progress is safe; please try again shortly.",
             state: "temporarily-unavailable",
         };

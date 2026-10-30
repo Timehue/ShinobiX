@@ -69,7 +69,10 @@ describe("pet battle mode eligibility", () => {
         assert.equal(colosseumPetBusyReason(training, breedingPetIds, now), null);
         assert.equal(colosseumPetBusyReason(expedition, breedingPetIds, now), "expedition");
         assert.equal(colosseumPetBusyReason(completedTraining, breedingPetIds, now), null);
-        assert.equal(colosseumPetBusyReason(completedExpedition, breedingPetIds, now), null);
+        // The server (api/pet/_showdown-readiness.ts) refuses an uncollected
+        // expedition whether or not it has finished; offering the pet anyway
+        // only moved the refusal to the Start button.
+        assert.equal(colosseumPetBusyReason(completedExpedition, breedingPetIds, now), "expedition");
     });
 
     it("excludes every server-busy pet from Warfront counts and suggested squads", () => {
