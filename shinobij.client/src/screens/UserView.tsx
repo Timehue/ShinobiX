@@ -12,7 +12,7 @@
  */
 
 import { displayPlayerName } from "../../../shared/player-name";
-import { useState, useEffect, useRef, type CSSProperties } from "react";
+import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { ReportControl } from "../components/ReportControl";
 import "../styles/index/25-mobile-profile-tabs.css";
 import "../styles/profile-skin.css";
@@ -114,6 +114,15 @@ export function UserView({
         return () => { alive = false; };
     }, [legacyAvailable, viewedLegacyId]);
 
+    // ~140 predicates over the VIEWED player's character. That object comes from
+    // the roster/server lists, so its reference only changes when they refresh,
+    // while this screen re-renders every second with the viewer's idle regen.
+    // `isAchievementUnlocked` reads nothing but its two arguments.
+    const unlockedAchievements = useMemo(
+        () => viewedCharacter ? ACHIEVEMENTS.filter(a => isAchievementUnlocked(viewedCharacter, a)) : [],
+        [viewedCharacter],
+    );
+
     if (!viewedCharacter) {
         return (
             <div className="card profile-page-card">
@@ -160,8 +169,6 @@ export function UserView({
     const professionLabel = viewedCharacter.profession ? PROFESSION_LABEL[viewedCharacter.profession] : "";
     const professionArt = viewedCharacter.profession === "healer" ? "healer" : viewedCharacter.profession === "vanguard" ? "vanguard" : viewedCharacter.profession === "petTamer" ? "petTamer" : null;
     const pets = viewedCharacter.pets ?? [];
-    const achievementStates = ACHIEVEMENTS.map(a => ({ a, unlocked: isAchievementUnlocked(viewedCharacter, a) }));
-    const unlockedAchievements = achievementStates.filter(entry => entry.unlocked).map(entry => entry.a);
     const metrics: { label: string; value: string | number }[] = [
         { label: "Ranked Rating", value: viewedCharacter.rankedRating ?? 0 },
         { label: "PvP Kills", value: viewedCharacter.totalPvpKills ?? 0 },

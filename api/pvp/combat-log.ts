@@ -42,15 +42,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // battle receipt (present once the fight resolved, after the session TTL).
     let p1Name = '';
     let p2Name = '';
+    // The receipt read for access control, reused for the payload below when it
+    // found one (the reader turns failures into null, so only a hit is reused).
+    let accessReceipt: Awaited<ReturnType<typeof readBattleReceipt>> = null;
     const live = await kv.get<PvpSession>(`pvp:${battleId}`);
     if (live) {
         p1Name = String(live.p1?.name ?? '');
         p2Name = String(live.p2?.name ?? '');
     } else {
-        const battle = await readBattleReceipt(battleId);
-        if (battle) {
-            p1Name = String(battle.p1?.name ?? '');
-            p2Name = String(battle.p2?.name ?? '');
+        accessReceipt = await readBattleReceipt(battleId);
+        if (accessReceipt) {
+            p1Name = String(accessReceipt.p1?.name ?? '');
+            p2Name = String(accessReceipt.p2?.name ?? '');
         }
     }
 
@@ -68,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Durable payload. `battle` is the resolved BattleReceipt when one exists so
     // the client can render the summary header (outcome, rounds, opponent)
     // without a second request; it is null while the fight is still live.
-    const battle = await readBattleReceipt(battleId);
+    const battle = accessReceipt ?? await readBattleReceipt(battleId);
     const all = await readActionReceipts(battleId);
 
     // 404 only when we have NEITHER a live session NOR any durable record —

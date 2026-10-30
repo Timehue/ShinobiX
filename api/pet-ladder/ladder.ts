@@ -98,11 +98,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const topRaw = Number(req.query.top);
         const limit = Number.isInteger(topRaw) && topRaw > 0 && topRaw <= 100 ? topRaw : MAX_LIST;
 
-        const order = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
+        // The viewer's four rows in one mget: a single snapshot, where four
+        // sequential gets could straddle a challenge (daily then order) or a
+        // defense save (def then order). mget filters expired rows the same way
+        // get does; it only skips get's lazy cleanup of them.
+        const [orderRaw, defRaw, usedRaw, notifyRaw] = me
+            ? await kv.mget(orderKey(mode), defKey(mode, me), dailyKey(mode, me, dayStamp()), notifyKey(me))
+            : [await kv.get<LadderEntry[]>(orderKey(mode)), null, null, null];
+        const order = (orderRaw as LadderEntry[] | null) ?? [];
         const myIdx = me ? order.findIndex((e) => e.slug === me) : -1;
-        const myDef = me ? await kv.get<DefenseDoc>(defKey(mode, me)) : null;
-        const usedToday = me ? Number((await kv.get<number>(dailyKey(mode, me, dayStamp()))) ?? 0) : 0;
-        const notifications = me ? ((await kv.get<LadderNotify[]>(notifyKey(me))) ?? []) : [];
+        const myDef = (defRaw as DefenseDoc | null) ?? null;
+        const usedToday = me ? Number((usedRaw as number | null) ?? 0) : 0;
+        const notifications = me ? ((notifyRaw as LadderNotify[] | null) ?? []) : [];
 
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({
