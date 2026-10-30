@@ -115,7 +115,7 @@ const FROZEN = {
         'worldAiChainWins', 'worldAiChainHeals', 'worldAiContextWins', 'worldAiPendingChain', 'worldAiPendingOutcome', 'serverHuntTrails', 'serverFieldMissionRuns', 'raidProgressionSettlements', 'serverFreeDungeonProbeReceipts',
         'createdAt', 'professionChosenAt', 'professionRespecUsed',
         // Village Stores daily cook/donate counters — non-combat bookkeeping.
-        'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
+        'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday', 'villageRareMeritDate', 'villageRareMeritToday',
     ],
     COMBAT_STRIP_TOPLEVEL_FIELDS: [
         'banditTollReceipts',
@@ -232,7 +232,7 @@ const FROZEN = {
         'endlessTowerRun', 'endlessTowerBestWave', 'totalEndlessTowerWins',
         'dailyTowerXp', 'dailyEndlessRuns', 'dailyEndlessDate', 'redeemedEndlessActions',
         // Village Stores daily cook/donate counters (api/village-stores/*).
-        'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
+        'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday', 'villageRareMeritDate', 'villageRareMeritToday',
         // Echoes of War campaign record (card-clash/ai-move echoes settle).
         'echoesOfWar', 'keeperPath', 'echoesWitnessChoices', 'eraJourneys',
         'riftFirstClears', 'riftQuestBossReceipt',

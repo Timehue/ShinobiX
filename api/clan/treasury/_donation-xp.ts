@@ -2,6 +2,31 @@ import { kv } from '../../_storage.js';
 import { SaveDebitRefusal } from '../../_save-debit-saga.js';
 import { inspectSettlementReceipt } from '../../_settlement-receipts.js';
 import { clanPointWeekKey } from '../../_clan-points.js';
+import type { StoresRouted } from '../../_treasury-stores-donate.js';
+import { npcUnitSaleValue, VILLAGE_PROVISIONS_MERIT_RYO_PER_ITEM } from '../../village/_donation-merit.js';
+
+/** Ryo per clan XP point on a donation. */
+export const CLAN_XP_RYO_PER_POINT = 35;
+export const TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
+
+/*
+ * Clan XP an item donation is worth before the budget, at the ryo rate. It was
+ * a flat 50 per call whatever the item, so forty junk items donated one at a
+ * time filled the whole weekly budget that 70,000 ryo fills, and a stack of
+ * forty rations sent at once earned the same 50 as one. Provisions now count as
+ * the village counts them (500 ryo each): they are eaten, never gifted back.
+ * A loose item counts at its NPC sale value but never above the old 50 a
+ * donation, because leadership can gift an item straight back untaxed, and a
+ * dear item must not fill a week's budget in one round trip. Territory scrolls
+ * keep their 20 each.
+ */
+export const CLAN_LOOSE_ITEM_XP_MAX = 50;
+export function clanItemDonationXp(itemId: string, count: number, routed: Pick<StoresRouted, 'store'> | null): number {
+    const n = Math.max(0, Math.floor(Number(count) || 0));
+    if (itemId === TERRITORY_CONTROL_SCROLL_ID) return n * 20;
+    if (routed?.store === 'provisions') return Math.floor(n * VILLAGE_PROVISIONS_MERIT_RYO_PER_ITEM / CLAN_XP_RYO_PER_POINT);
+    return Math.min(CLAN_LOOSE_ITEM_XP_MAX, Math.floor(n * npcUnitSaleValue(itemId) / CLAN_XP_RYO_PER_POINT));
+}
 
 export const CLAN_DONATION_XP_DAILY_CAP = 2_000;
 /**

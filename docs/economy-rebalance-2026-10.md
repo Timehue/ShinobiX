@@ -417,7 +417,8 @@ Raised by the 2026-10-22 tie-in audit, for the owner:
   predates the pass, and the win result says when it applied.
 - Mythic Seals have no source (standing ruling), but S-rank Awakening still shows a
   100-seal progress bar, the hidden "Hold 10 Mythic Seals" achievement cannot be
-  earned, and clan and village donate buttons still accept a seal.
+  earned. (The clan and village donate buttons no longer accept a seal: see the
+  2026-10-29 hall split in `shared/treasury-donation-split.ts`.)
 - Flat faucets this pass did not re-anchor to A(L): the world boss event (2,500), map
   control (100 per held sector a day), the pet arena and Rift quest completion. The Pet
   Gauntlet was re-anchored on 2026-10-23 (section 5).

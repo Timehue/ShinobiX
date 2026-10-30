@@ -82,7 +82,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'dailyEndlessDate', 'redeemedEndlessActions',
     // Village Stores daily cook/donate counters (api/village-stores/*).
     'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday',
-    'craftPointsDonatedToday',
+    'craftPointsDonatedToday', 'villageRareMeritDate', 'villageRareMeritToday',
     'sunscarExchangeReceipts',
     // Server array ledgers
     'redeemedTrainingTokens', 'redeemedJutsuTrainingActions', 'redeemedAiFightRewards',

@@ -405,6 +405,10 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('storesDonatedDate', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'UTC day of the donation counters'),
     f('rationsDonatedToday', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'rations donated today (cap 40)'),
     f('craftPointsDonatedToday', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'craft points donated today (cap 1,500)'),
+    // Seal and charm donation value counted toward Village Merit today
+    // (shared/treasury-donation-split.ts); written only by the village treasury donate.
+    f('villageRareMeritDate', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'UTC day of the seal/charm merit allowance'),
+    f('villageRareMeritToday', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'seal/charm ryo-value counted toward Village Merit today (cap 10,000)'),
 
     // ── Inventory, equipment, jutsu, pets ───────────────────────────────────
     f('inventory', 'character', 'server-clamped', 'inventory', ['combat-strip-char'], 'all modes conserve stored inventory + stack entitlement; net-new items require an authoritative endpoint'),
