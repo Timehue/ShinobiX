@@ -10,6 +10,16 @@
  * api/_pet-sim/ for the server.
  */
 export const WARFRONT_TPS = 30;
+/** One court definition for movement, sight, cover and both renderers.
+ * Planted islands and stone terraces block movement and sight. Mist stays
+ * traversable; the centre passage and routes around each island stay open. */
+export const WARFRONT_TERRAIN = [
+    { kind: "pillar", col: 3, row: 1 }, { kind: "pillar", col: 3, row: 3 },
+    { kind: "cover", col: 2, row: 0 }, { kind: "cover", col: 4, row: 4 },
+    { kind: "mist", col: 2, row: 2 }, { kind: "mist", col: 4, row: 2 },
+] as const;
+export const WARFRONT_TERRAIN_SIGNATURE = WARFRONT_TERRAIN.map(cell => `${cell.kind}:${cell.col},${cell.row}`).join(";");
+export const warfrontTerrainPoint = (col: number, row: number): readonly [number, number] => [(col - 3) * 3.2, (row - 2) * 3];
 export const WF_MAX_SECONDS = 420;
 export const WF_PHASE_SKIRMISH = 60;
 export const WF_PHASE_WAR = 180;

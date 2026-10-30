@@ -1,3 +1,5 @@
+import { writeWarfrontHeroMetrics } from "../lib/pet-warfront-hero-telemetry";
+import { clearWarfrontMetrics, warfrontMetric } from "../lib/pet-warfront-telemetry";
 import { buildWarfrontActionTimeline, warfrontActionProgress } from "../lib/pet-warfront-action-vfx";
 /* eslint-disable react-hooks/immutability --
  * READ THIS BEFORE REMOVING.
@@ -43,10 +45,13 @@ import { Canvas, addAfterEffect, useFrame, useLoader, useThree } from "@react-th
 import * as THREE from "three";
 import type { Pet } from "../types/pet";
 import { PetModelBoundary } from "./PetModelBoundary";
+import { warfrontEnergyMaterial } from "../lib/warfront-energy-material";
+import { PetWarfrontTechniques3D } from "./PetWarfrontTechniques3D";
+import { PetWarfrontTerrain3D } from "./PetWarfrontTerrain3D";
 import { PetSummon3D } from "./PetSummon3D";
 import { usePetRecallController } from './PetSceneRecall';
 import type { PetCardPresence } from "../lib/pet-summon-presentation";
-import { DUEL_TPS, type DuelEvent, type DuelObjectiveId, type DuelObjectiveSnap, type DuelResult } from "../lib/pet-duel-sim";
+import { DUEL_TPS, type DuelEvent, type DuelResult } from "../lib/pet-duel-sim";
 import {
     WARFRONT_ARENA_X,
     WARFRONT_ARENA_Y,
@@ -56,8 +61,10 @@ import { cachedPetElementImpactGeometry, preparePetElementImpactTexture } from "
 import { PET_ELEMENT_IMPACT_ATLAS_URL, petElementImpactUvCell } from "../lib/pet-element-vfx";
 import { petHeroMoveAt, petHeroMoveStyle, petHeroMoveWindows, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import { warfrontCameraFrame } from "../lib/pet-warfront-camera";
+import { warfrontRigTrack, warfrontRigPhase, warfrontTravelFacing, createWarfrontWeight, stepWarfrontWeight, warfrontDeliveryAt } from "../lib/pet-warfront-rig-motion";
 import {
     RITE_TEAM_COLOR as TEAM_COLOR,
+    RITE_ACTOR_SCALE,
     RITE_WORLD_SCALE as WORLD_SCALE,
     allRiteFighterModelsReady,
     bucketEvents,
@@ -116,29 +123,16 @@ import {
 } from "../lib/pet-warfront-attack-causality";
 import {
     WARFRONT_HERO_AXIS_TAIL_PX,
-    WARFRONT_HERO_BURST_HOLD_TICKS,
-    WARFRONT_HERO_BURST_PX,
-    WARFRONT_HERO_CONTACT_LAYER_COUNT,
-    WARFRONT_HERO_CONTACT_TARGET_WIDTHS,
     WARFRONT_HERO_DAMAGE_HOLD_TICKS,
-    WARFRONT_HERO_FIRE_CONTACT_LAYERS,
     WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_X,
     WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_Y,
-    WARFRONT_HERO_FIRE_IMPACT_SPRITE_ASYMMETRY,
-    WARFRONT_HERO_FIRE_IMPACT_SPRITE_LEFT_RIGHT_REACH_RATIO,
     WARFRONT_HERO_FIRE_IMPACT_SPRITE_SOURCE_PX,
     WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL,
-    WARFRONT_HERO_FIRE_RESIDUE_LAYERS,
-    WARFRONT_HERO_FIRE_VFX_GRAMMAR,
     WARFRONT_HERO_FLARE_MIN_PX,
-    WARFRONT_HERO_IMPACT_HOLD_TICKS,
     WARFRONT_HERO_IMPACT_MIN_PX,
-    WARFRONT_HERO_RESIDUE_LAYER_COUNT,
     WARFRONT_HERO_TRAVEL_CORE_PX,
-    WARFRONT_HERO_TRAVEL_MIN_SPAN_FRACTION,
     WARFRONT_HERO_TRAVEL_PLUME_PX,
     WARFRONT_SPECTACLE_OVERLAP_CAP,
-    WARFRONT_SPECTACLE_RESULT_TICKS,
     createWarfrontSpectaclePhase,
     warfrontElementSignature,
     warfrontHeroAttackCue,
@@ -190,6 +184,8 @@ export type WarfrontRigFrame = {
     performanceVariant?: 0 | 1 | 2;
     entranceProgress?: number;
     timeline?: number;
+    contactPose?: boolean;
+    attackPhaseProgress?: number;
 };
 
 const DEFAULT_WARFRONT_RIG_FRAME: WarfrontRigFrame = Object.freeze({
@@ -700,6 +696,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
         if (!sourceConfig) onModelFail();
     }, [onModelFail, sourceConfig]);
     const fighterId = `${team}-${lane}`;
+    const rigTrack = useMemo(() => warfrontRigTrack(result, fighterId), [result, fighterId]);
     const facing = team === "player" ? 1 : -1;
     // Seed both the scene transform and model-performance ref from the same
     // authoritative snapshot. A cache-hot child may run before its parent's
@@ -726,6 +723,8 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
     const nextPoseSample = useRef(createActorPoseSample());
     const targetPoseSample = useRef(createActorPoseSample());
     const smoothedSpeed = useRef(0);
+    const weight = useRef(createWarfrontWeight());
+    const deliveries = useMemo(() => warfrontAttackCues(result.events).filter(c => c.actorId === fighterId && c.ranged), [result, fighterId]);
     const impactPower = useRef(0.58);
     const locomotionActive = useRef(false);
     const lastMoveFacing = useRef<{ x: number; z: number }>({ x: team === "player" ? 1 : -1, z: 0 });
@@ -750,14 +749,14 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
     );
     // Four active pets need a little negative space between adjacent cells. Keep
     // the shipped rigs heroic, but never let long tails erase formation reads.
-    const scale = sourceConfig ? Math.min(1.08, 1.95 / Math.max(0.1, sourceConfig.targetHeight)) : 0.94;
-    const height = sourceConfig ? sourceConfig.targetHeight * scale : 1.25;
+    const scale = RITE_ACTOR_SCALE * (sourceConfig ? Math.min(1.08, 1.95 / Math.max(0.1, sourceConfig.targetHeight)) : 0.94);
+    const height = sourceConfig ? sourceConfig.targetHeight * scale : 1.25 * RITE_ACTOR_SCALE;
     // Give React Three Fiber the authoritative committed pose immediately.
     // `useFrame` continues from this same tick-zero point, so even the first
     // painted frame cannot briefly stack all eight roots at world origin.
     const reportModelReady = useCallback(() => onModelReady(fighterId), [fighterId, onModelReady]);
 
-    useFrame((state, delta) => {
+    useFrame((state) => {
         const group = root.current;
         if (recallScene?.snapshot()) return;
         if (!group) return;
@@ -837,20 +836,19 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
             lastMoveFacing.current.x = vx / rawSpeed;
             lastMoveFacing.current.z = vz / rawSpeed;
         }
-        const speedResponse = 1 - Math.exp(-10 * Math.min(delta, 1 / 15));
+        const motionDelta = priorVisualTick < 0 || restarted ? 0 : Math.max(0, (t - priorVisualTick) / DUEL_TPS);
+        const speedResponse = 1 - Math.exp(-10 * Math.min(motionDelta, 1 / 15));
         smoothedSpeed.current = THREE.MathUtils.lerp(smoothedSpeed.current, rawSpeed, speedResponse);
         const speed = smoothedSpeed.current;
 
         let opponentFacingX = pose.faceX;
         let opponentFacingZ = pose.faceZ;
-        let hasLiveTarget = false;
         if (pose.targetId) {
             const targetPose = sampleActorByIdInto(result, pose.targetId, t, targetPoseSample.current);
             const dx = targetPose.x - pose.x;
             const dz = targetPose.z - pose.z;
             const length = Math.hypot(dx, dz);
             if (targetPose.hp > 0 && length > 0.02) {
-                hasLiveTarget = true;
                 opponentFacingX = dx / length;
                 opponentFacingZ = dz / length;
             }
@@ -862,6 +860,8 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
         else if (speed > 0.58) locomotionActive.current = true;
         else if (speed < 0.16) locomotionActive.current = false;
         const moving = !down && !committed && pose.state !== "stagger" && locomotionActive.current;
+        stepWarfrontWeight(weight.current, vx, vz, motionDelta, moving,
+            restarted || priorVisualTick < 0 || reducedMotion);
 
         let desiredFacingX = opponentFacingX;
         let desiredFacingZ = opponentFacingZ;
@@ -876,7 +876,8 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
         attackFacing.current.committed = committed;
         // Travel owns ordinary locomotion; the opponent owns anticipation,
         // contact, and recovery. Dead/staggered actors retain their last yaw.
-        if (moving && rawSpeed > 0.05 && !hasLiveTarget) {
+        const travelFacing = warfrontTravelFacing(moving, rawSpeed, pose.state);
+        if (travelFacing) {
             desiredFacingX = lastMoveFacing.current.x;
             desiredFacingZ = lastMoveFacing.current.z;
         }
@@ -906,14 +907,14 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
         f.moveZ = lastMoveFacing.current.z;
         f.faceX = rotationFrozen ? lastFacing.current.x : desiredFacingX;
         f.faceZ = rotationFrozen ? lastFacing.current.z : desiredFacingZ;
-        f.lockTargetFacing = hasLiveTarget || committed || !moving;
+        f.lockTargetFacing = !travelFacing;
         f.freezeFacing = rotationFrozen;
         f.turnRate = committed ? 16 : 12;
         f.maxTurnPerFrame = 18 * Math.PI / 180;
         const damageTaken = Math.max(0, previous - hpFrac);
-        f.hit = damageTaken > 0.0005 ? 1 : Math.max(0, f.hit * 0.86);
+        f.hit = damageTaken > 0.0005 ? 1 : f.hit * Math.exp(-9 * motionDelta);
         if (damageTaken > 0.0005) impactPower.current = THREE.MathUtils.clamp(0.84 + damageTaken * 4.2, 0.84, 1.24);
-        else if (pose.state !== "stagger") impactPower.current = THREE.MathUtils.lerp(impactPower.current, 0.58, 0.16);
+        else if (pose.state !== "stagger") impactPower.current = THREE.MathUtils.lerp(impactPower.current, 0.58, 1 - Math.exp(-10 * motionDelta));
         f.impactPower = pose.state === "strike" ? 1.04 : impactPower.current;
         f.casting = pose.state === "windup";
         f.desperate = !down && hpFrac * entryHp < 0.3;
@@ -926,6 +927,15 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
         // already advanced past the beat. A rewind resets the animation mixer.
         const previousTimeline = f.timeline ?? 0;
         f.timeline = riteRigTimeline(previousTimeline, heldContact ? heldContact.tick / DUEL_TPS : presentationTimeline, restarted);
+        f.contactPose = f.motion === "strike";
+        f.attackPhaseProgress = warfrontRigPhase(rigTrack, (f.timeline ?? 0) * DUEL_TPS, f.motion);
+        const delivery = !down && f.motion !== "stagger" ? warfrontDeliveryAt(deliveries, t) : null;
+        if (delivery) {
+            f.motion = delivery.motion;
+            f.attackPhaseProgress = delivery.progress;
+            f.casting = delivery.motion === "windup";
+            f.contactPose = false;
+        }
         if (performanceProbeRef.current) {
             // Drive every hydrated rig through the same worst-case authored
             // action-family churn. This is presentation-only and happens while
@@ -940,6 +950,8 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
             f.hit = stressPhase === 2 ? 1 : 0;
             f.lockTargetFacing = true;
             f.timeline = state.clock.elapsedTime;
+            f.contactPose = false;
+            f.attackPhaseProgress = undefined;
         }
         lastHp.current = hpFrac;
 
@@ -955,7 +967,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
             const bodyMotion = performanceProbeRef.current ? f.motion
                 : heldContact?.role === "target" ? "stagger"
                 : heldContact?.role === "attacker" ? "strike"
-                    : pose.state;
+                    : f.motion;
             let actionScaleXz = bodyMotion === "windup" ? 1.07
                 : bodyMotion === "strike" ? 0.94
                     : bodyMotion === "recover" ? 1.025
@@ -997,9 +1009,9 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
                 dampRiteBodyValue(body.current.scale.z, scaleXz, bodyDelta),
             );
             const directionalTilt = reaction.lunge * 0.12 + reaction.recoil * 0.24 + reaction.koExit * 0.58;
-            const pitch = activeContact ? activeContact.directionZ * directionalTilt : 0;
+            const pitch = activeContact ? activeContact.directionZ * directionalTilt : weight.current.pitch;
             const roll = activeContact ? -activeContact.directionX * directionalTilt
-                : bodyMotion === "stagger" ? (team === "player" ? -0.11 : 0.11) : 0;
+                : bodyMotion === "stagger" ? (team === "player" ? -0.11 : 0.11) : weight.current.roll;
             body.current.rotation.x = dampRiteBodyValue(body.current.rotation.x, pitch * motionGain, bodyDelta);
             body.current.rotation.z = dampRiteBodyValue(body.current.rotation.z, roll * motionGain, bodyDelta);
             body.current.visible = fade < 0.995;
@@ -1082,7 +1094,7 @@ function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contact
     const bodyReactionScratch = useRef(createWarfrontBodyReactionPhase());
     const terminalTimeline = useRef<{ wall: number; baseTick: number } | null>(null);
     const cameraRight = useMemo(() => new THREE.Vector3(), []);
-    const height = config?.targetHeight ? Math.min(1.7, config.targetHeight * 1.08) : 1.5;
+    const height = RITE_ACTOR_SCALE * (config?.targetHeight ? Math.min(1.7, config.targetHeight * 1.08) : 1.5);
     const initialPose = useMemo(() => sampleActor(result, team, lane, 0), [lane, result, team]);
     const cardPresence = useRef<PetCardPresence>({ present: initialPose.hp > 0, timeline: 0 });
     const heroMoveWindows = useMemo(
@@ -1332,27 +1344,25 @@ function FighterReadabilityLayer({ result, fighters, cues, clockRef }: {
     }, []);
     const metrics = useMemo(() => fighters.map((fighter) => {
         const config = petCombatModel(fighter.pet);
-        const scale = config ? Math.min(1.08, 1.7 / Math.max(0.1, config.targetHeight)) : 0.94;
+        const scale = RITE_ACTOR_SCALE * (config ? Math.min(1.08, 1.7 / Math.max(0.1, config.targetHeight)) : 0.94);
         return {
-            height: config ? config.targetHeight * scale : 1.25,
+            height: config ? config.targetHeight * scale : 1.25 * RITE_ACTOR_SCALE,
             teamColor: TEAM_COLOR[fighter.team],
         };
     }), [fighters]);
 
     useEffect(() => {
-        canvas.dataset.riteGroundingPermanentPads = "0";
-        canvas.dataset.riteGroundingWideAuras = "0";
-        canvas.dataset.riteGroundingShadowMode = "feathered-ao";
-        canvas.dataset.riteGroundingActiveRings = "0";
-        canvas.dataset.riteGroundingMaxActiveRings = "0";
-        canvas.dataset.riteGroundingIdleActors = "0";
-        canvas.dataset.riteGroundingDeadActors = "0";
-        canvas.dataset.riteGroundingIdleRings = "0";
-        canvas.dataset.riteGroundingDeadRings = "0";
+        warfrontMetric(canvas, "GroundingPermanentPads", "0");
+        warfrontMetric(canvas, "GroundingWideAuras", "0");
+        warfrontMetric(canvas, "GroundingShadowMode", "feathered-ao");
+        warfrontMetric(canvas, "GroundingActiveRings", "0");
+        warfrontMetric(canvas, "GroundingMaxActiveRings", "0");
+        warfrontMetric(canvas, "GroundingIdleActors", "0");
+        warfrontMetric(canvas, "GroundingDeadActors", "0");
+        warfrontMetric(canvas, "GroundingIdleRings", "0");
+        warfrontMetric(canvas, "GroundingDeadRings", "0");
         return () => {
-            for (const key of "GroundingPermanentPads GroundingWideAuras GroundingShadowMode GroundingActiveRings GroundingMaxActiveRings GroundingIdleActors GroundingDeadActors GroundingIdleRings GroundingDeadRings GroundingSubmittedAoCount GroundingSubmittedAoMaxAlpha GroundingSubmittedAoMaxRadiusWorld GroundingSubmittedAoMaxRadiusPx GroundingSubmittedAoMaxRadiusRatio GroundingSubmittedRimCount GroundingSubmittedRimMaxAlpha GroundingSubmittedRimMaxRadiusWorld GroundingSubmittedPlanarImpactCount GroundingAuthoritativeActor GroundingFootprints".split(" ")) {
-                delete canvas.dataset[`rite${key}`];
-            }
+            clearWarfrontMetrics(canvas, /^riteGrounding(?!Qa)/);
             shadowAlphaMap.dispose();
         };
     }, [canvas, shadowAlphaMap]);
@@ -1463,24 +1473,24 @@ function FighterReadabilityLayer({ result, fighters, cues, clockRef }: {
             if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
         }
         maxActiveRings.current = Math.max(maxActiveRings.current, activeGroundingRings);
-        canvas.dataset.riteGroundingPermanentPads = "0";
-        canvas.dataset.riteGroundingActiveRings = String(activeGroundingRings);
-        canvas.dataset.riteGroundingMaxActiveRings = String(maxActiveRings.current);
-        canvas.dataset.riteGroundingIdleActors = String(idleGroundingActors);
-        canvas.dataset.riteGroundingDeadActors = String(deadGroundingActors);
-        canvas.dataset.riteGroundingIdleRings = String(idleGroundingRings);
-        canvas.dataset.riteGroundingDeadRings = String(deadGroundingRings);
-        canvas.dataset.riteGroundingSubmittedAoCount = String(submittedAoCount);
-        canvas.dataset.riteGroundingSubmittedAoMaxAlpha = submittedAoCount ? "0.420" : "0";
-        canvas.dataset.riteGroundingSubmittedAoMaxRadiusWorld = submittedAoMaxRadiusWorld.toFixed(4);
-        canvas.dataset.riteGroundingSubmittedAoMaxRadiusPx = submittedAoMaxRadiusPx.toFixed(3);
-        canvas.dataset.riteGroundingSubmittedAoMaxRadiusRatio = submittedAoMaxRadiusRatio.toFixed(3);
-        canvas.dataset.riteGroundingSubmittedRimCount = String(submittedRimCount);
-        canvas.dataset.riteGroundingSubmittedRimMaxAlpha = submittedRimCount ? "0.340" : "0";
-        canvas.dataset.riteGroundingSubmittedRimMaxRadiusWorld = submittedRimMaxRadiusWorld.toFixed(4);
-        canvas.dataset.riteGroundingSubmittedPlanarImpactCount = "0";
-        canvas.dataset.riteGroundingAuthoritativeActor = authoritativeGroundingActorId ?? "";
-        if (groundingQaEnabled) canvas.dataset.riteGroundingFootprints = groundingFootprints;
+        warfrontMetric(canvas, "GroundingPermanentPads", "0");
+        warfrontMetric(canvas, "GroundingActiveRings", activeGroundingRings);
+        warfrontMetric(canvas, "GroundingMaxActiveRings", maxActiveRings.current);
+        warfrontMetric(canvas, "GroundingIdleActors", idleGroundingActors);
+        warfrontMetric(canvas, "GroundingDeadActors", deadGroundingActors);
+        warfrontMetric(canvas, "GroundingIdleRings", idleGroundingRings);
+        warfrontMetric(canvas, "GroundingDeadRings", deadGroundingRings);
+        warfrontMetric(canvas, "GroundingSubmittedAoCount", submittedAoCount);
+        warfrontMetric(canvas, "GroundingSubmittedAoMaxAlpha", submittedAoCount ? "0.420" : "0");
+        warfrontMetric(canvas, "GroundingSubmittedAoMaxRadiusWorld", submittedAoMaxRadiusWorld.toFixed(4));
+        warfrontMetric(canvas, "GroundingSubmittedAoMaxRadiusPx", submittedAoMaxRadiusPx.toFixed(3));
+        warfrontMetric(canvas, "GroundingSubmittedAoMaxRadiusRatio", submittedAoMaxRadiusRatio.toFixed(3));
+        warfrontMetric(canvas, "GroundingSubmittedRimCount", submittedRimCount);
+        warfrontMetric(canvas, "GroundingSubmittedRimMaxAlpha", submittedRimCount ? "0.340" : "0");
+        warfrontMetric(canvas, "GroundingSubmittedRimMaxRadiusWorld", submittedRimMaxRadiusWorld.toFixed(4));
+        warfrontMetric(canvas, "GroundingSubmittedPlanarImpactCount", "0");
+        warfrontMetric(canvas, "GroundingAuthoritativeActor", authoritativeGroundingActorId ?? "");
+        if (groundingQaEnabled) warfrontMetric(canvas, "GroundingFootprints", groundingFootprints);
     });
 
     return (
@@ -1499,7 +1509,6 @@ function FighterReadabilityLayer({ result, fighters, cues, clockRef }: {
 
 const ATTACK_CAUSALITY_CAPACITY = WARFRONT_SPECTACLE_OVERLAP_CAP;
 const ATTACK_PARTICLES_PER_CUE = 4;
-const KAGE_SLATE_TEXTURE_URL = "/assets/warfront/kage-tactics-slate-v1.webp";
 
 // Begin the one route-specific network/decode warm as soon as the WebGL stage
 // chunk is requested. The live layer consumes this same useLoader cache entry.
@@ -1527,80 +1536,6 @@ function worldUnitsPerScreenPixel(
             / Math.max(1, pixelHeight);
     }
     return 1 / Math.max(1, pixelHeight);
-}
-
-function createHeroFireCrownShapes(): THREE.Shape[] {
-    const outer = new THREE.Shape();
-    outer.moveTo(-0.5, -0.38);
-    outer.bezierCurveTo(-0.51, -0.06, -0.48, 0.18, -0.32, 0.4);
-    outer.bezierCurveTo(-0.34, 0.08, -0.22, -0.04, -0.16, -0.15);
-    outer.bezierCurveTo(-0.19, 0.11, -0.1, 0.4, -0.01, 0.5);
-    outer.bezierCurveTo(0.08, 0.3, 0.06, 0.03, 0.13, -0.11);
-    outer.bezierCurveTo(0.18, 0.12, 0.31, 0.36, 0.38, 0.42);
-    outer.bezierCurveTo(0.36, 0.1, 0.52, -0.08, 0.5, -0.37);
-    outer.quadraticCurveTo(0, -0.5, -0.5, -0.38);
-    outer.closePath();
-    const sideLicks = [-0.39, 0.4].map((offset, index) => {
-        const lick = new THREE.Shape();
-        const lean = index === 0 ? -0.09 : 0.09;
-        lick.moveTo(offset - 0.09, -0.25);
-        lick.bezierCurveTo(offset - 0.13, -0.02, offset + lean - 0.04, 0.24, offset + lean, 0.34);
-        lick.bezierCurveTo(offset + lean + 0.07, 0.14, offset + 0.13, -0.04, offset + 0.09, -0.25);
-        lick.closePath();
-        return lick;
-    });
-    return [outer, ...sideLicks];
-}
-
-function createHeroFireBoltShapes(): THREE.Shape[] {
-    const bolt = new THREE.Shape();
-    bolt.moveTo(0.04, 0);
-    bolt.bezierCurveTo(-0.14, 0.5, -0.36, 0.31, -0.5, 0.2);
-    bolt.bezierCurveTo(-0.62, 0.34, -0.8, 0.18, -1, 0.055);
-    bolt.bezierCurveTo(-0.82, 0.015, -0.7, -0.08, -0.76, -0.18);
-    bolt.bezierCurveTo(-0.5, -0.13, -0.32, -0.28, -0.2, -0.16);
-    bolt.bezierCurveTo(-0.1, -0.11, -0.02, -0.09, 0.04, 0);
-    bolt.closePath();
-    const embers = [
-        [-0.28, -0.33, 0.035],
-        [-0.53, 0.35, 0.028],
-        [-0.78, -0.26, 0.022],
-    ].map(([x, y, radius]) => {
-        const ember = new THREE.Shape();
-        ember.moveTo(x + radius * 1.6, y);
-        ember.lineTo(x, y + radius);
-        ember.lineTo(x - radius * 1.4, y);
-        ember.lineTo(x, y - radius);
-        ember.closePath();
-        return ember;
-    });
-    return [bolt, ...embers];
-}
-
-function createHeroFireScorchShapes(): THREE.Shape[] {
-    const scorch = new THREE.Shape();
-    scorch.moveTo(-0.5, -0.04);
-    scorch.bezierCurveTo(-0.43, -0.24, -0.12, -0.31, 0.08, -0.24);
-    scorch.bezierCurveTo(0.28, -0.3, 0.46, -0.2, 0.5, -0.04);
-    scorch.bezierCurveTo(0.43, 0.18, 0.18, 0.28, -0.05, 0.22);
-    scorch.bezierCurveTo(-0.26, 0.3, -0.46, 0.18, -0.5, -0.04);
-    scorch.closePath();
-    const cinders = [
-        { x: 0.42, y: 0.21, size: 0.062 },
-        { x: 0.24, y: -0.27, size: 0.048 },
-        { x: -0.32, y: 0.24, size: 0.043 },
-        { x: -0.43, y: -0.18, size: 0.035 },
-        { x: 0.06, y: 0.31, size: 0.03 },
-    ].map(({ x, y, size }) => {
-        const cinder = new THREE.Shape();
-        cinder.moveTo(x + size, y);
-        cinder.lineTo(x, y + size * 0.55);
-        cinder.lineTo(x - size, y);
-        cinder.lineTo(x, y - size * 0.55);
-        cinder.closePath();
-        return cinder;
-    });
-    return [scorch, ...cinders];
 }
 
 const WARFRONT_THREE_HERO_RESIDUE_RENDER_ORDER = 3;
@@ -1687,11 +1622,12 @@ function HeroFireImpactTexturePreloader({ onReady }: { onReady: () => void }) {
 /** One authoritative visual sentence: attacker origin -> target streak ->
  * contact flash. Fixed pools carry overlapping cues, and all atlas cells share
  * one material, so AOE does not create a material/program per attack. */
-function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: {
+function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady, reducedMotion }: {
     result: DuelResult;
     cues: readonly WarfrontAttackCue[];
     clockRef: MutableRefObject<number>;
     heroImpactAssetReady: boolean;
+    reducedMotion: boolean;
 }) {
     const heroImpactTexture = useHeroFireImpactTexture();
     const rawElementImpactAtlas = useLoader(THREE.TextureLoader, PET_ELEMENT_IMPACT_ATLAS_URL);
@@ -1754,9 +1690,15 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
     const heroDamagePoint = useMemo(() => new THREE.Vector3(), []);
     const heroProjectedA = useMemo(() => new THREE.Vector3(), []);
     const heroProjectedB = useMemo(() => new THREE.Vector3(), []);
-    const heroFlareShapes = useMemo(() => createHeroFireCrownShapes(), []);
-    const heroBoltShapes = useMemo(() => createHeroFireBoltShapes(), []);
-    const heroScorchShapes = useMemo(() => createHeroFireScorchShapes(), []);
+    const heroFireMaterials = useMemo(() => [warfrontEnergyMaterial(0), warfrontEnergyMaterial(0)], []);
+    const heroFirePlanes = useMemo(() => [new THREE.PlaneGeometry(1, 1),
+        new THREE.PlaneGeometry(1, 1).rotateZ(Math.PI / 2).translate(-0.5, 0, 0)], []);
+    const heroResidueMaterial = useMemo(() => {
+        const material = warfrontEnergyMaterial(5);
+        material.color.set("#542d23");
+        return material;
+    }, []);
+    useEffect(() => () => { for (const resource of [...heroFireMaterials, ...heroFirePlanes, heroResidueMaterial]) resource.dispose(); }, [heroFireMaterials, heroFirePlanes, heroResidueMaterial]);
     const heroDamageValue = useMemo(() => {
         if (!heroCue) return 0;
         const before = sampleActorByIdInto(
@@ -1820,65 +1762,42 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
 
     useEffect(() => {
         if (!qaEnabled) return;
-        canvas.dataset.riteAttackCues = String(cues.length);
-        canvas.dataset.riteAttackStreakMs = String(ATTACK_STREAK_DURATION_MS);
-        canvas.dataset.riteContactHoldFrames = "2";
-        canvas.dataset.riteSpectacleGrammar = "elemental-v1";
-        canvas.dataset.riteSpectacleOverlapCap = String(WARFRONT_SPECTACLE_OVERLAP_CAP);
-        canvas.dataset.riteHeroElement = heroCue ? "Fire" : "";
-        canvas.dataset.riteHeroActor = heroCue?.actorId ?? "";
-        canvas.dataset.riteHeroTarget = heroCue?.targetId ?? "";
-        canvas.dataset.riteHeroTellTick = heroCue ? String(heroCue.tellTick) : "";
-        canvas.dataset.riteHeroContactTick = heroCue ? String(heroCue.contactTick) : "";
-        canvas.dataset.riteHeroVfxGrammar = heroCue ? WARFRONT_HERO_FIRE_VFX_GRAMMAR : "";
-        canvas.dataset.riteHeroFlareMinPx = heroCue ? String(WARFRONT_HERO_FLARE_MIN_PX) : "0";
-        canvas.dataset.riteHeroTravelCorePx = heroCue ? String(WARFRONT_HERO_TRAVEL_CORE_PX) : "0";
-        canvas.dataset.riteHeroTravelPlumePx = heroCue ? String(WARFRONT_HERO_TRAVEL_PLUME_PX) : "0";
-        canvas.dataset.riteHeroTravelMinSpanFraction = heroCue ? WARFRONT_HERO_TRAVEL_MIN_SPAN_FRACTION.toFixed(6) : "0";
-        canvas.dataset.riteHeroAxisTailPx = heroCue ? String(WARFRONT_HERO_AXIS_TAIL_PX) : "0";
-        canvas.dataset.riteHeroBurstPx = heroCue ? String(WARFRONT_HERO_BURST_PX) : "0";
-        canvas.dataset.riteHeroBurstHoldTicks = heroCue ? String(WARFRONT_HERO_BURST_HOLD_TICKS) : "0";
-        canvas.dataset.riteHeroImpactMinPx = heroCue ? String(WARFRONT_HERO_IMPACT_MIN_PX) : "0";
-        canvas.dataset.riteHeroImpactHoldTicks = heroCue ? String(WARFRONT_HERO_IMPACT_HOLD_TICKS) : "0";
-        canvas.dataset.riteHeroContactRenderer = heroCue ? "three" : "";
-        canvas.dataset.riteHeroContactLayer = heroCue ? "target-anchored-authored-sprite" : "";
-        canvas.dataset.riteHeroContactLayerCount = heroCue ? String(WARFRONT_HERO_CONTACT_LAYER_COUNT) : "0";
-        canvas.dataset.riteHeroContactLayers = heroCue ? WARFRONT_HERO_FIRE_CONTACT_LAYERS.join(",") : "";
-        canvas.dataset.riteHeroContactTargetWidths = heroCue ? String(WARFRONT_HERO_CONTACT_TARGET_WIDTHS) : "0";
-        canvas.dataset.riteHeroContactFrontHoldTicks = heroCue ? String(WARFRONT_HERO_BURST_HOLD_TICKS) : "0";
+        warfrontMetric(canvas, "AttackCues", cues.length);
+        warfrontMetric(canvas, "AttackStreakMs", ATTACK_STREAK_DURATION_MS);
+        warfrontMetric(canvas, "ContactHoldFrames", "2");
+        warfrontMetric(canvas, "SpectacleGrammar", "elemental-v1");
+        warfrontMetric(canvas, "SpectacleOverlapCap", WARFRONT_SPECTACLE_OVERLAP_CAP);
+        writeWarfrontHeroMetrics(canvas, heroCue);
+
+        warfrontMetric(canvas, "HeroContactRenderer", heroCue ? "three" : "");
+
         const heroImpactImage = heroImpactTexture.image as HTMLImageElement | undefined;
         const heroImpactSourceWidth = heroImpactImage?.naturalWidth ?? heroImpactImage?.width ?? 0;
         const heroImpactSourceHeight = heroImpactImage?.naturalHeight ?? heroImpactImage?.height ?? 0;
-        canvas.dataset.riteHeroImpactSpriteUrl = heroCue ? WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL : "";
-        canvas.dataset.riteHeroImpactSpriteLoaded = String(Boolean(heroCue)
+
+        warfrontMetric(canvas, "HeroImpactSpriteLoaded", Boolean(heroCue)
             && heroImpactAssetReady
             && heroImpactSourceWidth === WARFRONT_HERO_FIRE_IMPACT_SPRITE_SOURCE_PX
             && heroImpactSourceHeight === WARFRONT_HERO_FIRE_IMPACT_SPRITE_SOURCE_PX);
-        canvas.dataset.riteHeroImpactSpriteSourceWidth = String(heroImpactSourceWidth);
-        canvas.dataset.riteHeroImpactSpriteSourceHeight = String(heroImpactSourceHeight);
-        canvas.dataset.riteHeroImpactSpriteAnchor = `${WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_X.toFixed(6)},${WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_Y.toFixed(6)}`;
-        canvas.dataset.riteHeroImpactSpriteAsymmetry = WARFRONT_HERO_FIRE_IMPACT_SPRITE_ASYMMETRY;
-        canvas.dataset.riteHeroImpactSpriteLeftRightReachRatio = WARFRONT_HERO_FIRE_IMPACT_SPRITE_LEFT_RIGHT_REACH_RATIO.toFixed(3);
-        canvas.dataset.riteHeroImpactSpritePrewarmed = String(heroImpactAssetReady);
-        canvas.dataset.riteHeroImpactLegacyPrimitiveDraws = "0";
-        canvas.dataset.riteHeroContactTargetRenderOrder = String(WARFRONT_THREE_TARGET_SPRITE_RENDER_ORDER);
-        canvas.dataset.riteHeroContactDepthOffsetWorld = String(WARFRONT_THREE_HERO_CONTACT_DEPTH_OFFSET_WORLD);
-        canvas.dataset.riteHeroResidueLayer = heroCue ? "behind-target" : "";
-        canvas.dataset.riteHeroResidueTicks = heroCue ? String(WARFRONT_SPECTACLE_RESULT_TICKS) : "0";
-        canvas.dataset.riteHeroResidueLayerCount = heroCue ? String(WARFRONT_HERO_RESIDUE_LAYER_COUNT) : "0";
-        canvas.dataset.riteHeroResidueLayers = heroCue ? WARFRONT_HERO_FIRE_RESIDUE_LAYERS.join(",") : "";
-        canvas.dataset.riteHeroResidueRenderOrder = String(heroResidue.current?.renderOrder ?? -1);
+        warfrontMetric(canvas, "HeroImpactSpriteSourceWidth", heroImpactSourceWidth);
+        warfrontMetric(canvas, "HeroImpactSpriteSourceHeight", heroImpactSourceHeight);
+
+        warfrontMetric(canvas, "HeroImpactSpritePrewarmed", heroImpactAssetReady);
+
+        warfrontMetric(canvas, "HeroContactTargetRenderOrder", WARFRONT_THREE_TARGET_SPRITE_RENDER_ORDER);
+        warfrontMetric(canvas, "HeroContactDepthOffsetWorld", WARFRONT_THREE_HERO_CONTACT_DEPTH_OFFSET_WORLD);
+        warfrontMetric(canvas, "HeroResidueLayer", heroCue ? "behind-target" : "");
+
+        warfrontMetric(canvas, "HeroResidueRenderOrder", heroResidue.current?.renderOrder ?? -1);
         const residueMaterial = heroResidue.current?.material as THREE.MeshBasicMaterial | undefined;
-        canvas.dataset.riteHeroResidueDepthTest = String(residueMaterial?.depthTest === true);
-        canvas.dataset.riteHeroDamageFontPx = String(WARFRONT_THREE_HERO_DAMAGE_FONT_PX);
-        canvas.dataset.riteHeroDamageOutlinePx = String(WARFRONT_THREE_HERO_DAMAGE_OUTLINE_PX);
-        canvas.dataset.riteHeroDamageRenderOrder = String(heroDamage.current?.renderOrder ?? -1);
-        canvas.dataset.riteHeroDamageHoldTicks = String(WARFRONT_HERO_DAMAGE_HOLD_TICKS);
-        canvas.dataset.riteHeroDamageText = heroDamageText;
+        warfrontMetric(canvas, "HeroResidueDepthTest", residueMaterial?.depthTest === true);
+        warfrontMetric(canvas, "HeroDamageFontPx", WARFRONT_THREE_HERO_DAMAGE_FONT_PX);
+        warfrontMetric(canvas, "HeroDamageOutlinePx", WARFRONT_THREE_HERO_DAMAGE_OUTLINE_PX);
+        warfrontMetric(canvas, "HeroDamageRenderOrder", heroDamage.current?.renderOrder ?? -1);
+        warfrontMetric(canvas, "HeroDamageHoldTicks", WARFRONT_HERO_DAMAGE_HOLD_TICKS);
+        warfrontMetric(canvas, "HeroDamageText", heroDamageText);
         return () => {
-            for (const key of "AttackCues AttackStreakMs ContactHoldFrames AttackCausalityActive AttackContactsActive AttackCausalityMaxActive AttackLongestDistance AttackLongestEndpoints SpectacleGrammar SpectacleOverlapCap SpectacleTellActive SpectacleContactActive SpectacleResultActive SpectacleParticlesActive SpectacleParticlesMax SpectacleElementsSeen HeroElement HeroActor HeroTarget HeroTellTick HeroContactTick HeroVfxGrammar HeroShape HeroStage HeroOriginAnchor HeroTargetAnchor HeroCorridorLength HeroHpDelta HeroLocalHpVisible HeroTargetRecoil HeroFlareMinPx HeroTravelCorePx HeroTravelPlumePx HeroTravelMinSpanFraction HeroTravelSpanFraction HeroTravelAxis HeroAxisTailPx HeroAxisTailVisible HeroAxisTailStrength HeroAxisTailAxis ActorsPresent HeroActorPresent HeroTargetPresent HeroBurstPx HeroBurstHoldTicks HeroImpactMinPx HeroImpactHoldTicks HeroContactRenderer HeroContactLayer HeroContactLayerCount HeroContactLayers HeroContactTargetWidths HeroContactFrontHoldTicks HeroContactFrontActive HeroImpactSpriteUrl HeroImpactSpriteLoaded HeroImpactSpriteSourceWidth HeroImpactSpriteSourceHeight HeroImpactSpriteAnchor HeroImpactSpriteAsymmetry HeroImpactSpriteLeftRightReachRatio HeroImpactSpriteVisible HeroImpactSpriteDraws HeroImpactSpriteRotationRad HeroImpactSpriteAxis HeroImpactSpriteFootprintPx HeroImpactSpriteTargetWidthRatio HeroImpactSpritePrewarmed HeroImpactLegacyPrimitiveDraws HeroContactTargetRenderOrder HeroContactDepthOffsetWorld HeroResidueLayer HeroResidueTicks HeroResidueLayerCount HeroResidueLayers HeroResidueRenderOrder HeroResidueDepthTest HeroResidueSmokeRenderOrder HeroResidueSmokeDepthTest HeroResidueVisible HeroResidueSpanPx HeroResidueMaterialStrength HeroContactTargetWidthPx HeroContactSpanPx HeroContactTargetWidthRatio HeroDamageFontPx HeroDamageOutlinePx HeroDamageRenderOrder HeroDamageHoldTicks HeroDamageText HeroDamageVisible HeroFlareVisiblePx HeroTravelCoreVisiblePx HeroTravelPlumeVisiblePx HeroBurstVisiblePx HeroBurstHoldActive HeroImpactVisiblePx HeroImpactHoldActive".split(" ")) {
-                delete canvas.dataset[`rite${key}`];
-            }
+            clearWarfrontMetrics(canvas, /^rite(?:Attack|Spectacle|Hero|ContactHoldFrames$|ActorsPresent$)/);
         };
     }, [canvas, cues.length, heroCue, heroDamageText, heroImpactAssetReady, heroImpactTexture, qaEnabled]);
 
@@ -1898,6 +1817,10 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
             for (let index = 0; index < ATTACK_CAUSALITY_CAPACITY; index++) mesh.setMatrixAt(index, transform.matrix);
         }
         const tick = clockRef.current;
+        for (const node of [heroFlare.current, heroTravelPlume.current]) {
+            const material = node?.material as THREE.MeshBasicMaterial | undefined;
+            if (material) material.userData.replayTime.value = reducedMotion ? 0 : tick / DUEL_TPS;
+        }
         if (heroFlare.current) {
             heroFlare.current.visible = false;
             heroFlare.current.renderOrder = 7;
@@ -2407,64 +2330,65 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
                 heroActorPresent = heroActor.hp > 0 && heroActor.state !== "dead";
                 heroTargetPresent = heroTarget.hp > 0 && heroTarget.state !== "dead";
             }
-            canvas.dataset.riteActorsPresent = String(actorsPresent);
-            canvas.dataset.riteHeroActorPresent = String(heroActorPresent);
-            canvas.dataset.riteHeroTargetPresent = String(heroTargetPresent);
-            canvas.dataset.riteAttackCausalityActive = String(slot);
-            canvas.dataset.riteAttackContactsActive = String(contactCount);
-            canvas.dataset.riteAttackCausalityMaxActive = String(maxActive.current);
-            canvas.dataset.riteAttackLongestDistance = longestDistance.toFixed(3);
-            canvas.dataset.riteAttackLongestEndpoints = `${longestOx.toFixed(2)},${longestOz.toFixed(2)}>${longestTx.toFixed(2)},${longestTz.toFixed(2)}`;
-            canvas.dataset.riteSpectacleTellActive = String(tellCount);
-            canvas.dataset.riteSpectacleContactActive = String(contactCount);
-            canvas.dataset.riteSpectacleResultActive = String(resultCount);
-            canvas.dataset.riteSpectacleParticlesActive = String(particleCount);
-            canvas.dataset.riteSpectacleParticlesMax = String(maxParticles.current);
-            canvas.dataset.riteSpectacleElementsSeen = [...elementsSeen.current].sort().join(",");
-            canvas.dataset.riteHeroStage = heroStageName;
-            canvas.dataset.riteHeroShape = heroCue ? warfrontHeroFireShape(heroStageName) : "";
-            canvas.dataset.riteHeroOriginAnchor = heroOriginAnchor;
-            canvas.dataset.riteHeroTargetAnchor = heroTargetAnchor;
-            canvas.dataset.riteHeroCorridorLength = heroCorridorLength.toFixed(2);
-            canvas.dataset.riteHeroHpDelta = heroHpDelta.toFixed(2);
-            canvas.dataset.riteHeroLocalHpVisible = String(heroLocalHpVisible);
-            canvas.dataset.riteHeroTargetRecoil = heroTargetRecoil.toFixed(3);
-            canvas.dataset.riteHeroFlareVisiblePx = heroFlareVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroTravelCoreVisiblePx = heroTravelCoreVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroTravelPlumeVisiblePx = heroTravelPlumeVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroTravelSpanFraction = heroTravelSpanFraction.toFixed(6);
-            canvas.dataset.riteHeroTravelAxis = heroCue ? `${heroTravelAxisX.toFixed(6)},${heroTravelAxisY.toFixed(6)}` : "";
-            canvas.dataset.riteHeroAxisTailVisible = String(heroAxisTailVisible);
-            canvas.dataset.riteHeroAxisTailStrength = heroAxisTailStrength.toFixed(3);
-            canvas.dataset.riteHeroAxisTailAxis = heroAxisTailAxis;
-            canvas.dataset.riteHeroBurstVisiblePx = heroBurstVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroBurstHoldActive = String(heroBurstHoldActive);
-            canvas.dataset.riteHeroImpactVisiblePx = heroImpactVisiblePx.toFixed(1);
-            canvas.dataset.riteHeroImpactHoldActive = String(heroImpactHoldActive);
-            canvas.dataset.riteHeroContactFrontActive = String(heroContactFrontActive);
-            canvas.dataset.riteHeroContactTargetWidthPx = heroContactTargetWidthPx.toFixed(1);
-            canvas.dataset.riteHeroContactSpanPx = heroContactSpanPx.toFixed(1);
-            canvas.dataset.riteHeroContactTargetWidthRatio = heroContactTargetWidthPx > 0
+            warfrontMetric(canvas, "ActorsPresent", actorsPresent);
+            warfrontMetric(canvas, "HeroActorPresent", heroActorPresent);
+            warfrontMetric(canvas, "HeroTargetPresent", heroTargetPresent);
+            warfrontMetric(canvas, "AttackCausalityActive", slot);
+            warfrontMetric(canvas, "AttackContactsActive", contactCount);
+            warfrontMetric(canvas, "AttackCausalityMaxActive", maxActive.current);
+            warfrontMetric(canvas, "AttackLongestDistance", longestDistance.toFixed(3));
+            warfrontMetric(canvas, "AttackLongestEndpoints", `${longestOx.toFixed(2)},${longestOz.toFixed(2)}>${longestTx.toFixed(2)},${longestTz.toFixed(2)}`);
+            warfrontMetric(canvas, "SpectacleTellActive", tellCount);
+            warfrontMetric(canvas, "SpectacleContactActive", contactCount);
+            warfrontMetric(canvas, "SpectacleResultActive", resultCount);
+            warfrontMetric(canvas, "SpectacleParticlesActive", particleCount);
+            warfrontMetric(canvas, "SpectacleParticlesMax", maxParticles.current);
+            warfrontMetric(canvas, "SpectacleElementsSeen", [...elementsSeen.current].sort().join(","));
+            warfrontMetric(canvas, "HeroStage", heroStageName);
+            warfrontMetric(canvas, "HeroShape", heroCue ? warfrontHeroFireShape(heroStageName) : "");
+            warfrontMetric(canvas, "HeroOriginAnchor", heroOriginAnchor);
+            warfrontMetric(canvas, "HeroTargetAnchor", heroTargetAnchor);
+            warfrontMetric(canvas, "HeroCorridorLength", heroCorridorLength.toFixed(2));
+            warfrontMetric(canvas, "HeroHpDelta", heroHpDelta.toFixed(2));
+            warfrontMetric(canvas, "HeroLocalHpVisible", heroLocalHpVisible);
+            warfrontMetric(canvas, "HeroTargetRecoil", heroTargetRecoil.toFixed(3));
+            warfrontMetric(canvas, "HeroFlareVisiblePx", heroFlareVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroTravelCoreVisiblePx", heroTravelCoreVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroTravelPlumeVisiblePx", heroTravelPlumeVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroTravelSpanFraction", heroTravelSpanFraction.toFixed(6));
+            warfrontMetric(canvas, "HeroTravelAxis", heroCue ? `${heroTravelAxisX.toFixed(6)},${heroTravelAxisY.toFixed(6)}` : "");
+
+            warfrontMetric(canvas, "HeroAxisTailVisible", heroAxisTailVisible);
+            warfrontMetric(canvas, "HeroAxisTailStrength", heroAxisTailStrength.toFixed(3));
+            warfrontMetric(canvas, "HeroAxisTailAxis", heroAxisTailAxis);
+            warfrontMetric(canvas, "HeroBurstVisiblePx", heroBurstVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroBurstHoldActive", heroBurstHoldActive);
+            warfrontMetric(canvas, "HeroImpactVisiblePx", heroImpactVisiblePx.toFixed(1));
+            warfrontMetric(canvas, "HeroImpactHoldActive", heroImpactHoldActive);
+            warfrontMetric(canvas, "HeroContactFrontActive", heroContactFrontActive);
+            warfrontMetric(canvas, "HeroContactTargetWidthPx", heroContactTargetWidthPx.toFixed(1));
+            warfrontMetric(canvas, "HeroContactSpanPx", heroContactSpanPx.toFixed(1));
+            warfrontMetric(canvas, "HeroContactTargetWidthRatio", heroContactTargetWidthPx > 0
                 ? (heroContactSpanPx / heroContactTargetWidthPx).toFixed(3)
-                : "0";
-            canvas.dataset.riteHeroImpactSpriteVisible = String(heroImpactSpriteVisible);
-            canvas.dataset.riteHeroImpactSpriteDraws = String(heroImpactSpriteDraws);
-            canvas.dataset.riteHeroImpactSpriteRotationRad = heroImpactSpriteRotationRad.toFixed(6);
-            canvas.dataset.riteHeroImpactSpriteAxis = heroImpactSpriteAxis;
-            canvas.dataset.riteHeroImpactSpriteFootprintPx = heroImpactSpriteFootprintPx.toFixed(1);
-            canvas.dataset.riteHeroImpactSpriteTargetWidthRatio = heroContactTargetWidthPx > 0
+                : "0");
+            warfrontMetric(canvas, "HeroImpactSpriteVisible", heroImpactSpriteVisible);
+            warfrontMetric(canvas, "HeroImpactSpriteDraws", heroImpactSpriteDraws);
+            warfrontMetric(canvas, "HeroImpactSpriteRotationRad", heroImpactSpriteRotationRad.toFixed(6));
+            warfrontMetric(canvas, "HeroImpactSpriteAxis", heroImpactSpriteAxis);
+            warfrontMetric(canvas, "HeroImpactSpriteFootprintPx", heroImpactSpriteFootprintPx.toFixed(1));
+            warfrontMetric(canvas, "HeroImpactSpriteTargetWidthRatio", heroContactTargetWidthPx > 0
                 ? (heroImpactSpriteFootprintPx / heroContactTargetWidthPx).toFixed(3)
-                : "0";
-            canvas.dataset.riteHeroImpactLegacyPrimitiveDraws = "0";
+                : "0");
+
             const residueMaterial = heroResidue.current?.material as THREE.MeshBasicMaterial | undefined;
             const residueSmokeMaterial = heroFlare.current?.material as THREE.MeshBasicMaterial | undefined;
-            canvas.dataset.riteHeroResidueDepthTest = String(residueMaterial?.depthTest === true);
-            canvas.dataset.riteHeroResidueSmokeRenderOrder = String(heroFlare.current?.renderOrder ?? -1);
-            canvas.dataset.riteHeroResidueSmokeDepthTest = String(residueSmokeMaterial?.depthTest === true);
-            canvas.dataset.riteHeroResidueVisible = String(heroResidueVisible);
-            canvas.dataset.riteHeroResidueSpanPx = heroResidueSpanPx.toFixed(1);
-            canvas.dataset.riteHeroResidueMaterialStrength = heroResidueMaterialStrength.toFixed(3);
-            canvas.dataset.riteHeroDamageVisible = String(heroDamageVisible);
+            warfrontMetric(canvas, "HeroResidueDepthTest", residueMaterial?.depthTest === true);
+            warfrontMetric(canvas, "HeroResidueSmokeRenderOrder", heroFlare.current?.renderOrder ?? -1);
+            warfrontMetric(canvas, "HeroResidueSmokeDepthTest", residueSmokeMaterial?.depthTest === true);
+            warfrontMetric(canvas, "HeroResidueVisible", heroResidueVisible);
+            warfrontMetric(canvas, "HeroResidueSpanPx", heroResidueSpanPx.toFixed(1));
+            warfrontMetric(canvas, "HeroResidueMaterialStrength", heroResidueMaterialStrength.toFixed(3));
+            warfrontMetric(canvas, "HeroDamageVisible", heroDamageVisible);
         }
     });
 
@@ -2476,11 +2400,11 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
             </instancedMesh>
             <instancedMesh ref={tells} args={[undefined, undefined, ATTACK_CAUSALITY_CAPACITY]} frustumCulled={false} renderOrder={6}>
                 <torusGeometry args={[1, 0.075, 5, 24]} />
-                <meshBasicMaterial color="#fff" transparent opacity={0.7} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                <meshBasicMaterial color="#fff" transparent opacity={0.22} depthTest={true} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </instancedMesh>
             <instancedMesh ref={contacts} args={[undefined, undefined, ATTACK_CAUSALITY_CAPACITY]} frustumCulled={false} renderOrder={7}>
-                <octahedronGeometry args={[1, 0]} />
-                <meshBasicMaterial color="#fff" wireframe transparent opacity={0.78} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                <sphereGeometry args={[1, 12, 8]} />
+                <meshBasicMaterial color="#fff" transparent opacity={0.13} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </instancedMesh>
             {PET_ELEMENT_IMPACT_ELEMENTS.map((element) => {
                 const cell = petElementImpactUvCell(element);
@@ -2502,14 +2426,8 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
                 <tetrahedronGeometry args={[1, 0]} />
                 <meshBasicMaterial color="#fff" transparent opacity={0.68} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </instancedMesh>
-            <mesh ref={heroFlare} visible={false} frustumCulled={false} renderOrder={7}>
-                <shapeGeometry args={[heroFlareShapes, 12]} />
-                <meshBasicMaterial color="#ff6925" transparent opacity={0.9} side={THREE.DoubleSide} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
-            <mesh ref={heroTravelPlume} visible={false} frustumCulled={false} renderOrder={8}>
-                <shapeGeometry args={[heroBoltShapes, 12]} />
-                <meshBasicMaterial color="#ff7428" transparent opacity={0.9} side={THREE.DoubleSide} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
+            <mesh ref={heroFlare} visible={false} frustumCulled={false} renderOrder={7} geometry={heroFirePlanes[0]} material={heroFireMaterials[0]} />
+            <mesh ref={heroTravelPlume} visible={false} frustumCulled={false} renderOrder={8} geometry={heroFirePlanes[1]} material={heroFireMaterials[1]} />
             <mesh ref={heroTravelCore} visible={false} frustumCulled={false} renderOrder={9}>
                 <sphereGeometry args={[1, 8, 6]} />
                 <meshBasicMaterial color="#fff4ce" transparent opacity={0.98} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
@@ -2518,9 +2436,8 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
                 <planeGeometry args={[1, 1]} />
                 <meshBasicMaterial map={heroImpactTexture} color="#fff" transparent alphaTest={0.01} opacity={1} side={THREE.DoubleSide} depthTest={false} depthWrite={false} toneMapped={false} blending={THREE.NormalBlending} />
             </mesh>
-            <mesh ref={heroResidue} visible={false} frustumCulled={false} renderOrder={WARFRONT_THREE_HERO_RESIDUE_RENDER_ORDER}>
-                <shapeGeometry args={[heroScorchShapes, 12]} />
-                <meshBasicMaterial color="#8e3322" transparent opacity={0.88} side={THREE.DoubleSide} depthTest depthWrite={false} toneMapped={false} />
+            <mesh ref={heroResidue} visible={false} frustumCulled={false} renderOrder={WARFRONT_THREE_HERO_RESIDUE_RENDER_ORDER} material={heroResidueMaterial}>
+                <planeGeometry args={[1, 1]} />
             </mesh>
             <group ref={heroHealth} visible={false} renderOrder={10}>
                 <mesh renderOrder={10}>
@@ -2546,7 +2463,7 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
 
 // ── Impact VFX ──────────────────────────────────────────────────────────────
 
-type CombatFxKind = "hit" | "crit" | "heal" | "guard" | "cast" | "ultimate" | "dodge" | "ko" | "objective";
+type CombatFxKind = "hit" | "crit" | "heal" | "guard" | "cast" | "ultimate" | "dodge" | "ko";
 type ImpactSlot = {
     active: boolean;
     t: number;
@@ -2560,7 +2477,7 @@ type ImpactSlot = {
     seed: number;
 };
 
-const fxLife = (kind: CombatFxKind): number => kind === "objective" ? 1.7 : kind === "ko" ? 1.55 : kind === "ultimate" ? 1.25 : kind === "cast" ? 0.88 : kind === "heal" || kind === "guard" ? 1.02 : 0.74;
+const fxLife = (kind: CombatFxKind): number => kind === "ko" ? 1.55 : kind === "ultimate" ? 1.25 : kind === "cast" ? 0.88 : kind === "heal" || kind === "guard" ? 1.02 : 0.74;
 
 function CombatPulse({ slot, clockRef, sparkCount }: {
     slot: MutableRefObject<ImpactSlot>;
@@ -2603,7 +2520,7 @@ function CombatPulse({ slot, clockRef, sparkCount }: {
         const life = fxLife(s.kind);
         if (age < 0 || age > life) { node.visible = false; s.active = false; return; }
         const k = age / life;
-        const emphatic = s.kind === "crit" || s.kind === "ko" || s.kind === "ultimate" || s.kind === "objective";
+        const emphatic = s.kind === "crit" || s.kind === "ko" || s.kind === "ultimate";
         const ultimate = s.kind === "ultimate";
         const cast = s.kind === "cast";
         const restorative = s.kind === "heal" || s.kind === "guard";
@@ -2616,6 +2533,7 @@ function CombatPulse({ slot, clockRef, sparkCount }: {
             mat.color.set(s.color);
             mat.opacity = (1 - k) * (ultimate ? 0.68 : emphatic ? 0.78 : restorative ? 0.68 : 0.6);
         }
+        if (core.current) core.current.opacity *= 0.22;
         if (shield.current) shield.current.opacity = s.kind === "guard" ? (1 - k) * 0.72 : 0;
         if (beam.current) beam.current.opacity *= s.kind === "ko" || s.kind === "ultimate" ? 1 : 0.38;
 
@@ -2673,8 +2591,8 @@ function CombatPulse({ slot, clockRef, sparkCount }: {
                 </group>
                 <group ref={spinner}>
                     <mesh position={[0, 0.72, 0]} rotation={[0.4, 0.3, 0]}>
-                        <octahedronGeometry args={[0.34, 0]} />
-                        <meshBasicMaterial ref={core} wireframe transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+                        <sphereGeometry args={[0.34, 12, 8]} />
+                        <meshBasicMaterial ref={core} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
                     </mesh>
                     <mesh position={[0, 0.76, 0]}>
                         <cylinderGeometry args={[0.035, 0.2, 1.5, 8, 1, true]} />
@@ -2701,7 +2619,6 @@ function CombatPulse({ slot, clockRef, sparkCount }: {
 }
 
 function fxKind(event: DuelEvent): CombatFxKind | null {
-    if (event.type === "seal_capture" || event.type === "vault_open" || event.type === "relic_pickup" || event.type === "relic_drop" || event.type === "relic_return" || event.type === "capture") return "objective";
     if (event.type === "hit") return event.crit ? "crit" : "hit";
     if (event.type === "heal") return "heal";
     if (event.type === "shield" || event.type === "buff") return "guard";
@@ -2713,14 +2630,6 @@ function fxKind(event: DuelEvent): CombatFxKind | null {
 }
 
 function fxLabel(event: DuelEvent, kind: CombatFxKind): string {
-    if (kind === "objective") {
-        if (event.type === "seal_capture") return "CIPHER CLAIMED";
-        if (event.type === "vault_open") return "VAULT BREACHED";
-        if (event.type === "capture") return "SCROLL EXTRACTED";
-        if (event.type === "relic_pickup") return "SCROLL CLAIMED";
-        if (event.type === "relic_return") return "SUBSTITUTION TAG";
-        return "SCROLL DROPPED";
-    }
     if (kind === "crit") return `CRIT -${Math.max(1, Math.round(event.dmg ?? 1))}`;
     if (kind === "hit") return "";
     if (kind === "cast") return "";
@@ -2793,7 +2702,6 @@ function ImpactLayer({ result, clockRef, quality, batched = false }: {
                     : fxLabel(event, kind);
                 slot.current.seed = cursor.current + t * 0.031;
                 slot.current.color = kind === "heal" ? "#79ffc1"
-                    : kind === "objective" ? (event.side === "player" ? TEAM_COLOR.player : TEAM_COLOR.enemy)
                     : kind === "guard" ? "#83e8ff"
                     : kind === "dodge" ? "#f4fbff"
                     : kind === "ko" ? "#ff5470"
@@ -2814,100 +2722,50 @@ function ImpactLayer({ result, clockRef, quality, batched = false }: {
 }
 
 const PROJECTILE_GLYPHS = ["flare", "ripple", "crescent", "fault", "bolt", "impact"] as const;
-const PROJECTILE_GLYPH_ELEMENTS = ["Fire", "Water", "Wind", "Earth", "Lightning", "None"] as const;
 const PROJECTILE_GLYPH_INDEX: Readonly<Record<(typeof PROJECTILE_GLYPHS)[number], number>> = {
     flare: 0, ripple: 1, crescent: 2, fault: 3, bolt: 4, impact: 5,
 };
 
-/** Each element has a readable silhouette at phone scale. The flat shapes face
- *  the arena camera and point down local -Y; the pool rotates that direction
- *  toward each target on screen. Detached fragments share one draw call. */
-function projectileGlyphGeometry(shape: (typeof PROJECTILE_GLYPHS)[number]): THREE.ShapeGeometry {
-    const head = new THREE.Shape();
-    const fragments: THREE.Shape[] = [];
-    if (shape === "flare") {
-        head.moveTo(0, -0.64);
-        head.bezierCurveTo(0.18, -0.27, 0.34, -0.18, 0.22, 0.1);
-        head.lineTo(0.34, 0.36);
-        head.lineTo(0.04, 0.19);
-        head.lineTo(-0.16, 0.48);
-        head.lineTo(-0.14, 0.12);
-        head.bezierCurveTo(-0.35, -0.06, -0.2, -0.35, 0, -0.64);
-    } else if (shape === "ripple") {
-        head.moveTo(0, -0.52);
-        head.bezierCurveTo(0.32, -0.19, 0.28, 0.12, 0, 0.27);
-        head.bezierCurveTo(-0.28, 0.12, -0.32, -0.19, 0, -0.52);
-        for (const x of [-0.28, 0.28]) {
-            const drop = new THREE.Shape();
-            drop.absellipse(x, 0.34, 0.075, 0.115, 0, Math.PI * 2, false, 0);
-            fragments.push(drop);
-        }
-    } else if (shape === "crescent") {
-        head.moveTo(-0.3, 0.28);
-        head.bezierCurveTo(-0.52, -0.23, -0.09, -0.52, 0.36, -0.37);
-        head.bezierCurveTo(0.1, -0.29, -0.12, -0.15, -0.03, 0.12);
-        head.bezierCurveTo(0.03, 0.3, 0.16, 0.34, 0.3, 0.37);
-        head.bezierCurveTo(0.06, 0.45, -0.13, 0.43, -0.3, 0.28);
-    } else if (shape === "fault") {
-        head.moveTo(0, -0.53);
-        head.lineTo(0.29, -0.12);
-        head.lineTo(0.19, 0.27);
-        head.lineTo(-0.08, 0.46);
-        head.lineTo(-0.32, 0.14);
-        head.lineTo(-0.22, -0.27);
-        head.lineTo(0, -0.53);
-    } else if (shape === "bolt") {
-        head.moveTo(-0.04, -0.62);
-        head.lineTo(0.22, -0.19);
-        head.lineTo(0.04, -0.16);
-        head.lineTo(0.28, 0.43);
-        head.lineTo(-0.19, -0.05);
-        head.lineTo(-0.02, -0.09);
-        head.lineTo(-0.26, -0.42);
-        head.lineTo(-0.04, -0.62);
-    } else {
-        head.moveTo(0, -0.48);
-        head.lineTo(0.2, 0.15);
-        head.lineTo(0.06, 0.07);
-        head.lineTo(0, 0.36);
-        head.lineTo(-0.06, 0.07);
-        head.lineTo(-0.2, 0.15);
-        head.lineTo(0, -0.48);
-    }
-    const geometry = new THREE.ShapeGeometry([head, ...fragments], 8);
-    return geometry;
-}
-
 /** Every pet action gets an element silhouette. Fixed pools and a tick index
  * keep work bounded by eight actors, with no post-hit duplicate projectiles. */
-function ProjectileLayer({ result, fighters, clockRef }: {
+function ProjectileLayer({ result, fighters, clockRef, reducedMotion }: {
     result: DuelResult;
     fighters: StageFighter[];
     clockRef: MutableRefObject<number>;
+    reducedMotion: boolean;
 }) {
     const camera = useThree((state) => state.camera);
     const viewport = useThree((state) => state.size);
     const canvas = useThree((state) => state.gl.domElement);
-    const capacity = fighters.length;
+    // One head, bright core, three tapered trail pieces and four impact
+    // fragments per actor. A fixed instanced pool keeps the richer moves cheap.
+    const capacity = fighters.length * 9;
     const meshes = useRef<Array<THREE.InstancedMesh | null>>(Array(PROJECTILE_GLYPHS.length).fill(null));
-    const geometries = useMemo(() => PROJECTILE_GLYPHS.map(projectileGlyphGeometry), []);
+    const geometries = useMemo(() => PROJECTILE_GLYPHS.map(() => new THREE.PlaneGeometry(1, 1)), []);
+    const materials = useMemo(() => PROJECTILE_GLYPHS.map((_, i) => warfrontEnergyMaterial(i)), []);
     const transform = useMemo(() => new THREE.Object3D(), []);
     const projectedOrigin = useMemo(() => new THREE.Vector3(), []);
     const projectedTarget = useMemo(() => new THREE.Vector3(), []);
     const cameraSpace = useMemo(() => new THREE.Vector3(), []);
+    const actionColor = useMemo(() => new THREE.Color(), []);
     const timeline = useMemo(() => buildWarfrontActionTimeline(result, new Map(fighters.map((fighter) =>
         [`${fighter.team}-${fighter.lane}`, fighter.pet.element]))), [result, fighters]);
     const seenActors = useRef(new Set<string>());
     const qaEnabled = useMemo(() => new URLSearchParams(window.location.search).get("ritemotionqa") === "1", []);
-    useEffect(() => () => { for (const geometry of geometries) geometry.dispose(); }, [geometries]);
+    useEffect(() => () => { for (const resource of [...geometries, ...materials]) resource.dispose(); }, [geometries, materials]);
     useLayoutEffect(() => {
         for (const mesh of meshes.current) if (mesh) {
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            // Compile the colored instance variant during hidden preflight.
+            mesh.setColorAt(0, new THREE.Color("white"));
             mesh.count = 0;
         }
     }, [capacity]);
     useFrame(() => {
-        for (const mesh of meshes.current) if (mesh) mesh.count = 0;
+        for (const mesh of meshes.current) if (mesh) {
+            mesh.count = 0;
+            (mesh.material as THREE.MeshBasicMaterial).userData.replayTime.value = reducedMotion ? 0 : clockRef.current / DUEL_TPS;
+        }
         const tick = clockRef.current;
         const actions = timeline[Math.floor(tick)] ?? [];
         for (const action of actions) {
@@ -2923,30 +2781,60 @@ function ProjectileLayer({ result, fighters, clockRef }: {
             transform.rotateZ(angle + Math.PI / 2);
             const worldPerPixel = worldUnitsPerScreenPixel(camera, transform.position, viewport.height, cameraSpace);
             const fade = tick <= action.contact ? 1 : Math.max(0, 1 - (tick - action.contact) / 3);
-            const size = Math.max(0.55, worldPerPixel * (action.kind === "support" ? 20 : 26)) * fade;
+            const size = Math.max(0.68, worldPerPixel * (action.kind === "support" ? 25 : 39)) * fade;
             transform.scale.setScalar(size);
             transform.updateMatrix();
-            const glyph = warfrontElementSignature(action.element).shape;
+            const signature = warfrontElementSignature(action.element);
+            const glyph = signature.shape;
             const mesh = meshes.current[PROJECTILE_GLYPH_INDEX[glyph]];
-            if (mesh && mesh.count < capacity) mesh.setMatrixAt(mesh.count++, transform.matrix);
+            const submit = (color: string) => {
+                if (!mesh || mesh.count >= capacity) return;
+                transform.updateMatrix();
+                mesh.setMatrixAt(mesh.count, transform.matrix);
+                mesh.setColorAt(mesh.count++, actionColor.set(color));
+            };
+            submit(signature.primary);
+            transform.scale.setScalar(size * 0.48);
+            submit(signature.highlight);
+            // Trails follow the actual origin-to-target corridor; short melee
+            // moves stay local instead of drawing a screen-spanning beam.
+            for (let segment = 1; segment <= 3; segment++) {
+                const p = Math.max(0, progress - segment * 0.085);
+                transform.position.set(
+                    (action.ox + (action.tx - action.ox) * p) * WORLD_SCALE,
+                    0.95,
+                    (action.oz + (action.tz - action.oz) * p) * WORLD_SCALE,
+                );
+                transform.scale.setScalar(size * (0.64 - segment * 0.12));
+                submit(signature.primary);
+            }
+            if (tick >= action.contact) {
+                const burst = (tick - action.contact) / 3;
+                for (let shard = 0; shard < 4; shard++) {
+                    const a = shard * Math.PI / 2 + action.contact * 0.17;
+                    transform.position.set(x + Math.cos(a) * (0.16 + burst * 0.55), 0.95 + Math.sin(a) * (0.16 + burst * 0.55), z);
+                    transform.scale.setScalar(size * 0.32);
+                    transform.rotateZ(Math.PI / 2);
+                    submit(shard % 2 ? signature.highlight : signature.primary);
+                }
+            }
             if (qaEnabled) seenActors.current.add(action.actorId);
         }
-        for (const mesh of meshes.current) if (mesh && mesh.count > 0) mesh.instanceMatrix.needsUpdate = true;
+        for (const mesh of meshes.current) if (mesh && mesh.count > 0) {
+            mesh.instanceMatrix.needsUpdate = true;
+            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        }
         if (qaEnabled) {
-            canvas.dataset.riteElementalActorsSeen = [...seenActors.current].join(",");
-            canvas.dataset.riteElementalActionsActive = String(actions.length);
-                canvas.dataset.riteElementalActorsActive = actions.map((action) => action.actorId).join(",");
+            warfrontMetric(canvas, "ElementalActorsSeen", [...seenActors.current].join(","));
+            warfrontMetric(canvas, "ElementalActionsActive", actions.length);
+                warfrontMetric(canvas, "ElementalActorsActive", actions.map((action) => action.actorId).join(","));
         }
     });
     return <group name="wfr-batched-projectile-layer">
         {PROJECTILE_GLYPHS.map((glyph, index) => (
             <instancedMesh key={glyph} name={`wfr-projectile-${glyph}`}
                 ref={(mesh) => { meshes.current[index] = mesh; }}
-                args={[geometries[index], undefined, capacity]} frustumCulled={false} renderOrder={12}>
-                <meshBasicMaterial color={warfrontElementSignature(PROJECTILE_GLYPH_ELEMENTS[index]).primary}
-                    side={THREE.DoubleSide} transparent opacity={0.95} toneMapped={false}
-                    depthWrite={false} depthTest={false} />
-            </instancedMesh>
+                args={[geometries[index], materials[index], capacity]} frustumCulled={false} renderOrder={12} />
         ))}
     </group>;
 }
@@ -2956,8 +2844,8 @@ function ClashCamera() {
     const viewport = useThree((state) => state.size);
     const frame = useMemo(() => warfrontCameraFrame(
         viewport.width, viewport.height,
-        WARFRONT_ARENA_X * WORLD_SCALE + 1.2,
-        WARFRONT_ARENA_Y * WORLD_SCALE + 1.2,
+        WARFRONT_ARENA_X * WORLD_SCALE,
+        WARFRONT_ARENA_Y * WORLD_SCALE,
     ), [viewport.width, viewport.height]);
     useLayoutEffect(() => {
         const perspective = camera as THREE.PerspectiveCamera;
@@ -2966,251 +2854,31 @@ function ClashCamera() {
         perspective.position.set(...frame.position);
         perspective.lookAt(...frame.target);
         perspective.updateProjectionMatrix();
+        perspective.projectionMatrix.elements[5] *= frame.verticalScale;
+        perspective.projectionMatrix.elements[9] -= frame.shiftY;
+        if (frame.orthographic) {
+            const {halfWidth,halfHeight}=frame.orthographic;
+            perspective.projectionMatrix.makeOrthographic(-halfWidth,halfWidth,halfHeight,-halfHeight,.1,frame.far);
+            perspective.projectionMatrix.elements[13]=.044;
+        }
+        perspective.projectionMatrixInverse.copy(perspective.projectionMatrix).invert();
     }, [camera, frame]);
     return null;
 }
 
 // ── Stage ───────────────────────────────────────────────────────────────────
 
-function sampleObjective(result: DuelResult, t: number, id: DuelObjectiveId): DuelObjectiveSnap | null {
-    if (!result.snapshots.length) return null;
-    const clamped = Math.max(0, Math.min(result.snapshots.length - 1, t));
-    const i = Math.floor(clamped), mix = clamped - i;
-    const a = result.snapshots[i]?.objectives?.find((objective) => objective.id === id);
-    const b = result.snapshots[Math.min(i + 1, result.snapshots.length - 1)]?.objectives?.find((objective) => objective.id === id);
-    if (!a) return null;
-    if (!b || b.state !== a.state || b.carrierId !== a.carrierId) return a;
-    return { ...a, x: a.x + (b.x - a.x) * mix, y: a.y + (b.y - a.y) * mix, progress: a.progress + (b.progress - a.progress) * mix };
-}
-
-const ARENA_FLOOR_DECAL_ALPHA_CAP = 0.18;
-const ARENA_OBJECTIVE_DECAL_RADIUS_WORLD = 0.285;
-
-/** The authored court owns all architecture. Three submits only a small relic
- * and one hairline state decal; collision/cover remain unchanged simulation
- * data and never become beige blockers, oversized rings, gates or debris. */
-function FloorFlushRelicObjective({ result, clockRef }: {
-    result: DuelResult;
-    clockRef: MutableRefObject<number>;
-}) {
-    const root = useRef<THREE.Group>(null);
-    const token = useRef<THREE.Group>(null);
-    const decal = useRef<THREE.MeshBasicMaterial>(null);
-    const tie = useRef<THREE.MeshStandardMaterial>(null);
-    const canvas = useThree((state) => state.gl.domElement);
-    const tint = useMemo(() => new THREE.Color(), []);
-
-    useEffect(() => () => {
-        delete canvas.dataset.riteArenaPrototypeDressingDraws;
-        delete canvas.dataset.riteArenaPrototypeDressingMeshes;
-        delete canvas.dataset.riteArenaGlyphDebrisDraws;
-        delete canvas.dataset.riteArenaGlyphDebrisMeshes;
-        delete canvas.dataset.riteArenaFloorDecalDraws;
-        delete canvas.dataset.riteArenaFloorDecalMaxAlpha;
-        delete canvas.dataset.riteArenaFloorDecalMaxRadiusWorld;
-        delete canvas.dataset.riteArenaScrollPropDraws;
-        delete canvas.dataset.riteArenaScrollPropMeshes;
-    }, [canvas]);
-
-    useFrame(() => {
-        const scroll = sampleObjective(result, clockRef.current, "forbidden-scroll") ?? {
-            x: 0,
-            y: 0,
-            state: "sealed" as const,
-            carrierId: null,
-            owner: null,
-        };
-        if (!root.current || !token.current || !decal.current || !tie.current) return;
-        root.current.visible = true;
-        root.current.position.set(scroll.x * WORLD_SCALE, 0, scroll.y * WORLD_SCALE);
-        token.current.rotation.y = Math.sin(clockRef.current * 0.025) * 0.04;
-        token.current.scale.setScalar(scroll.state === "carried" ? 0.82 : 1);
-        const team = scroll.carrierId?.startsWith("player-") ? "player"
-            : scroll.carrierId?.startsWith("enemy-") ? "enemy"
-                : scroll.owner;
-        const color = team ? TEAM_COLOR[team] : "#d6b775";
-        const alpha = Math.min(ARENA_FLOOR_DECAL_ALPHA_CAP,
-            scroll.state === "dropped" ? 0.18 : scroll.state === "carried" ? 0.14 : 0.12);
-        decal.current.color.copy(tint.set(color));
-        decal.current.opacity = alpha;
-        tie.current.color.copy(tint.set(color));
-        tie.current.emissive.copy(tint.multiplyScalar(0.12));
-
-        // These values describe submitted scene geometry, not intent counters:
-        // three KageBoardCells decal draw families plus this one relic ring;
-        // four tiny scroll meshes; zero prototype-dressing submissions.
-        canvas.dataset.riteArenaPrototypeDressingDraws = "0";
-        canvas.dataset.riteArenaPrototypeDressingMeshes = "0";
-        canvas.dataset.riteArenaGlyphDebrisDraws = "0";
-        canvas.dataset.riteArenaGlyphDebrisMeshes = "0";
-        canvas.dataset.riteArenaFloorDecalDraws = "4";
-        canvas.dataset.riteArenaFloorDecalMaxAlpha = Math.max(ARENA_FLOOR_DECAL_ALPHA_CAP, alpha).toFixed(3);
-        canvas.dataset.riteArenaFloorDecalMaxRadiusWorld = ARENA_OBJECTIVE_DECAL_RADIUS_WORLD.toFixed(3);
-        canvas.dataset.riteArenaScrollPropDraws = "4";
-        canvas.dataset.riteArenaScrollPropMeshes = "4";
-    });
-
-    return (
-        <group ref={root} visible={false} name="wfr-floor-flush-relic-objective">
-            <mesh position={[0, 0.034, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
-                <ringGeometry args={[0.255, ARENA_OBJECTIVE_DECAL_RADIUS_WORLD, 32]} />
-                <meshBasicMaterial ref={decal} color="#d6b775" transparent opacity={0.12} depthWrite={false} />
-            </mesh>
-            <group ref={token} position={[0, 0.064, 0]} name="wfr-small-scroll-relic">
-                <mesh>
-                    <boxGeometry args={[0.46, 0.028, 0.2]} />
-                    <meshStandardMaterial color="#d9c391" roughness={0.88} metalness={0} />
-                </mesh>
-                {([-1, 1] as const).map((side) => (
-                    <mesh key={side} position={[side * 0.245, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-                        <cylinderGeometry args={[0.055, 0.055, 0.23, 10]} />
-                        <meshStandardMaterial color="#503020" roughness={0.82} metalness={0.02} />
-                    </mesh>
-                ))}
-                <mesh position={[0, 0.021, 0]}>
-                    <boxGeometry args={[0.045, 0.018, 0.22]} />
-                    <meshStandardMaterial ref={tie} color="#8f7442" emissive="#1b150c" emissiveIntensity={0.18} roughness={0.58} metalness={0.12} />
-                </mesh>
-            </group>
-        </group>
-    );
-}
-
-function KageSlateSurface({ width, depth }: { width: number; depth: number }) {
-    const source = useLoader(THREE.TextureLoader, KAGE_SLATE_TEXTURE_URL);
-    const courtShape = useMemo(() => {
-        const halfX = width * 0.5;
-        const halfZ = depth * 0.5;
-        const cutX = halfX * 0.18;
-        const cutZ = halfZ * 0.22;
-        const shape = new THREE.Shape();
-        shape.moveTo(-halfX + cutX, -halfZ);
-        shape.lineTo(halfX - cutX, -halfZ);
-        shape.lineTo(halfX, -halfZ + cutZ);
-        shape.lineTo(halfX, halfZ - cutZ);
-        shape.lineTo(halfX - cutX, halfZ);
-        shape.lineTo(-halfX + cutX, halfZ);
-        shape.lineTo(-halfX, halfZ - cutZ);
-        shape.lineTo(-halfX, -halfZ + cutZ);
-        shape.closePath();
-        return shape;
-    }, [depth, width]);
-    const texture = useMemo(() => {
-        const clone = source.clone();
-        clone.colorSpace = THREE.SRGBColorSpace;
-        clone.wrapS = THREE.RepeatWrapping;
-        clone.wrapT = THREE.RepeatWrapping;
-        clone.repeat.set(3.5, 2.5);
-        clone.anisotropy = 2;
-        clone.needsUpdate = true;
-        return clone;
-    }, [source]);
-    useEffect(() => () => texture.dispose(), [texture]);
-    return (
-        <group name="wfr-authored-slate-surface">
-            {/* The tight actor footprint layer supplies contact; omitting a
-                full-court shadow catcher prevents large rig-shadow discs from
-                darkening the authored stone. */}
-            <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <shapeGeometry args={[courtShape]} />
-                <meshStandardMaterial
-                    map={texture}
-                    color="#839092"
-                    emissive="#11191b"
-                    emissiveMap={texture}
-                    emissiveIntensity={0.06}
-                    roughness={0.9}
-                    metalness={0.01}
-                    transparent
-                    opacity={0.075}
-                    depthWrite={false}
-                />
-            </mesh>
-        </group>
-    );
-}
-
-/** Collision still owns thirty-five exact cells, but the rendered court is one
- * continuous authored surface with flush inlays instead of raised blocks. */
+/** The painted slate owns the floor. Collision cells stay invisible. */
 function KageBoardCells() {
-    const rings = useRef<THREE.InstancedMesh>(null);
-    const cellX = 3.2 * WORLD_SCALE;
-    const cellZ = 3.0 * WORLD_SCALE;
-    const courtWidth = cellX * 6.98;
-    const courtDepth = cellZ * 4.98;
-    const { boundaryGeometry, laneGeometry } = useMemo(() => {
-        const halfX = courtWidth * 0.5;
-        const halfZ = courtDepth * 0.5;
-        const cutX = halfX * 0.18;
-        const cutZ = halfZ * 0.22;
-        const edge = [
-            new THREE.Vector3(-halfX + cutX, 0.027, -halfZ),
-            new THREE.Vector3(halfX - cutX, 0.027, -halfZ),
-            new THREE.Vector3(halfX, 0.027, -halfZ + cutZ),
-            new THREE.Vector3(halfX, 0.027, halfZ - cutZ),
-            new THREE.Vector3(halfX - cutX, 0.027, halfZ),
-            new THREE.Vector3(-halfX + cutX, 0.027, halfZ),
-            new THREE.Vector3(-halfX, 0.027, halfZ - cutZ),
-            new THREE.Vector3(-halfX, 0.027, -halfZ + cutZ),
-        ];
-        const boundary: THREE.Vector3[] = [];
-        for (let index = 0; index < edge.length; index++) boundary.push(edge[index], edge[(index + 1) % edge.length]);
-        const lanes: THREE.Vector3[] = [];
-        for (const x of [-cellX, 0, cellX]) {
-            lanes.push(new THREE.Vector3(x, 0.029, -halfZ * 0.86), new THREE.Vector3(x, 0.029, halfZ * 0.86));
-        }
-        return {
-            boundaryGeometry: new THREE.BufferGeometry().setFromPoints(boundary),
-            laneGeometry: new THREE.BufferGeometry().setFromPoints(lanes),
-        };
-    }, [cellX, courtDepth, courtWidth]);
-    useEffect(() => () => {
-        boundaryGeometry.dispose();
-        laneGeometry.dispose();
-    }, [boundaryGeometry, laneGeometry]);
-
-    useLayoutEffect(() => {
-        const ringMesh = rings.current;
-        if (!ringMesh) return;
-        const transform = new THREE.Object3D();
-        const color = new THREE.Color();
-
-        for (let index = 0; index < 35; index++) {
-            const col = index % 7;
-            const row = Math.floor(index / 7);
-            const x = (col - 3) * cellX;
-            const z = (row - 2) * cellZ;
-            const blue = col < 2;
-            const red = col > 4;
-
-            transform.position.set(x, 0.031, z);
-            transform.rotation.set(-Math.PI / 2, 0, 0);
-            transform.scale.setScalar(1);
-            transform.updateMatrix();
-            ringMesh.setMatrixAt(index, transform.matrix);
-            ringMesh.setColorAt(index, color.set(blue ? "#77c9d6" : red ? "#d58a79" : "#c3a16a"));
-        }
-
-        ringMesh.instanceMatrix.needsUpdate = true;
-        if (ringMesh.instanceColor) ringMesh.instanceColor.needsUpdate = true;
-        ringMesh.computeBoundingSphere();
-    }, [cellX, cellZ]);
-
-    return (
-        <group name="wfr-instanced-board-cells">
-            <KageSlateSurface width={courtWidth} depth={courtDepth} />
-            <lineSegments geometry={boundaryGeometry} renderOrder={1}>
-                <lineBasicMaterial color="#b38b55" transparent opacity={ARENA_FLOOR_DECAL_ALPHA_CAP} depthWrite={false} />
-            </lineSegments>
-            <lineSegments geometry={laneGeometry} renderOrder={1}>
-                <lineBasicMaterial color="#bca87a" transparent opacity={0.12} depthWrite={false} />
-            </lineSegments>
-            <instancedMesh ref={rings} args={[undefined, undefined, 35]}>
-                <ringGeometry args={[0.15, 0.18, 16]} />
-                <meshBasicMaterial vertexColors transparent opacity={0.11} depthWrite={false} />
-            </instancedMesh>
-        </group>
-    );
+    useFrame(({ gl }) => {
+        const data = gl.domElement.dataset;
+        data.riteArenaPrototypeDressingMeshes = "0";
+        data.riteArenaGlyphDebrisMeshes = "0";
+        data.riteArenaFloorDecalDraws = "0";
+        data.riteArenaFloorDecalMaxAlpha = "0";
+        data.riteArenaFloorDecalMaxRadiusWorld = "0";
+    });
+    return null;
 }
 
 /** Release-only objective probe. It observes the real Three camera and projects
@@ -3248,9 +2916,9 @@ function MotionReadabilityProbe({ result, clockRef }: { result: DuelResult; cloc
         const removeAfterEffect = addAfterEffect((timestamp) => {
             if (timestamp - renderStatsAt.current >= 500) {
                 renderStatsAt.current = timestamp;
-                canvas.dataset.riteRenderCalls = String(gl.info.render.calls);
-                canvas.dataset.riteRenderTriangles = String(gl.info.render.triangles);
-                canvas.dataset.riteRenderPrograms = String(gl.info.programs?.length ?? 0);
+                warfrontMetric(canvas, "RenderCalls", gl.info.render.calls);
+                warfrontMetric(canvas, "RenderTriangles", gl.info.render.triangles);
+                warfrontMetric(canvas, "RenderPrograms", gl.info.programs?.length ?? 0);
             }
             // With autoReset disabled this counter contains every pass rendered
             // by this canvas, including a composer if another profile enables
@@ -3281,11 +2949,11 @@ function MotionReadabilityProbe({ result, clockRef }: { result: DuelResult; cloc
             sampleWindow.current = { warmupEnds, sampleEnds };
             let count = 0;
             let max = 0;
-            canvas.dataset.riteLongTaskSample = "warming";
-            canvas.dataset.riteLongTasksOver100ms = "0";
-            canvas.dataset.riteLongTaskMaxMs = "0";
-            canvas.dataset.riteFrameGapMaxMs = "0";
-            canvas.dataset.riteFrameGapsOver100ms = "0";
+            warfrontMetric(canvas, "LongTaskSample", "warming");
+            warfrontMetric(canvas, "LongTasksOver100ms", "0");
+            warfrontMetric(canvas, "LongTaskMaxMs", "0");
+            warfrontMetric(canvas, "FrameGapMaxMs", "0");
+            warfrontMetric(canvas, "FrameGapsOver100ms", "0");
             const recordEntries = (entries: PerformanceEntryList) => {
                 for (const entry of entries) {
                     if (entry.startTime < warmupEnds || entry.startTime >= sampleEnds || entry.duration <= 100) continue;
@@ -3299,11 +2967,11 @@ function MotionReadabilityProbe({ result, clockRef }: { result: DuelResult; cloc
             performanceFinish.current = window.setTimeout(() => {
                 recordEntries(observer.takeRecords());
                 observer.disconnect();
-                canvas.dataset.riteLongTaskSample = "complete";
-                canvas.dataset.riteLongTasksOver100ms = String(count);
-                canvas.dataset.riteLongTaskMaxMs = max.toFixed(1);
-                canvas.dataset.riteFrameGapMaxMs = maxFrameGap.current.toFixed(1);
-                canvas.dataset.riteFrameGapsOver100ms = String(frameGapsOver100.current);
+                warfrontMetric(canvas, "LongTaskSample", "complete");
+                warfrontMetric(canvas, "LongTasksOver100ms", count);
+                warfrontMetric(canvas, "LongTaskMaxMs", max.toFixed(1));
+                warfrontMetric(canvas, "FrameGapMaxMs", maxFrameGap.current.toFixed(1));
+                warfrontMetric(canvas, "FrameGapsOver100ms", frameGapsOver100.current);
             }, 12_050);
         }
         const now = performance.now();
@@ -3338,10 +3006,10 @@ function MotionReadabilityProbe({ result, clockRef }: { result: DuelResult; cloc
                     : 1;
                 visibleTriangles += primitiveTriangles * instances;
             });
-            canvas.dataset.riteSceneMeshes = String(meshes);
-            canvas.dataset.riteSceneSkinnedMeshes = String(skinnedMeshes);
-            canvas.dataset.riteVisibleMeshes = String(visibleMeshes);
-            canvas.dataset.riteVisibleTriangles = String(Math.round(visibleTriangles));
+            warfrontMetric(canvas, "SceneMeshes", meshes);
+            warfrontMetric(canvas, "SceneSkinnedMeshes", skinnedMeshes);
+            warfrontMetric(canvas, "VisibleMeshes", visibleMeshes);
+            warfrontMetric(canvas, "VisibleTriangles", Math.round(visibleTriangles));
             measuredSceneCost.current = true;
         }
         camera.updateMatrixWorld(true);
@@ -3354,14 +3022,14 @@ function MotionReadabilityProbe({ result, clockRef }: { result: DuelResult; cloc
             values[3] = rotation.x; values[4] = rotation.y; values[5] = rotation.z; values[6] = rotation.w;
             values[7] = fov;
             baseline.current = values;
-            canvas.dataset.riteCameraMaxDelta = "0";
+            warfrontMetric(canvas, "CameraMaxDelta", "0");
         } else {
             maxCameraDelta.current = Math.max(maxCameraDelta.current,
                 Math.abs(values[0] - position.x), Math.abs(values[1] - position.y), Math.abs(values[2] - position.z),
                 Math.abs(values[3] - rotation.x), Math.abs(values[4] - rotation.y), Math.abs(values[5] - rotation.z),
                 Math.abs(values[6] - rotation.w), Math.abs(values[7] - fov));
             if (maxCameraDelta.current > Number(canvas.dataset.riteCameraMaxDelta ?? 0)) {
-                canvas.dataset.riteCameraMaxDelta = maxCameraDelta.current.toExponential(4);
+                warfrontMetric(canvas, "CameraMaxDelta", maxCameraDelta.current.toExponential(4));
             }
         }
         if (measuredFraming.current) return;
@@ -3386,11 +3054,11 @@ function MotionReadabilityProbe({ result, clockRef }: { result: DuelResult; cloc
             }
             if (visible) actorsVisible++;
         }
-        canvas.dataset.riteBoardVisible = String(boardVisible);
-        canvas.dataset.riteBoardMaxX = boardMaxX.toFixed(4);
-        canvas.dataset.riteBoardMaxY = boardMaxY.toFixed(4);
-        canvas.dataset.riteInitialActorsVisible = String(actorsVisible);
-        canvas.dataset.riteInitialActorsExpected = String(initialActors.length);
+        warfrontMetric(canvas, "BoardVisible", boardVisible);
+        warfrontMetric(canvas, "BoardMaxX", boardMaxX.toFixed(4));
+        warfrontMetric(canvas, "BoardMaxY", boardMaxY.toFixed(4));
+        warfrontMetric(canvas, "InitialActorsVisible", actorsVisible);
+        warfrontMetric(canvas, "InitialActorsExpected", initialActors.length);
         measuredFraming.current = true;
     });
     return null;
@@ -3430,15 +3098,13 @@ function BodyReactionProbe({ result, beatsByActor, clockRef }: {
             beatCount++;
             if (beat.lethal) lethalCount++;
         }
-        canvas.dataset.riteBodyReactionEvents = String(beatCount);
-        canvas.dataset.riteBodyLethalEvents = String(lethalCount);
-        canvas.dataset.riteBodyRootMode = "presentation-child";
-        canvas.dataset.riteBodyReactionMaxActive = "0";
-        canvas.dataset.riteBodyReactionMaxOffset = "0";
+        warfrontMetric(canvas, "BodyReactionEvents", beatCount);
+        warfrontMetric(canvas, "BodyLethalEvents", lethalCount);
+        warfrontMetric(canvas, "BodyRootMode", "presentation-child");
+        warfrontMetric(canvas, "BodyReactionMaxActive", "0");
+        warfrontMetric(canvas, "BodyReactionMaxOffset", "0");
         return () => {
-            for (const key of "BodyReactionEvents BodyLethalEvents BodyRootMode BodyLungeActive BodyLethalLungeActive BodyRecoilActive BodyKoExitActive BodyLungeSeen BodyRecoilSeen BodyKoExitSeen BodyReactionMaxActive BodyReactionMaxOffset BodyReactionLast BodyLethalLast".split(" ")) {
-                delete canvas.dataset[`rite${key}`];
-            }
+            clearWarfrontMetrics(canvas, /^riteBody/);
         };
     }, [canvas, enabled, slots]);
     useFrame(({ clock }) => {
@@ -3488,21 +3154,21 @@ function BodyReactionProbe({ result, beatsByActor, clockRef }: {
             }
         }
         maxActive.current = Math.max(maxActive.current, active);
-        canvas.dataset.riteBodyLungeActive = String(lunges);
-        canvas.dataset.riteBodyLethalLungeActive = String(lethalLunges);
-        canvas.dataset.riteBodyRecoilActive = String(recoils);
-        canvas.dataset.riteBodyKoExitActive = String(koExits);
-        canvas.dataset.riteBodyLungeSeen = String(lungeSeen.current);
-        canvas.dataset.riteBodyRecoilSeen = String(recoilSeen.current);
-        canvas.dataset.riteBodyKoExitSeen = String(koExitSeen.current);
-        canvas.dataset.riteBodyReactionMaxActive = String(maxActive.current);
-        canvas.dataset.riteBodyReactionMaxOffset = maxOffset.current.toFixed(3);
+        warfrontMetric(canvas, "BodyLungeActive", lunges);
+        warfrontMetric(canvas, "BodyLethalLungeActive", lethalLunges);
+        warfrontMetric(canvas, "BodyRecoilActive", recoils);
+        warfrontMetric(canvas, "BodyKoExitActive", koExits);
+        warfrontMetric(canvas, "BodyLungeSeen", lungeSeen.current);
+        warfrontMetric(canvas, "BodyRecoilSeen", recoilSeen.current);
+        warfrontMetric(canvas, "BodyKoExitSeen", koExitSeen.current);
+        warfrontMetric(canvas, "BodyReactionMaxActive", maxActive.current);
+        warfrontMetric(canvas, "BodyReactionMaxOffset", maxOffset.current.toFixed(3));
         if (lastBeat) {
             let causesKo = lastBeat.lethal;
             for (let cueIndex = 0; !causesKo && cueIndex < lastBeat.cues.length; cueIndex++) causesKo = lastBeat.cues[cueIndex].lethal;
-            canvas.dataset.riteBodyReactionLast = `${lastActor}:${lastBeat.role}@${lastBeat.tick}${causesKo ? ":ko" : ""}`;
+            warfrontMetric(canvas, "BodyReactionLast", `${lastActor}:${lastBeat.role}@${lastBeat.tick}${causesKo ? ":ko" : ""}`);
         }
-        if (lethalBeat) canvas.dataset.riteBodyLethalLast = `${lethalActor}:${lethalBeat.role}@${lethalBeat.tick}`;
+        if (lethalBeat) warfrontMetric(canvas, "BodyLethalLast", `${lethalActor}:${lethalBeat.role}@${lethalBeat.tick}`);
     });
     return null;
 }
@@ -3640,44 +3306,44 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
         try { window.localStorage.setItem(WARFRONT_ROUTE_STORAGE_KEY, encoded); } catch { /* current clash remains safely routed */ }
     }, [rendererName, runtimeRoute]);
     useEffect(() => {
-        canvas.dataset.ritePetLodEnabled = String(runtimeRoute.mode === "skinned-3d" && lodMetrics.lodEnabled);
-        canvas.dataset.ritePetLodActors = String(lodMetrics.mappedActors);
-        canvas.dataset.ritePetLodFallbacks = String(lodMetrics.missingActors);
-        canvas.dataset.ritePetSourceTriangles = String(lodMetrics.sourceTriangles);
-        canvas.dataset.ritePetSelectedTriangles = String(lodMetrics.selectedTriangles);
-        canvas.dataset.riteCapabilityTier = capabilityTier;
-        canvas.dataset.riteRenderer = rendererName;
-        canvas.dataset.riteSilhouette = softwareImpostors ? "model-impostor" : "surface-ink";
-        canvas.dataset.riteActorRenderMode = softwareImpostors ? "model-impostor" : SkinnedModel ? "skinned-3d" : "rig-loading";
-        canvas.dataset.riteImpostorActors = softwareImpostors ? String(fighters.length) : "0";
-        canvas.dataset.riteRuntimeRoute = runtimeRoute.mode;
-        canvas.dataset.riteRuntimeRouteStatus = runtimeRoute.status;
-        canvas.dataset.riteRuntimeRouteReason = runtimeRoute.reason;
-        canvas.dataset.riteRuntimeRoutePersisted = String(runtimeRoute.persisted);
-        canvas.dataset.riteRuntimeRouteQaCanary = String(force3dCanary);
-        canvas.dataset.riteRuntimeRouteSwitches = String(routeSwitches.current);
-        canvas.dataset.riteRuntimeRouteBeforeReveal = "true";
-        canvas.dataset.riteRigChunkStatus = rigChunkStatus;
-        canvas.dataset.riteRigChunkRequested = String(rigChunkStatus !== "not-requested");
-        canvas.dataset.riteImpostorAssetsReady = String(impostorAssetsReady);
-        canvas.dataset.ritePreflightThresholdMs = String(WARFRONT_PREFLIGHT_THRESHOLD_MS);
-        canvas.dataset.ritePreflightFrameGaps = String(hiddenPreflightSample?.frameGapsOver100ms ?? 0);
-        canvas.dataset.ritePreflightFrameGapMaxMs = (hiddenPreflightSample?.frameGapMaxMs ?? 0).toFixed(2);
-        canvas.dataset.ritePreflightRenderFrameMaxMs = (hiddenPreflightSample?.renderFrameMaxMs ?? 0).toFixed(2);
-        canvas.dataset.ritePreflightLongTasks = String(hiddenPreflightSample?.longTasksOver100ms ?? 0);
-        canvas.dataset.ritePreflightLongTaskMaxMs = (hiddenPreflightSample?.longTaskMaxMs ?? 0).toFixed(2);
-        canvas.dataset.riteRouteValidationFrameGaps = String(visibleValidationSample?.frameGapsOver100ms ?? 0);
-        canvas.dataset.riteRouteValidationFrameGapMaxMs = (visibleValidationSample?.frameGapMaxMs ?? 0).toFixed(2);
-        canvas.dataset.riteRouteValidationLongTasks = String(visibleValidationSample?.longTasksOver100ms ?? 0);
-        canvas.dataset.riteRouteValidationLongTaskMaxMs = (visibleValidationSample?.longTaskMaxMs ?? 0).toFixed(2);
-        canvas.dataset.riteArenaActorLightMode = "three-positional-pair";
-        canvas.dataset.riteArenaActorLightOverlays = "0";
-        canvas.dataset.riteArenaActorLightMaxAlpha = "0";
-        canvas.dataset.riteArenaActorLightMultiplyMaxAlpha = "0";
-        canvas.dataset.riteArenaActorLightMultiplyCap = "0";
-        canvas.dataset.riteArenaActorLightEdgeRecoveryMaxAlpha = "0";
-        canvas.dataset.riteArenaSideLights = "2";
-        canvas.dataset.riteArenaSideLightIntensity = (batchedBattle ? 4.5 : 10).toFixed(1);
+        warfrontMetric(canvas, "PetLodEnabled", runtimeRoute.mode === "skinned-3d" && lodMetrics.lodEnabled);
+        warfrontMetric(canvas, "PetLodActors", lodMetrics.mappedActors);
+        warfrontMetric(canvas, "PetLodFallbacks", lodMetrics.missingActors);
+        warfrontMetric(canvas, "PetSourceTriangles", lodMetrics.sourceTriangles);
+        warfrontMetric(canvas, "PetSelectedTriangles", lodMetrics.selectedTriangles);
+        warfrontMetric(canvas, "CapabilityTier", capabilityTier);
+        warfrontMetric(canvas, "Renderer", rendererName);
+        warfrontMetric(canvas, "Silhouette", softwareImpostors ? "model-impostor" : "surface-ink");
+        warfrontMetric(canvas, "ActorRenderMode", softwareImpostors ? "model-impostor" : SkinnedModel ? "skinned-3d" : "rig-loading");
+        warfrontMetric(canvas, "ImpostorActors", softwareImpostors ? String(fighters.length) : "0");
+        warfrontMetric(canvas, "RuntimeRoute", runtimeRoute.mode);
+        warfrontMetric(canvas, "RuntimeRouteStatus", runtimeRoute.status);
+        warfrontMetric(canvas, "RuntimeRouteReason", runtimeRoute.reason);
+        warfrontMetric(canvas, "RuntimeRoutePersisted", runtimeRoute.persisted);
+        warfrontMetric(canvas, "RuntimeRouteQaCanary", force3dCanary);
+        warfrontMetric(canvas, "RuntimeRouteSwitches", routeSwitches.current);
+        warfrontMetric(canvas, "RuntimeRouteBeforeReveal", "true");
+        warfrontMetric(canvas, "RigChunkStatus", rigChunkStatus);
+        warfrontMetric(canvas, "RigChunkRequested", rigChunkStatus !== "not-requested");
+        warfrontMetric(canvas, "ImpostorAssetsReady", impostorAssetsReady);
+        warfrontMetric(canvas, "PreflightThresholdMs", WARFRONT_PREFLIGHT_THRESHOLD_MS);
+        warfrontMetric(canvas, "PreflightFrameGaps", hiddenPreflightSample?.frameGapsOver100ms ?? 0);
+        warfrontMetric(canvas, "PreflightFrameGapMaxMs", (hiddenPreflightSample?.frameGapMaxMs ?? 0).toFixed(2));
+        warfrontMetric(canvas, "PreflightRenderFrameMaxMs", (hiddenPreflightSample?.renderFrameMaxMs ?? 0).toFixed(2));
+        warfrontMetric(canvas, "PreflightLongTasks", hiddenPreflightSample?.longTasksOver100ms ?? 0);
+        warfrontMetric(canvas, "PreflightLongTaskMaxMs", (hiddenPreflightSample?.longTaskMaxMs ?? 0).toFixed(2));
+        warfrontMetric(canvas, "RouteValidationFrameGaps", visibleValidationSample?.frameGapsOver100ms ?? 0);
+        warfrontMetric(canvas, "RouteValidationFrameGapMaxMs", (visibleValidationSample?.frameGapMaxMs ?? 0).toFixed(2));
+        warfrontMetric(canvas, "RouteValidationLongTasks", visibleValidationSample?.longTasksOver100ms ?? 0);
+        warfrontMetric(canvas, "RouteValidationLongTaskMaxMs", (visibleValidationSample?.longTaskMaxMs ?? 0).toFixed(2));
+        warfrontMetric(canvas, "ArenaActorLightMode", "three-positional-pair");
+        warfrontMetric(canvas, "ArenaActorLightOverlays", "0");
+        warfrontMetric(canvas, "ArenaActorLightMaxAlpha", "0");
+        warfrontMetric(canvas, "ArenaActorLightMultiplyMaxAlpha", "0");
+        warfrontMetric(canvas, "ArenaActorLightMultiplyCap", "0");
+        warfrontMetric(canvas, "ArenaActorLightEdgeRecoveryMaxAlpha", "0");
+        warfrontMetric(canvas, "ArenaSideLights", "2");
+        warfrontMetric(canvas, "ArenaSideLightIntensity", (batchedBattle ? 4.5 : 10).toFixed(1));
     }, [SkinnedModel, batchedBattle, canvas, capabilityTier, fighters.length, force3dCanary, hiddenPreflightSample, impostorAssetsReady, lodMetrics, rendererName, rigChunkStatus, runtimeRoute, softwareImpostors, visibleValidationSample]);
     const committedActorIds = useMemo(
         () => new Set(result.snapshots[0]?.actors.map((actor) => actor.id) ?? []),
@@ -3793,7 +3459,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
         setHydrationPhase((current) => current === phase ? Math.min(5, current + 1) : current);
     }, []);
     useEffect(() => {
-        canvas.dataset.riteHydrationPhase = String(hydrationPhase);
+        warfrontMetric(canvas, "HydrationPhase", hydrationPhase);
         performance.mark(`wfr-hydration-${hydrationPhase}`);
     }, [canvas, hydrationPhase]);
     return (
@@ -3808,8 +3474,8 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
                 rim that separates silhouettes from the background. */}
             <ambientLight intensity={batchedBattle ? 0.74 : 0.68} color="#bfd0d2" />
             <hemisphereLight intensity={batchedBattle ? 0.54 : 0.48} color="#8eb9d0" groundColor="#20150f" />
-            <directionalLight position={[3.5, 11, 5]} intensity={2.35} color="#e7edf0" castShadow={quality.modelShadows} />
-            <directionalLight position={[0, 6, -8]} intensity={1.05} color="#afc5db" />
+            <directionalLight position={[3.5, 11, 5]} intensity={2.05} color="#ffe8d2" castShadow={quality.modelShadows} shadow-mapSize={[1024, 1024]} shadow-camera-left={-13} shadow-camera-right={13} shadow-camera-top={11} shadow-camera-bottom={-11} shadow-normalBias={.04} />
+            <directionalLight position={[0, 6, -8]} intensity={0.92} color="#afc5db" />
             {!batchedBattle ? <directionalLight position={[-5, 6, 2]} intensity={0.42} color="#7db9cb" /> : null}
             <pointLight position={[-15, 3, 0]} color={TEAM_COLOR.player} intensity={batchedBattle ? 4.5 : 10} distance={22} decay={2} />
             <pointLight position={[15, 3, 0]} color={TEAM_COLOR.enemy} intensity={batchedBattle ? 4.5 : 10} distance={22} decay={2} />
@@ -3819,7 +3485,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
             {hydrationPhase >= 1 ? (
                 <>
                     <KageBoardCells />
-                    <FloorFlushRelicObjective result={result} clockRef={routedClockRef} />
+                    <PetWarfrontTerrain3D />
                 </>
             ) : null}
             {hydrationPhase >= 2 ? (
@@ -3832,6 +3498,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
                             cues={attackCues}
                             clockRef={routedClockRef}
                             heroImpactAssetReady={heroImpactAssetReady}
+                            reducedMotion={reducedMotion}
                         />
                     </Suspense>
                 </>
@@ -3888,7 +3555,8 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
             ) : null) : null}
             {hydrationPhase >= 3 ? (
                 <>
-                    <ProjectileLayer result={result} fighters={fighters} clockRef={routedClockRef} />
+                    <ProjectileLayer result={result} fighters={fighters} clockRef={routedClockRef} reducedMotion={reducedMotion} />
+                    <PetWarfrontTechniques3D result={result} clockRef={routedClockRef} quality={quality} reducedMotion={reducedMotion} />
                     <ImpactLayer result={result} clockRef={routedClockRef} quality={quality} batched={batchedBattle} />
                 </>
             ) : null}
@@ -4019,11 +3687,11 @@ export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
                     gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
                     onCreated={({ gl }) => {
                         const canvas = gl.domElement;
-                        canvas.dataset.riteRequestedQuality = quality.id;
-                        canvas.dataset.riteRenderBudget = props.fighters.length >= 8 ? "eight-rig" : "standard";
-                        canvas.dataset.riteSilhouette = props.fighters.length >= 8 ? "surface-ink" : "inverted-hull";
-                        canvas.dataset.riteTextureAnisotropy = String(renderQuality.textureAnisotropy);
-                        canvas.dataset.riteDpr = gl.getPixelRatio().toFixed(2);
+                        warfrontMetric(canvas, "RequestedQuality", quality.id);
+                        warfrontMetric(canvas, "RenderBudget", props.fighters.length >= 8 ? "eight-rig" : "standard");
+                        warfrontMetric(canvas, "Silhouette", props.fighters.length >= 8 ? "surface-ink" : "inverted-hull");
+                        warfrontMetric(canvas, "TextureAnisotropy", renderQuality.textureAnisotropy);
+                        warfrontMetric(canvas, "Dpr", gl.getPixelRatio().toFixed(2));
                     }}
                     fallback={(
                         <div className="wfr-canvas-fallback" role="img" aria-label="Beastbound Warfront formation battle view">

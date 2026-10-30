@@ -256,6 +256,8 @@ const audioPriority = (event: DuelEvent): number => event.type === "ko" ? 100
 /** One voice per authoritative tick. AOE records and simultaneous bookkeeping
  * collapse behind KO > ultimate > contact > tell, protecting the mobile mix. */
 export function buildWarfrontAudioPlan(events: readonly DuelEvent[]): WarfrontAudioCue[] {
+    // Windup records omit element; the actor's damage records retain it.
+    const elements = new Map(events.filter(event => event.element).map(event => [event.actorId, event.element]));
     const byTick = new Map<number, DuelEvent>();
     for (const event of events) {
         const priority = audioPriority(event);
@@ -273,7 +275,7 @@ export function buildWarfrontAudioPlan(events: readonly DuelEvent[]): WarfrontAu
         }
     }
     return selected.map((event) => {
-        const element = warfrontCoreElement(event.element);
+        const element = warfrontCoreElement(event.element ?? elements.get(event.actorId));
         const signature = WARFRONT_ELEMENT_SIGNATURES[element];
         const ko = event.type === "ko";
         const ultimate = event.type === "ultimate";

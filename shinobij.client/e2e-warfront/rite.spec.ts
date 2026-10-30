@@ -786,7 +786,7 @@ test("combat broadcast keeps the live action readable without camera jitter", as
         await expect.poll(tick, { timeout: 60_000, message: `${viewport.label}: playback did not advance` }).toBeGreaterThan(start + 5);
         await expect(canvas, `${viewport.label}: attacker is outside the safe shot`).toHaveAttribute("data-rite-camera-focus-actor-safe", "true");
         await expect(canvas, `${viewport.label}: target is outside the safe shot`).toHaveAttribute("data-rite-camera-focus-target-safe", "true");
-        expect(Number(await canvas.getAttribute("data-rite-min-living-actor-px")), `${viewport.label}: pets are thumbnail-sized`).toBeGreaterThanOrEqual(54);
+        expect(Number(await canvas.getAttribute("data-rite-min-living-actor-px")), `${viewport.label}: pets are thumbnail-sized`).toBeGreaterThanOrEqual(40.5);
         expect(Number(await canvas.getAttribute("data-rite-camera-max-delta")), `${viewport.label}: camera moves too far in one frame`).toBeLessThanOrEqual(0.12);
         expect(await canvas.getAttribute("data-rite-facing-policy"), `${viewport.label}: facing is not target-authoritative`).toBe("live-target-screen-space-hysteresis");
         expect(await canvas.getAttribute("data-rite-facing-native-sign"), `${viewport.label}: atlas orientation regressed`).toBe("-1");
@@ -805,8 +805,10 @@ test("combat broadcast keeps the live action readable without camera jitter", as
             await contactHandle.dispose();
             if (!contact) throw new Error("phone impact did not provide contact evidence");
             expect(contact.label, "phone impact lacks a visible attacker-to-target sentence").toContain("→");
-            expect(contact.actorPx, "phone attacker is too small at contact").toBeGreaterThanOrEqual(80);
-            expect(contact.targetPx, "phone target is too small at contact").toBeGreaterThanOrEqual(80);
+            // The requested smaller silhouettes preserve the same relative
+            // contact-legibility floor while exposing more traversable ground.
+            expect(contact.actorPx, "phone attacker is too small at contact").toBeGreaterThanOrEqual(60);
+            expect(contact.targetPx, "phone target is too small at contact").toBeGreaterThanOrEqual(60);
         }
     }
     expect(errors).toEqual([]);
@@ -942,8 +944,8 @@ test("Galaxy S25+ broadcast remains stable through approach impact and recovery"
     expect(trace.maxCameraStepPx, "the broadcast camera snaps between action beats").toBeLessThanOrEqual(14);
     expect(trace.facingFlipDelta, "pets oscillate between facing directions").toBeLessThanOrEqual(8);
     expect(trace.impactSamples, "the trace missed the contact beat").toBeGreaterThan(2);
-    expect(trace.minImpactActorPx, "attacker becomes unreadable at contact").toBeGreaterThanOrEqual(80);
-    expect(trace.minImpactTargetPx, "target becomes unreadable at contact").toBeGreaterThanOrEqual(80);
+    expect(trace.minImpactActorPx, "attacker becomes unreadable at contact").toBeGreaterThanOrEqual(60);
+    expect(trace.minImpactTargetPx, "target becomes unreadable at contact").toBeGreaterThanOrEqual(60);
     expect(trace.sawCausalLabel, "the contact lacks a source-to-target sentence").toBe(true);
     expect(trace.unsafeImpactSamples, "the active pair leaves the HUD-safe viewport").toBe(0);
     expect(errors).toEqual([]);
@@ -978,7 +980,13 @@ test("the fullscreen battle escapes the lobby's positioning and clipping", async
     await expect(page.getByRole("button", { name: "Leave the Warfront" })).toHaveCount(0);
     const stage = await page.locator(".wfr-stage").boundingBox();
     const hud = await page.locator(".wfr-hud").boundingBox();
-    expect(stage!.y).toBeGreaterThanOrEqual(hud!.y + hud!.height - 24);
+    // The camera and environment now share the full viewport. Shrinking the
+    // canvas below the HUD detached the old combat floor from its backdrop.
+    expect(stage!.x).toBe(0);
+    expect(stage!.y).toBe(0);
+    expect(stage!.width).toBe(page.viewportSize()!.width);
+    expect(stage!.height).toBe(page.viewportSize()!.height);
+    expect(hud!.height).toBeLessThan(page.viewportSize()!.height * .45);
     await expect(page.getByTestId("wfr-stage-curtain")).toHaveAttribute("data-stage-ready", "true");
     await expect.poll(async () => Number(await page.getByTestId("wfr-clock").getAttribute("data-tick"))).toBeGreaterThan(3);
     await page.screenshot({ path: testInfo.outputPath("battle-uncropped.png") });

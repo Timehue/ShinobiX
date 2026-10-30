@@ -25,6 +25,20 @@ const event = (value: Partial<DuelEvent> & Pick<DuelEvent, "t" | "type" | "actor
     ...value,
 });
 
+test("ranged and AOE arrivals react on recipients without replaying the caster's attack", () => {
+    const cues = warfrontAttackCues([
+        event({ t: 8, type: "windup", actorId: "player-0", targetId: "enemy-0" }),
+        event({ t: 25, type: "hit", actorId: "player-0", targetId: "enemy-0", ranged: true }),
+        event({ t: 28, type: "hit", actorId: "player-0", targetId: "enemy-1", ranged: true }),
+        event({ t: 29, type: "hit", actorId: "enemy-0", targetId: "player-0" }),
+    ]);
+    const beats = warfrontBodyContactBeats(cues);
+    assert.deepEqual(beats.get("player-0")?.map(b => [b.role, b.tick]), [["target", 29]]);
+    assert.ok(beats.get("enemy-0")?.some(b => b.role === "target" && b.tick === 25));
+    assert.ok(beats.get("enemy-0")?.some(b => b.role === "attacker" && b.tick === 29));
+    assert.equal(beats.get("enemy-1")?.[0].tick, 28);
+});
+
 test("every authoritative hit keeps its actor/target tell, while duplicate records merge", () => {
     const cues = warfrontAttackCues([
         event({ t: 10, type: "windup", actorId: "player-0", targetId: "enemy-0" }),

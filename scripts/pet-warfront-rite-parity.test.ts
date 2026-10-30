@@ -100,7 +100,7 @@ function assertCumulativeCarry(result: RiteReplay, label: string) {
 
 test("Rite multi-reform replay and deterministic enemy response are byte-identical on client and server", () => {
     const blue = cloneBand(0, "client");
-    // Mirrored stats keep seed 2 alive for a deciding clash, so reform #2 is
+    // Mirrored stats keep seed 1 alive for a deciding clash, so reform #2 is
     // executed rather than merely echoed in the returned plan.
     const red = cloneBand(0, "enemy");
     const plan: RitePlan = {
@@ -115,14 +115,14 @@ test("Rite multi-reform replay and deterministic enemy response are byte-identic
         ],
     };
 
-    for (const seed of [2, 19, 909]) {
+    for (const seed of [1, 19, 909]) {
         const client = clientRun(blue, red, seed, plan);
         const server = serverRun(blue, red, seed, plan);
         assert.deepEqual(server, client, `Rite client/server replay drift at seed ${seed}`);
         assert.deepEqual(client.bluePlan.reforms, plan.reforms);
         assert.ok(client.clashes.length >= 2, "best-of-three must reach a rematch");
         assert.equal(client.winner, client.blueRounds > client.redRounds ? "blue" : client.redRounds > client.blueRounds ? "red" : null);
-        if (seed === 2) {
+        if (seed === 1) {
             assert.equal(client.clashes.length, 3, "parity fixture must execute both re-form locks");
             assert.deepEqual(
                 Array.from({ length: 4 }, (_, slot) => client.clashes[2].blue.find((entry) => entry.slot === slot)?.node),
@@ -138,6 +138,8 @@ test("Rite carry health stays cumulative across both mirrors, the next clash, an
     const red = durableBand("carry-red");
     const bluePlan = holdPlan();
     const redPlan = holdPlan();
+    // Solid-terrain routing changes the damage sequence. This seed retains
+    // the counterfactual: blue wins cumulative health but loses local ratios.
     const client = clientRun(blue, red, 3, bluePlan, redPlan);
     const server = serverRun(blue, red, 3, bluePlan, redPlan);
 

@@ -151,9 +151,9 @@ test("fighter grounding is feathered AO plus a strictly transient combat rune", 
         "Three must move only metadata-Water AO cameraward while restoring the unshifted rune center");
     assert.ok(0.42 * Math.pow(1 - 0.42, 1.65) >= 0.12,
         "3D contact AO must retain an effective shoulder at or above the selected 0.12 floor");
-    assert.match(canvasStage, /riteGroundingSubmittedAoMaxAlpha = submittedAoCount \? "0\.420" : "0"/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "GroundingSubmittedAoMaxAlpha", submittedAoCount \? "0\.420" : "0"\)/,
         "Canvas telemetry must report the selected 0.42 AO submission rather than a stale cap");
-    assert.match(threeStage, /riteGroundingSubmittedAoMaxAlpha = submittedAoCount \? "0\.420" : "0"/,
+    assert.match(threeStage, /warfrontMetric\(canvas, "GroundingSubmittedAoMaxAlpha", submittedAoCount \? "0\.420" : "0"\)/,
         "Three telemetry must report the selected 0.42 AO submission rather than a stale cap");
     assert.match(captureHarness, /submittedAoMaxAlpha > 0\.42/,
         "the screenshot gate must enforce the selected 0.42 submission cap");
@@ -171,9 +171,9 @@ test("fighter grounding is feathered AO plus a strictly transient combat rune", 
         "wide actor auras and planar impact discs/donuts must not return");
     assert.doesNotMatch(canvasStage, /baseSize \* 0\.37|context\.arc\(ox|context\.arc\(tx/,
         "Canvas attack cues must not stack circular outlines around fighters");
-    assert.match(canvasStage, /riteGroundingSubmittedPlanarImpactCount = "0"/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "GroundingSubmittedPlanarImpactCount", "0"\)/,
         "the live surface must publish its actual planar-impact submissions");
-    assert.match(threeStage, /riteGroundingIdleRings = String\(idleGroundingRings\)/,
+    assert.match(threeStage, /warfrontMetric\(canvas, "GroundingIdleRings", idleGroundingRings\)/,
         "the live 3D surface must expose idle-ring parity data");
 });
 
@@ -197,7 +197,7 @@ test("both hero Fire renderers submit the same target-anchored authored sprite a
         "the actual impostor target sprite must remain at the order used by the foreground gate");
     assert.match(threeStage, /const residueSpanPx = contactWidthPx \* \(0\.84 \+ residueAge \* 0\.1\);[\s\S]*?heroResidue\.current\.scale\.set\(residueWorldSpan, residueWorldSpan \* 0\.72, 1\);[\s\S]*?smokeMaterial\.opacity = phase\.result \* 0\.68;/,
         "Three residue must remain materially scaled and visible through the shared nine-tick result");
-    assert.match(canvasStage, /Promise\.all\(\[Promise\.all\(load\), loadImpostorImage\(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL\), optionalImpactAtlas, loadImpostorImage\('\/items\/beast-seal-reinforced\.webp'\)\]\)[\s\S]*?setHeroImpactSprite\(impactSprite\)[\s\S]*?setElementImpactAtlas\(impactAtlas\)[\s\S]*?setSealImage\(seal\)/,
+    assert.match(canvasStage, /Promise\.all\(\[Promise\.all\(load\), loadImpostorImage\(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL\), optionalImpactAtlas, loadImpostorImage\('\/items\/beast-seal-reinforced\.webp'\), optionalTechniqueArt, terrainArt\]\)[\s\S]*?setHeroImpactSprite\(impactSprite\)[\s\S]*?setElementImpactAtlas\(impactAtlas\)[\s\S]*?setSealImage\(seal\)/,
         "Canvas must decode impact and card assets alongside actor art before reveal");
     assert.match(canvasStage, /const impactSpriteImage = heroImpactSprite;[\s\S]*?if \(!canvas \|\| !images \|\| !impactSpriteImage \|\| !sealImage\) return;[\s\S]*?targetScreen\?\.baseSize \?\? 64\) \* CANVAS_ACTOR_PAINTED_WIDTH_RATIO[\s\S]*?warfrontHeroContactWidthPx\(targetWidthPx\)[\s\S]*?drawWarfrontHeroFireImpact\([\s\S]*?impactSpriteImage,[\s\S]*?incomingAngle/,
         "Canvas must gate reveal on the decoded asset and pass it into the target-relative contact draw");
@@ -213,7 +213,7 @@ test("both hero Fire renderers submit the same target-anchored authored sprite a
         "Three must consume the same span and exact frozen-axis tail contract");
     assert.match(threeStage, /const WARFRONT_THREE_HERO_DAMAGE_FONT_PX = 14;[\s\S]*?const WARFRONT_THREE_HERO_DAMAGE_OUTLINE_PX = 2;[\s\S]*?context\.strokeText\(text, centerX, centerY\);[\s\S]*?context\.fillText\(text, centerX, centerY\);/,
         "the Three damage number must use a fourteen-pixel face with a real dark outline");
-    assert.match(threeStage, /riteHeroDamageHoldTicks = String\(WARFRONT_HERO_DAMAGE_HOLD_TICKS\)/,
+    assert.match(threeStage, /warfrontMetric\(canvas, "HeroDamageHoldTicks", WARFRONT_HERO_DAMAGE_HOLD_TICKS\)/,
         "Three damage text must preserve its independent three-tick hold");
     assert.match(captureHarness, /heroImpactSpriteUrl[\s\S]*?heroImpactSpriteAsymmetry[\s\S]*?heroImpactSpriteRotationRad[\s\S]*?heroImpactLegacyPrimitiveDraws/,
         "capture must read exact source, asymmetry, rotation, footprint, and legacy-submission evidence from either renderer");
@@ -237,40 +237,39 @@ test("the authored court receives no prototype foreground dressing", () => {
     const canvasStage = readFileSync(new URL("../components/PetWarfrontRiteStage.tsx", import.meta.url), "utf8");
     const threeStage = readFileSync(new URL("../components/PetWarfrontRiteStage3D.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../styles/pet-warfront-rite.css", import.meta.url), "utf8");
-    const landscapePlate = new URL("../../public/assets/warfront/kage-tactics-temple-court-v3-landscape.webp", import.meta.url);
-    const portraitPlate = new URL("../../public/assets/warfront/kage-tactics-temple-court-v3-portrait.webp", import.meta.url);
-    assert.match(css, /kage-tactics-temple-court-v3-landscape\.webp[\s\S]*?@media \(orientation: portrait\)[\s\S]*?kage-tactics-temple-court-v3-portrait\.webp/,
-        "both responsive routes must use the cohesive v3 material edit");
+    const landscapePlate = new URL("../../public/assets/warfront/training-garden-v1-landscape.webp", import.meta.url);
+    const portraitPlate = new URL("../../public/assets/warfront/training-garden-v1-portrait.webp", import.meta.url);
+    assert.match(css, /training-garden-v1-landscape\.webp[\s\S]*?@media \(orientation: portrait\)[\s\S]*?training-garden-v1-portrait\.webp/,
+        "both responsive routes must use the garden composed around the collision map");
     assert.doesNotMatch(css, /kage-tactics-temple-court-v2-(?:landscape|portrait)\.webp/,
         "the high-frequency v2 plates must remain archival rather than live");
     assert.doesNotMatch(css, /\.wfr-root::before\s*\{[\s\S]{0,300}?filter:/,
-        "the pre-graded v3 plate must not pay for a full-screen runtime filter");
-    assert.ok(statSync(landscapePlate).size <= 120_000 && statSync(portraitPlate).size <= 120_000,
-        "both edited plates must stay inside the existing lightweight first-load envelope");
+        "the pre-graded garden plate must not pay for a full-screen runtime filter");
+    assert.ok(statSync(landscapePlate).size <= 200_000 && statSync(portraitPlate).size <= 200_000,
+        "the complete garden plates replace separate prop downloads and stay below 200 KB each");
     assert.doesNotMatch(canvasStage, /for \(const wall of WARFRONT_MAZE_WALLS\)/,
         "Canvas collision must not become opaque paper blocker rectangles");
     assert.doesNotMatch(canvasStage, /context\.shadowColor = "rgba\(0, 0, 0, \.42\)"/,
         "Canvas must not submit the old blocker shadows over painted slate");
-    assert.match(canvasStage, /riteArenaPrototypeDressingDraws = String\(staticArenaMetrics\.current\.prototypeDressingDraws\)/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "ArenaPrototypeDressingDraws", staticArenaMetrics\.current\.prototypeDressingDraws\)/,
         "Canvas telemetry must describe the actual static submission result");
     assert.match(canvasStage, /prototypeDressingDraws: 0/,
         "the static Canvas submission must contain zero prototype dressing draws");
     assert.doesNotMatch(threeStage, /<BatchedKageTacticsArena \/>|<KageTacticsArena /,
         "neither Three prototype arena tree may reach the live scene");
-    assert.match(threeStage, /<KageBoardCells \/>[\s\S]*?<FloorFlushRelicObjective result=\{result\} clockRef=\{routedClockRef\} \/>/,
-        "Three must submit only the shared floor inlays and compact relic layer");
-    assert.match(threeStage, /const ARENA_FLOOR_DECAL_ALPHA_CAP = 0\.18/,
-        "all replacement floor decals need a restrained alpha cap");
-    assert.match(threeStage, /const ARENA_OBJECTIVE_DECAL_RADIUS_WORLD = 0\.285/,
-        "the objective state mark must remain smaller than a pet footprint");
-    assert.match(threeStage, /riteArenaPrototypeDressingMeshes = "0"/,
+    assert.match(threeStage, /<KageBoardCells \/>[\s\S]*?<PetWarfrontTerrain3D \/>/,
+        "the live court must submit shared terrain and zero-overlay telemetry");
+    assert.match(threeStage, /data\.riteArenaFloorDecalDraws = "0"/,
+        "the painted court must not acquire a second yellow boundary or grid");
+
+    assert.match(threeStage, /data\.riteArenaPrototypeDressingMeshes = "0"/,
         "Three must report zero actually submitted prototype meshes");
-    assert.match(threeStage, /riteArenaGlyphDebrisMeshes = "0"/,
+    assert.match(threeStage, /data\.riteArenaGlyphDebrisMeshes = "0"/,
         "Three must report zero obsolete glyph-debris submissions");
     assert.doesNotMatch(threeStage, /ref=\{shards\}[\s\S]*?fighters\.length \* 2/,
         "per-fighter readability shards must not scatter black geometry over pets");
-    assert.match(threeStage, /name="wfr-small-scroll-relic"/,
-        "the objective must retain a readable, non-occluding scroll identity");
+    assert.doesNotMatch(threeStage, /FloorFlushRelicObjective|wfr-small-scroll-relic/,
+        "elimination combat must not imply a capture objective that does not exist");
     assert.doesNotMatch(threeStage, /new THREE\.Clock|THREE\.Clock\(/,
         "the edited arena path must not instantiate deprecated THREE.Clock");
 });
@@ -290,25 +289,25 @@ test("both renderer routes seat actors in the court's positional faction light",
         "Canvas actor lighting must follow world position rather than team identity");
     assert.match(canvasStage, /const multiplyAlpha = 0\.10 \+ Math\.abs\(arenaSide\) \* 0\.07/,
         "the Canvas value-shaping pass must use the lowest viable sweep result and cap at seventeen percent alpha");
-    assert.match(canvasStage, /riteArenaActorLightMultiplyCap = "0\.170"/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "ArenaActorLightMultiplyCap", "0\.170"\)/,
         "Canvas telemetry must publish the exact selected multiply cap");
     assert.match(canvasStage, /const recoveryAlpha = 0\.012 \+ Math\.abs\(arenaSide\) \* 0\.018/,
         "arena-facing highlight recovery must remain capped at three percent alpha");
-    assert.match(canvasStage, /riteArenaActorLightMode = "position-aware-multiply-mask"/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "ArenaActorLightMode", "position-aware-multiply-mask"\)/,
         "Canvas must report the actual multiplicative actor-only light submission mode");
-    assert.match(threeStage, /riteArenaSideLights = "2"/,
+    assert.match(threeStage, /warfrontMetric\(canvas, "ArenaSideLights", "2"\)/,
         "Three must report both actually submitted arena side lights");
 });
 
-test("Beastbound Warfront has one position owner, actor-first framing, and target-authoritative facing", () => {
+test("Beastbound Warfront has one position owner and separates travel from planted combat facing", () => {
     const source = readFileSync(new URL("../components/PetWarfrontRiteStage3D.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../styles/pet-warfront-rite.css", import.meta.url), "utf8");
     assert.doesNotMatch(source, /MathUtils\.damp\(group\.position\./,
         "the renderer must not chase the already-interpolated authoritative path with a second spring");
     assert.match(source, /locomotionActive\.current/,
         "run and idle animation need hysteresis instead of a single noisy speed threshold");
-    assert.match(source, /f\.lockTargetFacing = hasLiveTarget \|\| committed \|\| !moving/,
-        "a live target must own facing even while the actor is travelling");
+    assert.match(source, /f\.lockTargetFacing = !travelFacing/,
+        "travel must use its path heading; planted attacks retain the committed target");
     assert.match(source, /f\.freezeFacing = rotationFrozen/,
         "KO and stagger must stop rotation tracking");
     assert.match(source, /f\.motion = down \? "dead"[\s\S]*?pose\.state === "windup" \? "windup"[\s\S]*?pose\.state === "strike" \? "strike"[\s\S]*?pose\.state === "recover" \? "recover"/,
@@ -319,9 +318,9 @@ test("Beastbound Warfront has one position owner, actor-first framing, and targe
     assert.match(source, /shadows=\{renderQuality\.modelShadows \? "percentage" : false\}/,
         "the Rite must not select Three's deprecated warning-heavy boolean shadow preset");
     assert.match(source, /<KageBoardCells \/>/,
-        "the live stage must retain coordinate-true tactical floor inlays");
-    assert.match(source, /args=\{\[undefined, undefined, 35\]\}/,
-        "the 7x5 simulation grid must have matching authored floor cells");
+        "the live stage must report floor-overlay telemetry");
+    assert.doesNotMatch(source, /\bboundaryGeometry|\blaneGeometry|wfr-instanced-board-cells/,
+        "collision cells must stay invisible during combat");
     assert.match(source, /warfrontCameraFrame\(/,
         "the 3D camera must fit all deployment cells and standing pet models");
     assert.match(source, /perspective\.lookAt\(\.\.\.frame\.target\)/,
@@ -330,8 +329,8 @@ test("Beastbound Warfront has one position owner, actor-first framing, and targe
         "portrait must frame the complete board rather than a moving 78% crop");
     assert.match(source, /quality=\{quality\}/,
         "the phone scene quality decision must reach each pet model");
-    assert.match(css, /kage-tactics-temple-court-v3-landscape\.webp/,
-        "the mode must use the new generated fortress backdrop");
+    assert.match(css, /training-garden-v1-landscape\.webp/,
+        "the mode must use the garden authored around its collision layout");
     assert.doesNotMatch(source, /shinobi-dual-scroll-courtyard-v3\.webp/,
         "retired capture-the-scroll floor art must not leak into Beastbound Warfront");
 });

@@ -10,6 +10,8 @@ import type { RiteClash } from "./pet-warfront-rite";
 
 export const RITE_TEAM_COLOR = { player: "#4cc9f0", enemy: "#ff5470" } as const;
 export const RITE_REVEAL_FIGHTER_COUNT = 8;
+/** Leave traversable ground visible between silhouettes, including long tails. */
+export const RITE_ACTOR_SCALE = 0.75;
 
 /** Hit-stop holds an animation clock; it must never rewind it. Rewinding after
  * a dropped frame resets the underlying mixer and makes a winged rig snap. */
