@@ -13,8 +13,9 @@
  * credit is best-effort — a storage blip must never fail the explore that
  * earned it.
  *
- * Storage, two keys per player per sector per day:
- *   world:contract:<player>:<sector>:<day>        progress + credited explore ids
+ * Storage, per player per sector per day:
+ *   world:contract:<player>:<sector>:<day>        numeric progress (legacy compatible)
+ *   world:contract-receipts:<player>:<sector>:<day> credited explore ids
  *   world:contract-claim:<player>:<sector>:<day>  claim timestamp, set once
  * Claims carry a 2-day TTL; progress and receipt ids live 4 days to outlast
  * delivery retries. Numeric progress rows remain readable. These are KV
@@ -54,6 +55,10 @@ export function contractProgressKey(playerName: string, sector: number, day: str
 
 export function contractClaimKey(playerName: string, sector: number, day: string): string {
     return `${CONTRACT_CLAIM_KEY_PREFIX}${playerName}:${Math.floor(sector)}:${day}`;
+}
+
+export function contractReceiptKey(playerName: string, sector: number, day: string): string {
+    return `world:contract-receipts:${playerName}:${Math.floor(sector)}:${day}`;
 }
 
 export type SectorContractStatus = {
@@ -120,16 +125,28 @@ export async function creditSectorContractProgress(
     }
     try {
         const key = contractProgressKey(name, id, day);
-        // Count and proof share one fenced write. A lost write acknowledgment,
+        // Count and proof share one fenced transaction. A lost acknowledgment,
         // failed outbox removal, or concurrent drain can only replay this id.
-        // Numeric predecessors remain readable and retain all banked progress.
+        // Keep the public counter numeric: old workers can still increment it
+        // during a rolling deployment. CAS retries include their intervening work.
         const progress = await withKvLock(key, async () => {
-            const prior = contractProgress(await kv.get(key));
-            if (opts.requestId && prior.receipts.includes(opts.requestId)) return prior.progress;
-            const next = { version: 1, progress: prior.progress + 1,
-                receipts: opts.requestId ? [...prior.receipts, opts.requestId] : prior.receipts };
-            await kv.set(key, next, { ex: CONTRACT_PROGRESS_TTL_SECONDS });
-            return next.progress;
+            if (!kv.compareSetMany) throw new Error('Contract delivery requires atomic receipt storage.');
+            const proofKey = contractReceiptKey(name, id, day);
+            for (let attempt = 0; attempt < 5; attempt++) {
+                const [raw, proof] = await kv.mget(key, proofKey);
+                const prior = contractProgress(raw);
+                const receipts = [...new Set([...prior.receipts,
+                    ...(Array.isArray(proof) ? proof.filter((entry): entry is string => typeof entry === 'string') : [])])];
+                if (opts.requestId && receipts.includes(opts.requestId)) return prior.progress;
+                const next = prior.progress + 1;
+                if (opts.requestId) receipts.push(opts.requestId);
+                const committed = await kv.compareSetMany([
+                    { op: 'cas', key, expected: raw ?? null, value: next, ex: CONTRACT_PROGRESS_TTL_SECONDS },
+                    { op: 'cas', key: proofKey, expected: proof ?? null, value: receipts, ex: CONTRACT_PROGRESS_TTL_SECONDS },
+                ]);
+                if (committed) return next;
+            }
+            throw new Error('Contract progress changed during delivery; retry required.');
         }, { failClosed: true });
         const claimedAt = await kv.get<number>(contractClaimKey(name, id, day));
         return sectorContractStatus(contract, progress, claimedAt, now);

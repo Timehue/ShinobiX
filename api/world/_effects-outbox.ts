@@ -32,6 +32,7 @@ export type WorldEffect =
 export const WORLD_EFFECTS_OUTBOX_CAP = 20;
 export const WORLD_EFFECTS_OUTBOX_TTL_SEC = 3 * 24 * 60 * 60;
 const DRAIN_BATCH = 8;
+class MissingContractDiscoveryTimeError extends Error {}
 
 export function worldEffectsOutboxKey(playerName: string): string {
     return `world-effects:${safeName(playerName)}`;
@@ -87,7 +88,7 @@ export async function applyWorldEffect(playerName: string, effect: WorldEffect, 
             at = Number(receipt?.at);
         }
     }
-    if (!Number.isSafeInteger(at) || !at || at <= 0) throw new Error('Contract effect is missing its discovery time.');
+    if (!Number.isSafeInteger(at) || !at || at <= 0) throw new MissingContractDiscoveryTimeError('Contract effect is missing its discovery time.');
     // Explore receipts outlive the delivery outbox. Do not recreate expired
     // progress after its deduplication proof has legitimately aged out.
     if (now - at >= WORLD_EFFECTS_OUTBOX_TTL_SEC * 1000) return;
@@ -136,17 +137,21 @@ export async function deliverWorldEffect(playerName: string, effect: WorldEffect
 
 /**
  * Deliver what the outbox still owes, oldest first, stopping at the first
- * effect that fails again (it and everything after it wait for the next
- * drain). Returns how many were delivered. Never throws.
+ * infrastructure failure. Unresolvable legacy timestamps remain stored but
+ * do not block later valid effects. Returns deliveries completed. Never throws.
  */
 export async function drainWorldEffects(playerName: string, deps: WorldEffectDeps = {}): Promise<number> {
     let delivered = 0;
     try {
         const pending = parseWorldEffects(await kv.get(worldEffectsOutboxKey(playerName)));
-        for (const effect of pending.slice(0, DRAIN_BATCH)) {
+        for (const effect of pending) {
+            if (delivered >= DRAIN_BATCH) break;
             try {
                 await applyWorldEffect(playerName, effect, deps);
-            } catch {
+            } catch (error) {
+                // Keep the unresolved legacy evidence, but do not strand later
+                // valid work behind it. Storage failures still pause the drain.
+                if (error instanceof MissingContractDiscoveryTimeError) continue;
                 break;
             }
             await removeWorldEffect(playerName, effect);

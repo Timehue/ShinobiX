@@ -123,6 +123,20 @@ describe('/api/sector/contract', () => {
         assert.equal(await ryoOnSave(), START_RYO);
     });
 
+    it('public status and claims use the current UTC board, not recovered prior-day work', async () => {
+        const previousDay = utcDayOf(NOW - 86_400_000);
+        const previousSector = contractSectorsForDay(previousDay)[0];
+        const previous = sectorContractFor(previousSector, previousDay)!;
+        await kv.set(contractProgressKey(PLAYER, previousSector, previousDay), previous.target);
+        const status = await call('GET', { playerName: PLAYER, sector: previousSector });
+        assert.equal(status.body?.progress, 0);
+        assert.equal(status.body?.claimable, false);
+        const current = sectorContractFor(previousSector, DAY);
+        const claim = await call('POST', { playerName: PLAYER, sector: previousSector, day: previousDay });
+        assert.equal(claim.body?.reason, current ? 'incomplete' : 'no-contract');
+        assert.equal(await ryoOnSave(), START_RYO);
+    });
+
     it('pays the sealed bounty once the work is done, and echoes the save version', async () => {
         await kv.set(contractProgressKey(PLAYER, POSTED, DAY), CONTRACT.target);
         const out = await call('POST', { playerName: PLAYER, sector: POSTED });
