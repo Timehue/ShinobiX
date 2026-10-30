@@ -1,5 +1,5 @@
 import {warSectionCard,warActionRow,warFlexibleField,warMutedHeading,warPrimaryButton,warSmallButton} from '../lib/clan-battles-styles';
-/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { visiblePoll } from "../lib/poll";
 import { GameArtIcon } from "../components/GameArtIcon";
