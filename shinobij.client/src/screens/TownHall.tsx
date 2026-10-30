@@ -310,14 +310,12 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     // the game lives in the Shinobi Council Hall, so the Town Hall has to say
     // where it is and take the player there.
     const kageSeatVacant = Boolean(state.kageSystemUnlocked) && !state.seatedKage;
-    // Keyed on the only inputs it reads (character.name, character.village,
-    // allServerPlayers) so the regen tick does not re-sort the roster each second.
-    const villagePlayers = useMemo(() => [
+    const villagePlayers = [
         character.name,
         ...allServerPlayers
             .filter(player => player.village === character.village)
             .map(player => player.name),
-    ].filter((name, index, names) => Boolean(name) && names.indexOf(name) === index).sort((a, b) => a.localeCompare(b)), [character.name, character.village, allServerPlayers]);
+    ].filter((name, index, names) => Boolean(name) && names.indexOf(name) === index).sort((a, b) => a.localeCompare(b));
     useEffect(() => {
         if (!elderTerm || !Number.isFinite(elderTerm.nextSelectionAt)) return;
         let timer: ReturnType<typeof setTimeout>;
@@ -494,7 +492,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     // the banner null (never 0) for a field nobody has read.
     const provisionsKnown = state.treasury.provisions !== undefined || storesSnapshot?.provisions !== undefined;
     const storesView = storesRowValues(storesSnapshot, state.treasury);
-    const storesLedgerView = useMemo(() => storesLedgerRows(storesLedgerRaw, storesLedgerNow), [storesLedgerRaw, storesLedgerNow]);
+    const storesLedgerView = storesLedgerRows(storesLedgerRaw, storesLedgerNow);
     // Who may spend what a villager just donated. Copy only — the authority is
     // the server's and is unchanged: the Kage spends the stores, ANBU appointees
     // may order a garrison fed. Null while the read is still outstanding, so a

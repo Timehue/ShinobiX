@@ -5,8 +5,7 @@ import type { BattleHistoryEntry, Character, VersionedCharacterCommit } from "..
 import { visiblePoll } from "../lib/poll";
 import type { Screen } from "../types/core";
 import type { GameItem, SavedBloodline } from "../types/combat";
-import { buildHostLoadoutFromItems } from "../lib/host-loadout";
-import { getAllItems } from "../lib/items";
+import { buildHostLoadout } from "../lib/host-loadout";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { fetchWorldCrisis } from "../lib/world-crisis";
 import stormveilArt from "../assets/map-landmarks/stormveil.webp";
@@ -42,8 +41,7 @@ function openWorldNews(setScreen: (screen: Screen) => void) {
 }
 
 export function WorldCrisis({ character, creatorItems, savedBloodlines, setScreen, sharedImages, onVersionedCharacter, onRecordBattle }: { character: Character; creatorItems: GameItem[]; savedBloodlines: SavedBloodline[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; onVersionedCharacter?: VersionedCharacterCommit; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
-    const allItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
-    const hostLoadout = useMemo(() => buildHostLoadoutFromItems(character, savedBloodlines, allItems), [character, savedBloodlines, allItems]);
+    const hostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
     const [chroniclePending, startChronicleTransition] = useTransition();
     const [chronicle, setChronicle] = useState<"37" | "80">(() => {
         try { return sessionStorage.getItem("worldCrisis.focus") === "80" ? "80" : "37"; }
