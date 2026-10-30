@@ -4041,14 +4041,23 @@ const kageWalkable = (col: number, row: number) => kageInside(col, row) && !KAGE
  * straight through it along its row. The cell stays solid for sockets and sight:
  * the run is one two-cell move that never stops inside. Without these runs each
  * terrace seals its row, and a single cell joins the two halves of the board. */
-const KAGE_TERRACE_RUNS = new Map<string, Array<readonly [number, number]>>();
-for (const { col, row } of KAGE_SOLIDS.filter(cell => cell.kind === "cover")) {
-    for (const side of [-1, 1]) {
-        if (!kageWalkable(col - side, row) || !kageWalkable(col + side, row)) continue;
-        const key = kageKey(col - side, row);
-        KAGE_TERRACE_RUNS.set(key, [...(KAGE_TERRACE_RUNS.get(key) ?? []), [side * 2, 0]]);
-    }
-}
+const kageTerraceRuns = (col: number, row: number) => KAGE_SOLIDS
+    .filter(cell => cell.kind === "cover" && cell.row === row && Math.abs(cell.col - col) === 1 && kageWalkable(cell.col * 2 - col, row))
+    .map(cell => [(cell.col - col) * 2, 0] as const);
+/** One legal move on the grid. A diagonal needs both side cells clear: its
+ * centreline alone can miss a stone while the pet's body clips through its corner. */
+const kageCanStep = (col: number, row: number, nextCol: number, nextRow: number, occupied: ReadonlySet<string>) =>
+    kageWalkable(nextCol, nextRow) && !occupied.has(kageKey(nextCol, nextRow))
+    && !occupied.has(kageKey((col + nextCol) / 2, (row + nextRow) / 2))
+    && kageWalkable(nextCol, row) && kageWalkable(col, nextRow);
+/** Walks a search's parents back to the first move away from its start. */
+const kageFirstStep = (parent: ReadonlyMap<string, string | null>, goalKey: string, startKey: string): [number, number] | null => {
+    let stepKey = goalKey;
+    let prior = parent.get(stepKey);
+    while (prior && prior !== startKey) { stepKey = prior; prior = parent.get(stepKey); }
+    const [col, row] = stepKey.split(",").map(Number);
+    return Number.isInteger(col) && Number.isInteger(row) ? [col, row] : null;
+};
 const kagePoint =(col: number, row: number): [number, number] => [
     quant((col - (WARFRONT_GRID_COLS - 1) / 2) * WARFRONT_CELL_X),
     quant((row - (WARFRONT_GRID_ROWS - 1) / 2) * WARFRONT_CELL_Y),
@@ -4170,17 +4179,13 @@ const kageRouteStep = (
     for (let cursor = 0; cursor < queue.length; cursor++) {
         const [col, row] = queue[cursor];
         const key = kageKey(col, row);
-        for (const [dc, dr] of [...dirs, ...(KAGE_TERRACE_RUNS.get(key) ?? [])]) {
+        for (const [dc, dr] of [...dirs, ...kageTerraceRuns(col, row)]) {
             const nextCol = col + dc, nextRow = row + dr, nextKey = kageKey(nextCol, nextRow);
             if (key === startKey && avoidFirstKey === nextKey) continue;
-            if (!kageWalkable(nextCol, nextRow) || occupied.has(nextKey) || parent.has(nextKey)) continue;
-            // A diagonal needs both side cells clear: its centreline alone
-            // can miss a stone while the pet's body clips through its corner.
-            if (occupied.has(kageKey((col + nextCol) / 2, (row + nextRow) / 2))
-                || !kageWalkable(nextCol, row) || !kageWalkable(col, nextRow)) continue;
+            if (parent.has(nextKey) || !kageCanStep(col, row, nextCol, nextRow, occupied)) continue;
             if (forbidPile && createsVisualPile(nextCol, nextRow)) continue;
             parent.set(nextKey, key);
-            distance.set(nextKey, (distance.get(key) ?? 0) + Math.max(Math.abs(dc), Math.abs(dr)));
+            distance.set(nextKey, (distance.get(key) ?? 0) + Math.abs(dc || dr));
             queue.push([nextCol, nextRow]);
         }
     }
@@ -4236,14 +4241,7 @@ const kageRouteStep = (
         ?? (forbidPile ? undefined : legal.find((candidate) => candidate.crowd < 2) ?? legal[0])
         ?? (forbidPile ? destinations.find((candidate) => !candidate.pileRisk) : destinations[0]);
     if (!destination || (destination.col === unit.col && destination.row === unit.row)) return null;
-    let stepKey = kageKey(destination.col, destination.row);
-    let prior = parent.get(stepKey);
-    while (prior && prior !== startKey) {
-        stepKey = prior;
-        prior = parent.get(stepKey);
-    }
-    const [col, row] = stepKey.split(",").map(Number);
-    return Number.isInteger(col) && Number.isInteger(row) ? [col, row] : null;
+    return kageFirstStep(parent, kageKey(destination.col, destination.row), startKey);
 };
 
 /** Route to a reserved opening socket rather than another body. Resolving the
@@ -4272,22 +4270,29 @@ const kageOpeningStep = (
     for (let cursor = 0; cursor < queue.length && !parent.has(goalKey); cursor++) {
         const [col, row] = queue[cursor];
         const key = kageKey(col, row);
-        for (const [dc, dr] of [...dirs, ...(KAGE_TERRACE_RUNS.get(key) ?? [])]) {
+        for (const [dc, dr] of [...dirs, ...kageTerraceRuns(col, row)]) {
             const nextCol = col + dc, nextRow = row + dr, nextKey = kageKey(nextCol, nextRow);
             if (key === startKey && nextKey === avoidFirstKey) continue;
-            if (!kageWalkable(nextCol, nextRow) || occupied.has(nextKey) || parent.has(nextKey)) continue;
-            if (occupied.has(kageKey((col + nextCol) / 2, (row + nextRow) / 2))
-                || !kageWalkable(nextCol, row) || !kageWalkable(col, nextRow)) continue;
+            if (parent.has(nextKey) || !kageCanStep(col, row, nextCol, nextRow, occupied)) continue;
             parent.set(nextKey, key);
             queue.push([nextCol, nextRow]);
         }
     }
-    if (!parent.has(goalKey)) return null;
-    let stepKey = goalKey;
-    let prior = parent.get(stepKey);
-    while (prior && prior !== startKey) { stepKey = prior; prior = parent.get(stepKey); }
-    const [col, row] = stepKey.split(",").map(Number);
-    return Number.isInteger(col) && Number.isInteger(row) ? [col, row] : null;
+    return parent.has(goalKey) ? kageFirstStep(parent, goalKey, startKey) : null;
+};
+
+const kageRememberTarget = (unit: KageUnit, targetId: string) => {
+    if (unit.targetHistory.at(-1) === targetId) return;
+    unit.targetHistory.push(targetId);
+    if (unit.targetHistory.length > 8) unit.targetHistory.shift();
+};
+/** Frees a pet from a failed opening job so ordinary targeting takes over. */
+const kageReleaseOpening = (unit: KageUnit) => {
+    unit.openingTargetId = null;
+    unit.openingJob = "wing";
+    unit.targetLockLeft = 0;
+    unit.fighter.targetId = null;
+    unit.blockedTicks = 0;
 };
 
 function kageFormationSim(
@@ -4539,10 +4544,7 @@ function kageFormationSim(
                     if (previousTargetId && previousTargetId !== openingTarget.fighter.id) {
                         unit.targetReturnLocks[previousTargetId] = KAGE_TARGET_RETURN_LOCK_TICKS;
                     }
-                    if (unit.targetHistory.at(-1) !== openingTarget.fighter.id) {
-                        unit.targetHistory.push(openingTarget.fighter.id);
-                        if (unit.targetHistory.length > 8) unit.targetHistory.shift();
-                    }
+                    kageRememberTarget(unit, openingTarget.fighter.id);
                     claimed.set(openingTarget.fighter.id, (claimed.get(openingTarget.fighter.id) ?? 0) + 1);
                     const aiState: DuelAiState = unit.openingJob === "flank" ? "flank"
                         : unit.openingJob === "front" ? "hold position" : "prepare combo";
@@ -4626,10 +4628,7 @@ function kageFormationSim(
                 if (previousTargetId && best && previousTargetId !== best.fighter.id) {
                     unit.targetReturnLocks[previousTargetId] = KAGE_TARGET_RETURN_LOCK_TICKS;
                 }
-                if (best && unit.targetHistory.at(-1) !== best.fighter.id) {
-                    unit.targetHistory.push(best.fighter.id);
-                    if (unit.targetHistory.length > 8) unit.targetHistory.shift();
-                }
+                if (best) kageRememberTarget(unit, best.fighter.id);
                 unit.targetLockLeft = best ? KAGE_ORDER_LOCK_TICKS : 0;
                 if (best) {
                     claimed.set(best.fighter.id, bestLoad + 1);
@@ -4872,11 +4871,7 @@ function kageFormationSim(
                 // falls. Do not pin this actor to an empty square while that
                 // still-living target fights elsewhere; resume ordinary route
                 // selection immediately from the readable opening position.
-                unit.openingTargetId = null;
-                unit.openingJob = "wing";
-                unit.targetLockLeft = 0;
-                fighter.targetId = null;
-                unit.blockedTicks = 0;
+                kageReleaseOpening(unit);
                 setIntent(fighter, "reposition", openingReach,
                     "pursue the displaced formation target", "the opposing firing socket has moved");
                 continue;
@@ -4894,11 +4889,7 @@ function kageFormationSim(
                     // Release only this failed job; the other three readable
                     // lanes remain intact while normal target/path selection
                     // finds the actor a legal contribution.
-                    unit.openingTargetId = null;
-                    unit.openingJob = "wing";
-                    unit.targetLockLeft = 0;
-                    fighter.targetId = null;
-                    unit.blockedTicks = 0;
+                    kageReleaseOpening(unit);
                     setIntent(fighter, "reposition", kagePreferredRange(unit),
                         "join the nearest open engagement", "the reserved opening socket is temporarily sealed");
                 }
