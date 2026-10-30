@@ -16,6 +16,7 @@ type TowerRoundPresentation = {
  * the engine safety deadline.
  */
 export function towerRoundPresentation(session: TowerSession): TowerRoundPresentation {
+    const round = session.round;
     const hardLimit = Math.min(COMBAT_MAX_ROUNDS, Number(session.roundCap ?? COMBAT_MAX_ROUNDS));
     const objective = session.objectiveState.kind;
     const goal = Number((session.sealedCatalogFloor ?? session.encounterFloor)?.roundBudget ?? 0);
@@ -34,31 +35,24 @@ export function towerRoundPresentation(session: TowerSession): TowerRoundPresent
     const isStory = session.towerId === "celestial"
         && Number(session.ascensionTier ?? 0) === 0
         && session.floor >= 1 && session.floor <= 15;
-    if (isStory && goal > 0) {
+    const parSuffix = isStory && goal > 0 ? ` · Par ${goal}` : "";
+    if (parSuffix || hardLimit > 0) {
         return {
-            debriefLabel: "Rounds / par",
-            debriefValue: `${session.round} / ${hardLimit} · Par ${goal}`,
-            hudLabel: `Round ${session.round}/${hardLimit} · Par ${goal}`,
-            hudTitle: `Par ${goal} affects clear score only. Clear by the end of round ${hardLimit} or the floor fails.`,
-            hardLimit,
-        };
-    }
-
-    if (hardLimit > 0) {
-        return {
-            debriefLabel: "Round limit",
-            debriefValue: `${session.round} / ${hardLimit}`,
-            hudLabel: `Round ${session.round}/${hardLimit} · limit`,
-            hudTitle: `The encounter ends after round ${hardLimit}.`,
+            debriefLabel: parSuffix ? "Rounds / par" : "Round limit",
+            debriefValue: `${round} / ${hardLimit}${parSuffix}`,
+            hudLabel: `Round ${round}/${hardLimit}${parSuffix || " · limit"}`,
+            hudTitle: parSuffix
+                ? `Par ${goal} affects clear score only. Clear by the end of round ${hardLimit} or the floor fails.`
+                : `The encounter ends after round ${hardLimit}.`,
             hardLimit,
         };
     }
 
     return {
         debriefLabel: "Rounds",
-        debriefValue: String(session.round),
-        hudLabel: `Round ${session.round}`,
-        hudTitle: `Current round ${session.round}.`,
+        debriefValue: String(round),
+        hudLabel: `Round ${round}`,
+        hudTitle: `Current round ${round}.`,
         hardLimit: null,
     };
 }
