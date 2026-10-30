@@ -66,9 +66,10 @@ describe('single fighter pipeline — admin content is always supplied', () => {
             const src = read(rel);
             assert.match(
                 src,
-                /hydrateCharacterFromSave\([^;]*loadAdminCombatContent\(\)/is,
+                /hydrateCharacterFromSave\([^;]*(?:loadAdminCombatContent\(\)|adminCombatContent)/is,
                 `${rel} must pass the admin catalog to the canonical hydrator`,
             );
+            if (src.includes('adminCombatContent')) assert.match(src, /adminCombatContent = await loadAdminCombatContent\(\)/);
         }
     });
 

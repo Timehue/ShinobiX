@@ -1,4 +1,4 @@
-import { withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
+import { CombatAdmissionConflictError, withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
 import { handleStrongholdAction, strongholdVaultReady } from './_stronghold.js';
 import { villageCampaignStronghold } from '../_village-war-campaign.js';
 import { seatedKageOf } from '../_sector-war-garrison-defender.js';
@@ -150,6 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             default: return res.status(400).json({ error: 'Unknown action.' });
         }
     } catch (err) {
+        if (err instanceof CombatAdmissionConflictError) return res.status(409).json({ error: err.message, errorCode: 'combat-active' });
         console.error('[village/anbu-infiltration]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
@@ -318,7 +319,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
             await writeInfilRun({ ...run, startState: 'ready' });
             return { status: 200 as const, body: {
                 ok: true, replayed: attempt.replayed, runId, sector, targetVillage,
-                anbu: { name: maskedAnbuName }, session,
+                anbu: { name: maskedAnbuName }, session, _saveVersion: fresh._saveVersion,
             } };
         });
         const admission = identity.admin ? { ok: true as const, value: await commit() } : await withWorldBossPvpLock([playerName], commit);

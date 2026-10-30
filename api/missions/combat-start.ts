@@ -1,4 +1,4 @@
-import { withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
+import { CombatAdmissionConflictError, withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
 import { openWorldContinuousVitalsEnabled } from '../_release-flags.js';
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -150,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.del(activeKey, missionCombatBindingKey(runId), soloPveSessionKey(runId)).catch(() => undefined);
                     throw error;
                 }
-                return { ok: true as const, runId, session, resumed: false };
+                return { ok: true as const, runId, session, resumed: false, _saveVersion: fresh._saveVersion };
             });
         }, { failClosed: true, ttlSec: 10 });
         if (!started.ok) return res.status(409).json({ error: started.error, errorCode: started.errorCode });
@@ -164,6 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json(started);
     } catch (err) {
+        if (err instanceof CombatAdmissionConflictError) return res.status(409).json({ error: err.message, errorCode: 'combat-active' });
         console.error('[missions/combat-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

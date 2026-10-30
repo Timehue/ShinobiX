@@ -90,6 +90,110 @@ function chestReceipt(player: string, requestId: string, sector: number, at = Da
 }
 
 describe('world-reward:pending account mirror', () => {
+    it('concurrent opens pay once while a delayed Explore request holds an older discovery snapshot', { timeout: 30_000 }, async t => {
+        const player = 'pendmirrorconcurrent', requestId = 'concurrentchest01';
+        const receipt = chestReceipt(player, requestId, 41);
+        const key = `world-explore-receipt:${player}:${requestId}`;
+        await seed(player, { serverChestDate: receipt.outcome.reservationDate, serverChestsToday: 1 });
+        await kv.set(key, receipt);
+        const original = kv.get.bind(kv);
+        let captured = false, signalRead!: () => void, releaseRead!: () => void;
+        const readStarted = new Promise<void>(resolve => { signalRead = resolve; });
+        const resumeRead = new Promise<void>(resolve => { releaseRead = resolve; });
+        t.mock.method(kv, 'get', async (...args: Parameters<typeof kv.get>) => {
+            const value = await original(...args);
+            if (args[0] === key && !captured) {
+                captured = true; signalRead(); await resumeRead;
+            }
+            return value;
+        });
+        const exploring = post(explore, player, { sector: 41, requestId, resolveOutcome: true });
+        await readStarted;
+        let saved: unknown;
+        try {
+            const opens = await Promise.all([1, 2].map(() => post(openChest, player, { sector: 41, requestId, worldExploreRequestId: requestId })));
+            assert.ok(opens.every(out => out.statusCode === 200), JSON.stringify(opens));
+            assert.deepEqual(opens.map(out => out.body?.replayed).sort(), [false, true]);
+            saved = await original(`save:${player}`);
+        } finally { releaseRead(); }
+        const replay = await exploring;
+        assert.equal(replay.statusCode, 200, JSON.stringify(replay.body));
+        assert.equal(replay.body?.replayed, true);
+        assert.deepEqual(await pending.readPendingWorldRewards(player), []);
+        assert.deepEqual(await original(`save:${player}`), saved, 'the delayed discovery cannot pay or charge progress again');
+        assert.equal((saved as { character: { serverChestsToday: number } }).character.serverChestsToday, 1);
+    });
+
+    for (const operation of ['proof', 'pending'] as const) for (const lostAck of [false, true]) {
+        it(`${operation} ${lostAck ? 'lost acknowledgement' : 'write failure'} retries without a second chest payout`, async t => {
+            const player = `pendmirror${operation}${lostAck ? 'ack' : 'failure'}`, requestId = 'failurechest001';
+            const receipt = chestReceipt(player, requestId, 41);
+            const key = `world-explore-receipt:${player}:${requestId}`;
+            await seed(player, { serverChestDate: receipt.outcome.reservationDate, serverChestsToday: 1 });
+            await kv.set(key, receipt);
+            await pending.addPendingWorldReward(player, { kind: 'chest', requestId, sector: 41 });
+            let injected = false;
+            if (operation === 'proof') {
+                const original = kv.set.bind(kv);
+                t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+                    if (args[0] === key && !injected) {
+                        injected = true;
+                        if (lostAck) await original(...args);
+                        throw new Error('injected payout proof failure');
+                    }
+                    return original(...args);
+                });
+            } else {
+                const original = kv.del.bind(kv);
+                t.mock.method(kv, 'del', async (...args: Parameters<typeof kv.del>) => {
+                    if (args.includes(pending.pendingWorldRewardsKey(player)) && !injected) {
+                        injected = true;
+                        if (lostAck) await original(...args);
+                        throw new Error('injected pending retirement failure');
+                    }
+                    return original(...args);
+                });
+            }
+            const body = { sector: 41, requestId, worldExploreRequestId: requestId };
+            const first = await post(openChest, player, body);
+            assert.equal(first.statusCode, operation === 'proof' ? 503 : 200, JSON.stringify(first.body));
+            assert.ok(injected);
+            const paidSave = await kv.get(`save:${player}`);
+            const retry = await post(openChest, player, body);
+            assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+            assert.equal(retry.body?.replayed, true);
+            assert.deepEqual(await kv.get(`save:${player}`), paidSave);
+            assert.deepEqual(await pending.readPendingWorldRewards(player), []);
+            assert.ok((await kv.get<{ outcome: { openedLoot: unknown } }>(key))?.outcome.openedLoot);
+        });
+    }
+
+    for (const lostAck of [false, true]) {
+        it(`discovery mirror ${lostAck ? 'lost acknowledgement' : 'write failure'} resumes its committed receipt`, async t => {
+            const player = `pendmirrordiscovery${lostAck ? 'ack' : 'failure'}`, requestId = 'discoveryfailure01';
+            const receipt = chestReceipt(player, requestId, 41);
+            await seed(player, { serverChestDate: receipt.outcome.reservationDate, serverChestsToday: 1,
+                redeemedSectorExplorations: [{ id: requestId, sector: 41, reward: receipt.reward, outcome: receipt.outcome, at: receipt.at }] });
+            const saved = await kv.get(`save:${player}`), original = kv.set.bind(kv);
+            let injected = false;
+            t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+                if (args[0] === `world-explore-receipt:${player}:${requestId}` && !injected) {
+                    injected = true;
+                    if (lostAck) await original(...args);
+                    throw new Error('injected discovery mirror failure');
+                }
+                return original(...args);
+            });
+            const body = { sector: 41, requestId, resolveOutcome: true };
+            assert.equal((await post(explore, player, body)).statusCode, 503);
+            const retry = await post(explore, player, body);
+            assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+            assert.equal(retry.body?.replayed, true);
+            assert.deepEqual(await kv.get(`save:${player}`), saved);
+            assert.equal((await pending.readPendingWorldRewards(player)).length, 1);
+        });
+    }
+
     it('opening before the discovery mirror exists seals payout proof before a delayed Explore write', async () => {
         const player = 'pendmirrorearlyopen', requestId = 'earlyopenchest01';
         const receipt = chestReceipt(player, requestId, 41);

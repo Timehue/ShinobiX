@@ -60,7 +60,7 @@ test("Ready Room exposes a semantic ready gate and resilient sync recovery", () 
 test("Story briefing copy treats round budgets as objective-aware pace and combatants as starting count", () => {
     assert.match(lobby, /if \(objective === "protect-npc"\) return `Hold \$\{roundBudget\} rounds`/);
     assert.match(lobby, /if \(objective === "survive"\) return `Survive \$\{roundBudget\} rounds`/);
-    assert.match(lobby, /return `Par \/ score pace · \$\{roundBudget\} rounds`/);
+    assert.match(lobby, /return `Par \/ score pace · \$\{roundBudget\} rounds · Limit \$\{COMBAT_MAX_ROUNDS\} rounds`/);
     assert.match(lobby, /\$\{selFloor\.phaseReinforcementCount\} phase reinforcements/);
     assert.match(lobby, /starting combatant/);
     assert.doesNotMatch(lobby, /round budget/);

@@ -125,7 +125,8 @@ async function reconcileSoloPve(sessionId: string, playerName?: string): Promise
         return { transitioned: result.transitioned, settled: false };
     }
     if (session.status !== 'done') return { transitioned: false, settled: false };
-    if (!result.transitioned) await retireStaleProjection(playerName, sessionId);
+    const { repairSoloPveTerminalPublication } = await import('./solo-pve/_store.js');
+    await repairSoloPveTerminalPublication(session);
     // The physical consequence the client would have reported had it stayed:
     // receipt-idempotent, so a late /api/pve/fight-outcome replays harmlessly.
     const settled = await settlePveFightOutcome(session, safeName(session.ownerSlug));

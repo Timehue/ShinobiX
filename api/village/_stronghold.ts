@@ -191,6 +191,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
         }
         if (visit.patrolId) {
             const patrolId = visit.patrolId;
+            let admissionSaveVersion: unknown;
             let session = await readSoloPveSession(visit.patrolId);
             if (!session) {
                 const authority = await resolveBattleAuthority(playerName, battleEvidenceFrom(await kv.mget(...battleAuthorityKeys(playerName))));
@@ -200,6 +201,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
                 const held = await settleHeldFights(playerName, { except: visit.patrolId });
                 if (!held.ok) return fail(held.error, held.status);
                 const admission = await withWorldBossPvpLock([playerName], () => withCombatAdmissionSave(playerName, async (fresh) => {
+                    admissionSaveVersion = fresh._saveVersion;
                     if (onlineStore.get(playerName)?.pendingAttacker || await unrelatedStrongholdBattle(playerName)) return false;
                     const save = await augmentSaveWithForgedDefs(fresh);
                     const character = save?.character as Record<string, unknown> | undefined;
@@ -228,7 +230,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
                 const lapsed = await terminalizeLapsedSoloPveSession(session.sessionId);
                 if (lapsed.ok && lapsed.session) session = lapsed.session;
             }
-            return snapshot(playerName, visit, { patrol: session });
+            return snapshot(playerName, visit, { patrol: session, ...(admissionSaveVersion ? { _saveVersion: admissionSaveVersion } : {}) });
         }
         return snapshot(playerName, visit);
     }, { failClosed: true, ttlSec: 30 });
