@@ -22,11 +22,13 @@
  * each needs a fresh mutatePlayerSave plus the anti-farm gates already present
  * in those handlers.
  */
+import { VILLAGE_MERIT_PER_DONATION_CAP } from '../../shared/treasury-donation-split.js';
+
 export const MERIT_DAILY_AGENDA = 20;
 export const MERIT_MAP_CONTROL = 15;
 export const MERIT_WAR_WIN = 40;
 export const MERIT_MISSION = 2;
-export const MERIT_DONATION_CAP = 25;
+export const MERIT_DONATION_CAP = VILLAGE_MERIT_PER_DONATION_CAP;
 
 /** Village Merit for a treasury donation, scaled by ryo-value, capped per donation. */
 export function meritForDonation(ryoValue: number): number {

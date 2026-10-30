@@ -90,7 +90,7 @@ test('a donation receipt survives an older in-flight read and immediate tab re-e
         state.materials = 35;
         await route.fulfill({ json: { ok: true, character, _saveVersion: version, treasury: { provisions: 4, materialPoints: 35 }, stores: { provisions: 4, materialPoints: 35 } } });
     });
-    await page.locator('label').filter({ hasText: /^Donate Item$/ }).locator('xpath=following-sibling::select[1]').selectOption('hunt-ash-scale');
+    await page.locator('label').filter({ hasText: /^Donate Supplies$/ }).locator('xpath=following-sibling::select[1]').selectOption('hunt-ash-scale');
     await page.getByRole('button', { name: 'Donate to Materials', exact: true }).click();
     await expect(storesRow(page)).toHaveText('Materials: 35 materials');
     // The old response lands while Treasury is still mounted: the mutation

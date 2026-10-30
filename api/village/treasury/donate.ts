@@ -1,4 +1,5 @@
 import { isVillageSupplyGood } from '../../../shared/gathering.js';
+import { VILLAGE_DONATION_CURRENCIES, VILLAGE_LOOSE_ITEM_REFUSAL, villageDonationCurrencyRefusal, villageDonationMeritPlan } from '../../../shared/treasury-donation-split.js';
 import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
@@ -61,19 +62,13 @@ import {
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 
-// Player-donatable village currencies (honorSeals included, unlike clans).
-const VILLAGE_CURRENCIES = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals'] as const;
-
 const CURRENCY_CAPS: Record<string, number> = {
     // Matched to the 200,000 gift cap so both legs share one blast radius.
     // Was 10,000,000: a single call could pool fifty gifts' worth, which made
     // the donate->gift round trip a bulk laundering channel (2026-08-17).
     ryo: 200_000,
     honorSeals: 100_000,
-    fateShards: 100_000,
     boneCharms: 100_000,
-    auraStones: 100_000,
-    mythicSeals: 100_000,
 };
 const ITEM_COUNT_CAP = 1_000;
 
@@ -130,11 +125,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const slug = villageSlug(village);
         if (!slug) return res.status(400).json({ error: 'Invalid village name.' });
         const villageStateKey = `${VILLAGE_STATE_PREFIX}${slug}`;
-        const legacyDeltas = {
-            villageDonations: donation.kind === 'currency'
-                ? Math.max(0, Math.floor(donation.amount))
-                : Math.max(0, Math.floor(donation.count)) * 500,
-        };
         const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
 
         // ── Atomic donate ──────────────────────────────────────────────
@@ -157,12 +147,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!identity.admin && String(donorChar.village ?? '').trim() !== village) {
                     return { ok: false, status: 403, error: 'You are not a member of this village.' };
                 }
+                // The Town Hall takes only what a village spends
+                // (shared/treasury-donation-split.ts); the rest belongs to the
+                // clan. Refused here, inside the saga, so a donation debited
+                // before this rule shipped still finishes on its retry: the
+                // saga rolls a pending credit forward without calling decide.
+                const currencyRefusal = donation.kind === 'currency' ? villageDonationCurrencyRefusal(donation.currency) : null;
+                if (currencyRefusal) return { ok: false, status: 400, error: currencyRefusal };
 
                 let outcome = applyTreasuryDonation(
                     stateRec.treasury as Record<string, unknown> | undefined,
                     donorChar,
                     donation,
-                    { allowedCurrencies: VILLAGE_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP },
+                    { allowedCurrencies: VILLAGE_DONATION_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP },
                 );
                 if (!outcome.ok) return outcome;
                 // Village Stores: re-route rations / craft materials out of the loose
@@ -173,24 +170,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!r.ok) return r;
                     if (r.routed) { outcome = { ok: true, nextDonorChar: r.nextDonorChar, nextTreasury: r.nextTreasury }; routed = r.routed; }
                 }
+                // Gear and other loose items belong in a clan treasury. A loose
+                // village item earned no merit and only waited for the Kage to
+                // gift it back out. With the stores switched off, nothing routes,
+                // so say that rather than naming the stores' goods.
+                if (donation.kind === 'item' && !routed) {
+                    return { ok: false, status: 409, error: villageStoresEnabled() ? VILLAGE_LOOSE_ITEM_REFUSAL : 'Village Stores are unavailable. Keep this item and donate when the stores reopen.' };
+                }
 
+                // Seals and charms count toward Merit and Legacy only up to the
+                // donor's daily allowance (shared/treasury-donation-split.ts):
+                // the Kage can gift them straight back out.
+                const meritPlan = donation.kind === 'currency'
+                    ? villageDonationMeritPlan(outcome.nextDonorChar, donation.currency, donation.amount)
+                    : null;
                 // Queue before the debit mutation is allowed to return. If the
                 // outbox cannot persist, the donation has not committed yet;
                 // if the process dies later, delivery waits for tx=complete.
                 // Keyed by the settlement id, so a retry queues nothing new.
-                await queueEconomyLegacyIntent(playerName, txId, legacyDeltas);
+                // villageDonations counts ryo-value: a currency's counted value,
+                // and a flat 500 per stores item.
+                await queueEconomyLegacyIntent(playerName, txId, {
+                    villageDonations: meritPlan ? meritPlan.ryoValue : Math.max(0, Math.floor(amount)) * 500,
+                });
                 // Personal Village Merit toward a Kage challenge, scaled by the
-                // ryo-value donated. Currency counts its own amount. Item merit
+                // ryo-value donated. Currency counts at its ryo-value (Honor Seals
+                // and Bone Charms per shared/treasury-donation-split.ts, within
+                // the daily allowance). Item merit
                 // follows where the item went (economy rebalance 2026-10, I-7;
                 // ../_donation-merit.ts): provisions keep their flat 500 each,
                 // materials count at their NPC sale value, and a loose item the
                 // Kage could gift straight back earns none. `routed.ryoValue`
                 // stays on the routing result for the stores' own accounting;
                 // it is NOT the merit basis.
-                const ryoValue = donation.kind === 'currency'
-                    ? Math.floor(donation.amount)
-                    : itemDonationMeritRyoValue(donation.itemId, donation.count, routed);
-                const creditedDonorChar = { ...outcome.nextDonorChar, villageMerit: meritNum((outcome.nextDonorChar as Record<string, unknown>).villageMerit) + meritForDonation(ryoValue) };
+                const ryoValue = meritPlan
+                    ? meritPlan.ryoValue
+                    : donation.kind === 'item' ? itemDonationMeritRyoValue(donation.itemId, donation.count, routed) : 0;
+                const creditedDonorChar = { ...outcome.nextDonorChar, ...meritPlan?.stamp, villageMerit: meritNum((outcome.nextDonorChar as Record<string, unknown>).villageMerit) + meritForDonation(ryoValue) };
                 // Credit ONLY the treasury; every other village-state field is
                 // preserved (VILLAGE_DONATION_SAGA.applyCredit).
                 return { ok: true, character: creditedDonorChar, plan: { treasury: treasuryCreditPlan(donation, routed) }, result: {} };
@@ -213,7 +229,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Legacy tracking (ENABLE_LEGACY): villageDonations counts ryo-value
-        // donated (currency amount; items count a flat 500 each).
+        // donated (queued in decide above: a currency's counted value, items a
+        // flat 500 each).
         // The donation is already committed at this point. Legacy delivery is
         // backed by the durable economy outbox, so an infrastructure failure
         // here must not make the client retry (and donate a second time).
