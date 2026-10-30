@@ -151,9 +151,9 @@ test("fighter grounding is feathered AO plus a strictly transient combat rune", 
         "Three must move only metadata-Water AO cameraward while restoring the unshifted rune center");
     assert.ok(0.42 * Math.pow(1 - 0.42, 1.65) >= 0.12,
         "3D contact AO must retain an effective shoulder at or above the selected 0.12 floor");
-    assert.match(canvasStage, /riteGroundingSubmittedAoMaxAlpha = submittedAoCount \? "0\.420" : "0"/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "GroundingSubmittedAoMaxAlpha", submittedAoCount \? "0\.420" : "0"\)/,
         "Canvas telemetry must report the selected 0.42 AO submission rather than a stale cap");
-    assert.match(threeStage, /riteGroundingSubmittedAoMaxAlpha = submittedAoCount \? "0\.420" : "0"/,
+    assert.match(threeStage, /warfrontMetric\(canvas, "GroundingSubmittedAoMaxAlpha", submittedAoCount \? "0\.420" : "0"\)/,
         "Three telemetry must report the selected 0.42 AO submission rather than a stale cap");
     assert.match(captureHarness, /submittedAoMaxAlpha > 0\.42/,
         "the screenshot gate must enforce the selected 0.42 submission cap");
@@ -171,9 +171,9 @@ test("fighter grounding is feathered AO plus a strictly transient combat rune", 
         "wide actor auras and planar impact discs/donuts must not return");
     assert.doesNotMatch(canvasStage, /baseSize \* 0\.37|context\.arc\(ox|context\.arc\(tx/,
         "Canvas attack cues must not stack circular outlines around fighters");
-    assert.match(canvasStage, /riteGroundingSubmittedPlanarImpactCount = "0"/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "GroundingSubmittedPlanarImpactCount", "0"\)/,
         "the live surface must publish its actual planar-impact submissions");
-    assert.match(threeStage, /riteGroundingIdleRings = String\(idleGroundingRings\)/,
+    assert.match(threeStage, /warfrontMetric\(canvas, "GroundingIdleRings", idleGroundingRings\)/,
         "the live 3D surface must expose idle-ring parity data");
 });
 
@@ -213,7 +213,7 @@ test("both hero Fire renderers submit the same target-anchored authored sprite a
         "Three must consume the same span and exact frozen-axis tail contract");
     assert.match(threeStage, /const WARFRONT_THREE_HERO_DAMAGE_FONT_PX = 14;[\s\S]*?const WARFRONT_THREE_HERO_DAMAGE_OUTLINE_PX = 2;[\s\S]*?context\.strokeText\(text, centerX, centerY\);[\s\S]*?context\.fillText\(text, centerX, centerY\);/,
         "the Three damage number must use a fourteen-pixel face with a real dark outline");
-    assert.match(threeStage, /riteHeroDamageHoldTicks = String\(WARFRONT_HERO_DAMAGE_HOLD_TICKS\)/,
+    assert.match(threeStage, /warfrontMetric\(canvas, "HeroDamageHoldTicks", WARFRONT_HERO_DAMAGE_HOLD_TICKS\)/,
         "Three damage text must preserve its independent three-tick hold");
     assert.match(captureHarness, /heroImpactSpriteUrl[\s\S]*?heroImpactSpriteAsymmetry[\s\S]*?heroImpactSpriteRotationRad[\s\S]*?heroImpactLegacyPrimitiveDraws/,
         "capture must read exact source, asymmetry, rotation, footprint, and legacy-submission evidence from either renderer");
@@ -251,7 +251,7 @@ test("the authored court receives no prototype foreground dressing", () => {
         "Canvas collision must not become opaque paper blocker rectangles");
     assert.doesNotMatch(canvasStage, /context\.shadowColor = "rgba\(0, 0, 0, \.42\)"/,
         "Canvas must not submit the old blocker shadows over painted slate");
-    assert.match(canvasStage, /riteArenaPrototypeDressingDraws = String\(staticArenaMetrics\.current\.prototypeDressingDraws\)/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "ArenaPrototypeDressingDraws", staticArenaMetrics\.current\.prototypeDressingDraws\)/,
         "Canvas telemetry must describe the actual static submission result");
     assert.match(canvasStage, /prototypeDressingDraws: 0/,
         "the static Canvas submission must contain zero prototype dressing draws");
@@ -259,12 +259,12 @@ test("the authored court receives no prototype foreground dressing", () => {
         "neither Three prototype arena tree may reach the live scene");
     assert.match(threeStage, /<KageBoardCells \/>[\s\S]*?<PetWarfrontTerrain3D \/>/,
         "the live court must submit shared terrain and zero-overlay telemetry");
-    assert.match(threeStage, /riteArenaFloorDecalDraws = "0"/,
+    assert.match(threeStage, /data\.riteArenaFloorDecalDraws = "0"/,
         "the painted court must not acquire a second yellow boundary or grid");
 
-    assert.match(threeStage, /riteArenaPrototypeDressingMeshes = "0"/,
+    assert.match(threeStage, /data\.riteArenaPrototypeDressingMeshes = "0"/,
         "Three must report zero actually submitted prototype meshes");
-    assert.match(threeStage, /riteArenaGlyphDebrisMeshes = "0"/,
+    assert.match(threeStage, /data\.riteArenaGlyphDebrisMeshes = "0"/,
         "Three must report zero obsolete glyph-debris submissions");
     assert.doesNotMatch(threeStage, /ref=\{shards\}[\s\S]*?fighters\.length \* 2/,
         "per-fighter readability shards must not scatter black geometry over pets");
@@ -289,13 +289,13 @@ test("both renderer routes seat actors in the court's positional faction light",
         "Canvas actor lighting must follow world position rather than team identity");
     assert.match(canvasStage, /const multiplyAlpha = 0\.10 \+ Math\.abs\(arenaSide\) \* 0\.07/,
         "the Canvas value-shaping pass must use the lowest viable sweep result and cap at seventeen percent alpha");
-    assert.match(canvasStage, /riteArenaActorLightMultiplyCap = "0\.170"/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "ArenaActorLightMultiplyCap", "0\.170"\)/,
         "Canvas telemetry must publish the exact selected multiply cap");
     assert.match(canvasStage, /const recoveryAlpha = 0\.012 \+ Math\.abs\(arenaSide\) \* 0\.018/,
         "arena-facing highlight recovery must remain capped at three percent alpha");
-    assert.match(canvasStage, /riteArenaActorLightMode = "position-aware-multiply-mask"/,
+    assert.match(canvasStage, /warfrontMetric\(canvas, "ArenaActorLightMode", "position-aware-multiply-mask"\)/,
         "Canvas must report the actual multiplicative actor-only light submission mode");
-    assert.match(threeStage, /riteArenaSideLights = "2"/,
+    assert.match(threeStage, /warfrontMetric\(canvas, "ArenaSideLights", "2"\)/,
         "Three must report both actually submitted arena side lights");
 });
 
