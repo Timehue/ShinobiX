@@ -195,7 +195,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     kv.get<{ id?: unknown }>(CURRENT_SEASON_KEY),
                 ]);
                 if (!gate || gate.state !== 'open' || gate.seasonId !== Number(season?.id)) {
-                    return res.status(409).json({ error: 'The ranked season is closing; wait for the next season.' });
+                    // Seasons never start on their own; before the first one is
+                    // started there is nothing "closing" to wait out.
+                    return res.status(409).json({
+                        error: season
+                            ? 'The ranked season is closing; wait for the next season.'
+                            : 'No ranked season has started yet. Ranked opens when the first season begins.',
+                    });
                 }
             } else {
                 const queued = await findPlayerRankedAdmissionForPlayer(kv, safeName(name));

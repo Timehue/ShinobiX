@@ -188,9 +188,9 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
                         )}
                         {signupMode === "guest" && (
                             <p className="cc-signup-note">
-                                You are playing as a guest, so this character lives in this browser. Link a Google
-                                account from Settings at any point to keep it for good — otherwise it is released
-                                after two weeks without playing.
+                                You are playing as a guest, so this character lives in this browser. Set a password
+                                or link a Google account from Settings at any point to keep it for good — otherwise
+                                it is released after two weeks without playing.
                             </p>
                         )}
 

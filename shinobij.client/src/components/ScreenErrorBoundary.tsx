@@ -58,7 +58,7 @@ export class ScreenErrorBoundary extends Component<Props, State> {
                         players into reloading away unsaved state. */}
                     {chunk
                         ? "The game was updated while you were playing. Reload to get the latest version. Anything since your last autosave may not have been stored."
-                        : "Something went wrong drawing this view. Try the menu first — going to another screen keeps this session (and any unsaved progress) alive. Reloading may lose changes since the last autosave."}
+                        : "Something went wrong drawing this view. Going to another screen keeps this session (and any unsaved progress) alive. Reloading may lose changes since the last autosave."}
                 </p>
                 <button
                     type="button"

@@ -859,6 +859,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (process.env.DISABLE_GUEST_PLAY === '1' || !playerSessionsEnabled()) {
             return res.status(503).json({ ok: false, error: 'Guest play is unavailable.' });
         }
+        const nameError = newAccountNameError(req, name);
+        if (nameError) return res.status(nameError.status).json(nameError.body);
+
+        // A name that is already taken is refused before the budget below is
+        // charged (the locked claim remains the authority when two sign-ups
+        // race). Charging first meant three popular names in a row locked a new
+        // player out of guest play for an hour with a bare "temporarily
+        // unavailable". The per-IP `guest` budget above is still charged before
+        // any check, so this does not make name probing any cheaper per address.
+        {
+            const { accountNameKey } = await import('./_account-name.js');
+            if (await kv.get(accountNameKey(name)) || await kv.get<AuthRecord>(authKey(name))) {
+                return res.status(409).json({ ok: false, error: 'That account name is already taken.' });
+            }
+        }
+
         // A one-click account is friction-free for the player and for a script,
         // so this gets its own much tighter budget than `register`, charged
         // against the browser fingerprint as well as the IP.
@@ -866,9 +882,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!(await enforceRateLimitKv(
             req, res, `player-auth:guest-fp:${guestFp || 'none'}`, 3, 60 * 60_000, undefined, { strict: true },
         ))) return;
-
-        const nameError = newAccountNameError(req, name);
-        if (nameError) return res.status(nameError.status).json(nameError.body);
 
         try {
             const resume = crypto.randomBytes(24).toString('base64url');

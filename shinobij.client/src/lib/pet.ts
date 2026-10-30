@@ -76,17 +76,20 @@ export type WarfrontPetBusyReason = "breeding" | "expedition";
 
 export type ColosseumPetBusyReason = "breeding" | "expedition";
 
-// Mirrors api/pet/showdown.ts. Training can continue during combat;
-// completed expeditions can be collected later in this mode. breedingSessionId
-// is intentionally absent: it is permanent lineage provenance on a hatched
-// companion, not evidence that the companion is currently in the barn.
+// Mirrors api/pet/_showdown-readiness.ts. Training can continue during
+// combat. An expedition keeps the companion busy until its result is
+// COLLECTED, finished or not: the server refuses the team otherwise, so a
+// finished-but-uncollected pet offered here produced a refusal at Start.
+// breedingSessionId is intentionally absent: it is permanent lineage
+// provenance on a hatched companion, not evidence that the companion is
+// currently in the barn.
 export function colosseumPetBusyReason(
     pet: Pick<Pet, "id" | "training" | "expedition">,
     breedingPetIds?: ReadonlySet<string>,
-    now = serverNow(),
+    _now = serverNow(),
 ): ColosseumPetBusyReason | null {
     if (breedingPetIds?.has(pet.id)) return "breeding";
-    if (pet.expedition && now < pet.expedition.endsAt) return "expedition";
+    if (pet.expedition) return "expedition";
     return null;
 }
 

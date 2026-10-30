@@ -28,7 +28,8 @@ type PetBattleReadinessProps = {
 
 function colosseumBlocker(pet: Pet, breedingPetIds: ReadonlySet<string>, now: number): string | null {
     switch (colosseumPetBusyReason(pet, breedingPetIds, now)) {
-        case "expedition": return "On expedition";
+        case "expedition":
+            return pet.expedition && now >= pet.expedition.endsAt ? "Expedition results unclaimed" : "On expedition";
         case "breeding": return "Committed to the Shinobi Hatchery";
         default: return null;
     }
