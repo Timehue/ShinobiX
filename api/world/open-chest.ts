@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { storeWorldExploreAuthority } from './_store-explore-authority.js';
 import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
@@ -11,7 +12,6 @@ import { kv } from '../_storage.js';
 import { GEAR_DROP_CHANCE_BP, rollGearDrop } from '../_gear-drops.js';
 import {
     cleanWorldExploreAuthorityReceipt,
-    WORLD_EXPLORE_RECEIPT_TTL_SECONDS,
     worldExploreAuthorityKey,
 } from './_explore-authority.js';
 import { loadSectorPoolOwner, readSectorPool, reserveSectorPool, type SectorPoolOwner, type SectorPoolReservation } from './_sector-pool.js';
@@ -194,21 +194,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (delta > 0) await recordEconomyTxn({ txnId: `chest:${worldExploreRequestId}:${currency}`, player: playerName, currency, delta, source: 'world.chest', balanceAfter: Number(result.character[currency]) || 0 });
             }
         }
-        if (durableDiscovery && result.value.loot && typeof result.value.loot === 'object') {
+        // Explore's save commit precedes its durable mirror. A concurrent open
+        // can therefore pay before that mirror exists; recover the discovery
+        // from the committed save so its later mirror write cannot erase payout.
+        const savedDiscovery = Array.isArray(result.character.redeemedSectorExplorations)
+            ? (result.character.redeemedSectorExplorations as Array<Record<string, unknown>>)
+                .find(entry => entry?.id === worldExploreRequestId)
+            : undefined;
+        const payoutAuthority = durableDiscovery ?? cleanWorldExploreAuthorityReceipt({
+            ...savedDiscovery, version: 1, playerName, requestId: worldExploreRequestId,
+        });
+        if (payoutAuthority && result.value.loot && typeof result.value.loot === 'object') {
             // The character projection is intentionally bounded. Seal the
             // payout into the longer-lived discovery authority as well, so a
             // 150-row compaction can never make the same chest payable again.
             try {
-                await kv.set(worldExploreAuthorityKey(playerName, worldExploreRequestId), {
-                    ...durableDiscovery,
+                await storeWorldExploreAuthority({
+                    ...payoutAuthority,
                     outcome: {
-                        ...durableDiscovery.outcome,
+                        ...payoutAuthority.outcome,
                         openedLoot: result.value.loot,
-                        chestOpenedAt: typeof durableDiscovery.outcome?.chestOpenedAt === 'number'
-                            ? durableDiscovery.outcome.chestOpenedAt
+                        chestOpenedAt: typeof payoutAuthority.outcome?.chestOpenedAt === 'number'
+                            ? payoutAuthority.outcome.chestOpenedAt
                             : Date.now(),
                     },
-                }, { ex: WORLD_EXPLORE_RECEIPT_TTL_SECONDS });
+                });
             } catch (error) {
                 console.error('[world/open-chest] durable payout receipt', safeLogValue(error));
                 return res.status(503).json({ error: 'Chest settlement is still being saved. Retry the same request.' });

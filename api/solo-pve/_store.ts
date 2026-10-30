@@ -100,7 +100,29 @@ export function soloPveRowTtlSeconds(session: Pick<SoloPveSession, 'status' | 'a
 
 /** A terminal write retires the owner's projection, but only if it still names this session. */
 async function retireSoloPveProjection(store: SoloPveKv, session: SoloPveSession): Promise<void> {
+    // Production saves must discard the time spent fighting BEFORE removing
+    // the activity projection. Otherwise a delayed/lapsed outcome can first
+    // regenerate the raw save, resurrecting HP lost while this fight was open.
+    // Injected stores are isolated session-store fixtures with no player-save
+    // service; the real-store integration tests exercise this boundary.
+    if (store === realKv) {
+        const projection = await store.get<{ sessionId?: string }>(`battle-state:${session.ownerSlug}`);
+        if (projection?.sessionId === session.sessionId) {
+            const { mutatePlayerSave } = await import('../save/_mutate-player-save.js');
+            const finishedAt = Number(session.terminalEvidence?.finishedAt) || Date.now();
+            const fenced = await mutatePlayerSave(session.ownerSlug, ({ character, record }) => ({
+                ok: true as const, character, value: null,
+                write: Number(record._regenAt ?? record._saveAt ?? 0) < finishedAt,
+            }));
+            if (!fenced.ok && fenced.status !== 404) throw new Error(fenced.error);
+        }
+    }
     if (await retireBattleProjection(store, session.ownerSlug, session.sessionId)) noteBattleEnded(session.ownerSlug);
+}
+
+/** Repair a committed terminal row whose recovery fence or projection retirement failed. */
+export async function repairSoloPveTerminalPublication(session: SoloPveSession): Promise<void> {
+    if (session.status === 'done') await retireSoloPveProjection(realKv, session);
 }
 
 /** Replace only the exact predecessor so terminal settlement cannot clobber a

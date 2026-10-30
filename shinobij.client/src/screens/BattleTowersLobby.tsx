@@ -1,3 +1,4 @@
+import { COMBAT_MAX_ROUNDS } from "../../../shared/combat-limits";
 import { TOWER_SIGNATURES, towerSignatureForMechanic } from '../../../shared/tower-progression';
 import { TowerRecordsPanel } from "../components/TowerRecordsPanel";
 import { useEffect, useMemo, useState } from "react";
@@ -96,7 +97,7 @@ function readableTowerSlug(value: string): string {
 function towerRoundPaceLabel(objective: string, roundBudget: number): string {
     if (objective === "protect-npc") return `Hold ${roundBudget} rounds`;
     if (objective === "survive") return `Survive ${roundBudget} rounds`;
-    return `Par / score pace · ${roundBudget} rounds`;
+    return `Par / score pace · ${roundBudget} rounds · Limit ${COMBAT_MAX_ROUNDS} rounds`;
 }
 
 function towerFieldRuleLabel(rule: TowerFloorMeta["fieldRule"]): string {

@@ -232,7 +232,7 @@ test("timed hold and Spire boss profiles remain visible from sealed authority", 
     assert.match(lobby, /towerTargetModeLabel\(sel\.boss\.targetMode\)/);
     assert.match(lobby, /towerStrikeLabel\(sel\.boss\.strike, sel\.boss\.mechanic\)/);
     assert.match(lobby, /objective === "protect-npc"\) return `Hold \$\{roundBudget\} rounds`/);
-    assert.match(lobby, /return `Par \/ score pace · \$\{roundBudget\} rounds`/);
+    assert.match(lobby, /return `Par \/ score pace · \$\{roundBudget\} rounds · Limit \$\{COMBAT_MAX_ROUNDS\} rounds`/);
 });
 
 test("Tower identity, board semantics, and countdown updates remain bounded", () => {

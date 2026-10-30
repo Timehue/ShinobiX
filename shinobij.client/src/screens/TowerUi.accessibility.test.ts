@@ -56,7 +56,7 @@ test("Story chapters expose a navigable campaign hierarchy on narrow screens", (
 test("Story lobby distinguishes hard hold duration from score pace and starting enemy count", () => {
     assert.match(lobby, /objective === "protect-npc"\) return `Hold \$\{roundBudget\} rounds`/);
     assert.match(lobby, /objective === "survive"\) return `Survive \$\{roundBudget\} rounds`/);
-    assert.match(lobby, /return `Par \/ score pace · \$\{roundBudget\} rounds`/);
+    assert.match(lobby, /return `Par \/ score pace · \$\{roundBudget\} rounds · Limit \$\{COMBAT_MAX_ROUNDS\} rounds`/);
     assert.match(lobby, /\{selFloor\.enemyCount\} starting combatant/);
     assert.doesNotMatch(lobby, /\$\{selFloor\.roundBudget\} round budget/);
 });

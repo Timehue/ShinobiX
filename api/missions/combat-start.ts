@@ -1,3 +1,4 @@
+import { CombatAdmissionConflictError, withCombatAdmissionSave } from '../pve/_combat-admission-save.js';
 import { openWorldContinuousVitalsEnabled } from '../_release-flags.js';
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -91,66 +92,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // an earlier fight already spent (api/pve/_held-fights.ts).
             const held = await settleHeldFights(playerName);
             if (!held.ok) return { ok: false as const, error: held.error, errorCode: held.reason };
-            if (held.settled > 0) {
-                save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+            return withCombatAdmissionSave(playerName, async (fresh) => {
+                save = await augmentSaveWithForgedDefs(fresh);
                 char = save?.character as Record<string, unknown> | undefined;
-                if (!save || !char) throw new Error('Player save vanished while held fights were settled.');
-            }
+                if (!save || !char) throw new Error('Player save vanished at mission admission.');
 
-            // A live mission fight resumes above whatever the player's state; a
-            // NEW one is not sealed for a hospitalized character. Read after the
-            // retry reconcile, which can itself be the defeat that admitted them.
-            if (!identity.admin && isIncapacitated(char)) {
-                return { ok: false as const, error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' };
-            }
-            const authoritativeSave = save;
-            if (!authoritativeSave) throw new Error('Player save vanished before mission combat could be sealed.');
-            const runId = `mission-${randomUUID().replace(/-/g, '')}`;
-            const now = Date.now();
-            let env = missionEnvironment(mission.key);
-            const sector = Math.floor(Number(authoritativeSave.currentSector));
-            const sectorPlaceForFight = sector > 0 ? sectorPlace(sector) : undefined;
-            if (sectorPlaceForFight) {
-                let territory: Record<string, unknown> | null = null;
-                try { territory = await kv.get<Record<string, unknown>>(`world:territory:${sector}`); }
-                catch { /* A missing territory read keeps the scheduled sector weather. */ }
-                const weather = resolveSectorWeather(sectorPlaceForFight.biome, sector, now, territory);
-                env = { biome: sectorPlaceForFight.biome, weather: sectorWeatherElements(weather) };
-            }
-            const enemy = missionEnemyTemplate(mission);
-            const session = buildSoloPveAiEncounter({
-                sessionId: runId,
-                playerName,
-                save: authoritativeSave,
-                profile: { ...enemy, id: mission.aiProfileId },
-                now,
-                admin,
-                difficultyMode: 'MISSION',
-                // Standard PvE: the bracket-scaled turn planner. The four
-                // authored C/B/A/S kits keep their own scripted runner.
-                aiTurnPolicy: STANDARD_PVE_AI_POLICY,
-                // A field mission is open-world work: continuous vitals.
-                continuousVitals: openWorldContinuousVitalsEnabled(),
-                encounter: { kind: 'mission', id: mission.key, sourceId: mission.aiProfileId, bindingId: runId },
-                environment: {
-                    biome: env.biome,
-                    weatherPositiveElement: env.weather?.positiveElement,
-                    weatherNegativeElement: env.weather?.negativeElement,
-                },
+                // A live mission fight resumes above whatever the player's state; a
+                // NEW one is not sealed for a hospitalized character. Read after the
+                // retry reconcile, which can itself be the defeat that admitted them.
+                if (!identity.admin && isIncapacitated(char)) {
+                    return { ok: false as const, error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' };
+                }
+                const authoritativeSave = save;
+                if (!authoritativeSave) throw new Error('Player save vanished before mission combat could be sealed.');
+                const runId = `mission-${randomUUID().replace(/-/g, '')}`;
+                const now = Date.now();
+                let env = missionEnvironment(mission.key);
+                const sector = Math.floor(Number(authoritativeSave.currentSector));
+                const sectorPlaceForFight = sector > 0 ? sectorPlace(sector) : undefined;
+                if (sectorPlaceForFight) {
+                    let territory: Record<string, unknown> | null = null;
+                    try { territory = await kv.get<Record<string, unknown>>(`world:territory:${sector}`); }
+                    catch { /* A missing territory read keeps the scheduled sector weather. */ }
+                    const weather = resolveSectorWeather(sectorPlaceForFight.biome, sector, now, territory);
+                    env = { biome: sectorPlaceForFight.biome, weather: sectorWeatherElements(weather) };
+                }
+                const enemy = missionEnemyTemplate(mission);
+                const session = buildSoloPveAiEncounter({
+                    sessionId: runId,
+                    playerName,
+                    save: authoritativeSave,
+                    profile: { ...enemy, id: mission.aiProfileId },
+                    now,
+                    admin,
+                    difficultyMode: 'MISSION',
+                    // Standard PvE: the bracket-scaled turn planner. The four
+                    // authored C/B/A/S kits keep their own scripted runner.
+                    aiTurnPolicy: STANDARD_PVE_AI_POLICY,
+                    // A field mission is open-world work: continuous vitals.
+                    continuousVitals: openWorldContinuousVitalsEnabled(),
+                    encounter: { kind: 'mission', id: mission.key, sourceId: mission.aiProfileId, bindingId: runId },
+                    environment: {
+                        biome: env.biome,
+                        weatherPositiveElement: env.weather?.positiveElement,
+                        weatherNegativeElement: env.weather?.negativeElement,
+                    },
+                });
+                const binding = createMissionCombatBinding({ runId, playerName, mission, now, sessionId: runId });
+                const pointer = createMissionCombatActivePointer({ runId, playerName, mission, now, sessionId: runId });
+                try {
+                    // The pointer is written last: only a complete durable triplet can
+                    // be recovered after a refresh, concurrent start, or lost response.
+                    await writeSoloPveSession(session);
+                    await kv.set(missionCombatBindingKey(runId), binding, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
+                    await kv.set(activeKey, pointer, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
+                } catch (error) {
+                    await kv.del(activeKey, missionCombatBindingKey(runId), soloPveSessionKey(runId)).catch(() => undefined);
+                    throw error;
+                }
+                return { ok: true as const, runId, session, resumed: false, _saveVersion: fresh._saveVersion };
             });
-            const binding = createMissionCombatBinding({ runId, playerName, mission, now, sessionId: runId });
-            const pointer = createMissionCombatActivePointer({ runId, playerName, mission, now, sessionId: runId });
-            try {
-                // The pointer is written last: only a complete durable triplet can
-                // be recovered after a refresh, concurrent start, or lost response.
-                await writeSoloPveSession(session);
-                await kv.set(missionCombatBindingKey(runId), binding, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
-                await kv.set(activeKey, pointer, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
-            } catch (error) {
-                await kv.del(activeKey, missionCombatBindingKey(runId), soloPveSessionKey(runId)).catch(() => undefined);
-                throw error;
-            }
-            return { ok: true as const, runId, session, resumed: false };
         }, { failClosed: true, ttlSec: 10 });
         if (!started.ok) return res.status(409).json({ error: started.error, errorCode: started.errorCode });
         if (!started.resumed) {
@@ -163,6 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json(started);
     } catch (err) {
+        if (err instanceof CombatAdmissionConflictError) return res.status(409).json({ error: err.message, errorCode: 'combat-active' });
         console.error('[missions/combat-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

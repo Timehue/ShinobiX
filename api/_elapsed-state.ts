@@ -15,6 +15,16 @@ import { pooledVitalRegenEnabled } from './_release-flags.js';
 const AURA_SPHERE_ITEM_ID = 'aura-sphere';
 export const VITAL_REGEN_MS = 1000;
 const BATTLE_LOCK_PREFIX = 'battle-lock:';
+export const soloBattleStateKey = (slug: string): string => `battle-state:${slug}`;
+
+/** Solo fights publish a battle projection, not the legacy battle lock.
+ * A lapsed projection still excludes recovery until its outcome is settled. */
+export function blocksSoloIdleRecovery(value: unknown): boolean {
+    const state = value as { version?: unknown; kind?: unknown; sessionId?: unknown; expiresAt?: unknown } | null;
+    return state?.version === 1 && state.kind === 'solo-pve'
+        && typeof state.sessionId === 'string' && state.sessionId.length > 0
+        && Number(state.expiresAt) > 0;
+}
 
 export type SaveRecord = Record<string, unknown>;
 export type PendingTravel = { destinationSector: number; arrivalAt: number };
@@ -386,16 +396,14 @@ export function settleSaveRecord<T extends SaveRecord>(
 }
 
 /**
- * Whether ONE player holds the legacy battle lock. A single `get` rather than
- * the roster `mget` above: the authoritative mutation path
- * (save/_mutate-player-save.ts) settles regeneration for exactly one save at
- * a time, and a plain get is the primitive every storage adapter and test
- * harness provides.
+ * Whether ONE player holds a legacy battle lock or a solo combat projection.
+ * Individual reads also work with mutation stores that do not implement mget.
  */
 export async function battleLockedFor(name: string): Promise<boolean> {
     const slug = safeName(name);
     if (!slug) return false;
-    return Boolean(await kv.get(battleLockKey(slug)));
+    const [lock, solo] = await Promise.all([kv.get(battleLockKey(slug)), kv.get(soloBattleStateKey(slug))]);
+    return Boolean(lock) || blocksSoloIdleRecovery(solo);
 }
 
 /**
@@ -411,8 +419,8 @@ export async function battleLockFlagsForPlayers(names: string[]): Promise<Map<st
     const slugs = [...new Set(names.map((name) => safeName(name)).filter(Boolean))];
     const flags = new Map<string, boolean>();
     if (!slugs.length) return flags;
-    const locks = await kv.mget(...slugs.map(battleLockKey));
-    slugs.forEach((slug, index) => flags.set(slug, Boolean(locks[index])));
+    const locks = await kv.mget(...slugs.flatMap(slug => [battleLockKey(slug), soloBattleStateKey(slug)]));
+    slugs.forEach((slug, index) => flags.set(slug, Boolean(locks[index * 2]) || blocksSoloIdleRecovery(locks[index * 2 + 1])));
     return flags;
 }
 

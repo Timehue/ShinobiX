@@ -147,6 +147,7 @@ export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import { dailyMissionsCompleted, dailyHuntsCompleted } from "./lib/character-progress";
 import { nextNarrativeDelivery, prepareStorySettlement } from "./lib/story-history";
 import { regenerateIdleVitals } from "./lib/loaded-vitals";
+import { hasEmbeddedCombat } from "./lib/embedded-combat";
 import { useSelfRosterRow } from "./lib/use-self-roster-row";
 import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
@@ -1777,7 +1778,7 @@ export default function App() {
     }, [pendingTravel, travelNow]);
 
     function isPresenceBattleActive(screenSnapshot: Screen = screenRef.current, forWorldPresence = false): boolean {
-        if (storyFightOpen || sealedFightEngagedRef.current) return true;
+        if (storyFightOpen || sealedFightEngagedRef.current || hasEmbeddedCombat(characterRef.current?.name)) return true;
         return isUnresolvedBattle({
             screen: screenSnapshot,
             raidBattleKind,

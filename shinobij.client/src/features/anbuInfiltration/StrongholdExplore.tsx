@@ -1,4 +1,5 @@
 import { displayPlayerName } from "../../../../shared/player-name";
+import { useEmbeddedCombat } from '../../lib/use-embedded-combat';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { advanceStronghold, ANBU_RAID_MIN_LEVEL, strongholdRooms, strongholdTitle, isDeathsGateStronghold, STRONGHOLD_INTEL_ROOM_ID, STRONGHOLD_INTEL_TILE, STRONGHOLD_VAULT, STRONGHOLD_THREAT_PER_STEP, type StrongholdVisit } from '../../../../shared/sector-stronghold';
 import type { Character, PlayerRecord } from '../../types/character';
@@ -83,6 +84,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     // is the rule the server applies, so its answer replaces this unchanged; a
     // refusal clears it and the avatar returns to the confirmed tile.
     const [predicted, setPredicted] = useState<StrongholdVisit | null>(null);
+    useEmbeddedCombat(character.name, !!(predicted?.patrolId || state?.visit.patrolId || state?.combatBlocked));
     const predictedRef = useRef<StrongholdVisit | null>(null);
     const [error, setError] = useState('');
     const [actionError, setActionError] = useState('');
