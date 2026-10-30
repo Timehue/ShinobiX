@@ -9,7 +9,7 @@ import type { AiFightSession } from '../missions/_ai-fight-outcome.js';
 import { releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
 import { closeTowerPartyRun } from './_party.js';
 import { withTowerSessionMutation, type TowerSessionLock } from './_session-mutation.js';
-import { isTowerRunLapsed, needsTowerLapseReconciliation, readSession, towerRunExpiresAt, writeSession } from './_tower-store.js';
+import { isPublicTowerRun, isSpireRun, isTowerRunLapsed, needsTowerLapseReconciliation, readSession, towerRunExpiresAt, writeSession } from './_tower-store.js';
 import type { TowerSession } from './_tower-session.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { settleCaravanCombat, requireCaravan } from '../festival/_caravan.js';
@@ -96,9 +96,82 @@ export function lapsedTowerSession(session: TowerSession): TowerSession {
     };
 }
 
+export const TOWER_FORFEIT_LOG_LINE = 'The run was forfeited.';
+
+/**
+ * A solo run its owner gives up on purpose. The same terminal shape as a lapse
+ * (enemy win, nothing paid, settlement closed) with `lapsedAt` stamped at the
+ * forfeit, so every reader that retries a lapse's receipt-idempotent
+ * consequences (needsTowerLapseReconciliation) retries this run's too.
+ */
+export function forfeitedTowerSession(session: TowerSession, now: number): TowerSession {
+    return {
+        ...session,
+        status: 'done',
+        winner: 'enemy',
+        rewardSettlementState: 'settled',
+        lapsedAt: now,
+        forfeitedAt: now,
+        log: [...session.log, TOWER_FORFEIT_LOG_LINE],
+    };
+}
+
+export type TowerForfeitRefusal = { status: 403 | 409; error: string };
+export const TOWER_FORFEIT_SOLO_ONLY_ERROR = 'Only a solo Story or Spire run can be forfeited.';
+
+/**
+ * Why an ACTIVE run cannot be forfeited by this player, or null. Only a solo
+ * Story/Spire run qualifies: a party run, a Clan Boss assault, a world boss
+ * raid, a caravan ambush or a crisis fight has other members or another owner
+ * whose outcome a lone forfeit must not decide. Those keep "leave the view"
+ * and the lapse reconciler.
+ */
+export function towerForfeitRefusal(session: TowerSession, playerName: string): TowerForfeitRefusal | null {
+    const slug = safeName(playerName);
+    const humans = towerBattleLeaseMembers(session);
+    if (!humans.includes(slug)) return { status: 403, error: 'Not a member of this run.' };
+    const partyId = (session as TowerSession & { towerPartyId?: string }).towerPartyId;
+    const solo = !partyId && humans.length === 1
+        && !session.runId.startsWith('cboss-')
+        && !session.worldBossEvent && !session.caravanAmbush && !session.worldCrisis80
+        && (isPublicTowerRun(session) || isSpireRun(session));
+    return solo ? null : { status: 409, error: TOWER_FORFEIT_SOLO_ONLY_ERROR };
+}
+
+/** Decide, under the session lock, whether an ACTIVE run becomes terminal now. */
+type TowerTerminalTransition = (session: TowerSession, now: number) => TowerSession | null;
+
 export async function terminalizeLapsedTowerRun(
     runId: string,
     deps: LapsedTowerDeps = {},
+): Promise<LapsedTowerResult> {
+    return terminalizeTowerRun(runId, deps, (session, now) => (isTowerRunLapsed(session, now) ? lapsedTowerSession(session) : null));
+}
+
+/**
+ * Forfeit a solo run on its owner's request. `transitioned: false` with a
+ * session means the run was already over (a replay, or a lapse that won the
+ * race); a refusal names why the run cannot be forfeited at all.
+ */
+export async function forfeitTowerRun(
+    runId: string,
+    playerName: string,
+    deps: LapsedTowerDeps = {},
+): Promise<LapsedTowerResult> {
+    const state: { refusal: TowerForfeitRefusal | null } = { refusal: null };
+    const result = await terminalizeTowerRun(runId, deps, (session, now) => {
+        if (session.status !== 'active') return null;
+        state.refusal = towerForfeitRefusal(session, playerName);
+        return state.refusal ? null : forfeitedTowerSession(session, now);
+    });
+    if (state.refusal) return { ok: false, ...state.refusal };
+    return result;
+}
+
+async function terminalizeTowerRun(
+    runId: string,
+    deps: LapsedTowerDeps,
+    transition: TowerTerminalTransition,
 ): Promise<LapsedTowerResult> {
     const read = deps.read ?? readSession;
     const write = deps.write ?? writeSession;
@@ -108,8 +181,8 @@ export async function terminalizeLapsedTowerRun(
     const outcome = await withTowerSessionMutation(runId, async () => {
         const session = await read(runId);
         if (!session) return { session: null, transitioned: false };
-        if (!isTowerRunLapsed(session, now())) return { session, transitioned: false };
-        const next = lapsedTowerSession(session);
+        const next = transition(session, now());
+        if (!next) return { session, transitioned: false };
         await write(next);
         return { session: next, transitioned: true };
     }, deps.lock);
