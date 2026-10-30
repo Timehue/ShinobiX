@@ -27,7 +27,28 @@ describe('Supabase KV schema hardening', () => {
                 new RegExp(`grant execute on function public\\.${escaped} to service_role;`, 'i'),
                 `${signature} must remain available to the trusted server role`,
             );
+            assert.match(
+                schema,
+                new RegExp(`grant execute on function public\\.${escaped} to shinobix_app;`, 'i'),
+                `${signature} must remain available to the game's login role`,
+            );
         }
+    });
+
+    it('keeps the KV functions SECURITY INVOKER', () => {
+        assert.doesNotMatch(schema, /^\s*security\s+definer\b/im, 'a definer function would reach kv_store for any caller');
+    });
+
+    it('keeps the game login role limited to kv_store', () => {
+        assert.match(schema, /grant select, insert, update, delete on public\.kv_store to shinobix_app;/i);
+        assert.doesNotMatch(schema, /grant\s+(all|[a-z, ]*truncate)[a-z, ]*\s+on public\.kv_store to\s+shinobix_app/i);
+        assert.doesNotMatch(schema, /create\s+role\s+shinobix_app[^;]*password/i, 'the password must never live in this file');
+    });
+
+    it('never drops the game login policy, so re-running the file cannot lock the game out', () => {
+        assert.match(schema, /create policy "shinobix_app_all"/i);
+        assert.match(schema, /policyname = 'shinobix_app_all'/i, 'the policy must be created only when missing');
+        assert.doesNotMatch(schema, /drop\s+policy\s+(if\s+exists\s+)?"shinobix_app_all"/i);
     });
 
     it('gives the browser roles no access to kv_store (the Realtime-only read is retired)', () => {
