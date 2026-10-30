@@ -3,12 +3,18 @@
 -- Run this in the Supabase SQL editor (idempotent — safe to re-run).
 --
 -- Access model:
---   * The server uses SUPABASE_SERVICE_ROLE_KEY which BYPASSES RLS — it
---     can read/write any key. Never expose this key to the client.
+--   * The server connects through DATABASE_URL as the login role shinobix_app
+--     (Railway, through the Supavisor pooler). That role is limited to kv_store
+--     and the kv_* functions, and does not bypass RLS; see its section below.
+--   * SUPABASE_SERVICE_ROLE_KEY is only for the REST fallback in api/_storage.ts,
+--     used when no Postgres URL is set. It BYPASSES RLS, so it must never reach
+--     the client. Production does not use this path: kv_compare_set and
+--     kv_guarded_operation (supabase-lock-fencing.sql) are not installed there,
+--     and the fallback needs both.
 --   * The browser does not talk to Supabase at all (since 2026-10-13: the
 --     Realtime client was removed; PvP uses the server's /api/pvp/stream).
 --     The anon role has NO policy and NO privilege on kv_store, so anyone
---     holding the public anon key sees nothing. RLS stays enabled.
+--     holding the public key sees nothing. RLS stays enabled.
 -- ============================================================
 --
 -- Security posture — audit item #27 (verified-and-documented; no change needed)
@@ -19,22 +25,19 @@
 --     password / session-token auth (see api/_auth.ts). The browser is always
 --     the `anon` role; there is no Supabase `authenticated` user and no
 --     auth.uid() to scope a per-row "owner" policy on.
---   * `save:%` rows are ALREADY service-role-only: they are not in the anon
---     SELECT allowlist below, and the `authenticated` role has NO policy AND
---     (as of 2026-06-01) NO grant either, so RLS denies it every row.
---   * The anon-readable set is deliberately limited to prefixes whose RAW row
---     is safe for either fighter to read, because RLS is row-level and cannot
---     project inside the `value` jsonb. A record that needs per-viewer
---     redaction (Chronicle duels — hands, decks, face-down cards) must NOT be
---     anon-readable at all; serve it through the authenticated handler's
---     projection instead. See the PvP/guard projection helpers.
+--   * Every row is ALREADY server-only: anon and `authenticated` have no policy
+--     AND no grant on kv_store, so both are refused before RLS is even reached.
+--   * RLS is row-level and cannot project inside the `value` jsonb, so a record
+--     that needs per-viewer redaction (Chronicle duels — hands, decks, face-down
+--     cards) goes through the authenticated handler's projection, never a
+--     direct read. See the PvP/guard projection helpers.
 -- Defense-in-depth (APPLIED 2026-06-01, migration
 -- `harden_kv_store_revoke_authenticated_select`): the `authenticated` role is
 --   now granted NOTHING on kv_store (see the `revoke all … from authenticated`
 --   below, with no re-grant). It previously carried a harmless-but-latent
 --   `grant select` that would have exposed all rows if RLS were ever disabled;
---   the app never uses that role, so the grant was revoked. The `anon` SELECT
---   grant/policy is deliberately untouched — live Realtime depends on it.
+--   the app never uses that role, so the grant was revoked. The `anon` grant
+--   and policy followed on 2026-10-12, once nothing used Realtime.
 -- ============================================================
 
 -- ── Core table ───────────────────────────────────────────────────────────────
@@ -55,8 +58,9 @@ create index if not exists kv_store_key_pattern_idx
     on public.kv_store (key text_pattern_ops);
 
 -- ── Row-level security ───────────────────────────────────────────────────────
--- RLS MUST be ENABLED. Service-role bypasses it for server-side reads/writes;
--- the anon role is what a browser holding the public key would use.
+-- RLS MUST be ENABLED. shinobix_app passes through its own policy below and
+-- service_role bypasses RLS; the anon role is what a browser holding the public
+-- key would use.
 --
 -- Anon allowlist: NONE (since 2026-10-12, see below).
 --
@@ -85,9 +89,9 @@ create index if not exists kv_store_key_pattern_idx
 -- (lib/realtime.ts was deleted; PvP uses /api/pvp/stream) and kv_store left the
 -- `supabase_realtime` publication (section below). Meanwhile the grant let
 -- anyone holding the public anon key list and read every PvP session row
--- through the Data API. The server reads only with the service role, which
--- bypasses RLS, so nothing the game does used it. Do NOT re-add an anon policy:
--- serve browser reads through an authenticated API route.
+-- through the Data API. The server never read through anon, so nothing the game
+-- does used it. Do NOT re-add an anon policy: serve browser reads through an
+-- authenticated API route.
 
 alter table public.kv_store enable row level security;
 
@@ -104,6 +108,40 @@ revoke all      on public.kv_store from anon;
 -- deny-by-default; revoking the grant also closes the "if RLS is ever disabled,
 -- authenticated would see all rows" footgun. Do NOT re-add a grant here.
 revoke all      on public.kv_store from authenticated;
+
+-- ── Server login role: shinobix_app ──────────────────────────────────────────
+-- The game's DATABASE_URL logs in as this role (2026-10-26, after the Railway
+-- secret rotation). It gets the table and the kv_* functions and nothing else:
+-- no TRUNCATE, no schema CREATE, no RLS bypass. A database built from this file
+-- has no password on the role, so it cannot log in until you run this in the SQL
+-- Editor (never commit the password):
+--   alter role shinobix_app with password '...';
+do $$
+begin
+    if not exists (select 1 from pg_roles where rolname = 'shinobix_app') then
+        create role shinobix_app login;
+    end if;
+end $$;
+
+grant usage on schema public to shinobix_app;
+grant select, insert, update, delete on public.kv_store to shinobix_app;
+
+-- Create only when missing. Do NOT drop and recreate it: that takes an exclusive
+-- lock on kv_store, and between the two statements the game is refused every row.
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public' and tablename = 'kv_store' and policyname = 'shinobix_app_all'
+    ) then
+        create policy "shinobix_app_all"
+            on public.kv_store
+            for all
+            to shinobix_app
+            using (true)
+            with check (true);
+    end if;
+end $$;
 
 -- ── Realtime publication: kv_store is NOT published (2026-10-12) ─────────────
 -- Nothing in the browser subscribes to Supabase Realtime any more: the PvP
@@ -317,15 +355,14 @@ select cron.schedule(
     $$ select public.kv_delete_expired(); $$
 );
 
--- â”€â”€ Data API RPC hardening â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ── Data API RPC hardening ───────────────────────────────────────────────────
 -- PostgreSQL grants EXECUTE on newly-created functions to PUBLIC by default.
 -- These helpers mutate the game's KV table and are called only by the trusted
--- API using the Supabase service-role key (or a direct server Postgres URL).
--- Do not leave them callable through the anonymous/authenticated Data API.
---
--- Run this section in production after confirming the game server has its
--- service-role key/DATABASE_URL.  It is idempotent and does not affect the
--- browser's Realtime SELECT policy above.
+-- API, as shinobix_app (DATABASE_URL) or the service role (REST fallback). Do
+-- not leave them callable through the anonymous/authenticated Data API. They are
+-- SECURITY INVOKER; keep them that way, so a stray grant still cannot reach the
+-- table. This section is idempotent. Production was missing three of these
+-- revokes until 2026-10-30 (supabase-migrations/2026-10-30_revoke_kv_function_browser_execute.sql).
 revoke all on function public.kv_set_nx(text, jsonb, timestamptz) from public, anon, authenticated;
 revoke all on function public.kv_compare_set(text, jsonb, jsonb, timestamptz) from public, anon, authenticated;
 revoke all on function public.kv_incr(text, timestamptz) from public, anon, authenticated;
@@ -339,3 +376,9 @@ grant execute on function public.kv_incr(text, timestamptz) to service_role;
 grant execute on function public.kv_hset(text, jsonb) to service_role;
 grant execute on function public.kv_hdel(text, text[]) to service_role;
 grant execute on function public.kv_delete_expired() to service_role;
+
+grant execute on function public.kv_set_nx(text, jsonb, timestamptz) to shinobix_app;
+grant execute on function public.kv_incr(text, timestamptz) to shinobix_app;
+grant execute on function public.kv_hset(text, jsonb) to shinobix_app;
+grant execute on function public.kv_hdel(text, text[]) to shinobix_app;
+grant execute on function public.kv_delete_expired() to shinobix_app;

@@ -7,7 +7,9 @@ The production Supabase project must have platform backups or PITR enabled with 
 2. `supabase-migrations/2026-10-12_drop_kv_store_from_realtime.sql`
 3. `supabase-migrations/2026-10-12_drop_anon_kv_read.sql`
 
-An older restore point brings back the old hash functions, the Supabase Realtime publication on `kv_store` (about 9% of database time spent for nothing), and anon read access to every PvP session. All three migrations are idempotent. `kv-backup.mjs` refuses to restore into a target that still has anon access, and its error names these files.
+**After a restore to a point before 2026-10-30**, also re-apply `supabase-migrations/2026-10-30_revoke_kv_function_browser_execute.sql`. An older restore point gives `kv_incr`, `kv_set_nx` and `kv_delete_expired` back to the browser roles.
+
+An older restore point before 2026-10-13 brings back the old hash functions, the Supabase Realtime publication on `kv_store` (about 9% of database time spent for nothing), and anon read access to every PvP session. All three migrations are idempotent. `kv-backup.mjs` refuses to restore into a target that still has anon access, and its error names these files.
 
 ## Launch-wipe day checklist (run IMMEDIATELY before the reset)
 
