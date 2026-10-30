@@ -7113,10 +7113,35 @@ function turnTimeoutIntent(phase: ChroniclePhase): ChronicleActionIntent {
  *      like a manual forfeit (war damage, contest swing, no Free Play credit).
  *
  * Returns the same object when nothing had expired.
+ *
+ * One call passes ONE expired turn, and the next turn starts at `now`. With
+ * `catchUp`, every turn already due at `now` is passed instead, each at its own
+ * deadline, so the result depends only on the stored duel and the time, never on
+ * how often anyone asked. A host whose clock only a duelist's request may store
+ * (the Sector War table) needs this: when both duelists closed their tabs, every
+ * other request recomputed the same single pass and the duel never ended.
  */
 export function advanceExpiredChronicleTurn(
   state: ChronicleMatch,
   now = Date.now(),
+  options: { catchUp?: boolean } = {},
+): ChronicleMatch {
+  if (!options.catchUp) return passExpiredChronicleTurn(state, now);
+  let next = state;
+  // Bounded: the AFK forfeit ends a walked-out duel within a few passes.
+  for (let pass = 0; pass < 8 && next.status === "active"; pass++) {
+    const due = next.responseWindow ? next.responseWindow.expiresAt : next.turnStartedAt + TURN_TIMEOUT_MS;
+    if (due > now) break;
+    const passed = passExpiredChronicleTurn(next, due);
+    if (passed === next) break;
+    next = passed;
+  }
+  return next;
+}
+
+function passExpiredChronicleTurn(
+  state: ChronicleMatch,
+  now: number,
 ): ChronicleMatch {
   if (state.status !== "active") return state;
   const strikes: Partial<Record<ChronicleSideKey, number>> = { ...(state.afkStrikes ?? {}) };

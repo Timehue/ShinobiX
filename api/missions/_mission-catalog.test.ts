@@ -244,7 +244,7 @@ describe('daily-cap accounting matches character-progress.ts', () => {
     });
 
     it('markMissionCompletedFields bumps total + daily + clan, stamps day/month', () => {
-        const fields = markMissionCompletedFields({ lastDailyReset: '2026-06-13', dailyMissionsCompleted: 4, totalMissionsCompleted: 10, clanMissionContrib: 2 }, '2026-06-13', '2026-06');
+        const fields = markMissionCompletedFields({ lastDailyReset: '2026-06-13', dailyMissionsCompleted: 4, totalMissionsCompleted: 10, clanMissionContrib: 2, clanContribMonth: '2026-06' }, '2026-06-13', '2026-06');
         assert.equal(fields.totalMissionsCompleted, 11);
         assert.equal(fields.dailyMissionsCompleted, 5);
         assert.equal(fields.clanMissionContrib, 3);
@@ -279,7 +279,7 @@ describe('hunt daily-cap accounting matches character-progress.ts (hunt pool)', 
     });
 
     it('markHuntCompletedFields bumps the hunt counter + clan/lifetime totals, stamps day/month', () => {
-        const fields = markHuntCompletedFields({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 4, totalMissionsCompleted: 10, clanMissionContrib: 2 }, '2026-06-13', '2026-06');
+        const fields = markHuntCompletedFields({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 4, totalMissionsCompleted: 10, clanMissionContrib: 2, clanContribMonth: '2026-06' }, '2026-06-13', '2026-06');
         assert.equal(fields.totalMissionsCompleted, 11);
         assert.equal(fields.dailyHuntsCompleted, 5);
         assert.equal(fields.clanMissionContrib, 3);

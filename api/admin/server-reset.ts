@@ -8,6 +8,7 @@ import { bumpImageVersion } from '../_image-version.js';
 import { copyImageToR2, forgetImageLists, legacyHashWriteEnabled, perImageKey } from '../images.js';
 import { deletePlayerFirstPactState } from '../_delete-player-account.js';
 import { readKvProjection } from '../_storage-projection.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import {
     cancelOrParkSubscription,
     isSubscriptionCancelConfigured,
@@ -358,6 +359,61 @@ export async function deleteDoomedKeys(
     }
 }
 
+/**
+ * What a protected (admin) account keeps through a reset: its progress, gear
+ * and currency. What it loses: every tie to the old world's clans and village
+ * leadership (owner ruling 2026-10-29: "reserve Rill … but remove him from any
+ * Kage/Elder/ANBU role").
+ *
+ * The seats themselves are wiped with the store (`village:kage:*`,
+ * `village:elder-council:*`, `game:village-state:*`), so the Town Hall falls
+ * back to the NPC Acting Kage Council and NPC elders. These save fields are
+ * what would put the account straight back into a seat or a dead clan:
+ * - clan membership points at a clan the sweep deleted;
+ * - this month's PvP kills auto-seat the earned ANBU (earnedAnbuCandidates);
+ * - elder win days feed the next elder election;
+ * - guard duty and the monthly clan counters belong to the old roster.
+ * Explicit nulls, like clan/leave.ts: dropping a key would let the save merger
+ * keep the stored value.
+ */
+export function stripWorldStanding(character: Record<string, unknown>): Record<string, unknown> {
+    return {
+        ...character,
+        clan: null,
+        clanFounder: false,
+        clanUpgradeLevels: null,
+        clanDoctrine: null,
+        guardQueued: false,
+        elderWinDays: [],
+        elderFocus: null,
+        monthlyPvpKills: 0,
+        clanBattleContrib: 0,
+        clanEventContrib: 0,
+        clanMissionContrib: 0,
+    };
+}
+
+/** Apply stripWorldStanding to every protected account that kept a save. */
+export async function stripProtectedAccountsStanding(
+    names: readonly string[] = PROTECTED_NAMES,
+    mutate: (name: string, fn: (character: Record<string, unknown>) => Record<string, unknown>) => Promise<boolean> =
+        async (name, fn) => {
+            const out = await mutatePlayerSave(name, ({ character }) => ({ ok: true, value: true, character: fn(character) }));
+            return out.ok;
+        },
+): Promise<string[]> {
+    const stripped: string[] = [];
+    for (const name of names) {
+        try {
+            if (await mutate(name, stripWorldStanding)) stripped.push(name);
+        } catch (err) {
+            // A protected account with no save (never played) has nothing to strip.
+            console.warn(`[admin/server-reset] could not strip standing for ${name}:`, (err as Error).message);
+        }
+    }
+    return stripped;
+}
+
 /** A paid supporter subscription on a save this reset is about to delete. */
 export type DoomedSubscription = { slug: string; reference: string };
 
@@ -498,6 +554,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // First Pact rows under their story lock, then everything in batches.
         await deleteDoomedKeys(doomed);
 
+        // The protected accounts keep their saves but leave every clan and
+        // leadership seat behind, BEFORE the registry re-seed below reads them.
+        const standingStripped = await stripProtectedAccountsStanding();
+
         // Re-seed registry entries for protected accounts that still have a
         // save blob so they show up in player lists immediately rather than
         // only after their next save. (`player:registry` itself is not
@@ -539,6 +599,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             subscriptionsParked: subscriptionReport.parked,
             deletedByNamespace: summarizeByNamespace(doomed),
             leadershipPortraitsReseeded: leaderReseed,
+            protectedStandingStripped: standingStripped,
             deleted: doomed.slice(0, DELETED_SAMPLE_CAP),
             deletedTruncated: doomed.length > DELETED_SAMPLE_CAP,
         });

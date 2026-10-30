@@ -289,6 +289,12 @@ const OTHER_PLAYER_MUTATION_ROUTES = new Set([
     'admin/bloodline-review.ts',
     'admin/economy-reconcile.ts',
     'admin/legacy.ts',
+    // The full reset strips the protected admin accounts' clan and leadership
+    // standing. The admin running it is often signed in as one of them, and an
+    // echoed version would let that open client's next autosave write the old
+    // clan back over the strip. Unechoed, that autosave 409s and the client
+    // reloads the stripped save.
+    'admin/server-reset.ts',
     // The kicking officer's reply carries the roster only. The save it writes
     // is the kicked member's.
     'clan/kick.ts',

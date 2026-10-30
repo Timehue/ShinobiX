@@ -34,9 +34,11 @@ export async function initializeClanBoss(): Promise<boolean> {
 }
 
 export async function initializeTerritory(): Promise<boolean> {
-    if (!villageWarMapEnabled()) return true;
+    // Same gate as the Clan Boss boot pass above: DISABLE_SCHEDULED_JOBS stops
+    // every boot-time and periodic writer, and the admin `seed` action remains.
+    if (scheduledJobsDisabled() || !villageWarMapEnabled()) return true;
     const result = await withScheduledJobLease('startup:territory', async () => {
-        if (!villageWarMapEnabled()) return true;
+        if (scheduledJobsDisabled() || !villageWarMapEnabled()) return true;
         const { seeded, sectors } = await seedHomeSectorOwnership();
         if (seeded > 0) console.log(`[war-map] seeded ${seeded} home sectors: ${sectors.join(', ')}`);
         return true;

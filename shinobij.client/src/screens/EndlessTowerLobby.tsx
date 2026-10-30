@@ -53,7 +53,11 @@ export function EndlessTowerLobby({
 }) {
     const [actionLocked, runOnce] = useOneShotAction();
     const run = character.endlessTowerRun;
-    const inProgress = !!run && run.wave > 1;
+    // The server resumes ANY stored run (startEndlessRun), a floor-1 run included,
+    // and refuses a new one while it exists. So a floor-1 run left unfinished must
+    // still show Retreat: it is the only control that clears a lost wave.
+    const inProgress = !!run?.runToken && run.wave >= 1;
+    const hasBank = (run?.bankedRyo ?? 0) > 0;
     const nextWave = run?.wave ?? 1;
     const preview = endlessWaveReward(nextWave, character.level ?? 1);
     const entryCost = endlessEntryCost(character);
@@ -108,7 +112,7 @@ export function EndlessTowerLobby({
                         disabled={actionLocked}
                         onClick={() => runOnce(onBank)}
                     >
-                        Retreat &amp; bank
+                        {hasBank ? <>Retreat &amp; bank</> : "End run"}
                     </button>
                 )}
             </div>

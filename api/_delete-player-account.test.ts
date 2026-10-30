@@ -129,6 +129,33 @@ describe('player deletion', () => {
         assert.deepEqual(result.failures, []);
     });
 
+    it('opens a deleted Kage\'s seat so a reused name cannot inherit it', async () => {
+        const { WAR_VILLAGES } = await import('./_war-map-sectors.js');
+        const { kageKey } = await import('./village/_kage-settle.js');
+        const [home, other] = WAR_VILLAGES;
+        store.set(kageKey(home), { kageSystemUnlocked: true, seatedKage: 'Wanderer', seatedAt: 5, history: [{ kage: 'Wanderer', startedAt: 5 }] });
+        store.set(kageKey(other), { kageSystemUnlocked: true, seatedKage: 'Kaze', seatedAt: 5 });
+
+        const result = await detachPlayerReferences('wanderer');
+
+        const seat = store.get(kageKey(home)) as { seatedKage?: string; history: Array<{ endedAt?: number }> };
+        assert.equal(seat.seatedKage, undefined, 'the seat must open with the account');
+        assert.ok(seat.history[0].endedAt, 'the reign is closed in history');
+        assert.equal((store.get(kageKey(other)) as { seatedKage?: string }).seatedKage, 'Kaze', 'another village keeps its Kage');
+        assert.ok(result.detached.includes(`kage-seat:${home}`));
+    });
+
+    it('hands a deleted founder\'s clan to the successor Leave would pick', async () => {
+        store.set('save:kaze', { character: { name: 'Kaze', clan: 'Storm Petals' } });
+        const result = await detachPlayerReferences('kaze');
+
+        const clan = store.get('save:clan-stormpetals') as { founderName: string; members: { name: string }[]; roleOverrides: Record<string, string> };
+        assert.equal(clan.founderName, 'wanderer', 'the clan must not be left with a founder nobody can be');
+        assert.deepEqual(clan.members.map((m) => m.name), ['wanderer']);
+        assert.equal(clan.roleOverrides.wanderer, undefined, 'the successor no longer carries an officer override');
+        assert.deepEqual(result.failures, []);
+    });
+
     it('is safe to run when the player has no clan, friends, or moderation rows', async () => {
         store.set('save:kaze', { character: { name: 'kaze' } });
         const result = await detachPlayerReferences('kaze');

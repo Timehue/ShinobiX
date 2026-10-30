@@ -10,7 +10,14 @@ export function showdownBusyIssue(
     const breedingParents = activeBreedingParentIds(character, now);
     for (const pet of pets) {
         if (breedingParents.has(String(pet.id))) return `${pet.name} is in the Shinobi Hatchery.`;
-        if (pet.expedition && Number(pet.expedition.endsAt ?? 0) > now) return `${pet.name} is away on an expedition.`;
+        // Any expedition, finished or not, until it is collected: the same rule
+        // as Pet Arena, the Ladder and Warfront (petCombatBusyReason), and the
+        // combat seal drops a pet still holding one (combat-core/companion.ts).
+        if (pet.expedition) {
+            return Number(pet.expedition.endsAt ?? 0) > now
+                ? `${pet.name} is away on an expedition.`
+                : `${pet.name} is back from an expedition. Collect it before battling.`;
+        }
     }
     return null;
 }
