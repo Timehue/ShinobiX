@@ -183,6 +183,8 @@ function towerActionRejectionText(reason?: string): string {
     if (reason === "not-your-turn") return "The turn advanced before this command landed. Wait for your next turn.";
     if (reason === "invalid-target") return "That target is no longer valid. Choose a highlighted target.";
     if (reason === "actor-defeated") return "Your fighter can no longer act in this run.";
+    if (reason === "cannot-forfeit") return "Only a solo Story or Spire run can be forfeited. Leave the view instead.";
+    if (reason === "session-done") return "This run has already ended.";
     return reason ? reason.replace(/-/g, " ") : "The Tower rejected this command.";
 }
 type JutsuLike = { id?: string; name?: string; description?: string; battleDescription?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number; method?: string; tags?: Array<{ name?: string }> };
@@ -509,6 +511,11 @@ export function BattleTowerFight({
     const [session, setSession] = useState<TowerSession>(initialSession);
     const clanBossResult = clanBossAssaultResult(session, variant);
     const isClanBoss = clanBossResult !== null;
+    // A Story/Spire run with one human fighter can be forfeited (the server
+    // refuses any other kind). Leaving the view alone kept the account lease
+    // for up to thirty minutes, with every other battle refused meanwhile.
+    const isSoloTowerRun = (variant === undefined || variant === "tower") && !isClanBoss
+        && session.actors.filter(a => a.side === "squad" && a.ai === false).length === 1;
     const displayLog = isClanBoss ? session.log.map(line => clanBossOutcomeLog(line, session.floor)) : session.log;
     const battleTabs = useBattleTabs(session.log.length);
     const combatFloor = session.sealedCatalogFloor ?? session.encounterFloor;
@@ -1319,7 +1326,7 @@ export function BattleTowerFight({
         if (action.type === "clear") return "clear enemy buffs";
         if (action.type === "cleanse") return "Cleanse";
         if (action.type === "summon") return "summon pet";
-        if (action.type === "forfeit") return isHunt ? "retreat" : "forfeit match";
+        if (action.type === "forfeit") return isHunt ? "retreat" : isSoloTowerRun ? "forfeit run" : "forfeit match";
         if (action.type === "attack") return "Attack";
         if (action.type === "move") return "Move";
         if (action.type === "dash") return "Dash";
@@ -1874,8 +1881,8 @@ export function BattleTowerFight({
                             <button
                                 type="button"
                                 className="tower-fight-leave"
-                                disabled={(isTeamPvp || isHunt || isWorldBoss || isStoryTrial) && busy}
-                                aria-label={isStoryTrial ? isNarrativeGroup ? 'Forfeit encounter' : 'Forfeit trial' : isHunt ? "Retreat" : isTeamPvp ? "Forfeit" : isCaravanAmbush || isWorldBoss ? "Leave battle view" : "Leave view"}
+                                disabled={(isTeamPvp || isHunt || isWorldBoss || isStoryTrial || isSoloTowerRun) && busy}
+                                aria-label={isStoryTrial ? isNarrativeGroup ? 'Forfeit encounter' : 'Forfeit trial' : isHunt ? "Retreat" : isTeamPvp ? "Forfeit" : isSoloTowerRun ? "Forfeit run" : isCaravanAmbush || isWorldBoss ? "Leave battle view" : "Leave view"}
                                 style={{ borderColor: isTeamPvp ? "var(--red-400)" : "var(--slate-600)", color: isTeamPvp ? "#fecaca" : "var(--slate-300)" }}
                                 onClick={async () => {
                                     if (isStoryTrial) {
@@ -1888,11 +1895,13 @@ export function BattleTowerFight({
                                         if (await gameConfirm('Retreat from this encounter? You lose 10% of maximum HP and keep the hunt contract for later.')) void send({ type: 'forfeit' });
                                     } else if (isTeamPvp) {
                                         if (await gameConfirm(`Forfeit your fighter from this match? This is immediate.${session.actors.filter(a => a.side === 'squad').length > 1 ? ' Your teammate may have to continue alone.' : ''}`)) void send({ type: "forfeit" });
+                                    } else if (isSoloTowerRun) {
+                                        if (await gameConfirm('Forfeit this run? It ends as a defeat, you keep nothing from it, and your other battles unlock right away.')) void send({ type: "forfeit" });
                                     } else if (await gameConfirm(`Leave the battle view? The fight continues, and your turns may be skipped. Resume from ${isClanBoss ? 'Clan Hall → Boss' : 'Battle Towers'}.`)) {
                                         (onLeaveActive ?? onExit)();
                                     }
                                 }}
-                            >{isStoryTrial ? 'Forfeit' : isHunt ? "Retreat" : isTeamPvp ? "Forfeit" : "Leave"}</button>
+                            >{isStoryTrial ? 'Forfeit' : isHunt ? "Retreat" : isTeamPvp || isSoloTowerRun ? "Forfeit" : "Leave"}</button>
                         )}
                     </header>
 
