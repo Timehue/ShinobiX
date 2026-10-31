@@ -593,7 +593,7 @@
       "system": "daily-stat-budget",
       "id": "shared-cap",
       "currency": "statPoints",
-      "amount": 60,
+      "amount": 120,
       "cadence": "daily ceiling shared by hunt/field claims, PvE and PvP wins (dial DAILY_STAT_POINT_CAP)",
       "authority": "api/_stat-growth.ts",
       "notes": ""
