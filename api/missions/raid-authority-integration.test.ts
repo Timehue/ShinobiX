@@ -159,6 +159,45 @@ describe('sealed raid authority', () => {
         assert.deepEqual(token?.scaling, { level: 31 });
     });
 
+    describe('a village with a guard on its roster', () => {
+        const guard = 'raiddefenderposted';
+        async function postRaid(player: string) {
+            await seed(player, { level: 31, village: 'Stormveil Village', clan: 'Stormveil Clan' });
+            await seed(guard, { village: 'Ashen Leaf Village', clan: 'Ashen Leaf Clan' });
+            onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
+            await kv.set('world:territory:18', { sector: 18, ownerVillage: 'Ashen Leaf Village', ownerClan: 'Ashen Leaf Clan', hp: 20_000 });
+            await kv.set(`guard:${guard}`, { name: guard, village: 'Ashen Leaf Village', level: 20, lastSeen: Date.now() }, { ex: 300 });
+        }
+        beforeEach(async () => { await kv.del(`guard:${guard}`); });
+        after(async () => { await kv.del(`guard:${guard}`); });
+
+        it('falls back to the garrison when that guard is offline', async () => {
+            const player = 'raidauthguardoffline';
+            await postRaid(player);
+            const started = await post(raidStart, player, { requestId: 'raidguardofflinerequest1', sector: 18 });
+            assert.equal(started.statusCode, 200);
+            assert.equal(started.body?.source, 'field-raid');
+        });
+
+        it('falls back to the garrison when that guard is somewhere else', async () => {
+            const player = 'raidauthguardaway';
+            await postRaid(player);
+            onlineStore.upsert({ name: guard, sector: 0, character: { name: guard, hp: 100, maxHp: 100 } });
+            const started = await post(raidStart, player, { requestId: 'raidguardawayrequest0001', sector: 18 });
+            assert.equal(started.statusCode, 200);
+            assert.equal(started.body?.source, 'field-raid');
+        });
+
+        it('still sends the raider to the guard who is standing in the sector', async () => {
+            const player = 'raidauthguardhere';
+            await postRaid(player);
+            onlineStore.upsert({ name: guard, sector: 18, character: { name: guard, hp: 100, maxHp: 100 } });
+            const started = await post(raidStart, player, { requestId: 'raidguardhererequest0001', sector: 18 });
+            assert.equal(started.statusCode, 409);
+            assert.match(String(started.body?.error), /no server-authorized raid target/);
+        });
+    });
+
     it('routes field raid objectives through village garrisons, not wilderness mission outposts', async () => {
         const player = 'raidauthmissiontarget';
         await seed(player, {
