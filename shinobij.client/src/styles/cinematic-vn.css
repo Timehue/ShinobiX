@@ -26,7 +26,9 @@
     --cvn-dialogue-height: min(46dvh, calc(var(--cvn-dialogue-lines) * var(--cvn-dialogue-font) * var(--cvn-dialogue-leading) + var(--cvn-dialogue-footer) + var(--cvn-dialogue-chrome)));
     position: relative;
     isolation: isolate;
-    overflow: hidden;
+    /* The stage itself must not scroll when a newly focused footer control
+       comes into view. Dialogue and choices own their scroll containers. */
+    overflow: clip;
     color: var(--sj-text-primary);
     background: #07090c;
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;
