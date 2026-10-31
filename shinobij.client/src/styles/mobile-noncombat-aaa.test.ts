@@ -153,7 +153,7 @@ test("the mobile touch floor exempts sector-board geometry", () => {
     for (const half of halves) {
         assert.match(
             half,
-            /:not\(\.sector-avatar-figure, \.scene-tile\)$/,
+            /:not\(\.sector-avatar-figure, \.scene-tile, \.sector-life-point\)$/,
             `board geometry must be exempt from the touch floor in: ${half}`,
         );
     }

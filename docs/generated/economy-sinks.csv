@@ -132,7 +132,7 @@ shop,training-katana,ryo,9600,per unit,api/pvp/_item-catalog.ts,common hand
 shop,village-transfer-scroll,fateShards,250,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,void-leech-nodachi,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
 shop,worldsplitter-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
-bloodline-forge,B Rank,boneCharms,200,per forge,api/bloodlines/_forge.ts,
+bloodline-forge,B Rank,boneCharms,100,per forge,api/bloodlines/_forge.ts,
 bloodline-forge,A Rank,auraStones,100,per forge,api/bloodlines/_forge.ts,
 bloodline-forge,S Rank,mythicSeals,100,per forge,api/bloodlines/_forge.ts,
 hollow-key-forge,hollowShards,hollowShards,120,per key,api/hollow-gate/_forge-key.ts,

@@ -107,6 +107,96 @@ test('World fight start accepts the destination when its travel lease matured be
     assert.ok(Number(save?._regenAt) > arrivalAt, 'arrival recovery is committed before combat is sealed');
     assert.ok(Number(save?._regenAt) <= Number(save?._saveAt));
     assert.equal(await getTravelLease(playerName), null);
+
+    // A stale handoff must never replace or mutate an already sealed fight.
+    const stale = completedHandoff();
+    await kv.set(`save:${playerName}`, { ...save, character: { ...(save?.character as object), ...stale } });
+    const resumed = await probe(playerName, '127.5.0.3');
+    assert.equal(resumed.statusCode, 200);
+    assert.equal(resumed.body?.sessionId, output.out.body?.sessionId);
+    const stillActive = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    assert.deepEqual((stillActive?.character as Record<string, unknown>).worldAiPendingChain, stale.worldAiPendingChain);
+    assert.equal(stillActive?._saveVersion, save?._saveVersion);
+});
+
+function completedHandoff() {
+    const request = { kind: 'wanderer-ambush', sourceId: 'wanderer-ambush', sector: 60, chainId: 'finished_chain', stage: 3 };
+    return {
+        robberStreak: 0,
+        worldAiPendingChain: { request, displayName: 'Road Bandit', createdAt: 1 },
+        worldAiChainWins: Array.from({ length: 4 }, (_, stage) => ({ ...request, stage, proofId: `finished_proof_${stage}` })),
+        worldAiPendingOutcome: { kind: 'wanderer-ambush-reward', claimId: 'ambush:finished_chain:60', chainId: request.chainId, sourceId: request.sourceId, sector: 60, createdAt: 2 },
+    };
+}
+
+async function probe(playerName: string, address: string) {
+    const output = response();
+    await startHandler({ method: 'POST', body: { playerName, resumeWorldFight: true, recoveryProbeVersion: 2 },
+        headers: { 'x-player-token': issuePlayerToken(playerName) ?? '' }, socket: { remoteAddress: address },
+    } as never, output.res);
+    return output.out;
+}
+
+test('resume repairs a completed stale chain and exposes its unpaid claim without paying or dropping it', async () => {
+    const playerName = 'completedchainrecovery';
+    const held = completedHandoff();
+    await kv.set(`save:${playerName}`, { _saveVersion: 1, currentSector: 61,
+        character: { name: playerName, level: 20, hp: 100, maxHp: 100, ryo: 123, ...held } });
+    const output = await probe(playerName, '127.5.0.4');
+    assert.equal(output.statusCode, 200, JSON.stringify(output.body));
+    assert.equal(output.body?.pendingWorldChain, undefined);
+    assert.deepEqual(output.body?.pendingWorldOutcome, { ...held.worldAiPendingOutcome, action: 'claim', endpoint: '/api/sector/wanderer-ambush' });
+    const saved = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    const character = saved?.character as Record<string, unknown>;
+    assert.equal(character.worldAiPendingChain, null);
+    assert.deepEqual(character.worldAiPendingOutcome, held.worldAiPendingOutcome);
+    assert.deepEqual(character.worldAiChainWins, held.worldAiChainWins);
+    assert.equal(character.ryo, 123);
+    assert.equal(saved?._saveVersion, 2);
+    await probe(playerName, '127.5.0.5');
+    assert.equal((await kv.get<Record<string, unknown>>(`save:${playerName}`))?._saveVersion, 2);
+});
+
+test('resume retains an unfinished chain despite ineligibility and a different current sector', async () => {
+    const playerName = 'unfinishedchainrecovery';
+    const held = completedHandoff();
+    const character = { name: playerName, ...held, worldAiPendingOutcome: null, worldAiChainWins: held.worldAiChainWins.slice(0, 3) };
+    await kv.set(`save:${playerName}`, { _saveVersion: 1, currentSector: 61, character });
+    const output = await probe(playerName, '127.5.0.6');
+    assert.equal(output.statusCode, 200);
+    assert.deepEqual(output.body?.pendingWorldChain, held.worldAiPendingChain);
+    assert.deepEqual((await kv.get<Record<string, unknown>>(`save:${playerName}`))?.character, character);
+});
+
+test('locked recovery preserves a new unfinished chain that replaces the initial stale snapshot', async () => {
+    const playerName = 'replacedchainrecovery';
+    const completed = completedHandoff();
+    const initial = { _saveVersion: 1, currentSector: 60, character: { name: playerName, ...completed } };
+    const replacement = { ...initial, _saveVersion: 2, character: { ...initial.character,
+        worldAiPendingChain: { ...completed.worldAiPendingChain,
+            request: { ...completed.worldAiPendingChain.request, chainId: 'replacement_chain', stage: 1 } },
+    } };
+    const saveKey = `save:${playerName}`;
+    await kv.set(saveKey, initial);
+    const originalGet = kv.get.bind(kv);
+    let replaced = false;
+    kv.get = (async <T>(key: string) => {
+        const snapshot = await originalGet<T>(key);
+        if (key === saveKey && !replaced) {
+            replaced = true;
+            await kv.set(saveKey, replacement);
+        }
+        return snapshot;
+    }) as typeof kv.get;
+    try {
+        const output = await probe(playerName, '127.5.0.7');
+        assert.equal(replaced, true);
+        assert.equal(output.statusCode, 200);
+        assert.deepEqual(output.body?.pendingWorldChain, replacement.character.worldAiPendingChain);
+        const saved = await originalGet<Record<string, unknown>>(saveKey);
+        assert.equal(saved?._saveVersion, 2, 'stale observation must not cause a write');
+        assert.deepEqual(saved?.character, replacement.character);
+    } finally { kv.get = originalGet; }
 });
 
 test('a recovery-only probe does not settle travel without returning a save version', async () => {

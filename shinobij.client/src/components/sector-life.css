@@ -1,4 +1,5 @@
-.sector-life-point{position:absolute;transform:translate(-50%,-50%);padding:0;border:0;background:none;color:#eee0b1;box-shadow:none;z-index:8;pointer-events:auto;cursor:pointer;min-width:24px;min-height:24px;font-size:18px;text-shadow:0 1px 3px #151d19}
+/* Outrank global button hover/press styles so the ground anchor stays put. */
+.pixel-map .sector-life-point{position:absolute;transform:translate(-50%,-50%);padding:0;border:0;background:none;color:#eee0b1;box-shadow:none;z-index:8;pointer-events:auto;cursor:pointer;min-width:24px;min-height:24px;font-size:18px;text-shadow:0 1px 3px #151d19}
 .sector-life-point:focus-visible{outline:2px solid #e9d8a3;outline-offset:3px;border-radius:50%}
 .ui-modal-backdrop:has(.sector-life-dialog){z-index:10000}
 .sector-life-point.life-aftermath{color:#b5c9a0}.sector-life-point.life-unattended{opacity:.6}
