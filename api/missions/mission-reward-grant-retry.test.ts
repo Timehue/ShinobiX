@@ -241,10 +241,10 @@ describe('a daily mission reward is paid exactly once even when its first credit
         const { reserveCombatStatBudget } = await import('../pvp/_combat-stat-budget.js');
         for (const [name, seed] of [[`${PREFIX}budgetvanguard`, seedVanguard], [`${PREFIX}budgetnewbie`, seedNewbie]] as const) {
             await seed(name);
-            await reserveCombatStatBudget(kv, { playerName: name, battleId: `pvp-${name}`, eventAt: Date.now(), requested: 6, cap: 60 });
+            await reserveCombatStatBudget(kv, { playerName: name, battleId: `pvp-${name}`, eventAt: Date.now(), requested: 6, cap: 120 });
             const read = await readPanel(name);
             assert.equal(read.statusCode, 200, JSON.stringify(read.body));
-            assert.deepEqual(read.body?.statBudget, { day: new Date().toISOString().slice(0, 10), spent: 6, cap: 60 });
+            assert.deepEqual(read.body?.statBudget, { day: new Date().toISOString().slice(0, 10), spent: 6, cap: 120 });
         }
     });
 

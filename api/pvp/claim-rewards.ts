@@ -26,8 +26,8 @@ import {
 import { recordEconomyTxn } from '../_economy.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { mutatePlayerSaveLocked } from '../save/_mutate-player-save.js';
-import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
-import { boostMultiplier } from '../_boost-event.js';
+import { computeCombatStatGrowth, DAILY_PVP_STAT_CAP } from '../_stat-growth.js';
+import { pvpStatPointsForWin } from './_stat-rewards.js';
 import { creditPvpJutsuMastery } from './_jutsu-mastery-reward.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import {
@@ -77,8 +77,8 @@ import {
     pvpRecoveryRemainingTtlSeconds,
     pvpTerminalRecoveryExpiresAt,
 } from './_pending-session.js';
-import { reserveCombatStatBudget } from './_combat-stat-budget.js';
-import { dailyStatBudgetReply } from '../_daily-stat-budget.js';
+import { reservePvpCombatStatBudget } from './_combat-stat-budget.js';
+import { dailyPvpStatBudgetReply } from '../_daily-stat-budget.js';
 import { CLAN_WAR_PVP_SCROLL_DROP_CHANCE } from '../clan/war/_war-points.js';
 import type { CommittedPvpTerminalReplay } from './_committed-terminal-effects.js';
 
@@ -345,10 +345,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             || rewardEventAt > Date.now() + 60_000) {
             return res.status(409).json({ error: 'Battle terminal time is invalid.' });
         }
-        // Timed boost event (api/_boost-event.ts), judged by when the battle
-        // ENDED so a claim made just after the event still gets it. Read once,
-        // before any save lock; fails neutral (1).
-        const growthEventBoost = await boostMultiplier('growth', rewardEventAt);
         let recoveryExpiresAt: number;
         let claimTtlSeconds: number;
         try {
@@ -833,26 +829,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // reach this player-character reward path. Modern ranked player
                         // matches settle growth in the ranked journal. A fight that
                         // pays no ryo (uncredited, pair exhausted, short flee/AFK)
-                        // reserves nothing from the shared daily stat budget.
+                        // reserves nothing from the separate PvP daily stat budget.
                         const shouldGrowPlayer = (!isRankedClaim
                             || (!playerRankedV2Claim && session.rankedKind === 'player'))
                             && fight.factor > 0;
                         if (shouldGrowPlayer) {
                             const statsNow = (finalChar.stats ?? {}) as Record<string, number>;
-                            // Combat wins never take the era dial (2026-07-27 ruling,
-                            // docs/leveling-without-xp-map.md §11 item 7), nor trait or
-                            // encounter boosts. The admin growth event scales the
-                            // REQUEST; the shared daily stat-point budget then bounds what
-                            // is credited, so an event fills the budget sooner but never
-                            // raises it (I-12). A replayed reservation returns the stored,
-                            // already event-scaled points.
-                            const requestedGrowth = Math.round(PVP_CASUAL_STAT_POINTS_PER_WIN * growthEventBoost);
-                            const statBudget = await reserveCombatStatBudget(kv, {
+                            // The 1–6 roll is fixed to this winner and battle, without
+                            // boost multipliers. The separate PvP budget clamps the
+                            // payout; a replay returns its original reservation.
+                            const requestedGrowth = pvpStatPointsForWin(winnerSlug, battleId);
+                            const statBudget = await reservePvpCombatStatBudget(kv, {
                                 playerName: winnerSlug,
                                 battleId,
                                 eventAt: rewardEventAt,
                                 requested: requestedGrowth,
-                                cap: DAILY_COMBAT_STAT_CAP,
+                                cap: DAILY_PVP_STAT_CAP,
                             });
                             const earned = statBudget.points;
                             const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, earned, earned);
@@ -1162,7 +1154,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(warPoints ? { warPoints } : {}),
                     ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
                     ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
-                    ...(outcome === 'win' ? await dailyStatBudgetReply(kv, playerName) : {}),
+                    ...(outcome === 'win' ? await dailyPvpStatBudgetReply(kv, playerName) : {}),
                     ...(finalChar ? { character: finalChar } : {}),
                     _saveVersion: Number(finalSave?._saveVersion ?? 0),
                 });

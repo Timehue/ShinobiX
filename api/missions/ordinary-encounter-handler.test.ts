@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { rollOrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
+import { aiFightStatPointsForWin } from './_ai-fight-reward.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -80,14 +81,19 @@ test('discovered Explore identity survives start, duplicate, resume, victory and
     await writeSession({ ...session, enemy: { ...session.enemy, hp: 0 }, status: 'done', winner: 'player', outcome: 'win',
         settlementState: 'pending', version, terminalEvidence: { finishedAt: Date.now(), finalMoveToken: 'ordinary-victory',
             finalVersion: version, finalEventSeq: session.eventSeq, winner: 'player', outcome: 'win', itemsUsed: {}, settlementState: 'pending' } });
-    const victory = await post(report, player, { aiFightToken: first.body?.token, xp: 999999, ryo: 999999 });
+    const victory = await post(report, player, { aiFightToken: first.body?.token, xp: 999999, ryo: 999999, statPoints: 999999 });
     assert.equal(victory.statusCode, 200, JSON.stringify(victory.body));
     assert.equal(victory.body?.outcome, 'win');
     assert.deepEqual(victory.body?.encounter, encounter);
+    const rolledPoints = aiFightStatPointsForWin(player, String(first.body?.token));
+    assert.equal(victory.body?.statPoints, rolledPoints, 'the server roll ignores client-supplied points');
+    assert.equal((victory.body?.character as Record<string, unknown>)?.unspentStats, rolledPoints);
     const balance = Number((victory.body?.character as Record<string, unknown>)?.ryo);
     const replay = await post(report, player, { aiFightToken: first.body?.token });
     assert.equal(replay.statusCode, 200, JSON.stringify(replay.body));
     assert.deepEqual(replay.body?.encounter, encounter);
+    assert.equal(replay.body?.statPoints, rolledPoints, 'a repeated report preserves the roll');
+    assert.equal((replay.body?.character as Record<string, unknown>)?.unspentStats, rolledPoints, 'a repeated report never pays twice');
     assert.equal(Number((replay.body?.character as Record<string, unknown>)?.ryo), balance, 'a repeated terminal report pays once');
     const reused = await post(start, player, request);
     assert.equal(reused.statusCode, 409);

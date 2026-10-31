@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     computeCombatStatGrowth, statCapForLevel,
-    DAILY_COMBAT_STAT_CAP, STAT_GROWTH_KEYS,
+    DAILY_COMBAT_STAT_CAP, DAILY_PVP_STAT_CAP, STAT_GROWTH_KEYS,
     MAX_AGGREGATE_STAT_BOOST, statGainMultiplier, combinedStatBoost,
 } from './_stat-growth.js';
 
@@ -52,8 +52,9 @@ describe('computeCombatStatGrowth', () => {
         assert.deepEqual(g.allocated, {});
     });
 
-    it('hunts, field claims, PvE and PvP share one 60/day stat-point budget (owner ruling A1)', () => {
-        assert.equal(DAILY_COMBAT_STAT_CAP, 60);
+    it('PvE and mission claims share 120/day while PvP has its own 50/day budget', () => {
+        assert.equal(DAILY_COMBAT_STAT_CAP, 120);
+        assert.equal(DAILY_PVP_STAT_CAP, 50);
     });
 });
 

@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import type { PvpSession } from './session.js';
+import { pvpStatPointsForWin } from './_stat-rewards.js';
+import { reservePvpCombatStatBudget } from './_combat-stat-budget.js';
+import { reserveDailyStatPoints, readDailyStatBudget } from '../_daily-stat-budget.js';
+import { DAILY_PVP_STAT_CAP } from '../_stat-growth.js';
 
-// I-12 through the real handlers: the admin growth event scales the casual PvP
-// stat REQUEST, the shared daily stat-point budget (60, owner ruling A1; mission
-// claims draw from it too) bounds the credit, and the era dial
-// (STAT_GAIN_MULTIPLIER) never touches combat wins. Before the fix the budget
-// was charged the unboosted 6 and the credit was multiplied afterwards, so dial
-// 2.5 x event 2 paid 30 + 30 + 30 = 90 in a day.
+// Through the real handlers: casual PvP rolls 1–6 without boost multipliers,
+// reserves only its separate 50-point budget, and credits the reservation.
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -84,10 +84,11 @@ async function winAndClaim(winner: string, loser: string) {
     // Complete the settlement so the winner may start the next duel.
     const ack = await post(claim, winner, { battleId, outcome: 'win', completionVersion: 1, completionAck: true });
     assert.equal(ack.status, 200, JSON.stringify(ack.body));
-    return Number(paid.body.base.reward.combatGrowth);
+    assert.equal(paid.body.statBudget.cap, 50);
+    return { points: Number(paid.body.base.reward.combatGrowth), rolled: pvpStatPointsForWin(winner, battleId) };
 }
 
-test('a growth event fills the shared daily budget sooner but never raises it; the era dial is ignored', async (t) => {
+test('PvP rolls stay 1–6 under boosts and use their own 50-point budget', async (t) => {
     // The budget key is combat-stat-count:<player>:<UTC day>, so hold one day.
     t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 9, 17, 12, 0, 0) });
     const previousDial = process.env.STAT_GAIN_MULTIPLIER;
@@ -101,20 +102,29 @@ test('a growth event fills the shared daily budget sooner but never raises it; t
     clearProcCache();
     t.after(async () => { await kv.del(BOOST_EVENT_KEY); clearProcCache(); });
 
+    const freshWinner = 'growthbudgetfresh';
+    await seed(freshWinner);
+    await reserveDailyStatPoints(kv, { playerName: freshWinner, receiptId: 'mission:full-pve', eventAt: now, requested: 120 });
+    const fresh = await winAndClaim(freshWinner, 'growthbudgetfreshloser');
+    assert.equal(fresh.points, fresh.rolled, 'a full PvE budget and active boosts cannot reduce or multiply the PvP roll');
+
     const winner = 'growthbudgetwinner';
     await seed(winner);
-    // Fourteen hunt claims earlier in the day spent 42 of the 60 (the claims
-    // credit their own saves; only the shared budget row matters here).
-    const { reserveDailyStatPoints } = await import('../_daily-stat-budget.js');
-    for (let i = 0; i < 14; i += 1) {
-        const claimed = await reserveDailyStatPoints(kv, { playerName: winner, receiptId: `mission:2026-10-17:hunt:hunt-wild-boar:seed${i}`, eventAt: now, requested: 3 });
-        assert.equal(claimed.points, 3);
-    }
+    await reserveDailyStatPoints(kv, { playerName: winner, receiptId: 'mission:earlier', eventAt: now, requested: 120 });
+    await reservePvpCombatStatBudget(kv, { playerName: winner, battleId: 'earlier-pvp', eventAt: now, requested: 48, cap: DAILY_PVP_STAT_CAP });
     const credits = [];
     for (const loser of ['growthbudgetlosera', 'growthbudgetloserb', 'growthbudgetloserc']) {
         credits.push(await winAndClaim(winner, loser));
     }
-    assert.deepEqual(credits, [12, 6, 0], 'event-scaled requests of 12 are bounded by the 18 left of the shared budget');
+    let remaining = 2;
+    for (const credit of credits) {
+        assert.ok(credit.rolled >= 1 && credit.rolled <= 6);
+        const expected = Math.min(remaining, credit.rolled);
+        assert.equal(credit.points, expected, 'neither event nor era dial multiplies the roll');
+        remaining -= expected;
+    }
+    assert.equal(remaining, 0);
     const save = (await kv.get<Record<string, any>>(`save:${winner}`))!;
-    assert.equal(save.character.unspentStats, 18, 'exactly what was left of the daily budget reached the pool');
+    assert.equal(save.character.unspentStats, 2, 'only the remaining PvP allowance reached the pool');
+    assert.deepEqual(await readDailyStatBudget(kv, winner, now), { day: '2026-10-17', spent: 120, cap: 120 });
 });

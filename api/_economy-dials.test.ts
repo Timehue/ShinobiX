@@ -41,15 +41,15 @@ test('economySwitch parses on/off words and falls back otherwise', () => {
     withEnv(name, 'maybe', () => assert.equal(economySwitch(name, false), false));
 });
 
-test('DAILY_STAT_POINT_CAP defaults to 60 and accepts only whole points in [0, 300]', () => {
-    assert.equal(DAILY_STAT_POINT_CAP, 60);
+test('DAILY_STAT_POINT_CAP defaults to 120 and accepts only whole points in [0, 300]', () => {
+    assert.equal(DAILY_STAT_POINT_CAP, 120);
     assert.equal(DAILY_STAT_POINT_CAP_MAX, 300);
-    withEnv('DAILY_STAT_POINT_CAP', undefined, () => assert.equal(dailyStatPointCap(), 60));
-    for (const [raw, cap] of [['45', 45], ['0', 0], [' 90 ', 90], ['300', 300], ['-1', 60], ['301', 60], ['59.5', 60], ['many', 60], ['', 60]] as const) {
+    withEnv('DAILY_STAT_POINT_CAP', undefined, () => assert.equal(dailyStatPointCap(), 120));
+    for (const [raw, cap] of [['45', 45], ['0', 0], [' 90 ', 90], ['120', 120], ['300', 300], ['-1', 120], ['301', 120], ['59.5', 120], ['many', 120], ['', 120]] as const) {
         withEnv('DAILY_STAT_POINT_CAP', raw, () => assert.equal(dailyStatPointCap(), cap, `'${raw}'`));
     }
     // The reservations' cap is the dial read at boot (no env in this process).
-    if (process.env.DAILY_STAT_POINT_CAP === undefined) assert.equal(DAILY_COMBAT_STAT_CAP, 60);
+    if (process.env.DAILY_STAT_POINT_CAP === undefined) assert.equal(DAILY_COMBAT_STAT_CAP, 120);
 });
 
 test('TRAINING_RATE_TABLE reads v2 unless it says legacy', () => {
