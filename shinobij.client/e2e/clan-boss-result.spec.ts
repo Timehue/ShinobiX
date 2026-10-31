@@ -245,7 +245,6 @@ for (const guard of ['guarded', 'open'] as const) test('version-two ' + guard + 
     const banner = page.getByLabel('Raid Guard', { exact: true });
     await expect(banner).toBeVisible();
     await expect(banner).toContainText(guard === 'open' ? 'Guard open through round 2: 25% direct-hit reduction.' : 'Raid Guard: 75% direct-hit reduction.');
-    await expect(banner).toContainText('Pierce and ongoing damage bypass it.');
     await banner.locator('summary').click();
     await expect(banner.locator('p')).toBeVisible();
     await banner.locator('summary').click();

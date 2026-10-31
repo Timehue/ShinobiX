@@ -28,6 +28,7 @@ import {LIFE_ROAD_CREWS} from '../../shared/sector-life-routines';
 import {TETSU_ROUTE,TEA_COURIER_LINES} from '../../shared/sector-tea-courier';
 import {FORAGER_SITE,FORAGER_LINES} from '../../shared/sector-forager-work';
 import {MIDLANDS_FIELD_LINES} from '../../shared/sector-midlands-work';
+import {lifeStepRyo,lifeWorkRyo,lifeRewardHint} from '../../shared/sector-life-rewards';
 
 const evidence='../output/living-world/browser';mkdirSync(evidence,{recursive:true});
 // Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
@@ -401,17 +402,23 @@ test('shrine upkeep paints each lamp, keeps the previous floor during loading, a
     });
     const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
     const save=uiAuditSave();save.currentSector=15;save.currentTile=123;
-    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([15],start)};
-    await installUiAuditRuntime(page,save);
+    save.character={...save.character,ryo:1300,wandererCooldowns:quietRoadCooldowns([15],start)};
+    const runtime=await installUiAuditRuntime(page,save);
     await page.addInitScript(()=>localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45])));
     let state=parseLifeState(null,start),care={tier:0,maintainedAt:0,by:''},actions=0;
     await page.route('**/api/sector/life**',async route=>{
         const now=Number(route.request().headers()['x-qa-clock-now']);expect(Number.isSafeInteger(now)).toBe(true);state=parseLifeState(state,now);
+        let settlement:Record<string,unknown>={};
         if(route.request().method()==='POST') {
+            const ryo=lifeStepRyo(lifeEventView(15,state,now));
             const body=route.request().postDataJSON(),next=advanceLifeEvent(15,state,body.window,body.step,'AuditNinja',now);
             state=next.state;if(next.changed)actions++;if(next.changed&&state.step===3)care={tier:0,maintainedAt:now,by:'AuditNinja'};
+            if(next.changed&&ryo){
+                const character={...runtime.serverSave().character,ryo:Number(runtime.serverSave().character?.ryo)+ryo},version=runtime.currentVersion()+1;
+                runtime.commitServerCharacter(character,version);settlement={character,_saveVersion:version,reward:{ryo}};
+            }
         }
-        await route.fulfill({json:{ok:true,view:lifeSceneView(15,state,now,'clear',undefined,undefined,care),serverNow:now}});
+        await route.fulfill({json:{ok:true,view:lifeSceneView(15,state,now,'clear',undefined,undefined,care),serverNow:now,...settlement}});
     });
     let releaseLeft=()=>{},leftRequested=false;
     const gate=new Promise<void>(resolve=>{releaseLeft=resolve;});
@@ -421,15 +428,20 @@ test('shrine upkeep paints each lamp, keeps the previous floor during loading, a
     expect(await page.evaluate(()=>Object.values(window.dateOnlyClock.proof()).every(Boolean))).toBe(true);
     const terrain=page.locator('.continuous-world-map>canvas');
     await terrain.screenshot({path:`${evidence}/${info.project.name}-shrine-unlit-floor.png`});
-    await doRoadWork(page,lifeEventView(15,state,start));expect(actions).toBe(1);
+    const keeperTask=page.locator('[data-life-resident="keeper:15"]');await keeperTask.click();
+    await expect(page.getByRole('dialog')).toContainText('Tend the shrine lamps to earn 50 Ryō each.');
+    await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
+    await doRoadWork(page,lifeEventView(15,state,start),false,keeperTask);expect(actions).toBe(1);
     const before=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());
     await doRoadWork(page,lifeEventView(15,state,start));expect(actions).toBe(2);
+    await expect(page.getByText('Help the shrine keeper: +50 Ryō',{exact:true})).toBeVisible();
     await expect.poll(()=>leftRequested).toBe(true);await page.waitForTimeout(100);
     expect(await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())===before).toBe(true);
     releaseLeft();await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).not.toBe(before);
     const left=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());
     await terrain.screenshot({path:`${evidence}/${info.project.name}-shrine-left-lamp-floor.png`});
     await doRoadWork(page,lifeEventView(15,state,start));expect(actions).toBe(3);
+    expect(runtime.serverSave().character?.ryo).toBe(1400);
     await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).not.toBe(left);
     await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-shrine-both-lamps.png`});
     await expect(page.getByRole('button',{name:/Tea Seller Ren:.*Talk/})).toBeAttached();
@@ -637,9 +649,9 @@ for(const visitor of ['Ashen Leaf Village','Frostfang Village'])test(`village re
     await expect(dialog).toContainText('checking the blankets');
     await dialog.screenshot({path:`${evidence}/${info.project.name}-frostfang-${rival?'rival':'home'}-quartermaster.png`});
 });
-async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocked=false) {
+async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocked=false,target=page.locator('.sector-life-point')) {
     const {action,tile}=view;
-    await page.locator('.sector-life-point').click();
+    await target.click();
     const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
     const walk=dialog.getByRole('button',{name:'Walk to the work point',exact:true});
     if(await walk.isVisible()) {
@@ -650,7 +662,7 @@ async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocke
             if(!map||!goal)return Infinity;
             return Math.hypot(goal.x+goal.width/2-map.x-map.width/2,goal.y+goal.height/2-map.y-map.height/2)/(map.width/12);
         },{timeout:30_000,intervals:[1000]}).toBeLessThan(1.5);
-        await page.locator('.sector-life-point').click();
+        await target.click();
     }
     await page.getByRole('dialog').getByRole('button',{name:action,exact:true}).click();
     await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
@@ -658,19 +670,27 @@ async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocke
 for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays staffed through the shared errand`,async({page},info)=>{
     const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
     let now=Math.floor(LIFE_SCENARIO_EPOCH/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+60_000;
+    // Heartwood alternates tea and shrine work; shrine has its own coverage above.
+    if(sector===15)now=Math.floor(now/LIFE_WINDOW_MS/2)*2*LIFE_WINDOW_MS+60_000;
     let state=parseLifeState(null,now),actions=0;
     // Every sector starts on the scenario clock; only the dock pins it, for its delivery wait.
     await page.clock.install({time:new Date(now)});if(sector===2)await page.clock.setFixedTime(new Date(now));
-    const save=uiAuditSave();save.currentSector=sector;save.currentTile=sector===42?112:lifeAnchors(sector)[0];
-    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([sector],now),avatarImage:'/portraits/corvo-latch.webp'};
-    await installUiAuditRuntime(page,save);
+    const save=uiAuditSave();save.currentSector=sector;save.currentTile=sector===42?112:lifeAnchors(sector)[sector===15?2:0];
+    save.character={...save.character,ryo:1300,wandererCooldowns:quietRoadCooldowns([sector],now),avatarImage:'/portraits/corvo-latch.webp'};
+    const runtime=await installUiAuditRuntime(page,save);
     await page.addInitScript(()=>localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45])));
     await page.route('**/api/sector/life**',async route=>{
+        let settlement:Record<string,unknown>={};
         if(route.request().method()==='POST') {
+            const ryo=lifeStepRyo(lifeEventView(sector,state,now));
             const body=route.request().postDataJSON(),next=advanceLifeEvent(sector,state,body.window,body.step,'AuditNinja',now);
             if(next.changed)actions++;state=next.state;
+            if(next.changed&&ryo){
+                const character={...runtime.serverSave().character,ryo:Number(runtime.serverSave().character?.ryo)+ryo},version=runtime.currentVersion()+1;
+                runtime.commitServerCharacter(character,version);settlement={character,_saveVersion:version,reward:{ryo}};
+            }
         }
-        await route.fulfill({json:{ok:true,view:lifeSceneView(sector,state,now,'clear'),serverNow:sector===2?now:await page.evaluate(()=>Date.now())}});
+        await route.fulfill({json:{ok:true,view:lifeSceneView(sector,state,now,'clear'),serverNow:sector===2?now:await page.evaluate(()=>Date.now()),...settlement}});
     });
     await page.route('**/api/sector/traces**',async route=>route.fulfill({json:{ok:true,sector,footfallToday:7,signs:[],mySparked:[],scars:[{kind:'duel',victor:'Rin',fallen:'Kota',at:await page.evaluate(()=>Date.now())-60_000}]}}));
     if(sector===42) now=Math.floor(now/LIFE_WINDOW_MS)*LIFE_WINDOW_MS+19*60_000;
@@ -693,6 +713,10 @@ for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays 
         await waitForCurrentSectorMap(page,sector);
         await expect(page.locator('.sector-life-point')).toHaveClass(/life-active/);
     }
+    const roundRyo=lifeWorkRyo(lifeEventView(sector,state,now)).reduce((sum,n)=>sum+n,0);
+    await page.locator(`[data-life-resident="${sector===2?'shipment:merchant':`resident:${sector}`}"] .sector-avatar-body`).click();
+    await expect(page.getByRole('dialog')).toContainText(lifeRewardHint(lifeEventView(sector,state,now)));
+    await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
     for(let step=0;step<3;step++) {
         if(sector===2&&step===2){
             // The dock now has a real carrying/unloading interval. Advance
@@ -701,9 +725,12 @@ for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays 
             now+=DOCK_SHIPMENT_DELIVERY_MS;await page.clock.setFixedTime(new Date(now));await page.clock.fastForward(21_000);
             await expect(page.locator('[data-life-resident="shipment:merchant"]')).toHaveAttribute('data-activity','Checking the delivered bundles');
         }
-        await doRoadWork(page,lifeEventView(sector,state,now),sector===2);
+        const task=lifeEventView(sector,state,now),ryo=lifeStepRyo(task);
+        await doRoadWork(page,task,sector===2);
         await expect.poll(()=>actions).toBe(step+1);
+        if(ryo)await expect(page.getByText(`${task.title}: +${ryo} Ryō`,{exact:true}).last()).toBeVisible();
     }
+    expect(runtime.serverSave().character?.ryo).toBe(1300+roundRyo);
     await expect(page.locator('.sector-life-point')).toHaveClass(/life-aftermath/);
     await expect(page.locator('[data-life-resident]').first()).toHaveAttribute('data-activity',lifeSceneView(sector,state,now,'clear').actors[0].activity);
     await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-sector-${sector}-aftermath.png`});
@@ -836,26 +863,49 @@ test('helping the winter courier brings them back to the staffed warming stop',a
     await page.clock.install({time:new Date(start)});
     let state=parseLifeState(null,start),actions=0;
     const path=lifeCourierRoute(31),save=uiAuditSave();save.currentSector=31;save.currentTile=path.search;
-    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([31],start)};
-    await installUiAuditRuntime(page,save);
+    save.character={...save.character,ryo:1300,wandererCooldowns:quietRoadCooldowns([31],start)};
+    const runtime=await installUiAuditRuntime(page,save),startingRyo=Number(save.character.ryo);
     await page.addInitScript(()=>{localStorage.setItem('dayCycle.hour','12');localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45]));});
     await page.route('**/api/sector/life**',async request=>{
         const now=await page.evaluate(()=>Date.now());
-        if(request.request().method()==='POST') {const body=request.request().postDataJSON(),next=advanceLifeEvent(31,state,body.window,body.step,'AuditNinja',now);state=next.state;if(next.changed)actions++;}
-        await request.fulfill({json:{ok:true,serverNow:now,view:lifeSceneView(31,state,now,'clear')}});
+        let settlement:Record<string,unknown>={};
+        if(request.request().method()==='POST') {
+            const body=request.request().postDataJSON(),next=advanceLifeEvent(31,state,body.window,body.step,'AuditNinja',now);state=next.state;if(next.changed)actions++;
+            if(next.changed&&body.step===1){
+                const character={...runtime.serverSave().character,ryo:startingRyo+250},version=runtime.currentVersion()+1;
+                runtime.commitServerCharacter(character,version);settlement={character,_saveVersion:version,reward:{ryo:250}};
+                if(info.project.use.hasTouch){await request.abort();return;}
+            }else if(body.step===1&&state.step>=2){
+                settlement={character:runtime.serverSave().character,_saveVersion:runtime.currentVersion()};
+            }
+        }
+        await request.fulfill({json:{ok:true,serverNow:now,view:lifeSceneView(31,state,now,'clear'),...settlement}});
     });
     await page.goto('/#/worldMap');const back=page.getByRole('button',{name:'Return to Sector 31',exact:false});
     await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);if(await back.isVisible())await back.click();
     const courier=page.locator('[data-life-resident="courier:31"]');
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');await expect(courier).toBeAttached();await page.clock.runFor(1000);
+    if(!info.project.use.hasTouch){
+        const marker=page.locator('.sector-life-point');
+        await page.mouse.move(0,0);const before=await marker.boundingBox();expect(before).not.toBeNull();
+        await page.mouse.move(before!.x+before!.width/2,before!.y+before!.height/2);await page.clock.runFor(300);
+        const hovered=await marker.boundingBox();expect(hovered).not.toBeNull();
+        expect(Math.abs(hovered!.x-before!.x)).toBeLessThan(.5);expect(Math.abs(hovered!.y-before!.y)).toBeLessThan(.5);
+        await page.mouse.down();await page.clock.runFor(300);const pressed=await marker.boundingBox();
+        expect(Math.abs(pressed!.x-before!.x)).toBeLessThan(.5);expect(Math.abs(pressed!.y-before!.y)).toBeLessThan(.5);
+        await page.mouse.up();await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
+    }
     await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-winter-courier-search.png`});
     await doRoadWork(page,lifeEventView(31,state,start),true);await expect.poll(()=>actions).toBe(1);
     await expect(courier).toBeVisible();await courier.click();await expect(page.getByRole('dialog')).toContainText('twisted my ankle');await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
-    await doRoadWork(page,lifeEventView(31,state,await page.evaluate(()=>Date.now())),true);await expect.poll(()=>actions).toBe(2);
+    await doRoadWork(page,lifeEventView(31,state,await page.evaluate(()=>Date.now())),true,courier);await expect.poll(()=>actions).toBe(2);
+    if(info.project.use.hasTouch)await expect(page.locator('.mthd-ryo')).toHaveAttribute('title','Ryo 1,550');
+    else await expect(page.getByText('A missing road courier: +250 Ryō',{exact:true})).toBeVisible();
+    expect(runtime.serverSave().character?.ryo).toBe(startingRyo+250);
     const beforeReturn=await courier.getAttribute('style');await page.clock.runFor(6000);expect(await courier.getAttribute('style')).not.toBe(beforeReturn);
     await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-winter-courier-returning.png`});
     await page.clock.fastForward(path.returnMs+21_000);await page.clock.runFor(15_000);await expect(courier).toHaveAttribute('data-activity','Waiting at the roadside stop');
-    await doRoadWork(page,lifeEventView(31,state,await page.evaluate(()=>Date.now())),true);await expect.poll(()=>actions).toBe(3);
+    await doRoadWork(page,lifeEventView(31,state,await page.evaluate(()=>Date.now())),true,courier);await expect.poll(()=>actions).toBe(3);
     await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-winter-courier-resting.png`});
     await expect(page.locator('[data-life-resident="resident:31"]')).toBeVisible();
     const tile=page.locator('.continuous-world-tile').nth(path.stop),body=await courier.boundingBox(),ground=await tile.boundingBox();expect(body&&ground).toBeTruthy();

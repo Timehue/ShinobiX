@@ -248,8 +248,8 @@ describe('generic AI solo-PvE encounter seal', () => {
         assert.deepEqual(
             cast.session.log.filter((line) => line.startsWith('Increase Damage Given (stack')),
             [
-                'Increase Damage Given (stack 1/2): Alice deals more damage for 2 rounds, starting next round.',
-                'Increase Damage Given (stack 2/2): Alice deals more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 1/2): Alice deals 21% more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 2/2): Alice deals 21% more damage for 2 rounds, starting next round.',
             ],
         );
         // The cast header must name Alice for BOTH tokens. Resolving %target to

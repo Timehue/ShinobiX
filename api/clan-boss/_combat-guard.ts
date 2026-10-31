@@ -9,7 +9,7 @@ export function syncClanBossGuard(session: TowerSession): void {
     state.contributors = [];
     session.log.push(session.round <= state.openThroughRound
         ? `Raid Guard open through round ${state.openThroughRound}: direct hits reduced 25%.`
-        : 'Raid Guard: direct hits reduced 75%. Two distinct human fighters making useful actions, Clear, pylon disruption, human fighter displacement or avoiding its signature opens it. Pierce and ongoing damage bypass the guard.');
+        : 'Raid Guard: direct hits reduced 75%. Two distinct human fighters making useful actions, Clear, pylon disruption, human fighter displacement or avoiding its signature opens it.');
 }
 export function openClanBossGuard(session: TowerSession, reason: string, throughRound = session.round + 1): void {
     const state = session.towerId === 'clan-boss' ? session.clanBossGuard : undefined;

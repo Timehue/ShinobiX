@@ -42,6 +42,17 @@ describe("classifyBattleLogLine — core categories (user-mandated)", () => {
     });
 });
 
+describe("classifyBattleLogLine — server status lines with their percent", () => {
+    it("keeps each tag's color", () => {
+        assert.equal(classifyBattleLogLine("Increase Damage Given (stack 1/2): Rill deals 21% more damage for 2 rounds, starting next round."), "dmgmod");
+        assert.equal(classifyBattleLogLine("Decrease Damage Taken: Rill takes 30% less damage for 2 rounds."), "dmgmod");
+        assert.equal(classifyBattleLogLine("Ignition: Buster takes 30% more damage for 2 rounds."), "dmgmod");
+        assert.equal(classifyBattleLogLine("Absorb: Rill restores HP from 30% of damage received after shields for 2 rounds."), "heal");
+        assert.equal(classifyBattleLogLine("Lifesteal: Rill restores HP equal to 30% of damage dealt for 2 rounds."), "heal");
+        assert.equal(classifyBattleLogLine("Reflect: Rill returns 30% of damage received after shields to the attacker for 2 rounds."), "shield");
+    });
+});
+
 describe("classifyBattleLogLine — other tag colors", () => {
     it("shields / barriers / reflect setup → shield", () => {
         assert.equal(classifyBattleLogLine("Shield: Raiko gains 750 shield."), "shield");
