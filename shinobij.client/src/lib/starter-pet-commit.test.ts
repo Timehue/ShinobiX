@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Character } from "../types/character";
-import { completeStarterPetCommit } from "./starter-pet-commit";
+import { abandonStarterPet, completeStarterPetCommit, resumedStarterStep } from "./starter-pet-commit";
 
 const current = { name: "Rookie", onboardingStep: "training", academyVow: "unbound", pets: [{ id: "starter-fire", name: "Optimistic" }], activePetId: "starter-fire" } as Character;
 const server = { ...current, onboardingStep: "companionIntro", pets: [{ ...current.pets[0], name: "Canonical" }] } as Character;
@@ -52,6 +52,25 @@ test("account switches, foreign receipts and missing grants never continue the h
     assert.equal(completeStarterPetCommit(current, { character: { ...server, name: "Other" }, _saveVersion: 5 }, "starter-fire", authority), false);
     assert.equal(completeStarterPetCommit(current, {}, "starter-fire", authority), false);
     assert.equal(completeStarterPetCommit(current, { character: { ...server, pets: [] }, _saveVersion: 5 }, "starter-fire", authority), false);
+});
+
+test("a reload after an early commit resumes at the companion beat, not the picker", () => {
+    const pets = current.pets;
+    assert.equal(resumedStarterStep({ onboardingStep: "academyIntro", pets }), "companionIntro");
+    assert.equal(resumedStarterStep({ onboardingStep: "starter", pets }), "companionIntro");
+    assert.equal(resumedStarterStep({ onboardingStep: "academyIntro", pets: [] }), null, "no starter owned: the picker is still needed");
+    for (const onboardingStep of ["companionIntro", "training", "done", undefined] as const) {
+        assert.equal(resumedStarterStep({ onboardingStep, pets }), null);
+    }
+});
+
+test("an abandoned commit reopens the picker only on the same account", () => {
+    const abandoned = abandonStarterPet({ ...current, onboardingStep: "companionIntro" }, "Rookie", "starter-fire");
+    assert.deepEqual(abandoned?.pets, []);
+    assert.equal(abandoned?.activePetId, undefined);
+    assert.equal(abandoned?.onboardingStep, "academyIntro");
+    assert.equal(abandonStarterPet(current, "Other", "starter-fire"), current);
+    assert.equal(abandonStarterPet(null, "Rookie", "starter-fire"), null);
 });
 
 test("a rejected receipt needs a valid, strictly superseded version", () => {
