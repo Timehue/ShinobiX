@@ -181,7 +181,7 @@ function SelectedJutsuDetails({
                 <span><small>Power</small><strong>{display.effectPower}</strong></span>
                 <span><small>Cooldown</small><strong>{jutsu.cooldown}</strong></span>
             </div>
-            <p className="jutsu-detail-description">{jutsuDetailDescription(jutsu)}</p>
+            <p className="jutsu-detail-description">{jutsuDetailDescription(jutsu, mastery.level)}</p>
             <p className="jutsu-detail-target"><strong>{targeting.short}</strong> — {targeting.detail}</p>
             <div className="jutsu-detail-effects">
                 <strong>Effects</strong>
