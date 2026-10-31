@@ -110,8 +110,9 @@
      The a11y intent is kept where it can be met - the two clickable figures get
      a transparent 48px hit area below, so the finger target stays full size
      while the art stays map-sized. */
-  .app-shell[data-ui-mode="noncombat"] .center-game :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile),
-  body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile) {
+  /* Road-work markers also occupy a map cell; a 48px box covers nearby NPCs. */
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile, .sector-life-point),
+  body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile, .sector-life-point) {
     min-inline-size: 48px !important;
     min-block-size: 48px !important;
   }
