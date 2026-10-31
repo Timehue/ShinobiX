@@ -19,6 +19,7 @@ import type { KvLike } from './_storage.js';
 import { safeName } from './_utils.js';
 import { DAILY_COMBAT_STAT_CAP, DAILY_PVP_STAT_CAP } from './_stat-growth.js';
 import { pvpStatBudgetKey, reserveCombatStatBudget } from './pvp/_combat-stat-budget.js';
+import { effectiveStatBudgetCap } from './_stat-budget-cutover.js';
 
 type BudgetStore = Pick<KvLike, 'get' | 'compareSet'>;
 
@@ -54,8 +55,9 @@ function priorAllocation(raw: unknown, receiptId: string): number | null {
     return whole((entry as { points?: unknown }).points);
 }
 
-function view(raw: unknown, day: string, cap = DAILY_COMBAT_STAT_CAP): DailyStatBudgetView {
-    return { day, spent: Math.min(cap, spentOf(raw)), cap };
+function view(raw: unknown, day: string, cap = DAILY_COMBAT_STAT_CAP, pvp = false): DailyStatBudgetView {
+    const effectiveCap = effectiveStatBudgetCap(day, cap, pvp);
+    return { day, spent: Math.min(effectiveCap, spentOf(raw)), cap: effectiveCap };
 }
 
 export async function readDailyStatBudget(store: Pick<KvLike, 'get'>, playerName: string, eventAt: number): Promise<DailyStatBudgetView> {
@@ -65,7 +67,7 @@ export async function readDailyStatBudget(store: Pick<KvLike, 'get'>, playerName
 
 export async function readDailyPvpStatBudget(store: Pick<KvLike, 'get'>, playerName: string, eventAt: number): Promise<DailyStatBudgetView> {
     const day = dailyStatBudgetDay(eventAt);
-    return view(await store.get<unknown>(pvpStatBudgetKey(playerName, day)), day, DAILY_PVP_STAT_CAP);
+    return view(await store.get<unknown>(pvpStatBudgetKey(playerName, day)), day, DAILY_PVP_STAT_CAP, true);
 }
 
 export async function dailyPvpStatBudgetReply(store: Pick<KvLike, 'get'>, playerName: string, now = Date.now()): Promise<{ statBudget?: DailyStatBudgetView }> {
@@ -105,7 +107,7 @@ export async function reserveDailyStatPoints(
     const before = await store.get<unknown>(key);
     const prior = priorAllocation(before, params.receiptId);
     if (prior !== null) return { points: prior, replayed: true, budget: view(before, day) };
-    if (requested === 0 || spentOf(before) >= DAILY_COMBAT_STAT_CAP) {
+    if (requested === 0 || spentOf(before) >= effectiveStatBudgetCap(day, DAILY_COMBAT_STAT_CAP)) {
         return { points: 0, replayed: false, budget: view(before, day) };
     }
     let reserved: { points: number; replayed: boolean };

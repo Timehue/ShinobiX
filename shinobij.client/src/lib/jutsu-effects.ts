@@ -14,6 +14,7 @@
 import { poisonCapForRank, tagMatchesName } from "./tags";
 import { loneDisciplineBonusFromPotency, loneGeneralBonusFromPotency } from "./stat-effect-potency";
 import { isRecurringGroundZone, POISON_SPEND_FACTOR, scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
+import { interpolateJutsuPercentages } from "../../../shared/jutsu-description";
 import { JUTSU_MAX_LEVEL, PUSH_PULL_TILES, STUN_AP_PENALTY, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { TEMPO_AP_SWING } from "./combat-action-display";
 import type { Jutsu, JutsuTag } from "../types/combat";
@@ -182,7 +183,8 @@ const SENTENCE_START = /(^|[.!?]\s+)$/;
  * Prefers the card `description`, falling back to the battle-log line when none
  * was written. The Bloodline Maker can copy its battle line into `description`.
  * Both fields
- * can hold the `%user` / `%target` tokens that combat fills with fighter names
+ * can hold `%tag1` / `%tag2` for current effect percentages, and the
+ * `%user` / `%target` tokens that combat fills with fighter names
  * (interpolateFlavor in lib/battle-log-format, api/combat-core/cast-flavor.ts).
  * A details panel describes the jutsu, not one cast of it, so it has no fighter
  * names to fill in, even mid-fight. Each token reads as "the user" or "the
@@ -192,8 +194,11 @@ const SENTENCE_START = /(^|[.!?]\s+)$/;
  * Every field is optional and `target` is a plain string, so the loosely typed
  * jutsu a combat session hands over (the Tower's) passes as it is.
  */
-export function jutsuDetailDescription(jutsu: { description?: string; battleDescription?: string; target?: string }): string {
-    const text = jutsu.description?.trim() || jutsu.battleDescription?.trim() || "";
+export function jutsuDetailDescription(jutsu: { description?: string; battleDescription?: string; target?: string; method?: string; bloodlineRank?: string; tags?: Array<{ name?: string; percent?: number }> }, masteryLevel = JUTSU_MAX_LEVEL): string {
+    const authored = jutsu.description?.trim() || jutsu.battleDescription?.trim() || "";
+    const text = /%tag[1-9]\d*\b/.test(authored)
+        ? interpolateJutsuPercentages(authored, scaleJutsuTagsForDisplay({ ...jutsu, tags: jutsu.tags ?? [] } as Jutsu, masteryLevel).tags.map(tag => tag.name ? tag.percent : undefined))
+        : authored;
     return text.replace(FLAVOR_TOKEN, (_token, role: string, offset: number) => {
         const word = role === "user" || jutsu.target === "SELF" ? "the user" : "the target";
         return SENTENCE_START.test(text.slice(0, offset)) ? word.charAt(0).toUpperCase() + word.slice(1) : word;

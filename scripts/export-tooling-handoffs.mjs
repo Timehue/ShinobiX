@@ -51,7 +51,7 @@ import { SUPPLY_CRAFT_RECIPES } from '../shared/crafting-recipes.ts';
 import { KAGE_DECLARE_RYO_COST } from '../api/village/_kage-challenge.ts';
 import { LOGIN_RYO_BASE, LOGIN_RYO_CAP, LOGIN_RYO_PER_LEVEL, STREAK_EARLY_SHARD_DAYS, STREAK_EARLY_SHARD_REWARD, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from '../api/player/_daily-login.ts';
 import { WAR_CRATE_BONE_CHARMS, WAR_CRATE_HONOR, WAR_CRATE_KEY_CHANCE, WAR_CRATE_RYO } from '../api/inventory/_war-crate.ts';
-import { DAILY_STAT_POINT_CAP } from '../shared/combat-growth-rules.ts';
+import { DAILY_STAT_POINT_CAP, DAILY_PVP_STAT_CAP, LEGACY_SHARED_STAT_CAP, STAT_BUDGET_SPLIT_DAY } from '../shared/combat-growth-rules.ts';
 import { RYO_PER_WR } from '../shared/war-treasury-costs.ts';
 import { preparationTreasuryCost } from '../shared/war-preparations.ts';
 import { BRED_APEX_TRAIT_CHANCE_PERCENT, SHRINE_DEFS, SHRINE_MAX_OFFERING, SHRINE_MIN_OFFERING, SHRINE_TIERS } from '../shared/shrines.ts';
@@ -198,7 +198,9 @@ function economyExport() {
   addFlow(faucets, 'daily-login', 'streak-early-shards', 'fateShards', STREAK_EARLY_SHARD_REWARD, `claim days ${STREAK_EARLY_SHARD_DAYS.join(' and ')} (once per character)`, source('api/player/_daily-login.ts'));
   addFlow(faucets, 'hunt-mission', 'chance-drop', 'fateShards', 1, `${HUNT_FS_CHANCE_DEFAULT * 100}% per hunt or ${FETCH_S_MISSION_ID} claim (L${HUNT_FS_MIN_LEVEL}+; dial HUNT_FS_CHANCE; no cap)`, source('api/missions/_mission-catalog.ts'));
   addFlow(faucets, 'hunt-mission', 'chance-drop', 'auraStones', 1, `${HUNT_AS_CHANCE_DEFAULT * 100}% per hunt claim (L${HUNT_AS_MIN_LEVEL}+; dial HUNT_AS_CHANCE; no cap)`, source('api/missions/_mission-catalog.ts'));
-  addFlow(faucets, 'daily-stat-budget', 'shared-cap', 'statPoints', DAILY_STAT_POINT_CAP, 'daily ceiling shared by hunt/field claims, PvE and PvP wins (dial DAILY_STAT_POINT_CAP)', source('api/_stat-growth.ts'));
+  addFlow(faucets, 'daily-stat-budget', 'shared-cap', 'statPoints', LEGACY_SHARED_STAT_CAP, `event days before ${STAT_BUDGET_SPLIT_DAY} UTC: shared by hunt/field claims, PvE and PvP wins`, source('api/_stat-budget-cutover.ts'), 'Delayed claims retain their original event-day budget and reservation.');
+  addFlow(faucets, 'daily-stat-budget', 'pve-mission-cap', 'statPoints', DAILY_STAT_POINT_CAP, `event days from ${STAT_BUDGET_SPLIT_DAY} UTC: shared by hunt/field claims and PvE wins (dial DAILY_STAT_POINT_CAP)`, source('api/_daily-stat-budget.ts'));
+  addFlow(faucets, 'daily-stat-budget', 'pvp-cap', 'statPoints', DAILY_PVP_STAT_CAP, `event days from ${STAT_BUDGET_SPLIT_DAY} UTC: separate PvP win budget`, source('api/pvp/_combat-stat-budget.ts'));
   addFlow(faucets, 'war-crate', 'legendary-war-crate', 'ryo', WAR_CRATE_RYO, 'per crate', source('api/inventory/_war-crate.ts'));
   addFlow(faucets, 'war-crate', 'legendary-war-crate', 'honorSeals', WAR_CRATE_HONOR, 'per crate', source('api/inventory/_war-crate.ts'));
   addFlow(faucets, 'war-crate', 'legendary-war-crate', 'boneCharms', WAR_CRATE_BONE_CHARMS, 'per crate', source('api/inventory/_war-crate.ts'));
@@ -284,7 +286,7 @@ function economyExport() {
       shrines: { count: SHRINE_DEFS.length, minOfferingRyo: SHRINE_MIN_OFFERING, maxOfferingRyo: SHRINE_MAX_OFFERING, tiers: SHRINE_TIERS },
       notes: [
         'Amounts are base values. Runtime discounts, village upgrades, entitlements, and idempotency gates remain in code.',
-        'Legacy XP fields are exported for fidelity, but field/hunt progression is modeled as statPoints drawn from the shared daily stat-point budget.',
+        `Legacy XP fields are exported for fidelity. Field/hunt and PvE stat points share a daily budget; PvP separates on ${STAT_BUDGET_SPLIT_DAY} UTC by the original event day.`,
         'Custom/admin content and probabilistic/event rewards are excluded unless represented by a stable server constant; Broker expected values and conditional expedition scenarios are explicitly labeled.',
       ],
     },

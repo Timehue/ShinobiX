@@ -1,4 +1,7 @@
 /** Shared display and settlement limits; changing these changes progression balance. */
+/** Old event-day receipts retain the shared cap until this UTC boundary. */
+export const STAT_BUDGET_SPLIT_DAY = '2026-11-02';
+export const LEGACY_SHARED_STAT_CAP = 60;
 /** Maximum of the uniform 1–6 stat-point roll for an eligible PvP win. */
 export const PVP_STAT_POINTS_PER_WIN = 6;
 export const DAILY_PVP_STAT_CAP = 50;

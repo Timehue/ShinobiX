@@ -41,6 +41,7 @@ import { towerStoryFieldReport } from "../lib/tower-story-catalog";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
 import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
 import { jutsuDetailDescription } from "../lib/jutsu-effects";
+import { getJutsuMastery } from "../lib/jutsu-scaling";
 import {
     activeCombatDisplayStatuses,
     activeBarrierTilesForDisplay,
@@ -1529,7 +1530,7 @@ export function BattleTowerFight({
     const inspectedLoadoutJutsu = inspectedLoadout?.kind === "jutsu"
         ? myJutsu.find(jutsu => jutsu.id === inspectedLoadout.id) ?? null
         : null;
-    const inspectedLoadoutDescription = inspectedLoadoutJutsu ? jutsuDetailDescription(inspectedLoadoutJutsu) : "";
+    const inspectedLoadoutDescription = inspectedLoadoutJutsu && myActor ? jutsuDetailDescription(inspectedLoadoutJutsu, getJutsuMastery(myActor.character as Character, inspectedLoadoutJutsu.id ?? "").level) : "";
     const inspectedLoadoutWeapon = inspectedLoadout?.kind === "weapon"
         ? actionWeapons.find(entry => entry.item.id === inspectedLoadout.id) ?? null
         : null;

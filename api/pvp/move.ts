@@ -2318,7 +2318,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Purely cosmetic — no effect on damage/AP/targeting/cooldowns.
                 // castHeaderLine owns the %user/%target substitution so a SELF
                 // cast resolves %target to its CASTER, not the enemy.
-                lines.push(castHeaderLine(jutsu, me.name, opp.name));
+                lines.push(castHeaderLine(jutsu, me.name, opp.name, me.character));
                 // Weather keys off the jutsu's weather affinity: bloodline jutsu
                 // set an explicit weatherElement (base element, or "None" for no
                 // interaction); others fall back to their own element. Mirrors the

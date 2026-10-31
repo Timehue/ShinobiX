@@ -594,8 +594,26 @@
       "id": "shared-cap",
       "currency": "statPoints",
       "amount": 60,
-      "cadence": "daily ceiling shared by hunt/field claims, PvE and PvP wins (dial DAILY_STAT_POINT_CAP)",
-      "authority": "api/_stat-growth.ts",
+      "cadence": "event days before 2026-11-02 UTC: shared by hunt/field claims, PvE and PvP wins",
+      "authority": "api/_stat-budget-cutover.ts",
+      "notes": "Delayed claims retain their original event-day budget and reservation."
+    },
+    {
+      "system": "daily-stat-budget",
+      "id": "pve-mission-cap",
+      "currency": "statPoints",
+      "amount": 120,
+      "cadence": "event days from 2026-11-02 UTC: shared by hunt/field claims and PvE wins (dial DAILY_STAT_POINT_CAP)",
+      "authority": "api/_daily-stat-budget.ts",
+      "notes": ""
+    },
+    {
+      "system": "daily-stat-budget",
+      "id": "pvp-cap",
+      "currency": "statPoints",
+      "amount": 50,
+      "cadence": "event days from 2026-11-02 UTC: separate PvP win budget",
+      "authority": "api/pvp/_combat-stat-budget.ts",
       "notes": ""
     },
     {
@@ -4187,7 +4205,7 @@
   },
   "notes": [
     "Amounts are base values. Runtime discounts, village upgrades, entitlements, and idempotency gates remain in code.",
-    "Legacy XP fields are exported for fidelity, but field/hunt progression is modeled as statPoints drawn from the shared daily stat-point budget.",
+    "Legacy XP fields are exported for fidelity. Field/hunt and PvE stat points share a daily budget; PvP separates on 2026-11-02 UTC by the original event day.",
     "Custom/admin content and probabilistic/event rewards are excluded unless represented by a stable server constant; Broker expected values and conditional expedition scenarios are explicitly labeled."
   ]
 }

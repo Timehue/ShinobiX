@@ -8,7 +8,7 @@ import { aiFightStatPointsForWin } from './_ai-fight-reward.js';
 
 test('zero rolls stay zero on retry, paying rolls reserve once, and the last win cannot exceed 120', async () => {
     const playerName = 'statrollbudget';
-    const eventAt = Date.UTC(2026, 9, 31, 12);
+    const eventAt = Date.UTC(2026, 10, 2, 12);
     const store = _makeMemoryKv();
     const tokens = new Map<number, string>();
     for (let i = 0; tokens.size < 4 && i < 1000; i++) {
