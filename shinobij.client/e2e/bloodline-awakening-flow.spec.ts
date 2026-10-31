@@ -55,6 +55,7 @@ for (const tier of ranks) {
         });
         await expectUiAuditBoot(page, runtime, "centralHub");
         await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
+        if (tier.rank === "B Rank") await expect(page.locator(".aw-forge-card.rank-b .aw-forge-material")).toContainText("100 Bone Charms");
         await page.locator(`.aw-forge-card.rank-${tier.rank[0].toLowerCase()} button`).click();
         const ritual = page.getByRole("dialog", { name: `${tier.rank} Attuned` });
         await expect(ritual).toBeVisible();
