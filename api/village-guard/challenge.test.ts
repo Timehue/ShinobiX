@@ -53,10 +53,13 @@ const raid = (extra: Record<string, unknown> = {}) => {
 };
 
 beforeEach(async () => {
+    resetRateLimits();
     for (const name of [RAIDER, GUARD]) online.remove(name);
     await kv.del(`challenges:${GUARD}`);
     await kv.set(`guard:${GUARD}`, { name: GUARD, village: VILLAGE, level: 40, lastSeen: Date.now() }, { ex: 300 });
-    await kv.set(`save:${GUARD}`, { character: { name: GUARD, level: 40, village: VILLAGE, stats: {} } });
+    for (const name of [RAIDER, GUARD]) {
+        await kv.set(`save:${name}`, { currentSector: SECTOR, character: { name, level: 40, village: VILLAGE, stats: {}, hp: 100, maxHp: 100, stamina: 100, maxStamina: 100 } });
+    }
     online.upsert({ name: RAIDER, sector: SECTOR, character: null });
 });
 
@@ -88,6 +91,38 @@ test('a guard already in a fight is not named', async () => {
     online.upsert({ name: GUARD, sector: SECTOR, character: null });
     online.setInBattle(GUARD, true);
     assert.equal((await raid()).body.noGuard, true);
+});
+
+test('an online unconscious or shielded guard leaves the raid to the garrison', async () => {
+    online.upsert({ name: GUARD, sector: SECTOR, character: null });
+    for (const extra of [{ hp: 0, hospitalized: true }, { hp: 100, pvpShieldUntil: Date.now() + 60_000 }]) {
+        const save = await kv.get<Record<string, any>>(`save:${GUARD}`);
+        await kv.set(`save:${GUARD}`, { ...save, character: { ...save!.character, hospitalized: false, ...extra } });
+        assert.equal((await raid()).body.noGuard, true);
+    }
+});
+
+test('Field Recovery refuses a direct duel definitively, without creating a session', async () => {
+    online.upsert({ name: GUARD, sector: SECTOR, character: null });
+    const save = await kv.get<Record<string, any>>(`save:${GUARD}`);
+    await kv.set(`save:${GUARD}`, { ...save, character: { ...save!.character, pvpShieldUntil: Date.now() + 60_000 } });
+    const result = await call(session, {
+        p1Character: { name: RAIDER }, p2Character: { name: GUARD },
+        baseRewards: true, rewardSector: SECTOR, useCurrentVitals: true, requireWorldCoLocation: true,
+    });
+    assert.equal(result.status, 409);
+    assert.equal(result.body.errorCode, PVP_OPPONENT_UNAVAILABLE);
+    assert.ok(result.body.retryAfterMs > 0);
+    assert.equal(result.body.battleId, undefined);
+});
+
+test('guard eligibility projects earned recovery without changing the saved vitals', async () => {
+    online.upsert({ name: GUARD, sector: SECTOR, character: null });
+    const save = await kv.get<Record<string, any>>(`save:${GUARD}`);
+    const stored = { ...save, _regenAt: Date.now() - 60_000, character: { ...save!.character, hp: 0 } };
+    await kv.set(`save:${GUARD}`, stored);
+    assert.equal((await raid()).body.pvp, true, 'elapsed recovery makes this guard eligible');
+    assert.deepEqual(await kv.get(`save:${GUARD}`), stored, 'selection is a read-only projection');
 });
 
 test('the notice for a duel that already started reaches a guard who has since moved', async () => {

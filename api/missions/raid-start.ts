@@ -211,16 +211,14 @@ async function fieldRaidAuthority(params: {
             const queued = guards.filter((guard) => guard
                 && guard.village === ownerVillage
                 && Date.now() - Number(guard.lastSeen ?? 0) < 5 * 60_000);
-            const saves = await Promise.all(queued.map(async (guard) => {
+            const reachable = await Promise.all(queued.map(async (guard) => {
                 const name = typeof guard?.name === 'string' ? safeName(guard.name) : '';
-                return name && guardReachableFrom(params.playerName, name)
-                    ? kv.get<Record<string, unknown>>(`save:${name}`)
-                    : null;
+                return !!name && await guardReachableFrom(params.playerName, name);
             }));
             // A defender this raider can really fight must receive the player
             // challenge flow. This token is strictly the no-human-defense
             // fallback, which covers guards who are offline or elsewhere.
-            if (saves.some((save) => !!save?.character)) return null;
+            if (reachable.some(Boolean)) return null;
         }
     }
     return {

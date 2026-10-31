@@ -196,6 +196,21 @@ describe('sealed raid authority', () => {
             assert.equal(started.statusCode, 409);
             assert.match(String(started.body?.error), /no server-authorized raid target/);
         });
+
+        for (const [kind, extra] of [
+            ['unconscious', { hp: 0, hospitalized: true }],
+            ['shielded', { pvpShieldUntil: Date.now() + 600_000 }],
+        ] as const) {
+            it(`allows the garrison when an in-sector guard is ${kind}`, async () => {
+                const player = `raidauthguard${kind}`;
+                await postRaid(player);
+                await seed(guard, { village: 'Ashen Leaf Village', clan: 'Ashen Leaf Clan', ...extra });
+                onlineStore.upsert({ name: guard, sector: 18, character: { name: guard, hp: 100, maxHp: 100 } });
+                const started = await post(raidStart, player, { requestId: `raidguard${kind}request1`, sector: 18 });
+                assert.equal(started.statusCode, 200);
+                assert.equal(started.body?.source, 'field-raid');
+            });
+        }
     });
 
     it('routes field raid objectives through village garrisons, not wilderness mission outposts', async () => {
