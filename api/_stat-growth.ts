@@ -2,8 +2,8 @@
  * Combat stat growth (Stage 4, two-axis progression; see
  * docs/leveling-training-redesign-plan.md). Winning a fight grants stat points
  * directly to the character's unspent pool so the player can choose where they
- * go. Bounded by a hard per-day cap: PvE wins, eligible player PvP wins and the
- * hunt / field mission claims share one daily budget.
+ * go. PvE wins and hunt / field claims share one daily budget; player PvP wins
+ * have their own daily budget, shared by casual and ranked matches.
  *
  * Pure so it unit-tests cleanly and is shared by the AI-fight and PvP-win
  * reward endpoints. Rank cap lookup comes from combat-core so
@@ -13,16 +13,16 @@
 import { statCapForLevel } from './combat-core/formulas.js';
 import { economyDial } from './_economy-dials.js';
 import { PVP_STAT_POINTS_PER_WIN, DAILY_STAT_POINT_CAP } from '../shared/combat-growth-rules.js';
-export { PVP_STAT_POINTS_PER_WIN, AI_PVE_STAT_POINTS_PER_WIN, DAILY_STAT_POINT_CAP } from '../shared/combat-growth-rules.js';
+export { PVP_STAT_POINTS_PER_WIN, AI_PVE_STAT_POINTS_PER_WIN, DAILY_STAT_POINT_CAP, DAILY_PVP_STAT_CAP } from '../shared/combat-growth-rules.js';
 
 export { statCapForLevel };
 
-// ── The one shared daily stat-point budget (owner ruling A1, 2026-10) ───────
-// Hunt and field claims, PvE wins and PvP wins reserve their points against the
+// ── The shared PvE / mission daily stat-point budget ──────────────────────
+// Hunt and field claims and PvE wins reserve their points against the
 // `combat-stat-count:<player>:<UTC day>` row (api/pvp/_combat-stat-budget.ts);
 // it replaced the separate 18/day combat cap and the first-10-hunt / 5-field
 // checklist rule. Env dial DAILY_STAT_POINT_CAP: whole points in [0, 300],
-// anything else reads as the default 60. 0 stops every activity stat grant.
+// anything else reads as the default 120. 0 stops PvE and mission stat grants.
 export const DAILY_STAT_POINT_CAP_MAX = 300;
 
 export function dailyStatPointCap(): number {
@@ -33,7 +33,7 @@ export function dailyStatPointCap(): number {
 // The cap every reservation passes. Resolved once at boot so every source in
 // one process reserves against the same number; a Railway variable change
 // restarts the service, which re-reads it. The combat name is kept so the
-// existing PvE / PvP reservations draw from the shared budget unchanged.
+// existing PvE reservations draw from the shared budget unchanged.
 export const DAILY_COMBAT_STAT_CAP = dailyStatPointCap();
 
 export const STAT_GROWTH_KEYS = [
@@ -44,10 +44,7 @@ export const STAT_GROWTH_KEYS = [
 export type StatKey = typeof STAT_GROWTH_KEYS[number];
 
 // Per-win awards and the shared daily cap live in shared/combat-growth-rules.
-// Combat-win stat rewards do not receive trait, encounter, or era multipliers.
-// The one exception is the admin growth event on casual PvP wins: it scales the
-// REQUEST before the shared daily budget is reserved, so it fills the budget
-// sooner but never raises it (api/pvp/claim-rewards.ts, I-12).
+// Combat-win stat rolls do not receive trait, encounter, era or event multipliers.
 // Compatibility for older imports; new callers use the generic PvP name.
 export const PVP_CASUAL_STAT_POINTS_PER_WIN = PVP_STAT_POINTS_PER_WIN;
 

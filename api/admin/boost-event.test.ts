@@ -175,14 +175,13 @@ test('every other grant site applies its boost (source pins)', async () => {
     const missions = src('missions', 'claim-mission.ts');
     assert.match(missions, /boostMultiplier\('growth'\)/);
     assert.match(missions, /combinedStatBoost\(bonusPct \+ huntRankBonusPct\) \* growthEventBoost/);
-    // Casual PvP win growth, judged at the battle's end: the event scales the
-    // request before the 18/day budget; the era dial never applies (I-12).
+    // Combat-win rolls stay within their advertised range even during events.
     const pvp = src('pvp', 'claim-rewards.ts');
-    assert.match(pvp, /boostMultiplier\('growth', rewardEventAt\)/);
-    assert.match(pvp, /PVP_CASUAL_STAT_POINTS_PER_WIN \* growthEventBoost/);
+    assert.doesNotMatch(pvp, /boostMultiplier\('growth'/);
+    assert.match(pvp, /requestedGrowth = pvpStatPointsForWin\(winnerSlug, battleId\)/);
     assert.ok(
-        pvp.indexOf('PVP_CASUAL_STAT_POINTS_PER_WIN * growthEventBoost') < pvp.indexOf('reserveCombatStatBudget(kv'),
-        'the event scales the request, which the budget then bounds',
+        pvp.indexOf('requestedGrowth = pvpStatPointsForWin') < pvp.indexOf('reservePvpCombatStatBudget(kv'),
+        'the budget bounds the server roll before it is credited',
     );
     assert.doesNotMatch(pvp, /statGainMultiplier\(/);
     // Training (proven end to end above) reads it once, outside the save lock.

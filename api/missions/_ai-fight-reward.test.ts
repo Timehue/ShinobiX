@@ -4,7 +4,7 @@ import {
     aiFightReward, AI_FIGHT_SOFT_CAP_PER_DAY, AI_FIGHT_HARD_CAP_PER_DAY, AI_FIGHT_REDUCED_MULT,
     MAX_AI_FIGHT_XP, MAX_AI_FIGHT_RYO,
     AI_FIGHT_PURSE_BASE, AI_FIGHT_PURSE_PER_LEVEL, AI_FIGHT_LUCKY_BONUS,
-    aiFightPurseBase, aiFightPurseForLevel, aiFightPursePerLevel,
+    aiFightPurseBase, aiFightPurseForLevel, aiFightPursePerLevel, aiFightStatPointsForWin,
 } from './_ai-fight-reward.js';
 import { petTraitDescriptions } from '../_pet-sim/pet-config.js';
 import { PVP_LUCKY_BONUS_RYO } from '../pvp/_valid-fight.js';
@@ -23,6 +23,34 @@ function withEnv(values: Record<string, string | undefined>, fn: () => void) {
     }
 }
 const NO_DIALS = { AI_FIGHT_PURSE_BASE: undefined, AI_FIGHT_PURSE_PER_LEVEL: undefined };
+
+describe('PvE win stat rolls', () => {
+    it('awards every whole amount from 0 through 3 and keeps each fight stable on retry', () => {
+        withEnv({ SESSION_SECRET: 'pve-stat-roll-test-secret' }, () => {
+            const counts = [0, 0, 0, 0];
+            for (let i = 0; i < 4000; i++) {
+                const token = `serverminted${i}`;
+                const points = aiFightStatPointsForWin('rin', token);
+                assert.ok(Number.isInteger(points) && points >= 0 && points <= 3);
+                assert.equal(aiFightStatPointsForWin('rin', token), points, 'including zero rolls');
+                counts[points]++;
+            }
+            for (const count of counts) assert.ok(count >= 850 && count <= 1150, String(counts));
+        });
+    });
+
+    it('keeps rolls stable without a session secret and salts them when one is configured', () => {
+        const tokens = Array.from({ length: 16 }, (_, i) => `fallbackfight${i}`);
+        let fallback: number[] = [];
+        withEnv({ SESSION_SECRET: undefined }, () => {
+            fallback = tokens.map(token => aiFightStatPointsForWin('rin', token));
+            assert.deepEqual(tokens.map(token => aiFightStatPointsForWin('rin', token)), fallback);
+        });
+        withEnv({ SESSION_SECRET: 'pve-stat-roll-test-secret' }, () => {
+            assert.notDeepEqual(tokens.map(token => aiFightStatPointsForWin('rin', token)), fallback);
+        });
+    });
+});
 
 // Character XP is retired (leveling-without-xp map): raw AI wins are the
 // unlimited-repeat channel and pay ryo only — xp is always 0 in the shape.

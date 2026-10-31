@@ -1,6 +1,5 @@
 import type { PvpRewardCredit, PvpWinBaseSummary } from "./progression";
 import { pvpCreditNote } from "./pvp-credit-copy";
-import { setSharedDailyStatBudget } from "./progression-dials-store";
 import type { Character } from "../types/character";
 import { playerSlug } from "./utils";
 
@@ -45,7 +44,7 @@ export type PvpRewardClaimConfirmed = {
     warGroundReward?: PvpWarGroundReward;
     /** Present only for the winning player in a settled Clan War shinobi duel. */
     clanWarScrollDrop?: ClanWarScrollDrop;
-    /** Today's shared stat-point budget after a win (api/_daily-stat-budget.ts). */
+    /** Today's separate PvP stat-point budget after a win. */
     statBudget?: { day: string; spent: number; cap: number };
 };
 
@@ -339,7 +338,7 @@ export function pvpRewardSettlementNotice(
             ? "No ranked purse: an account under 72 hours old and below level 20 was in this match."
             : null;
     const budget = role === "win" && result.statBudget
-        ? `Stat points today: ${Math.min(result.statBudget.spent, result.statBudget.cap)} / ${result.statBudget.cap}.`
+        ? `PvP stat points today: ${Math.min(result.statBudget.spent, result.statBudget.cap)} / ${result.statBudget.cap}.`
         : null;
     const notes = [pvpCreditNote(base?.credit, role), rankedNote, budget].filter(Boolean);
     const withNote = (text: string) => notes.length ? `${text} ${notes.join(" ")}` : text;
@@ -465,7 +464,6 @@ export async function postPvpRewardClaim(
         const warGroundReward = cleanWarGroundReward(payload.warGroundReward);
         const rankedPurse = cleanRankedPurse(payload.rankedPurse);
         const statBudget = cleanStatBudget(payload.statBudget);
-        if (statBudget) setSharedDailyStatBudget(request.playerName, statBudget);
         if (typeof payload.completionPending !== "boolean") {
             return {
                 status: "retry",

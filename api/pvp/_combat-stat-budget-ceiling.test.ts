@@ -3,93 +3,80 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, it } from 'node:test';
 import { _makeMemoryKv } from '../_storage.js';
-import { DAILY_COMBAT_STAT_CAP, PVP_CASUAL_STAT_POINTS_PER_WIN, AI_PVE_STAT_POINTS_PER_WIN } from '../_stat-growth.js';
+import { DAILY_COMBAT_STAT_CAP, DAILY_PVP_STAT_CAP, AI_PVE_STAT_POINTS_PER_WIN } from '../_stat-growth.js';
 import { FIELD_MISSION_STAT_POINTS } from '../missions/_mission-catalog.js';
 import { reserveDailyStatPoints } from '../_daily-stat-budget.js';
-import { reserveCombatStatBudget } from './_combat-stat-budget.js';
+import { reserveCombatStatBudget, reservePvpCombatStatBudget } from './_combat-stat-budget.js';
 
-// Owner ruling A1 (2026-10): hunt and field claims, PvE wins (PvE 3, Warden 3)
-// and PvP wins (6) share ONE daily stat-point budget of 60, "after all
-// multipliers". Every grant reserves its request against that budget and
-// credits exactly the reserved points, so no source, no growth event and no
-// future multiplier can ever credit more than the cap in a UTC day.
+// Hunt and field claims and PvE wins share 120 points. Casual and ranked
+// player wins share a separate 50. Every grant credits only its reservation.
 
 const DAY = Date.UTC(2026, 9, 17, 12, 0, 0);
 const HOUR = 3_600_000;
 
 describe('cross-source daily stat ceiling (I-12, owner A1)', () => {
-    it('mission claims, PvE, Warden, casual PvP (x2 event), legacy ranked V1 and the ranked journal share one 60/day budget', async (t) => {
+    it('PvE and mission claims share 120; casual and ranked player wins independently share 50', async (t) => {
         t.mock.timers.enable({ apis: ['Date'], now: DAY });
-        assert.equal(DAILY_COMBAT_STAT_CAP, 60);
         const store = _makeMemoryKv();
-        const eventPvpRequest = Math.round(PVP_CASUAL_STAT_POINTS_PER_WIN * 2);
-        // Ten boosted hunt claims (+25% mission bonus: round(3 x 1.25) = 4 each).
-        const claimPoints = [];
-        for (let i = 0; i < 10; i += 1) {
+        // Boosted mission claims plus maximum PvE and Warden rolls exhaust 120.
+        for (let i = 0; i < 29; i++) {
             const out = await reserveDailyStatPoints(store, {
-                playerName: 'ceiling', receiptId: `mission:2026-10-17:hunt:hunt-wild-boar:p${i}`, eventAt: DAY,
+                playerName: 'ceiling', receiptId: `mission:hunt:${i}`, eventAt: DAY,
                 requested: Math.round(FIELD_MISSION_STAT_POINTS * 1.25),
             });
-            claimPoints.push(out.points);
+            assert.equal(out.points, 4);
         }
-        assert.deepEqual(claimPoints, Array(10).fill(4));
-        const grants = [
-            { battleId: 'ai-fight:a', requested: AI_PVE_STAT_POINTS_PER_WIN },  // PvE win
-            { battleId: 'ai-fight:w', requested: AI_PVE_STAT_POINTS_PER_WIN },  // Dungeon Warden
-            { battleId: 'battle-1', requested: eventPvpRequest },               // casual PvP, x2 event
-            { battleId: 'battle-2', requested: eventPvpRequest },               // legacy ranked V1 claim
-            { battleId: 'ranked:m1', requested: PVP_CASUAL_STAT_POINTS_PER_WIN }, // modern ranked journal
-            { battleId: 'battle-3', requested: eventPvpRequest },
-        ];
-        const points = [];
-        for (const grant of grants) {
-            const out = await reserveCombatStatBudget(store, { playerName: 'ceiling', eventAt: DAY, cap: DAILY_COMBAT_STAT_CAP, ...grant });
-            points.push(out.points);
+        const pve = [];
+        for (const battleId of ['ai-fight:ordinary', 'ai-fight:warden', 'ai-fight:spent']) {
+            pve.push((await reserveCombatStatBudget(store, { playerName: 'ceiling', battleId, eventAt: DAY,
+                requested: AI_PVE_STAT_POINTS_PER_WIN, cap: DAILY_COMBAT_STAT_CAP })).points);
         }
-        assert.deepEqual(points, [3, 3, 12, 2, 0, 0]);
-        assert.equal(claimPoints.reduce((a, b) => a + b, 0) + points.reduce((a, b) => a + b, 0), DAILY_COMBAT_STAT_CAP);
-        // A claim after the budget is spent pays 0 and writes no allocation.
+        assert.deepEqual(pve, [3, 1, 0]);
+        const pvp = [];
+        const battles = Array.from({ length: 11 }, (_, i) => i % 2 ? `ranked:m${i}` : `casual-m${i}`);
+        for (const battleId of battles) {
+            pvp.push((await reservePvpCombatStatBudget(store, { playerName: 'ceiling', battleId, eventAt: DAY,
+                requested: 6, cap: DAILY_PVP_STAT_CAP })).points);
+        }
+        assert.deepEqual(pvp, [6, 6, 6, 6, 6, 6, 6, 6, 2, 0, 0]);
+        for (const [i, battleId] of battles.entries()) {
+            const replay = await reservePvpCombatStatBudget(store, { playerName: 'ceiling', battleId, eventAt: DAY,
+                requested: 6, cap: DAILY_PVP_STAT_CAP });
+            assert.equal(replay.points, pvp[i]);
+            assert.equal(replay.replayed, pvp[i] > 0);
+        }
         const late = await reserveDailyStatPoints(store, {
-            playerName: 'ceiling', receiptId: 'mission:2026-10-17:field:fetch-d-supply-trail:r1', eventAt: DAY, requested: 3,
+            playerName: 'ceiling', receiptId: 'mission:late', eventAt: DAY, requested: 3,
         });
-        assert.deepEqual([late.points, late.budget.spent, late.budget.cap], [0, 60, 60]);
-
-        // Replays return the stored allocation and spend nothing new. A grant
-        // the spent budget priced at 0 holds no receipt and reads 0 again.
-        for (const [i, grant] of grants.entries()) {
-            const replay = await reserveCombatStatBudget(store, { playerName: 'ceiling', eventAt: DAY, cap: DAILY_COMBAT_STAT_CAP, ...grant });
-            assert.equal(replay.replayed, points[i] > 0);
-            assert.equal(replay.points, points[i]);
-        }
-        const claimReplay = await reserveDailyStatPoints(store, {
-            playerName: 'ceiling', receiptId: 'mission:2026-10-17:hunt:hunt-wild-boar:p3', eventAt: DAY, requested: 4,
-        });
-        assert.deepEqual([claimReplay.replayed, claimReplay.points], [true, 4], 'a retried claim replays its allocation');
-        const row = await store.get<{ spent: number; allocations: Record<string, unknown> }>('combat-stat-count:ceiling:2026-10-17');
-        assert.equal(row?.spent, DAILY_COMBAT_STAT_CAP);
-        assert.equal(Object.keys(row?.allocations ?? {}).length, 14, 'only paying grants hold receipts; the 0-point fights and the late claim wrote none');
-
-        // The next UTC day starts a fresh budget.
-        const tomorrow = await reserveCombatStatBudget(store, {
-            playerName: 'ceiling', battleId: 'battle-4', eventAt: DAY + 24 * HOUR, requested: 99, cap: DAILY_COMBAT_STAT_CAP,
-        });
-        assert.equal(tomorrow.points, DAILY_COMBAT_STAT_CAP);
+        assert.deepEqual([late.points, late.budget.spent, late.budget.cap], [0, 120, 120]);
+        assert.equal((await store.get<{ spent: number }>('combat-stat-count:ceiling:2026-10-17'))?.spent, 120);
+        assert.equal((await store.get<{ spent: number }>('pvp-stat-count:ceiling:2026-10-17'))?.spent, 50);
+        const tomorrowPvp = await reservePvpCombatStatBudget(store, { playerName: 'ceiling', battleId: 'new-pvp',
+            eventAt: DAY + 24 * HOUR, requested: 6, cap: DAILY_PVP_STAT_CAP });
+        const tomorrowPve = await reserveDailyStatPoints(store, { playerName: 'ceiling', receiptId: 'new-pve',
+            eventAt: DAY + 24 * HOUR, requested: 3 });
+        assert.equal(tomorrowPvp.points, 6);
+        assert.equal(tomorrowPve.points, 3);
+        // Filling PvP first cannot consume a fresh player's PvE allowance either.
+        await reservePvpCombatStatBudget(store, { playerName: 'reverse', battleId: 'pvp-full', eventAt: DAY,
+            requested: 50, cap: DAILY_PVP_STAT_CAP });
+        assert.equal((await reserveDailyStatPoints(store, { playerName: 'reverse', receiptId: 'hunt', eventAt: DAY, requested: 3 })).points, 3);
     });
 
     it('a spent budget pays 0 without writing, so a long day of fights never fills the row (#129 used to throw)', async (t) => {
         t.mock.timers.enable({ apis: ['Date'], now: DAY });
         const store = _makeMemoryKv();
-        for (let i = 0; i < 20; i += 1) {
-            const out = await reserveCombatStatBudget(store, { playerName: 'grinder', battleId: `ai-fight:spend${i}`, eventAt: DAY, requested: 3, cap: 60 });
+        for (let i = 0; i < 40; i += 1) {
+            const out = await reserveCombatStatBudget(store, { playerName: 'grinder', battleId: `ai-fight:spend${i}`, eventAt: DAY, requested: 3, cap: DAILY_COMBAT_STAT_CAP });
             assert.equal(out.points, 3);
         }
         for (let i = 0; i < 200; i += 1) {
-            const out = await reserveCombatStatBudget(store, { playerName: 'grinder', battleId: `ai-fight:after${i}`, eventAt: DAY + i, requested: 3, cap: 60 });
-            assert.equal(out.points, 0, `win ${21 + i}`);
+            const out = await reserveCombatStatBudget(store, { playerName: 'grinder', battleId: `ai-fight:after${i}`, eventAt: DAY + i, requested: 3, cap: DAILY_COMBAT_STAT_CAP });
+            assert.equal(out.points, 0, `win ${41 + i}`);
         }
         const row = await store.get<{ spent: number; allocations: Record<string, unknown> }>(`combat-stat-count:grinder:2026-10-17`);
-        assert.equal(row?.spent, 60);
-        assert.equal(Object.keys(row?.allocations ?? {}).length, 20, 'only the paying wins hold receipts');
+        assert.equal(row?.spent, DAILY_COMBAT_STAT_CAP);
+        assert.equal(Object.keys(row?.allocations ?? {}).length, 40, 'only the paying wins hold receipts');
     });
 });
 
@@ -182,7 +169,18 @@ describe('combat stat grants credit exactly the reserved budget (source ratchet)
                 assert.match(call.args[1] ?? '', /\bcap:\s*DAILY_COMBAT_STAT_CAP\b/, `${relative(process.cwd(), file)} @${call.index}`);
             }
         }
-        assert.ok(seen >= 5, `expected the PvE, Warden, casual PvP, ranked journal and mission-claim reservations (saw ${seen})`);
+        assert.ok(seen >= 3, `expected the PvE, Warden and mission-claim reservations (saw ${seen})`);
+    });
+
+    it('casual and ranked PvP reservations both use the separate 50-point cap', () => {
+        let seen = 0;
+        for (const file of files) {
+            for (const call of calls(readFileSync(file, 'utf8'), 'reservePvpCombatStatBudget')) {
+                seen++;
+                assert.match(call.args[1] ?? '', /\bcap:\s*DAILY_PVP_STAT_CAP\b/, relative(process.cwd(), file));
+            }
+        }
+        assert.equal(seen, 2);
     });
 
     it('the mission claim credits its reservation unmodified and has no other stat source', () => {

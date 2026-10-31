@@ -37,7 +37,7 @@ describe('PvP event-time combat-stat budget', () => {
             playerName: 'Winner', battleId: 'battle-a', eventAt: EVENT, requested: 3, cap: 5,
         });
         assert.equal(result.points, 3);
-        await base.set('combat-stat-count:winner:2026-08-16', { version: 1, day: '2026-08-16', spent: 99, allocations: {} });
+        await base.set('pvp-stat-count:winner:2026-08-16', { version: 1, day: '2026-08-16', spent: 99, allocations: {} });
         await assert.rejects(reservePvpCombatStatBudget(base, {
             playerName: 'Winner', battleId: 'battle-b', eventAt: EVENT + 60_000, requested: 3, cap: 5,
         }), /budget-invalid/);
@@ -45,12 +45,12 @@ describe('PvP event-time combat-stat budget', () => {
 
     it('migrates the bounded legacy numeric counter without reopening spent points', async () => {
         const store = _makeMemoryKv();
-        await store.set('combat-stat-count:winner:2026-08-15', 4);
+        await store.set('pvp-stat-count:winner:2026-08-15', 4);
         const result = await reservePvpCombatStatBudget(store, {
             playerName: 'Winner', battleId: 'battle-migrate', eventAt: EVENT, requested: 3, cap: 5,
         });
         assert.equal(result.points, 1);
-        const row = await store.get<Record<string, unknown>>('combat-stat-count:winner:2026-08-15');
+        const row = await store.get<Record<string, unknown>>('pvp-stat-count:winner:2026-08-15');
         assert.equal(row?.version, 1);
         assert.equal(row?.spent, 5);
         assert.equal(row?.legacySpent, 4);
@@ -62,11 +62,10 @@ describe('PvP event-time combat-stat budget', () => {
         })).points, 0);
     });
 
-    // The cap is the DAILY_STAT_POINT_CAP dial, and hunt/field claims share the
-    // row, so neither a lowered cap nor a long day may fail a fight's reward.
+    // A lowered cap or a long day must not fail a fight's reward settlement.
     it('a row spent past a lowered cap grants 0 instead of failing every reservation', async () => {
         const store = _makeMemoryKv();
-        await store.set('combat-stat-count:winner:2026-08-15', { version: 1, day: '2026-08-15', spent: 70, legacySpent: 70, allocations: {} });
+        await store.set('pvp-stat-count:winner:2026-08-15', { version: 1, day: '2026-08-15', spent: 70, legacySpent: 70, allocations: {} });
         assert.deepEqual(await reservePvpCombatStatBudget(store, {
             playerName: 'Winner', battleId: 'battle-lowered', eventAt: EVENT, requested: 6, cap: 60,
         }), { points: 0, replayed: false, day: '2026-08-15' });
@@ -79,7 +78,7 @@ describe('PvP event-time combat-stat budget', () => {
             const battleId = `old-${i}`;
             allocations[createHash('sha256').update(battleId).digest('hex')] = { version: 1, battleId, points: 0 };
         }
-        await store.set('combat-stat-count:winner:2026-08-15', { version: 1, day: '2026-08-15', spent: 60, legacySpent: 60, allocations });
+        await store.set('pvp-stat-count:winner:2026-08-15', { version: 1, day: '2026-08-15', spent: 60, legacySpent: 60, allocations });
         assert.deepEqual(await reservePvpCombatStatBudget(store, {
             playerName: 'Winner', battleId: 'battle-129', eventAt: EVENT, requested: 3, cap: 60,
         }), { points: 0, replayed: false, day: '2026-08-15' });

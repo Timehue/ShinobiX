@@ -46,7 +46,7 @@ function withServerEnv(env: Partial<Record<typeof DIAL_ENV[number], string>>, ru
     }
 }
 
-const DEFAULTS = { statGainMultiplier: 1, trainingRateTable: 'v2', dailyStatPointCap: 60, huntDropChances: { fateShards: 0.25, auraStones: 0.2 } };
+const DEFAULTS = { statGainMultiplier: 1, trainingRateTable: 'v2', dailyStatPointCap: 120, huntDropChances: { fateShards: 0.25, auraStones: 0.2 } };
 
 describe('progression dials — client mirrors the server', () => {
     it('display defaults equal the server dial defaults and ranges', () => {

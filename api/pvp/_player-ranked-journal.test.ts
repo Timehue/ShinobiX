@@ -31,6 +31,10 @@ import {
     settlePlayerRankedJournal,
 } from './_player-ranked-journal.js';
 import { confirmPlayerRankedTerminalEffects } from './_ranked-terminal-effects.js';
+import { reservePvpCombatStatBudget } from './_combat-stat-budget.js';
+import { pvpStatPointsForWin } from './_stat-rewards.js';
+import { readDailyPvpStatBudget, readDailyStatBudget, reserveDailyStatPoints } from '../_daily-stat-budget.js';
+import { DAILY_PVP_STAT_CAP } from '../_stat-growth.js';
 
 const NOW = 1_800_000_000_000;
 const MATCH = 'player-ranked-12345678-1234-4123-8123-1234567890ab';
@@ -113,6 +117,25 @@ async function dropAdmission(store: KvLike, matchId: string) {
 const noLock = async <T>(_key: string, action: () => Promise<T>): Promise<T> => action();
 
 describe('player ranked terminal journal', () => {
+    it('ranked wins roll 1–6 once and use the same separate PvP budget as casual wins', async () => {
+        for (const priorPvp of [0, 49]) {
+            const { store, session } = await setup();
+            await reserveDailyStatPoints(store, { playerName: 'alice', receiptId: 'earlier-hunts', eventAt: NOW, requested: 120 });
+            if (priorPvp) await reservePvpCombatStatBudget(store, {
+                playerName: 'alice', battleId: 'earlier-casual', eventAt: NOW, requested: priorPvp, cap: DAILY_PVP_STAT_CAP,
+            });
+            const journal = await publishPlayerRankedTerminal(store, session, { now: NOW + 3, eligible: async () => true });
+            await settlePlayerRankedJournal(store, journal, NOW + 4);
+            const expected = Math.min(50 - priorPvp, pvpStatPointsForWin('alice', `ranked:${MATCH}`));
+            assert.equal(char(await store.get('save:alice')).unspentStats, expected);
+            assert.equal(Number(char(await store.get('save:bob')).unspentStats) || 0, 0, 'the loser earns no stat roll');
+            assert.equal((await readDailyPvpStatBudget(store, 'alice', NOW)).spent, priorPvp + expected);
+            assert.equal((await readDailyStatBudget(store, 'alice', NOW)).spent, 120, 'ranked does not consume PvE points');
+            await settlePlayerRankedJournal(store, MATCH, NOW + 5);
+            assert.equal(char(await store.get('save:alice')).unspentStats, expected, 'a replay never rerolls or double-pays');
+        }
+    });
+
     it('settles a journal whose database reordered its terminal fields', async () => {
         const { store, session } = await setup();
         const published = await publishPlayerRankedTerminal(store, session, {
