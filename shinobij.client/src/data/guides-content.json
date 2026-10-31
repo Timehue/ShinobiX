@@ -291,7 +291,7 @@
           },
           {
             "type": "p",
-            "text": "Hunt claims and field jobs also award unspent stat points. They share one daily budget of 60 stat points with your fight wins, and it resets at midnight UTC. Pick the rewards you need now; you do not have to empty every daily counter."
+            "text": "Hunt claims, field jobs and eligible PvE wins share a daily budget of 120 stat points. PvE wins roll 0–3 points. Eligible PvP wins use a separate daily budget of 50 stat points and roll 1–6 points. Each whole amount in a roll has an equal chance, and growth events do not multiply combat-win stat rolls. Both budgets reset at midnight UTC. Pick the rewards you need now; you do not have to empty every daily counter."
           }
         ]
       },

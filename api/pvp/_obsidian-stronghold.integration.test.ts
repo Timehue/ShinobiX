@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, mock, test } from 'node:test';
 import type { PvpSession } from './session.js';
-import { PVP_CASUAL_STAT_POINTS_PER_WIN } from '../_stat-growth.js';
+import { pvpStatPointsForWin } from './_stat-rewards.js';
 import { pvpWinPurse } from './_valid-fight.js';
 
 process.env.NODE_ENV = 'test';
@@ -104,7 +104,7 @@ for (const [suffix, inside, sector, multiplier, ryo] of [['inside', true, 99, 1.
         assert.equal(ryo, pvpWinPurse({ lMin: 100, sector, stronghold: inside && sector === 99 ? 'deathsgate' : undefined }));
         assert.equal(paid.body.base.reward.credit.pairWeight, 1);
         assert.equal(paid.body.base.reward.credit.sideMult, 1);
-        assert.equal(paid.body.base.reward.combatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN);
+        assert.equal(paid.body.base.reward.combatGrowth, pvpStatPointsForWin(one, battleId));
         assert.equal(paid.body.base.reward.jutsuXp, Math.floor(10 * multiplier));
         assert.equal(paid.body.base.reward.auraDust, 6, 'unrelated rewards do not multiply');
         const save = (await kv.get<Record<string, any>>(`save:${one}`))!;
@@ -114,6 +114,7 @@ for (const [suffix, inside, sector, multiplier, ryo] of [['inside', true, 99, 1.
         assert.equal(replay.status, 200, JSON.stringify(replay.body));
         const again = (await kv.get<Record<string, any>>(`save:${one}`))!;
         assert.equal(again.character.ryo, save.character.ryo);
+        assert.equal(again.character.unspentStats, save.character.unspentStats, 'the stat roll is not paid again');
         assert.deepEqual(again.character.jutsuMastery, save.character.jutsuMastery);
         if (sector === 99) {
             const nextOpponent = `obsthree${suffix}`;

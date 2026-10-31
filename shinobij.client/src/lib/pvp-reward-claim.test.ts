@@ -200,20 +200,23 @@ describe("pvp-reward-claim", () => {
 
     it("shows the ranked purse, why a fresh account got none, and today's stat-point budget", async () => {
         const { currentDateKey } = await import("./utils");
+        const { setSharedDailyStatBudget } = await import("./progression-dials-store");
+        setSharedDailyStatBudget("rin", { day: currentDateKey(), spent: 77, cap: 120 });
         const win = await postPvpRewardClaim(async () => response(200, {
             ok: true, alreadyClaimed: false, completionPending: false, rewardAuthorized: true,
             rating: { field: "rankedRating", value: 1016, delta: 16 },
             rankedPurse: { ryo: 4050 },
-            statBudget: { day: currentDateKey(), spent: 24, cap: 60 },
+            statBudget: { day: currentDateKey(), spent: 24, cap: 50 },
         }), { playerName: "rin", battleId: "ranked-win", outcome: "win" });
         if (win.status !== "confirmed") return assert.fail("confirmed");
         assert.equal(pvpRewardSettlementNotice(win, { draw: false, spar: false, role: "win" }),
-            "Rewards secured — +4,050 Ryo · +16 Rating. Stat points today: 24 / 60.");
+            "Rewards secured — +4,050 Ryo · +16 Rating. PvP stat points today: 24 / 50.");
         assert.match(pvpRewardSettlementNotice(win, { draw: false, spar: false, role: "win", noShow: true }), /pays no rewards/,
             "a forfeit says why it paid nothing");
         assert.match(pvpRewardSettlementNotice(win, { draw: false, spar: false, role: "loss", noShow: true }), /did not join in time/);
         const { dailyStatBudgetToday } = await import("./progression-dials");
-        assert.equal(dailyStatBudgetToday("rin")?.spent, 24, "the reply feeds the shared budget store");
+        assert.equal(dailyStatBudgetToday("rin")?.spent, 77, "the PvP reply cannot overwrite the PvE and mission budget");
+        assert.equal(dailyStatBudgetToday("rin")?.cap, 120);
         const alt = await postPvpRewardClaim(async () => response(200, {
             ok: true, alreadyClaimed: false, completionPending: false, rewardAuthorized: true,
             rating: { field: "rankedRating", value: 1008, delta: 8 },

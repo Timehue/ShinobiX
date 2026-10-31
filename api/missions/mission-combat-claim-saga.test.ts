@@ -661,7 +661,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         const { reserveDailyStatPoints, readDailyStatBudget } = await import('../_daily-stat-budget.js');
         const player = 'missionsagasharedstat';
         await seedPlayer(player);
-        await reserveDailyStatPoints(kv, { playerName: player, receiptId: 'other-activity', eventAt: Date.now(), requested: 58 });
+        await reserveDailyStatPoints(kv, { playerName: player, receiptId: 'other-activity', eventAt: Date.now(), requested: 118 });
         for (let index = 0; index < 3; index++) {
             const runId = await seedWonRun(player, `sharedstat${index}`);
             assert.equal((await queue(player, runId)).statusCode, 200);
@@ -671,7 +671,7 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             await claim(player);
             assert.equal((await savedCharacter(player)).unspentStats, Math.min(index + 1, 2), 'retries cannot double-credit a run');
         }
-        assert.equal((await readDailyStatBudget(kv, player, Date.now())).spent, 60);
+        assert.equal((await readDailyStatBudget(kv, player, Date.now())).spent, 120);
     });
 
     it('a combat claim crossing UTC midnight uses the authoritative win-day allocation', async (t) => {

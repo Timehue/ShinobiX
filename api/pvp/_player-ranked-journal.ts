@@ -18,8 +18,9 @@ import { isPlayerRankedV2Session, pvpSessionMayReward, type PvpSession } from '.
 import { embedPvpSettlementReceipt, pvpSettlementId } from './_reward-settlement.js';
 import { isValidRankedFormatItemLedger, RANKED_FORMAT_VERSION } from './_ranked-format.js';
 import { applyDerivedLevel } from '../_xp-engine.js';
-import { DAILY_COMBAT_STAT_CAP, PVP_STAT_POINTS_PER_WIN, computeCombatStatGrowth } from '../_stat-growth.js';
-import { reserveCombatStatBudget } from './_combat-stat-budget.js';
+import { DAILY_PVP_STAT_CAP, computeCombatStatGrowth } from '../_stat-growth.js';
+import { reservePvpCombatStatBudget } from './_combat-stat-budget.js';
+import { pvpStatPointsForWin } from './_stat-rewards.js';
 import { pvpLuckyActive, rankedPurseRyo, readRankedWeightRow, sealRankedWeightRow } from './_valid-fight.js';
 import { recordEconomyTxn } from '../_economy.js';
 
@@ -820,12 +821,12 @@ async function settleSide(
         const growthPending = role === 'winner' && existing?.combatStatPoints === undefined;
         let combatStatPoints = existing?.combatStatPoints;
         if (growthPending) {
-            const statBudget = await reserveCombatStatBudget(store, {
+            const statBudget = await reservePvpCombatStatBudget(store, {
                 playerName: slug,
                 battleId: `ranked:${terminal.matchId}`,
                 eventAt: terminal.terminalAt,
-                requested: PVP_STAT_POINTS_PER_WIN,
-                cap: DAILY_COMBAT_STAT_CAP,
+                requested: pvpStatPointsForWin(slug, `ranked:${terminal.matchId}`),
+                cap: DAILY_PVP_STAT_CAP,
             });
             const statsNow = (credited.stats ?? {}) as Record<string, number>;
             const earnedStatPoints = statBudget.points;

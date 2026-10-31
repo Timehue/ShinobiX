@@ -13,7 +13,21 @@
  * next to the clamp that bounds it. It reads its two env dials per call.
  */
 
+import { createHmac } from 'node:crypto';
+import { AI_PVE_STAT_POINTS_PER_WIN } from '../../shared/combat-growth-rules.js';
 import { economyDial } from '../_economy-dials.js';
+
+/**
+ * Uniform 0–3 points, fixed to the server-minted fight token so even a zero
+ * cannot be rerolled after a failed save or a retry on another worker.
+ * Like gearRoll, salt public fight IDs with the stable server secret; local
+ * no-secret runs use a fixed fallback without changing authentication.
+ */
+export function aiFightStatPointsForWin(playerName: string, token: string): number {
+    const salt = process.env.SESSION_SECRET || 'pve-stat-roll-unsalted';
+    const roll = createHmac('sha256', salt).update(`pve-stat-v1:${playerName}:${token}`).digest().readUInt32BE(0);
+    return roll % (AI_PVE_STAT_POINTS_PER_WIN + 1);
+}
 
 export const AI_FIGHT_SOFT_CAP_PER_DAY = 50;   // full reward for the first N AI wins/day
 // Absolute ceiling on paid AI wins. The battle token reduces arbitrary claims,
@@ -67,11 +81,10 @@ export type AiFightReward = { xp: number; ryo: number; capped: boolean };
 
 /**
  * Allowed ryo for ONE AI win, given the day's running win count (including
- * this win). Clamps the client-reported base, then applies the soft-cap
- * multiplier. Character XP is retired (leveling-without-xp map): raw AI wins
- * are the unlimited-repeat channel and pay ryo only — the once-per-day
- * hunt/field CLAIM is where that playtime's stat growth lands. `xp` stays in
- * the shape as 0 for old clients.
+ * this win). Clamps the sealed base, then applies the soft-cap multiplier.
+ * Character XP is retired; `xp` stays in the shape as 0 for old clients.
+ * Stat points are rolled separately by aiFightStatPointsForWin and reserved
+ * against the shared daily budget by report-ai-fight.
  */
 export function aiFightReward(_claimedXp: unknown, claimedRyo: unknown, dailyCountIncludingThis: number): AiFightReward {
     const ryoBase = Math.max(0, Math.min(MAX_AI_FIGHT_RYO, Math.floor(Number(claimedRyo) || 0)));
