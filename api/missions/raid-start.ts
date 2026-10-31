@@ -8,6 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
+import { guardReachableFrom } from '../village-guard/_reachable.js';
 import { homeVillageForSector } from '../_war-map-sectors.js';
 import { loadPublishedContent } from '../_content-store.js';
 import { loadAiFightProfile } from './_ai-fight-encounter.js';
@@ -212,10 +213,13 @@ async function fieldRaidAuthority(params: {
                 && Date.now() - Number(guard.lastSeen ?? 0) < 5 * 60_000);
             const saves = await Promise.all(queued.map(async (guard) => {
                 const name = typeof guard?.name === 'string' ? safeName(guard.name) : '';
-                return name ? kv.get<Record<string, unknown>>(`save:${name}`) : null;
+                return name && guardReachableFrom(params.playerName, name)
+                    ? kv.get<Record<string, unknown>>(`save:${name}`)
+                    : null;
             }));
-            // A living queued defender must receive the player challenge flow.
-            // This token is strictly the no-human-defense fallback.
+            // A defender this raider can really fight must receive the player
+            // challenge flow. This token is strictly the no-human-defense
+            // fallback, which covers guards who are offline or elsewhere.
             if (saves.some((save) => !!save?.character)) return null;
         }
     }
