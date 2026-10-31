@@ -14,15 +14,19 @@ import { SectorTracesCard } from './SectorTraces';
 import { lifeActivityAt,lifeActorPosition } from '../../../shared/sector-life-motion';
 import {lifeWorkMarker} from '../lib/life-work-marker';
 import {useLifeEventPresentation} from '../lib/use-life-event-presentation';
+import type { VersionedCharacterCommit } from '../types/character';
+import { gameToast } from './GameToast';
+import { lifeActorOffersWork, lifeRewardHint } from '../../../shared/sector-life-rewards';
 import './sector-life.css';
 
 function readMeetings(player: string): string[] { try { const value = JSON.parse(localStorage.getItem(`sector-life-met:${player.toLowerCase()}`) ?? '[]'); return Array.isArray(value) ? value.filter(v => typeof v === 'string').slice(0,4) : []; } catch { return []; } }
 
 /** Established road figures carry the new life; fixed scenery belongs in the sector painting. */
-export function SectorLife({ sector, player, tile, biome, traces, openReports,onTrack, walk }: {
+export function SectorLife({ sector, player, tile, biome, traces, openReports,onTrack, walk, commit }: {
     sector: number; player: string; tile: number; biome: Biome; traces?: SectorTracesView | null;
     openReports?: (view:'signs'|'shrine')=>void; walk: (sector: number, tile: number) => void;
     onTrack?:(wanderer:import('../../../shared/wanderer-roster').Wanderer)=>void;
+    commit?: VersionedCharacterCommit;
 }) {
     const worldPosition = useContext(WorldPlayerPosition);
     const life = useSectorLife(player, sector);
@@ -56,6 +60,7 @@ export function SectorLife({ sector, player, tile, biome, traces, openReports,on
     const near = event && Math.hypot(point.col - event.tile % 12, point.row - Math.floor(event.tile / 12)) <= 1.9;
     const marker=lifeWorkMarker(event?.tile??tile,point,actors.map(actor=>lifeActorPosition(sector,actor,serverNow())));
     const currentPanel = typeof panel === 'object' ? panel : null;
+    const showEvent = panel === 'event' || (event && lifeActorOffersWork(currentPanel?.id,event));
     return <>
         <SceneCritters biome={biome} density={.5} sector={sector} discovery={view?.wildlife} className="sector-life-wildlife" />
         {sector===31&&<span data-painted-name-clearance aria-hidden="true" style={{position:'absolute',left:`${434/1024*100}%`,top:`${718/1024*100}%`,width:`${148/1024*100}%`,height:`${122/1024*100}%`,pointerEvents:'none'}}/>}
@@ -67,20 +72,24 @@ export function SectorLife({ sector, player, tile, biome, traces, openReports,on
         </button>}
         <Modal open={panel !== null} onClose={() => setPanel(null)} size="sm" title={panel === 'event' ? event?.title : panel === 'memory' ? 'Local reports' : currentPanel?.name}>
             <div className="sector-life-dialog">
-                {panel === 'event' && event && <>
+                {currentPanel && <><p className="sector-life-task">{currentPanel.activity}</p><p>“{currentPanel.line}”</p></>}
+                {showEvent && event && <>
                     <p>{event.description}</p>
                     {event.phase === 'active' && <><p className="sector-life-task">{event.task}</p>
+                        <p className="sector-life-help">{lifeRewardHint(event)}</p>
                         <button type="button" disabled={busy||near&&event.waiting} onClick={async () => {
                             if (!near) { setDestination(event.tile); setPanel(null); return; }
                             if(event.kind==='tracks'&&event.step===1&&event.tracker){setPanel(null);onTrack?.(event.tracker);return;}
-                            setBusy(true); try { await life.act(event); } finally { setBusy(false); }
+                            setBusy(true); try {
+                                const result=await life.act(event);
+                                if(result.ok&&result.character&&commit?.(result.character,result._saveVersion)&&result.reward?.ryo)gameToast(`${event.title}: +${result.reward.ryo} Ryō`);
+                            } finally { setBusy(false); }
                         }}>{busy ? 'Working…' : near ? event.action : 'Walk to the work point'}</button></>}
                     {event.contributors.length > 0 && <p className="sector-life-help">Helped by {event.contributors.join(', ')}.</p>}
                     {traces && <button type="button" onClick={() => setPanel('memory')}>Read local reports</button>}
                     {life.error && <p role="status">{life.error}</p>}
                 </>}
                 {panel === 'memory' && <SectorTracesCard traces={traces&&view?.groundScars?{...traces,scars:[...view.groundScars]}:traces??null} onOpenSigns={()=>{setPanel(null);openReports?.('signs');}} onOpenShrine={()=>{setPanel(null);openReports?.('shrine');}} />}
-                {currentPanel && <><p className="sector-life-task">{currentPanel.activity}</p><p>“{currentPanel.line}”</p></>}
             </div>
         </Modal>
     </>;

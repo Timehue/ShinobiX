@@ -1961,7 +1961,7 @@ function buildMenuRows({
             // SHOWDOWN_METER_ON_GUARDED_HIT, not _ON_HIT_TAKEN) — it is only ahead
             // per point of health, because the hit is halved. Both figures come
             // from the contract so the sentence cannot drift from the table.
-            description: `Guard reduces direct-hit damage this round; ongoing damage still applies. A guarded hit grants ${SHOWDOWN_METER_ON_GUARDED_HIT} signature meter instead of the usual ${SHOWDOWN_METER_ON_HIT_TAKEN}. Guard resolves before attacks.`,
+            description: `Guard reduces direct-hit damage this round. A guarded hit grants ${SHOWDOWN_METER_ON_GUARDED_HIT} signature meter instead of the usual ${SHOWDOWN_METER_ON_HIT_TAKEN}. Guard resolves before attacks.`,
             stats: [
                 { k: "METER", v: `+${SHOWDOWN_METER_ON_GUARDED_HIT}` },
                 { k: "STA", v: String(SHOWDOWN_GUARD_COST) },

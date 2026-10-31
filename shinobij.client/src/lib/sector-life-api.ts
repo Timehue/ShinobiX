@@ -1,7 +1,8 @@
 import type { LifeSceneView } from '../../../shared/sector-life';
 import { noteServerTime } from './server-clock';
+import type { Character } from '../types/character';
 
-export type LifeReply = { ok: boolean; view?: LifeSceneView; error?: string; changed?: boolean };
+export type LifeReply = { ok: boolean; view?: LifeSceneView; error?: string; changed?: boolean; reward?: {ryo:number}; character?: Character; _saveVersion?: number };
 export async function requestSectorLife(playerName: string, sector: number, signal?: AbortSignal, action?: { window: number; step: number }): Promise<LifeReply> {
     const sentAt = Date.now();
     try {

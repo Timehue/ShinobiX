@@ -237,6 +237,7 @@ export function HunterBoard({
         if (claimCooldownMs > 0) return;
         if (!requireServerSettlement("fieldHuntMissions")) return;
         let progress = missionProgress[mission.id] ?? 0;
+        let liveLead: number | undefined;
         // A target WIN receipt may have committed just before a refresh while
         // the local presentation mirror was still required-1. Probe the durable
         // trail before refusing the normal explicit turn-in.
@@ -250,6 +251,7 @@ export function HunterBoard({
                 }
                 if (trail.acceptedMissionIds) setAcceptedMissionIds(trail.acceptedMissionIds);
                 if (trail.state) setAuthoritativeHuntStates((current) => ({ ...current, [mission.id]: trail.state! }));
+                liveLead = trail.state?.sector;
                 progress = trail.state?.claimable || trail.state?.targetDefeated
                     ? mission.exploreCount
                     : trail.missionProgress?.[mission.id] ?? trail.state?.progress ?? progress;
@@ -259,7 +261,7 @@ export function HunterBoard({
                 }));
             }
         }
-        if (progress < mission.exploreCount) return alert(`Hunt the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
+        if (progress < mission.exploreCount) return alert(`Hunt the beast ${mission.exploreCount - progress} more time(s). Your current lead is in Sector ${liveLead ?? huntTrailSector(mission, progress, playerSlug(character.name))}.`);
         if (!hasDailyHuntSlot(character)) return alert(`Daily hunt limit reached (${huntCap}/${huntCap}). Resets at midnight UTC.`);
 
         // Server-authoritative for built-in hunts (audit M-1): the server resolves
@@ -513,7 +515,7 @@ export function HunterBoard({
                                                     : <span className="hunt-beast-icon"><GameArtIcon kind="petTamer" size={30} /></span>}
                                                 <div className="hunt-contract-info">
                                                     <strong>{mission.name}</strong>
-                                                    <small>Sector {mission.targetSector} · Lvl {mission.levelReq}+</small>
+                                                    <small>Beast's territory: Sector {mission.targetSector} · Lvl {mission.levelReq}+</small>
                                                     <small>{missionStatPointText(character.name, FIELD_MISSION_STAT_POINTS)} / {rewardSummary(boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards, character)}{missionDropChanceText(character.level, "hunt") ? ` · ${missionDropChanceText(character.level, "hunt")}` : ""}</small>
                                                     {mission.itemRewards && (
                                                         <div className="hunt-drops" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
