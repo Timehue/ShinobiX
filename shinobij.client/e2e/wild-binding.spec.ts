@@ -83,7 +83,7 @@ test('first binding walkthrough is readable on desktop and mobile', async ({ pag
         await expect(page.locator('.wild-binding-overlay.has-arena-cinematic')).toBeVisible();
         const captureScene = page.locator('.wild-binding-overlay.is-binding .wild-binding-capture-scene');
         await expect(captureScene.locator('.wild-binding-capture-pet img')).toBeVisible();
-        await expect(captureScene.locator('.wild-binding-capture-pet img')).toHaveAttribute('src', '/pet-portraits/standard-1-card-v2.webp');
+        await expect(captureScene.locator('.wild-binding-capture-pet img')).toHaveAttribute('src', /^\/pet-portraits\/shinobi-v1\/standard-1\.webp/);
         await expect(captureScene.locator('.wild-binding-magic-ring img')).toBeVisible();
         await page.waitForTimeout(550);
         await page.screenshot({ path: testInfo.outputPath('pet-entering-seal.png') });
@@ -92,6 +92,7 @@ test('first binding walkthrough is readable on desktop and mobile', async ({ pag
         await page.waitForTimeout(950);
         await page.screenshot({ path: testInfo.outputPath('seal-impact.png') });
         await expect(page.getByRole('heading', { name: 'Bond formed' })).toBeVisible();
+        await expect(page.getByText('Lower Resolve', { exact: false })).toHaveCount(0);
         await expect(page.getByTestId('pet-showdown-root')).not.toHaveAttribute('data-wild-binding', 'active');
         await expect(page.getByTestId('pet-showdown-root')).toHaveAttribute('inert', '');
         await expect(page.getByRole('button', { name: 'Continue' })).toBeFocused();
@@ -155,6 +156,7 @@ test('capture retires its effects and repeated encounters release WebGL canvases
         await page.getByRole('button', { name: 'Continue' }).first().click();
         await page.getByRole('button', { name: /Bind with Reinforced Beast Seal/ }).click();
         await expect(page.getByRole('heading', { name: 'Bond formed' })).toBeVisible();
+        await expect(page.getByText('Lower Resolve', { exact: false })).toHaveCount(0);
         await expect(page.getByTestId('pet-showdown-root')).not.toHaveAttribute('data-wild-binding', 'active');
         await page.evaluate(() => (window as Window & { __wildBindingQa: { unmount(): void } }).__wildBindingQa.unmount());
         await expect(page.locator('canvas')).toHaveCount(0);
