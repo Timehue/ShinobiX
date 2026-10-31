@@ -88,7 +88,7 @@ export function kageEligibility(character: Character, now: number): KageEligibil
     const accountAgeMs = now - Number(character.createdAt ?? 0);
     return [
         { id: 'level', label: `Level ${KAGE_CHALLENGE_MIN_LEVEL}+`, ok: (character.level ?? 0) >= KAGE_CHALLENGE_MIN_LEVEL, detail: `Lv. ${character.level ?? 0}` },
-        { id: 'account-age', label: "Account 7+ days old", ok: accountAgeMs >= KAGE_MIN_ACCOUNT_AGE_MS },
+        { id: 'account-age', label: "Account 7+ days old", ok: accountAgeMs >= KAGE_MIN_ACCOUNT_AGE_MS, detail: accountAgeMs >= KAGE_MIN_ACCOUNT_AGE_MS ? "Met" : `${Math.floor(accountAgeMs / 86_400_000)}/7 days` },
         { id: 'ryo', label: `${KAGE_CHALLENGE_RYO_COST.toLocaleString()} ryo`, ok: ryo >= KAGE_CHALLENGE_RYO_COST, detail: `${ryo.toLocaleString()}` },
         { id: 'merit', label: `${KAGE_CHALLENGE_MIN_MERIT} Village Merit`, ok: merit >= KAGE_CHALLENGE_MIN_MERIT, detail: `${merit}/${KAGE_CHALLENGE_MIN_MERIT}` },
     ];
