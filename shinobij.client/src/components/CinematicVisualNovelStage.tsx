@@ -117,7 +117,8 @@ function revealUnreadLine(dialogue: HTMLElement | null): boolean {
     for (const scroller of [dialogue.querySelector(".cvn-dialogue-text"), dialogue]) {
         if (!scroller || scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop <= 1) continue;
         const from = scroller.scrollTop;
-        scroller.scrollTop = scroller.scrollHeight;
+        // Keep some overlap and never skip a viewport of a large-text line.
+        scroller.scrollTop = from + Math.max(1, scroller.clientHeight * 0.8);
         if (scroller.scrollTop !== from) return true;
     }
     return false;
@@ -343,9 +344,16 @@ export function CinematicVisualNovelStage({
     useEffect(() => {
         if (!autoRead || !typingDone || !allowStageAdvance || settingsOpen) return;
         const readingDelay = Math.min(6_800, Math.max(2_600, 1_400 + spoken.length * 32));
-        const timer = window.setTimeout(() => {
-            if (!document.hidden) advance();
-        }, readingDelay);
+        let timer: ReturnType<typeof window.setTimeout>;
+        const readNextPart = () => {
+            if (document.hidden) return;
+            if (revealUnreadLine(dialogueRef.current)) {
+                // Newly exposed text gets its own reading interval. Advancing
+                // directly would hide the end of a fixed-height long line.
+                timer = window.setTimeout(readNextPart, readingDelay);
+            } else advance();
+        };
+        timer = window.setTimeout(readNextPart, readingDelay);
         return () => window.clearTimeout(timer);
     }, [advance, allowStageAdvance, autoRead, settingsOpen, spoken.length, textKey, typingDone]);
 
