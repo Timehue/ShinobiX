@@ -84,12 +84,15 @@ function MiniStatBar({ label, value, max }: { label: string; value: number; max:
 export function IntroCinematic({
     character,
     sharedImages = {},
+    onChooseStarter,
     onComplete,
     replay = false,
     onClose,
 }: {
     character: Character;
     sharedImages?: Record<string, string>;
+    /** Commits the confirmed starter; false means choose again. */
+    onChooseStarter?: (pet: Pet, vow: AcademyVow) => Promise<boolean>;
     onComplete?: (pet: Pet, vow: AcademyVow) => void;
     /** Replay mode (Story Hall): pure viewing — no grant, no step change; the
      *  white-out ends by calling onClose instead of onComplete. */
@@ -639,6 +642,11 @@ export function IntroCinematic({
                                     introCue("confirm");
                                     setChosen(phase.option);
                                     setPhase({ kind: "dialogue", stage: "post", idx: 0 });
+                                    void onChooseStarter?.(phase.option.pet, vow).then((committed) => {
+                                        if (committed || completedRef.current) return;
+                                        setChosen(null);
+                                        setPhase({ kind: "choose" });
+                                    });
                                 }}
                             >
                                 Take {phase.option.pet.name}
