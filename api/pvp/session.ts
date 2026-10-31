@@ -2467,6 +2467,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (shieldedUntil > nowMs) {
                             return res.status(409).json({
                                 error: `${defenderName} is recovering from a recent defeat.`,
+                                errorCode: PVP_OPPONENT_UNAVAILABLE,
                                 retryAfterMs: shieldedUntil - nowMs,
                             });
                         }

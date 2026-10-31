@@ -85,9 +85,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Only a guard this raider can really fight counts. Anyone else leaves
         // the raid to the garrison. A `battleId` means the duel already passed
         // the session gate, so its notice still reaches a guard who just moved.
-        const guards = identity.admin || battleId
-            ? rostered
-            : rostered.filter(g => guardReachableFrom(identity.name, g.name));
+        const reachable = identity.admin || battleId ? null
+            : await Promise.all(rostered.map(g => guardReachableFrom(identity.name, g.name)));
+        const guards = reachable ? rostered.filter((_g, index) => reachable[index]) : rostered;
 
         if (guards.length === 0) {
             return res.status(200).json({ noGuard: true });

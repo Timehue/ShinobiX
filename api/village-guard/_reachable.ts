@@ -1,6 +1,8 @@
 import { onlineStore } from '../_realtime/online-store.js';
-import { sessionOpponentBlock, worldInteractionBlock } from '../_realtime/presence-gating.js';
+import { isBelowAttackableFloor, sessionOpponentBlock, worldInteractionBlock } from '../_realtime/presence-gating.js';
 import { safeName } from '../_utils.js';
+import { kv } from '../_storage.js';
+import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 
 /*
  * A `guard:<name>` row says a player is on the village's roster, for up to five
@@ -13,8 +15,21 @@ import { safeName } from '../_utils.js';
  * Both halves of a raid now ask this one question. It mirrors the session
  * gate, so a guard reported reachable is one the duel will actually admit.
  */
-export function guardReachableFrom(attacker: string, guardName: string, now: number = Date.now()): boolean {
+export async function guardReachableFrom(attacker: string, guardName: string, now: number = Date.now()): Promise<boolean> {
     const target = onlineStore.get(guardName, now);
-    return !worldInteractionBlock(onlineStore.get(attacker, now), target, now)
-        && !sessionOpponentBlock(target, safeName(attacker), now);
+    if (worldInteractionBlock(onlineStore.get(attacker, now), target, now)
+        || sessionOpponentBlock(target, safeName(attacker), now)) return false;
+    const slug = safeName(guardName);
+    const [save, locks] = await Promise.all([
+        kv.get<Record<string, unknown>>(`save:${slug}`),
+        battleLockFlagsForPlayers([slug]),
+    ]);
+    if (!save?.character || locks.get(slug) === true) return false;
+    // Match session admission's elapsed-state projection without writing the
+    // save. A recovered guard may now be alive, while Field Recovery can still
+    // protect them. Presence alone cannot answer either question.
+    const character = settleSaveRecord(save, { now, battleLocked: false }).record.character as Record<string, unknown>;
+    return Number(character.hp ?? 0) > 0
+        && !isBelowAttackableFloor(Number(character.level ?? 0))
+        && !(Number(character.pvpShieldUntil ?? 0) > now);
 }
