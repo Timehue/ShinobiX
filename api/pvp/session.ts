@@ -13,7 +13,7 @@ import { withDuelWitnesses } from './_duel-witnesses.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
 import { shieldExpiryForGrant } from '../combat-core/shields.js';
-import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
+import { isCancelledUnstartedPvpDuel, PVP_OPPONENT_UNAVAILABLE, pvpJoinWindowLapsed } from '../../shared/pvp-cancellation.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from '../_ratelimit.js';
@@ -216,7 +216,7 @@ export type PvpSession = {
     groundEffects?: PvpGroundEffect[];
     log: string[];
     status: 'active' | 'done';
-    terminalReason?: 'cancelled-unjoined';
+    terminalReason?: 'cancelled-unjoined' | 'no-show';
     winner: 'p1' | 'p2' | 'draw' | null;
     // Durable proof that this battle was created by a sanctioned server flow.
     // A client may still create an unsanctioned/casual session, but every reward
@@ -1923,6 +1923,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         console.error('[pvp/session] lapse terminalization failed', error);
                     }
                 }
+                // Reloading onto a duel the opponent never joined must not put
+                // the waiting screen back up for a read to close a moment later.
+                if (session && pvpJoinWindowLapsed(session)) {
+                    try {
+                        session = (await enforcePvpTurnDeadline(kv, pointer.battleId, session)).session;
+                    } catch (error) {
+                        console.error('[pvp/session] join window enforcement failed', error);
+                    }
+                }
                 if (!session) session = await loadPvpRewardRecoverySnapshot(kv, pointer.battleId);
                 if (!session && pvpPendingReservationIsFresh(pointer)) {
                     return res.status(503).json({ error: 'PvP session publication is still finalizing.' });
@@ -2266,12 +2275,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const worldBossBlock = await worldBossPvpProtectionBlock(opponentNorm);
                     if (worldBossBlock) return res.status(worldBossBlock.status).json({ error: worldBossBlock.error });
                     const opponentPresence = onlineStore.get(opponentNorm);
+                    // The client retries a bare 409, which fits a write it may
+                    // have lost. These refusals are final answers about where
+                    // the two fighters stand, so they say so. Only the creator's
+                    // own presence not being ready yet is worth another try.
                     if (requireWorldCoLocation === true) {
-                        const locationBlock = worldInteractionBlock(onlineStore.get(me), opponentPresence);
-                        if (locationBlock) return res.status(locationBlock.status).json({ error: locationBlock.error });
+                        const actorPresence = onlineStore.get(me);
+                        const locationBlock = worldInteractionBlock(actorPresence, opponentPresence);
+                        if (locationBlock) {
+                            return res.status(locationBlock.status).json({
+                                error: locationBlock.error,
+                                ...(actorPresence ? { errorCode: PVP_OPPONENT_UNAVAILABLE } : {}),
+                            });
+                        }
                     }
                     const block = sessionOpponentBlock(opponentPresence, me);
-                    if (block) return res.status(block.status).json({ error: block.error });
+                    if (block) return res.status(block.status).json({ error: block.error, errorCode: PVP_OPPONENT_UNAVAILABLE });
                 }
             }
 
