@@ -4,6 +4,9 @@ import { commitPvpSessionMutation } from './_session-mutation.js';
 import { SESSION_TTL } from '../combat-core/constants.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS, pvpTurnDeadlineAt } from '../../shared/pvp-turn.js';
 import { pvpTurnDeadlineEnabled } from '../_release-flags.js';
+import { isPvpNoShowForfeit, pvpJoinDeadlineAt, pvpJoinWindowLapsed, pvpJoinWindowLapsedLogLine, pvpNoShowLogLine, pvpNoShowWinner } from '../../shared/pvp-cancellation.js';
+import { pushOfflineNotice } from '../player/_offline-notices.js';
+import { safeName } from '../_utils.js';
 
 /**
  * Server-authoritative PvP turn expiry.
@@ -38,15 +41,76 @@ import { pvpTurnDeadlineEnabled } from '../_release-flags.js';
  *
  * Pre-deploy rows carry no `turnStartedAt`; the first check STAMPS it rather
  * than lapsing a turn whose start the server never recorded.
+ *
+ * A casual duel whose second fighter never joined has no turn clock at all, so
+ * it gets a clock of its own here (PVP_JOIN_WINDOW_MS, shared/pvp-cancellation.ts).
+ * Presence stays fresh for 90s after a phone locks, so a world attack can land
+ * on a fighter who is already gone, and their notice expires after 180s with no
+ * other way back to the duel: the attacker sat waiting until they noticed the
+ * Cancel button. Reads and moves now end it for them: the fighter who never
+ * came forfeits, which is an ordinary PvP defeat for their body (hospital and
+ * Field Recovery, settled by _vitals-settlement.ts), and the win pays nothing
+ * because every payout requires both fighters joined. That is what stops a
+ * locked phone being farmed for ryo. With nobody left to win it, the duel is
+ * called off the way the Cancel button does, as a draw with no settlement.
  */
 
 type Store = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'delIfEqual'>;
 
 export type PvpTurnDeadlineResult = {
     session: PvpSession;
-    /** 'auto-wait' when a lapsed turn was passed; 'stamped' when a legacy row got its clock. */
-    applied: 'none' | 'stamped' | 'auto-wait';
+    /**
+     * 'auto-wait' when a lapsed turn was passed; 'stamped' when a legacy row got
+     * its clock; 'no-show' or 'called-off' when an unstarted duel ran out its
+     * join window with a winner or without one.
+     */
+    applied: 'none' | 'stamped' | 'auto-wait' | 'no-show' | 'called-off';
 };
+
+/** The one terminal row of an unstarted duel: a draw that settles nothing. */
+export function closeUnjoinedPvpSession(session: PvpSession, logLine: string, endedAt: number): PvpSession {
+    return {
+        ...session,
+        status: 'done',
+        winner: 'draw',
+        terminalReason: 'cancelled-unjoined',
+        endedAt,
+        lastMoveAt: endedAt,
+        log: [...session.log, logLine],
+    };
+}
+
+/** The terminal row of a lapsed join window: a forfeit, or a draw with no winner to give it to. */
+export function closeLapsedJoinWindow(session: PvpSession, endedAt: number): PvpSession {
+    const winner = pvpNoShowWinner(session, endedAt);
+    if (!winner) return closeUnjoinedPvpSession(session, pvpJoinWindowLapsedLogLine(session), endedAt);
+    return {
+        ...session,
+        status: 'done',
+        winner,
+        terminalReason: 'no-show',
+        endedAt,
+        lastMoveAt: endedAt,
+        log: [...session.log, pvpNoShowLogLine(session)],
+    };
+}
+
+/**
+ * Tell a no-show why they woke up in the hospital. They hold no pending pointer,
+ * so no result screen will. Call once, on the write that committed the forfeit:
+ * a terminal replay runs many times and would repeat the notice.
+ */
+export async function notifyPvpNoShow(session: PvpSession): Promise<void> {
+    if (!isPvpNoShowForfeit(session)) return;
+    const [winner, absent] = session.winner === 'p1' ? [session.p1, session.p2] : [session.p2, session.p1];
+    const sector = Number(session.duelGround?.sector ?? session.rewardSector);
+    await pushOfflineNotice(safeName(absent.name), {
+        kind: 'duel-no-show',
+        by: winner.name,
+        sector: Number.isSafeInteger(sector) ? sector : 0,
+        at: Number(session.endedAt) || Date.now(),
+    }).catch((error) => console.error('[pvp/no-show] offline notice failed', error));
+}
 
 /** True when the session is in a state whose turn clock the server enforces. */
 export function pvpTurnClockRunning(session: PvpSession): boolean {
@@ -66,11 +130,14 @@ export function pvpTurnLapsed(session: PvpSession, now = Date.now()): boolean {
 }
 
 /**
- * When a reader should next run the deadline check: `now` for a legacy row the
- * first check must stamp, the lapse moment while the clock runs, or null when
- * no clock runs. Agrees with pvpTurnDeadlineNeedsWork below.
+ * When a reader should next run the deadline check: the join deadline of an
+ * unstarted duel, `now` for a legacy row the first check must stamp, the lapse
+ * moment while the clock runs, or null when no clock runs. Agrees with
+ * pvpTurnDeadlineNeedsWork below.
  */
 export function pvpTurnNextCheckAt(session: PvpSession, now = Date.now()): number | null {
+    const joinDeadline = pvpJoinDeadlineAt(session);
+    if (joinDeadline !== null) return joinDeadline;
     if (!pvpTurnClockRunning(session)) return null;
     if (session.turnStartedAt === undefined) return now;
     const startedAt = Number(session.turnStartedAt);
@@ -80,6 +147,7 @@ export function pvpTurnNextCheckAt(session: PvpSession, now = Date.now()): numbe
 
 /** Cheap pre-check so readers skip the lock when there is nothing to do. */
 export function pvpTurnDeadlineNeedsWork(session: PvpSession, now = Date.now()): boolean {
+    if (pvpJoinWindowLapsed(session, now)) return true;
     if (!pvpTurnClockRunning(session)) return false;
     if (session.turnStartedAt === undefined) return true;
     return pvpTurnLapsed(session, now);
@@ -105,6 +173,16 @@ export async function enforcePvpTurnDeadlineLocked(
     } = {},
 ): Promise<PvpTurnDeadlineResult> {
     if (!pvpTurnDeadlineNeedsWork(session, now)) return { session, applied: 'none' };
+
+    if (pvpJoinWindowLapsed(session, now)) {
+        const closed = closeLapsedJoinWindow(session, now);
+        const write = await commitPvpSessionMutation(store, key, session, closed, { ttlSeconds: SESSION_TTL });
+        if (write.status !== 'committed') return { session: currentOr(write.session, session), applied: 'none' };
+        await notifyPvpNoShow(write.session);
+        const { replayCommittedPvpTerminalEffects } = await import('./_committed-terminal-effects.js');
+        await replayCommittedPvpTerminalEffects(write.session);
+        return { session: write.session, applied: isPvpNoShowForfeit(write.session) ? 'no-show' : 'called-off' };
+    }
 
     if (session.turnStartedAt === undefined) {
         if (options.stampLegacy === false) return { session, applied: 'none' };

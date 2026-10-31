@@ -46,6 +46,14 @@ test('offlineNoticeMessage names the attacker and the sector', () => {
     );
 });
 
+test('a no-show is told who they missed, and the hospital only when a sector fight put them there', () => {
+    assert.equal(parseOfflineNotices([{ kind: 'duel-no-show', by: 'caius', sector: 12, at: 1 }]).length, 1);
+    const inSector = offlineNoticeMessage({ kind: 'duel-no-show', by: 'caius', sector: 12, at: 1 });
+    assert.match(inSector, /Caius's attack in Sector 12/);
+    assert.match(inSector, /carried to the hospital/);
+    assert.doesNotMatch(offlineNoticeMessage({ kind: 'duel-no-show', by: 'caius', sector: 0, at: 1 }), /hospital|Sector/);
+});
+
 test('notice icon art shares one semantic key per family', () => {
     const icon = (kind: OfflineNoticeDigest['entries'][number]['kind'], by: string) =>
         buildOfflineNoticeDigest([{ kind, by, sector: 1, at: 1, amount: 1 }], NOW).entries[0]?.icon;

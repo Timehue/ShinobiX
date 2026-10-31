@@ -127,6 +127,27 @@ test('cancel an unjoined world duel, refresh both players, and travel again', as
     } finally { await p2Context.close(); }
 });
 
+test('a world duel the target never joins is theirs to lose, and frees the attacker', async ({ page, request }) => {
+    // The real window, on the stream the waiting screen really listens to.
+    test.setTimeout(180_000);
+    const p1 = await seed(request, 'noshowa');
+    const p2 = await seed(request, 'noshowb');
+    const battleId = await createDuel(request, p1, p2);
+    await boot(page, p1, battleId);
+    await expect(page.getByText('A forfeit like this pays no rewards.')).toBeVisible({ timeout: 120_000 });
+    await page.getByRole('button', { name: 'Return to Sector 12' }).click();
+    await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible();
+    const pending = await request.get(`/api/pvp/session?pending=1&playerName=${p1.name}&recoveryProbeVersion=2`, { headers: p1.headers });
+    expect(pending.status(), await pending.text()).toBe(204);
+    await assertCanTravel(request, p1);
+    // The defeat lands on the save, so staying away did not dodge it: the
+    // no-show wears the same Field Recovery any other defeat earns, which is
+    // what keeps the attacker from KO'ing their camp straight after.
+    const defeated = await request.get(`/api/save/${p2.name}`, { headers: p2.headers });
+    expect(defeated.status(), await defeated.text()).toBe(200);
+    expect(Number((await defeated.json()).character.pvpShieldUntil)).toBeGreaterThan(Date.now());
+});
+
 test('two players join, take turns, refresh, finish, and recover lost claim and ACK responses', async ({ page, browser, request }, info) => {
     test.setTimeout(180_000);
     const p1 = await seed(request, 'livea');
