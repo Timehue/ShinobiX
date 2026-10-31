@@ -66,7 +66,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                 {props.showLivePeers && !props.suspended && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} sleepers={props.sleeperPeers} />}
                 <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
                     {!props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}
-                        traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
+                        traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} commit={props.onGatheringCommit} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
                     {!props.suspended && ready && props.gatheringCharacter && props.onGatheringCommit && <SectorBuildings key={props.gatheringCharacter.name} character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} onAtlas={props.onOpenAtlas} walk={(sector,tile)=>engine.current?.go(sector,tile)} />}
                 </WorldPlayerPosition.Provider>
                 {!props.suspended && props.gatheringCharacter && props.onGatheringCommit && <ResourceWorld character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} walk={(sector, tile) => { engine.current?.go(sector, tile); }} worldBossCrystals={props.worldBossCrystals} onContest={props.onContestResource} />}
