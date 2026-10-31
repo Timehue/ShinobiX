@@ -3,6 +3,8 @@ import { afterEach, beforeEach, test } from "node:test";
 import {
     beginResolvedWorldExplore,
     beginWorldChestOperation,
+} from "./world-reward-operations";
+import {
     completeWorldRewardOperation,
     mergeServerPendingWorldRewards,
     readPendingWorldRewards,
