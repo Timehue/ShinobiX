@@ -65,7 +65,7 @@ export type PvpSessionState = {
     groundEffects?: PvpGroundEffectState[];
     log: string[];
     status: "active" | "done";
-    terminalReason?: "cancelled-unjoined";
+    terminalReason?: "cancelled-unjoined" | "no-show";
     winner: "p1" | "p2" | "draw" | null;
     rewardAuthority?: "challenge" | "clan-war" | "ranked" | "world" | "admin";
     progressionAuthorityVersion?: 1;

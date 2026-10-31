@@ -184,9 +184,9 @@ const DEFAULT_ACTION_CATEGORIES: Record<string, ActionReceiptCategory> = {
     join: 'system',
 };
 import { replayCommittedPvpTerminalEffects } from './_committed-terminal-effects.js';
-import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
+import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel, pvpJoinWindowLapsed } from '../../shared/pvp-cancellation.js';
 import { commitPvpSessionMutation } from './_session-mutation.js';
-import { enforcePvpTurnDeadlineLocked, pvpTurnLapsed } from './_turn-deadline.js';
+import { closeLapsedJoinWindow, closeUnjoinedPvpSession, enforcePvpTurnDeadlineLocked, notifyPvpNoShow, pvpTurnLapsed } from './_turn-deadline.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS, PVP_TURN_MS } from '../../shared/pvp-turn.js';
 import {
     replayCommittedPvpActionReceipt,
@@ -1673,29 +1673,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             // A world duel can be published while its target is online, then
             // strand the creator if that target goes offline before joining.
-            // Neither side has acted or earned a result yet. Let either bound
-            // fighter close this unstarted match as a draw, without requiring
-            // the absent fighter's handshake or charging a flee penalty.
-            if (action === 'cancel-unjoined') {
+            // Neither side has acted or earned a result yet. The fighter left
+            // waiting may close this unstarted match as a draw, without
+            // requiring the absent fighter's handshake. Past the join window
+            // any action closes it with the absent fighter's forfeit, so a late
+            // join cannot start a duel the waiting fighter already won.
+            const joinWindowLapsed = pvpJoinWindowLapsed(session);
+            if (action === 'cancel-unjoined' || joinWindowLapsed) {
                 if (!canCancelUnstartedPvpDuel(session)) {
                     return finishUnavailable(409, 'This duel cannot be cancelled before combat.');
                 }
-                const endedAt = Date.now();
-                const cancelled: PvpSession = {
-                    ...session,
-                    status: 'done',
-                    winner: 'draw',
-                    terminalReason: 'cancelled-unjoined',
-                    endedAt,
-                    lastMoveAt: endedAt,
-                    log: [...session.log, `${session[role].name} cancelled the unstarted duel.`],
-                };
-                const write = await commitPvpSessionMutation(kv, key, session, cancelled, {
+                // Cancelling frees whoever is waiting. The fighter being waited
+                // for could otherwise use it to wave off an attack the moment
+                // it arrives; they either join or forfeit when the window ends.
+                if (!joinWindowLapsed && session.joined?.[role] !== true) {
+                    return finishUnavailable(409, 'Only the fighter who is waiting can cancel this duel.');
+                }
+                const closedAt = Date.now();
+                const closed = joinWindowLapsed
+                    ? closeLapsedJoinWindow(session, closedAt)
+                    : closeUnjoinedPvpSession(session, `${session[role].name} cancelled the unstarted duel.`, closedAt);
+                const write = await commitPvpSessionMutation(kv, key, session, closed, {
                     ttlSeconds: SESSION_TTL,
                 });
-                return write.status === 'committed'
-                    ? finishTerminal(write.session)
-                    : finishUnavailable(503, 'The duel changed while cancelling; retry.');
+                if (write.status !== 'committed') return finishUnavailable(503, 'The duel changed while cancelling; retry.');
+                await notifyPvpNoShow(write.session);
+                return finishTerminal(write.session);
             }
             try {
                 await ensureKageDuelAdmission(session);

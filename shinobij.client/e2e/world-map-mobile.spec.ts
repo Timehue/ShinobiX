@@ -135,6 +135,52 @@ for (const destination of [
     });
 }
 
+async function openGuardRaid(page: Page, challenge: () => { status: number; body: unknown }) {
+    const seen = { challenges: 0, sessions: 0, raidStarts: 0 };
+    await bootWorldMap(page, undefined, async () => {
+        await page.route("**/api/player/travel", (route) => route.fulfill({ status: 200, contentType: "application/json",
+            body: JSON.stringify({ arrivalAt: Date.now() + 500, travelMs: 500, arrivalTile: 78 }) }));
+        await page.route("**/api/village-guard/list", (route) => route.fulfill({ status: 200, contentType: "application/json",
+            body: JSON.stringify([{ name: "Posted Guard", level: 40, village: "Frostfang Village" }]) }));
+        await page.route("**/api/village-guard/challenge", async (route) => {
+            seen.challenges += 1;
+            const { status, body } = challenge();
+            await new Promise((resolve) => setTimeout(resolve, 250));
+            await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+        });
+        await page.route("**/api/missions/raid-start", (route) => {
+            seen.raidStarts += 1;
+            return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "Garrison reached." }) });
+        });
+        page.on("request", (request) => {
+            if (request.method() === "POST" && new URL(request.url()).pathname === "/api/pvp/session") seen.sessions += 1;
+        });
+    });
+    if (await page.locator('html').evaluate((html) => html.classList.contains('wm-zoom'))) await chooseRegion(page, "frost");
+    await page.getByRole("button", { name: "Enter Frostfang Village", exact: true }).click();
+    await expect(page.getByText("Frostfang Village — Outer Territory", { exact: true })).toBeVisible({ timeout: 30_000 });
+    return seen;
+}
+
+test("a raid with no reachable guard goes to the garrison and never asks for a duel", async ({ page }) => {
+    test.setTimeout(120_000);
+    const seen = await openGuardRaid(page, () => ({ status: 200, body: { noGuard: true } }));
+    const raid = page.getByRole("button", { name: /Raid Village Guard/ });
+    await raid.dblclick();
+    await expect.poll(() => seen.raidStarts, { message: "the garrison answers the raid" }).toBe(1);
+    expect(seen.challenges, "a double click sends one raid").toBe(1);
+    expect(seen.sessions, "a roster name alone must not start a duel").toBe(0);
+});
+
+test("a raid the guard post refuses says why and starts nothing", async ({ page }) => {
+    test.setTimeout(120_000);
+    const seen = await openGuardRaid(page, () => ({ status: 429, body: { error: "Too many raid attempts." } }));
+    await page.getByRole("button", { name: /Raid Village Guard/ }).click();
+    await expect(page.getByText("Too many raid attempts.")).toBeVisible();
+    expect(seen.sessions).toBe(0);
+    expect(seen.raidStarts).toBe(0);
+});
+
 for (const home of [{ name: "Stormveil Village", region: "storm" }, { name: "Moonshadow Village", region: "moon" }] as const) {
     test(`village travel opens the current home without another trip: ${home.name}`, async ({ page }) => {
         test.setTimeout(120_000);

@@ -319,8 +319,13 @@ function cleanBaseReward(raw: unknown): PvpWinBaseSummary["reward"] {
 /** Player-facing copy for the exact authoritative terminal settlement. */
 export function pvpRewardSettlementNotice(
     result: PvpRewardClaimConfirmed,
-    options: { draw: boolean; spar: boolean; role?: "win" | "loss" },
+    options: { draw: boolean; spar: boolean; role?: "win" | "loss"; noShow?: boolean },
 ): string {
+    if (options.noShow) {
+        return options.role === "loss"
+            ? "You did not join in time, so the duel counted as a loss."
+            : "Your opponent never joined, so the duel is yours. A forfeit like this pays no rewards.";
+    }
     if (options.draw) return "Draw confirmed. Your battle result and any HP or item changes have been saved.";
     if (options.spar) return "Spar complete — no progression rewards.";
     const base = result.base?.reward;
