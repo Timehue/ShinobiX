@@ -320,6 +320,72 @@ describe('world-reward:pending account mirror', () => {
         assert.deepEqual(await pending.readPendingWorldRewards(player), []);
     });
 
+    it('a new chest on a full receipt list pays its own loot, not the row at its index', async () => {
+        const player = 'pendmirrorfullcap', requestId = 'freshchestatcap1';
+        const today = new Date().toISOString().slice(0, 10);
+        const oldLoot = { xp: 0, ryo: 345, itemId: 'rustfang-kunai', auraDust: 10 };
+        const fresh = chestReceipt(player, requestId, 41);
+        await seed(player, {
+            ryo: 1_000, serverChestDate: today, serverChestsToday: 1,
+            redeemedAncientChests: [{ id: 'oldpaidchest0001', sector: 18, loot: oldLoot, at: 1 }],
+            redeemedSectorExplorations: Array.from({ length: 150 }, (_, index) => ({
+                id: `oldreceipt${String(index).padStart(5, '0')}`, sector: 18, at: index + 1, reward: { sector: 18, ryo: 0, xp: 0 },
+                outcome: { kind: 'chest', openedLoot: oldLoot, chestOpenedAt: index + 1 },
+            })),
+        });
+        // Exactly how /world/explore appends once the list is at its 150-row cap.
+        const { mutatePlayerSave } = await import('../save/_mutate-player-save.js');
+        const appended = await mutatePlayerSave(player, ({ character }) => ({
+            ok: true as const, value: null,
+            character: { ...character, redeemedSectorExplorations: [
+                ...(character.redeemedSectorExplorations as unknown[]).slice(-149),
+                { id: requestId, sector: 41, reward: fresh.reward, outcome: fresh.outcome, at: fresh.at },
+            ] },
+        }));
+        assert.equal(appended.ok, true);
+        const stored = (await kv.get<{ character: { redeemedSectorExplorations: Array<{ id: string; outcome: Record<string, unknown> }> } }>(`save:${player}`))!
+            .character.redeemedSectorExplorations;
+        assert.equal(stored.length, 150);
+        assert.deepEqual(stored.at(-1)?.outcome, JSON.parse(JSON.stringify(fresh.outcome)), 'the appended receipt inherits nothing');
+        const body = { sector: 41, requestId, worldExploreRequestId: requestId };
+        const opened = await post(openChest, player, body);
+        assert.equal(opened.statusCode, 200, JSON.stringify(opened.body));
+        assert.equal(opened.body?.replayed, false, 'a fresh chest is a payout, not a saved receipt');
+        const paid = await kv.get<{ character: { ryo: number; serverChestsToday: number } }>(`save:${player}`);
+        assert.ok(paid!.character.ryo > 1_000);
+        assert.equal(paid!.character.serverChestsToday, 1, 'opening spends no second daily slot');
+        const replay = await post(openChest, player, body);
+        assert.equal(replay.body?.replayed, true);
+        assert.deepEqual(await kv.get(`save:${player}`), paid, 'the replay pays and counts nothing');
+    });
+
+    it('the save read hides a paid chest whose mirror retirement failed, and keeps unpaid ones', async () => {
+        const player = 'pendmirrorreadfilter', paidId = 'paidchestmirror01', unpaidId = 'unpaidchestmirror';
+        await seed(player);
+        await kv.set(`world-explore-receipt:${player}:${unpaidId}`, chestReceipt(player, unpaidId, 42));
+        const receipt = chestReceipt(player, paidId, 41);
+        await kv.set(`world-explore-receipt:${player}:${paidId}`, receipt);
+        await pending.addPendingWorldReward(player, { kind: 'explore', requestId: paidId, sector: 41 });
+        await pending.addPendingWorldReward(player, { kind: 'explore', requestId: unpaidId, sector: 42 });
+        await kv.set(`world-explore-receipt:${player}:${paidId}`, {
+            ...receipt, outcome: { ...receipt.outcome, openedLoot: { xp: 0, ryo: 345 }, chestOpenedAt: Date.now() },
+        });
+        assert.deepEqual((await pending.readPendingWorldRewards(player)).map((entry) => entry.requestId), [unpaidId]);
+        const listed = (await getSave(player, player)).body?.pendingWorldRewards as Array<Record<string, unknown>>;
+        assert.deepEqual(listed.map((entry) => entry.requestId), [unpaidId]);
+    });
+
+    it('an unreadable payout proof keeps the row, so an unpaid chest is never hidden', async t => {
+        const player = 'pendmirrorreadfail', requestId = 'unreadablechest01';
+        await pending.addPendingWorldReward(player, { kind: 'explore', requestId, sector: 41 });
+        const original = kv.get.bind(kv);
+        t.mock.method(kv, 'get', async (...args: Parameters<typeof kv.get>) => {
+            if (String(args[0]).startsWith('world-explore-receipt:')) throw new Error('injected read failure');
+            return original(...args);
+        });
+        assert.deepEqual((await pending.readPendingWorldRewards(player)).map((entry) => entry.requestId), [requestId]);
+    });
+
     it('un-lists a stale non-chest entry when its explore is replayed', async () => {
         const player = 'pendmirrorstale';
         const requestId = 'mirrorstalereq001';

@@ -63,9 +63,18 @@ export function cleanPendingWorldRewards(raw: unknown, now = Date.now()): Pendin
     return valid.slice(-PENDING_WORLD_REWARD_CAP);
 }
 
-/** Read-only (no lock): the save GET projection. */
+/**
+ * Read-only (no lock): the save GET projection. /open-chest treats retiring a
+ * row as advisory, so a paid chest can stay listed. The payout proof wins here;
+ * an unreadable proof keeps the row, since replaying it is harmless.
+ */
 export async function readPendingWorldRewards(playerName: string): Promise<PendingWorldReward[]> {
-    return cleanPendingWorldRewards(await kv.get(pendingWorldRewardsKey(playerName)));
+    const listed = cleanPendingWorldRewards(await kv.get(pendingWorldRewardsKey(playerName)));
+    const paid = await Promise.all(listed.map(async (entry) => {
+        const authority = await kv.get(worldExploreAuthorityKey(playerName, entry.requestId)).catch(() => null);
+        return !!cleanWorldExploreAuthorityReceipt(authority)?.outcome?.openedLoot;
+    }));
+    return listed.filter((_, index) => !paid[index]);
 }
 
 async function writePendingWorldRewards(playerName: string, entries: PendingWorldReward[]): Promise<void> {

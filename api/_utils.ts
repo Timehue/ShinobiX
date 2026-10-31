@@ -156,8 +156,11 @@ export function mergePreservingImages(incoming: unknown, existing: unknown): unk
         // Index existing items by id ONCE (first occurrence wins, matching the
         // previous .find() semantics) instead of an O(n) .find() per incoming
         // item — avoids O(n*m) on large id-bearing arrays (defeatedAiIds,
-        // jutsuMastery, inventory). Items without an id fall back to positional
-        // pairing, exactly as before.
+        // jutsuMastery, inventory). Positional pairing is only for rows with no
+        // id to compare: a NEW id must never inherit the row that happens to sit
+        // at its index. A full capped receipt list appends at the same index on
+        // every write, so one chest's `openedLoot` used to reach every later
+        // receipt and new chests answered as already opened.
         const existingById = new Map<string, unknown>();
         for (const c of existingArray) {
             const cid = recordId(c);
@@ -165,8 +168,11 @@ export function mergePreservingImages(incoming: unknown, existing: unknown): unk
         }
         return incoming.map((item, index) => {
             const itemId = recordId(item);
-            const match = itemId ? existingById.get(itemId) : undefined;
-            return mergePreservingImages(item, match ?? existingArray[index]);
+            const positional = existingArray[index];
+            const pair = itemId
+                ? existingById.get(itemId) ?? (recordId(positional) ? undefined : positional)
+                : positional;
+            return mergePreservingImages(item, pair);
         });
     }
     if (!incoming || typeof incoming !== 'object') return incoming;
