@@ -2915,7 +2915,7 @@ export function PvpBattleScreen({
                                         const mastery = getJutsuMastery(character, inspectedJutsu.id);
                                         const combatMasteryLevel = session.rankedFormatVersion === 1 ? JUTSU_MAX_LEVEL : mastery.level;
                                         const scaled = scaleJutsuByLevel(inspectedJutsu, combatMasteryLevel);
-                                        const detailDescription = jutsuDetailDescription(inspectedJutsu);
+                                        const detailDescription = jutsuDetailDescription(inspectedJutsu, combatMasteryLevel);
                                         return (
                                             <CombatDetailPortal
                                                 id={`pvp-combat-detail-jutsu-${inspectedJutsu.id}`}

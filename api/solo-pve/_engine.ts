@@ -1123,7 +1123,7 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
 
     // castHeaderLine owns the %user/%target substitution so a SELF cast
     // resolves %target to its CASTER, not the enemy.
-    session.log.push(castHeaderLine(jutsu, self.name, opponent.name));
+    session.log.push(castHeaderLine(jutsu, self.name, opponent.name, self.character));
     let resolution: CombatResolutionFacts | undefined;
 
     // PvP pays a tile-target cast before movement/impact resolution. Preserve

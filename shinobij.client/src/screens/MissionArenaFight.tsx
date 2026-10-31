@@ -1900,7 +1900,7 @@ export function MissionArenaFight({
                                 const mastery = getJutsuMastery({ ...character, ...myActor?.character } as Character, detailJutsu.id);
                                 const scaled = scaleJutsuByLevel(detailJutsu, mastery.level);
                                 const targeting = jutsuTargetingLabel(detailJutsu);
-                                const detailDescription = jutsuDetailDescription(detailJutsu);
+                                const detailDescription = jutsuDetailDescription(detailJutsu, mastery.level);
                                 return (
                                     <CombatDetailPortal
                                         id={`mission-combat-detail-jutsu-${detailJutsu.id}`}

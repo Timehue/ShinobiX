@@ -1700,7 +1700,7 @@ function resolveHit(
     // %target at the CASTER for a SELF cast.
     const castFlavor = jutsu.id === 'basic-attack' || jutsu.id === 'weapon'
         ? ''
-        : resolveCastFlavor(jutsu, actor.name, target.name);
+        : resolveCastFlavor(jutsu, actor.name, target.name, actor.character);
     const castHeader = selfCast ? `${actor.name} ${verb}.` : `${actor.name} ${verb} → ${target.name}.`;
     session.log.push(castFlavor ? `${castHeader} ${castFlavor}` : castHeader);
     // Multi-target casts resolve through the canonical planner/reducer below.
