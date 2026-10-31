@@ -274,6 +274,18 @@
 .pet-arena-destination-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .8rem; }
 .pet-arena-destination { position: relative; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: .9rem; min-width: 0; min-height: 132px; overflow: hidden; border: 1px solid rgba(240,202,121,.28); border-radius: 18px; color: #f6ead0; background: radial-gradient(circle at 0 50%,rgba(240,202,121,.13),transparent 35%),linear-gradient(135deg,rgba(27,27,33,.98),rgba(8,15,27,.98)); padding: 1rem; text-align: left; box-shadow: 0 16px 40px rgba(0,0,0,.24); transition: transform .18s ease,border-color .18s ease,box-shadow .18s ease; }
 .pet-arena-destination.is-training { border-color: rgba(102,224,223,.25); background: radial-gradient(circle at 0 50%,rgba(102,224,223,.12),transparent 35%),linear-gradient(135deg,rgba(11,33,45,.98),rgba(7,15,27,.98)); }
+/* The featured door: a full-width player-vs-player card. Its art bleeds in from the right. */
+.pet-arena-destination.is-live { grid-column: 1 / -1; min-height: 172px; padding: 1.25rem 1.4rem; border-color: rgba(255,128,111,.42); background: linear-gradient(90deg,rgba(30,12,18,.99) 0,rgba(24,12,20,.96) 42%,rgba(14,12,22,.55) 72%,rgba(8,12,22,.2) 100%),var(--live-art) right 28%/62% auto no-repeat,#0a0e18; box-shadow: 0 20px 48px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,190,170,.12); }
+.pet-arena-destination.is-live::after { display: none; }
+.is-live .pet-arena-destination-icon { width: 64px; height: 64px; border-color: rgba(255,128,111,.48); color: #ffb3a4; background: rgba(255,128,111,.1); }
+.is-live .pet-arena-destination-copy small { display: inline-flex; align-items: center; gap: .4rem; color: #ff9f90; }
+.is-live .pet-arena-destination-copy small i { width: 7px; height: 7px; border-radius: 50%; background: var(--arena-red); box-shadow: 0 0 10px var(--arena-red); }
+.is-live .pet-arena-destination-copy strong { font-size: clamp(1.45rem,3vw,2.1rem); }
+.is-live .pet-arena-destination-copy > span { max-width: 520px; color: #c4b4b0; font-size: .72rem; }
+.is-live .pet-arena-destination-action { align-self: center; border: 1px solid rgba(255,128,111,.6); border-radius: 10px; color: #fff0e8; background: linear-gradient(135deg,rgba(176,52,44,.92),rgba(112,28,34,.92)); padding: .7rem 1rem; box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+@media (hover: hover) {
+    .pet-arena-destination.is-live:hover { border-color: rgba(255,128,111,.82); box-shadow: 0 24px 54px rgba(0,0,0,.4),0 0 30px rgba(255,128,111,.14); }
+}
 .pet-arena-destination::after { content: ""; position: absolute; top: 0; right: 0; width: 32%; height: 100%; opacity: .18; background: repeating-linear-gradient(135deg,transparent 0 12px,rgba(255,255,255,.08) 12px 13px); pointer-events: none; }
 @media (hover: hover) {
     .pet-arena-destination:hover { transform: translateY(-3px); border-color: rgba(240,202,121,.7); box-shadow: 0 22px 50px rgba(0,0,0,.35),0 0 28px rgba(240,202,121,.08); }
@@ -311,6 +323,7 @@
     .pet-arena-command-copy { width: 78%; }
     .pet-arena-destination { grid-template-columns: auto minmax(0,1fr); }
     .pet-arena-destination-action { grid-column: 2; justify-self: start; border-left: 0; padding-left: 0; }
+    .is-live .pet-arena-destination-action { padding: .7rem 1rem; }
 }
 
 @media (max-width: 760px) {
@@ -362,6 +375,9 @@
     .pet-party-toggle em { grid-column: 3; justify-self: start; }
     .pet-arena-destination { min-height: 155px; padding: .85rem; }
     .pet-arena-destination-icon { width: 46px; height: 46px; }
+    .pet-arena-destination.is-live { padding: 1rem .85rem; background: linear-gradient(180deg,rgba(24,12,20,.86),rgba(24,12,20,.97)),var(--live-art) center/cover no-repeat,#0a0e18; }
+    .is-live .pet-arena-destination-icon { width: 46px; height: 46px; }
+    .is-live .pet-arena-destination-action { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
