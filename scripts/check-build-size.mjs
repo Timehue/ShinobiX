@@ -941,7 +941,10 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 2026-10-31 ROADSIDE REWARDS: reward previews, canonical wallet updates and
 // NPC task access add ~1.8 KB to the 9,779,999 B courier-fix baseline. Allow
 // 3 KB for this requested feature; startup, per-chunk and asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_783_000;
+// 2026-10-31 DUEL NO-SHOW + GUARD RAID: main's image read 9,784,275 B, 1,275 B
+// over and undeployable. Owner approved 9.788 MB, about 3.7 KB of headroom;
+// startup, per-chunk and asset gates stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_788_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
