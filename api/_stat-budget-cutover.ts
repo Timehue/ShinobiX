@@ -4,10 +4,8 @@
  * Old event days always retain their shared counter and original 60 cap so
  * delayed claims and crash retries cannot acquire a second allocation.
  */
-import { DAILY_PVP_STAT_CAP } from '../shared/combat-growth-rules.js';
-
-export const STAT_BUDGET_SPLIT_DAY = '2026-11-02';
-export const LEGACY_SHARED_STAT_CAP = 60;
+import { DAILY_PVP_STAT_CAP, STAT_BUDGET_SPLIT_DAY, LEGACY_SHARED_STAT_CAP } from '../shared/combat-growth-rules.js';
+export { STAT_BUDGET_SPLIT_DAY, LEGACY_SHARED_STAT_CAP };
 
 export function splitStatBudgetDay(day: string): boolean {
     return day >= STAT_BUDGET_SPLIT_DAY;
