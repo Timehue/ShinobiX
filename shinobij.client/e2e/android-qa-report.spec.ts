@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openLandingLogin } from './helpers/landing-navigation';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
+import type { Pet } from '../src/types/pet';
 
 test.describe('touch scrolling', () => {
     test.use({ hasTouch: true });
@@ -86,7 +87,19 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 667, height: 320 }
         await page.emulateMedia({ reducedMotion: 'reduce' });
         const save = uiAuditSave();
         save.character = { ...save.character, level: 1, onboardingStep: 'academyIntro', academyChecklistClaimed: false, avatarImage: '/starter-avatar-two.webp?v=2' };
-        await installUiAuditRuntime(page, save);
+        const runtime = await installUiAuditRuntime(page, save);
+        let ownedStarter: Pet | undefined;
+        await page.route('**/api/pet/choose-starter', async route => {
+            // This layout journey needs a real-shaped ownership acknowledgement;
+            // the generic API fixture has no character and correctly leaves the
+            // cinematic at selection after the server-authoritative starter fix.
+            ownedStarter ??= { ...route.request().postDataJSON().pet as Pet, trait: 'Loyal' };
+            const character = { ...runtime.serverSave().character, pets: [ownedStarter],
+                activePetId: ownedStarter.id, starterPetClaimed: true, onboardingStep: 'companionIntro' };
+            const version = runtime.currentVersion() + 1;
+            runtime.commitServerCharacter(character, version);
+            await route.fulfill({ json: { ok: true, character, _saveVersion: version } });
+        });
         await page.goto('/#/village');
         const dialogue = page.locator('.icx-dialogue');
         await expect(dialogue).toBeVisible();
@@ -120,6 +133,9 @@ for (const viewport of [{ width: 844, height: 390 }, { width: 667, height: 320 }
             await dialogue.click();
         }
         await expect(page.locator('.icx-root.is-beat-world')).toBeVisible();
+        expect(ownedStarter).toBeDefined();
+        expect(runtime.serverSave().character?.pets).toEqual([ownedStarter]);
+        await expect(page.locator('.game-alert-card')).toHaveCount(0);
         await expect(page.locator('.icx-world-title')).toBeInViewport();
         const worldPanel = (await dialogue.boundingBox())!;
         for (const selector of ['.icx-fox-base', '.icx-avatar img', '.icx-gift-pet']) {
