@@ -62,7 +62,9 @@ daily-login,streak-shards,fateShards,5,every 7 claim days (never resets),api/pla
 daily-login,streak-early-shards,fateShards,2,claim days 2 and 3 (once per character),api/player/_daily-login.ts,
 hunt-mission,chance-drop,fateShards,1,25% per hunt or fetch-s-shadow-front claim (L20+; dial HUNT_FS_CHANCE; no cap),api/missions/_mission-catalog.ts,
 hunt-mission,chance-drop,auraStones,1,20% per hunt claim (L50+; dial HUNT_AS_CHANCE; no cap),api/missions/_mission-catalog.ts,
-daily-stat-budget,shared-cap,statPoints,60,"daily ceiling shared by hunt/field claims, PvE and PvP wins (dial DAILY_STAT_POINT_CAP)",api/_stat-growth.ts,
+daily-stat-budget,shared-cap,statPoints,60,"event days before 2026-11-02 UTC: shared by hunt/field claims, PvE and PvP wins",api/_stat-budget-cutover.ts,Delayed claims retain their original event-day budget and reservation.
+daily-stat-budget,pve-mission-cap,statPoints,120,event days from 2026-11-02 UTC: shared by hunt/field claims and PvE wins (dial DAILY_STAT_POINT_CAP),api/_daily-stat-budget.ts,
+daily-stat-budget,pvp-cap,statPoints,50,event days from 2026-11-02 UTC: separate PvP win budget,api/pvp/_combat-stat-budget.ts,
 war-crate,legendary-war-crate,ryo,500,per crate,api/inventory/_war-crate.ts,
 war-crate,legendary-war-crate,honorSeals,25,per crate,api/inventory/_war-crate.ts,
 war-crate,legendary-war-crate,boneCharms,1,per crate,api/inventory/_war-crate.ts,
