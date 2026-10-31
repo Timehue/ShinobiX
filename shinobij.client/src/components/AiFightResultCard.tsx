@@ -19,6 +19,7 @@ export default function AiFightResultCard({
     onExportLog,
     worldEncounter,
     spar,
+    escaped = false,
     onRetry,
     onExit,
 }: {
@@ -35,19 +36,21 @@ export default function AiFightResultCard({
     worldEncounter: boolean;
     /** A practice bout: never a hospital stay, never an HP cost. */
     spar: boolean;
+    /** The player got away: not a win, and not a defeat either. */
+    escaped?: boolean;
     onRetry: () => void;
     onExit: () => void;
 }) {
     if (!won) {
         return (
-            <div className="story-fight-complete" role="dialog" aria-label={draw ? "Fight drawn" : "Fight lost"}>
+            <div className="story-fight-complete" role="dialog" aria-label={escaped ? "Fight escaped" : draw ? "Fight drawn" : "Fight lost"}>
                 <div className="story-fight-complete-card">
-                    <p className="story-fight-complete-kicker">{draw ? "Stalemate" : spar ? "Spar lost" : "Defeated"}</p>
+                    <p className="story-fight-complete-kicker">{escaped ? "Escaped" : draw ? "Stalemate" : spar ? "Spar lost" : "Defeated"}</p>
                     <h2>{opponentName}</h2>
                     {enemyAvatar && <img src={enemyAvatar} alt="" style={{ width: 72, height: 72, objectFit: "contain", borderRadius: '50%', margin: '0 auto 8px' }} />}
                     {encounter ? <EncounterDifficultyBadge encounter={encounter} /> : opponentLevel ? <p>Lv {opponentLevel}</p> : null}
                     <p className="story-fight-complete-boss" role={settleState === "failed" ? "alert" : "status"}>
-                        {aiFightNonWinMessage(settleState, settleResult?.character, draw, spar)}
+                        {aiFightNonWinMessage(settleState, settleResult?.character, draw, spar, escaped)}
                     </p>
                     {/* "failed" must keep an EXIT, not just a Retry. The 12s-per-
                         attempt race above fixed the stalled-connection case, but a

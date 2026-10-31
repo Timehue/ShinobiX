@@ -31,6 +31,21 @@ test('victory retains its sealed identity and announces the queued opponent sepa
     assert.match(html, /src="\/portraits\/pve\/assassin.webp"/);
 });
 
+test('a successful escape is labeled Escaped, never Fight lost or Defeated', () => {
+    const html = renderToStaticMarkup(<AiFightResultCard won={false} draw={false} escaped settleState="settled" settleResult={null}
+        opponentName="Wolf" worldEncounter spar={false} onRetry={() => {}} onExit={() => {}} />);
+    assert.match(html, /aria-label="Fight escaped"/);
+    assert.match(html, />Escaped</);
+    assert.doesNotMatch(html, /Fight lost|Defeated/);
+});
+
+test('a real loss stays Fight lost / Defeated', () => {
+    const html = renderToStaticMarkup(<AiFightResultCard won={false} draw={false} settleState="settled" settleResult={null}
+        opponentName="Wolf" worldEncounter spar={false} onRetry={() => {}} onExit={() => {}} />);
+    assert.match(html, /aria-label="Fight lost"/);
+    assert.match(html, />Defeated</);
+});
+
 const settled = (extra: Partial<AiFightSettleResult> = {}): AiFightSettleResult => ({
     settled: true, outcome: "win", ryo: 120, statPoints: 1, capped: false, replayed: false,
     character: null, fetchMissionsCredited: [], ...extra,

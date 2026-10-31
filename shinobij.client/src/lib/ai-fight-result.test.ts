@@ -45,6 +45,15 @@ test('the result explains the confirmed consequence and never invents hospitaliz
     assert.doesNotMatch(aiFightNonWinMessage('failed', admitted, false), /brought to the hospital/);
 });
 
+test('an escape says the player got away, including when the escape cost their last HP', () => {
+    const standing = { hp: 90, hospitalized: false } as Character;
+    assert.equal(aiFightNonWinMessage('settled', standing, false, false, true), 'You escaped the fight. You have 90 HP remaining. No reward was earned.');
+    assert.match(aiFightNonWinMessage('settled', standing, false, true, true), /You left this spar.*keep your 90 HP/);
+    const spent = aiFightNonWinMessage('settled', { hp: 0, hospitalized: true } as Character, false, false, true);
+    assert.match(spent, /You got away, but the escape took your last HP.*hospital/);
+    assert.doesNotMatch(aiFightNonWinMessage('settled', standing, false, false, true), /did not win/);
+});
+
 test('a lost spar says it was a spar and that it cost nothing, never "you left the fight"', () => {
     const sparred = { hp: 600, hospitalized: false } as Character;
     const lost = aiFightNonWinMessage('settled', sparred, false, true);

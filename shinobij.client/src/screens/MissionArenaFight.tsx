@@ -261,6 +261,8 @@ export function MissionArenaFight({
     renderResult?: (ctx: {
         won: boolean;
         draw: boolean;
+        /** The player got away. The server still records the enemy as winner. */
+        escaped?: boolean;
         settleState: "idle" | "pending" | "settled" | "failed";
         settleResult: unknown;
         retry: () => void;
@@ -2010,11 +2012,11 @@ export function MissionArenaFight({
             )}
 
             {done && resultRevealed && (renderResult
-                ? renderResult({ won, draw: session.winner === "draw", settleState, settleResult, retry: () => { void runSettle(); }, onExit })
+                ? renderResult({ won, draw: session.winner === "draw", escaped: session.terminalReason === "escaped", settleState, settleResult, retry: () => { void runSettle(); }, onExit })
                 : (
                     <div className="battle-ended-overlay">
                         <div className="card battle-ended-card">
-                            <h2>{won ? "Victory!" : session.winner === "draw" ? "Draw" : "Defeat"}</h2>
+                            <h2>{won ? "Victory!" : session.winner === "draw" ? "Draw" : session.terminalReason === "escaped" ? "Escaped" : "Defeat"}</h2>
                             <p>
                                 {!won
                                     ? "The mission failed. No reward was earned — you can try again from the Mission Hall."

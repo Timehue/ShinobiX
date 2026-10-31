@@ -452,7 +452,7 @@ export function StoryBossFightHost({
                 coachSpeaker={companionCoachName(character)}
                 enemyAvatarOverride={theme.bossPortrait}
                 onExit={closeFight}
-                renderResult={({ won, draw, settleState, settleResult, retry }) => {
+                renderResult={({ won, draw, escaped, settleState, settleResult, retry }) => {
                     const result = (settleResult as StoryBossSettleResult | null)
                         ?? (committedReward?.requestId === currentFight.requestId ? committedReward.result : null);
                     // The tutorial spar gets its own plain-language card: a new
@@ -522,9 +522,9 @@ export function StoryBossFightHost({
                     // LOSS / DRAW — themed defeat card (no reward; try again from the Story Hall).
                     const pending = !!currentFight.session.huntCombat?.purpose && settleState !== 'settled';
                     return (
-                        <RequiredStoryResultDialog label={draw ? "Story battle drawn" : "Story battle lost"} focusVersion={settleState}>
+                        <RequiredStoryResultDialog label={escaped ? "Story battle escaped" : draw ? "Story battle drawn" : "Story battle lost"} focusVersion={settleState}>
                             <div className="story-fight-complete-card">
-                                <p className="story-fight-complete-kicker">{draw ? "Draw" : "Defeat"}</p>
+                                <p className="story-fight-complete-kicker">{escaped ? "Escaped" : draw ? "Draw" : "Defeat"}</p>
                                 <h2>{theme.chapterLabel ?? theme.bossName}</h2>
                                 <p className="story-fight-complete-boss">You did not defeat {theme.bossName}. This chapter is still open. Recover if needed, then try again.</p>
                                 {pending && settleState === 'failed' && <p role="alert">Battle result not saved. Retry to continue.</p>}
