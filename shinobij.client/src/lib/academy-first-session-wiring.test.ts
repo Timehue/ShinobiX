@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { finishStarterPetHandoff } from "./starter-pet-commit";
+import type { Character } from "../types/character";
 
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const coachSource = readFileSync(new URL("../components/OnboardingCoach.tsx", import.meta.url), "utf8");
@@ -10,8 +12,12 @@ const centralHubSource = readFileSync(new URL("../screens/CentralHub.tsx", impor
 
 describe("Academy first-session wiring", () => {
     it("saves the vow selected on the current cinematic run", () => {
-        assert.match(appSource, /academyVow:\s*vow,/);
-        assert.doesNotMatch(appSource, /academyVow:\s*prev\.academyVow\s*\?\?\s*vow/);
+        assert.match(appSource, /finishStarterPetHandoff\(prev, character\.name, pet\.id, vow\)/);
+        const current = { name: "Rookie", onboardingStep: "academyIntro", academyVow: "unbound",
+            pets: [{ id: "owned-starter" }] } as Character;
+        const selected = finishStarterPetHandoff(current, "Rookie", "owned-starter", "guardian");
+        assert.equal(selected?.academyVow, "guardian", "the current selection replaces a previously stored vow");
+        assert.equal(selected?.onboardingStep, "companionIntro");
     });
 
     it("routes all authored interruptions through the tested moment selector", () => {
