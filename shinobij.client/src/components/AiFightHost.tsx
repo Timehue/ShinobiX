@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from 'react-dom';
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { aiFightExitScreen } from "../lib/ai-fight-result";
@@ -523,8 +524,10 @@ export function AiFightHost({
     }, [open, onClose, playerName, startFailure, requestIsCurrent]);
 
     if (activeStartFailure) {
-        return (
-            <div className="battle-ended-overlay" role="alert" aria-live="assertive">
+        // This host lives outside the arena. Escape the app's stacking context
+        // and keep Return above ambient road notifications on compact screens.
+        return createPortal(
+            <div className="battle-ended-overlay" role="alert" aria-live="assertive" style={{ position: 'fixed', zIndex: 4000 }}>
                 <div className="card battle-ended-card">
                     <h2>Fight unavailable</h2>
                     <p>{activeStartFailure.message}</p>
@@ -541,7 +544,8 @@ export function AiFightHost({
                         setStartFailure((current) => current?.requestId === activeStartFailure.requestId ? null : current);
                     }}>Return</button>
                 </div>
-            </div>
+            </div>,
+            document.body,
         );
     }
     if (!activeFight || !character) return null;
