@@ -1333,7 +1333,7 @@ export function CentralHub({
                             <div className="aw-forge-grid">
                                 {BLOODLINE_AWAKENING_TIERS.map((tier) => {
                                     const balance = character[tier.materialKey] ?? 0;
-                                    // The server's price table (B 200, A 100, S 100), never a local copy.
+                                    // Read the server's shared price table, never a local copy.
                                     const cost = BLOODLINE_FORGE_COSTS[tier.rank].cost;
                                     const remaining = Math.max(0, cost - balance);
                                     const isReady = balance >= cost;
