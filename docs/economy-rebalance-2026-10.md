@@ -175,7 +175,7 @@ Titan Bone sell for 200 (were 360) and Legendary Material for 240 (was 480). The
 tiers carry early-game hunt income and are unchanged. A gear step sells for 150. A
 crafted charm sells for at most 0.7x its inputs. The shop route now enforces the same
 rarity level ladder as the client. Pet supplies buy in stacks up to 50. The B-rank
-bloodline forge costs 200 Bone Charms.
+bloodline forge costs 100 Bone Charms (reduced on 2026-10-31).
 
 **Pets and professions.** Tamer expedition XP is x0.5. Healer heal XP is x2. Wild-pet
 rare odds go from 0.3% to 1.2%, which fixes an inverted tier.

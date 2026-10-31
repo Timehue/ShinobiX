@@ -4,6 +4,7 @@ import { isPlayableWildSector } from '../../../shared/sector-geo';
 import { requestSectorLife } from './sector-life-api';
 import { isCoveredByCombat, subscribeCombatCover } from './combat-cover';
 import {acceptLifeScene} from './sector-life-cache';
+import {lifeStepRyo} from '../../../shared/sector-life-rewards';
 
 /** One bounded visible-sector poll. Hidden tabs, battles and removed scenes do no work. */
 export function useSectorLife(player: string, sector: number) {
@@ -37,7 +38,10 @@ export function useSectorLife(player: string, sector: number) {
     }, [player, sector]);
     return { view: entry?.sector === sector && entry.player === player ? entry.view : undefined, error,
         async act(view: LifeSceneView) {
-            const result = await requestSectorLife(player, sector, undefined, { window: view.window, step: view.step });
+            const action={window:view.window,step:view.step};
+            let result = await requestSectorLife(player, sector, undefined, action);
+            // Paid work is atomic and replayable: recover a wallet after a lost reply.
+            if(!result.ok&&lifeStepRyo(view)>0)result=await requestSectorLife(player,sector,undefined,action);
             if (result.ok && result.view) { accept(result.view); setError(''); }
             else {
                 setError(result.error ?? 'The activity has changed. Check it again.');
