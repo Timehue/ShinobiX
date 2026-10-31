@@ -168,6 +168,16 @@ describe('Tower-powered hunt encounters', () => {
         assert.deepEqual(soloPveCombatUsage(terminal)?.[0]?.usedJutsu, ['hunt-burst']);
     });
 
+    it('records why the fight ended, so a retreat is not presented as a knockout', () => {
+        const s = session();
+        const left = applySoloPveAction(s, { type: 'abandon' }).session;
+        assert.equal(left.outcome, 'loss');
+        assert.equal(left.terminalReason, 'abandoned');
+        const fading = structuredClone(s);
+        fading.huntCombat!.battle.actors.find(actor => actor.id === 'player')!.hp = 1;
+        assert.equal(applySoloPveAction(fading, { type: 'abandon' }).session.terminalReason, 'knockout');
+    });
+
     it('strips client authority and validates intent coordinates', () => {
         assert.deepEqual(parseHuntCombatAction({ type: 'attack', targetId: 'hunt-enemy-2', actorId: 'enemy', damage: 9999 }), { type: 'attack', targetId: 'hunt-enemy-2' });
         assert.equal(parseHuntCombatAction({ type: 'dash', tile: 120 }), null);
