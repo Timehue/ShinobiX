@@ -572,12 +572,11 @@ export { adminIconOptions } from "./data/admin-icons";
 // derived via balanceBuiltInPetTemplate from the imported lib).
 import {
     registerPublishedPetTemplates, renormalizedIfChanged,
-    applyPetTraitBonuses,
     collectPetTraining,
     gainPetXp,
 } from "./lib/pet-balance";
 import { chooseStarterPetServer } from "./lib/pet-acquisition-api";
-import { completeStarterPetCommit } from "./lib/starter-pet-commit";
+import { abandonStarterPet, completeStarterPetCommit, finishStarterPetHandoff, resumedStarterStep } from "./lib/starter-pet-commit";
 import { mergeMissingBuiltInPets, normalizePet, petPool } from "./lib/pet-roster";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "./lib/normalize-narrative-character";
 import { createAdminCharacter, createCharacter } from "./lib/create-character";
@@ -3734,7 +3733,43 @@ export default function App() {
         },
     });
     useEffect(() => { setEndlessBattleActive(Boolean(endlessFight)); }, [endlessFight]);
-    const starterPetCommitRef = useRef<{ accountName: string; promise: Promise<boolean> } | null>(null);
+    const starterPetCommitRef = useRef<{ accountName: string; promise: Promise<Pet | null> } | null>(null);
+
+    // Pet ownership is a server entitlement. The generic save route intentionally
+    // cannot add a new pet under the strict ledger, so the canonical starter
+    // commits through its dedicated endpoint. One attempt per account; a refused
+    // or failed attempt clears the ref so the picker can retry.
+    function commitStarterPet(accountName: string, pet: Pet): Promise<Pet | null> {
+        const inFlight = starterPetCommitRef.current;
+        if (inFlight?.accountName === accountName) return inFlight.promise;
+        const abandon = (message: string) => {
+            if (characterRef.current?.name !== accountName) return null;
+            setCharacter((current) => abandonStarterPet(current, accountName));
+            if (starterPetCommitRef.current?.accountName === accountName) starterPetCommitRef.current = null;
+            alert(message);
+            return null;
+        };
+        const promise = chooseStarterPetServer(accountName, pet)
+            .then((result) => {
+                if (!result.character) return abandon(result.error ?? "Your companion choice was not saved. Please choose again.");
+                const current = characterRef.current;
+                if (!current || saveConflictAccountKey(current.name) !== saveConflictAccountKey(accountName)) return null;
+                const committed = completeStarterPetCommit(current, result, pet.id, { commitCharacter: commitVersionedCharacter, activeAccountKey: activeSaveAccountKey(), latestVersion: latestSaveVersionRef.current });
+                return committed ? result.character.pets.find(entry => entry.id === pet.id) ?? result.character.pets[0]
+                    : abandon("Your companion choice could not be confirmed. Please try again.");
+            })
+            .catch(() => abandon("Your companion choice could not reach the server. Please choose again."));
+        starterPetCommitRef.current = { accountName, promise };
+        return promise;
+    }
+
+    // This session's own commit keeps playing the summon's closing dialogue, so
+    // only a save restored with the starter already owned resumes here.
+    const resumeStep = character && starterPetCommitRef.current?.accountName !== character.name
+        ? resumedStarterStep(character) : null;
+    useEffect(() => {
+        if (resumeStep) setCharacter((prev) => prev && { ...prev, onboardingStep: resumeStep });
+    }, [resumeStep, setCharacter]);
     usePlayerSaveVersionEvents(saveCoordinator.saveAuthority.acceptExternalVersion);
 
     function activeSaveAccountKey(): string {
@@ -5503,84 +5538,23 @@ export default function App() {
                 {introCinematicActive && character && (
                     <Suspense fallback={null}>
                     <IntroCinematic
-                        key={character.onboardingStep === "companionIntro" ? "companion" : "summon"}
+                        key={`${character.name}:${character.onboardingStep === "companionIntro" ? "companion" : "summon"}`}
                         character={character}
                         sharedImages={sharedImages}
+                        onChooseStarter={(pet, vow) => {
+                            // Commit on the confirming tap, not after the closing
+                            // dialogue and white-out: a phone that loses the tab in
+                            // that scene must not lose the choice and restart the summon.
+                            setCharacter((prev) => prev && { ...prev, academyVow: vow });
+                            return commitStarterPet(character.name, pet);
+                        }}
                         onComplete={(pet, vow) => {
-                            // Trait-bonus grant, then summon → companionIntro → training
-                            // (the guard makes pass 2 grant-free). FUNCTIONAL update: this
-                            // fires from a ~2.5s-old timer closure — a render-scope spread
-                            // would clobber updates that landed mid-white-out.
+                            // The server already owns the grant. Complete against the
+                            // latest character, so a stale white-out callback can only
+                            // advance a companion this account actually owns.
                             setCharacter((prev) => {
-                                if (!prev || prev.onboardingStep === "training") return prev;
-                                const priorStep = prev.onboardingStep;
-                                // This signed template trait is only an optimistic
-                                // placeholder; the starter endpoint replaces it
-                                // with the single authoritative random roll.
-                                const trait = pet.trait ?? "Loyal";
-                                const granted = applyPetTraitBonuses({ ...pet, trait }, trait);
-                                const already = prev.pets.some((p) => p.id === granted.id);
-                                const updated: Character = {
-                                    ...prev,
-                                    pets: already ? prev.pets : [...prev.pets, granted],
-                                    activePetId: prev.activePetId ?? granted.id,
-                                    // The answer selected in this run is authoritative.
-                                    // This matters after a failed starter-pet commit: the
-                                    // cinematic replays, and choosing a different vow must
-                                    // replace the abandoned attempt instead of preserving it.
-                                    academyVow: vow,
-                                    onboardingStep: prev.onboardingStep === "companionIntro" ? "training" : "companionIntro",
-                                };
-                                if ((priorStep === "academyIntro" || priorStep === "starter") && !already) {
-                                    // Pet ownership is a server entitlement. The generic save
-                                    // route intentionally cannot add a new pet under the strict
-                                    // ledger, so commit the canonical starter through its
-                                    // dedicated endpoint before the cinematic's second pass.
-                                    if (starterPetCommitRef.current?.accountName !== updated.name) {
-                                        const commit = chooseStarterPetServer(updated.name, pet)
-                                            .then((result) => {
-                                                if (!result.character) {
-                                                    setCharacter((current) => {
-                                                        if (!current || current.name !== updated.name) return current;
-                                                        return {
-                                                            ...current,
-                                                            pets: current.pets.filter((entry) => entry.id !== granted.id),
-                                                            activePetId: current.activePetId === granted.id ? undefined : current.activePetId,
-                                                            onboardingStep: "academyIntro",
-                                                        };
-                                                    });
-                                                    starterPetCommitRef.current = null; // else the replay pass sees this resolved-false promise and never retries
-                                                    alert(result.error ?? "Your companion choice was not saved. Please choose again.");
-                                                    return false;
-                                                }
-                                                const current = characterRef.current;
-                                                if (!current || saveConflictAccountKey(current.name) !== saveConflictAccountKey(updated.name)) return false;
-                                                return completeStarterPetCommit(current, result, granted.id, { commitCharacter: commitVersionedCharacter, activeAccountKey: activeSaveAccountKey(), latestVersion: latestSaveVersionRef.current });
-                                            })
-                                            .catch(() => {
-                                                setCharacter((current) => {
-                                                    if (!current || current.name !== updated.name) return current;
-                                                    return {
-                                                        ...current,
-                                                        pets: current.pets.filter((entry) => entry.id !== granted.id),
-                                                        activePetId: current.activePetId === granted.id ? undefined : current.activePetId,
-                                                        onboardingStep: "academyIntro",
-                                                    };
-                                                });
-                                                starterPetCommitRef.current = null; // same retry reset as the rejected-result path above
-                                                alert("Your companion choice could not reach the server. Please choose again.");
-                                                return false;
-                                            });
-                                        starterPetCommitRef.current = { accountName: updated.name, promise: commit };
-                                    }
-                                } else {
-                                    const starterCommit = starterPetCommitRef.current?.accountName === updated.name
-                                        ? starterPetCommitRef.current.promise
-                                        : null;
-                                    void (starterCommit ?? Promise.resolve(true)).then((committed) => {
-                                        if (committed) return pushSaveToServer(updated, updated.name);
-                                    }).catch(() => {});
-                                }
+                                const updated = finishStarterPetHandoff(prev, character.name, pet.id, vow);
+                                if (updated && updated !== prev) void pushSaveToServer(updated, updated.name).catch(() => {});
                                 return updated;
                             });
                         }}

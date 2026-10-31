@@ -3,6 +3,7 @@ import type { AiFightBattleKind } from "./ai-fight-api";
 import { reportAiFightWin, type AiFightReportResult } from "./ai-fight-api";
 import type { WorldAiFightContext } from "../../../shared/world-ai-fight";
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+import type { SoloPveTerminalReason } from '../../../shared/solo-pve-terminal';
 import { recordServerConfirmedPlayEvent } from "./google-play-games";
 
 /*
@@ -38,6 +39,8 @@ export type AiFightSettleResult = {
     /** True when the server verified and settled the fight (win OR loss). */
     settled: boolean;
     outcome: AiFightOutcome | null;
+    /** How the fight ended, so a player who fled is not told they were beaten. */
+    terminalReason?: SoloPveTerminalReason;
     /** What the server actually granted — never a client-side prediction. */
     ryo: number;
     statPoints: number;
@@ -157,6 +160,7 @@ export async function settleAiFight(params: {
     return {
         settled: true,
         outcome,
+        ...(reported.terminalReason ? { terminalReason: reported.terminalReason } : {}),
         ryo: Number(reported.ryo) || 0,
         statPoints: Math.max(0, Math.floor(Number(reported.statPoints) || 0)),
         ...(reported.statBudget && Number.isInteger(reported.statBudget.spent) && Number.isInteger(reported.statBudget.cap)

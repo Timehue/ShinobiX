@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { PVP_JOIN_WINDOW_MS } from "../../../shared/pvp-cancellation";
 import {
     COMBAT_MS,
     FIELD_MS,
@@ -90,6 +91,14 @@ describe("heartbeat cadence", () => {
         const OFFLINE_AFTER_MS = 90_000;
         assert.ok(HIDDEN_TAB_MS < OFFLINE_AFTER_MS,
             "the hidden-tab beat must land inside the presence TTL");
+    });
+
+    it("lets a hidden tab's slowest beat land before an unstarted duel is called off", () => {
+        // An attack on a backgrounded player is delivered by this beat. A join
+        // window shorter than it would let closing a laptop lid dodge the fight.
+        const slowestBeat = HIDDEN_TAB_MS * (1 + HEARTBEAT_JITTER_PCT);
+        assert.ok(slowestBeat < PVP_JOIN_WINDOW_MS,
+            "the join window must outlast one full hidden-tab beat");
     });
 
     it("leaves the visible cadences exactly as they were", () => {

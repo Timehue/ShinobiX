@@ -400,8 +400,9 @@ test('an unsolicited opponent cannot claim an AFK win before both fighters join'
     seed(session('unjoined-afk', {
         activePlayer: 'p2',
         joined: { p1: true, p2: false },
-        createdAt: Date.now() - 120_000,
-        lastMoveAt: Date.now() - 120_000,
+        // Inside the join window: past it, the server closes the duel instead.
+        createdAt: Date.now() - 60_000,
+        lastMoveAt: Date.now() - 60_000,
     }));
 
     const claim = await postMove('alice', {

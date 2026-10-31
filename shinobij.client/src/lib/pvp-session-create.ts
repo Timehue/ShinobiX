@@ -1,3 +1,4 @@
+import { PVP_OPPONENT_UNAVAILABLE } from "../../../shared/pvp-cancellation";
 import type { PvpSessionState } from "../types/pvp-ui";
 import { decidePvpCreateRecovery, type PendingPvpRecovery } from "./pvp-pending-session";
 import { fetchPendingPvpRecovery } from "./pvp-pending-fetch";
@@ -97,6 +98,7 @@ export async function createPvpSessionWithRecovery(
                 battleId?: unknown;
                 session?: unknown;
                 error?: unknown;
+                errorCode?: unknown;
                 canonicalResume?: unknown;
             } | null;
             if (options.signal?.aborted || !isCurrent()) throw abortError();
@@ -126,7 +128,7 @@ export async function createPvpSessionWithRecovery(
             lastError = typeof body?.error === "string" && body.error.trim()
                 ? body.error.trim()
                 : "The battle could not be started. Try again in a moment.";
-            if (response.status === 409 || response.status >= 500) {
+            if (body?.errorCode !== PVP_OPPONENT_UNAVAILABLE && (response.status === 409 || response.status >= 500)) {
                 ambiguous = true;
                 continue;
             }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import type { PvpSession } from './session.js';
-import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
+import { isCancelledUnstartedPvpDuel, PVP_JOIN_WINDOW_MS, PVP_NO_SHOW_CLAIM_MS } from '../../shared/pvp-cancellation.js';
 import { isWalkableTile } from '../../shared/sector-walk-mask.js';
 
 process.env.NODE_ENV = 'test';
@@ -83,6 +83,8 @@ async function seed(id: string) {
 test('cancellation releases both players and never writes their saves or runs browser settlement', async () => {
     for (const cancellingRole of ['p1', 'p2'] as const) {
         const session = await seed(`cancel-${cancellingRole}`);
+        // Whichever fighter is seated is the one left waiting.
+        await kv.set(`pvp:${session.battleId}`, { ...session, joined: { p1: cancellingRole === 'p1', p2: cancellingRole === 'p2' } });
         const saves = await Promise.all([session.p1, session.p2].map(f => kv.get(`save:${f.name}`)));
         const result = await call(move, session[cancellingRole].name, {
             battleId: session.battleId, role: cancellingRole, action: 'cancel-unjoined',
@@ -109,6 +111,194 @@ test('cancellation releases both players and never writes their saves or runs br
         assert.equal(retry.status, 200);
         assert.equal(retry.body.log.filter((line: string) => line.includes('cancelled the unstarted duel')).length, 1);
     }
+});
+
+/** Rewind a seeded duel so its creation is `ageMs` old. */
+async function aged(session: PvpSession, ageMs: number, patch: Partial<PvpSession> = {}) {
+    const createdAt = Date.now() - ageMs;
+    const row: PvpSession = { ...session, createdAt, lastMoveAt: createdAt, ...patch };
+    await kv.set(`pvp:${session.battleId}`, row);
+    for (const role of ['p1', 'p2'] as const) {
+        await kv.set(`pvp:pending-session:${session[role].name}`, JSON.stringify({
+            version: 1, playerName: session[role].name, battleId: session.battleId, role, createdAt, phase: 'active',
+        }));
+    }
+    return row;
+}
+
+test('the fighter being waited for cannot wave the attack off', async () => {
+    const session = await seed('cancel-by-absent');
+    const refused = await call(move, session.p2.name, { battleId: session.battleId, role: 'p2', action: 'cancel-unjoined' });
+    assert.equal(refused.status, 409);
+    assert.equal((await kv.get<PvpSession>(`pvp:${session.battleId}`))?.status, 'active');
+    const joined = await call(move, session.p2.name, { battleId: session.battleId, role: 'p2', action: 'join' });
+    assert.deepEqual(joined.body.joined, { p1: true, p2: true }, 'they can still take the fight');
+});
+
+test('a fighter who joined cannot use the join window to leave the fight', async () => {
+    const session = await seed('joined-cannot-dodge');
+    await aged(session, PVP_JOIN_WINDOW_MS * 2, { joined: { p1: true, p2: true }, turnStartedAt: Date.now() + 5_000 });
+    const refused = await call(move, session.p2.name, { battleId: session.battleId, role: 'p2', action: 'cancel-unjoined' });
+    assert.equal(refused.status, 409);
+    assert.equal((await kv.get<PvpSession>(`pvp:${session.battleId}`))?.status, 'active');
+});
+
+test('a no-show who went quiet gets a sleeper camp, because they were never marked as in battle', async () => {
+    const { sleeperCampForPresence } = await import('../_realtime/sleeper-camps.js');
+    const { resolveBattleAuthority, battleAuthorityKeys, battleEvidenceFrom } = await import('../_realtime/battle-authority.js');
+    const session = await seed('no-show-camp');
+    await kv.del(`pvp:pending-session:${session.p2.name}`, `battle-state:${session.p2.name}`);
+    const evidence = battleEvidenceFrom(await kv.mget(...battleAuthorityKeys(session.p2.name)));
+    const authority = await resolveBattleAuthority(session.p2.name, evidence);
+    assert.equal(authority.inBattle, false, 'an unjoined defender holds no pointer');
+    const presence = online.get(session.p2.name)!;
+    assert.equal(sleeperCampForPresence({ ...presence, inBattle: authority.inBattle }, Date.now())?.sector, 53);
+});
+
+test('the join window is the offline window, so a silent fighter is never called off early', async () => {
+    const { OFFLINE_AFTER_MS } = await import('../_realtime/online-store.js');
+    assert.equal(PVP_JOIN_WINDOW_MS, OFFLINE_AFTER_MS);
+});
+
+test('a fighter who never joins forfeits: the attacker is released, the no-show is hurt, and nobody is paid', async () => {
+    const session = await seed('no-show');
+    const inbox = `challenges:${session.p2.name}`;
+    await kv.set(inbox, [{ id: 'no-show-notice', fromName: session.p1.name, toName: session.p2.name, sectorAttack: true, battleId: session.battleId }], { ex: 180 });
+    await aged(session, PVP_JOIN_WINDOW_MS + 1, { rewardSector: 53 });
+
+    // Nothing but the waiting fighter's own poll runs here.
+    const read = await call(getSession, session.p1.name, {}, { id: session.battleId });
+    assert.equal(read.status, 200);
+    assert.equal(read.body.status, 'done');
+    assert.equal(read.body.winner, 'p1');
+    assert.equal(read.body.terminalReason, 'no-show');
+    assert.equal(isCancelledUnstartedPvpDuel(read.body), false);
+    assert.equal(read.body.log.at(-1), `${session.p2.name} did not join in time and forfeits the duel.`);
+    assert.equal(await kv.get(inbox), null, 'the late fighter is not routed into a finished duel');
+
+    const absent = (await kv.get<{ character: Record<string, unknown> }>(`save:${session.p2.name}`))!.character;
+    assert.equal(absent.hp, 0);
+    assert.equal(absent.hospitalized, true);
+    assert.ok(Number(absent.pvpShieldUntil) > Date.now(), 'the same Field Recovery every defeat grants, so they cannot be hit again at once');
+
+    const reward = await call(claim, session.p1.name, { battleId: session.battleId, outcome: 'win', completionVersion: 1 });
+    assert.equal(reward.status, 200, JSON.stringify(reward.body));
+    assert.equal(reward.body.rewardAuthorized, false);
+    assert.equal(reward.body.progressionAuthorized, false);
+    assert.equal(reward.body.base, undefined);
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${session.p1.name}`))!.character.ryo, 700, 'a forfeit pays the winner nothing');
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${session.p2.name}`))!.character.ryo, 700);
+
+    // Replays are constant from here on; the notice must not repeat with them.
+    await call(getSession, session.p1.name, {}, { id: session.battleId });
+    await call(claim, session.p2.name, { battleId: session.battleId, outcome: 'loss', completionVersion: 1 });
+    const notices = await kv.get<{ kind: string; by: string; sector: number }[]>(`offline-notices:${session.p2.name}`);
+    assert.deepEqual(notices?.map(({ kind, by, sector }) => ({ kind, by, sector })),
+        [{ kind: 'duel-no-show', by: session.p1.name, sector: 53 }]);
+    assert.equal(online.get(session.p1.name)?.pendingAttacker, null);
+});
+
+test('a forfeit needs someone still there to win it, so a duel both fighters left is only called off', async () => {
+    const session = await seed('both-left');
+    const saves = await Promise.all([session.p1, session.p2].map(f => kv.get(`save:${f.name}`)));
+    await aged(session, PVP_JOIN_WINDOW_MS + PVP_NO_SHOW_CLAIM_MS + 1);
+
+    const read = await call(getSession, session.p2.name, {}, { id: session.battleId });
+    assert.equal(read.status, 200);
+    assert.equal(isCancelledUnstartedPvpDuel(read.body), true);
+    assert.equal(read.body.terminalReason, 'cancelled-unjoined');
+    assert.equal(read.body.log.at(-1), `${session.p2.name} did not join in time, so the duel was called off.`);
+    for (const [i, fighter] of [session.p1, session.p2].entries()) {
+        assert.equal(online.moveToTile(fighter.name, 65)?.tile, 65, 'movement resumes for both fighters');
+        assert.equal(online.get(fighter.name)?.pendingAttacker, null);
+        assert.equal(await kv.get(`pvp:pending-session:${fighter.name}`), null);
+        assert.deepEqual(await kv.get(`save:${fighter.name}`), saves[i], 'no damage, reward, or version write');
+        const reward = await call(claim, fighter.name, { battleId: session.battleId, outcome: 'draw', completionVersion: 1 });
+        assert.equal(reward.status, 200);
+        assert.equal(reward.body.rewardAuthorized, false);
+    }
+});
+
+test('a fighter inside the join window keeps their seat', async () => {
+    const session = await seed('join-in-time');
+    await aged(session, PVP_JOIN_WINDOW_MS - 10_000);
+    const read = await call(getSession, session.p1.name, {}, { id: session.battleId });
+    assert.equal(read.body.status, 'active');
+    const joined = await call(move, session.p2.name, { battleId: session.battleId, role: 'p2', action: 'join' });
+    assert.equal(joined.status, 200);
+    assert.deepEqual(joined.body.joined, { p1: true, p2: true });
+    assert.equal(joined.body.status, 'active');
+    const later = await call(getSession, session.p1.name, {}, { id: session.battleId });
+    assert.equal(later.body.status, 'active');
+});
+
+test('a join that arrives after the window lands on the forfeit instead of starting the duel', async () => {
+    const session = await seed('late-join');
+    await aged(session, PVP_JOIN_WINDOW_MS + 1);
+    const joined = await call(move, session.p2.name, { battleId: session.battleId, role: 'p2', action: 'join' });
+    assert.equal(joined.status, 200);
+    assert.equal(joined.body.status, 'done');
+    assert.equal(joined.body.joined.p2, false);
+    assert.equal(joined.body.winner, 'p1');
+    assert.equal(joined.body.terminalReason, 'no-show');
+    const retry = await call(move, session.p2.name, { battleId: session.battleId, role: 'p2', action: 'join' });
+    assert.equal(retry.body.log.filter((line: string) => line.includes('forfeits')).length, 1);
+    assert.equal((await kv.get<unknown[]>(`offline-notices:${session.p2.name}`))?.length, 1);
+    const reward = await call(claim, session.p2.name, { battleId: session.battleId, outcome: 'loss', completionVersion: 1 });
+    assert.equal(reward.status, 200, JSON.stringify(reward.body));
+    assert.equal(reward.body.rewardAuthorized, false);
+});
+
+test('a fighter returning long after both left walks in on a call-off, not a hospital bed', async () => {
+    const session = await seed('late-return');
+    await aged(session, PVP_JOIN_WINDOW_MS + PVP_NO_SHOW_CLAIM_MS + 1);
+    const joined = await call(move, session.p2.name, { battleId: session.battleId, role: 'p2', action: 'join' });
+    assert.equal(isCancelledUnstartedPvpDuel(joined.body), true);
+    assert.equal((await kv.get<{ character: { hp: number } }>(`save:${session.p2.name}`))!.character.hp, 95);
+    assert.equal(await kv.get(`offline-notices:${session.p2.name}`), null);
+});
+
+test('reloading onto a forfeit shows the waiting fighter their result', async () => {
+    const session = await seed('reload-after-window');
+    await aged(session, PVP_JOIN_WINDOW_MS + 1);
+    const probe = await call(getSession, session.p1.name, {}, {
+        pending: '1', playerName: session.p1.name, recoveryProbeVersion: '2',
+    });
+    assert.equal(probe.status, 200, JSON.stringify(probe.body));
+    assert.equal(probe.body.outcome, 'win');
+    assert.equal(probe.body.session.terminalReason, 'no-show');
+});
+
+test('reloading onto a duel nobody was left to win goes straight back to the world', async () => {
+    const session = await seed('reload-after-both-left');
+    await aged(session, PVP_JOIN_WINDOW_MS + PVP_NO_SHOW_CLAIM_MS + 1);
+    const probe = await call(getSession, session.p1.name, {}, {
+        pending: '1', playerName: session.p1.name, recoveryProbeVersion: '2',
+    });
+    assert.equal(probe.status, 204);
+    assert.equal((await kv.get<PvpSession>(`pvp:${session.battleId}`))?.status, 'done');
+    assert.equal(await kv.get(`pvp:pending-session:${session.p1.name}`), null);
+});
+
+test('the join window leaves every duel alone that is not an unstarted casual one', async () => {
+    const seated = await seed('window-seated');
+    await aged(seated, PVP_JOIN_WINDOW_MS * 2, { joined: { p1: true, p2: true }, turnStartedAt: Date.now() + 5_000 });
+    const clanWar = await seed('window-clan-war');
+    await aged(clanWar, PVP_JOIN_WINDOW_MS * 2, { clanWarId: 'war', rewardAuthority: 'clan-war' });
+    for (const session of [seated, clanWar]) {
+        const read = await call(getSession, session.p1.name, {}, { id: session.battleId });
+        assert.equal(read.status, 200);
+        assert.equal(read.body.status, 'active', session.battleId);
+    }
+});
+
+test('the live stream wakes at the join deadline rather than on its next safety poll', async () => {
+    const { pvpTurnNextCheckAt, pvpTurnDeadlineNeedsWork } = await import('./_turn-deadline.js');
+    const session = await seed('stream-deadline');
+    const deadline = session.createdAt + PVP_JOIN_WINDOW_MS;
+    assert.equal(pvpTurnNextCheckAt(session, session.createdAt), deadline);
+    assert.equal(pvpTurnDeadlineNeedsWork(session, deadline - 1), false);
+    assert.equal(pvpTurnDeadlineNeedsWork(session, deadline), true);
 });
 
 test('cancelling drops the defender\'s sector-attack notice so the heartbeat cannot route them back in', async () => {

@@ -124,10 +124,25 @@ test('a cold clan pet battle requests its pet art without a prior pet-screen vis
     await expect.poll(() => categories.has('pet')).toBe(true);
 });
 
-test('an accepted clan match waits until the current pet battle exits before replacing its binding', async ({ page }) => {
+test('an accepted clan match waits until the current pet battle exits before replacing its binding', async ({ page }, info) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
     const save = uiAuditSave();
     save.character = { ...save.character, clan: 'Audit Clan' };
     const runtime = await installUiAuditRuntime(page, save);
+    // Return briefly mounts Clan Hall before the queued match launches. The
+    // generic audit fallback is {}, not a clan document: returning 200 made
+    // Clan Hall throw on members.find while this test exercised the handoff.
+    await page.route('**/api/save/clan-auditclan', route => route.fulfill({ status: 404, json: { error: 'Clan unavailable in this fixture' } }));
+    await page.addInitScript(() => {
+        const writes: { value: string; stack?: string }[] = [];
+        Object.assign(window, { __clanBindingWrites: writes });
+        const setItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key: string, value: string) {
+            if (this === sessionStorage && key === 'clanWarChallenge.v1') writes.push({ value, stack: new Error().stack });
+            return setItem.call(this, key, value);
+        };
+    });
     await page.addInitScript(() => sessionStorage.setItem('clanWarChallenge.v1', JSON.stringify({
         warId: 'old-war', challengeId: 'old-pets', fromPlayer: 'AuditNinja', acceptedPlayer: 'Rival',
     })));
@@ -156,9 +171,14 @@ test('an accepted clan match waits until the current pet battle exits before rep
     await page.waitForTimeout(500);
     expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('clanWarChallenge.v1') ?? '{}').challengeId)).toBe('old-pets');
     await page.getByRole('button', { name: 'Return to Clan War', exact: true }).click();
-    await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('clanWarChallenge.v1') ?? '{}').challengeId)).toBe('next-pets');
+    try {
+        await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('clanWarChallenge.v1') ?? '{}').challengeId)).toBe('next-pets');
+    } finally {
+        await info.attach('clan-binding-writes', { body: JSON.stringify(await page.evaluate(() => Reflect.get(window, '__clanBindingWrites'))), contentType: 'application/json' });
+    }
     await expect(page.getByText(/Next Companion stands ready/)).toBeVisible();
     expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('clanWarChallenge.v1') ?? '{}').challengeId)).toBe('next-pets');
+    expect(pageErrors).toEqual([]);
 });
 
 test('a pet replay outage offers a retry and preserves the recorded result', async ({ page }) => {

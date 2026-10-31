@@ -32,12 +32,12 @@ export async function chooseStarterPetServer(playerName: string, pet: Pet): Prom
 export function reconcileOwnedStarter(current: Character, server: Character, optimisticPetId: string): Character {
     const canonicalPet = server.pets.find((entry) => entry.id === optimisticPetId) ?? server.pets[0];
     if (!canonicalPet) return current;
-    const hasOptimisticPet = current.pets.some((entry) => entry.id === optimisticPetId);
+    // A lost acknowledgement followed by a different choice returns the first
+    // owned starter. Replace both ids once; never append a duplicate canonical pet.
+    const pets = current.pets.filter((entry) => entry.id !== optimisticPetId && entry.id !== canonicalPet.id);
     return {
         ...current,
-        pets: hasOptimisticPet
-            ? current.pets.map((entry) => entry.id === optimisticPetId ? canonicalPet : entry)
-            : [...current.pets, canonicalPet],
+        pets: [...pets, canonicalPet],
         activePetId: !current.activePetId || current.activePetId === optimisticPetId ? canonicalPet.id : current.activePetId,
     };
 }

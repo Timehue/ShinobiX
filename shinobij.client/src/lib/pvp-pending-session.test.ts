@@ -14,6 +14,7 @@ import {
 } from "./pvp-pending-fetch";
 import { createPvpSessionWithRecovery } from "./pvp-session-create";
 import type { PvpSessionState } from "../types/pvp-ui";
+import { PVP_OPPONENT_UNAVAILABLE } from "../../../shared/pvp-cancellation";
 
 function session(overrides: Partial<PvpSessionState> = {}): PvpSessionState {
     return {
@@ -52,6 +53,27 @@ describe("pending PvP browser recovery", () => {
     let keepEventLoopAlive: ReturnType<typeof setInterval>;
     before(() => { keepEventLoopAlive = setInterval(() => {}, 60_000); });
     after(() => { clearInterval(keepEventLoopAlive); });
+    it("a definitive boss-queue refusal still recovers an existing active fight or unpaid result", async () => {
+        for (const status of ["active", "done"] as const) {
+            const sealed = session({ status, winner: status === "done" ? "p1" : null });
+            let creates = 0;
+            const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+                if (init?.method === "POST") {
+                    creates++;
+                    return new Response(JSON.stringify({ error: "Players waiting for a world boss team are protected from PvP.",
+                        errorCode: PVP_OPPONENT_UNAVAILABLE }), { status: 409 });
+                }
+                return new Response(JSON.stringify({ battleId: sealed.battleId, role: "p1", session: sealed }), { status: 200 });
+            }) as typeof fetch;
+            const result = await createPvpSessionWithRecovery(fetchFn, "Alice", JSON.stringify({ battleId: "new-intent" }), { wait: async () => undefined });
+            assert.equal(creates, 1);
+            assert.equal(result.kind, "recovered");
+            if (result.kind === "recovered") {
+                assert.equal(result.pending.session.status, status);
+                assert.equal(result.pending.battleId, sealed.battleId);
+            }
+        }
+    });
     it("keeps lost create responses routed and adopts a published pending pointer", () => {
         const pending = {
             battleId: "pvp-published",

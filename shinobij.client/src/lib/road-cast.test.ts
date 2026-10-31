@@ -102,3 +102,11 @@ test("each road fight ends with a line about the one you fought", () => {
     assert.equal(roadFightAftermath({ sourceId: "w-12-5000-0", name: "Kano Two-Blades", won: true, nemesisTier: 1 }), null, "a beaten bandit needs no epilogue");
     assert.match(roadFightAftermath({ sourceId: "w-12-5000-2", name: "Nightjar Reiko", won: false, nemesisTier: 1 })!, /Kagero/u);
 });
+
+test("a player who broke away is never told they were beaten or robbed", () => {
+    const line = roadFightAftermath({ sourceId: "w-12-5000-0", name: "Kano Two-Blades", won: false, brokeAway: true, nemesisTier: 1 })!;
+    assert.match(line, /broke away from Kano Two-Blades/u);
+    assert.doesNotMatch(line, /took what they wanted|you lost/u);
+    assert.doesNotMatch(roadFightAftermath({ sourceId: `w-12-5000-${WANDERER_RIFT_INDEX}`, won: false, brokeAway: true, nemesisTier: 1 })!, /bleeding/u);
+    assert.match(roadFightAftermath({ sourceId: "nemesis", won: false, brokeAway: true, nemesisTier: 1 })!, /Kagero/u);
+});

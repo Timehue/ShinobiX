@@ -108,7 +108,7 @@ import { earnedStatPoints } from "../lib/stats";
 import { useSocialLock } from "../lib/account-status";
 import { fetchBountyReceipt, type BountyReceipt } from "../lib/pvp-bounty";
 import { PvpBattleResultPanel, type PvpBattleOutcome } from "../components/PvpBattleResultPanel";
-import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel } from "../../../shared/pvp-cancellation";
+import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel, isPvpNoShowForfeit } from "../../../shared/pvp-cancellation";
 import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
@@ -1218,6 +1218,7 @@ export function PvpBattleScreen({
             draw: isDrawNow,
             spar: effectiveIsSpar,
             role: outcome === "loss" ? "loss" : "win",
+            noShow: isPvpNoShowForfeit(resolvedSession),
         }));
         setPvpImpactLines(isDrawNow || effectiveIsSpar ? [] : pvpRewardImpactLines(result));
         const runCompletion = !isCancelledUnstartedPvpDuel(resolvedSession) && shouldRunPvpRewardCompletion(
