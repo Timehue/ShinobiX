@@ -180,6 +180,16 @@ describe('isMalformedJsonBodyError', () => {
 });
 
 describe('mergePreservingImages', () => {
+    it('never pairs a new id with whatever row sits at its index', () => {
+        const row = (id: string) => ({ id, outcome: { kind: 'chest', openedLoot: { ryo: 345 } } });
+        const fresh = { id: 'new', outcome: { kind: 'none' } };
+        const merged = mergePreservingImages({ list: [row('b'), fresh] }, { list: [row('a'), row('b')] }) as { list: unknown[] };
+        assert.deepEqual(merged.list, [row('b'), fresh]);
+    });
+    it('still pairs rows by position when a side has no id to compare', () => {
+        assert.deepEqual(mergePreservingImages([{ a: 1 }], [{ b: 2 }]), [{ b: 2, a: 1 }]);
+        assert.deepEqual(mergePreservingImages([{ id: 'x', a: 1 }], [{ b: 2 }]), [{ b: 2, id: 'x', a: 1 }]);
+    });
     it('campaign stage transitions clear spent counters and migration drops the old completion', () => {
         const existing = { character: { eraJourneys: { 'shinobi-awakening': { completedAt: 1000, stageCounts: { 'missions-C': 30 } } } } };
         const incoming = { character: { eraJourneys: { 'shinobi-awakening': { version: 2, stageIndex: 1, stageCounts: {} } } } };
