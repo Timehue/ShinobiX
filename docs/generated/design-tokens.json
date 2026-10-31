@@ -2313,7 +2313,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1311
+            "line": 1389
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -3278,7 +3278,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1323
+            "line": 1409
           }
         ]
       },
@@ -3735,11 +3735,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 973
+            "line": 1049
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1317
+            "line": 1397
           }
         ]
       },
@@ -3758,7 +3758,7 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1497
+            "line": 1591
           },
           {
             "source": "shinobij.client/src/styles/jutsu-frames.css",
@@ -4252,15 +4252,15 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 973
+            "line": 1049
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1130
+            "line": 1211
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1150
+            "line": 1231
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
@@ -4394,7 +4394,7 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1317
+            "line": 1397
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
