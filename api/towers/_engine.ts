@@ -2897,10 +2897,10 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
                 }
             }
             session.log.push(`${actor.name} uses ${item.name ?? 'an item'} — ${smoke
-                ? 'next round, both sides deal 0 direct-hit damage, except Pierce. Ongoing damage still applies.'
+                ? 'next round, both sides deal 0 direct-hit damage.'
                 : item.id === 'item-attack-pill'
                     ? 'deals 15% more damage for 2 rounds, starting next round.'
-                    : 'takes 15% less direct-hit damage for 2 rounds, starting next round. Pierce and ongoing damage bypass this protection.'}`);
+                    : 'takes 15% less direct-hit damage for 2 rounds, starting next round.'}`);
         } else if (canonicalTagName(String(item.weaponEffect ?? '')) === 'Decrease Damage Given') {
             // Smoke Bomb-style combat items are field debuffs: the enemy side is always
             // weakened, and weaponEffectTarget="both" also weakens the user.

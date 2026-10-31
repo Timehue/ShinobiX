@@ -172,8 +172,8 @@ describe('applyJutsu characterization — amp / DR pools', () => {
         assert.deepEqual(
             mastery8.lines.filter((line) => line.startsWith('Increase Damage Given (stack')),
             [
-                'Increase Damage Given (stack 1/2): A deals more damage for 2 rounds, starting next round.',
-                'Increase Damage Given (stack 2/2): A deals more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 1/2): A deals 21% more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 2/2): A deals 21% more damage for 2 rounds, starting next round.',
             ],
         );
         const mastery8FollowUp = applyJutsu(
@@ -192,8 +192,8 @@ describe('applyJutsu characterization — amp / DR pools', () => {
         assert.deepEqual(
             mastery50.lines.filter((line) => line.startsWith('Increase Damage Given (stack')),
             [
-                'Increase Damage Given (stack 1/2): A deals more damage for 2 rounds, starting next round.',
-                'Increase Damage Given (stack 2/2): A deals more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 1/2): A deals 30% more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 2/2): A deals 30% more damage for 2 rounds, starting next round.',
             ],
         );
         const mastery50FollowUp = applyJutsu(
@@ -205,5 +205,21 @@ describe('applyJutsu characterization — amp / DR pools', () => {
             2,
         );
         assert.equal(3000 - mastery50FollowUp.opponent.hp, 1483);
+    });
+});
+
+describe('applyJutsu battle log — percentages', () => {
+    it('prints the percent each status carries, so the log matches what the jutsu says', () => {
+        const names = [
+            'Absorb', 'Reflect', 'Lifesteal', 'Increase Damage Given', 'Decrease Damage Given',
+            'Increase Damage Taken', 'Decrease Damage Taken', 'Ignition', 'Increase Generals', 'Increase Discipline',
+        ];
+        const r = applyJutsu(fighter('A'), fighter('B'), jutsu(names.map((name) => ({ name, percent: 30 }))), 1, 'central', 1);
+        for (const name of names) {
+            const status = [...r.self.statuses, ...r.opponent.statuses].find((entry) => entry.name === name);
+            assert.ok(status?.percent, `${name} should carry a percent`);
+            const line = r.lines.find((entry) => entry.startsWith(`${name}:`));
+            assert.ok(line?.includes(`${status.percent}%`), `${name} log line should show ${status.percent}%: ${line}`);
+        }
     });
 });

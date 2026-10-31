@@ -510,7 +510,7 @@ export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroun
         // Movement and expiration also remove zone-sourced statuses immediately.
         if (tagName === 'Decrease Damage Given') {
             next = addGroundStatus(next, { name: 'Decrease Damage Given', rounds: 1, percent: pct, kind: 'negative' }, effect.id);
-            lines.push(`${effect.name}: ${next.name} deals less damage while in this field.`);
+            lines.push(`${effect.name}: ${next.name} deals ${pct}% less damage while in this field.`);
         } else if (tagName === 'Recoil') {
             next = addGroundStatus(next, { name: 'Recoil', rounds: 1, percent: pct, kind: 'negative' }, effect.id);
             lines.push(`${effect.name}: ${next.name} loses HP equal to ${pct}% of damage dealt by their attacks while in this field.`);
@@ -844,16 +844,16 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
             }
             continue;
         }
-        if (tagName === 'Absorb') { if (!blocksBuff(s, 'Absorb')) { s = addJutsuStatus(s, jutsu, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Absorb: ${s.name} restores HP from damage received after shields ${effectWindow}.`); } continue; }
-        if (tagName === 'Reflect') { if (!blocksBuff(s, 'Reflect')) { s = addJutsuStatus(s, jutsu, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Reflect: ${s.name} returns a share of damage received after shields to the attacker ${effectWindow}.`); } continue; }
-        if (tagName === 'Lifesteal') { if (!blocksBuff(s, 'Lifesteal')) { s = addJutsuStatus(s, jutsu, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Lifesteal: ${s.name} restores HP when dealing damage ${effectWindow}.`); } continue; }
-        if (tagName === 'Increase Damage Given') { if (!blocksBuff(s, 'Increase Damage Given')) { s = addJutsuStatus(s, jutsu, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Damage Given${stackLabel}: ${s.name} deals more damage ${effectWindow}.`); } continue; }
-        if (tagName === 'Decrease Damage Given') { if (!blocksDebuff(o, 'Decrease Damage Given')) { o = addJutsuStatus(o, jutsu, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Decrease Damage Given: ${o.name} deals less damage ${effectWindow}.`); } continue; }
-        if (tagName === 'Increase Damage Taken') { if (!blocksDebuff(o, 'Increase Damage Taken')) { o = addJutsuStatus(o, jutsu, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Increase Damage Taken: ${o.name} takes more damage ${effectWindow}.`); } continue; }
-        if (tagName === 'Decrease Damage Taken') { if (!blocksBuff(s, 'Decrease Damage Taken')) { s = addJutsuStatus(s, jutsu, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Decrease Damage Taken: ${s.name} takes less damage ${effectWindow}.`); } continue; }
-        if (tagName === 'Ignition') { if (!blocksDebuff(o, 'Ignition')) { o = addJutsuStatus(o, jutsu, { name: 'Ignition', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Ignition: ${o.name} takes more damage ${effectWindow}.`); } continue; }
+        if (tagName === 'Absorb') { if (!blocksBuff(s, 'Absorb')) { s = addJutsuStatus(s, jutsu, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Absorb: ${s.name} restores HP from ${pct}% of damage received after shields ${effectWindow}.`); } continue; }
+        if (tagName === 'Reflect') { if (!blocksBuff(s, 'Reflect')) { s = addJutsuStatus(s, jutsu, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Reflect: ${s.name} returns ${pct}% of damage received after shields to the attacker ${effectWindow}.`); } continue; }
+        if (tagName === 'Lifesteal') { if (!blocksBuff(s, 'Lifesteal')) { s = addJutsuStatus(s, jutsu, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Lifesteal: ${s.name} restores HP equal to ${pct}% of damage dealt ${effectWindow}.`); } continue; }
+        if (tagName === 'Increase Damage Given') { if (!blocksBuff(s, 'Increase Damage Given')) { s = addJutsuStatus(s, jutsu, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Damage Given${stackLabel}: ${s.name} deals ${pct}% more damage ${effectWindow}.`); } continue; }
+        if (tagName === 'Decrease Damage Given') { if (!blocksDebuff(o, 'Decrease Damage Given')) { o = addJutsuStatus(o, jutsu, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Decrease Damage Given: ${o.name} deals ${pct}% less damage ${effectWindow}.`); } continue; }
+        if (tagName === 'Increase Damage Taken') { if (!blocksDebuff(o, 'Increase Damage Taken')) { o = addJutsuStatus(o, jutsu, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Increase Damage Taken: ${o.name} takes ${pct}% more damage ${effectWindow}.`); } continue; }
+        if (tagName === 'Decrease Damage Taken') { if (!blocksBuff(s, 'Decrease Damage Taken')) { s = addJutsuStatus(s, jutsu, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Decrease Damage Taken: ${s.name} takes ${pct}% less damage ${effectWindow}.`); } continue; }
+        if (tagName === 'Ignition') { if (!blocksDebuff(o, 'Ignition')) { o = addJutsuStatus(o, jutsu, { name: 'Ignition', rounds: 2, percent: pct, kind: 'negative' }, round); lines.push(`Ignition: ${o.name} takes ${pct}% more damage ${effectWindow}.`); } continue; }
         if (tagName === 'Debuff Prevent') { s = addJutsuStatus(s, jutsu, { name: 'Debuff Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Debuff Prevent: ${s.name} blocks new negative status effects ${effectWindow}.`); continue; }
-        if (tagName === 'Buff Prevent') { if (!blocksDebuff(o, 'Buff Prevent')) { o = addJutsuStatus(o, jutsu, { name: 'Buff Prevent', rounds: 2, kind: 'negative' }, round); lines.push(`Buff Prevent: ${o.name} cannot gain new buffs ${effectWindow}. Direct healing and shields still work.`); } continue; }
+        if (tagName === 'Buff Prevent') { if (!blocksDebuff(o, 'Buff Prevent')) { o = addJutsuStatus(o, jutsu, { name: 'Buff Prevent', rounds: 2, kind: 'negative' }, round); lines.push(`Buff Prevent: ${o.name} cannot gain new buffs ${effectWindow}.`); } continue; }
         if (tagName === 'Cleanse Prevent') { if (!blocksDebuff(o, 'Cleanse Prevent')) { o = addJutsuStatus(o, jutsu, { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' }, round); lines.push(`Cleanse Prevent: ${o.name} cannot remove negative effects with Cleanse ${effectWindow}.`); } continue; }
         if (tagName === 'Clear Prevent') { if (!blocksBuff(s, 'Clear Prevent')) { s = addJutsuStatus(s, jutsu, { name: 'Clear Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Clear Prevent: ${s.name}'s buffs cannot be removed by Clear ${effectWindow}.`); } continue; }
         if (tagName === 'Stun Prevent') { s = addJutsuStatus(s, jutsu, { name: 'Stun Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Stun Prevent: ${s.name} blocks new Stun effects ${effectWindow}.`); continue; }
@@ -881,7 +881,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
                     o = addJutsuStatus(o, jutsu, { ...st, rounds: 2 }, round);
                     if (nameMatches(st.name, 'Wound')) o = capWoundStacks(o, round);
                 });
-                lines.push(`Mirror: ${s.name} copies ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}; copied effects apply ${effectWindow}. The originals remain on ${s.name}.`);
+                lines.push(`Mirror: ${s.name} copies ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}; copied effects apply ${effectWindow}.`);
             } else {
                 lines.push(`Mirror: ${o.name}'s Debuff Prevent blocks the mirrored debuffs.`);
             }
@@ -898,7 +898,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // fighters are built, so it raises this fighter's offense AND defense. Stores the
         // scaled + rank-capped pct like the amp tags; stacks (STACKABLE_STATUS) but the
         // summed effect is soft-capped by K_GENERALS.
-        if (tagName === 'Increase Generals') { if (!blocksBuff(s, 'Increase Generals')) { s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name} gains strength, speed, intelligence, and willpower ${effectWindow}.`); } continue; }
+        if (tagName === 'Increase Generals') { if (!blocksBuff(s, 'Increase Generals')) { s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name} gains ${pct}% strength, speed, intelligence, and willpower ${effectWindow}.`); } continue; }
         // Increase Discipline (legacy signature jutsu): style-locked self-buff. Lifts
         // ONLY the offense composite of the cast jutsu's discipline — the discipline is
         // captured server-side from jutsu.type here (never client-supplied) and read
@@ -908,7 +908,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
             const disc = DISCIPLINE_OFFENSE_FIELD[String(jutsu.type ?? '')] ? (jutsu.type as PvpStatus['discipline']) : undefined;
             if (disc && !blocksBuff(s, 'Increase Discipline')) {
                 s = addJutsuStatus(s, jutsu, { name: 'Increase Discipline', rounds: 2, percent: pct, kind: 'positive', discipline: disc }, round);
-                lines.push(`Increase Discipline: ${s.name} gains ${disc} attack power ${effectWindow}.`);
+                lines.push(`Increase Discipline: ${s.name} gains ${pct}% ${disc} attack power ${effectWindow}.`);
             }
             continue;
         }
@@ -917,7 +917,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // whatever the jutsu's range, stopping at the first hex it cannot enter.
         if (tagName === 'Push') { if (!blocksDebuff(o, 'Push')) { const dist = PUSH_PULL_TILES; let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!away.length) break; nextPos = away[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${movedTiles} tile(s).`); } continue; }
         if (tagName === 'Pull') { if (!blocksDebuff(o, 'Pull')) { const dist = PUSH_PULL_TILES; let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!toward.length) break; nextPos = toward[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${movedTiles} tile(s).`); } continue; }
-        if (tagName === 'Bloodline Seal') { if (!blocksDebuff(o, 'Bloodline Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round, true); lines.push(`Bloodline Seal: ${o.name}'s bloodline bonus and General/Discipline bonuses are suppressed for 2 rounds, starting now. Jutsu remain usable.`); } continue; }
+        if (tagName === 'Bloodline Seal') { if (!blocksDebuff(o, 'Bloodline Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round, true); lines.push(`Bloodline Seal: ${o.name}'s bloodline bonus and General/Discipline bonuses are suppressed for 2 rounds, starting now.`); } continue; }
         if (tagName === 'Elemental Seal') { if (!blocksDebuff(o, 'Elemental Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Elemental Seal', rounds: 1, kind: 'negative' }, round); lines.push(`Elemental Seal: ${o.name} cannot use Fire, Water, Wind, Earth, or Lightning jutsu next round.`); } continue; }
         // Recoil applies regardless of THIS jutsu's damage — a zero-damage 40-AP
         // utility jutsu carrying Recoil still seeds it (matches the client/PvE).
@@ -2715,10 +2715,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const affectedMe = addStatus(me, status, session.round);
                     const affectedOpp = id === 'item-smoke-bomb' ? addStatus(opp, status, session.round) : opp;
                     lines.push(`${me.name} uses ${serverItem.name ?? 'Item'}: ${id === 'item-smoke-bomb'
-                        ? 'next round, both fighters deal 0 direct-hit damage, except Pierce. Ongoing damage still applies.'
+                        ? 'next round, both fighters deal 0 direct-hit damage.'
                         : id === 'item-attack-pill'
                             ? 'deals 15% more damage for 2 rounds, starting next round.'
-                            : 'takes 15% less direct-hit damage for 2 rounds, starting next round. Pierce and ongoing damage bypass this protection.'}`);
+                            : 'takes 15% less direct-hit damage for 2 rounds, starting next round.'}`);
                     result = commit(
                         affectedMe, affectedOpp, iApCost, iCd, iSpend.patch, undefined,
                         id === 'item-smoke-bomb'

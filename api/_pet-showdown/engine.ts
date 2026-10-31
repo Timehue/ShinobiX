@@ -452,7 +452,7 @@ export function moveEffectText(kind: string, power: number, element?: string): s
     if (kind === 'shield' || kind === 'barrier' || kind === 'absorb') {
         return `Absorbs ${Math.max(40, Math.round(power * 1.05))} damage for up to 2 rounds.`;
     }
-    if (kind === 'protect') return 'Blocks direct hits for the rest of this round. Ongoing damage still applies. Fails if used in consecutive rounds.';
+    if (kind === 'protect') return 'Blocks direct hits for the rest of this round. Fails if used in consecutive rounds.';
     if (fx.mult === 0) return fx.blurb;
     if (fx.mult === 1) return fx.blurb;
     return `${fx.blurb}. Direct damage: ${Math.round(fx.mult * 100)}% of a normal hit.`;

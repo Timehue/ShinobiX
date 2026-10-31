@@ -34,7 +34,7 @@ const STATUS_TITLE: Record<string, string> = {
     mark: "Marked — the next hit lands harder",
     slow: "Slowed — acts later in the round",
     movelock: "Trapped — cannot switch out",
-    protect: "Protected — blocks direct hits this round; ongoing damage still applies",
+    protect: "Protected — blocks direct hits this round",
     haste: "Hastened — acts earlier in the round",
     crush: "Crushed — defence lowered",
     taunt: "Taunting — draws single-target attacks",
