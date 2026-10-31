@@ -21,6 +21,9 @@ import {wildlifeDiscovery} from '../../shared/sector-life-discovery.js';
 import {refreshAnglerWork} from './_life-angler.js';
 import {refreshChronicleStop} from './_life-chronicle.js';
 import {DOCK_SHIPMENT_SCENARIO} from '../../shared/sector-dock-shipment.js';
+import { mutatePlayerSave, type PlayerSaveRecord } from '../save/_mutate-player-save.js';
+import { lifeStepRyo } from '../../shared/sector-life-rewards.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 async function scene(sector: number, state: LifeEventState, player: string) {
     let territory: SectorWeatherOverride | null = null;
@@ -36,7 +39,7 @@ async function scene(sector: number, state: LifeEventState, player: string) {
     return view;
 }
 
-/** A shared, non-economic roadside story. No inventory, reward, quest, or save mutation. */
+/** Shared roadside work pays once per task, atomically with its progress. */
 export default async function handler(req: ApiRequest, res: ApiResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -65,6 +68,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             if (!presence || presence.sector !== sector || now - presence.lastSeenAt > 30_000) return { error: 'Walk to this part of the road first.' };
             if (presence.inBattle || (presence.travelingUntil ?? 0) > now) return { error: 'Finish your current battle or journey first.' };
             const state = parseLifeState(raw, now), current = lifeEventView(sector, state, now);
+            // Recover a lost payout reply, including while an NPC is still walking.
+            if(current.step>expectedStep&&lifeStepRyo({...current,step:expectedStep})>0){
+                const saved=await kv.get<PlayerSaveRecord>(`save:${player}`);
+                return {ok:true,view:current,changed:false,character:saved?.character,_saveVersion:saved?._saveVersion,serverNow:now};
+            }
             if(current.waiting)return {error:current.scenario===DOCK_SHIPMENT_SCENARIO?current.description:current.kind==='tracks'?LIFE_HUNT_LINES.pending:LIFE_COURIER_LINES.waiting};
             if(current.kind==='tracks'&&state.step>=1)return {error:LIFE_HUNT_LINES.ask};
             const model = worldPositionModel(), cursor = model.read(presence.worldPosition) ?? model.fallback(sector, presence.tile ?? 77);
@@ -73,6 +81,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             const shrine=shrineForSector(sector),offering=current.kind==='shrine'&&state.step===2&&shrine?parseShrineState(await kv.get(shrineKey(shrine.id))):undefined;
             const supportStartedAt=offering&&shrineTier(offering.total)>0?offering.kindledAt??0:undefined;
             const next = advanceLifeEvent(sector, raw, expectedWindow, expectedStep, presence.displayName, now,supportStartedAt);
+            const ryo=lifeStepRyo(current);
+            if(next.changed&&ryo>0){
+                const paid=await mutatePlayerSave(player,({character})=>({
+                    ok:true,character:{...character,ryo:Number(character.ryo??0)+ryo},value:undefined,
+                    // Existing event, save, and currency ledger share one transaction.
+                    atomicProof:{key,expected:raw,value:next.state,ex:next.state.care||next.state.hunt?0:7200},
+                }));
+                if(!paid.ok)return {error:paid.error};
+                await recordEconomyTxn({txnId:`roadside:${sector}:${expectedWindow}:${expectedStep}`,player,currency:'ryo',delta:ryo,source:'world.roadside',balanceAfter:Number(paid.character.ryo)});
+                return {ok:true,view:next.view,changed:true,reward:{ryo},character:paid.character,_saveVersion:paid._saveVersion,serverNow:now};
+            }
             // Progress and last upkeep share ONE atomic row, including on the
             // REST fallback which has no multi-key transaction primitive.
             if(next.changed&&!await kv.compareSet(key,raw,next.state,next.state.care||next.state.hunt?undefined:{ex:7200}))return {error:'The road activity changed. Check it again.'};
