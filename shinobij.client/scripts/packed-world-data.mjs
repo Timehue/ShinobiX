@@ -1,5 +1,10 @@
-/** Lossless, synchronous delivery for the two lazy world geometry registries. */
-export function packedWorldData(source) {
+import { fileURLToPath } from 'node:url';
+
+export const PACKED_DATA_RUNTIME = new URL('./packed-data-runtime.mjs', import.meta.url);
+export const PACKED_DATA_IMPORT = `import { unpackWorldData as __unpackWorldData } from ${JSON.stringify(fileURLToPath(PACKED_DATA_RUNTIME).replace(/\\/g, '/'))};`;
+
+/** Lossless, synchronous delivery for world geometry and static catalogs. */
+export function packedDataExpression(source) {
     const bytes = Buffer.from(JSON.stringify(JSON.parse(source))), packed = [], positions = new Map();
     for (let i = 0; i < bytes.length;) {
         const key = bytes.subarray(i, i + 4).toString('hex');
@@ -25,24 +30,11 @@ export function packedWorldData(source) {
         }
         i += count;
     }
-    // Browser-native UTF-8 decoding, no dependency, fetch, promise or startup preload.
-    return `export default JSON.parse((${unpackWorldData.toString()})(${JSON.stringify(Buffer.from(packed).toString('base64'))},${bytes.length}));`;
+    // Browser-native UTF-8 decoding stays synchronous; the shared module removes
+    // repeated decoder bodies without changing payloads or making decoding async.
+    return `JSON.parse(__unpackWorldData(${JSON.stringify(Buffer.from(packed).toString('base64'))},${bytes.length}))`;
 }
 
-function unpackWorldData(encoded, size) {
-    const input = atob(encoded), output = new Uint8Array(size);
-    let cursor = 0;
-    for (let i = 0; i < input.length;) {
-        const token = input.charCodeAt(i++);
-        if (token < 128) output[cursor++] = token;
-        else if (token === 255) output[cursor++] = input.charCodeAt(i++);
-        else {
-            const distance = input.charCodeAt(i++) * 256 + input.charCodeAt(i++);
-            for (let n = 0; n < token - 128 + 4; n++) {
-                output[cursor] = output[cursor - distance];
-                cursor++;
-            }
-        }
-    }
-    return new TextDecoder().decode(output);
+export function packedWorldData(source) {
+    return `${PACKED_DATA_IMPORT}\nexport default ${packedDataExpression(source)};`;
 }
