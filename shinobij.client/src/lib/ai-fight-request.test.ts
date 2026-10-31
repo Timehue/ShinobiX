@@ -491,15 +491,18 @@ test("refresh recovery handles generic fights, durable chains, and pending rewar
         "recovered snapshots must use the latest account-fenced commit callback");
 });
 
-test("a committed World start with a lost ACK enters immediate durable recovery", () => {
+test("a lost World start ACK probes durable recovery, while rejected starts pause for the player", () => {
     const api = readFileSync(new URL("./ai-fight-api.ts", import.meta.url), "utf8");
     assert.match(api, /catch \(error\) \{[\s\S]{0,180}params\.worldEncounter[\s\S]{0,180}resumeWorldAiFight\(params\.playerName\)/);
     const handoff = host.indexOf('"pendingWorldChain" in started || "pendingWorldOutcome" in started');
     assert.ok(handoff >= 0 && host.indexOf("setRecoveryAttempt", handoff) > handoff,
-        "pending chain/outcome responses must enter the recovery loop");
+        "a different pending chain/outcome must enter recovery");
     const startCatch = host.indexOf(".catch((error) =>", handoff);
-    assert.ok(startCatch > handoff && host.indexOf("if (request.worldEncounter) setRecoveryAttempt", startCatch) > startCatch,
-        "a transient World start failure must retry the active pointer without requiring reload");
+    assert.ok(startCatch > handoff);
+    assert.doesNotMatch(host.slice(startCatch, host.indexOf('.finally(', startCatch)), /setRecoveryAttempt/,
+        "a rejected start must not automatically redispatch the same invalid handoff");
+    assert.match(host.slice(handoff, startCatch), /sameAiFightIdentity[\s\S]*world-chain-start-unconfirmed/,
+        "an unchanged handoff after a lost response must pause instead of looping");
 });
 
 test("closing an unsettled fight waits for authoritative forfeit settlement", () => {
