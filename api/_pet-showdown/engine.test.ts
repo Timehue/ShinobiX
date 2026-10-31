@@ -863,7 +863,7 @@ test('utility move descriptions state the actual weather and ward rules', () => 
     assert.match(moveEffectText('weather', 70, 'Fire'), /Fire damage \+18%; Water damage -12% for 8 rounds/);
     assert.match(moveEffectText('barrier', 100), /105 damage for up to 2 rounds/);
     assert.match(moveEffectText('protect', 90), /Fails if used in consecutive rounds/);
-    assert.match(moveEffectText('protect', 90), /Ongoing damage still applies/);
+    assert.match(moveEffectText('protect', 90), /Fails if used in consecutive rounds/);
     assert.match(moveEffectText('push', 90), /no reserve.*loses stamina/i);
     assert.match(moveEffectText('push', 90), /Direct damage: 62% of a normal hit/);
 });

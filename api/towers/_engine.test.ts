@@ -1470,8 +1470,8 @@ describe('Battle Towers tag/status combat (heal / DoT / buff / stun / self-cast)
         assert.deepEqual(
             s.log.filter((line) => line.startsWith('Increase Damage Given (stack')),
             [
-                'Increase Damage Given (stack 1/2): sq-1 deals more damage for 2 rounds, starting next round.',
-                'Increase Damage Given (stack 2/2): sq-1 deals more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 1/2): sq-1 deals 21% more damage for 2 rounds, starting next round.',
+                'Increase Damage Given (stack 2/2): sq-1 deals 21% more damage for 2 rounds, starting next round.',
             ],
         );
         // Towers logged a bare "X uses Y." and dropped authored flavor entirely,

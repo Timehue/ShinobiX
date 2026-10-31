@@ -1394,10 +1394,10 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 });
             }
             session.log.push(`${self.name} uses ${item.name ?? 'an item'}: ${smoke
-                ? 'next round, both fighters deal 0 direct-hit damage, except Pierce. Ongoing damage still applies.'
+                ? 'next round, both fighters deal 0 direct-hit damage.'
                 : item.id === 'item-attack-pill'
                     ? 'deals 15% more damage for 2 rounds, starting next round.'
-                    : 'takes 15% less direct-hit damage for 2 rounds, starting next round. Pierce and ongoing damage bypass this protection.'}`);
+                    : 'takes 15% less direct-hit damage for 2 rounds, starting next round.'}`);
         } else {
             const tags = item.weaponTags?.length ? item.weaponTags : item.weaponEffect ? [{ name: item.weaponEffect, percent: item.weaponEffectValue }] : [{ name: 'Heal' }];
             // weaponSwing: true mirrors the PvP item fix (api/pvp/move.ts) — a
@@ -1416,7 +1416,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                         name: 'Decrease Damage Given', rounds: 1, percent, kind: 'negative',
                     }, { isStackable: (name) => STACKABLE_STATUS.has(name) }),
                 });
-                session.log.push(`Smoke: ${updated.name} also deals less damage for 1 round (${percent}% effect strength).`);
+                session.log.push(`Smoke: ${updated.name} also deals ${percent}% less damage for 1 round.`);
             }
         }
         if (cooldown > 0) session.cooldowns[side][cooldownKey] = cooldown;
