@@ -1,7 +1,7 @@
 import { before, beforeEach, after, test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { worldPositionModel } from '../../shared/continuous-world-layout.js';
-import { lifeAnchors, lifeWindowAt, LIFE_WINDOW_MS, travelerRoute,lifeEventView,parseLifeState,lifeStorageKey,lifeCourierRoute } from '../../shared/sector-life.js';
+import { lifeAnchors, lifeWindowAt, LIFE_WINDOW_MS, travelerRoute,lifeEventView,parseLifeState,lifeStorageKey,lifeCourierRoute,lifeEnabledSector } from '../../shared/sector-life.js';
 import { WORLD_DAY_MS, WORLD_HOUR_MS } from '../../shared/world-clock.js';
 import { SHRINE_DEFS } from '../../shared/shrines.js';
 import {wildlifeDiscovery,WILDLIFE_DISCOVERY_WINDOW} from '../../shared/sector-life-discovery.js';
@@ -152,6 +152,8 @@ function actor(tile=lifeAnchors(sector)[0],at=sector) {
     return name;
 }
 async function request(name: string, body: Record<string,unknown>={}, authenticated=true, method='POST') {
+    // Work fixtures have a real wallet; read-only scene tests still need no save.
+    if(authenticated&&method==='POST'&&!await kv.get(`save:${name}`))await kv.set(`save:${name}`,{_saveVersion:1,character:{name,ryo:100}});
     const result:{status:number;body:any}={status:200,body:null};
     const res={setHeader(){},status(code:number){result.status=code;return res;},json(value:unknown){result.body=value;return res;},end(){return res;}};
     const input={sector,playerName:name,window:lifeWindowAt(clock),step:0,...body};
@@ -180,15 +182,37 @@ test('two players helping at once advance one shared stage, and a refresh preser
     const view=await request(a,{},true,'GET');assert.equal(view.status,200);assert.equal(view.body.view.step,1);
     assert.equal(view.body.view.contributors.length,1);
 });
-test('all three work points produce shared aftermath without touching the player save',async()=>{
-    const name=actor();await kv.set(`save:${name}`,{_saveVersion:9,ryo:100});
+test('tea-stop work pays 100 across its three tasks and produces the same shared aftermath',async()=>{
+    const name=actor();await kv.set(`save:${name}`,{_saveVersion:9,character:{ryo:100}});
     for(let step=0;step<3;step++) {
         const present=store.get(name)!;
         assert(store.commitWorldPosition(name,model.fallback(sector,lifeAnchors(sector)[step])!,present.movementSeq ?? 0));
         const result=await request(name,{step});assert.equal(result.status,200,JSON.stringify(result.body));assert.equal(result.body.view.step,step+1);
         if(step===2)assert.equal(result.body.view.phase,'aftermath');
     }
-    assert.deepEqual(await kv.get(`save:${name}`),{_saveVersion:9,ryo:100});
+    const saved=await kv.get<any>(`save:${name}`);assert.equal(saved.character.ryo,200);assert.equal(saved._saveVersion,12);
+});
+
+test('delivery, lantern, and watch work pay each verified helper their share, never client-supplied amounts',async()=>{
+    const plans=[['supplies',[50,50,75]],['lanterns',[50,50,50]],['signal',[50,50,100]]] as const;
+    for(const [kind,amounts] of plans){
+        let where=0;
+        for(let window=120;window<124&&!where;window++){
+            clock=window*LIFE_WINDOW_MS+60_000;
+            for(let candidate=3;candidate<=60;candidate++)if(lifeEnabledSector(candidate)&&lifeEventView(candidate,parseLifeState(null,clock),clock).kind===kind){where=candidate;break;}
+        }
+        assert(where,`No ${kind} fixture`);const key=lifeStorageKey(where);await kv.del(key);
+        for(let step=0;step<3;step++){
+            const view=lifeEventView(where,parseLifeState(await kv.get(key),clock),clock),name=actor(view.tile,where);
+            await kv.set(`save:${name}`,{_saveVersion:10,character:{ryo:1000}});
+            const response=await request(name,{sector:where,step,ryo:999999,reward:{ryo:999999},kind:'courier'});
+            assert.equal(response.status,200,JSON.stringify(response.body));assert.equal(response.body.reward.ryo,amounts[step]);
+            assert.equal(response.body.character.ryo,1000+amounts[step]);assert.equal(response.body._saveVersion,11);
+            const replay=await request(name,{sector:where,step});assert.equal(replay.body.changed,false);assert.equal(replay.body.reward,undefined);
+            assert.equal((await kv.get<any>(`save:${name}`)).character.ryo,1000+amounts[step]);
+        }
+        await kv.del(key);
+    }
 });
 test('the festival endpoint retains the existing cook/courier event, packs the real counter and ignores forged time or weather',async()=>{
     const {festivalStallPlan,FESTIVAL_SITE}=await import('../../shared/sector-festival-work.js'),where=52;
@@ -256,8 +280,8 @@ test('the Chronicle scribe reports real unexpired local duel records and ignores
 });
 test('stale windows and failed storage writes cannot complete a task',async t=>{
     const name=actor(); assert.equal((await request(name,{window:lifeWindowAt(clock)-1})).status,409);
-    const original=kv.compareSet.bind(kv);
-    t.mock.method(kv,'compareSet',async(key:string,expected:unknown,value:unknown,options?:{ex?:number})=>{if(key.startsWith('sector-life:'))throw new Error('injected failure');return original(key,expected,value,options);});
+    const original=kv.compareSetMany!.bind(kv);
+    t.mock.method(kv as typeof kv & Required<Pick<typeof kv,'compareSetMany'>>,'compareSetMany',async(ops:Parameters<NonNullable<typeof kv.compareSetMany>>[0])=>{if(ops.some(op=>op.key.startsWith('sector-life:')))throw new Error('injected failure');return original(ops);});
     assert.equal((await request(name)).status,503);
     assert.equal(await kv.get(lifeStorageKey(sector)),null);
 });
@@ -265,7 +289,7 @@ test('stale windows and failed storage writes cannot complete a task',async t=>{
 test('shrine upkeep and its aftermath commit together, survive a new round, and cannot be replayed to extend their life',async()=>{
     clock=121*LIFE_WINDOW_MS+60_000;
     const initial=lifeEventView(sector,parseLifeState(null,clock),clock),name=actor(initial.tile);
-    await kv.set(`save:${name}`,{character:{village:'Ashen Leaf Village'},_saveVersion:12,ryo:700});
+    await kv.set(`save:${name}`,{character:{village:'Ashen Leaf Village',ryo:700},_saveVersion:12});
     const forged=await request(name,{tier:4,maintainedAt:clock},true,'GET');assert.equal(forged.body.view.painting,'heartwood-dormant-shrine-v1');
     for(let step=0;step<3;step++) {
         const view=lifeEventView(sector,{...parseLifeState(null,clock),step},clock),presence=store.get(name)!;
@@ -277,26 +301,27 @@ test('shrine upkeep and its aftermath commit together, survive a new round, and 
     clock+=5000;const replay=await request(name,{step:2});assert.equal(replay.body.changed,false);
     assert.deepEqual((await kv.get<any>(lifeStorageKey(sector))).care,care);
     clock+=LIFE_WINDOW_MS;const later=await request(name,{},true,'GET');assert.equal(later.body.view.step,0);assert.equal(later.body.view.painting,'heartwood-supported-shrine-v1');
-    assert.deepEqual(await kv.get(`save:${name}`),{character:{village:'Ashen Leaf Village'},_saveVersion:12,ryo:700});
+    const saved=await kv.get<any>(`save:${name}`);assert.equal(saved.character.ryo,800);assert.equal(saved._saveVersion,14);assert.equal(saved.character.village,'Ashen Leaf Village');
     assert.equal(await kv.get('world:shrine:heartwood'),null,'helping is cosmetic upkeep, not a currency offering');
 });
 
 test('a refused atomic shrine commit leaves both the final stage and upkeep unchanged',async t=>{
     clock=121*LIFE_WINDOW_MS+60_000;const name=actor(123);
     for(let step=0;step<2;step++)assert.equal((await request(name,{step})).status,200);
-    const before=await kv.get(lifeStorageKey(sector)),original=kv.compareSet.bind(kv);
-    t.mock.method(kv,'compareSet',async(key:string,expected:unknown,value:unknown,options?:{ex?:number})=>key===lifeStorageKey(sector)?false:original(key,expected,value,options));
-    const refused=await request(name,{step:2});assert.equal(refused.status,409);
+    const before=await kv.get(lifeStorageKey(sector)),saved=await kv.get(`save:${name}`),original=kv.compareSetMany!.bind(kv);
+    t.mock.method(kv as typeof kv & Required<Pick<typeof kv,'compareSetMany'>>,'compareSetMany',async(ops:Parameters<NonNullable<typeof kv.compareSetMany>>[0])=>ops.some(op=>op.key===lifeStorageKey(sector))?false:original(ops));
+    const refused=await request(name,{step:2});assert.equal(refused.status,503);assert.deepEqual(await kv.get(`save:${name}`),saved);
     assert.deepEqual(await kv.get(lifeStorageKey(sector)),before);assert.equal((await kv.get<any>(lifeStorageKey(sector)))?.care,undefined);
 });
 
-test('shrine completion stays atomic without optional multi-key storage support',async t=>{
+test('paid shrine work fails closed when atomic storage support is unavailable',async t=>{
     const descriptor=Object.getOwnPropertyDescriptor(kv,'compareSetMany');
     Object.defineProperty(kv,'compareSetMany',{configurable:true,writable:true,value:undefined});
     t.after(()=>{if(descriptor)Object.defineProperty(kv,'compareSetMany',descriptor);else delete kv.compareSetMany;});
     clock=121*LIFE_WINDOW_MS+60_000;const name=actor(123);
-    for(let step=0;step<3;step++)assert.equal((await request(name,{step})).status,200);
-    const stored=await kv.get<any>(lifeStorageKey(sector));assert.equal(stored.step,3);assert.equal(stored.care.maintainedAt,clock);
+    assert.equal((await request(name,{step:0})).status,200);
+    const saved=await kv.get(`save:${name}`);assert.equal((await request(name,{step:1})).status,503);
+    const stored=await kv.get<any>(lifeStorageKey(sector));assert.equal(stored.step,1);assert.equal(stored.care,undefined);assert.deepEqual(await kv.get(`save:${name}`),saved);
 });
 
 test('the real communal offering tier maintains the painted shrine independently of the optional task',async()=>{
@@ -326,18 +351,62 @@ test('life snapshots refresh only recorded duel marks and remove them when the r
     clock+=86_400_001;const expired=await request(name,{},true,'GET');assert.deepEqual(expired.body.view.groundScars,[]);
 });
 
-test('courier rescue completion requires the real return time and does not touch player saves',async()=>{
+test('courier aid pays 250 once, while completion still requires the real return time',async()=>{
+    const {econPlayerDayKey,econUtcDay}=await import('../_economy.js');
     const where=31,route=lifeCourierRoute(where),name=actor(route.search,where),key=lifeStorageKey(where),before={_saveVersion:17,character:{ryo:1300}};
     await kv.set(`save:${name}`,before);
     assert.equal((await request(name,{sector:where,step:0})).status,200);
     assert(store.commitWorldPosition(name,model.fallback(where,route.stranded)!,store.get(name)!.movementSeq??0));
-    assert.equal((await request(name,{sector:where,step:1})).status,200);
+    const aid=await request(name,{sector:where,step:1,ryo:999999,reward:{ryo:999999}});
+    assert.equal(aid.status,200,JSON.stringify(aid.body));assert.deepEqual(aid.body.reward,{ryo:250});
+    assert.equal(aid.body.character.ryo,1550);assert.equal(aid.body._saveVersion,18);
+    const paid=await kv.get<any>(`save:${name}`);assert.equal(paid.character.ryo,1550);
+    const replay=await request(name,{sector:where,step:1});assert.equal(replay.status,200);assert.equal(replay.body.changed,false);
+    assert.equal(replay.body.reward,undefined);assert.equal(replay.body.character.ryo,1550);assert.equal(replay.body._saveVersion,18);
     assert(store.commitWorldPosition(name,model.fallback(where,route.stop)!,store.get(name)!.movementSeq??0));
     const early=await request(name,{sector:where,step:2,updatedAt:clock-route.returnMs,waiting:false});assert.equal(early.status,409);assert.match(early.body.error,/still making/);assert.equal((await kv.get<any>(key)).step,2);
     clock+=route.returnMs;
     const done=await request(name,{sector:where,step:2});assert.equal(done.status,200,JSON.stringify(done.body));assert.equal(done.body.view.phase,'aftermath');
     const snapshot=await kv.get(key);assert.equal((await request(name,{sector:where,step:2})).body.changed,false);assert.deepEqual(await kv.get(key),snapshot);
-    assert.deepEqual(await kv.get(`save:${name}`),before);
+    assert.deepEqual(await kv.get(`save:${name}`),paid);
+    const telemetry=await kv.get<any>(econPlayerDayKey(econUtcDay(clock),name));
+    assert.deepEqual(telemetry.ryo['world.roadside'],{c:250,d:0,n:1});
+});
+
+test('only one concurrent courier helper is paid; failed atomic writes leave both aid and wallet retryable',async t=>{
+    const {econPlayerDayKey,econUtcDay}=await import('../_economy.js');
+    const where=31,key=lifeStorageKey(where),route=lifeCourierRoute(where),a=actor(route.aid,where),b=actor(route.aid,where);
+    const state={window:lifeWindowAt(clock),step:1,updatedAt:clock,contributors:[]};
+    const saved={_saveVersion:17,character:{ryo:1300}};
+    await kv.set(key,state);await kv.set(`save:${a}`,saved);await kv.set(`save:${b}`,saved);
+    const original=kv.compareSetMany!.bind(kv);
+    const failed=t.mock.method(kv as typeof kv & Required<Pick<typeof kv,'compareSetMany'>>,'compareSetMany',async(ops:Parameters<NonNullable<typeof kv.compareSetMany>>[0])=>ops.some(op=>op.key===key)?false:original(ops));
+    const refused=await request(a,{sector:where,step:1});assert.equal(refused.status,503);
+    assert.deepEqual(await kv.get(key),state);assert.deepEqual(await kv.get(`save:${a}`),saved);assert.equal(await kv.get(`ledger:currency:${a}`),null);
+    assert.equal(await kv.get(econPlayerDayKey(econUtcDay(clock),a)),null);
+    failed.mock.restore();
+    const replies=await Promise.all([request(a,{sector:where,step:1}),request(b,{sector:where,step:1})]);
+    assert(replies.every(reply=>reply.status===200));assert.equal(replies.filter(reply=>reply.body.reward?.ryo===250).length,1);
+    const balances=await Promise.all([a,b].map(async name=>(await kv.get<any>(`save:${name}`)).character.ryo));
+    assert.deepEqual(balances.sort((x,y)=>x-y),[1300,1550]);assert.equal((await kv.get<any>(key)).step,2);
+});
+
+test('courier aid cannot be forged from afar or an obsolete window, and a lost commit acknowledgement never pays twice',async t=>{
+    const where=31,key=lifeStorageKey(where),route=lifeCourierRoute(where),name=actor(route.aid,where);
+    const state={window:lifeWindowAt(clock),step:1,updatedAt:clock,contributors:[]},saved={_saveVersion:17,character:{ryo:1300}};
+    await kv.set(key,state);await kv.set(`save:${name}`,saved);
+    assert.equal((await request(name,{sector:where,step:1,window:state.window-1})).status,409);
+    store.remove(name);store.upsert({name,sector:15,tile:77,character:null,restoredWorldPosition:model.fallback(15,77)!});
+    assert.equal((await request(name,{sector:where,step:1})).status,409);
+    assert.deepEqual(await kv.get(`save:${name}`),saved);assert.deepEqual(await kv.get(key),state);
+    store.remove(name);store.upsert({name,sector:where,tile:route.aid,character:null,restoredWorldPosition:model.fallback(where,route.aid)!});
+    const original=kv.compareSetMany!.bind(kv);
+    t.mock.method(kv as typeof kv & Required<Pick<typeof kv,'compareSetMany'>>,'compareSetMany',async(ops:Parameters<NonNullable<typeof kv.compareSetMany>>[0])=>{
+        const committed=await original(ops);if(committed&&ops.some(op=>op.key===key))throw new Error('lost commit reply');return committed;
+    });
+    assert.equal((await request(name,{sector:where,step:1})).status,200);
+    assert.equal((await request(name,{sector:where,step:1})).body.changed,false);
+    assert.equal((await kv.get<any>(`save:${name}`)).character.ryo,1550);assert.equal((await kv.get<any>(key)).step,2);
 });
 
 test('courier thanks belong to the authenticated helper, while other visitors get the same truthful resting scene',async()=>{

@@ -14,13 +14,14 @@ function actor(tile:number=S.inspect){const name=`shipment${++serial}`;touch(nam
 function touch(name:string,tile:number){store.upsert({name,sector:2,tile,character:null,restoredWorldPosition:model.fallback(2,tile)!});assert(store.commitWorldPosition(name,model.fallback(2,tile)!,store.get(name)!.movementSeq??0));}
 type Body={view?:LifeSceneView;error?:string;changed?:boolean};
 async function request(name:string,body:Record<string,unknown>={},method='POST',authenticated=true){
+ if(authenticated&&method==='POST'&&!await kv.get(`save:${name}`))await kv.set(`save:${name}`,{_saveVersion:1,character:{name,ryo:100}});
  const result:{status:number;body:Body}={status:200,body:{}};
  const res={setHeader(){},status(code:number){result.status=code;return res;},json(value:Body){result.body=value;return res;},end(){return res;}};
  const input={sector:2,playerName:name,window:lifeWindowAt(clock),step:0,...body};
  await handler({method,body:input,query:input,headers:authenticated?{'x-player-name':name,'x-player-token':tokenFor(name),'x-forwarded-for':`10.99.4.${serial}`}:{},socket:{remoteAddress:`10.99.4.${serial}`}} as never,res as never);return result;
 }
 
-test('real shipment aid uses server presence and clock, ignores forged completion fields, and leaves the save unchanged',async()=>{
+test('real shipment work pays 250, keeps cargo intact, and requires the server presence and delivery clock',async()=>{
  const name=actor(),save={_saveVersion:17,character:{ryo:321,starterCardsClaimed:false,items:[{id:'rope',qty:1}]}};await kv.set(`save:${name}`,save);
  const initial=await request(name,{shipmentAt:clock-999999,painting:P.delivered},'GET');assert.equal(initial.status,200);assert.equal(initial.body.view!.step,0);assert.equal(initial.body.view!.painting,P.spilled);
  assert.equal((await request(name,{},'POST',false)).status,401);assert.equal(await kv.get(key),null);
@@ -31,16 +32,18 @@ test('real shipment aid uses server presence and clock, ignores forged completio
  clock+=DOCK_SHIPMENT_DELIVERY_MS;touch(name,S.worker);const done=await request(name,{step:2});assert.equal(done.status,200);assert.equal(done.body.changed,true);assert.equal(done.body.view!.painting,P.delivered);assert.equal(done.body.view!.phase,'aftermath');
  assert.equal(done.body.view!.actors.find(a=>a.id==='shipment:merchant')!.line,L.merchantThanks);
  const bystander=actor(S.worker),other=await request(bystander,{},'GET');assert.equal(other.body.view!.actors.find(a=>a.id==='shipment:merchant')!.line,L.merchantDelivered);
- const completed=await kv.get(key);assert.equal((await request(name,{step:2})).body.changed,false);assert.deepEqual(await kv.get(key),completed);assert.deepEqual(await kv.get(`save:${name}`),save);
+ const completed=await kv.get(key),paid=await kv.get<{character:typeof save.character;_saveVersion:number}>(`save:${name}`);
+ assert.equal(paid!.character.ryo,571);assert.equal(paid!._saveVersion,20);assert.deepEqual(paid!.character.items,save.character.items);assert.equal(paid!.character.starterCardsClaimed,false);
+ assert.equal((await request(name,{step:2})).body.changed,false);assert.deepEqual(await kv.get(key),completed);assert.deepEqual(await kv.get(`save:${name}`),paid);
 });
 
 test('two players cannot start two deliveries, and a failed CAS publishes no recovered shipment',async t=>{
  const first=actor(),second=actor();await request(first);clock++;touch(first,S.merchant);touch(second,S.merchant);
  const responses=await Promise.all([request(first,{step:1}),request(second,{step:1})]);assert.equal(responses.filter(r=>r.status===200&&r.body.changed).length,1);
  const state=await kv.get<LifeEventState>(key);assert.equal(state!.step,2);assert.equal(state!.shipmentAt,clock);
- await kv.del(key);await request(first);const before=await kv.get(key),original=kv.compareSet.bind(kv);
- t.mock.method(kv,'compareSet',async(...args:Parameters<typeof kv.compareSet>)=>args[0]===key?false:original(...args));
- const failed=await request(first,{step:1});assert.equal(failed.status,409);assert.deepEqual(await kv.get(key),before);
+ await kv.del(key);await request(first);const before=await kv.get(key),saved=await kv.get(`save:${first}`),original=kv.compareSetMany!.bind(kv);
+ t.mock.method(kv as typeof kv & Required<Pick<typeof kv,'compareSetMany'>>,'compareSetMany',async(ops:Parameters<NonNullable<typeof kv.compareSetMany>>[0])=>ops.some(op=>op.key===key)?false:original(ops));
+ const failed=await request(first,{step:1});assert.equal(failed.status,503);assert.deepEqual(await kv.get(key),before);assert.deepEqual(await kv.get(`save:${first}`),saved);
  const observed=await request(second,{},'GET');assert.equal(observed.body.view!.step,1);assert.equal(observed.body.view!.painting,P.spilled);assert.equal(observed.body.view!.shipmentAt,undefined);
 });
 
