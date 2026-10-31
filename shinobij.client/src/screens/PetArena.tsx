@@ -1837,8 +1837,13 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         : arenaHeroCopy}</p>
                     <div className="pet-arena-readiness" aria-label="Arena readiness">
                         <div><GameIcon name="paw" size={20} /><span><small>Battle ready</small><strong>{availableArenaPetCount} companions</strong></span></div>
-                        <div><GameIcon name="target" size={20} /><span><small>Contender</small><strong>{selectedPet ? petDisplayName(selectedPet) : "Not selected"}</strong></span></div>
-                        <div><GameIcon name="medal" size={20} /><span><small>Paid wins today</small><strong>{character.dailyPetWins ?? 0} / {SHOWDOWN_DAILY_WIN_CAP}</strong></span></div>
+                        {arenaView === "tactical" && !isHollowGate ? (
+                            <div><GameIcon name="target" size={20} /><span><small>Warfront band</small><strong>{tacticalPicks.length} / {tacticalSize} chosen</strong></span></div>
+                        ) : null}
+                        {arenaView === "battle" || isHollowGate ? <>
+                            <div><GameIcon name="target" size={20} /><span><small>Contender</small><strong>{selectedPet ? petDisplayName(selectedPet) : "Not selected"}</strong></span></div>
+                            <div><GameIcon name="medal" size={20} /><span><small>Paid wins today</small><strong>{character.dailyPetWins ?? 0} / {SHOWDOWN_DAILY_WIN_CAP}</strong></span></div>
+                        </> : null}
                     </div>
                 </div>
 
@@ -1846,7 +1851,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     <nav className="pet-arena-activity-nav" aria-label="Pet Arena activities">
                         <button type="button" className={arenaView === "battle" ? "active" : ""} aria-current={arenaView === "battle" ? "page" : undefined} onClick={() => setArenaView("battle")}>
                             <span className="pet-arena-activity-icon"><img src={arenaModeColosseum} alt="" loading="lazy" /></span>
-                            <span><strong>Pet Colosseum</strong><small>Cinematic 1v1 · 2v2</small></span>
+                            <span><strong>Pet Colosseum</strong><small>Live PvP · paid bouts · drills</small></span>
                         </button>
                         <button
                             type="button"
@@ -1868,11 +1873,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             </header>
 
             {showPetHomeTabs ? <PetHomeTabs active="arena" setScreen={setScreen} /> : null}
-            <section className="pet-tactics-entry">
-                <div><strong>Pet Arena · Live PvP</strong><p>Bring four of your own companions. Two active, two reserves, private simultaneous orders and real counterplay.</p></div>
-                <button type="button" className="btn-primary" onClick={() => setShowTactics(true)}>Enter player-controlled battles</button>
-            </section>
-
 
             {arenaView === "gauntlet" && (
                 <Suspense fallback={<div className="summary-box" style={nativePresentationStyle0}>Loading the Gauntlet…</div>}>
@@ -1883,6 +1883,47 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
             {arenaView === "battle" && (
             <>
+            {/* THE COLISEUM. One mode, three doors:
+                  • Live PvP — two players command four of their own companions.
+                    Unrated sparring, and the only way into the lobby other than
+                    a direct challenge. Hidden on the forced Hollow Gate duel.
+                  • the Colosseum bout — the arena matches you, the daily win cap
+                    applies, and a win pays. This is the reward loop.
+                  • Training Grounds — sparring, and unlimited. By default the
+                    arena draws a RANDOM team levelled pet-for-pet against the
+                    one you bring, so a practice fight is always available and
+                    always winnable-but-not-free; naming a tier instead is still
+                    there for drilling one matchup. It pays nothing and moves no
+                    counters either way.
+                All three run the same turn-based engine; the difference is who
+                chooses the fight and whether it pays. */}
+            <section className="pet-arena-destinations" aria-labelledby="pet-arena-circuits-title">
+                <div className="pet-arena-section-title">
+                    <span>Official circuits</span>
+                    <h2 id="pet-arena-circuits-title">Choose a fight contract</h2>
+                    <p>Face a player, chase the daily purse, or drill for free—all three use the full command combat system.</p>
+                </div>
+                <div className="pet-arena-destination-grid">
+                    {!isHollowGate ? (
+                        <button type="button" className="pet-arena-destination is-live" style={{ "--live-art": `url(${arenaModeColosseum})` } as CSSProperties} onClick={() => setShowTactics(true)}>
+                            <span className="pet-arena-destination-icon"><GameIcon name="sword" size={30} /></span>
+                            <span className="pet-arena-destination-copy"><small><i aria-hidden="true" /> Player vs player · unrated</small><strong>Live PvP</strong><span>Bring four of your own companions. Two fight, two wait in reserve, and both players lock their orders in secret each round.</span></span>
+                            <span className="pet-arena-destination-action">Enter Live PvP <b aria-hidden="true">→</b></span>
+                        </button>
+                    ) : null}
+                    <button type="button" className="pet-arena-destination is-paid" onClick={() => setScreen("petColiseum")}>
+                        <span className="pet-arena-destination-icon"><GameIcon name="medal" size={30} /></span>
+                        <span className="pet-arena-destination-copy"><small>Paid circuit · daily purse</small><strong>Enter the Colosseum</strong><span>Matchmade 1v1 · 2v2 · 3v3, with up to {SHOWDOWN_DAILY_WIN_CAP} paid wins per day.</span></span>
+                        <span className="pet-arena-destination-action">Find a bout <b aria-hidden="true">→</b></span>
+                    </button>
+                    <button type="button" className="pet-arena-destination is-training" onClick={() => setScreen("petShowdown")}>
+                        <span className="pet-arena-destination-icon"><GameIcon name="dumbbell" size={30} /></span>
+                        <span className="pet-arena-destination-copy"><small>Free sparring · no limit</small><strong>Training Grounds</strong><span>Choose the opposition and drill tactics without risking counters or rewards.</span></span>
+                        <span className="pet-arena-destination-action">Open drills <b aria-hidden="true">→</b></span>
+                    </button>
+                </div>
+            </section>
+
             <div className="pet-arena-grid">
                 <section className="summary-box pet-arena-selector" data-side="player">
                     <div className="pet-arena-panel-heading">
@@ -1968,37 +2009,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     )}
                 </section>
             </div>
-
-            {/* THE COLISEUM. One mode, two doors:
-                  • the Colosseum bout — the arena matches you, the daily win cap
-                    applies, and a win pays. This is the reward loop.
-                  • Training Grounds — sparring, and unlimited. By default the
-                    arena draws a RANDOM team levelled pet-for-pet against the
-                    one you bring, so a practice fight is always available and
-                    always winnable-but-not-free; naming a tier instead is still
-                    there for drilling one matchup. It pays nothing and moves no
-                    counters either way.
-                Both run the same turn-based engine; the difference is who
-                chooses the fight and whether it pays. */}
-            <section className="pet-arena-destinations" aria-labelledby="pet-arena-circuits-title">
-                <div className="pet-arena-section-title">
-                    <span>Official circuits</span>
-                    <h2 id="pet-arena-circuits-title">Choose a fight contract</h2>
-                    <p>Matchmade rewards or consequence-free drills—both use the full command combat system.</p>
-                </div>
-                <div className="pet-arena-destination-grid">
-                    <button type="button" className="pet-arena-destination is-paid" onClick={() => setScreen("petColiseum")}>
-                        <span className="pet-arena-destination-icon"><GameIcon name="medal" size={30} /></span>
-                        <span className="pet-arena-destination-copy"><small>Paid circuit · daily purse</small><strong>Enter the Colosseum</strong><span>Matchmade 1v1 · 2v2 · 3v3, with up to {SHOWDOWN_DAILY_WIN_CAP} paid wins per day.</span></span>
-                        <span className="pet-arena-destination-action">Find a bout <b aria-hidden="true">→</b></span>
-                    </button>
-                    <button type="button" className="pet-arena-destination is-training" onClick={() => setScreen("petShowdown")}>
-                        <span className="pet-arena-destination-icon"><GameIcon name="dumbbell" size={30} /></span>
-                        <span className="pet-arena-destination-copy"><small>Free sparring · no limit</small><strong>Training Grounds</strong><span>Choose the opposition and drill tactics without risking counters or rewards.</span></span>
-                        <span className="pet-arena-destination-action">Open drills <b aria-hidden="true">→</b></span>
-                    </button>
-                </div>
-            </section>
 
             {battleReady && result && (
                 <div className="menu pet-arena-verdict">

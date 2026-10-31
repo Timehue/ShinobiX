@@ -66,6 +66,9 @@ export function readSavePreview(name: string): Record<string, unknown> | null {
             ? parsed.character as Record<string, unknown>
             : null;
         if (!charRecord || accountKey(String(charRecord.name ?? "")) !== accountKey(name)) return null;
+        // A live server answer, not save state. A cached copy would reimport the
+        // same ids on every load, long after the server cleared them.
+        delete parsed.pendingWorldRewards;
         return parsed;
     } catch {
         return null;

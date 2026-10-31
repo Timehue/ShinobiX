@@ -1,6 +1,7 @@
 import type { VersionedCharacterCommit } from "../types/character";
 import { recordSectorExplore, worldRewardFailureMessage, type FieldExploreProgress } from "./world-reward-api";
-import { completeWorldRewardOperation, readPendingWorldRewards, type PendingWorldRewardOperation } from "./world-reward-recovery";
+import { readPendingWorldRewards, type PendingWorldRewardOperation } from "./world-reward-recovery";
+import { settleWorldRewardOperation } from "./world-reward-operations";
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 
 export type WorldRecoveryResult = { state: "none" | "recovered" | "blocked"; message?: string };
@@ -70,14 +71,14 @@ export async function drainPendingWorldRewardOperations(
                     }
                 }
                 if (result.pendingBattle) { // this parked operation never committed; retire it and resume the owed ambush
-                    completeWorldRewardOperation(playerName, operation.id);
+                    settleWorldRewardOperation(playerName, operation.id);
                     if (presentExploreAmbush(result.pendingBattle.sector, result.pendingBattle.requestId, result.pendingBattle.encounter)) { recovered = true; break; }
                     blocked = true;
                     continue;
                 }
                 discoveryFailure = externalFailure ?? worldRewardFailureMessage(result);
                 if (result.retryable === false) {
-                    completeWorldRewardOperation(playerName, operation.id);
+                    settleWorldRewardOperation(playerName, operation.id);
                     retired = true;
                 } else {
                     blocked = true;
@@ -103,7 +104,7 @@ export async function drainPendingWorldRewardOperations(
                 } else if (result.outcome?.kind === "external" && result.outcome.source === "dungeon"
                     && operation.externalOutcomeProof?.kind === "dungeon") {
                     onDungeonFound(operation.externalOutcomeProof.token);
-                    completeWorldRewardOperation(playerName, operation.id);
+                    settleWorldRewardOperation(playerName, operation.id);
                     recovered = true;
                     break;
                 } else if (result.outcome?.kind === "external" && result.outcome.source === "pet") {
@@ -114,7 +115,7 @@ export async function drainPendingWorldRewardOperations(
                     else blocked = true;
                     break;
                 } else {
-                    completeWorldRewardOperation(playerName, operation.id);
+                    settleWorldRewardOperation(playerName, operation.id);
                     recovered = true;
                 }
             } else {

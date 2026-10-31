@@ -1,8 +1,4 @@
-import {
-    newWorldRewardRequestId,
-    type ExploreCredit,
-    type ExternalExploreProof,
-} from "./world-reward-api";
+import type { ExploreCredit, ExternalExploreProof } from "./world-reward-api";
 import { playerSlug } from "./utils";
 import type { Pet } from "../types/pet";
 
@@ -34,12 +30,17 @@ const KEY_PREFIX = "worldRewardRecovery.v1:";
 // Server receipts/discovery authority can remain valid for weeks. Pruning at
 // 24h silently converted a recoverable lost ACK into a second payable action.
 export const WORLD_REWARD_RECOVERY_MAX_AGE_MS = 31 * 24 * 60 * 60 * 1000;
+const SETTLED_KEY_PREFIX = "worldRewardSettled.v1:";
 const volatileOperations = new Map<string, PendingWorldRewardOperation[]>();
+export const volatileSettled = new Map<string, SettledWorldDiscovery[]>();
 
-const playerKey = (playerName: string) => playerSlug(playerName);
+type SettledWorldDiscovery = { id: string; at: number };
+
+export const playerKey = (playerName: string) => playerSlug(playerName);
 const storageKey = (playerName: string) => `${KEY_PREFIX}${playerKey(playerName)}`;
+export const settledStorageKey = (playerName: string) => `${SETTLED_KEY_PREFIX}${playerKey(playerName)}`;
 
-function defaultStorage(): WorldRewardRecoveryStorage | null {
+export function defaultStorage(): WorldRewardRecoveryStorage | null {
     try {
         return typeof localStorage === "undefined" ? null : localStorage;
     } catch {
@@ -94,7 +95,7 @@ export function readPendingWorldRewards(
     }
 }
 
-function writePendingWorldRewards(
+export function writePendingWorldRewards(
     playerName: string,
     operations: PendingWorldRewardOperation[],
     storage: WorldRewardRecoveryStorage | null,
@@ -110,107 +111,6 @@ function writePendingWorldRewards(
     } catch { /* private mode retains server idempotency for the live request */ }
 }
 
-/** Persist before sending. An unresolved identical operation reuses its id, so
- * retry/reload can only replay the server's receipt rather than mint another. */
-export function beginWorldRewardOperation(
-    playerName: string,
-    kind: "explore" | "chest",
-    sector: number,
-    credit?: ExploreCredit,
-    storage: WorldRewardRecoveryStorage | null = defaultStorage(),
-    metadata: Pick<PendingWorldRewardOperation, "resolveOutcome" | "discoveryStage" | "externalOutcomeProof" | "petEncounter" | "worldExploreRequestId"> = {},
-    operationId?: string,
-): PendingWorldRewardOperation {
-    const operations = readPendingWorldRewards(playerName, storage);
-    const requestedId = typeof operationId === "string" && /^[A-Za-z0-9_-]{8,96}$/.test(operationId)
-        ? operationId
-        : undefined;
-    const exactIndex = requestedId ? operations.findIndex((entry) => entry.id === requestedId) : -1;
-    if (exactIndex >= 0) {
-        const exact = operations[exactIndex];
-        const rebound: PendingWorldRewardOperation = {
-            id: exact.id,
-            playerName,
-            kind,
-            sector,
-            ...(kind === "explore" ? { credit: credit ?? "tile" } : {}),
-            ...(metadata.resolveOutcome ? { resolveOutcome: true } : {}),
-            ...(metadata.discoveryStage ? { discoveryStage: metadata.discoveryStage } : {}),
-            ...(metadata.externalOutcomeProof ? { externalOutcomeProof: metadata.externalOutcomeProof } : {}),
-            ...(metadata.petEncounter ? { petEncounter: metadata.petEncounter } : {}),
-            ...(metadata.worldExploreRequestId ? { worldExploreRequestId: metadata.worldExploreRequestId } : {}),
-            createdAt: exact.createdAt,
-        };
-        const next = [...operations];
-        next[exactIndex] = rebound;
-        writePendingWorldRewards(playerName, next, storage);
-        return rebound;
-    }
-    const prior = operations.find((entry) => (requestedId ? entry.id === requestedId : entry.kind === kind
-        && entry.sector === sector
-        && entry.credit === credit
-        && entry.resolveOutcome === metadata.resolveOutcome
-        && entry.discoveryStage === metadata.discoveryStage
-        && entry.externalOutcomeProof?.kind === metadata.externalOutcomeProof?.kind
-        && entry.externalOutcomeProof?.token === metadata.externalOutcomeProof?.token
-        && entry.worldExploreRequestId === metadata.worldExploreRequestId));
-    if (prior) return prior;
-    const operation: PendingWorldRewardOperation = {
-        id: requestedId ?? newWorldRewardRequestId(),
-        playerName,
-        kind,
-        sector,
-        ...(kind === "explore" ? { credit: credit ?? "tile" } : {}),
-        ...(metadata.resolveOutcome ? { resolveOutcome: true } : {}),
-        ...(metadata.discoveryStage ? { discoveryStage: metadata.discoveryStage } : {}),
-        ...(metadata.externalOutcomeProof ? { externalOutcomeProof: metadata.externalOutcomeProof } : {}),
-        ...(metadata.petEncounter ? { petEncounter: metadata.petEncounter } : {}),
-        ...(metadata.worldExploreRequestId ? { worldExploreRequestId: metadata.worldExploreRequestId } : {}),
-        createdAt: Date.now(),
-    };
-    writePendingWorldRewards(playerName, [...operations, operation], storage);
-    return operation;
-}
-
-export function beginResolvedWorldExplore(
-    playerName: string,
-    sector: number,
-    storage: WorldRewardRecoveryStorage | null = defaultStorage(),
-    operationId?: string,
-): PendingWorldRewardOperation {
-    return beginWorldRewardOperation(playerName, "explore", sector, "tile", storage, { resolveOutcome: true }, operationId);
-}
-
-export function beginWorldDiscoveryOperation(
-    playerName: string,
-    sector: number,
-    discoveryStage: "dungeon" | "pet",
-    storage: WorldRewardRecoveryStorage | null = defaultStorage(),
-    operationId?: string,
-): PendingWorldRewardOperation {
-    return beginWorldRewardOperation(playerName, "explore", sector, "tile", storage, { discoveryStage }, operationId);
-}
-
-export function beginExternalWorldExplore(
-    playerName: string,
-    sector: number,
-    externalOutcomeProof: ExternalExploreProof,
-    petEncounter?: Pet,
-    storage: WorldRewardRecoveryStorage | null = defaultStorage(),
-    operationId?: string,
-): PendingWorldRewardOperation {
-    return beginWorldRewardOperation(playerName, "explore", sector, "tile", storage, { externalOutcomeProof, petEncounter }, operationId);
-}
-
-export function beginWorldChestOperation(
-    playerName: string,
-    sector: number,
-    worldExploreRequestId: string,
-    storage: WorldRewardRecoveryStorage | null = defaultStorage(),
-): PendingWorldRewardOperation {
-    return beginWorldRewardOperation(playerName, "chest", sector, undefined, storage, { worldExploreRequestId });
-}
-
 export function completeWorldRewardOperation(
     playerName: string,
     operationId: string,
@@ -221,6 +121,22 @@ export function completeWorldRewardOperation(
         readPendingWorldRewards(playerName, storage).filter((entry) => entry.id !== operationId),
         storage,
     );
+}
+
+export function readSettledWorldDiscoveries(
+    playerName: string,
+    storage: WorldRewardRecoveryStorage | null,
+): SettledWorldDiscovery[] {
+    const volatile = volatileSettled.get(playerKey(playerName)) ?? [];
+    try {
+        const parsed = JSON.parse(storage?.getItem(settledStorageKey(playerName)) ?? "0") as SettledWorldDiscovery[];
+        // A malformed entry has no numeric `at`, so the age test drops it too.
+        return Array.isArray(parsed)
+            ? parsed.filter((entry) => Date.now() - entry?.at <= WORLD_REWARD_RECOVERY_MAX_AGE_MS)
+            : volatile;
+    } catch {
+        return volatile;
+    }
 }
 
 /** Shape the authenticated save GET piggybacks as `pendingWorldRewards`. */
@@ -246,7 +162,10 @@ export function mergeServerPendingWorldRewards(
 ): PendingWorldRewardOperation[] {
     if (!playerName || !Array.isArray(entries) || entries.length === 0) return readPendingWorldRewards(playerName, storage);
     const local = readPendingWorldRewards(playerName, storage);
-    const known = new Set(local.map((entry) => entry.id));
+    const known = new Set([
+        ...local.map((entry) => entry.id),
+        ...readSettledWorldDiscoveries(playerName, storage).map((entry) => entry.id),
+    ]);
     const now = Date.now();
     const imported: PendingWorldRewardOperation[] = [];
     for (const raw of entries as unknown[]) {

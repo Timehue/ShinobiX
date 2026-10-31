@@ -7,6 +7,8 @@ import {
     beginResolvedWorldExplore,
     beginWorldChestOperation,
     beginWorldDiscoveryOperation,
+} from "./world-reward-operations";
+import {
     completeWorldRewardOperation,
     readPendingWorldRewards,
 } from "./world-reward-recovery";
