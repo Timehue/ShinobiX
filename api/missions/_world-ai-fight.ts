@@ -503,6 +503,19 @@ function chainWinExists(character: Record<string, unknown>, request: Pick<WorldA
     });
 }
 
+/** Repair old saves whose completed handoff survived an omitted-key merge.
+ * Require every sealed win for this exact chain; invalid eligibility alone is
+ * never permission to discard an unfinished fight or an unpaid outcome. */
+export function clearCompletedWorldAiPendingChain(character: Record<string, unknown>): Record<string, unknown> {
+    const pending = cleanWorldAiPendingChain(character.worldAiPendingChain);
+    if (!pending) return character;
+    const request = pending.request;
+    const stages = request.kind === 'wanderer-ambush' ? 4 : request.kind === 'hunt-pack' ? 3 : 0;
+    if (!stages || !Array.from({ length: stages }, (_, stage) => stage)
+        .every((stage) => chainWinExists(character, request, request.chainId, stage))) return character;
+    return { ...character, worldAiPendingChain: null };
+}
+
 function requireChain(request: WorldAiFightRequest, character: Record<string, unknown>, stages: number, generatedChainId: string) {
     const stage = request.stage ?? 0;
     if (stage < 0 || stage >= stages) throw new Error('world-chain-stage-invalid');
@@ -857,8 +870,9 @@ export function applyWorldAiFightSettlement(
         } else {
             const pending = cleanWorldAiPendingChain(next.worldAiPendingChain);
             if (pending?.request.chainId === context.chainId) {
-                const { worldAiPendingChain: _cleared, ...withoutPending } = next;
-                next = withoutPending;
+                // The save writer preserves omitted fields. An explicit null
+                // prevents a settled wave from being restored on the next read.
+                next = { ...next, worldAiPendingChain: null };
             }
         }
     }
