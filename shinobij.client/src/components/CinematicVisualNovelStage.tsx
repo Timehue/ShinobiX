@@ -110,6 +110,19 @@ function focusableElements(root: HTMLElement): HTMLElement[] {
         .filter((element) => element.getClientRects().length > 0 && element.getAttribute("aria-hidden") !== "true");
 }
 
+// A tap advances, so a line too long for the fixed box would lose its end. Move
+// to the unread part instead and report that the tap was spent.
+function revealUnreadLine(dialogue: HTMLElement | null): boolean {
+    if (!dialogue) return false;
+    for (const scroller of [dialogue.querySelector(".cvn-dialogue-text"), dialogue]) {
+        if (!scroller || scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop <= 1) continue;
+        const from = scroller.scrollTop;
+        scroller.scrollTop = scroller.scrollHeight;
+        if (scroller.scrollTop !== from) return true;
+    }
+    return false;
+}
+
 function ActorPortrait({ actor }: { actor: Actor }) {
     const [failedSource, setFailedSource] = useState("");
     const [dimensions, setDimensions] = useState<{ source: string; aspect: "tall" | "square" | "wide" }>({ source: "", aspect: "tall" });
@@ -207,6 +220,7 @@ export function CinematicVisualNovelStage({
     const [settingsOpenKey, setSettingsOpenKey] = useState("");
     const lastCompleteRef = useRef(0);
     const rootRef = useRef<HTMLDivElement>(null);
+    const dialogueRef = useRef<HTMLElement>(null);
     const settingsMenuId = useId();
     const immersive = surface === "immersive";
     const settingsKey = `${eventId}:${pageIndex}`;
@@ -224,6 +238,12 @@ export function CinematicVisualNovelStage({
             previousFocus?.focus();
         };
     }, [immersive]);
+
+    // The box is a fixed size, so a line that scrolled would otherwise leave the
+    // next one starting partway down.
+    useLayoutEffect(() => {
+        if (dialogueRef.current) dialogueRef.current.scrollTop = 0;
+    }, [textKey]);
 
     const instant = reduced || speed === "instant";
     const typedCount = instant
@@ -315,6 +335,11 @@ export function CinematicVisualNovelStage({
         onAdvanceRef.current();
     }, [allowStageAdvance, completeTyping, presentation.ambience, scoreKey, typingDone]);
 
+    const advanceByPlayer = useCallback(() => {
+        if (typingDone && allowStageAdvance && revealUnreadLine(dialogueRef.current)) return;
+        advance();
+    }, [advance, allowStageAdvance, typingDone]);
+
     useEffect(() => {
         if (!autoRead || !typingDone || !allowStageAdvance || settingsOpen) return;
         const readingDelay = Math.min(6_800, Math.max(2_600, 1_400 + spoken.length * 32));
@@ -368,12 +393,12 @@ export function CinematicVisualNovelStage({
             }
             if (event.key === "Enter" || event.key === " " || event.key === "ArrowRight") {
                 event.preventDefault();
-                advance();
+                advanceByPlayer();
             }
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [advance, immersive, onCancel, settingsOpen]);
+    }, [advanceByPlayer, immersive, onCancel, settingsOpen]);
 
     const actorClass = (side: "left" | "right", actor: Actor) => [
         "cvn-actor",
@@ -426,7 +451,7 @@ export function CinematicVisualNovelStage({
                     return;
                 }
                 if (target.closest("button, input, textarea, select, a")) return;
-                advance();
+                advanceByPlayer();
             }}
         >
             <div className={`cvn-backdrop motion-${presentation.backgroundMotion}`} aria-hidden="true" />
@@ -527,13 +552,13 @@ export function CinematicVisualNovelStage({
                 <p className="cvn-scene-caption">{scene}</p>
             </main>
 
-            <section className="cvn-dialogue-shell">
+            <section ref={dialogueRef} className="cvn-dialogue-shell">
                 <p className="cvn-dialogue-scene">{scene}</p>
                 <span className="cvn-sr-only" aria-live="polite" aria-atomic="true">
                     {speaker}: {spoken}
                 </span>
                 <div className="cvn-speaker">{speaker}</div>
-                <p className="cvn-dialogue-text">
+                <p key={textKey} className="cvn-dialogue-text">
                     {displayed}
                     {!typingDone && <span className="cvn-caret" aria-hidden="true" />}
                 </p>
