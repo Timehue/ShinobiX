@@ -50,6 +50,7 @@ import { worldBossDefinitionForVisual, worldBossDefinitionForGuardVisual } from 
 import { STORY_KAGE_PORTRAITS } from '../../../shared/story-kage-art';
 import { STORY_COMBAT_IDENTITIES } from '../../../shared/story-combat-identity';
 import { narrativeEnemyIdentity } from '../../../shared/narrative-enemy-identity';
+import { parseWandererId, WANDERER_RIFT_INDEX } from '../../../shared/wanderer-roster';
 
 const HOLLOW_HOUND_SPRITE = "/hollow-gate/hollow-hound-idle.webp";
 const STORY_KAGE_SPRITES: Record<string, string> = { ...STORY_KAGE_PORTRAITS, 'story-ai-ashen-leaf-village-100': hoshinaHollowSprite };
@@ -197,6 +198,8 @@ function runtimeSprite(id: string): string | null {
     }
     if (id.startsWith("dungeon-warden-")) return towerArmoredBossSprite;
     if (id.startsWith("world-bounty-") || id.startsWith("world-ambush-")) return towerHeavySprite;
+    // The rift-touched creature keeps its slot id, not a human roster role.
+    if (parseWandererId(id.replace("world-wanderer-", ""))?.index === WANDERER_RIFT_INDEX) return riftHollowStalkerSprite;
     if (id.startsWith("world-wanderer-") || id.startsWith("world-patrol-")) return rivalFallbackSprite;
     if (id.startsWith("merc-") || id.startsWith("wanderer-") || id.startsWith("story-ai-")) return rivalFallbackSprite;
     return null;

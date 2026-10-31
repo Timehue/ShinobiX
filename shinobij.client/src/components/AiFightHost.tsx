@@ -584,7 +584,7 @@ export function AiFightHost({
                 settledRef.current = true;
                 latestOnSettled.current(settled);
                 if (settled.worldContext && settled.outcome) {
-                    stampWandererFightSettlement({ outcome: settled.outcome, worldContext: settled.worldContext, character: settled.character, _saveVersion: settled._saveVersion });
+                    stampWandererFightSettlement({ outcome: settled.outcome, terminalReason: settled.terminalReason, worldContext: settled.worldContext, character: settled.character, _saveVersion: settled._saveVersion });
                 }
                 currentFight.request.onResolved?.(settled);
             } else if (activePlayerKeyRef.current === originatingPlayerKey) {
@@ -665,10 +665,11 @@ export function AiFightHost({
                 recordMode={request.returnScreen === 'dojoCircuit' ? 'Dojo Circuit' : currentFight.worldContext ? "World Encounter" : request.battleKind === "practice" ? "Practice" : "AI Fight"}
                 enemyAvatarOverride={enemyAvatar}
                 onExit={closeFight}
-                renderResult={(ctx) => request.returnScreen === 'dojoCircuit' ? <Suspense fallback={null}><CircuitCombatResult playerName={character.name} won={ctx.won} draw={ctx.draw} settleState={ctx.settleState} onRetry={ctx.retry} onExit={closeFight} /></Suspense> : (
+                renderResult={(ctx) => request.returnScreen === 'dojoCircuit' ? <Suspense fallback={null}><CircuitCombatResult playerName={character.name} won={ctx.won} draw={ctx.draw} terminalReason={ctx.terminalReason} settleState={ctx.settleState} onRetry={ctx.retry} onExit={closeFight} /></Suspense> : (
                     <Suspense fallback={null}><AiFightResultCard
                         won={ctx.won}
                         draw={ctx.draw}
+                        terminalReason={ctx.terminalReason}
                         settleState={ctx.settleState}
                         settleResult={ctx.settleResult as AiFightSettleResult | null}
                         opponentName={opponentName}

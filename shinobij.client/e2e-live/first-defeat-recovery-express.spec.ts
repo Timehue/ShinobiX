@@ -354,8 +354,12 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   const abandoned = await request.post('/api/solo-pve/action', { headers, data: { playerName: name, sessionId: nextFight.sessionId, expectedVersion: nextFight.session.version, moveToken: 'recovery-next-activity-abandon', type: 'abandon' } });
   expect(abandoned.status(), await abandoned.text()).toBe(200);
   await page.reload();
-  const sparred = page.getByRole('dialog', { name: 'Fight lost', exact: true });
-  await expect(sparred).toContainText('lost this spar');
+  // This is an explicit abandon, not a combat knockout. The canonical reason
+  // survives the reload and must distinguish retreat from losing a spar.
+  const sparred = page.getByRole('dialog', { name: 'Fight ended', exact: true });
+  await expect(sparred).toContainText('Retreated');
+  await expect(sparred).toContainText('You left the fight with');
+  await expect(sparred).not.toContainText('lost this spar');
   await expect(sparred).not.toContainText('brought to the hospital');
   await sparred.getByRole('button', { name: 'Return', exact: true }).click();
   const afterActivity = await save();
