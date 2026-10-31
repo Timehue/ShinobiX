@@ -168,6 +168,37 @@ test('resume retains an unfinished chain despite ineligibility and a different c
     assert.deepEqual((await kv.get<Record<string, unknown>>(`save:${playerName}`))?.character, character);
 });
 
+test('locked recovery preserves a new unfinished chain that replaces the initial stale snapshot', async () => {
+    const playerName = 'replacedchainrecovery';
+    const completed = completedHandoff();
+    const initial = { _saveVersion: 1, currentSector: 60, character: { name: playerName, ...completed } };
+    const replacement = { ...initial, _saveVersion: 2, character: { ...initial.character,
+        worldAiPendingChain: { ...completed.worldAiPendingChain,
+            request: { ...completed.worldAiPendingChain.request, chainId: 'replacement_chain', stage: 1 } },
+    } };
+    const saveKey = `save:${playerName}`;
+    await kv.set(saveKey, initial);
+    const originalGet = kv.get.bind(kv);
+    let replaced = false;
+    kv.get = (async <T>(key: string) => {
+        const snapshot = await originalGet<T>(key);
+        if (key === saveKey && !replaced) {
+            replaced = true;
+            await kv.set(saveKey, replacement);
+        }
+        return snapshot;
+    }) as typeof kv.get;
+    try {
+        const output = await probe(playerName, '127.5.0.7');
+        assert.equal(replaced, true);
+        assert.equal(output.statusCode, 200);
+        assert.deepEqual(output.body?.pendingWorldChain, replacement.character.worldAiPendingChain);
+        const saved = await originalGet<Record<string, unknown>>(saveKey);
+        assert.equal(saved?._saveVersion, 2, 'stale observation must not cause a write');
+        assert.deepEqual(saved?.character, replacement.character);
+    } finally { kv.get = originalGet; }
+});
+
 test('a recovery-only probe does not settle travel without returning a save version', async () => {
     const playerName = 'travelrecoveryprobe';
     const arrivalAt = Date.now() - 100;
