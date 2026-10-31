@@ -2180,7 +2180,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 for (const participant of [p1Norm, p2Norm]) {
                     if (!participant) continue;
                     const worldBossBlock = await worldBossPvpProtectionBlock(participant);
-                    if (worldBossBlock) return res.status(worldBossBlock.status).json({ error: worldBossBlock.error });
+                    if (worldBossBlock) return res.status(worldBossBlock.status).json({ error: worldBossBlock.error, errorCode: PVP_OPPONENT_UNAVAILABLE });
                 }
                 // Reject self-duels. With p1 and p2 resolving to the SAME
                 // account, a player controls both sides — letting them farm a
@@ -2246,7 +2246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             return true;
                         });
                         if (!admission.ok) {
-                            return res.status(admission.block.status).json({ error: admission.block.error });
+                            return res.status(admission.block.status).json({ error: admission.block.error, errorCode: PVP_OPPONENT_UNAVAILABLE });
                         }
                         return res.status(200).json({
                             battleId,
@@ -2270,10 +2270,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // real ONLINE player; offline targets stay optimistic/queued.
                 const opponentNorm = me === p1Norm ? p2Norm : p1Norm;
                 const creatorWorldBossBlock = await worldBossPvpProtectionBlock(me);
-                if (creatorWorldBossBlock) return res.status(creatorWorldBossBlock.status).json({ error: creatorWorldBossBlock.error });
+                if (creatorWorldBossBlock) return res.status(creatorWorldBossBlock.status).json({ error: creatorWorldBossBlock.error, errorCode: PVP_OPPONENT_UNAVAILABLE });
                 if (opponentNorm) {
                     const worldBossBlock = await worldBossPvpProtectionBlock(opponentNorm);
-                    if (worldBossBlock) return res.status(worldBossBlock.status).json({ error: worldBossBlock.error });
+                    if (worldBossBlock) return res.status(worldBossBlock.status).json({ error: worldBossBlock.error, errorCode: PVP_OPPONENT_UNAVAILABLE });
                     const opponentPresence = onlineStore.get(opponentNorm);
                     // The client retries a bare 409, which fits a write it may
                     // have lost. These refusals are final answers about where
@@ -3093,7 +3093,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!admission.ok) {
                         if (challengeReservation) await releaseChallengePvpReservation(challengeReservation.id, battleId).catch(() => undefined);
                         if (clanWarReservation) await releaseClanWarPvpReservation(clanWarReservation);
-                        return res.status(admission.block.status).json({ error: admission.block.error });
+                        return res.status(admission.block.status).json({ error: admission.block.error, errorCode: PVP_OPPONENT_UNAVAILABLE });
                     }
                     const reservation = admission.value;
                     creatorPointerCreated = reservation.created;

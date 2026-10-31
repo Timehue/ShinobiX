@@ -54,6 +54,7 @@ const raid = (extra: Record<string, unknown> = {}) => {
 
 beforeEach(async () => {
     resetRateLimits();
+    await kv.del('world-boss-event:active', 'world-boss-event:guard-queue', 'world-boss-event:guard-queue:queue');
     for (const name of [RAIDER, GUARD]) online.remove(name);
     await kv.del(`challenges:${GUARD}`);
     await kv.set(`guard:${GUARD}`, { name: GUARD, village: VILLAGE, level: 40, lastSeen: Date.now() }, { ex: 300 });
@@ -123,6 +124,28 @@ test('guard eligibility projects earned recovery without changing the saved vita
     await kv.set(`save:${GUARD}`, stored);
     assert.equal((await raid()).body.pvp, true, 'elapsed recovery makes this guard eligible');
     assert.deepEqual(await kv.get(`save:${GUARD}`), stored, 'selection is a read-only projection');
+});
+
+test('a boss-queue ticket without a battle lock excludes a guard and refuses the duel definitively', async () => {
+    online.upsert({ name: GUARD, sector: SECTOR, character: null });
+    const now = Date.now();
+    const event = { eventId: 'guard-queue', bossId: 'hollow-beast', status: 'roaming', hp: 100, hpMax: 100,
+        startedAt: now - 1000, roamEndsAt: now + 60_000, endsAt: now + 120_000, endedAt: null };
+    await kv.set('world-boss-event:active', event.eventId);
+    await kv.set('world-boss-event:guard-queue', event);
+    await kv.set('world-boss-event:guard-queue:queue', { tickets: [{ slug: GUARD }], activeMatchIds: [], updatedAt: now });
+    const { battleLockFlagsForPlayers } = await import('../_elapsed-state.js');
+    assert.equal((await battleLockFlagsForPlayers([GUARD])).get(GUARD), false);
+    assert.equal((await raid()).body.noGuard, true);
+    const refused = await call(session, {
+        p1Character: { name: RAIDER }, p2Character: { name: GUARD },
+        baseRewards: true, rewardSector: SECTOR, useCurrentVitals: true, requireWorldCoLocation: true,
+    });
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.errorCode, PVP_OPPONENT_UNAVAILABLE);
+    assert.match(refused.body.error, /world boss team/);
+    await kv.set('world-boss-event:guard-queue', { ...event, status: 'stopped' });
+    assert.equal((await raid()).body.pvp, true, 'a closed event ticket no longer blocks the healthy guard');
 });
 
 test('the notice for a duel that already started reaches a guard who has since moved', async () => {
