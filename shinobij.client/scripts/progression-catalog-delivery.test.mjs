@@ -90,6 +90,21 @@ test('world catalog delivery retains every card, reviewed effect, reckoning and 
     }
 });
 
+test('packed lazy story and clan catalogs retain every identity, price, reward, limit and row order', async () => {
+    for (const [file, name] of [
+        ['story-card-sources.ts', 'CHRONICLE_STORY_SOURCES'],
+        ['clan-exchange-catalog.ts', 'CLAN_EXCHANGE_ITEMS'],
+    ]) {
+        const source = readFileSync(new URL(`../../shared/${file}`, import.meta.url), 'utf8');
+        const original = await moduleFrom(source);
+        const packed = progressionCatalogDelivery().transform(source, `/shared/${file}`).code;
+        const delivered = await moduleFrom(packed);
+        assert.deepEqual(delivered[name], original[name]);
+        assert.deepEqual(Object.keys(delivered), Object.keys(original));
+        assert(packed.length < source.length - 1500, 'repeated static keys stay compact');
+    }
+});
+
 test('pet identities and legacy technique rows pack exactly with safe scalar constants', async () => {
     for (const [relative, name, minimum] of [
         ['../../shared/pet-tactics-catalog.ts', 'PET_TACTICS_IDENTITIES', 4500],
