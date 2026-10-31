@@ -1,3 +1,4 @@
+import { PACKED_DATA_IMPORT, PACKED_DATA_RUNTIME } from './packed-world-data.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -6,7 +7,7 @@ import { packStaticCatalogLiteral, staticCatalogValue } from './pack-static-cata
 import { progressionCatalogDelivery } from './progression-catalog-delivery.mjs';
 
 async function moduleFrom(source) {
-    const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+    const code = ts.transpileModule(source.replace(PACKED_DATA_IMPORT, `import { unpackWorldData as __unpackWorldData } from ${JSON.stringify(PACKED_DATA_RUNTIME.href)};`), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
     return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 
@@ -86,6 +87,21 @@ test('world catalog delivery retains every card, reviewed effect, reckoning and 
         assert.deepEqual(Object.keys(delivered), Object.keys(original));
         assert.deepEqual(staticCatalogValue(source, name), original);
         assert(packed.length < isolated.length - 6000);
+    }
+});
+
+test('packed lazy story and clan catalogs retain every identity, price, reward, limit and row order', async () => {
+    for (const [file, name] of [
+        ['story-card-sources.ts', 'CHRONICLE_STORY_SOURCES'],
+        ['clan-exchange-catalog.ts', 'CLAN_EXCHANGE_ITEMS'],
+    ]) {
+        const source = readFileSync(new URL(`../../shared/${file}`, import.meta.url), 'utf8');
+        const original = await moduleFrom(source);
+        const packed = progressionCatalogDelivery().transform(source, `/shared/${file}`).code;
+        const delivered = await moduleFrom(packed);
+        assert.deepEqual(delivered[name], original[name]);
+        assert.deepEqual(Object.keys(delivered), Object.keys(original));
+        assert(packed.length < source.length - 1500, 'repeated static keys stay compact');
     }
 });
 

@@ -204,6 +204,7 @@ function WildPetBindingView({
         </section>
     );
 
+    const captureResolved = captureStage === 'success' || captureStage === 'failed';
     const overlay = <aside className={`wild-binding-overlay pet-battle-theme${open ? ' is-open' : ''}${captureStage !== 'idle' ? ` is-${captureStage}` : ''}${arenaAvailable && bindingCinematic ? ' has-arena-cinematic' : ''}`}
         onKeyDown={(event) => {
             if (captureStage === 'idle' && open && event.key === 'Escape') {
@@ -218,12 +219,13 @@ function WildPetBindingView({
             }
             event.stopPropagation();
         }}>
-        <button type="button" className="wild-binding-toggle" onClick={() => setOpen((value) => !value)}
+        {!captureResolved && <button type="button" className="wild-binding-toggle" onClick={() => setOpen((value) => !value)}
             aria-expanded={open} aria-controls="wild-binding-panel">
             <img src="/items/beast-seal-reinforced.webp" alt="" />
             <span>{open ? 'Hide seals' : `Bind · ${wild.resolvePercent}% Resolve`}</span>
-        </button>
-        {open && <div id="wild-binding-panel" className="wild-binding-panel">
+        </button>}
+        {/* The capture reply spends the seal, so this panel would read "Lower Resolve" behind the result. */}
+        {open && !captureResolved && <div id="wild-binding-panel" className="wild-binding-panel">
             <div className="wild-binding-panel-head">
                 <span className="wild-binding-panel-crest" aria-hidden="true">✦</span>
                 <div><p>WILD BINDING</p><strong>{wild.name}</strong></div>
