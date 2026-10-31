@@ -414,7 +414,7 @@ describe('authoritative field mission lifecycle', () => {
 
     it('pays field stat points from the one shared daily budget, never past it, with no first-N rule', async (t) => {
         // The budget row is combat-stat-count:<player>:<UTC day>, so hold one day.
-        t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 9, 17, 12, 0, 0) });
+        t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 10, 2, 12, 0, 0) });
         const today = new Date().toISOString().slice(0, 10);
         const { __resetRateLimitsForTest } = await import('../_ratelimit.js');
         const { reserveDailyStatPoints } = await import('../_daily-stat-budget.js');

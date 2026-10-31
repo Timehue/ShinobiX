@@ -657,7 +657,8 @@ describe('mission queue publication recovery', { concurrency: false }, () => {
 });
 
 describe('mission payout receipt recovery', { concurrency: false }, () => {
-    it('distinct runs of the same mission reserve distinct points from the shared daily budget', async () => {
+    it('distinct runs of the same mission reserve distinct points from the shared daily budget', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 10, 2, 12) });
         const { reserveDailyStatPoints, readDailyStatBudget } = await import('../_daily-stat-budget.js');
         const player = 'missionsagasharedstat';
         await seedPlayer(player);

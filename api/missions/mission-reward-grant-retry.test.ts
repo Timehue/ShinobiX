@@ -237,7 +237,8 @@ describe('a daily mission reward is paid exactly once even when its first credit
         assert.equal(again.body?._saveVersion, undefined, 'and has no new version to report');
     });
 
-    it('the daily panel read carries today\'s shared stat-point budget, for both tracks', async () => {
+    it('the daily panel read carries today\'s shared stat-point budget, for both tracks', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 10, 2, 12) });
         const { reserveCombatStatBudget } = await import('../pvp/_combat-stat-budget.js');
         for (const [name, seed] of [[`${PREFIX}budgetvanguard`, seedVanguard], [`${PREFIX}budgetnewbie`, seedNewbie]] as const) {
             await seed(name);
