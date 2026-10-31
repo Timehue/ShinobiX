@@ -524,14 +524,14 @@ textarea {
     width: 100%;
     border-top: 1px solid rgba(255,255,255,0.08);
     margin-top: 4px;
-    padding: 6px 8px 0;
+    padding: 6px 0 0;
     box-sizing: border-box;
 }
 
 .left-caps-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2px 4px;
+    gap: 4px 6px;
     width: 100%;
 }
 
@@ -545,7 +545,7 @@ textarea {
 }
 
 .left-caps-label {
-    font-size: 0.57rem;
+    font-size: 0.72rem;
     color: var(--text-dim);
     font-weight: 500;
     white-space: nowrap;
@@ -555,7 +555,7 @@ textarea {
 }
 
 .left-caps-value {
-    font-size: 0.64rem;
+    font-size: 0.82rem;
     font-weight: 700;
     color: var(--slate-200);
     font-variant-numeric: tabular-nums;

@@ -1,3 +1,4 @@
+import { PACKED_DATA_IMPORT, PACKED_DATA_RUNTIME } from './packed-world-data.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -13,7 +14,7 @@ test('packed lazy catalogs preserve all content, identifiers, functions and futu
     ] as const) {
         const source = readFileSync(new URL(path, import.meta.url), 'utf8');
         const delivered = packStaticCatalog(source, name, value);
-        const code = ts.transpileModule(delivered, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+        const code = ts.transpileModule(delivered.replace(PACKED_DATA_IMPORT, `import { unpackWorldData as __unpackWorldData } from ${JSON.stringify(PACKED_DATA_RUNTIME.href)};`), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
         const module = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
         assert.deepEqual(module[name], value);
         if (name === 'hollowRifts') {
