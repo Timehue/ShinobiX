@@ -49,7 +49,7 @@ test("MissionArenaFight accepts the story presentation props the host passes", (
 test("story wins keep the sealed run open until the authoritative reward settles", () => {
     assert.match(
         host,
-        /renderResult=\{\(\{ won, draw, settleState, settleResult, retry \}\) =>/,
+        /renderResult=\{\(\{ won, draw, escaped, settleState, settleResult, retry \}\) =>/,
         "the story renderer must retain MissionArenaFight's run-scoped retry callback",
     );
     assert.match(host, /settleState === "failed"[\s\S]*?<button onClick=\{retry\}>\{result \? 'Retry saving progress' : 'Retry reward'\}<\/button>/);

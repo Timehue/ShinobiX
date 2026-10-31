@@ -660,6 +660,7 @@ export function AiFightHost({
                     <Suspense fallback={null}><AiFightResultCard
                         won={ctx.won}
                         draw={ctx.draw}
+                        escaped={ctx.escaped}
                         settleState={ctx.settleState}
                         settleResult={ctx.settleResult as AiFightSettleResult | null}
                         opponentName={opponentName}

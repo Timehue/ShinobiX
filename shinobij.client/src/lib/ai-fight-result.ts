@@ -30,10 +30,15 @@ export function aiFightNonWinMessage(
     draw: boolean,
     /** A practice bout. Spars never hospitalize and never cost HP (server rule). */
     spar = false,
+    /** The server's 'escaped' terminal reason; its winner is still the enemy. */
+    escaped = false,
 ): string {
     if (state === 'failed') return 'The outcome could not be confirmed. Retry to finish saving your battle result.';
     if (state !== 'settled' || !character) return 'Confirming your battle result and recovery status…';
-    if (character.hospitalized) return 'Your HP reached zero. You were brought to the hospital for treatment. No reward was earned.';
+    if (character.hospitalized) return `${escaped ? 'You got away, but the escape took your last HP.' : 'Your HP reached zero.'} You were brought to the hospital for treatment. No reward was earned.`;
+    if (escaped) return spar
+        ? `You left this spar. A spar never sends anyone to the hospital, so you keep your ${character.hp.toLocaleString()} HP.`
+        : `You escaped the fight. You have ${character.hp.toLocaleString()} HP remaining. No reward was earned.`;
     if (spar) return `${draw ? 'The spar ended in a draw.' : 'You lost this spar.'} A spar never sends anyone to the hospital, so you keep your ${character.hp.toLocaleString()} HP.`;
     return `${draw ? 'The fight ended in a draw.' : 'You did not win this fight.'} You have ${character.hp.toLocaleString()} HP remaining. No reward was earned.`;
 }
