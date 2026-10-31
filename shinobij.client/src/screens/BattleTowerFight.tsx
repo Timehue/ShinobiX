@@ -74,8 +74,10 @@ import { TOWER_ENVIRONMENT_PROP_SCALE } from "../../../shared/tower-environment"
 import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 import { towerFeatureTerrain, towerFeatureProp, towerObstacleProp } from "../lib/tower-terrain";
 import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
-import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
+import { battlefieldAiSprite, defaultAiRivalSprite } from "../lib/battlefield-actor-art";
 import { worldBossRaidResult, type WorldBossRaidReceipt } from "../lib/world-boss-raid-result";
+import { aiFightHistoryOutcome } from "../lib/ai-fight-result";
+import { petScenicPortraitImage as petPortraitImage } from "../lib/pet-scenic-portrait";
 import { clanBossResult as clanBossReceiptResult } from "../lib/clan-boss-result";
 import { clanBossAssaultResult, clanBossSettlementError } from "../lib/clan-boss-assault-result";
 import { settleWorldBossEvent } from "../lib/world-boss-event-api";
@@ -1126,7 +1128,7 @@ export function BattleTowerFight({
         const allyNames = session.actors.filter(a => a.side === "squad" || a.side === "npc").map(a => a.name);
         const enemyNames = session.actors.filter(a => a.side === "enemy").map(a => a.name);
         const boss = session.actors.find(a => a.id === session.phaseState?.bossId);
-        const outcome: BattleHistoryEntry["outcome"] = session.winner === "squad" ? "win" : session.winner === "draw" ? "draw" : "loss";
+        const outcome = aiFightHistoryOutcome(session.winner, session.terminalReason);
         onRecordBattle(makeBattleEntry({
             id: `tower-${runId}`,
             ts: Date.now(),
@@ -1478,6 +1480,11 @@ export function BattleTowerFight({
     function playerAvatarFor(a: TowerActor): string {
         return resolveOwnAvatar({ name: a.name, avatarImage: typeof a.character?.avatarImage === "string" ? a.character.avatarImage : undefined }, sharedImages);
     }
+    /** The board's own art for this enemy, unless that art is only the generic rival. */
+    function bundledEnemySprite(a: TowerActor): string | null {
+        const sprite = battlefieldAiSprite(String(a.character?.visual ?? ""), sharedImages);
+        return sprite !== defaultAiRivalSprite() ? sprite : null;
+    }
     function avatarFor(a: TowerActor): string | null {
         if (isHunt && a.side === 'enemy' && enemyAvatarOverride) return enemyAvatarOverride;
         // Player's own actor → the live avatar prop; allies → their sealed avatar if present;
@@ -1487,6 +1494,12 @@ export function BattleTowerFight({
             const ownAvatar = resolveOwnAvatar(character, sharedImages);
             if (ownAvatar) return ownAvatar;
         }
+        // A summoned pet seals only its id; the art lives on the player's own save.
+        if ((a.character as Record<string, unknown> | undefined)?.companion === true) {
+            const pet = (character.pets ?? []).find(entry => entry.id === String(a.character?.visual ?? ""));
+            const portrait = pet ? petPortraitImage(pet, sharedImages ?? {}) : "";
+            if (portrait) return portrait;
+        }
         const sealed = a.character?.avatarImage;
         if (isTeamPvp) {
             const portrait = playerAvatarFor(a);
@@ -1494,7 +1507,7 @@ export function BattleTowerFight({
         }
         if (isNarrativeGroup && typeof sealed === "string" && sealed) return sealed;
         if (a.side === "enemy") {
-            return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).src;
+            return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).src ?? bundledEnemySprite(a);
         }
         if (typeof sealed === "string" && sealed) return sealed;
         const visual = String(a.character?.visual ?? "");
@@ -1505,7 +1518,7 @@ export function BattleTowerFight({
         if (a.side !== "enemy") return false;
         if (isTeamPvp && a.ai === false) return false;
         if (isNarrativeGroup && typeof a.character?.avatarImage === "string" && a.character.avatarImage) return false;
-        return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).kind === "unknown";
+        return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).kind === "unknown" && !bundledEnemySprite(a);
     }
     function fallbackArtFor(a: TowerActor): string {
         if (isTeamPvp && a.ai === false) return roleDefenderFallback;
@@ -2453,7 +2466,7 @@ export function BattleTowerFight({
 
             {/* Result overlay */}
             {session.status === "done" && resultReady && (renderResult ? renderResult({
-                won: session.winner === 'squad', draw: session.winner === 'draw',
+                won: session.winner === 'squad', draw: session.winner === 'draw', terminalReason: session.terminalReason,
                 settleState: settlement.phase === 'error' ? 'failed' : settlement.phase,
                 settleResult: settlement.customResult, retry: () => void performSettlement(), onExit: exitResult,
             }) : isSpire && spireMeta ? (

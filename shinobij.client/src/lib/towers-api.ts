@@ -149,6 +149,8 @@ export type TowerFloorView = {
 };
 
 export type TowerSession = {
+    /** Hunt and narrative grids only: how the outer solo-PvE fight ended. */
+    terminalReason?: import('../../../shared/solo-pve-terminal').SoloPveTerminalReason;
     clanBossGuard?: ClanBossGuardState;
     towerTactics?: TowerTacticsState;
     towerId: string;

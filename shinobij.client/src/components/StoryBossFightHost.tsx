@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Character } from "../types/character";
 import { companionCoachName, firstFightLessonForStory } from "../lib/first-fight-coach";
+import { aiFightLeftLabel } from "../lib/ai-fight-result";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
@@ -452,9 +453,10 @@ export function StoryBossFightHost({
                 coachSpeaker={companionCoachName(character)}
                 enemyAvatarOverride={theme.bossPortrait}
                 onExit={closeFight}
-                renderResult={({ won, draw, settleState, settleResult, retry }) => {
+                renderResult={({ won, draw, terminalReason, settleState, settleResult, retry }) => {
                     const result = (settleResult as StoryBossSettleResult | null)
                         ?? (committedReward?.requestId === currentFight.requestId ? committedReward.result : null);
+                    const left = aiFightLeftLabel(terminalReason, character.hospitalized);
                     // The tutorial spar gets its own plain-language card: a new
                     // player has no chapter context yet. A lost spar costs no HP
                     // and no hospital stay (spars never do — api/missions/
@@ -468,13 +470,13 @@ export function StoryBossFightHost({
                                 focusVersion={`${won ? "won" : "lost"}-${settleState}-${result ? "ready" : "waiting"}`}
                             >
                                 <div className="story-fight-complete-card">
-                                    <p className="story-fight-complete-kicker">{won ? "First Win" : draw ? "Draw" : "Spar lost"}</p>
+                                    <p className="story-fight-complete-kicker">{won ? "First Win" : draw ? "Draw" : left ?? "Spar lost"}</p>
                                     <h2>Academy Sparring Match</h2>
                                     {won
                                         ? (!result
                                             ? <p className="story-fight-complete-rewards">{settleState === "failed" ? "The sparring reward could not be verified. The fight ended in a win, but your Academy progress and reward are not confirmed yet. Press Retry reward." : "Saving your reward…"}</p>
                                             : <Suspense fallback={<p role="status">Reward received.</p>}><StoryRewardSummary result={result} /></Suspense>)
-                                        : <p className="story-fight-complete-boss">{draw ? "The spar ended in a draw." : "The dummy won this spar."} There is no hospital stay for this practice fight. Try again when you are ready.</p>}
+                                        : <p className="story-fight-complete-boss">{draw ? "The spar ended in a draw." : left ? "You stepped out of the spar." : "The dummy won this spar."} There is no hospital stay for this practice fight. Try again when you are ready.</p>}
                                     {/* escape-hatch-exempt — deliberate, unlike the PvP and AI-fight
                                         result screens. Those two keep a DURABLE handle on an unsettled
                                         reward (a 48h server receipt, or a retained token plus an active
@@ -522,9 +524,9 @@ export function StoryBossFightHost({
                     // LOSS / DRAW — themed defeat card (no reward; try again from the Story Hall).
                     const pending = !!currentFight.session.huntCombat?.purpose && settleState !== 'settled';
                     return (
-                        <RequiredStoryResultDialog label={draw ? "Story battle drawn" : "Story battle lost"} focusVersion={settleState}>
+                        <RequiredStoryResultDialog label={draw ? "Story battle drawn" : left ? "Story battle left" : "Story battle lost"} focusVersion={settleState}>
                             <div className="story-fight-complete-card">
-                                <p className="story-fight-complete-kicker">{draw ? "Draw" : "Defeat"}</p>
+                                <p className="story-fight-complete-kicker">{draw ? "Draw" : left ?? "Defeat"}</p>
                                 <h2>{theme.chapterLabel ?? theme.bossName}</h2>
                                 <p className="story-fight-complete-boss">You did not defeat {theme.bossName}. This chapter is still open. Recover if needed, then try again.</p>
                                 {pending && settleState === 'failed' && <p role="alert">Battle result not saved. Retry to continue.</p>}
