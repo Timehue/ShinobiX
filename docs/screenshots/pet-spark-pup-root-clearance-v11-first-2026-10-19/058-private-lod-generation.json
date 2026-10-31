@@ -1,8 +1,0 @@
-{
-  "generator": "scripts/generate-warfront-pet-lods.mjs",
-  "generatorSha256": "bbf7c904aa56bbc7f8c74a2bc36a9ab5e958680fc06e1f028dee80087e112f4c",
-  "adaptation": "Unchanged generation algorithm; fixed single private source and private modelRoot/outputRoot; --critical-only skips public manifests and TypeScript output.",
-  "sourceSha256": "92362a0dcea663625a6da3cd88a5c229f690ab84c44aee9f787649ed21378329",
-  "publicSourceUnchanged": true,
-  "actuallyInspectedBattle": false
-}

@@ -1,9 +1,0 @@
-{
-  "identities": 155,
-  "allKeysAndValuesExactlyEqual": true,
-  "oldSha256": "6f558aa5a8deb72028f0f3477a4cbf913592da105451bb0258b7083a461f0616",
-  "newSha256": "58b190b3df1b1ece7e8901f56040f3470b038740ae9f0b14b2abd6b73e8db76b",
-  "generatedSourceBytesBefore": 8016,
-  "generatedSourceBytesAfter": 5645,
-  "scope": "Repeated identical cache-revision string literals only. Every existing pet ID and value remains exactly equal; geometry and cache URLs are unchanged."
-}
