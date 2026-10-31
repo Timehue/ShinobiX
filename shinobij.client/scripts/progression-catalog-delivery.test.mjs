@@ -1,3 +1,4 @@
+import { PACKED_DATA_IMPORT, PACKED_DATA_RUNTIME } from './packed-world-data.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -6,7 +7,7 @@ import { packStaticCatalogLiteral, staticCatalogValue } from './pack-static-cata
 import { progressionCatalogDelivery } from './progression-catalog-delivery.mjs';
 
 async function moduleFrom(source) {
-    const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+    const code = ts.transpileModule(source.replace(PACKED_DATA_IMPORT, `import { unpackWorldData as __unpackWorldData } from ${JSON.stringify(PACKED_DATA_RUNTIME.href)};`), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
     return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 
