@@ -15,7 +15,7 @@ import { isExchangeSaleReceipt, type ExchangeSaleReceipt } from '../../shared/su
 // 14-day TTL (refreshed on every push). Appends run under the key's own lock so
 // two raids landing in the same tick can't drop each other's entry.
 
-export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'exchange-sale' | 'village-war-card-defense' | 'tavern-mention';
+export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'duel-no-show' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'exchange-sale' | 'village-war-card-defense' | 'tavern-mention';
 
 export type OfflineNotice = {
     kind: OfflineNoticeKind;
@@ -43,7 +43,7 @@ export type OfflineNotice = {
     text?: string;
 };
 
-const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'exchange-sale', 'village-war-card-defense', 'tavern-mention']);
+const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'duel-no-show', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'exchange-sale', 'village-war-card-defense', 'tavern-mention']);
 
 export const OFFLINE_NOTICES_CAP = 10;
 /** Sales have their own allowance so a busy stall cannot bury other reports. */

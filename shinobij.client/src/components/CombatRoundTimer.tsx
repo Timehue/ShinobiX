@@ -148,7 +148,7 @@ export function CombatRoundTimer({
                 </div>
                 <small aria-live="polite">
                     {waitedLong
-                        ? `${who} hasn't joined. You can cancel the unstarted duel.`
+                        ? `${who} hasn't joined. They forfeit soon, or you can cancel.`
                         : `Waiting for ${who} to join`}
                 </small>
             </div>

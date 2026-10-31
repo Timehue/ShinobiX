@@ -20,6 +20,7 @@ import {
 import { battlefieldAiSprite, defaultAiRivalSprite } from "./battlefield-actor-art";
 import { inferSpriteKind, inferSpriteNativeFacing } from "./battlefield-sprite";
 import { resolveTowerCombatantArt, TOWER_ENEMY_PORTRAITS } from "./tower-art-manifest";
+import { WANDERER_RIFT_INDEX } from "../../../shared/wanderer-roster";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const clientRoot = join(here, "..", "..");
@@ -51,6 +52,13 @@ test("published admin art still overrides the bundled world boss art", () => {
     const visual = worldBossBattleVisual("hollow-maze-minotaur");
     assert.equal(battlefieldAiSprite(visual, { [`ai:${visual}:body`]: "/api/img?id=body" }), "/api/img?id=body");
     assert.equal(resolveTowerCombatantArt(visual, { [`ai:${visual}`]: "/api/img?id=face" }).src, "/api/img?id=face");
+});
+
+test("the rift-touched creature fights as a creature, not the human rival", () => {
+    const creature = battlefieldAiSprite(`world-wanderer-w-12-5000-${WANDERER_RIFT_INDEX}`);
+    assert.notEqual(creature, defaultAiRivalSprite());
+    assert.equal(creature, battlefieldAiSprite("rift-boss-hollow-stalker"));
+    assert.equal(battlefieldAiSprite("world-wanderer-w-12-5000-0"), defaultAiRivalSprite());
 });
 
 test("only exact world boss visuals match; ordinary Tower brutes keep their art", () => {

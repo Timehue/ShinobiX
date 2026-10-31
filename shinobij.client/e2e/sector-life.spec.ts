@@ -844,7 +844,14 @@ test('tea staff follow server weather and night while staying beside the painted
     await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);
     if(await back.isVisible())await back.click();
     const seller=page.locator('[data-life-resident="resident:42"]');
-    await expect(seller).toHaveAttribute('data-activity','Preparing tea');const position=await seller.getAttribute('style');
+    await expect(seller).toHaveAttribute('data-activity','Preparing tea');
+    // Activity arrives before the render loop positions the marker on a cold
+    // load. Compare weather/night positions only after that first real paint.
+    await expect.poll(()=>seller.evaluate(node=>{
+        const {width,height,transform}=(node as HTMLElement).style;
+        return Number.parseFloat(width)>0&&Number.parseFloat(height)>0&&transform.startsWith('translate(');
+    })).toBe(true);
+    const position=await seller.getAttribute('style');
     weather='rain';await page.clock.fastForward(21_000);
     await expect(seller).toHaveAttribute('data-activity','Waiting out the weather');
     await seller.click();await expect(page.getByRole('dialog')).toContainText('weather');await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
