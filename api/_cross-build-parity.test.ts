@@ -314,7 +314,7 @@ describe('parity: Card Hall pack disclosure and live server pools', () => {
     });
 });
 
-describe('parity: bloodline forge price (2026-10 rebalance, B = 200 Bone Charms)', () => {
+describe('parity: bloodline forge price (B = 100 Bone Charms)', () => {
     const FORGE = read('api', 'bloodlines', '_forge.ts');
     const HUB = read('shinobij.client', 'src', 'screens', 'CentralHub.tsx');
 
@@ -324,7 +324,7 @@ describe('parity: bloodline forge price (2026-10 rebalance, B = 200 Bone Charms)
         assert.match(HUB, /BLOODLINE_FORGE_COSTS\[tier\.rank[^\]]*\]\.cost/);
     });
 
-    it('the screen no longer hard-codes the old 100 price', () => {
+    it('the screen derives all prices and shortage text from the shared table', () => {
         assert.doesNotMatch(HUB, /awakeningCreateBloodline\(tier\.rank, tier\.materialKey, 100/);
         assert.doesNotMatch(HUB, /100 - balance/);
         assert.doesNotMatch(HUB, /<strong>100 \{tier\.materialName\}/);

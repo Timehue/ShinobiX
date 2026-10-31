@@ -61,8 +61,8 @@ test('pending forge parser strips malformed, duplicate, and excess entries', () 
     assert.equal(new Set(parsed.map((entry) => entry.id)).size, 3);
 });
 
-test('B Rank costs 200 Bone Charms (2026-10 rebalance); A and S stay at 100', () => {
-    assert.equal(BLOODLINE_FORGE_COSTS['B Rank'].cost, 200);
+test('B Rank costs 100 Bone Charms; A and S stay at 100 of their own materials', () => {
+    assert.equal(BLOODLINE_FORGE_COSTS['B Rank'].cost, 100);
     assert.equal(BLOODLINE_FORGE_COSTS['B Rank'].currency, 'boneCharms');
     assert.equal(BLOODLINE_FORGE_COSTS['A Rank'].cost, 100);
     assert.equal(BLOODLINE_FORGE_COSTS['S Rank'].cost, 100);
@@ -70,17 +70,17 @@ test('B Rank costs 200 Bone Charms (2026-10 rebalance); A and S stay at 100', ()
     assert.equal(BLOODLINE_FORGE_COSTS, SHARED_FORGE_COSTS);
 });
 
-test('B Rank refuses 199 Bone Charms without a debit and takes exactly 200', () => {
-    const short = { boneCharms: 199 };
+test('B Rank refuses 99 Bone Charms without a debit and takes exactly 100', () => {
+    const short = { boneCharms: 99 };
     assert.deepEqual(
         applyBloodlineForgePurchase(short, [], 'B Rank', id, 12345),
         { ok: false, status: 409, error: 'Not enough boneCharms.' },
     );
-    assert.equal(short.boneCharms, 199);
-    const paid = applyBloodlineForgePurchase({ boneCharms: 200 }, [], 'B Rank', id, 12345);
+    assert.equal(short.boneCharms, 99);
+    const paid = applyBloodlineForgePurchase({ boneCharms: 100 }, [], 'B Rank', id, 12345);
     assert.equal(paid.ok, true);
     if (!paid.ok) return;
-    assert.equal(paid.cost, 200);
+    assert.equal(paid.cost, 100);
     assert.equal(paid.balance, 0);
     assert.equal(paid.character.boneCharms, 0);
     assert.equal(paid.pending.length, 1);
