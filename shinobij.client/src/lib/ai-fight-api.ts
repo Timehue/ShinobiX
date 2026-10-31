@@ -97,7 +97,7 @@ export async function startAiFight(params: {
         throw error;
     }
     const data = await response.json().catch(() => ({})) as Partial<AiFightStart> & { error?: string; resumable?: boolean; mode?: string };
-    if (!response.ok && response.status === 409 && data.resumable === true) {
+    if (!response.ok && (response.status === 409 || response.status === 503) && data.resumable === true) {
         if (data.mode === "generic") {
             const resumed = await resumeGenericAiFight(params.playerName).catch(() => null);
             if (resumed) return resumed;

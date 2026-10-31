@@ -102,14 +102,15 @@ test('a bloodline forge logs the material it debits; resuming the paid entitleme
     await seed(player, { boneCharms: 250 });
     const first = await call(forge, player, { rank: 'B Rank' });
     assert.equal(first.status, 200, JSON.stringify(first.body));
-    assert.equal(first.body.cost, 200);
+    assert.equal(first.body.cost, 100);
+    assert.equal((first.body.character as Json).boneCharms, 150);
     const resumed = await call(forge, player, { rank: 'B Rank', resumeOnly: true });
     assert.equal(resumed.status, 200, JSON.stringify(resumed.body));
     assert.equal(resumed.body.resumed, true);
     const logged = await txns(player);
     assert.equal(logged.length, 1);
     assert.match(logged[0]!.txnId, new RegExp(`^bloodline-forge:${player}:\\d+$`));
-    assert.deepEqual({ currency: logged[0]!.currency, delta: logged[0]!.delta, source: logged[0]!.source }, { currency: 'boneCharms', delta: -200, source: 'bloodline.forge' });
+    assert.deepEqual({ currency: logged[0]!.currency, delta: logged[0]!.delta, source: logged[0]!.source }, { currency: 'boneCharms', delta: -100, source: 'bloodline.forge' });
 });
 
 test('a paid awakening reroll logs its Fate Shards once; the replay logs nothing', async () => {
