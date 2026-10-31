@@ -95,6 +95,7 @@ import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/w
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 import { ordinaryWandererEncounter } from '../../../shared/wanderer-roster';
 import { ordinaryPvePortrait } from '../lib/ordinary-pve-presentation';
+import { aiFightBrokeAway } from '../lib/ai-fight-result';
 import { WORLD_FIGHT_KIND_BY_MODE } from "../lib/world-ai-presentation-modes";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_KAGERO_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { anglerTip, roadFightAftermath, roadNemesisActorId, roadNemesisTier, roadNemesisTitle, useRoadCast, wandererForcesChoice, withOrdinaryPvePreview } from "../lib/road-cast";
@@ -1646,12 +1647,11 @@ function WorldMapContent({
     }
 
     function resolveWandererFight(p: WandererFightPresentation, settlement: WandererFightSettlement) {
-        const won = settlement.outcome === "win";
+        const won = settlement.outcome === "win", brokeAway = aiFightBrokeAway(settlement);
         const context = settlement.worldContext;
         if (p.mode === "patrol") {
             const hostile = p.hostile ?? / Captain$/i.test(context.displayName);
-            if (won) setTimeout(() => alert(hostile ? "You broke the patrol's line and sent them running." : "The patrol yields after a clean spar."), 40);
-            else setTimeout(() => alert(hostile ? "The patrol overwhelms you and leaves you for the healers." : "The patrol drops you, then drags you clear of the road."), 40);
+            setTimeout(() => alert(won ? hostile ? "You broke the patrol's line and sent them running." : "The patrol yields after a clean spar." : brokeAway ? "You broke away from the patrol and kept moving." : hostile ? "The patrol overwhelms you and leaves you for the healers." : "The patrol drops you, then drags you clear of the road."), 40);
             return;
         }
         if (p.mode === "bountyHunter") {
@@ -1661,18 +1661,18 @@ function WorldMapContent({
             // kill clear the bounty was the self-clear exploit.)
             setTimeout(() => alert(won
                 ? `You survived ${p.hunterName ?? "the bounty hunter"}. The bounty on your head still stands.`
-                : `${p.hunterName ?? "The bounty hunter"} put you down, but they can't cash a contract this size. The bounty on your head still stands. Only a real shinobi can collect it.`), 40);
+                : brokeAway ? `You broke away from ${p.hunterName ?? "the bounty hunter"}. The bounty on your head still stands.` : `${p.hunterName ?? "The bounty hunter"} put you down, but they can't cash a contract this size. The bounty on your head still stands. Only a real shinobi can collect it.`), 40);
             return;
         }
         if (p.mode === "single") { // Kagero steps back after any fight, so he never jumps you on your return.
             if (p.nemesis) coolWanderer(roadNemesisActorId(context.sector, currentWandererDayBucket()), WANDERER_FLEE_COOLDOWN_MS);
-            const line = roadFightAftermath({ sourceId: context.sourceId, name: p.name, won, nemesisTier: roadNemesisTier(settlement.character?.wandererNemesis ?? character.wandererNemesis) });
+            const line = roadFightAftermath({ sourceId: context.sourceId, name: p.name, won, brokeAway, nemesisTier: roadNemesisTier(settlement.character?.wandererNemesis ?? character.wandererNemesis) });
             if (line) setTimeout(() => alert(line), 40);
             return;
         }
         if (p.mode === "ambush") {
             if (!won) {
-                setTimeout(() => alert("The ambush overwhelmed you. The bandits melt back into the wilds."), 40);
+                setTimeout(() => alert(brokeAway ? "You broke out of the ambush. The bandits melt back into the wilds." : "The ambush overwhelmed you. The bandits melt back into the wilds."), 40);
                 return;
             }
             if (typeof context.nextStage === "number" && context.chainId && !context.finalStage) {
@@ -1728,7 +1728,7 @@ function WorldMapContent({
                 });
                 setTimeout(() => alert(`${context.displayName} is down. Return to the Shinobi Outpost and turn in the contract for your reward.`), 40);
             } else if (!won) {
-                setTimeout(() => alert(`${context.displayName} escaped. The final trail stays hot for a rematch.`), 40);
+                setTimeout(() => alert(brokeAway ? `You broke off the hunt. The trail to ${context.displayName} stays hot for a rematch.` : `${context.displayName} escaped. The final trail stays hot for a rematch.`), 40);
             }
             return;
         }
@@ -1763,7 +1763,7 @@ function WorldMapContent({
                     if (advanced) clearPendingWorldFollowUp(context);
                 });
             }
-            else { setTimeout(() => alert("You lost the fight. Your quest is still active. Rest, then try again."), 40); }
+            else { setTimeout(() => alert(brokeAway ? "You left the fight. Your quest is still active. Try again when you are ready." : "You lost the fight. Your quest is still active. Rest, then try again."), 40); }
         }
         if (p.mode === "storyReckoning") {
             const arc = p.storyReckoningId ? storyReckoningForEventId(p.storyReckoningId) : null;
@@ -3710,7 +3710,7 @@ function WorldMapContent({
         }));
 
         launchWorldMapFight(
-            ai,
+            { ...ai, image: ai.image || beastPortrait(ai.id) },
             encounter.sector,
             { kind: "hunt-target", sourceId: mission.id, sector: encounter.sector, stage: 0 },
         );

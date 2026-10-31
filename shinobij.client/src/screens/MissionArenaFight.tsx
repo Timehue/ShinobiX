@@ -106,6 +106,10 @@ import { hollowGateSessionDirective } from "../../../shared/hollow-gate-telegrap
 import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 import { ordinaryPvePortrait } from '../lib/ordinary-pve-presentation';
+import { aiFightHistoryOutcome, aiFightLeftLabel } from '../lib/ai-fight-result';
+import { canonicalBeastPortraitId } from '../lib/ai-fight-art';
+import { beastPortrait } from '../data/hunter-art';
+import type { SoloPveTerminalReason } from '../../../shared/solo-pve-terminal';
 import { EncounterDifficultyBadge } from '../components/EncounterDifficultyBadge';
 import { captureSoloBattleDebug, downloadSoloBattleDebug } from '../lib/solo-battle-debug';
 import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
@@ -261,8 +265,7 @@ export function MissionArenaFight({
     renderResult?: (ctx: {
         won: boolean;
         draw: boolean;
-        /** The player got away. The server still records the enemy as winner. */
-        escaped?: boolean;
+        terminalReason?: SoloPveTerminalReason;
         settleState: "idle" | "pending" | "settled" | "failed";
         settleResult: unknown;
         retry: () => void;
@@ -836,7 +839,7 @@ export function MissionArenaFight({
         recordedRef.current = true;
         const allyNames = session.actors.filter(a => a.side === "squad" || a.side === "npc").map(a => a.name);
         const enemyNames = session.actors.filter(a => a.side === "enemy").map(a => a.name);
-        const outcome: BattleHistoryEntry["outcome"] = session.winner === "squad" ? "win" : session.winner === "draw" ? "draw" : "loss";
+        const outcome = aiFightHistoryOutcome(session.winner, session.terminalReason);
         onRecordBattle(makeBattleEntry({
             id: `arena-${runId}`,
             ts: Date.now(),
@@ -1237,7 +1240,7 @@ export function MissionArenaFight({
     const enemyVisual = String(enemy?.character?.visual ?? "");
     const mirrorTrial = enemyVisual === "story-ai-moonshadow-village-50";
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
-    const enemyAvatar = mirrorTrial ? playerAvatar : (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
+    const enemyAvatar = mirrorTrial ? playerAvatar : (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || sharedImages?.[`ai:${canonicalBeastPortraitId(enemyVisual)}`] || beastPortrait(enemyVisual) || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
     const enemyName = enemy?.name ?? "Enemy";
     const enemyBattleSprite = mirrorTrial ? null : battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype });
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
@@ -2012,11 +2015,11 @@ export function MissionArenaFight({
             )}
 
             {done && resultRevealed && (renderResult
-                ? renderResult({ won, draw: session.winner === "draw", escaped: session.terminalReason === "escaped", settleState, settleResult, retry: () => { void runSettle(); }, onExit })
+                ? renderResult({ won, draw: session.winner === "draw", terminalReason: session.terminalReason, settleState, settleResult, retry: () => { void runSettle(); }, onExit })
                 : (
                     <div className="battle-ended-overlay">
                         <div className="card battle-ended-card">
-                            <h2>{won ? "Victory!" : session.winner === "draw" ? "Draw" : session.terminalReason === "escaped" ? "Escaped" : "Defeat"}</h2>
+                            <h2>{won ? "Victory!" : session.winner === "draw" ? "Draw" : aiFightLeftLabel(session.terminalReason, (myActor?.hp ?? 0) <= 0) ?? "Defeat"}</h2>
                             <p>
                                 {!won
                                     ? "The mission failed. No reward was earned — you can try again from the Mission Hall."

@@ -32,9 +32,9 @@ test('victory retains its sealed identity and announces the queued opponent sepa
 });
 
 test('a successful escape is labeled Escaped, never Fight lost or Defeated', () => {
-    const html = renderToStaticMarkup(<AiFightResultCard won={false} draw={false} escaped settleState="settled" settleResult={null}
+    const html = renderToStaticMarkup(<AiFightResultCard won={false} draw={false} terminalReason="escaped" settleState="settled" settleResult={null}
         opponentName="Wolf" worldEncounter spar={false} onRetry={() => {}} onExit={() => {}} />);
-    assert.match(html, /aria-label="Fight escaped"/);
+    assert.match(html, /aria-label="Fight ended"/);
     assert.match(html, />Escaped</);
     assert.doesNotMatch(html, /Fight lost|Defeated/);
 });

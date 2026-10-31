@@ -1,8 +1,34 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 import type { Character } from '../types/character';
-import { aiFightExitScreen, aiFightNonWinMessage, aiFightWinRewardText } from './ai-fight-result';
+import { aiFightBrokeAway, aiFightExitScreen, aiFightHistoryOutcome, aiFightLeftLabel, aiFightNonWinMessage, aiFightWinRewardText } from './ai-fight-result';
 import type { AiFightSettleResult } from './ai-fight-settle';
+
+test('leaving a fight alive never reads as a knockout', () => {
+    assert.equal(aiFightLeftLabel('escaped'), 'Escaped');
+    assert.equal(aiFightLeftLabel('abandoned'), 'Retreated');
+    assert.equal(aiFightLeftLabel('lapsed'), 'Fight expired');
+    assert.equal(aiFightLeftLabel('knockout'), null);
+    assert.equal(aiFightLeftLabel(undefined), null);
+    assert.equal(aiFightLeftLabel('escaped', true), null, 'an escape that cost the last HP is still a defeat');
+
+    const survivor = { hp: 9, hospitalized: false } as Character;
+    assert.equal(aiFightNonWinMessage('settled', survivor, false, false, 'escaped'), 'You escaped with 9 HP. No reward was earned.');
+    assert.equal(aiFightNonWinMessage('settled', survivor, false, false, 'abandoned'), 'You left the fight with 9 HP. No reward was earned.');
+    assert.match(aiFightNonWinMessage('settled', { hp: 0, hospitalized: true } as Character, false, false, 'escaped'), /hospital/);
+
+    assert.equal(aiFightHistoryOutcome('enemy', 'escaped'), 'flee');
+    assert.equal(aiFightHistoryOutcome('enemy', 'abandoned'), 'flee');
+    assert.equal(aiFightHistoryOutcome('enemy', 'knockout'), 'loss');
+    assert.equal(aiFightHistoryOutcome('squad', undefined), 'win');
+    assert.equal(aiFightHistoryOutcome('draw', undefined), 'draw');
+
+    assert.equal(aiFightBrokeAway({ outcome: 'loss', terminalReason: 'escaped', character: survivor }), true);
+    assert.equal(aiFightBrokeAway({ outcome: 'forfeit', character: survivor }), true);
+    assert.equal(aiFightBrokeAway({ outcome: 'loss', terminalReason: 'knockout', character: survivor }), false);
+    assert.equal(aiFightBrokeAway({ outcome: 'loss', terminalReason: 'escaped', character: { hospitalized: true } as Character }), false);
+    assert.equal(aiFightBrokeAway({ outcome: 'win', terminalReason: 'escaped' }), false);
+});
 
 test('zero-ryo receipts preserve stat growth and distinguish a limit from practice', () => {
     const receipt: AiFightSettleResult = { settled: true, outcome: 'win', ryo: 0, statPoints: 2,
@@ -47,11 +73,11 @@ test('the result explains the confirmed consequence and never invents hospitaliz
 
 test('an escape says the player got away, including when the escape cost their last HP', () => {
     const standing = { hp: 90, hospitalized: false } as Character;
-    assert.equal(aiFightNonWinMessage('settled', standing, false, false, true), 'You escaped the fight. You have 90 HP remaining. No reward was earned.');
-    assert.match(aiFightNonWinMessage('settled', standing, false, true, true), /You left this spar.*keep your 90 HP/);
-    const spent = aiFightNonWinMessage('settled', { hp: 0, hospitalized: true } as Character, false, false, true);
+    assert.equal(aiFightNonWinMessage('settled', standing, false, false, 'escaped'), 'You escaped with 90 HP. No reward was earned.');
+    assert.match(aiFightNonWinMessage('settled', standing, false, true, 'escaped'), /You left this spar.*keep your 90 HP/);
+    const spent = aiFightNonWinMessage('settled', { hp: 0, hospitalized: true } as Character, false, false, 'escaped');
     assert.match(spent, /You got away, but the escape took your last HP.*hospital/);
-    assert.doesNotMatch(aiFightNonWinMessage('settled', standing, false, false, true), /did not win/);
+    assert.doesNotMatch(aiFightNonWinMessage('settled', standing, false, false, 'escaped'), /did not win/);
 });
 
 test('a lost spar says it was a spar and that it cost nothing, never "you left the fight"', () => {
