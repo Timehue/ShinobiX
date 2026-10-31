@@ -227,6 +227,7 @@ export async function recoverPendingWorldOutcome(
 export type AiFightReportResult = {
     ok: boolean;
     outcome?: "win" | "loss" | "draw" | "forfeit";
+    terminalReason?: import("../../../shared/solo-pve-terminal").SoloPveTerminalReason;
     xp: number;
     ryo: number;
     statPoints: number;

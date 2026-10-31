@@ -14,6 +14,7 @@ export const WANDERER_PENDING_KEY = "wandererFight.pending.v1";
 
 export type WandererFightSettlement = {
     outcome: "win" | "loss" | "draw" | "forfeit";
+    terminalReason?: import("../../../shared/solo-pve-terminal").SoloPveTerminalReason;
     worldContext: WorldAiFightContext;
     character?: Character | null;
     _saveVersion?: number;
@@ -153,6 +154,7 @@ export function stampWandererFightSettlement(settlement: WandererFightSettlement
             // sealed identity/outcome, never a second copy of the full player save.
             record.settlement = {
                 outcome: settlement.outcome,
+                terminalReason: settlement.terminalReason,
                 worldContext: settlement.worldContext,
                 _saveVersion: settlement._saveVersion,
             } satisfies WandererFightSettlement;
