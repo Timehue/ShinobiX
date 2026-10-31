@@ -49,6 +49,7 @@ import {
     cleanWorldAiActivePointer,
     cleanWorldAiPendingChain,
     cleanWorldAiPendingOutcome,
+    clearCompletedWorldAiPendingChain,
     cleanWorldAiFightRequest,
     newWorldChainId,
     releaseWorldAiChainStage,
@@ -421,6 +422,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (save && arrivedSector != null) save = { ...save, currentSector: arrivedSector };
                 let character = (save?.character ?? null) as Record<string, unknown> | null;
                 if (!save || !character) return { status: 404, body: { error: 'Player save not found.' } };
+                // Active sessions above always win. Repair only a provably
+                // completed handoff, rechecking the fresh save under its lock.
+                if (clearCompletedWorldAiPendingChain(character) !== character) {
+                    const repaired = await mutatePlayerSave(playerName, ({ character: fresh }) => {
+                        const next = clearCompletedWorldAiPendingChain(fresh);
+                        return { ok: true as const, character: next, value: null, write: next !== fresh };
+                    });
+                    if (!repaired.ok) return { status: repaired.status, body: { error: repaired.error } };
+                    save = repaired.record;
+                    character = repaired.character;
+                }
                 const pendingChain = cleanWorldAiPendingChain(character.worldAiPendingChain);
                 const pendingOutcome = cleanWorldAiPendingOutcome(character.worldAiPendingOutcome);
                 if (resumeWorldFight && !worldRequest) {

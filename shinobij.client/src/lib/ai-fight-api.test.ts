@@ -62,6 +62,24 @@ function response(body: unknown, status = 200): Response {
     } as Response;
 }
 
+test('an explicitly resumable 503 adopts its sealed World fight without retrying the start', { concurrency: false }, async () => {
+    const worldContext = { kind: 'wanderer-ambush', sourceId: 'wanderer-ambush', sector: 60, stage: 3, chainId: 'saved_chain', displayName: 'Road Bandit' };
+    const sealed = { token: 'sealed-token', sessionId: 'sealed-session', session, worldContext, resumed: true };
+    const replies = [response({ error: 'World encounter start is still finalizing.', resumable: true }, 503), response(sealed)];
+    const requests: Record<string, unknown>[] = [];
+    const previous = globalThis.fetch;
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+        requests.push(JSON.parse(String(init.body)));
+        return replies.shift()!;
+    }) as typeof fetch;
+    try {
+        const result = await startAiFight({ playerName: 'Rill', opponentId: worldContext.sourceId, opponentLevel: 20, battleKind: 'world', worldEncounter: worldContext as never });
+        assert.equal('sessionId' in result && result.sessionId, sealed.sessionId);
+        assert.equal(requests.length, 2);
+        assert.equal(requests[1].resumeWorldFight, true);
+    } finally { globalThis.fetch = previous; }
+});
+
 test("AI fight API preserves sealed resume identity and durable handoffs", { concurrency: false }, async () => {
     const realFetch = globalThis.fetch;
     const bodies: Record<string, unknown>[] = [];
