@@ -14,7 +14,7 @@ import { useWarShrine } from '../features/villageWar/use-war-shrine';
 import { sectorVaultMarker } from '../features/villageWar/sector-vault-marker';
 import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
 import { sectorBackgroundImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
-import { fetchVillageGuards } from "../lib/village-guard-api";
+import { askVillageGuardPost, fetchVillageGuards } from "../lib/village-guard-api";
 import { useWorldTravelPresentation } from "../lib/use-world-travel-presentation";
 import { confirmRoadPosition } from "../lib/road-position-confirmation";
 import { useSectorRoadWalk } from "../lib/use-sector-road-walk";
@@ -449,6 +449,7 @@ function WorldMapContent({
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
     const [huntEncounter, setHuntEncounter, huntEncounterRef] = useEncounterState<HuntEncounterState>();
     const aiRaidLaunchInFlight = useRef(false);
+    const guardRaidInFlight = useRef(false);
     // Ticks only while the raid cooldown runs; the map's other render-time clocks (weather, travel badges,
     // breach minutes, contest end, trails) refresh on this 5s visible-only tick, not a 1s full re-render.
     const raidStartCooldownMs = useLiveActionDeadline(raidStartActionScope(character.name));
@@ -4806,28 +4807,19 @@ function WorldMapContent({
                                         className="territory-raid-btn"
                                         onClick={() => {
                                             if (!requireServerSettlement("pvpSession")) return;
-                                            runWhenSectorConfirmed(virtualSector, () => { void (async () => {
+                                            runWhenSectorConfirmed(virtualSector, () => { if (guardRaidInFlight.current) return; guardRaidInFlight.current = true; void (async () => {
                                             const guard = territoryGuards[0];
                                             const createScope = capturePvpCreateScope(character.name);
                                             setCurrentSector(virtualSector);
                                             setCurrentBiome(biome);
                                             setCurrentWeather(weather);
 
-                                            // Fetch guard's actual character data
-                                            let guardChar: Character | null = null;
-                                            try {
-                                                const cr = await fetch('/api/village-guard/challenge', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ attackerCharacter: character, village: loc.name, guardName: guard.name }),
-                                                });
-                                                if (!createScope.isCurrent()) return;
-                                                const data = await cr.json() as { pvp?: boolean; guardCharacter?: unknown; guardLevel?: number; defenseBonusPercent?: number; };
-                                                if (data.pvp && data.guardCharacter) guardChar = data.guardCharacter as Character;
-                                            } catch { /* ignore */ }
-
-                                            if (!guardChar) guardChar = await fetchSavedPlayerCharacter(guard.name);
+                                            // The server names a guard only when this raider can really
+                                            // fight them. A roster name alone is not enough to start a duel.
+                                            const post = await askVillageGuardPost({ attackerCharacter: character, village: loc.name, guardName: guard.name });
                                             if (!createScope.isCurrent()) return;
+                                            if (post.kind === "refused") return void alert(post.message);
+                                            const guardChar = post.kind === "duel" ? post.guard as Character : null;
 
                                             if (guardChar) {
                                                 // Embed jutsu so server can resolve moves
@@ -4890,15 +4882,15 @@ function WorldMapContent({
                                                 return;
                                             }
 
-                                            // No guard character — AI fallback
-                                            launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, virtualSector);
-                                            })(); });
+                                            // No guard can reach this sector, so the garrison answers.
+                                            await launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, virtualSector);
+                                            })().finally(() => { guardRaidInFlight.current = false; }); });
                                         }}
                                     >
                                         <GameArtIcon kind="roleDefender" size={17} /> Raid Village Guard
                                     </button>
                                     <p className="hint" style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
-                                        Online guards fight back directly; otherwise, defeat the village garrison.
+                                        Guards standing in this sector fight back directly; otherwise, defeat the village garrison.
                                     </p>
                                 </>
                             ) : (

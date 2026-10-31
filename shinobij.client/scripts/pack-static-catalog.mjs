@@ -1,5 +1,9 @@
 import ts from 'typescript';
-import { packedWorldData } from './packed-world-data.mjs';
+import { packedDataExpression, PACKED_DATA_IMPORT } from './packed-world-data.mjs';
+
+function withDecoder(source) {
+    return source.includes(PACKED_DATA_IMPORT) ? source : `${PACKED_DATA_IMPORT}\n${source}`;
+}
 
 function catalogDeclaration(source, name) {
     const file = ts.createSourceFile('catalog.ts', source, ts.ScriptTarget.Latest, true);
@@ -59,14 +63,14 @@ export function staticCatalogValue(source, name) {
 export function packStaticCatalogLiteral(source, name) {
     const { file, declaration } = catalogDeclaration(source, name);
     const payload = catalogPayload(declaration.initializer);
-    const expression = packedWorldData(JSON.stringify(staticCatalogValue(source, name))).slice('export default '.length, -1);
+    const expression = packedDataExpression(JSON.stringify(staticCatalogValue(source, name)));
     // Keep the original Object.freeze wrapper, type and surrounding code.
-    return source.slice(0, payload.getStart(file)) + expression + source.slice(payload.end);
+    return withDecoder(source.slice(0, payload.getStart(file)) + expression + source.slice(payload.end));
 }
 
 /** Replace one literal initializer; preserve the module's functions and exports. */
 export function packStaticCatalog(source, name, value) {
     const { file, declaration } = catalogDeclaration(source, name);
-    const expression = packedWorldData(JSON.stringify(value)).slice('export default '.length, -1);
-    return source.slice(0, declaration.initializer.getStart(file)) + expression + source.slice(declaration.initializer.end);
+    const expression = packedDataExpression(JSON.stringify(value));
+    return withDecoder(source.slice(0, declaration.initializer.getStart(file)) + expression + source.slice(declaration.initializer.end));
 }

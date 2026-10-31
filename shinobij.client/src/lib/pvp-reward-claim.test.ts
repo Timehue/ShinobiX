@@ -209,6 +209,9 @@ describe("pvp-reward-claim", () => {
         if (win.status !== "confirmed") return assert.fail("confirmed");
         assert.equal(pvpRewardSettlementNotice(win, { draw: false, spar: false, role: "win" }),
             "Rewards secured — +4,050 Ryo · +16 Rating. Stat points today: 24 / 60.");
+        assert.match(pvpRewardSettlementNotice(win, { draw: false, spar: false, role: "win", noShow: true }), /pays no rewards/,
+            "a forfeit says why it paid nothing");
+        assert.match(pvpRewardSettlementNotice(win, { draw: false, spar: false, role: "loss", noShow: true }), /did not join in time/);
         const { dailyStatBudgetToday } = await import("./progression-dials");
         assert.equal(dailyStatBudgetToday("rin")?.spent, 24, "the reply feeds the shared budget store");
         const alt = await postPvpRewardClaim(async () => response(200, {
