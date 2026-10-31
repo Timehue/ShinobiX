@@ -937,7 +937,7 @@ export function JutsuTrainingHall({
         return (
             <div className="jutsu-detail-stack">
                 <div className="jutsu-detail-badges"><span>Lv {mastery.level}/50</span><span>{jutsu.type}</span><span>{jutsu.element}</span>{bloodline && <span className="is-bloodline">{bloodline}</span>}</div>
-                <p className="jutsu-detail-description">{jutsuDetailDescription(jutsu)}</p>
+                <p className="jutsu-detail-description">{jutsuDetailDescription(jutsu, mastery.level)}</p>
                 <div className="jutsu-detail-metrics">
                     <span><small>Mastery XP</small><strong>{mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</strong></span>
                     <span><small>Action points</small><strong>{jutsu.ap}</strong></span>

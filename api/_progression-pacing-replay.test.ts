@@ -34,7 +34,7 @@ import { STORY_LEVELS, STORY_REWARDS } from './story/_settle.js';
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const START = Date.UTC(2026, 9, 17, 12, 0, 0);
+const START = Date.UTC(2026, 10, 2, 12, 0, 0);
 
 type Archetype = 'casual' | 'regular' | 'hardcore';
 type BandRoutine = { hunt?: number; fetch?: number; explore?: number; ai?: number; pvp?: number };

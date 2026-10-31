@@ -293,8 +293,8 @@ test("every combat jutsu dialog fills battle tokens instead of printing the desc
         ["mission", missionSource, "detailJutsu", "detailDescription"],
         ["tower", towerSource, "inspectedLoadoutJutsu", "inspectedLoadoutDescription"],
     ] as const) {
-        assert.match(source, new RegExp(`const ${proseVar} = [^;\\n]*jutsuDetailDescription\\(${jutsuVar}\\)`),
-            `${name} must build its dialog prose with jutsuDetailDescription`);
+        assert.match(source, new RegExp(`const ${proseVar} = [^;\\n]*jutsuDetailDescription\\(${jutsuVar}, [^;\\n]+\\)`),
+            `${name} must build its dialog prose with jutsuDetailDescription and current mastery`);
         assert.match(source, new RegExp(`\\{${proseVar} && <p className="combat-jutsu-detail-desc">\\{${proseVar}\\}</p>\\}`),
             `${name} must render the filled prose, and nothing when it is empty`);
         assert.doesNotMatch(source, new RegExp(`${jutsuVar}\\.description\\b`),

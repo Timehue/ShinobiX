@@ -437,6 +437,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     <h3 className="bloodline-technique-name">{jutsu.name}</h3>
                     <label>Name</label><input value={jutsu.name} onChange={(e) => updateJutsu(jutsuIndex, { name: e.target.value })} />
                     <label>Battle Description</label><textarea rows={2} value={jutsu.battleDescription} onChange={(e) => updateJutsu(jutsuIndex, { battleDescription: e.target.value, description: e.target.value })} />
+                    <small>Use %user for the caster, %target for the target, and %tag1 or %tag2 for each effect's current percentage (includes %). Percentages update with mastery.</small>
                     <label>Jutsu Image</label><input className="bloodline-image-file" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateJutsu(jutsuIndex, { image }), 100); }} />
                     <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsu.name}, ${specialElement || jutsu.element} ${jutsu.ap === 40 ? "Any" : bloodlineOffense} bloodline technique`} onImage={async (image) => updateJutsu(jutsuIndex, { image: await compressDataUrl(image, 512, 0.82) })} />
                     {jutsu.image && <div className="admin-jutsu-preview jutsu-art-frame"><img src={jutsu.image} alt={jutsu.name} /></div>}

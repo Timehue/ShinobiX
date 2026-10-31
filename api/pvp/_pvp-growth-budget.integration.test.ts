@@ -90,7 +90,7 @@ async function winAndClaim(winner: string, loser: string) {
 
 test('PvP rolls stay 1–6 under boosts and use their own 50-point budget', async (t) => {
     // The budget key is combat-stat-count:<player>:<UTC day>, so hold one day.
-    t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 9, 17, 12, 0, 0) });
+    t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 10, 2, 12, 0, 0) });
     const previousDial = process.env.STAT_GAIN_MULTIPLIER;
     process.env.STAT_GAIN_MULTIPLIER = '2.5';
     t.after(() => {
@@ -126,5 +126,5 @@ test('PvP rolls stay 1–6 under boosts and use their own 50-point budget', asyn
     assert.equal(remaining, 0);
     const save = (await kv.get<Record<string, any>>(`save:${winner}`))!;
     assert.equal(save.character.unspentStats, 2, 'only the remaining PvP allowance reached the pool');
-    assert.deepEqual(await readDailyStatBudget(kv, winner, now), { day: '2026-10-17', spent: 120, cap: 120 });
+    assert.deepEqual(await readDailyStatBudget(kv, winner, now), { day: '2026-11-02', spent: 120, cap: 120 });
 });
