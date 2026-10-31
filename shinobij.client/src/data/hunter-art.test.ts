@@ -121,6 +121,19 @@ describe("hunter-art beast portraits", () => {
             "a beast with no portrait still shows painted role art, never a blank frame");
     });
 
+    it("gives every portrait lookup the beast, so a hunt never fights the masked Warden fallback", () => {
+        const worldMap = readFileSync(join(here, "..", "screens", "WorldMap.tsx"), "utf8");
+        assert.match(worldMap, /launchWorldMapFight\(\s*\{ \.\.\.ai, image: ai\.image \|\| beastPortrait\(ai\.id\) \}/,
+            "the contract target must launch with its painted portrait");
+        const hunt = readFileSync(join(here, "..", "screens", "HuntTowerFight.tsx"), "utf8");
+        assert.match(hunt, /enemyAvatar \|\| sharedImages\?\.\[`ai:\$\{visual\}`\] \|\| beastPortrait\(visual\)/,
+            "a resumed hunt has no launch art and must resolve the sealed visual");
+        const arena = readFileSync(join(here, "..", "screens", "MissionArenaFight.tsx"), "utf8");
+        const chain = arena.split("const enemyAvatar =")[1]?.split(";")[0] ?? "";
+        assert.ok(chain.indexOf("beastPortrait(enemyVisual)") >= 0 && chain.indexOf("beastPortrait(enemyVisual)") < chain.indexOf("slice(0, 2)"),
+            "Endless, apex and raid beasts must show their art before the initials fallback");
+    });
+
     // The card above is what you SEE before committing; this is what the fight
     // itself renders. Both matter, and they fail for different reasons.
     it("rides the sealed hunt launch into the fight's enemy portrait slot", () => {

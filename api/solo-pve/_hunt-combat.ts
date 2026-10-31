@@ -147,6 +147,7 @@ export function applyHuntCombatAction(source: SoloPveSession, command: SoloPveAc
         if (intent.type === 'abandon' || opts.escapeSucceeds?.() === true || player.hp === 0) {
             battle.status = 'done'; battle.winner = 'enemy'; battle.objectiveState.failed = true;
             session.outcome = intent.type === 'flee' && player.hp > 0 ? 'fled' : 'loss';
+            session.terminalReason = player.hp === 0 ? 'knockout' : intent.type === 'flee' ? 'escaped' : 'abandoned';
             battle.log.push(`${player.name} leaves the ${session.huntCombat?.purpose === 'story-twins' ? 'trial' : session.huntCombat?.purpose === 'narrative-group' ? 'encounter' : 'hunt'}, losing ${lostHp} HP.`);
         } else {
             battle.log.push(`${player.name} fails to escape and loses ${lostHp} HP.`);

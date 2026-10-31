@@ -171,8 +171,11 @@ export function roadFightAftermath(input: {
     name?: string;
     won: boolean;
     nemesisTier: number;
+    /** The player left on their feet, so no line may say they were beaten. */
+    brokeAway?: boolean;
 }): string | null {
     const { sourceId, name, won } = input;
+    if (input.brokeAway) return `You broke away from ${sourceId === "nemesis" ? ROAD_NEMESIS_NAME : name ?? "the fight"} and kept moving.`;
     if (sourceId === "nemesis") return roadNemesisAftermath(won, input.nemesisTier);
     const slot = parseWandererId(sourceId)?.index;
     if (slot === WANDERER_TRADE_INDEX) return won

@@ -9,6 +9,7 @@ export function huntSessionForTower(session: SoloPveSession): TowerSession {
     return {
         ...session.huntCombat.battle,
         actionVersion: session.version,
+        terminalReason: session.terminalReason,
     };
 }
 
