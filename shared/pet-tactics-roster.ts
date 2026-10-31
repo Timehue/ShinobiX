@@ -25,9 +25,9 @@ const utility = [
     move('bind', 'Thunder Bind', 'stun', 'foe', 42, 'Denies one action. Shared control immunity prevents another bind for three rounds.', { element: 'Lightning', cooldown: 3, hold: 1, priority: .9 }),
     move('mend', 'Mend', 'heal', 'ally', 36, 'Restore 18% of an active ally’s maximum HP. Two-round cooldown.', { cooldown: 2 }),
     move('aegis', 'Aegis', 'shield', 'ally', 28, 'Absorb 18% of an active ally’s maximum HP until next round ends.', { priority: 1.2 }),
-    move('purify', 'Purify', 'cleanse', 'ally', 22, 'Remove burn, wound, mark, slow and bind. Control immunity remains.', { priority: 1.3 }),
-    move('protect', 'Perfect Guard', 'protect', 'self', 32, 'Block direct hits this round. Burn and attrition still apply. Three-round cooldown.', { cooldown: 3 }),
-    move('intercept', 'Intercept', 'redirect', 'self', 26, 'Before attacks, take single-target attacks aimed at your partner this round, at 70% damage. Spread effects bypass it.'),
+    move('purify', 'Purify', 'cleanse', 'ally', 22, 'Remove burn, wound, mark, slow and bind.', { priority: 1.3 }),
+    move('protect', 'Perfect Guard', 'protect', 'self', 32, 'Block direct hits this round. Three-round cooldown.', { cooldown: 3 }),
+    move('intercept', 'Intercept', 'redirect', 'self', 26, 'Before attacks, take single-target attacks aimed at your partner this round, at 70% damage.'),
     move('rally', 'Rally', 'buff', 'ally', 26, 'Raise an ally’s physical and special power by 20% for this round and the next two.', { priority: 1.2 }),
 ];
 export const TACTICS_MOVES: Readonly<Record<string, TacticsMove>> = Object.freeze(Object.fromEntries([...techniques, ...utility].map(m => [m.id, m])));
