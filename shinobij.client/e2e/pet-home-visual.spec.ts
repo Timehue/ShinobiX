@@ -808,6 +808,26 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     }).toBe(true);
     await shot(page, testInfo, "14b-desktop-pet-arena-command-deck");
 
+    // Each tab owns its own content: nothing from the Colosseum leaks across.
+    await expect(page.locator(".pet-arena-destination.is-live")).toBeVisible();
+    await page.locator(".pet-arena-destinations").screenshot({ path: testInfo.outputPath("14b1-desktop-pet-arena-contracts.png"), animations: "disabled" });
+    await expect(page.locator(".pet-arena-readiness")).toContainText("Paid wins today");
+    await page.getByRole("button", { name: /Beastbound Warfront/ }).click();
+    await expect(page.locator(".pet-warfront-lobby")).toBeVisible();
+    await expect(page.locator(".pet-arena-destinations")).toHaveCount(0);
+    await expect(page.locator(".pet-arena-readiness")).not.toContainText("Paid wins today");
+    await expect(page.locator(".pet-arena-readiness")).toContainText("Warfront band");
+    await shot(page, testInfo, "14b2-desktop-pet-arena-warfront-tab");
+    await page.getByRole("button", { name: /Pet Gauntlet/ }).click();
+    await expect(page.locator(".pet-arena-destinations")).toHaveCount(0);
+    await expect(page.locator(".pet-arena-readiness")).not.toContainText("Contender");
+    await shot(page, testInfo, "14b3-desktop-pet-arena-gauntlet-tab");
+    await page.getByRole("button", { name: /Pet Colosseum/ }).click();
+    await page.locator(".pet-arena-destination.is-live").click();
+    await expect(page.getByRole("heading", { name: "Pet Arena", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Back to Pet Arena" }).click();
+    await expect(page.locator(".pet-arena-destination.is-live")).toBeVisible();
+
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), {
         message: "the redesigned Pet Arena must not create mobile horizontal overflow",
