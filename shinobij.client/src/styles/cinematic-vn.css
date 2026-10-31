@@ -15,9 +15,20 @@
     --cvn-stage-floor: clamp(166px, 20dvh, 220px);
     --cvn-actor-height: clamp(350px, min(61.5dvh, calc(100dvh - var(--cvn-stage-floor) - 96px)), 720px);
     --cvn-actor-gutter: clamp(22px, 3.4vw, 72px);
+    /* The dialogue box holds one size for a whole scene. Typing, Next/Back,
+       choices and the result of a choice all share it, so nothing on screen
+       moves between lines. Each screen class below sets its own height. */
+    --cvn-dialogue-font: clamp(1.05rem, 1.75vw, 1.48rem);
+    --cvn-dialogue-leading: 1.52;
+    --cvn-dialogue-lines: 3;
+    --cvn-dialogue-footer: 56px;
+    --cvn-dialogue-chrome: 52px;
+    --cvn-dialogue-height: min(46dvh, calc(var(--cvn-dialogue-lines) * var(--cvn-dialogue-font) * var(--cvn-dialogue-leading) + var(--cvn-dialogue-footer) + var(--cvn-dialogue-chrome)));
     position: relative;
     isolation: isolate;
-    overflow: hidden;
+    /* The stage itself must not scroll when a newly focused footer control
+       comes into view. Dialogue and choices own their scroll containers. */
+    overflow: clip;
     color: var(--sj-text-primary);
     background: #07090c;
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;
@@ -606,7 +617,11 @@
     right: clamp(18px, 5vw, 92px);
     bottom: max(clamp(24px, 5vh, 54px), calc(env(safe-area-inset-bottom, 0px) + 18px));
     left: clamp(18px, 5vw, 92px);
-    min-height: 148px;
+    display: flex;
+    flex-direction: column;
+    height: var(--cvn-dialogue-height);
+    max-width: 1280px;
+    margin-inline: auto;
     padding: 24px clamp(22px, 3vw, 42px) 18px;
     border: 1px solid rgba(229, 221, 205, .2);
     border-left: 3px solid var(--cvn-accent);
@@ -624,6 +639,7 @@
     position: absolute;
     top: -16px;
     left: 28px;
+    align-self: flex-start;
     max-width: min(60vw, 420px);
     overflow: hidden;
     padding: 7px 16px;
@@ -640,13 +656,15 @@
 }
 
 .cvn-dialogue-text {
-    min-height: 3.3em;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
     margin: 0;
     color: #f4f1ea;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(1.05rem, 1.75vw, 1.48rem);
+    font-size: var(--cvn-dialogue-font);
     font-weight: 400;
-    line-height: 1.52;
+    line-height: var(--cvn-dialogue-leading);
     letter-spacing: .012em;
     text-wrap: pretty;
     text-shadow: 0 2px 8px rgba(0, 0, 0, .8);
@@ -662,13 +680,26 @@
     animation: cvn-caret 720ms steps(1) infinite;
 }
 
+.cvn-dialogue-text,
+.cvn-dialogue-footer .vn-choices,
+.cvn-dialogue-footer .vn-conclusion-text {
+    scrollbar-width: thin;
+}
+
 .cvn-dialogue-footer {
+    position: relative;
     display: flex;
-    min-height: 36px;
+    flex: 0 0 auto;
+    min-height: var(--cvn-dialogue-footer);
     align-items: flex-end;
     justify-content: flex-end;
     gap: 10px;
-    margin-top: 10px;
+    margin-top: auto;
+    padding-top: 10px;
+}
+
+.cvn-dialogue-footer > * {
+    animation: cvn-footer-in 180ms ease both;
 }
 
 .cvn-tap-hint {
@@ -747,16 +778,25 @@
         border-color: color-mix(in srgb, var(--cvn-accent) 72%, transparent);
         background: color-mix(in srgb, var(--cvn-accent) 13%, rgba(18, 25, 32, .94));
     }
+
+    /* The choice list scrolls, so the global hover lift would clip the border. */
+    .cvn-dialogue-footer .vn-choice-btn:hover {
+        transform: none;
+    }
 }
 
 .cvn-dialogue-footer .vn-choices {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+    grid-auto-rows: 1fr;
     gap: 8px;
+    max-height: calc(var(--cvn-dialogue-footer) * 2 + 8px);
+    overflow-y: auto;
 }
 
 .cvn-dialogue-footer .vn-choice-btn {
     width: 100%;
+    min-height: calc(var(--cvn-dialogue-footer) - 10px);
     padding: 10px 14px;
     text-align: left;
 }
@@ -765,24 +805,55 @@
     opacity: .46;
 }
 
+/* Out of flow: it lives for 650ms, and taking a row would shift the choices
+   under the player's cursor at the moment they unlock. */
 .cvn-dialogue-footer .hint {
-    grid-column: 1 / -1;
+    position: absolute;
+    right: 0;
+    bottom: 100%;
     color: var(--sj-text-muted);
     font-size: .72rem;
     text-align: right;
 }
 
+/* The result of a choice takes the line's place inside the box, because a long
+   result under a long line could not fit the fixed height. Results are
+   narration, so the last line's speaker tag and caption go with it. */
+.cvn-dialogue-shell:has(.vn-conclusion) .cvn-dialogue-scene,
+.cvn-dialogue-shell:has(.vn-conclusion) .cvn-dialogue-text,
+.cvn-dialogue-shell:has(.vn-conclusion) .cvn-speaker {
+    display: none;
+}
+
+.cvn-dialogue-footer:has(.vn-conclusion) {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 0;
+    padding-top: 0;
+}
+
 .cvn-dialogue-footer .vn-conclusion {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    gap: 10px;
     width: 100%;
+    min-height: 0;
     margin: 0;
-    padding: 10px 0 0;
+    padding: 0;
     border: 0;
-    border-top: 1px solid rgba(229, 221, 205, .12);
     background: transparent;
 }
 
+.cvn-dialogue-footer .vn-conclusion .vn-controls {
+    flex: 0 0 auto;
+}
+
 .cvn-dialogue-footer .vn-conclusion-text {
-    margin: 0 0 10px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0;
     color: #e7d9bd;
     font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(.92rem, 1.25vw, 1.08rem);
@@ -909,6 +980,11 @@
     to { transform: translate(.8%, -.5%) scale(1.08); }
 }
 
+@keyframes cvn-footer-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 @keyframes cvn-title-reveal {
     0% { opacity: 0; filter: blur(8px); transform: translate(-50%, 12px); }
     16%, 72% { opacity: 1; filter: blur(0); transform: translate(-50%, 0); }
@@ -971,6 +1047,13 @@
 }
 
 @media (max-width: 800px), (max-height: 680px) {
+    .cvn-root {
+        --cvn-dialogue-font: clamp(.98rem, 4.3vw, 1.14rem);
+        --cvn-dialogue-leading: 1.42;
+        --cvn-dialogue-footer: 54px;
+        --cvn-dialogue-height: min(46dvh, 300px);
+    }
+
     .cvn-root:is(.shot-wide, .shot-medium, .shot-close) {
         --cvn-stage-floor: min(39dvh, 330px);
         --cvn-actor-height: min(50dvh, 470px);
@@ -1078,8 +1161,6 @@
         right: 8px;
         bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 7px));
         left: 8px;
-        max-height: min(46dvh, 390px);
-        min-height: 174px;
         overflow-y: auto;
         padding: 36px 15px 10px;
         border-left-width: 2px;
@@ -1094,14 +1175,14 @@
         font-size: .69rem;
     }
 
+    /* The whole box scrolls here, so stacked choices stay reachable. */
     .cvn-dialogue-text {
-        min-height: 3.9em;
-        font-size: clamp(.98rem, 4.3vw, 1.14rem);
-        line-height: 1.42;
+        flex: 0 0 auto;
+        overflow-y: visible;
     }
 
     .cvn-dialogue-footer {
-        margin-top: 8px;
+        padding-top: 8px;
     }
 
     .cvn-dialogue-footer .vn-controls button {
@@ -1151,8 +1232,14 @@
     /* Portraits run a size smaller than the band so a listener's card and a
        speaker whose framed art spills past its box (staffs, raised hands) no
        longer touch on a ~400px phone. */
+    .cvn-root {
+        --cvn-dialogue-font: clamp(.94rem, 4.05vw, 1.08rem);
+        --cvn-dialogue-leading: 1.38;
+        --cvn-dialogue-height: min(48dvh, 332px);
+    }
+
     .cvn-root:is(.shot-wide, .shot-medium, .shot-close) {
-        --cvn-stage-floor: min(41dvh, 340px);
+        --cvn-stage-floor: calc(var(--cvn-dialogue-height) + 14px);
         --cvn-actor-height: min(35dvh, 315px);
     }
 
@@ -1201,7 +1288,7 @@
     }
 
     .cvn-actor {
-        bottom: min(41dvh, 340px);
+        bottom: var(--cvn-stage-floor);
         width: min(44vw, 200px);
     }
 
@@ -1230,8 +1317,6 @@
         right: 8px;
         bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) + 5px));
         left: 8px;
-        max-height: min(48dvh, 410px);
-        min-height: 154px;
         padding: 12px 14px 10px;
         overscroll-behavior: contain;
         scrollbar-width: thin;
@@ -1261,25 +1346,18 @@
         font-size: .66rem;
     }
 
-    .cvn-dialogue-text {
-        min-height: 2.8em;
-        font-size: clamp(.94rem, 4.05vw, 1.08rem);
-        line-height: 1.38;
-    }
-
     .cvn-dialogue-footer {
         align-items: stretch;
-        margin-top: 8px;
     }
 }
 
-.cvn-root.text-large .cvn-dialogue-text {
-    font-size: clamp(1.2rem, 2vw, 1.68rem);
+.cvn-root.text-large {
+    --cvn-dialogue-font: clamp(1.2rem, 2vw, 1.68rem);
 }
 
-.cvn-root.text-xlarge .cvn-dialogue-text {
-    font-size: clamp(1.38rem, 2.35vw, 1.92rem);
-    line-height: 1.58;
+.cvn-root.text-xlarge {
+    --cvn-dialogue-font: clamp(1.38rem, 2.35vw, 1.92rem);
+    --cvn-dialogue-leading: 1.58;
 }
 
 .cvn-root.contrast-high {
@@ -1314,13 +1392,28 @@
     }
 }
 
+/* Short laptop windows have the width for columns, and stacking the choices
+   here was the biggest single jump in the box's height. */
 @media (min-width: 801px) and (max-height: 680px) {
+    .cvn-root {
+        --cvn-dialogue-chrome: 54px;
+        --cvn-dialogue-height: min(46dvh, calc(var(--cvn-dialogue-lines) * var(--cvn-dialogue-font) * var(--cvn-dialogue-leading) + var(--cvn-dialogue-footer) + var(--cvn-dialogue-chrome)));
+    }
+
     .cvn-dialogue-footer .vn-choices {
-        max-height: 286px;
+        grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+        max-height: calc(var(--cvn-dialogue-footer) * 2 + 8px);
     }
 }
 
 @media (max-height: 590px) and (orientation: landscape) {
+    .cvn-root {
+        --cvn-dialogue-font: .92rem;
+        --cvn-dialogue-leading: 1.34;
+        --cvn-dialogue-footer: 50px;
+        --cvn-dialogue-height: min(50dvh, 172px);
+    }
+
     .cvn-root:is(.shot-wide, .shot-medium, .shot-close) {
         --cvn-stage-floor: 118px;
         --cvn-actor-height: min(66dvh, calc(100dvh - 184px));
@@ -1343,8 +1436,6 @@
         right: 16px;
         bottom: 9px;
         left: 16px;
-        max-height: 50dvh;
-        min-height: 112px;
         padding: 10px 18px 9px;
     }
 
@@ -1354,10 +1445,13 @@
         margin: 0 0 6px;
     }
 
-    .cvn-dialogue-text {
-        min-height: 0;
-        font-size: .92rem;
-        line-height: 1.34;
+    .cvn-dialogue-footer .vn-choices {
+        grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
+    }
+
+    .cvn-dialogue-footer .vn-choice-btn {
+        min-height: 44px;
+        padding: 6px 10px;
     }
 }
 
