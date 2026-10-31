@@ -50,6 +50,7 @@ beforeEach(async () => {
         'raid-territory-proof:*',
         'pvp:raidbattle*',
         'world:territory:18',
+        'world-boss-event:*',
         'legacy:stats:raidauth*',
         'missions:progress:raidauth*',
         'ratelimit:*raidauth*',
@@ -211,6 +212,20 @@ describe('sealed raid authority', () => {
                 assert.equal(started.body?.source, 'field-raid');
             });
         }
+
+        it('allows the garrison while the in-sector guard waits for a boss team without an active fight', async () => {
+            const player = 'raidauthguardbossqueue';
+            await postRaid(player);
+            onlineStore.upsert({ name: guard, sector: 18, character: { name: guard, hp: 100, maxHp: 100 } });
+            const now = Date.now();
+            await kv.set('world-boss-event:active', 'raid-guard-queue');
+            await kv.set('world-boss-event:raid-guard-queue', { eventId: 'raid-guard-queue', bossId: 'hollow-beast', status: 'roaming', hp: 100, hpMax: 100,
+                startedAt: now - 1000, roamEndsAt: now + 60_000, endsAt: now + 120_000, endedAt: null });
+            await kv.set('world-boss-event:raid-guard-queue:queue', { tickets: [{ slug: guard }], activeMatchIds: [], updatedAt: now });
+            const started = await post(raidStart, player, { requestId: 'raidguardbossqueuerequest1', sector: 18 });
+            assert.equal(started.statusCode, 200);
+            assert.equal(started.body?.source, 'field-raid');
+        });
     });
 
     it('routes field raid objectives through village garrisons, not wilderness mission outposts', async () => {

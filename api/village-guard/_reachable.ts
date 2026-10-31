@@ -3,6 +3,7 @@ import { isBelowAttackableFloor, sessionOpponentBlock, worldInteractionBlock } f
 import { safeName } from '../_utils.js';
 import { kv } from '../_storage.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
+import { worldBossPvpProtectionBlock } from '../world-boss-event/_pvp-protection.js';
 
 /*
  * A `guard:<name>` row says a player is on the village's roster, for up to five
@@ -20,11 +21,12 @@ export async function guardReachableFrom(attacker: string, guardName: string, no
     if (worldInteractionBlock(onlineStore.get(attacker, now), target, now)
         || sessionOpponentBlock(target, safeName(attacker), now)) return false;
     const slug = safeName(guardName);
-    const [save, locks] = await Promise.all([
+    const [save, locks, worldBossBlock] = await Promise.all([
         kv.get<Record<string, unknown>>(`save:${slug}`),
         battleLockFlagsForPlayers([slug]),
+        worldBossPvpProtectionBlock(slug, now),
     ]);
-    if (!save?.character || locks.get(slug) === true) return false;
+    if (!save?.character || locks.get(slug) === true || worldBossBlock) return false;
     // Match session admission's elapsed-state projection without writing the
     // save. A recovered guard may now be alive, while Field Recovery can still
     // protect them. Presence alone cannot answer either question.
