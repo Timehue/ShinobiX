@@ -15,7 +15,9 @@ const content = JSON.parse(readFileSync(
     'utf8',
 )) as StoryContentPayload;
 
-const OVERFLOW_LINE = 'Every part of this report must remain readable before the scene advances. '.repeat(16);
+// Leave ample overflow across platform font metrics: Linux Chromium's compact
+// fallback font fits 16 repetitions into fewer than two complete viewports.
+const OVERFLOW_LINE = 'Every part of this report must remain readable before the scene advances. '.repeat(32);
 
 async function openSceneWithAutoRead(page: Page, vitals: 'full' | 'regenerating', overflow = false, autoRead = true) {
     const scene = content.interludes.find(candidate => candidate.levelReq === 30)!;
