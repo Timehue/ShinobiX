@@ -1,7 +1,9 @@
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from 'react-dom';
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { aiFightExitScreen } from "../lib/ai-fight-result";
+import { aiFightStartErrorMessage } from '../lib/ai-fight-start-error';
 import { beginAiFightClose, consumeCommittedAiFightClose, type AiFightCloseHandoff } from '../lib/ai-fight-close-handoff';
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
@@ -433,6 +435,9 @@ export function AiFightHost({
                 .then((started) => {
                     if (!requestIsCurrent(originatingPlayerKey, requestId)) return;
                     if ("pendingWorldChain" in started || "pendingWorldOutcome" in started) {
+                        if ('pendingWorldChain' in started && sameAiFightIdentity(
+                            requestForPendingWorldChain(started, request.opponentLevel), request,
+                        )) throw new Error('world-chain-start-unconfirmed');
                         // The attempted launch met an older durable World handoff.
                         // Let the recovery effect consume that exact server object;
                         // never replace it with the newly clicked encounter.
@@ -466,10 +471,11 @@ export function AiFightHost({
                 })
                 .catch((error) => {
                     if (!requestIsCurrent(originatingPlayerKey, requestId)) return;
-                    if (request.worldEncounter) setRecoveryAttempt((attempt) => attempt + 1);
+                    // A rejected start is not a new recovery event. Automatically
+                    // resuming its unchanged durable handoff would loop forever.
                     setStartFailure({
                         request,
-                        message: String((error as Error)?.message ?? error),
+                        message: aiFightStartErrorMessage(error, request.worldEncounter?.sector),
                         originatingPlayerName,
                         requestId,
                     });
@@ -518,8 +524,10 @@ export function AiFightHost({
     }, [open, onClose, playerName, startFailure, requestIsCurrent]);
 
     if (activeStartFailure) {
-        return (
-            <div className="battle-ended-overlay" role="alert" aria-live="assertive">
+        // This host lives outside the arena. Escape the app's stacking context
+        // and keep Return above ambient road notifications on compact screens.
+        return createPortal(
+            <div className="battle-ended-overlay" role="alert" aria-live="assertive" style={{ position: 'fixed', zIndex: 4000 }}>
                 <div className="card battle-ended-card">
                     <h2>Fight unavailable</h2>
                     <p>{activeStartFailure.message}</p>
@@ -536,7 +544,8 @@ export function AiFightHost({
                         setStartFailure((current) => current?.requestId === activeStartFailure.requestId ? null : current);
                     }}>Return</button>
                 </div>
-            </div>
+            </div>,
+            document.body,
         );
     }
     if (!activeFight || !character) return null;
