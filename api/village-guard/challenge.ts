@@ -7,6 +7,7 @@ import { withKvLock } from '../_lock.js';
 import { stripNonCombatFields } from '../pvp/session.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { legacyEnabled, LEGACY_PVP_RECEIPT_TTL_SECONDS } from '../_legacy-track.js';
+import { guardReachableFrom } from './_reachable.js';
 
 type GuardEntry = { name: string; village: string; level: number; lastSeen: number; defenseBonusPercent?: number };
 
@@ -79,8 +80,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Find all active guards for this village
         const keys = await kv.keys('guard:*');
-        const guards = (await kv.mget<GuardEntry[]>(...keys))
+        const rostered = (await kv.mget<GuardEntry[]>(...keys))
             .filter((g): g is GuardEntry => !!g && g.village === village);
+        // Only a guard this raider can really fight counts. Anyone else leaves
+        // the raid to the garrison. A `battleId` means the duel already passed
+        // the session gate, so its notice still reaches a guard who just moved.
+        const reachable = identity.admin || battleId ? null
+            : await Promise.all(rostered.map(g => guardReachableFrom(identity.name, g.name)));
+        const guards = reachable ? rostered.filter((_g, index) => reachable[index]) : rostered;
 
         if (guards.length === 0) {
             return res.status(200).json({ noGuard: true });

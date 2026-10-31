@@ -19,7 +19,7 @@ import { relativeAgo } from './village-stores';
 import { takeUnseenNotices } from './notice-ack';
 import { displayPlayerName } from '../../../shared/player-name';
 
-export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'village-war-card-defense';
+export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'duel-no-show' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'village-war-card-defense';
 
 export type OfflineNotice = {
     kind: OfflineNoticeKind;
@@ -36,7 +36,7 @@ export type OfflineNotice = {
     tenureMs?: number;
 };
 
-const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'village-war-card-defense']);
+const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'duel-no-show', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'village-war-card-defense']);
 
 function isNotice(v: unknown): v is OfflineNotice {
     if (!v || typeof v !== 'object') return false;
@@ -60,6 +60,7 @@ const NOTICE_ICON: Record<OfflineNoticeKind, string> = {
     'bounty-placed': 'ryo',
     'bounty-claimed': 'ryo',
     'merc-raid': 'attack',
+    'duel-no-show': 'attack',
     'sleeper-kill': 'attack',
 };
 
@@ -76,6 +77,7 @@ const NOTICE_TONE: Record<OfflineNoticeKind, OfflineNoticeTone> = {
     'bounty-placed': 'info',
     'bounty-claimed': 'grave',
     'merc-raid': 'grave',
+    'duel-no-show': 'grave',
     'sleeper-kill': 'grave',
 };
 
@@ -121,6 +123,11 @@ export function offlineNoticeBody(n: OfflineNotice): string {
     }
     if (n.kind === 'merc-raid') {
         return `${who} raided your camp in Sector ${n.sector} while you were away. You were carried to the hospital.`;
+    }
+    if (n.kind === 'duel-no-show') {
+        return n.sector > 0
+            ? `You did not answer ${who}'s attack in Sector ${n.sector} in time. The duel counted as a loss, and you were carried to the hospital.`
+            : `You did not join your duel with ${who} in time, so it counted as a loss.`;
     }
     return `While you slept in Sector ${n.sector}, ${who} ambushed your camp. You were carried to the hospital.`;
 }

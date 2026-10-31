@@ -1170,6 +1170,18 @@ async function measurementPhase<T>(diagnostic: MeasurementDiagnostic | undefined
 
 async function settleBoardGeometry(page: Page, rootSelector: string, diagnostic?: MeasurementDiagnostic): Promise<void> {
     await measurementPhase(diagnostic, 'fonts-ready', () => page.evaluate(async () => { await document.fonts.ready; }));
+    if (rootSelector === '.mission-arena-fight') {
+        // WebKit can deliver the media-query change after several stable frames.
+        // Wait for Solo's responsive React commit before taking the baseline:
+        // removing the desktop feedback row moves the board by 34px on phones.
+        await measurementPhase(diagnostic, 'responsive-notice-ready', async () => {
+            await expect.poll(() => page.locator(rootSelector).evaluate(root => {
+                const expectsNotice = !window.matchMedia('(max-width: 979px)').matches;
+                return root.querySelector('.combat-layout')?.classList.contains('has-action-notice') === expectsNotice
+                    && Boolean(root.querySelector('.combat-action-notice')) === expectsNotice;
+            }), { message: 'Solo feedback row must match the resized viewport before geometry sampling' }).toBe(true);
+        });
+    }
     if (diagnostic) {
         diagnostic.animations = await measurementPhase(diagnostic, 'animation-snapshot', () => page.locator(rootSelector).evaluate((root) => ({
             visibility: document.visibilityState,
