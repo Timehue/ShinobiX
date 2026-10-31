@@ -2017,7 +2017,7 @@
       "system": "bloodline-forge",
       "id": "B Rank",
       "currency": "boneCharms",
-      "amount": 200,
+      "amount": 100,
       "cadence": "per forge",
       "authority": "api/bloodlines/_forge.ts",
       "notes": ""
