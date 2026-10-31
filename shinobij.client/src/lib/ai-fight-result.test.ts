@@ -82,7 +82,7 @@ test('an escape says the player got away, including when the escape cost their l
 
 test('a lost spar says it was a spar and that it cost nothing, never "you left the fight"', () => {
     const sparred = { hp: 600, hospitalized: false } as Character;
-    const lost = aiFightNonWinMessage('settled', sparred, false, true);
+    const lost = aiFightNonWinMessage('settled', sparred, false, true, 'knockout');
     assert.match(lost, /lost this spar/);
     assert.match(lost, /never sends anyone to the hospital/);
     assert.match(lost, /600 HP/);
@@ -90,4 +90,16 @@ test('a lost spar says it was a spar and that it cost nothing, never "you left t
     assert.match(aiFightNonWinMessage('settled', sparred, true, true), /spar ended in a draw/);
     // The server's answer still wins: an admission (from anything) is reported as one.
     assert.match(aiFightNonWinMessage('settled', { hp: 0, hospitalized: true } as Character, false, true), /brought to the hospital/);
+});
+
+test('an abandoned spar remains a retreat while a real knockout keeps defeat presentation', () => {
+    const sparred = { hp: 600, hospitalized: false } as Character;
+    assert.equal(aiFightLeftLabel('abandoned', false), 'Retreated');
+    assert.equal(aiFightNonWinMessage('settled', sparred, false, true, 'abandoned'),
+        'You left the fight with 600 HP. No reward was earned.');
+    assert.equal(aiFightLeftLabel('knockout', false), null);
+    assert.match(aiFightNonWinMessage('settled', sparred, false, true, 'knockout'), /lost this spar/);
+    assert.equal(aiFightLeftLabel('abandoned', true), null);
+    assert.match(aiFightNonWinMessage('settled', { hp: 0, hospitalized: true } as Character, false, false, 'knockout'),
+        /HP reached zero.*hospital/);
 });
