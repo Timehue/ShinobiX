@@ -453,16 +453,16 @@ describe('authoritative field mission lifecycle', () => {
         const open = await claimSixth('fieldtrailopen', 0);
         assert.equal((open.body?.reward as Record<string, unknown>).statPoints, 3, 'a sixth field claim pays while the budget lasts');
         assert.equal((open.body?.character as Record<string, unknown>).unspentStats, 10);
-        assert.deepEqual(open.body?.statBudget, { day: today, spent: 3, cap: 60 }, 'the reply carries the day\'s budget');
+        assert.deepEqual(open.body?.statBudget, { day: today, spent: 3, cap: 120 }, 'the reply carries the day\'s budget');
 
-        const last = await claimSixth('fieldtraillast', 58);
+        const last = await claimSixth('fieldtraillast', 118);
         assert.equal((last.body?.reward as Record<string, unknown>).statPoints, 2, 'the claim pays what is left of the budget');
         assert.equal((last.body?.character as Record<string, unknown>).unspentStats, 9);
-        assert.deepEqual(last.body?.statBudget, { day: today, spent: 60, cap: 60 });
+        assert.deepEqual(last.body?.statBudget, { day: today, spent: 120, cap: 120 });
 
-        const spent = await claimSixth('fieldtrailspent', 60);
+        const spent = await claimSixth('fieldtrailspent', 120);
         assert.equal((spent.body?.reward as Record<string, unknown>).statPoints, 0, 'a spent budget pays no stat points');
         assert.equal((spent.body?.character as Record<string, unknown>).unspentStats, 7);
-        assert.deepEqual(spent.body?.statBudget, { day: today, spent: 60, cap: 60 });
+        assert.deepEqual(spent.body?.statBudget, { day: today, spent: 120, cap: 120 });
     });
 });

@@ -5,7 +5,8 @@ import { earnedForLevel, earnedStatPoints, levelForEarned } from './_xp-engine.j
 import { trainingRateTable, trainingTiersFor, type TrainingTierId } from './_training-config.js';
 import { trustedTrainingRewards } from './training/_session.js';
 import { combinedStatBoost, DAILY_COMBAT_STAT_CAP, DAILY_STAT_POINT_CAP_MAX, AI_PVE_STAT_POINTS_PER_WIN } from './_stat-growth.js';
-import { reserveCombatStatBudget } from './pvp/_combat-stat-budget.js';
+import { reserveCombatStatBudget, reservePvpCombatStatBudget } from './pvp/_combat-stat-budget.js';
+import { DAILY_PVP_STAT_CAP, PVP_STAT_POINTS_PER_WIN } from '../shared/combat-growth-rules.js';
 import { FIELD_MISSION_STAT_POINTS } from './missions/_mission-catalog.js';
 import { APEX_STAT_POINTS } from './missions/_apex-contract.js';
 import { STORY_LEVELS, STORY_REWARDS } from './story/_settle.js';
@@ -113,19 +114,19 @@ function claimRequests(profile: Profile, band: Band): number[] {
 }
 
 /** The model's expected combat stat request for the day (before the budget). */
-function expectedCombatRequest(archetype: Archetype, band: Band): number {
+function expectedCombatRequest(archetype: Archetype, band: Band, pvePerWin: number, includePvp: boolean): number {
     const r = ROUTINE[archetype][band];
-    const pve = AI_PVE_STAT_POINTS_PER_WIN;
+    const pve = pvePerWin;
     return Math.round(
         pve * (r.hunt ?? 0)
         + pve * FETCH_EXPLORES[band] * EXPLORE_FIGHT_RATE * (r.fetch ?? 0)
         + pve * EXPLORE_FIGHT_RATE * (r.explore ?? 0)
         + pve * (r.ai ?? 0)
-        + EXPECTED_PVP_POINTS * (r.pvp ?? 0),
+        + (includePvp ? EXPECTED_PVP_POINTS * (r.pvp ?? 0) : 0),
     );
 }
 
-async function daysToLevel(profile: Profile, target: number, cap: number): Promise<number> {
+async function daysToLevel(profile: Profile, target: number, cap: number, pvePerWin: number, separatePvp: boolean): Promise<number> {
     const store = _makeMemoryKv();
     const tiers = trainingTiersFor(trainingRateTable());
     const tierById = new Map(tiers.map((tier) => [tier.id, tier]));
@@ -156,9 +157,18 @@ async function daysToLevel(profile: Profile, target: number, cap: number): Promi
         }
         const combat = await reserveCombatStatBudget(store, {
             playerName: 'replay', battleId: `day-${day}`, eventAt: START + day * DAY_MS,
-            requested: expectedCombatRequest(profile.routine, band), cap,
+            requested: expectedCombatRequest(profile.routine, band, pvePerWin, !separatePvp), cap,
         });
         gained += combat.points;
+        if (separatePvp) {
+            const pvp = await reservePvpCombatStatBudget(store, {
+                playerName: 'replay', battleId: `pvp-day-${day}`, eventAt: START + day * DAY_MS,
+                // 50% wins × mean 3.5 for a uniform 1–6 award.
+                requested: Math.round((ROUTINE[profile.routine][band].pvp ?? 0) * (PVP_STAT_POINTS_PER_WIN + 1) / 4),
+                cap: DAILY_PVP_STAT_CAP,
+            });
+            gained += pvp.points;
+        }
 
         // Weekly grants, amortised per day as in the model.
         if (band >= 30 && weekly.boss) gained += WEEKLY_BOSS_POINTS / 7 + WORLD_BOSS_POINTS / 14;
@@ -193,18 +203,18 @@ async function withDials<T>(env: Partial<Record<typeof DIAL_ENV[number], string>
     }
 }
 
-async function replayAll(t: TestContext, label: string, cap: number = DAILY_COMBAT_STAT_CAP): Promise<Record<string, number>> {
+async function replayAll(t: TestContext, label: string, cap: number = DAILY_COMBAT_STAT_CAP, pvePerWin = AI_PVE_STAT_POINTS_PER_WIN / 2, separatePvp = true): Promise<Record<string, number>> {
     const days: Record<string, number> = {};
-    for (const profile of PROFILES) days[profile.name] = await daysToLevel(profile, 90, cap);
+    // The equal 0–3 roll has mean 1.5; historical benchmarks pass the old fixed 3.
+    for (const profile of PROFILES) days[profile.name] = await daysToLevel(profile, 90, cap, pvePerWin, separatePvp);
     t.diagnostic(`${label}: L10 → L90 days ${Object.entries(days).map(([name, d]) => `${name} ${d}`).join(', ')}`);
     return days;
 }
 
 describe('Phase 1A pacing replay (framework §1.1 targets, §8.2 gate)', () => {
-    it('the default dials put every archetype inside its L10 → L90 target', async (t) => {
+    it('the original 60-point budget puts every archetype inside its Phase 1A L10 → L90 target', async (t) => {
         t.mock.timers.enable({ apis: ['Date'], now: START });
-        assert.equal(DAILY_COMBAT_STAT_CAP, 60, 'the replay runs on the default shared budget');
-        const days = await withDials({}, () => replayAll(t, `v2 table, shared budget ${DAILY_COMBAT_STAT_CAP}, dial 1`));
+        const days = await withDials({}, () => replayAll(t, 'v2 table, original shared budget 60, fixed PvE 3, dial 1', 60, 3, false));
         assert.ok(days.regular >= 80 && days.regular <= 96, `regular ${days.regular} (gate 80-96; target 85-92; expected 86)`);
         assert.ok(days.casual <= 150, `casual ${days.casual} (ceiling 150; expected 142)`);
         assert.ok(days.hardcore >= 0.62 * days.regular, `hardcore ${days.hardcore} vs 0.62 × regular ${0.62 * days.regular} (expected 54)`);
@@ -215,13 +225,20 @@ describe('Phase 1A pacing replay (framework §1.1 targets, §8.2 gate)', () => {
             && days['human optimiser'] > days['script optimiser']);
     });
 
+    it('replays the 120-point budget with the mean of the uniform 0–3 PvE award', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: START });
+        assert.equal(DAILY_COMBAT_STAT_CAP, 120);
+        const days = await withDials({}, () => replayAll(t, 'v2 table, shared budget 120, dial 1'));
+        assert.deepEqual(days, { casual: 152, regular: 88, hardcore: 53, 'script optimiser': 35, 'human optimiser': 38 });
+    });
+
     it('the kill values (legacy table, the budget dial at its maximum) restore the pre-rebalance pace', async (t) => {
         t.mock.timers.enable({ apis: ['Date'], now: START });
         // DAILY_STAT_POINT_CAP is read at boot, so the replay passes the dial's
         // maximum straight to the reservations instead of through the env.
         const days = await withDials(
             { TRAINING_RATE_TABLE: 'legacy' },
-            () => replayAll(t, `legacy table, shared budget ${DAILY_STAT_POINT_CAP_MAX}`, DAILY_STAT_POINT_CAP_MAX),
+            () => replayAll(t, `legacy table, shared budget ${DAILY_STAT_POINT_CAP_MAX}, fixed PvE 3`, DAILY_STAT_POINT_CAP_MAX, 3, false),
         );
         // The model's "today" column: casual 130, regular 77, hardcore 49, script 30.
         assert.ok(days.regular < 80, `regular ${days.regular} is faster than the gate without the rebalance`);

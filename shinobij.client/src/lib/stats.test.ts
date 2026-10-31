@@ -5,7 +5,7 @@ import {
     earnedForLevel, levelForEarned, earnedStatPoints,
 } from './stats';
 import { statCapForLevel, perRankStatCap, FIELD_MISSION_STAT_POINTS } from '../constants/game';
-import { DAILY_STAT_POINT_CAP } from '../../../shared/combat-growth-rules';
+import { DAILY_STAT_POINT_CAP, DAILY_PVP_STAT_CAP } from '../../../shared/combat-growth-rules';
 import { TRAINING_TIERS, sealedTrainingGain } from './training-config';
 import type { Character } from '../types/character';
 
@@ -108,9 +108,9 @@ describe('pacing guardrail — the owner-documented "dailies + a little extra" p
     it('the daily checklist stays the bulk of active-play growth (dailies > PvP slice)', () => {
         assert.equal(CHECKLIST_PER_DAY, 45);
         assert.ok(CHECKLIST_PER_DAY > PVP_PER_DAY, 'owner directive: dailies are the bulk, PvP is the headroom');
-        // Both draw from the one shared daily budget (owner ruling A1), which
-        // this profile fills without overflowing.
-        assert.ok(CHECKLIST_PER_DAY + PVP_PER_DAY <= DAILY_STAT_POINT_CAP, 'the profile fits the shared daily stat-point budget');
+        // Check each allowance independently now that PvP has its own budget.
+        assert.ok(CHECKLIST_PER_DAY <= DAILY_STAT_POINT_CAP, 'the checklist fits the PvE and mission budget');
+        assert.ok(PVP_PER_DAY <= DAILY_PVP_STAT_CAP, 'the PvP slice fits its separate budget');
     });
 });
 

@@ -42,7 +42,9 @@ test('mission reward guidance distinguishes ryo claims from the shared growth bu
     await expectUiAuditBoot(page, runtime, 'missions');
     await page.getByRole('tab', { name: 'Combat', exact: true }).click();
     await page.getByText('How rewards grow your shinobi', { exact: true }).click();
-    await expect(page.getByText('Hunt claims, field jobs and eligible AI and player wins share 60 stat points per UTC day.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Hunt claims, field jobs and eligible AI wins share 120 stat points per UTC day.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Eligible PvP wins have a separate 50-point daily cap.', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Each eligible player win rolls 1–6 with an equal chance for each amount/)).toBeVisible();
     await expect(page.getByText('Combat missions pay 1 stat point plus ryo when claimed.', { exact: true })).toBeVisible();
     await expect(page.getByText(/The claim point is unboosted and uses the same shared daily budget/)).toBeVisible();
     await expect(page.locator('.mh-combat-rewards').getByText('+1 Stat Pt', { exact: true })).toHaveCount(6);

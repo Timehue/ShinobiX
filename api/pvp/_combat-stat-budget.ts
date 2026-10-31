@@ -89,6 +89,26 @@ export async function reserveCombatStatBudget(
     store: BudgetStore,
     params: { playerName: string; battleId: string; eventAt: number; requested: number; cap: number },
 ): Promise<{ points: number; replayed: boolean; day: string }> {
+    return reserveStatBudget(store, params, 'combat-stat-count');
+}
+
+export function pvpStatBudgetKey(playerName: string, day: string): string {
+    return `pvp-stat-count:${safeName(playerName)}:${day}`;
+}
+
+/** Casual and ranked player wins share their own counter, separate from PvE. */
+export async function reservePvpCombatStatBudget(
+    store: BudgetStore,
+    params: { playerName: string; battleId: string; eventAt: number; requested: number; cap: number },
+): Promise<{ points: number; replayed: boolean; day: string }> {
+    return reserveStatBudget(store, params, 'pvp-stat-count');
+}
+
+async function reserveStatBudget(
+    store: BudgetStore,
+    params: { playerName: string; battleId: string; eventAt: number; requested: number; cap: number },
+    prefix: 'combat-stat-count' | 'pvp-stat-count',
+): Promise<{ points: number; replayed: boolean; day: string }> {
     const player = safeName(params.playerName);
     const battleId = String(params.battleId ?? '').trim();
     const requested = Math.max(0, Math.floor(Number(params.requested)));
@@ -97,7 +117,7 @@ export async function reserveCombatStatBudget(
         throw new Error('pvp-combat-stat-budget-input-invalid');
     }
     const day = utcDay(params.eventAt);
-    const key = `combat-stat-count:${player}:${day}`;
+    const key = prefix === 'pvp-stat-count' ? pvpStatBudgetKey(player, day) : `combat-stat-count:${player}:${day}`;
     const receiptKey = allocationKey(battleId);
     for (let attempt = 0; attempt < 16; attempt += 1) {
         const raw = await store.get<unknown>(key);
@@ -138,5 +158,3 @@ export async function reserveCombatStatBudget(
     }
     throw new Error('pvp-combat-stat-budget-contended');
 }
-
-export const reservePvpCombatStatBudget = reserveCombatStatBudget;

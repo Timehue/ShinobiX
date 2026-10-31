@@ -7,11 +7,11 @@ import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { aiFightReward, AI_FIGHT_DAILY_COUNT_TTL_SECONDS, AI_FIGHT_HARD_CAP_PER_DAY, AI_FIGHT_SOFT_CAP_PER_DAY } from './_ai-fight-reward.js';
+import { aiFightReward, aiFightStatPointsForWin, AI_FIGHT_DAILY_COUNT_TTL_SECONDS, AI_FIGHT_HARD_CAP_PER_DAY, AI_FIGHT_SOFT_CAP_PER_DAY } from './_ai-fight-reward.js';
 import { legacyEnabled, bumpLegacyStats, type LegacyStatDeltas } from '../_legacy-track.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applyDerivedLevel, gainXp } from '../_xp-engine.js';
-import { AI_PVE_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, computeCombatStatGrowth } from '../_stat-growth.js';
+import { DAILY_COMBAT_STAT_CAP, computeCombatStatGrowth } from '../_stat-growth.js';
 import { reserveCombatStatBudget } from '../pvp/_combat-stat-budget.js';
 import { dailyStatBudgetReply } from '../_daily-stat-budget.js';
 import { withKvLock } from '../_lock.js';
@@ -324,7 +324,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         playerName,
                         battleId: `ai-fight:${aiFightToken}`,
                         eventAt: tokenData.mintedAt,
-                        requested: AI_PVE_STAT_POINTS_PER_WIN,
+                        requested: aiFightStatPointsForWin(playerName, aiFightToken),
                         cap: DAILY_COMBAT_STAT_CAP,
                     });
                     const earnedStatPoints = statBudget.points;
@@ -376,7 +376,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 playerName,
                 battleId: `ai-fight:${aiFightToken}`,
                 eventAt: tokenData.mintedAt,
-                requested: AI_PVE_STAT_POINTS_PER_WIN,
+                requested: aiFightStatPointsForWin(playerName, aiFightToken),
                 cap: DAILY_COMBAT_STAT_CAP,
             });
             const earnedStatPoints = statBudget.points;
