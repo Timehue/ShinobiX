@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { builtinFetchMissions, fieldMissionNextAction, fieldMissionRaidNeeded, nextFieldMissionObjective, sortFieldMissions } from "./missions";
+import { builtinFetchMissions, builtinHuntMissions, fieldMissionNextAction, fieldMissionRaidNeeded, nextFieldMissionObjective, sortFieldMissions } from "./missions";
 import type { CreatorMission, MissionRank } from "../types/missions";
 
 function mission(id: string, rank: MissionRank, name = id): CreatorMission {
@@ -18,6 +18,14 @@ function mission(id: string, rank: MissionRank, name = id): CreatorMission {
         staminaReward: 0,
     };
 }
+
+test("hunt descriptions never name a sector, because the trail starts away from the beast", () => {
+    assert.equal(builtinHuntMissions.length, 10);
+    for (const hunt of builtinHuntMissions) {
+        assert.doesNotMatch(hunt.description, /Sector \d/, hunt.id);
+        assert.match(hunt.description, /follow the hunt trail/, hunt.id);
+    }
+});
 
 test("field missions follow shinobi progression order and alphabetize within a rank", () => {
     const source = [
