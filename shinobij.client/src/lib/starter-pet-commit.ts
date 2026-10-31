@@ -1,6 +1,7 @@
 import type { Character } from "../types/character";
 import { reconcileOwnedStarter } from "./pet-acquisition-api";
 import { saveConflictAccountKey } from "./save-conflict";
+import type { AcademyVow } from "./academy-narrative";
 
 /** The starter commits when the player confirms it, while the cinematic is still
  * playing on the pre-grant step, and an autosave can persist that step. A reload
@@ -12,14 +13,25 @@ export function resumedStarterStep(character: Pick<Character, "onboardingStep" |
 }
 
 /** Undo a refused or unreachable starter commit so the picker can run again. */
-export function abandonStarterPet(current: Character | null, accountName: string, petId: string): Character | null {
+export function abandonStarterPet(current: Character | null, accountName: string): Character | null {
     if (!current || current.name !== accountName) return current;
+    // The picker no longer installs an optimistic pet. A failed request must
+    // not remove ownership that arrived through a concurrent authoritative read.
+    if (current.pets.length) return current;
     return {
         ...current,
-        pets: current.pets.filter((entry) => entry.id !== petId),
-        activePetId: current.activePetId === petId ? undefined : current.activePetId,
         onboardingStep: "academyIntro",
     };
+}
+
+/** Cinematic completion advances only an already-owned companion. Late or
+ * failed callbacks cannot mint a template pet or reopen finished onboarding. */
+export function finishStarterPetHandoff(current: Character | null, accountName: string, petId: string, vow: AcademyVow): Character | null {
+    if (!current || current.name !== accountName
+        || !["academyIntro", "starter", "companionIntro"].includes(current.onboardingStep ?? "")
+        || !current.pets.some(pet => pet.id === petId)) return current;
+    return { ...current, activePetId: petId, academyVow: vow,
+        onboardingStep: current.onboardingStep === "companionIntro" ? "training" : "companionIntro" };
 }
 
 /** A committed grant can be superseded by another authoritative mutation before

@@ -91,8 +91,8 @@ export function IntroCinematic({
 }: {
     character: Character;
     sharedImages?: Record<string, string>;
-    /** Commits the confirmed starter; false means choose again. */
-    onChooseStarter?: (pet: Pet, vow: AcademyVow) => Promise<boolean>;
+    /** Returns the server-owned starter, which may differ after a lost reply. */
+    onChooseStarter?: (pet: Pet, vow: AcademyVow) => Promise<Pet | null>;
     onComplete?: (pet: Pet, vow: AcademyVow) => void;
     /** Replay mode (Story Hall): pure viewing — no grant, no step change; the
      *  white-out ends by calling onClose instead of onComplete. */
@@ -101,6 +101,7 @@ export function IntroCinematic({
 }) {
     const [phase, setPhase] = useState<Phase>({ kind: "dialogue", stage: "pre", idx: 0 });
     const [chosen, setChosen] = useState<StarterPetOption | null>(null);
+    const [committing, setCommitting] = useState(false);
     const [vow, setVow] = useState<AcademyVow>(isAcademyVow(character.academyVow) ? character.academyVow : "unbound");
     const [avatarFailed, setAvatarFailed] = useState(false);
     const [foxArtFailed, setFoxArtFailed] = useState(false);
@@ -632,24 +633,29 @@ export function IntroCinematic({
                             {phase.option.pet.description}
                         </p>
                         <div className="icx-confirm-actions">
-                            <button type="button" className="icx-btn-ghost" onClick={() => setPhase({ kind: "choose" })}>
+                            <button type="button" className="icx-btn-ghost" disabled={committing} onClick={() => setPhase({ kind: "choose" })}>
                                 Back
                             </button>
                             <button
                                 type="button"
                                 className="icx-btn-take"
+                                disabled={committing}
                                 onClick={() => {
+                                    if (committing) return;
                                     introCue("confirm");
-                                    setChosen(phase.option);
-                                    setPhase({ kind: "dialogue", stage: "post", idx: 0 });
-                                    void onChooseStarter?.(phase.option.pet, vow).then((committed) => {
-                                        if (committed || completedRef.current) return;
-                                        setChosen(null);
-                                        setPhase({ kind: "choose" });
-                                    });
+                                    setCommitting(true);
+                                    const commit = onChooseStarter?.(phase.option.pet, vow) ?? Promise.resolve(phase.option.pet);
+                                    void commit.then((owned) => {
+                                        if (completedRef.current) return;
+                                        if (!owned) { setChosen(null); setPhase({ kind: "choose" }); return; }
+                                        const option = STARTER_PETS.find(entry => entry.pet.id === owned.id) ?? phase.option;
+                                        setChosen({ ...option, pet: owned });
+                                        setPhase({ kind: "dialogue", stage: "post", idx: 0 });
+                                    }).catch(() => { setChosen(null); setPhase({ kind: "choose" }); })
+                                        .finally(() => setCommitting(false));
                                 }}
                             >
-                                Take {phase.option.pet.name}
+                                {committing ? 'Saving companion…' : `Take ${phase.option.pet.name}`}
                             </button>
                         </div>
                     </div>
