@@ -47,9 +47,11 @@ export function LeaderPortrait({
     image,
     name,
     fallback = "?",
-}: { image?: string; name: string; fallback?: string }) {
-    return image
-        ? <img className="leader-portrait-img" src={image} alt={name} />
+    fallbackImage,
+}: { image?: string; name: string; fallback?: string; fallbackImage?: string }) {
+    const src = image || fallbackImage;
+    return src
+        ? <img className="leader-portrait-img" src={src} alt={name} />
         : (
             <div className="leader-portrait-img leader-portrait-fallback" aria-label={name}>
                 {fallback}
