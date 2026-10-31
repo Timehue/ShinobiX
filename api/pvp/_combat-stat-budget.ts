@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
+import { effectiveStatBudgetCap, splitStatBudgetDay } from '../_stat-budget-cutover.js';
 
 type BudgetStore = Pick<KvLike, 'get' | 'compareSet'>;
 
@@ -89,11 +90,11 @@ export async function reserveCombatStatBudget(
     store: BudgetStore,
     params: { playerName: string; battleId: string; eventAt: number; requested: number; cap: number },
 ): Promise<{ points: number; replayed: boolean; day: string }> {
-    return reserveStatBudget(store, params, 'combat-stat-count');
+    return reserveStatBudget(store, { ...params, cap: effectiveStatBudgetCap(utcDay(params.eventAt), params.cap) }, 'combat-stat-count');
 }
 
 export function pvpStatBudgetKey(playerName: string, day: string): string {
-    return `pvp-stat-count:${safeName(playerName)}:${day}`;
+    return `${splitStatBudgetDay(day) ? 'pvp-stat-count' : 'combat-stat-count'}:${safeName(playerName)}:${day}`;
 }
 
 /** Casual and ranked player wins share their own counter, separate from PvE. */
@@ -101,7 +102,7 @@ export async function reservePvpCombatStatBudget(
     store: BudgetStore,
     params: { playerName: string; battleId: string; eventAt: number; requested: number; cap: number },
 ): Promise<{ points: number; replayed: boolean; day: string }> {
-    return reserveStatBudget(store, params, 'pvp-stat-count');
+    return reserveStatBudget(store, { ...params, cap: effectiveStatBudgetCap(utcDay(params.eventAt), params.cap, true) }, 'pvp-stat-count');
 }
 
 async function reserveStatBudget(

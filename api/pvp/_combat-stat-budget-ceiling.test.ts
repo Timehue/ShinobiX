@@ -11,7 +11,7 @@ import { reserveCombatStatBudget, reservePvpCombatStatBudget } from './_combat-s
 // Hunt and field claims and PvE wins share 120 points. Casual and ranked
 // player wins share a separate 50. Every grant credits only its reservation.
 
-const DAY = Date.UTC(2026, 9, 17, 12, 0, 0);
+const DAY = Date.UTC(2026, 10, 2, 12, 0, 0);
 const HOUR = 3_600_000;
 
 describe('cross-source daily stat ceiling (I-12, owner A1)', () => {
@@ -49,8 +49,8 @@ describe('cross-source daily stat ceiling (I-12, owner A1)', () => {
             playerName: 'ceiling', receiptId: 'mission:late', eventAt: DAY, requested: 3,
         });
         assert.deepEqual([late.points, late.budget.spent, late.budget.cap], [0, 120, 120]);
-        assert.equal((await store.get<{ spent: number }>('combat-stat-count:ceiling:2026-10-17'))?.spent, 120);
-        assert.equal((await store.get<{ spent: number }>('pvp-stat-count:ceiling:2026-10-17'))?.spent, 50);
+        assert.equal((await store.get<{ spent: number }>('combat-stat-count:ceiling:2026-11-02'))?.spent, 120);
+        assert.equal((await store.get<{ spent: number }>('pvp-stat-count:ceiling:2026-11-02'))?.spent, 50);
         const tomorrowPvp = await reservePvpCombatStatBudget(store, { playerName: 'ceiling', battleId: 'new-pvp',
             eventAt: DAY + 24 * HOUR, requested: 6, cap: DAILY_PVP_STAT_CAP });
         const tomorrowPve = await reserveDailyStatPoints(store, { playerName: 'ceiling', receiptId: 'new-pve',
@@ -74,7 +74,7 @@ describe('cross-source daily stat ceiling (I-12, owner A1)', () => {
             const out = await reserveCombatStatBudget(store, { playerName: 'grinder', battleId: `ai-fight:after${i}`, eventAt: DAY + i, requested: 3, cap: DAILY_COMBAT_STAT_CAP });
             assert.equal(out.points, 0, `win ${41 + i}`);
         }
-        const row = await store.get<{ spent: number; allocations: Record<string, unknown> }>(`combat-stat-count:grinder:2026-10-17`);
+        const row = await store.get<{ spent: number; allocations: Record<string, unknown> }>(`combat-stat-count:grinder:2026-11-02`);
         assert.equal(row?.spent, DAILY_COMBAT_STAT_CAP);
         assert.equal(Object.keys(row?.allocations ?? {}).length, 40, 'only the paying wins hold receipts');
     });
