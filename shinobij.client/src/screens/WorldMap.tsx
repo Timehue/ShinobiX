@@ -160,7 +160,7 @@ import {
     beginResolvedWorldExplore,
     beginWorldDiscoveryOperation,
     beginWorldChestOperation,
-    completeWorldRewardOperation,
+    settleWorldRewardOperation as completeWorldRewardOperation,
     type PendingWorldRewardOperation,
 } from "../lib/world-reward-operations";
 import { DungeonProbeError, dungeonProbeFailureMessage, probeFreeDungeonServer } from "../lib/dungeon-api";

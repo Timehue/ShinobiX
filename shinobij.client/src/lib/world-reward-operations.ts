@@ -1,16 +1,23 @@
 import { newWorldRewardRequestId, type ExploreCredit, type ExternalExploreProof } from "./world-reward-api";
 import type { Pet } from "../types/pet";
 import {
+    completeWorldRewardOperation,
     defaultStorage,
+    playerKey,
     readPendingWorldRewards,
+    readSettledWorldDiscoveries,
+    settledStorageKey,
+    volatileSettled,
     writePendingWorldRewards,
     type PendingWorldRewardOperation,
     type WorldRewardRecoveryStorage,
 } from "./world-reward-recovery";
 
-// Opening an outbox entry happens only on the lazy World Map, so this stays out
-// of the read, merge and settle path that App.tsx loads at startup.
-export { completeWorldRewardOperation, type PendingWorldRewardOperation } from "./world-reward-recovery";
+// Opening and settling outbox entries happens only on the lazy World Map, so
+// this stays out of the read and merge path that App.tsx loads at startup.
+export type { PendingWorldRewardOperation } from "./world-reward-recovery";
+
+const SETTLED_DISCOVERY_CAP = 64;
 
 /** Persist before sending. An unresolved identical operation reuses its id, so
  * retry/reload can only replay the server's receipt rather than mint another. */
@@ -111,4 +118,43 @@ export function beginWorldChestOperation(
     storage: WorldRewardRecoveryStorage | null = defaultStorage(),
 ): PendingWorldRewardOperation {
     return beginWorldRewardOperation(playerName, "chest", sector, undefined, storage, { worldExploreRequestId });
+}
+
+/**
+ * Remember a chest discovery the server has finished with (paid, or definitively
+ * refused). A save snapshot read before that answer can arrive after it, and
+ * without this it would queue the same id again, which turns the next Explore
+ * click into a replay of the old receipt.
+ */
+export function rememberSettledWorldDiscovery(
+    playerName: string,
+    discoveryId: string,
+    storage: WorldRewardRecoveryStorage | null = defaultStorage(),
+): void {
+    if (!playerName) return;
+    const next = [
+        ...readSettledWorldDiscoveries(playerName, storage).filter((entry) => entry.id !== discoveryId),
+        { id: discoveryId, at: Date.now() },
+    ].slice(-SETTLED_DISCOVERY_CAP);
+    volatileSettled.set(playerKey(playerName), next);
+    try {
+        storage?.setItem(settledStorageKey(playerName), JSON.stringify(next));
+    } catch { /* private mode keeps the in-memory copy for this page */ }
+}
+
+/**
+ * Retire an outbox entry the World Map finished. A chest entry only ever gets
+ * here once its discovery is settled, so a late server snapshot of that
+ * discovery must not requeue it.
+ */
+export function settleWorldRewardOperation(
+    playerName: string,
+    operationId: string,
+    storage: WorldRewardRecoveryStorage | null = defaultStorage(),
+): void {
+    const operation = readPendingWorldRewards(playerName, storage).find((entry) => entry.id === operationId);
+    if (operation?.kind === "chest" && operation.worldExploreRequestId) {
+        rememberSettledWorldDiscovery(playerName, operation.worldExploreRequestId, storage);
+    }
+    completeWorldRewardOperation(playerName, operationId, storage);
 }

@@ -31,15 +31,14 @@ const KEY_PREFIX = "worldRewardRecovery.v1:";
 // 24h silently converted a recoverable lost ACK into a second payable action.
 export const WORLD_REWARD_RECOVERY_MAX_AGE_MS = 31 * 24 * 60 * 60 * 1000;
 const SETTLED_KEY_PREFIX = "worldRewardSettled.v1:";
-const SETTLED_DISCOVERY_CAP = 64;
 const volatileOperations = new Map<string, PendingWorldRewardOperation[]>();
-const volatileSettled = new Map<string, SettledWorldDiscovery[]>();
+export const volatileSettled = new Map<string, SettledWorldDiscovery[]>();
 
 type SettledWorldDiscovery = { id: string; at: number };
 
-const playerKey = (playerName: string) => playerSlug(playerName);
+export const playerKey = (playerName: string) => playerSlug(playerName);
 const storageKey = (playerName: string) => `${KEY_PREFIX}${playerKey(playerName)}`;
-const settledStorageKey = (playerName: string) => `${SETTLED_KEY_PREFIX}${playerKey(playerName)}`;
+export const settledStorageKey = (playerName: string) => `${SETTLED_KEY_PREFIX}${playerKey(playerName)}`;
 
 export function defaultStorage(): WorldRewardRecoveryStorage | null {
     try {
@@ -117,17 +116,14 @@ export function completeWorldRewardOperation(
     operationId: string,
     storage: WorldRewardRecoveryStorage | null = defaultStorage(),
 ): void {
-    const pending = readPendingWorldRewards(playerName, storage);
-    // A chest operation only ever completes once its discovery is settled, so a
-    // late server snapshot of that discovery must not requeue it.
-    const operation = pending.find((entry) => entry.id === operationId);
-    if (operation?.kind === "chest" && operation.worldExploreRequestId) {
-        rememberSettledWorldDiscovery(playerName, operation.worldExploreRequestId, storage);
-    }
-    writePendingWorldRewards(playerName, pending.filter((entry) => entry.id !== operationId), storage);
+    writePendingWorldRewards(
+        playerName,
+        readPendingWorldRewards(playerName, storage).filter((entry) => entry.id !== operationId),
+        storage,
+    );
 }
 
-function readSettledWorldDiscoveries(
+export function readSettledWorldDiscoveries(
     playerName: string,
     storage: WorldRewardRecoveryStorage | null,
 ): SettledWorldDiscovery[] {
@@ -141,28 +137,6 @@ function readSettledWorldDiscoveries(
     } catch {
         return volatile;
     }
-}
-
-/**
- * Remember a chest discovery the server has finished with (paid, or definitively
- * refused). A save snapshot read before that answer can arrive after it, and
- * without this it would queue the same id again, which turns the next Explore
- * click into a replay of the old receipt.
- */
-export function rememberSettledWorldDiscovery(
-    playerName: string,
-    discoveryId: string,
-    storage: WorldRewardRecoveryStorage | null = defaultStorage(),
-): void {
-    if (!playerName) return;
-    const next = [
-        ...readSettledWorldDiscoveries(playerName, storage).filter((entry) => entry.id !== discoveryId),
-        { id: discoveryId, at: Date.now() },
-    ].slice(-SETTLED_DISCOVERY_CAP);
-    volatileSettled.set(playerKey(playerName), next);
-    try {
-        storage?.setItem(settledStorageKey(playerName), JSON.stringify(next));
-    } catch { /* private mode keeps the in-memory copy for this page */ }
 }
 
 /** Shape the authenticated save GET piggybacks as `pendingWorldRewards`. */

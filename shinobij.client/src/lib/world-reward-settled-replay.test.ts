@@ -3,12 +3,12 @@ import { afterEach, beforeEach, test } from "node:test";
 import {
     beginResolvedWorldExplore,
     beginWorldChestOperation,
+    rememberSettledWorldDiscovery,
+    settleWorldRewardOperation,
 } from "./world-reward-operations";
 import {
-    completeWorldRewardOperation,
     mergeServerPendingWorldRewards,
     readPendingWorldRewards,
-    rememberSettledWorldDiscovery,
     WORLD_REWARD_RECOVERY_MAX_AGE_MS,
     type WorldRewardRecoveryStorage,
 } from "./world-reward-recovery";
@@ -33,8 +33,8 @@ function settledChest(playerName: string, memory: WorldRewardRecoveryStorage | n
     return async (operation: { id: string; sector: number; worldExploreRequestId?: string; kind: string }) => {
         const discovery = operation.kind === "chest" ? operation.worldExploreRequestId! : operation.id;
         if (!paid.includes(discovery)) paid.push(discovery);
-        completeWorldRewardOperation(playerName, operation.id, memory ?? undefined);
-        completeWorldRewardOperation(playerName, discovery, memory ?? undefined);
+        settleWorldRewardOperation(playerName, operation.id, memory ?? undefined);
+        settleWorldRewardOperation(playerName, discovery, memory ?? undefined);
         return "settled" as const;
     };
 }
@@ -54,7 +54,7 @@ function drainCallbacks(settleDiscoveredChest: WorldRewardDrainCallbacks["settle
 test("a delayed snapshot cannot requeue a chest this device has settled", () => {
     const memory = storage();
     const chest = beginWorldChestOperation("Buster", 18, CHEST_ID, memory);
-    completeWorldRewardOperation("Buster", chest.id, memory);
+    settleWorldRewardOperation("Buster", chest.id, memory);
     for (let replay = 0; replay < 3; replay++) {
         assert.deepEqual(mergeServerPendingWorldRewards("Buster", staleSnapshot(), memory), []);
     }
@@ -144,12 +144,8 @@ afterEach(() => { delete globals.localStorage; });
 test("the save preview never carries the pending list across a reload", () => {
     const memory = storage();
     const character = { name: "Buster" };
-    writeSavePreview("Buster", { character, pendingWorldRewards: staleSnapshot() }, memory);
-    assert.equal(JSON.parse([...memory.values.values()][0]).pendingWorldRewards, undefined);
-
-    // A preview cached by an older build still holds the list.
-    memory.values.clear();
     globals.localStorage = memory;
-    memory.setItem("ninjav-save-preview-v1:buster", JSON.stringify({ character, pendingWorldRewards: staleSnapshot() }));
+    writeSavePreview("Buster", { character, pendingWorldRewards: staleSnapshot() }, memory);
     assert.equal(readSavePreview("Buster")?.pendingWorldRewards, undefined);
+    assert.deepEqual(readSavePreview("Buster")?.character, character);
 });

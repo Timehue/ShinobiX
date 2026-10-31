@@ -21,10 +21,7 @@ function savePreviewKey(name: string) {
     return SAVE_PREVIEW_STORAGE_PREFIX + accountKey(name);
 }
 
-// `pendingWorldRewards` is a live server answer, not save state. A cached copy
-// would reimport the same ids on every load, long after the server cleared them.
-function stripImagesForPreview(key: string, value: unknown) {
-    if (key === "pendingWorldRewards") return undefined;
+function stripImagesForPreview(_key: string, value: unknown) {
     return typeof value === "string" && value.startsWith("data:image") ? "" : value;
 }
 
@@ -69,7 +66,9 @@ export function readSavePreview(name: string): Record<string, unknown> | null {
             ? parsed.character as Record<string, unknown>
             : null;
         if (!charRecord || accountKey(String(charRecord.name ?? "")) !== accountKey(name)) return null;
-        delete parsed.pendingWorldRewards; // previews cached before it was stripped on write
+        // A live server answer, not save state. A cached copy would reimport the
+        // same ids on every load, long after the server cleared them.
+        delete parsed.pendingWorldRewards;
         return parsed;
     } catch {
         return null;
