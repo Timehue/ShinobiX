@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { packedWorldData } from './packed-world-data.mjs';
+import { packedWorldData, PACKED_DATA_IMPORT, PACKED_DATA_RUNTIME } from './packed-world-data.mjs';
 import { sectorRuntimeData } from './sector-runtime-data.mjs';
 
-const unpack = async source => (await import(`data:text/javascript;base64,${Buffer.from(packedWorldData(source)).toString('base64')}`)).default;
+const unpack = async source => (await import(`data:text/javascript;base64,${Buffer.from(packedWorldData(source).replace(PACKED_DATA_IMPORT, `import { unpackWorldData as __unpackWorldData } from ${JSON.stringify(PACKED_DATA_RUNTIME.href)};`)).toString('base64')}`)).default;
 
 test('packed geometry retains every coordinate, collision cell, landmark and full cache hash', async () => {
     let saved = 0;

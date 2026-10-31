@@ -191,25 +191,25 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             <div className="left-daily-caps">
                 <div className="left-caps-grid">
                     <div className="left-caps-cell left-caps-field" title="Explore, fishing and mining share 100 actions per UTC day">
-                        <span className="left-caps-label"><GameIcon name="map" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Actions</span>
+                        <span className="left-caps-label"><GameIcon name="map" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Actions</span>
                         <span className="left-caps-value" style={{ color: fieldActions >= 100 ? "var(--danger)" : "var(--gold-400)" }}>{fieldActions}/100</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="scroll" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Missions</span>
+                        <span className="left-caps-label"><GameIcon name="scroll" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Missions</span>
                         <span className="left-caps-value" style={{ color: dailyMissionsCompleted(character) >= DAILY_MISSION_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{dailyMissionsCompleted(character)}/{DAILY_MISSION_LIMIT}</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="target" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Hunts</span>
+                        <span className="left-caps-label"><GameIcon name="target" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Hunts</span>
                         <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= dailyHuntCap(character) ? "var(--danger)" : "var(--gold-400)" }}>{dailyHuntsCompleted(character)}/{dailyHuntCap(character)}</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="clock" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--text-dim)" }} />Reset In</span>
+                        <span className="left-caps-label"><GameIcon name="clock" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--text-dim)" }} />Reset In</span>
                         <span className="left-caps-value" style={{ color: "var(--text-dim)" }}>{(() => { const now = new Date(); const ms = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).getTime() - now.getTime(); const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
                     </div>
                     {/* Last and full-width: the name is too long for a half-width
                         cell in the desktop rail, and it fills the grid's odd slot. */}
                     <div className="left-caps-cell" style={{ gridColumn: "1 / -1" }} title="Sealed crates bought from the Broker at the Sunscar Festival today">
-                        <span className="left-caps-label"><GameIcon name="gift" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Sealed Crates</span>
+                        <span className="left-caps-label"><GameIcon name="gift" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Sealed Crates</span>
                         <span className="left-caps-value" style={{ color: (sealedCrates ?? 0) >= BLACK_MARKET_DAILY_CAP ? "var(--danger)" : "#a5b4fc" }}>{sealedCrates ?? "–"}/{BLACK_MARKET_DAILY_CAP}</span>
                     </div>
                 </div>
