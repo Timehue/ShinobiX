@@ -8,8 +8,10 @@ import { LockContendedError } from '../_lock.js';
 import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import { saveUnchangedSince } from '../save/_save-unchanged.js';
+import { setCountedItem } from '../hollow-gate/_ledger.js';
+import { itemStackCount } from '../hollow-gate/_run-token.js';
 import {
-    RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS,
+    RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS, RIFT_COMPLETION_VEILS,
     isRiftQuestId, riftQuestRyo, riftTargetSector,
     parseRiftQuestSeal, parseRiftQuestBossReceipt, riftBossReceiptMatches,
     type RiftQuestSeal,
@@ -146,6 +148,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // the TTL / a future cutover if the boss is cleared later.
                     return { ok: true, character: char, recordPatch: { activeRiftQuestSeal: sealed }, value: { body: { ok: false, reason }, echo: true } };
                 }
+                // Claimed after the run ends. An open run's settlement clamps every
+                // counted item to its entry + ledger, which would take the Veil back.
+                if (char.hollowGateRun) return answer({ ok: false, reason: 'run-open' });
                 const countKey = `rift-quest-count:${playerName}:${today}`;
                 if (num(await kv.get<number>(countKey)) >= RIFT_DAILY_CAP) {
                     return answer({ ok: false, reason: 'daily-cap' });
@@ -192,8 +197,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     : priorFirstClears;
 
+                const itemStacks = setCountedItem(char.itemStacks, 'veil-of-the-hollow',
+                    itemStackCount(char.itemStacks, 'veil-of-the-hollow') + RIFT_COMPLETION_VEILS);
                 const updated = {
-                    ...char, ryo: totalRyo, fateShards: totalFateShards, boneCharms: totalBoneCharms,
+                    ...char, ryo: totalRyo, fateShards: totalFateShards, boneCharms: totalBoneCharms, itemStacks,
                     activeRiftQuest: null, riftCooldownUntil: cooldownUntil,
                     riftQuestBossReceipt: null,
                     riftFirstClears,
@@ -207,6 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             ok: true, ryo, totalRyo,
                             fateShards: def.fateShards, totalFateShards,
                             boneCharms: def.boneCharms, totalBoneCharms,
+                            veils: RIFT_COMPLETION_VEILS, itemStacks,
                             cooldownUntil,
                             firstClear,
                             firstClearAt,

@@ -41,7 +41,7 @@ import {
     retireHollowGatePetChildLease,
 } from './_pet-authority.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
-import { parseRiftQuestSeal, reconcileRiftRunBinding } from '../sector/_rift-quest.js';
+import { isRiftVariantId, parseRiftQuestSeal, reconcileRiftRunBinding } from '../sector/_rift-quest.js';
 import {
     creditHollowGateLedger,
     HOLLOW_GATE_LEDGER_ITEM_IDS,
@@ -342,6 +342,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!won || endedProjection) {
                     for (const key of Object.keys(reward) as Array<keyof HollowGateCombatReward>) reward[key] = 0;
                 }
+                if (isRiftVariantId(run.variantId)) reward.veils = 0;
                 const elementalShards = won && !endedProjection && binding!.kind === 'boss'
                     && randomInt(0, 10_000) < Math.floor(Math.min(0.8, 0.5 + binding!.floor * 0.03) * 10_000) ? 1 : 0;
                 // An ended pet projection pays nothing, so it reports no purse.

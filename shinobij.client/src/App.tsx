@@ -523,7 +523,8 @@ import { AiFightHost } from "./components/AiFightHost";
 import { projectHollowGateMovement, type HollowGateMoveEffect } from "./lib/hollow-gate-movement-projection";
 import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
 import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig, normalizeHollowGateEventConfig } from "./lib/hollow-gate-variant";
-import { riftEventConfig, completeRiftRun } from "./lib/rift-run";
+import { riftEventConfig } from "./lib/rift-run";
+import { useRiftClaim } from "./lib/use-rift-claim";
 import type { HollowRift } from "./data/hollow-rifts";
 export type { EventEncounterBattle } from "./lib/triggered-event-battle";
 
@@ -4496,6 +4497,7 @@ export default function App() {
     }
 
     const openWorldMapOverview = useWorldMapOverview(navigate);
+    useRiftClaim(character, setCharacter);
 
     async function completeTriggeredEvent(event: CreatorEvent) {
         if (character) {
@@ -4978,11 +4980,6 @@ export default function App() {
         if (result.won) {
             const rewardLine = formatHollowGateCombatReward(result);
             if (rewardLine) pushHollowGateLog(`Server reward banked: ${rewardLine}.`);
-            const riftId = hollowGateRun?.variant?.id;
-            if (fight.kind === "boss" && riftId?.startsWith("rift-")
-                && character && hollowGateRun && hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) {
-                void completeRiftRun(character.name, riftId, setCharacter, pushHollowGateLog);
-            }
             onHollowGateBattleWin({ isBoss: fight.kind === "boss", isAmbush: fight.kind === "ambush", nodeId: fight.nodeId });
         } else if (result.escaped) {
             setHollowGateRun((previous) => hollowGateRunAfterUnresolvedFight(previous, result.character?.hollowGateRun));

@@ -86,6 +86,16 @@ function fixture() {
         finish, adoption, switchSession, mountFlow, adoptionCalls: () => adoptionCalls };
 }
 
+test("a pet win logs what the server paid, once", () => {
+    const f = fixture(), { flow, effects } = f.mountFlow();
+    const gate = { token: f.run.runToken, floor: 1, kind: "battle", nodeId: "battle" } as Parameters<typeof flow.onPetBattleEnd>[1];
+    const reward = { ryo: 400, fragments: 2 };
+    flow.onPetBattleEnd({ won: true, reward } as Parameters<typeof flow.onPetBattleEnd>[0], gate);
+    assert.ok(effects.includes("Server reward banked: +400 ryo, +2 Legendary Fragments."));
+    flow.onPetBattleEnd({ won: true, alreadyReported: true, reward } as Parameters<typeof flow.onPetBattleEnd>[0], gate);
+    assert.equal(effects.filter(line => line.startsWith("Server reward banked")).length, 1);
+});
+
 test("a delayed terminal reply cannot overwrite a newer accepted wallet and external-credit ledger", async () => {
     const f = fixture(), pending = f.finish();
     const newer = { ...f.initial, ryo: 700, hollowGateExternalCredits: { runToken: f.run.runToken, currencies: { ryo: 200 } } };

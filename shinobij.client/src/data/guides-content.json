@@ -1769,7 +1769,11 @@
           },
           {
             "type": "p",
-            "text": "A weekly Rift signal marks an existing chest, encounter, or shard vein on each floor. It helps you choose a route. You can fight as a shinobi without bringing a pet, and card ambushes lend a starter deck if you do not have one. Defeat the named quest boss to receive the completion reward, then check the run summary before leaving."
+            "text": "A weekly Rift signal marks an existing chest, encounter, or shard vein on each floor. It helps you choose a route. You can fight as a shinobi without bringing a pet, and card ambushes lend a starter deck if you do not have one. Defeat the named quest boss, then check the run summary before leaving."
+          },
+          {
+            "type": "p",
+            "text": "The boss always drops 2 Dungeon Legendary Fragments. Leaving the Rift closes the report and pays the quest reward: ryo, Fate Shards, Bone Charms, and 1 Veil of the Hollow. A Rift pays no other Veil. You can close 3 reports a day, and a closed report starts a 6-hour wait before the next offer."
           }
         ]
       },
