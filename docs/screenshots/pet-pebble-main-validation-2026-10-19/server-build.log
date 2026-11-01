@@ -1,4 +1,0 @@
-
-> shinobix-api@1.0.0 build:server
-> tsc -p tsconfig.cpanel.json
-

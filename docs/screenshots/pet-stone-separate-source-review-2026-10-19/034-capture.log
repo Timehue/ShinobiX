@@ -1,7 +1,0 @@
-scripts/audit-independent-pet-faces.mjs --label=stone-separate-candidate-v1 complete
-scripts/capture-pet-shape-audit.mjs --label=stone-separate-original-v1-head complete
-scripts/capture-pet-shape-audit.mjs --label=stone-separate-original-v1-body complete
-scripts/capture-pet-shape-audit.mjs --label=stone-separate-candidate-v1-head complete
-scripts/capture-pet-shape-audit.mjs --label=stone-separate-candidate-v1-body complete
-.tmp/slice-pet-reviewed-label.mjs  complete
-Captured original and private Stone Turtle candidate only. Visual approval remains pending.
