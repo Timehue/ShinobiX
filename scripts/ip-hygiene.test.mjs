@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -15,8 +15,8 @@ import { describe, it } from 'node:test';
 // Adding a token here is cheap. Removing one needs a reason.
 
 const root = resolve(import.meta.dirname, '..');
-const sourceRoots = ['api', 'shared', 'scripts', 'shinobij.client/src', 'shinobij.client/scripts', 'docs', 'tools'];
-const textExtensions = new Set(['.ts', '.tsx', '.mjs', '.cjs', '.json', '.md', '.css', '.html', '.txt']);
+const sourceRoots = ['api', 'shared', 'scripts', 'shinobij.client/src', 'shinobij.client/scripts', 'shinobij.client/e2e', 'docs', 'tools', 'release-audit', '.github', 'mobile', 'android'];
+const textExtensions = new Set(['.ts', '.tsx', '.mjs', '.cjs', '.json', '.md', '.css', '.html', '.txt', '.yml', '.yaml']);
 const skipDirectories = new Set(['node_modules', 'dist']);
 
 // Competitor names and identifiers are stored only as SHA-256 hashes, so this
@@ -81,6 +81,8 @@ const allowedPrefixes = ['tools/trailer/'];
 
 function sourceFiles(directory) {
     const files = [];
+    // Some CI jobs check out a sparse tree without every root.
+    if (!existsSync(directory)) return files;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
         if (entry.isDirectory()) {
             if (skipDirectories.has(entry.name)) continue;
@@ -177,6 +179,13 @@ describe('brand and IP hygiene', () => {
 
     it('contains no competitor or borrowed-franchise names in source', () => {
         const failures = [];
+        for (const name of readdirSync(root)) {
+            if (extname(name) !== '.md') continue;
+            const source = readFileSync(join(root, name), 'utf8');
+            for (const { token, offset } of findBanned(source)) {
+                failures.push(`${name}:${lineOf(source, offset)} (${token})`);
+            }
+        }
         for (const sourceRoot of sourceRoots) {
             for (const file of sourceFiles(join(root, sourceRoot))) {
                 const path = repoPath(file);
