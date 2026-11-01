@@ -234,6 +234,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     function updateTag(jutsuIndex: number, tagIndex: number, updated: Partial<JutsuTag>) {
         setJutsus((current) => current.map((jutsu, i) => {
             if (i !== jutsuIndex) return jutsu;
+            // Circle Movement owns this slot. Replacing Move would let the
+            // server restore it and silently evict another authored tag.
+            if (jutsu.method === "AOE_CIRCLE" && jutsu.tags[tagIndex]?.name === "Move") return jutsu;
             const tags = [...jutsu.tags];
             const merged = { ...tags[tagIndex], ...updated };
             if (merged.name) {
@@ -557,6 +560,12 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     </div>
                     <label>Tags</label>{Array.from({ length: jutsu.ap === 60 ? 2 : 3 }).map((_, tagIndex) => {
                         const currentTag = jutsu.tags[tagIndex]?.name ?? "";
+                        if (jutsu.method === "AOE_CIRCLE" && currentTag === "Move") {
+                            return <div className="tag-picker" key={tagIndex}>
+                                <select aria-label={`Tag ${tagIndex + 1}`} value="Move" disabled><option value="Move">Move</option></select>
+                                <small className="tag-effect-help">Move is required for Circle Movement. Choose SINGLE to remove it.</small>
+                            </div>;
+                        }
                         const disabledTags = allTags.filter((tagName) => {
                             if (tagName === currentTag) return false;
                             const usedOnThisJutsu = jutsu.tags.some((tag, index) => index !== tagIndex && tag.name === tagName);
