@@ -64,6 +64,11 @@ jobs:
           fetch-depth: 1
           filter: blob:none
           sparse-checkout: scripts
+          # Railway holds a push from a GitHub account with no linked Railway
+          # account for manual approval, and github-actions[bot] is one. This
+          # owner token makes the deploy push count as the owner. Without the
+          # secret the push still works, but each deploy waits for approval.
+          token: ${{ secrets.RAILWAY_DEPLOY_PUSH_TOKEN || github.token }}
 
       # A CI run that finished late must not roll the branch back over a newer
       # main. Only the commit that is main's tip right now is published; the
@@ -84,6 +89,6 @@ jobs:
       - name: Publish the lean deploy branch
         if: steps.tip.outputs.skip != 'true'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "Timehue"
+          git config user.email "284154485+Timehue@users.noreply.github.com"
           bash scripts/refresh-railway-deploy-branch.sh "$SHA" railway-deploy
