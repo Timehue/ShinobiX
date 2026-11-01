@@ -113,7 +113,7 @@ map-control `sectors×100` · **pet expeditions `(90·hours·typeMult + petLevel
 **⚠️ Bank interest is the dominant faucet.** Rate = `0.25%/bank-upgrade-level`,
 max 50 levels = **12.5% _per day_**, on a **10M ryo principal cap**
 (`_bank-interest.ts:32`). That's **up to ~1,250,000 ryo/day, passive, decoupled
-from effort** — 200×+ a day of missions. Research (Koster, Cook, Torn, EVE) is
+from effort** — 200×+ a day of missions. Research (Koster, Cook, EVE) is
 unanimous: a compounding/percentage interest faucet is the worst-behaved faucet
 there is. The 10M principal cap helps but 12.5%/day is still enormous.
 
@@ -155,7 +155,7 @@ real faucet yet). (`_mission-catalog.ts:30`, `_economy.ts` draft type.)
 | **Fast-early/slow-late in *real time* needs requirement-growth > income-growth.** Same rate → flat time/level (WoW); requirement faster → slow late. | Today income grows ~linearly and requirement grows linearly → ~flat pace. Must steepen the requirement. | Aversa leveling-derivative; PavCreations |
 | **For a bounded level cap, use polynomial (B≈2–3), not exponential.** Exponential late-values "skyrocket… nearly impossible," and the coefficient is hard to find. | Pick quadratic-per-level (cubic cumulative) — the leading creature-battler/WoW shape, not a long-running MMO's geometric. | Game Developer "XP thresholds"; Bulbapedia |
 | **Time-to-max = total requirement ÷ daily income.** Pace the daily caps to hit the target; make the last stretch deliberately slow. | This is exactly how we back-solve 90 days. | a leading battle royale/Valorant battle-pass math |
-| **Gate the no-lifer with capped daily resources; pay the absent player a catch-up multiplier.** Cap should be ≥ ~1 day's regen so once-daily play is near-optimal. | We already cap most faucets; need to cap the *uncapped* ones and consider a rested-XP-style catch-up. | (removed), a leading open-world RPG resin, WoW rested XP |
+| **Gate the no-lifer with capped daily resources; pay the absent player a catch-up multiplier.** Cap should be ≥ ~1 day's regen so once-daily play is near-optimal. | We already cap most faucets; need to cap the *uncapped* ones and consider a rested-XP-style catch-up. | A leading open-world RPG resin, WoW rested XP |
 | **Faucet ≈ sink, kept "taut" (sinks marginally ahead); match math-class.** A balance-scaling faucet (interest) needs a balance-scaling sink. | Drives the bank-interest cut + wealth-scaling sinks. | Koster AGC; Cook (Lost Garden); EVE MER |
 | **Pity / bad-luck protection is now expected, not optional.** Every disclosed gacha has a hard floor + dup protection. | Add pity to black market and mythic-pet rolls. | a leading open-world RPG 0.6%/90-pity; a leading digital card game 40-pack; Overwatch |
 | **Rarity split rule-of-thumb:** legendary ~0.5%, epic ~5%, plus a guaranteed floor. | Sanity-check our pet/drop odds against this. | WintermuteDigital; Overwatch disclosed |
@@ -317,27 +317,22 @@ Per owner direction the `×3` comes out when the rest is finalized. Sequencing:
 > **level 100 everyone is maxed on stats** (all 12 stats at the 2,500 cap = 29,880
 > total).
 >
-> **Reference model (another game, studied for this).** Its design is precisely
-> the model we want, and we already half-implement it:
+> **The design.** We already half-implement it:
 > - **`experience` IS the stat-point budget** — they grow 1:1; every stat point
 >   gained also adds 1 to experience, and **level is just a derived checkpoint** of
 >   that cumulative experience (never spent/reset). At the level cap a player has
 >   earned *just enough* experience to fully max all stats. → "maxed at 100" is
 >   guaranteed *by construction*, not bolted on.
-> - **Players and AI run the SAME stat engine** (`the shared stat budget`): an AI is
->   authored as *focus weights + a level*, and the engine distributes that level's
->   experience budget across the 12 stats — identical to a player who allocated the
->   same budget. (We do NOT do this — our AI use a separate formula. This is the
->   gap to close.)
+> - **Players and AI share one stat budget**: an AI is authored as *focus weights +
+>   a level*, and that level's experience budget is spread across the 12 stats,
+>   matching a player who allocated the same budget. (Our AI use a separate formula
+>   today. This is the gap to close.)
 > - **Per-rank stat caps** (Student/Genin/Chunin…) bound each stat by rank, so a
 >   low-rank can't dump everything into one stat — the exact parallel of our
 >   existing per-rank *jutsu* caps (§6.5).
 > - Stats grow by **flat training** (interval-based, level-independent, daily-capped)
 >   and by **combat** (XP auto-distributed into the stats actually used in the
 >   fight). Both add to experience 1:1.
->
-> We adopt this wholesale: keep our "budget = cumulative XP" coupling, **put AI on
-> the same budget**, and add per-rank stat caps.
 
 ### 6.0 How it actually works today (one pipe: XP)
 **Everything funnels through `gainXp`** (`App.tsx:1045`). Every mission, hunt, PvP
@@ -565,7 +560,7 @@ casual-retention data demands it.
   0.25% to ~0.05%, or cap the effective rate). 2% on 10M = 200k/day — still
   meaningful, no longer economy-dominating.
 - **Keep the 10M principal cap** (good; it's the flat ceiling best-practice wants).
-- Optional second guardrail ((removed)): **diminishing rate on large balances**
+- Optional second guardrail: **diminishing rate on large balances**
   so the wealthiest don't compound fastest.
 - This is **live-save sensitive** — existing rich players see daily income drop.
   Frame in patch notes; it does not touch stored balances, only future interest.
@@ -699,7 +694,7 @@ satisfying *staircase* (plateau → exam → spike) instead of a flat grind. Co-
 the caps so the banked amount is a *treat*, not a frustrating lockout.
 
 ### PX-4. No dead time — already handled by design (mostly)
-The genre's #1 silent killer is "15 minutes, then locked out" (removed) and the
+The genre's #1 silent killer is "15 minutes, then locked out" and the
 post-tutorial cliff (KoL). Our antidote **already exists**: an idle training timer
 running, a pet expedition accruing offline, and daily caps that reset as the
 come-back hook. Crucially, **stat training stays one-at-a-time on purpose** — that

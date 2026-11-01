@@ -9,10 +9,7 @@
  * regen, a Rest beat that buys stamina and heals nothing, overexertion that
  * chips HP, hold rounds and ally-element synergy instead of cooldowns), and
  * "the classic monster battler" for the older cooldown-free genre standard.
- * The concrete figures quoted throughout are that calibration target. The
- * products are deliberately not named: this repository is public, and design
- * notes that read as derivation from a named competitor are a liability the
- * prose does not need — the mechanics below stand on their own.
+ * The concrete figures quoted throughout are that calibration target.
  *
  * ARCHITECTURE (docs/pet-showdown-design.md): Showdown is a turn-based command
  * battle. The ENGINE LIVES ONLY ON THE SERVER — each round is one POST to

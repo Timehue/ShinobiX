@@ -428,11 +428,10 @@ Decide the territory↔village structural question first.
 ## Appendix — peers referenced
 
 Seasons/ladders: League ranked seasons, Apex ranked & decay, Hero Wars/Wild Rift
-guild seasons, a major MMO WvW, Tacticus Guild War leagues. Combat depth: a shinobi manager sim &
-a live-service shooter (elemental triangles), another game (bloodline-as-trained-stat). PvE: a leading action RPG
+guild seasons, a major MMO WvW, Tacticus Guild War leagues. Combat depth:
+a live-service shooter (elemental triangles). PvE: a leading action RPG
 3/4 elite affixes, a deep action RPG map modifiers, a leading idle RPG King's Tower, New World
-phased bosses, Terraria/a leading action RPG Immortal bestiaries. Missions/dispatch: (removed)
-missions & Jobs, another game's mission ranks, a leading idle RPG Bounty/Abyssal dispatch.
+phased bosses, Terraria/a leading action RPG Immortal bestiaries. Missions/dispatch: a leading idle RPG Bounty/Abyssal dispatch.
 Pets: the reference model/Coromon (IV/EV & Potential), Cassette Beasts & SMT (fusion),
 a leading gacha RPG/a leading gacha RPG (ascension), IdleOn (collection passives). Economy:
 a deep action RPG (currency-as-crafting, affixes), a sandbox MMO (sink design), a leading action RPG/a live-service shooter

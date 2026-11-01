@@ -343,7 +343,7 @@ Genin Exam" call-to-action so players never silently hit an invisible cap.
 Both are already built and are core early-progression spines. Audit + changes:
 
 **Exams (the Logbook checklists, `App.tsx:26283-26332`):** keep the model — it's
-the genre-proven rank-up-as-checklist (another game/another game). Changes:
+a clear rank-up checklist that shows what each exam asks for. Changes:
 - **Add a jutsu-mastery requirement to the Genin exam** — e.g. "raise a jutsu to
   mastery level 3" (combat-driven, ~8 casts). Today the Genin checklist teaches
   stats/missions/AI/explore/awaken but **nothing about the jutsu system**. Ties to
@@ -468,4 +468,3 @@ behavior consistent; keep CORS/headers in sync if any new header is introduced
 - Deconstructor of Fun, *Mid-Core Success Part 1: Core Loops*.
 - UXPin / LogRocket — progressive disclosure.
 - Mobile Free To Play, *Understanding and Eliminating Energy Systems*.
-- another game, *Daily Missions System* — genre daily-quest & rank-up patterns.
