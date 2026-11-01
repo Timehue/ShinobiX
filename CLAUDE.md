@@ -173,6 +173,9 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 
 ## Hard Rules
 
+- Never name, cite or describe another shinobi browser game anywhere in this
+  repository, including stand-ins. `AGENTS.md` has the full rule, and
+  `scripts/ip-hygiene.test.mjs` enforces it.
 - Do not rewrite large systems unless explicitly asked. Prefer small, incremental changes.
 - Do not change Supabase schema, SQL migration files, or storage structure without approval.
 - Do not modify auth, password, admin, rate-limit, or IP-tracking logic without explaining the risk first.
