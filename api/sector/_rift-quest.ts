@@ -19,6 +19,13 @@ import { CASTLE_SECTORS, FESTIVAL_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, pl
 
 export const RIFT_DAILY_CAP = 3;                       // paid rift clears per UTC day
 export const RIFT_COOLDOWN_MS = 6 * 60 * 60 * 1000;    // roaming giver stays quiet 6h after a clear
+/** Owner ruling 2026-11-01: a Rift's only Veil is paid for closing the quest.
+ *  Its boss and Hidden Relics pay none, so a Rift run never credits one in-run. */
+export const RIFT_COMPLETION_VEILS = 1;
+
+export function isRiftVariantId(id: unknown): boolean {
+    return typeof id === 'string' && id.startsWith('rift-');
+}
 
 export const RIFT_WEEKLY_DISTORTIONS = [
     { id: 'echoed-cache', label: 'Echoed Cache', kind: 'chest' },

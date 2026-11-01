@@ -26,6 +26,7 @@ import { hollowGateRunRyoScale, scaleHollowGateRyo } from './_gate-scale.js';
 import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
 import { hollowGateWandererForNode } from './_wanderers.js';
 import { hollowGateWandererDistance } from '../../shared/hollow-gate-wanderers.js';
+import { isRiftVariantId } from '../sector/_rift-quest.js';
 
 type HollowGateEventAction =
     | 'shrine'
@@ -130,6 +131,11 @@ export function rollEvent(action: EventAction, floor: number, profession: unknow
     }
     if (action === 'locked-door') throw new Error('Locked-door rolls require the persisted pet-token path.');
     return { action, credit: {}, ...(action === 'keeper-key' || action === 'traveler-key' ? { keyDelta: 1 } : {}), ...(action === 'keeper-torch' || action === 'traveler-torch' ? { torchDelta: 10 } : {}) };
+}
+
+/** A Rift's Veil comes only from closing its quest, so its Hidden Relics pay none. */
+export function hollowGateRunEventCredit(variantId: unknown, credit: HollowGateRewardCredit): HollowGateRewardCredit {
+    return isRiftVariantId(variantId) ? { currencies: credit.currencies } : credit;
 }
 
 function addCredit(character: Record<string, unknown>, credit: HollowGateRewardCredit): Record<string, unknown> {
@@ -278,6 +284,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                 } else {
                     candidate = rollEvent(action, floor, currentChar.profession, ryoScale);
+                    candidate.credit = hollowGateRunEventCredit(run.variantId, candidate.credit);
                 }
                 candidate.credit = multiplyHollowGateCurrencyCredit(candidate.credit, rewardMultiplierForToken(run));
                 const placed = await kv.set(receiptKey, candidate, { nx: true, ex: EVENT_RECEIPT_TTL_SECONDS });

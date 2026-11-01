@@ -11,7 +11,7 @@ import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
 // ./hollow-gate-generator-loader.
 import { loadHollowGateGenerator, warmHollowGateGenerator } from "./hollow-gate-generator-loader";
 import { cacheDynamicImport } from "./lazyWithRetry";
-import type { HollowGatePveFightRef } from "./hollow-gate-pve";
+import { formatHollowGateCombatReward, type HollowGatePveFightRef } from "./hollow-gate-pve";
 import { hollowGateAlphaCinematicImage } from "./hollow-gate-presentation";
 import {
     finalizeHollowGateRunEnd,
@@ -417,7 +417,7 @@ export function useHollowGateAppFlow(params: {
                     eyebrow: "ALPHA SEAL BROKEN · SHRINE RECLAIMED",
                     presentation: "boss-victory",
                     image: hollowGateAlphaCinematicImage(sharedImages),
-                    body: `The Alpha's howl breaks into a thousand violet sparks. For the first time in generations, clean moonlight reaches the shrine floor.\n\nYou did not destroy its old oath. You released it.\n\nRUN SUMMARY\n${buildRunSummary()}`,
+                    body: `The Alpha's howl breaks into a thousand violet sparks. For the first time in generations, clean moonlight reaches the shrine floor.\n\nYou did not destroy its old oath. You released it.\n\n${run.variant?.id?.startsWith("rift-") ? "Leave the Rift to close the report and collect its quest reward, including the Veil of the Hollow.\n\n" : ""}RUN SUMMARY\n${buildRunSummary()}`,
                     kind: "boss",
                     choices: [{
                         label: "Take final rewards + leave",
@@ -465,6 +465,8 @@ export function useHollowGateAppFlow(params: {
             return;
         }
         if (result.won) {
+            const rewardLine = result.alreadyReported ? "" : formatHollowGateCombatReward(result);
+            if (rewardLine) pushLog(`Server reward banked: ${rewardLine}.`);
             onBattleWin({
                 isBoss: gate.kind === "boss",
                 isAmbush: gate.kind === "ambush",

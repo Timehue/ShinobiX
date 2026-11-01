@@ -42,6 +42,9 @@ export type RiftResponse = {
     totalFateShards?: number;
     boneCharms?: number;
     totalBoneCharms?: number;
+    veils?: number;
+    /** The server's counted items after the Veil was added. */
+    itemStacks?: Character["itemStacks"];
     cooldownUntil?: number;
     firstClear?: boolean;
     firstClearAt?: number;
@@ -87,7 +90,7 @@ export async function completeRiftRun(
     riftId: string,
     apply: (updater: (prev: Character | null) => Character | null) => void,
     log: (msg: string) => void,
-): Promise<RiftResponse | null> {
+): Promise<RiftResponse> {
     const account = playerName.trim().toLowerCase();
     const belongsToAccount = (candidate: Character | null): candidate is Character =>
         candidate?.name.trim().toLowerCase() === account;
@@ -99,7 +102,7 @@ export async function completeRiftRun(
         // server self-heals a stranded rift (reason "none") clear the local mirror
         // too so the roaming giver can offer a fresh rift.
         if (resp.reason === "none") {
-            apply((prev) => belongsToAccount(prev) ? ({ ...prev, activeRiftQuest: null }) : prev);
+            apply((prev) => belongsToAccount(prev) ? ({ ...prev, activeRiftQuest: null, riftQuestBossReceipt: null }) : prev);
             log("The rift's energy had already faded — this quest is cleared. A new rift can appear.");
         } else if (resp.reason === "incomplete") {
             log("The rift boss wasn't registered as defeated. Defeat the boss, then return.");
@@ -109,10 +112,8 @@ export async function completeRiftRun(
             log("That older run could not be tied safely to this rift. The accepted rift remains open and key-free; enter it again to retry.");
         } else if (resp.reason === "daily-cap") {
             log("You've claimed all your rift rewards for today. Come back tomorrow.");
-        } else if (resp.reason === "offline") {
-            log("Couldn't reach the server to seal the rift. Try again in a moment.");
         }
-        return null;
+        return resp;
     }
     apply((prev) => belongsToAccount(prev) ? ({
         ...prev,
@@ -121,7 +122,9 @@ export async function completeRiftRun(
         ryo: typeof resp.totalRyo === "number" ? resp.totalRyo : (prev.ryo ?? 0) + (resp.ryo ?? 0),
         fateShards: (prev.fateShards ?? 0) + (resp.fateShards ?? 0),
         boneCharms: (prev.boneCharms ?? 0) + (resp.boneCharms ?? 0),
+        itemStacks: resp.itemStacks ?? prev.itemStacks,
         activeRiftQuest: null,
+        riftQuestBossReceipt: null,
         riftCooldownUntil: resp.cooldownUntil ?? prev.riftCooldownUntil,
         ...(resp.firstClear && resp.completedRiftId ? {
             riftFirstClears: {
@@ -133,6 +136,7 @@ export async function completeRiftRun(
     const parts = [`${resp.ryo ?? 0} ryo`];
     if (resp.fateShards) parts.push(`${resp.fateShards} fate shard${resp.fateShards === 1 ? "" : "s"}`);
     if (resp.boneCharms) parts.push(`${resp.boneCharms} bone charm${resp.boneCharms === 1 ? "" : "s"}`);
+    if (resp.veils) parts.push(`${resp.veils} Veil of the Hollow`);
     log(`Rift sealed. Quest reward: ${parts.join(", ")}.`);
     return resp;
 }

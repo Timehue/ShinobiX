@@ -3,6 +3,7 @@ import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { riftQuestRyo, riftTargetSector } from '../sector/_rift-quest.js';
 import { hollowGateCombatReward } from './_combat-session.js';
+import { hollowGateRunEventCredit, rollEvent } from './event.js';
 import { hollowGateRunRyoScale } from './_gate-scale.js';
 import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
 
@@ -121,6 +122,13 @@ async function finishFight(runId: string, outcome: 'win' | 'loss' | 'fled') {
     await writeSoloPveSession(session);
 }
 
+test('a Hidden Relic pays its Veil in a Hollow Gate run and none in a Rift', () => {
+    const relic = rollEvent('hidden-relic', 1, undefined);
+    assert.deepEqual(hollowGateRunEventCredit(undefined, relic.credit).items, { 'veil-of-the-hollow': 1 });
+    assert.equal(hollowGateRunEventCredit(RIFT, relic.credit).items, undefined);
+    assert.deepEqual(hollowGateRunEventCredit(RIFT, relic.credit).currencies, relic.credit.currencies);
+});
+
 test('an unprepared level-12 player descends the intro rift and resolves every encounter', async () => {
     const targetSector = riftTargetSector(PLAYER, RIFT);
     await kv.set(saveKey, {
@@ -177,6 +185,9 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     let save = await readSave();
     assert.equal(save.character.ryo, 250 + bossReward, 'the boss pays its sealed reward once');
     assert.ok(save.character.riftQuestBossReceipt, 'the boss kill is bound to the accepted rift');
+    const paidReward = bossSettled.body.reward as { fragments: number; veils: number };
+    assert.equal(paidReward.fragments, 2);
+    assert.equal(paidReward.veils, 0, 'a Rift boss pays no Veil; closing the quest does');
     assert.deepEqual(save.character.tileCards, [], 'no card is granted along the way');
     const run = await readRun(token);
     assert.equal(run.pendingAmbush, null);
@@ -218,17 +229,25 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     assert.match(String(secondBoss.body.error), /already resolved/);
     assert.equal((await readSave()).character.ryo, 250 + bossReward + houndReward, 'the boss pays once');
 
-    // ── 4. The quest closes and the run extracts. ──
+    // ── 4. The run extracts, then the quest closes and pays the Veil. ──
+    const early = await call('riftQuest', { action: 'complete', riftId: RIFT });
+    assert.equal(early.body.reason, 'run-open', JSON.stringify(early.body));
+    const extracted = await call('settle', { token, action: 'extract' });
+    assert.equal(extracted.status, 200, JSON.stringify(extracted.body));
+    save = await readSave();
+    assert.equal(save.character.ryo, 250 + bossReward + houndReward, 'extraction keeps the entry balance and the sealed run rewards');
+    const counted = (itemId: string) => (save.character.itemStacks as Array<{ itemId: string; count: number }>).find((stack) => stack.itemId === itemId)?.count ?? 0;
+    assert.equal(counted('dungeon-legendary-fragment'), 2);
+    assert.equal(counted('veil-of-the-hollow'), 0, 'the Veil is still unpaid');
     const completed = await call('riftQuest', { action: 'complete', riftId: RIFT });
     assert.equal(completed.status, 200, JSON.stringify(completed.body));
     assert.equal(completed.body.ok, true, JSON.stringify(completed.body));
     const questRyo = riftQuestRyo(12, 5);
     assert.equal(completed.body.ryo, questRyo);
-    const extracted = await call('settle', { token, action: 'extract' });
-    assert.equal(extracted.status, 200, JSON.stringify(extracted.body));
     save = await readSave();
-    assert.equal(save.character.ryo, 250 + bossReward + houndReward + questRyo,
-        'extraction keeps exactly the entry balance, the sealed run rewards and the quest payout');
+    assert.equal(save.character.ryo, 250 + bossReward + houndReward + questRyo, 'the quest pays on top');
+    assert.equal(counted('dungeon-legendary-fragment'), 2);
+    assert.equal(counted('veil-of-the-hollow'), 1, 'closing the quest pays the Rift\'s one Veil, and nothing claws it back');
     assert.equal(save.character.hollowGateRun, null);
     assert.equal(await kv.get(hollowGateRunKey(PLAYER, token)), null, 'the settled run token is consumed');
 });
