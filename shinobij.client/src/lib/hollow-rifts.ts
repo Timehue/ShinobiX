@@ -390,9 +390,9 @@ export function riftByDescentEventId(id: string): HollowRift | null {
     return hollowRiftById(`rift-${id.slice("rift-descend-".length)}`);
 }
 
-// The run-config + server-call helpers (riftEventConfig, acceptRift,
-// completeRift, abandonRift, completeRiftRun) live in ./rift-run, which is
-// DATA-FREE, so the App entry bundle can import them without pulling this
-// content catalog into every player's initial download. Re-exported here for
+// riftEventConfig lives in ./rift-run, which is DATA-FREE, so the App entry
+// bundle can import it without pulling this content catalog into every player's
+// initial download. The server calls live in ./rift-server. Re-exported here for
 // the (lazy) WorldMap + tests that import them alongside the delivery helpers.
-export { riftEventConfig, acceptRift, completeRift, abandonRift, completeRiftRun } from "./rift-run";
+export { riftEventConfig } from "./rift-run";
+export { acceptRift, completeRift, abandonRift, completeRiftRun } from "./rift-server";

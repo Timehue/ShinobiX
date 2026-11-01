@@ -4,8 +4,8 @@ import { test } from "node:test";
 import type { Character } from "../types/character";
 import { hollowRifts } from "../data/hollow-rifts";
 import { riftIntroEvent, riftRewardLine } from "./hollow-rifts";
-import { completeRiftRun } from "./rift-run";
-import { claimableRiftId, riftClaimShouldRetry } from "./use-rift-claim";
+import { completeRiftRun, riftClaimShouldRetry, runRiftClaim } from "./rift-server";
+import { claimableRiftId } from "./use-rift-claim";
 
 const receipt = { riftId: "rift-legacy-echo", runToken: "run-token-1", combatRunId: "combat:1", acceptedAt: 1, clearedAt: 2 };
 const char = (over: Partial<Character>) => ({ name: "Aki", ...over }) as Character;
@@ -41,6 +41,31 @@ test("a claim adopts the server's Veil and clears the receipt that drives the re
         assert.deepEqual(claimed?.itemStacks, itemStacks);
         assert.equal(claimed?.riftQuestBossReceipt, null);
         assert.deepEqual(lines, ["Rift sealed. Quest reward: 280 ryo, 1 fate shard, 4 bone charms, 1 Veil of the Hollow."]);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test("a claim retries a silent failure, stops on an answer, and yields when it stops being current", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    let settled = false;
+    globalThis.fetch = async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("offline");
+        return new Response(JSON.stringify({ ok: false, reason: "incomplete" }));
+    };
+    try {
+        const claim = runRiftClaim("Aki", receipt.riftId, () => {}, () => true).then(() => { settled = true; });
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(calls, 1);
+        t.mock.timers.tick(30_000);
+        await claim;
+        assert.equal(settled, true);
+        assert.equal(calls, 2, "the server's answer ends the claim");
+        await runRiftClaim("Aki", receipt.riftId, () => {}, () => false);
+        assert.equal(calls, 2, "a stale claim sends nothing");
     } finally {
         globalThis.fetch = originalFetch;
     }
