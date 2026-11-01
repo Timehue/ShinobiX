@@ -17,7 +17,7 @@ import { formatJutsuResourcePercent, jutsuResourceBackingCost, lockJutsuResource
 import { maxStoredBloodlines, isPatreonSubscriber } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
-import { bloodlineCreatorMethodAllowsTag, bloodlineCreatorRangeForTarget, bloodlineCreatorTargetForMethod, normalizeBloodlineCreatorMethodTags } from "../lib/bloodline-creator-methods";
+import { bloodlineCreatorMethodAllowsTag, bloodlineCreatorMethodForTags, bloodlineCreatorRangeForTarget, bloodlineCreatorTargetForMethod, normalizeBloodlineCreatorMethodTags } from "../lib/bloodline-creator-methods";
 import { makeId } from "../lib/utils";
 import { equipOwnedBloodline } from "../lib/bloodline-swap";
 import { bloodlineWizardStepCount, bloodlineWizardStepKind, bloodlineWizardJutsuIndex, bloodlineWizardStepLabel, canLeaveBloodlineDetails, clampBloodlineWizardStep } from "../lib/bloodline-wizard";
@@ -45,7 +45,7 @@ function defaultWeatherElement(bloodline: SavedBloodline | null | undefined, spe
 
 /** Project an editable draft through the same tag-percent rules as save ingress. */
 function normalizeCreatorDraftJutsu(jutsu: Jutsu, rank: Rank): Jutsu {
-    const method = jutsu.method ?? "SINGLE";
+    const method = bloodlineCreatorMethodForTags(jutsu.method ?? "SINGLE", jutsu.ap, jutsu.tags);
     const tags = normalizeBloodlineCreatorMethodTags(normalizeJutsuTags(jutsu.tags).map((tag) => ({
         ...tag,
         percent: normalizeBloodlineCreatorTagPercent(tag.name, tag.percent, rank),
@@ -168,6 +168,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             // AOE_SPIRAL (ground nova) and AOE_BURST (target-centred blast) are both
             // locked to the 60-AP damage tier — force AP before deriving resource costs.
             if (merged.method === "AOE_SPIRAL" || merged.method === "AOE_BURST") merged.ap = 60;
+            // Choosing SINGLE on a damaging cast drops Move, or the draft would
+            // snap straight back to Circle Movement and the method could never change.
+            if (updated.method === "SINGLE" && merged.ap > 40) merged.tags = merged.tags.filter((tag) => tag.name !== "Move");
             const next = normalizeCreatorDraftJutsu(lockJutsuResourceCosts({ ...merged, bloodlineRank: rank }), rank);
             if (!bloodlineJutsuMethods.includes(next.method)) next.method = "SINGLE";
             if (next.method === "INSTANT_EFFECT") next.target = "EMPTY_GROUND";
@@ -276,7 +279,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         const usedUniqueTags = new Set<string>();
         const finalizedJutsus = jutsus.map((jutsu) => {
             const seenJutsuTags = new Set<string>();
-            const finalMethod = bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE";
+            const finalMethod = bloodlineCreatorMethodForTags(bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE", jutsu.ap, jutsu.tags);
             const normalizedTags = normalizeJutsuTags(jutsu.tags).map((tag) => ({
                 ...tag,
                 percent: normalizeBloodlineCreatorTagPercent(tag.name, tag.percent, rank),

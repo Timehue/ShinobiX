@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
     bloodlineCreatorMethodAllowsTag,
+    bloodlineCreatorMethodForTags,
     bloodlineCreatorRangeForTarget,
     bloodlineCreatorTargetForMethod,
     normalizeBloodlineCreatorMethodTags,
@@ -28,6 +29,15 @@ describe("player bloodline method/tag reachability", () => {
             { name: "Move", percent: 0 },
             { name: "Reflect", percent: 30 },
         ]);
+    });
+
+    it("turns a damaging SINGLE Move into Circle Movement and keeps the 40 AP utility dash", () => {
+        const move = [{ name: "Move" }, { name: "Push" }];
+
+        assert.equal(bloodlineCreatorMethodForTags("SINGLE", 60, move), "AOE_CIRCLE");
+        assert.equal(bloodlineCreatorMethodForTags("SINGLE", 40, move), "SINGLE");
+        assert.equal(bloodlineCreatorMethodForTags("SINGLE", 60, [{ name: "Push" }]), "SINGLE");
+        assert.equal(bloodlineCreatorMethodForTags("AOE_SPIRAL", 60, move), "AOE_SPIRAL");
     });
 
     it("locks legal direct Copy and Mirror drafts to an opponent at creator range", () => {
