@@ -21,6 +21,21 @@ export function normalizeBloodlineCreatorMethodTags(tags: readonly JutsuTag[], m
     return tags.filter((tag) => bloodlineCreatorMethodAllowsTag(tag.name, method, authoredTagNames));
 }
 
+/**
+ * SINGLE movement has no impact footprint, so the runtime forces its damage to
+ * zero. A 60+ AP cast pays for damage, so a Move on it becomes Circle Movement,
+ * the method that can land that hit. 40 AP SINGLE Move stays a utility dash.
+ */
+export function bloodlineCreatorMethodForTags(
+    method: JutsuMethod,
+    ap: number | undefined,
+    tags: readonly Pick<JutsuTag, "name">[],
+): JutsuMethod {
+    return method === "SINGLE" && Number(ap) > 40 && tags.some((tag) => tag.name === "Move")
+        ? "AOE_CIRCLE"
+        : method;
+}
+
 export function bloodlineCreatorTargetForMethod(
     method: JutsuMethod,
     target: JutsuTarget,
