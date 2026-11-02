@@ -63,6 +63,7 @@ export function admitResourceAttempt(character: Record<string, unknown>, seal: R
             skillLevel: seal.skillLevel, mode: seal.mode, template: seal.template, hookAt: seal.hookAt,
             ...(seal.fishingStyle ? { fishingStyle: seal.fishingStyle } : {}),
             ...(seal.fishingShoal ? { fishingShoal: seal.fishingShoal } : {}),
+            ...(seal.activity === 'mining' ? { deposit: seal.rules.trace ?? seal.rules.family } : {}),
             movementSequence: seal.movementSequence, toolBroke: tool.broke, toolId: seal.toolId } } };
 }
 export function resolveResourceAttempt(character: Record<string, unknown>, id: string, input: { cancel?: boolean; placements?: unknown; events?: unknown }, player: OnlinePlayer | null, now: number, seal?: ResourceSeal) {
