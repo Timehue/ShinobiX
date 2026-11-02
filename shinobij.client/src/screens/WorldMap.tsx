@@ -2003,6 +2003,7 @@ function WorldMapContent({
                     targetSector,
                     biomeForWorldSector(selectedSector),
                     character.riftFirstClears ?? {},
+                    character.level,
                 ));
             }
             return;

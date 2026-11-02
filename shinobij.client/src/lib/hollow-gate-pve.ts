@@ -18,7 +18,7 @@ export function formatHollowGateCombatReward(result: HollowGateCombatSettleResul
         reward.boneCharms ? `+${reward.boneCharms} Bone Charms` : "",
         reward.fateShards ? `+${reward.fateShards} Fate Shards` : "",
         reward.hollowShards ? `+${reward.hollowShards} Hollow Shards` : "",
-        reward.fragments ? `+${reward.fragments} Legendary Fragment` : "",
+        reward.fragments ? `+${reward.fragments} Legendary Fragment${reward.fragments === 1 ? "" : "s"}` : "",
         reward.veils ? `+${reward.veils} Veil of the Hollow` : "",
         result.elementalShards ? `+${result.elementalShards} Elemental Shard` : "",
         result.ambushPurse

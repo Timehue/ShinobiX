@@ -1570,7 +1570,7 @@ export function CentralHub({
                                 return (
                                     <div className="cf-card cf-special" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(230, 196, 119, 0.22)" }}>
                                         <strong><GameIcon name="shard" size={14} style={COST_ICON} />Dungeon Legendary Relic</strong>
-                                        <small>Combine Hollow Hound Alpha fragments into a legendary relic.</small>
+                                        <small>Combine Hollow Gate boss fragments into a legendary relic.</small>
                                         <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
                                         <button style={{ marginTop: "auto" }} onClick={forgeRelicFromFragments} disabled={!canForge || craftBusy}>
                                             {craftBusy

@@ -136,7 +136,8 @@ actually enforceable — which is what makes this redesign worth doing.
   `HOLLOW_GATE_MAX_FLOOR` is the shared five-floor server contract.
 - **Boss package:** 3 Fate Shards, 3-5 Bone Charms by floor, Hollow Shards,
   Vanguard honor 57 + 3·floor, 2 Dungeon Legendary Fragments and 1 Veil of the
-  Hollow, then auto-extract.
+  Hollow, then auto-extract. A Rift's boss and Hidden Relics pay no Veil: its one
+  Veil comes from closing the quest after the run ends (`api/sector/rift-quest.ts`).
 - **Rewards apply to the character live and to the exact run ledger.** Unique
   source IDs make event/combat replay idempotent; final settlement clamps away
   unrecorded gain without restoring currency legitimately spent during the run.

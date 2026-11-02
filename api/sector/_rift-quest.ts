@@ -6,7 +6,8 @@
  * Hollow Gate (short 1-3 floor run) with a themed final boss. Server-authoritative:
  *   accept   → seal the deterministic target sector and acceptance identity
  *   Gate     → bind that seal to one exact variant run and boss-combat receipt
- *   complete → verify the bound receipt, pay ryo + shards, stamp a post-clear
+ *   complete → once the run has ended, verify the bound receipt, pay ryo, Fate
+ *              Shards, Bone Charms and the Rift's one Veil, stamp a post-clear
  *              cooldown and first-clear story receipt; daily-capped
  * The reward is recomputed here, never trusted from the client. Nothing about the
  * Hollow Gate engine is touched.
@@ -19,6 +20,13 @@ import { CASTLE_SECTORS, FESTIVAL_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, pl
 
 export const RIFT_DAILY_CAP = 3;                       // paid rift clears per UTC day
 export const RIFT_COOLDOWN_MS = 6 * 60 * 60 * 1000;    // roaming giver stays quiet 6h after a clear
+/** Owner ruling 2026-11-01: a Rift's only Veil is paid for closing the quest.
+ *  Its boss and Hidden Relics pay none, so a Rift run never credits one in-run. */
+export const RIFT_COMPLETION_VEILS = 1;
+
+export function isRiftVariantId(id: unknown): boolean {
+    return typeof id === 'string' && id.startsWith('rift-');
+}
 
 export const RIFT_WEEKLY_DISTORTIONS = [
     { id: 'echoed-cache', label: 'Echoed Cache', kind: 'chest' },

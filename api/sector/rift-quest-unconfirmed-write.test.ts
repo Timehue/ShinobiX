@@ -100,6 +100,58 @@ async function complete(name: string): Promise<Out> {
 const ryoOf = async (name: string) => ((await kv.get<{ character: { ryo: number } }>(`save:${name}`))!.character.ryo);
 const writesSave = (ops: readonly KvCasOp[], name: string) => ops.some(op => op.key === `save:${name}`);
 
+describe('the rift Veil', { concurrency: false }, () => {
+    it('is paid once by closing the quest, with the run over', async () => {
+        const name = `${PREFIX}veil`;
+        await seed(name);
+        const save = (await kv.get<{ character: Json }>(`save:${name}`))!;
+        await kv.set(`save:${name}`, { ...save, character: { ...save.character, itemStacks: [{ itemId: 'veil-of-the-hollow', count: 2 }] } });
+
+        const paid = await complete(name);
+        assert.equal(paid.body?.ok, true, JSON.stringify(paid.body));
+        assert.equal(paid.body?.veils, 1);
+        assert.deepEqual(paid.body?.itemStacks, [{ itemId: 'veil-of-the-hollow', count: 3 }]);
+        const stored = (await kv.get<{ character: Json; _saveVersion: number }>(`save:${name}`))!;
+        assert.deepEqual(stored.character.itemStacks, [{ itemId: 'veil-of-the-hollow', count: 3 }]);
+        assert.deepEqual((paid.body?.character as Json).itemStacks, stored.character.itemStacks, 'the reply carries the committed save');
+        assert.equal(paid.body?._saveVersion, stored._saveVersion);
+
+        const replay = await complete(name);
+        assert.equal(replay.body?.ok, false);
+        assert.equal(replay.body?.reason, 'none');
+        assert.deepEqual((replay.body?.character as Json).itemStacks, stored.character.itemStacks, 'a retry after a lost reply can adopt the payout');
+        assert.equal(replay.body?._saveVersion, stored._saveVersion);
+        assert.deepEqual((await kv.get<{ character: Json }>(`save:${name}`))!.character.itemStacks, stored.character.itemStacks);
+    });
+
+    it('clears a receipt whose seal is gone, so the claim does not repeat on every load', async () => {
+        const name = `${PREFIX}orphan`;
+        await seed(name);
+        const save = (await kv.get<{ character: Json }>(`save:${name}`))!;
+        await kv.set(`save:${name}`, { ...save, activeRiftQuestSeal: null, character: { ...save.character, activeRiftQuest: null } });
+        await kv.del(questKey(name));
+
+        const out = await complete(name);
+        assert.equal(out.body?.reason, 'none');
+        assert.equal((await kv.get<{ character: Json }>(`save:${name}`))!.character.riftQuestBossReceipt, null);
+        assert.equal((out.body?.character as Json).riftQuestBossReceipt, null);
+    });
+
+    it('waits for the run to end, because settling an open run claws uncredited items back', async () => {
+        const name = `${PREFIX}open`;
+        await seed(name);
+        const save = (await kv.get<{ character: Json }>(`save:${name}`))!;
+        await kv.set(`save:${name}`, { ...save, character: { ...save.character, hollowGateRun: { runToken: RUN_TOKEN, floor: 1 } } });
+
+        const refused = await complete(name);
+        assert.equal(refused.body?.ok, false);
+        assert.equal(refused.body?.reason, 'run-open');
+        assert.equal(await ryoOf(name), 5_000, 'nothing was paid');
+        assert.ok(await kv.get(questKey(name)), 'the seal survives for the claim after the run');
+        assert.ok(!(await kv.get<number>(countKey(name))), 'no daily slot was taken');
+    });
+});
+
 describe('rift-quest complete and a save write that cannot be confirmed', { concurrency: false }, () => {
     it('a write that fails without landing puts the KV seal and the daily slot back, so the retry is a fresh claim', async t => {
         const name = `${PREFIX}failed`;

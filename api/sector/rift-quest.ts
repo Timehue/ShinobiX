@@ -8,8 +8,10 @@ import { LockContendedError } from '../_lock.js';
 import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import { saveUnchangedSince } from '../save/_save-unchanged.js';
+import { setCountedItem } from '../hollow-gate/_ledger.js';
+import { itemStackCount } from '../hollow-gate/_run-token.js';
 import {
-    RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS,
+    RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS, RIFT_COMPLETION_VEILS,
     isRiftQuestId, riftQuestRyo, riftTargetSector,
     parseRiftQuestSeal, parseRiftQuestBossReceipt, riftBossReceiptMatches,
     type RiftQuestSeal,
@@ -126,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // clear the mirror + durable seal and tell the client so the giver
                     // can offer a fresh rift.
                     await kv.del(questKey).catch(() => undefined);
-                    if (char.activeRiftQuest || rec.activeRiftQuestSeal !== undefined) {
+                    if (char.activeRiftQuest || char.riftQuestBossReceipt || rec.activeRiftQuestSeal != null) {
                         return {
                             ok: true,
                             character: { ...char, activeRiftQuest: null, riftQuestBossReceipt: null },
@@ -134,7 +136,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             value: { body: { ok: false, reason: 'none', activeRiftQuest: null }, echo: true, withCharacter: true },
                         };
                     }
-                    return answer({ ok: false, reason: 'none' });
+                    // The usual cause is a retry after a lost reply, so hand back the
+                    // committed save: the client adopts what the first call paid.
+                    return { ok: true, write: false, character: char, value: { body: { ok: false, reason: 'none' }, echo: true, withCharacter: true } };
                 }
                 if (sealed.id !== def.id) return answer({ ok: false, reason: 'wrong-rift' });
 
@@ -146,6 +150,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // the TTL / a future cutover if the boss is cleared later.
                     return { ok: true, character: char, recordPatch: { activeRiftQuestSeal: sealed }, value: { body: { ok: false, reason }, echo: true } };
                 }
+                // Claimed after the run ends. An open run's settlement clamps every
+                // counted item to its entry + ledger, which would take the Veil back.
+                if (char.hollowGateRun) return answer({ ok: false, reason: 'run-open' });
                 const countKey = `rift-quest-count:${playerName}:${today}`;
                 if (num(await kv.get<number>(countKey)) >= RIFT_DAILY_CAP) {
                     return answer({ ok: false, reason: 'daily-cap' });
@@ -192,8 +199,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     : priorFirstClears;
 
+                const itemStacks = setCountedItem(char.itemStacks, 'veil-of-the-hollow',
+                    itemStackCount(char.itemStacks, 'veil-of-the-hollow') + RIFT_COMPLETION_VEILS);
                 const updated = {
-                    ...char, ryo: totalRyo, fateShards: totalFateShards, boneCharms: totalBoneCharms,
+                    ...char, ryo: totalRyo, fateShards: totalFateShards, boneCharms: totalBoneCharms, itemStacks,
                     activeRiftQuest: null, riftCooldownUntil: cooldownUntil,
                     riftQuestBossReceipt: null,
                     riftFirstClears,
@@ -207,12 +216,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             ok: true, ryo, totalRyo,
                             fateShards: def.fateShards, totalFateShards,
                             boneCharms: def.boneCharms, totalBoneCharms,
+                            veils: RIFT_COMPLETION_VEILS, itemStacks,
                             cooldownUntil,
                             firstClear,
                             firstClearAt,
                             completedRiftId: def.id,
                         },
                         echo: true,
+                        withCharacter: true,
                     },
                     // A payout that loses its compare-and-set paid nothing. Put back
                     // what it spent ahead of the write: the KV seal (for a KV-only

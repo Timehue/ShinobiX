@@ -247,21 +247,33 @@ function harrowRiftRecord(firstClears: Readonly<Record<string, unknown>>): strin
     return `Your verified reports cover ${labels.join(", ")}. The other entries came from their local witnesses; I keep the sources separate.`;
 }
 
+/** What the quest pays, spoken before the player accepts. Mirrors the server's
+ *  riftQuestRyo, its RIFT_QUESTS rewards, and the boss's two fragments. */
+export function riftRewardLine(rift: HollowRift, level: number): string {
+    const ryo = rift.reward.weight * (20 + Math.max(1, Math.min(100, Math.floor(level))) * 3);
+    const shards = rift.reward.fateShards ?? 0;
+    return `Close this report and you are paid ${ryo} ryo, ${shards} Fate Shard${shards === 1 ? "" : "s"}, ${rift.reward.boneCharms ?? 0} Bone Charms, and one Veil of the Hollow. The boss itself drops two Dungeon Legendary Fragments.`;
+}
+
 /** The giver's report VN (names the target sector via %sector). */
 export function riftIntroEvent(
     rift: HollowRift,
     targetSector: number,
     biome: Biome,
     firstClears: Readonly<Record<string, unknown>> = {},
+    level = rift.levelReq,
 ): CreatorEvent {
     const phrase = sectorPhrase(targetSector);
     const sourcePages = firstClears[rift.id] ? repeatIntroPages(rift) : rift.intro;
     const pages = mapPages(
-        sourcePages.map((p) => ({
+        sourcePages.map((p, index) => ({
             ...p,
-            dialogue: p.dialogue.map((line) => line
-                .replace(/%sector/g, phrase)
-                .replace(/%riftRecord/g, harrowRiftRecord(firstClears))),
+            dialogue: [
+                ...p.dialogue.map((line) => line
+                    .replace(/%sector/g, phrase)
+                    .replace(/%riftRecord/g, harrowRiftRecord(firstClears))),
+                ...(index === sourcePages.length - 1 ? [riftRewardLine(rift, level)] : []),
+            ],
         })),
         sourcePages.length - 1,
     );
@@ -378,9 +390,9 @@ export function riftByDescentEventId(id: string): HollowRift | null {
     return hollowRiftById(`rift-${id.slice("rift-descend-".length)}`);
 }
 
-// The run-config + server-call helpers (riftEventConfig, acceptRift,
-// completeRift, abandonRift, completeRiftRun) live in ./rift-run, which is
-// DATA-FREE, so the App entry bundle can import them without pulling this
-// content catalog into every player's initial download. Re-exported here for
+// riftEventConfig lives in ./rift-run, which is DATA-FREE, so the App entry
+// bundle can import it without pulling this content catalog into every player's
+// initial download. The server calls live in ./rift-server. Re-exported here for
 // the (lazy) WorldMap + tests that import them alongside the delivery helpers.
-export { riftEventConfig, acceptRift, completeRift, abandonRift, completeRiftRun } from "./rift-run";
+export { riftEventConfig } from "./rift-run";
+export { acceptRift, completeRift, abandonRift, completeRiftRun } from "./rift-server";
