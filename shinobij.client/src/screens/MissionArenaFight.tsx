@@ -6,7 +6,8 @@ import { useCombatGridAppearance } from "../lib/use-combat-grid-appearance";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import { getAllJutsus } from "../lib/jutsu-loadout";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { SavedBloodlinesContext } from "../lib/saved-bloodlines-context";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
 import "../styles/battle-skin.css";
 import { visiblePoll } from "../lib/poll";
@@ -1253,6 +1254,7 @@ export function MissionArenaFight({
     const companionImage = companionPet ? petPortraitImage(companionPet, sharedImages ?? {}) : "";
     const companionRoundsLeft = Number(companion?.character?.companionRoundsLeft ?? 0);
 
+    const contextBloodlines = useContext(SavedBloodlinesContext);
     // The sealed session strips jutsu art (combat fields only), so card thumbnails
     // come from the player's OWN catalog by id — the same source the Arena's cards
     // use. Inline/shared art stays as a fallback.
@@ -1932,7 +1934,7 @@ export function MissionArenaFight({
                                                 jutsu={detailJutsu}
                                                 scaledEffectPower={scaled.scaledEffectPower}
                                                 masteryLevel={mastery.level}
-                                                lensDiscipline={playerLensDiscipline(character)}
+                                                lensDiscipline={playerLensDiscipline(character, savedBloodlines ?? contextBloodlines)}
                                             />
                                         </div>
                                     </CombatDetailPortal>

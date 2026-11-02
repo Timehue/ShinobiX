@@ -39,6 +39,7 @@ import { deletePlayerFirstPactState, detachPlayerReferences } from '../_delete-p
 import { ClanDissolutionForbiddenError, dissolveClanUnderLock } from '../clan/_dissolve.js';
 import { awardWarEndClanXp } from '../clan/war/_war-xp.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
+import { stampEquippedDiscipline } from './_equipped-discipline.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
 import { currencyLedgerKey, decreaseOnlyCurrencyDrops, recordCurrencyLedgerEvent } from '../_currency-ledger.js';
@@ -405,8 +406,9 @@ export function sanitizeCharacterSave(
             finalChar.equippedJutsuIds as string[],
         );
     }
+    stampEquippedDiscipline(finalChar, out.savedBloodlines ?? existing?.savedBloodlines);
     // Server-owned, single-use purchase ledger. Incoming copies are ignored.
-    out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
+    out.pendingBloodlineForges =pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
     // On an admin content slot the rule inverts: strip forged gear instead of
     // preserving it, so the shared-content store can never accumulate (or
     // re-acquire) a personal item that would then be published to everyone.
@@ -1526,7 +1528,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
 
                     const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
-                    const registryEntry = buildPublicPlayerIndexEntry(char, name);
+                    const storedCharacterAfter = (payload as Record<string, unknown>).character;
+                    if (storedCharacterAfter && typeof storedCharacterAfter === 'object' && !Array.isArray(storedCharacterAfter)) {
+                        stampEquippedDiscipline(storedCharacterAfter as Record<string, unknown>, (payload as Record<string, unknown>).savedBloodlines);
+                    }
+                    const registryEntry = buildPublicPlayerIndexEntry({ ...char, equippedDiscipline: (storedCharacterAfter as Record<string, unknown> | undefined)?.equippedDiscipline }, name);
 
                     // A player save is replaced only over the exact row read
                     // above, and an admin currency edit moves the currency ledger

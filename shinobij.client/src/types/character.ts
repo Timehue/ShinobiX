@@ -946,6 +946,8 @@ export type PlayerRecord = {
     level: number;
     village: string;
     specialty: JutsuType;
+    /** Display only, from the equipped custom bloodline. Combat reads `specialty`. */
+    equippedDiscipline?: string;
     character: Character;
     /** Server-projected 5/6 carried roster; ownership remains character.pets. */
     eligiblePets?: Pet[];
@@ -964,6 +966,7 @@ export type ServerPlayerSummary = {
     level: number;
     village: string;
     specialty?: string;
+    equippedDiscipline?: string;
     online: boolean;
     character?: Character;
     eligiblePets?: Pet[];

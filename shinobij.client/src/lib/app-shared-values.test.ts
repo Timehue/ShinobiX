@@ -4,7 +4,9 @@ import { createCharacter } from "./create-character";
 import { gainXp } from "./character-level-projection";
 import { playerLensDiscipline } from "./player-lens-discipline";
 import { stringifyServerSavePayload } from "./server-save-payload";
+import { trainingRecommendation } from "./training-recommendation";
 import { EXAM_LEVEL_GATES } from "../constants/game";
+import type { SavedBloodline } from "../types/combat";
 
 const rookie = () => createCharacter("Rookie", "Stormveil Village", "Ninjutsu", "Ashen Eyes");
 
@@ -31,6 +33,20 @@ test("discipline falls back to specialty and then Ninjutsu for an unknown bloodl
     const input = { ...rookie(), bloodline: "unknown", specialty: "Taijutsu" as const };
     assert.equal(playerLensDiscipline(input), "Taijutsu");
     assert.equal(playerLensDiscipline({ ...input, specialty: "Any" }), "Ninjutsu");
+});
+
+test("discipline follows an equipped custom bloodline over the starter and specialty", () => {
+    const blade = { id: "blade", type: "Bukijutsu", ap: 60, effectPower: 40 };
+    const utility = { id: "mist", type: "Any", ap: 40, effectPower: 0 };
+    const custom = { id: "custom", name: "Blood Mist", jutsus: [blade, utility] } as unknown as SavedBloodline;
+    const input = { ...rookie(), specialty: "Genjutsu" as const, equippedBloodlineId: custom.id };
+    assert.equal(playerLensDiscipline(input, [custom]), "Bukijutsu");
+    assert.equal(playerLensDiscipline({ ...input, equippedBloodlineId: undefined }, [custom]), "Genjutsu");
+    const utilityOnly = { ...custom, jutsus: [utility] };
+    assert.equal(playerLensDiscipline(input, [utilityOnly]), "Genjutsu");
+    const strayType = { ...custom, jutsus: [{ ...blade, type: "Medical" }] } as unknown as SavedBloodline;
+    assert.equal(playerLensDiscipline(input, [strayType]), "Genjutsu");
+    assert.equal(trainingRecommendation(input, [strayType]).discipline, "Genjutsu");
 });
 
 test("server save serialization strips embedded images throughout a snapshot while retaining URLs", () => {

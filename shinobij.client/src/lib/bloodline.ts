@@ -27,6 +27,8 @@ import { starterSavedBloodlines } from "../data/jutsu";
 import { hasCharacterElement } from "./elements";
 import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
+
+export { bloodlineDisciplineCounts, leadingBloodlineDiscipline, type CombatDiscipline } from "../../../shared/bloodline-discipline";
 export { replaceCharacterBloodline } from "./bloodline-swap";
 
 /** The built-in bloodline the character was created with ("Blue Blade Eyes" is its legacy name). */

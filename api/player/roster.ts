@@ -150,6 +150,7 @@ type RosterPlayer = {
     level: number;
     village: string;
     specialty: string;
+    equippedDiscipline?: string;
     online: boolean;
     character?: unknown;
     eligiblePets: unknown[];
@@ -334,6 +335,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     level: entry.level ?? 1,
                     village: entry.village ?? '',
                     specialty: entry.specialty ?? '',
+                    ...(entry.equippedDiscipline ? { equippedDiscipline: entry.equippedDiscipline } : {}),
                     online: onlineNames.has(slug),
                     character,
                     eligiblePets: projectEligibleRosterPets(fullCharacter),

@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import { displayPlayerName } from "../../../shared/player-name";
 import { useMemo, useState, useEffect, useLayoutEffect, useRef } from "react";
+import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import "../styles/index/29-clan-exchange-storefront.css";
 
 // Mirrors TREASURY_GIFT_TAX_PCT in api/_treasury-gift-tax.ts and the ryo cap in
@@ -209,8 +210,10 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     const clanDonateGate = clanDonateBucket === "provisions" ? storesDonationGate(character, clanDonateItemId, 1, storesNow) : { ok: true as const };
     const clanDonateLabel = clanDonateBucket === "provisions" ? "Donate to Provisions" : "Donate item";
 
+    // A string, so the member-sync effect below never re-runs on a new array identity.
+    const memberDiscipline = playerLensDiscipline(character, savedBloodlines);
     function myMemberEntry(): ClanMemberEntry {
-        return { name: character.name, village: character.village, level: character.level, specialty: character.specialty, battleContrib: character.clanBattleContrib ?? 0, eventContrib: character.clanEventContrib ?? 0, missionContrib: character.clanMissionContrib ?? 0, isFounder: character.clanFounder ?? false, month: new Date().toISOString().slice(0, 7) };
+        return { name: character.name, village: character.village, level: character.level, specialty: memberDiscipline, battleContrib: character.clanBattleContrib ?? 0, eventContrib: character.clanEventContrib ?? 0, missionContrib: character.clanMissionContrib ?? 0, isFounder: character.clanFounder ?? false, month: new Date().toISOString().slice(0, 7) };
     }
     // Every clan change is applied to a FRESH copy read just before the write,
     // never to the one loaded when the hall opened (the hall does not poll). The
@@ -330,7 +333,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             writeClanUpdate(synced).catch(() => { /* re-syncs on next load */ });
             setLoading(false);
         });
-    }, [character.clan, character.name, character.level, character.village, character.specialty, character.clanBattleContrib, character.clanEventContrib, character.clanMissionContrib]);
+    }, [character.clan, character.name, character.level, character.village, character.specialty, memberDiscipline, character.clanBattleContrib, character.clanEventContrib, character.clanMissionContrib]);
 
     useEffect(() => {
         if (character.clan) return;

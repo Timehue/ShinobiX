@@ -137,6 +137,7 @@ import {
 } from "./data/jutsu";
 export { starterBloodlines } from "./data/jutsu";
 export { starterBloodlineOffense, starterSavedBloodlines };
+import { SavedBloodlinesContext } from "./lib/saved-bloodlines-context";
 import {
     endlessScaleFactor,
     endlessWaveReward,
@@ -2179,7 +2180,7 @@ export default function App() {
                             name: incoming.name || normalized.name,
                             level: incoming.level ?? normalized.level,
                             village: incoming.village || normalized.village,
-                            specialty: (incoming.specialty as JutsuType | undefined) ?? normalized.specialty,
+                            specialty: (incoming.specialty as JutsuType | undefined) ?? normalized.specialty, equippedDiscipline: incoming.equippedDiscipline,
                             character: normalized,
                             eligiblePets,
                             currentSector: incoming.currentSector ?? 40,
@@ -5144,6 +5145,7 @@ export default function App() {
 
     const surfaceBlockerMode = playerSurfaceBlockerMode(Boolean(character), screen, gameplayViewAvailability);
     return (
+        <SavedBloodlinesContext.Provider value={savedBloodlines}>
         <MaintenanceOperatorBoundary mode={surfaceBlockerMode}>
         <AdaptiveGameShell
             biome={currentBiome}
@@ -6145,7 +6147,7 @@ export default function App() {
                             currentBiome={currentBiome}
                             currentWeather={currentWeather}
                             currentSector={currentSector}
-                            sharedImages={sharedImages}
+                            sharedImages={sharedImages} savedBloodlines={savedBloodlines}
                             // Ignore a stale seed from another fight; mount fetches fresh state.
                             seedSession={pvpSeedSession && pvpSeedSession.battleId === pvpBattleId ? pvpSeedSession : null}
                             isSpar={!pvpBattleContext?.mode || (pvpBattleContext.mode === "standard" && !pvpBattleContext.clanWarPoints && !pvpBattleContext.sectorAttack)}
@@ -6215,6 +6217,7 @@ export default function App() {
             /><GearDropHost character={character} onVersionedCharacter={commitVersionedCharacter} saveIsClean={() => !charDirtyRef.current} />
         </AdaptiveGameShell>
         </MaintenanceOperatorBoundary>
+        </SavedBloodlinesContext.Provider>
     );
 }
 /* ── Mobile banner timer widget ──────────────────────────────────────

@@ -1,7 +1,7 @@
 import type { Character } from "../types/character";
 import type { SavedBloodline, Stats } from "../types/combat";
 import { statCapForLevel } from "../constants/game";
-import { getCharacterBloodlines } from "./bloodline";
+import { bloodlineDisciplineCounts, getCharacterBloodlines, leadingBloodlineDiscipline } from "./bloodline";
 import { formatStatName } from "./stats";
 
 // These general stats enter BOTH getOffense and getDefense for the discipline.
@@ -18,14 +18,9 @@ const isDiscipline = (value: string): value is Discipline => Object.hasOwn(PATHS
 /** Shared by the stat tile, Academy companion, and journey hint. */
 export function trainingRecommendation(character: Pick<Character, "bloodline" | "equippedBloodlineId" | "specialty" | "level" | "stats">, savedBloodlines: SavedBloodline[] = []) {
     const bloodline = getCharacterBloodlines(character, savedBloodlines)[0];
-    const damageJutsus = bloodline?.jutsus.filter(j => j.effectPower > 0 && j.isUtility !== true
-        && (j.isUtility === false || j.ap !== 40)) ?? [];
-    const candidates = damageJutsus.length ? damageJutsus : bloodline?.jutsus ?? [];
-    const counts = new Map<Discipline, number>();
-    for (const jutsu of candidates) if (isDiscipline(jutsu.type)) counts.set(jutsu.type, (counts.get(jutsu.type) ?? 0) + 1);
+    const counts = bloodlineDisciplineCounts(bloodline);
     const specialty = isDiscipline(character.specialty ?? "") ? character.specialty as Discipline : "Ninjutsu";
-    const discipline = [...counts.keys()].sort((a, b) => (counts.get(b)! - counts.get(a)!)
-        || Number(b === specialty) - Number(a === specialty) || a.localeCompare(b))[0] ?? specialty;
+    const discipline = leadingBloodlineDiscipline(counts, specialty) ?? specialty;
     const path = PATHS[discipline];
     const cap = statCapForLevel(character.level);
     const stat: keyof Stats = path.find(key => (character.stats?.[key] ?? 10) < cap) ?? path[0];
