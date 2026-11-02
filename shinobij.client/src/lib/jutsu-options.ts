@@ -6,6 +6,13 @@ import type { Jutsu } from "../types/combat";
 import type { JutsuType, JutsuElement, JutsuSort } from "../types/core";
 import { describeJutsuEffects } from "./jutsu-effects";
 
+// An "Any" jutsu works with every offense: normalizeJutsu types all 40-AP
+// utility that way, and adaptive legacy signatures take the owner's specialty.
+// So picking one offense keeps them; picking "Any" itself still narrows to them.
+export function jutsuMatchesOffense(jutsu: Jutsu, typeFilter: string) {
+    return typeFilter === "All" || jutsu.type === typeFilter || jutsu.type === "Any";
+}
+
 export function getJutsuSelectOptions(
     jutsus: Jutsu[],
     typeFilter: "All" | JutsuType,
@@ -13,7 +20,7 @@ export function getJutsuSelectOptions(
     sortBy: JutsuSort,
 ) {
     const filtered = [...jutsus]
-        .filter((jutsu) => typeFilter === "All" || jutsu.type === typeFilter)
+        .filter((jutsu) => jutsuMatchesOffense(jutsu, typeFilter))
         .filter((jutsu) => elementFilter === "All" || jutsu.element === elementFilter);
     // The effect sort describes each jutsu once up front instead of twice per
     // comparison. Keyed by object (not id) so the ordering is exactly the same

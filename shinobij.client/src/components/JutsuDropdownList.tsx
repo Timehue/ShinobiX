@@ -8,7 +8,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */ // matches App.tsx's file-wide suppression; logic moved verbatim
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { allTags } from "../lib/tags";
-import { getJutsuSelectOptions } from "../lib/jutsu-options";
+import { getJutsuSelectOptions, jutsuMatchesOffense } from "../lib/jutsu-options";
 import { specialties, jutsuElements } from "../data/jutsu";
 import { hasBloodlineMarker } from "../lib/bloodline-marker";
 import type { Jutsu } from "../types/combat";
@@ -61,7 +61,7 @@ export function JutsuDropdownList({
     // "Effects" sort describes every jutsu in the catalog.
     const baseJutsus = useMemo(() => reorderable
         ? [...jutsus]
-            .filter((jutsu) => typeFilter === "All" || jutsu.type === typeFilter)
+            .filter((jutsu) => jutsuMatchesOffense(jutsu, typeFilter))
             .filter((jutsu) => elementFilter === "All" || jutsu.element === elementFilter)
         : getJutsuSelectOptions(jutsus, typeFilter, elementFilter, sortBy),
     [reorderable, jutsus, typeFilter, elementFilter, sortBy]);
