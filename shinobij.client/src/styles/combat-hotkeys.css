@@ -1,0 +1,8 @@
+.combat-action-tray button[data-combat-action] { position: relative; }
+.combat-hotkey-badge { box-sizing: border-box; position: absolute; top: 2px; right: 2px; max-width: calc(100% - 4px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 3px; border: 1px solid #637083; border-radius: 3px; background: #111a26; color: #d7e3f3; font: 9px/1.2 monospace; pointer-events: none; }
+.combat-jutsu-card-wrap:has(> .combat-cd-badge) .combat-hotkey-badge { top: 25px; }
+.combat-hotkey-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 8px 20px; }
+.combat-hotkey-setting { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.combat-hotkey-setting button { min-width: 0; min-height: 36px; overflow-wrap: anywhere; }
+.combat-hotkey-setting > span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 760px), (pointer: coarse) { .combat-hotkey-badge { display: none; } }

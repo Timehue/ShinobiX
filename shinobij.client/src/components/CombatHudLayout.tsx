@@ -2,6 +2,7 @@ import { forwardRef, memo, useEffect, useMemo, useRef, useState, type HTMLAttrib
 import { BattleActionBlock } from "./BattleActionBlock";
 import { BattleLogLine } from "./BattleLogLine";
 import { groupPlainCombatLog } from "../lib/plain-combat-log";
+import { CombatBindingsContext, useCombatHotkeys } from '../lib/use-combat-hotkeys';
 
 type DivProps = HTMLAttributes<HTMLDivElement>;
 type MainProps = HTMLAttributes<HTMLElement>;
@@ -73,8 +74,10 @@ export function CombatBoardStage({ children, className, ...props }: DivProps) {
  * the top of the same scrollport as the loadout cards instead of spending a
  * second fixed band of a viewport that has none to spare.
  */
-export function CombatActionTray({ children, className, ...props }: DivProps) {
-    return <div className={classNames("combat-action-tray", className)} {...props}>{children}</div>;
+export function CombatActionTray({ children, className, player = '', hotkeysActive = false, onDeselect, ...props }: DivProps & { player?: string; hotkeysActive?: boolean; onDeselect?: () => void }) {
+    const root = useRef<HTMLDivElement>(null);
+    const bindings = useCombatHotkeys(root, player, hotkeysActive, onDeselect);
+    return <CombatBindingsContext.Provider value={bindings}><div ref={root} data-combat-player={player} className={classNames("combat-action-tray", className)} {...props}>{children}</div></CombatBindingsContext.Provider>;
 }
 
 /** Basic combat controls; mode-specific actions such as Pet or Flee remain caller-owned children. */

@@ -1,3 +1,5 @@
+import { CombatHotkeyButton } from "../components/CombatHotkeys";
+import { combatJutsuSlotIds, equipmentHotkey, jutsuHotkey } from "../lib/combat-hotkeys";
 import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, HOLLOW_GATE_LEGACY_SHINOBI_ROUND_LIMIT } from '../../../shared/hollow-gate-round-limit';
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { sealedPetSummonApCost } from "../../../shared/pet-summon";
@@ -623,14 +625,6 @@ export function MissionArenaFight({
         setMode("idle"); setSelJutsu(null); setSelWeaponId(""); setHoverTile(null);
     }, [myTurn, session.round, session.sessionId]);
 
-    useEffect(() => {
-        const cancel = (event: KeyboardEvent) => {
-            if (event.key !== "Escape" || event.defaultPrevented) return;
-            setMode("idle"); setSelJutsu(null); setSelWeaponId(""); setHoverTile(null);
-        };
-        window.addEventListener("keydown", cancel);
-        return () => window.removeEventListener("keydown", cancel);
-    }, []);
 
     const myPos = myActor?.pos ?? -1;
     const enemyPos = enemy?.pos ?? -1;
@@ -943,6 +937,7 @@ export function MissionArenaFight({
     })();
     const { weapons: myWeapons, consumables: myConsumables } = loadout;
     const myJutsu: JutsuLike[] = Array.isArray(myActor?.character?.jutsu) ? (myActor!.character.jutsu as JutsuLike[]) : [];
+    const myJutsuSlotIds = combatJutsuSlotIds(myActor?.character?.equippedJutsuIds, myJutsu);
     const inspectedJutsu = myJutsu.find((j) => j.id === inspectedJutsuId) ?? null;
 
     const myAp = myTurn ? session.activeAp : 0;
@@ -1692,25 +1687,25 @@ export function MissionArenaFight({
                         bordered scrollport for both on a phone, and stays
                         `display: contents` everywhere else so each surface keeps
                         the grid area it already had. */}
-                    <CombatActionTray>
+                    <CombatActionTray player={character.name} hotkeysActive={myTurn && !busy && session.status === "active"} onDeselect={resetTargeting}>
                         <CombatCommandBar>
-                            <button onClick={() => armBasicAction("attack")} aria-pressed={mode === "attack"}
+                            <CombatHotkeyButton action="attack" onClick={() => armBasicAction("attack")} aria-pressed={mode === "attack"}
                                 data-academy-action="attack"
                                 disabled={busy || !myTurn || outOfActions || myAp < attackAp || myStamina < 10 || !enemy || enemy.hp <= 0}
                                 title={!enemyInMelee ? `Move next to ${enemyName} first` : undefined}
-                                className={mode === "attack" ? "selected-action" : ""}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{attackAp} AP<span className="cmd-detail"> | 10 SP | R1</span></small></button>
-                            <button aria-pressed={mode === "move"} className={mode === "move" ? "selected-action" : ""}
+                                className={mode === "attack" ? "selected-action" : ""}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{attackAp} AP<span className="cmd-detail"> | 10 SP | R1</span></small></CombatHotkeyButton>
+                            <CombatHotkeyButton action="move" aria-pressed={mode === "move"} className={mode === "move" ? "selected-action" : ""}
                                 data-academy-action="move"
                                 disabled={busy || !myTurn || outOfActions || myAp < moveAp}
-                                onClick={() => armBasicAction("move")}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAp} AP<span className="cmd-detail"> / tile</span></small></button>
-                            <button onClick={() => armBasicAction("heal")} aria-pressed={mode === "heal"} className={mode === "heal" ? "selected-action" : ""}
-                                disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP<span className="cmd-detail"> | 10 CP | CD {healCd}</span></small></button>
-                            <button onClick={() => armBasicAction("clear")} aria-pressed={mode === "clear"} className={mode === "clear" ? "selected-action" : ""}
+                                onClick={() => armBasicAction("move")}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAp} AP<span className="cmd-detail"> / tile</span></small></CombatHotkeyButton>
+                            <CombatHotkeyButton action="heal" onClick={() => armBasicAction("heal")} aria-pressed={mode === "heal"} className={mode === "heal" ? "selected-action" : ""}
+                                disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP<span className="cmd-detail"> | 10 CP | CD {healCd}</span></small></CombatHotkeyButton>
+                            <CombatHotkeyButton action="clear" onClick={() => armBasicAction("clear")} aria-pressed={mode === "clear"} className={mode === "clear" ? "selected-action" : ""}
                                 disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < utilityAp || !enemy || enemy.hp <= 0 || towerHexDistance(myPos, enemyPos, w) > BASIC_CLEAR_RANGE}
-                                title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles`}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {clearCd}</span></small></button>
-                            <button onClick={() => armBasicAction("cleanse")} aria-pressed={mode === "cleanse"} className={mode === "cleanse" ? "selected-action" : ""}
-                                disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {cleanseCd}</span></small></button>
-                            <button
+                                title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles`}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {clearCd}</span></small></CombatHotkeyButton>
+                            <CombatHotkeyButton action="cleanse" onClick={() => armBasicAction("cleanse")} aria-pressed={mode === "cleanse"} className={mode === "cleanse" ? "selected-action" : ""}
+                                disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {cleanseCd}</span></small></CombatHotkeyButton>
+                            <CombatHotkeyButton action="summon"
                                 className={`summon-pet-command${session.pendingCompanion ? " has-summon-price" : ""}${mode === "summon" ? " selected-action" : ""}`}
                                 aria-pressed={mode === "summon"}
                                 onClick={() => armBasicAction("summon")}
@@ -1732,13 +1727,13 @@ export function MissionArenaFight({
                                         : session.companionUsed
                                             ? "Already used"
                                             : unavailableCompanionCopy.short}</small>
-                            </button>
-                            <button
+                            </CombatHotkeyButton>
+                            <CombatHotkeyButton action="flee"
                                 disabled={busy || !myTurn || outOfActions || myAp < fleeAp || retreatSealed}
                                 title={retreatSealed ? "Berserker's Gamble seals retreat." : `Attempt to escape for ${fleeAp} AP and 10% max HP. Failure continues the fight.`}
                                 onClick={() => { resetTargeting(); void send({ type: "flee" }); }}
-                            ><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : <>{fleeAp} AP<span className="cmd-detail"> · escape roll</span></>}</small></button>
-                            <button data-academy-action="wait" onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
+                            ><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : <>{fleeAp} AP<span className="cmd-detail"> · escape roll</span></>}</small></CombatHotkeyButton>
+                            <CombatHotkeyButton action="endTurn" data-academy-action="wait" onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></CombatHotkeyButton>
                         </CombatCommandBar>
 
                         <div
@@ -1765,7 +1760,7 @@ export function MissionArenaFight({
                                         return (
                                             <div key={j.id} className={`combat-jutsu-card-wrap ${armed ? "selected-action" : ""} ${onCd ? "jutsu-cooling" : ""}`}>
                                                 {onCd && <span className="combat-cd-badge combat-jutsu-cd-badge" title={`${cd} round(s) until ready`}><span className="combat-cd-prefix">CD </span>{cd}</span>}
-                                                <button
+                                                <CombatHotkeyButton action={jutsuHotkey(j.id, myJutsuSlotIds)}
                                                     type="button"
                                                     id={`mission-jutsu-select-${j.id}`}
                                                     aria-haspopup={academyGuided ? "dialog" : undefined}
@@ -1783,7 +1778,7 @@ export function MissionArenaFight({
                                                     {/* "CD 0" is noise on every card; an ACTIVE cooldown already
                                                         shows as the corner pip. */}
                                                     <CombatJutsuMeta character={character} jutsu={j} statuses={myActor?.statuses} round={session.round} activeCooldown={cd} sealedResourceCosts={{ chakraCost: chakra, staminaCost: stamina }} />
-                                                </button>
+                                                </CombatHotkeyButton>
                                                 <button
                                                     type="button"
                                                     className="combat-jutsu-help"
@@ -1810,7 +1805,7 @@ export function MissionArenaFight({
                                         return (
                                             <div key={item.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${onCd ? " jutsu-on-cooldown" : ""}`}>
                                                 {onCd && <span className="combat-cd-badge">{cd}</span>}
-                                                <button
+                                                <CombatHotkeyButton action={equipmentHotkey(item.id, myActor?.character?.equipment)}
                                                     type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${armed ? " jutsu-armed" : ""}${onCd ? " jutsu-on-cooldown" : ""}`}
                                                     disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
@@ -1830,7 +1825,7 @@ export function MissionArenaFight({
                                                     </span>
                                                     <span className="combat-jutsu-name">{item.name}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left === Infinity ? "∞" : left}` : ""}</span>
-                                                </button>
+                                                </CombatHotkeyButton>
                                             </div>
                                         );
                                     })}
@@ -1844,7 +1839,7 @@ export function MissionArenaFight({
                                         return (
                                             <div key={item.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card${armed ? " selected-action" : ""}${onCd ? " jutsu-on-cooldown" : ""}`}>
                                                 {onCd && <span className="combat-cd-badge">{cd}</span>}
-                                                <button
+                                                <CombatHotkeyButton action={equipmentHotkey(item.id, myActor?.character?.equipment)}
                                                     type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${armed ? " jutsu-armed" : ""}${onCd ? " jutsu-on-cooldown" : ""}`}
                                                     aria-pressed={armed}
@@ -1864,7 +1859,7 @@ export function MissionArenaFight({
                                                     </span>
                                                     <span className="combat-jutsu-name">{item.name}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | Use | ×{left}</span>
-                                                </button>
+                                                </CombatHotkeyButton>
                                             </div>
                                         );
                                     })}
