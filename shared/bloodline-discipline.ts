@@ -3,7 +3,7 @@ export type CombatDiscipline = 'Ninjutsu' | 'Taijutsu' | 'Genjutsu' | 'Bukijutsu
 type DisciplineJutsu = { type?: unknown; effectPower?: number; ap?: number; isUtility?: boolean };
 
 export const isCombatDiscipline = (value: unknown): value is CombatDiscipline =>
-    /^(Nin|Tai|Gen|Buki)jutsu$/.test(value as string);
+    typeof value === 'string' && /^(Nin|Tai|Gen|Buki)jutsu$/.test(value);
 
 /**
  * How many techniques of each discipline a bloodline carries. Damage techniques

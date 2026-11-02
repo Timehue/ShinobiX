@@ -25,6 +25,8 @@ export function replaceCharacterBloodline(
     return {
         ...character,
         equippedBloodlineId: newBloodline.id,
+        // The server stamp describes the outgoing kit until the next save.
+        equippedDiscipline: undefined,
         equippedJutsuIds: character.equippedJutsuIds.filter((id) =>
             !bloodlineJutsuIds.has(id) || incomingJutsuIds.has(id)),
         // Deliberately preserve every mastery row. Stored-but-unequipped custom

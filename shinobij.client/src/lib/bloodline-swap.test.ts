@@ -6,6 +6,7 @@ import { equipOwnedBloodline, replaceCharacterBloodline } from "./bloodline-swap
 import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import { starterSavedBloodlines } from "../data/jutsu";
+import { playerLensDiscipline } from "./player-lens-discipline";
 
 const STARTER_TECH = starterSavedBloodlines.find((entry) => entry.name === "Ashen Eyes")!.jutsus[0]!.id;
 
@@ -104,6 +105,17 @@ describe("replaceCharacterBloodline", () => {
 });
 
 describe("equipOwnedBloodline", () => {
+    it("clears the outgoing discipline stamp when returning to the original starter", () => {
+        const original = starterSavedBloodlines.find((entry) => entry.name === "Ashen Eyes")!;
+        const before = character({ specialty: "Genjutsu", equippedDiscipline: "Bukijutsu" });
+        const result = equipOwnedBloodline(before, original, [bloodline("old-custom", ["old-tech"])]);
+
+        assert.equal(result.equippedDiscipline, undefined);
+        assert.equal(playerLensDiscipline(result), "Genjutsu");
+        assert.equal(before.equippedDiscipline, "Bukijutsu");
+        assert.equal(result.specialty, before.specialty);
+    });
+
     it("grants level-1 mastery only to the target's never-trained techniques", () => {
         const before = character({ jutsuMastery: [
             { jutsuId: "old-tech", level: 31, xp: 4 },
