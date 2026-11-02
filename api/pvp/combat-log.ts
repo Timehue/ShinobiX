@@ -9,7 +9,7 @@ import type { PvpSession } from './session.js';
 // GET /api/pvp/combat-log?id=<battleId>
 //
 // Durable, structured per-action combat log for a battle. Unlike the live
-// `session.log` (capped at 60 lines, gone with the 15-min session TTL), these
+// `session.log` (capped at 300 lines, gone with the 15-min session TTL), these
 // receipts are append-only and kept 90 days, so a player or admin can review
 // exactly what happened — each move's name, its flavor/cast narrative + effect
 // lines, and compact resource deltas — long after the fight ends.
