@@ -416,7 +416,8 @@ describe('level-aware PvP balance harness integrity', () => {
         assert.equal(report.base.games, report.fights);
         assert.equal(report.supporter.games, report.fights);
         // Wind utility and starter AOE tuning moves one of the 64 crossed fights.
-        assert.equal(scoredRate(report.supporter), 47 / 64, 'supporter-origin builds retain their three additional human-PvP techniques');
+        // The opening hit on damaging fields moves two more.
+        assert.equal(scoredRate(report.supporter), 45 / 64, 'supporter-origin builds retain their three additional human-PvP techniques');
         assert.deepEqual(report.issues, []);
     });
 });
