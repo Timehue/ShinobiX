@@ -17,7 +17,11 @@ export function progressionCatalogDelivery() {
             if (file.endsWith('/src/data/story-reckonings.ts')) return { code: packStaticCatalogLiteral(source, 'storyReckonings'), map: null };
             if (file.endsWith('/shared/story-card-sources.ts')) return { code: packStaticCatalogLiteral(source, 'CHRONICLE_STORY_SOURCES'), map: null };
             if (file.endsWith('/shared/clan-exchange-catalog.ts')) return { code: packStaticCatalogLiteral(source, 'CLAN_EXCHANGE_ITEMS'), map: null };
-            if (file.endsWith('/src/data/jutsu.ts')) return { code: packStaticCatalogLiteral(source, 'nonBloodlineFlavor'), map: null };
+            // Plain eager technique prose gzips better than the binary payload.
+            // Compact these on-demand catalogs instead to fund its raw bytes.
+            if (file.endsWith('/src/lib/pet-tutorial.ts')) return { code: packStaticCatalogLiteral(source, 'PET_TUTORIAL_LESSONS'), map: null };
+            if (file.endsWith('/src/lib/legacy-rumors.ts')) return { code: packStaticCatalogLiteral(source, 'RUMORS'), map: null };
+            if (file.endsWith('/src/lib/pet-portrait-assets.generated.ts')) return { code: packStaticCatalogLiteral(source, 'PET_SCENIC_PORTRAITS'), map: null };
             if (file.endsWith('/src/data/legacy-jutsu.ts')) return { code: packStaticCatalogLiteral(source, 'ROWS'), map: null };
         },
     };

@@ -67,12 +67,11 @@ test('literal packing refuses executable expressions and leaves unrelated module
     assert.equal(progressionCatalogDelivery().transform('const value = 1;', '/shared/other.ts'), undefined);
 });
 
-test('world catalog delivery retains every card, reviewed effect, reckoning and technique description', async () => {
+test('world catalog delivery retains every card, reviewed effect and reckoning', async () => {
     for (const [relative, name] of [
         ['../../shared/tile-cards.ts', 'shinobiTileCards'],
         ['../../shared/chronicle-duel.ts', 'REVIEWED_MONSTER_EFFECTS'],
         ['../src/data/story-reckonings.ts', 'storyReckonings'],
-        ['../src/data/jutsu.ts', 'nonBloodlineFlavor'],
     ]) {
         const source = readFileSync(new URL(relative, import.meta.url), 'utf8');
         const parsed = ts.createSourceFile('catalog.ts', source, ts.ScriptTarget.Latest, true);
