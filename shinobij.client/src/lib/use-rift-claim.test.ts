@@ -3,12 +3,15 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import type { Character } from "../types/character";
 import { hollowRifts } from "../data/hollow-rifts";
+import { createCharacter } from "./create-character";
 import { riftIntroEvent, riftRewardLine } from "./hollow-rifts";
+import { createPlayerSaveCoordinator } from "./player-save-coordinator";
 import { completeRiftRun, riftClaimShouldRetry, runRiftClaim } from "./rift-server";
 import { claimableRiftId } from "./use-rift-claim";
 
 const receipt = { riftId: "rift-legacy-echo", runToken: "run-token-1", combatRunId: "combat:1", acceptedAt: 1, clearedAt: 2 };
 const char = (over: Partial<Character>) => ({ name: "Aki", ...over }) as Character;
+const closedSave = char({ riftQuestBossReceipt: null, activeRiftQuest: null });
 
 test("a rift is claimable from its boss receipt only once the run has ended", () => {
     assert.equal(claimableRiftId(char({ riftQuestBossReceipt: receipt })), "rift-legacy-echo");
@@ -58,10 +61,64 @@ test("a claim adopts the committed save and version instead of adding the reward
         await completeRiftRun("Aki", receipt.riftId, (update) => { current = update(current); }, () => {}, accept);
         assert.deepEqual(commits, [12]);
         assert.equal((current as Character | null)?.fateShards, 1, "the local mirror did not stack on the adopted save");
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
 
-        current = start;
-        await completeRiftRun("Aki", receipt.riftId, (update) => { current = update(current); }, () => {}, () => false);
-        assert.equal((current as Character | null)?.ryo, 780, "a refused commit falls back to the local mirror");
+function staleReplyFixture(reply: Record<string, unknown>) {
+    const initial = { ...createCharacter("Aki", "Stormveil Village", "Ninjutsu", "Ashen Eyes"), ryo: 500, fateShards: 0, boneCharms: 0, riftQuestBossReceipt: receipt };
+    const characterRef = { current: initial as Character | null };
+    const owner = createPlayerSaveCoordinator({
+        characterRef, currentAccountNameRef: { current: initial.name }, saveSessionEpochRef: { current: 0 },
+        pvpCreateScopeAbortRef: { current: new AbortController() },
+        setCharacter: (update) => { characterRef.current = typeof update === "function" ? update(characterRef.current) : update; },
+        setSaveConflictDraft: () => {}, setSaveBlocked: () => {}, applyServerSnapshot: () => true,
+        storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } as unknown as Storage,
+    });
+    owner.saveAuthority.scopeToAccount(initial.name);
+    owner.latestSaveVersionRef.current = 5;
+    const readBacks: string[] = [];
+    owner.savePersistenceRef.current = {
+        invalidateAuthority: () => {},
+        refetchAfterConflict: async (name: string) => { readBacks.push(name); return false; },
+    } as unknown as NonNullable<typeof owner.savePersistenceRef.current>;
+    globalThis.fetch = async () => new Response(JSON.stringify(reply));
+    // A later write landed first: its save already holds the payout, and more ryo on top.
+    const newer = { ...initial, ryo: 1_200, fateShards: 1, boneCharms: 4, activeRiftQuest: null, riftQuestBossReceipt: null };
+    assert.equal(owner.commitVersionedCharacter(newer, 7), true);
+    const held = characterRef.current;
+    const claim = (lines: string[]) => completeRiftRun(initial.name, receipt.riftId,
+        (update) => { characterRef.current = update(characterRef.current); }, (line) => lines.push(line), owner.commitVersionedCharacter);
+    return { owner, characterRef, held, readBacks, claim };
+}
+
+test("a paid reply overtaken by a newer save changes nothing and reads the stored save back", async () => {
+    const originalFetch = globalThis.fetch;
+    const paid = { ok: true, ryo: 280, totalRyo: 780, fateShards: 1, boneCharms: 4, veils: 1, cooldownUntil: 9, _saveVersion: 6 };
+    const f = staleReplyFixture({ ...paid, character: { ...closedSave, ryo: 780, fateShards: 1, boneCharms: 4 } });
+    try {
+        const lines: string[] = [];
+        const response = await f.claim(lines);
+        assert.equal(f.characterRef.current, f.held, "no currency or item from the stale reply reached the newer save");
+        assert.equal(f.characterRef.current?.ryo, 1_200);
+        assert.equal(f.characterRef.current?.fateShards, 1, "the shard is not paid a second time");
+        assert.equal(f.owner.latestSaveVersionRef.current, 7);
+        assert.deepEqual(f.readBacks, ["Aki"], "the refusal hands over to the stored-save read-back");
+        assert.equal(riftClaimShouldRetry(response), false, "the claim was paid, so it is not retried");
+        assert.deepEqual(lines, ["Rift sealed. Quest reward: 280 ryo, 1 fate shard, 4 bone charms, 1 Veil of the Hollow."]);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test("an already-closed reply overtaken by a newer save leaves that save alone", async () => {
+    const originalFetch = globalThis.fetch;
+    const f = staleReplyFixture({ ok: false, reason: "none", character: { ...closedSave, ryo: 780 }, _saveVersion: 6 });
+    try {
+        await f.claim([]);
+        assert.equal(f.characterRef.current, f.held);
+        assert.deepEqual(f.readBacks, ["Aki"]);
     } finally {
         globalThis.fetch = originalFetch;
     }

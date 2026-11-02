@@ -78,8 +78,13 @@ export async function completeRiftRun(
         candidate?.name.trim().toLowerCase() === account;
     const resp = await completeRift(playerName, riftId);
     // The committed save also carries the save version, so the next autosave
-    // does not run into a 409. The local mirror below is only the fallback.
-    const adopted = Boolean(resp.character && commit?.(resp.character, resp._saveVersion));
+    // does not run into a 409. A refused commit is not a failed claim: a newer
+    // save is held, it already has this payout, and the coordinator reads the
+    // stored save back. Mirroring here would write stale totals over that save
+    // and pay the deltas twice, so the mirror is only for a reply without a save.
+    const committed = commit ? resp.character : undefined;
+    if (committed) commit?.(committed, resp._saveVersion);
+    const adopted = Boolean(committed);
     if (!resp.ok) {
         // The old silent `return` ate a full boss-clear whenever the seal had
         // lapsed (7d TTL) or was lost in the cutover, and left activeRiftQuest set
