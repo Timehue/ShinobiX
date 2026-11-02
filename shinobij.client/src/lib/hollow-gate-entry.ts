@@ -184,6 +184,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     }
     // Named explicitly: the generic fallback below says to retry when the connection is stable, which is unactionable until discharge.
     if (serverStart?.reason === "hospitalized") { alert("You are still being treated. Leave the hospital before descending — no key was spent."); return; }
+    if (serverStart?.reason === "rift-claim-pending") { alert("You already broke this rift, and its report is still being sealed. Your reward is safe. If it does not arrive shortly, reload the game."); return; }
     if (!serverStart?.token || !serverStart.character) {
         alert("The Hollow Gate could not establish a secure server run. No key was spent locally; retry when the connection is stable.");
         return;

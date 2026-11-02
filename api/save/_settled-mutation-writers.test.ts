@@ -149,7 +149,11 @@ describe('server writers keep the idle recovery a player earned', { concurrency:
 
     it('weekly board claim', async (t) => {
         const name = `${PREFIX}weekly`;
-        await seedTired(name, { totalMissionsCompleted: 500, rankedWins: 500, hollowGateWardenKills: 500 });
+        // The board rotates weekly, so every counter a mission can track is seeded.
+        await seedTired(name, {
+            totalMissionsCompleted: 500, rankedWins: 500, hollowGateWardenKills: 500,
+            resourceGathering: { fishingXp: 1_000, miningXp: 1_000 },
+        });
         const handler = await load('../missions/weekly-board.js');
         // The baseline row below is keyed by weekKey(Date.now()), and the
         // handler keys its own row and board by weekKey(Date.now()) on every
@@ -166,7 +170,7 @@ describe('server writers keep the idle recovery a player earned', { concurrency:
         // Every counter is far past its target relative to an empty baseline.
         const { weekKey } = await import('../missions/_weekly-board.js');
         await kv.set(`weekly-board:${name}:${weekKey(Date.now())}`, {
-            baseline: { totalMissionsCompleted: 0, rankedWins: 0, hollowGateWardenKills: 0 },
+            baseline: { totalMissionsCompleted: 0, rankedWins: 0, hollowGateWardenKills: 0, fishingXp: 0, miningXp: 0 },
             claimed: [],
         });
 

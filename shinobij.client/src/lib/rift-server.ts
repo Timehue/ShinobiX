@@ -4,7 +4,7 @@
  * only WorldMap and a claim after a cleared rift ever need it.
  */
 import { gameToast } from "../components/GameToast";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 
 const CLAIM_RETRY_MS = 30_000;
 const CLAIM_MAX_ATTEMPTS = 5;
@@ -28,6 +28,8 @@ export type RiftResponse = {
     firstClear?: boolean;
     firstClearAt?: number;
     completedRiftId?: string;
+    /** The committed save, on a paid claim or an already-closed one. */
+    character?: Character;
 };
 
 async function postRift(body: Record<string, unknown>): Promise<RiftResponse> {
@@ -69,11 +71,15 @@ export async function completeRiftRun(
     riftId: string,
     apply: (updater: (prev: Character | null) => Character | null) => void,
     log: (msg: string) => void,
+    commit?: VersionedCharacterCommit,
 ): Promise<RiftResponse> {
     const account = playerName.trim().toLowerCase();
     const belongsToAccount = (candidate: Character | null): candidate is Character =>
         candidate?.name.trim().toLowerCase() === account;
     const resp = await completeRift(playerName, riftId);
+    // The committed save also carries the save version, so the next autosave
+    // does not run into a 409. The local mirror below is only the fallback.
+    const adopted = Boolean(resp.character && commit?.(resp.character, resp._saveVersion));
     if (!resp.ok) {
         // The old silent `return` ate a full boss-clear whenever the seal had
         // lapsed (7d TTL) or was lost in the cutover, and left activeRiftQuest set
@@ -81,8 +87,8 @@ export async function completeRiftRun(
         // server self-heals a stranded rift (reason "none") clear the local mirror
         // too so the roaming giver can offer a fresh rift.
         if (resp.reason === "none") {
-            apply((prev) => belongsToAccount(prev) ? ({ ...prev, activeRiftQuest: null, riftQuestBossReceipt: null }) : prev);
-            log("The rift's energy had already faded — this quest is cleared. A new rift can appear.");
+            if (!adopted) apply((prev) => belongsToAccount(prev) ? ({ ...prev, activeRiftQuest: null, riftQuestBossReceipt: null }) : prev);
+            log("This rift report is already closed. A new rift can appear.");
         } else if (resp.reason === "incomplete") {
             log("The rift boss wasn't registered as defeated. Defeat the boss, then return.");
         } else if (resp.reason === "wrong-rift") {
@@ -94,7 +100,7 @@ export async function completeRiftRun(
         }
         return resp;
     }
-    apply((prev) => belongsToAccount(prev) ? ({
+    if (!adopted) apply((prev) => belongsToAccount(prev) ? ({
         ...prev,
         // The server wrote the post-credit balance; adopt it rather than re-adding
         // the delta to a local balance that may already be stale.
@@ -131,12 +137,13 @@ export async function runRiftClaim(
     playerName: string,
     riftId: string,
     apply: (updater: (prev: Character | null) => Character | null) => void,
+    commit: VersionedCharacterCommit,
     isCurrent: () => boolean,
 ): Promise<void> {
     for (let attempt = 1; attempt <= CLAIM_MAX_ATTEMPTS; attempt += 1) {
         if (attempt > 1) await new Promise((resolve) => setTimeout(resolve, CLAIM_RETRY_MS));
         if (!isCurrent()) return;
-        const response = await completeRiftRun(playerName, riftId, apply, (line) => gameToast(line, { kind: "info" }));
+        const response = await completeRiftRun(playerName, riftId, apply, (line) => gameToast(line, { kind: "info" }), commit);
         if (!riftClaimShouldRetry(response)) return;
     }
 }

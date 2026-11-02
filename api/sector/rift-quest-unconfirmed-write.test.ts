@@ -111,12 +111,30 @@ describe('the rift Veil', { concurrency: false }, () => {
         assert.equal(paid.body?.ok, true, JSON.stringify(paid.body));
         assert.equal(paid.body?.veils, 1);
         assert.deepEqual(paid.body?.itemStacks, [{ itemId: 'veil-of-the-hollow', count: 3 }]);
-        const stored = (await kv.get<{ character: Json }>(`save:${name}`))!.character;
-        assert.deepEqual(stored.itemStacks, [{ itemId: 'veil-of-the-hollow', count: 3 }]);
+        const stored = (await kv.get<{ character: Json; _saveVersion: number }>(`save:${name}`))!;
+        assert.deepEqual(stored.character.itemStacks, [{ itemId: 'veil-of-the-hollow', count: 3 }]);
+        assert.deepEqual((paid.body?.character as Json).itemStacks, stored.character.itemStacks, 'the reply carries the committed save');
+        assert.equal(paid.body?._saveVersion, stored._saveVersion);
 
         const replay = await complete(name);
         assert.equal(replay.body?.ok, false);
-        assert.deepEqual((await kv.get<{ character: Json }>(`save:${name}`))!.character.itemStacks, stored.itemStacks);
+        assert.equal(replay.body?.reason, 'none');
+        assert.deepEqual((replay.body?.character as Json).itemStacks, stored.character.itemStacks, 'a retry after a lost reply can adopt the payout');
+        assert.equal(replay.body?._saveVersion, stored._saveVersion);
+        assert.deepEqual((await kv.get<{ character: Json }>(`save:${name}`))!.character.itemStacks, stored.character.itemStacks);
+    });
+
+    it('clears a receipt whose seal is gone, so the claim does not repeat on every load', async () => {
+        const name = `${PREFIX}orphan`;
+        await seed(name);
+        const save = (await kv.get<{ character: Json }>(`save:${name}`))!;
+        await kv.set(`save:${name}`, { ...save, activeRiftQuestSeal: null, character: { ...save.character, activeRiftQuest: null } });
+        await kv.del(questKey(name));
+
+        const out = await complete(name);
+        assert.equal(out.body?.reason, 'none');
+        assert.equal((await kv.get<{ character: Json }>(`save:${name}`))!.character.riftQuestBossReceipt, null);
+        assert.equal((out.body?.character as Json).riftQuestBossReceipt, null);
     });
 
     it('waits for the run to end, because settling an open run claws uncredited items back', async () => {

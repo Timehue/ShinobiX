@@ -6,7 +6,8 @@
  * Hollow Gate (short 1-3 floor run) with a themed final boss. Server-authoritative:
  *   accept   → seal the deterministic target sector and acceptance identity
  *   Gate     → bind that seal to one exact variant run and boss-combat receipt
- *   complete → verify the bound receipt, pay ryo + shards, stamp a post-clear
+ *   complete → once the run has ended, verify the bound receipt, pay ryo, Fate
+ *              Shards, Bone Charms and the Rift's one Veil, stamp a post-clear
  *              cooldown and first-clear story receipt; daily-capped
  * The reward is recomputed here, never trusted from the client. Nothing about the
  * Hollow Gate engine is touched.

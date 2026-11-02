@@ -239,7 +239,13 @@ test('an unprepared level-12 player descends the intro rift and resolves every e
     const counted = (itemId: string) => (save.character.itemStacks as Array<{ itemId: string; count: number }>).find((stack) => stack.itemId === itemId)?.count ?? 0;
     assert.equal(counted('dungeon-legendary-fragment'), 2);
     assert.equal(counted('veil-of-the-hollow'), 0, 'the Veil is still unpaid');
-    const completed = await call('riftQuest', { action: 'complete', riftId: RIFT });
+    const dailyRuns = save.character.dailyHollowGateRuns;
+    const reentry = await call('start', { variantId: RIFT, requestId: 'rift-novice-start-2' });
+    assert.equal(reentry.status, 409, JSON.stringify(reentry.body));
+    assert.match(JSON.stringify(reentry.body), /rift-claim-pending/);
+    save = await readSave();
+    assert.equal(save.character.dailyHollowGateRuns, dailyRuns, 'a refused re-entry spends no dive');
+    const completed =await call('riftQuest', { action: 'complete', riftId: RIFT });
     assert.equal(completed.status, 200, JSON.stringify(completed.body));
     assert.equal(completed.body.ok, true, JSON.stringify(completed.body));
     const questRyo = riftQuestRyo(12, 5);

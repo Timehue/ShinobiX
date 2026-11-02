@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import type { Character } from "../types/character";
+import { useEffect, useRef } from "react";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 
 /** The rift this character can claim now: a recorded boss kill and no open run. */
 export function claimableRiftId(character: Character | null): string | null {
@@ -16,16 +16,20 @@ export function claimableRiftId(character: Character | null): string | null {
 export function useRiftClaim(
     character: Character | null,
     setCharacter: (updater: (prev: Character | null) => Character | null) => void,
+    commitCharacter: VersionedCharacterCommit,
 ): void {
     const name = character?.name;
     const riftId = claimableRiftId(character);
     const runToken = character?.riftQuestBossReceipt?.runToken;
+    // A ref: App makes this callback every render, and in the deps below it would re-claim.
+    const commitRef = useRef(commitCharacter);
+    useEffect(() => { commitRef.current = commitCharacter; });
 
     useEffect(() => {
         if (!name || !riftId || !runToken) return;
         let current = true;
         void import("./rift-server")
-            .then(({ runRiftClaim }) => runRiftClaim(name, riftId, setCharacter, () => current))
+            .then(({ runRiftClaim }) => runRiftClaim(name, riftId, setCharacter, (next, version) => commitRef.current(next, version), () => current))
             .catch(() => undefined);
         return () => { current = false; };
     }, [name, riftId, runToken, setCharacter]);

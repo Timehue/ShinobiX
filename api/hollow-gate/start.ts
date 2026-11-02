@@ -20,7 +20,7 @@ import {
     type HollowGateRunToken,
     type HgCurrencyKey,
 } from './_run-token.js';
-import { RIFT_QUESTS, parseRiftQuestSeal, reconcileRiftRunBinding, riftWeeklyDistortion, type RiftQuestSeal } from '../sector/_rift-quest.js';
+import { RIFT_QUESTS, parseRiftQuestBossReceipt, parseRiftQuestSeal, reconcileRiftRunBinding, riftBossReceiptMatches, riftWeeklyDistortion, type RiftQuestSeal } from '../sector/_rift-quest.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { loadPublishedContent } from '../_content-store.js';
 import { HOLLOW_GATE_LEDGER_ITEM_IDS, type HollowGateRewardLedger } from './_ledger.js';
@@ -286,6 +286,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (typeof activeToken === 'string' && activeToken && !redeemedRuns.includes(activeToken)
                 && await kv.get(hollowGateRunKey(playerName, activeToken))) {
                 return { ok: false as const, status: 409, error: 'hollow-gate-run-active' };
+            }
+            // A new run rebinds the seal, which would orphan a kill still waiting
+            // to be claimed. Nothing is spent here; the claim closes the quest.
+            if (currentRiftSeal && riftBossReceiptMatches(currentRiftSeal, parseRiftQuestBossReceipt(character.riftQuestBossReceipt))) {
+                return { ok: false as const, status: 409, error: 'rift-claim-pending' };
             }
             // A hospitalized diver is refused BEFORE anything is spent. Everything
             // below this line costs the player something irreversible — a Hollow

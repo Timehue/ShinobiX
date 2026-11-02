@@ -25,7 +25,7 @@ test("only an answer that says nothing about the quest is retried", () => {
 
 test("the app claims through the hook, the single path for shinobi and pet wins", () => {
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-    assert.match(app, /useRiftClaim\(character, setCharacter\)/);
+    assert.match(app, /useRiftClaim\(character, setCharacter, commitVersionedCharacter\)/);
     assert.doesNotMatch(app, /completeRiftRun/);
 });
 
@@ -46,6 +46,42 @@ test("a claim adopts the server's Veil and clears the receipt that drives the re
     }
 });
 
+test("a claim adopts the committed save and version instead of adding the reward a second time", async () => {
+    const originalFetch = globalThis.fetch;
+    const committed = char({ ryo: 780, fateShards: 1, boneCharms: 4, riftQuestBossReceipt: null });
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: true, ryo: 280, totalRyo: 780, fateShards: 1, boneCharms: 4, veils: 1, character: committed, _saveVersion: 12 }));
+    try {
+        const start = char({ ryo: 500, fateShards: 0, boneCharms: 0, riftQuestBossReceipt: receipt });
+        let current: Character | null = start;
+        const commits: unknown[] = [];
+        const accept = (next: Character, version: unknown) => { commits.push(version); current = next; return true; };
+        await completeRiftRun("Aki", receipt.riftId, (update) => { current = update(current); }, () => {}, accept);
+        assert.deepEqual(commits, [12]);
+        assert.equal((current as Character | null)?.fateShards, 1, "the local mirror did not stack on the adopted save");
+
+        current = start;
+        await completeRiftRun("Aki", receipt.riftId, (update) => { current = update(current); }, () => {}, () => false);
+        assert.equal((current as Character | null)?.ryo, 780, "a refused commit falls back to the local mirror");
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test("a retry after a lost reply adopts what the first call paid", async () => {
+    const originalFetch = globalThis.fetch;
+    const committed = char({ ryo: 780, riftQuestBossReceipt: null });
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: false, reason: "none", character: committed, _saveVersion: 12 }));
+    try {
+        let adopted: Character | null = null;
+        const lines: string[] = [];
+        await completeRiftRun("Aki", receipt.riftId, () => assert.fail("no local mirror"), (line) => lines.push(line), (next) => { adopted = next; return true; });
+        assert.equal((adopted as Character | null)?.ryo, 780);
+        assert.deepEqual(lines, ["This rift report is already closed. A new rift can appear."]);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
 test("a claim retries a silent failure, stops on an answer, and yields when it stops being current", async (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
     const originalFetch = globalThis.fetch;
@@ -57,14 +93,14 @@ test("a claim retries a silent failure, stops on an answer, and yields when it s
         return new Response(JSON.stringify({ ok: false, reason: "incomplete" }));
     };
     try {
-        const claim = runRiftClaim("Aki", receipt.riftId, () => {}, () => true).then(() => { settled = true; });
+        const claim = runRiftClaim("Aki", receipt.riftId, () => {}, () => false, () => true).then(() => { settled = true; });
         await new Promise((resolve) => setImmediate(resolve));
         assert.equal(calls, 1);
         t.mock.timers.tick(30_000);
         await claim;
         assert.equal(settled, true);
         assert.equal(calls, 2, "the server's answer ends the claim");
-        await runRiftClaim("Aki", receipt.riftId, () => {}, () => false);
+        await runRiftClaim("Aki", receipt.riftId, () => {}, () => false, () => false);
         assert.equal(calls, 2, "a stale claim sends nothing");
     } finally {
         globalThis.fetch = originalFetch;

@@ -128,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // clear the mirror + durable seal and tell the client so the giver
                     // can offer a fresh rift.
                     await kv.del(questKey).catch(() => undefined);
-                    if (char.activeRiftQuest || rec.activeRiftQuestSeal !== undefined) {
+                    if (char.activeRiftQuest || char.riftQuestBossReceipt || rec.activeRiftQuestSeal != null) {
                         return {
                             ok: true,
                             character: { ...char, activeRiftQuest: null, riftQuestBossReceipt: null },
@@ -136,7 +136,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             value: { body: { ok: false, reason: 'none', activeRiftQuest: null }, echo: true, withCharacter: true },
                         };
                     }
-                    return answer({ ok: false, reason: 'none' });
+                    // The usual cause is a retry after a lost reply, so hand back the
+                    // committed save: the client adopts what the first call paid.
+                    return { ok: true, write: false, character: char, value: { body: { ok: false, reason: 'none' }, echo: true, withCharacter: true } };
                 }
                 if (sealed.id !== def.id) return answer({ ok: false, reason: 'wrong-rift' });
 
@@ -221,6 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             completedRiftId: def.id,
                         },
                         echo: true,
+                        withCharacter: true,
                     },
                     // A payout that loses its compare-and-set paid nothing. Put back
                     // what it spent ahead of the write: the KV seal (for a KV-only

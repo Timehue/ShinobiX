@@ -12,7 +12,7 @@ import type { HollowRift } from "../data/hollow-rifts";
 
 /** The scaled event-gate config for a rift (short floors, themed boss, free
  *  entry). Fed straight into the existing enterHollowGateShrine path. The run's
- *  variant.id = the rift id, which the App completion hook keys off. */
+ *  variant.id = the rift id, which the server's Veil rules key off. */
 export function riftEventConfig(rift: HollowRift): HollowGateEventConfig {
     return {
         id: rift.id,

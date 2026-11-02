@@ -4497,7 +4497,7 @@ export default function App() {
     }
 
     const openWorldMapOverview = useWorldMapOverview(navigate);
-    useRiftClaim(character, setCharacter);
+    useRiftClaim(character, setCharacter, commitVersionedCharacter);
 
     async function completeTriggeredEvent(event: CreatorEvent) {
         if (character) {
