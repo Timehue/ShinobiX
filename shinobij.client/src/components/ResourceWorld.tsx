@@ -75,6 +75,15 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
         return view.difficulty ? resourceNodeAtLevel(site, view.difficulty) : site;
     };
     const offer = node ? offered(node) : undefined;
+    // A refusal describes the level it was refused at. Drop it when the site
+    // rotates, or the dialog shows the new level above the old requirement.
+    // Attempt and recovery errors stay: they are about the attempt, not the level.
+    const offerLevel = offer?.difficulty, idle = !active && ready, shownLevel = useRef(offerLevel);
+    useEffect(() => {
+        const prior = shownLevel.current;
+        shownLevel.current = offerLevel;
+        if (idle && prior && offerLevel && prior !== offerLevel) setError('');
+    }, [offerLevel, idle]);
     const charges = availability?.remaining ?? 0;
     const occupied = !!availability?.gatherer && availability.gatherer !== playerSlug(character.name);
     const today = resourceActionsToday(character, now);
