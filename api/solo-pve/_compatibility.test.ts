@@ -18,7 +18,7 @@ describe('solo-PvE published content compatibility', () => {
         const jutsu = [...Object.values(JUTSU_CATALOG), ...Object.values(LEGACY_JUTSU_CATALOG)];
         const issues = jutsu.flatMap(soloPveJutsuCompatibility);
         assert.deepEqual(issues, []);
-        assert.equal(jutsu.length, 217, 'update the compatibility report when the generated catalogs change');
+        assert.equal(jutsu.length, 262, 'shipped compatibility census including the global expansion');
     });
 
     it('supports every published item combat field', () => {

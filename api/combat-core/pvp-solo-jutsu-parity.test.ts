@@ -10,6 +10,7 @@ import { applySoloPveAction } from '../solo-pve/_engine.js';
 import { filledDiskTiles } from './aoe.js';
 import { groundFieldOpeningHit } from './resolve-jutsu-action.js';
 import { GRID_H, GRID_W } from './constants.js';
+import { v2JutsuCosts } from '../_combat-resources.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
 process.env.SUPABASE_SERVICE_KEY ??= 'x';
@@ -300,6 +301,7 @@ function normalizeSolo(before: SoloPveSession, after: SoloPveSession, applied: b
 }
 
 type ParitySetup = {
+    specialty?: string;
     casterPos?: number;
     targetPos?: number;
     ap?: number;
@@ -320,6 +322,7 @@ type ParitySetup = {
 };
 
 function applySetupToPvp(session: PvpSession, jutsu: CombatJutsu, setup: ParitySetup) {
+    if (setup.specialty) session.p1.character.specialty = setup.specialty;
     session.roundOpener = setup.roundOpener ?? session.roundOpener;
     session.p1.pos = setup.casterPos ?? session.p1.pos;
     session.p2.pos = setup.targetPos ?? session.p2.pos;
@@ -339,6 +342,7 @@ function applySetupToPvp(session: PvpSession, jutsu: CombatJutsu, setup: ParityS
 }
 
 function applySetupToSolo(session: SoloPveSession, jutsu: CombatJutsu, setup: ParitySetup) {
+    if (setup.specialty) session.player.character.specialty = setup.specialty;
     session.player.pos = setup.casterPos ?? session.player.pos;
     session.enemy.pos = setup.targetPos ?? session.enemy.pos;
     session.ap.player = setup.ap ?? session.ap.player;
@@ -427,7 +431,7 @@ describe('authoritative PvP/Solo-PvE jutsu parity', () => {
         for (const jutsu of [...Object.values(JUTSU_CATALOG), ...Object.values(LEGACY_JUTSU_CATALOG)]) {
             catalog.set(jutsu.id, jutsu);
         }
-        assert.equal(catalog.size, 217, 'starting census; the live total remains derived from the catalogs');
+        assert.equal(catalog.size, 262, 'built-in and legacy census, including the global expansion');
 
         let index = 0;
         for (const jutsu of catalog.values()) {
@@ -436,6 +440,87 @@ describe('authoritative PvP/Solo-PvE jutsu parity', () => {
                 `${jutsu.id} (${jutsu.name}) diverged`
                 + ` [pvp refused: ${result.pvpRejection ?? 'no'};`
                 + ` solo refused: ${result.soloRejection ?? 'no'}]`);
+        }
+    });
+
+    test('new global options resolve damage, healing, status timing, AP, resources and cooldowns in both runtimes', async () => {
+        const additions = Object.values(JUTSU_CATALOG).filter(j =>
+            /^starter-(?:nin|gen|tai|buki)-[a-z]+-[56]$/.test(j.id) || j.id.startsWith('starter-any-'));
+        assert.equal(additions.length, 45);
+        let index = 3000;
+        for (const level of [10, 50, 100]) for (const jutsu of additions) {
+            const result = await runParityCase(jutsu, index++, { casterHp: 500_000, level });
+            assertParity(result, `${jutsu.id} level ${level}`);
+            const cast = result.pvp;
+            assert.equal(cast.applied, true, jutsu.id);
+            assert.equal(cast.apSpent, jutsu.ap);
+            assert.equal(cast.chakraSpent, jutsu.chakraCost);
+            assert.equal(cast.staminaSpent, jutsu.staminaCost);
+            assert.equal(cast.cooldown[jutsu.id], 7);
+            assert.equal(cast.damageToHp > 0, jutsu.ap === 60, jutsu.id);
+            for (const tag of jutsu.tags) {
+                if (tag.name === 'Siphon') {
+                    assert.ok(cast.healing > 0, `${jutsu.id} heals immediately`);
+                    continue;
+                }
+                if (tag.name === 'Shield') {
+                    assert.ok(cast.shielding > 0, `${jutsu.id} shields immediately`);
+                    continue;
+                }
+                const selfTag = ['Lifesteal', 'Increase Heal', 'Reflect', 'Decrease Damage Taken'].includes(tag.name);
+                const statuses = selfTag ? cast.caster.statuses : cast.target.statuses;
+                const status = statuses.find(s => s.name === tag.name);
+                assert.ok(status, `${jutsu.id} applies ${tag.name} to ${selfTag ? 'caster' : 'target'}`);
+                assert.equal(status.activeRound, 2, `${jutsu.id}: delayed ${tag.name}`);
+                assert.equal(status.rounds, 2);
+                if (tag.name === 'Wound') assert.ok(Number(status.amount) > 0);
+            }
+            if (jutsu.tags.some(tag => tag.name === 'Lifesteal')) assert.equal(cast.healing, 0, 'Lifesteal is not immediate healing');
+        }
+    });
+
+    test('every new jutsu uses live single-bar costs and rejects illegal casts without spending resources', async () => {
+        const additions = Object.values(JUTSU_CATALOG).filter(j =>
+            /^starter-(?:nin|gen|tai|buki)-[a-z]+-[56]$/.test(j.id) || j.id.startsWith('starter-any-'));
+        let index = 4000;
+        for (const entry of additions) {
+            const styles = entry.type === 'Any' ? ['Ninjutsu', 'Genjutsu', 'Taijutsu', 'Bukijutsu'] : [entry.type];
+            for (const specialty of styles) {
+                const jutsu = { ...entry, ...v2JutsuCosts(entry, 50, specialty) };
+                const setup = { specialty, level: 50, casterHp: 500_000 };
+                const success = await runParityCase(jutsu, index++, setup);
+                assertParity(success, `${entry.id}/${specialty}: sealed costs`);
+                assert.equal(success.pvp.applied, true);
+                assert.equal(success.pvp.chakraSpent, jutsu.chakraCost);
+                assert.equal(success.pvp.staminaSpent, jutsu.staminaCost);
+                assert.equal(Number(success.pvp.chakraSpent > 0) + Number(success.pvp.staminaSpent > 0), 1);
+                const rejected: ParitySetup[] = [
+                    { ap: jutsu.ap - 1 },
+                    { cooldown: 1 },
+                    { actionsThisTurn: 5 },
+                    jutsu.chakraCost > 0 ? { chakra: jutsu.chakraCost - 1 } : { stamina: jutsu.staminaCost - 1 },
+                    { casterStatuses: [parityStatus('Elemental Seal', 'negative')] },
+                ];
+                for (const gate of rejected) {
+                    const result = await runParityCase(jutsu, index++, { ...setup, ...gate });
+                    assertParity(result, `${entry.id}/${specialty}: ${JSON.stringify(gate)}`);
+                    assert.equal(result.pvp.applied, false);
+                    assert.equal(result.pvp.apSpent, 0);
+                    assert.equal(result.pvp.actionsAdded, 0);
+                    assert.equal(result.pvp.chakraSpent, 0);
+                    assert.equal(result.pvp.staminaSpent, 0);
+                    assert.equal(result.pvp.damageToHp, 0);
+                    assert.equal(result.pvp.healing, 0);
+                    assert.equal(result.pvp.shielding, 0);
+                }
+                const range = await runParityCase(jutsu, index++, { ...setup, casterPos: 0, targetPos: 119 });
+                assertParity(range, `${entry.id}/${specialty}: range`);
+                assert.equal(range.pvp.applied, entry.target === 'SELF', 'only self support ignores enemy distance');
+                if (!range.pvp.applied) {
+                    assert.equal(range.pvp.apSpent + range.pvp.chakraSpent + range.pvp.staminaSpent, 0);
+                    assert.equal(range.pvp.shielding, 0, 'a rejected mixed utility cannot grant its shield');
+                }
+            }
         }
     });
 

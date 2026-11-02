@@ -11,10 +11,10 @@ import { NARRATIVE_ENEMY_IDENTITIES, narrativeEnemyJutsuIds } from '../../shared
 describe('executable jutsu parity inventory', () => {
     test('derives the shipped census and classifies every executable jutsu', () => {
         const inventory = buildJutsuParityInventory();
-        assert.equal(inventory.rows.length, 217, 'review baseline; count is still derived from executable catalogs');
-        assert.deepEqual(inventory.sourceCounts, { 'built-in': 117, legacy: 100, 'admin-published': 0 });
-        assert.deepEqual(inventory.targetCounts, { OPPONENT: 181, EMPTY_GROUND: 10, SELF: 26 });
-        assert.deepEqual(inventory.methodCounts, { SINGLE: 171, AOE_BURST: 37, AOE_CIRCLE: 9 });
+        assert.equal(inventory.rows.length, 262, 'shipped census including the global expansion');
+        assert.deepEqual(inventory.sourceCounts, { 'built-in': 162, legacy: 100, 'admin-published': 0 });
+        assert.deepEqual(inventory.targetCounts, { OPPONENT: 224, EMPTY_GROUND: 10, SELF: 28 });
+        assert.deepEqual(inventory.methodCounts, { SINGLE: 216, AOE_BURST: 37, AOE_CIRCLE: 9 });
         assert.deepEqual(inventory.apCosts, [20, 40, 60]);
         assert.deepEqual(inventory.cooldowns, [2, 7, 10]);
         assert.deepEqual(inventory.ranges, [4, 5]);
