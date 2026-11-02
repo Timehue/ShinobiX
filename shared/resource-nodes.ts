@@ -1,13 +1,15 @@
 import { SECTOR_PLACES } from './sector-geo';
 import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts';
 import { WORLD_LAYOUT_VERSION } from './continuous-world-layout';
-import type { ResourceActivity, ResourceFamily, ResourceGrade } from './resource-gathering';
+import { RESOURCE_REFILL_MS, type ResourceActivity, type ResourceFamily, type ResourceGrade } from './resource-gathering';
 import { RESOURCE_ROCK_TILES } from './resource-node-terrain';
 import { RESOURCE_CRYSTAL_SITES } from './resource-crystal-sites';
 
+export type ResourceNodeLevel = 1 | 4 | 7;
 export type ResourceNode = {
     id: string; name: string; activity: ResourceActivity; sector: number; approach: number; target: number;
-    difficulty: 1 | 4 | 7; ceiling: ResourceGrade; family: ResourceFamily; trace?: ResourceFamily;
+    /** The placement's base level. Live play uses resourceNodeOffer instead. */
+    difficulty: ResourceNodeLevel; ceiling: ResourceGrade; family: ResourceFamily; trace?: ResourceFamily;
     layoutVersion: string;
     worldBossCrystal?: true;
     markerOffset?: readonly [number,number];
@@ -99,13 +101,16 @@ const placements: readonly [number, ResourceActivity, number, number, 1 | 4 | 7,
     [7, 'fishing', 72, 84, 4, 'Reedbank shoal'],
     [35, 'fishing', 121, 122, 7, 'Glacier-fed depths'],
 ];
-const historicalNodes: readonly ResourceNode[] = placements.map(([sector, activity, approach, target, difficulty, name], index) => {
+function levelRewards(sector: number, activity: ResourceActivity, difficulty: ResourceNodeLevel): Pick<ResourceNode, 'ceiling' | 'trace'> {
     const place = SECTOR_PLACES.find(p => p.id === sector)!;
-    return { id: `resource-${index + 1}`, name, sector, activity, approach, target, difficulty,
-        ceiling: (difficulty === 1 ? 1 : difficulty === 4 ? 2 : 3) as ResourceGrade,
-        family: activity === 'fishing' ? 'gather-river-fish' : 'gather-iron-sand',
+    return { ceiling: (difficulty === 1 ? 1 : difficulty === 4 ? 2 : 3) as ResourceGrade,
         trace: activity !== 'mining' || difficulty === 1 ? undefined : place.biome === 'snow' ? 'gather-rime-crystal'
-            : place.biome === 'volcano' ? 'gather-ember-ore' : place.biome === 'central' ? 'gather-stormglass-shard' : undefined,
+            : place.biome === 'volcano' ? 'gather-ember-ore' : place.biome === 'central' ? 'gather-stormglass-shard' : undefined };
+}
+const historicalNodes: readonly ResourceNode[] = placements.map(([sector, activity, approach, target, difficulty, name], index) => {
+    return { id: `resource-${index + 1}`, name, sector, activity, approach, target, difficulty,
+        ...levelRewards(sector, activity, difficulty),
+        family: activity === 'fishing' ? 'gather-river-fish' : 'gather-iron-sand',
         layoutVersion: WORLD_LAYOUT_VERSION };
 });
 
@@ -124,6 +129,40 @@ export const WORLD_BOSS_CRYSTAL_NODES:readonly ResourceNode[]=RESOURCE_CRYSTAL_S
 
 export function resourceNode(id: unknown): ResourceNode | undefined {
     return historicalNodes.find(node => node.id === id) ?? WORLD_BOSS_CRYSTAL_NODES.find(node => node.id === id);
+}
+
+/** A cycle deals exactly half of an activity's sites level 1 and splits the rest
+ * between 4 and 7. Refills use the same clock, so an emptied site always returns
+ * on a new deal. Untouched sites redeal too: a level 7 site nobody can work would
+ * otherwise never empty, and the world would drift away from level 1. */
+function dealLevels(activity: ResourceActivity, cycle: number): ReadonlyMap<string, ResourceNodeLevel> {
+    const sites = RESOURCE_NODES.filter(node => node.activity === activity).map(node => node.id);
+    let seed = 2166136261;
+    for (const char of `${activity}:${cycle}`) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
+    const draw = () => {
+        seed = (seed + 0x6D2B79F5) | 0;
+        let mixed = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+        return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+    };
+    for (let i = sites.length - 1; i > 0; i--) {
+        const j = Math.floor(draw() * (i + 1));
+        [sites[i], sites[j]] = [sites[j], sites[i]];
+    }
+    const basic = Math.ceil(sites.length / 2), rich = basic + Math.ceil((sites.length - basic) / 2);
+    return new Map(sites.map((id, index) => [id, index < basic ? 1 : index < rich ? 4 : 7]));
+}
+const lastDeal: Partial<Record<ResourceActivity, { cycle: number; levels: ReadonlyMap<string, ResourceNodeLevel> }>> = {};
+export function resourceNodeAtLevel(node: ResourceNode, difficulty: ResourceNodeLevel): ResourceNode {
+    return node.worldBossCrystal ? node : { ...node, difficulty, ...levelRewards(node.sector, node.activity, difficulty) };
+}
+/** What a site offers at `at`. Event crystals and retired sites keep their rules. */
+export function resourceNodeOffer(node: ResourceNode, at: number): ResourceNode {
+    const cycle = Math.floor(at / RESOURCE_REFILL_MS);
+    let deal = lastDeal[node.activity];
+    if (deal?.cycle !== cycle) deal = lastDeal[node.activity] = { cycle, levels: dealLevels(node.activity, cycle) };
+    const level = deal.levels.get(node.id);
+    return level ? resourceNodeAtLevel(node, level) : node;
 }
 export function resourceNodePosition(node: ResourceNode) { return { left: ((node.target % 12) + (node.markerOffset?.[0]??.5)) / 12 * 100, top: (Math.floor(node.target / 12) + (node.markerOffset?.[1]??.5)) / 12 * 100 }; }
 export function validResourceNodeTerrain(node: ResourceNode): boolean {

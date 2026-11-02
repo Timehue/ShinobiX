@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { resourceNode, WORLD_BOSS_CRYSTAL_NODES } from '../../shared/resource-nodes.js';
+import { resourceNode, resourceNodeAtLevel, WORLD_BOSS_CRYSTAL_NODES, type ResourceNodeLevel } from '../../shared/resource-nodes.js';
 import { readResourceGathering, type ResourceReceipt } from '../../shared/resource-gathering.js';
 import { reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx, economyTxKey, type EconomyTxRecord } from '../_economy-tx.js';
 import { kv } from '../_storage.js';
@@ -22,7 +22,7 @@ import { readActiveWorldBossEvent } from '../world-boss-event/_event.js';
 import { rememberMinedGround } from './_harvest-ground.js';
 import { resourceBattleActive } from './_resource-battle.js';
 import { withPlayerResourceNodes, reserveSharedResourceNode, finishSharedResourceAdmission,
-    sharedResourceClaimHeld, releaseSharedResourceClaim, sharedResourceViews } from './_shared-resource-nodes.js';
+    sharedResourceClaimHeld, releaseSharedResourceClaim, sharedResourceViews, sharedResourceOffer } from './_shared-resource-nodes.js';
 const resourceTxId = (name: string, id: string) => `resource-gathering:${createHash('sha256').update(`${name}:${id}`).digest('hex')}`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -150,7 +150,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     value: { attempt: state.active?.id === id ? state.active : undefined, receipt: state.receipts.find(r => r.id === id), replayed: true } };
             }
             const player = onlineStore.get(identity.name);
-            const error = resourcePositionError(player, node) || resourceAdmissionError(current, node, now, true);
+            // The seal snapshots this level, so a rotation cannot change a started
+            // attempt. A retry must reach its reservation, so it checks the sealed level.
+            const offered = requestSeal?.nodeId === node.id && requestSeal.rules
+                ? resourceNodeAtLevel(node, requestSeal.rules.difficulty as ResourceNodeLevel) : await sharedResourceOffer(node, now);
+            const error = resourcePositionError(player, node) || resourceAdmissionError(current, offered, now, true);
             if (error || !player) return { ok: false, status: 409, error: error ?? 'Connect to the world first.' };
             let worldBossEventId: string | undefined;
             if (node.worldBossCrystal) {
@@ -161,7 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             journal = await reserveEconomyTx({ id: txId, kind: 'resource-gathering', debitKey: sectorPoolKey(node.sector, now),
                 creditKey: `save:${identity.name}`, resource: 'explores', amount: 1,
                 meta: { fingerprint, nodeId: node.id, playerName: identity.name, poolEnabled,
-                    seal: { ...mintResourceSeal(current, node, id, body.mode as 'active' | 'relaxed', player, now, body.miningGameVersion === 2),
+                    seal: { ...mintResourceSeal(current, offered, id, body.mode as 'active' | 'relaxed', player, now, body.miningGameVersion === 2),
                         sharedNode: true,
                         ...(worldBossEventId ? { worldBossEventId } : {}) } } });
             if (journal.meta?.fingerprint !== fingerprint) return { ok: false, status: 409, error: 'This attempt ID was already used for another action.' };

@@ -1,4 +1,4 @@
-import { RESOURCE_NODES } from '../../../shared/resource-nodes';
+import { RESOURCE_NODES, resourceNodeOffer } from '../../../shared/resource-nodes';
 import { RESOURCE_FAMILIES } from '../../../shared/resource-items';
 import { readResourceGathering, resourceSkillLevel, RESOURCE_SKILL_XP, resourceSuccessRate, resourceQualityWeights, RESOURCE_GRADES, type ResourceActivity } from '../../../shared/resource-gathering';
 import { sectorName } from '../../../shared/sector-geo';
@@ -7,6 +7,8 @@ import { CentralDestinationHeader } from './CentralDestinationHeader';
 import { GatheringEquipment } from './GatheringEquipment';
 import { ResourceRefinery } from './ResourceRefinery';
 import { gatheringToolArtwork } from '../lib/gathering-tool-art';
+import { serverClockOffsetMs } from '../lib/server-clock';
+import { useSharedNow } from '../lib/use-shared-now';
 import './outpost-resource-panel.css';
 
 const GRADE_LEVELS = [1, 2, 4, 7];
@@ -19,7 +21,8 @@ export function OutpostResourcePanel({ activity, character, commit, onBack, onMa
     const mining = activity === 'mining', label = mining ? 'Mining' : 'Fishing';
     const state = readResourceGathering(character.resourceGathering), xp = state[`${activity}Xp`];
     const level = resourceSkillLevel(xp), floor = RESOURCE_SKILL_XP[level - 1], next = RESOURCE_SKILL_XP[level];
-    const weights = resourceQualityWeights(level, 3), nodes = RESOURCE_NODES.filter(node => node.activity === activity);
+    const now = useSharedNow() + serverClockOffsetMs();
+    const weights = resourceQualityWeights(level, 3), nodes = RESOURCE_NODES.filter(node => node.activity === activity).map(node => resourceNodeOffer(node, now));
     const toolArt = gatheringToolArtwork(mining ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole');
     const materialArt = mining ? '/items/gather-iron-sand-v1.webp' : '/items/gather-river-fish.svg';
     return <div className={`outpost-resource-panel field-station field-station--${activity}`}>
@@ -58,7 +61,7 @@ export function OutpostResourcePanel({ activity, character, commit, onBack, onMa
         <section className="outpost-survey" aria-label={mining ? 'Mineral seam directory' : 'Fishing water directory'}>
             <div className="resource-section-heading"><div><p className="resource-kicker">Field atlas · {nodes.length} known sites</p>
                 <h3>{mining ? 'Known mineral seams' : 'Known fishing waters'}</h3></div><button className="outpost-map-action" type="button" onClick={onMap}>Open world map <span aria-hidden="true">↗</span></button></div>
-            <p className="resource-note">Travel to a site on the world map to {mining ? 'work the seam' : 'throw your kunai'}. Expand a tier to scout its locations.</p>
+            <p className="resource-note">Travel to a site on the world map to {mining ? 'work the seam' : 'throw your kunai'}. Sites change level every 10 minutes, and half of them are Basic at any time. Expand a tier to scout its locations.</p>
             {SITE_TIERS.map(tier => <details className="outpost-site-tier" key={tier.skill} open={tier.skill === 1}>
                 <summary><span className="outpost-tier-mark" aria-hidden="true">{tier.skill === 1 ? 'I' : tier.skill === 4 ? 'II' : 'III'}</span>
                     <strong>{tier.name} {mining ? 'seams' : 'waters'}</strong><span>Skill {tier.skill}{level < tier.skill ? ' · Locked' : ' · Available'}</span></summary>
