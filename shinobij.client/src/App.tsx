@@ -137,7 +137,6 @@ import {
 } from "./data/jutsu";
 export { starterBloodlines } from "./data/jutsu";
 export { starterBloodlineOffense, starterSavedBloodlines };
-import { SavedBloodlinesContext } from "./lib/saved-bloodlines-context";
 import {
     endlessScaleFactor,
     endlessWaveReward,
@@ -2180,7 +2179,7 @@ export default function App() {
                             name: incoming.name || normalized.name,
                             level: incoming.level ?? normalized.level,
                             village: incoming.village || normalized.village,
-                            specialty: (incoming.specialty as JutsuType | undefined) ?? normalized.specialty, equippedDiscipline: incoming.equippedDiscipline,
+                            specialty: (incoming.specialty as JutsuType | undefined) ?? normalized.specialty,
                             character: normalized,
                             eligiblePets,
                             currentSector: incoming.currentSector ?? 40,
@@ -5145,7 +5144,6 @@ export default function App() {
 
     const surfaceBlockerMode = playerSurfaceBlockerMode(Boolean(character), screen, gameplayViewAvailability);
     return (
-        <SavedBloodlinesContext.Provider value={savedBloodlines}>
         <MaintenanceOperatorBoundary mode={surfaceBlockerMode}>
         <AdaptiveGameShell
             biome={currentBiome}
@@ -6217,7 +6215,6 @@ export default function App() {
             /><GearDropHost character={character} onVersionedCharacter={commitVersionedCharacter} saveIsClean={() => !charDirtyRef.current} />
         </AdaptiveGameShell>
         </MaintenanceOperatorBoundary>
-        </SavedBloodlinesContext.Provider>
     );
 }
 /* ── Mobile banner timer widget ──────────────────────────────────────

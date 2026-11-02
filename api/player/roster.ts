@@ -150,7 +150,6 @@ type RosterPlayer = {
     level: number;
     village: string;
     specialty: string;
-    equippedDiscipline?: string;
     online: boolean;
     character?: unknown;
     eligiblePets: unknown[];
@@ -335,9 +334,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     level: entry.level ?? 1,
                     village: entry.village ?? '',
                     specialty: entry.specialty ?? '',
-                    ...(entry.equippedDiscipline ? { equippedDiscipline: entry.equippedDiscipline } : {}),
                     online: onlineNames.has(slug),
-                    character,
+                    // Online rows carry the slim presence character, so the index supplies this.
+                    character: entry.equippedDiscipline ? { ...(character as object), equippedDiscipline: entry.equippedDiscipline } : character,
                     eligiblePets: projectEligibleRosterPets(fullCharacter),
                     currentSector: livePresence ? normalizeSector(livePresence.sector, 0) : (sleeperCamp?.sector ?? 0),
                     lastSeenAt: livePresence?.lastSeenAt ?? entry.lastSeen ?? 0,

@@ -383,6 +383,8 @@ export type Character = {
         completedLessonIds: Array<"bond" | "showdown" | "colosseum" | "party" | "ladder" | "warfront" | "gauntlet">;
     };
     equippedBloodlineId?: string;
+    /** Server-stamped for public lists only. Combat reads `specialty`. */
+    equippedDiscipline?: string;
     /** Ranked Format's player-chosen weapon (api/pvp/_ranked-format.ts) — one
      *  of RANKED_FORMAT_LEGENDARY_WEAPON_IDS. Applies to both ranked 1v1 and
      *  ranked 2v2, which otherwise equalize stats/gear for both fighters. */
@@ -946,8 +948,6 @@ export type PlayerRecord = {
     level: number;
     village: string;
     specialty: JutsuType;
-    /** Display only, from the equipped custom bloodline. Combat reads `specialty`. */
-    equippedDiscipline?: string;
     character: Character;
     /** Server-projected 5/6 carried roster; ownership remains character.pets. */
     eligiblePets?: Pet[];
@@ -966,7 +966,6 @@ export type ServerPlayerSummary = {
     level: number;
     village: string;
     specialty?: string;
-    equippedDiscipline?: string;
     online: boolean;
     character?: Character;
     eligiblePets?: Pet[];

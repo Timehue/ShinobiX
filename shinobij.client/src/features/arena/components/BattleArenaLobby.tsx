@@ -110,7 +110,7 @@ export function BattleArenaLobby({
                                 ) : sparOpponents.map((player) => (
                                     <div className="summary-box" key={`spar-${player.name}`}>
                                         <strong>{player.name}</strong>
-                                        <p>Level {player.level} | {player.village} | {player.equippedDiscipline ?? player.specialty}</p>
+                                        <p>Level {player.level} | {player.village} | {player.character.equippedDiscipline ?? player.specialty}</p>
                                         <div className="menu">
                                             <button disabled={challengeBusy} onClick={() => onChallengePlayer(player)}><GiBoxingGlove aria-hidden="true" /> Spar challenge</button>
                                             <button

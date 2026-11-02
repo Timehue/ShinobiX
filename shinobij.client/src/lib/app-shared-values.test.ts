@@ -49,6 +49,15 @@ test("discipline follows an equipped custom bloodline over the starter and speci
     assert.equal(trainingRecommendation(input, [strayType]).discipline, "Genjutsu");
 });
 
+test("screens without the stored kits use the server's stamp, and the kit outranks a stale one", () => {
+    const blade = { id: "blade", type: "Bukijutsu", ap: 60, effectPower: 40 };
+    const custom = { id: "custom", name: "Blood Mist", jutsus: [blade] } as unknown as SavedBloodline;
+    const input = { ...rookie(), specialty: "Genjutsu" as const, equippedBloodlineId: custom.id };
+    assert.equal(playerLensDiscipline({ ...input, equippedDiscipline: "Bukijutsu" }), "Bukijutsu");
+    assert.equal(playerLensDiscipline({ ...input, equippedDiscipline: "Taijutsu" }, [custom]), "Bukijutsu");
+    assert.equal(playerLensDiscipline({ ...input, equippedDiscipline: "<b>" }), "Genjutsu");
+});
+
 test("server save serialization strips embedded images throughout a snapshot while retaining URLs", () => {
     const input = { image: "data:image/webp;base64,AAAA", nested: [{ avatar: "data:image/png;base64,BBBB" }], url: "https://example.test/avatar.webp", other: "data:text/plain,hello" };
     assert.deepEqual(JSON.parse(stringifyServerSavePayload(input)), {

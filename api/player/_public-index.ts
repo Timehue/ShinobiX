@@ -546,9 +546,8 @@ export function publicIndexToLeaderboardRosterEntry(entry: PublicPlayerIndexEntr
         level: entry.level,
         village: entry.village,
         specialty: entry.specialty,
-        ...(entry.equippedDiscipline ? { equippedDiscipline: entry.equippedDiscipline } : {}),
         online,
-        character,
+        character: entry.equippedDiscipline ? { ...character, equippedDiscipline: entry.equippedDiscipline } : character,
         lastSeenAt: entry.lastSeen,
     };
 }

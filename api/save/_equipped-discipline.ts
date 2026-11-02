@@ -11,7 +11,8 @@ export function stampEquippedDiscipline(character: Record<string, unknown>, save
     const equipped = character.equippedBloodlineId
         ? stored.find((bloodline) => bloodline?.id === character.equippedBloodlineId)
         : undefined;
-    if (!equipped) return;
-    const discipline = leadingBloodlineDiscipline(bloodlineDisciplineCounts(equipped as never), character.specialty);
+    if (!Array.isArray(equipped?.jutsus)) return;
+    const jutsus = equipped.jutsus.filter((jutsu) => jutsu && typeof jutsu === 'object');
+    const discipline = leadingBloodlineDiscipline(bloodlineDisciplineCounts({ jutsus }), character.specialty);
     if (discipline) character.equippedDiscipline = discipline;
 }
