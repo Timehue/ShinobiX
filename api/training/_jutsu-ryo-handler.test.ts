@@ -83,6 +83,60 @@ function masteryLevel(character: unknown, jutsuId: string): number | undefined {
 }
 
 describe('jutsu ryo training handler lifecycle', () => {
+    it('recognizes and freely learns all 45 new catalog entries through the real handler', async () => {
+        const { JUTSU_CATALOG } = await import('../pvp/_jutsu-catalog.js');
+        const additions = Object.values(JUTSU_CATALOG).filter(j =>
+            /^starter-(?:nin|gen|tai|buki)-[a-z]+-[56]$/.test(j.id) || j.id.startsWith('starter-any-'));
+        assert.equal(additions.length, 45);
+        const initial = (await kv.get<Record<string, unknown>>(SAVE_KEY))!;
+        await kv.set(SAVE_KEY, { ...initial, activeJutsuTraining: null,
+            character: { ...(initial.character as object), elements: ['Earth', 'Wind', 'Lightning', 'Fire', 'Water'] } });
+        for (const [index, jutsu] of additions.entries()) {
+            const result = await mutate({ action: 'start', jutsuId: jutsu.id, label: jutsu.name,
+                requestId: `global-audit-learn-${index}` });
+            assert.equal(result.statusCode, 200, `${jutsu.id}: ${JSON.stringify(result.body)}`);
+            assert.equal(masteryLevel(result.body?.character, jutsu.id), 1);
+            assert.equal(result.body?.cost, 0);
+            assert.equal(result.body?.activeJutsuTraining, null);
+        }
+        const reloaded = await kv.get<Record<string, unknown>>(SAVE_KEY);
+        for (const jutsu of additions) assert.equal(masteryLevel(reloaded?.character, jutsu.id), 1);
+    });
+
+    it('learns a new global attack and shared elemental utility through queued lessons', async () => {
+        const initial = (await kv.get<Record<string, unknown>>(SAVE_KEY))!;
+        await kv.set(SAVE_KEY, { ...initial, activeJutsuTraining: null,
+            character: { ...(initial.character as object), element: 'Wind', elements: ['Wind'], specialty: 'Bukijutsu' } });
+        const attackId = 'starter-buki-wind-5';
+        const utilityId = 'starter-any-wind-1';
+        for (const [index, jutsuId] of [attackId, utilityId].entries()) {
+            const learned = await mutate({ action: 'start', jutsuId, requestId: `global-expansion-learn-${index}` });
+            assert.equal(learned.statusCode, 200, JSON.stringify(learned.body));
+            assert.equal(masteryLevel(learned.body?.character, jutsuId), 1);
+            assert.equal(learned.body?.cost, 0, 'the first level keeps the existing free-learning behavior');
+            assert.equal(learned.body?.activeJutsuTraining, null);
+        }
+        const start = await mutate({ action: 'start', jutsuId: attackId, requestId: 'global-expansion-start-001' });
+        assert.equal(start.statusCode, 200, JSON.stringify(start.body));
+        const active = start.body?.activeJutsuTraining as { serverToken: string; jutsuId: string };
+        assert.equal(active.jutsuId, attackId);
+        const queue = await mutate({ action: 'queue', jutsuId: utilityId, serverToken: active.serverToken, requestId: 'global-expansion-queue-001' });
+        assert.equal(queue.statusCode, 200, JSON.stringify(queue.body));
+        for (const [index, jutsuId] of [attackId, utilityId].entries()) {
+            const saved = (await kv.get<Record<string, unknown>>(SAVE_KEY))!;
+            const lesson = saved.activeJutsuTraining as { serverToken: string; jutsuId: string };
+            assert.equal(lesson.jutsuId, jutsuId);
+            await kv.set(SAVE_KEY, { ...saved, activeJutsuTraining: { ...lesson, endsAt: Date.now() - 1 } });
+            const completed = await mutate({ action: 'complete', serverToken: lesson.serverToken, requestId: `global-expansion-complete-${index}` });
+            assert.equal(completed.statusCode, 200, JSON.stringify(completed.body));
+            assert.equal(masteryLevel(completed.body?.character, jutsuId), 2);
+        }
+        const reloaded = await kv.get<Record<string, unknown>>(SAVE_KEY);
+        assert.equal(masteryLevel(reloaded?.character, attackId), 2);
+        assert.equal(masteryLevel(reloaded?.character, utilityId), 2);
+        assert.equal(reloaded?.activeJutsuTraining, null);
+    });
+
     it('claims a completed legacy-shaped active session and clears the record', async () => {
         const out = await mutate({
             action: 'complete',

@@ -1,0 +1,232 @@
+{
+  "provider": "built-in image_gen",
+  "delivery": { "format": "AVIF", "width": 320, "height": 320, "quality": 30, "effort": 6, "maxTotalBytes": 245760 },
+  "style": "Individual square painted ability icons; dark backgrounds and clear elemental silhouettes.",
+  "jobs": [
+    {
+      "id": "starter-nin-earth-5",
+      "name": "Bedrock Fang",
+      "prompt": "Use case: stylized-concept. Create one square painted ability icon for the original shinobi RPG Shinobi Journey: Bedrock Fang, an Earth Ninjutsu attack with immediate life siphon. A single angular fang-shaped lance of layered ochre bedrock and dark jade crystal drives diagonally out of fractured ground, warm green vitality curls back along its base. No people, no faces. Polished fantasy game ability painting, bold centered silhouette readable at 64px, rich stone texture, selective luminous edges, strong warm earth against near-black background, restrained particles, dramatic painterly lighting. Full-bleed square image, no text, no lettering, no numbers, no borders, no watermark, no logos. Produce only this one artwork, no grid or sheet."
+    },
+    {
+      "id": "starter-nin-earth-6",
+      "name": "Siltbreaker Pulse",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Siltbreaker Pulse. Element: Earth. Discipline: Ninjutsu. Mechanic: Decrease Damage Given. Subject: One focused ring of compacted ochre silt crushes into a small dark practice target, dust coating and dulling its formerly bright aura."
+    },
+    {
+      "id": "starter-gen-earth-5",
+      "name": "Splintered Horizon",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Splintered Horizon. Element: Earth. Discipline: Genjutsu. Mechanic: Wound. Subject: An impossible ochre stone horizon fractures like a mirror into a single sharp jade fissure; subtle crimson threads trace the broken illusion, no blood."
+    },
+    {
+      "id": "starter-gen-earth-6",
+      "name": "Gravel Echo",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Gravel Echo. Element: Earth. Discipline: Genjutsu. Mechanic: Recoil. Subject: Concentric illusory stone echoes fold inward around a dark silhouette, one angular ochre shard reflected back along its own path."
+    },
+    {
+      "id": "starter-tai-earth-5",
+      "name": "Quarry Fist",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Quarry Fist. Element: Earth. Discipline: Taijutsu. Mechanic: Siphon. Subject: Close-up of one wrapped human fist clad in rough ochre stone, driving diagonally forward; fine jade vitality streams return around the forearm."
+    },
+    {
+      "id": "starter-tai-earth-6",
+      "name": "Crushing Mantle",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Crushing Mantle. Element: Earth. Discipline: Taijutsu. Mechanic: Decrease Damage Given. Subject: A close-up stone-armored elbow drives a compact ochre shock into a dark training silhouette; heavy dust presses its aura downward, no gore."
+    },
+    {
+      "id": "starter-buki-earth-5",
+      "name": "Jade Edge Draw",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Jade Edge Draw. Element: Earth. Discipline: Bukijutsu. Mechanic: Siphon. Subject: A single dark steel short blade drawn diagonally from an ochre stone sheath, translucent jade edge, thin returning green vitality ribbon."
+    },
+    {
+      "id": "starter-buki-earth-6",
+      "name": "Gravelhook Strike",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Gravelhook Strike. Element: Earth. Discipline: Bukijutsu. Mechanic: Drain. Subject: One hooked steel kunai layered in ochre gravel bites into a small floating chakra sphere; a thin jade stream leaks away from the sphere."
+    },
+    {
+      "id": "starter-nin-wind-5",
+      "name": "Vacuum Needle",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Vacuum Needle. Element: Wind. Discipline: Ninjutsu. Mechanic: Wound. Subject: One needle-thin mint-white lance of compressed air slices diagonally through deep charcoal air, a clean sharp wake and tiny torn leaf silhouettes."
+    },
+    {
+      "id": "starter-nin-wind-6",
+      "name": "Hollow Gale Lance",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Hollow Gale Lance. Element: Wind. Discipline: Ninjutsu. Mechanic: Drain. Subject: A hollow spiraling mint-white air lance draws luminous motes out of a dark chakra sphere; graceful negative space, no water or lightning."
+    },
+    {
+      "id": "starter-gen-wind-5",
+      "name": "Bitter Breath Mirage",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Bitter Breath Mirage. Element: Wind. Discipline: Genjutsu. Mechanic: Poison. Subject: An unreal mint-green breath spiral appears inside fractured translucent mirror wisps, a small dark chakra orb tainted by lime-green vapor, dreamlike double edges."
+    },
+    {
+      "id": "starter-gen-wind-6",
+      "name": "Howling Echo",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Howling Echo. Element: Wind. Discipline: Genjutsu. Mechanic: Recoil. Subject: A crescent of pale mint air repeats in three offset phantom echoes, the farthest echo bends backward toward its origin like a returning sound wave."
+    },
+    {
+      "id": "starter-tai-wind-5",
+      "name": "Shearing Heel",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Shearing Heel. Element: Wind. Discipline: Taijutsu. Mechanic: Wound. Subject: Close-up of one cloth-wrapped heel descending through a razor crescent of mint-white compressed air, bold martial strike silhouette, no face."
+    },
+    {
+      "id": "starter-tai-wind-6",
+      "name": "Pressure Point Gale",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Pressure Point Gale. Element: Wind. Discipline: Taijutsu. Mechanic: Ignition. Subject: A wrapped two-finger martial strike meets a dark training silhouette with a precise concentric mint-white pressure mark; focused wind, no flame."
+    },
+    {
+      "id": "starter-buki-wind-5",
+      "name": "Returning Gale Edge",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Returning Gale Edge. Element: Wind. Discipline: Bukijutsu. Mechanic: Siphon. Subject: One curved steel short blade arcs through pale mint wind; a slender green vitality trail curls back to the handle, dark background."
+    },
+    {
+      "id": "starter-buki-wind-6",
+      "name": "Venomwind Senbon",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Venomwind Senbon. Element: Wind. Discipline: Bukijutsu. Mechanic: Poison. Subject: One long steel senbon needle moving diagonally in a sharp mint-white airflow, lime venom bead on its tip, sparse green vapor."
+    },
+    {
+      "id": "starter-nin-lightning-5",
+      "name": "Stormfeed Spear",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Stormfeed Spear. Element: Lightning. Discipline: Ninjutsu. Mechanic: Siphon. Subject: One narrow violet-gold lightning spear pierces a dark chakra sphere, a returning warm golden stream along its shaft."
+    },
+    {
+      "id": "starter-nin-lightning-6",
+      "name": "Backlash Bolt",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Backlash Bolt. Element: Lightning. Discipline: Ninjutsu. Mechanic: Recoil. Subject: A single angular violet-gold lightning bolt strikes forward then kinks back into a hook, small reflected sparks, no explosion."
+    },
+    {
+      "id": "starter-gen-lightning-5",
+      "name": "Fractured Flash",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Fractured Flash. Element: Lightning. Discipline: Genjutsu. Mechanic: Wound. Subject: A violet-gold flash fractures an illusory glass eye shape into sharp geometric shards, no real person, no gore, clearly dreamlike."
+    },
+    {
+      "id": "starter-gen-lightning-6",
+      "name": "Borrowed Spark",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Borrowed Spark. Element: Lightning. Discipline: Genjutsu. Mechanic: Siphon. Subject: Two offset illusory chakra spheres linked by a thin violet lightning thread, one golden spark travels back to the foreground sphere, glasslike double outlines."
+    },
+    {
+      "id": "starter-tai-lightning-5",
+      "name": "Static Meridian Strike",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Static Meridian Strike. Element: Lightning. Discipline: Taijutsu. Mechanic: Poison. Subject: One wrapped human knuckle touches a dark practice silhouette; fine violet-gold meridian lines spread from the contact with a restrained sickly lime accent."
+    },
+    {
+      "id": "starter-tai-lightning-6",
+      "name": "Damping Knuckle",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Damping Knuckle. Element: Lightning. Discipline: Taijutsu. Mechanic: Decrease Damage Given. Subject: Close-up of a wrapped fist surrounded by one violet-gold damping ring, pressing the bright sparks of a dark training silhouette into dim embers."
+    },
+    {
+      "id": "starter-buki-lightning-5",
+      "name": "Arcsteel Sever",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Arcsteel Sever. Element: Lightning. Discipline: Bukijutsu. Mechanic: Wound. Subject: A single dark steel blade with an intensely sharp violet-gold electric edge cuts diagonally across a near-black background, fine cutlike light trail."
+    },
+    {
+      "id": "starter-buki-lightning-6",
+      "name": "Conductor's Mark",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Conductor's Mark. Element: Lightning. Discipline: Bukijutsu. Mechanic: Ignition. Subject: One steel kunai touches a dark circular practice target, leaving a bright violet-gold branching conductor mark, no letters or symbols."
+    },
+    {
+      "id": "starter-nin-fire-5",
+      "name": "Cinderfang Lance",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Cinderfang Lance. Element: Fire. Discipline: Ninjutsu. Mechanic: Wound. Subject: A single angular spear of blackened cinder with a jagged incandescent orange fang tip, scorching diagonal trail, dark background."
+    },
+    {
+      "id": "starter-nin-fire-6",
+      "name": "Emberdraw Bolt",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Emberdraw Bolt. Element: Fire. Discipline: Ninjutsu. Mechanic: Siphon. Subject: A compact orange ember bolt hits a dark chakra sphere; a glowing golden vitality thread curls backward through a red ember trail."
+    },
+    {
+      "id": "starter-gen-fire-5",
+      "name": "Searing Memory",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Searing Memory. Element: Fire. Discipline: Genjutsu. Mechanic: Wound. Subject: An illusory amber glass memory shard splits around a thin ember-orange fissure, layered phantom afterimages and ash, no faces or text."
+    },
+    {
+      "id": "starter-gen-fire-6",
+      "name": "Choking Lantern",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Choking Lantern. Element: Fire. Discipline: Genjutsu. Mechanic: Poison. Subject: One phantom paper lantern of orange emberlight hangs in black space, curling charcoal smoke carries a restrained lime toxic accent around a dark chakra orb, no writing."
+    },
+    {
+      "id": "starter-tai-fire-5",
+      "name": "Furnace Palm",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Furnace Palm. Element: Fire. Discipline: Taijutsu. Mechanic: Siphon. Subject: Close-up of one wrapped open human palm glowing furnace orange, a thin golden vitality current flows back around the wrist, charcoal backdrop."
+    },
+    {
+      "id": "starter-tai-fire-6",
+      "name": "Toxic Ember Kick",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Toxic Ember Kick. Element: Fire. Discipline: Taijutsu. Mechanic: Poison. Subject: One wrapped foot snaps diagonally through orange embers and dark smoke with a restrained toxic lime accent, clear martial kick silhouette."
+    },
+    {
+      "id": "starter-buki-fire-5",
+      "name": "Coalhook Slash",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Coalhook Slash. Element: Fire. Discipline: Bukijutsu. Mechanic: Siphon. Subject: One coal-black hooked short blade with glowing orange cracks, golden vitality thread returning along the hook to its hilt, sparse embers."
+    },
+    {
+      "id": "starter-buki-fire-6",
+      "name": "Backdraft Edge",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Backdraft Edge. Element: Fire. Discipline: Bukijutsu. Mechanic: Recoil. Subject: A single dark steel blade slashes diagonally; one controlled orange flame ribbon bends sharply back against the direction of the cut."
+    },
+    {
+      "id": "starter-nin-water-5",
+      "name": "Undertow Fang",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Undertow Fang. Element: Water. Discipline: Ninjutsu. Mechanic: Siphon. Subject: A single sharp fang-shaped surge of deep teal water, translucent cyan edge, a thin luminous vitality current spirals back to its base."
+    },
+    {
+      "id": "starter-nin-water-6",
+      "name": "Crushing Current",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Crushing Current. Element: Water. Discipline: Ninjutsu. Mechanic: Decrease Damage Given. Subject: One compact deep-teal current folds over a dark chakra sphere, cyan pressure bands compress and dim its aura, forceful single-target water shape."
+    },
+    {
+      "id": "starter-gen-water-5",
+      "name": "Shattered Reflection",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Shattered Reflection. Element: Water. Discipline: Genjutsu. Mechanic: Wound. Subject: A vertical illusory water mirror shatters into razor-thin teal glass ripples, pale cyan cutlike fissure through its middle, dreamlike no people."
+    },
+    {
+      "id": "starter-gen-water-6",
+      "name": "Reversing Tide Vision",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Reversing Tide Vision. Element: Water. Discipline: Genjutsu. Mechanic: Recoil. Subject: An impossible deep-teal wave curls both forward and backward in overlapping translucent phantom arcs, one sharp cyan returning ripple."
+    },
+    {
+      "id": "starter-tai-water-5",
+      "name": "Riptide Knuckle",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Riptide Knuckle. Element: Water. Discipline: Taijutsu. Mechanic: Wound. Subject: One wrapped human fist drives through a narrow cutting ring of deep-teal water, bright cyan crest, clean martial silhouette, no gore."
+    },
+    {
+      "id": "starter-tai-water-6",
+      "name": "Undercurrent Heel",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Undercurrent Heel. Element: Water. Discipline: Taijutsu. Mechanic: Ignition. Subject: A wrapped heel sweeps low through a compact teal undercurrent, leaving a precise luminous cyan pressure mark on a dark practice target, no flame."
+    },
+    {
+      "id": "starter-buki-water-5",
+      "name": "Coral Edge Thrust",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Coral Edge Thrust. Element: Water. Discipline: Bukijutsu. Mechanic: Wound. Subject: A single dark steel short spear edged with pale coral, thrusting diagonally through teal water, fine cyan cutting wake, no gore."
+    },
+    {
+      "id": "starter-buki-water-6",
+      "name": "Wakebrand Kunai",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Wakebrand Kunai. Element: Water. Discipline: Bukijutsu. Mechanic: Ignition. Subject: One steel kunai trailing a narrow teal wake touches a dark practice target, a luminous cyan spiral pressure mark forms at the contact, no fire."
+    },
+    {
+      "id": "starter-any-earth-1",
+      "name": "Mineral Venom Mantle",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Mineral Venom Mantle. Element: Earth. Discipline: Any. Mechanic: Poison + Reflect. Subject: A protective half-mantle of ochre stone plates with polished jade reflective facets, tiny lime venom motes drift outward toward a small dark chakra sphere."
+    },
+    {
+      "id": "starter-any-wind-1",
+      "name": "Second Wind Circulation",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Second Wind Circulation. Element: Wind. Discipline: Any. Mechanic: Lifesteal + Increase Heal. Subject: A serene double spiral of mint-white wind curls inward around a bright green vitality core, abstract restorative motion, no people or medical crosses."
+    },
+    {
+      "id": "starter-any-lightning-1",
+      "name": "Static Guard Lattice",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Static Guard Lattice. Element: Lightning. Discipline: Any. Mechanic: Shield + Decrease Damage Taken. Subject: A compact convex shield lattice of violet-gold lightning filaments around a dark core, strong clean protective silhouette, no letters or crest."
+    },
+    {
+      "id": "starter-any-fire-1",
+      "name": "Smothering Cinder Veil",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Smothering Cinder Veil. Element: Fire. Discipline: Any. Mechanic: Drain + Decrease Damage Given. Subject: A dense charcoal-and-orange cinder veil wraps a small dark chakra sphere, tiny glowing vitality motes leak downward while its sharp aura becomes dull."
+    },
+    {
+      "id": "starter-any-water-1",
+      "name": "Brineguard Veil",
+      "prompt": "Use case: stylized-concept. Asset type: one square ability icon for the original shinobi RPG Shinobi Journey. Style: polished painterly fantasy ability art, bold centered silhouette readable at 64px, rich materials, selective luminous edges, near-black background, restrained particles, dramatic painterly lighting, full-bleed square. Constraints: one coherent individual painting, no grid, no text, no lettering, no numbers, no borders, no logos, no watermark, no recognizable franchise characters. Ability: Brineguard Veil. Element: Water. Discipline: Any. Mechanic: Poison + Shield. Subject: A translucent deep-teal convex water shield with sharp salt crystals, restrained lime venom droplets drift outward, luminous cyan protective rim."
+    }
+  ]
+}

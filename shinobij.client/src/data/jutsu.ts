@@ -31,11 +31,69 @@ export const starterBloodlineOffense: Record<string, JutsuType> = {
     "Iron Fang": "Taijutsu",
 };
 
+// Additive global options: attacks keep their offense; utilities are shared by element.
+const globalOffenseTypes: Record<string, JutsuType> = { nin: "Ninjutsu", gen: "Genjutsu", tai: "Taijutsu", buki: "Bukijutsu" };
+const globalAttackOptions: Array<[string, JutsuElement, string, string, string, string]> = [
+    ["nin","Earth","Bedrock Fang","Siphon","Siltbreaker Pulse","Decrease Damage Given"],
+    ["gen","Earth","Splintered Horizon","Wound","Gravel Echo","Recoil"],
+    ["tai","Earth","Quarry Fist","Siphon","Crushing Mantle","Decrease Damage Given"],
+    ["buki","Earth","Jade Edge Draw","Siphon","Gravelhook Strike","Drain"],
+    ["nin","Wind","Vacuum Needle","Wound","Hollow Gale Lance","Drain"],
+    ["gen","Wind","Bitter Breath Mirage","Poison","Howling Echo","Recoil"],
+    ["tai","Wind","Shearing Heel","Wound","Pressure Point Gale","Ignition"],
+    ["buki","Wind","Returning Gale Edge","Siphon","Venomwind Senbon","Poison"],
+    ["nin","Lightning","Stormfeed Spear","Siphon","Backlash Bolt","Recoil"],
+    ["gen","Lightning","Fractured Flash","Wound","Borrowed Spark","Siphon"],
+    ["tai","Lightning","Static Meridian Strike","Poison","Damping Knuckle","Decrease Damage Given"],
+    ["buki","Lightning","Arcsteel Sever","Wound","Conductor's Mark","Ignition"],
+    ["nin","Fire","Cinderfang Lance","Wound","Emberdraw Bolt","Siphon"],
+    ["gen","Fire","Searing Memory","Wound","Choking Lantern","Poison"],
+    ["tai","Fire","Furnace Palm","Siphon","Toxic Ember Kick","Poison"],
+    ["buki","Fire","Coalhook Slash","Siphon","Backdraft Edge","Recoil"],
+    ["nin","Water","Undertow Fang","Siphon","Crushing Current","Decrease Damage Given"],
+    ["gen","Water","Shattered Reflection","Wound","Reversing Tide Vision","Recoil"],
+    ["tai","Water","Riptide Knuckle","Wound","Undercurrent Heel","Ignition"],
+    ["buki","Water","Coral Edge Thrust","Wound","Wakebrand Kunai","Ignition"],
+];
+const globalJutsuExpansion: Array<{ id: string; name: string; type: JutsuType; element: JutsuElement; tags: string[]; battle?: string }> = [
+    ...globalAttackOptions.flatMap(([style, element, name5, tag5, name6, tag6]) =>
+        [[name5, tag5], [name6, tag6]].map(([name, tag], index) => ({
+            id: `starter-${style}-${element.toLowerCase()}-${index + 5}`, name, type: globalOffenseTypes[style], element, tags: [tag],
+        }))),
+    {"id":"starter-any-earth-1","name":"Mineral Venom Mantle","type":"Any","element":"Earth","tags":["Poison","Reflect"],"battle":"A mineral mantle poisons the target's chakra flow and prepares the user to reflect incoming damage."},
+    {"id":"starter-any-wind-1","name":"Second Wind Circulation","type":"Any","element":"Wind","tags":["Lifesteal","Increase Heal"],"battle":"A circulating wind prepares the user to recover more HP and steal life through later attacks."},
+    {"id":"starter-any-lightning-1","name":"Static Guard Lattice","type":"Any","element":"Lightning","tags":["Shield","Decrease Damage Taken"],"battle":"A static lattice shields the user and prepares them to withstand incoming damage."},
+    {"id":"starter-any-fire-1","name":"Smothering Cinder Veil","type":"Any","element":"Fire","tags":["Drain","Decrease Damage Given"],"battle":"A smothering veil of cinders weakens the target's attacks and drains their HP and chakra."},
+    {"id":"starter-any-water-1","name":"Brineguard Veil","type":"Any","element":"Water","tags":["Poison","Shield"],"battle":"A briny veil shields the user and poisons the target's chakra flow."},
+];
+
+
+const globalExpansionEffectText: Record<string, string> = {
+    "Siphon": "Immediately heals you for part of the damage dealt.",
+    "Wound": "Starting next round, the target bleeds at the end of their turns for 2 rounds.",
+    "Recoil": "Starting next round, the target takes recoil damage when their attacks deal damage, for 2 rounds.",
+    "Poison": "Starting next round, applies Poison for 2 rounds. Poison damages HP when the target spends chakra or stamina on a jutsu.",
+    "Drain": "Starting next round, drains the target's HP and chakra at the end of their turns for 2 rounds.",
+    "Ignition": "Starting next round, Ignition strengthens hits against the target for 2 rounds.",
+    "Decrease Damage Given": "Starting next round, reduces the target's damage dealt for 2 rounds.",
+    "Reflect": "Starting next round, reflects part of incoming damage for 2 rounds.",
+    "Lifesteal": "Starting next round, your damaging attacks restore HP for 2 rounds.",
+    "Increase Heal": "Starting next round, increases your healing for 2 rounds.",
+    "Shield": "Grants a shield immediately.",
+    "Decrease Damage Taken": "Starting next round, reduces your damage taken for 2 rounds."
+};
+
+const globalExpansionFlavor = Object.fromEntries(globalJutsuExpansion.map(({ id, name, type, tags, battle }) => [id, {
+    battle: battle ?? `${name} strikes the target.`,
+    desc: [type === "Any" ? "Deals no direct damage." : "Deals damage.", ...tags.map(tag => globalExpansionEffectText[tag])].join(" "),
+}]));
+
 // ── Non-bloodline (starter) balance table ────────────────────────────────
 // Variant suffix → AP tier: a 1-tag entry is the 60AP damage variant; a 2-tag
 // entry is a 40AP utility pair. These pairs avoid Move and Debuff Prevent;
 // the 20AP universal Flicker retains its separate Move role.
 const nonBloodlineTagTable: Record<string, string[]> = {
+    ...Object.fromEntries(globalJutsuExpansion.map(({ id, tags }) => [id, tags])),
     "starter-nin-earth-1": ["Shield", "Increase Damage Taken"],
     "starter-nin-earth-2": ["Ignition"],
     "starter-nin-earth-3": ["Lifesteal", "Recoil"],
@@ -241,7 +299,7 @@ export function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
     const ap = tagNames.length === 1 ? 60 : 40; // 1 tag = 60AP damage, 2 = 40AP utility
     const tags = tagNames.map((name) => ({ name, percent: nonBloodlineTagPercent(name) }));
     const isMove = tagNames.includes("Move");
-    const flavor = nonBloodlineFlavor[normalized.id];
+    const flavor = nonBloodlineFlavor[normalized.id] ?? globalExpansionFlavor[normalized.id];
 
     return normalizeJutsu({
         ...normalized,
@@ -270,121 +328,74 @@ export function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
 // Overclock on Hollow Voice Cyclone survived unnoticed. The off-table entries
 // below (the AOE_BURST set and Flicker) use normalizeJutsu directly and their
 // tags ARE live.
+// The first three techniques precede the fourth utility tier in the starter order.
+const globalStarterFamilies: Array<[string, JutsuElement, [string, string, string, string]]> = [
+    ["nin","Earth",["Stone Needle Volley","Mud Coffin Bind","Iron Sand Burst","Bedrock Chakra Focus"]],
+    ["nin","Wind",["Vacuum Palm Wave","Cyclone Cutter","Gale Net Snare","Galewind Attunement"]],
+    ["nin","Lightning",["Static Fang","Thunderclap Lance","Nerve Spark Seal","Voltaic Surge Focus"]],
+    ["nin","Fire",["Cinder Shot","Blazing Dragon Arc","Ash Cloud Breaker","Emberheart Kindling"]],
+    ["nin","Water",["Tide Spear","Crashing Wave Prison","Mist Veil Flow","Tidal Renewal Rite"]],
+    ["tai","Earth",["Granite Elbow","Boulder Heel Drop","Rooted Guard Break","Ironbody Conditioning"]],
+    ["tai","Wind",["Tempest Step Kick","Rising Gale Combo","Spiral Backfist","Windstep Awakening"]],
+    ["tai","Lightning",["Spark Jab Chain","Raikou Knee Strike","Flash Step Counter","Thunderpulse Overdrive"]],
+    ["tai","Fire",["Burning Knuckle","Meteor Axe Kick","Cinder Rush","Blazing Spirit Focus"]],
+    ["tai","Water",["Flowing Palm","Tidal Shoulder Throw","Ripple Guard Form","Flowing Chi Harmony"]],
+    ["gen","Earth",["Stone Eye Mirage","Buried Memory Field","Dust Puppet Vision","Stoneheart Meditation"]],
+    ["gen","Wind",["Whispering Gale","Hollow Voice Cyclone","Feather Step Illusion","Whispering Calm"]],
+    ["gen","Lightning",["Neural Flash","Paralysis Theater","Mirror Spark Dream","Stormmind Focus"]],
+    ["gen","Fire",["Lantern Fear","Inferno Hallucination","Ashen Mind Lock","Inner Flame Vision"]],
+    ["gen","Water",["Drowning Reflection","Moonlit Tide Dream","Mist Memory Snare","Still Water Mind"]],
+    ["buki","Earth",["Stone Kunai Rain","Adamant Chain Pull","Obsidian Edge","Adamant Stance Drill"]],
+    ["buki","Wind",["Windmill Shuriken Line","Aerial Blade Fan","Crosswind Needle","Swiftblade Attunement"]],
+    ["buki","Lightning",["Charged Senbon","Thunder Wire Trap","Magnet Blade Return","Charged Grip Focus"]],
+    ["buki","Fire",["Explosive Tag Flicker","Flame Wire Detonation","Searing Blade Toss","Forgeheart Temper"]],
+    ["buki","Water",["Mist Needle Spread","Torrent Chain Slash","Hidden Current Guard","Rippling Edge Ritual"]],
+];
+
+function makeGlobalJutsu(id: string, name: string, type: JutsuType, element: JutsuElement): Jutsu {
+    // The table reapplies the final budget. Start at 60 AP so normalization
+    // preserves an attack's offense before utilities become Any.
+    return makeJutsu(id, name, type, 60, 4, 0, 7, 250, 250, [], element);
+}
+
+function makeGlobalAreaJutsu(id: string, name: string, type: JutsuType, element: JutsuElement, tag: JutsuTag, battleDescription: string, description: string): Jutsu {
+    return normalizeJutsu({ id, name, type, element, ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [tag], battleDescription, description });
+}
+
 export const starterJutsus: Jutsu[] = [
-    // All jutsus: stored EP=28 (base). PvP/PvE scales +0.2 per mastery level ? EP 38 at mastery 50. Tags stored at 30% ? displays as 20% at mastery 0 via effectiveTagPercent.
-    makeJutsu("starter-nin-earth-1", "Stone Needle Volley", "Ninjutsu", 60, 4, 28, 1, 125, 125, [], "Earth"),
-    makeJutsu("starter-nin-earth-2", "Mud Coffin Bind", "Ninjutsu", 60, 3, 30, 3, 250, 250, [], "Earth"),
-    makeJutsu("starter-nin-earth-3", "Iron Sand Burst", "Ninjutsu", 40, 3, 27, 2, 125, 125, [], "Earth"),
-    makeJutsu("starter-nin-wind-1", "Vacuum Palm Wave", "Ninjutsu", 40, 5, 20, 1, 125, 125, [], "Wind"),
-    makeJutsu("starter-nin-wind-2", "Cyclone Cutter", "Ninjutsu", 60, 5, 30, 2, 250, 250, [], "Wind"),
-    makeJutsu("starter-nin-wind-3", "Gale Net Snare", "Ninjutsu", 40, 4, 18, 2, 125, 125, [], "Wind"),
-    makeJutsu("starter-nin-lightning-1", "Static Fang", "Ninjutsu", 40, 4, 35, 1, 125, 125, [], "Lightning"),
-    makeJutsu("starter-nin-lightning-2", "Thunderclap Lance", "Ninjutsu", 60, 5, 30, 2, 250, 250, [], "Lightning"),
-    makeJutsu("starter-nin-lightning-3", "Nerve Spark Seal", "Ninjutsu", 60, 3, 30, 3, 250, 250, [], "Lightning"),
-    makeJutsu("starter-nin-fire-1", "Cinder Shot", "Ninjutsu", 40, 4, 25, 1, 125, 125, [], "Fire"),
-    makeJutsu("starter-nin-fire-2", "Blazing Dragon Arc", "Ninjutsu", 60, 5, 30, 2, 250, 250, [], "Fire"),
-    makeJutsu("starter-nin-fire-3", "Ash Cloud Breaker", "Ninjutsu", 40, 3, 23, 2, 125, 125, [], "Fire"),
-    makeJutsu("starter-nin-water-1", "Tide Spear", "Ninjutsu", 40, 4, 33, 1, 125, 125, [], "Water"),
-    makeJutsu("starter-nin-water-2", "Crashing Wave Prison", "Ninjutsu", 60, 3, 30, 3, 250, 250, [], "Water"),
-    makeJutsu("starter-nin-water-3", "Mist Veil Flow", "Ninjutsu", 40, 0, 0, 2, 125, 125, [], "Water"),
-
-    makeJutsu("starter-tai-earth-1", "Granite Elbow", "Taijutsu", 40, 1, 35, 1, 125, 125, [], "Earth"),
-    makeJutsu("starter-tai-earth-2", "Boulder Heel Drop", "Taijutsu", 60, 1, 30, 2, 250, 250, [], "Earth"),
-    makeJutsu("starter-tai-earth-3", "Rooted Guard Break", "Taijutsu", 60, 1, 26, 2, 125, 125, [], "Earth"),
-    makeJutsu("starter-tai-wind-1", "Tempest Step Kick", "Taijutsu", 40, 2, 20, 1, 125, 125, [], "Wind"),
-    makeJutsu("starter-tai-wind-2", "Rising Gale Combo", "Taijutsu", 60, 1, 30, 2, 250, 250, [], "Wind"),
-    makeJutsu("starter-tai-wind-3", "Spiral Backfist", "Taijutsu", 40, 1, 21, 1, 125, 125, [], "Wind"),
-    makeJutsu("starter-tai-lightning-1", "Spark Jab Chain", "Taijutsu", 40, 1, 33, 1, 125, 125, [], "Lightning"),
-    makeJutsu("starter-tai-lightning-2", "Raikou Knee Strike", "Taijutsu", 60, 1, 30, 2, 250, 250, [], "Lightning"),
-    makeJutsu("starter-tai-lightning-3", "Flash Step Counter", "Taijutsu", 40, 1, 0, 3, 125, 125, [], "Lightning"),
-    makeJutsu("starter-tai-fire-1", "Burning Knuckle", "Taijutsu", 40, 1, 25, 1, 125, 125, [], "Fire"),
-    makeJutsu("starter-tai-fire-2", "Meteor Axe Kick", "Taijutsu", 60, 1, 30, 2, 250, 250, [], "Fire"),
-    makeJutsu("starter-tai-fire-3", "Cinder Rush", "Taijutsu", 40, 2, 26, 1, 125, 125, [], "Fire"),
-    makeJutsu("starter-tai-water-1", "Flowing Palm", "Taijutsu", 40, 1, 28, 1, 125, 125, [], "Water"),
-    makeJutsu("starter-tai-water-2", "Tidal Shoulder Throw", "Taijutsu", 60, 1, 30, 2, 250, 250, [], "Water"),
-    makeJutsu("starter-tai-water-3", "Ripple Guard Form", "Taijutsu", 40, 0, 0, 2, 125, 125, [], "Water"),
-
-    makeJutsu("starter-gen-earth-1", "Stone Eye Mirage", "Genjutsu", 40, 4, 18, 2, 125, 125, [], "Earth"),
-    makeJutsu("starter-gen-earth-2", "Buried Memory Field", "Genjutsu", 60, 4, 30, 3, 250, 250, [], "Earth"),
-    makeJutsu("starter-gen-earth-3", "Dust Puppet Vision", "Genjutsu", 40, 3, 24, 1, 125, 125, [], "Earth"),
-    makeJutsu("starter-gen-wind-1", "Whispering Gale", "Genjutsu", 40, 5, 21, 1, 125, 125, [], "Wind"),
-    makeJutsu("starter-gen-wind-2", "Hollow Voice Cyclone", "Genjutsu", 60, 5, 30, 2, 250, 250, [], "Wind"),
-    makeJutsu("starter-gen-wind-3", "Feather Step Illusion", "Genjutsu", 40, 0, 0, 2, 125, 125, [], "Wind"),
-    makeJutsu("starter-gen-lightning-1", "Neural Flash", "Genjutsu", 40, 4, 32, 1, 125, 125, [], "Lightning"),
-    makeJutsu("starter-gen-lightning-2", "Paralysis Theater", "Genjutsu", 60, 4, 30, 3, 250, 250, [], "Lightning"),
-    makeJutsu("starter-gen-lightning-3", "Mirror Spark Dream", "Genjutsu", 40, 0, 0, 3, 125, 125, [], "Lightning"),
-    makeJutsu("starter-gen-fire-1", "Lantern Fear", "Genjutsu", 40, 4, 24, 1, 125, 125, [], "Fire"),
-    makeJutsu("starter-gen-fire-2", "Inferno Hallucination", "Genjutsu", 60, 4, 30, 2, 250, 250, [], "Fire"),
-    makeJutsu("starter-gen-fire-3", "Ashen Mind Lock", "Genjutsu", 40, 3, 18, 2, 125, 125, [], "Fire"),
-    makeJutsu("starter-gen-water-1", "Drowning Reflection", "Genjutsu", 40, 4, 23, 1, 125, 125, [], "Water"),
-    makeJutsu("starter-gen-water-2", "Moonlit Tide Dream", "Genjutsu", 60, 4, 30, 2, 250, 250, [], "Water"),
-    makeJutsu("starter-gen-water-3", "Mist Memory Snare", "Genjutsu", 40, 4, 20, 2, 125, 125, [], "Water"),
-
-    makeJutsu("starter-buki-earth-1", "Stone Kunai Rain", "Bukijutsu", 40, 4, 32, 1, 125, 125, [], "Earth"),
-    makeJutsu("starter-buki-earth-2", "Adamant Chain Pull", "Bukijutsu", 60, 4, 30, 2, 250, 250, [], "Earth"),
-    makeJutsu("starter-buki-earth-3", "Obsidian Edge", "Bukijutsu", 60, 2, 26, 1, 125, 125, [], "Earth"),
-    makeJutsu("starter-buki-wind-1", "Windmill Shuriken Line", "Bukijutsu", 40, 5, 27, 1, 125, 125, [], "Wind"),
-    makeJutsu("starter-buki-wind-2", "Aerial Blade Fan", "Bukijutsu", 60, 5, 30, 2, 250, 250, [], "Wind"),
-    makeJutsu("starter-buki-wind-3", "Crosswind Needle", "Bukijutsu", 40, 5, 22, 1, 125, 125, [], "Wind"),
-    makeJutsu("starter-buki-lightning-1", "Charged Senbon", "Bukijutsu", 40, 5, 35, 1, 125, 125, [], "Lightning"),
-    makeJutsu("starter-buki-lightning-2", "Thunder Wire Trap", "Bukijutsu", 60, 4, 30, 3, 250, 250, [], "Lightning"),
-    makeJutsu("starter-buki-lightning-3", "Magnet Blade Return", "Bukijutsu", 40, 4, 22, 2, 125, 125, [], "Lightning"),
-    makeJutsu("starter-buki-fire-1", "Explosive Tag Flicker", "Bukijutsu", 40, 4, 25, 1, 125, 125, [], "Fire"),
-    makeJutsu("starter-buki-fire-2", "Flame Wire Detonation", "Bukijutsu", 60, 4, 30, 2, 250, 250, [], "Fire"),
-    makeJutsu("starter-buki-fire-3", "Searing Blade Toss", "Bukijutsu", 40, 3, 23, 1, 125, 125, [], "Fire"),
-    makeJutsu("starter-buki-water-1", "Mist Needle Spread", "Bukijutsu", 40, 5, 24, 1, 125, 125, [], "Water"),
-    makeJutsu("starter-buki-water-2", "Torrent Chain Slash", "Bukijutsu", 60, 4, 30, 2, 250, 250, [], "Water"),
-    makeJutsu("starter-buki-water-3", "Hidden Current Guard", "Bukijutsu", 40, 0, 0, 2, 125, 125, [], "Water"),
-
+    ...globalStarterFamilies.flatMap(([style, element, names]) => names.slice(0, 3).map((name, index) =>
+        makeGlobalJutsu(`starter-${style}-${element.toLowerCase()}-${index + 1}`, name, globalOffenseTypes[style], element))),
     // Increase Generals utility set — 40-AP self-buff, one per discipline × element.
     // The second tag is added by rebalanceNonBloodlineJutsu from nonBloodlineTagTable.
-    makeJutsu("starter-nin-earth-4", "Bedrock Chakra Focus", "Ninjutsu", 40, 4, 0, 7, 125, 125, [], "Earth"),
-    makeJutsu("starter-nin-wind-4", "Galewind Attunement", "Ninjutsu", 40, 4, 0, 7, 125, 125, [], "Wind"),
-    makeJutsu("starter-nin-lightning-4", "Voltaic Surge Focus", "Ninjutsu", 40, 4, 0, 7, 125, 125, [], "Lightning"),
-    makeJutsu("starter-nin-fire-4", "Emberheart Kindling", "Ninjutsu", 40, 4, 0, 7, 125, 125, [], "Fire"),
-    makeJutsu("starter-nin-water-4", "Tidal Renewal Rite", "Ninjutsu", 40, 4, 0, 7, 125, 125, [], "Water"),
-    makeJutsu("starter-tai-earth-4", "Ironbody Conditioning", "Taijutsu", 40, 4, 0, 7, 125, 125, [], "Earth"),
-    makeJutsu("starter-tai-wind-4", "Windstep Awakening", "Taijutsu", 40, 4, 0, 7, 125, 125, [], "Wind"),
-    makeJutsu("starter-tai-lightning-4", "Thunderpulse Overdrive", "Taijutsu", 40, 4, 0, 7, 125, 125, [], "Lightning"),
-    makeJutsu("starter-tai-fire-4", "Blazing Spirit Focus", "Taijutsu", 40, 4, 0, 7, 125, 125, [], "Fire"),
-    makeJutsu("starter-tai-water-4", "Flowing Chi Harmony", "Taijutsu", 40, 4, 0, 7, 125, 125, [], "Water"),
-    makeJutsu("starter-gen-earth-4", "Stoneheart Meditation", "Genjutsu", 40, 4, 0, 7, 125, 125, [], "Earth"),
-    makeJutsu("starter-gen-wind-4", "Whispering Calm", "Genjutsu", 40, 4, 0, 7, 125, 125, [], "Wind"),
-    makeJutsu("starter-gen-lightning-4", "Stormmind Focus", "Genjutsu", 40, 4, 0, 7, 125, 125, [], "Lightning"),
-    makeJutsu("starter-gen-fire-4", "Inner Flame Vision", "Genjutsu", 40, 4, 0, 7, 125, 125, [], "Fire"),
-    makeJutsu("starter-gen-water-4", "Still Water Mind", "Genjutsu", 40, 4, 0, 7, 125, 125, [], "Water"),
-    makeJutsu("starter-buki-earth-4", "Adamant Stance Drill", "Bukijutsu", 40, 4, 0, 7, 125, 125, [], "Earth"),
-    makeJutsu("starter-buki-wind-4", "Swiftblade Attunement", "Bukijutsu", 40, 4, 0, 7, 125, 125, [], "Wind"),
-    makeJutsu("starter-buki-lightning-4", "Charged Grip Focus", "Bukijutsu", 40, 4, 0, 7, 125, 125, [], "Lightning"),
-    makeJutsu("starter-buki-fire-4", "Forgeheart Temper", "Bukijutsu", 40, 4, 0, 7, 125, 125, [], "Fire"),
-    makeJutsu("starter-buki-water-4", "Rippling Edge Ritual", "Bukijutsu", 40, 4, 0, 7, 125, 125, [], "Water"),
+    ...globalStarterFamilies.map(([style, element, names]) =>
+        makeGlobalJutsu(`starter-${style}-${element.toLowerCase()}-4`, names[3], globalOffenseTypes[style], element)),
 
     // AOE Burst set — 60-AP OPPONENT-targeted damage jutsu, one per discipline × element.
     // method AOE_BURST: full damage to the target + every enemy in the 6 touching hexes (no
-    // movement, no ground tile). Defined via normalizeJutsu (makeJutsu can't set a method)
+    // movement, no ground tile). The shared area builder uses normalizeJutsu
     // and NOT listed in nonBloodlineTagTable, so rebalanceNonBloodlineJutsu passes them
     // through unchanged. Each carries ONE combat tag (like the other 60-AP damage jutsu),
     // which applies to the primary AND every splashed enemy via applyAoeSplash.
-    normalizeJutsu({ id: "starter-nin-earth-aoe", name: "Seismic Shatter", type: "Ninjutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Wound", percent: 14 }], battleDescription: "The ground erupts beneath the enemy in a shattering seismic burst.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies bleed for 2 rounds." }),
-    normalizeJutsu({ id: "starter-nin-wind-aoe", name: "Vacuum Detonation", type: "Ninjutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Decrease Damage Given", percent: 25 }], battleDescription: "A compressed sphere of air implodes and detonates in a concussive burst.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies deal less damage for 2 rounds." }),
-    normalizeJutsu({ id: "starter-nin-lightning-aoe", name: "Forked Lightning Nova", type: "Ninjutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 25 }], battleDescription: "Lightning splits into a dozen forks and erupts across the battlefield.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies take more damage for 2 rounds." }),
-    normalizeJutsu({ id: "starter-nin-fire-aoe", name: "Great Fireball Burst", type: "Ninjutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 25 }], battleDescription: "A massive fireball detonates on impact, engulfing the enemy and their surroundings.", description: "Damages the target and adjacent enemies. Starting next round, Ignition strengthens hits against them for 2 rounds." }),
-    normalizeJutsu({ id: "starter-nin-water-aoe", name: "Tidal Crash", type: "Ninjutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Drain", percent: 0 }], battleDescription: "A towering wave crashes down and floods the ground in a violent burst.", description: "Damages the target and adjacent enemies. Starting next round, drains their HP and chakra at the end of their turns for 2 rounds." }),
-    normalizeJutsu({ id: "starter-tai-earth-aoe", name: "Fault Line Stomp", type: "Taijutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Recoil", percent: 12 }], battleDescription: "A thunderous stomp splits the earth in a shockwave of stone.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies take recoil damage when their attacks deal damage, for 2 rounds." }),
-    normalizeJutsu({ id: "starter-tai-wind-aoe", name: "Whirlwind Sweep", type: "Taijutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Decrease Damage Given", percent: 25 }], battleDescription: "The user spins into a whirlwind that batters everyone in reach.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies deal less damage for 2 rounds." }),
-    normalizeJutsu({ id: "starter-tai-lightning-aoe", name: "Thunderclap Shockwave", type: "Taijutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 25 }], battleDescription: "A lightning-charged clap unleashes a shockwave across the field.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies take more damage for 2 rounds." }),
-    normalizeJutsu({ id: "starter-tai-fire-aoe", name: "Blazing Spin Kick", type: "Taijutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 25 }], battleDescription: "A blazing spin kick trails fire in a scorching arc.", description: "Damages the target and adjacent enemies. Starting next round, Ignition strengthens hits against them for 2 rounds." }),
-    normalizeJutsu({ id: "starter-tai-water-aoe", name: "Surging Wave Palm", type: "Taijutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Siphon", percent: 25 }], battleDescription: "A surge of water bursts from the user's palm in a crashing arc.", description: "Damages the target and adjacent enemies and immediately heals you for part of the damage dealt." }),
-    normalizeJutsu({ id: "starter-gen-earth-aoe", name: "Crumbling World Illusion", type: "Genjutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Poison", percent: 5 }], battleDescription: "The world seems to crumble as the earth swallows the enemy's mind.", description: "Damages the target and adjacent enemies. Starting next round, applies Poison for 2 rounds. Poison damages HP when a jutsu spends chakra or stamina." }),
-    normalizeJutsu({ id: "starter-gen-wind-aoe", name: "Screaming Void", type: "Genjutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Decrease Damage Given", percent: 25 }], battleDescription: "A howling void tears open, screaming through the enemy's senses.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies deal less damage for 2 rounds." }),
-    normalizeJutsu({ id: "starter-gen-lightning-aoe", name: "Blinding Flash Field", type: "Genjutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 25 }], battleDescription: "A blinding sheet of light detonates across the battlefield.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies take more damage for 2 rounds." }),
-    normalizeJutsu({ id: "starter-gen-fire-aoe", name: "Hellfire Mirage", type: "Genjutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 25 }], battleDescription: "Phantom hellfire erupts and consumes the enemy's world.", description: "Damages the target and adjacent enemies. Starting next round, Ignition strengthens hits against them for 2 rounds." }),
-    normalizeJutsu({ id: "starter-gen-water-aoe", name: "Drowning Delusion", type: "Genjutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Drain", percent: 0 }], battleDescription: "A crushing tide of illusion drags the enemy under.", description: "Damages the target and adjacent enemies. Starting next round, drains their HP and chakra at the end of their turns for 2 rounds." }),
-    normalizeJutsu({ id: "starter-buki-earth-aoe", name: "Stone Shrapnel Burst", type: "Bukijutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Wound", percent: 14 }], battleDescription: "A packed charge bursts into a hail of stone shrapnel.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies bleed for 2 rounds." }),
-    normalizeJutsu({ id: "starter-buki-wind-aoe", name: "Fan Blade Storm", type: "Bukijutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Wound", percent: 14 }], battleDescription: "A storm of wind-borne blades fans out across the field.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies bleed for 2 rounds." }),
-    normalizeJutsu({ id: "starter-buki-lightning-aoe", name: "Charged Shuriken Spread", type: "Bukijutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 25 }], battleDescription: "A fan of charged shuriken scatters and crackles on impact.", description: "Damages the target and adjacent enemies. Starting next round, affected enemies take more damage for 2 rounds." }),
-    normalizeJutsu({ id: "starter-buki-fire-aoe", name: "Explosive Tag Barrage", type: "Bukijutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 25 }], battleDescription: "A barrage of explosive tags detonates in a chain of blasts.", description: "Damages the target and adjacent enemies. Starting next round, Ignition strengthens hits against them for 2 rounds." }),
-    normalizeJutsu({ id: "starter-buki-water-aoe", name: "Mist Blade Torrent", type: "Bukijutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Poison", percent: 5 }], battleDescription: "A torrent of mist-wreathed blades sweeps across the enemy.", description: "Damages the target and adjacent enemies. Starting next round, applies Poison for 2 rounds. Poison damages HP when a jutsu spends chakra or stamina." }),
+    makeGlobalAreaJutsu("starter-nin-earth-aoe", "Seismic Shatter", "Ninjutsu", "Earth", { name: "Wound", percent: 14 }, "The ground erupts beneath the enemy in a shattering seismic burst.", "Damages the target and adjacent enemies. Starting next round, affected enemies bleed for 2 rounds."),
+    makeGlobalAreaJutsu("starter-nin-wind-aoe", "Vacuum Detonation", "Ninjutsu", "Wind", { name: "Decrease Damage Given", percent: 25 }, "A compressed sphere of air implodes and detonates in a concussive burst.", "Damages the target and adjacent enemies. Starting next round, affected enemies deal less damage for 2 rounds."),
+    makeGlobalAreaJutsu("starter-nin-lightning-aoe", "Forked Lightning Nova", "Ninjutsu", "Lightning", { name: "Increase Damage Taken", percent: 25 }, "Lightning splits into a dozen forks and erupts across the battlefield.", "Damages the target and adjacent enemies. Starting next round, affected enemies take more damage for 2 rounds."),
+    makeGlobalAreaJutsu("starter-nin-fire-aoe", "Great Fireball Burst", "Ninjutsu", "Fire", { name: "Ignition", percent: 25 }, "A massive fireball detonates on impact, engulfing the enemy and their surroundings.", "Damages the target and adjacent enemies. Starting next round, Ignition strengthens hits against them for 2 rounds."),
+    makeGlobalAreaJutsu("starter-nin-water-aoe", "Tidal Crash", "Ninjutsu", "Water", { name: "Drain", percent: 0 }, "A towering wave crashes down and floods the ground in a violent burst.", "Damages the target and adjacent enemies. Starting next round, drains their HP and chakra at the end of their turns for 2 rounds."),
+    makeGlobalAreaJutsu("starter-tai-earth-aoe", "Fault Line Stomp", "Taijutsu", "Earth", { name: "Recoil", percent: 12 }, "A thunderous stomp splits the earth in a shockwave of stone.", "Damages the target and adjacent enemies. Starting next round, affected enemies take recoil damage when their attacks deal damage, for 2 rounds."),
+    makeGlobalAreaJutsu("starter-tai-wind-aoe", "Whirlwind Sweep", "Taijutsu", "Wind", { name: "Decrease Damage Given", percent: 25 }, "The user spins into a whirlwind that batters everyone in reach.", "Damages the target and adjacent enemies. Starting next round, affected enemies deal less damage for 2 rounds."),
+    makeGlobalAreaJutsu("starter-tai-lightning-aoe", "Thunderclap Shockwave", "Taijutsu", "Lightning", { name: "Increase Damage Taken", percent: 25 }, "A lightning-charged clap unleashes a shockwave across the field.", "Damages the target and adjacent enemies. Starting next round, affected enemies take more damage for 2 rounds."),
+    makeGlobalAreaJutsu("starter-tai-fire-aoe", "Blazing Spin Kick", "Taijutsu", "Fire", { name: "Ignition", percent: 25 }, "A blazing spin kick trails fire in a scorching arc.", "Damages the target and adjacent enemies. Starting next round, Ignition strengthens hits against them for 2 rounds."),
+    makeGlobalAreaJutsu("starter-tai-water-aoe", "Surging Wave Palm", "Taijutsu", "Water", { name: "Siphon", percent: 25 }, "A surge of water bursts from the user's palm in a crashing arc.", "Damages the target and adjacent enemies and immediately heals you for part of the damage dealt."),
+    makeGlobalAreaJutsu("starter-gen-earth-aoe", "Crumbling World Illusion", "Genjutsu", "Earth", { name: "Poison", percent: 5 }, "The world seems to crumble as the earth swallows the enemy's mind.", "Damages the target and adjacent enemies. Starting next round, applies Poison for 2 rounds. Poison damages HP when a jutsu spends chakra or stamina."),
+    makeGlobalAreaJutsu("starter-gen-wind-aoe", "Screaming Void", "Genjutsu", "Wind", { name: "Decrease Damage Given", percent: 25 }, "A howling void tears open, screaming through the enemy's senses.", "Damages the target and adjacent enemies. Starting next round, affected enemies deal less damage for 2 rounds."),
+    makeGlobalAreaJutsu("starter-gen-lightning-aoe", "Blinding Flash Field", "Genjutsu", "Lightning", { name: "Increase Damage Taken", percent: 25 }, "A blinding sheet of light detonates across the battlefield.", "Damages the target and adjacent enemies. Starting next round, affected enemies take more damage for 2 rounds."),
+    makeGlobalAreaJutsu("starter-gen-fire-aoe", "Hellfire Mirage", "Genjutsu", "Fire", { name: "Ignition", percent: 25 }, "Phantom hellfire erupts and consumes the enemy's world.", "Damages the target and adjacent enemies. Starting next round, Ignition strengthens hits against them for 2 rounds."),
+    makeGlobalAreaJutsu("starter-gen-water-aoe", "Drowning Delusion", "Genjutsu", "Water", { name: "Drain", percent: 0 }, "A crushing tide of illusion drags the enemy under.", "Damages the target and adjacent enemies. Starting next round, drains their HP and chakra at the end of their turns for 2 rounds."),
+    makeGlobalAreaJutsu("starter-buki-earth-aoe", "Stone Shrapnel Burst", "Bukijutsu", "Earth", { name: "Wound", percent: 14 }, "A packed charge bursts into a hail of stone shrapnel.", "Damages the target and adjacent enemies. Starting next round, affected enemies bleed for 2 rounds."),
+    makeGlobalAreaJutsu("starter-buki-wind-aoe", "Fan Blade Storm", "Bukijutsu", "Wind", { name: "Wound", percent: 14 }, "A storm of wind-borne blades fans out across the field.", "Damages the target and adjacent enemies. Starting next round, affected enemies bleed for 2 rounds."),
+    makeGlobalAreaJutsu("starter-buki-lightning-aoe", "Charged Shuriken Spread", "Bukijutsu", "Lightning", { name: "Increase Damage Taken", percent: 25 }, "A fan of charged shuriken scatters and crackles on impact.", "Damages the target and adjacent enemies. Starting next round, affected enemies take more damage for 2 rounds."),
+    makeGlobalAreaJutsu("starter-buki-fire-aoe", "Explosive Tag Barrage", "Bukijutsu", "Fire", { name: "Ignition", percent: 25 }, "A barrage of explosive tags detonates in a chain of blasts.", "Damages the target and adjacent enemies. Starting next round, Ignition strengthens hits against them for 2 rounds."),
+    makeGlobalAreaJutsu("starter-buki-water-aoe", "Mist Blade Torrent", "Bukijutsu", "Water", { name: "Poison", percent: 5 }, "A torrent of mist-wreathed blades sweeps across the enemy.", "Damages the target and adjacent enemies. Starting next round, applies Poison for 2 rounds. Poison damages HP when a jutsu spends chakra or stamina."),
 
     // Universal jutsus — no element, available to all
     normalizeJutsu({
@@ -404,6 +415,11 @@ export const starterJutsus: Jutsu[] = [
         battleDescription: "The user vanishes and reappears on a nearby open tile.",
         description: "A short-range body flicker that repositions the user in an instant.",
     }),
+    ...globalJutsuExpansion.map(({ id, name, type, element }) => normalizeJutsu({
+        id, name, type, element, ap: type === "Any" ? 40 : 60,
+        target: id === "starter-any-wind-1" || id === "starter-any-lightning-1" ? "SELF" : "OPPONENT",
+        image: `/jutsu/global/${id}.avif`,
+    })),
 ].map(rebalanceNonBloodlineJutsu);
 
 function makeStarterBloodlineDamageJutsu(id: string, name: string, type: JutsuType, element: string, secondaryTag: JutsuTag, battleDescription: string, description: string): Jutsu {

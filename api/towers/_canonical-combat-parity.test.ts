@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { v2PoisonOnSpend } from '../_combat-resources.js';
+import { v2JutsuCosts, v2PoisonOnSpend } from '../_combat-resources.js';
+import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { towerActorToPvpFighter } from '../combat-adapters/clanBossAdapter.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { applyJutsu as applyPvpJutsu } from '../pvp/move.js';
@@ -106,6 +107,37 @@ function begin(entries: TowerActor[], map: TowerMap = MAP): TowerSession {
 describe('Tower direct-cast canonical tag parity', () => {
     const positional = new Set(['Barrier', 'Push', 'Pull', 'Move']);
     const nonPositionalTags = CANONICAL_TAG_NAMES.filter(name => !positional.has(name));
+
+    it('all 45 new jutsu match canonical resolution in a multi-actor battle without hitting bystanders', () => {
+        const additions = Object.values(JUTSU_CATALOG).filter(j =>
+            /^starter-(?:nin|gen|tai|buki)-[a-z]+-[56]$/.test(j.id) || j.id.startsWith('starter-any-'));
+        assert.equal(additions.length, 45);
+        for (const entry of additions) {
+            const specialty = entry.type === 'Any' ? 'Bukijutsu' : entry.type;
+            const jutsu = { ...entry, ...v2JutsuCosts(entry, 100, specialty) };
+            const caster = actor('caster', 'squad', 0, { ai: false, hp: 80_000,
+                character: { specialty, level: 100, stats: {
+                    speed: 3_000, ninjutsuOffense: 2_500, genjutsuOffense: 2_500,
+                    taijutsuOffense: 2_500, bukijutsuOffense: 2_500,
+                }, jutsu: [jutsu], jutsuMastery: [{ jutsuId: jutsu.id, level: 50 }] } });
+            const target = actor('target', 'enemy', 8);
+            const bystander = actor('bystander', 'enemy', 9);
+            const s = begin([caster, target, bystander]);
+            const beforeBystander = structuredClone(towerReceipt(getActor(s, bystander.id)!));
+            const reference = applyPvpJutsu(towerActorToPvpFighter(getActor(s, caster.id)!),
+                towerActorToPvpFighter(getActor(s, target.id)!), jutsu, 1, 'central', 1);
+            reference.self.chakra -= jutsu.chakraCost;
+            reference.self.stamina -= jutsu.staminaCost;
+            const result = applyAction(s, floor(), { actorId: caster.id, type: 'jutsu', jutsuId: jutsu.id,
+                targetId: jutsu.target === 'SELF' ? caster.id : target.id }, makeRng(1));
+            assert.equal(result.applied, true, jutsu.id);
+            assert.deepEqual(towerReceipt(getActor(s, caster.id)!), fighterReceipt(reference.self), `${jutsu.id}: caster`);
+            assert.deepEqual(towerReceipt(getActor(s, target.id)!), fighterReceipt(reference.opponent), `${jutsu.id}: target`);
+            assert.deepEqual(towerReceipt(getActor(s, bystander.id)!), beforeBystander, `${jutsu.id}: single-target isolation`);
+            assert.equal(s.activeAp, 100 - jutsu.ap, jutsu.id);
+            assert.equal(getActor(s, caster.id)!.cooldowns[jutsu.id], 7, jutsu.id);
+        }
+    });
 
     it('matches applyPvpJutsu for every non-positional canonical tag', () => {
         const covered: string[] = [];
