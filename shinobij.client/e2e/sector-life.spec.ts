@@ -33,6 +33,8 @@ import {lifeStepRyo,lifeWorkRyo,lifeRewardHint} from '../../shared/sector-life-r
 const evidence='../output/living-world/browser';mkdirSync(evidence,{recursive:true});
 // Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
 const LIFE_SCENARIO_EPOCH=Date.UTC(2026,9,10,1);
+// Levels rotate, so the angler may name any shoal or send a novice to train first.
+const ANGLER_TIP=/Try .+\. Your Fishing skill is high enough|You need Fishing skill \d to fish at /;
 for(const cached of ['empty','working'] as const)test(`angler cache ${cached}: a later natural roll retains its ordinary service during a life API outage`,async({page},info)=>{
     const sector=6,bucket=Math.floor(LIFE_SCENARIO_EPOCH/WANDERER_BUCKET_MS);
     let initial=0;
@@ -65,7 +67,7 @@ for(const cached of ['empty','working'] as const)test(`angler cache ${cached}: a
     const actor=page.locator('.sector-wanderer-figure').filter({has:page.getByAltText(wanderer.name,{exact:true})});
     await expect(actor).toBeVisible();await expect(page.locator('.sector-fishing-tackle')).toHaveCount(0);
     await actor.click();const dialog=page.getByRole('dialog');await expect(dialog.getByRole('button',{name:'Ask about the water',exact:true})).toBeVisible();
-    await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(/Try .+ shoal\./);
+    await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(ANGLER_TIP);
     await dialog.screenshot({path:`${evidence}/${info.project.name}-angler-rollover-${cached}-outage.png`});expect(errors).toEqual([]);
 });
 for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailable'] as const)test(`working angler ${sector} ${mode}: the existing service fishes real water and uses the gatehouse`,async({page},info)=>{
@@ -99,9 +101,9 @@ for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailab
     }
     await expect(gear).toHaveAttribute('data-water',String(site.water));await expect(gear).toBeVisible();await expect(figure).toHaveAttribute('data-activity','Fishing by the bank');await page.clock.fastForward(4000);await snap('fishing');
     await figure.click();const dialog=page.getByRole('dialog');await expect(dialog).toContainText("I'm watching the float.");
-    await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(/Try .+ shoal\./);await dialog.getByRole('button',{name:'Close',exact:true}).click();
+    await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(ANGLER_TIP);await dialog.getByRole('button',{name:'Close',exact:true}).click();
     for(const node of RESOURCE_NODES.filter(node=>node.sector===sector&&node.activity==='fishing')){
-        await page.getByRole('button',{name:`${node.name}, fishing, 3 attempts remaining, skill ${node.difficulty}`,exact:true}).click();
+        await page.getByRole('button',{name:new RegExp(`^${node.name}, fishing, 3 attempts remaining, skill \\d$`)}).click();
         const shoal=page.getByRole('dialog',{name:node.name,exact:true});await expect(shoal).toBeVisible();
         await shoal.getByRole('button',{name:/Close/}).click();
     }

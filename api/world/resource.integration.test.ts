@@ -7,7 +7,73 @@ import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing.
 import { countOwned } from '../craft/_forge.js';
 import { sectorPoolKey, cleanSectorPoolRow } from './_sector-pool.js';
 process.env.NODE_ENV = 'test'; process.env.SHINOBIX_QA_MEMORY_KV = '1'; process.env.SESSION_SECRET = 'resource-integration-secret';
+process.env.SHINOBIX_QA_PIN_RESOURCE_NODES = '1';
 type Json = Record<string, unknown>;
+
+test('a rotated node gates, seals and holds the level it offers until its refill lands', async (t) => {
+    delete process.env.SHINOBIX_QA_PIN_RESOURCE_NODES;
+    t.after(() => { process.env.SHINOBIX_QA_PIN_RESOURCE_NODES = '1'; });
+    const { resourceNodeOffer } = await import('../../shared/resource-nodes.js');
+    const { RESOURCE_REFILL_MS } = await import('../../shared/resource-gathering.js');
+    const { sharedResourceNodeKey, sharedResourceViews } = await import('./_shared-resource-nodes.js');
+    const base = resourceNode('resource-17')!;
+    const cycleAt = (level: number) => {
+        for (let i = 0; i < 500; i++) {
+            const at = (Math.ceil(Date.now() / RESOURCE_REFILL_MS) + i) * RESOURCE_REFILL_MS + 1000;
+            if (resourceNodeOffer(base, at).difficulty === level) return at;
+        }
+        throw new Error('no cycle offers this level');
+    };
+    t.mock.timers.enable({ apis: ['Date'], now: cycleAt(7) });
+    await seed('rotationnovice');
+    const refused = await post('rotationnovice', { action: 'start', nodeId: base.id, mode: 'relaxed', requestId: 'rotation-novice-attempt' });
+    assert.equal(refused.status, 409); assert.match(String(refused.body.error), /Requires Mining skill 7/);
+    await seed('rotationmaster', { resourceGathering: { ...readResourceGathering(null), miningXp: 3200 } });
+    const id = 'rotation-master-attempt', admitted = await post('rotationmaster', { action: 'start', nodeId: base.id, mode: 'relaxed', requestId: id });
+    assert.equal(admitted.status, 200, JSON.stringify(admitted.body));
+    const txKey = `economy-tx:resource-gathering:${createHash('sha256').update(`rotationmaster:${id}`).digest('hex')}`;
+    const seal = (await kv.get<{ meta: { seal: { rules: Json } } }>(txKey))!.meta.seal;
+    assert.equal(seal.rules.difficulty, 7); assert.equal(seal.rules.ceiling, 3);
+    assert.equal(readResourceGathering((admitted.body.character as Json).resourceGathering).active?.deposit, seal.rules.trace ?? base.family);
+    const refillAt = Date.now() + RESOURCE_REFILL_MS;
+    await kv.set(sharedResourceNodeKey(base.id), { generation: 0, attempts: 3, refillAt, reservations: {} });
+    // Past the next cycle boundary but before the refill: still the emptied level.
+    t.mock.timers.setTime(refillAt - 500);
+    const empty = (await sharedResourceViews(29, Date.now()))[base.id];
+    assert.equal(empty.remaining, 0); assert.equal(empty.difficulty, 7);
+    t.mock.timers.setTime(refillAt + 1);
+    const refilled = (await sharedResourceViews(29, Date.now()))[base.id];
+    assert.equal(refilled.remaining, 3); assert.equal(refilled.difficulty, resourceNodeOffer(base, Date.now()).difficulty);
+    await kv.del(sharedResourceNodeKey(base.id));
+});
+
+test('a retry across a rotation keeps its sealed level and finishes its reservation', async (t) => {
+    delete process.env.SHINOBIX_QA_PIN_RESOURCE_NODES;
+    t.after(() => { process.env.SHINOBIX_QA_PIN_RESOURCE_NODES = '1'; });
+    const { resourceNodeOffer } = await import('../../shared/resource-nodes.js');
+    const { RESOURCE_REFILL_MS } = await import('../../shared/resource-gathering.js');
+    const { sharedResourceNodeKey } = await import('./_shared-resource-nodes.js');
+    const base = resourceNode('resource-17')!;
+    let boundary = (Math.ceil(Date.now() / RESOURCE_REFILL_MS) + 1) * RESOURCE_REFILL_MS;
+    while (resourceNodeOffer(base, boundary - 1).difficulty !== 1 || resourceNodeOffer(base, boundary).difficulty !== 7) boundary += RESOURCE_REFILL_MS;
+    t.mock.timers.enable({ apis: ['Date'], now: boundary - 2000 });
+    const name = 'rotationretry', id = 'rotation-retry-attempt-001';
+    await seed(name);
+    const body = { action: 'start', nodeId: base.id, mode: 'relaxed', requestId: id };
+    const original = kv.compareSet;
+    kv.compareSet = async (key, expected, value, options) => {
+        if (key === `save:${name}`) throw new Error('fixture-save-write-unavailable');
+        return original.call(kv, key, expected, value, options);
+    };
+    try { assert.equal((await post(name, body)).status, 503); } finally { kv.compareSet = original; }
+    t.mock.timers.setTime(boundary + 1000);
+    const retried = await post(name, body);
+    assert.equal(retried.status, 200, JSON.stringify(retried.body));
+    const row = (await kv.get<{ attempts: number; reservations: Record<string, { committed: boolean }> }>(sharedResourceNodeKey(base.id)))!;
+    assert.equal(row.attempts, 1, 'the retry reuses its one reserved attempt');
+    assert.deepEqual(Object.values(row.reservations).map(r => r.committed), [true]);
+    await kv.del(sharedResourceNodeKey(base.id));
+});
 
 test('retrying a replaced uncommitted claim refunds only its own node and pool reservations', async (t) => {
     t.mock.timers.enable({ apis: ['Date'], now: Date.now() });

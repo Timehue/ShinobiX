@@ -4,8 +4,8 @@ import type { ResourceNode } from '../../../shared/resource-nodes';
 import type { Character } from '../types/character';
 import { gatheringToolArtwork } from '../lib/gathering-tool-art';
 
-export function GatheringResult({ character, receipt, node, charges, today, busy, onBack, onAgain }: {
-    character: Character; receipt: ResourceReceipt; node: ResourceNode | null | undefined;
+export function GatheringResult({ character, receipt, node, requiredSkill = 1, charges, today, busy, onBack, onAgain }: {
+    character: Character; receipt: ResourceReceipt; node: ResourceNode | null | undefined; requiredSkill?: number;
     charges: number; today: number; busy: boolean; onBack: () => void; onAgain: () => void;
 }) {
     const mining = receipt.activity === 'mining', activity = mining ? 'Mining' : 'Fishing';
@@ -16,7 +16,8 @@ export function GatheringResult({ character, receipt, node, charges, today, busy
     const floor = RESOURCE_SKILL_XP[level - 1], next = RESOURCE_SKILL_XP[level];
     const toolId = character.equipment?.[mining ? 'pickaxe' : 'fishingPole'];
     const usableTool = Boolean(toolId && gatheringToolRemaining(character, toolId) !== 0);
-    const repeat = Boolean(node && charges > 0 && today < 100 && usableTool);
+    const skilled = level >= requiredSkill;
+    const repeat = Boolean(node && charges > 0 && today < 100 && usableTool && skilled);
     const caught = receipt.fishingCatch;
     const title = item?.name ?? (caught?.tooStrong ? 'Outmatched by the fish.' : receipt.outcome === 'failed' ? mining ? 'The seam gave way.' : 'This one got away.'
         : receipt.outcome === 'expired' ? 'Time to move on.' : 'Tools down.');
@@ -50,7 +51,7 @@ export function GatheringResult({ character, receipt, node, charges, today, busy
             <span><span className="gather-report-pips" aria-hidden="true">{[0, 1, 2].map(i => <i key={i} className={i < charges ? 'available' : ''} />)}</span><strong>{charges}/3</strong> attempts left</span>
             <span><strong>{Math.max(0, 100 - today)}</strong> actions left today</span>
         </div>
-        {!repeat && <p className="gather-report-return-note">{!usableTool ? 'Equip a tool to gather here again.' : charges === 0 ? 'This node replenishes in 10 minutes.' : 'Your shared daily actions reset at 00:00 UTC.'}</p>}
+        {!repeat && <p className="gather-report-return-note">{!usableTool ? 'Equip a tool to gather here again.' : charges === 0 ? 'This node replenishes in 10 minutes.' : !skilled ? `This node now requires skill ${requiredSkill}.` : 'Your shared daily actions reset at 00:00 UTC.'}</p>}
         <div className="gather-report-actions"><button type="button" className="gather-report-back" onClick={onBack}>Back to map</button>
             {repeat && <button type="button" className="gather-report-again" disabled={busy} onClick={onAgain}>{busy ? 'Starting…' : mining ? 'Mine again' : 'Fish again'}<span aria-hidden="true"> ↻</span></button>}
         </div>
