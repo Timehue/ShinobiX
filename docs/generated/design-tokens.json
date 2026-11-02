@@ -4083,6 +4083,10 @@
             "line": 6342
           },
           {
+            "source": "shinobij.client/src/styles/combat-hotkeys.css",
+            "line": 8
+          },
+          {
             "source": "shinobij.client/src/styles/index/01-base-app-chrome.css",
             "line": 595
           },
