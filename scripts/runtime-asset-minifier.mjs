@@ -7,3 +7,8 @@ export function minifyRuntimeSource(source) {
         legalComments: 'none',
     }).code;
 }
+
+/** Compact generated JSON metadata without changing its parsed graph. */
+export function minifyRuntimeJson(source) {
+    return JSON.stringify(JSON.parse(source));
+}

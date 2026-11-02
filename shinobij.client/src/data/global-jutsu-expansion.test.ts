@@ -56,7 +56,9 @@ test('all new jutsu reach elemental menus, explicit effect descriptions and regi
     for (const jutsu of additions) {
         const menu = getJutsuSelectOptions(starterJutsus, jutsu.type, jutsu.element, 'effect');
         assert.ok(menu.some(entry => entry.id === jutsu.id), `${jutsu.id}: visible under its type and element`);
-        assert.ok(menu.every(entry => entry.type === jutsu.type && entry.element === jutsu.element));
+        assert.ok(menu.every(entry => entry.element === jutsu.element), `${jutsu.id}: element filter stays exact`);
+        assert.ok(menu.every(entry => entry.type === jutsu.type || entry.type === 'Any'),
+            `${jutsu.id}: offense filter permits shared utilities but excludes other offenses`);
         for (const tag of jutsu.tags) {
             const info = jutsuEffectInfo(jutsu, tag);
             assert.notEqual(info.rule, 'Custom effect tag.', `${jutsu.id}/${tag.name}: explicit effect rule`);
