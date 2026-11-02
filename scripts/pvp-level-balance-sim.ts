@@ -1135,6 +1135,7 @@ function previewGroundPulse(
     originalSelf: PvpFighter,
     originalOpponent: PvpFighter,
     paidSelf: PvpFighter,
+    struckOpponent: PvpFighter,
     effect: PvpGroundEffect,
     round: number,
     castPulseThisTurn: boolean,
@@ -1142,7 +1143,7 @@ function previewGroundPulse(
     if (castPulseThisTurn) {
         return {
             self: paidSelf,
-            opponent: applyGroundEffectToFighter(originalOpponent, effect, round, true).fighter,
+            opponent: applyGroundEffectToFighter(struckOpponent, effect, round, true).fighter,
         };
     }
     // A closer's zone first pulses after live endTurn has aged both status
@@ -1152,7 +1153,8 @@ function previewGroundPulse(
     const baselineSelf = tickStatuses(clone(originalSelf), round);
     const baselineOpponent = tickStatuses(clone(originalOpponent), round);
     const futureSelf = tickStatuses(paidSelf, round);
-    const futureOpponent = applyGroundEffectToFighter(baselineOpponent, effect, round + 1).fighter;
+    // The baseline stays pre-hit, so the opening hit counts as this cast's value.
+    const futureOpponent = applyGroundEffectToFighter(tickStatuses(clone(struckOpponent), round), effect, round + 1).fighter;
     return {
         self: futureSelf,
         opponent: futureOpponent,
@@ -1182,7 +1184,7 @@ function previewJutsu(
                 activeRound: round + 1,
             };
             const strike = fieldOpeningStrike(previewSelf, previewOpponent, jutsu, plan, round);
-            return previewGroundPulse(self, strike?.opponent ?? opponent, strike?.self ?? previewSelf, effect, round, castPulseThisTurn);
+            return previewGroundPulse(self, opponent, strike?.self ?? previewSelf, strike?.opponent ?? opponent, effect, round, castPulseThisTurn);
         }
         if (plan.method === 'AOE_CIRCLE' && plan.hitsOpponent) {
             const damageJutsu = { ...jutsu, tags: tags.filter((tag) => canonicalTagName(tag.name) !== 'Move') };
@@ -1206,7 +1208,7 @@ function previewJutsu(
             activeRound: round + 1,
         };
         const strike = fieldOpeningStrike(previewSelf, previewOpponent, jutsu, plan, round);
-        return previewGroundPulse(self, strike?.opponent ?? opponent, strike?.self ?? previewSelf, effect, round, castPulseThisTurn);
+        return previewGroundPulse(self, opponent, strike?.self ?? previewSelf, strike?.opponent ?? opponent, effect, round, castPulseThisTurn);
     }
     if (plan && jutsu.target === 'EMPTY_GROUND' && plan.targetTile !== undefined) {
         previewSelf = payJutsuResources(previewSelf, plan, round);

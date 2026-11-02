@@ -356,7 +356,8 @@ describe('level-aware PvP balance harness integrity', () => {
             const opponent = structuredClone(groundBuild.fighter);
             self.pos = 40;
             opponent.pos = 42;
-            self.character.jutsu = [poisonField];
+            // No opening hit: this pins the pulse value alone.
+            self.character.jutsu = [{ ...poisonField, effectPower: 0 }];
             opponent.statuses = [ward];
             return chooseAction(self, opponent, groundBuild.weapon, { [`weapon:${groundBuild.weapon.id}`]: 99 }, 1, 100, 0, false, [], 'p2');
         };
@@ -378,6 +379,28 @@ describe('level-aware PvP balance harness integrity', () => {
         const escape = chooseAction(self, opponent, groundBuild.weapon, { [`weapon:${groundBuild.weapon.id}`]: 99 }, 1, 100, 0, true, [zone], 'p1');
         assert.equal(escape.kind, 'move');
         if (escape.kind === 'move') assert.notEqual(escape.tile, self.pos);
+    });
+
+    it('scores a field opening hit from either turn position', () => {
+        const groundBuild = makeBuild(80, 'Ground', 'A Rank');
+        const field = groundBuild.jutsu.find((jutsu) => jutsu.method === 'INSTANT_EFFECT')!;
+        assert.ok(field);
+        // A ward that outlasts both pulse timings leaves the hit as the only value.
+        const chooseField = (effectPower: number, castPulseThisTurn: boolean) => {
+            const self = structuredClone(groundBuild.fighter);
+            const opponent = structuredClone(groundBuild.fighter);
+            self.pos = 40;
+            opponent.pos = 42;
+            self.character.jutsu = [{ ...field, ap: 60, effectPower, isUtility: false }];
+            opponent.statuses = [{ ...active('Debuff Prevent', 'positive'), rounds: 3 }];
+            return chooseAction(self, opponent, groundBuild.weapon, { [`weapon:${groundBuild.weapon.id}`]: 99, clear: 99 }, 1, 100, 0, castPulseThisTurn, [], 'p1');
+        };
+        for (const castPulseThisTurn of [true, false]) {
+            const damaging = chooseField(60, castPulseThisTurn);
+            assert.equal(damaging.kind === 'jutsu' ? damaging.jutsu.id : damaging.kind, field.id, `cast pulse ${castPulseThisTurn}`);
+            const harmless = chooseField(0, castPulseThisTurn);
+            assert.notEqual(harmless.kind === 'jutsu' ? harmless.jutsu.id : harmless.kind, field.id, `cast pulse ${castPulseThisTurn}`);
+        }
     });
 
     it('mirrors identical-build outcomes when the opener is swapped', () => {

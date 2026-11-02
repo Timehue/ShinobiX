@@ -2848,6 +2848,16 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             // groundTargetCatchesEnemy, so a damage ground jutsu (e.g. a custom "Ambush")
             // hits instead of bouncing on `no-ground-tags`. An empty tile whiffs harmlessly
             // (still costs AP). This branch never hard-rejects for missing ground tags.
+            const payCast = () => {
+                actor.chakra = Math.max(0, actor.chakra - ck);
+                actor.stamina = Math.max(0, actor.stamina - st);
+                spendPoison(session, actor, ck, st, session.round);
+                if (Number(jg.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jg.cooldown));
+            };
+            // A field pays before its opening hit, as in PvP and solo PvE, so a caster
+            // killed by Poison on spend lands nothing. A direct strike still pays after.
+            const laysField = towerGroundTags(jg.tags).length > 0;
+            if (laysField) payCast();
             if (castGroundField(session, floor, actor, action.jutsuId, jg, tile, cost)) {
                 tickBossPhases(session);
             } else {
@@ -2871,10 +2881,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
                     tickBossPhases(session);
                 }
             }
-            actor.chakra = Math.max(0, actor.chakra - ck);
-            actor.stamina = Math.max(0, actor.stamina - st);
-            spendPoison(session, actor, ck, st, session.round);
-            if (Number(jg.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jg.cooldown));
+            if (!laysField) payCast();
             tickBossPhases(session);
             checkTowerWinner(session, floor);
             return { applied: true };

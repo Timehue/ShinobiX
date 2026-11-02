@@ -886,6 +886,51 @@ describe('damaging ground fields', () => {
         assert.equal(getActor(s, 'near')!.hp, 100_000);
     });
 
+    it('a field caster who dies to Poison on spend pays once and lands no hit', () => {
+        const s = begin([caster(fieldJutsu()), actor('near', 'enemy', 1)]);
+        const hero = getActor(s, 'caster')!;
+        hero.hp = 1;
+        hero.statuses = [{ name: 'Poison', rounds: 3, percent: 30, kind: 'negative', activeRound: 1 }];
+        const ap = s.activeAp;
+        assert.equal(cast(s, 3).applied, true);
+        assert.equal(hero.hp, 0);
+        assert.equal(getActor(s, 'near')!.hp, 100_000);
+        assert.equal(ap - s.activeAp, 60);
+        assert.equal(s.actionsThisTurn, 1);
+        assert.equal(500 - hero.stamina, 77);
+        assert.equal(hero.cooldowns.darkfield, 7);
+        assert.equal(s.log.filter(line => line.includes('to Poison for spending')).length, 1);
+    });
+
+    it('a poisoned field caster who survives the spend pays before the hit, once', () => {
+        const s = begin([caster(fieldJutsu()), actor('near', 'enemy', 1)]);
+        const hero = getActor(s, 'caster')!;
+        hero.statuses = [{ name: 'Poison', rounds: 3, percent: 30, kind: 'negative', activeRound: 1 }];
+        const ap = s.activeAp;
+        assert.equal(cast(s, 3).applied, true);
+        assert.ok(getActor(s, 'near')!.hp < 100_000);
+        assert.equal(ap - s.activeAp, 60);
+        assert.equal(500 - hero.stamina, 77);
+        const poisonLine = s.log.findIndex(line => line.includes('to Poison for spending'));
+        assert.notEqual(poisonLine, -1);
+        assert.ok(poisonLine < s.log.findIndex(line => line.includes('uses Darkfield')), s.log.join(' | '));
+        assert.equal(s.log.filter(line => line.includes('to Poison for spending')).length, 1);
+    });
+
+    it('a ground strike with no field tags keeps its hit-then-pay order', () => {
+        const s = begin([caster(fieldJutsu({ tags: [] })), actor('near', 'enemy', 3)]);
+        const hero = getActor(s, 'caster')!;
+        hero.hp = 1;
+        hero.statuses = [{ name: 'Poison', rounds: 3, percent: 30, kind: 'negative', activeRound: 1 }];
+        assert.equal(cast(s, 3).applied, true);
+        assert.equal(hero.hp, 0);
+        assert.ok(getActor(s, 'near')!.hp < 100_000);
+        assert.equal(500 - hero.stamina, 77);
+        assert.equal(s.groundEffects.length, 0);
+        const poisonLine = s.log.findIndex(line => line.includes('to Poison for spending'));
+        assert.ok(s.log.findIndex(line => line.includes('uses Darkfield')) < poisonLine, s.log.join(' | '));
+    });
+
     it('a self Heal rides the cast once however many enemies are caught', () => {
         const s = begin([
             caster(fieldJutsu({ tags: [...recoil, { name: 'Heal', percent: 0 }] })),
