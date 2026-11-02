@@ -102,6 +102,44 @@ test('a depleted shared node blocks a fresh player who has never gathered there'
     await noOverflow(page);
 });
 
+test('a refused start clears when the open node rotates to another level', async ({ page }) => {
+    await install(page);
+    let difficulty = 1;
+    await page.route('**/api/world/resource', async route => {
+        const { action } = route.request().postDataJSON();
+        if (action === 'start') return route.fulfill({ status: 409, json: { ok: false, error: 'Requires Mining skill 4.' } });
+        if (action !== 'nodes') return route.fallback();
+        return route.fulfill({ json: { ok: true, sector: 2, nodes: { 'resource-13': { remaining: 3, refillAt: 0, difficulty } } } });
+    });
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
+    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+    await expect(page.getByText(/Requires skill 1 ·/)).toBeVisible();
+    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await expect(page.locator('.resource-warning')).toHaveText('Requires Mining skill 4.');
+    difficulty = 7;
+    await expect(page.getByText(/Requires skill 7 ·/)).toBeVisible();
+    await expect(page.locator('.resource-warning')).toHaveCount(0);
+});
+
+test('a level rotation keeps the recovery prompt of an overtaken start', async ({ page }) => {
+    const runtime = await install(page);
+    let difficulty = 1;
+    await page.route('**/api/world/resource', async route => {
+        const { action } = route.request().postDataJSON();
+        if (action === 'start') return route.fulfill({ json: { ok: true, character: runtime.character(), _saveVersion: 0 } });
+        if (action !== 'nodes') return route.fallback();
+        return route.fulfill({ json: { ok: true, sector: 2, nodes: { 'resource-13': { remaining: 3, refillAt: 0, difficulty } } } });
+    });
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
+    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await expect(page.locator('.resource-warning')).toHaveText(/A newer save arrived/);
+    difficulty = 7;
+    // The open dialog hides the map from role queries, so read the marker directly.
+    await expect(page.locator('.resource-world-node[aria-label^="Harbor iron seam, mining"]')).toHaveAttribute('aria-label', /skill 7/);
+    await expect(page.locator('.resource-warning')).toHaveText(/A newer save arrived/);
+});
+
 test('map resource nodes stay anchored when hovered and open on the first click', async ({ page }, info) => {
     await install(page);
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
