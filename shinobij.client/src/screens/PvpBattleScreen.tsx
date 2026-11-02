@@ -1,3 +1,5 @@
+import { CombatHotkeyButton } from "../components/CombatHotkeys";
+import { combatJutsuSlotIds, equipmentHotkey, jutsuHotkey } from "../lib/combat-hotkeys";
 import { displayPlayerName } from "../../../shared/player-name";
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { CombatGridAppearanceControls, CombatGridOutline } from "../components/CombatGridAppearance";
@@ -463,9 +465,6 @@ export function PvpBattleScreen({
     // PvP cosmetic); the floating ±damage numbers below are kept as the impact cue.
     const liteFx = prefersLiteCombatFx();
     const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
-    // Latest combat-hotkey handlers, read by a stable keydown listener (below).
-    // Updated each render so it never goes stale and stays a top-level hook.
-    const combatHotkeyRef = useRef<{ active: boolean; actions: Record<string, () => void> } | null>(null);
     const pvpSessionFirstLoadRef = useRef(false);
     const pvpRewardRef = useRef(false);
     const rewardClaimAbortRef = useRef<AbortController | null>(null);
@@ -931,26 +930,6 @@ export function PvpBattleScreen({
         return () => { cancelled = true; joinAbort.abort(); };
     }, [battleId, role, runtimeScopeKey, session?.status, session?.joined?.p1, session?.joined?.p2, session?.p1.name, session?.p2.name]);
 
-    // Desktop combat hotkeys — A=Attack M=Move H=Heal C=Clear X=Cleanse
-    // F=Flee W/Space=End turn Esc=Deselect. Reads the latest handlers via a ref
-    // so this stays a stable top-level hook. Ignores keypresses while typing
-    // (battle chat) and only fires on the local player's turn; AP/cooldown
-    // affordability is enforced server-side.
-    useEffect(() => {
-        function onCombatKey(e: KeyboardEvent) {
-            const state = combatHotkeyRef.current;
-            if (!state || !state.active || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-            // Space on a focused target button must confirm that target rather
-            // than trigger the global End Turn shortcut.
-            if (e.key === " " && e.target instanceof Element && e.target.closest("button, [role='button']")) return;
-            const el = document.activeElement as HTMLElement | null;
-            if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
-            const fn = state.actions[e.key.toLowerCase()];
-            if (fn) { e.preventDefault(); fn(); }
-        }
-        window.addEventListener("keydown", onCombatKey);
-        return () => window.removeEventListener("keydown", onCombatKey);
-    }, []);
 
     useEffect(() => {
         if (!session) return;
@@ -1854,15 +1833,13 @@ export function PvpBattleScreen({
             };
         })
         : equippedJutsu;
-    // Show my own action bar in my saved loadout order (the slot order set via
-    // the Profile loadout arrows). Display-only: jutsu are still acted on by id,
-    // so this never touches AP costs, targeting, or move resolution. Spectators
-    // keep the session's sealed order (it isn't their loadout).
+    // Preserve the profile's display-order preferences, limited to this fight's sealed techniques.
+    const sessionJutsuSlotIds = combatJutsuSlotIds(character.equippedJutsuIds, sessionEquippedJutsuRaw);
     const sessionEquippedJutsu = amSpectator
         ? sessionEquippedJutsuRaw
         : [...sessionEquippedJutsuRaw].sort((a, b) => {
-            const ia = character.equippedJutsuIds.indexOf(a.id);
-            const ib = character.equippedJutsuIds.indexOf(b.id);
+            const ia = sessionJutsuSlotIds.indexOf(a.id);
+            const ib = sessionJutsuSlotIds.indexOf(b.id);
             return (ia < 0 ? Number.MAX_SAFE_INTEGER : ia) - (ib < 0 ? Number.MAX_SAFE_INTEGER : ib);
         });
     const sessionEquippedItems = Array.isArray(me.character?.pvpItems)
@@ -2241,21 +2218,6 @@ export function PvpBattleScreen({
     const myAvatar = (me.character?.avatarImage as string) || sharedImages['avatar:' + me.name.toLowerCase()] || "";
     const oppAvatar = (opp.character?.avatarImage as string) || sharedImages['avatar:' + opp.name.toLowerCase()] || "";
 
-    // Combat hotkey wiring for this render (read by the keydown listener above).
-    combatHotkeyRef.current = {
-        active: isMyTurn && !submitting && !done && !amSpectator,
-        actions: {
-            a: () => { if (basicAttackAvailability.affordable) { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); } },
-            m: () => { if (moveAvailability.affordable) armBasicAction("move"); },
-            h: () => { if (healAvailability.affordable) armBasicAction("basicHeal"); },
-            c: () => { if (clearAvailability.affordable && pvpDist(myPos, oppPos) <= BASIC_CLEAR_RANGE) armBasicAction("clear"); },
-            x: () => { if (cleanseAvailability.affordable) armBasicAction("cleanse"); },
-            f: () => { if (fleeAvailability.affordable) void submitAction("flee"); },
-            w: () => void submitAction("wait"),
-            " ": () => void submitAction("wait"),
-            escape: () => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(undefined); },
-        },
-    };
 
     return (
         <ShinobiCombatShell mode="pvp" className={`pvp-battle-layout${amSpectator ? " pvp-spectator" : ""} arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
@@ -2603,41 +2565,41 @@ export function PvpBattleScreen({
                         bordered scrollport for both on a phone, and stays
                         `display: contents` everywhere else so each surface keeps
                         the grid area it already had. */}
-                    <CombatActionTray>
+                    <CombatActionTray player={character.name} hotkeysActive={isMyTurn && !submitting && !done && !amSpectator} onDeselect={() => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(undefined); }}>
                         {!done && !amSpectator && (
                             <CombatCommandBar style={!bothJoined || isMyTurn ? undefined : { opacity: 0.55 }}>
                                 {canCancelUnstartedPvpDuel(session) && <button type="button" onClick={() => void submitAction("cancel-unjoined", undefined, undefined, undefined, { allowWhenNotMyTurn: true })} disabled={submitting}>
                                     <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>{submitting ? "Cancelling…" : "Cancel duel"}</span><small>No penalty</small>
                                 </button>}
-                                <button aria-pressed={pendingBasicAttack} className={pendingBasicAttack ? "selected-action" : ""}
+                                <CombatHotkeyButton action="attack" aria-pressed={pendingBasicAttack} className={pendingBasicAttack ? "selected-action" : ""}
                                     onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
                                     disabled={!isMyTurn || submitting || !basicAttackAvailability.affordable}>
                                     <i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{basicAttackAvailability.apCost} AP<span className="cmd-detail"> | 10 SP | R1</span></small>
-                                </button>
-                                <button aria-pressed={selectedActionId === "move"} className={selectedActionId === "move" ? "selected-action" : ""}
+                                </CombatHotkeyButton>
+                                <CombatHotkeyButton action="move" aria-pressed={selectedActionId === "move"} className={selectedActionId === "move" ? "selected-action" : ""}
                                     onClick={() => armBasicAction("move")}
                                     disabled={!isMyTurn || submitting || !moveAvailability.affordable}>
                                     <i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAvailability.apCost} AP<span className="cmd-detail"> / tile</span></small>
-                                </button>
-                                <button onClick={() => armBasicAction("basicHeal")} aria-pressed={selectedActionId === "basicHeal"} className={selectedActionId === "basicHeal" ? "selected-action" : ""}
+                                </CombatHotkeyButton>
+                                <CombatHotkeyButton action="heal" onClick={() => armBasicAction("basicHeal")} aria-pressed={selectedActionId === "basicHeal"} className={selectedActionId === "basicHeal" ? "selected-action" : ""}
                                     disabled={!isMyTurn || submitting || !healAvailability.affordable}>
                                     <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{healAvailability.apCost} AP<span className="cmd-detail"> | 10 CP | CD {myCooldowns.basicHeal ?? 0}</span></small>
-                                </button>
-                                <button onClick={() => armBasicAction("clear")} aria-pressed={selectedActionId === "clear"} className={selectedActionId === "clear" ? "selected-action" : ""}
+                                </CombatHotkeyButton>
+                                <CombatHotkeyButton action="clear" onClick={() => armBasicAction("clear")} aria-pressed={selectedActionId === "clear"} className={selectedActionId === "clear" ? "selected-action" : ""}
                                     disabled={!isMyTurn || submitting || !clearAvailability.affordable || pvpDist(myPos, oppPos) > BASIC_CLEAR_RANGE}
                                     title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles`}>
                                     <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{clearAvailability.apCost} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {myCooldowns.clear ?? 0}</span></small>
-                                </button>
-                                <button onClick={() => armBasicAction("cleanse")} aria-pressed={selectedActionId === "cleanse"} className={selectedActionId === "cleanse" ? "selected-action" : ""}
+                                </CombatHotkeyButton>
+                                <CombatHotkeyButton action="cleanse" onClick={() => armBasicAction("cleanse")} aria-pressed={selectedActionId === "cleanse"} className={selectedActionId === "cleanse" ? "selected-action" : ""}
                                     disabled={!isMyTurn || submitting || !cleanseAvailability.affordable}>
                                     <i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{cleanseAvailability.apCost} AP<span className="cmd-detail"> | CD {myCooldowns.cleanse ?? 0}</span></small>
-                                </button>
-                                <button onClick={() => submitAction("flee")} disabled={!isMyTurn || submitting || !fleeAvailability.affordable}>
+                                </CombatHotkeyButton>
+                                <CombatHotkeyButton action="flee" onClick={() => submitAction("flee")} disabled={!isMyTurn || submitting || !fleeAvailability.affordable}>
                                     <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{fleeAvailability.apCost} AP<span className="cmd-detail"> | 50%</span></small>
-                                </button>
-                                <button onClick={() => submitAction("wait")} disabled={!isMyTurn || submitting}>
+                                </CombatHotkeyButton>
+                                <CombatHotkeyButton action="endTurn" onClick={() => submitAction("wait")} disabled={!isMyTurn || submitting}>
                                     <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small>
-                                </button>
+                                </CombatHotkeyButton>
                             </CombatCommandBar>
                         )}
                         <div
@@ -2681,7 +2643,7 @@ export function PvpBattleScreen({
                                                 return (
                                                     <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-cooling" : ""}`}>
                                                         {onCooldown && <span className="combat-cd-badge combat-jutsu-cd-badge" title={`${cooldownRemaining} turn(s) until ready`}><span className="combat-cd-prefix">CD </span>{cooldownRemaining}</span>}
-                                                        <button
+                                                        <CombatHotkeyButton action={jutsuHotkey(j.id, sessionJutsuSlotIds)}
                                                             type="button"
                                                             className={`combat-jutsu-button${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
                                                             title={title}
@@ -2707,7 +2669,7 @@ export function PvpBattleScreen({
                                                                     staminaCost: j.staminaCost ?? 0,
                                                                 }}
                                                             />
-                                                        </button>
+                                                        </CombatHotkeyButton>
                                                         <button type="button" className="combat-jutsu-help"
                                                             id={`pvp-combat-detail-trigger-jutsu-${j.id}`}
                                                             aria-haspopup="dialog"
@@ -2741,7 +2703,7 @@ export function PvpBattleScreen({
                                                 return (
                                                     <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
                                                         {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
-                                                        <button
+                                                        <CombatHotkeyButton action={equipmentHotkey(item.id, me.character?.equipment ?? character.equipment)}
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
                                                             title={combatItemTooltip(item, { action: "Weapon", apCost, range: wRange, cooldown: wCd })}
@@ -2753,7 +2715,7 @@ export function PvpBattleScreen({
                                                             </span>
                                                             <span className="combat-jutsu-name">{item.name}</span>
                                                             <span className="combat-jutsu-info">{apCost} AP | R{wRange}{onCooldown ? ` | CD ${wCd}` : ""}</span>
-                                                        </button>
+                                                        </CombatHotkeyButton>
                                                         <button type="button" className="combat-jutsu-help"
                                                             id={`pvp-combat-detail-trigger-item-${item.id}`}
                                                             aria-haspopup="dialog"
@@ -2792,7 +2754,7 @@ export function PvpBattleScreen({
                                                 return (
                                                     <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
                                                         {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
-                                                        <button
+                                                        <CombatHotkeyButton action={equipmentHotkey(item.id, me.character?.equipment ?? character.equipment)}
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
                                                             title={combatItemTooltip(item, {
@@ -2811,7 +2773,7 @@ export function PvpBattleScreen({
                                                             </span>
                                                             <span className="combat-jutsu-name">{item.name}</span>
                                                             <span className="combat-jutsu-info">Thrown · {apCost} AP | R{wRange}{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
-                                                        </button>
+                                                        </CombatHotkeyButton>
                                                         <button type="button" className="combat-jutsu-help"
                                                             id={`pvp-combat-detail-trigger-item-${item.id}`}
                                                             aria-haspopup="dialog"
@@ -2847,7 +2809,7 @@ export function PvpBattleScreen({
                                                 return (
                                                     <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
                                                         {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
-                                                        <button
+                                                        <CombatHotkeyButton action={equipmentHotkey(item.id, me.character?.equipment ?? character.equipment)}
                                                             type="button"
                                                             aria-pressed={isArmed}
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
@@ -2866,7 +2828,7 @@ export function PvpBattleScreen({
                                                             </span>
                                                             <span className="combat-jutsu-name">{item.name}</span>
                                                             <span className="combat-jutsu-info">{apCost} AP | Use{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
-                                                        </button>
+                                                        </CombatHotkeyButton>
                                                     </div>
                                                 );
                                             })}
