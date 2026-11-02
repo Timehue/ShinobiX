@@ -1,15 +1,16 @@
-import { sectorArtKey } from "../../../shared/sector-geo";
+import { sectorArtKey, VILLAGE_OUTSKIRTS } from "../../../shared/sector-geo";
 import { sectorFloorImage, sectorFloorLayout } from "./sector-floor-layout";
 
-const BESPOKE_OUTER_TERRITORY_MAPS: Readonly<Record<string, string>> = {
-    "Stormveil Village": "/sector-map/stormveil-outskirts.webp",
-    "Frostfang Village": "/sector-map/frostfang-outskirts.webp",
-    "Moonshadow Village": "/sector-map/moonshadow-outskirts.webp",
-};
+/** Presentation board only; callers keep their existing gameplay sector. */
+export function villageOuterTerritoryMapSector(villageName: string, virtualSector: number): number {
+    return VILLAGE_OUTSKIRTS[villageName] ?? virtualSector;
+}
 
-/** Resolve the painted board for a village's outer-territory gameplay sector. */
+/** Show the village compound to every visitor, independently of the virtual
+ * sector retained by exploration and raid gameplay. */
 export function villageOuterTerritoryMapUrl(villageName: string, virtualSector: number): string {
+    const boardSector = villageOuterTerritoryMapSector(villageName, virtualSector);
+    if (boardSector !== virtualSector) return sectorFloorImage(boardSector);
     if (sectorFloorLayout(virtualSector)) return sectorFloorImage(virtualSector);
-    return BESPOKE_OUTER_TERRITORY_MAPS[villageName]
-        ?? `/sector-map/s${sectorArtKey(virtualSector)}.webp`;
+    return `/sector-map/s${sectorArtKey(virtualSector)}.webp`;
 }
