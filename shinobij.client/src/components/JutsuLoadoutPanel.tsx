@@ -1,6 +1,6 @@
 import { useState, type DragEvent, type ReactNode } from "react";
 import type { Character } from "../types/character";
-import type { Jutsu } from "../types/combat";
+import type { Jutsu, SavedBloodline } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import { JutsuEffectCards } from "./JutsuEffectCards";
 import { describeJutsuEffects, jutsuDetailDescription, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
@@ -206,6 +206,7 @@ export function JutsuLoadoutPanel({
     learnedJutsus,
     catalogJutsus,
     bloodlineJutsuNames = NO_BLOODLINE_JUTSUS,
+    savedBloodlines = [],
     onPlaceJutsu,
     onUnequip,
     onUnequipAll,
@@ -222,6 +223,7 @@ export function JutsuLoadoutPanel({
      * and the "Bloodline only" source filter; an absent entry = ordinary jutsu.
      */
     bloodlineJutsuNames?: ReadonlyMap<string, string>;
+    savedBloodlines?: SavedBloodline[];
     onPlaceJutsu: (jutsuId: string, slotIndex?: number) => void;
     onUnequip: (jutsuId: string) => void;
     onUnequipAll: () => void;
@@ -248,7 +250,7 @@ export function JutsuLoadoutPanel({
     const equippedJutsus = orderEquippedJutsus(catalogJutsus, character.equippedJutsuIds);
     const equippedCount = equippedJutsus.length;
     const loadoutFull = equippedCount >= unlockedSlots;
-    const automaticLensDiscipline = resolveLoadoutLensDiscipline(character, learnedJutsus);
+    const automaticLensDiscipline = resolveLoadoutLensDiscipline(character, learnedJutsus, savedBloodlines);
     const lensDiscipline = lensOverride ?? automaticLensDiscipline;
     const selectedJutsu = learnedJutsus.find((jutsu) => jutsu.id === selectedId) ?? equippedJutsus[0] ?? learnedJutsus[0];
     const signature = legacySignatureFor(character);

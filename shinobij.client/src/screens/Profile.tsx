@@ -536,7 +536,7 @@ export function Profile({
         Number.isFinite(value) ? Math.max(0, Math.floor(value as number)).toLocaleString() : "0"
     );
     const equippedBloodlineName = equippedBloodline?.name || character.bloodline || "No bloodline";
-    const disciplineLabel = playerLensDiscipline(character);
+    const disciplineLabel = playerLensDiscipline(character, savedBloodlines);
     const elementsLabel = ownedElements.length ? ownedElements.join(" / ") : "Not awakened";
     const currentTitleLabel = character.customTitle || character.storyTitle || "";
     const academyVow = academyVowDefinition(character.academyVow);
@@ -1038,6 +1038,7 @@ export function Profile({
                         learnedJutsus={learnedJutsus}
                         catalogJutsus={allJutsus}
                         bloodlineJutsuNames={bloodlineJutsuNames}
+                        savedBloodlines={savedBloodlines}
                         onPlaceJutsu={placeJutsuInLoadout}
                         onUnequip={unequipJutsu}
                         onUnequipAll={() => updateCharacter({ ...character, equippedJutsuIds: [] })}

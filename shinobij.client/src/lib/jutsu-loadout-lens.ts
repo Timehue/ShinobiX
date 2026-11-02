@@ -1,11 +1,13 @@
-import { starterBloodlineOffense } from "../data/jutsu";
-import type { Stats } from "../types/combat";
+import type { SavedBloodline, Stats } from "../types/combat";
 import type { JutsuType } from "../types/core";
+import type { CombatDiscipline } from "./bloodline";
+import { playerLensDiscipline } from "./player-lens-discipline";
 
-export type CombatDiscipline = Exclude<JutsuType, "Any">;
+export type { CombatDiscipline };
 
 type LensCharacter = {
     bloodline: string;
+    equippedBloodlineId?: string;
     specialty: JutsuType;
     stats: Stats;
     equippedJutsuIds: string[];
@@ -30,17 +32,12 @@ function isCombatDiscipline(value: JutsuType | undefined): value is CombatDiscip
     return Boolean(value && value !== "Any");
 }
 
-function characterFallback(character: LensCharacter): CombatDiscipline {
-    const bloodlineDiscipline = starterBloodlineOffense[character.bloodline];
-    if (isCombatDiscipline(bloodlineDiscipline)) return bloodlineDiscipline;
-    return isCombatDiscipline(character.specialty) ? character.specialty : "Ninjutsu";
-}
-
 function highestOffense(
     character: LensCharacter,
     candidates: CombatDiscipline[],
+    savedBloodlines: SavedBloodline[],
 ): CombatDiscipline {
-    const fallback = characterFallback(character);
+    const fallback = playerLensDiscipline(character, savedBloodlines);
     const highest = Math.max(...candidates.map((discipline) => {
         const value = character.stats[OFFENSE_STAT[discipline]];
         return Number.isFinite(value) ? value : 0;
@@ -62,6 +59,7 @@ function highestOffense(
 export function resolveLoadoutLensDiscipline(
     character: LensCharacter,
     learnedJutsus: LensJutsu[],
+    savedBloodlines: SavedBloodline[] = [],
 ): CombatDiscipline {
     const learnedById = new Map(learnedJutsus.map((jutsu) => [jutsu.id, jutsu]));
     const counts = new Map<CombatDiscipline, number>();
@@ -80,5 +78,6 @@ export function resolveLoadoutLensDiscipline(
     return highestOffense(
         character,
         dominantLoadoutDisciplines.length ? dominantLoadoutDisciplines : DISCIPLINES,
+        savedBloodlines,
     );
 }

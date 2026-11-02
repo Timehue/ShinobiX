@@ -335,7 +335,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     village: entry.village ?? '',
                     specialty: entry.specialty ?? '',
                     online: onlineNames.has(slug),
-                    character,
+                    // Online rows carry the slim presence character, so the index supplies this.
+                    character: entry.equippedDiscipline ? { ...(character as object), equippedDiscipline: entry.equippedDiscipline } : character,
                     eligiblePets: projectEligibleRosterPets(fullCharacter),
                     currentSector: livePresence ? normalizeSector(livePresence.sector, 0) : (sleeperCamp?.sector ?? 0),
                     lastSeenAt: livePresence?.lastSeenAt ?? entry.lastSeen ?? 0,

@@ -1927,7 +1927,7 @@ export function MissionArenaFight({
                                                 jutsu={detailJutsu}
                                                 scaledEffectPower={scaled.scaledEffectPower}
                                                 masteryLevel={mastery.level}
-                                                lensDiscipline={playerLensDiscipline(character)}
+                                                lensDiscipline={playerLensDiscipline(character, savedBloodlines)}
                                             />
                                         </div>
                                     </CombatDetailPortal>

@@ -134,7 +134,7 @@ export function ArenaDistrictLobby({
                                     {clanWarOpponents.length === 0 ? <p className="hint">No online roster records found for enemy clan members yet.</p> : clanWarOpponents.map((player) => (
                                         <div className="summary-box" key={`war-${player.name}`}>
                                             <strong>{player.name}</strong>
-                                            <p>Level {player.level} | {player.specialty}</p>
+                                            <p>Level {player.level} | {player.character.equippedDiscipline ?? player.specialty}</p>
                                             <div className="menu">
                                                 <button disabled={challengeBusy} onClick={() => onChallengePlayer(player, "clanWar1v1", 50)}>1v1 +50</button>
                                                 <button disabled={challengeBusy} onClick={() => onChallengePlayer(player, "clanWar2v2", 100)}>2v2 +100</button>
