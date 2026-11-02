@@ -1,3 +1,5 @@
+import { CombatHotkeyButton } from "../components/CombatHotkeys";
+import { combatJutsuSlotIds, equipmentHotkey, jutsuHotkey } from "../lib/combat-hotkeys";
 import { towerRoundPresentation } from "../lib/tower-round-presentation";
 import { ClanBossGuardBanner } from '../components/ClanBossGuardBanner';
 import { clanBossGuardMultiplier } from '../../../shared/clan-boss-guard';
@@ -947,16 +949,6 @@ export function BattleTowerFight({
         setActionFeedback(current => current.phase === "submitting" ? current : { phase: "idle" });
     }, [myTurn, activeId]);
 
-    useEffect(() => {
-        const cancel = (event: KeyboardEvent) => {
-            if (event.key !== "Escape" || event.defaultPrevented || actionInFlightRef.current) return;
-            setMode("idle"); setSelJutsu(null); setSelWeaponId("");
-            setHoverEnemyPos(null); setHoveredTile(null);
-            setActionFeedback({ phase: "idle" });
-        };
-        window.addEventListener("keydown", cancel);
-        return () => window.removeEventListener("keydown", cancel);
-    }, []);
 
     // Reconnect: if mounted without a fresh session (or to recover), pull the latest once.
     useEffect(() => {
@@ -1527,6 +1519,7 @@ export function BattleTowerFight({
     }
 
     const myJutsu: JutsuLike[] = Array.isArray(myActor?.character?.jutsu) ? (myActor!.character.jutsu as JutsuLike[]) : [];
+    const myJutsuSlotIds = combatJutsuSlotIds(myActor?.character?.equippedJutsuIds, myJutsu);
     const inspectedLoadoutJutsu = inspectedLoadout?.kind === "jutsu"
         ? myJutsu.find(jutsu => jutsu.id === inspectedLoadout.id) ?? null
         : null;
@@ -2213,7 +2206,7 @@ export function BattleTowerFight({
                     )}
 
                     {/* Action bar — command bar + painted jutsu/weapon/item cards (the main combat UI) */}
-                    <CombatActionTray className="tower-action-dock">
+                    <CombatActionTray player={character.name} hotkeysActive={myTurn && !busy && session.status === "active"} onDeselect={() => { if (actionInFlightRef.current) return; setMode("idle"); setSelJutsu(null); setSelWeaponId(""); setHoverEnemyPos(null); setHoveredTile(null); setActionFeedback({ phase: "idle" }); }} className="tower-action-dock">
                         <div id="tower-action-guidance" className="tower-sr-only" role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-atomic="true" aria-busy={busy}>
                             {actionFeedback.phase === "submitting" ? "Submitting " + actionFeedback.label + ". Waiting for the battle result."
                                 : actionFeedback.phase === "error" ? actionFeedback.label + " was rejected. " + (reject ?? "Try another action.")
@@ -2223,38 +2216,38 @@ export function BattleTowerFight({
                         </div>
                         {/* Command bar */}
                         <CombatCommandBar style={myTurn ? undefined : { opacity: 0.65 }}>
-                            <button className={mode === "attack" ? "selected-action" : ""}
+                            <CombatHotkeyButton action="attack" className={mode === "attack" ? "selected-action" : ""}
                                 aria-pressed={mode === "attack"} onClick={() => toggleMode("attack")}
                                 disabled={!myTurn || busy || session.activeAp < attackAp}>
                                 <i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{attackAp} AP | R1</small>
-                            </button>
-                            <button className={mode === "move" ? "selected-action" : ""}
+                            </CombatHotkeyButton>
+                            <CombatHotkeyButton action="move" className={mode === "move" ? "selected-action" : ""}
                                 aria-pressed={mode === "move"} onClick={() => toggleMode("move")}
                                 disabled={!myTurn || busy || session.activeAp < moveAp}>
                                 <i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAp} AP / tile</small>
-                            </button>
-                            <button className={mode === "dash" ? "selected-action" : ""}
+                            </CombatHotkeyButton>
+                            <CombatHotkeyButton action="dash" className={mode === "dash" ? "selected-action" : ""}
                                 aria-pressed={mode === "dash"} onClick={() => toggleMode("dash")}
                                 disabled={!myTurn || busy || session.activeAp < moveAp}>
                                 <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Dash</span><small>3 tiles | {moveAp} AP</small>
-                            </button>
-                            <button className={mode === "heal" ? "selected-action" : ""}
+                            </CombatHotkeyButton>
+                            <CombatHotkeyButton action="heal" className={mode === "heal" ? "selected-action" : ""}
                                 aria-pressed={mode === "heal"} onClick={() => toggleMode("heal")}
                                 disabled={!myTurn || busy || healCd > 0 || myChakra < 10 || session.activeAp < utilityAp}>
                                 <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP · 10◆{healCd > 0 ? ` · CD${healCd}` : ""}</small>
-                            </button>
-                            <button className={mode === "clear" ? "selected-action" : ""}
+                            </CombatHotkeyButton>
+                            <CombatHotkeyButton action="clear" className={mode === "clear" ? "selected-action" : ""}
                                 aria-pressed={mode === "clear"} onClick={() => toggleMode("clear")}
                                 disabled={!myTurn || busy || clearCd > 0 || session.activeAp < utilityAp}>
                                 <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP · R{BASIC_CLEAR_RANGE}{clearCd > 0 ? ` · CD${clearCd}` : ""}</small>
-                            </button>
-                            <button className={mode === "cleanse" ? "selected-action" : ""}
+                            </CombatHotkeyButton>
+                            <CombatHotkeyButton action="cleanse" className={mode === "cleanse" ? "selected-action" : ""}
                                 aria-pressed={mode === "cleanse"} onClick={() => toggleMode("cleanse")}
                                 disabled={!myTurn || busy || cleanseCd > 0 || session.activeAp < utilityAp}>
                                 <i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP{cleanseCd > 0 ? ` · CD${cleanseCd}` : " · Ready"}</small>
-                            </button>
+                            </CombatHotkeyButton>
                             {(session.pendingCompanion || summonedCompanion) && (
-                                <button
+                                <CombatHotkeyButton action="summon"
                                     className={mode === "summon" ? "selected-action" : ""}
                                     aria-pressed={mode === "summon"} onClick={() => toggleMode("summon")}
                                     disabled={!myTurn || busy || !session.pendingCompanion || !!summonedCompanion || session.activeAp < summonAp}
@@ -2264,11 +2257,11 @@ export function BattleTowerFight({
                                 >
                                     <i className="cmd-icon" aria-hidden="true"><GiPawPrint /></i><span>Summon</span>
                                     <small>{summonedCompanion?.name ?? `${summonAp} AP · ${session.pendingCompanion?.name ?? "Active pet"}`}</small>
-                                </button>
+                                </CombatHotkeyButton>
                             )}
-                            <button onClick={() => void send({ type: "wait" })} disabled={!myTurn || busy}>
+                            <CombatHotkeyButton action="endTurn" onClick={() => void send({ type: "wait" })} disabled={!myTurn || busy}>
                                 <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>End turn</span><small>Pass</small>
-                            </button>
+                            </CombatHotkeyButton>
                         </CombatCommandBar>
 
                         {/* Jutsu / weapon / consumable cards */}
@@ -2286,7 +2279,7 @@ export function BattleTowerFight({
                                         return (
                                             <div key={j.id} className={`combat-jutsu-card-wrap${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-cooling" : ""}`}>
                                                 {cd > 0 && <span className="combat-cd-badge combat-jutsu-cd-badge" title={`${cd} round(s) until ready`}><span className="combat-cd-prefix">CD </span>{cd}</span>}
-                                                <button type="button"
+                                                <CombatHotkeyButton action={jutsuHotkey(j.id, myJutsuSlotIds)} type="button"
                                                     className={`combat-jutsu-button${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
                                                     title={`${j.name ?? j.id} | ${effectiveAp} AP | R${j.range ?? 1}${ck ? ` | ${ck} CP` : ""}${st ? ` | ${st} SP` : ""}${sealed ? " | Elementally sealed" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     aria-pressed={armed} onClick={() => armJutsuCard(j)} disabled={!myTurn || busy || !afford}>
@@ -2300,7 +2293,7 @@ export function BattleTowerFight({
                                                         activeCooldown={cd}
                                                         sealedResourceCosts={{ chakraCost: ck, staminaCost: st }}
                                                     />
-                                                </button>
+                                                </CombatHotkeyButton>
                                                 <button type="button" className="combat-jutsu-help"
                                                     id={`tower-combat-detail-trigger-jutsu-${j.id}`}
                                                     aria-haspopup="dialog"
@@ -2323,7 +2316,7 @@ export function BattleTowerFight({
                                         return (
                                             <div key={wp.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${armed ? " selected-action" : ""}`}>
                                                 {cd > 0 && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
-                                                <button type="button"
+                                                <CombatHotkeyButton action={equipmentHotkey(wp.id, myActor?.character?.equipment)} type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${wp.rarity ?? "common"}${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
                                                     title={combatItemTooltip(wp, {
                                                         action: thrown ? "Throwable" : "Weapon",
@@ -2338,7 +2331,7 @@ export function BattleTowerFight({
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="attack" size={25} /></strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
                                                     <span className="combat-jutsu-name">{wp.name ?? "Weapon"}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left}` : ""}{cd > 0 ? ` | CD ${cd}` : ""}</span>
-                                                </button>
+                                                </CombatHotkeyButton>
                                                 <button type="button" className="combat-jutsu-help"
                                                     id={`tower-combat-detail-trigger-item-${wp.id}`}
                                                     aria-haspopup="dialog"
@@ -2360,14 +2353,14 @@ export function BattleTowerFight({
                                         return (
                                             <div key={cs.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card${armed ? " selected-action" : ""}`}>
                                                 {cd > 0 && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
-                                                <button type="button" aria-pressed={armed} className={`combat-jutsu-button combat-item-button rarity-${cs.rarity ?? "common"}${armed ? " jutsu-armed" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
+                                                <CombatHotkeyButton action={equipmentHotkey(cs.id, myActor?.character?.equipment)} type="button" aria-pressed={armed} className={`combat-jutsu-button combat-item-button rarity-${cs.rarity ?? "common"}${armed ? " jutsu-armed" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
                                                     title={combatItemTooltip(cs, { action: "Consumable", apCost: ap, charges: left, cooldown: cd })}
                                                     onClick={() => { if (cs.id) armWeaponCard(cs.id, "item"); }}
                                                     disabled={!myTurn || busy || left <= 0 || cd > 0 || session.activeAp < ap}>
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="vitality" size={25} /></strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
                                                     <span className="combat-jutsu-name">{cs.name ?? "Item"}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | Use ×{left}{cd > 0 ? ` | CD ${cd}` : ""}</span>
-                                                </button>
+                                                </CombatHotkeyButton>
                                             </div>
                                         );
                                     })}

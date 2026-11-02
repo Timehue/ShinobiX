@@ -1547,6 +1547,7 @@ async function assertJutsuSelectionGeometryStable(
     captureSlug?: string,
     fullViewportMatrix = false,
 ): Promise<void> {
+    await assertCombatHotkeySelection(page, rootSelector);
     // Every shell gets the phone plus both 200%-zoom equivalents that exposed
     // the auto-fit jump. The shared Tower shell additionally runs the complete
     // advertised viewport/zoom set in every browser/DPR project.
@@ -1709,6 +1710,63 @@ async function assertJutsuSelectionGeometryStable(
     await firstJutsu.click();
     await expect(firstJutsu).toHaveClass(/selected-action/);
     await settleLayout(page);
+}
+
+async function assertCombatHotkeySelection(page: Page, rootSelector: string): Promise<void> {
+    const root = page.locator(rootSelector);
+    const tray = root.locator('.combat-action-tray');
+    const firstJutsu = tray.locator('button[data-combat-action^="jutsu"]:not(:disabled)').first();
+    await expect(firstJutsu).toBeVisible();
+    const player = await tray.getAttribute('data-combat-player');
+    const action = await firstJutsu.getAttribute('data-combat-action');
+    const jutsu = tray.locator(`button[data-combat-action="${action}"]`);
+    expect(player).toBeTruthy();
+    expect(action).toBeTruthy();
+    const key = `combatHotkeys.v1:${encodeURIComponent(player!.trim().toLowerCase())}`;
+    const prior = await page.evaluate(({ key, action }) => {
+        const prior = localStorage.getItem(key);
+        localStorage.setItem(key, JSON.stringify({ [action!]: 'q' }));
+        window.dispatchEvent(new Event('combat-hotkeys-change'));
+        (document.activeElement as HTMLElement | null)?.blur();
+        return prior;
+    }, { key, action });
+    try {
+        await page.keyboard.press('Escape');
+        await expect(jutsu).not.toHaveClass(/selected-action|jutsu-armed/);
+        await expect(jutsu).toHaveAttribute('aria-keyshortcuts', 'Q');
+        // Typing, dialogs, modifier shortcuts and held keys must not arm an action.
+        await page.evaluate(() => {
+            const input = document.createElement('input'); input.id = 'hotkey-typing-probe'; document.body.append(input); input.focus();
+        });
+        await page.keyboard.press('q');
+        await expect(jutsu).not.toHaveClass(/selected-action|jutsu-armed/);
+        await page.evaluate(() => document.getElementById('hotkey-typing-probe')?.remove());
+        await page.evaluate(() => {
+            const dialog = document.createElement('div'); dialog.id = 'hotkey-dialog-probe'; dialog.setAttribute('role', 'dialog'); dialog.textContent = 'Key capture test'; document.body.append(dialog);
+        });
+        await page.keyboard.press('q');
+        await expect(jutsu).not.toHaveClass(/selected-action|jutsu-armed/);
+        await page.evaluate(() => {
+            document.getElementById('hotkey-dialog-probe')?.remove();
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q', repeat: true, bubbles: true }));
+        });
+        await page.keyboard.press('Control+q');
+        await expect(jutsu).not.toHaveClass(/selected-action|jutsu-armed/);
+        await jutsu.evaluate(button => { (button as HTMLButtonElement).disabled = true; });
+        await page.keyboard.press('q');
+        await expect(jutsu).not.toHaveClass(/selected-action|jutsu-armed/);
+        await jutsu.evaluate(button => { (button as HTMLButtonElement).disabled = false; });
+        await page.keyboard.press('q');
+        await expect(jutsu).toHaveClass(/selected-action|jutsu-armed/);
+        await page.keyboard.press('Escape');
+        await expect(jutsu).not.toHaveClass(/selected-action|jutsu-armed/);
+    } finally {
+        await page.evaluate(({ key, prior }) => {
+            if (prior === null) localStorage.removeItem(key); else localStorage.setItem(key, prior);
+            window.dispatchEvent(new Event('combat-hotkeys-change'));
+            document.getElementById('hotkey-typing-probe')?.remove(); document.getElementById('hotkey-dialog-probe')?.remove();
+        }, { key, prior });
+    }
 }
 
 async function writeArtifactWithRetry(page: Page, path: string, data: string | Uint8Array): Promise<void> {

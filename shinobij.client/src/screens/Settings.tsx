@@ -12,6 +12,8 @@ import { primeGameAudio } from '../lib/game-audio';
 import { BRIGHTNESS_DEFAULT, BRIGHTNESS_MAX, BRIGHTNESS_MIN, getDisplayBrightness, setDisplayBrightness } from '../lib/display-brightness';
 import { IphoneInstallGuide } from '../components/IphoneInstallGuide';
 import '../styles/settings.css';
+import { CombatHotkeySettings } from '../components/CombatHotkeySettings';
+import '../styles/combat-hotkeys.css';
 
 export function Settings({ character, onVersionedCharacter, onDelete }: {
     character: Character; onVersionedCharacter: VersionedCharacterCommit; onDelete: () => Promise<void>;
@@ -23,7 +25,7 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
     const changeBrightness = (level: number) => { setBrightness(level); setDisplayBrightness(level); };
     useEffect(() => subscribeAudioMute(() => { setMuted(isAudioMuted()); setVolume(getAudioVolume()); }), []);
     return <div className="settings-page card">
-        <header><p className="settings-eyebrow">YOUR PREFERENCES</p><h1>Settings</h1><p>Make yourself at home. Manage sound, brightness, story presentation, and your account.</p></header>
+        <header><p className="settings-eyebrow">YOUR PREFERENCES</p><h1>Settings</h1><p>Make yourself at home. Manage sound, brightness, story presentation, combat hotkeys, and your account.</p></header>
         <section className="settings-section" aria-labelledby="presentation-heading">
             <h2 id="presentation-heading">Story presentation</h2>
             <label htmlFor="settings-reader">Visual novel reader</label>
@@ -49,6 +51,7 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
             <p className="hint">Makes the whole game lighter or darker. Saved on this device.</p>
         </section>
         <IphoneInstallGuide />
+        <CombatHotkeySettings key={character.name} player={character.name} />
         <section className="settings-section" aria-labelledby="account-heading">
             <h2 id="account-heading">Account &amp; sign-in</h2>
             <GoogleLinkCard playerName={character.name} />

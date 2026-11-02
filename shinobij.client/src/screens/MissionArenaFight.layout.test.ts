@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { jutsuDetailDescription } from "../lib/jutsu-effects";
+import { jsxElementsByTag } from "../../scripts/test-helpers/jsx-source";
 
 const missionSource = readFileSync(new URL("./MissionArenaFight.tsx", import.meta.url), "utf8");
 const missionCss = readFileSync(new URL("../styles/mission-arena-fight.css", import.meta.url), "utf8");
@@ -41,7 +42,7 @@ test("mission fight reserves desktop feedback space and removes the mobile hint 
     // The next band after it is the phone action tray, which owns the command
     // bar; see the CombatActionTray coverage below.
     const wrapper = missionSource.match(
-        /!mobileCombat && <div className="combat-action-notice">([\s\S]*?)<\/div>\}\s*\{\/\*[\s\S]*?\*\/\}\s*<CombatActionTray>/,
+        /!mobileCombat && <div className="combat-action-notice">([\s\S]*?)<\/div>\}\s*\{\/\*[\s\S]*?\*\/\}\s*<CombatActionTray\b/,
     );
     assert.ok(wrapper, "the notices must be wrapped in a single .combat-action-notice grid child");
     assert.match(wrapper![1], /className=\{`combat-targeting-hint/, "the targeting hint belongs in the wrapper");
@@ -646,23 +647,19 @@ test("both shell fights merge commands and loadout into one phone action tray", 
     );
 
     for (const [name, source] of [["solo", missionSource], ["PvP", pvpSource]] as const) {
-        const tray = source.match(/<CombatActionTray>([\s\S]*?)<\/CombatActionTray>/);
-        assert.ok(tray, `${name} combat must wrap its action surfaces in the shared tray`);
-        assert.match(tray![1], /<CombatCommandBar/, `${name} basic commands belong inside the tray`);
+        const trays = jsxElementsByTag(source, 'CombatActionTray');
+        assert.equal(trays.length, 1, `${name} combat must render exactly one action tray`);
+        const tray = trays[0].body;
+        assert.match(tray, /<CombatCommandBar/, `${name} basic commands belong inside the tray`);
         assert.match(
-            tray![1],
+            tray,
             /className="jutsu-layout-card combat-jutsu-bar"/,
             `${name} jutsu, weapons and items belong inside the same tray`,
         );
         // The log is a peer of the tray, not a child: the tab switch swaps the
         // whole tray out for it, and nesting would make the log inherit the
         // tray's scrollport.
-        assert.doesNotMatch(tray![1], /<PlainCombatBattleLog/, `${name} battle log must stay outside the tray`);
-        assert.equal(
-            (source.match(/<CombatActionTray>/g) ?? []).length,
-            1,
-            `${name} combat must render exactly one action tray`,
-        );
+        assert.doesNotMatch(tray, /<PlainCombatBattleLog/, `${name} battle log must stay outside the tray`);
     }
 });
 
@@ -745,7 +742,7 @@ test("the compact command chip keeps its cost readable and its full copy announc
 });
 
 test("mobile rejection feedback stays inside the loadout instead of adding an outer combat grid item", () => {
-    const tray = missionSource.match(/<CombatActionTray>([\s\S]*?)<\/CombatActionTray>/)?.[1];
+    const tray = jsxElementsByTag(missionSource, 'CombatActionTray')[0]?.body;
     assert.ok(tray);
     assert.match(tray, /^\s*<CombatCommandBar/);
     const loadout = tray.indexOf('className="jutsu-layout-card combat-jutsu-bar"');

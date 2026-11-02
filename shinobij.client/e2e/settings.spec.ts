@@ -21,9 +21,12 @@ async function setup(page: Page, ready = false) {
 }
 
 test('Settings sits beside Logout, replaces Character account cards, and preserves device preferences', async ({ page }, info) => {
+    test.setTimeout(90_000);
     const { runtime } = await setup(page);
     await expectUiAuditBoot(page, runtime, 'profile');
     await expect(page.locator('.profile-page-card')).toBeVisible();
+    const progress = page.locator('.profile-dossier-section').filter({ has: page.locator('summary').filter({ hasText: 'Progress' }) });
+    for (const activity of ['Mining', 'Fishing', 'Hunting']) await expect(progress.getByText(activity, { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Change Password', exact: true })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Recovery Code', exact: true })).toHaveCount(0);
     const desktop = page.locator('.right-menu-section--system');
@@ -39,6 +42,32 @@ test('Settings sits beside Logout, replaces Character account cards, and preserv
         await system.getByRole('button', { name: 'Settings', exact: true }).click();
     }
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    const hotkeys = page.getByRole('region', { name: 'Combat hotkeys', exact: true });
+    await expect(hotkeys).toBeVisible();
+    await hotkeys.getByRole('button', { name: 'Jutsu 15 Unassigned', exact: true }).click();
+    await page.keyboard.press('Shift+5');
+    await expect(hotkeys.getByRole('button', { name: 'Jutsu 15 Shift+5', exact: true })).toBeVisible();
+    await hotkeys.getByRole('button', { name: 'Weapon Unassigned', exact: true }).click();
+    await page.keyboard.press('a');
+    await expect(hotkeys.getByRole('status')).toContainText('already assigned to Attack');
+    await page.keyboard.press('Escape');
+    await hotkeys.getByRole('button', { name: 'Weapon Unassigned', exact: true }).click();
+    await page.keyboard.press('Enter');
+    await expect(hotkeys.getByRole('button', { name: 'Weapon Enter', exact: true })).toBeVisible();
+    // A storage notification from another tab must update both labels and conflict checks.
+    await page.evaluate(() => {
+        const key = 'combatHotkeys.v1:auditninja';
+        const next = JSON.stringify({ ...JSON.parse(localStorage.getItem(key) ?? '{}'), jutsu14: 'l' });
+        localStorage.setItem(key, next);
+        window.dispatchEvent(new StorageEvent('storage', { key, newValue: next, storageArea: localStorage }));
+    });
+    await expect(hotkeys.getByRole('button', { name: 'Jutsu 14 L', exact: true })).toBeVisible();
+    await hotkeys.getByRole('button', { name: 'Weapon Enter', exact: true }).click();
+    await page.keyboard.press('l');
+    await expect(hotkeys.getByRole('status')).toContainText('already assigned to Jutsu 14');
+    await page.keyboard.press('Escape');
+    await hotkeys.getByRole('button', { name: 'Item 4 Unassigned', exact: true }).click();
+    await page.keyboard.press('q');
     await expect(page.getByLabel('Visual novel reader')).toHaveValue('cinematic');
     await page.getByLabel('Visual novel reader').selectOption('classic');
     await page.getByLabel('Master volume').fill('37');
@@ -49,12 +78,27 @@ test('Settings sits beside Logout, replaces Character account cards, and preserv
     await expect(page.getByLabel('Visual novel reader')).toHaveValue('classic');
     await expect(page.getByLabel('Master volume')).toHaveValue('37');
     await expect(page.getByLabel('Mute all audio')).toBeChecked();
+    await expect(hotkeys.getByRole('button', { name: 'Jutsu 15 Shift+5', exact: true })).toBeVisible();
+    await expect(hotkeys.getByRole('button', { name: 'Item 4 Q', exact: true })).toBeVisible();
+    await hotkeys.getByRole('button', { name: 'Clear Jutsu 15 binding', exact: true }).click();
+    await expect(hotkeys.getByRole('button', { name: 'Jutsu 15 Unassigned', exact: true })).toBeVisible();
+    await hotkeys.getByRole('button', { name: 'Restore defaults', exact: true }).click();
+    await expect(hotkeys.getByRole('button', { name: 'Item 4 Unassigned', exact: true })).toBeVisible();
     await page.getByLabel('Visual novel reader').selectOption('cinematic');
     await page.getByRole('heading', { name: 'Recovery Code', exact: true }).scrollIntoViewIfNeeded();
     await expect(page.getByRole('heading', { name: 'Change Password', exact: true })).toBeAttached();
     await expect(page.getByRole('heading', { name: 'Google sign-in', exact: true })).toBeAttached();
     await page.screenshot({ path: info.outputPath('settings-account.png') });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.setViewportSize({ width: 286, height: 821 });
+    const controlsFit = await hotkeys.evaluate(section => {
+        const bounds = section.getBoundingClientRect();
+        return [...section.querySelectorAll('.combat-hotkey-setting button')].every(button => {
+            const rect = button.getBoundingClientRect();
+            return rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1;
+        });
+    });
+    expect(controlsFit, 'hotkey controls stay inside the settings section at narrow widths').toBe(true);
 });
 
 test('guest restrictions direct account management to Settings without duplicate link controls', async ({ page }) => {

@@ -1,5 +1,6 @@
 import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { profileActivityProgress } from "../lib/profile-activity-progress";
 import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/index/25-mobile-profile-tabs.css";
@@ -561,6 +562,7 @@ export function Profile({
                 { label: "Growth", value: xpLabel, detail: character.level >= MAX_LEVEL ? "level cap reached" : "stat points toward next level", tone: "gold" },
                 { label: "Jutsu", value: `${formatAmount(liveEquippedIds.length)}/${maxLoadout(character)}`, detail: "equipped loadout", tone: liveEquippedIds.length > 0 ? "village" : "neutral" },
                 { label: "Equipment", value: formatAmount(equippedItems.length), detail: "equipped items" },
+                ...profileActivityProgress(character),
             ],
         },
         {
