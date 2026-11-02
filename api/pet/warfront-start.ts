@@ -15,6 +15,8 @@ import { buildWarfrontAiTeam } from './_warfront-ai.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { petCombatBusyReason } from './_pet-busy.js';
 import { activeCarriedPets } from '../_entitlements.js';
+import { projectCurrentPetSpecies } from './_owned-pet.js';
+import { snapshotPetProgression } from './_growth.js';
 import { petArenaRyoRewardForTeam } from './_arena-reward.js';
 import { coordinateWarfrontStart } from './_warfront-start-coordinator.js';
 import { WARFRONT_KICKOFF_PACE_MS, warfrontKickoffWaitMs, warfrontNextStartKey } from './_warfront-pace.js';
@@ -111,6 +113,7 @@ const warfrontPetSnapshot = (pet: Pet): Pet => ({
     level: pet.level,
     xp: pet.xp,
     maxLevel: pet.maxLevel,
+    ...snapshotPetProgression(pet as unknown as Record<string, unknown>),
     hp: pet.hp,
     attack: pet.attack,
     defense: pet.defense,
@@ -310,7 +313,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const myChar = mySave?.character as Record<string, unknown> | undefined;
         const theme = wfThemeForVillage(typeof myChar?.village === 'string' ? myChar.village : null);
-        const myPets = activeCarriedPets<Pet>(myChar ?? {});
+        const myPets = activeCarriedPets<Record<string, unknown>>(myChar ?? {}).map(projectCurrentPetSpecies);
         const bluePets = playerPetIds
             .map((id) => myPets.find((p) => String((p as { id?: unknown }).id ?? '') === id))
             .filter(Boolean) as Pet[];

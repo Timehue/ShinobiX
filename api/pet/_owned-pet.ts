@@ -3,6 +3,7 @@ import { BRED_ULTRA_TRAIT_DENOMINATOR, ULTRA_PET_TRAITS } from '../../shared/shr
 import { petStartingHappiness } from '../../shared/pet-happiness.js';
 import { PET_CATALOG } from './_catalog.js';
 import { normalizePetGrowth, PET_GROWTH_VERSION } from './_growth.js';
+import { rebalanceOwnedPetSpecies } from './_species-balance.js';
 
 export const PET_BREEDING_MIGRATION_VERSION = 1;
 // V3 resolves the egg chance at pairing, then incubates in Sanctuary during play.
@@ -90,6 +91,16 @@ export function canonicalPetTemplate(templateId: string): Record<string, unknown
     return template ? structuredClone(template) : null;
 }
 
+/** Current stats for a new battle selected from a stored roster. This is a pure
+ * projection; owner reads persist migration, while existing battle snapshots
+ * must retain the balance revision they originally sealed. */
+export function projectCurrentPetSpecies(pet: Record<string, unknown>): Record<string, unknown> {
+    const templateId = resolvePetTemplateId(pet);
+    if (!templateId) return pet;
+    const result = rebalanceOwnedPetSpecies({ ...pet, origin: inferredOrigin(pet, templateId) }, templateId);
+    return result.changed ? result.pet : pet;
+}
+
 export function isBreedableTemplate(templateId: string | null | undefined): boolean {
     return Boolean(templateId && PET_CATALOG[templateId] && PET_CATALOG[templateId].breedable !== false);
 }
@@ -174,12 +185,14 @@ export function createOwnedPet(templateId: string, options: CreateOwnedPetOption
     // template remains its pre-trait species baseline. Other acquisition paths
     // provide an unmodified source directly.
     const growthSource = options.traitAlreadyApplied ? template : source;
-    return normalizePetGrowth(owned, {
+    const grown = normalizePetGrowth(owned, {
         hp: whole(growthSource.hp, 1),
         attack: whole(growthSource.attack, 1),
         defense: whole(growthSource.defense, 1),
         speed: whole(growthSource.speed, 1),
     });
+    // A previously sealed wild encounter can still carry the old species base.
+    return rebalanceOwnedPetSpecies(grown, templateId).pet;
 }
 
 export function migrateOwnedPet(
@@ -223,7 +236,12 @@ export function migrateOwnedPet(
     // and evolved instances cannot multiply an allocation twice.
     const hasGrowthStats = whole(original.level) >= 1
         && ['hp', 'attack', 'defense', 'speed'].every(stat => Number.isFinite(Number(original[stat])) && Number(original[stat]) > 0);
-    if (hasGrowthStats && whole(original.growthVersion) < PET_GROWTH_VERSION) return { pet: normalizePetGrowth(next), changed: true };
+    if (hasGrowthStats) {
+        const needsGrowth = whole(original.growthVersion) < PET_GROWTH_VERSION;
+        const grown = needsGrowth ? normalizePetGrowth(next) : next;
+        const balanced = templateId ? rebalanceOwnedPetSpecies(grown, templateId) : { pet: grown, changed: false };
+        if (needsGrowth || balanced.changed) return { pet: balanced.pet, changed: true };
+    }
     return { pet: changed ? next : original, changed };
 }
 

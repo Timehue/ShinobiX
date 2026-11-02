@@ -33,7 +33,7 @@ beforeEach(async () => {
     for (const key of await kv.keys('*')) await kv.del(key);
 });
 
-async function toSanctuary(petId: string): Promise<Reply> {
+async function toSanctuary(petId: string, action: 'to-sanctuary' | 'to-roster' = 'to-sanctuary'): Promise<Reply> {
     const output: Reply = { status: 200, body: {} };
     const res = {
         setHeader() { return res; },
@@ -43,7 +43,7 @@ async function toSanctuary(petId: string): Promise<Reply> {
     };
     await sanctuary({
         method: 'POST',
-        body: { playerName: PLAYER, petId, action: 'to-sanctuary' },
+        body: { playerName: PLAYER, petId, action },
         query: {},
         headers: { 'x-admin-password': process.env.ADMIN_PASSWORD },
         socket: { remoteAddress: '127.0.0.93' },
@@ -116,4 +116,34 @@ describe('a companion in a sealed pet fight stays carried', { concurrency: false
         assert.equal(stored.status, 200, JSON.stringify(stored.body));
         assert.deepEqual(await carriedIds(), []);
     });
+});
+
+test('an older Sanctuary pet returns with current species stats in the same saved response', async () => {
+    const { PET_CATALOG } = await import('./_catalog.js');
+    const { PREVIOUS_PET_SPECIES_BASES } = await import('./_species-balance-v1.js');
+    const { storePetInSanctuary } = await import('./_sanctuary.js');
+    const template = PET_CATALOG['legendary-3'];
+    const prior = PREVIOUS_PET_SPECIES_BASES['legendary-3'];
+    const stats = ['hp', 'attack', 'defense', 'speed'] as const;
+    const base = Object.fromEntries(stats.map((stat, index) => [stat, prior[index]]));
+    const pet: Record<string, unknown> = {
+        ...createOwnedPet('legendary-3', { origin: 'wild', trait: 'Battleborn' }),
+        ...base, level: 3, xp: 100, speciesBalanceVersion: undefined, growthBaseStats: base,
+        growthAllocation: { vitality: 1, power: 2, guard: 0, agility: 0 }, growthPoints: 3,
+        jutsus: (template.jutsus as Record<string, unknown>[]).map((move, index) => ({ ...move, power: prior[index + 4] })),
+    };
+    await seed([]);
+    await storePetInSanctuary(PLAYER, pet, 'roster', Date.now());
+    const returned = await toSanctuary(String(pet.id), 'to-roster');
+    assert.equal(returned.status, 200, JSON.stringify(returned.body));
+    assert.equal(returned.body.pet.speciesBalanceVersion, 1);
+    assert.deepEqual(returned.body.pet.growthBaseStats, Object.fromEntries(stats.map(stat => [stat, template[stat]])));
+    assert.deepEqual(returned.body.pet.growthAllocation, pet.growthAllocation);
+    assert.equal(returned.body.pet.xp, 100);
+    const stored = await kv.get<Record<string, any>>(`save:${PLAYER}`);
+    assert.deepEqual(stored!.character.pets[0], returned.body.pet);
+    const retry = await toSanctuary(String(pet.id), 'to-roster');
+    assert.equal(retry.status, 200);
+    assert.equal(retry.body.replayed, true);
+    assert.deepEqual(retry.body.pet.growthBaseStats, returned.body.pet.growthBaseStats);
 });

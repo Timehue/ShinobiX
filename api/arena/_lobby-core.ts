@@ -23,13 +23,15 @@
 
 import type { PetJutsu, PetSubRole, PetTrait } from '../_pet-sim/pet-types.js';
 import { SERVER_ARENA_PETS } from '../pet/_arena-ai.js';
+import { projectCurrentPetSpecies } from '../pet/_owned-pet.js';
+import { snapshotPetProgression, type PetProgressionSnapshot } from '../pet/_growth.js';
 
 export type ArenaRole = "defender" | "tracker" | "assassin" | "sage";
 export type Team = "blue" | "red";
 
 /** A pet frozen to the stats the sim + renderer need. Never trust client stats —
  *  the handler builds these from the owner's save. */
-export type PetSnapshot = {
+export type PetSnapshot = PetProgressionSnapshot & {
     id: string;
     name: string;
     rarity: string;
@@ -163,6 +165,7 @@ export function snapshotPet(raw: Record<string, unknown>): PetSnapshot {
         name: String(raw.name ?? "Pet").slice(0, 40),
         rarity: String(raw.rarity ?? "standard"),
         level: clampStat(raw.level, 1, 100, 1),
+        ...snapshotPetProgression(raw),
         hp: clampStat(raw.hp, 1, 100000, 600),
         attack: clampStat(raw.attack, 1, 100000, 60),
         defense: clampStat(raw.defense, 0, 100000, 30),
@@ -191,7 +194,7 @@ export function chooseOwnedPets(owned: Array<Record<string, unknown>>, petIds: u
     for (const id of petIds) {
         const idx = pool.findIndex((p) => String(p.id ?? "") === String(id));
         if (idx < 0) return null;
-        chosen.push(snapshotPet(pool[idx]));
+        chosen.push(snapshotPet(projectCurrentPetSpecies(pool[idx])));
         pool.splice(idx, 1);
     }
     return chosen;

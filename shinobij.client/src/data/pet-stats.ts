@@ -12,6 +12,8 @@
  *
  * Standard and rare are entry-level; legendary and mythic stay in line so
  * no single tier dominates the matchup chart.
+ * Species profiles redistribute at most 2% between attributes. Kit costs are
+ * proportional and bounded, preserving these tier advantages for matched roles.
  *
  * Extracted from App.tsx.
  */

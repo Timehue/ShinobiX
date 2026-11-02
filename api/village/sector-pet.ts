@@ -20,6 +20,7 @@ import type { Pet } from '../_pet-sim/pet-types.js';
 import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
 import { activeCarriedPets } from '../_entitlements.js';
+import { projectCurrentPetSpecies } from '../pet/_owned-pet.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import {
     claimOpenSectorBattle,
@@ -215,7 +216,7 @@ async function villageOf(playerName: string): Promise<string> {
 // save can't field an absurd pet into a territory-flipping duel.
 async function sealPlayerPet(playerName: string, petId: string): Promise<Pet | null> {
     const save = await kv.get<{ character?: { pets?: unknown[]; activePetId?: string; petBreeding?: unknown } }>(`save:${playerName.toLowerCase()}`);
-    const pets = activeCarriedPets<Record<string, unknown>>(save?.character ?? {});
+    const pets = activeCarriedPets<Record<string, unknown>>(save?.character ?? {}).map(projectCurrentPetSpecies);
     if (!pets.length) return null;
     const activeId = String(save?.character?.activePetId ?? '');
     const raw = pets.find((p) => String(p.id) === petId)

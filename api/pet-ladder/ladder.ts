@@ -12,7 +12,7 @@ import { parseWarfrontLadderPlan, WARFRONT_LADDER_RULES } from '../../shared/war
 import {
     type Mode, type LadderEntry, type DefenseDoc, type OfferOpponent,
     petsForMode, DAILY_CHALLENGES, AI_SEED_COUNT, CLIMB_BAND,
-    chooseOwnedLadderPets, hydrateLadderVisualIdentity, ladderRoles, petLite,
+    chooseOwnedLadderPets, hydrateLadderVisualIdentity, projectLadderSpeciesBalance, ladderRoles, petLite,
     buildOffer, canChallenge, applyChallenge, projectLadder,
     resolveColiseum, coliseumScript, resolveLadderWarfront, ladderWarfrontPlan, isAiId, aiIndexOf,
     aiColiseumDefense, aiTacticalDefense, AI_COLISEUM, AI_TACTICAL,
@@ -217,6 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             myDef = hydrateLadderVisualIdentity(myDef, activeCarriedPets<Record<string, unknown>>(mySave.character));
+            myDef = projectLadderSpeciesBalance(myDef, activeCarriedPets<Record<string, unknown>>(mySave.character));
 
             const order0 = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
             const lastTarget = (await kv.get<string>(lastKey(mode, me))) ?? undefined;
@@ -245,6 +246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(409).json({ error: 'Opponent must reset an ineligible carried-pet defense.' });
                 }
                 targetDef = hydrateLadderVisualIdentity(targetDef, activeCarriedPets<Record<string, unknown>>(targetSave.character));
+                targetDef = projectLadderSpeciesBalance(targetDef, activeCarriedPets<Record<string, unknown>>(targetSave.character));
             }
 
             // Server-minted seed → server recomputes the winner (outside the lock).

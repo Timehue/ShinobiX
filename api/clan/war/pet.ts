@@ -10,6 +10,7 @@ import { safeLogValue } from '../../_safe-log.js';
 import { petStatCeil, type PetCeilStat } from '../../_pet-stat-ceil.js';
 import { petCombatBusyReason } from '../../pet/_pet-busy.js';
 import { activeCarriedPets } from '../../_entitlements.js';
+import { projectCurrentPetSpecies } from '../../pet/_owned-pet.js';
 import type { Pet } from '../../_pet-sim/pet-types.js';
 import { awardWarEndClanXp } from './_war-xp.js';
 import { awardFinalizedWarPoints } from './_war-points.js';
@@ -60,7 +61,7 @@ const CEIL_STATS: readonly PetCeilStat[] = ['hp', 'attack', 'defense', 'speed'];
 // api/village/sector-pet.ts sealPlayerPet — a pet busy breeding cannot be fielded.
 async function sealPlayerPet(playerName: string, petId: string): Promise<Pet | null> {
     const save = await kv.get<{ character?: { pets?: unknown[]; activePetId?: string } }>(`save:${playerName.toLowerCase()}`);
-    const pets = activeCarriedPets<Record<string, unknown>>(save?.character ?? {});
+    const pets = activeCarriedPets<Record<string, unknown>>(save?.character ?? {}).map(projectCurrentPetSpecies);
     if (!pets.length) return null;
     const activeId = String(save?.character?.activePetId ?? '');
     const raw = pets.find((p) => String(p.id) === petId)

@@ -20,12 +20,14 @@
  */
 
 import { petStatCeil, petJutsuPowerCeil } from "../_pet-stat-ceil.js";
+import { projectCurrentPetSpecies } from "../pet/_owned-pet.js";
+import { normalizePetGrowth, snapshotPetProgression } from "../pet/_growth.js";
 import { resolveWarDuel } from "../_pet-showdown/war-duel.js";
 import type { ShowdownReplayScript } from "../../shared/pet-showdown-contract.js";
 import type { Pet as CinePet } from "../_pet-sim/pet-types.js";
 import { runWarfrontRite } from "../_pet-sim/pet-warfront-rite.js";
 import { defaultWarfrontLadderPlan, parseWarfrontLadderPlan, type WarfrontLadderPlan } from "../../shared/warfront-ladder-plan.js";
-import type { Pet, PetJutsu, PetLoadout, JutsuElement, PetRole, PetSubRole, PetTrait } from "./_pet-types.js";
+import type { Pet, PetProgressionSnapshot, PetJutsu, PetLoadout, JutsuElement, PetRole, PetSubRole, PetTrait } from "./_pet-types.js";
 
 /** A ladder pet's arena role. The hand-ported tactical arena sim that used to
  *  define this type was retired on 2026-10-02; the roles are the pet roles. */
@@ -48,7 +50,7 @@ const PET_SUBROLES = new Set<PetSubRole>(["tank", "bruiser", "striker", "assassi
 /** A pet frozen to the combat-relevant fields the engines need — INCLUDING its
  *  loadout, so the ladder honors the wearer's PvP gear + consumable. Built from the
  *  owner's save; client stats are never trusted. */
-export type LadderPet = {
+export type LadderPet = PetProgressionSnapshot & {
     id: string;
     name: string;
     templateId?: string;
@@ -136,6 +138,7 @@ export function snapshotLadderPet(raw: Record<string, unknown>): LadderPet {
         ...(typeof raw.paletteVariantId === "string" ? { paletteVariantId: raw.paletteVariantId.trim().slice(0, 40) } : {}),
         rarity,
         level: clampStat(raw.level, 1, 100, 1),
+        ...snapshotPetProgression(raw),
         hp: clampStat(raw.hp, 1, petStatCeil(rarity, "hp"), 600),
         attack: clampStat(raw.attack, 1, petStatCeil(rarity, "attack"), 60),
         defense: clampStat(raw.defense, 0, petStatCeil(rarity, "defense"), 30),
@@ -159,6 +162,10 @@ export function toPet(p: LadderPet): Pet {
         hp: p.hp, attack: p.attack, defense: p.defense, speed: p.speed,
         element: p.element as JutsuElement, trait: p.trait as PetTrait | undefined, role: p.role as PetRole | undefined,
         subRole: p.subRole,
+        ...(p.speciesBalanceVersion !== undefined ? { speciesBalanceVersion: p.speciesBalanceVersion } : {}),
+        ...(p.growthVersion !== undefined ? { growthVersion: p.growthVersion } : {}),
+        ...(p.growthBaseStats ? { growthBaseStats: { ...p.growthBaseStats } } : {}),
+        ...(p.growthAllocation ? { growthAllocation: { ...p.growthAllocation } } : {}),
         jutsus: p.jutsus,
         ...(p.loadout ? { loadout: p.loadout as PetLoadout } : {}),
     };
@@ -177,7 +184,7 @@ export function chooseOwnedLadderPets(owned: Array<Record<string, unknown>>, pet
     for (const id of petIds) {
         const idx = pool.findIndex((p) => String(p.id ?? "") === String(id));
         if (idx < 0) return null;
-        chosen.push(snapshotLadderPet(pool[idx]));
+        chosen.push(snapshotLadderPet(projectCurrentPetSpecies(pool[idx])));
         pool.splice(idx, 1);
     }
     return chosen;
@@ -436,4 +443,28 @@ export function hydrateLadderVisualIdentity(defense: DefenseDoc, owned: Array<Re
             };
         }),
     };
+}
+
+/** Apply balance patches when starting a new challenge against an offline
+ * defense. Keep its sealed level, investments, kit and gear, rather than
+ * replacing the build with the owner's later training or equipment. */
+export function projectLadderSpeciesBalance(defense: DefenseDoc, owned: Array<Record<string, unknown>>): DefenseDoc {
+    const byId = new Map(owned.map(pet => [String(pet.id ?? ''), pet]));
+    return { ...defense, pets: defense.pets.map(pet => {
+        const owner = byId.get(pet.id);
+        const source: Record<string, unknown> = { ...pet, ...(owner?.origin ? { origin: owner.origin } : {}) };
+        const current = projectCurrentPetSpecies(source);
+        if (!(Number(current.speciesBalanceVersion) > (Number(pet.speciesBalanceVersion) || 0))) return pet;
+        if (pet.growthBaseStats) return snapshotLadderPet(current);
+        // Early ladder snapshots discarded immutable bases and allocations.
+        // Recover an effective base from their final stats, removing automatic
+        // growth/trait once. Earned bonuses stay encoded proportionally; do not
+        // borrow allocations from an owner who may have respecced since sealing.
+        const unit = { hp: 1_000_000, attack: 1_000_000, defense: 1_000_000, speed: 1_000_000 };
+        const factors = normalizePetGrowth({ ...source, growthBaseStats: unit });
+        const growthBaseStats = Object.fromEntries((Object.keys(unit) as Array<keyof typeof unit>).map(stat =>
+            [stat, Math.max(1, Math.round(Number(source[stat]) * unit[stat] / Number(factors[stat])))]));
+        return snapshotLadderPet(projectCurrentPetSpecies({ ...source, growthBaseStats,
+            growthVersion: factors.growthVersion, growthAllocation: factors.growthAllocation }));
+    }) };
 }

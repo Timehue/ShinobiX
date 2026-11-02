@@ -86,7 +86,7 @@ export interface StatMult { hp: number; attack: number; defense: number; speed: 
 // role identities still come from their distinct kits and sub-role multipliers.
 export const ROLE_STAT_MULT: Record<PetRole, StatMult> = {
     defender: { hp: 1.10, attack: 0.94, defense: 1.10, speed: 0.94 }, // armored wall
-    tracker: { hp: 1.24, attack: 1.23, defense: 1.14, speed: 1.12 }, // ranged pressure (shines in arena)
+    tracker: { hp: 1.27, attack: 1.26, defense: 1.14, speed: 1.12 }, // ranged pressure (shines in arena)
     assassin: { hp: 0.90, attack: 0.98, defense: 0.91, speed: 1.04 }, // burst, toned down
     sage: { hp: 1.04, attack: 0.88, defense: 1.02, speed: 0.98 }, // backline support
 };

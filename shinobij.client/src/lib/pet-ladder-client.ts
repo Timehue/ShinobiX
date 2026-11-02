@@ -13,7 +13,7 @@ import type { Pet, PetJutsu } from "../types/pet";
 export type Mode = "coliseum" | "tactical";
 
 // A pet frozen by the server (combat fields + loadout). Mirrors api/pet-ladder/_core.ts:LadderPet.
-export type LadderPet = {
+export type LadderPet = Pick<Pet, 'speciesBalanceVersion' | 'growthVersion' | 'growthBaseStats' | 'growthAllocation'> & {
     id: string; name: string; rarity: string; level: number;
     templateId?: string; evolutionStage?: Pet["evolutionStage"]; paletteVariantId?: string;
     hp: number; attack: number; defense: number; speed: number;
@@ -56,6 +56,10 @@ export function toClientPet(p: LadderPet): Pet {
         hp: p.hp, attack: p.attack, defense: p.defense, speed: p.speed,
         element: p.element as Pet["element"], trait: p.trait as Pet["trait"], role: p.role as Pet["role"],
         subRole: p.subRole,
+        ...(p.speciesBalanceVersion !== undefined ? { speciesBalanceVersion: p.speciesBalanceVersion } : {}),
+        ...(p.growthVersion !== undefined ? { growthVersion: p.growthVersion } : {}),
+        ...(p.growthBaseStats ? { growthBaseStats: { ...p.growthBaseStats } } : {}),
+        ...(p.growthAllocation ? { growthAllocation: { ...p.growthAllocation } } : {}),
         jutsus: p.jutsus.map((j) => ({ ...j, currentCooldown: j.currentCooldown ?? 0 })),
         unlockedForPve: true,
         ...(p.loadout ? { loadout: p.loadout } : {}),

@@ -13,6 +13,7 @@ import { petArenaRyoRewardForTeam } from './_arena-reward.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { petCombatBusyReason } from './_pet-busy.js';
 import { activeCarriedPets } from '../_entitlements.js';
+import { projectCurrentPetSpecies } from './_owned-pet.js';
 import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
 import {
     hollowGateCombatBindingKey,
@@ -174,7 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const myChar = mySave?.character as Record<string, unknown> | undefined;
-        const myPets = activeCarriedPets<Record<string, unknown>>(myChar ?? {});
+        const myPets = activeCarriedPets<Record<string, unknown>>(myChar ?? {}).map(projectCurrentPetSpecies);
         const playerPets = pvpSelfPets
             ? pvpSelfPets
             : playerPetIds.map((id) => myPets.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];

@@ -3,13 +3,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveWarDuel, type WarDuelInput } from './war-duel.js';
 import { PET_CATALOG } from '../pet/_catalog.js';
+import { previousPetSpeciesTemplate } from '../pet/_species-balance-v1.js';
 import { resolvePvpPetDuel, isPvpPetDuelSeal, type PvpPetDuelSeal } from '../pet/_pvp-duel.js';
 import { clanWarPetDuelScript, normalizeClanWarPetSession } from '../clan/war/_pet-duel.js';
 import { createShowdownSession, resolveShowdownRound, showdownStateView } from './engine.js';
 import { resolveShowdownHeadless } from './headless.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
-const pet = (species: string, id: string, level: number): Pet => ({ ...structuredClone(PET_CATALOG[species]), id, templateId: species, level }) as unknown as Pet;
+// These fixtures represent retained inputs, so numeric tuning of today's
+// acquisition catalog must not rewrite the original proof inputs.
+const pet = (species: string, id: string, level: number): Pet => ({ ...structuredClone(previousPetSpeciesTemplate(PET_CATALOG[species])), id, templateId: species, level }) as unknown as Pet;
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 // Captured by running the original engine, AI, numeric contract, growth and
 // loadout sources from the pre-progression revision, including full state/logs.
@@ -69,4 +72,15 @@ test('retained response-v2 sessions keep the exact original full headless replay
     const initialState = structuredClone(showdownStateView(session));
     const result = resolveShowdownHeadless(session);
     assert.equal(digest({ initialState, finalState: showdownStateView(session), ...result }), '88c135eb8f6c26349213f8a0ede96888e8bad846ec455903848fa9e9d5e04097');
+});
+
+test('current species normalization and retained proof references have independent caches', () => {
+    const input: WarDuelInput = {
+        ...historicalCases[0].input, rulesetVersion: 'progression-v3',
+        fromPets: [{ ...structuredClone(PET_CATALOG['standard-0']), id: 'a', templateId: 'standard-0' } as unknown as Pet],
+        toPets: [{ ...structuredClone(PET_CATALOG['standard-1']), id: 'b', templateId: 'standard-1' } as unknown as Pet],
+    };
+    const first = resolveWarDuel(input);
+    for (const original of historicalCases) assert.equal(digest(resolveWarDuel(original.input)), original.sha256);
+    assert.deepEqual(resolveWarDuel(JSON.parse(JSON.stringify(input))), first);
 });
