@@ -6,6 +6,7 @@ import { JutsuEffectCards } from "./JutsuEffectCards";
 import { describeJutsuEffects, jutsuDetailDescription, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
 import { orderEquippedJutsus } from "../lib/jutsu";
+import { jutsuMatchesOffense } from "../lib/jutsu-options";
 import { isPatreonSubscriber, LOADOUT_CAP_BASE, LOADOUT_CAP_SUB } from "../lib/entitlements";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
@@ -275,7 +276,7 @@ export function JutsuLoadoutPanel({
         const query = nameFilter.trim().toLowerCase();
         const filtered = learnedJutsus.filter((jutsu) =>
             (!query || jutsu.name.toLowerCase().includes(query))
-            && (typeFilter === "All" || jutsu.type === typeFilter)
+            && jutsuMatchesOffense(jutsu, typeFilter)
             && (elementFilter === "All" || jutsu.element === elementFilter)
             && (effectFilter === "All" || jutsu.tags.some((tag) => tag.name === effectFilter))
             && (activeSourceFilter === "All" || (activeSourceFilter === "Bloodline") === isBloodlineJutsu(jutsu))
