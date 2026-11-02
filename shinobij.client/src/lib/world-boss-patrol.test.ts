@@ -256,8 +256,14 @@ test("a phone can tap the boss: full size, and its Join the raid pill opens the 
     assert.match(rule(".sector-world-boss"), /max-width: none !important;/u);
     // The pill sits under the button's box, past its tap footprint's tiles.
     assert.match(rule(".sector-world-boss-name"), /pointer-events: auto;/u);
-    assert.match(read("../components/SectorWorldBossStandee.tsx"),
-        /<button [^>]*className="sector-world-boss"[\s\S]*<span className="sector-world-boss-name">[\s\S]*<\/button>/u, "the pill's taps bubble to the button");
+    const standee = read("../components/SectorWorldBossStandee.tsx");
+    assert.match(standee,
+        /<button [^>]*className="sector-world-boss"[\s\S]*<span ref=\{pill\} className="sector-world-boss-name">[\s\S]*<\/button>/u, "the pill's taps bubble to the button");
+    // Wanderers stand in front of the boss, so only the pill's own box is handed over.
+    assert.match(standee, /closest\("\.sector-wanderer-figure"\)/u);
+    assert.match(standee, /addEventListener\("click", handOver, true\)/u, "it must run before the wanderer's own click");
+    // A building's name is the same shape, and a tap on it must open the building.
+    assert.doesNotMatch(read("../components/sector-buildings.css"), /\.sector-building-name,\.sector-building-condition\{[^}]*pointer-events:none/u);
 });
 
 test("the walking boss never takes another board piece's taps", () => {
