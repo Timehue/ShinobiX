@@ -244,6 +244,22 @@ test("the standee walks the patrol on the hop's clock, and holds while a team fo
     assert.match(css, /\.sector-world-boss\.is-walking \.sector-world-boss-sprite \{\s*animation: world-boss-walk /u);
 });
 
+test("a phone can tap the boss: full size, and its Join the raid pill opens the queue", () => {
+    const css = read("../styles/world-boss-map.css");
+    const rule = (selector: string) => {
+        const at = css.indexOf(`\n${selector} {`);
+        assert.ok(at >= 0, `missing rule ${selector}`);
+        return css.slice(at, css.indexOf("}", at));
+    };
+    // Up to 979px wide, a global `button { max-width: 100% !important }` holds
+    // it to its one-tile track: 48x64 instead of 77x103 at 390px.
+    assert.match(rule(".sector-world-boss"), /max-width: none !important;/u);
+    // The pill sits under the button's box, past its tap footprint's tiles.
+    assert.match(rule(".sector-world-boss-name"), /pointer-events: auto;/u);
+    assert.match(read("../components/SectorWorldBossStandee.tsx"),
+        /<button [^>]*className="sector-world-boss"[\s\S]*<span className="sector-world-boss-name">[\s\S]*<\/button>/u, "the pill's taps bubble to the button");
+});
+
 test("the walking boss never takes another board piece's taps", () => {
     // It now walks past trail signs, wanderers, structures, the village
     // entrance (which it marches on at the final stand), story markers and
