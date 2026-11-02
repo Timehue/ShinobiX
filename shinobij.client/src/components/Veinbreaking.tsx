@@ -17,7 +17,7 @@ const DEPOSITS = {
     crystal: { name: 'Stormglass-bearing stone', caption: 'Stormglass deposit', detail: 'Glasslike facets catch a trace of restless chakra.' },
 };
 function depositFor(attempt: ResourcePublicAttempt) {
-    const node = resourceNode(attempt.nodeId), mineral = node?.trace ?? node?.family;
+    const node = resourceNode(attempt.nodeId), mineral = attempt.deposit ?? node?.trace ?? node?.family;
     return node?.worldBossCrystal || mineral === 'gather-stormglass-shard' ? 'crystal'
         : mineral === 'gather-rime-crystal' ? 'frozen' : mineral === 'gather-ember-ore' ? 'volcanic' : 'iron';
 }

@@ -2,7 +2,7 @@ import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { alreadyHoldsKvLock } from '../_kv-lock-context.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES, resourceNode } from '../../shared/resource-nodes.js';
+import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES, resourceNode, resourceNodeOffer, type ResourceNode } from '../../shared/resource-nodes.js';
 import { readResourceGathering, RESOURCE_NODE_ATTEMPTS, RESOURCE_REFILL_MS } from '../../shared/resource-gathering.js';
 import type { SharedResourceNodeView } from '../../shared/shared-resource-node.js';
 import type { ResourceSeal } from './_resource-gathering.js';
@@ -21,6 +21,12 @@ function normalize(row: SharedResourceNodeRow | null, now: number): SharedResour
     if (row.refillAt && now >= row.refillAt) return { ...row, generation: row.generation + 1, attempts: 0, refillAt: 0,
         claim: undefined, reservations: Object.fromEntries(Object.entries(row.reservations).filter(([, r]) => !r.committed)) };
     return row;
+}
+/** An emptied site keeps the level it was emptied on until its refill lands.
+ * The pin keeps fixed-level fixtures off the clock and needs the QA store. */
+function offerFor(node: ResourceNode, row: SharedResourceNodeRow, now: number) {
+    if (process.env.SHINOBIX_QA_MEMORY_KV === '1' && process.env.SHINOBIX_QA_PIN_RESOURCE_NODES === '1') return node;
+    return resourceNodeOffer(node, row.refillAt ? row.refillAt - RESOURCE_REFILL_MS : now);
 }
 async function liveClaim(id: string, claim: Claim | undefined, now: number): Promise<Claim | undefined> {
     if (!claim || now >= claim.expiresAt) return;
@@ -54,6 +60,10 @@ export async function withPlayerResourceNodes<T>(name: string, requested: string
             if (nodeId && !ids.includes(nodeId)) throw new Error('Gathering changed while acquiring node locks. Retry.');
         });
     return enter(0);
+}
+export async function sharedResourceOffer(node: ResourceNode, now: number) {
+    assertLocked(node.id);
+    return offerFor(node, normalize(await kv.get<SharedResourceNodeRow>(sharedResourceNodeKey(node.id)), now), now);
 }
 export async function reserveSharedResourceNode(nodeId: string, player: string, txId: string, seal: ResourceSeal, now: number) {
     assertLocked(nodeId);
@@ -103,6 +113,7 @@ export async function sharedResourceViews(sector: number, now: number): Promise<
     return Object.fromEntries(await Promise.all(nodes.map(async (node, i) => {
         const row = normalize(rows[i] as SharedResourceNodeRow | null, now), claim = await liveClaim(node.id, row.claim, now);
         return [node.id, { remaining: Math.max(0, RESOURCE_NODE_ATTEMPTS - row.attempts), refillAt: row.refillAt,
+            difficulty: offerFor(node, row, now).difficulty,
             ...(claim ? { gatherer: claim.player, claimExpiresAt: claim.expiresAt } : {}) }];
     })));
 }

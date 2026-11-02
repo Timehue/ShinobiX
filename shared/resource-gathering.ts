@@ -1,5 +1,5 @@
 /** Canonical rules shared by the Outpost, world nodes and authoritative settlement. */
-import type { ResourceActivity, ResourceGrade } from './resource-items';
+import type { ResourceActivity, ResourceFamily, ResourceGrade } from './resource-items';
 import type { KunaiCatch } from './kunai-fishing';
 export { RESOURCE_GRADES, RESOURCE_FAMILIES, RESOURCE_ITEMS, resourceItemId } from './resource-items';
 export type { ResourceActivity, ResourceGrade, ResourceFamily } from './resource-items';
@@ -49,6 +49,8 @@ export type ResourcePublicAttempt = {
     skillLevel: number; mode: 'active' | 'relaxed'; template: number; hookAt: number; movementSequence: number; toolBroke?: boolean; toolId?: string;
     fishingStyle?: 'kunai';
     fishingShoal?: 'ranked';
+    /** The sealed level's mineral. Attempts started before rotation omit it. */
+    deposit?: ResourceFamily;
 };
 export type ResourceReceipt = {
     id: string; activity: ResourceActivity; outcome: 'success' | 'failed' | 'cancelled' | 'expired';

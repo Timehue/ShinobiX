@@ -25,7 +25,7 @@ import {
     roadNemesisTitle,
 } from "../../../shared/road-nemesis";
 import { patrolGreeting, patrolNameFor, patrolStance } from "../../../shared/village-patrol";
-import { RESOURCE_NODES } from "../../../shared/resource-nodes";
+import { RESOURCE_NODES, resourceNodeOffer } from "../../../shared/resource-nodes";
 import { readResourceGathering, resourceSkillLevel } from "../../../shared/resource-gathering";
 import {
     WANDERER_ARCHETYPES,
@@ -152,9 +152,10 @@ const BAIT_LORE = [
 ];
 
 /** What the angler tells you about the water in `sector`. */
-export function anglerTip(sector: number, resourceGathering: unknown, dayBucket: number): string {
+export function anglerTip(sector: number, resourceGathering: unknown, dayBucket: number, now = Date.now()): string {
     const level = resourceSkillLevel(readResourceGathering(resourceGathering).fishingXp);
     const shoals = RESOURCE_NODES.filter((node) => node.sector === sector && node.activity === "fishing")
+        .map((node) => resourceNodeOffer(node, now))
         .sort((a, b) => b.difficulty - a.difficulty);
     const best = shoals.find((node) => node.difficulty <= level) ?? shoals[shoals.length - 1];
     const lore = BAIT_LORE[Math.abs(dayBucket + sector) % BAIT_LORE.length];
