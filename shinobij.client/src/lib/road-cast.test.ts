@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RESOURCE_NODES } from "../../../shared/resource-nodes";
+import { RESOURCE_NODES, resourceNodeOffer } from "../../../shared/resource-nodes";
+import { RESOURCE_REFILL_MS } from "../../../shared/resource-gathering";
 import { roadNemesisPresentIn } from "../../../shared/road-nemesis";
 import { WANDERER_RIFT_INDEX, WANDERER_TRADE_INDEX, type Wanderer } from "../../../shared/wanderer-roster";
 import { anglerTip, extraRoadWanderers, roadFightAftermath, roadNemesisWanderer, wandererForcesChoice, withPatrolStance, withOrdinaryPvePreview } from "./road-cast";
@@ -75,22 +76,26 @@ test("the rift creature and the node workers respect cooldowns and relocation", 
         .filter((w) => w.archetype === "riftspawn"), []);
 });
 
+const fishingOffers = (at: number) => RESOURCE_NODES.filter((node) => node.activity === "fishing").map((node) => resourceNodeOffer(node, at));
+const cycleTimes = () => Array.from({ length: 50 }, (_, cycle) => cycle * RESOURCE_REFILL_MS);
+
 test("the angler names a shoal in this sector that suits your skill", () => {
-    const sector = RESOURCE_NODES.find((node) => node.activity === "fishing")!.sector;
-    const shoals = RESOURCE_NODES.filter((node) => node.sector === sector && node.activity === "fishing");
-    const novice = anglerTip(sector, undefined, BUCKET);
-    const easiest = [...shoals].sort((a, b) => a.difficulty - b.difficulty)[0];
-    assert.ok(novice.includes(easiest.name), novice);
-    const master = anglerTip(sector, { fishingXp: 99_999 }, BUCKET);
-    const hardest = [...shoals].sort((a, b) => b.difficulty - a.difficulty)[0];
-    assert.ok(master.includes(hardest.name), master);
+    const found = cycleTimes().flatMap((at) => [...new Set(fishingOffers(at).map((node) => node.sector))].map((sector) => {
+        const shoals = fishingOffers(at).filter((node) => node.sector === sector);
+        return { at, sector, easiest: shoals.find((node) => node.difficulty === 1), hardest: shoals.find((node) => node.difficulty === 7) };
+    })).find((entry) => entry.easiest && entry.hardest && entry.easiest.name !== entry.hardest.name)!;
+    assert.ok(found);
+    const novice = anglerTip(found.sector, undefined, BUCKET, found.at);
+    assert.ok(novice.includes(found.easiest!.name), novice);
+    const master = anglerTip(found.sector, { fishingXp: 99_999 }, BUCKET, found.at);
+    assert.ok(master.includes(found.hardest!.name), master);
 });
 
 test('an angler at a difficult shoal explains the skill requirement instead of inviting an impossible attempt', () => {
-    const node = RESOURCE_NODES.find(node => node.activity === 'fishing' && node.difficulty > 1
-        && !RESOURCE_NODES.some(other => other.sector === node.sector && other.activity === 'fishing' && other.difficulty === 1))!;
-    assert.ok(node);
-    const tip = anglerTip(node.sector, undefined, BUCKET);
+    const found = cycleTimes().flatMap((at) => fishingOffers(at).map((node) => ({ at, node })))
+        .find(({ at, node }) => !fishingOffers(at).some((other) => other.sector === node.sector && other.difficulty === 1))!;
+    assert.ok(found);
+    const tip = anglerTip(found.node.sector, undefined, BUCKET, found.at);
     assert.match(tip, /You need Fishing skill/);
     assert.match(tip, /Practice at an easier shoal first/);
 });
