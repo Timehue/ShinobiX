@@ -127,6 +127,14 @@ describe("player-facing jutsu tag contract", () => {
         assert.match(instant.detail, /persistent 2-round zone/i);
         assert.match(spiral.detail, /persistent 2-round/i);
     });
+
+    it("names the opening hit on a damaging field only", () => {
+        const tags = [{ name: "Recoil", percent: 30 }];
+        const damaging = jutsuTargetingLabel(jutsu({ target: "EMPTY_GROUND", method: "INSTANT_EFFECT", ap: 60, effectPower: 40, tags }));
+        const utility = jutsuTargetingLabel(jutsu({ target: "EMPTY_GROUND", method: "INSTANT_EFFECT", ap: 40, effectPower: 0, tags }));
+        assert.match(damaging.detail, /direct hit once on cast/i);
+        assert.doesNotMatch(utility.detail, /direct hit/i);
+    });
 });
 
 // The card must show the Poison the server applies. A direct cast ramps with

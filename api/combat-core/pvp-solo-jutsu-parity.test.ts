@@ -4,9 +4,12 @@ import { before, beforeEach, describe, test } from 'node:test';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG } from '../pvp/_legacy-jutsu-catalog.js';
 import type { CombatJutsu } from './types.js';
-import type { PvpFighter, PvpSession } from '../pvp/session.js';
+import type { PvpFighter, PvpGroundEffect, PvpSession } from '../pvp/session.js';
 import { createSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
 import { applySoloPveAction } from '../solo-pve/_engine.js';
+import { filledDiskTiles } from './aoe.js';
+import { groundFieldOpeningHit } from './resolve-jutsu-action.js';
+import { GRID_H, GRID_W } from './constants.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
 process.env.SUPABASE_SERVICE_KEY ??= 'x';
@@ -22,6 +25,9 @@ const clone = <T>(value: T): T => structuredClone(value);
 
 type Handler = (req: never, res: never) => Promise<unknown>;
 let moveHandler: Handler;
+let applyGroundEffectToFighter: typeof import('../pvp/move.js').applyGroundEffectToFighter;
+let applyJutsu: typeof import('../pvp/move.js').applyJutsu;
+let reconcileGroundStatuses: typeof import('../pvp/move.js').reconcileGroundStatuses;
 let issuePlayerToken: (name: string, ttlMs?: number) => string | null;
 
 before(async () => {
@@ -80,7 +86,9 @@ before(async () => {
         return removed;
     };
 
-    moveHandler = (await import('../pvp/move.js')).default as unknown as Handler;
+    const move = await import('../pvp/move.js');
+    moveHandler = move.default as unknown as Handler;
+    ({ applyGroundEffectToFighter, applyJutsu, reconcileGroundStatuses } = move);
     issuePlayerToken = (await import('../_auth.js')).issuePlayerToken;
 });
 
@@ -213,6 +221,7 @@ function normalizedZones(zones: PvpSession['groundEffects']) {
         name: zone.name,
         tiles: [...zone.tiles].sort((a, b) => a - b),
         rounds: zone.rounds,
+        castPulseConsumed: zone.castPulseConsumed === true,
         tags: zone.tags.map((tag) => ({ ...tag })).sort((a, b) => a.name.localeCompare(b.name)),
     }));
 }
@@ -254,6 +263,8 @@ function normalizePvp(before: PvpSession, after: PvpSession, applied: boolean) {
         healing: Math.max(0, after.p1.hp - before.p1.hp),
         shielding: Math.max(0, after.p1.shield - before.p1.shield),
         vfx: normalizedVfx(after.vfx, 'pvp'),
+        targetFxDamage: (after.fx ?? []).filter((event) => event.target === 'p2' && event.kind === 'damage')
+            .reduce((sum, event) => sum + event.amount, 0),
     };
 }
 
@@ -283,6 +294,8 @@ function normalizeSolo(before: SoloPveSession, after: SoloPveSession, applied: b
         healing: Math.max(0, after.player.hp - before.player.hp),
         shielding: Math.max(0, after.player.shield - before.player.shield),
         vfx: normalizedVfx(event?.vfx, 'solo'),
+        targetFxDamage: (after.fx ?? []).filter((entry) => entry.target === 'enemy' && entry.kind === 'damage')
+            .reduce((sum, entry) => sum + entry.amount, 0),
     };
 }
 
@@ -303,9 +316,11 @@ type ParitySetup = {
     tile?: number;
     masteryLevel?: number;
     level?: number;
+    roundOpener?: 'p1' | 'p2';
 };
 
 function applySetupToPvp(session: PvpSession, jutsu: CombatJutsu, setup: ParitySetup) {
+    session.roundOpener = setup.roundOpener ?? session.roundOpener;
     session.p1.pos = setup.casterPos ?? session.p1.pos;
     session.p2.pos = setup.targetPos ?? session.p2.pos;
     session.ap.p1 = setup.ap ?? session.ap.p1;
@@ -484,6 +499,221 @@ describe('authoritative PvP/Solo-PvE jutsu parity', () => {
             assertParity(displaced, name);
             assert.notEqual(displaced.pvp.target.pos, 54, `${name} must move the target`);
         }
+    });
+
+    describe('damaging ground fields', () => {
+        const recoil = [{ name: 'Recoil', percent: 30 }];
+        const field = (id: string, overrides: Partial<CombatJutsu> = {}) => customJutsu(id, {
+            target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT', ap: 60, effectPower: 40,
+            chakraCost: 0, staminaCost: 77, tags: recoil, ...overrides,
+        });
+        const spiral = (id: string, overrides: Partial<CombatJutsu> = {}) => field(id, {
+            method: 'AOE_SPIRAL', tags: [{ name: 'Move' }, ...recoil], ...overrides,
+        });
+        const fieldRecoil = (cast: NormalizedCast) => cast.target.statuses.filter((status) => status.name === 'Recoil');
+
+        test('a 60 AP field hits an enemy inside once, charges once, and keeps its field Recoil', async () => {
+            const result = await runParityCase(field('field-inside'), 1500, { tile: 64 });
+            assertParity(result, 'field inside');
+            assert.ok(result.pvp.damageToHp > 0, 'the opening hit must land');
+            assert.equal(result.pvp.apSpent, 60);
+            assert.equal(result.pvp.actionsAdded, 1);
+            assert.equal(result.pvp.staminaSpent, 77);
+            assert.equal(result.pvp.zones.length, 1);
+            assert.equal(result.pvp.targetFxDamage, result.pvp.damageToHp, 'the floating number shows the hit');
+            assert.deepEqual(fieldRecoil(result.pvp).map((status) => status.rounds), [1],
+                'only the field pulse carries Recoil, never a second direct status');
+            assert.equal(result.pvp.zones[0].castPulseConsumed, true);
+        });
+
+        test('the spiral shows its floating number and the solo event records the hit', async () => {
+            const result = await runParityCase(spiral('spiral-fx', { range: 10 }), 1514, {
+                casterPos: 0, targetPos: 53, tile: 52,
+            });
+            assert.equal(result.pvp.targetFxDamage, result.pvp.damageToHp);
+            const jutsu = field('field-resolution');
+            const solo = applySoloPveAction(soloSession('field-resolution', jutsu), {
+                type: 'jutsu', jutsuId: jutsu.id, tile: 64,
+            }) as { resolution?: { resolvedDamage?: number } };
+            assert.ok((solo.resolution?.resolvedDamage ?? 0) > 0, 'solo keeps the hit in its resolution facts');
+        });
+
+        test('a reaction on the opening hit reaches the caster', async () => {
+            const reflect = [parityStatus('Reflect', 'positive', 30, 3)];
+            for (const [index, cast] of [
+                [1515, field('field-reflect')],
+                [1516, spiral('spiral-reflect', { range: 10 })],
+            ] as const) {
+                const setup = index === 1515
+                    ? { tile: 64, targetStatuses: reflect }
+                    : { casterPos: 0, targetPos: 53, tile: 52, targetStatuses: reflect };
+                const result = await runParityCase(cast, index, setup);
+                assert.ok(result.pvp.caster.hp < 1_000_000, 'PvP keeps the caster state the resolver returned');
+                assert.equal(result.pvp.caster.hp, result.solo.caster.hp);
+            }
+        });
+
+        test('the opening hit is the same damage as a direct cast of that jutsu', async () => {
+            const hit = await runParityCase(field('field-formula'), 1501, { tile: 64 });
+            const direct = await runParityCase(customJutsu('direct-formula', {
+                ap: 60, effectPower: 40, chakraCost: 0, staminaCost: 77,
+            }), 1502);
+            assert.equal(hit.pvp.damageToHp, direct.pvp.damageToHp);
+            assert.notEqual(hit.pvp.damageToHp, 40, 'Effect Power must not be treated as flat HP');
+        });
+
+        test('an enemy outside the footprint takes nothing and the field still lands', async () => {
+            const result = await runParityCase(field('field-outside', { range: 1 }), 1503, {
+                casterPos: 52, targetPos: 56, tile: 53,
+            });
+            assertParity(result, 'field outside');
+            assert.equal(result.pvp.damageToHp, 0);
+            assert.equal(result.pvp.apSpent, 60);
+            assert.equal(result.pvp.zones.length, 1);
+            assert.deepEqual(fieldRecoil(result.pvp), []);
+        });
+
+        test('a 40 AP utility field stays status-only, with or without stored power', async () => {
+            for (const [index, overrides] of [
+                [1504, { ap: 40, effectPower: 0, isUtility: true }],
+                [1505, { ap: 40, effectPower: 40, isUtility: undefined }],
+                [1506, { ap: 60, effectPower: 40, isUtility: true }],
+                [1507, { ap: 60, effectPower: 0, isUtility: false }],
+            ] as Array<[number, Partial<CombatJutsu>]>) {
+                const result = await runParityCase(field(`field-utility-${index}`, overrides), index, { tile: 64 });
+                assertParity(result, `utility ${index}`);
+                assert.equal(result.pvp.damageToHp, 0, `case ${index}`);
+                assert.equal(fieldRecoil(result.pvp).length, 1, `case ${index}`);
+            }
+        });
+
+        test('a spiral hits from its landing tile, not from where the dash began', async () => {
+            const inside = await runParityCase(spiral('spiral-inside', { range: 10 }), 1508, {
+                casterPos: 0, targetPos: 53, tile: 52,
+            });
+            assertParity(inside, 'spiral inside');
+            assert.ok(inside.pvp.damageToHp > 0);
+            assert.equal(inside.pvp.caster.pos, 52);
+            assert.equal(inside.pvp.apSpent, 60);
+            assert.equal(inside.pvp.zones[0].tiles.length, filledDiskTiles(52, 2, GRID_W, GRID_H).length);
+
+            const outside = await runParityCase(spiral('spiral-outside', { range: 10 }), 1509, {
+                casterPos: 0, targetPos: 60, tile: 52,
+            });
+            assertParity(outside, 'spiral outside');
+            assert.equal(outside.pvp.damageToHp, 0);
+            assert.equal(outside.pvp.zones.length, 1);
+        });
+
+        test('Debuff Prevent blocks the field statuses but not the opening hit', async () => {
+            const result = await runParityCase(field('field-prevent'), 1510, {
+                tile: 64, targetStatuses: [parityStatus('Debuff Prevent', 'positive', 0, 3)],
+            });
+            assertParity(result, 'field Debuff Prevent');
+            assert.ok(result.pvp.damageToHp > 0);
+            assert.deepEqual(fieldRecoil(result.pvp), []);
+        });
+
+        test('shields absorb the hit', async () => {
+            const shielded = await runParityCase(field('field-shield'), 1511, { tile: 64, targetShield: 50 });
+            // Numbers only: PvP's reaction plate on a shielded hit has no solo twin.
+            assert.equal(shielded.pvp.damageToShield, 50);
+            assert.equal(shielded.solo.damageToShield, 50);
+            assert.equal(shielded.pvp.damageToHp, shielded.solo.damageToHp);
+        });
+
+        test('a solo knockout ends the fight without a stray pulse', () => {
+            const jutsu = field('field-ko');
+            const before = soloSession('field-ko', jutsu);
+            before.enemy.hp = 1;
+            const { applied, session } = applySoloPveAction(before, { type: 'jutsu', jutsuId: jutsu.id, tile: 64 });
+            assert.equal(applied, true);
+            assert.equal(session.status, 'done');
+            assert.equal(session.winner, 'player');
+            assert.deepEqual(session.enemy.statuses, []);
+        });
+
+        test('Push that carries the target out of the field skips the cast pulse', async () => {
+            const result = await runParityCase(spiral('spiral-push', {
+                range: 10, tags: [{ name: 'Move' }, { name: 'Push', percent: 0 }, ...recoil],
+            }), 1513, { casterPos: 0, targetPos: 54, tile: 52 });
+            assertParity(result, 'spiral Push');
+            assert.ok(result.pvp.damageToHp > 0);
+            assert.notEqual(result.pvp.target.pos, 54);
+            assert.deepEqual(fieldRecoil(result.pvp), []);
+            assert.equal(result.pvp.zones[0].castPulseConsumed, false,
+                'a target pushed out took no pulse, so the field keeps its full duration');
+
+            const ground = await runParityCase(field('field-push', {
+                tags: [{ name: 'Push', percent: 0 }, ...recoil],
+            }), 1518, { casterPos: 52, targetPos: 56, tile: 53 });
+            assertParity(ground, 'field Push');
+            assert.ok(ground.pvp.damageToHp > 0);
+            assert.notEqual(ground.pvp.target.pos, 56);
+            assert.deepEqual(fieldRecoil(ground.pvp), []);
+            assert.equal(ground.pvp.zones[0].castPulseConsumed, false);
+        });
+
+        test('a round closer hits on cast, while its first pulse still waits for the handoff', async () => {
+            const result = await runParityCase(field('field-closer'), 1519, { tile: 64, roundOpener: 'p2' });
+            assert.ok(result.pvp.damageToHp > 0);
+            assert.deepEqual(fieldRecoil(result.pvp), []);
+            assert.equal(result.pvp.zones[0].castPulseConsumed, false);
+        });
+
+        test('a cast that kills its own caster through Poison lands no hit', () => {
+            const jutsu = field('field-spend-ko');
+            const before = soloSession('field-spend-ko', jutsu);
+            before.player.hp = 1;
+            before.player.statuses = [parityStatus('Poison', 'negative', 30, 3)];
+            before.enemy.hp = 1;
+            const { session } = applySoloPveAction(before, { type: 'jutsu', jutsuId: jutsu.id, tile: 64 });
+            assert.equal(session.winner, 'enemy');
+            assert.equal(session.enemy.hp, 1);
+        });
+
+        test('other tags on an authored instant field keep direct-cast timing, like a spiral', () => {
+            const stun = [{ name: 'Stun', percent: 0 }, ...recoil];
+            const castOn = (method: string) => {
+                const hit = groundFieldOpeningHit(field('field-timing', { method, tags: stun }));
+                assert.ok(hit);
+                const self = fighter('caster', 52, hit);
+                return applyJutsu(self, fighter('target', 53, hit), hit, 1, 'central', 3).opponent.statuses;
+            };
+            const instant = castOn('INSTANT_EFFECT').find((status) => status.name === 'Stun');
+            const spiralCast = castOn('AOE_SPIRAL').find((status) => status.name === 'Stun');
+            assert.equal(instant?.activeRound, 4);
+            assert.deepEqual(instant, spiralCast);
+        });
+
+        test('a utility field fires none of its other tags, because it has no opening hit', async () => {
+            const result = await runParityCase(field('field-utility-shield', {
+                ap: 40, effectPower: 40, isUtility: true, tags: [...recoil, { name: 'Shield', percent: 0 }],
+            }), 1517, { tile: 64 });
+            assertParity(result, 'utility Shield');
+            assert.equal(result.pvp.caster.shield, 0);
+        });
+
+        test('a later pulse deals no damage, and Recoil stays separate self-damage until the target leaves', () => {
+            const jutsu = field('field-later');
+            const effect: PvpGroundEffect = {
+                id: 'later', owner: 'p1', name: 'Later', tiles: [53], rounds: 2,
+                tags: [{ name: 'Recoil', percent: 30 }],
+            };
+            const pulsed = applyGroundEffectToFighter(fighter('target', 53, jutsu), effect, 2);
+            assert.equal(pulsed.fighter.hp, 1_000_000, 'a pulse refreshes statuses and never damages');
+            const again = applyGroundEffectToFighter(pulsed.fighter, effect, 3);
+            assert.equal(again.fighter.hp, 1_000_000);
+            assert.equal(again.fighter.statuses.length, 1, 'a refresh does not stack');
+
+            const attack = customJutsu('recoil-attack', { ap: 60, effectPower: 40 });
+            const struck = applyJutsu(again.fighter, fighter('caster', 52, attack), attack, 1, 'central', 3);
+            assert.ok(struck.self.hp < 1_000_000, 'attacking from inside the field costs the attacker HP');
+
+            const stepped = { ...again.fighter, pos: 60 };
+            assert.deepEqual(reconcileGroundStatuses(stepped, [effect], 'p2').statuses, [],
+                'leaving the field removes the field status');
+        });
     });
 
     test('resource spending, poison-on-spend, status timing, and cooldown ordering stay identical', async () => {

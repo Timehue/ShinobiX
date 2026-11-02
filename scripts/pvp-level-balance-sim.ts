@@ -42,6 +42,7 @@ import {
 } from '../api/combat-core/statuses.js';
 import {
     createCanonicalGroundEffect,
+    groundFieldOpeningHit,
     resolveJutsuActionPlan,
     type JutsuActionPlan,
 } from '../api/combat-core/resolve-jutsu-action.js';
@@ -1124,10 +1125,17 @@ type PreviewResult = {
     evaluationRound?: number;
 };
 
+// Mirrors live PvP: a damaging field hits once on cast, before its pulse.
+function fieldOpeningStrike(self: PvpFighter, opponent: PvpFighter, jutsu: SimJutsu, plan: JutsuActionPlan, round: number) {
+    const hit = plan.hitsOpponent && self.hp > 0 ? groundFieldOpeningHit(jutsu) : null;
+    return hit ? applyJutsu(self, opponent, hit as never, 1, 'central', round) : null;
+}
+
 function previewGroundPulse(
     originalSelf: PvpFighter,
     originalOpponent: PvpFighter,
     paidSelf: PvpFighter,
+    struckOpponent: PvpFighter,
     effect: PvpGroundEffect,
     round: number,
     castPulseThisTurn: boolean,
@@ -1135,7 +1143,7 @@ function previewGroundPulse(
     if (castPulseThisTurn) {
         return {
             self: paidSelf,
-            opponent: applyGroundEffectToFighter(originalOpponent, effect, round, true).fighter,
+            opponent: applyGroundEffectToFighter(struckOpponent, effect, round, true).fighter,
         };
     }
     // A closer's zone first pulses after live endTurn has aged both status
@@ -1145,7 +1153,8 @@ function previewGroundPulse(
     const baselineSelf = tickStatuses(clone(originalSelf), round);
     const baselineOpponent = tickStatuses(clone(originalOpponent), round);
     const futureSelf = tickStatuses(paidSelf, round);
-    const futureOpponent = applyGroundEffectToFighter(baselineOpponent, effect, round + 1).fighter;
+    // The baseline stays pre-hit, so the opening hit counts as this cast's value.
+    const futureOpponent = applyGroundEffectToFighter(tickStatuses(clone(struckOpponent), round), effect, round + 1).fighter;
     return {
         self: futureSelf,
         opponent: futureOpponent,
@@ -1174,7 +1183,8 @@ function previewJutsu(
                 ...createCanonicalGroundEffect({ id: `preview-${jutsu.id}`, owner: 'p1', name: jutsu.name, plan, bloodlineRank: jutsu.bloodlineRank }),
                 activeRound: round + 1,
             };
-            return previewGroundPulse(self, opponent, previewSelf, effect, round, castPulseThisTurn);
+            const strike = fieldOpeningStrike(previewSelf, previewOpponent, jutsu, plan, round);
+            return previewGroundPulse(self, opponent, strike?.self ?? previewSelf, strike?.opponent ?? opponent, effect, round, castPulseThisTurn);
         }
         if (plan.method === 'AOE_CIRCLE' && plan.hitsOpponent) {
             const damageJutsu = { ...jutsu, tags: tags.filter((tag) => canonicalTagName(tag.name) !== 'Move') };
@@ -1197,7 +1207,8 @@ function previewJutsu(
             ...createCanonicalGroundEffect({ id: `preview-${jutsu.id}`, owner: 'p1', name: jutsu.name, plan, bloodlineRank: jutsu.bloodlineRank }),
             activeRound: round + 1,
         };
-        return previewGroundPulse(self, opponent, previewSelf, effect, round, castPulseThisTurn);
+        const strike = fieldOpeningStrike(previewSelf, previewOpponent, jutsu, plan, round);
+        return previewGroundPulse(self, opponent, strike?.self ?? previewSelf, strike?.opponent ?? opponent, effect, round, castPulseThisTurn);
     }
     if (plan && jutsu.target === 'EMPTY_GROUND' && plan.targetTile !== undefined) {
         previewSelf = payJutsuResources(previewSelf, plan, round);
@@ -1539,7 +1550,13 @@ function executeJutsu(
                 ...createCanonicalGroundEffect({ id: `${jutsu.id}-${state.round}-${seat}-${state.actionCounts.jutsu ?? 0}`, owner: seat, name: jutsu.name, plan, bloodlineRank: jutsu.bloodlineRank }),
                 activeRound: state.round + 1,
             };
-            const castPulse = seat === state.opener ? applyGroundEffectToFighter(opponent, effect, state.round, true) : null;
+            const strike = fieldOpeningStrike(self, opponent, jutsu, plan, state.round);
+            if (strike) {
+                self = strike.self;
+                opponent = strike.opponent;
+                lines.push(...strike.lines);
+            }
+            const castPulse = seat === state.opener && opponent.hp > 0 ? applyGroundEffectToFighter(opponent, effect, state.round, true) : null;
             if (castPulse) opponent = castPulse.fighter;
             if (castPulse) lines.push(...castPulse.lines);
             effect = { ...effect, castPulseConsumed: castPulse !== null && effect.tiles.includes(opponent.pos) };
@@ -1569,7 +1586,13 @@ function executeJutsu(
             ...createCanonicalGroundEffect({ id: `${jutsu.id}-${state.round}-${seat}-${state.actionCounts.jutsu ?? 0}`, owner: seat, name: jutsu.name, plan, bloodlineRank: jutsu.bloodlineRank }),
             activeRound: state.round + 1,
         };
-        const castPulse = seat === state.opener ? applyGroundEffectToFighter(opponent, effect, state.round, true) : null;
+        const strike = fieldOpeningStrike(self, opponent, jutsu, plan, state.round);
+        if (strike) {
+            self = strike.self;
+            opponent = strike.opponent;
+            lines.push(...strike.lines);
+        }
+        const castPulse = seat === state.opener && opponent.hp > 0 ? applyGroundEffectToFighter(opponent, effect, state.round, true) : null;
         if (castPulse) opponent = castPulse.fighter;
         if (castPulse) lines.push(...castPulse.lines);
         effect = { ...effect, castPulseConsumed: castPulse !== null && effect.tiles.includes(opponent.pos) };

@@ -57,6 +57,7 @@ import { filledDiskTiles } from '../combat-core/aoe.js';
 import { canonicalTagName, OPPONENT_AFFECTING_TAGS, REQUIRES_DAMAGE_TAGS, STACKABLE_STATUS } from '../pvp/_tags.js';
 import {
     createCanonicalGroundEffect,
+    groundFieldOpeningHit,
     resolveJutsuActionPlan,
     type JutsuActionPlan,
 } from '../combat-core/resolve-jutsu-action.js';
@@ -1089,6 +1090,20 @@ function addGroundEffect(session: SoloPveSession, side: SoloPveSide, jutsu: Solo
     }
 }
 
+// A damaging field hits once on cast, on either side's turn, then lays the zone.
+// addGroundEffect reads the post-hit enemy, because Push can leave the zone.
+function castGroundField(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu, plan: JutsuActionPlan): CombatResolutionFacts | undefined {
+    // Poison-on-spend can already have ended the fight before the hit resolves.
+    const hit = plan.hitsOpponent && session.status === 'active' ? groundFieldOpeningHit(jutsu) : null;
+    let resolution: CombatResolutionFacts | undefined;
+    if (hit) {
+        session.log.push(`${jutsu.name} catches ${fighter(session, otherSide(side)).name}!`);
+        resolution = resolutionFacts(applyCast(session, side, hit));
+    }
+    if (session.status !== 'done') addGroundEffect(session, side, jutsu, plan);
+    return resolution;
+}
+
 function payJutsuResources(session: SoloPveSession, side: SoloPveSide, chakra: number, stamina: number): void {
     const updated = fighter(session, side);
     setFighter(session, side, {
@@ -1135,7 +1150,7 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
         setFighter(session, side, { ...fighter(session, side), pos: plan.targetTile! });
         session.log.push(`${self.name} dashes to hex ${tile}.`);
         if (plan.createsGroundEffect) {
-            addGroundEffect(session, side, jutsu, plan);
+            resolution = castGroundField(session, side, jutsu, plan);
         } else if (plan.method === 'AOE_CIRCLE') {
             if (plan.hitsOpponent) {
                 session.log.push(`Ring impact catches ${opponent.name}!`);
@@ -1164,7 +1179,7 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
         }
     } else if (plan.groundTarget) {
         if (plan.createsGroundEffect) {
-            addGroundEffect(session, side, jutsu, plan);
+            resolution = castGroundField(session, side, jutsu, plan);
         } else {
             if (plan.method === 'AOE_CIRCLE' && plan.hitsOpponent) {
                 session.log.push(`Area burst catches ${opponent.name}!`);
@@ -1609,8 +1624,11 @@ function aiJutsuScore(session: SoloPveSession, jutsu: SoloPveJutsu, tile: number
     if (move && tile !== undefined) {
         afterSelf.pos = tile;
         const catches = method === 'AOE_CIRCLE' && hexNeighbors(tile).includes(opponent.pos);
-        if (catches) {
-            const preview = applyJutsu(afterSelf, opponent, { ...jutsu, tags: (jutsu.tags ?? []).filter((tag) => canonicalTagName(tag.name) !== 'Move') }, weatherMult(session, jutsu), session.environment.biome, session.round, guardedDamageCap(session, 'enemy'));
+        const spiralPlan = method === 'AOE_SPIRAL' ? jutsuActionPlan(session, 'enemy', jutsu, tile) : null;
+        const spiralHit = spiralPlan?.accepted && spiralPlan.createsGroundEffect && spiralPlan.hitsOpponent
+            ? groundFieldOpeningHit(jutsu) : null;
+        if (catches || spiralHit) {
+            const preview = applyJutsu(afterSelf, opponent, spiralHit ?? { ...jutsu, tags: (jutsu.tags ?? []).filter((tag) => canonicalTagName(tag.name) !== 'Move') }, weatherMult(session, jutsu), session.environment.biome, session.round, guardedDamageCap(session, 'enemy'));
             afterSelf = preview.self;
             afterOpponent = preview.opponent;
         }
@@ -1621,6 +1639,16 @@ function aiJutsuScore(session: SoloPveSession, jutsu: SoloPveJutsu, tile: number
             : hexDistance(tile, opponent.pos) <= (method === 'AOE_SPIRAL' ? SPIRAL_RADIUS : 1);
         if (method === 'AOE_CIRCLE' && catches) {
             const preview = applyJutsu(self, opponent, jutsu, weatherMult(session, jutsu), session.environment.biome, session.round, guardedDamageCap(session, 'enemy'));
+            afterSelf = preview.self;
+            afterOpponent = preview.opponent;
+        }
+        // Same footprint and same gate the cast itself uses, so a damaging field
+        // is weighed like any other hit, lethal rules included.
+        const fieldPlan = jutsuActionPlan(session, 'enemy', jutsu, tile);
+        const fieldHit = fieldPlan.accepted && fieldPlan.createsGroundEffect && fieldPlan.hitsOpponent
+            ? groundFieldOpeningHit(jutsu) : null;
+        if (fieldHit) {
+            const preview = applyJutsu(self, opponent, fieldHit, weatherMult(session, jutsu), session.environment.biome, session.round, guardedDamageCap(session, 'enemy'));
             afterSelf = preview.self;
             afterOpponent = preview.opponent;
         }

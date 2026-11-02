@@ -1346,6 +1346,28 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.equal(petDamage(true, false), 0);
     });
 
+    it('a damaging field never hits or debuffs an adds-gated boss, and still hits its adds', () => {
+        const field = {
+            id: 'darkfield', name: 'Darkfield', type: 'Ninjutsu', element: 'None', ap: 60, range: 4, effectPower: 40,
+            target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT', cooldown: 7, isUtility: false, tags: [{ name: 'Recoil', percent: 30 }],
+        };
+        for (const addPos of [2, 63]) {
+            const sq = makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {}, jutsu: [field] } });
+            const boss = makeActor('boss', 'enemy', 1, { character: WEAK });
+            const add = makeActor('en-1', 'enemy', addPos, { character: WEAK });
+            const s = makeSession([sq, boss, add], { objectiveKind: 'kill-adds-first', bossId: 'boss' });
+            startRound(s);
+            const ap = s.activeAp;
+            const addHp = add.hp;
+
+            assert.ok(applyAction(s, makeFloor('kill-adds-first'), { actorId: 'sq-1', type: 'jutsu', jutsuId: field.id, tile: 3 }, makeRng(1)).applied);
+            assert.equal(getActor(s, 'boss')!.hp, boss.maxHp, 'the barrier holds');
+            assert.deepEqual(getActor(s, 'boss')!.statuses, []);
+            assert.equal(getActor(s, 'en-1')!.hp < addHp, addPos === 2, `add on hex ${addPos}`);
+            assert.equal(ap - s.activeAp, 60);
+        }
+    });
+
     it('Smoke Bomb respects an adds-gated boss barrier while still affecting exposed combatants', () => {
         const sq = makeActor('sq-1', 'squad', 0, {
             itemCharges: { smoke: 1 },

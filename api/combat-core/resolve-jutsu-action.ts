@@ -1,5 +1,6 @@
 import { MAX_ACTIONS, SPIRAL_RADIUS } from './constants.js';
 import { filledDiskTiles } from './aoe.js';
+import { isZeroDamageFortyApJutsu } from './formulas.js';
 import { hexDistance, hexNeighbors } from './grid.js';
 import { adjustedApCost } from './resources.js';
 import { activeCombatStatuses } from './statuses.js';
@@ -81,6 +82,27 @@ export function canonicalGroundTags(tags: readonly CombatTag[] | undefined): Com
     return (tags ?? [])
         .map((tag) => ({ ...tag, name: canonicalTagName(tag.name) }))
         .filter((tag) => GROUND_EFFECT_TAGS.has(tag.name));
+}
+
+/**
+ * The direct hit a damaging field lands once on each enemy inside it on cast, or
+ * null for a status-only field (no power, or a 40-AP utility cast). Field tags
+ * are stripped so their statuses only ever come from the field itself, and leave
+ * with it. Move is stripped because the relocation already happened. The hit is
+ * an opponent cast, so its other statuses keep direct-cast timing: only a field's
+ * own pulse lands at once.
+ */
+export function groundFieldOpeningHit<T extends Pick<CombatJutsu, 'id' | 'ap' | 'isUtility' | 'effectPower' | 'target' | 'tags'>>(jutsu: T): T | null {
+    if (Number(jutsu.effectPower ?? 0) <= 0) return null;
+    if (isZeroDamageFortyApJutsu({ ...jutsu, ap: Number(jutsu.ap ?? 40) })) return null;
+    return {
+        ...jutsu,
+        target: 'OPPONENT',
+        tags: (jutsu.tags ?? []).filter((tag) => {
+            const name = canonicalTagName(tag.name);
+            return name !== 'Move' && !GROUND_EFFECT_TAGS.has(name);
+        }),
+    };
 }
 
 export function resolveJutsuActionPlan(input: ResolveJutsuActionPlanInput): ResolveJutsuActionPlanResult {

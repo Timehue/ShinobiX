@@ -204,6 +204,7 @@ import {
 import { catalogWeaponFlatTags } from './_weapon-tags.js';
 import {
     createCanonicalGroundEffect,
+    groundFieldOpeningHit,
     resolveJutsuActionPlan,
 } from '../combat-core/resolve-jutsu-action.js';
 import {
@@ -2349,23 +2350,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             activeRound: session.round + 1,
                         };
                         lines.push(`${jutsu.name} erupts in a spiral, blanketing ${groundEffect.tiles.length} hexes for 2 rounds.`);
-                        const spiralGround = role === roundOpenerFor(session)
-                            ? applyGroundEffectToFighter(opp, groundEffect, session.round, true)
+                        // A damaging field hits once on cast, whoever's turn it is.
+                        // The pulse reads the post-hit fighter: Push can leave the zone.
+                        const spiralHit = plan.hitsOpponent && movedSelf.hp > 0 ? groundFieldOpeningHit(jutsu) : null;
+                        const spiralStrike = spiralHit ? applyJutsu(movedSelf, opp, spiralHit, jWMult, biome, session.round) : null;
+                        if (spiralStrike) lines.push(`${jutsu.name} catches ${opp.name}!`, ...spiralStrike.lines);
+                        const spiralSelf = spiralStrike?.self ?? movedSelf;
+                        const spiralTarget = spiralStrike?.opponent ?? opp;
+                        const spiralGround = role === roundOpenerFor(session) && spiralTarget.hp > 0
+                            ? applyGroundEffectToFighter(spiralTarget, groundEffect, session.round, true)
                             : null;
                         groundEffect = {
                             ...groundEffect,
-                            castPulseConsumed: spiralGround !== null && groundEffect.tiles.includes(opp.pos),
+                            castPulseConsumed: spiralGround !== null && groundEffect.tiles.includes(spiralTarget.pos),
                         };
                         if (spiralGround) lines.push(...spiralGround.lines);
                         result = commit(
-                            movedSelf,
-                            spiralGround?.fighter ?? null,
+                            spiralSelf,
+                            spiralGround?.fighter ?? spiralStrike?.opponent ?? null,
                             apCost,
                             cd,
                             { groundEffects: [...(session.groundEffects ?? []), groundEffect] },
-                            undefined,
+                            spiralStrike?.fx,
                             [
-                                vfxForJutsu(jutsu, movedSelf, spiralGround?.fighter ?? opp, undefined, { area: true, tiles: groundEffect.tiles, persistent: true, who: 'opp' }),
+                                vfxForJutsu(jutsu, spiralSelf, spiralGround?.fighter ?? spiralTarget, spiralStrike?.fx, { area: true, tiles: groundEffect.tiles, persistent: true, ko: spiralTarget.hp <= 0, who: 'opp' }),
+                                ...(spiralStrike ? reactionVfx(opp, spiralStrike.opponent, spiralStrike.fx) : []),
                                 ...spendPoisonVfx,
                             ],
                         );
@@ -2467,23 +2476,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         };
                         const paidSelf = paySpendPoison({ ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) });
                         lines.push(`${jutsu.name} creates a ground effect for 2 rounds.`);
-                        const instantGround = role === roundOpenerFor(session)
-                            ? applyGroundEffectToFighter(opp, groundEffect, session.round, true)
+                        // Same order as the spiral branch above: opening hit, then pulse.
+                        const fieldHit = plan.hitsOpponent && paidSelf.hp > 0 ? groundFieldOpeningHit(jutsu) : null;
+                        const fieldStrike = fieldHit ? applyJutsu(paidSelf, opp, fieldHit, jWMult, biome, session.round) : null;
+                        if (fieldStrike) lines.push(`${jutsu.name} catches ${opp.name}!`, ...fieldStrike.lines);
+                        const fieldSelf = fieldStrike?.self ?? paidSelf;
+                        const fieldTarget = fieldStrike?.opponent ?? opp;
+                        const instantGround = role === roundOpenerFor(session) && fieldTarget.hp > 0
+                            ? applyGroundEffectToFighter(fieldTarget, groundEffect, session.round, true)
                             : null;
                         groundEffect = {
                             ...groundEffect,
-                            castPulseConsumed: instantGround !== null && groundEffect.tiles.includes(opp.pos),
+                            castPulseConsumed: instantGround !== null && groundEffect.tiles.includes(fieldTarget.pos),
                         };
                         if (instantGround) lines.push(...instantGround.lines);
                         result = commit(
-                            paidSelf,
-                            instantGround?.fighter ?? null,
+                            fieldSelf,
+                            instantGround?.fighter ?? fieldStrike?.opponent ?? null,
                             apCost,
                             cd,
                             { groundEffects: [...(session.groundEffects ?? []), groundEffect] },
-                            undefined,
+                            fieldStrike?.fx,
                             [
-                                vfxForJutsu(jutsu, paidSelf, instantGround?.fighter ?? opp, undefined, { ground: true, tiles: plan.footprint, persistent: true, who: 'opp' }),
+                                vfxForJutsu(jutsu, fieldSelf, instantGround?.fighter ?? fieldTarget, fieldStrike?.fx, { ground: true, tiles: plan.footprint, persistent: true, ko: fieldTarget.hp <= 0, who: 'opp' }),
+                                ...(fieldStrike ? reactionVfx(opp, fieldStrike.opponent, fieldStrike.fx) : []),
                                 ...spendPoisonVfx,
                             ],
                         );

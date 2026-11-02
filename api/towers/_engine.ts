@@ -24,6 +24,8 @@ import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-prog
  * work; all rules here are Tower-session policy and leave shared PvP behavior untouched.
  */
 import { filledDiskTiles } from '../combat-core/aoe.js';
+import { groundFieldOpeningHit } from '../combat-core/resolve-jutsu-action.js';
+import type { CombatTag } from '../combat-core/types.js';
 import { hexDistance } from '../combat-core/grid.js';
 import { aiGapCloserLandingTile, aiApproachLandingTile, aiRangedAttackReach, isDamagingAiGapCloser, isDistantAiGapCloser, prefersAiGapClosingMovement, aiJustFlickered, isAiFlicker } from '../combat-core/ai-mobility.js';
 import { pveAiFillerItems } from '../combat-core/ai-items.js';
@@ -1328,11 +1330,12 @@ function runAoeJutsu(
     protectedBossId?: string,
     areaCenter?: number,
     excludeAreaCenter = false,
+    areaTiles?: readonly number[],
 ): string[] {
     const actorById = new Map(session.actors.map(entry => [entry.id, entry] as const));
     const roster = towerCombatRoster(session);
     const center = areaCenter ?? primary.pos;
-    const area = new Set(filledDiskTiles(center, radius, session.map.width, session.map.height));
+    const area = new Set(areaTiles ?? filledDiskTiles(center, radius, session.map.width, session.map.height));
     if (excludeAreaCenter && areaCenter !== undefined) area.delete(center);
     const footprint = session.actors
         .filter(entry => entry.hp > 0 && area.has(entry.pos) && hostileSidesFor(actor.side).includes(entry.side))
@@ -1533,6 +1536,36 @@ function layGroundZone(session: TowerSession, actor: TowerActor, jutsuId: string
     session.groundEffects = [...(session.groundEffects ?? []), effect];
     return true;
 }
+/** Commit a field cast: AP and the action are charged once, a damaging field hits every
+ *  eligible hostile in its footprint once, then the zone is laid. The zone reads the
+ *  post-hit positions, because Push can leave it. Returns false, charging nothing, for
+ *  a jutsu with no ground-eligible tags. Only the opening hit deals damage; later pulses
+ *  go through applyZonesToActor, which only refreshes statuses. */
+function castGroundField(session: TowerSession, floor: TowerFloor, actor: TowerActor, jutsuId: string, jutsu: JutsuLike, tile: number, cost: number): boolean {
+    if (!towerGroundTags(jutsu.tags).length) return false;
+    // The two methods PvP and solo PvE treat as fields. Towers also lay a zone for
+    // any other ground-tagged EMPTY_GROUND jutsu, and that path stays status-only.
+    const fieldMethod = ['INSTANT_EFFECT', 'AOE_SPIRAL'].includes(canonicalJutsuMethod(jutsu.method));
+    const openingHit = fieldMethod && actor.hp > 0 ? groundFieldOpeningHit({
+        ...jutsu,
+        id: jutsuId,
+        target: String(jutsu.target ?? ''),
+        tags: Array.isArray(jutsu.tags) ? jutsu.tags as CombatTag[] : [],
+    }) as JutsuLike | null : null;
+    const tiles = groundZoneTiles(tile, session.map.width, session.map.height, jutsu.method, actor.pos, jutsu.range);
+    const primary = openingHit && session.actors
+        .filter(a => a.hp > 0 && hostileSidesFor(actor.side).includes(a.side) && tiles.includes(a.pos)
+            && !(actor.side === 'squad' && objectiveBossDamageLocked(session, a)))
+        .sort((a, b) => (a.pos === tile ? -1 : b.pos === tile ? 1 : 0) || (a.pos - b.pos) || (a.id < b.id ? -1 : 1))[0];
+    if (openingHit && primary) {
+        // resolveHit owns AP/action accounting for this damaging cast.
+        resolveHit(session, floor, actor, primary, openingHit, cost, true, undefined, false, tiles, jutsu);
+    } else {
+        spendActionAp(session, actor, cost);
+        session.actionsThisTurn += 1;
+    }
+    return layGroundZone(session, actor, jutsuId, jutsu, tile);
+}
 /** Round-end: age every zone (phase-aware, as in PvP), then drop pulses from spent zones. */
 function applyRoundGroundEffects(session: TowerSession): void {
     session.groundEffects = tickGroundEffects(session.groundEffects, session.round);
@@ -1652,6 +1685,7 @@ function pveRelicTakenMult(target: TowerActor): number {
 function resolveHit(
     session: TowerSession, floor: TowerFloor, actor: TowerActor, target: TowerActor,
     jutsu: JutsuLike, cost: number, deferWinnerCheck = false, areaCenter?: number, excludeAreaCenter = false,
+    areaTiles?: readonly number[], flavorJutsu: JutsuLike = jutsu,
 ): void {
     const selfCast = actor.id === target.id;
     // Snapshot before tags resolve: an Overclock cast cannot discount itself, and
@@ -1700,14 +1734,14 @@ function resolveHit(
     // %target at the CASTER for a SELF cast.
     const castFlavor = jutsu.id === 'basic-attack' || jutsu.id === 'weapon'
         ? ''
-        : resolveCastFlavor(jutsu, actor.name, target.name, actor.character);
+        : resolveCastFlavor(flavorJutsu, actor.name, target.name, actor.character);
     const castHeader = selfCast ? `${actor.name} ${verb}.` : `${actor.name} ${verb} → ${target.name}.`;
     session.log.push(castFlavor ? `${castHeader} ${castFlavor}` : castHeader);
     // Multi-target casts resolve through the canonical planner/reducer below.
     // AOE / ground / Move jutsu also strike the other hostiles in the blast radius.
     const radius = selfCast ? 0 : jutsuAreaRadius(jutsu);
     if (radius > 0) {
-        const caught = runAoeJutsu(session, actor, target, jutsu, wMult, radius, protectedBossId, areaCenter, excludeAreaCenter);
+        const caught = runAoeJutsu(session, actor, target, jutsu, wMult, radius, protectedBossId, areaCenter, excludeAreaCenter, areaTiles);
         if (caught.length) session.log.push(`The blast also catches ${caught.join(', ')}.`);
     } else runJutsu(session, actor, target, jutsu, wMult);
     // Restore Alpha Bond pets before displacement can treat their occupied tiles as empty.
@@ -2758,14 +2792,18 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
                     session.actionsThisTurn += 1;
                     session.log.push(`${jm.name ?? 'The movement jutsu'} lands, but catches no one in its impact ring.`);
                 }
+            } else if (String(jm.method ?? 'SINGLE').toUpperCase() === 'AOE_SPIRAL') {
+                // Spiral dash: erupt a ground nova on the landing tile (best-effort — a
+                // pure Move jutsu carries no ground tags, so it only pays for the move).
+                if (!castGroundField(session, floor, actor, action.jutsuId, jm, tile, cost)) {
+                    spendActionAp(session, actor, cost);
+                    session.actionsThisTurn += 1;
+                }
             } else {
                 spendActionAp(session, actor, cost);
                 session.actionsThisTurn += 1;
-                if (String(jm.method ?? 'SINGLE').toUpperCase() !== 'AOE_SPIRAL') resolveDashSecondaryTags(session, actor, jm);
+                resolveDashSecondaryTags(session, actor, jm);
             }
-            // Spiral dash: erupt a ground nova on the landing tile (best-effort — a
-            // pure Move jutsu carries no ground tags, so this no-ops for Flicker).
-            if (String(jm.method ?? 'SINGLE') === 'AOE_SPIRAL') layGroundZone(session, actor, action.jutsuId, jm, tile);
             if (actor.side === 'squad' && floor.objective === 'reach-tile' && typeof floor.goalTile === 'number' && actor.pos === floor.goalTile) {
                 session.objectiveState.reachedGoal = true;
             }
@@ -2804,15 +2842,23 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             if (st > 0 && actor.stamina < st) return { applied: false, reason: 'no-stamina' };
             if (!canAct(session, cost)) return { applied: false, reason: 'cannot-act' };
             // Ground-tagged (Poison / Recoil / Decrease Damage Given) → lay a persistent
-            // zone, exactly as before (it bites units standing in it on cast + each round).
-            // Otherwise resolve as a DIRECT strike on any hostile caught ON the target tile
+            // zone (it bites units standing in it on cast + each round), and a damaging
+            // one also lands its opening hit once. Otherwise resolve as a DIRECT strike on any hostile caught ON the target tile
             // (and its ring for AOE_CIRCLE / INSTANT_EFFECT) — mirrors the PvE Arena's
             // groundTargetCatchesEnemy, so a damage ground jutsu (e.g. a custom "Ambush")
             // hits instead of bouncing on `no-ground-tags`. An empty tile whiffs harmlessly
             // (still costs AP). This branch never hard-rejects for missing ground tags.
-            if (layGroundZone(session, actor, action.jutsuId, jg, tile)) {
-                spendActionAp(session, actor, cost);
-                session.actionsThisTurn += 1;
+            const payCast = () => {
+                actor.chakra = Math.max(0, actor.chakra - ck);
+                actor.stamina = Math.max(0, actor.stamina - st);
+                spendPoison(session, actor, ck, st, session.round);
+                if (Number(jg.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jg.cooldown));
+            };
+            // A field pays before its opening hit, as in PvP and solo PvE, so a caster
+            // killed by Poison on spend lands nothing. A direct strike still pays after.
+            const laysField = towerGroundTags(jg.tags).length > 0;
+            if (laysField) payCast();
+            if (castGroundField(session, floor, actor, action.jutsuId, jg, tile, cost)) {
                 tickBossPhases(session);
             } else {
                 const method = String(jg.method ?? 'SINGLE');
@@ -2835,10 +2881,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
                     tickBossPhases(session);
                 }
             }
-            actor.chakra = Math.max(0, actor.chakra - ck);
-            actor.stamina = Math.max(0, actor.stamina - st);
-            spendPoison(session, actor, ck, st, session.round);
-            if (Number(jg.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jg.cooldown));
+            if (!laysField) payCast();
             tickBossPhases(session);
             checkTowerWinner(session, floor);
             return { applied: true };
@@ -3151,10 +3194,15 @@ function bestGroundJutsu(session: TowerSession, actor: TowerActor, target: Tower
     const list = actor.character.jutsu;
     if (!Array.isArray(list)) return undefined;
     const dist = hexDistance(actor.pos, target.pos, session.map.width);
+    // A damaging field is a burst, so it waits out the same easy-band hold as one.
+    const band = pveBandFor(session, actor);
+    const holdsBurst = !!band && pveEasyBandHoldsBurst(band.enemyLevel, session.round)
+        && !aiJustFlickered(list as JutsuLike[], actor.cooldowns, session.actionsThisTurn);
     return (list as JutsuLike[])
         .filter(j => String(j.target ?? '') === 'EMPTY_GROUND' && !aiTagNames(j).has('Move'))
         .filter(j => aiJutsuReady(session, actor, j))
         .filter(j => Math.max(1, Number(j.range ?? 1)) >= dist)
+        .filter(j => !holdsBurst || Number(j.effectPower ?? 0) <= 0 || !pveIsBurstJutsuAp(Number(j.ap ?? 40)))
         .sort((a, b) => (Number(b.aiPriority ?? 0) - Number(a.aiPriority ?? 0))
             || (Number(b.effectPower ?? 0) - Number(a.effectPower ?? 0))
             || (String(a.id) < String(b.id) ? -1 : 1))[0];

@@ -138,6 +138,11 @@ export function describeJutsuEffects(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVE
  * (jutsuAreaRadius) and the ground-zone resolution in api/pvp/move.ts.
  */
 export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: string } {
+    // Mirrors groundFieldOpeningHit (api/combat-core/resolve-jutsu-action.ts).
+    const utility = jutsu.isUtility ?? Number(jutsu.ap ?? 40) === 40;
+    const openingHit = Number(jutsu.effectPower ?? 0) > 0 && !utility
+        ? " Enemies inside take the jutsu's direct hit once on cast."
+        : "";
     switch (jutsu.method) {
         case "AOE_BURST":
             return {
@@ -147,7 +152,7 @@ export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: stri
         case "AOE_SPIRAL":
             return {
                 short: "AOE Spiral",
-                detail: "The user dashes onto a chosen tile and creates a persistent 2-round radius-2 ground zone on landing.",
+                detail: `The user dashes onto a chosen tile and creates a persistent 2-round radius-2 ground zone on landing.${openingHit}`,
             };
         case "AOE_CIRCLE":
             return {
@@ -157,7 +162,7 @@ export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: stri
         case "INSTANT_EFFECT":
             return {
                 short: "AOE Ground",
-                detail: "Creates a persistent 2-round zone across every tile in the user's jutsu range. Choose a highlighted ground tile to cast it.",
+                detail: `Creates a persistent 2-round zone across every tile in the user's jutsu range. Choose a highlighted ground tile to cast it.${openingHit}`,
             };
         case "ALL":
             return {

@@ -718,6 +718,250 @@ describe('EMPTY_GROUND spiral parity', () => {
     });
 });
 
+describe('damaging ground fields', () => {
+    const recoil = [{ name: 'Recoil', percent: 30 }];
+    const fieldJutsu = (over: Record<string, unknown> = {}) => ({
+        id: 'darkfield', name: 'Darkfield', type: 'Ninjutsu', element: 'None',
+        ap: 60, range: 4, effectPower: 40, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+        cooldown: 7, chakraCost: 0, staminaCost: 77, isUtility: false, tags: recoil, ...over,
+    });
+    const caster = (jutsu: ReturnType<typeof fieldJutsu>, pos = 0) => actor('caster', 'squad', pos, {
+        ai: false,
+        character: { specialty: 'Ninjutsu', level: 100, stats: { ninjutsuOffense: 2_500, ninjutsuDefense: 500 }, jutsu: [jutsu] },
+    });
+    const cast = (s: TowerSession, tile: number) => applyAction(s, floor(), {
+        actorId: 'caster', type: 'jutsu', jutsuId: 'darkfield', tile,
+    }, makeRng(8));
+    const recoilRows = (s: TowerSession, id: string) => getActor(s, id)!.statuses
+        .filter(status => canonicalTagName(status.name) === 'Recoil');
+
+    it('hits every enemy in the footprint once, for the resolver damage, and charges once', () => {
+        const jutsu = fieldJutsu();
+        const s = begin([
+            caster(jutsu),
+            actor('near', 'enemy', 1),
+            actor('other', 'enemy', 2),
+            // Four hexes from the caster and three from the first hit: inside the
+            // field, outside any default blast around the struck enemy.
+            actor('edge', 'enemy', 4),
+            actor('far', 'enemy', 63),
+        ]);
+        const ap = s.activeAp;
+        assert.equal(cast(s, 3).applied, true);
+        const expected = 100_000 - applyPvpJutsu(
+            towerActorToPvpFighter(caster(jutsu)), towerActorToPvpFighter(actor('near', 'enemy', 1)),
+            { ...jutsu, tags: [] } as Parameters<typeof applyPvpJutsu>[2], 1, 'central', s.round,
+        ).opponent.hp;
+        assert.ok(expected > 0);
+        assert.equal(100_000 - getActor(s, 'near')!.hp, expected);
+        assert.equal(100_000 - getActor(s, 'other')!.hp, expected);
+        assert.equal(100_000 - getActor(s, 'edge')!.hp, expected);
+        assert.equal(getActor(s, 'far')!.hp, 100_000);
+        assert.equal(ap - s.activeAp, 60);
+        assert.equal(s.actionsThisTurn, 1);
+        assert.equal(500 - getActor(s, 'caster')!.stamina, 77);
+        assert.equal(s.groundEffects.length, 1);
+        assert.equal(recoilRows(s, 'near').length, 1);
+        assert.equal(recoilRows(s, 'near')[0]!.source, `ground:${s.groundEffects[0]!.id}`);
+        assert.deepEqual(recoilRows(s, 'far'), []);
+    });
+
+    it('an empty footprint still lays the field and charges once', () => {
+        const s = begin([caster(fieldJutsu()), actor('far', 'enemy', 63)]);
+        const ap = s.activeAp;
+        assert.equal(cast(s, 3).applied, true);
+        assert.equal(getActor(s, 'far')!.hp, 100_000);
+        assert.equal(ap - s.activeAp, 60);
+        assert.equal(s.actionsThisTurn, 1);
+        assert.equal(s.groundEffects.length, 1);
+    });
+
+    it('a 40 AP utility field stays status-only', () => {
+        const s = begin([
+            caster(fieldJutsu({ ap: 40, effectPower: 40, isUtility: true })),
+            actor('near', 'enemy', 1),
+        ]);
+        const ap = s.activeAp;
+        assert.equal(cast(s, 3).applied, true);
+        assert.equal(getActor(s, 'near')!.hp, 100_000);
+        assert.equal(ap - s.activeAp, 40);
+        assert.equal(recoilRows(s, 'near').length, 1);
+    });
+
+    it('a utility field fires none of its other tags, because it has no opening hit', () => {
+        const s = begin([
+            caster(fieldJutsu({ ap: 40, effectPower: 40, isUtility: true, tags: [...recoil, { name: 'Shield', percent: 0 }] })),
+            actor('near', 'enemy', 1),
+        ]);
+        assert.equal(cast(s, 3).applied, true);
+        assert.equal(getActor(s, 'caster')!.shield, 0);
+    });
+
+    it('a spiral dash hits around its landing tile and pays AP once', () => {
+        const s = begin([
+            caster(fieldJutsu({ method: 'AOE_SPIRAL', range: 10, tags: [{ name: 'Move' }, ...recoil] })),
+            actor('near', 'enemy', 19),
+            actor('far', 'enemy', 63),
+        ]);
+        const ap = s.activeAp;
+        assert.equal(cast(s, 18).applied, true);
+        assert.equal(getActor(s, 'caster')!.pos, 18);
+        assert.ok(getActor(s, 'near')!.hp < 100_000);
+        assert.equal(getActor(s, 'far')!.hp, 100_000);
+        assert.equal(ap - s.activeAp, 60);
+        assert.equal(s.actionsThisTurn, 1);
+        assert.deepEqual(
+            [...s.groundEffects[0]!.tiles].sort((a, b) => a - b),
+            [...filledDiskTiles(18, 2, s.map.width, s.map.height)].sort((a, b) => a - b),
+        );
+    });
+
+    it('Debuff Prevent blocks the field statuses but not the opening hit', () => {
+        const s = begin([
+            caster(fieldJutsu()),
+            actor('near', 'enemy', 1, {
+                statuses: [{ name: 'Debuff Prevent', rounds: 3, kind: 'positive', activeRound: 1 }],
+            }),
+        ]);
+        assert.equal(cast(s, 3).applied, true);
+        assert.ok(getActor(s, 'near')!.hp < 100_000);
+        assert.deepEqual(recoilRows(s, 'near'), []);
+    });
+
+    it('a knockout resolves the floor, and a shield absorbs the hit first', () => {
+        const ko = begin([caster(fieldJutsu()), actor('near', 'enemy', 1, { hp: 1 })]);
+        assert.equal(cast(ko, 3).applied, true);
+        assert.equal(getActor(ko, 'near')!.hp, 0);
+        assert.equal(ko.winner, 'squad');
+
+        const shielded = begin([caster(fieldJutsu()), actor('near', 'enemy', 1, { shield: 50 })]);
+        assert.equal(cast(shielded, 3).applied, true);
+        assert.equal(getActor(shielded, 'near')!.shield, 0);
+        assert.ok(getActor(shielded, 'near')!.hp < 100_000);
+    });
+
+    it('an enemy field hits the squad on cast and holds its pulse for their turn', () => {
+        const s = begin([
+            actor('hero', 'squad', 1, { ai: false }),
+            actor('caster', 'enemy', 0, {
+                character: { specialty: 'Ninjutsu', level: 100, stats: { ninjutsuOffense: 2_500, ninjutsuDefense: 500 }, jutsu: [fieldJutsu()] },
+            }),
+        ]);
+        endTurn(s, floor());
+        assert.equal(s.turnQueue[s.activeIndex], 'caster');
+        assert.equal(cast(s, 3).applied, true);
+        assert.ok(getActor(s, 'hero')!.hp < 100_000);
+        assert.deepEqual(recoilRows(s, 'hero'), []);
+    });
+
+    it('other EMPTY_GROUND methods keep their status-only zone', () => {
+        const s = begin([
+            caster(fieldJutsu({ method: 'AOE_CIRCLE', effectPower: 45 })),
+            actor('near', 'enemy', 2),
+        ]);
+        assert.equal(cast(s, 3).applied, true);
+        assert.equal(getActor(s, 'near')!.hp, 100_000);
+        assert.equal(s.groundEffects.length, 1);
+    });
+
+    it('the battle log keeps the field tag values in its flavor line', () => {
+        const s = begin([
+            caster(fieldJutsu({ battleDescription: 'Recoil rises to %tag1.' })),
+            actor('near', 'enemy', 1),
+        ]);
+        assert.equal(cast(s, 3).applied, true);
+        assert.ok(s.log.some(line => line.includes('Recoil rises to 30%.')), s.log.join(' | '));
+    });
+
+    it('a dash caster who dies to Poison on spend lands no hit', () => {
+        const s = begin([
+            caster(fieldJutsu({ method: 'AOE_SPIRAL', range: 10, tags: [{ name: 'Move' }, ...recoil] })),
+            actor('near', 'enemy', 19),
+        ]);
+        const hero = getActor(s, 'caster')!;
+        hero.hp = 1;
+        hero.statuses = [{ name: 'Poison', rounds: 3, percent: 30, kind: 'negative', activeRound: 1 }];
+        assert.equal(cast(s, 18).applied, true);
+        assert.equal(hero.hp, 0);
+        assert.equal(getActor(s, 'near')!.hp, 100_000);
+    });
+
+    it('a field caster who dies to Poison on spend pays once and lands no hit', () => {
+        const s = begin([caster(fieldJutsu()), actor('near', 'enemy', 1)]);
+        const hero = getActor(s, 'caster')!;
+        hero.hp = 1;
+        hero.statuses = [{ name: 'Poison', rounds: 3, percent: 30, kind: 'negative', activeRound: 1 }];
+        const ap = s.activeAp;
+        assert.equal(cast(s, 3).applied, true);
+        assert.equal(hero.hp, 0);
+        assert.equal(getActor(s, 'near')!.hp, 100_000);
+        assert.equal(ap - s.activeAp, 60);
+        assert.equal(s.actionsThisTurn, 1);
+        assert.equal(500 - hero.stamina, 77);
+        assert.equal(hero.cooldowns.darkfield, 7);
+        assert.equal(s.log.filter(line => line.includes('to Poison for spending')).length, 1);
+    });
+
+    it('a poisoned field caster who survives the spend pays before the hit, once', () => {
+        const s = begin([caster(fieldJutsu()), actor('near', 'enemy', 1)]);
+        const hero = getActor(s, 'caster')!;
+        hero.statuses = [{ name: 'Poison', rounds: 3, percent: 30, kind: 'negative', activeRound: 1 }];
+        const ap = s.activeAp;
+        assert.equal(cast(s, 3).applied, true);
+        assert.ok(getActor(s, 'near')!.hp < 100_000);
+        assert.equal(ap - s.activeAp, 60);
+        assert.equal(500 - hero.stamina, 77);
+        const poisonLine = s.log.findIndex(line => line.includes('to Poison for spending'));
+        assert.notEqual(poisonLine, -1);
+        assert.ok(poisonLine < s.log.findIndex(line => line.includes('uses Darkfield')), s.log.join(' | '));
+        assert.equal(s.log.filter(line => line.includes('to Poison for spending')).length, 1);
+    });
+
+    it('a ground strike with no field tags keeps its hit-then-pay order', () => {
+        const s = begin([caster(fieldJutsu({ tags: [] })), actor('near', 'enemy', 3)]);
+        const hero = getActor(s, 'caster')!;
+        hero.hp = 1;
+        hero.statuses = [{ name: 'Poison', rounds: 3, percent: 30, kind: 'negative', activeRound: 1 }];
+        assert.equal(cast(s, 3).applied, true);
+        assert.equal(hero.hp, 0);
+        assert.ok(getActor(s, 'near')!.hp < 100_000);
+        assert.equal(500 - hero.stamina, 77);
+        assert.equal(s.groundEffects.length, 0);
+        const poisonLine = s.log.findIndex(line => line.includes('to Poison for spending'));
+        assert.ok(s.log.findIndex(line => line.includes('uses Darkfield')) < poisonLine, s.log.join(' | '));
+    });
+
+    it('a self Heal rides the cast once however many enemies are caught', () => {
+        const s = begin([
+            caster(fieldJutsu({ tags: [...recoil, { name: 'Heal', percent: 0 }] })),
+            actor('near', 'enemy', 1),
+            actor('other', 'enemy', 2),
+        ]);
+        getActor(s, 'caster')!.hp = 10_000;
+        assert.equal(cast(s, 3).applied, true);
+        assert.equal(s.log.filter(line => line.startsWith('Heal:')).length, 1);
+    });
+
+    it('later rounds never repeat the hit, and leaving the field drops its statuses', () => {
+        const s = begin([
+            caster(fieldJutsu()),
+            actor('stays', 'enemy', 1),
+            actor('leaves', 'enemy', 2),
+        ]);
+        assert.equal(cast(s, 3).applied, true);
+        const stays = getActor(s, 'stays')!.hp;
+        const leaves = getActor(s, 'leaves')!.hp;
+        for (let turn = 0; turn < 12 && s.groundEffects.length > 0; turn += 1) {
+            if (turn === 1) getActor(s, 'leaves')!.pos = 63;
+            endTurn(s, floor());
+        }
+        assert.deepEqual(s.groundEffects, [], 'the two-round field has expired');
+        assert.equal(getActor(s, 'stays')!.hp, stays);
+        assert.equal(getActor(s, 'leaves')!.hp, leaves);
+        assert.deepEqual(recoilRows(s, 'leaves'), []);
+    });
+});
+
 describe('authored EMPTY_GROUND Recoil kits', () => {
     it('ships canonical persistent Recoil on both Revenant ground-control techniques and resolves it in Tower combat', () => {
         for (const [templateId, jutsuId] of [
