@@ -20,7 +20,7 @@
 
 /* The boss patrols on a one-tile track: a percentage translate moves the track
    in whole tiles (lib/world-boss-patrol). Taps pass through the track; only
-   the figure takes them. It walks past trail signs (z 5), wanderers (z 6),
+   the figure and its name pill take them. It walks past trail signs (z 5), wanderers (z 6),
    structures and the village entrance (z 7) and story markers (z 8), so it
    sits under all of them and never takes their taps. */
 .sector-world-boss-track {
@@ -44,6 +44,8 @@
     z-index: 8;
     /* 21% of the board, which is 2.52 of the track's tiles. */
     width: clamp(64px, 252%, 150px);
+    /* Up to 979px wide a global button max-width holds it to its one-tile track. */
+    max-width: none !important;
     aspect-ratio: 3 / 4;
     pointer-events: auto;
     padding: 0;
@@ -68,7 +70,7 @@
         box-shadow: none;
     }
 }
-/* Flipped from script to face the way it walks. */
+/* Flipped from script to face the way it walks. Art only: it takes no taps. */
 .sector-world-boss-figure {
     position: absolute;
     inset: 0;
@@ -110,7 +112,9 @@
     font-weight: 800;
     line-height: 1.15;
     white-space: nowrap;
-    pointer-events: none;
+    /* It hangs below the button's box and reads "Join the raid", so it is the
+       first thing a player taps. A tap on it must not fall through and walk. */
+    pointer-events: auto;
 }
 .sector-world-boss-name small {
     color: #ffc872;
