@@ -3,6 +3,7 @@ import { withKvLock } from '../_lock.js';
 import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSaveWithStore } from '../save/_mutate-player-save.js';
 import { showdownConsumableSpends, type ShowdownSession } from '../_pet-showdown/engine.js';
+import { projectCurrentPetSpecies } from './_owned-pet.js';
 
 export const showdownAdmissionKey = (name: string, id: string) => `pet:showdown:${name}:${id}`;
 const TTL = 45 * 60;
@@ -52,7 +53,11 @@ export async function admitShowdown<T extends ShowdownSession>(
         const record = await kv.get<Record<string, unknown>>(saveKey);
         if (!record?.character) return { ok: false as const, status: 404, error: 'No save found.' };
         const recovery = await settleIdleRecovery(kv, name, record);
-        const decision = await decide(recovery.character);
+        const pets = recovery.character.pets;
+        const current = Array.isArray(pets)
+            ? { ...recovery.character, pets: pets.map(pet => pet && typeof pet === 'object'
+                ? projectCurrentPetSpecies(pet) : pet) } : recovery.character;
+        const decision = await decide(current);
         if (!decision.ok) return decision;
         if (decision.write === false) return { ...decision, _saveVersion: Number(record._saveVersion ?? 0) };
         const session: AdmittedShowdown = decision.session;

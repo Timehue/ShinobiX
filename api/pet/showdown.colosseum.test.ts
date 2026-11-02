@@ -3,6 +3,10 @@ import { after, before, beforeEach, test } from 'node:test';
 import { PET_CATALOG } from './_catalog.js';
 import { SHOWDOWN_DAILY_WIN_CAP, SHOWDOWN_FORMAT_SIZE, type ShowdownFormat } from '../../shared/pet-showdown-contract.js';
 import type { ShowdownSession } from '../_pet-showdown/engine.js';
+import { sealShowdownPet } from '../_pet-showdown/engine.js';
+import { migrateOwnedPet } from './_owned-pet.js';
+import { previousPetSpeciesTemplate } from './_species-balance-v1.js';
+import type { Pet } from '../_pet-sim/pet-types.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -60,6 +64,24 @@ async function start(action = 'start', format: ShowdownFormat = '3v3') {
     return result.body.state;
 }
 const key = (id: string) => `pet:showdown:${player}:${id}`;
+
+test('practice admits current species stats before any owner read has migrated the save', async () => {
+    const save = (await kv.get<Record<string, any>>(`save:${player}`))!;
+    const old: Record<string, unknown> = {
+        ...previousPetSpeciesTemplate(PET_CATALOG['rare-23']), id: ids[0], templateId: 'rare-23',
+        level: 25, trait: 'Loyal', origin: 'wild', unlockedForPve: true,
+    };
+    save.character.pets[0] = old;
+    await kv.set(`save:${player}`, save);
+    const before = await kv.get(`save:${player}`);
+    const state = await start('start', '1v1');
+    const session = (await kv.get<ShowdownSession>(key(state.sessionId)))!;
+    const expected = sealShowdownPet(migrateOwnedPet(player, old).pet as unknown as Pet, 'progression-v3');
+    for (const stat of ['maxHp', 'attack', 'defense', 'speed', 'moves'] as const) {
+        assert.deepEqual(session.player[0][stat], expected[stat], stat);
+    }
+    assert.deepEqual(await kv.get(`save:${player}`), before, 'battle projection does not rewrite the save');
+});
 
 test('practice seals owned field and reserve teams in every format and ignores forged reward/opponent data', async () => {
     for (const format of ['1v1', '2v2', '3v3'] as const) {

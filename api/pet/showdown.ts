@@ -25,6 +25,7 @@ import {
     type ShowdownHollowGateBinding,
 } from './_hollow-gate-showdown.js';
 import { activeCarriedPets } from '../_entitlements.js';
+import { projectCurrentPetSpecies } from './_owned-pet.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import {
     SHOWDOWN_FORMAT_SIZE,
@@ -495,7 +496,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const myChar = mySave?.character as Record<string, unknown> | undefined;
             if (!myChar) return res.status(404).json({ error: 'No save found.' });
             const encounter = await activeWorldCrisis80Encounter({ character: myChar, sourceId, path: 'companion' });
-            const myPets = activeCarriedPets<Record<string, unknown>>(myChar);
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar).map(projectCurrentPetSpecies);
             const chosen = petIds
                 .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
                 .filter(Boolean) as unknown as Pet[];
@@ -628,7 +629,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (petIds.length !== FIRST_PACT_TEAM_SIZE || new Set(petIds).size !== FIRST_PACT_TEAM_SIZE) {
                     return res.status(400).json({ error: 'The First Pact requires exactly four distinct pets: two active and two in reserve.' });
                 }
-                const myPets = activeCarriedPets<Record<string, unknown>>(myChar);
+                const myPets = activeCarriedPets<Record<string, unknown>>(myChar).map(projectCurrentPetSpecies);
                 chosen = petIds
                     .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
                     .filter(Boolean) as unknown as Pet[];
@@ -775,7 +776,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const myChar = mySave?.character as Record<string, unknown> | undefined;
-            const myPets = activeCarriedPets<Record<string, unknown>>(myChar ?? {});
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar ?? {}).map(projectCurrentPetSpecies);
             const chosen = petIds
                 .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
                 .filter(Boolean) as unknown as Pet[];
@@ -853,7 +854,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(200).json({ ok: true, resumed: true, state: viewOf(pending), character: myChar, _saveVersion: Number(mySave?._saveVersion ?? 0) });
                 }
             }
-            const myPets = activeCarriedPets<Record<string, unknown>>(myChar);
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar).map(projectCurrentPetSpecies);
             const chosen = petIds
                 .map((id) => myPets.find((pet) => String(pet?.id ?? '') === id))
                 .filter(Boolean) as unknown as Pet[];
@@ -1020,7 +1021,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const myChar = mySave?.character as Record<string, unknown> | undefined;
             if (!myChar) return res.status(404).json({ error: 'No save found.' });
-            const myPets = activeCarriedPets<Record<string, unknown>>(myChar);
+            const myPets = activeCarriedPets<Record<string, unknown>>(myChar).map(projectCurrentPetSpecies);
             const mine = myPets.find((pet) => String(pet?.id ?? '') === myPetId) as unknown as Pet | undefined;
             if (!mine) return res.status(409).json({ error: 'That pet is not in your carried roster.' });
             const encounterBusy = showdownBusyIssue(myChar, [mine]);

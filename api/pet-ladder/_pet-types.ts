@@ -11,6 +11,9 @@
  * rather than kept in sync with nothing.
  */
 
+import type { PetProgressionSnapshot } from '../pet/_growth.js';
+export type { PetProgressionSnapshot } from '../pet/_growth.js';
+
 export type PetRarity = "standard" | "rare" | "legendary" | "mythic";
 export type JutsuElement = "Fire" | "Water" | "Wind" | "Lightning" | "Earth" | "None";
 export type PetTrait =
@@ -42,7 +45,7 @@ export type PetJutsu = {
     aoe?: boolean;
 };
 
-export type Pet = {
+export type Pet = PetProgressionSnapshot & {
     id: string;
     name: string;
     templateId?: string;

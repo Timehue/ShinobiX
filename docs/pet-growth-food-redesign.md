@@ -23,6 +23,67 @@ lineage and pending activities are retained. Returning Sanctuary pets migrate
 when they re-enter the owned roster. No offline bulk player-data migration is
 needed. Old sealed battles keep their snapshots.
 
+### Species balance revision 1
+
+The November 2 species revision removes the increasing stat and regular-jutsu
+power bonuses previously granted by a species' numeric catalog position.
+`shinobij.client/src/lib/pet-balance.ts` owns the transform; `pet-stats.ts` owns
+rarity budgets. Small species profiles redistribute at most 2% between core
+attributes. Extra kit slots cost a bounded proportion of the rarity budget.
+Higher rarity therefore improves each base stat for comparable native roles
+and sub-roles. Roles, traits, elements, invested growth and tactical choices
+can still create individual advantages; rarity does not guarantee victory.
+
+The independent server-owned `speciesBalanceVersion` stamp applies this revision
+once on owned-roster reads/mutations and Sanctuary withdrawals. New acquisitions
+use the current catalog, including captures from retained older encounters.
+Fresh battle admission also projects this revision from an unmigrated save;
+opening the owner's pet screen first is unnecessary. Warfront, co-op and ladder
+snapshots preserve immutable bases, allocations and revision metadata through
+server and client reconstruction. New ladder challenges project the balance
+patch onto offline defenses while preserving their sealed build. Older defense
+snapshots lacking growth metadata recover an effective base from their sealed
+stats, so automatic growth is removed once before applying the species ratio;
+their owner's later respec or gear changes cannot refresh the defense.
+`api/pet/_species-balance-v1.ts` freezes the prior species bases and slot powers;
+do not regenerate it from the new catalog. The migration replaces the species
+component, preserves custom base adjustments proportionally, retains Growth
+Point allocations and earned jutsu-power increments, and recalculates final
+stats with the existing growth curve. It does not repeat the Growth v1 point
+conversion. Admin-origin pets and protected starter/evolution baselines retain
+their authored values. Retained battle snapshots remain unchanged. Input-only
+proofs without the species revision use the frozen previous catalog for stat
+and kit normalization; updated pets use current normalization references. The
+historical replay tests retain their original full-state and log hashes.
+Current Showdown kits use revision-scoped residual corrections in
+`api/_pet-showdown/engine.ts`; the original residuals remain attached to older
+inputs. These corrections do not change owned display stats or Growth Points.
+
+The client pool, server acquisition catalog, Gauntlet pool and pinned ability
+fallbacks must agree. Regression tests cover every built-in species, adjacent
+rarities with matched builds/traits, the Granite Badger/Spirit Deer case,
+idempotent migrations, and generic-save protection of the revision stamp.
+Controlled combat evidence belongs in `.ci-evidence/pet-rarity-balance/`;
+it does not establish human PvP outcomes or production rollout acceptance.
+
+The follow-up integration review passed the full root suite (18,994 passing,
+30 skipped), 99 final battle-route/replay regression cases, server compilation,
+client typechecking and lint (zero errors). The final-source progression audit
+again covered 13,184 fights with zero invariant failures; its recorded source
+hashes match the reviewed implementation. Review logs and the source manifest
+are in `.ci-evidence/pet-rarity-review/`. These changes remain local until shipped.
+
+Local validation on November 2 covered 13,184 production-engine fights and
+11,270 sealed fixtures with no invariant failures or stale-source warnings.
+The unchanged full-roster 1v1, 2v2 and 3v3 balance gates pass. Separate probes
+covered 3,760 matched-role/element adjacent-rarity fights and 876 duel-outlier
+fights across the gate's seeds and an independent seed offset. The migration
+baseline was checked against the previous catalog for all 146 retuned species;
+all 15 protected templates and all 161 ability identities were preserved.
+The final API, shared-contract and client-library regression pass finished with
+16,697 passed, 29 skipped and no failures. Server build, client typecheck, lint
+and IP hygiene checks passed.
+
 Food grants at most 2,000 XP per pet per UTC day across ordinary, Elemental,
 Ancient Treats and Golden Apples, regardless of acquisition source. The endpoint
 reads time after acquiring the save lock and commits foodXpDay/foodXpUsed with

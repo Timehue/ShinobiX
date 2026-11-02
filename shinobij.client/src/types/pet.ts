@@ -168,6 +168,8 @@ export type Pet = {
     defense: number;
     speed: number;
     growthVersion?: number;
+    /** Species baseline revision, independent of the Growth Point rules. */
+    speciesBalanceVersion?: number;
     growthBaseStats?: PetGrowthBaseStats;
     growthAllocation?: PetGrowthAllocation;
     /** Unspent points; server-derived as 3 * (level - 1) - committed allocation. */

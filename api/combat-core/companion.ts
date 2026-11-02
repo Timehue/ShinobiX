@@ -8,6 +8,7 @@ import {
 } from '../_pet-sim/pet-config.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
+import { projectCurrentPetSpecies } from '../pet/_owned-pet.js';
 import { currentPetHappiness } from '../pet/_happiness.js';
 import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
 import { petSignatureMastery, petUnmasteredPower } from '../../shared/pet-ability-mastery.js';
@@ -118,8 +119,9 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
     const pets = activeCarriedPets<PetLike>(char);
     const activeId = typeof char.activePetId === 'string' ? char.activePetId : '';
     if (!activeId) return null;
-    const pet = pets.find((candidate) => candidate && String(candidate.id ?? '') === activeId);
-    if (!pet) return null;
+    const storedPet = pets.find((candidate) => candidate && String(candidate.id ?? '') === activeId);
+    if (!storedPet) return null;
+    const pet = projectCurrentPetSpecies(storedPet as Record<string, unknown>) as PetLike;
     const level = Math.max(0, Math.floor(Number(pet.level ?? 0)) || 0);
     if (level < 50) return null;
     if (petCombatBusyReason(char, pet as Record<string, unknown>, now)) return null;

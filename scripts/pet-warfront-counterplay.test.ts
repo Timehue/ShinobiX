@@ -6,6 +6,7 @@ import { rawPetPool } from "../shinobij.client/src/data/pet-pool";
 import { balanceBuiltInPetTemplate } from "../shinobij.client/src/lib/pet-balance";
 import { normalizePetGrowth } from '../api/pet/_growth';
 import { petBattleJutsus } from '../shared/pet-battle-loadout';
+import { previousPetSpeciesTemplate } from '../api/pet/_species-balance-v1';
 import {
     aiRitePlan,
     deterministicRiteCounterMove,
@@ -26,7 +27,10 @@ function band(seed: number, prefix: string, progression: boolean): Pet[] {
         if (!picked.some((pet) => pet.id === candidate.id)) picked.push(candidate);
     }
     return picked.map((pet, slot) => {
-        const owned = { ...pet, id: `${prefix}-${pet.id}-${slot}` };
+        // The retained cohort represents old sealed kits. Current progression
+        // keeps using the live balanced pool below, with the same strategy gates.
+        const source = progression ? pet : previousPetSpeciesTemplate(pet as unknown as Record<string, unknown>) as unknown as Pet;
+        const owned = { ...source, id: `${prefix}-${pet.id}-${slot}` };
         if (!progression) return { ...owned, battleLoadoutVersion: 'legacy-v1' as const };
         return normalizePetGrowth({ ...owned, templateId: pet.id, level: 75,
             growthBaseStats: { hp: pet.hp, attack: pet.attack, defense: pet.defense, speed: pet.speed },

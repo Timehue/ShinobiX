@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { PET_CATALOG } from './_catalog.js';
-import { createShowdownSession, type ShowdownSession } from '../_pet-showdown/engine.js';
+import { createShowdownSession, sealShowdownPet, type ShowdownSession } from '../_pet-showdown/engine.js';
+import { previousPetSpeciesTemplate } from './_species-balance-v1.js';
+import { migrateOwnedPet } from './_owned-pet.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 
 process.env.NODE_ENV = 'test';
@@ -31,6 +33,25 @@ async function open() {
         return { ok: true as const, session, character: { ...character, petShowdownAdmission: { sessionId, at: Date.now() } } };
     });
 }
+
+test('atomic admission persists current species stats before sealing an unmigrated pet', async () => {
+    const old = { ...previousPetSpeciesTemplate(PET_CATALOG['rare-23']), templateId: 'rare-23',
+        id: 'lead', origin: 'wild', level: 30, trait: 'Loyal', loadout: { consumable: item } };
+    await kv.set(`save:${player}`, { _saveVersion: 1, character: { name: player, level: 30, ryo: 10, pets: [old] } });
+    const expected = migrateOwnedPet(player, old).pet;
+    const opened = await open();
+    assert.ok(opened.ok);
+    const sealed = sealShowdownPet(expected as unknown as Pet, opened.session.rulesetVersion);
+    for (const stat of ['maxHp', 'attack', 'defense', 'speed', 'moves'] as const) {
+        assert.deepEqual(opened.session.player[0][stat], sealed[stat], stat);
+    }
+    const saved = (await kv.get<Record<string, any>>(`save:${player}`))!;
+    assert.equal(saved.character.pets[0].speciesBalanceVersion, 1);
+    assert.deepEqual(saved.character.pets[0].growthBaseStats, expected.growthBaseStats);
+    const resumed = await open();
+    assert.ok(resumed.ok);
+    assert.deepEqual(resumed.session, opened.session);
+});
 
 test('duplicate concurrent starts atomically spend once and resume the same sealed charges', async () => {
     const [a, b] = await Promise.all([open(), open()]);

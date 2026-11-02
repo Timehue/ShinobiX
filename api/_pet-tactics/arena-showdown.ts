@@ -16,6 +16,7 @@
  */
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { activeCarriedPets } from '../_entitlements.js';
+import { projectCurrentPetSpecies } from '../pet/_owned-pet.js';
 import { rankedPetUnavailable } from '../pet/_ranked-eligibility.js';
 import { showdownBusyIssue } from '../pet/_showdown-readiness.js';
 import {
@@ -40,7 +41,7 @@ export function chooseArenaPets(character: Record<string, unknown>, value: unkno
     if (ids.length !== ARENA_TEAM_SIZE || new Set(ids).size !== ARENA_TEAM_SIZE || ids.some(id => !id)) {
         throw new TacticsError('Choose four different companions: two to lead and two on the bench.');
     }
-    const carried = activeCarriedPets<Record<string, unknown>>(character);
+    const carried = activeCarriedPets<Record<string, unknown>>(character).map(projectCurrentPetSpecies);
     const chosen = ids.map(id => carried.find(pet => String(pet?.id ?? '') === id));
     if (chosen.some(pet => !pet)) throw new TacticsError('Every companion must be one you are carrying.', 409);
     for (const pet of chosen) {

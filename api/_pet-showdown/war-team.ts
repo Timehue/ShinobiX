@@ -21,6 +21,7 @@
 import { kv } from '../_storage.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
+import { projectCurrentPetSpecies } from '../pet/_owned-pet.js';
 import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
 import { SHOWDOWN_BENCH_SIZE, SHOWDOWN_FORMAT_SIZE } from '../../shared/pet-showdown-contract.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -39,10 +40,11 @@ export const WAR_TEAM_SIZE = SHOWDOWN_FORMAT_SIZE[WAR_DUEL_FORMAT] + SHOWDOWN_BE
  *  the clamp is the one part of sealing it still needs. One implementation, so
  *  a giant refused here cannot be fielded there. */
 export function sealPetToCeiling(raw: Record<string, unknown>): Pet {
-    const pet = { ...raw } as unknown as Pet;
+    const current = projectCurrentPetSpecies(raw);
+    const pet = { ...current } as unknown as Pet;
     for (const stat of CEIL_STATS) {
-        const v = Number(raw[stat]) || 0;
-        (pet as unknown as Record<string, number>)[stat] = Math.min(v, petStatCeil(raw.rarity as string, stat));
+        const v = Number(current[stat]) || 0;
+        (pet as unknown as Record<string, number>)[stat] = Math.min(v, petStatCeil(current.rarity as string, stat));
     }
     return pet;
 }

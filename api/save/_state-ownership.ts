@@ -533,6 +533,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('defense', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('speed', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('growthVersion', 'pet', 'server-owned', 'pets', ['pet-identity']),
+    f('speciesBalanceVersion', 'pet', 'server-owned', 'pets', ['pet-identity'], 'one-time species stat and jutsu rebalance stamp'),
     f('growthBaseStats', 'pet', 'server-owned', 'pets', ['pet-identity'], 'immutable species stats used by authoritative level growth'),
     f('growthAllocation', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('growthPoints', 'pet', 'server-owned', 'pets', ['pet-identity'], 'derived from level minus committed allocation'),

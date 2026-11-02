@@ -7,22 +7,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 365,
-        "attack": 39,
-        "defense": 26,
+        "hp": 379,
+        "attack": 38,
+        "defense": 27,
         "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Red Fox Strike",
-                "power": 58,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Red Fox Iron Brace",
-                "power": 59,
+                "power": 58,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -54,6 +54,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Steals the bait, skips the snare, and watches you reset it. Trackers swear it keeps count.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -64,8 +65,8 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 370,
-        "attack": 48,
+        "hp": 378,
+        "attack": 50,
         "defense": 28,
         "speed": 36,
         "unlockedForPve": false,
@@ -111,6 +112,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "White on white until it moves. Mountain scouts follow its prints to find the safe crossings.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -121,22 +123,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 297,
+        "hp": 290,
         "attack": 37,
         "defense": 25,
-        "speed": 34,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Black Cat Strike",
-                "power": 60,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Black Cat Weaken",
-                "power": 57,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -167,6 +169,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "No one in the village owns it. It has never once gone hungry.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -177,22 +180,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 339,
-        "attack": 33,
+        "hp": 319,
+        "attack": 32,
         "defense": 28,
-        "speed": 30,
+        "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Forest Hawk Strike",
-                "power": 61,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Forest Hawk Mend",
-                "power": 62,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -224,6 +227,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Works the canopy line at dawn. Falconers say it picks its shinobi, not the other way around.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -234,22 +238,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 366,
-        "attack": 36,
-        "defense": 34,
-        "speed": 29,
+        "hp": 345,
+        "attack": 34,
+        "defense": 33,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "River Otter Strike",
-                "power": 62,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "River Otter Guard",
-                "power": 63,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -281,6 +285,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Works the flood pools in pairs and shares the catch. Will trade a fish for anything that glints.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -291,22 +296,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 399,
-        "attack": 51,
-        "defense": 30,
-        "speed": 39,
+        "hp": 386,
+        "attack": 48,
+        "defense": 29,
+        "speed": 36,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Stone Turtle Strike",
-                "power": 63,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Stone Turtle Sand Veil",
-                "power": 60,
+                "power": 54,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -337,6 +342,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Older than the fence it suns on. Takes a hit like a wall and forgets it by noon.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -347,22 +353,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 286,
-        "attack": 44,
-        "defense": 25,
-        "speed": 35,
+        "hp": 260,
+        "attack": 41,
+        "defense": 23,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Desert Lizard Strike",
-                "power": 64,
+                "power": 59,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Desert Lizard Expose",
-                "power": 61,
+                "power": 56,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -394,6 +400,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Sleeps under hot rock and moves only when it matters. Sand caravans step around it, not over.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -404,22 +411,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 365,
-        "attack": 35,
-        "defense": 30,
-        "speed": 32,
+        "hp": 326,
+        "attack": 32,
+        "defense": 29,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Ashen Crow Strike",
-                "power": 65,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Ashen Crow Mend",
-                "power": 66,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -451,6 +458,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Roosts in burn scars while they're still warm. Steals anything it can lift, and some things it can't.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -461,22 +469,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 393,
-        "attack": 38,
-        "defense": 36,
-        "speed": 31,
+        "hp": 338,
+        "attack": 34,
+        "defense": 33,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Blue Frog Strike",
-                "power": 66,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Blue Frog Guard",
-                "power": 67,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -508,6 +516,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Bright as a warning sign, and it is one. Handled wrong, it numbs a grown arm for a day.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -518,22 +527,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 428,
-        "attack": 55,
-        "defense": 32,
-        "speed": 41,
+        "hp": 378,
+        "attack": 49,
+        "defense": 29,
+        "speed": 36,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Wild Boar Strike",
-                "power": 67,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Wild Boar Sand Veil",
-                "power": 64,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -564,6 +573,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Goes through what it can't go around. Fence posts included.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -574,22 +584,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 306,
-        "attack": 48,
-        "defense": 27,
-        "speed": 37,
+        "hp": 265,
+        "attack": 40,
+        "defense": 23,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Pine Owl Strike",
-                "power": 68,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Pine Owl Expose",
-                "power": 65,
+                "power": 54,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -621,6 +631,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Doesn't make a sound in the air. Night patrols skip any stretch of woods it won't roost in.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -631,22 +642,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 390,
-        "attack": 37,
-        "defense": 33,
-        "speed": 34,
+        "hp": 326,
+        "attack": 32,
+        "defense": 27,
+        "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Sand Snake Strike",
-                "power": 69,
+                "power": 59,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Sand Snake Mend",
-                "power": 70,
+                "power": 60,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -678,6 +689,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Swims the dune face just under the surface. You see the ripple, then you don't.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -688,22 +700,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 420,
-        "attack": 41,
-        "defense": 39,
-        "speed": 33,
+        "hp": 345,
+        "attack": 34,
+        "defense": 33,
+        "speed": 27,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Mist Ferret Strike",
-                "power": 70,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Mist Ferret Guard",
-                "power": 71,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -735,6 +747,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Slips through fog banks and locked pantries alike. Ask any riverside innkeeper.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -745,15 +758,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 485,
-        "attack": 57,
-        "defense": 40,
-        "speed": 38,
+        "hp": 394,
+        "attack": 47,
+        "defense": 32,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Iron Beetle Strike",
-                "power": 71,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -792,6 +805,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Its shell turns a kunai edge. Smiths keep one in the forge out of professional respect.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -802,22 +816,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 327,
-        "attack": 50,
-        "defense": 29,
-        "speed": 39,
+        "hp": 260,
+        "attack": 41,
+        "defense": 23,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "White Crane Strike",
-                "power": 72,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "White Crane Expose",
-                "power": 69,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -849,6 +863,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Stands in the shallows for an hour and moves once. It rarely needs twice.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -859,22 +874,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 416,
-        "attack": 40,
-        "defense": 35,
-        "speed": 36,
+        "hp": 332,
+        "attack": 31,
+        "defense": 28,
+        "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Cinder Rat Strike",
-                "power": 73,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Cinder Rat Mend",
-                "power": 74,
+                "power": 58,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -906,6 +921,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Nests in forge ash while the coals still tick. The smiths' apprentices name every one.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -916,22 +932,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 482,
-        "attack": 50,
-        "defense": 34,
-        "speed": 36,
+        "hp": 372,
+        "attack": 40,
+        "defense": 26,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Meadow Deer Strike",
-                "power": 74,
+                "power": 59,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Meadow Deer Iron Brace",
-                "power": 75,
+                "power": 60,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -963,6 +979,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "First to freeze when something's wrong in the grass. Scouts trust it over each other.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -973,15 +990,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 516,
-        "attack": 59,
-        "defense": 42,
-        "speed": 40,
+        "hp": 402,
+        "attack": 47,
+        "defense": 33,
+        "speed": 31,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Storm Gull Strike",
-                "power": 75,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -1020,6 +1037,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Rides the front edge of bad weather. Harbor crews haul nets when it lands.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -1030,22 +1048,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 347,
-        "attack": 53,
-        "defense": 31,
-        "speed": 41,
+        "hp": 255,
+        "attack": 41,
+        "defense": 23,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Shadow Bat Strike",
-                "power": 76,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Shadow Bat Expose",
-                "power": 73,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -1077,6 +1095,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Maps a cave by ear in one pass. Miners follow it out when the lamps die.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -1087,22 +1106,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 441,
-        "attack": 42,
-        "defense": 37,
-        "speed": 37,
+        "hp": 326,
+        "attack": 32,
+        "defense": 28,
+        "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Mud Toad Strike",
-                "power": 77,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Mud Toad Mend",
-                "power": 78,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -1133,6 +1152,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Sits in the paddy muck all season. One croak before rain, two before worse.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -1143,22 +1163,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 511,
-        "attack": 53,
-        "defense": 37,
-        "speed": 38,
+        "hp": 379,
+        "attack": 38,
+        "defense": 27,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Leaf Monkey Strike",
-                "power": 78,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Leaf Monkey Iron Brace",
-                "power": 79,
+                "power": 58,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -1190,6 +1210,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Works in threes: one begs, one distracts, one empties your pack.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -1200,22 +1221,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 515,
-        "attack": 65,
-        "defense": 40,
-        "speed": 48,
+        "hp": 378,
+        "attack": 50,
+        "defense": 28,
+        "speed": 36,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Frost Cub Strike",
-                "power": 79,
+                "power": 59,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Frost Cub Sand Veil",
-                "power": 76,
+                "power": 56,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -1247,6 +1268,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "A winter cub with paws it hasn't grown into. Already shrugs off cold that drops grown men.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -1257,22 +1279,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 367,
-        "attack": 56,
-        "defense": 33,
-        "speed": 43,
+        "hp": 260,
+        "attack": 41,
+        "defense": 24,
+        "speed": 31,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Temple Gecko Strike",
-                "power": 80,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Temple Gecko Expose",
-                "power": 77,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -1304,6 +1326,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Lives behind the shrine lanterns and eats what the incense draws. The monks count it as staff.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -1314,22 +1337,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 467,
-        "attack": 45,
-        "defense": 40,
-        "speed": 39,
+        "hp": 319,
+        "attack": 32,
+        "defense": 28,
+        "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Rock Badger Strike",
-                "power": 81,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Rock Badger Mend",
-                "power": 82,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -1360,6 +1383,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Digs through packed clay like loose snow. Its old dens double as ambush pits.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -1370,22 +1394,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 540,
-        "attack": 55,
-        "defense": 39,
-        "speed": 39,
+        "hp": 372,
+        "attack": 39,
+        "defense": 27,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Tiny Wolf Strike",
-                "power": 82,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Tiny Wolf Iron Brace",
-                "power": 83,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -1417,6 +1441,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Runt of the litter, first to the kill. The rest of the pack follows it anyway.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -1427,15 +1452,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 386,
+        "hp": 410,
         "attack": 46,
-        "defense": 31,
+        "defense": 32,
         "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Flint Jackal Strike",
-                "power": 58,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -1474,6 +1499,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Cracks marrow bones on the flint outcrops. You hear dinner from a ridge away.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -1484,8 +1510,8 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 261,
-        "attack": 40,
+        "hp": 260,
+        "attack": 41,
         "defense": 23,
         "speed": 32,
         "unlockedForPve": false,
@@ -1531,6 +1557,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Tunnels the warm ground near the vents. Farmers borrow one to thaw the seed rows early.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -1541,22 +1568,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 333,
+        "hp": 326,
         "attack": 32,
-        "defense": 28,
-        "speed": 30,
+        "defense": 29,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Cinder Moth Strike",
-                "power": 60,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Cinder Moth Mend",
-                "power": 61,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -1588,6 +1615,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Drawn to campfires, never burned by them. Old hands read the swarm for wind shifts.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -1598,22 +1626,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 387,
-        "attack": 41,
+        "hp": 364,
+        "attack": 39,
         "defense": 27,
         "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Scorch Skink Strike",
-                "power": 61,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Scorch Skink Iron Brace",
-                "power": 62,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -1645,6 +1673,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Suns itself on cooling lava crust. Its tail heat will light kindling in a pinch.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -1655,15 +1684,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 416,
-        "attack": 48,
-        "defense": 34,
-        "speed": 34,
+        "hp": 402,
+        "attack": 47,
+        "defense": 32,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Magma Pup Strike",
-                "power": 62,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -1702,6 +1731,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Whelped near the vents. Chews slag the way other pups chew boots.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -1712,22 +1742,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 314,
-        "attack": 39,
-        "defense": 25,
-        "speed": 35,
+        "hp": 296,
+        "attack": 36,
+        "defense": 24,
+        "speed": 33,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Brook Newt Strike",
-                "power": 63,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Brook Newt Weaken",
-                "power": 60,
+                "power": 54,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -1759,6 +1789,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Lives under one particular stone in one particular stream, and defends both.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -1769,22 +1800,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 359,
-        "attack": 35,
-        "defense": 30,
-        "speed": 32,
+        "hp": 326,
+        "attack": 32,
+        "defense": 27,
+        "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Pebble Crab Strike",
-                "power": 64,
+                "power": 59,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Pebble Crab Mend",
-                "power": 65,
+                "power": 60,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -1816,6 +1847,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Indistinguishable from the riverbed until your toe finds out.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -1826,22 +1858,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 386,
-        "attack": 38,
-        "defense": 35,
-        "speed": 30,
+        "hp": 345,
+        "attack": 34,
+        "defense": 33,
+        "speed": 27,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Tide Minnow Strike",
-                "power": 65,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Tide Minnow Guard",
-                "power": 66,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -1873,6 +1905,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "The school flashes silver a heartbeat before the wave lands. Divers time their breath by it.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -1883,22 +1916,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 421,
-        "attack": 54,
-        "defense": 32,
-        "speed": 41,
+        "hp": 371,
+        "attack": 49,
+        "defense": 29,
+        "speed": 37,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Reed Heron Strike",
-                "power": 66,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Reed Heron Sand Veil",
-                "power": 63,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -1930,6 +1963,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Stands in the reeds like it's paid to. One strike, one frog.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -1940,22 +1974,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 336,
-        "attack": 42,
-        "defense": 27,
-        "speed": 37,
+        "hp": 290,
+        "attack": 37,
+        "defense": 24,
+        "speed": 33,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Marsh Eel Strike",
-                "power": 67,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Marsh Eel Weaken",
-                "power": 64,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -1987,6 +2021,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Moves through flooded grass without bending a blade. Trap-fishers count their catch twice.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -1997,22 +2032,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 384,
-        "attack": 37,
-        "defense": 32,
-        "speed": 34,
+        "hp": 332,
+        "attack": 31,
+        "defense": 28,
+        "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Breeze Finch Strike",
-                "power": 68,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Breeze Finch Mend",
-                "power": 69,
+                "power": 58,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -2044,6 +2079,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Nests in wind chimes and prayer flags. Sings whichever way the weather is turning.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -2054,22 +2090,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 445,
-        "attack": 46,
-        "defense": 32,
-        "speed": 33,
+        "hp": 372,
+        "attack": 40,
+        "defense": 26,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Dust Swift Strike",
-                "power": 69,
+                "power": 59,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Dust Swift Iron Brace",
-                "power": 70,
+                "power": 60,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -2101,6 +2137,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Skims the dry flats faster than a courier hawk. The couriers are still sore about it.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -2111,15 +2148,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 478,
-        "attack": 55,
-        "defense": 38,
-        "speed": 38,
+        "hp": 402,
+        "attack": 47,
+        "defense": 33,
+        "speed": 31,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Cliff Swallow Strike",
-                "power": 70,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -2158,6 +2195,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Builds mud nests on sheer rock over a killing drop. The rent up there is cheap.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -2168,22 +2206,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 321,
-        "attack": 50,
-        "defense": 29,
-        "speed": 38,
+        "hp": 255,
+        "attack": 41,
+        "defense": 23,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Kite Magpie Strike",
-                "power": 71,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Kite Magpie Expose",
-                "power": 68,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -2215,6 +2253,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Has stolen coins, buttons, and one chunin's forehead protector. It keeps a collection.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -2225,22 +2264,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 409,
-        "attack": 39,
-        "defense": 34,
-        "speed": 36,
+        "hp": 326,
+        "attack": 32,
+        "defense": 28,
+        "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Glide Sparrow Strike",
-                "power": 72,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Glide Sparrow Mend",
-                "power": 73,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -2272,6 +2311,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Crosses ravines on locked wings. The landing is negotiable.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -2282,22 +2322,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 474,
-        "attack": 49,
-        "defense": 34,
-        "speed": 35,
+        "hp": 379,
+        "attack": 38,
+        "defense": 27,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Spark Shrew Strike",
-                "power": 73,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Spark Shrew Iron Brace",
-                "power": 74,
+                "power": 58,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -2329,6 +2369,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Its fur crackles in dry weather. Handlers learn to wear leather.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -2339,15 +2380,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 508,
-        "attack": 59,
-        "defense": 41,
-        "speed": 40,
+        "hp": 402,
+        "attack": 48,
+        "defense": 32,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Bolt Mouse Strike",
-                "power": 74,
+                "power": 59,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -2386,6 +2427,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "You don't see it move. You see where it was, and the singe mark.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -2396,22 +2438,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 342,
-        "attack": 52,
-        "defense": 31,
-        "speed": 40,
+        "hp": 260,
+        "attack": 41,
+        "defense": 24,
+        "speed": 31,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Arc Vole Strike",
-                "power": 75,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Arc Vole Expose",
-                "power": 72,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -2443,6 +2485,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Its burrows follow old lightning strikes. Diggers find the tunnels fused to glass.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -2453,22 +2496,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 435,
-        "attack": 41,
-        "defense": 36,
-        "speed": 37,
+        "hp": 319,
+        "attack": 32,
+        "defense": 28,
+        "speed": 29,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Storm Shrike Strike",
-                "power": 76,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Storm Shrike Mend",
-                "power": 77,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -2500,6 +2543,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Pins its catch on lightning-split branches. Tidy, in an unsettling way.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -2510,22 +2554,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 503,
-        "attack": 52,
-        "defense": 36,
-        "speed": 37,
+        "hp": 372,
+        "attack": 39,
+        "defense": 27,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Zap Quail Strike",
-                "power": 77,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Zap Quail Iron Brace",
-                "power": 78,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -2557,6 +2601,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Startles into a flash of static. A whole covey goes off like a signal flare.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -2567,22 +2612,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 508,
-        "attack": 65,
-        "defense": 40,
-        "speed": 48,
+        "hp": 386,
+        "attack": 48,
+        "defense": 29,
+        "speed": 36,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Clay Tortoise Strike",
-                "power": 78,
+                "power": 57,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Clay Tortoise Sand Veil",
-                "power": 75,
+                "power": 54,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -2613,6 +2658,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Suns itself by the kiln yards until its shell rings like fired pottery.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -2623,22 +2669,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 404,
-        "attack": 50,
-        "defense": 34,
-        "speed": 44,
+        "hp": 290,
+        "attack": 38,
+        "defense": 24,
+        "speed": 33,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Moss Hedgehog Strike",
-                "power": 79,
+                "power": 59,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Moss Hedgehog Weaken",
-                "power": 76,
+                "power": 56,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -2669,6 +2715,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Wears a living coat of moss. In the rains, it flowers.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -2679,22 +2726,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 460,
-        "attack": 44,
-        "defense": 40,
-        "speed": 39,
+        "hp": 326,
+        "attack": 32,
+        "defense": 29,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Dune Armadillo Strike",
-                "power": 80,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Dune Armadillo Mend",
-                "power": 81,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -2725,6 +2772,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Rolls up tight and lets the sandstorm do the traveling.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -2735,22 +2783,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 494,
-        "attack": 48,
-        "defense": 46,
-        "speed": 38,
+        "hp": 338,
+        "attack": 34,
+        "defense": 33,
+        "speed": 28,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Gravel Pangolin Strike",
-                "power": 81,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Gravel Pangolin Guard",
-                "power": 82,
+                "power": 59,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -2781,6 +2829,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Scaled like river stones. Curls up mid-path and gets mistaken for a cairn.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -2791,22 +2840,22 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 536,
-        "attack": 68,
-        "defense": 42,
-        "speed": 51,
+        "hp": 378,
+        "attack": 49,
+        "defense": 29,
+        "speed": 36,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Loam Marmot Strike",
-                "power": 82,
+                "power": 58,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Loam Marmot Sand Veil",
-                "power": 79,
+                "power": 55,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -2837,6 +2886,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "One whistle from its burrow and the whole hillside goes quiet.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -2847,29 +2897,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 404,
-        "attack": 45,
-        "defense": 30,
+        "hp": 420,
+        "attack": 44,
+        "defense": 31,
         "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Crimson Fox Strike",
-                "power": 70,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Crimson Fox Rending Maul",
-                "power": 67,
+                "power": 66,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Crimson Fox Iron Brace",
-                "power": 76,
+                "power": 75,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -2901,6 +2951,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Fur like a dropped ember. Trappers set double lines for it and still come home empty.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -2911,9 +2962,9 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 410,
-        "attack": 55,
-        "defense": 32,
+        "hp": 419,
+        "attack": 58,
+        "defense": 33,
         "speed": 44,
         "unlockedForPve": false,
         "jutsus": [
@@ -2965,6 +3016,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Outruns the avalanche it started. Snow scouts trace its line down the safe face.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -2975,15 +3027,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 329,
-        "attack": 43,
-        "defense": 28,
-        "speed": 41,
+        "hp": 322,
+        "attack": 42,
+        "defense": 29,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Night Panther Strike",
-                "power": 72,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -2997,7 +3049,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Night Panther Weaken",
-                "power": 74,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -3028,6 +3080,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "You hear the second step, never the first. Caravan guards double the watch for it.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -3038,15 +3091,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 377,
-        "attack": 38,
-        "defense": 32,
-        "speed": 36,
+        "hp": 354,
+        "attack": 37,
+        "defense": 33,
+        "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Sky Falcon Strike",
-                "power": 73,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3060,7 +3113,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Sky Falcon Mend",
-                "power": 79,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -3092,6 +3145,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Stoops from above the cloud deck. Message hawks fly wide around its ridge.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -3102,15 +3156,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 406,
-        "attack": 42,
-        "defense": 39,
-        "speed": 35,
+        "hp": 382,
+        "attack": 39,
+        "defense": 38,
+        "speed": 33,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Tide Otter Strike",
-                "power": 74,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3124,7 +3178,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Tide Otter Guard",
-                "power": 80,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -3156,6 +3210,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Works the surf line like it's paid by the shell. The pearl divers count it as crew.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -3166,15 +3221,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 444,
-        "attack": 60,
-        "defense": 35,
-        "speed": 47,
+        "hp": 428,
+        "attack": 56,
+        "defense": 34,
+        "speed": 44,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Ironback Turtle Strike",
-                "power": 75,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3188,7 +3243,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Ironback Turtle Sand Veil",
-                "power": 77,
+                "power": 71,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -3219,6 +3274,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Took a loaded wagon wheel across the shell once. The wagon lost.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -3229,15 +3285,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 318,
-        "attack": 51,
-        "defense": 29,
-        "speed": 41,
+        "hp": 288,
+        "attack": 48,
+        "defense": 27,
+        "speed": 38,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Dune Viper Strike",
-                "power": 76,
+                "power": 71,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3251,7 +3307,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Dune Viper Expose",
-                "power": 78,
+                "power": 73,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -3283,6 +3339,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Strikes from under a handspan of sand. Caravans stake their lines wide of any ripple.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -3293,15 +3350,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 406,
-        "attack": 41,
-        "defense": 35,
-        "speed": 38,
+        "hp": 361,
+        "attack": 37,
+        "defense": 33,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Ashwing Raven Strike",
-                "power": 77,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3315,7 +3372,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Ashwing Raven Mend",
-                "power": 83,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -3347,6 +3404,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Turns up a day ahead of the smoke. Fire wardens trust it enough to start packing.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -3357,15 +3415,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 438,
-        "attack": 45,
-        "defense": 42,
-        "speed": 37,
+        "hp": 374,
+        "attack": 39,
+        "defense": 38,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Azure Toad Strike",
-                "power": 78,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3379,7 +3437,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Azure Toad Guard",
-                "power": 84,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -3411,6 +3469,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Deep blue and dead calm. Apothecaries pay well for the sweat off its back.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -3421,15 +3480,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 478,
-        "attack": 64,
-        "defense": 38,
-        "speed": 50,
+        "hp": 419,
+        "attack": 57,
+        "defense": 34,
+        "speed": 44,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Bristle Boar Strike",
-                "power": 79,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3443,7 +3502,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Bristle Boar Sand Veil",
-                "power": 81,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -3474,6 +3533,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Quills punch through a training post. It sheds them like thrown senbon when it charges.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -3484,15 +3544,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 342,
-        "attack": 55,
-        "defense": 31,
-        "speed": 45,
+        "hp": 294,
+        "attack": 46,
+        "defense": 27,
+        "speed": 38,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Silver Owl Strike",
-                "power": 80,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3506,7 +3566,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Silver Owl Expose",
-                "power": 82,
+                "power": 71,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -3538,6 +3598,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Hunts the snowfields by moonlight. Old scouts say if it lands on your gate, take the watch seriously.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -3548,15 +3609,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 436,
-        "attack": 43,
-        "defense": 38,
-        "speed": 40,
+        "hp": 361,
+        "attack": 37,
+        "defense": 32,
+        "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Glass Serpent Strike",
-                "power": 81,
+                "power": 71,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3570,7 +3631,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Glass Serpent Mend",
-                "power": 87,
+                "power": 77,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -3602,6 +3663,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Near invisible at rest. Most bites get filed under 'stepped on it.'",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -3612,15 +3674,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 469,
-        "attack": 47,
-        "defense": 45,
-        "speed": 40,
+        "hp": 382,
+        "attack": 39,
+        "defense": 39,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Mist Lynx Strike",
-                "power": 82,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3634,7 +3696,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Mist Lynx Guard",
-                "power": 88,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -3666,6 +3728,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Hunts in fog thick enough to lose your own hands in. Nothing about that fight is fair.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -3676,15 +3739,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 543,
-        "attack": 65,
-        "defense": 45,
-        "speed": 45,
+        "hp": 436,
+        "attack": 55,
+        "defense": 37,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Steel Beetle Strike",
-                "power": 83,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3730,6 +3793,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Its shed plates go straight to the smiths for lamellar. There's a finder's fee.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -3740,15 +3804,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 365,
-        "attack": 58,
-        "defense": 34,
-        "speed": 47,
+        "hp": 288,
+        "attack": 47,
+        "defense": 27,
+        "speed": 38,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Pearl Crane Strike",
-                "power": 84,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3762,7 +3826,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Pearl Crane Expose",
-                "power": 86,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -3794,6 +3858,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Feathers with an oyster-shell sheen. Coast shrines call one on the roof a good season.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -3804,15 +3869,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 466,
-        "attack": 46,
-        "defense": 41,
-        "speed": 43,
+        "hp": 368,
+        "attack": 36,
+        "defense": 33,
+        "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Cinder Weasel Strike",
-                "power": 85,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3826,7 +3891,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Cinder Weasel Mend",
-                "power": 91,
+                "power": 75,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -3858,6 +3923,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Sleeps in the forge stacks and comes out trailing sparks. Two smithy fires this year. Allegedly.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -3868,29 +3934,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 540,
-        "attack": 57,
-        "defense": 40,
-        "speed": 42,
+        "hp": 412,
+        "attack": 46,
+        "defense": 30,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Thorn Stag Strike",
-                "power": 86,
+                "power": 71,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Thorn Stag Rending Maul",
-                "power": 83,
+                "power": 68,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Thorn Stag Iron Brace",
-                "power": 92,
+                "power": 77,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -3922,6 +3988,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "The antlers grow back barbed every spring. It hones them on ironwood.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -3932,15 +3999,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 579,
-        "attack": 69,
-        "defense": 49,
-        "speed": 48,
+        "hp": 445,
+        "attack": 55,
+        "defense": 38,
+        "speed": 37,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Stormfin Gull Strike",
-                "power": 87,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -3986,6 +4053,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Fishes in weather that sinks boats. Harbormasters watch where it dares to dive.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -3996,15 +4064,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 389,
-        "attack": 61,
-        "defense": 36,
-        "speed": 49,
+        "hp": 282,
+        "attack": 47,
+        "defense": 27,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Duskwings Bat Strike",
-                "power": 88,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4018,7 +4086,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Duskwings Bat Expose",
-                "power": 90,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -4050,6 +4118,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "A wingspan like a cloak thrown over the lamplight. Night couriers log it as a hazard.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -4060,15 +4129,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 495,
-        "attack": 49,
-        "defense": 44,
-        "speed": 45,
+        "hp": 361,
+        "attack": 37,
+        "defense": 33,
+        "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Mossback Toad Strike",
-                "power": 89,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4082,7 +4151,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Mossback Toad Mend",
-                "power": 95,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -4113,6 +4182,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Old enough that a garden grows on its back. It remembers ponds that dried up.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -4123,29 +4193,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 574,
-        "attack": 61,
-        "defense": 43,
-        "speed": 45,
+        "hp": 420,
+        "attack": 44,
+        "defense": 31,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Bamboo Ape Strike",
-                "power": 90,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Bamboo Ape Rending Maul",
-                "power": 87,
+                "power": 66,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Bamboo Ape Iron Brace",
-                "power": 96,
+                "power": 75,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -4177,6 +4247,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Fights with a cut stave and holds the high ground. The woodcutters just leave it the grove.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -4187,15 +4258,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 579,
-        "attack": 75,
-        "defense": 46,
-        "speed": 58,
+        "hp": 419,
+        "attack": 58,
+        "defense": 33,
+        "speed": 44,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Frostbite Cub Strike",
-                "power": 91,
+                "power": 71,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4209,7 +4280,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Frostbite Cub Sand Veil",
-                "power": 93,
+                "power": 73,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -4241,6 +4312,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "From the black-ice country. Its breath rimes steel, so the kennel masters feed it outside.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -4251,15 +4323,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 413,
-        "attack": 65,
-        "defense": 38,
-        "speed": 52,
+        "hp": 288,
+        "attack": 47,
+        "defense": 28,
+        "speed": 37,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Shrine Salamander Strike",
-                "power": 92,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4273,7 +4345,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Shrine Salamander Expose",
-                "power": 94,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -4305,6 +4377,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Most winter mornings the monks find it curled in the lit brazier, unburnt.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -4315,15 +4388,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 525,
-        "attack": 51,
-        "defense": 46,
-        "speed": 47,
+        "hp": 354,
+        "attack": 37,
+        "defense": 33,
+        "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Granite Badger Strike",
-                "power": 93,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4337,7 +4410,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Granite Badger Mend",
-                "power": 99,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -4368,6 +4441,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Digs setts through quarry fill. The crews just work around the holes now.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -4378,29 +4452,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 607,
-        "attack": 64,
-        "defense": 45,
-        "speed": 47,
+        "hp": 412,
+        "attack": 45,
+        "defense": 31,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Young Direwolf Strike",
-                "power": 94,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Young Direwolf Rending Maul",
-                "power": 91,
+                "power": 67,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Young Direwolf Iron Brace",
-                "power": 100,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -4432,6 +4506,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "A yearling off a direwolf litter. The village kennels won't board it twice.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -4442,15 +4517,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 427,
+        "hp": 454,
         "attack": 53,
-        "defense": 36,
+        "defense": 37,
         "speed": 38,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Magma Hyena Strike",
-                "power": 70,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4496,6 +4571,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Its laugh carries across the vent fields. Prospectors pack up when they hear it twice.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -4507,8 +4583,8 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "xp": 0,
         "maxLevel": 100,
         "hp": 288,
-        "attack": 47,
-        "defense": 26,
+        "attack": 48,
+        "defense": 27,
         "speed": 38,
         "unlockedForPve": false,
         "jutsus": [
@@ -4560,6 +4636,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Coat patterned like banked coals. Whole camps have stared straight at it and seen only the fire.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -4570,15 +4647,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 369,
+        "hp": 361,
         "attack": 37,
-        "defense": 32,
-        "speed": 36,
+        "defense": 33,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Pyre Kestrel Strike",
-                "power": 72,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4592,7 +4669,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Pyre Kestrel Mend",
-                "power": 78,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -4624,6 +4701,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Hovers over the fire line hunting whatever runs. The burn crews call it the foreman.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -4634,29 +4712,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 430,
-        "attack": 47,
+        "hp": 404,
+        "attack": 45,
         "defense": 31,
         "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Scoria Mongoose Strike",
-                "power": 73,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Scoria Mongoose Rending Maul",
-                "power": 70,
+                "power": 67,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Scoria Mongoose Iron Brace",
-                "power": 79,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -4688,6 +4766,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Kills vent-adders on their own rock. The miners leave it eggs. Cheap insurance.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -4698,15 +4777,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 462,
-        "attack": 57,
-        "defense": 38,
-        "speed": 40,
+        "hp": 445,
+        "attack": 55,
+        "defense": 37,
+        "speed": 38,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Blaze Caracal Strike",
-                "power": 74,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4752,6 +4831,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Won three coliseum seasons before anyone knew it was wild. The scribes had to reprint its card.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Fire"
     },
@@ -4762,15 +4842,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 349,
-        "attack": 46,
-        "defense": 30,
-        "speed": 43,
+        "hp": 328,
+        "attack": 42,
+        "defense": 28,
+        "speed": 40,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Tidal Mink Strike",
-                "power": 75,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4784,7 +4864,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Tidal Mink Weaken",
-                "power": 77,
+                "power": 71,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -4816,6 +4896,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Raids the fish traps on the ebb, gone by the flood. The weir keepers respect the schedule.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -4826,15 +4907,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 399,
-        "attack": 40,
-        "defense": 34,
-        "speed": 37,
+        "hp": 361,
+        "attack": 37,
+        "defense": 32,
+        "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Frost Seal Strike",
-                "power": 76,
+                "power": 71,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4848,7 +4929,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Frost Seal Mend",
-                "power": 82,
+                "power": 77,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -4880,6 +4961,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Hauls out on ice that won't hold a man. Then watches you work that out.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -4890,15 +4972,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 430,
-        "attack": 44,
-        "defense": 41,
-        "speed": 37,
+        "hp": 382,
+        "attack": 39,
+        "defense": 39,
+        "speed": 32,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Coral Serval Strike",
-                "power": 77,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4912,7 +4994,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Coral Serval Guard",
-                "power": 83,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -4944,6 +5026,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Stalks the reef pools at low tide, patterned like the coral it robs.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -4954,15 +5037,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 469,
-        "attack": 63,
-        "defense": 38,
-        "speed": 48,
+        "hp": 411,
+        "attack": 57,
+        "defense": 34,
+        "speed": 44,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Brine Cormorant Strike",
-                "power": 78,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -4976,7 +5059,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Brine Cormorant Sand Veil",
-                "power": 80,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -5008,6 +5091,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Dives deeper than the pearl crews and surfaces first. They've stopped racing it.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -5018,15 +5102,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 375,
-        "attack": 49,
-        "defense": 32,
-        "speed": 45,
+        "hp": 322,
+        "attack": 42,
+        "defense": 28,
+        "speed": 40,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Glacier Marten Strike",
-                "power": 79,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5040,7 +5124,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Glacier Marten Weaken",
-                "power": 81,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -5072,6 +5156,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Dens in crevasse ice and hunts the tunnels under the glacier. Rope teams follow its bolt-holes.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Water"
     },
@@ -5082,15 +5167,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 429,
-        "attack": 43,
-        "defense": 37,
-        "speed": 40,
+        "hp": 368,
+        "attack": 36,
+        "defense": 33,
+        "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Cyclone Harrier Strike",
-                "power": 80,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5104,7 +5189,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Cyclone Harrier Mend",
-                "power": 86,
+                "power": 75,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -5136,6 +5221,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Circles the eye of a storm cell. The weather watchers chart the bird, not the sky.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -5146,29 +5232,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 497,
-        "attack": 53,
-        "defense": 37,
-        "speed": 39,
+        "hp": 412,
+        "attack": 46,
+        "defense": 30,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Zephyr Osprey Strike",
-                "power": 81,
+                "power": 71,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Zephyr Osprey Rending Maul",
-                "power": 78,
+                "power": 68,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Zephyr Osprey Iron Brace",
-                "power": 87,
+                "power": 77,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -5200,6 +5286,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Fishes on the offshore wind and never wets more than its talons.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -5210,15 +5297,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 534,
-        "attack": 64,
-        "defense": 44,
-        "speed": 45,
+        "hp": 445,
+        "attack": 55,
+        "defense": 38,
+        "speed": 37,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Gust Tern Strike",
-                "power": 82,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5264,6 +5351,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Threads gusts that ground every other wing. The lighthouse keepers keep tallies.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -5274,15 +5362,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 360,
-        "attack": 57,
-        "defense": 33,
-        "speed": 46,
+        "hp": 282,
+        "attack": 47,
+        "defense": 27,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Squall Plover Strike",
-                "power": 83,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5296,7 +5384,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Squall Plover Expose",
-                "power": 85,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -5328,6 +5416,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Somehow always nests above where the flood will reach. Fishermen check where it lays, then the sky.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -5338,15 +5427,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 458,
-        "attack": 45,
-        "defense": 41,
-        "speed": 42,
+        "hp": 361,
+        "attack": 37,
+        "defense": 33,
+        "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Drift Albatross Strike",
-                "power": 84,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5360,7 +5449,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Drift Albatross Mend",
-                "power": 90,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -5392,6 +5481,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Crosses open water on a wingbeat an hour. Sailors write the sighting into the ship's log.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Wind"
     },
@@ -5402,29 +5492,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 531,
-        "attack": 57,
-        "defense": 39,
-        "speed": 42,
+        "hp": 420,
+        "attack": 44,
+        "defense": 31,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Volt Polecat Strike",
-                "power": 85,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Volt Polecat Rending Maul",
-                "power": 82,
+                "power": 66,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Volt Polecat Iron Brace",
-                "power": 91,
+                "power": 75,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -5456,6 +5546,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Static snaps off its fur in dry wind. The granary cats moved out.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -5466,15 +5557,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 570,
-        "attack": 68,
-        "defense": 48,
-        "speed": 47,
+        "hp": 445,
+        "attack": 56,
+        "defense": 37,
+        "speed": 38,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Surge Stoat Strike",
-                "power": 86,
+                "power": 71,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5520,6 +5611,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Winter coat goes white with a blue crackle. Kills above its weight and drags it home uphill.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -5530,15 +5622,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 383,
-        "attack": 60,
-        "defense": 36,
-        "speed": 49,
+        "hp": 288,
+        "attack": 47,
+        "defense": 28,
+        "speed": 37,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Thunder Jerboa Strike",
-                "power": 87,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5552,7 +5644,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Thunder Jerboa Expose",
-                "power": 89,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -5584,6 +5676,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Jumps between strikes out on the flats. Locals swear the lightning misses on purpose.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -5594,15 +5687,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 488,
-        "attack": 48,
-        "defense": 43,
-        "speed": 44,
+        "hp": 354,
+        "attack": 37,
+        "defense": 33,
+        "speed": 35,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Static Meerkat Strike",
-                "power": 88,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5616,7 +5709,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Static Meerkat Mend",
-                "power": 94,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -5648,6 +5741,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "The sentry's fur lifts before the storm clears the dunes. The colony digs in early. So do the caravans.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -5658,29 +5752,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 565,
-        "attack": 60,
-        "defense": 42,
-        "speed": 44,
+        "hp": 412,
+        "attack": 45,
+        "defense": 31,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Arc Buzzard Strike",
-                "power": 89,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Arc Buzzard Rending Maul",
-                "power": 86,
+                "power": 67,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Arc Buzzard Iron Brace",
-                "power": 95,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -5712,6 +5806,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Circles storm wrecks the way its cousins circle carrion. Salvage crews follow it out.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Lightning"
     },
@@ -5722,15 +5817,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 570,
-        "attack": 75,
-        "defense": 46,
-        "speed": 58,
+        "hp": 428,
+        "attack": 56,
+        "defense": 34,
+        "speed": 44,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Granite Wombat Strike",
-                "power": 90,
+                "power": 69,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5744,7 +5839,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Granite Wombat Sand Veil",
-                "power": 92,
+                "power": 71,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -5775,6 +5870,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Plugs its burrow with a stone cut to fit. Masons have checked the fit. It's good.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -5785,15 +5881,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 455,
-        "attack": 58,
-        "defense": 39,
-        "speed": 53,
+        "hp": 322,
+        "attack": 43,
+        "defense": 28,
+        "speed": 40,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Stoneback Tapir Strike",
-                "power": 91,
+                "power": 71,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5807,7 +5903,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Stoneback Tapir Weaken",
-                "power": 93,
+                "power": 73,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -5838,6 +5934,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "The hide sets harder with age. Old ones scratch themselves on standing stones and win.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -5848,15 +5945,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 518,
-        "attack": 50,
-        "defense": 46,
-        "speed": 47,
+        "hp": 361,
+        "attack": 37,
+        "defense": 33,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Quartz Aardvark Strike",
-                "power": 92,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5870,7 +5967,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Quartz Aardvark Mend",
-                "power": 98,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -5901,6 +5998,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Digs out nests behind the quartz seams. Prospectors trail it with pans.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -5911,15 +6009,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 555,
-        "attack": 55,
-        "defense": 53,
-        "speed": 45,
+        "hp": 374,
+        "attack": 39,
+        "defense": 38,
+        "speed": 34,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Terra Porcupine Strike",
-                "power": 93,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5933,7 +6031,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Terra Porcupine Guard",
-                "power": 99,
+                "power": 76,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -5964,6 +6062,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Quills like flaked flint. It stamps a ring of them loose; trackers harvest the circles.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -5974,15 +6073,15 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 604,
-        "attack": 79,
-        "defense": 48,
-        "speed": 60,
+        "hp": 419,
+        "attack": 57,
+        "defense": 34,
+        "speed": 44,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Bramble Capybara Strike",
-                "power": 94,
+                "power": 70,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -5996,7 +6095,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Bramble Capybara Sand Veil",
-                "power": 96,
+                "power": 72,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -6027,6 +6126,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Sits in thorn brakes nothing else can enter, calm as a fed monk.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 3,
         "element": "Earth"
     },
@@ -6037,9 +6137,9 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 426,
-        "attack": 45,
-        "defense": 41,
+        "hp": 438,
+        "attack": 43,
+        "defense": 42,
         "speed": 38,
         "unlockedForPve": false,
         "jutsus": [
@@ -6052,14 +6152,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Glacier Wolf Fang Art",
-                "power": 83,
+                "power": 82,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Glacier Wolf Bulwark",
-                "power": 80,
+                "power": 79,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "shield"
@@ -6091,6 +6191,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Runs the high ice alone. Herders find its prints circling the camp, but never inside it.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Water"
     },
@@ -6101,8 +6202,8 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 497,
-        "attack": 61,
+        "hp": 501,
+        "attack": 63,
         "defense": 41,
         "speed": 43,
         "unlockedForPve": false,
@@ -6155,6 +6256,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Rides the drafts ahead of the lightning. Falconers gave up on the lure. Only bad weather brings it down.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Wind"
     },
@@ -6165,10 +6267,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 337,
-        "attack": 55,
+        "hp": 324,
+        "attack": 53,
         "defense": 31,
-        "speed": 45,
+        "speed": 43,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6180,14 +6282,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Umbra Fox Fang Art",
-                "power": 85,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Umbra Fox Lacerate",
-                "power": 82,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "wound"
@@ -6219,6 +6321,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Steps out of one shadow and into another a field away. Kennel masters won't say its name twice after dark.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Wind"
     },
@@ -6229,10 +6332,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 432,
-        "attack": 44,
-        "defense": 37,
-        "speed": 41,
+        "hp": 398,
+        "attack": 41,
+        "defense": 36,
+        "speed": 40,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6244,14 +6347,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Spirit Deer Fang Art",
-                "power": 86,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Spirit Deer Mend",
-                "power": 87,
+                "power": 84,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -6282,6 +6385,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Crosses battlefields untouched. Both sides hold fire without agreeing to.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Earth"
     },
@@ -6292,29 +6396,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 503,
-        "attack": 55,
-        "defense": 37,
-        "speed": 41,
+        "hp": 463,
+        "attack": 50,
+        "defense": 35,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Ironfang Tiger Rending Maul",
-                "power": 74,
+                "power": 70,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Ironfang Tiger Fang Art",
-                "power": 87,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Ironfang Tiger Grappling Hook",
-                "power": 84,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "pull"
@@ -6346,6 +6450,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Bit through a cart axle to reach the salted fish. The axle hangs behind a tavern bar now.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Fire"
     },
@@ -6356,10 +6461,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 511,
-        "attack": 69,
-        "defense": 41,
-        "speed": 53,
+        "hp": 481,
+        "attack": 63,
+        "defense": 37,
+        "speed": 50,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6371,7 +6476,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Azure Kirin Fang Art",
-                "power": 88,
+                "power": 82,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -6410,6 +6515,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Seen once a generation, always before a good harvest. The shrine keepers fill its bowl anyway.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Water"
     },
@@ -6420,10 +6526,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 367,
-        "attack": 59,
-        "defense": 34,
-        "speed": 48,
+        "hp": 324,
+        "attack": 54,
+        "defense": 30,
+        "speed": 43,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6435,14 +6541,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Ember Phoenix Fang Art",
-                "power": 89,
+                "power": 84,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Ember Phoenix Lacerate",
-                "power": 86,
+                "power": 81,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "wound"
@@ -6474,6 +6580,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Every few winters the caldera goes cold and word spreads that it's dead. Come spring, it never is.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Fire"
     },
@@ -6484,10 +6591,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 470,
-        "attack": 47,
-        "defense": 41,
-        "speed": 44,
+        "hp": 406,
+        "attack": 41,
+        "defense": 37,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6499,14 +6606,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Moon Serpent Fang Art",
-                "power": 90,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Moon Serpent Mend",
-                "power": 91,
+                "power": 84,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -6537,6 +6644,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Surfaces in still water on full-moon nights. Ferrymen pole around the wake and don't discuss it.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Earth"
     },
@@ -6547,29 +6655,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 547,
-        "attack": 59,
-        "defense": 40,
-        "speed": 44,
+        "hp": 454,
+        "attack": 50,
+        "defense": 35,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Storm Lion Rending Maul",
-                "power": 78,
+                "power": 70,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Storm Lion Fang Art",
-                "power": 91,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Storm Lion Grappling Hook",
-                "power": 88,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "pull"
@@ -6601,6 +6709,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Its roar carries thunder one valley over. The herds move a day before it does.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Lightning"
     },
@@ -6611,10 +6720,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 554,
-        "attack": 74,
-        "defense": 44,
-        "speed": 57,
+        "hp": 471,
+        "attack": 64,
+        "defense": 37,
+        "speed": 50,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6626,7 +6735,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Crystal Bear Fang Art",
-                "power": 92,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -6664,6 +6773,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Hide grown through with quartz. Blades skate off it; trappers stopped billing for lost gear.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Earth"
     },
@@ -6674,10 +6784,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 398,
-        "attack": 64,
-        "defense": 37,
-        "speed": 51,
+        "hp": 330,
+        "attack": 52,
+        "defense": 31,
+        "speed": 43,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6689,14 +6799,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Void Raven Fang Art",
-                "power": 93,
+                "power": 82,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Void Raven Lacerate",
-                "power": 90,
+                "power": 79,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "wound"
@@ -6728,6 +6838,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Casts no reflection in shrine mirrors. It keeps landing where history's about to happen, so the scribes follow it.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Lightning"
     },
@@ -6738,10 +6849,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 508,
-        "attack": 50,
-        "defense": 45,
-        "speed": 47,
+        "hp": 406,
+        "attack": 42,
+        "defense": 36,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6753,14 +6864,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Thunder Drake Fang Art",
-                "power": 94,
+                "power": 84,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Thunder Drake Mend",
-                "power": 95,
+                "power": 85,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -6792,6 +6903,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Roosts where lightning strikes twice. The glassed sand under its ridge lies knee-deep.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Lightning"
     },
@@ -6802,10 +6914,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 548,
-        "attack": 55,
-        "defense": 53,
-        "speed": 46,
+        "hp": 429,
+        "attack": 44,
+        "defense": 43,
+        "speed": 37,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6817,14 +6929,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Frost Lynx Fang Art",
-                "power": 95,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Frost Lynx Bulwark",
-                "power": 92,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "shield"
@@ -6856,6 +6968,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Hunts inside the white-out where no tracker follows. What it leaves, the cold finishes.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Water"
     },
@@ -6866,10 +6979,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 635,
-        "attack": 76,
-        "defense": 54,
-        "speed": 53,
+        "hp": 491,
+        "attack": 61,
+        "defense": 42,
+        "speed": 44,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6881,14 +6994,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Armored Polar Bear Fang Art",
-                "power": 96,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Armored Polar Bear Force Pulse",
-                "power": 93,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "push"
@@ -6920,6 +7033,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Plated in old blue ice. One held a coliseum gate alone; the scribes printed its card that season.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Fire"
     },
@@ -6930,10 +7044,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 428,
-        "attack": 68,
-        "defense": 39,
-        "speed": 54,
+        "hp": 324,
+        "attack": 53,
+        "defense": 31,
+        "speed": 43,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -6945,14 +7059,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Ancient Crane Fang Art",
-                "power": 97,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Ancient Crane Lacerate",
-                "power": 94,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "wound"
@@ -6984,6 +7098,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Was old when the village walls went up. Still nests on the roof beam its card was inked from.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Wind"
     },
@@ -6994,9 +7109,9 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 403,
-        "attack": 41,
-        "defense": 35,
+        "hp": 414,
+        "attack": 40,
+        "defense": 36,
         "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
@@ -7009,14 +7124,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Inferno Chimera Fang Art",
-                "power": 83,
+                "power": 82,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Inferno Chimera Mend",
-                "power": 84,
+                "power": 83,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -7048,6 +7163,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Three tempers, one body, no safe angle. The hunt logs end mid-sentence.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Fire"
     },
@@ -7058,8 +7174,8 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 471,
-        "attack": 52,
+        "hp": 463,
+        "attack": 51,
         "defense": 34,
         "speed": 39,
         "unlockedForPve": false,
@@ -7112,6 +7228,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Its wings shed cinders for miles. Watchtowers report it as a moving dusk.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Fire"
     },
@@ -7122,10 +7239,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 508,
-        "attack": 63,
-        "defense": 42,
-        "speed": 44,
+        "hp": 501,
+        "attack": 61,
+        "defense": 43,
+        "speed": 42,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7137,14 +7254,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Magma Behemoth Fang Art",
-                "power": 85,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Magma Behemoth Force Pulse",
-                "power": 82,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "push"
@@ -7176,6 +7293,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Wades the caldera like a paddy field. The new roads bend around its walking line.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Fire"
     },
@@ -7186,10 +7304,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 385,
-        "attack": 51,
-        "defense": 33,
-        "speed": 47,
+        "hp": 354,
+        "attack": 48,
+        "defense": 32,
+        "speed": 46,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7201,7 +7319,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Tidelord Leviathan Fang Art",
-                "power": 86,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -7240,6 +7358,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "The old charts mark its feeding grounds with an anchor and the word DON'T.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Water"
     },
@@ -7250,10 +7369,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 441,
-        "attack": 45,
-        "defense": 38,
-        "speed": 42,
+        "hp": 406,
+        "attack": 41,
+        "defense": 36,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7265,14 +7384,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Frost Wyrm Fang Art",
-                "power": 87,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Frost Wyrm Mend",
-                "power": 88,
+                "power": 84,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -7304,6 +7423,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Tunnels the glacier into blue-lit halls. Ice cutters harvest the walls and leave before dark.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Water"
     },
@@ -7314,10 +7434,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 477,
-        "attack": 49,
-        "defense": 46,
-        "speed": 41,
+        "hp": 438,
+        "attack": 43,
+        "defense": 42,
+        "speed": 38,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7329,14 +7449,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Abyss Kraken Fang Art",
-                "power": 88,
+                "power": 82,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Abyss Kraken Bulwark",
-                "power": 85,
+                "power": 79,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "shield"
@@ -7368,6 +7488,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Deep crews tell of arms thicker than masts. Some crews never got the chance to tell anyone.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Water"
     },
@@ -7378,10 +7499,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 554,
-        "attack": 68,
-        "defense": 47,
-        "speed": 47,
+        "hp": 501,
+        "attack": 63,
+        "defense": 41,
+        "speed": 43,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7393,14 +7514,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Storm Roc Fang Art",
-                "power": 89,
+                "power": 84,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Storm Roc Force Pulse",
-                "power": 86,
+                "power": 81,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "push"
@@ -7432,6 +7553,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Lifts livestock through a gale. The herders file it under storm damage and everyone lets them.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Wind"
     },
@@ -7442,10 +7564,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 375,
-        "attack": 60,
-        "defense": 34,
-        "speed": 49,
+        "hp": 324,
+        "attack": 53,
+        "defense": 31,
+        "speed": 43,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7457,14 +7579,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Tempest Pegasus Fang Art",
-                "power": 90,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Tempest Pegasus Lacerate",
-                "power": 87,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "wound"
@@ -7496,6 +7618,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Runs the cloud banks like open steppe. Cavalry masters have offered fortunes for one. Nobody's ever collected.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Wind"
     },
@@ -7506,10 +7629,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 479,
-        "attack": 48,
-        "defense": 42,
-        "speed": 45,
+        "hp": 398,
+        "attack": 41,
+        "defense": 36,
+        "speed": 40,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7521,14 +7644,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Cyclone Sphinx Fang Art",
-                "power": 91,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Cyclone Sphinx Mend",
-                "power": 92,
+                "power": 84,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -7560,6 +7683,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Waits in the eye of the storm and asks nothing. Somehow that's worse.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Wind"
     },
@@ -7570,29 +7694,29 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 558,
-        "attack": 60,
-        "defense": 41,
-        "speed": 44,
+        "hp": 463,
+        "attack": 50,
+        "defense": 35,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
                 "name": "Thunder Raiju Rending Maul",
-                "power": 79,
+                "power": 70,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "wound"
             },
             {
                 "name": "Thunder Raiju Fang Art",
-                "power": 92,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Thunder Raiju Grappling Hook",
-                "power": 89,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "pull"
@@ -7624,6 +7748,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Falls with the bolt and lopes off through the burn. The fields it crosses come up green early.",
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Lightning"
     },
@@ -7634,10 +7759,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 600,
-        "attack": 72,
-        "defense": 50,
-        "speed": 51,
+        "hp": 511,
+        "attack": 60,
+        "defense": 42,
+        "speed": 43,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7649,14 +7774,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Storm Wyvern Fang Art",
-                "power": 93,
+                "power": 82,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Storm Wyvern Force Pulse",
-                "power": 90,
+                "power": 79,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "push"
@@ -7688,6 +7813,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Its dive whistles a note the hill kids copy all summer. The herds never learn it in time.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Lightning"
     },
@@ -7698,10 +7824,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 405,
-        "attack": 65,
-        "defense": 38,
-        "speed": 52,
+        "hp": 324,
+        "attack": 54,
+        "defense": 30,
+        "speed": 43,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7713,14 +7839,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Galvanic Manticore Fang Art",
-                "power": 94,
+                "power": 84,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Galvanic Manticore Lacerate",
-                "power": 91,
+                "power": 81,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "wound"
@@ -7752,6 +7878,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Throws tail spikes trailing arc-light. The bounty board reposts it every season. Nobody collects.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Lightning"
     },
@@ -7762,10 +7889,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 518,
-        "attack": 51,
-        "defense": 46,
-        "speed": 48,
+        "hp": 406,
+        "attack": 41,
+        "defense": 37,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7777,14 +7904,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Titan Golem Fang Art",
-                "power": 95,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Titan Golem Mend",
-                "power": 96,
+                "power": 84,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -7815,6 +7942,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Stood still long enough for a shrine to go up on its shoulder. It walks carefully now.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Earth"
     },
@@ -7825,10 +7953,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 558,
-        "attack": 56,
-        "defense": 54,
-        "speed": 46,
+        "hp": 421,
+        "attack": 44,
+        "defense": 42,
+        "speed": 39,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7840,14 +7968,14 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Granite Gargoyle Fang Art",
-                "power": 96,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Granite Gargoyle Bulwark",
-                "power": 93,
+                "power": 80,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "shield"
@@ -7878,6 +8006,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Counts as architecture until dusk. Masons check their rooflines by daylight.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Earth"
     },
@@ -7888,10 +8017,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 609,
-        "attack": 80,
-        "defense": 48,
-        "speed": 62,
+        "hp": 471,
+        "attack": 64,
+        "defense": 37,
+        "speed": 50,
         "unlockedForPve": false,
         "jutsus": [
             {
@@ -7903,7 +8032,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
             },
             {
                 "name": "Verdant Treant Fang Art",
-                "power": 97,
+                "power": 83,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
@@ -7941,6 +8070,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "A grove that walks. The loggers mark where it stood and cut anywhere else.",
         "role": "tracker",
         "subRole": "kite",
+        "speciesBalanceVersion": 1,
         "moveRange": 4,
         "element": "Earth"
     },
@@ -7951,44 +8081,44 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 414,
+        "hp": 440,
         "attack": 43,
-        "defense": 36,
+        "defense": 39,
         "speed": 43,
         "unlockedForPve": false,
         "element": "Wind",
         "jutsus": [
             {
                 "name": "Nine Shadow Blessing",
-                "power": 78,
+                "power": 76,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Eclipse Fang",
-                "power": 91,
+                "power": 89,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Lunar Aegis",
-                "power": 92,
+                "power": 90,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "barrier"
             },
             {
                 "name": "Moonlit Restoration",
-                "power": 97,
+                "power": 95,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
             },
             {
                 "name": "Spirit Ward",
-                "power": 98,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "absorb"
@@ -8028,6 +8158,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Shrine ledgers list nine chosen companions in nine hundred years. The scribes keep its card inked and waiting.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-1": {
@@ -8037,44 +8168,44 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 379,
-        "attack": 51,
-        "defense": 33,
+        "hp": 384,
+        "attack": 52,
+        "defense": 34,
         "speed": 50,
         "unlockedForPve": false,
         "element": "Lightning",
         "jutsus": [
             {
                 "name": "Storm King Aura",
-                "power": 79,
+                "power": 80,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Thunder Maw",
-                "power": 92,
+                "power": 93,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Sky Rupture Beam",
-                "power": 97,
+                "power": 98,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Storm Aegis",
-                "power": 98,
+                "power": 99,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
             },
             {
                 "name": "Thunderstorm Venom",
-                "power": 99,
+                "power": 100,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "dot"
@@ -8114,6 +8245,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Old sailors swear every great storm is the same storm, coming back. They're right, and it has a name.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-2": {
@@ -8123,37 +8255,37 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 482,
-        "attack": 50,
+        "hp": 456,
+        "attack": 47,
         "defense": 47,
-        "speed": 42,
+        "speed": 41,
         "unlockedForPve": false,
         "element": "Water",
         "jutsus": [
             {
                 "name": "Absolute Zero Guard",
-                "power": 80,
+                "power": 78,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Glacier Crush",
-                "power": 93,
+                "power": 91,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Frozen World Slam",
-                "power": 98,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Glacial Regeneration",
-                "power": 99,
+                "power": 97,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -8193,6 +8325,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "The mountain shrines were built to calm something under the ice. It got up anyway. It just wasn't angry.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-3": {
@@ -8202,37 +8335,37 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 563,
-        "attack": 69,
-        "defense": 48,
-        "speed": 49,
+        "hp": 521,
+        "attack": 65,
+        "defense": 45,
+        "speed": 48,
         "unlockedForPve": false,
         "element": "Fire",
         "jutsus": [
             {
                 "name": "Solar Spirit Blessing",
-                "power": 81,
+                "power": 78,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Radiant Horn",
-                "power": 94,
+                "power": 91,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Sunfall Judgment",
-                "power": 99,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Blinding Flash",
-                "power": 96,
+                "power": 93,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -8272,6 +8405,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Crests the ridge at first light with antlers too bright to look at straight. Dawn patrols set their watch by it.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-4": {
@@ -8281,37 +8415,37 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 382,
-        "attack": 61,
-        "defense": 36,
-        "speed": 51,
+        "hp": 344,
+        "attack": 56,
+        "defense": 33,
+        "speed": 48,
         "unlockedForPve": false,
         "element": "Earth",
         "jutsus": [
             {
                 "name": "Oni Rage Howl",
-                "power": 82,
+                "power": 78,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Abyss Bite",
-                "power": 95,
+                "power": 91,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Hellhound Execution",
-                "power": 100,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Hellfire Corruption",
-                "power": 97,
+                "power": 93,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "dot"
@@ -8350,6 +8484,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Slipped its chain when the Gate first cracked, the story goes. Nobody ever found the other end of the chain.",
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-5": {
@@ -8359,37 +8494,37 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 433,
-        "attack": 45,
-        "defense": 38,
+        "hp": 440,
+        "attack": 43,
+        "defense": 39,
         "speed": 43,
         "unlockedForPve": false,
         "element": "Fire",
         "jutsus": [
             {
                 "name": "Vermillion Blessing",
-                "power": 78,
+                "power": 76,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Searing Talon",
-                "power": 91,
+                "power": 89,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Phoenix Firestorm",
-                "power": 96,
+                "power": 94,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Rebirth Flame",
-                "power": 97,
+                "power": 95,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -8429,6 +8564,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "The south wind's firebird. Its molted feathers never cool, and the coliseum keeps one burning as its eternal flame.",
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-6": {
@@ -8438,37 +8574,37 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 470,
-        "attack": 49,
-        "defense": 46,
+        "hp": 456,
+        "attack": 48,
+        "defense": 45,
         "speed": 41,
         "unlockedForPve": false,
         "element": "Water",
         "jutsus": [
             {
                 "name": "Dragon God Aura",
-                "power": 79,
+                "power": 80,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Tide Fang",
-                "power": 92,
+                "power": 93,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Tsunami Surge",
-                "power": 97,
+                "power": 98,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Abyssal Barrier",
-                "power": 98,
+                "power": 99,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -8508,6 +8644,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Coast folk call every wreck its tribute. They pay theirs in rice wine and get better weather for it. Most years.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-7": {
@@ -8517,37 +8654,37 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 549,
-        "attack": 68,
-        "defense": 47,
-        "speed": 48,
+        "hp": 532,
+        "attack": 65,
+        "defense": 46,
+        "speed": 46,
         "unlockedForPve": false,
         "element": "Wind",
         "jutsus": [
             {
                 "name": "Tengu Focus",
-                "power": 80,
+                "power": 78,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Gale Slash",
-                "power": 93,
+                "power": 91,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Heaven Crow Storm",
-                "power": 98,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Feather Hex",
-                "power": 95,
+                "power": 93,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -8587,6 +8724,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Waddles like a joke until the wind picks up. The mountain tengu deny teaching it anything, which settles it.",
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-8": {
@@ -8596,37 +8734,37 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 417,
-        "attack": 55,
-        "defense": 36,
-        "speed": 52,
+        "hp": 377,
+        "attack": 51,
+        "defense": 34,
+        "speed": 51,
         "unlockedForPve": false,
         "element": "Lightning",
         "jutsus": [
             {
                 "name": "Thunder God Aura",
-                "power": 81,
+                "power": 78,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Lightning Maw",
-                "power": 94,
+                "power": 91,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Heaven's Judgment",
-                "power": 99,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Voltaic Venom",
-                "power": 96,
+                "power": 93,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "dot"
@@ -8666,6 +8804,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Festival drummers copy its thunder, hoping the real thing takes the compliment and passes by. Some years it does.",
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-9": {
@@ -8675,37 +8814,37 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 507,
-        "attack": 52,
-        "defense": 50,
-        "speed": 44,
+        "hp": 456,
+        "attack": 47,
+        "defense": 46,
+        "speed": 41,
         "unlockedForPve": false,
         "element": "Earth",
         "jutsus": [
             {
                 "name": "Worldroot Aura",
-                "power": 82,
+                "power": 78,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Boulder Fist",
-                "power": 95,
+                "power": 91,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Continental Slam",
-                "power": 100,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Stoneheart Regen",
-                "power": 101,
+                "power": 97,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -8744,6 +8883,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "description": "Moves once a season, and the valleys adjust. Mapmakers gave up and started dating their maps instead.",
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-10": {
@@ -8753,9 +8893,9 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 345,
-        "attack": 57,
-        "defense": 32,
+        "hp": 351,
+        "attack": 55,
+        "defense": 33,
         "speed": 48,
         "unlockedForPve": false,
         "element": "Fire",
@@ -8764,28 +8904,28 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "jutsus": [
             {
                 "name": "Ash Crown Aura",
-                "power": 78,
+                "power": 76,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Crownfire Talon",
-                "power": 91,
+                "power": 89,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Phoenix Ashfall",
-                "power": 96,
+                "power": 94,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Ember Rebirth",
-                "power": 97,
+                "power": 95,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -8824,6 +8964,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         ],
         "role": "assassin",
         "subRole": "assassin",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-11": {
@@ -8833,9 +8974,9 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 444,
+        "hp": 431,
         "attack": 45,
-        "defense": 40,
+        "defense": 39,
         "speed": 43,
         "unlockedForPve": false,
         "element": "Water",
@@ -8844,28 +8985,28 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "jutsus": [
             {
                 "name": "Moonwell Aura",
-                "power": 79,
+                "power": 80,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Tidal Coil",
-                "power": 92,
+                "power": 93,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Leviathan Deluge",
-                "power": 97,
+                "power": 98,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Moonwell Barrier",
-                "power": 98,
+                "power": 99,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "barrier"
@@ -8904,6 +9045,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         ],
         "role": "sage",
         "subRole": "support",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-12": {
@@ -8913,10 +9055,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 520,
-        "attack": 57,
-        "defense": 39,
-        "speed": 43,
+        "hp": 492,
+        "attack": 54,
+        "defense": 38,
+        "speed": 41,
         "unlockedForPve": false,
         "element": "Wind",
         "wildSpawnable": false,
@@ -8924,28 +9066,28 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "jutsus": [
             {
                 "name": "Skyglass Focus",
-                "power": 80,
+                "power": 78,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Kirin Gale",
-                "power": 93,
+                "power": 91,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Skyglass Tempest",
-                "power": 98,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Horizon Mirage",
-                "power": 95,
+                "power": 93,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "debuff"
@@ -8984,6 +9126,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         ],
         "role": "defender",
         "subRole": "bruiser",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-13": {
@@ -8993,10 +9136,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 563,
-        "attack": 69,
-        "defense": 48,
-        "speed": 49,
+        "hp": 521,
+        "attack": 65,
+        "defense": 45,
+        "speed": 48,
         "unlockedForPve": false,
         "element": "Lightning",
         "wildSpawnable": false,
@@ -9004,28 +9147,28 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "jutsus": [
             {
                 "name": "Thunderbloom Aura",
-                "power": 81,
+                "power": 78,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Blooming Bolt",
-                "power": 94,
+                "power": 91,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Stormgarden Judgment",
-                "power": 99,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Static Thorn",
-                "power": 96,
+                "power": 93,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "dot"
@@ -9064,6 +9207,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         ],
         "role": "tracker",
         "subRole": "control",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-14": {
@@ -9073,10 +9217,10 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 427,
-        "attack": 56,
-        "defense": 37,
-        "speed": 53,
+        "hp": 384,
+        "attack": 51,
+        "defense": 34,
+        "speed": 50,
         "unlockedForPve": false,
         "element": "Earth",
         "wildSpawnable": false,
@@ -9084,28 +9228,28 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "jutsus": [
             {
                 "name": "Gravepeak Aura",
-                "power": 82,
+                "power": 78,
                 "cooldown": 3,
                 "currentCooldown": 0,
                 "kind": "buff"
             },
             {
                 "name": "Basalt Fist",
-                "power": 95,
+                "power": 91,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Mountainwake",
-                "power": 100,
+                "power": 96,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Deepstone Regen",
-                "power": 101,
+                "power": 97,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -9143,6 +9287,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         ],
         "role": "assassin",
         "subRole": "striker",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "mythic-15": {
@@ -9152,9 +9297,9 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "level": 1,
         "xp": 0,
         "maxLevel": 100,
-        "hp": 458,
-        "attack": 48,
-        "defense": 45,
+        "hp": 465,
+        "attack": 46,
+        "defense": 46,
         "speed": 41,
         "unlockedForPve": false,
         "element": "Wind",
@@ -9163,28 +9308,28 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         "jutsus": [
             {
                 "name": "Zephyr Aegis",
-                "power": 82,
+                "power": 80,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "barrier"
             },
             {
                 "name": "Galeclaw Pounce",
-                "power": 91,
+                "power": 89,
                 "cooldown": 2,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Tempest Roar",
-                "power": 96,
+                "power": 94,
                 "cooldown": 4,
                 "currentCooldown": 0,
                 "kind": "damage"
             },
             {
                 "name": "Cloudborne Mending",
-                "power": 97,
+                "power": 95,
                 "cooldown": 5,
                 "currentCooldown": 0,
                 "kind": "heal"
@@ -9223,6 +9368,7 @@ export const PET_CATALOG: Record<string, Record<string, unknown>> = {
         ],
         "role": "defender",
         "subRole": "tank",
+        "speciesBalanceVersion": 1,
         "moveRange": 4
     },
     "starter-fire": {

@@ -90,6 +90,7 @@ import {
 } from '../../shared/pet-showdown-contract.js';
 import { petJutsuPowerCeil, petStatCeil } from '../_pet-stat-ceil.js';
 import { PET_CATALOG } from '../pet/_catalog.js';
+import { previousPetSpeciesTemplate } from '../pet/_species-balance-v1.js';
 import {
     applyPetPvpGear,
     petConsumableById,
@@ -509,11 +510,15 @@ function speciesBudget(stats: { hp: number; attack: number; defense: number; spe
     return stats.hp / 8 + stats.attack + stats.defense * 1.3 + stats.speed * 0.5;
 }
 
-let rarityMedianBudget: Map<string, number> | null = null;
-function medianBudgetFor(rarity: string): number | null {
+const previousNormalizationCatalog = Object.fromEntries(Object.entries(PET_CATALOG)
+    .map(([id, template]) => [id, previousPetSpeciesTemplate(template)]));
+const normalizationCatalog = (speciesBalanceVersion: number) => speciesBalanceVersion >= 1 ? PET_CATALOG : previousNormalizationCatalog;
+const rarityMedianBudgets = new Map<boolean, Map<string, number>>();
+function medianBudgetFor(rarity: string, speciesBalanceVersion: number): number | null {
+    let rarityMedianBudget = rarityMedianBudgets.get(speciesBalanceVersion >= 1);
     if (!rarityMedianBudget) {
         const byRarity = new Map<string, number[]>();
-        for (const tpl of Object.values(PET_CATALOG)) {
+        for (const tpl of Object.values(normalizationCatalog(speciesBalanceVersion))) {
             const r = String(tpl.rarity ?? '');
             if (!r) continue;
             const budget = speciesBudget({
@@ -531,6 +536,7 @@ function medianBudgetFor(rarity: string): number | null {
         }
         all.sort((a, b) => a - b);
         if (all.length) rarityMedianBudget.set('__all__', all[Math.floor(all.length / 2)]);
+        rarityMedianBudgets.set(speciesBalanceVersion >= 1, rarityMedianBudget);
     }
     return rarityMedianBudget.get(rarity) ?? null;
 }
@@ -541,12 +547,13 @@ function medianBudgetFor(rarity: string): number | null {
  *  damage linearly. Each pet's moves scale toward its rarity's median kit
  *  power (cross-tier blended like the stat budget), damped and clamped so
  *  authored kit personality survives. */
-let rarityMedianKitPower: Map<string, number> | null = null;
-function medianKitPowerFor(rarity: string): number | null {
+const rarityMedianKitPowers = new Map<boolean, Map<string, number>>();
+function medianKitPowerFor(rarity: string, speciesBalanceVersion: number): number | null {
+    let rarityMedianKitPower = rarityMedianKitPowers.get(speciesBalanceVersion >= 1);
     if (!rarityMedianKitPower) {
         const byRarity = new Map<string, number[]>();
         const all: number[] = [];
-        for (const tpl of Object.values(PET_CATALOG)) {
+        for (const tpl of Object.values(normalizationCatalog(speciesBalanceVersion))) {
             const r = String(tpl.rarity ?? '');
             if (!r || !Array.isArray(tpl.jutsus)) continue;
             const powers = (tpl.jutsus as Array<{ power?: unknown }>)
@@ -564,18 +571,19 @@ function medianKitPowerFor(rarity: string): number | null {
         }
         all.sort((a, b) => a - b);
         if (all.length) rarityMedianKitPower.set('__all__', all[Math.floor(all.length / 2)]);
+        rarityMedianKitPowers.set(speciesBalanceVersion >= 1, rarityMedianKitPower);
     }
     return rarityMedianKitPower.get(rarity) ?? null;
 }
 
-export function kitPowerNormalizationMult(templateId: string | undefined, petId: string, rarity: string): number {
+export function kitPowerNormalizationMult(templateId: string | undefined, petId: string, rarity: string, speciesBalanceVersion = 1): number {
     const canonical = String(templateId || petId).replace(/-\d{10,}$/, '').split(':')[0];
-    const tpl = PET_CATALOG[canonical];
+    const tpl = normalizationCatalog(speciesBalanceVersion)[canonical];
     // Own-rarity reference ONLY — no cross-tier blend here. Blending dragged
     // the mythic reference down toward the global median, which neutralized
     // the very fix this exists for (mythics with standard-power kits).
     // Cross-tier compression is the STAT blend's job.
-    const median = medianKitPowerFor(rarity);
+    const median = medianKitPowerFor(rarity, speciesBalanceVersion);
     if (!tpl || !median || String(tpl.rarity) !== rarity || !Array.isArray(tpl.jutsus)) return 1;
     const powers = (tpl.jutsus as Array<{ power?: unknown }>)
         .map((j) => Number(j.power) || 0)
@@ -623,11 +631,26 @@ const SHOWDOWN_SPECIES_TUNING: Readonly<Record<string, number>> = Object.freeze(
 // reverse that pressure, so new entries use the regular species budget.
 const PROGRESSION_RETIRED_SPECIES_TUNING = new Set(['standard-28', 'rare-45', 'legendary-0', 'legendary-28']);
 
-export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string, rulesetVersion?: ShowdownSession['rulesetVersion']): number {
+// The bounded species bases retire two former low-budget buffs and one old
+// sustain penalty. Small kit corrections keep the full-roster duel spread
+// inside the same release bands; retained inputs keep their original tuning.
+const SPECIES_BALANCE_V1_TUNING: Readonly<Record<string, number>> = Object.freeze({
+    'standard-0': 1,
+    'rare-3': 1,
+    'rare-18': 1.04,
+    'rare-21': 1,
+    'rare-24': 0.96,
+    'rare-46': 1.08,
+    'legendary-1': 1.04,
+    'legendary-8': 0.96,
+    'mythic-4': 1.05,
+});
+
+export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string, rulesetVersion?: ShowdownSession['rulesetVersion'], speciesBalanceVersion = 1): number {
     const canonical = String(templateId || petId).replace(/-\d{10,}$/, '').split(':')[0];
-    const tpl = PET_CATALOG[canonical];
-    const median = medianBudgetFor(rarity);
-    const globalMedian = medianBudgetFor('__all__');
+    const tpl = normalizationCatalog(speciesBalanceVersion)[canonical];
+    const median = medianBudgetFor(rarity, speciesBalanceVersion);
+    const globalMedian = medianBudgetFor('__all__', speciesBalanceVersion);
     if (!tpl || !median || String(tpl.rarity) !== rarity) return 1;
     const budget = speciesBudget({
         hp: Number(tpl.hp) || 0, attack: Number(tpl.attack) || 0,
@@ -637,8 +660,9 @@ export function speciesNormalizationMult(templateId: string | undefined, petId: 
     const reference = globalMedian
         ? median * (1 - CROSS_TIER_BLEND) + globalMedian * CROSS_TIER_BLEND
         : median;
-    const residual = rulesetVersion === 'progression-v3' && PROGRESSION_RETIRED_SPECIES_TUNING.has(canonical)
+    const originalResidual = rulesetVersion === 'progression-v3' && PROGRESSION_RETIRED_SPECIES_TUNING.has(canonical)
         ? 1 : SHOWDOWN_SPECIES_TUNING[canonical] ?? 1;
+    const residual = speciesBalanceVersion >= 1 ? SPECIES_BALANCE_V1_TUNING[canonical] ?? originalResidual : originalResidual;
     return Math.pow(reference / budget, BUDGET_DAMPING) * residual;
 }
 
@@ -1047,7 +1071,8 @@ export function sealShowdownPet(rawInput: Pet, rulesetVersion: ShowdownSession['
     // below reuses the same value.
     const element = ELEMENT_OK.has(String(raw.element)) ? String(raw.element) : 'None';
     const formId = rulesetVersion === 'progression-v3' ? petAbilitySpeciesId(raw) ?? raw.templateId : raw.templateId;
-    const norm = speciesNormalizationMult(formId, String(raw.id), rarity, rulesetVersion);
+    const speciesBalanceVersion = Number(raw.speciesBalanceVersion) || 0;
+    const norm = speciesNormalizationMult(formId, String(raw.id), rarity, rulesetVersion, speciesBalanceVersion);
     const overrideKeyEarly = String(formId || raw.id).replace(/-\d{10,}$/, '').split(':')[0];
     // hasOwnProperty, NOT a bare index: a pet id of 'constructor' or
     // '__proto__' otherwise resolves to an inherited Object.prototype member,
@@ -1057,7 +1082,7 @@ export function sealShowdownPet(rawInput: Pet, rulesetVersion: ShowdownSession['
         : undefined;
     // Overridden kits are authored at correct tier power — normalizing them
     // against the species' OLD broken catalog kit would double-correct.
-    const kitNorm = selectedTechniques || kitOverride ? 1 : kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
+    const kitNorm = selectedTechniques || kitOverride ? 1 : kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity, speciesBalanceVersion);
     const scaled = (value: unknown, fallback: number) => Math.max(1, Math.round((Number(value) || fallback) * norm));
     const maxHp = clampInt(scaled(raw.hp, 320), 1, petStatCeil(rarity, 'hp'), 320);
     const powerCeil = petJutsuPowerCeil(rarity);

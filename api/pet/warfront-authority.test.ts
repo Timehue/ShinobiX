@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { derivePetRole } from '../_pet-sim/pet-roles.js';
 import { WARFRONT_DEFAULT_DEPLOYMENT, isValidRitePlan, runWarfrontRite, type RitePlan } from '../_pet-sim/pet-warfront-rite.js';
+import { PET_CATALOG } from './_catalog.js';
+import { previousPetSpeciesTemplate } from './_species-balance-v1.js';
+import { migrateOwnedPet } from './_owned-pet.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -657,4 +660,29 @@ test('Warfront start and legacy resumed settlement preserve unused equipped cons
             await kv.del(`pet:battle-token:${PLAYER}:${token}`);
         }
     }
+});
+
+test('fresh Warfront seals migrated species and growth metadata before an owner read', async () => {
+    const name = 'warfrontbalanceprojection';
+    const auth = await import('../_auth.js');
+    const oldPets = [0, 1, 2, 3].map(index => ({
+        ...previousPetSpeciesTemplate(PET_CATALOG['rare-23']),
+        id: `rare-23:projection-${index}`, templateId: 'rare-23', level: 25,
+        trait: 'Loyal', origin: 'wild', unlockedForPve: true,
+    }));
+    const save = { _saveVersion: 1, character: { name, level: 25, pets: oldPets } };
+    await kv.set(`save:${name}`, save);
+    const result = response();
+    await startHandler({
+        method: 'POST', body: { playerName: name, playerPetIds: oldPets.map(pet => pet.id) },
+        headers: { 'x-player-token': auth.issuePlayerToken(name)! }, socket: { remoteAddress: '127.0.0.82' },
+    } as never, result.res);
+    assert.equal(result.out.statusCode, 200, JSON.stringify(result.out.body));
+    const expected = migrateOwnedPet(name, oldPets[0]).pet;
+    const blue = result.out.body!.bluePets as Record<string, unknown>[];
+    for (const pet of blue) for (const field of ['hp', 'attack', 'defense', 'speed',
+        'speciesBalanceVersion', 'growthVersion', 'growthBaseStats', 'growthAllocation']) {
+        assert.deepEqual(pet[field], expected[field], field);
+    }
+    assert.deepEqual(await kv.get(`save:${name}`), save, 'fresh sealing leaves the stored roster immutable');
 });

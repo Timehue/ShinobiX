@@ -8,7 +8,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { settlePetBreedingSession } from './_breeding-requirements.js';
-import { migrateCharacterOwnedPets } from './_owned-pet.js';
+import { migrateCharacterOwnedPets, migrateOwnedPet } from './_owned-pet.js';
 import { petBusyReason, petBusyMessage } from './_pet-busy.js';
 import { getPetFromSanctuary, removePetFromSanctuary, storePetInSanctuary } from './_sanctuary.js';
 import { withoutUnbackedPetUnlocks } from './_pet-unlocks.js';
@@ -128,7 +128,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // A stored pet is outside the roster the sale, Exchange and donation
                 // checks read, so its collar or PvP gear may have been sold meanwhile.
                 // It comes back without the unlocks the backpack no longer holds.
-                const returning = withoutUnbackedPetUnlocks(sanctuaryItem.pet as Record<string, unknown>, character);
+                const returning = migrateOwnedPet(playerName,
+                    withoutUnbackedPetUnlocks(sanctuaryItem.pet as Record<string, unknown>, character), pets.length).pet;
                 const nextCharacter = { ...character, pets: [...pets, returning] };
                 const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter, {}, {
                     regenAt: carriedRegenCursor(recovery.character, nextCharacter, recovery.regen),

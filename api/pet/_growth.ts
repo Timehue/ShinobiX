@@ -19,6 +19,27 @@ export type PetGrowthAttribute = 'vitality' | 'power' | 'guard' | 'agility';
 export type PetGrowthStats = Record<PetGrowthStat, number>;
 export type PetGrowthAllocation = Record<PetGrowthAttribute, number>;
 
+export type PetProgressionSnapshot = {
+    speciesBalanceVersion?: number;
+    growthVersion?: number;
+    growthBaseStats?: PetGrowthStats;
+    growthAllocation?: PetGrowthAllocation;
+};
+
+/** Preserve the authority's progression inputs without upgrading old seals. */
+export function snapshotPetProgression(raw: Record<string, unknown>): PetProgressionSnapshot {
+    return {
+        ...(Number.isSafeInteger(raw.speciesBalanceVersion) && Number(raw.speciesBalanceVersion) > 0
+            ? { speciesBalanceVersion: Number(raw.speciesBalanceVersion) } : {}),
+        ...(Number.isSafeInteger(raw.growthVersion) && Number(raw.growthVersion) > 0
+            ? { growthVersion: Number(raw.growthVersion) } : {}),
+        ...(raw.growthBaseStats && typeof raw.growthBaseStats === 'object'
+            ? { growthBaseStats: petGrowthBaseStats(raw) } : {}),
+        ...(raw.growthAllocation && typeof raw.growthAllocation === 'object'
+            ? { growthAllocation: sanitizeGrowthAllocation(raw.growthAllocation, raw.level) } : {}),
+    };
+}
+
 export const EMPTY_PET_GROWTH: PetGrowthAllocation = {
     vitality: 0,
     power: 0,

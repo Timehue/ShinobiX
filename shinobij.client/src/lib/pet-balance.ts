@@ -381,31 +381,38 @@ export function mythicSignatureMechanic(name: string): PetJutsu | null {
 
 /**
  * Scale a built-in pet template against the central balanced stat table.
- * Variant index (extracted from the template id) drives small per-pet
- * stat bumps so the pool isn't perfectly uniform. Kit size penalty: pets
+ * Species receive a bounded, redistributive stat lean. Catalog position must
+ * never grant a growing bonus that overwhelms rarity. Kit size penalty: pets
  * with extra jutsus give up some raw stats. Finally appends the elemental
  * special jutsu themed to the pet's assigned element + tier.
  */
 export function balanceBuiltInPetTemplate(pet: Pet): Pet {
     const base = balancedPetBaseStats[pet.rarity] ?? balancedPetBaseStats.standard;
-    // Wrap the id-derived variant within the per-tier template count. The pool
-    // ships in two batches (original + expansion) whose ids keep counting up
-    // (standard-25…, etc.); without this wrap a higher id would scale stats
-    // ever higher. Modulo makes the second batch reuse the SAME 0..N-1 spread
-    // as the first, so an expansion pet is balanced identically to its
-    // same-slot original. Existing pets (id < count) are unaffected.
+    // Expansion batches reuse the same profiles. Each profile moves at most 2%
+    // of one attribute into another; no later catalog entry gets a larger budget.
     const tierCount = pet.rarity === "standard" || pet.rarity === "rare" ? 25 : pet.rarity === "legendary" ? 15 : 5;
     const variant = petVariantIndex(pet) % tierCount;
+    const profiles = [
+        { hp: 1.02, attack: 0.98, defense: 1, speed: 1 },
+        { hp: 1, attack: 1.02, defense: 0.98, speed: 1 },
+        { hp: 1, attack: 1, defense: 1.02, speed: 0.98 },
+        { hp: 0.98, attack: 1, defense: 1, speed: 1.02 },
+        { hp: 1, attack: 1, defense: 1, speed: 1 },
+    ];
+    const profile = profiles[variant % profiles.length];
     // +1 accounts for the signature jutsu appended below (every elemental pet
     // gets one). It's a real kit slot, so it pays the same per-extra-jutsu stat
     // tax as anything beyond the third — keeping the new move balanced exactly
     // like the rest of the kit. The elemental special is appended the same way
     // but predates this and is folded into the base stat table already.
     const kitBonus = Math.max(0, pet.jutsus.length - 3) + 1;
-    const hp = base.hp + variant * (pet.rarity === "standard" ? 6 : pet.rarity === "rare" ? 7 : pet.rarity === "legendary" ? 9 : 11) - kitBonus * 18;
-    const attack = base.attack + Math.floor(variant * (pet.rarity === "standard" ? 0.7 : pet.rarity === "rare" ? 0.8 : pet.rarity === "legendary" ? 1 : 1.2)) - kitBonus * 2;
-    const defense = base.defense + Math.floor(variant * (pet.rarity === "standard" ? 0.55 : pet.rarity === "rare" ? 0.65 : pet.rarity === "legendary" ? 0.85 : 1)) - kitBonus * 2;
-    const speed = base.speed + Math.floor(variant * (pet.rarity === "standard" ? 0.5 : pet.rarity === "rare" ? 0.6 : pet.rarity === "legendary" ? 0.75 : 0.9));
+    // A proportional tax preserves the tier gap. Bound the cost for the
+    // largest kits so extra utility cannot erase a mythic's rarity budget.
+    const kitScale = 1 - Math.min(3, kitBonus) * 0.04;
+    const hp = base.hp * profile.hp * kitScale;
+    const attack = base.attack * profile.attack * kitScale;
+    const defense = base.defense * profile.defense * kitScale;
+    const speed = base.speed * profile.speed;
     // Inject the assigned element from the lookup table. Mythics get their
     // element from the inline template directly (preserved via ...pet) and
     // skip the lookup. Falls back to undefined for any unrecognized name,
@@ -429,7 +436,7 @@ export function balanceBuiltInPetTemplate(pet: Pet): Pet {
         if (jutsu.power <= 0) return { ...jutsu };
         const kindBonus = jutsu.kind === "damage" ? 8 : jutsu.kind === "heal" || jutsu.kind === "barrier" ? 4 : 0;
         const slotBonus = i * 5;
-        return { ...jutsu, power: base.jutsuPower + variant + kindBonus + slotBonus };
+        return { ...jutsu, power: Math.round(base.jutsuPower * profile.attack) + kindBonus + slotBonus };
     });
     // Append the elemental special jutsu (one per pet, themed to its
     // element + tier-scaled in power and duration). Deduped by name so a
@@ -462,7 +469,7 @@ export function balanceBuiltInPetTemplate(pet: Pet): Pet {
     // agree. Training customizes freely on top of this baseline.
     const tilt = roleStatMult(role, subRole);
     return capPetStats({
-        ...pet, role, subRole,
+        ...pet, role, subRole, speciesBalanceVersion: 1,
         hp: hp * tilt.hp, attack: attack * tilt.attack, defense: defense * tilt.defense, speed: speed * tilt.speed,
         jutsus: jutsusComplete, moveRange: pet.moveRange ?? base.moveRange, element,
     });
