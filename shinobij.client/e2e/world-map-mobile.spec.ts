@@ -4,11 +4,19 @@ import { installUiAuditRuntime, uiAuditSave as townUiAuditSave, type UiAuditRunt
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import { returnToWorldAtlas } from "./helpers/sector-navigation";
 import { getWorldMapRegionForPoint } from "../src/lib/world-map-regions";
+import { VILLAGE_OUTSKIRTS } from "../../shared/sector-geo";
+import { sectorFloorLayout, sectorFloorImage } from "../src/lib/sector-floor-layout";
 
 // Map journeys start in the field; the shared town fixture stays in town.
 const uiAuditSave = (): UiAuditSave => ({ ...townUiAuditSave(), currentSector: 40 });
 
 const regions = ["ashen", "gate", "frost", "storm", "central", "moon"] as const;
+const villageDestinations = [
+    { name: "Stormveil Village", region: "storm" },
+    { name: "Ashen Leaf Village", region: "ashen" },
+    { name: "Moonshadow Village", region: "moon" },
+    { name: "Frostfang Village", region: "frost" },
+] as const;
 // The focused source runner and the standard responsive CI use different names
 // for the same two phone engines; both must exercise the integration cases.
 const phoneProjects = ["chromium-390x844", "webkit-390x844", "chromium-mobile", "webkit-mobile"];
@@ -133,6 +141,63 @@ for (const destination of [
         await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toHaveCount(0);
         expect(runtimeErrors).toEqual([]);
     });
+}
+
+for (const destination of villageDestinations) {
+    for (const home of villageDestinations.filter(village => village.name !== destination.name)) {
+        test(`rival village compound: ${home.name} visits ${destination.name}`, async ({ page }, testInfo) => {
+            test.setTimeout(120_000);
+            const save = uiAuditSave();
+            const requests: number[] = [];
+            const runtimeErrors = await bootWorldMap(page, { ...save, character: { ...save.character, village: home.name } }, async () => {
+                await page.route("**/api/world/sector-layout", route => route.fulfill({ json: { obstaclesEnabled: true } }));
+                await page.route("**/api/player/travel", route => {
+                    requests.push(route.request().postDataJSON().destinationSector);
+                    return route.fulfill({ json: { arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 } });
+                });
+            });
+            if (await page.locator('html').evaluate(html => html.classList.contains('wm-zoom'))) await chooseRegion(page, destination.region);
+            await page.getByRole("button", { name: `Enter ${destination.name}`, exact: true }).click();
+            const scene = page.locator('.village-outskirts-instance');
+            await expect(scene.getByText(`${destination.name} — Outer Territory`, { exact: true })).toBeVisible();
+            const boardSector = VILLAGE_OUTSKIRTS[destination.name];
+            const image = sectorFloorImage(boardSector);
+            await expect(scene.locator('.sector-map-backdrop')).toHaveCSS('background-image', new RegExp(image.split('?')[0].replace('.', '\\.')));
+            expect(await page.evaluate(async src => {
+                const image = new Image(); image.src = src;
+                await image.decode(); return image.naturalWidth;
+            }, image)).toBeGreaterThan(0);
+            const mask = sectorFloorLayout(boardSector)!.mask.join('');
+            const tiles = scene.locator('.walkable-tile');
+            await expect(tiles).toHaveCount(144);
+            expect(await tiles.evaluateAll(nodes => nodes.map(node => (node as HTMLButtonElement).disabled)))
+                .toEqual([...mask].map(tile => !'.='.includes(tile)));
+            // A server arrival inside a painted roof must be grounded onto a path.
+            await expect.poll(async () => tiles.evaluateAll(nodes => nodes.findIndex(node => node.classList.contains('sector-player-tile'))))
+                .not.toBe(78);
+            for (const tile of [102, 101]) {
+                await tiles.nth(tile).click();
+                await expect(tiles.nth(tile)).toHaveClass(/sector-player-tile/);
+                await expect.poll(async () => scene.locator('.sector-avatar-figure').evaluate((figure, tile) => {
+                    const map = figure.closest('.pixel-map')!;
+                    const target = map.querySelectorAll<HTMLElement>('.walkable-tile')[tile];
+                    const transform = (figure as HTMLElement).style.transform.match(/translate\(([\d.]+)px, ([\d.]+)px\)/);
+                    if (!transform) return Infinity;
+                    return Math.max(Math.abs(Number(transform[1]) - target.offsetLeft - target.offsetWidth / 2),
+                        Math.abs(Number(transform[2]) - target.offsetTop - target.offsetHeight / 2));
+                }, tile)).toBeLessThan(2);
+            }
+            await expect(scene.getByRole('button', { name: 'Explore territory', exact: true })).toBeEnabled();
+            await expect(scene.getByRole('heading', { name: 'Village Raid', exact: true })).toBeVisible();
+            expect(requests).toEqual([boardSector + 4]);
+            expect(runtimeErrors).toEqual([]);
+            if (home === villageDestinations.find(village => village.name !== destination.name)) {
+                await scene.screenshot({ path: testInfo.outputPath('rival-compound.png') });
+            }
+            await scene.getByRole('button', { name: 'Leave', exact: true }).click();
+            await expect(page.locator('.generated-world-map')).toBeVisible();
+        });
+    }
 }
 
 async function openGuardRaid(page: Page, challenge: () => { status: number; body: unknown }) {
