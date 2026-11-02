@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { jsxElementsByTag } from "../../scripts/test-helpers/jsx-source";
 
 const source = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
@@ -29,7 +30,7 @@ describe("Tower narrow combat composition", () => {
         assert.match(source, /<BattleTabBar tab=\{battleTabs\.tab\}/,
             "compact Tower combat must expose the same Actions/Battle Log switch as the PvP HUD");
         assert.match(tacticalCss, /\.combat-action-tray\.tower-action-dock > \.shinobi-command-bar \{[\s\S]*?display: grid !important;[\s\S]*?grid-template-columns: repeat\(7, minmax\(0, 1fr\)\) !important;/);
-        assert.match(source, /<CombatActionTray className="tower-action-dock">/);
+        assert.equal(jsxElementsByTag(source, 'CombatActionTray').filter(tray => tray.className === 'tower-action-dock').length, 1);
         assert.match(
             tacticalCss,
             /@media \(max-width: 979px\) \{[\s\S]*?\.tower-action-dock \.combat-equipped-jutsu-grid \{[\s\S]*?grid-template-columns: repeat\(auto-fill, minmax\(100px, 1fr\)\) !important;[\s\S]*?grid-auto-flow: row !important;[\s\S]*?overflow: visible !important;/,

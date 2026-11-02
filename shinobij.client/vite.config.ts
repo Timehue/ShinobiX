@@ -1466,6 +1466,12 @@ export default defineConfig({
                         '/src/lib/stats.ts',
                         '/src/lib/character-progress.ts',
                         '/src/lib/character-level-projection.ts',
+                        // These already-eager character/encounter helpers are
+                        // also shared by lazy screens. Keep them together to
+                        // avoid tiny startup chunks and their import overhead.
+                        '/src/lib/legacy-jutsu-id.ts',
+                        '/src/lib/bloodline-swap.ts',
+                        '/shared/hollow-gate-round-limit.ts',
                         '/src/lib/player-lens-discipline.ts',
                         '/src/lib/story-derive.ts',
                         '/src/lib/story-content-contract.ts',
