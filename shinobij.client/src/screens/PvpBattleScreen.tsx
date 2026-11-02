@@ -18,7 +18,7 @@ import "../styles/pvp-spectator.css";
 import { visiblePoll } from "../lib/poll";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";
-import type { GameItem, Jutsu } from "../types/combat";
+import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import { JUTSU_MAX_LEVEL } from "../constants/game";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { PVP_PREFIGHT_COUNTDOWN_SECONDS, pvpTurnDeadlineAt } from "../../../shared/pvp-turn";
@@ -241,6 +241,7 @@ export function PvpBattleScreen({
     currentWeather,
     currentSector,
     sharedImages,
+    savedBloodlines,
     seedSession,
     isSpar = false,
     battleMode = "standard",
@@ -269,6 +270,7 @@ export function PvpBattleScreen({
     currentWeather: WeatherType;
     currentSector: number;
     sharedImages: Record<string, string>;
+    savedBloodlines?: SavedBloodline[];
     // Pre-fetched session payload supplied by the call site that just
     // created the fight. When present and matching battleId, the grid
     // renders on first paint and the initial GET in the fetch-loop
@@ -2902,7 +2904,7 @@ export function PvpBattleScreen({
                                                 {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}><GameArtIcon kind="attack" size={15} /> {t.short}:</strong> {t.detail}</p>; })()}
                                                 {detailDescription && <p className="combat-jutsu-detail-desc">{detailDescription}</p>}
                                                 <div className="combat-jutsu-effects-list">
-                                                    <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={combatMasteryLevel} lensDiscipline={playerLensDiscipline(character)} />
+                                                    <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={combatMasteryLevel} lensDiscipline={playerLensDiscipline(character, savedBloodlines)} />
                                                 </div>
                                             </CombatDetailPortal>
                                         );

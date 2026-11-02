@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import type { Stats } from "../types/combat";
+import type { SavedBloodline, Stats } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import { resolveLoadoutLensDiscipline } from "./jutsu-loadout-lens";
 
@@ -50,6 +50,16 @@ describe("resolveLoadoutLensDiscipline", () => {
         const result = resolveLoadoutLensDiscipline(
             character(["utility"], { bukijutsuOffense: 95, ninjutsuOffense: 40 }),
             [jutsu("utility", "Genjutsu", 40)],
+        );
+        assert.equal(result, "Bukijutsu");
+    });
+
+    it("uses the equipped custom bloodline when all offense stats are tied", () => {
+        const custom = { id: "custom", jutsus: [{ id: "blade", type: "Bukijutsu", ap: 60, effectPower: 40 }] } as unknown as SavedBloodline;
+        const result = resolveLoadoutLensDiscipline(
+            { ...character([], {}, "Genjutsu", "Ashen Eyes"), equippedBloodlineId: custom.id },
+            [],
+            [custom],
         );
         assert.equal(result, "Bukijutsu");
     });

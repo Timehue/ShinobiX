@@ -7,6 +7,7 @@
 
 import { safeName } from '../_utils.js';
 import { earnedStatPoints } from '../_xp-engine.js';
+import { isCombatDiscipline } from '../../shared/bloodline-discipline.js';
 
 export const REGISTRY_KEY = 'player:registry';
 // v2: the `xp` slot changed MEANING with the XP removal — it now carries the
@@ -23,6 +24,8 @@ export type PublicPlayerIndexEntry = {
     level: number;
     village: string;
     specialty: string;
+    /** Display only, from the equipped custom bloodline. Combat reads `specialty`. */
+    equippedDiscipline?: string;
     clan: string;
     lastSeen: number;
     rankedRating: number;
@@ -181,7 +184,7 @@ const NUMBER_FIELDS: readonly NumberField[] = [
 const STRING_FIELDS = ['name', 'village', 'specialty', 'clan', 'pvpKillMonth'] as const;
 /** Input fields used by this read model, including the earned-stat calculation. */
 export const PUBLIC_INDEX_CHARACTER_FIELDS = [...new Set([
-    ...NUMBER_FIELDS.map(({ key }) => key), ...STRING_FIELDS, 'accountName', 'stats', 'unspentStats',
+    ...NUMBER_FIELDS.map(({ key }) => key), ...STRING_FIELDS, 'accountName', 'equippedDiscipline', 'stats', 'unspentStats',
 ])];
 const MAX_PUBLIC_NUMBER = 9_000_000_000_000;
 const NON_PUBLIC_PLAYER_KEYS = new Set(['admin', 'admin1', 'admin2', 'system', 'server']);
@@ -228,6 +231,8 @@ export function buildPublicPlayerIndexEntry(
         level: publicNumber(char.level, 1),
         village: publicString(char.village),
         specialty: publicString(char.specialty),
+        // Optional, and outside STRING_FIELDS: a row without it is not stale.
+        ...(isCombatDiscipline(char.equippedDiscipline) ? { equippedDiscipline: char.equippedDiscipline } : {}),
         clan: publicString(char.clan),
         lastSeen: publicNumber(lastSeen, now),
         rankedRating: publicNumber(char.rankedRating, 1000),
@@ -285,6 +290,7 @@ export function publicPlayerIndexChanged(existingCharacter: Record<string, unkno
     // changed and rewrote the whole shared registry row (2026-10-12).
     const existing = buildPublicPlayerIndexEntry(existingCharacter ?? {}, '', 0, 0);
     if (publicString(existing.accountName) !== publicString(next.accountName)) return true;
+    if (existing.equippedDiscipline !== next.equippedDiscipline) return true;
     for (const key of STRING_FIELDS) {
         if (existing[key] !== next[key]) return true;
     }
@@ -541,7 +547,7 @@ export function publicIndexToLeaderboardRosterEntry(entry: PublicPlayerIndexEntr
         village: entry.village,
         specialty: entry.specialty,
         online,
-        character,
+        character: entry.equippedDiscipline ? { ...character, equippedDiscipline: entry.equippedDiscipline } : character,
         lastSeenAt: entry.lastSeen,
     };
 }

@@ -117,6 +117,11 @@ test('the pet asset chain still fails the run, while the client build starts wit
     }
 });
 
+test('CodeQL skips the evidence folders so a full tree cannot fill the runner disk', () => {
+    const codeql = readFileSync(new URL('../.github/workflows/codeql.yml', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    assert.match(codeql, /uses: actions\/checkout@v7\n\s+with:\n\s+sparse-checkout-cone-mode: false\n\s+sparse-checkout: \|\n\s+\/\*\n\s+!\/docs\/screenshots\/\n\s+!\/docs\/evidence\//);
+});
+
 test('the pet review screenshots are re-hashed only when relevant, and never silently', () => {
     const quality = workflow.split('  client_quality:\n')[1]?.split('\n  release_artifact:\n')[0];
     assert.ok(quality, 'client quality job must exist');

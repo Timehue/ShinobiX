@@ -916,7 +916,7 @@ export function JutsuTrainingHall({
     const activeProgress = activeJutsuTraining
         ? Math.max(0, Math.min(100, ((now - activeJutsuTraining.startedAt) / activeDuration) * 100))
         : 0;
-    const tagLensDiscipline = playerLensDiscipline(character);
+    const tagLensDiscipline = playerLensDiscipline(character, savedBloodlines);
     const mobileInfoJutsu = availableJutsus.find((jutsu) => jutsu.id === mobileJutsuInfoId) ?? null;
     const mobileInfoMastery = mobileInfoJutsu ? getJutsuMastery(character, mobileInfoJutsu.id) : null;
     const mobileInfoCost = mobileInfoMastery ? jutsuTrainingCost(mobileInfoMastery.level) : 0;

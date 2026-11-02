@@ -84,8 +84,18 @@ jobs:
           # source code seen"). There is no production Python to scan. If real
           # Python is ever added OUTSIDE scripts/, re-add `- language: python`.
     steps:
+      # Skips the evidence folders, as ci.yml does (see SPARSE CHECKOUT there). A
+      # full ~10.5 GB tree can fill the runner's disk: on 2026-11-02 the runner
+      # died with "No space left on device" in both analysis jobs, on commits
+      # unrelated to the failure. Those folders hold no shipped source.
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4

@@ -6142,7 +6142,7 @@ export default function App() {
                             currentBiome={currentBiome}
                             currentWeather={currentWeather}
                             currentSector={currentSector}
-                            sharedImages={sharedImages}
+                            sharedImages={sharedImages} savedBloodlines={savedBloodlines}
                             // Ignore a stale seed from another fight; mount fetches fresh state.
                             seedSession={pvpSeedSession && pvpSeedSession.battleId === pvpBattleId ? pvpSeedSession : null}
                             isSpar={!pvpBattleContext?.mode || (pvpBattleContext.mode === "standard" && !pvpBattleContext.clanWarPoints && !pvpBattleContext.sectorAttack)}

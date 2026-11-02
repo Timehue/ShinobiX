@@ -54,6 +54,7 @@ export function SectorWorldBossStandee({ sector, bossId, name, paused, fromSecto
     const track = useRef<HTMLDivElement>(null);
     const button = useRef<HTMLButtonElement>(null);
     const figure = useRef<HTMLSpanElement>(null);
+    const pill = useRef<HTMLSpanElement>(null);
     const animation = useRef<Animation | null>(null);
     const resync = useRef<(() => void) | null>(null);
     const clock = useRef<WorldBossPatrolClock>({ serverNow: readAt, nextHopInMs, paused });
@@ -123,6 +124,20 @@ export function SectorWorldBossStandee({ sector, bossId, name, paused, fromSecto
         resync.current?.();
     }, [readAt, nextHopInMs, paused, patrol]);
 
+    // Wanderers stand in front of the boss so its size never takes their taps,
+    // but one crossing its small name pill must not swallow the way in.
+    useEffect(() => {
+        const handOver = (event: MouseEvent) => {
+            const box = pill.current?.getBoundingClientRect();
+            if (!box || !(event.target instanceof Element) || !event.target.closest(".sector-wanderer-figure")) return;
+            if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) return;
+            event.stopPropagation();
+            button.current?.click();
+        };
+        document.addEventListener("click", handOver, true);
+        return () => document.removeEventListener("click", handOver, true);
+    }, []);
+
     const restCol = patrol.restTile % GRID, restRow = Math.floor(patrol.restTile / GRID);
     const label = `${name}, world boss. ${paused ? "A team is forming. Open the team queue" : "Open the team queue"}`;
     return (
@@ -133,7 +148,7 @@ export function SectorWorldBossStandee({ sector, bossId, name, paused, fromSecto
                     <span className={`sector-world-boss-sprite${boss.mapGlow === "white-red" ? " is-white-red-glow" : ""}`}
                         style={{ backgroundImage: `url("${boss.mapSprite}")` }} />
                 </span>
-                <span className="sector-world-boss-name">{name}<small>{paused ? "Team forming" : "Join the raid"}</small></span>
+                <span ref={pill} className="sector-world-boss-name">{name}<small>{paused ? "Team forming" : "Join the raid"}</small></span>
             </button>
         </div>
     );
