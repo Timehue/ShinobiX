@@ -37,9 +37,13 @@ try{
  docker(['network','create','--internal',network]);networkCreated=true;
  assert.equal(JSON.parse(docker(['network','inspect',network]))[0].Internal,true);
  docker(['pull','postgres:16'],{stdio:'inherit'});const pgImage=JSON.parse(docker(['image','inspect','postgres:16']))[0];result.postgres={imageId:pgImage.Id,repoDigests:pgImage.RepoDigests};
- created.push(pgName);docker(['run','--detach','--name',pgName,'--network',network,'--mount','type=bind,src='+join(artifacts,'candidate')+',dst=/fixture-schema,readonly','--env','POSTGRES_DB='+database,'--env','POSTGRES_USER=wb_qual','--env','POSTGRES_PASSWORD='+password,pgImage.Id]);
+ created.push(pgName);docker(['run','--detach','--name',pgName,'--network',network,'--mount','type=bind,src='+join(artifacts,'candidate')+',dst=/fixture-schema,readonly','--env','POSTGRES_DB='+database,'--env','POSTGRES_USER=wb_qual','--env','POSTGRES_PASSWORD='+password,'--env','POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256',pgImage.Id]);
  const pgContainer=JSON.parse(docker(['container','inspect',pgName]))[0];assert.deepEqual(Object.keys(pgContainer.NetworkSettings.Networks),[network]);assert.ok(Object.values(pgContainer.NetworkSettings.Ports).every(binding=>binding===null));
  await waitForPostgres({docker,name:pgName,database,password});
+ let rejectedWrongPassword=false;
+ try{docker(postgresCommand(pgName,database,password+'-invalid',['-tAqc','SELECT 1']),{timeout:5000});}
+ catch(error){assert.match(String(error.stderr),/password authentication failed/);rejectedWrongPassword=true;}
+ assert.ok(rejectedWrongPassword,'Disposable Postgres must reject an incorrect TCP password');result.postgres.passwordAuthenticationRequired=true;
  result.postgres.version=docker(['exec',pgName,'postgres','--version']).trim();assert.match(result.postgres.version,/PostgreSQL\) 16\./);
  docker(postgresCommand(pgName,database,password,['-f','/fixture-schema/schema.sql']));
  Object.assign(result,await qualify({start,stop,control}));
