@@ -16,6 +16,7 @@ delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 let kv: any, events: any, queue: any, tower: any, auth: any, world: any;
 let server: Server, base: string;
+let nextFixtureFailure: Error | undefined;
 const evidence: any[] = [];
 before(async () => {
   kv = (await import('../_storage.js')).kv;
@@ -38,8 +39,15 @@ before(async () => {
     (req as any).query = Object.fromEntries(url.searchParams);
     (res as any).status = (code: number) => { res.statusCode = code; return res; };
     (res as any).json = (body: any) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(body)); return res; };
-    try { await (handler as unknown as (req: any, res: any) => Promise<unknown>)(req, res); }
-    catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: String(e) })); }
+    try {
+      if (nextFixtureFailure) { const failure = nextFixtureFailure; nextFixtureFailure = undefined; throw failure; }
+      await (handler as unknown as (req: any, res: any) => Promise<unknown>)(req, res);
+    } catch (e) {
+      console.error('[world-boss-audit-fixture]', e);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Audit fixture handler failed.' }));
+    }
   });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   base = `http://127.0.0.1:${(server.address() as any).port}`;
@@ -47,6 +55,21 @@ before(async () => {
 after(async () => {
   if (process.env.WORLD_BOSS_AUDIT_OBSERVATIONS) writeFileSync(resolve(process.env.WORLD_BOSS_AUDIT_OBSERVATIONS), JSON.stringify(evidence, null, 2));
   if (server) { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
+});
+test('fixture HTTP failures keep exception details in the test log', async () => {
+  const failure = new Error('fixture-only-private-diagnostic');
+  const diagnostics = mock.method(console, 'error', () => undefined);
+  nextFixtureFailure = failure;
+  try {
+    const response = await fetch(base + '/api/world-boss-event');
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), { error: 'Audit fixture handler failed.' });
+    assert.equal(diagnostics.mock.callCount(), 1);
+    assert.equal(diagnostics.mock.calls[0].arguments[1], failure);
+  } finally {
+    nextFixtureFailure = undefined;
+    diagnostics.mock.restore();
+  }
 });
 function client(slug: string) {
   const token = auth.issuePlayerToken(slug)!;
