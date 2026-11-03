@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SECTOR_BUILDINGS, sectorBuilding } from '../../shared/sector-buildings.js';
 import { BUILDING_INVESTIGATIONS, buildingContactProtocol, buildingFestivalTasks } from '../../shared/sector-building-stories.js';
-import { buildingCompanion, buildingConditions, buildingWorkView } from '../../shared/sector-building-content.js';
+import { buildingCompanion, buildingConditions, buildingRecipeTrust, buildingWorkView, buildingWorkshopRecipes } from '../../shared/sector-building-content.js';
 import { readBuildingProgress } from '../../shared/sector-building-state.js';
 import { buildingDetailView } from './_building-view.js';
 import { reduceBuildingAction } from './_building-actions.js';
 import type { BuildingAction } from '../../shared/sector-building-types.js';
+import type { CraftMaterialSelection } from '../../shared/crafting-recipes.js';
 import { festivalStallPlan } from '../../shared/sector-festival-work.js';
 import { WORLD_HOUR_MS } from '../../shared/world-clock.js';
 
@@ -74,6 +75,18 @@ test('a fifth local trust point admits the third canonical recipe without bypass
     const open=buildingDetailView(building,visited,null,NOW).recipes[2];assert.equal(open.available,true);
     const missing=reduceBuildingAction(visited,{action:'craft',buildingId:building.id,recipeId:open.id,materials:[],requestId:'no-material-recipe'},null,{now:NOW,orderId:'missing',displayName:'Witness'});
     assert.equal(missing.ok,false,'trust must never supply missing materials');
+});
+
+test('keeper workshops show and charge a fifth of the shelf price, and name the fee when the player is short',()=>{
+    const building=SECTOR_BUILDINGS.find(b=>b.services.includes('workshop')&&buildingWorkshopRecipes(b).includes('pet-treat')&&buildingRecipeTrust(b,'pet-treat')===0)!;
+    const stocked=(ryo:number):Record<string,unknown>=>({level:20,ryo,itemStacks:[{itemId:'gather-river-fish',count:9},{itemId:'gather-field-herb',count:17}]});
+    const materials:CraftMaterialSelection=[{'gather-river-fish':4},{'gather-field-herb':2}];
+    // Pet Treats shelve at 1,600: the Crafter charges 400 (a quarter), a keeper 320.
+    const recipe=buildingDetailView(building,stocked(320),null,NOW).recipes.find(r=>r.id==='pet-treat')!;assert.equal(recipe.ryo,320);
+    const crafted=act(stocked(320),{action:'craft',buildingId:building.id,recipeId:'pet-treat',materials});
+    assert.equal(crafted.character.ryo,0);
+    const short=reduceBuildingAction(stocked(319),{action:'craft',buildingId:building.id,recipeId:'pet-treat',materials,requestId:'short-on-ryo'},null,{now:NOW,orderId:'short',displayName:'Witness'});
+    assert.equal(short.ok,false);if(!short.ok)assert.match(short.error,/fee for this craft is 320 ryo, and you carry 319/);
 });
 
 test('tea mentions only the selected owned companion, and saved history retains local names',()=>{

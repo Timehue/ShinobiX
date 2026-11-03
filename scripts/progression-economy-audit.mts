@@ -7,7 +7,7 @@ import { JUTSU_CATALOG } from '../api/pvp/_jutsu-catalog.js';
 import { ITEM_CATALOG } from '../api/pvp/_item-catalog.js';
 import { OPPONENT_AFFECTING_TAGS } from '../api/pvp/_tags.js';
 import { anchorRyoPerMinute } from '../shared/economy-anchor.js';
-import { GEAR_CRAFT_RYO, supplyCraftRyo } from '../shared/craft-fees.js';
+import { GEAR_CRAFT_RYO, keeperWorkshopCraftRyo, supplyCraftRyo } from '../shared/craft-fees.js';
 import { SUPPLY_CRAFT_RECIPES, standardSaleUnitValue } from '../shared/crafting-recipes.js';
 import { saleCostBasis } from '../shared/shop-pricing.js';
 import { economyIncomeForecasts } from './_economy-income-forecasts.js';
@@ -60,7 +60,7 @@ const report = {
         const item = ITEM_CATALOG[id], count = recipe.count ?? 1;
         const fee = supplyCraftRyo(id, item?.cost ?? 0, count);
         const resale = item ? standardSaleUnitValue(id, saleCostBasis({ cost: item.cost ?? 0, saleBasis: item.saleBasis })) * count : null;
-        return { id, count, fee, shelfBatch: item ? (item.cost ?? 0) * count : null, resale,
+        return { id, count, fee, keeperFee: keeperWorkshopCraftRyo(id, item?.cost ?? 0, count), shelfBatch: item ? (item.cost ?? 0) * count : null, resale,
             netBeforeMaterials: resale === null ? null : resale - fee, activeMinutes: effort(fee), ingredients: recipe.ingredients };
     }),
 };

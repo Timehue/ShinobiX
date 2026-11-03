@@ -63,7 +63,7 @@ export type BuildingDetailView = {
         title:string; testimony:string; evidence:BuildingPoint[]; account?:string; question?:string };
     relationship: { title:string; text:string; benefits:string[] }; conditions:string;
     register: { id: string; title: string; text: string; eligible: boolean; reason?: string }[];
-    recipes: { id: string; name: string; ingredients: BuildingMaterialRow[]; level: number; trust:number; available:boolean }[];
+    recipes: { id: string; name: string; ingredients: BuildingMaterialRow[]; level: number; trust:number; ryo:number; available:boolean }[];
     leads: { buildingId: string; sector: number; approach:number; name: string; reason: string }[];
 };
 export type BuildingWorldView = {

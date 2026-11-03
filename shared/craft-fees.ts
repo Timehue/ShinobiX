@@ -11,7 +11,8 @@
  *    roughly 2.3-2.5x the one below). The materials are on top of the fee.
  *  - Supplies: a quarter of what the shop charges for the whole batch (shelf
  *    price x output count), so crafting stays cheaper than buying but is never
- *    free. Goods the shop does not sell are priced by hand below.
+ *    free. Goods the shop does not sell are priced by hand below. The
+ *    regional keeper workshops charge a fifth instead (keeperWorkshopCraftRyo).
  *
  * The server charges it in api/craft/_forge.ts and the Crafter UI shows it from
  * here, so the two cannot disagree. shared/craft-fees.test.ts pins both. This
@@ -42,4 +43,14 @@ export function supplyCraftRyo(recipeId: string, shelfCost = 0, outputCount = 1)
     if (Object.hasOwn(VILLAGE_SUPPLY_GOODS, recipeId)) return VILLAGE_SUPPLY_GOODS[recipeId].ryo;
     if (Object.hasOwn(SUPPLY_CRAFT_RYO, recipeId)) return SUPPLY_CRAFT_RYO[recipeId];
     return Math.floor(shelfCost * outputCount / 4); // a quarter of the batch's shelf price
+}
+
+/**
+ * The regional keeper workshops (api/sector/_building-actions.ts) charge a fifth
+ * of the batch's shelf price instead of the Crafter's quarter (owner, 2026-11-03).
+ * Hand-priced recipes and Village supply goods keep the fee they have everywhere.
+ */
+export function keeperWorkshopCraftRyo(recipeId: string, shelfCost = 0, outputCount = 1): number {
+    if (Object.hasOwn(VILLAGE_SUPPLY_GOODS, recipeId) || Object.hasOwn(SUPPLY_CRAFT_RYO, recipeId)) return supplyCraftRyo(recipeId, shelfCost, outputCount);
+    return Math.floor(shelfCost * outputCount / 5);
 }
