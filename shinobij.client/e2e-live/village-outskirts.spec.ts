@@ -10,10 +10,21 @@ import { writeFile } from 'node:fs/promises';
 import { returnToWorldAtlas } from '../e2e/helpers/sector-navigation';
 
 test.use({ contextOptions: { reducedMotion: 'no-preference' }, video: 'on' });
-for (const transport of ['socket', 'http'] as const) test(`rival village crest opens connected outskirts and defenses (${transport})`, async ({ page, request, context }, info) => {
+for (const transport of ['socket', 'http', 'socket-startup-throttle'] as const) test(`rival village crest opens connected outskirts and defenses (${transport})`, async ({ page, request, context }, info) => {
     test.setTimeout(180_000);
-    test.skip(transport === 'socket' && process.env.LIVE_E2E_REALTIME !== '1', 'Socket coverage needs the live realtime server enabled.');
+    test.skip(transport !== 'http' && process.env.LIVE_E2E_REALTIME !== '1', 'Socket coverage needs the live realtime server enabled.');
     if (transport === 'http') await context.route('**/socket.io/**', route => route.abort());
+    let throttleStartup = false, startupThrottles = 0;
+    if (transport === 'socket-startup-throttle') await context.routeWebSocket('**/socket.io/**', socket => {
+        const server = socket.connectToServer();
+        socket.onMessage(message => {
+            const packet = String(message), match = /^42(\d+)\["world:move",/.exec(packet);
+            if (throttleStartup && startupThrottles === 0 && match) {
+                startupThrottles++;
+                socket.send(`43${match[1]}[{"ok":false,"reason":"throttled"}]`);
+            } else server.send(message);
+        });
+    });
     const name = uniquePlayerName(stamp => `continuous${stamp}`);
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password: 'ContinuousJourney!1234' } });
     expect(registered.status(), await registered.text()).toBe(200);
@@ -66,7 +77,7 @@ for (const transport of ['socket', 'http'] as const) test(`rival village crest o
     await expect(arrivalDialog).toContainText('AI garrison');
     await arrivalDialog.getByRole('button', { name: 'Return to outskirts', exact: true }).click();
     await expect(canvas).toHaveAttribute('data-world-sector', '17');
-    if (transport === 'socket') await expect.poll(() => socketConnected).toBe(true);
+    if (transport !== 'http') await expect.poll(() => socketConnected).toBe(true);
     await page.screenshot({ path: info.outputPath('rival-outskirts-arrival.png'), fullPage: true, animations: 'disabled' });
     const exit = sectorExits(17).find(e => e.destinationSector === 24)!;
     for (const sector of [exit.destinationSector, 17]) {
@@ -121,6 +132,8 @@ for (const transport of ['socket', 'http'] as const) test(`rival village crest o
     } });
     expect(abandoned.status(), await abandoned.text()).toBe(200);
     // Recover the terminal result as a reconnecting player would.
+    // A remount can share the previous controller's 80 ms socket admission window.
+    throttleStartup = true;
     await page.reload({ waitUntil: 'domcontentloaded' });
     const result = page.getByRole('dialog', { name: 'Fight ended', exact: true });
     await expect(result).toBeVisible();
@@ -134,5 +147,6 @@ for (const transport of ['socket', 'http'] as const) test(`rival village crest o
     await expect(page.getByRole('button', { name: 'Current tile row 9 column 6', exact: true })).toHaveCount(1);
     expect((await (await request.get('/api/player/world-move', { headers })).json()).sector).toBe(17);
     expect(errors).toEqual([]);
+    if (transport === 'socket-startup-throttle') expect(startupThrottles).toBe(1);
     await writeFile(info.outputPath('rival-outskirts.json'), JSON.stringify({ transport, socketConnected, sessionId: fight.sessionId, arrival: await admitted.json(), final: await (await request.get('/api/player/world-move', { headers })).json(), errors }, null, 2));
 });
