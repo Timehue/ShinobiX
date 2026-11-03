@@ -182,11 +182,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
             if (!player) return res.status(400).json({ error: 'Missing player.' });
             if (!reason) return res.status(400).json({ error: 'A reason is required.' });
-            await withKvLock(legacyStatsKey(player), async () => {
+            const cleared = await withKvLock(legacyStatsKey(player), async () => {
                 const stats = await kv.get<LegacyStats>(legacyStatsKey(player));
-                if (!stats) return;
-                await kv.set(legacyStatsKey(player), { ...stats, suspicionFlags: 0, ringFlagAt: 0, recentWinTargets: [] });
+                if (!stats) return true;
+                return kv.compareSet(legacyStatsKey(player), stats, { ...stats, suspicionFlags: 0, ringFlagAt: 0, recentWinTargets: [] });
             }, { failClosed: true });
+            if (!cleared) return res.status(503).json({ error: 'Legacy activity changed during this correction. Please retry.' });
             await withKvLock(LEGACY_SUSPECTS_KEY, async () => {
                 const suspects = (await kv.get<Array<{ player: string }>>(LEGACY_SUSPECTS_KEY)) ?? [];
                 await kv.set(LEGACY_SUSPECTS_KEY, (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== player));

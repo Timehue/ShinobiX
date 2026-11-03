@@ -75,8 +75,8 @@ describe('combined village reward Legacy delivery', { concurrency: false }, () =
     });
     it('repairs an interrupted Legacy write without another payout or save-version bump', async (t) => {
         await kv.set(LEGACY_KEY, { updatedAt: Date.now(), warsWon: 0, warMvps: 0 });
-        const set = kv.set.bind(kv);
-        t.mock.method(kv, 'set', async (...args: Parameters<typeof set>) => {
+        const set = kv.compareSet.bind(kv);
+        t.mock.method(kv, 'compareSet', async (...args: Parameters<typeof set>) => {
             if (args[0] === LEGACY_KEY) throw new Error('injected Legacy write failure');
             return set(...args);
         });

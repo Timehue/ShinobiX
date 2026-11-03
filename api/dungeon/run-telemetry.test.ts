@@ -55,18 +55,18 @@ test('a verified clear logs each reward currency once, even across a Legacy 503 
     const token = 'telemetrydungeonclear';
     await seedProvedRun(player, token);
     await kv.set(`legacy:stats:${player}`, { bootstrappedAt: Date.now() });
-    const original = kv.set;
+    const original = kv.compareSet;
     let fail = true;
-    kv.set = async (key, value, options) => {
-        if (fail && key === `legacy:stats:${player}`) { fail = false; return null; }
-        return original(key, value, options);
+    kv.compareSet = async (key, expected, value, options) => {
+        if (fail && key === `legacy:stats:${player}`) { fail = false; return false; }
+        return original(key, expected, value, options);
     };
     try {
         assert.equal((await settle(player, token)).status, 503);
-        kv.set = original;
+        kv.compareSet = original;
         assert.equal((await settle(player, token)).status, 200);
         assert.equal((await settle(player, token)).status, 200);
-    } finally { kv.set = original; delete process.env.ENABLE_LEGACY; }
+    } finally { kv.compareSet = original; delete process.env.ENABLE_LEGACY; }
     const saved = (await kv.get<Json>(`save:${player}`))!.character as Json;
     assert.equal(saved.fateShards, DUNGEON_CLEAR_REWARD.fateShards);
     assert.deepEqual(await clearTxns(player), [

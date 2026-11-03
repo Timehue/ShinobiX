@@ -35,22 +35,22 @@ test('verified dungeon clear repairs interrupted Legacy delivery without repeati
             headers: { 'x-player-token': issuePlayerToken(player) }, socket: { remoteAddress: '203.0.113.121' } } as never, res as never);
         return output;
     };
-    const original = kv.set;
+    const original = kv.compareSet;
     let fail = true;
-    kv.set = async (key, value, options) => {
-        if (fail && key === `legacy:stats:${player}`) { fail = false; return null; }
-        return original(key, value, options);
+    kv.compareSet = async (key, expected, value, options) => {
+        if (fail && key === `legacy:stats:${player}`) { fail = false; return false; }
+        return original(key, expected, value, options);
     };
     try {
         assert.equal((await invoke()).status, 503);
         const rewarded = await storedCharacter();
         assert.equal(rewarded.auraStones, 5);
-        kv.set = original;
+        kv.compareSet = original;
         assert.equal((await invoke()).status, 200);
         assert.equal((await invoke()).status, 200);
         assert.equal((await storedCharacter()).auraStones, 5);
         assert.equal((await kv.get<Json>(`legacy:stats:${player}`))?.dungeonClears, 1);
-    } finally { kv.set = original; delete process.env.ENABLE_LEGACY; }
+    } finally { kv.compareSet = original; delete process.env.ENABLE_LEGACY; }
 });
 
 before(async () => {

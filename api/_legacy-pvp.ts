@@ -121,6 +121,7 @@ export function extractPvpLegacyDeltas(session: SessionLike, winnerName: string,
     const winnerDeltas: LegacyStatDeltas = {
         pvpWins: 1,
         pvpKills: 1,
+        ...(winner.character.profession === 'vanguard' ? { professionActions: 1 } : {}),
         ...((session.ranked && session.rankedKind !== 'pet') || session.playerRankedAuthorityVersion === 2 ? { rankedWins: 1 } : {}),
     };
     const style = STYLE_STATS[String(winner.character?.specialty ?? '')];

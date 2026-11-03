@@ -196,7 +196,7 @@ test('a retry of the same claim replays instead of double-settling', async () =>
 
 test('the real claim barrier repairs both Legacy records without a client win report or a second reward', async () => {
     const previousFlag = process.env.ENABLE_LEGACY;
-    const originalSet = kv.set;
+    const originalSet = kv.compareSet;
     process.env.ENABLE_LEGACY = '1';
     const battleId = 'pvp-world-raid-legacy-recovery';
     const winnerName = 'worldraidlegacywinner', loserName = 'worldraidlegacyloser';
@@ -213,15 +213,15 @@ test('the real claim barrier repairs both Legacy records without a client win re
         });
         await kv.set(`legacy:stats:${loserName}`, { bootstrappedAt: now });
         let fail = true;
-        kv.set = async (key, value, options) => {
-            if (fail && key === `legacy:stats:${loserName}`) { fail = false; return null; }
-            return originalSet(key, value, options);
+        kv.compareSet = async (key, expected, value, options) => {
+            if (fail && key === `legacy:stats:${loserName}`) { fail = false; return false; }
+            return originalSet(key, expected, value, options);
         };
         const partial = response();
         await handler(request(winnerName, 'win', battleId), partial.res);
         assert.equal(partial.out.statusCode, 503, JSON.stringify(partial.out.body));
         assert.equal(await kv.get(`legacy:pvp-tracked:${battleId}`), null);
-        kv.set = originalSet;
+        kv.compareSet = originalSet;
         for (const [player, outcome] of [[winnerName, 'win'], [loserName, 'loss'], [winnerName, 'win']] as const) {
             const retry = response();
             await handler(request(player, outcome, battleId), retry.res);
@@ -239,7 +239,7 @@ test('the real claim barrier repairs both Legacy records without a client win re
         assert.equal(save?.character.totalPvpKills, 1, 'base rewards and Legacy bootstrap count the same win once');
         assert.equal(await kv.get(`legacy:pvp-tracked:${battleId}`), true);
     } finally {
-        kv.set = originalSet;
+        kv.compareSet = originalSet;
         if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
         else process.env.ENABLE_LEGACY = previousFlag;
     }

@@ -17,6 +17,7 @@ import {
     type RiftQuestSeal,
 } from './_rift-quest.js';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
+import { legacyActivityCommit } from '../_legacy-activity-commit.js';
 
 /*
  * /api/sector/rift-quest — POST { action: 'accept' | 'complete' | 'abandon', playerName, riftId? }
@@ -210,6 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return {
                     ok: true,
                     character: updated,
+                    ...await legacyActivityCommit(playerName, char, { riftQuests: 1 }),
                     recordPatch: { activeRiftQuestSeal: null },
                     value: {
                         body: {
