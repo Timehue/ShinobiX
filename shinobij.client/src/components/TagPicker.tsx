@@ -1,11 +1,11 @@
 import * as React from "react";
-import type { JutsuMethod, JutsuTarget, Rank } from "../types/core";
+import type { JutsuMethod, JutsuTarget, JutsuType, Rank } from "../types/core";
 import { allTags, binaryTags, cappedDamageTags, groupTags, percentageTags, tagCapForRank } from "../lib/tags";
 import { bloodlineCreatorPercentPolicy, normalizeBloodlineCreatorTagPercent } from "../lib/jutsu-points";
 import { jutsuEffectInfo } from "../lib/jutsu-effects";
 import { normalizeJutsu } from "../lib/jutsu";
 
-export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, jutsuMethod, disabledTags = [], allowedTags, ariaLabel = "Jutsu tag" }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; jutsuMethod?: JutsuMethod; disabledTags?: string[]; allowedTags?: string[]; ariaLabel?: string }) {
+export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuType = "Any", jutsuTarget, jutsuMethod, disabledTags = [], allowedTags, ariaLabel = "Jutsu tag" }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuType?: JutsuType; jutsuTarget?: JutsuTarget; jutsuMethod?: JutsuMethod; disabledTags?: string[]; allowedTags?: string[]; ariaLabel?: string }) {
     const creatorPolicy = rank ? bloodlineCreatorPercentPolicy(tag, rank) : null;
     const displayedPercent = rank ? normalizeBloodlineCreatorTagPercent(tag, percent, rank) : percent;
     // Poison keeps a stored creator value (the server schema requires one), but combat
@@ -13,9 +13,11 @@ export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget,
     // Offering "25% / 30%" would advertise a difference that does not exist; the effect
     // help below states the real value instead.
     const showStrengthChoice = creatorPolicy?.scalable === true && tag !== "Poison";
+    // Without an AP value, normalization defaults to a 40-AP Any-style utility
+    // and loses the selected offense. This synthetic record is display-only.
     const selectedTagInfo = tag
         ? jutsuEffectInfo(
-            normalizeJutsu({ id: "tag-preview", name: "Tag Preview", type: "Ninjutsu", effectPower: 100, bloodlineRank: rank ?? undefined, target: jutsuTarget ?? "OPPONENT", method: jutsuMethod ?? "SINGLE", tags: [{ name: tag, percent: displayedPercent }] }),
+            normalizeJutsu({ id: "tag-preview", name: "Tag Preview", type: jutsuType, ap: jutsuType === "Any" ? 40 : 60, effectPower: 100, bloodlineRank: rank ?? undefined, target: jutsuTarget ?? "OPPONENT", method: jutsuMethod ?? "SINGLE", tags: [{ name: tag, percent: displayedPercent }] }),
             { name: tag, percent: displayedPercent },
         )
         : null;

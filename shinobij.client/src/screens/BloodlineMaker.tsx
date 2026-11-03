@@ -586,7 +586,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                             : allTags);
                         const authoredTagNames = jutsu.tags.map((tag) => tag.name);
                         allowedTags = base.filter((tagName) => bloodlineCreatorMethodAllowsTag(tagName, jutsu.method, authoredTagNames));
-                        return <TagPicker key={tagIndex} ariaLabel={`Tag ${tagIndex + 1}`} rank={rank} jutsuTarget={jutsu.target} jutsuMethod={jutsu.method} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
+                        return <TagPicker key={tagIndex} ariaLabel={`Tag ${tagIndex + 1}`} rank={rank} jutsuType={jutsu.type} jutsuTarget={jutsu.target} jutsuMethod={jutsu.method} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
                     })}
                     <div className="summary-box bloodline-effect-preview"><strong>What it does:</strong> {describeJutsuEffects(jutsu)}</div>
                     {(() => {
