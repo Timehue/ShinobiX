@@ -5,6 +5,15 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {pins,validateImage,loadImage,hashFile} from './images.mjs';
 import {waitForPostgres} from './postgres.mjs';
+import {internalContainerBase} from './network.mjs';
+const internalNetwork=()=>({State:{Running:true},HostConfig:{PortBindings:{}},NetworkSettings:{Ports:{'8080/tcp':null},Networks:{'wbqual-test':{IPAddress:'172.20.0.3'}}}});
+test('internal bridge HTTP needs no published 3000/tcp entry',()=>assert.equal(internalContainerBase(internalNetwork(),'wbqual-test'),'http://172.20.0.3:3000'));
+test('an internal container cannot request or expose a host port',()=>{
+ for(const field of ['requested','published']){const inspect=internalNetwork();if(field==='requested')inspect.HostConfig.PortBindings={'3000/tcp':[{HostIp:'127.0.0.1',HostPort:'5000'}]};else inspect.NetworkSettings.Ports={'3000/tcp':[{HostIp:'127.0.0.1',HostPort:'5000'}]};assert.throws(()=>internalContainerBase(inspect,'wbqual-test'),/forbidden/);}
+});
+test('internal HTTP rejects stopped, extra-network and non-private destinations',()=>{
+ for(const kind of ['stopped','extra','missing','external']){const inspect=internalNetwork();if(kind==='stopped')inspect.State.Running=false;if(kind==='extra')inspect.NetworkSettings.Networks.other={IPAddress:'172.20.0.4'};if(kind==='missing')inspect.NetworkSettings.Networks['wbqual-test'].IPAddress='';if(kind==='external')inspect.NetworkSettings.Networks['wbqual-test'].IPAddress='203.0.113.8';assert.throws(()=>internalContainerBase(inspect,'wbqual-test'));}
+});
 const fixture=()=>({Id:'sha256:'+'a'.repeat(64),Os:'linux',Architecture:'amd64',RootFS:{Layers:['sha256:'+'b'.repeat(64)]},Config:{User:'node',WorkingDir:'/app',Cmd:['node','dist/server.js'],Entrypoint:['docker-entrypoint.sh'],Labels:{'org.opencontainers.image.revision':pins.candidate},Env:['NODE_ENV=production','BUILD_COMMIT='+pins.candidate]}});
 test('valid pinned compiled-server image configuration is accepted',()=>assert.equal(validateImage(fixture(),'candidate'),true));
 test('database startup waits past socket-only initialization and requires an authenticated TCP query',async()=>{

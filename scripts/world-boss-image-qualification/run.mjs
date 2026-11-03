@@ -6,6 +6,7 @@ import {join,resolve} from 'node:path';
 import {docker,loadImage,pins} from './images.mjs';
 import {qualify} from './scenarios.mjs';
 import {postgresCommand,waitForPostgres} from './postgres.mjs';
+import {internalContainerBase} from './network.mjs';
 const[artifactArg,outputArg]=process.argv.slice(2);assert.ok(artifactArg&&outputArg,'Supply artifact directory and output directory');
 const artifacts=resolve(artifactArg),output=resolve(outputArg),root=import.meta.dirname;mkdirSync(output,{recursive:true});
 const nonce=randomBytes(6).toString('hex'),prefix='wbqual-'+nonce,network=prefix,pgName=prefix+'-pg',database='wbqual_'+nonce,password=randomBytes(24).toString('hex'),secret=randomBytes(32).toString('hex'),created=[];
@@ -15,16 +16,16 @@ const control=(runtime,input)=>{const text=docker(['exec','--interactive',runtim
 const env=['DATABASE_URL=postgresql://wb_qual:'+password+'@'+pgName+':5432/'+database,'PG_SSL=disable','SESSION_SECRET='+secret,'QUALIFICATION_DISPOSABLE=1','DISABLE_SCHEDULED_JOBS=1','DISABLE_SNAPSHOT_CRON=1','DISABLE_PRESENCE_STATE_JOBS=1','DISABLE_COMBAT_RECEIPTS=1','PORT=3000'];
 async function start(role){
  const image=result.images[role],name=prefix+'-'+role+'-'+created.length;
- created.push(name);docker(['run','--detach','--name',name,'--network',network,'--read-only','--tmpfs','/tmp:rw,nosuid,noexec,size=64m','--cap-drop','ALL','--security-opt','no-new-privileges','--publish','127.0.0.1::3000','--mount','type=bind,src='+root+',dst=/qualification,readonly',...env.flatMap(x=>['--env',x]),image.imageId]);
+ created.push(name);docker(['run','--detach','--name',name,'--network',network,'--read-only','--tmpfs','/tmp:rw,nosuid,noexec,size=64m','--cap-drop','ALL','--security-opt','no-new-privileges','--mount','type=bind,src='+root+',dst=/qualification,readonly',...env.flatMap(x=>['--env',x]),image.imageId]);
  const inspect=JSON.parse(docker(['container','inspect',name]))[0];assert.equal(inspect.Image,image.imageId);assert.equal(inspect.Config.User,'node');assert.deepEqual(inspect.Config.Cmd,['node','dist/server.js']);assert.deepEqual(inspect.Config.Entrypoint,['docker-entrypoint.sh']);
  assert.deepEqual(Object.keys(inspect.NetworkSettings.Networks),[network]);
  assert.ok(inspect.Mounts.every(m=>(m.Type==='bind'&&m.Destination==='/qualification'&&!m.RW)||(m.Type==='tmpfs'&&m.Destination==='/tmp')),'No application filesystem overlay allowed');
- const binding=inspect.NetworkSettings.Ports['3000/tcp'][0];assert.equal(binding.HostIp,'127.0.0.1');const port=binding.HostPort,base='http://127.0.0.1:'+port;
+ const base=internalContainerBase(inspect,network);
  let health;const deadline=Date.now()+60000;for(;;){try{const r=await fetch(base+'/health',{signal:AbortSignal.timeout(2000)});if(r.status===200){health=await r.json();break;}}catch{}assert.ok(Date.now()<deadline,'Image health timed out');await wait(250);}
  const node=docker(['exec',name,'node','--version']).trim();assert.equal(node,'v'+pins.node);assert.equal(health.commit,pins[role]);
  const pid1=JSON.parse(docker(['exec',name,'node','-e',"const fs=require('node:fs');console.log(JSON.stringify({command:fs.readFileSync('/proc/1/cmdline','utf8').split('\\0').filter(Boolean),executable:fs.readlinkSync('/proc/1/exe'),uid:process.getuid()}))"]));
  assert.deepEqual(pid1.command,['node','dist/server.js']);assert.equal(pid1.uid,1000);assert.equal(pid1.executable,'/usr/local/bin/node');
- const evidence={role,imageId:inspect.Image,node,pid1,defaultCommand:true,user:inspect.Config.User,readOnlyRoot:inspect.HostConfig.ReadonlyRootfs,healthCommit:health.commit};assert.equal(evidence.readOnlyRoot,true);result.runtime.push(evidence);return{name,base};
+ const evidence={role,imageId:inspect.Image,node,pid1,defaultCommand:true,user:inspect.Config.User,readOnlyRoot:inspect.HostConfig.ReadonlyRootfs,healthCommit:health.commit,transport:'host-to-private-internal-bridge',publishedPorts:false};assert.equal(evidence.readOnlyRoot,true);result.runtime.push(evidence);return{name,base};
 }
 async function stop(runtime){
  docker(['stop','--time','65',runtime.name]);assert.equal(JSON.parse(docker(['container','inspect',runtime.name]))[0].State.Running,false);
@@ -51,7 +52,7 @@ try{
 finally{
  const redact=text=>String(text).replaceAll(password,'[synthetic-password]').replaceAll(secret,'[synthetic-session-secret]');
  const diagnostics=[];for(const name of created){
-  try{const state=JSON.parse(docker(['container','inspect','--format','{{json .State}}',name]));diagnostics.push({name,state});}catch{diagnostics.push({name,stateUnavailable:true});}
+  try{const inspect=JSON.parse(docker(['container','inspect',name]))[0];diagnostics.push({name,state:inspect.State,networks:inspect.NetworkSettings.Networks,ports:inspect.NetworkSettings.Ports,requestedPorts:inspect.HostConfig.PortBindings});}catch{diagnostics.push({name,stateUnavailable:true});}
   const logs=spawnSync('docker',['logs','--timestamps',name],{encoding:'utf8',timeout:10000,maxBuffer:8*1024*1024,windowsHide:true});
   writeFileSync(join(output,name+'.log'),redact(String(logs.stdout??'')+'\n'+String(logs.stderr??'')));diagnostics.at(-1).logsCaptured=logs.status===0;
  }
