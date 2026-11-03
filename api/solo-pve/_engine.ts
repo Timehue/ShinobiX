@@ -1315,6 +1315,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
     }
     if (action.type === 'cleanse') {
         if (!canAct(session, side, CLEANSE_AP) || (session.cooldowns[side].cleanse ?? 0) > 0) return { applied: false, reason: 'cannot-act' };
+        const committedApCost = actionCost(session, side, CLEANSE_AP);
         const blocked = activeStatuses(self, session.round).some((status) => status.name === 'Cleanse Prevent');
         if (!blocked) {
             // Pending debuffs too, as in PvP: a Wound or Drain cast earlier this round
@@ -1323,7 +1324,8 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             setFighter(session, side, { ...self, statuses: cleansed.statuses });
         }
         session.cooldowns[side].cleanse = 10;
-        spendAction(session, side, CLEANSE_AP);
+        session.ap[side] = Math.max(0, session.ap[side] - committedApCost);
+        session.actionsThisTurn += 1;
         session.log.push(blocked ? `${self.name}'s Cleanse Prevent blocks the cleanse.` : `${self.name} cleanses negative effects.`);
         return { applied: true };
     }
