@@ -727,11 +727,10 @@ export const PVP_MOVE_TOKEN_HISTORY = 20;
 // of stale rows per started fight.
 const SESSION_TTL = 15 * 60;
 // Cap the combat log at the last N lines. Without this the log grows
-// unbounded over a long fight (typical: 1-3 lines per move × 30+
-// moves = 50+ KB of payload that both clients re-download every
-// state poll). Recent context is what matters; historians can scroll
-// the live ticker, but the wire payload stays small.
-export const PVP_LOG_MAX_LINES = 60;
+// unbounded over a long fight, and both clients re-download all of it every
+// state poll. A busy round runs 15-20 lines, so 300 keeps about 15 rounds in
+// the battle log while the wire payload stays bounded.
+export const PVP_LOG_MAX_LINES = 300;
 export function trimPvpLog(log: string[]): string[] {
     if (log.length <= PVP_LOG_MAX_LINES) return log;
     const dropped = log.length - PVP_LOG_MAX_LINES + 1;
