@@ -1,0 +1,7 @@
+{
+  "candidate": "b44446155a319be728a2c9bc80d8f3e117828ba5",
+  "recovery": "9851d8b25fce230ef48968f0678fe16d0a6977f4",
+  "node": "24.21.0",
+  "platform": "linux/amd64",
+  "recoveryMeaning": "Reviewed repairs retained, before the test-only CodeQL follow-up; not the incompatible old implementation"
+}
