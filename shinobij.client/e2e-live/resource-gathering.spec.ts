@@ -269,7 +269,7 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     await expect(crafter).toBeVisible();
     await crafter.getByRole('button', { name: 'Weapons', exact: true }).click();
     const recipe = crafter.locator('.cf-card').filter({ has: page.getByText('Ashen Leaf Saber', { exact: true }) });
-    await expect(recipe).toContainText('Fine Iron Sand or better: 12/10');
+    await expect(recipe.locator('.cf-check-row[data-ingredient="Fine Iron Sand or better"] .cf-check-count')).toContainText('10/10 +2');
     await recipe.getByRole('button', { name: 'Forge', exact: true }).click();
     const picker = page.getByRole('dialog', { name: 'Choose crafting materials', exact: true });
     await picker.getByRole('spinbutton', { name: 'Fine Iron Sand quantity', exact: true }).fill('8');

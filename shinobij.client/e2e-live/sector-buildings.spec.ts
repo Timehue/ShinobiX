@@ -290,6 +290,10 @@ test('regional workshop consumes exact existing ingredients without unlocking a 
     await enterWorld(page,owner.building.sector);const counter=await openCounter(page,owner.building.id);await counter.getByRole('button',{name:'Workshop',exact:true}).click();
     const recipes=(await world(request,owner)).buildings.find(b=>b.building.id===owner.building.id)!.recipes,recipe=recipes[0];
     await expect(counter.locator('.building-recipe-list article').nth(2).getByRole('button')).toBeDisabled();
+    // Each ingredient row shows what the player holds against what the recipe needs.
+    for(const row of recipe.ingredients){const have=Math.min(row.owned.reduce((sum,item)=>sum+item.count,0),row.count);
+        await expect(counter.locator('.building-recipe-list article').first().locator(`.cf-check-row[data-ingredient="${row.label}"]`)).toHaveAttribute('data-state',have>=row.count?'done':have>0?'partial':'missing');
+        await expect(counter.locator('.building-recipe-list article').first().locator(`.cf-check-row[data-ingredient="${row.label}"] .cf-check-count`)).toContainText(`${have}/${row.count}`);}
     await counter.locator('.building-recipe-list article').first().getByRole('button',{name:'Choose exact materials',exact:true}).click();
     const spent=new Map<string,{owned:number;count:number}>();
     for(const row of recipe.ingredients){const item=row.owned.find(item=>item.count>=row.count)!;expect(item).toBeTruthy();await counter.getByLabel(`${item.name} for ${row.label}`,{exact:true}).fill(String(row.count));spent.set(item.id,{owned:item.count,count:(spent.get(item.id)?.count??0)+row.count});}
