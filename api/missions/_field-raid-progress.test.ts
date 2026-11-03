@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { acceptedRaidFetchMissions, fieldRaidEvidenceId } from './_field-raid-progress.js';
 import { fieldMissionById } from './_mission-catalog.js';
+import { VILLAGE_OUTSKIRTS } from '../../shared/sector-geo.js';
 import {
     applyMissionProgressEvent,
     cleanMissionProgressEvidenceToken,
@@ -30,6 +31,19 @@ function saveAt(level: number, accepted: string[]): Record<string, unknown> {
 }
 
 describe('_field-raid-progress', () => {
+    it('credits connected outskirts for every rival pairing while retaining sealed territory raids', () => {
+        for (const [home, ownSector] of Object.entries(VILLAGE_OUTSKIRTS)) {
+            const save = saveAt(80, ['fetch-d-supply-trail']);
+            save.character = { ...(save.character as Record<string, unknown>), village: home };
+            for (const [village, sector] of Object.entries(VILLAGE_OUTSKIRTS)) {
+                const expected = village === home ? [] : ['fetch-d-supply-trail'];
+                for (const location of [sector, sector + 4]) {
+                    assert.deepEqual(acceptedRaidFetchMissions(save, Infinity, location).map(m => m.id), expected, `${home} at ${location}`);
+                }
+            }
+            assert.deepEqual(acceptedRaidFetchMissions(save, Infinity, ownSector), []);
+        }
+    });
     it('REGRESSION: server-owned AI raid wins stamp the field receipt at settlement', () => {
         // AI guard raids travel through ai-fight-start/report-ai-fight. Calling
         // report-raid afterward has no battleId or raid-start token, so it cannot

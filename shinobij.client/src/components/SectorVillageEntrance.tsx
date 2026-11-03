@@ -5,14 +5,18 @@ import { openBuildingCounter } from '../lib/sector-building-counter';
 export function SectorVillageEntrance({ sector, village, present, onEnter }: {
     sector: number; village: string; present: boolean; onEnter: (name: string) => void;
 }) {
-    const entrance = sectorFloorLayout(sector)?.village;
-    if (!entrance) return null;
+    const layout = sectorFloorLayout(sector), entrance = layout?.village;
+    if (!layout || !entrance) return null;
     const home = entrance.name === village;
+    const footprint = layout.mask.flatMap((row, y) => [...row].flatMap((cell, x) => cell === 'B' ? [y * 12 + x] : [])).join(' ');
     return <button type="button" className="sector-village-entrance"
+        data-footprint={footprint}
         style={{ left: `${entrance.left}%`, top: `${entrance.top}%`, width: `${entrance.width}%` }}
-        disabled={!present} onClick={() => openBuildingCounter({buildingId:`village-${sector}`,entrance:{sector,tile:entrance.approach},interior:home?()=>onEnter(entrance.name):undefined,interiorLabel:`Enter ${entrance.name}`,restriction:home?undefined:'The public gate counter receives travelers from every village. Entry beyond the gate is for village members.'})}
-        aria-label={`Visit ${entrance.name} gate counter`}>
+        disabled={!present} onClick={() => home
+            ? openBuildingCounter({buildingId:`village-${sector}`,entrance:{sector,tile:entrance.approach},interior:()=>onEnter(entrance.name),interiorLabel:`Enter ${entrance.name}`})
+            : onEnter(entrance.name)}
+        aria-label={home ? `Visit ${entrance.name} gate counter` : `View ${entrance.name} raid options`}>
         <span className="sector-village-entrance-name">{entrance.name}</span>
-        <span className="sector-village-entrance-action">Public counter</span>
+        <span className="sector-village-entrance-action">{home ? 'Public counter' : 'Raid village'}</span>
     </button>;
 }

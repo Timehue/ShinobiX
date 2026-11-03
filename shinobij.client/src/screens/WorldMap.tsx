@@ -56,7 +56,6 @@ import { MAX_PENDING_FINDS, pendingGatherFinds, type PendingGatherFind } from ".
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { addStoryTrait } from "../lib/story-choice-mutations";
 import { SceneAmbience } from "../components/SceneAmbience";
-import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorHud } from "../components/SectorHud";
 import { sectorPlayerRoster, projectSectorPlayers } from "../lib/sector-player-roster";
 import { useSectorSleepers } from "../lib/use-sector-sleepers";
@@ -64,6 +63,8 @@ import { findSectorSpectatorBattle } from "../lib/sector-spectate";
 import { useSectorPlayerAction } from "../lib/use-sector-player-action";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
 import { SectorVillageEntrance } from "../components/SectorVillageEntrance";
+import { sectorFloorLayout } from "../lib/sector-floor-layout";
+import { openBuildingCounter } from "../lib/sector-building-counter";
 import { sectorWalkMask } from "../../../shared/sector-walk-mask";
 import { stepSectorTile, useSectorTileGrounding } from "../lib/sector-obstacles";
 import { WorldSectorOverlayLayer } from "../components/WorldSectorOverlayLayer";
@@ -132,7 +133,6 @@ import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
 const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
-import { SectorMap } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
@@ -217,8 +217,7 @@ import {
     type SharedPvpBattleContext
 } from "../App";
 
-import { villageOuterTerritoryMapSector, villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
-import { isWalkableTile } from "../../../shared/sector-walk-mask";
+import { Modal } from "../components/ui/Modal";
 import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, villageWarHpMax, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
 import { richerSectorsNear, sectorRichnessLabel, sectorRichnessOf, type SectorRichness } from "../lib/sector-richness";
@@ -1291,6 +1290,9 @@ function WorldMapContent({
                 raidToken: raidProof.token,
             })) {
                 alert("The combat host is unavailable. Return to the sector and try again.");
+            } else {
+                // The fight opens above this screen; retire the modal and its input lock.
+                setSelectedVillageTerritory(null);
             }
         } finally {
             aiRaidLaunchInFlight.current = false;
@@ -2538,10 +2540,7 @@ function WorldMapContent({
     const [petVnDone, setPetVnDone] = useState(false);
     const [petVnPage, setPetVnPage] = useState(0);
     const [petVnLine, setPetVnLine] = useState(0);
-    const territoryBoardSector = selectedVillageTerritory
-        ? villageOuterTerritoryMapSector(selectedVillageTerritory.name, villageOutskirtsSectorNumber(selectedVillageTerritory.name) + 4)
-        : null;
-    const sectorObstacles = useSectorTileGrounding(territoryBoardSector ?? selectedSector, sectorPlayerPos, setSectorPlayerPos);
+    const sectorObstacles = useSectorTileGrounding(selectedSector, sectorPlayerPos, setSectorPlayerPos);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
@@ -2673,16 +2672,19 @@ function WorldMapContent({
     function enterLandmark(location: typeof locations[number]) {
         if (location.type === "village") {
             const home = location.name === character.village;
-            // Home uses the safe-zone sector; foreign villages use the same
-            // territory sector as their exploration and battle view.
-            const destination = home ? 0 : villageOutskirtsSector(location.name) + 4;
-            if (!home) preloadImg(villageOuterTerritoryMapUrl(location.name, destination));
+            const outskirts = villageOutskirtsSector(location.name);
+            if (!home && sameSector(getWorldPosition().sector, outskirts)) {
+                setSelectedSector(outskirts);
+                setSelectedVillageTerritory(location);
+                return;
+            }
+            const destination = home ? 0 : outskirts;
             beginSectorTravel(destination, (arrivalTile) => {
                 setCurrentBiome(location.biome);
                 setCurrentWeather(weatherForBiome(location.biome));
                 setCurrentSector(destination);
-                setSelectedSector(null);
-                setSectorPlayerPos(arrivalTile ?? SECTOR_CENTRE_TILE);
+                setSelectedSector(home ? null : destination);
+                setSectorPlayerPos(arrivalTile ?? travelArrivalTile(0, destination) ?? SECTOR_CENTRE_TILE);
                 setSelectedVillageTerritory(home ? null : location);
                 setSelectedLandmark(home ? location : null);
             });
@@ -3739,17 +3741,6 @@ function WorldMapContent({
             { kind: "hunt-pack", sourceId: mission.id, sector, stage, ...(chainId ? { chainId } : {}), ...(decisionId ? { decisionId } : {}) },
         );
     }
-    function restInSector(sector: number) {
-        const staminaReward = 10 + (sector % 10);
-
-        updateCharacter({
-            ...character,
-            stamina: Math.min(character.maxStamina, character.stamina + staminaReward),
-        });
-
-        gameToast("You recovered in Sector " + sector + ". +" + staminaReward + " stamina.");
-    }
-
     function selectedSectorCombatEnvironment() {
         const sector = selectedSector;
         if (sector == null || !sameSector(currentSector, sector)) return null;
@@ -4197,6 +4188,151 @@ function WorldMapContent({
     if (activeGather) return <GatheringFind key={activeGather.id} find={activeGather} character={character}
         sharedImages={sharedImages} onCharacter={onVersionedCharacter} onClose={() => setActiveGather(null)} />;
 
+    const villageRaidDialog = (() => {
+        const loc = selectedVillageTerritory;
+        if (!loc || !sameSector(currentSector, villageOutskirtsSector(loc.name)) || selectedSector !== currentSector) return null;
+        const raidSector = villageOutskirtsSector(loc.name);
+        const biome = biomeForSector(raidSector);
+        const weather = weatherForSector(raidSector, biome);
+        const villageRaidMissionActive = builtinFetchMissions.some((mission) =>
+            acceptedMissionIds.includes(mission.id) && missionRaidRequirement(mission) > 0,
+        );
+        const close = () => setSelectedVillageTerritory(null);
+        return (
+            <Modal open onClose={close} title={`${loc.name} defenses`} size="sm">
+                <div>
+                    <p className="territory-hostile-tag"><GameArtIcon kind="warning" size={17} /> Hostile Territory</p>
+                        <div className="territory-guard-section">
+                            <h4>Village Raid</h4>
+                            <p className="territory-raid-guidance">Challenge this rival village’s defenses from its outskirts. Starting a raid begins a battle; entry into the village is reserved for its members.</p>
+                            <p>A player guard who is here and available to fight will defend in PvP. Otherwise, you face the village’s AI garrison.</p>
+                            <p>{villageRaidMissionActive ? "Wins here count toward raid objectives on your accepted field missions." : "Accept a field mission with raid objectives to have victories here count toward it."}</p>
+                            {territoryGuards.length > 0 ? (
+                                <>
+                                    <p className="territory-guard-label"><GameArtIcon kind="roleDefender" size={17} /> Village Guard</p>
+                                    {territoryGuards.map(g => (
+                                        <p key={g.name} className="territory-guard-name">
+                                            {g.name} <span className="territory-guard-lvl">Lv.{g.level}</span>{g.defenseBonusPercent ? <span className="territory-guard-lvl"> DEF +{g.defenseBonusPercent.toFixed(1)}%</span> : null}
+                                        </p>
+                                    ))}
+                                    <button
+                                        className="territory-raid-btn"
+                                        onClick={() => {
+                                            if (!requireServerSettlement("pvpSession")) return;
+                                            runWhenSectorConfirmed(raidSector, () => { if (guardRaidInFlight.current) return; guardRaidInFlight.current = true; void (async () => {
+                                            const guard = territoryGuards[0];
+                                            const createScope = capturePvpCreateScope(character.name);
+                                            setCurrentSector(raidSector);
+                                            setCurrentBiome(biome);
+                                            setCurrentWeather(weather);
+
+                                            // The server names a guard only when this raider can really
+                                            // fight them. A roster name alone is not enough to start a duel.
+                                            const post = await askVillageGuardPost({ attackerCharacter: character, village: loc.name, guardName: guard.name });
+                                            if (!createScope.isCurrent()) return;
+                                            if (post.kind === "refused") return void alert(post.message);
+                                            const guardChar = post.kind === "duel" ? post.guard as Character : null;
+
+                                            if (guardChar) {
+                                                // Embed jutsu so server can resolve moves
+                                                const { captureOwnSaveRead } = await loadOwnSaveRead();
+                                                if (!createScope.isCurrent()) return;
+                                                const selfReadAnchor = captureOwnSaveRead(character);
+                                                const [selfSave, guardSave] = await Promise.all([
+                                                    fetchPlayerCombatSave(character.name),
+                                                    fetchPlayerCombatSave(guardChar.name),
+                                                ]);
+                                                if (!createScope.isCurrent()) return;
+                                                if (selfSave && await onOwnSaveRead(selfReadAnchor, selfSave.character, selfSave._saveVersion) === "foreign") return;
+                                                if (!createScope.isCurrent()) return;
+                                                const selfChar = selfSave?.character ?? character;
+                                                const selfBloodlines = selfSave?.savedBloodlines?.length ? selfSave.savedBloodlines : savedBloodlines;
+                                                const selfCreatorJutsus = selfSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...selfSave.creatorJutsus] : wmCreatorJutsus;
+                                                const p1j = getPvpJutsuLoadout(selfBloodlines, selfCreatorJutsus, selfChar);
+                                                const guardSessionChar = guardSave?.character ?? guardChar;
+                                                const guardBloodlines = guardSave?.savedBloodlines?.length ? guardSave.savedBloodlines : savedBloodlines;
+                                                const guardCreatorJutsus = guardSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...guardSave.creatorJutsus] : wmCreatorJutsus;
+                                                const p2j = getPvpJutsuLoadout(guardBloodlines, guardCreatorJutsus, guardSessionChar);
+                                                const createBody = stringifyPvpSessionPayload({ useCurrentVitals: true, requireWorldCoLocation: true, baseRewards: true, rewardSector: raidSector, ...pvpSessionEnvironment(false, biome, weatherEffects[weather]?.positiveElement, weatherEffects[weather]?.negativeElement), p1Character: { ...selfChar, jutsu: p1j, pvpItems: getPvpItemLoadout(selfChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(selfChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(selfChar, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardSessionChar, jutsu: p2j, pvpItems: getPvpItemLoadout(guardSessionChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(guardSessionChar, guardBloodlines), armorFactor: getCharacterArmorFactor(guardSessionChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardSessionChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardSessionChar, getAllItems(wmCreatorItems), "damagePercent") } });
+                                                setPvpBattleId(pvpStableBattleIdFromRequestBody(createBody));
+                                                setPvpRole("p1");
+                                                setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: raidSector });
+                                                const createResult = await createPvpSessionWithRecovery(fetch, character.name, createBody, createScope);
+                                                if (!createScope.isCurrent()) return;
+                                                if (createResult.kind === "recovered") return void installPendingPvp(createResult.pending);
+                                                if (createResult.kind === "rejected") {
+                                                    setPvpBattleId("");
+                                                    setRaidBattleKind("none");
+                                                    alert(createResult.error);
+                                                    return;
+                                                }
+                                                const battleId = createResult.battleId;
+                                                setPvpBattleId(battleId);
+                                                if (createResult.kind === "ambiguous") {
+                                                    setScreen("pvpBattle");
+                                                    alert("The guard battle response was interrupted. Reconnecting to your battle…");
+                                                    return;
+                                                }
+                                                try {
+                                                    await confirmSectorBattleRegistration(character.name, raidSector, battleId, createScope);
+                                                } catch (error) {
+                                                    if (!createScope.isCurrent()) return;
+                                                    alert(error instanceof Error ? error.message : "The guard battle is still registering. Retry the same challenge.");
+                                                    return;
+                                                }
+                                                if (!createScope.isCurrent()) return;
+                                                setPvpSeedSession(createResult.session);
+                                                setScreen("pvpBattle");
+                                                fetch('/api/village-guard/challenge', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ attackerCharacter: character, village: loc.name, battleId, guardName: guardSessionChar.name }),
+                                                    signal: createScope.signal,
+                                                }).then((response) => {
+                                                    if (!response.ok && createScope.isCurrent()) alert(`The battle is live, but ${guardSessionChar.name} could not be notified yet.`);
+                                                }).catch(() => {});
+                                                return;
+                                            }
+
+                                            // No guard can reach this sector, so the garrison answers.
+                                            await launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, raidSector);
+                                            })().finally(() => { guardRaidInFlight.current = false; }); });
+                                        }}
+                                    >
+                                        <GameArtIcon kind="roleDefender" size={17} /> Raid Village Guard
+                                    </button>
+                                    <p className="hint" style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
+                                        Guards standing in this sector fight back directly; otherwise, defeat the village garrison.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>No Active Player Guard</p>
+                                    <button onClick={() => runWhenSectorConfirmed(raidSector, () => {
+                                        launchAiGuardRaid(pickGuardAi(character.level), character.level, raidSector, () => {
+                                            setCurrentSector(raidSector);
+                                            setCurrentBiome(biome);
+                                            setCurrentWeather(weather);
+                                        });
+                                    })}>
+                                        Raid village garrison
+                                    </button>
+                                </>
+                            )}
+                        </div>
+
+                    <button onClick={() => {
+                        const entrance = sectorFloorLayout(raidSector)?.village;
+                        if (!entrance) return;
+                        close();
+                        openBuildingCounter({ buildingId: `village-${raidSector}`, entrance: { sector: raidSector, tile: entrance.approach }, restriction: "The public gate counter receives travelers from every village. Entry beyond the gate is for village members." });
+                    }}>Visit the public gate counter</button>
+                    <button onClick={close}>Return to outskirts</button>
+                </div>
+            </Modal>
+        );
+    })();
+
     if (selectedSector && selectedSector !== FESTIVAL_SECTOR) {
         const biome = biomeForSector(selectedSector);
         const sectorWeather = weatherForSector(selectedSector, biome);
@@ -4376,10 +4512,11 @@ function WorldMapContent({
             <div className="map-instance" data-gamepad-mode={sectorIsCurrent ? "sector" : undefined}>
                 {savedFindsBanner}
                 {petMentor.guide}
+                {villageRaidDialog}
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas {...lifeTracesProps}
                         obstacles={sectorObstacles}
-                        suspended={!!vaultRaid} paused={warShrine.open}
+                        suspended={!!vaultRaid} paused={warShrine.open || !!villageRaidDialog}
                         sector={selectedSector}
                         biome={biome}
                         weather={sectorWeather}
@@ -4411,7 +4548,7 @@ function WorldMapContent({
                         onWalkArrive={roadWalk.arriveAtTile}
                         onWorldAuthority={worldAuthority}
                         onOpenAtlas={()=>setSelectedSector(null)}
-                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open || worldBossQueueOpen}
+                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open || !!villageRaidDialog || worldBossQueueOpen}
                         hudLayer={
                     <>{!vaultRaid && warShrine.tracker}<SectorHud
                         sector={selectedSector}
@@ -4742,184 +4879,6 @@ function WorldMapContent({
 
                 </div>
                 {codexRevealOverlay}
-            </div>
-        );
-    }
-
-    if (selectedVillageTerritory) {
-        const loc = selectedVillageTerritory;
-        const biome = loc.biome;
-        const weather = weatherForBiome(biome);
-        const villageRaidMissionActive = loc.name !== character.village && builtinFetchMissions.some((mission) =>
-            acceptedMissionIds.includes(mission.id) && missionRaidRequirement(mission) > 0,
-        );
-        // Pick a virtual sector number inside the enemy territory for explore/battle logic
-        const virtualSector = villageOutskirtsSector(loc.name) + 4;
-        const boardSector = villageOuterTerritoryMapSector(loc.name, virtualSector);
-        const sectorMapSrc = villageOuterTerritoryMapUrl(loc.name, virtualSector);
-        return (
-            <div className="map-instance village-outskirts-instance">
-                <div className="instance-frame">
-                    <main className="tile-scene">
-                        <div className="scene-title">
-                            <strong>{loc.name} — Outer Territory</strong>
-                            <span>{biomeLabel(biome)} | {weatherEffects[weather].name}</span>
-                        </div>
-
-                        <div className="pixel-map walkable-sector-map sector-image-map">
-                            <SectorMap image={sectorMapSrc} />
-                            <DayNightSky className="on-floor" />
-                            <SceneAmbience biome={biome} weather={weather} />
-                            <SceneCritters biome={biome} />
-                            {Array.from({ length: 144 }).map((_, index) => {
-                                const isPlayer = index === sectorPlayerPos;
-                                return (
-                                    <button
-                                        key={index}
-                                        className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""}`}
-                                        disabled={!isWalkableTile(boardSector, index, sectorObstacles)}
-                                        onClick={() => setSectorPlayerPos(index)}
-                                    />
-                                );
-                            })}
-
-                            <SectorAvatar
-                                targetIndex={sectorPlayerPos}
-                                sector={boardSector}
-                                avatarImage={resolveOwnAvatar(character, sharedImages)}
-                                name={character.name}
-                                biome={loc.biome}
-                            />
-                        </div>
-                    </main>
-
-                    <aside className="instance-actions">
-                        <h3>{loc.name}</h3>
-                        <p className="territory-hostile-tag"><GameArtIcon kind="warning" size={17} /> Hostile Territory</p>
-                        <p>{weatherEffects[weather].effect}</p>
-                        <button disabled={resourceActionsToday(character) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{resourceActionsToday(character) >= 100 ? 'Shared daily actions used (100/100)' : 'Explore territory'}</button>
-                        <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
-
-                        <div className="territory-guard-section">
-                            <h4>Village Raid</h4>
-                            <p className="territory-raid-guidance">Raid this village from its outskirts.{villageRaidMissionActive ? " Wins here count toward your field mission raid objectives." : ""}</p>
-                            {territoryGuards.length > 0 ? (
-                                <>
-                                    <p className="territory-guard-label"><GameArtIcon kind="roleDefender" size={17} /> Village Guard</p>
-                                    {territoryGuards.map(g => (
-                                        <p key={g.name} className="territory-guard-name">
-                                            {g.name} <span className="territory-guard-lvl">Lv.{g.level}</span>{g.defenseBonusPercent ? <span className="territory-guard-lvl"> DEF +{g.defenseBonusPercent.toFixed(1)}%</span> : null}
-                                        </p>
-                                    ))}
-                                    <button
-                                        className="territory-raid-btn"
-                                        onClick={() => {
-                                            if (!requireServerSettlement("pvpSession")) return;
-                                            runWhenSectorConfirmed(virtualSector, () => { if (guardRaidInFlight.current) return; guardRaidInFlight.current = true; void (async () => {
-                                            const guard = territoryGuards[0];
-                                            const createScope = capturePvpCreateScope(character.name);
-                                            setCurrentSector(virtualSector);
-                                            setCurrentBiome(biome);
-                                            setCurrentWeather(weather);
-
-                                            // The server names a guard only when this raider can really
-                                            // fight them. A roster name alone is not enough to start a duel.
-                                            const post = await askVillageGuardPost({ attackerCharacter: character, village: loc.name, guardName: guard.name });
-                                            if (!createScope.isCurrent()) return;
-                                            if (post.kind === "refused") return void alert(post.message);
-                                            const guardChar = post.kind === "duel" ? post.guard as Character : null;
-
-                                            if (guardChar) {
-                                                // Embed jutsu so server can resolve moves
-                                                const { captureOwnSaveRead } = await loadOwnSaveRead();
-                                                if (!createScope.isCurrent()) return;
-                                                const selfReadAnchor = captureOwnSaveRead(character);
-                                                const [selfSave, guardSave] = await Promise.all([
-                                                    fetchPlayerCombatSave(character.name),
-                                                    fetchPlayerCombatSave(guardChar.name),
-                                                ]);
-                                                if (!createScope.isCurrent()) return;
-                                                if (selfSave && await onOwnSaveRead(selfReadAnchor, selfSave.character, selfSave._saveVersion) === "foreign") return;
-                                                if (!createScope.isCurrent()) return;
-                                                const selfChar = selfSave?.character ?? character;
-                                                const selfBloodlines = selfSave?.savedBloodlines?.length ? selfSave.savedBloodlines : savedBloodlines;
-                                                const selfCreatorJutsus = selfSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...selfSave.creatorJutsus] : wmCreatorJutsus;
-                                                const p1j = getPvpJutsuLoadout(selfBloodlines, selfCreatorJutsus, selfChar);
-                                                const guardSessionChar = guardSave?.character ?? guardChar;
-                                                const guardBloodlines = guardSave?.savedBloodlines?.length ? guardSave.savedBloodlines : savedBloodlines;
-                                                const guardCreatorJutsus = guardSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...guardSave.creatorJutsus] : wmCreatorJutsus;
-                                                const p2j = getPvpJutsuLoadout(guardBloodlines, guardCreatorJutsus, guardSessionChar);
-                                                const createBody = stringifyPvpSessionPayload({ useCurrentVitals: true, requireWorldCoLocation: true, baseRewards: true, rewardSector: virtualSector, ...pvpSessionEnvironment(false, biome, weatherEffects[weather]?.positiveElement, weatherEffects[weather]?.negativeElement), p1Character: { ...selfChar, jutsu: p1j, pvpItems: getPvpItemLoadout(selfChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(selfChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(selfChar, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardSessionChar, jutsu: p2j, pvpItems: getPvpItemLoadout(guardSessionChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(guardSessionChar, guardBloodlines), armorFactor: getCharacterArmorFactor(guardSessionChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardSessionChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardSessionChar, getAllItems(wmCreatorItems), "damagePercent") } });
-                                                setPvpBattleId(pvpStableBattleIdFromRequestBody(createBody));
-                                                setPvpRole("p1");
-                                                setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: virtualSector });
-                                                const createResult = await createPvpSessionWithRecovery(fetch, character.name, createBody, createScope);
-                                                if (!createScope.isCurrent()) return;
-                                                if (createResult.kind === "recovered") return void installPendingPvp(createResult.pending);
-                                                if (createResult.kind === "rejected") {
-                                                    setPvpBattleId("");
-                                                    setRaidBattleKind("none");
-                                                    alert(createResult.error);
-                                                    return;
-                                                }
-                                                const battleId = createResult.battleId;
-                                                setPvpBattleId(battleId);
-                                                if (createResult.kind === "ambiguous") {
-                                                    setScreen("pvpBattle");
-                                                    alert("The guard battle response was interrupted. Reconnecting to your battle…");
-                                                    return;
-                                                }
-                                                try {
-                                                    await confirmSectorBattleRegistration(character.name, virtualSector, battleId, createScope);
-                                                } catch (error) {
-                                                    if (!createScope.isCurrent()) return;
-                                                    alert(error instanceof Error ? error.message : "The guard battle is still registering. Retry the same challenge.");
-                                                    return;
-                                                }
-                                                if (!createScope.isCurrent()) return;
-                                                setPvpSeedSession(createResult.session);
-                                                setScreen("pvpBattle");
-                                                fetch('/api/village-guard/challenge', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ attackerCharacter: character, village: loc.name, battleId, guardName: guardSessionChar.name }),
-                                                    signal: createScope.signal,
-                                                }).then((response) => {
-                                                    if (!response.ok && createScope.isCurrent()) alert(`The battle is live, but ${guardSessionChar.name} could not be notified yet.`);
-                                                }).catch(() => {});
-                                                return;
-                                            }
-
-                                            // No guard can reach this sector, so the garrison answers.
-                                            await launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, virtualSector);
-                                            })().finally(() => { guardRaidInFlight.current = false; }); });
-                                        }}
-                                    >
-                                        <GameArtIcon kind="roleDefender" size={17} /> Raid Village Guard
-                                    </button>
-                                    <p className="hint" style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
-                                        Guards standing in this sector fight back directly; otherwise, defeat the village garrison.
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>No Active Player Guard</p>
-                                    <button onClick={() => runWhenSectorConfirmed(virtualSector, () => {
-                                        launchAiGuardRaid(pickGuardAi(character.level), character.level, virtualSector, () => {
-                                            setCurrentSector(virtualSector);
-                                            setCurrentBiome(biome);
-                                            setCurrentWeather(weather);
-                                        });
-                                    })}>
-                                        Raid village garrison
-                                    </button>
-                                </>
-                            )}
-                        </div>
-
-                        <button onClick={() => setSelectedVillageTerritory(null)}>Leave</button>
-                    </aside>
-                </div>
             </div>
         );
     }

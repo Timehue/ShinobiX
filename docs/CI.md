@@ -47,7 +47,7 @@ same commit as the workflow.
 | `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all nineteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 5 min | Fail-closed aggregate requiring both Warfront browser shards (`e2e_warfront_matrix`) to succeed. |
-| `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; ten live Express player-journey steps retain separate real servers and all existing cases. |
+| `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; eleven live Express player-journey steps retain separate real servers and all existing cases. |
 
 The pet shape-review gate has two halves. The receipt half (each pet's asset,
 LOD, atlas and renderer hashes, clips and views against its review) runs in
@@ -222,11 +222,12 @@ retains that coverage and leaves room for evidence upload. Require the stable
 `CI / e2e-village-stores` keeps the name of its first journey, the Village Stores
 economy loop. Three `e2e_village_stores_matrix` shards, named
 `CI / e2e-village-stores / 1-of-3` through `CI / e2e-village-stores / 3-of-3`,
-each have a 35-minute ceiling. They partition the ten live Express steps in
+each have a 35-minute ceiling. They partition the eleven live Express steps in
 Chromium without changing any command, project, assertion, or retry setting.
 Shard 1 runs economy/Academy/routes and desktop recovery; shard 2 runs mobile
-recovery and fieldwork/crafting/binding; shard 3 runs MMO, authored missions,
-PvP, Exchange/sector war, presence/tavern, and Hollow Gate. The stable aggregate
+recovery, connected village outskirts/raids, and fieldwork/crafting/binding;
+shard 3 runs MMO, authored missions, PvP, Exchange/sector war, presence/tavern,
+and Hollow Gate. The stable aggregate
 requires every shard to succeed, and each shard retains uniquely named evidence. Each step
 starts its own real server from the release artifact with a fresh in-memory
 store, so each step gets its own budget under the real registration limit of 25
@@ -234,6 +235,8 @@ accounts per IP per 15 minutes. The steps are:
 
 - Village Stores economy, Academy persistence, and server route wiring (desktop).
 - Defeat, landing, and daily-login recovery: one step on desktop, one on mobile.
+- Connected rival-village outskirts, raid launch, reload recovery, and walking
+  after combat (desktop and mobile, socket and HTTP movement).
 - The hospital ward and the roaming Weekly Boss (desktop and mobile).
 - Authored missions (desktop and mobile).
 - PvP cancellation and settlement, the ranked queue, and Kage challenges
