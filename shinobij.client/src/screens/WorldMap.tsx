@@ -217,7 +217,8 @@ import {
     type SharedPvpBattleContext
 } from "../App";
 
-import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
+import { villageOuterTerritoryMapSector, villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
+import { isWalkableTile } from "../../../shared/sector-walk-mask";
 import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, villageWarHpMax, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
 import { richerSectorsNear, sectorRichnessLabel, sectorRichnessOf, type SectorRichness } from "../lib/sector-richness";
@@ -2537,7 +2538,10 @@ function WorldMapContent({
     const [petVnDone, setPetVnDone] = useState(false);
     const [petVnPage, setPetVnPage] = useState(0);
     const [petVnLine, setPetVnLine] = useState(0);
-    const sectorObstacles = useSectorTileGrounding(selectedSector, sectorPlayerPos, setSectorPlayerPos);
+    const territoryBoardSector = selectedVillageTerritory
+        ? villageOuterTerritoryMapSector(selectedVillageTerritory.name, villageOutskirtsSectorNumber(selectedVillageTerritory.name) + 4)
+        : null;
+    const sectorObstacles = useSectorTileGrounding(territoryBoardSector ?? selectedSector, sectorPlayerPos, setSectorPlayerPos);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
@@ -2672,6 +2676,7 @@ function WorldMapContent({
             // Home uses the safe-zone sector; foreign villages use the same
             // territory sector as their exploration and battle view.
             const destination = home ? 0 : villageOutskirtsSector(location.name) + 4;
+            if (!home) preloadImg(villageOuterTerritoryMapUrl(location.name, destination));
             beginSectorTravel(destination, (arrivalTile) => {
                 setCurrentBiome(location.biome);
                 setCurrentWeather(weatherForBiome(location.biome));
@@ -4750,6 +4755,7 @@ function WorldMapContent({
         );
         // Pick a virtual sector number inside the enemy territory for explore/battle logic
         const virtualSector = villageOutskirtsSector(loc.name) + 4;
+        const boardSector = villageOuterTerritoryMapSector(loc.name, virtualSector);
         const sectorMapSrc = villageOuterTerritoryMapUrl(loc.name, virtualSector);
         return (
             <div className="map-instance village-outskirts-instance">
@@ -4771,6 +4777,7 @@ function WorldMapContent({
                                     <button
                                         key={index}
                                         className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""}`}
+                                        disabled={!isWalkableTile(boardSector, index, sectorObstacles)}
                                         onClick={() => setSectorPlayerPos(index)}
                                     />
                                 );
@@ -4778,7 +4785,7 @@ function WorldMapContent({
 
                             <SectorAvatar
                                 targetIndex={sectorPlayerPos}
-                                sector={virtualSector}
+                                sector={boardSector}
                                 avatarImage={resolveOwnAvatar(character, sharedImages)}
                                 name={character.name}
                                 biome={loc.biome}

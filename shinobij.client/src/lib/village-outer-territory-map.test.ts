@@ -1,35 +1,38 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import test from "node:test";
-import { SECTOR_FLOOR_SECTORS } from "../data/sector-art-manifest";
-import { sectorArtKey, VILLAGE_OUTSKIRTS } from "../../../shared/sector-geo";
-import { villageOuterTerritoryMapUrl } from "./village-outer-territory-map";
+import { VILLAGE_OUTSKIRTS } from "../../../shared/sector-geo";
+import { villageOuterTerritoryMapSector, villageOuterTerritoryMapUrl } from "./village-outer-territory-map";
 import { sectorFloorLayout, sectorFloorImage } from "./sector-floor-layout";
+import { isWalkableTile, nearestWalkableTile, walkPath } from "../../../shared/sector-walk-mask";
 
-const expectedUrls: Readonly<Record<string, string>> = {
-    "Stormveil Village": "/sector-map/stormveil-outskirts.webp",
-    "Ashen Leaf Village": "/sector-map/s40.webp",
-    "Moonshadow Village": "/sector-map/moonshadow-outskirts.webp",
-    "Frostfang Village": "/sector-map/frostfang-outskirts.webp",
+const compoundArtKeys: Readonly<Record<string, number>> = {
+    "Stormveil Village": 31,
+    "Ashen Leaf Village": 38,
+    "Moonshadow Village": 11,
+    "Frostfang Village": 47,
 };
 
-test("every village outskirts resolves to an existing painted outer-territory board", () => {
+test("every village outer territory shows its gate compound, including rival visits", () => {
     for (const [village, outskirtsSector] of Object.entries(VILLAGE_OUTSKIRTS)) {
         const url = villageOuterTerritoryMapUrl(village, outskirtsSector + 4);
-        assert.equal(url, sectorFloorLayout(outskirtsSector + 4) ? sectorFloorImage(outskirtsSector + 4) : expectedUrls[village], village);
+        assert.equal(villageOuterTerritoryMapSector(village, outskirtsSector + 4), outskirtsSector);
+        assert.equal(url, sectorFloorImage(outskirtsSector), village);
+        assert.equal(sectorFloorLayout(outskirtsSector)?.village?.name, village);
         const pathname = url.split('?')[0];
-        assert.match(pathname, /\.webp$/u, village);
+        assert.equal(pathname, `/sector-map/s${compoundArtKeys[village]}.webp`);
         assert.equal(existsSync(new URL(`../../public${pathname}`, import.meta.url)), true, `${village}: ${url}`);
+        // The target village owns the artwork even when gameplay uses another sector.
+        assert.equal(villageOuterTerritoryMapUrl(village, 99), url);
+        const arrival = nearestWalkableTile(outskirtsSector, 78);
+        assert.equal(isWalkableTile(outskirtsSector, 78), false, 'compound roof is blocked');
+        assert.equal(isWalkableTile(outskirtsSector, arrival), true);
+        assert.ok(walkPath(outskirtsSector, arrival, sectorFloorLayout(outskirtsSector)!.village!.approach), `${village}: arrival reaches the gate`);
     }
 });
 
-test("Ashen Leaf's generic board stays pinned to its manifest-backed historical art key", () => {
-    const virtualSector = VILLAGE_OUTSKIRTS["Ashen Leaf Village"] + 4;
-    const artKey = sectorArtKey(virtualSector);
-
-    assert.equal(virtualSector, 13);
-    assert.equal(artKey, 40);
-    assert.equal(villageOuterTerritoryMapUrl("Ashen Leaf Village", virtualSector).split('?')[0], `/sector-map/s${artKey}.webp`);
-    assert.equal(SECTOR_FLOOR_SECTORS.has(artKey), true);
-    assert.equal(existsSync(new URL(`../../public/sector-map/s${artKey}.webp`, import.meta.url)), true);
+test("unknown villages retain the virtual sector artwork fallback", () => {
+    assert.equal(villageOuterTerritoryMapSector("Unknown Village", 13), 13);
+    assert.equal(villageOuterTerritoryMapUrl("Unknown Village", 13), sectorFloorImage(13));
+    assert.equal(villageOuterTerritoryMapUrl("Unknown Village", 999), "/sector-map/s999.webp");
 });
