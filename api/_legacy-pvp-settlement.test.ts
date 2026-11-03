@@ -113,13 +113,13 @@ test('guard proof cannot reverse the server-sealed attacker and defender', async
 test('a failed loser write retries the same terminal without recrediting the winner', async () => {
     const session = await battle('legacywritegap');
     await kv.set(`legacy:stats:${session.p2.name}`, { bootstrappedAt: Date.now() });
-    const original = kv.set;
+    const original = kv.compareSet;
     let fail = true;
-    kv.set = async (key, value, options) => {
-        if (fail && key === `legacy:stats:${session.p2.name}`) { fail = false; return null; }
-        return original(key, value, options);
+    kv.compareSet = async (key, expected, value, options) => {
+        if (fail && key === `legacy:stats:${session.p2.name}`) { fail = false; return false; }
+        return original(key, expected, value, options);
     };
-    try { await assert.rejects(settle(session), /delivery-pending/); } finally { kv.set = original; }
+    try { await assert.rejects(settle(session), /delivery-pending/); } finally { kv.compareSet = original; }
     assert.equal(await kv.get(`legacy:pvp-tracked:${session.battleId}`), null);
     await settle(session);
     assert.equal((await stats(session.p1.name)).pvpWins, 1);
@@ -129,13 +129,13 @@ test('a failed loser write retries the same terminal without recrediting the win
 test('pending combat and war delivery retain their battle proof through later activity receipt churn', async () => {
     const session = await battle('legacyreceiptchurn', Date.now() - 40 * 3600_000);
     await kv.set(`legacy:stats:${session.p2.name}`, { bootstrappedAt: Date.now() });
-    const original = kv.set;
+    const original = kv.compareSet;
     let fail = true;
-    kv.set = async (key, value, options) => {
-        if (fail && key === `legacy:stats:${session.p2.name}`) { fail = false; return null; }
-        return original(key, value, options);
+    kv.compareSet = async (key, expected, value, options) => {
+        if (fail && key === `legacy:stats:${session.p2.name}`) { fail = false; return false; }
+        return original(key, expected, value, options);
     };
-    try { await assert.rejects(settle(session), /delivery-pending/); } finally { kv.set = original; }
+    try { await assert.rejects(settle(session), /delivery-pending/); } finally { kv.compareSet = original; }
     // Legitimate later deeds can exceed the ordinary rolling receipt window.
     for (let i = 0; i < 270; i++) await bump(session.p1.name, { missionCompletions: 1 }, { receiptId: `later-mission:${i}` });
     await settle(session);

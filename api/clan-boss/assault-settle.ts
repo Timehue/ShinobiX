@@ -21,7 +21,7 @@ import { captureServerProductEvent } from '../_product-analytics.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { recordTowerCombatUsage } from '../_combat-usage.js';
 import { extractTowerLegacyDeltas } from '../_legacy-pve.js';
-import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpLegacyStats, acknowledgeLegacyCombatReceipt } from '../_legacy-track.js';
 import { clanBossEnabled } from '../_release-flags.js';
 import { projectTowerSettlementState } from '../towers/_settlement-projection.js';
 
@@ -237,9 +237,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!contributions[member]?.active) continue;
             const record = await kv.get<Record<string, unknown>>(`save:${member}`);
             const deltas = extractTowerLegacyDeltas(session, member, result.won ? 1 : 0);
+            if (result.won) deltas.clanBossOperations = 1;
             if (!(await bumpLegacyStats(member, deltas, {
                 characterForBootstrap: record?.character as Record<string, unknown> | undefined,
                 receiptId: `clan-boss-combat:${runId}:${member}`,
+                durableReceipt: true,
+                sourceSettled: async () => {
+                    const source = await readSession(runId);
+                    if (!source) throw new Error('Legacy operation source is unavailable.');
+                    return source.rewardSettlementState === 'settled';
+                },
             }))) return res.status(503).json({ error: 'Boss rewards are safe; Legacy combat credit is pending. Retry the same assault.', retryable: true });
         }
 
@@ -259,6 +266,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (completed?.rewardSettlementState !== 'settled') {
             return res.status(503).json({ error: 'Your contribution is saved. The assault result could not be finalized yet. Try again.', retryable: true });
         }
+
+        for (const member of party) await acknowledgeLegacyCombatReceipt(member, `clan-boss-combat:${runId}:${member}`);
 
         return res.status(outcome.status).json({
             ...(outcome.body as Record<string, unknown>),

@@ -147,9 +147,9 @@ describe('sector wanderer reward endpoints verify the claimed NPC, not just the 
                 await kv.set(`legacy:stats:${player}`, { updatedAt: Date.now() });
             }
             const body = { sector, wandererId: w.id, wandererArchetype: w.archetype, wandererVerb: w.verb, wandererLevel: w.level, wandererName: w.name };
-            const originalSet = kv.set.bind(kv);
-            const statsFailure = t.mock.method(kv, 'set', async (key: string, value: unknown, opts?: Parameters<typeof kv.set>[2]) =>
-                key === `legacy:stats:${first}` ? null : originalSet(key, value, opts));
+            const originalCompareSet = kv.compareSet.bind(kv);
+            const statsFailure = t.mock.method(kv, 'compareSet', async (key: string, expected: unknown, value: unknown, opts?: Parameters<typeof kv.compareSet>[3]) =>
+                key === `legacy:stats:${first}` ? false : originalCompareSet(key, expected, value, opts));
             assert.equal((await post(gift, first, body)).statusCode, 503);
             const paid = await kv.get<any>(`save:${first}`);
             assert.ok(paid.character.ryo > 5000);

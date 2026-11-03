@@ -21,6 +21,8 @@ import { currentWandererDayBucket, isWanderersEnabled } from "../lib/wanderers";
 import { sectorRegionName } from "../data/sectors";
 import { LEGACY_JUTSU_BY_ID, LEGACY_JUTSU_ID_BY_LEGACY } from "../data/legacy-jutsu";
 import { LEGACY_SIGNATURE_MIN_STAGE, legacySignatureMasteryLevel } from "../lib/legacy-jutsu-slot";
+import { legacyTrialHint } from "../lib/legacy-trial-guidance";
+import { legacySignatureShape } from "../../../shared/legacy-signature";
 
 // The single legacy accent — a Legacy's rank is owner-only and never shown or
 // separated in any player-facing surface, so every legacy uses the same colour.
@@ -344,11 +346,11 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     })()}
                     {(() => {
                         // The Legacy signature (dedicated jutsu slot): revealed from
-                        // Stage 3 (Bound); before that, shown as the road ahead.
+                        // Stage 2 (Awakened); before that, shown as the road ahead.
                         const sigId = LEGACY_JUTSU_ID_BY_LEGACY.get(status.legacy.legacyId);
                         const sig = sigId ? LEGACY_JUTSU_BY_ID.get(sigId) : undefined;
                         if (!sig) return null;
-                        const shape = sig.method === "AOE_BURST" ? "Area nova" : sig.method === "AOE_CIRCLE" ? "Dashing strike" : sig.ap === 40 ? "Self technique" : "Focused strike";
+                        const shape = legacySignatureShape(sig);
                         // NB: tag NAMES only, never percents/rank — rank is owner-only.
                         const effectTags = sig.tags.filter((t) => t.name !== "Move");
                         const hideImg = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -378,9 +380,9 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                             <div style={{ marginTop: 8, border: "1px dashed rgba(148,163,184,.32)", borderRadius: 10, padding: 10, display: "flex", gap: 10, opacity: 0.75 }}>
                                 {sig.image && <span className="jutsu-signature-art is-sealed"><img src={sig.image} alt="" onError={hideImg} /></span>}
                                 <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#9aa3b2" }}><GameArtIcon kind="key" size={14} /> Sealed until the {TRIAL_NAMES.bind}</div>
+                                    <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#9aa3b2" }}><GameArtIcon kind="key" size={14} /> Sealed until the {TRIAL_NAMES.awaken}</div>
                                     <b style={{ fontSize: ".86rem", color: "#cbd5e1" }}>{sig.name}</b>
-                                    <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>{shape} · reach Stage III (Bound) and it becomes available in your separate Legacy slot.</p>
+                                    <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>{shape} · reach Stage II (Awakened) and it becomes available in your separate Legacy slot.</p>
                                 </div>
                             </div>
                         );
@@ -502,6 +504,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                             <div style={{ height: 6, borderRadius: 3, background: "rgba(148,163,184,.15)", overflow: "hidden" }}>
                                 <div style={{ height: "100%", width: `${Math.min(100, (o.progress / Math.max(1, o.delta)) * 100)}%`, background: o.done ? "#4ade80" : accent }} />
                             </div>
+                            <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "#94a3b8" }}>{legacyTrialHint(o.stat)}</p>
                         </div>
                     ))}
                     {trialNote && <p role="status" aria-live="polite" aria-atomic="true" style={{ fontSize: ".74rem", color: "#e6c477", margin: "0 0 6px" }}>{trialNote}</p>}

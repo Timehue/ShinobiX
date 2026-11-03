@@ -319,7 +319,7 @@ export async function getLegacyStats(
 
 export type LegacyStatDeltas = Partial<Record<LegacyStatKey, number>>;
 
-async function attemptSageAfterVerifiedProgress(playerName: string, stats?: LegacyStats): Promise<void> {
+export async function attemptSageAfterVerifiedProgress(playerName: string, stats?: LegacyStats): Promise<void> {
     try {
         // Dynamic import keeps the tracker as the low-level stats authority
         // while the roll helper is free to read/bootstrap stats for direct HTTP
@@ -360,6 +360,9 @@ export async function bumpLegacyStats(
         receiptId?: string;
         /** Preserve a finite milestone receipt beyond the rolling activity window. */
         durableReceipt?: boolean;
+        /** Read the source's terminal marker while holding the stats lock. A
+         * stale settlement reader cannot credit an already completed source. */
+        sourceSettled?: () => Promise<boolean>;
     },
 ): Promise<boolean> {
     if (!legacyEnabled()) return true;
@@ -369,7 +372,12 @@ export async function bumpLegacyStats(
     let writtenStats: LegacyStats | undefined;
     try {
         await withKvLock(legacyStatsKey(playerName), async () => {
-            const stats = prunePvpRecoveryReceipts(await getLegacyStats(playerName, opts?.characterForBootstrap ?? null));
+            if (await opts?.sourceSettled?.()) {
+                completed = true;
+                return;
+            }
+            const expected = await getLegacyStats(playerName, opts?.characterForBootstrap ?? null);
+            const stats = prunePvpRecoveryReceipts(expected);
             const receiptId = typeof opts?.receiptId === 'string' ? opts.receiptId.trim().slice(0, 160) : '';
             const recoveryAt = opts?.pvpAttributionId ? opts.pvpAttributionAt ?? Date.now() : undefined;
             if (hasLegacyActivityReceipt(stats, receiptId)) {
@@ -458,7 +466,7 @@ export async function bumpLegacyStats(
             if (receiptId) {
                 next = appendLegacyActivityReceipt(next, receiptId, opts?.durableReceipt === true, recoveryAt);
             }
-            if (await kv.set(legacyStatsKey(playerName), next) !== 'OK') throw new Error('Legacy activity receipt was not committed.');
+            if (!(await kv.compareSet(legacyStatsKey(playerName), expected, next))) throw new Error('Legacy activity receipt was not committed.');
             writtenStats = next;
             // Surface flagged players on the admin suspects queue (dedup,
             // newest-first, capped). Own lock on the GLOBAL list — two
@@ -485,6 +493,27 @@ export async function bumpLegacyStats(
     }
     if (completed && progressApplied) await attemptSageAfterVerifiedProgress(playerName, writtenStats);
     return completed;
+}
+
+/** Retire a pending combat receipt only AFTER its source commits its terminal
+ * marker. Late readers use sourceSettled under this same lock, so cleanup cannot
+ * reopen a completed source. A failed cleanup is safe to retry. */
+export async function acknowledgeLegacyCombatReceipt(playerName: string, receiptId: string): Promise<boolean> {
+    if (!legacyEnabled()) return true;
+    try {
+        return await withKvLock(legacyStatsKey(playerName), async () => {
+            const expected = await kv.get<LegacyStats>(legacyStatsKey(playerName));
+            if (!expected || !hasLegacyActivityReceipt(expected, receiptId)) return true;
+            const next = {
+                ...expected,
+                activityReceipts: (expected.activityReceipts ?? []).filter(id => activityReceiptValue(id) !== receiptId),
+                durableActivityReceipts: (expected.durableActivityReceipts ?? []).filter(id => activityReceiptValue(id) !== receiptId),
+            };
+            return kv.compareSet(legacyStatsKey(playerName), expected, next);
+        }, { failClosed: true });
+    } catch {
+        return false;
+    }
 }
 
 /** Apply mission/PvE legacy counters exactly once for a sealed combat run. */
@@ -609,7 +638,7 @@ export async function reconcileLegacyStatsFromSave(
             }
             if (changed) {
                 next.updatedAt = Date.now();
-                await kv.set(legacyStatsKey(playerName), next);
+                if (!(await kv.compareSet(legacyStatsKey(playerName), stats, next))) throw new Error('Legacy reconcile write conflicted.');
                 writtenStats = next;
             }
         }, { ttlSec: 5, failClosed: true });
