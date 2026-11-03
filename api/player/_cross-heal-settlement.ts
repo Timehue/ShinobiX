@@ -12,6 +12,7 @@ import {
 } from '../_durable-settlement.js';
 import { appendSettlementReceipt, inspectSettlementReceipt, ownReceiptValue } from '../_settlement-receipts.js';
 import { professionRankForXp } from '../missions/_progress.js';
+import { legacyActivityCommit } from '../_legacy-activity-commit.js';
 
 export type CrossHealCore = {
     xpGained: number;
@@ -188,7 +189,11 @@ export async function settleCrossPlayerHeal(options: {
                 // full-refill loop one player sideways — "find a Healer" instead
                 // of "die". (MMORPG behavior audit F1.)
                 const restoresHpOnly = hospitalDischargeRestoresHpOnly();
+                const legacyCredit = await legacyActivityCommit(options.actorName, healer, {
+                    professionActions: Number(target.maxHp) > Number(target.hp) ? 1 : 0,
+                });
                 targetSide = {
+                    ...legacyCredit,
                     character: appendSettlementReceipt({
                         ...target,
                         hp: target.maxHp,
@@ -209,6 +214,7 @@ export async function settleCrossPlayerHeal(options: {
                     afterCommit: async () => {
                         mutationObserved = true;
                         await updateDurableSettlement(transactionId, { state: 'credit-applied' }, { kv });
+                        await legacyCredit.afterCommit?.();
                     },
                 };
             }

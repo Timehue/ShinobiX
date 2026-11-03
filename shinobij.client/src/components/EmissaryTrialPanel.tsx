@@ -14,6 +14,7 @@ import {
 import type { EmissaryDef } from "../lib/legacy-emissaries";
 import type { Character } from "../types/character";
 import { LegacyMoment, type LegacyMomentData } from "./LegacyMoment";
+import { legacyTrialHint } from "../lib/legacy-trial-guidance";
 
 const KIND_NAMES: Record<string, string> = {
     awaken: "Trial of Awakening", bind: "Trial of Binding",
@@ -134,9 +135,12 @@ export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter 
                         {KIND_NAMES[trial.kind] ?? "Legacy Trial"} — attempt {trial.attempt}
                     </p>
                     {trial.objectives.map(o => (
-                        <div key={o.stat} style={{ display: "flex", justifyContent: "space-between", fontSize: ".73rem", color: o.done ? "var(--green-300)" : "var(--slate-300)", marginBottom: 3 }}>
-                            <span>{o.done ? "✓ " : ""}{TRIAL_STAT_LABELS[o.stat] ?? o.stat}</span>
-                            <span>{(o.progress ?? 0).toLocaleString()} / {o.delta.toLocaleString()}</span>
+                        <div key={o.stat} style={{ fontSize: ".73rem", color: o.done ? "var(--green-300)" : "var(--slate-300)", marginBottom: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                                <span>{o.done ? "✓ " : ""}{TRIAL_STAT_LABELS[o.stat] ?? o.stat}</span>
+                                <span>{(o.progress ?? 0).toLocaleString()} / {o.delta.toLocaleString()}</span>
+                            </div>
+                            <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "var(--slate-300)" }}>{legacyTrialHint(o.stat)}</p>
                         </div>
                     ))}
                     <button disabled={busy} onClick={() => void complete()} style={{ width: "100%", marginTop: 6 }}>

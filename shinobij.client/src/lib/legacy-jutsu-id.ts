@@ -18,14 +18,8 @@
 /** Every legacy signature id starts with this; no other jutsu id may. */
 export const LEGACY_JUTSU_ID_PREFIX = "legacy-";
 
-/** Stage 3 (Bound) unlocks the signature. */
-export const LEGACY_SIGNATURE_MIN_STAGE = 3;
+export { LEGACY_SIGNATURE_MIN_STAGE, legacySignatureMasteryLevel } from "../../../shared/legacy-signature";
 
 export function isLegacyJutsuId(jutsuId: string): boolean {
     return typeof jutsuId === "string" && jutsuId.startsWith(LEGACY_JUTSU_ID_PREFIX);
-}
-
-/** Stage-scaled signature mastery: 3→30, 4→40, 5→50. */
-export function legacySignatureMasteryLevel(stage: number): number {
-    return Math.min(50, Math.max(0, Math.floor(stage)) * 10);
 }

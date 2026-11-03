@@ -4,10 +4,10 @@
  *
  * The slot's whole contract:
  *   • derived ONLY from the server-owned character.legacy — Stage 3 (Bound)
- *     puts the signature in the sealed loadout, below Stage 3 it doesn't exist;
+ *     puts the signature in the sealed loadout, below Stage 2 it doesn't exist;
  *   • the legacy catalog is SEPARATE from JUTSU_CATALOG, so a tampered save
  *     that stuffs a legacy jutsu id into equippedJutsuIds gets NOTHING;
- *   • mastery is stage-scaled (3→30, 4→40, 5→50) and overrides stray entries;
+ *   • mastery is stage-scaled (2→20, 3→30, 4→40, 5→50) and overrides stray entries;
  *   • adaptive "Any" damage signatures are stamped with the owner's specialty
  *     (server getOffense has no "Any" branch), typed signatures pass through;
  *   • ENABLE_LEGACY off ⇒ byte-identical sealed loadouts (rollback safety).
@@ -64,8 +64,17 @@ describe('legacy signature slot — sealed loadout injection', () => {
         assert.equal(mastery?.level, 50, 'Stage 5 → mastery 50');
     });
 
-    it('below Stage 3 (and with no Legacy) there is no signature', () => {
-        for (const legacy of [undefined, { legacyId: 'duel-king', stage: 1, acceptedAt: 1, titles: [] }, { legacyId: 'duel-king', stage: 2, acceptedAt: 1, titles: [] }]) {
+    it('Stage II awakens the signature; later stages improve its sealed mastery', () => {
+        for (const stage of [2, 3, 4, 5]) {
+            const h = hydrateCharacterFromSave(saveChar({ legacyId: 'duel-king', stage, acceptedAt: 1, titles: [] }), clientChar, {});
+            assert.ok(sealedJutsu(h).some(j => j.id === ADAPTIVE_ID));
+            const mastery = (h.jutsuMastery as Array<{ jutsuId: string; level: number }>).find(m => m.jutsuId === ADAPTIVE_ID);
+            assert.equal(mastery?.level, stage * 10);
+        }
+    });
+
+    it('unaccepted, Stage I and invalid stages cannot grant a signature', () => {
+        for (const legacy of [undefined, ...[1, 0, -1, 2.5, 6].map(stage => ({ legacyId: 'duel-king', stage, acceptedAt: 1, titles: [] }))]) {
             const h = hydrateCharacterFromSave(saveChar(legacy), clientChar, {});
             assert.ok(!sealedJutsu(h).some((j) => j.id === ADAPTIVE_ID), `stage ${String((legacy as { stage?: number } | undefined)?.stage)} must not grant the signature`);
         }

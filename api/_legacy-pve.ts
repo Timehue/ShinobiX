@@ -2,6 +2,26 @@ import type { LegacyStatDeltas } from './_legacy-track.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
 import { soloPveLegacyTotals } from './solo-pve/_legacy-totals.js';
 import type { TowerSession } from './towers/_tower-session.js';
+import { isPublicTowerRun, isSpireRun } from './towers/_tower-store.js';
+import { floorForSession } from './towers/_session-floor.js';
+
+/** Repeatable performance proofs from a verified public Tower win. */
+export function extractTowerLegacyProgress(session: TowerSession): LegacyStatDeltas {
+    if (session.status !== 'done' || session.winner !== 'squad' || (!isPublicTowerRun(session) && !isSpireRun(session))) return {};
+    const floor = floorForSession(session);
+    if (!floor) return {};
+    const clean = Boolean(session.towerTactics && session.towerTactics.squadKnockouts.length === 0
+        && session.actors.filter(a => a.side === 'squad' && !a.character.companion).every(a => a.hp > 0));
+    const mechanics = (session.towerTactics?.disruptedPylons.length ?? 0)
+        + (session.towerTactics?.chargeBaits ?? 0) + (session.towerTactics?.avoidedStrikes ?? 0);
+    return {
+        towerClears: 1,
+        ...(clean ? { towerCleanClears: 1 } : {}),
+        ...(session.round <= floor.roundBudget ? { towerParClears: 1 } : {}),
+        ...(mechanics > 0 ? { towerMechanicClears: 1 } : {}),
+        ...(isSpireRun(session) ? { spireClears: 1 } : {}),
+    };
+}
 
 const STYLES: Record<string, { kill: keyof LegacyStatDeltas; damage: keyof LegacyStatDeltas }> = {
     Ninjutsu: { kill: 'ninjutsuKills', damage: 'ninjutsuDamage' },
