@@ -16,6 +16,8 @@ import {
 import type { CSSProperties, Dispatch, ReactElement, SetStateAction } from "react";
 import "../styles/central-skin.css";
 import "../styles/central-hub-forge.css";
+import { CraftIngredientChecklist } from "../components/CraftIngredientChecklist";
+import { craftChecklistRows, type CraftChecklistRow } from "../lib/craft-ingredient-checklist";
 // Compact local location and material glyphs shared with the rest of the game.
 import {
     GiCrossedSwords, GiDragonHead, GiBookshelf,
@@ -640,10 +642,11 @@ export function CentralHub({
         return recipeIngredients(id).length > 0 && planCraftIngredients(recipeIngredients(id), ownedCount, quantity) !== null
             && character.ryo >= supplyFeeFor(id) * quantity;
     }
-    function gatheredIngredientsLine(id: string, quantity = 1): string {
-        return recipeIngredients(id).map(ingredient =>
-            `${ingredient.label}: ${ingredient.ids.reduce((total, material) => total + ownedCount(material), 0)}/${ingredient.count * quantity}`).join(" · ");
+    function gatheredIngredientRows(id: string, quantity = 1) {
+        return craftChecklistRows(recipeIngredients(id), ownedCount, quantity);
     }
+    const readyCountLine = (rows: readonly CraftChecklistRow[]) =>
+        rows.length ? ` · ${rows.filter(row => row.state === 'done').length} of ${rows.length} gathered` : '';
     function recipeProgress(id: string, quantity = 1): number {
         return craftIngredientProgress(recipeIngredients(id), ownedCount, quantity);
     }
@@ -1656,7 +1659,7 @@ export function CentralHub({
                                     const atCap = cap != null && owned + (recipe.per ?? 1) * craftQty > cap;
                                     const canAffordOne = gatheredIngredientsReady(recipe.itemId, craftQty);
                                     const img = itemImage(recipe.itemId);
-                                    const ingredientsLine = gatheredIngredientsLine(recipe.itemId, craftQty);
+                                    const ingredientRows = gatheredIngredientRows(recipe.itemId, craftQty);
                                     const supplyGood = VILLAGE_SUPPLY_GOODS[recipe.itemId];
                                     const supplyFee = supplyFeeFor(recipe.itemId);
                                     return (
@@ -1675,11 +1678,11 @@ export function CentralHub({
                                                     )}
                                                 </div>
                                             </div>
+                                            <CraftIngredientChecklist rows={ingredientRows} />
                                             <div className="cf-meter">
                                                 <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
-                                            <small className="cf-points">Materials {fillPct}% · Output ×{(recipe.per ?? 1) * craftQty}</small>
-                                            {ingredientsLine && <small className="cf-cost">{ingredientsLine}</small>}
+                                            <small className="cf-points">Materials {fillPct}%{readyCountLine(ingredientRows)} · Output ×{(recipe.per ?? 1) * craftQty}</small>
                                             {supplyFee > 0 && <small className="cf-cost">Costs {(supplyFee * craftQty).toLocaleString()} ryo (you have {character.ryo.toLocaleString()}).{supplyGood ? " Supplies you donate count toward your shared limit of 40 provisions a day." : ""}</small>}
                                             <button onClick={event => selectCraftMaterials('supply', recipe.itemId, recipe.name, craftQty, event.currentTarget)} disabled={craftBusy || !canAffordOne || atCap || character.level < (recipe.levelReq ?? 1)}>
                                                 {character.level < (recipe.levelReq ?? 1) ? `Level ${recipe.levelReq} required` : atCap ? "At carry limit" : `Craft ×${craftQty}`}
@@ -1727,7 +1730,7 @@ export function CentralHub({
                                     const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && gatheredIngredientsReady(item.id);
                                     const fillPct = recipeProgress(item.id);
                                     const img = itemImage(item.id);
-                                    const ingredientsLine = gatheredIngredientsLine(item.id);
+                                    const ingredientRows = gatheredIngredientRows(item.id);
                                     // Same reason labels as the supply cards, so a grey Forge says which gate is closed.
                                     const forgeLabel = character.level < effectiveItemLevelReq(item) ? `Level ${effectiveItemLevelReq(item)} required`
                                         : character.ryo < ryo ? "Not enough ryo"
@@ -1747,13 +1750,13 @@ export function CentralHub({
                                                     </div>
                                                     <small>{item.rarity.toUpperCase()} | Lv {effectiveItemLevelReq(item)} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
                                                     <small className="cf-cost">{ryo.toLocaleString()} ryo</small>
-                                                    {ingredientsLine && <small className="cf-cost">{ingredientsLine}</small>}
                                                 </div>
                                             </div>
+                                            <CraftIngredientChecklist rows={ingredientRows} />
                                             <div className="cf-meter">
                                                 <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
-                                            <small className="cf-points">Materials {fillPct}%</small>
+                                            <small className="cf-points">Materials {fillPct}%{readyCountLine(ingredientRows)}</small>
                                             <button onClick={event => selectCraftMaterials('weapon', item.id, item.name, 1, event.currentTarget)} disabled={!ready || craftBusy}>
                                                 {forgeLabel}
                                             </button>
@@ -1772,7 +1775,7 @@ export function CentralHub({
                                         const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && gatheredIngredientsReady(item.id);
                                         const fillPct = recipeProgress(item.id);
                                         const img = itemImage(item.id);
-                                        const ingredientsLine = gatheredIngredientsLine(item.id);
+                                        const ingredientRows = gatheredIngredientRows(item.id);
                                         const forgeLabel = character.level < effectiveItemLevelReq(item) ? `Level ${effectiveItemLevelReq(item)} required`
                                             : character.ryo < ryo ? "Not enough ryo"
                                                 : !gatheredIngredientsReady(item.id) ? "Missing materials" : "Forge";
@@ -1788,13 +1791,13 @@ export function CentralHub({
                                                         <strong>{item.name}</strong>
                                                         <small>{item.rarity.toUpperCase()} | Lv {effectiveItemLevelReq(item)} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
                                                         <small className="cf-cost">{ryo.toLocaleString()} ryo</small>
-                                                    {ingredientsLine && <small className="cf-cost">{ingredientsLine}</small>}
                                                     </div>
                                                 </div>
+                                                <CraftIngredientChecklist rows={ingredientRows} />
                                                 <div className="cf-meter">
                                                     <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                                 </div>
-                                                <small className="cf-points">Materials {fillPct}%</small>
+                                                <small className="cf-points">Materials {fillPct}%{readyCountLine(ingredientRows)}</small>
                                                 <button onClick={event => selectCraftMaterials('armor', item.id, item.name, 1, event.currentTarget)} disabled={!ready || craftBusy}>
                                                     {forgeLabel}
                                                 </button>
