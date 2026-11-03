@@ -14,12 +14,13 @@ import { runAiUntilHuman, startRound } from '../towers/_engine.js';
 import { CLAN_BOSS_FLOORS, type TowerFloor } from '../towers/_floor-catalog.js';
 import { requireEnemyTemplate, type EnemyTemplate } from '../towers/_enemy-templates.js';
 import { makeRng } from '../towers/_sim.js';
-import { setTowerInvite, writeSession } from '../towers/_tower-store.js';
+import { readSession, setTowerInvite, writeSession } from '../towers/_tower-store.js';
 import { stampTurnClock } from '../towers/_tower-mp.js';
 import { claimTowerBattleLeases, releaseTowerBattleLeases } from '../towers/_battle-lease.js';
 import { findTowerBattleStartConflict } from '../_tower-battle-guard.js';
 import { worldBossBattleVisual, worldBossGuardVisual, worldBossCrystalEffects, worldBossDefinition, type WorldBossId } from '../../shared/world-boss-event.js';
 import { WORLD_BOSS_DEFENSE_HP_PER_PLAYER, type WorldBossEventRecord, type WorldBossMatchRecord } from './_event.js';
+import { isPublishedWorldBossMatch } from './_publication.js';
 
 const WORLD_BOSS_FLOOR_ID = 9_800;
 
@@ -225,7 +226,12 @@ export async function createWorldBossEncounter(input: {
         for (const slug of slugs) await setTowerInvite(slug, proposedRunId).catch(() => undefined);
         return { session, leaseMembers: slugs };
     } catch (error) {
-        await releaseTowerBattleLeases(proposedRunId, slugs).catch(() => undefined);
+        // A lost publication acknowledgement is not proof that no run exists.
+        // Keep its leases while the queue repairs the match/pointer receipts.
+        const published = await readSession(proposedRunId);
+        if (!isPublishedWorldBossMatch(published, input.match)) {
+            await releaseTowerBattleLeases(proposedRunId, slugs).catch(() => undefined);
+        }
         throw error;
     }
 }
