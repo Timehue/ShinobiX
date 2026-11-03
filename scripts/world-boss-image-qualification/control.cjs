@@ -12,6 +12,7 @@ const tower=require(resolve(app,'dist/api/towers/_tower-store.js'));
 const events=require(resolve(app,'dist/api/world-boss-event/_event.js'));
 const {withKvLock}=require(resolve(app,'dist/api/_lock.js'));
 const {issuePlayerToken}=require(resolve(app,'dist/api/_auth.js'));
+const {sagePityKey}=require(resolve(app,'dist/api/_legacy-sage-roll.js'));
 async function main(input){
  const put=(k,v)=>db.query('INSERT INTO kv_store(key,value) VALUES($1,$2::jsonb) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value',[k,JSON.stringify(v)]);
  if(input.command==='seed'){
@@ -20,6 +21,8 @@ async function main(input){
   await put('world-boss-event:'+eventId,{version:1,eventId,bossId:'hollow-maze-minotaur',bossName:'Murogane',status:'roaming',startedAt:now-1000,roamEndsAt:now+48*3600000,endsAt:now+72*3600000,endedAt:null,spawnSector:42,targetVillage:'Moonshadow Village',hpMax:600000,hp:600000,participants:{},settledMatchIds:[],updatedAt:now});
   await put('world-boss-event:active',eventId);await put(`world-boss-event:${eventId}:queue`,{tickets:[],activeMatchIds:[],updatedAt:now});
   for(const name of names)await put('save:'+name,{_saveVersion:1,currentSector:42,character:{name,level:100,hp:12000,maxHp:12000,chakra:1000,maxChakra:1000,stamina:1000,maxStamina:1000,village:'Moonshadow Village',clan:'Fixture',specialty:'Taijutsu',inventory:[],ryo:0,unspentStats:500,spentStats:{},examsPassed:[],stats:{strength:1000,speed:1000,taijutsuOffense:2500,taijutsuDefense:2500}}});
+  // A normal declined-offer cooldown keeps unrelated Sage randomness outside settlement proof.
+  for(const name of names)await put(sagePityKey(name),{declinedUntil:now+86400000});
   return names.map(name=>issuePlayerToken(name));
  }
  if(input.command==='get')return (await db.query('SELECT value,expires_at FROM kv_store WHERE key=$1',[input.key])).rows[0]??null;
@@ -39,9 +42,12 @@ async function main(input){
  if(input.command==='done')return withKvLock('tower:'+input.runId,async()=>{const s=await tower.readSession(input.runId);s.status='done';s.winner='enemy';await tower.writeSession(s);return true;},{failClosed:true});
  if(input.command==='fault'){
   if(!/^[a-z0-9:_-]+$/i.test(input.matchKey))throw Error('Invalid fixture key');
+  const checkpoint=input.checkpoint??'bank-receipt';
+  if(!['bank-receipt','legacy-publication'].includes(checkpoint))throw Error('Unknown fixture checkpoint');
+  const predicate=checkpoint==='legacy-publication'?"NEW.value->>'status'='settled'":"NEW.value->>'status'='active' AND COALESCE((NEW.value->>'teamDamage')::numeric,0)>0";
   await db.query('CREATE TABLE public.wb_qualification_fault_target(key text PRIMARY KEY)');
   await db.query('INSERT INTO public.wb_qualification_fault_target(key) VALUES($1)',[input.matchKey]);
-  await db.query("CREATE OR REPLACE FUNCTION public.wb_qualification_fault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.key=(SELECT key FROM public.wb_qualification_fault_target LIMIT 1) AND NEW.value->>'status'='active' AND COALESCE((NEW.value->>'teamDamage')::numeric,0)>0 THEN RAISE EXCEPTION 'Synthetic receipt checkpoint interruption'; END IF; RETURN NEW; END $$");
+  await db.query("CREATE OR REPLACE FUNCTION public.wb_qualification_fault() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.key=(SELECT key FROM public.wb_qualification_fault_target LIMIT 1) AND ("+predicate+") THEN RAISE EXCEPTION 'Synthetic receipt checkpoint interruption'; END IF; RETURN NEW; END $$");
   await db.query('CREATE TRIGGER wb_qualification_fault BEFORE INSERT OR UPDATE ON public.kv_store FOR EACH ROW EXECUTE FUNCTION public.wb_qualification_fault()');return true;
  }
  if(input.command==='unfault'){await db.query('DROP TRIGGER IF EXISTS wb_qualification_fault ON public.kv_store');await db.query('DROP FUNCTION IF EXISTS public.wb_qualification_fault()');await db.query('DROP TABLE IF EXISTS public.wb_qualification_fault_target');return true;}

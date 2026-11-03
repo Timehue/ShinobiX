@@ -1,7 +1,7 @@
 {
-  "candidate": "e80b87ff7d0ae07b9d0b3841f558d2100760016b",
-  "recovery": "9851d8b25fce230ef48968f0678fe16d0a6977f4",
+  "candidate": "5164e9a0cc3e8c877e0750b335f7c1b1a1df332d",
+  "recovery": "2dd07b8c1057fea73e9d220e6161ee1430c17bca",
   "node": "24.21.0",
   "platform": "linux/amd64",
-  "recoveryMeaning": "Reviewed repairs retained, before the test-only CodeQL follow-up; not the incompatible old implementation"
+  "recoveryMeaning": "Current main and all reviewed runtime repairs including interrupted projection cleanup; only the wildlife browser fixture differs, not application behavior"
 }

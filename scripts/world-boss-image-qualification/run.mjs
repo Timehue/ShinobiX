@@ -14,20 +14,22 @@ const artifacts=resolve(artifactArg),output=resolve(outputArg),root=import.meta.
 const nonce=randomBytes(6).toString('hex'),prefix='wbqual-'+nonce,network=prefix,pgName=prefix+'-pg',database='wbqual_'+nonce,password=randomBytes(24).toString('hex'),secret=randomBytes(32).toString('hex'),created=[];
 const result={startedAt:new Date().toISOString(),productionAccess:false,scope:'Retained synthetic-build images, not Railway source rebuild',recheck:{runId:Number(process.env.GITHUB_RUN_ID)||null,attempt:Number(process.env.GITHUB_RUN_ATTEMPT)||null,eventCommit:process.env.GITHUB_SHA??null,toolingHead:process.env.QUALIFICATION_TOOLING_HEAD??null},images:{},runtime:[],checks:[]};
 const wait=ms=>new Promise(done=>setTimeout(done,ms));let networkCreated=false;
+result.runtimeFlags={legacyEnabled:true};
 const control=(runtime,input)=>{const text=docker(['exec','--interactive',runtime.name,'node','/qualification/control.cjs'],{input:JSON.stringify(input)});const line=text.split(/\r?\n/).find(x=>x.startsWith('QUALIFICATION_RESULT '));assert.ok(line,'Missing fixture result');return JSON.parse(line.slice(21));};
-const env=['DATABASE_URL=postgresql://wb_qual:'+password+'@'+pgName+':5432/'+database,'PG_SSL=disable','SESSION_SECRET='+secret,'QUALIFICATION_DISPOSABLE=1','DISABLE_SCHEDULED_JOBS=1','DISABLE_SNAPSHOT_CRON=1','DISABLE_PRESENCE_STATE_JOBS=1','DISABLE_COMBAT_RECEIPTS=1','PORT=3000'];
+const env=['DATABASE_URL=postgresql://wb_qual:'+password+'@'+pgName+':5432/'+database,'PG_SSL=disable','SESSION_SECRET='+secret,'QUALIFICATION_DISPOSABLE=1','ENABLE_LEGACY=1','DISABLE_SCHEDULED_JOBS=1','DISABLE_SNAPSHOT_CRON=1','DISABLE_PRESENCE_STATE_JOBS=1','DISABLE_COMBAT_RECEIPTS=1','PORT=3000'];
 async function start(role){
  const image=result.images[role],name=prefix+'-'+role+'-'+created.length;
  created.push(name);docker(['run','--detach','--name',name,'--network',network,'--read-only','--tmpfs','/tmp:rw,nosuid,noexec,size=64m','--cap-drop','ALL','--security-opt','no-new-privileges','--mount','type=bind,src='+root+',dst=/qualification,readonly',...env.flatMap(x=>['--env',x]),image.imageId]);
  const inspect=JSON.parse(docker(['container','inspect',name]))[0];assert.equal(inspect.Image,image.imageId);assert.equal(inspect.Config.User,'node');assert.deepEqual(inspect.Config.Cmd,['node','dist/server.js']);assert.deepEqual(inspect.Config.Entrypoint,['docker-entrypoint.sh']);
  assert.deepEqual(Object.keys(inspect.NetworkSettings.Networks),[network]);
+ assert.ok(inspect.Config.Env.includes('ENABLE_LEGACY=1'),'Each qualified runtime must enable Legacy');
  assert.ok(inspect.Mounts.every(m=>(m.Type==='bind'&&m.Destination==='/qualification'&&!m.RW)||(m.Type==='tmpfs'&&m.Destination==='/tmp')),'No application filesystem overlay allowed');
  const base=internalContainerBase(inspect,network);
  let health;const deadline=Date.now()+60000;for(;;){try{const r=await fetch(base+'/health',{signal:AbortSignal.timeout(2000)});if(r.status===200){health=await r.json();break;}}catch{}assert.ok(Date.now()<deadline,'Image health timed out');await wait(250);}
  const node=docker(['exec',name,'node','--version']).trim();assert.equal(node,'v'+pins.node);assert.equal(health.commit,pins[role]);
  const pid1=JSON.parse(docker(['exec',name,'node','-e',"const fs=require('node:fs');console.log(JSON.stringify({command:fs.readFileSync('/proc/1/cmdline','utf8').split('\\0').filter(Boolean),executable:fs.readlinkSync('/proc/1/exe'),uid:process.getuid()}))"]));
  assert.deepEqual(pid1.command,['node','dist/server.js']);assert.equal(pid1.uid,1000);assert.equal(pid1.executable,'/usr/local/bin/node');
- const evidence={role,imageId:inspect.Image,node,pid1,defaultCommand:true,user:inspect.Config.User,readOnlyRoot:inspect.HostConfig.ReadonlyRootfs,healthCommit:health.commit,transport:'host-to-private-internal-bridge',publishedPorts:false};assert.equal(evidence.readOnlyRoot,true);result.runtime.push(evidence);return{name,base};
+ const evidence={role,imageId:inspect.Image,node,pid1,defaultCommand:true,user:inspect.Config.User,readOnlyRoot:inspect.HostConfig.ReadonlyRootfs,healthCommit:health.commit,transport:'host-to-private-internal-bridge',publishedPorts:false,legacyEnabled:true};assert.equal(evidence.readOnlyRoot,true);result.runtime.push(evidence);return{name,base};
 }
 async function stop(runtime){
  docker(['stop','--time','65',runtime.name]);assert.equal(JSON.parse(docker(['container','inspect',runtime.name]))[0].State.Running,false);
@@ -51,7 +53,7 @@ try{
  assert.ok(rejectedWrongPassword,'Disposable Postgres must reject an incorrect TCP password');result.postgres.passwordAuthenticationRequired=true;
  result.postgres.version=docker(['exec',pgName,'postgres','--version']).trim();assert.match(result.postgres.version,/PostgreSQL\) 16\./);
  docker(postgresCommand(pgName,database,password,['-f','/fixture-schema/schema.sql']));
- Object.assign(result,await qualify({start,stop,control}));
+ Object.assign(result,await qualify({start,stop,control,legacyEnabled:true}));
 }catch(error){result.failed=1;result.checks=error.qualificationChecks??[];result.error=String(error.stack??error);process.exitCode=1;}
 finally{
  const redact=text=>String(text).replaceAll(password,'[synthetic-password]').replaceAll(secret,'[synthetic-session-secret]');

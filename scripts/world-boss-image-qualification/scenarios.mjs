@@ -6,6 +6,10 @@ export async function qualify(adapter){
  const check=async(name,fn)=>{console.log('CHECK '+name);const detail=await fn();checks.push({name,passed:true,...detail});console.log('PASS '+name);};
  const ctl=input=>adapter.control(runtime,input);
  const get=key=>ctl({command:'get',key});
+ const legacyEnabled=adapter.legacyEnabled===true,legacyStats=f=>get('legacy:stats:'+f.names[0]);
+ const legacyOnce=async f=>{if(!legacyEnabled)return;const record=await legacyStats(f);assert.equal(record?.value?.worldBossOperations,1,'Each completed operation must be credited once');return record;};
+ const legacyReceipt=f=>'world-boss-operation:'+f.runId+':'+f.names[0];
+ const legacyAcknowledged=async f=>{const record=await legacyOnce(f);if(legacyEnabled)for(const field of ['activityReceipts','durableActivityReceipts'])assert.ok(!(record.value[field]??[]).includes(legacyReceipt(f)),'Published operation must retire its '+field+' proof');return record;};
  // Fixture control can block this driver's event loop past the server's idle timeout.
  // Use explicit per-request connections so that cold control startup cannot reuse a stale socket.
  const call=async(f,i,path,body)=>{const response=await (adapter.fetch??fetch)(runtime.base+path+(body?'':`${path.includes('?')?'&':'?'}playerName=${f.names[i]}`),{method:body?'POST':'GET',headers:{connection:'close','content-type':'application/json','x-player-name':f.names[i],'x-player-token':f.tokens[i]},...(body?{body:JSON.stringify({playerName:f.names[i],...body})}:{}),signal:AbortSignal.timeout(15000)});return{status:response.status,body:await response.json()};};
@@ -35,7 +39,7 @@ export async function qualify(adapter){
   return f;
  }
  try{
-  await start('candidate');let unknown,known,paid,active,activePaid;
+  await start('candidate');let unknown,known,paid,active,activePaid,knownPaidBeforePublication,knownLegacy,activeLegacy;
   await check('two clients join the same encounter; periodic damage retains known and unknown attribution',async()=>{unknown=await fixture(false);known=await fixture(true);active=await fixture(true,false);return{independentClients:2,knownDamage:5000,unattributedDamage:5000,initialJoinStatuses:[active.initialJoinStatuses,unknown.initialJoinStatuses,known.initialJoinStatuses],joinRetries:active.joinRetries+unknown.joinRetries+known.joinRetries,initialViewStatuses:[active.initialViewStatuses,unknown.initialViewStatuses,known.initialViewStatuses],viewRetries:active.viewRetries+unknown.viewRetries+known.viewRetries};});
   await stop();await start('recovery');
   await check('recovery accepts fresh active combat, naturally defeats the boss and settles once',async()=>{
@@ -66,25 +70,41 @@ export async function qualify(adapter){
     if(settled.status!==503)break;await new Promise(done=>setTimeout(done,250));
    }
    assert.equal(settled.status,200,JSON.stringify(settled));assert.equal(settled.body.bankedDamage,10000);assert.equal((await get('world-boss-event:'+active.eventId)).value.hp,590000);
-   activePaid=await get('save:'+active.names[0]);assert.equal(activePaid.value.character.ryo,2500);await ctl({command:'activate',eventId:known.eventId});
-   return{activeBeforeHandoff:true,expiryPreservedBeforeNewInput:true,handoffAgeMs,freshActions,naturalRaidBossDefeat:true,settlementStatuses,settlementRetries:settlementStatuses.length-1,contribution:10000,bankedDamage:10000,reward:2500};
+   activePaid=await get('save:'+active.names[0]);assert.equal(activePaid.value.character.ryo,2500);activeLegacy=await legacyAcknowledged(active);await ctl({command:'activate',eventId:known.eventId});
+   return{activeBeforeHandoff:true,expiryPreservedBeforeNewInput:true,handoffAgeMs,freshActions,naturalRaidBossDefeat:true,settlementStatuses,settlementRetries:settlementStatuses.length-1,contribution:10000,bankedDamage:10000,reward:2500,legacyOperationCreditOnce:legacyEnabled||undefined};
   });
   await check('compatible recovery resumes stored terminal encounters, exact expiry and action receipts',async()=>{
    for(const f of[unknown,known]){assert.equal((await call(f,1,'/api/towers/state?runId='+f.runId)).status,200);assert.deepEqual(await get('tower:'+f.runId),f.raw);const replay=await call(f,0,'/api/towers/action',f.action);assert.equal(replay.status,200);assert.equal(replay.body.replayed,true);assert.deepEqual(await get('tower:'+f.runId),f.raw);}return{retainedExpiry:true,replayedActions:2};
   });
   await check('database fault interrupts receipt publication after shared HP was banked',async()=>{
-   await ctl({command:'fault',matchKey:`world-boss-event:${unknown.eventId}:match:${unknown.matchId}`});const failed=await call(unknown,0,'/api/world-boss-event/settle',{runId:unknown.runId});assert.equal(failed.status,503,JSON.stringify(failed));assert.equal((await get('world-boss-event:'+unknown.eventId)).value.hp,595000);assert.equal((await get(`world-boss-event:${unknown.eventId}:match:${unknown.matchId}`)).value.status,'active');await ctl({command:'unfault'});return{status:503,bankedOnceBeforeRetry:5000};
+   const matchKey=`world-boss-event:${unknown.eventId}:match:${unknown.matchId}`;
+   await ctl({command:'fault',matchKey});const failed=await call(unknown,0,'/api/world-boss-event/settle',{runId:unknown.runId});assert.equal(failed.status,503,JSON.stringify(failed));assert.equal((await get('world-boss-event:'+unknown.eventId)).value.hp,595000);assert.equal((await get(matchKey)).value.status,'active');await ctl({command:'unfault'});
+   if(legacyEnabled)assert.equal((await legacyStats(unknown))?.value?.worldBossOperations??0,0,'Unattributed damage must not invent eligible player credit');
+   return{status:503,bankedOnceBeforeRetry:5000,legacyUnattributedOperations:legacyEnabled?0:undefined};
   });
   await stop();await start('candidate');
-  await check('candidate resumes interrupted recovery settlement without banking twice',async()=>{const settled=await call(unknown,0,'/api/world-boss-event/settle',{runId:unknown.runId});assert.equal(settled.status,200,JSON.stringify(settled));assert.equal(settled.body.bankedDamage,5000);assert.equal((await get('world-boss-event:'+unknown.eventId)).value.hp,595000);return{bankedOnce:5000};});
+  await check('candidate resumes interrupted recovery settlement without banking twice',async()=>{
+   const settled=await call(unknown,0,'/api/world-boss-event/settle',{runId:unknown.runId});assert.equal(settled.status,200,JSON.stringify(settled));assert.equal(settled.body.bankedDamage,5000);assert.equal((await get('world-boss-event:'+unknown.eventId)).value.hp,595000);
+   if(legacyEnabled){
+    assert.equal((await legacyStats(unknown))?.value?.worldBossOperations??0,0);
+    assert.equal((await legacyStats(known))?.value?.worldBossOperations??0,0,'Eligible operation must not be credited before settlement');
+    const matchKey=`world-boss-event:${known.eventId}:match:${known.matchId}`;await ctl({command:'fault',matchKey,checkpoint:'legacy-publication'});
+    const pending=await call(known,0,'/api/world-boss-event/settle',{runId:known.runId});assert.equal(pending.status,503,JSON.stringify(pending));const stats=await legacyOnce(known);
+    assert.ok((stats.value.durableActivityReceipts??[]).includes(legacyReceipt(known)),'Interrupted operation must retain its exact durable proof');
+    knownPaidBeforePublication=await get('save:'+known.names[0]);assert.equal(knownPaidBeforePublication.value.character.ryo,2500);
+    assert.equal((await get('world-boss-event:'+known.eventId)).value.hp,595000);assert.equal((await get(matchKey)).value.status,'active');await ctl({command:'unfault'});
+   }
+   return{bankedOnce:5000,legacyCreditBeforeInterruptedMatch:legacyEnabled?1:undefined,legacyPendingReceiptPresent:legacyEnabled||undefined};
+  });
   await stop();await start('recovery');
-  await check('recovery settles the known owner and exposes leaderboard credit',async()=>{const settled=await call(known,0,'/api/world-boss-event/settle',{runId:known.runId});assert.equal(settled.status,200,JSON.stringify(settled));paid=await get('save:'+known.names[0]);assert.equal(paid.value.character.ryo,2500);const view=await call(known,0,'/api/world-boss-event');assert.equal(view.status,200);assert.equal(view.body.standings.individual.find(p=>p.name===known.names[0]).damage,5000);return{reward:2500,leaderboardDamage:5000};});
+  await check('recovery settles the known owner and exposes leaderboard credit',async()=>{const settled=await call(known,0,'/api/world-boss-event/settle',{runId:known.runId});assert.equal(settled.status,200,JSON.stringify(settled));paid=await get('save:'+known.names[0]);assert.equal(paid.value.character.ryo,2500);knownLegacy=await legacyAcknowledged(known);if(legacyEnabled)assert.deepEqual(paid,knownPaidBeforePublication,'Recovery must preserve the interrupted operation paid save/version');const view=await call(known,0,'/api/world-boss-event');assert.equal(view.status,200);assert.equal(view.body.standings.individual.find(p=>p.name===known.names[0]).damage,5000);return{reward:2500,leaderboardDamage:5000,legacyCredit:legacyEnabled?1:undefined,legacyReceiptAcknowledged:legacyEnabled||undefined,interruptedPaidSaveUnchanged:legacyEnabled||undefined};});
   await stop();await start('candidate');
   await check('returning to candidate preserves save versions and settlement receipts on replay',async()=>{for(const f of[unknown,known]){assert.equal((await call(f,0,'/api/world-boss-event/settle',{runId:f.runId})).status,200);assert.equal((await get('world-boss-event:'+f.eventId)).value.hp,595000);}assert.deepEqual(await get('save:'+known.names[0]),paid);
    assert.equal((await call(active,0,'/api/world-boss-event/settle',{runId:active.runId})).status,200);assert.equal((await get('world-boss-event:'+active.eventId)).value.hp,590000);assert.deepEqual(await get('save:'+active.names[0]),activePaid);
    const beforeReplay=await get('tower:'+active.runId),beforeReplayEvent=await get('world-boss-event:'+active.eventId);const replay=await call(active,active.freshClient,'/api/towers/action',active.freshAction);assert.equal(replay.status,200);assert.equal(replay.body.replayed,true);
    assert.deepEqual(await get('tower:'+active.runId),beforeReplay);assert.deepEqual(await get('world-boss-event:'+active.eventId),beforeReplayEvent);assert.equal(beforeReplayEvent.value.hp,590000);assert.deepEqual(await get('save:'+active.names[0]),activePaid);
-   return{saveAndVersionUnchanged:true,noDuplicateReward:true,freshRecoveryActionReplayedOnCandidate:true};});
+   if(legacyEnabled){for(const[f,expected]of[[known,knownLegacy],[active,activeLegacy]]){await legacyAcknowledged(f);assert.deepEqual(await legacyStats(f),expected,'Settlement replay must not rewrite Legacy stats');}assert.equal((await legacyStats(unknown))?.value?.worldBossOperations??0,0);}
+   return{saveAndVersionUnchanged:true,noDuplicateReward:true,freshRecoveryActionReplayedOnCandidate:true,legacyStatsUnchanged:legacyEnabled||undefined};});
   return{checks,passed:checks.length,failed:0};
  }catch(error){error.qualificationChecks=checks;throw error;}finally{await stop();}
 }
