@@ -46,7 +46,10 @@ for dir in "${DROP[@]}"; do
   fi
 done
 
-TREE="$(git write-tree)"
+# The index came from the source commit and only had paths removed. Its retained
+# blobs already exist on origin, but a blob:none clone deliberately lacks them.
+# The default existence check would lazy-fetch those blobs before publishing.
+TREE="$(git write-tree --missing-ok)"
 
 # A tree without these cannot build, whatever else is true. Refuse to publish it.
 for required in Dockerfile railway.json package.json server.ts api shinobij.client/src; do
