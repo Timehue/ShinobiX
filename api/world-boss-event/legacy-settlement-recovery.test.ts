@@ -36,7 +36,7 @@ before(async () => {
     tower = await import('../towers/_tower-store.js');
     legacy = await import('../_legacy-track.js');
     auth = await import('../_auth.js');
-    settle = (await import('./settle.js')).default;
+    settle = (await import('./settle.js')).default as unknown as typeof settle;
 });
 
 after(async () => {
