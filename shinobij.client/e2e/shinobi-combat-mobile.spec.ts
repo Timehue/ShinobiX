@@ -124,6 +124,14 @@ async function box(page: Page, selector: string) {
     return value!;
 }
 
+async function reflowCombatFixture(page: Page, viewport: { width: number; height: number }) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(async (width) => {
+        document.documentElement.dataset.vp = width < 560 ? "xs" : width < 980 ? "sm" : width < 1180 ? "md" : width < 1400 ? "lg" : width < 2200 ? "xl" : "xxl";
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }, viewport.width);
+}
+
 test("jutsu cooldown stays prominent without covering Details on a short phone", async ({ page }) => {
     for (const viewport of [{ width: 1440, height: 900 }, { width: 360, height: 640 }]) {
         await mountCombatFixture(page, "pvp", viewport);
@@ -183,7 +191,92 @@ const compactDesktopViewports = [
     { width: 1180, height: 820 },
 ];
 
+const phoneHeightBoundaries = [
+    { width: 320, height: 568 }, { width: 360, height: 600 },
+    { width: 375, height: 667 }, { width: 390, height: 700 },
+    { width: 390, height: 701 }, { width: 412, height: 680 },
+    { width: 412, height: 740 }, { width: 412, height: 741 },
+    // The shell pays 14px of top/bottom padding before container queries:
+    // these straddle its actual 600px, 700px and 740px height boundaries.
+    { width: 360, height: 614 }, { width: 360, height: 615 },
+    { width: 390, height: 714 }, { width: 390, height: 715 },
+    { width: 412, height: 754 }, { width: 412, height: 755 },
+    { width: 430, height: 932 },
+];
+
+test("PvP portrait battlefield uses its stage without vertical dead space", async ({ page }, testInfo) => {
+    test.setTimeout(90_000);
+    const measurements = [];
+    for (const viewport of phoneHeightBoundaries) {
+        await mountCombatFixture(page, "pvp", viewport);
+        const stage = await box(page, ".combat-board-stage");
+        const board = await box(page, ".hex-battlefield");
+        const terrain = await box(page, ".twp-strip");
+        const tabs = await box(page, ".battle-tabbar");
+        measurements.push({ viewport, stage, board, terrain, tabs });
+    }
+    await testInfo.attach("portrait-board-geometry", { body: JSON.stringify(measurements, null, 2), contentType: "application/json" });
+    for (const { viewport, stage, board, terrain, tabs } of measurements) {
+        const label = `${viewport.width}x${viewport.height}`;
+        expect(stage.height - board.height, `${label} unused vertical stage`).toBeLessThanOrEqual(1);
+        expect(board.y - terrain.y - terrain.height, `${label} terrain gap`).toBeLessThanOrEqual(7);
+        expect(tabs.y - board.y - board.height, `${label} tab gap`).toBeLessThanOrEqual(7);
+    }
+});
+
 for (const mode of ["solo", "pvp"] as const) {
+    test(`${mode} phone jutsu rows stay separate and every cast and Details target can be reached`, async ({ page }, testInfo) => {
+        test.setTimeout(180_000);
+        await mountCombatFixture(page, mode, { width: 1440, height: 900 });
+        await page.evaluate(() => document.documentElement.classList.add("lite-fx"));
+        for (const viewport of phoneHeightBoundaries) {
+            // Preserve the DOM through desktop, rotation and height changes.
+            // Remounting hid WebKit's stale intrinsic rows after landscape.
+            await reflowCombatFixture(page, { width: 667, height: 375 });
+            await reflowCombatFixture(page, viewport);
+            const overlaps = await page.locator(".combat-jutsu-card-wrap").evaluateAll((cards) => {
+                const rects = cards.map((card) => card.getBoundingClientRect());
+                return rects.flatMap((a, index) => rects.slice(index + 1).flatMap((b, offset) =>
+                    Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5
+                    && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5
+                        ? [`${index + 1}/${index + offset + 2}`] : []));
+            });
+            await testInfo.attach(`${mode}-${viewport.width}x${viewport.height}-rows`, { body: JSON.stringify({ overlaps }), contentType: "application/json" });
+            expect(overlaps, `${mode} ${viewport.width}x${viewport.height} overlapping cards`).toEqual([]);
+            await page.mouse.move(0, 0);
+            const targets = await page.locator(".combat-action-tray").evaluate(async (tray) => {
+                const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+                const buttons = [...tray.querySelectorAll<HTMLButtonElement>(".combat-jutsu-button, .combat-jutsu-help")];
+                const misses: string[] = [];
+                for (const [index, button] of buttons.entries()) {
+                    const before = button.getBoundingClientRect();
+                    const port = tray.getBoundingClientRect();
+                    tray.scrollTop += before.y + before.height / 2 - (port.y + tray.clientTop + tray.clientHeight / 2);
+                    // Test the actual painted surface after scrolling. Native
+                    // automation stability waits can hang on WebKit hover reflow;
+                    // real selection/targeting is covered by the live matrix.
+                    await frame();
+                    const rect = button.getBoundingClientRect();
+                    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+                    const contained = rect.x >= port.x - 0.5 && rect.right <= port.right + 0.5
+                        && rect.y >= port.y - 0.5 && rect.bottom <= port.bottom + 0.5;
+                    const widthFloor = button.classList.contains("combat-jutsu-help") ? 24 : 44;
+                    if (!contained || !hit || !button.contains(hit) || button.disabled
+                        || rect.width < widthFloor - 0.0001 || rect.height < 44 - 0.0001) {
+                        misses.push(`${index + 1}:${button.className}:contained=${contained}:hit=${hit?.className}`);
+                    }
+                }
+                return { checked: buttons.length, misses };
+            });
+            expect(targets.checked).toBe(24);
+            expect(targets.misses, `${mode} ${viewport.width}x${viewport.height} unreachable targets`).toEqual([]);
+            if (viewport.height === 667 || viewport.height === 680) {
+                await page.locator(".combat-action-tray").evaluate((tray) => { tray.scrollTop = 0; });
+                await page.screenshot({ path: testInfo.outputPath(`${mode}-${viewport.width}x${viewport.height}.png`) });
+            }
+        }
+    });
+
     test(`${mode} phone combat restores the fighter/AP/fighter HUD without changing the desktop shell`, async ({ page }, testInfo) => {
         // WebKit can spend >36s waiting for finite fixture animations during the
         // full device matrix; the assertions retain their normal expect budget.
@@ -208,8 +301,10 @@ for (const mode of ["solo", "pvp"] as const) {
             await expect(avatar).toBeVisible();
             await expect(hp).toBeVisible();
             expect((await avatar.boundingBox())?.width).toBeGreaterThanOrEqual(28);
-            expect(command.height).toBeGreaterThanOrEqual(44);
-            expect(tab.height).toBeGreaterThanOrEqual(44);
+            // Firefox can project an integral 44px target as 43.99997px.
+            // Tolerate floating-point noise, not a smaller authored target.
+            expect(command.height).toBeGreaterThanOrEqual(44 - 0.0001);
+            expect(tab.height).toBeGreaterThanOrEqual(44 - 0.0001);
             expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
 
             // Basic commands and the loadout are one list on a phone: a single

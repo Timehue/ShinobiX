@@ -62,6 +62,14 @@ const VIEWPORT_FILTER = process.env.COMBAT_LAYOUT_VIEWPORT;
 const ACTIVE_VIEWPORTS = VIEWPORT_FILTER
     ? VIEWPORTS.filter(([width, height]) => `${width}x${height}` === VIEWPORT_FILTER)
     : VIEWPORTS;
+// PvP/Solo shell boundaries; Tower keeps its independent viewport matrix.
+// Shell padding leaves 14px less height for its container-query bands.
+const SHELL_HEIGHT_BOUNDARIES = [
+    [360, 600], [412, 680], [390, 700], [390, 701], [412, 740], [412, 741],
+    [360, 614], [360, 615], [390, 714], [390, 715], [412, 754], [412, 755],
+] as const;
+const ACTIVE_SHELL_VIEWPORTS = [...VIEWPORTS, ...SHELL_HEIGHT_BOUNDARIES]
+    .filter(([width, height]) => !VIEWPORT_FILTER || `${width}x${height}` === VIEWPORT_FILTER);
 
 // Browser zoom reduces the CSS viewport while the physical window stays fixed.
 // These are the exact CSS viewport equivalents of 1440x900 at
@@ -883,6 +891,9 @@ type LayoutMeasurement = {
      *  turn. Reported so a layout failure is never mistaken for a turn-order
      *  one, or the reverse. */
     firstJutsuEnabled: boolean;
+    jutsuCardOverlaps: string[];
+    jutsuGridRows: string;
+    jutsuGridAutoRows: string;
     actionScroll: { scrollTop: number; clientHeight: number; scrollHeight: number } | null;
     tileCenterBounds: Rect | null;
     minCommandTouchTarget: number | null;
@@ -1040,6 +1051,11 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             && firstJutsuRect.y + firstJutsuRect.height / 2 <= actionRect.bottom
             && firstJutsuHit && (firstJutsuHit === firstJutsu || firstJutsu.contains(firstJutsuHit)),
         );
+        const cardRects = [...(root?.querySelectorAll('.combat-jutsu-card-wrap') ?? [])].map(rect);
+        const jutsuCardOverlaps = cardRects.flatMap((a, index) => cardRects.slice(index + 1).flatMap((b, offset) =>
+            a && b && Math.min(a.right, b.right) - Math.max(a.x, b.x) > 0.5
+            && Math.min(a.bottom, b.bottom) - Math.max(a.y, b.y) > 0.5
+                ? [`${index + 1}/${index + offset + 2}`] : []));
         const style = layoutNode ? getComputedStyle(layoutNode) : null;
         const mainStyle = mainNode ? getComputedStyle(mainNode) : null;
         const trackStyle = mainStyle?.display === 'contents' ? style : mainStyle;
@@ -1112,6 +1128,9 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             firstJutsu: firstJutsuRect,
             firstJutsuLabel: firstJutsu?.getAttribute('aria-label') ?? firstJutsu?.textContent?.trim().slice(0, 80) ?? null,
             firstJutsuEnabled,
+            jutsuCardOverlaps,
+            jutsuGridRows: root?.querySelector('.combat-equipped-jutsu-grid') ? getComputedStyle(root.querySelector('.combat-equipped-jutsu-grid')!).gridTemplateRows : '',
+            jutsuGridAutoRows: root?.querySelector('.combat-equipped-jutsu-grid') ? getComputedStyle(root.querySelector('.combat-equipped-jutsu-grid')!).gridAutoRows : '',
             actionScroll: actionNode ? {
                 scrollTop: (actionNode as HTMLElement).scrollTop,
                 clientHeight: (actionNode as HTMLElement).clientHeight,
@@ -1905,6 +1924,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
     const directory = resolve(SCREENSHOT_ROOT, mode, browser);
     await mkdir(directory, { recursive: true });
     const measurements: LayoutMeasurement[] = [];
+    const appearanceMeasurements: Array<{ look: string; measurement: LayoutMeasurement }> = [];
     const zoomMeasurements: Array<{ zoomPercent: number; physicalViewport: { width: number; height: number }; measurement: LayoutMeasurement }> = [];
     const measurementDiagnostics: MeasurementDiagnostic[] = [];
     const captureMeasurement = (label: string) => {
@@ -1931,6 +1951,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         expect(current.minCommandTouchTarget ?? 0, `${label} touch target`).toBeGreaterThanOrEqual(44);
         expect(current.commandTextOverflows, `${label} command text clipped by its button: ${current.commandTextOverflows.join(', ')}`).toEqual([]);
         expect(current.actions?.height ?? 0, `${label} selected action panel height`).toBeGreaterThanOrEqual(44);
+        expect(current.jutsuCardOverlaps, `${label} overlapping jutsu rows; rows=${current.jutsuGridRows}; auto=${current.jutsuGridAutoRows}`).toEqual([]);
         expect(
             current.firstJutsuCenterVisibleAndHit,
             `${label} first jutsu center inaccessible; hit=${current.firstJutsuCenterHit}; action=${current.firstJutsuLabel}; enabled=${current.firstJutsuEnabled}; rect=${JSON.stringify(current.firstJutsu)}; scroll=${JSON.stringify(current.actionScroll)}`,
@@ -1995,6 +2016,9 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             // board and actions. Preserve its authored stage ratio and a useful
             // physical floor while allowing that responsive split composition.
             expect(current.board?.width ?? 0, `${label} board width`).toBeGreaterThanOrEqual(Math.min(232, current.viewport.width - 12));
+            if (current.viewport.width < 800 && current.viewport.height > 500 && current.boardStage && current.board) {
+                expect(current.boardStage.height - current.board.height, `${label} unused vertical board stage`).toBeLessThanOrEqual(1);
+            }
             if (wideDesktopCommandCenter) {
                 expect(current.boardStage, `${label} panoramic board stage`).not.toBeNull();
                 expect(Math.abs((current.board?.width ?? 0) - (current.boardStage?.width ?? 0)), `${label} board fills stage width`).toBeLessThanOrEqual(3);
@@ -2006,7 +2030,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         }
     };
     try {
-    for (const [width, height] of ACTIVE_VIEWPORTS) {
+    for (const [width, height] of ACTIVE_SHELL_VIEWPORTS) {
         await page.setViewportSize({ width, height });
         await page.waitForTimeout(180);
         const root = page.locator(rootSelector);
@@ -2071,6 +2095,24 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             }).toPass({ timeout: layoutRetryBudget(measurementMs) });
         }
         measurements.push(current);
+        if (STRICT && width < 980) {
+            // Exercise the actual preference controls after each reflow, including
+            // portrait-to-landscape changes. A surface choice must preserve board
+            // dimensions and all 120 tile hit targets in both presentations.
+            const appearance = root.getByRole('group', { name: 'Battle grid appearance' });
+            for (const look of ['new', 'old'] as const) {
+                await appearance.getByRole('button', { name: look === 'new' ? 'New' : 'Old', exact: true }).click();
+                await expect(root.locator('.hex-battlefield')).toHaveAttribute('data-grid-look', look);
+                await settleLayout(page);
+                const themed = await measure(page, rootSelector);
+                assertLayout(themed, `${mode} ${width}x${height} ${look}`);
+                for (const dimension of ['width', 'height'] as const) {
+                    expect(Math.abs((themed.board?.[dimension] ?? 0) - (current.board?.[dimension] ?? 0)), `${look} board ${dimension}`).toBeLessThanOrEqual(1);
+                    expect(Math.abs((themed.gridLayer?.[dimension] ?? 0) - (current.gridLayer?.[dimension] ?? 0)), `${look} grid ${dimension}`).toBeLessThanOrEqual(1);
+                }
+                appearanceMeasurements.push({ look, measurement: themed });
+            }
+        }
         if (browser === 'chromium') {
             await writeScreenshotWithRetry(page, resolve(directory, `${width}x${height}.png`));
         }
@@ -2100,6 +2142,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         // strict callback times out before it can return an assertion failure.
         await writeArtifactWithRetry(page, resolve(directory, 'measurement-diagnostics.json'), `${JSON.stringify(measurementDiagnostics, null, 2)}\n`);
         await writeArtifactWithRetry(page, resolve(directory, 'measurements.json'), `${JSON.stringify(measurements, null, 2)}\n`);
+        await writeArtifactWithRetry(page, resolve(directory, 'appearance-measurements.json'), `${JSON.stringify(appearanceMeasurements, null, 2)}\n`);
         await writeArtifactWithRetry(page, resolve(directory, 'zoom-measurements.json'), `${JSON.stringify(zoomMeasurements, null, 2)}\n`);
     }
 }
