@@ -46,6 +46,8 @@ export type PvpGroundEffectState = {
     id: string;
     owner: "p1" | "p2";
     name: string;
+    /** "occupant" = a 40-AP buff tile for whoever stands on it; absent = enemy field. */
+    kind?: "occupant";
     tiles: number[];
     rounds: number;
     tags: JutsuTag[];

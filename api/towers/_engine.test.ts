@@ -2018,3 +2018,82 @@ for (const primary of ['en-1', 'en-2']) it(`shieldman protection follows each AO
     assert.equal(guarded[0],baseline[0], 'a distant shieldman must not protect the unguarded victim');
     assert.ok(guarded[1]<baseline[1], 'the adjacent victim retains protection regardless of primary selection');
 });
+
+describe('Tower 40 AP buff tiles', () => {
+    const floor = makeFloor('defeat-all');
+    const tileJutsu = (tags: Array<{ name: string; percent?: number }>, ap = 40) => ({
+        id: 'golden', name: 'Golden Ground', type: 'Any', method: 'INSTANT_EFFECT', ap, range: 4, target: 'EMPTY_GROUND', tags,
+    });
+
+    it('lays one gold hex that buffs any actor standing on it, ally or enemy', () => {
+        const sq = makeActor('sq-1', 'squad', 27, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [tileJutsu([{ name: 'Decrease Damage Taken', percent: 30 }])] } });
+        const en = makeActor('en-1', 'enemy', 40, { character: WEAK });
+        const s = makeSession([sq, en]);
+        startRound(s);
+        const result = applyAction(s, floor, { actorId: sq.id, type: 'jutsu', jutsuId: 'golden', tile: 27 }, makeRng(1));
+        assert.ok(result.applied);
+        assert.equal(s.groundEffects.length, 1);
+        assert.equal(s.groundEffects[0]!.kind, 'occupant');
+        assert.deepEqual(s.groundEffects[0]!.tiles, [27]);
+        assert.ok(getActor(s, sq.id)!.statuses.some(status => status.name === 'Decrease Damage Taken'), 'the caster on the tile is buffed at once');
+        assert.equal(getActor(s, en.id)!.statuses.some(status => status.name === 'Decrease Damage Taken'), false);
+    });
+
+    it('with Move, dashes onto the tile and is buffed on landing', () => {
+        const sq = makeActor('sq-1', 'squad', 27, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [tileJutsu([{ name: 'Move', percent: 0 }, { name: 'Absorb', percent: 30 }])] } });
+        const en = makeActor('en-1', 'enemy', 40, { character: WEAK });
+        const s = makeSession([sq, en]);
+        startRound(s);
+        const result = applyAction(s, floor, { actorId: sq.id, type: 'jutsu', jutsuId: 'golden', tile: 29 }, makeRng(1));
+        assert.ok(result.applied);
+        assert.equal(getActor(s, sq.id)!.pos, 29);
+        assert.deepEqual(s.groundEffects[0]!.tiles, [29]);
+        assert.ok(getActor(s, sq.id)!.statuses.some(status => status.name === 'Absorb'));
+    });
+
+    it('refuses a buff tile on a 60 AP jutsu', () => {
+        const sq = makeActor('sq-1', 'squad', 27, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [tileJutsu([{ name: 'Absorb', percent: 30 }], 60)] } });
+        const s = makeSession([sq, makeActor('en-1', 'enemy', 40, { character: WEAK })]);
+        startRound(s);
+        const result = applyAction(s, floor, { actorId: sq.id, type: 'jutsu', jutsuId: 'golden', tile: 28 }, makeRng(1));
+        assert.equal(result.applied, false);
+        assert.equal(result.reason, 'self-ground-effect-40-ap-only');
+    });
+});
+
+describe('Tower buff tile under an ally', () => {
+    it('may be laid under a squad ally, who gains the buff at once', () => {
+        const floor = makeFloor('defeat-all');
+        const caster = makeActor('sq-1', 'squad', 27, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [{
+            id: 'golden', name: 'Golden Ground', type: 'Any', method: 'INSTANT_EFFECT', ap: 40, range: 4, target: 'EMPTY_GROUND',
+            tags: [{ name: 'Reflect', percent: 30 }],
+        }] } });
+        const ally = makeActor('sq-2', 'squad', 29, { character: WEAK });
+        const s = makeSession([caster, ally, makeActor('en-1', 'enemy', 40, { character: WEAK })]);
+        startRound(s);
+        const result = applyAction(s, floor, { actorId: caster.id, type: 'jutsu', jutsuId: 'golden', tile: 29 }, makeRng(1));
+        assert.ok(result.applied);
+        assert.ok(getActor(s, ally.id)!.statuses.some(status => status.name === 'Reflect'));
+        assert.equal(getActor(s, caster.id)!.statuses.some(status => status.name === 'Reflect'), false);
+    });
+});
+
+describe('Tower AI with a buff tile (AI-driven squad members)', () => {
+    it('never aims a buff tile at its foe; any buff tile it lays sits under itself', () => {
+        const floor = makeFloor('defeat-all');
+        const squadAi = makeActor('sq-1', 'squad', 27, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', level: 100, stats: {}, jutsu: [{
+            id: 'golden', name: 'Golden Ground', type: 'Any', method: 'INSTANT_EFFECT', ap: 40, range: 4, cooldown: 7, target: 'EMPTY_GROUND',
+            tags: [{ name: 'Decrease Damage Taken', percent: 30 }],
+        }] } });
+        const foe = makeActor('en-1', 'enemy', 28, { character: WEAK });
+        const s = makeSession([squadAi, foe]);
+        startRound(s);
+        const action = pickAiAction(s, getActor(s, 'sq-1')!, makeRng(1));
+        if (action.type === 'jutsu' && action.jutsuId === 'golden') {
+            assert.equal(action.tile, 27, 'a buff tile goes under the AI, not on its foe');
+        }
+        runAiUntilHuman(s, floor, makeRng(1));
+        assert.equal(getActor(s, 'en-1')!.statuses.some(status => status.name === 'Decrease Damage Taken'), false,
+            'the foe never gains the AI\'s buff tile');
+    });
+});

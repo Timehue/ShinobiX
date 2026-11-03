@@ -2039,8 +2039,10 @@ export function BattleTowerFight({
                                 <TowerTerrainZone tiles={session.map.objectiveTiles} width={w} height={h} kind="objective" />
                                 {(session.groundEffects ?? []).map((zone, index) => (
                                     <TowerTerrainZone key={"ground-art-" + index} tiles={zone.tiles} width={w} height={h}
-                                        kind={zone.tags?.some(tag => tag.name === "Poison") ? "poison" : zone.tags?.some(tag => tag.name === "Recoil") ? "recoil" : "curse"}
-                                        label={zone.name + " — " + zone.rounds + " rounds left"} />
+                                        kind={zone.kind === "occupant" ? "sanctuary" : zone.tags?.some(tag => tag.name === "Poison") ? "poison" : zone.tags?.some(tag => tag.name === "Recoil") ? "recoil" : "curse"}
+                                        label={zone.kind === "occupant"
+                                            ? "Buff tile — " + zone.rounds + " rounds left. Anyone standing here gains it"
+                                            : zone.name + " — " + zone.rounds + " rounds left"} />
                                 ))}
                                 <TowerTerrainZone tiles={crimsonTiles} width={w} height={h} kind="fire" urgent label="Hazard — burns at round end" />
                                 <TowerTerrainZone tiles={strikeTileList} width={w} height={h} kind="strike" urgent

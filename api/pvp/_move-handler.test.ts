@@ -2405,3 +2405,64 @@ for (const replay of goldenReplays) {
         replay.assertFinal(storedSession(replay.battleId), responses);
     });
 }
+
+const buffTileJutsu = {
+    id: 'golden-ground', name: 'Golden Ground', type: 'Any', element: 'Wind',
+    target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT', range: 4, ap: 40, cooldown: 2,
+    effectPower: 0, chakraCost: 0, staminaCost: 0,
+    tags: [{ name: 'Decrease Damage Taken', percent: 30 }],
+};
+
+test('a 40 AP buff tile under the caster buffs them at once and holds through the handoff', async () => {
+    seed(session('buff-tile-self', {
+        roundOpener: 'p1',
+        p1: withExtraJutsu(fighter('alice', 0), buffTileJutsu),
+        p2: fighter('bob', 30),
+    }));
+    const cast = await postMove('alice', {
+        battleId: 'buff-tile-self', role: 'p1', action: 'jutsu', jutsuId: 'golden-ground', tile: 0, moveToken: 'buff-tile-self-cast',
+    });
+    assert.equal(cast.statusCode, 200);
+    const afterCast = storedSession('buff-tile-self');
+    assert.equal(afterCast.groundEffects?.[0]?.kind, 'occupant');
+    assert.deepEqual(afterCast.groundEffects?.[0]?.tiles, [0]);
+    assert.ok(afterCast.p1.statuses.some((status) => status.name === 'Decrease Damage Taken'), 'buffed on cast');
+    assert.equal(afterCast.p2.statuses.some((status) => status.name === 'Decrease Damage Taken'), false);
+    assert.ok(afterCast.log.some((line) => line === 'Golden Ground: alice takes 30% less damage while standing on this tile.'));
+
+    const handoff = await postMove('alice', { battleId: 'buff-tile-self', role: 'p1', action: 'wait', moveToken: 'buff-tile-self-wait' });
+    assert.equal(handoff.statusCode, 200);
+    const afterHandoff = storedSession('buff-tile-self');
+    assert.equal(afterHandoff.activePlayer, 'p2');
+    assert.ok(afterHandoff.p1.statuses.some((status) => status.name === 'Decrease Damage Taken'), 'still on the tile during the enemy turn');
+});
+
+test('a 40 AP buff tile with Move dashes the caster onto the hex', async () => {
+    seed(session('buff-tile-dash', {
+        roundOpener: 'p1',
+        p1: withExtraJutsu(fighter('alice', 0), { ...buffTileJutsu, id: 'golden-dash', tags: [{ name: 'Move', percent: 0 }, { name: 'Reflect', percent: 30 }] }),
+        p2: fighter('bob', 30),
+    }));
+    const dash = await postMove('alice', {
+        battleId: 'buff-tile-dash', role: 'p1', action: 'jutsu', jutsuId: 'golden-dash', tile: 2, moveToken: 'buff-tile-dash-cast',
+    });
+    assert.equal(dash.statusCode, 200);
+    const after = storedSession('buff-tile-dash');
+    assert.equal(after.p1.pos, 2);
+    assert.deepEqual(after.groundEffects?.[0]?.tiles, [2]);
+    assert.ok(after.p1.statuses.some((status) => status.name === 'Reflect'));
+});
+
+test('a buff tile on a 60 AP jutsu is refused', async () => {
+    seed(session('buff-tile-heavy', {
+        roundOpener: 'p1',
+        p1: withExtraJutsu(fighter('alice', 0), { ...buffTileJutsu, id: 'heavy-ground', ap: 60, effectPower: 40 }),
+        p2: fighter('bob', 30),
+    }));
+    await postMove('alice', {
+        battleId: 'buff-tile-heavy', role: 'p1', action: 'jutsu', jutsuId: 'heavy-ground', tile: 1, moveToken: 'buff-tile-heavy-cast',
+    });
+    const after = storedSession('buff-tile-heavy');
+    assert.equal(after.groundEffects?.length ?? 0, 0);
+    assert.ok(after.log.some((line) => line.includes('can only make a buff tile as a 40 AP jutsu')));
+});

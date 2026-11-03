@@ -73,3 +73,13 @@ test("overlapping and expired ground effects retain accurate tile labels", () =>
     assert.deepEqual(visible.get(2), { label: "Ash, 1 round remaining", tone: "recoil" });
     assert.deepEqual(visible.get(3), { label: "Ash, 1 round remaining; Haze, 2 rounds remaining", tone: "debuff" });
 });
+
+test("a buff tile shows gold on its one hex, even where an enemy field overlaps", () => {
+    const tiles = groundZoneTilesForDisplay([
+        { id: "field", owner: "p2", name: "Venom Field", tiles: [5, 6], rounds: 2, tags: [{ name: "Poison", percent: 20 }] },
+        { id: "tile", owner: "p1", name: "Golden Ground", kind: "occupant", tiles: [5], rounds: 2, tags: [{ name: "Absorb", percent: 30 }] },
+    ], tileCount);
+    assert.equal(tiles.get(5)?.tone, "sanctuary");
+    assert.equal(tiles.get(6)?.tone, "poison");
+    assert.match(tiles.get(5)?.label ?? "", /Buff tile: Absorb 30%, 2 rounds remaining\. Anyone standing here gains it/);
+});

@@ -828,8 +828,21 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
     --mission-zone-glow: rgba(88, 28, 135, 0.75);
 }
 
+/* Buff tile (40-AP self ground effect): gold, for whoever stands on it. */
+.arena-fullscreen.mission-arena-fight .mission-ground-zone-sanctuary {
+    --mission-zone-fill: var(--buff-tile-fill);
+    --mission-zone-edge: var(--buff-tile-edge);
+    --mission-zone-glow: var(--buff-tile-glow);
+}
+
 .arena-fullscreen.mission-arena-fight .hex-tile.mission-ground-preview-tile {
     background: rgba(34, 211, 238, 0.38) !important;
     outline: 3px solid rgba(34, 211, 238, 0.98) !important;
     box-shadow: inset 0 0 24px rgba(34, 211, 238, 0.56), 0 0 18px rgba(34, 211, 238, 0.78) !important;
+}
+
+.arena-fullscreen.mission-arena-fight .hex-tile.mission-ground-preview-tile.mission-ground-preview-sanctuary {
+    background: var(--buff-tile-fill) !important;
+    outline: 3px solid var(--buff-tile-edge) !important;
+    box-shadow: inset 0 0 24px var(--buff-tile-glow), 0 0 18px var(--buff-tile-edge) !important;
 }

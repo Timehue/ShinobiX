@@ -24,7 +24,7 @@ import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-prog
  * work; all rules here are Tower-session policy and leave shared PvP behavior untouched.
  */
 import { filledDiskTiles } from '../combat-core/aoe.js';
-import { groundFieldOpeningHit } from '../combat-core/resolve-jutsu-action.js';
+import { groundFieldOpeningHit, isOccupantGroundJutsu } from '../combat-core/resolve-jutsu-action.js';
 import type { CombatTag } from '../combat-core/types.js';
 import { hexDistance } from '../combat-core/grid.js';
 import { aiGapCloserLandingTile, aiApproachLandingTile, aiRangedAttackReach, isDamagingAiGapCloser, isDistantAiGapCloser, prefersAiGapClosingMovement, aiJustFlickered, isAiFlicker } from '../combat-core/ai-mobility.js';
@@ -32,7 +32,7 @@ import { pveAiFillerItems } from '../combat-core/ai-items.js';
 import { isZeroDamageFortyApJutsu } from '../combat-core/formulas.js';
 import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement, poisonSpendDamage } from '../pvp/move.js';
-import { catalogWeaponFlatTags, reconcileGroundStatuses } from '../pvp/move.js';
+import { buffTileBlockedLines, catalogWeaponFlatTags, reconcileGroundStatuses, settleOccupantGroundStatuses } from '../pvp/move.js';
 import { isForgedNamedWeaponId } from '../save/_forged-items.js';
 import { resolveTowerPlayerJutsu, towerJutsuToCombatJutsu } from '../combat-adapters/clanBossAdapter.js';
 import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';
@@ -59,7 +59,7 @@ import {
 import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel, PUSH_PULL_TILES, statusDurationFor } from '../combat-core/formulas.js';
 import { rankedCombatLevel } from '../pvp/_ranked-format.js';
 import { setSafeRecordValue } from '../_utils.js';
-import { GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, REQUIRES_DAMAGE_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
+import { GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, REQUIRES_DAMAGE_TAGS, SELF_GROUND_EFFECT_AP, SELF_GROUND_EFFECT_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
 import {
     pveAiCompetence,
     pveAiMasteryForLevel,
@@ -1470,6 +1470,40 @@ function towerGroundTags(tags: unknown): Array<{ name: string; percent?: number 
         .map(t => ({ ...t, name: canonicalTagName(t.name!) }))
         .filter(t => GROUND_EFFECT_TAGS.has(t.name));
 }
+/** True for a buff-tile jutsu (shared rule in combat-core/resolve-jutsu-action). */
+function isTowerOccupantTile(jutsu: JutsuLike): boolean {
+    return isOccupantGroundJutsu({
+        method: jutsu.method,
+        tags: Array.isArray(jutsu.tags) ? jutsu.tags as CombatTag[] : [],
+    });
+}
+/**
+ * Lay a 40-AP buff tile on one hex. Whoever stands on it, from any side,
+ * holds its buff (settled in reconcileTowerGroundStatuses). The caller has
+ * already paid the cast and moved a dashing caster onto the hex.
+ */
+function layOccupantTowerTile(session: TowerSession, actor: TowerActor, jutsuId: string, jutsu: JutsuLike, tile: number, cost: number): void {
+    spendActionAp(session, actor, cost);
+    session.actionsThisTurn += 1;
+    const tags = (Array.isArray(jutsu.tags) ? jutsu.tags as CombatTag[] : [])
+        .map(t => ({ ...t, name: canonicalTagName(t.name) }))
+        .filter(t => SELF_GROUND_EFFECT_TAGS.has(t.name));
+    const effect: PvpGroundEffect = {
+        id: `gz-${session.round}-${actor.id}-${jutsuId}`,
+        owner: actor.side === 'squad' ? 'p1' : 'p2',
+        name: jutsu.name ?? 'Buff Tile',
+        kind: 'occupant',
+        tiles: [tile],
+        rounds: 2,
+        activeRound: session.round + 1,
+        ...(typeof jutsu.bloodlineRank === 'string' && jutsu.bloodlineRank ? { bloodlineRank: jutsu.bloodlineRank } : {}),
+        tags,
+    };
+    session.groundEffects = [...(session.groundEffects ?? []), effect];
+    session.log.push(`${actor.name} turns hex ${tile} into a buff tile for 2 rounds.`,
+        ...buffTileBlockedLines(session.actors.map(actorToFighter), effect, session.round));
+    reconcileTowerGroundStatuses(session);
+}
 function groundZoneTiles(center: number, w: number, h: number, method?: string, casterPos?: number, range?: number): number[] {
     const canonicalMethod = canonicalJutsuMethod(method);
     return canonicalMethod === 'INSTANT_EFFECT' && casterPos !== undefined
@@ -1500,6 +1534,7 @@ function applyZoneToUnits(session: TowerSession, effect: PvpGroundEffect, includ
 /** Pulse every live hostile zone onto the fighter about to act, if they stand in it. */
 function applyZonesToActor(session: TowerSession, actor: TowerActor): void {
     for (const effect of session.groundEffects ?? []) {
+        if (effect.kind === 'occupant') continue; // settled by occupancy, not a turn pulse
         if (!effect.tiles.includes(actor.pos)) continue;
         if (!groundZoneTargets(session, effect).some(target => target.id === actor.id)) continue;
         const r = applyGroundEffectToFighter(actorToFighter(actor), effect, session.round);
@@ -1573,7 +1608,15 @@ function applyRoundGroundEffects(session: TowerSession): void {
 }
 function reconcileTowerGroundStatuses(session: TowerSession): void {
     for (const actor of session.actors) {
-        actor.statuses = reconcileGroundStatuses(actorToFighter(actor), session.groundEffects).statuses;
+        const reconciled = reconcileGroundStatuses(actorToFighter(actor), session.groundEffects);
+        if (actor.hp <= 0) {
+            actor.statuses = reconciled.statuses;
+            continue;
+        }
+        // Any live actor on a buff tile, ally or hostile, holds its buff.
+        const settled = settleOccupantGroundStatuses(reconciled, session.groundEffects, session.round);
+        actor.statuses = settled.fighter.statuses;
+        if (settled.lines.length) session.log.push(...settled.lines);
     }
 }
 // PvP-parity displacement: a Push/Pull-tagged jutsu shoves the struck target across the tower hex
@@ -2750,6 +2793,8 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             && (jm.tags as Array<{ name?: string }>).some(t => t?.name && canonicalTagName(t.name) === 'Move');
         if (jm && hasMoveTag) {
             if (rejectElementallySealed(session, actor, jm)) return { applied: false, reason: 'elementally-sealed' };
+            const dashesOntoBuffTile = isTowerOccupantTile(jm);
+            if (dashesOntoBuffTile && Number(jm.ap) !== SELF_GROUND_EFFECT_AP) return { applied: false, reason: 'self-ground-effect-40-ap-only' };
             const tile = Math.floor(action.tile);
             const w = session.map.width;
             if (!Number.isSafeInteger(action.tile) || tile < 0 || tile >= w * session.map.height) return { applied: false, reason: 'bad-tile' };
@@ -2770,7 +2815,9 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             spendPoison(session, actor, ck, st, session.round);
             if (Number(jm.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jm.cooldown));
             session.log.push(`${actor.name} uses ${jm.name ?? 'a body flicker'} — flickers to hex ${tile}.`);
-            if (String(jm.method ?? 'SINGLE').toUpperCase() === 'AOE_CIRCLE') {
+            if (dashesOntoBuffTile) {
+                layOccupantTowerTile(session, actor, action.jutsuId, jm, tile, cost);
+            } else if (String(jm.method ?? 'SINGLE').toUpperCase() === 'AOE_CIRCLE') {
                 const impactTiles = new Set(towerNeighbors(tile, w, session.map.height));
                 const primary = session.actors
                     .filter(target => target.hp > 0
@@ -2841,6 +2888,20 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             if (ck > 0 && actor.chakra < ck) return { applied: false, reason: 'no-chakra' };
             if (st > 0 && actor.stamina < st) return { applied: false, reason: 'no-stamina' };
             if (!canAct(session, cost)) return { applied: false, reason: 'cannot-act' };
+            if (isTowerOccupantTile(jg)) {
+                // A buff tile goes on one hex. Like any Tower ground cast it may
+                // land under a fighter (an ally to support, or the caster); terrain
+                // and Barrier walls were refused above.
+                if (cost !== SELF_GROUND_EFFECT_AP) return { applied: false, reason: 'self-ground-effect-40-ap-only' };
+                actor.chakra = Math.max(0, actor.chakra - ck);
+                actor.stamina = Math.max(0, actor.stamina - st);
+                spendPoison(session, actor, ck, st, session.round);
+                if (Number(jg.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jg.cooldown));
+                layOccupantTowerTile(session, actor, action.jutsuId, jg, tile, cost);
+                tickBossPhases(session);
+                checkTowerWinner(session, floor);
+                return { applied: true };
+            }
             // Ground-tagged (Poison / Recoil / Decrease Damage Given) → lay a persistent
             // zone (it bites units standing in it on cast + each round), and a damaging
             // one also lands its opening hit once. Otherwise resolve as a DIRECT strike on any hostile caught ON the target tile
@@ -3058,11 +3119,13 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     session.objectiveState.roundsSurvived = (session.objectiveState.roundsSurvived ?? 0) + 1;
     applyRoundGroundEffects(session); // age ground zones (their pulses land at each victim's turn start)
     applyRoundStatusTicks(session); // bleed Wound/Poison/Drain + expire statuses (PvP DoT math)
+    reconcileTowerGroundStatuses(session); // re-grant buff tiles to whoever still stands on one
     collectRoundPlates();
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
     const avoidedBefore = session.towerTactics?.avoidedStrikes ?? 0;
     const baitsBefore = session.towerTactics?.chargeBaits ?? 0;
     applyBossStrikeAndRing(session);
+    reconcileTowerGroundStatuses(session); // the strike's knockback can move fighters on or off a buff tile
     if ((session.towerTactics?.chargeBaits ?? 0) > baitsBefore) openClanBossGuard(session, 'pillar bait', session.round + 1);
     else if ((session.towerTactics?.avoidedStrikes ?? 0) > avoidedBefore) openClanBossGuard(session, 'avoided signature', session.round + 1);
     // detonate the telegraphed boss strike + closing-ring chip
@@ -3198,10 +3261,14 @@ function bestGroundJutsu(session: TowerSession, actor: TowerActor, target: Tower
     const band = pveBandFor(session, actor);
     const holdsBurst = !!band && pveEasyBandHoldsBurst(band.enemyLevel, session.round)
         && !aiJustFlickered(list as JutsuLike[], actor.cooldowns, session.actionsThisTurn);
+    // A buff tile serves whoever stands on it, so it is laid under the AI
+    // (pickAiAction), and only once the AI is in reach to fight from it.
+    const reach = aiRangedAttackReach(list as JutsuLike[]);
     return (list as JutsuLike[])
         .filter(j => String(j.target ?? '') === 'EMPTY_GROUND' && !aiTagNames(j).has('Move'))
+        .filter(j => !isTowerOccupantTile(j) || (Number(j.ap) === SELF_GROUND_EFFECT_AP && dist <= reach))
         .filter(j => aiJutsuReady(session, actor, j))
-        .filter(j => Math.max(1, Number(j.range ?? 1)) >= dist)
+        .filter(j => isTowerOccupantTile(j) || Math.max(1, Number(j.range ?? 1)) >= dist)
         .filter(j => !holdsBurst || Number(j.effectPower ?? 0) <= 0 || !pveIsBurstJutsuAp(Number(j.ap ?? 40)))
         .sort((a, b) => (Number(b.aiPriority ?? 0) - Number(a.aiPriority ?? 0))
             || (Number(b.effectPower ?? 0) - Number(a.effectPower ?? 0))
@@ -3440,6 +3507,7 @@ function aiDangerTiles(session: TowerSession, actor: TowerActor): Set<number> {
     for (const t of dynamicHazardTiles(session, session.round)) danger.add(t); // geysers erupt on both sides
     if (actor.side === 'squad') for (const t of session.map.nextRoundHazardTiles ?? []) danger.add(t);
     for (const z of session.groundEffects ?? []) {
+        if (z.kind === 'occupant') continue; // a buff tile helps whoever stands on it
         const bitesMe = z.owner === 'p1' ? actor.side === 'enemy' : (actor.side === 'squad' || actor.side === 'npc');
         if (bitesMe) for (const t of z.tiles) danger.add(t);
     }
@@ -3682,7 +3750,7 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
     if (gapCloser && !ranged && !(selfUtility && aiTagNames(selfUtility).has('Heal'))) return gapCloser;
     if (selfUtility?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: selfUtility.id };
     if (gapCloser && !ranged) return gapCloser;
-    if (ground?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: ground.id, tile: target.pos };
+    if (ground?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: ground.id, tile: isTowerOccupantTile(ground) ? actor.pos : target.pos };
     // Hired war NPCs are sealed by _merc-fighters, never by a player save.
     // Their catalog weapon is a real cooldown action, allowing a 40+60 turn.
     // Human participants and their headless snapshots keep their existing policy.
@@ -3774,6 +3842,8 @@ export function runTowerFloor(session: TowerSession, floor: TowerFloor, rng: () 
         // A summoned pet runs its own PetJutsu turn, not the generic action AI.
         if (isCompanionActor(actor)) {
             runCompanionTurn(session, floor, actor);
+            // A pet's steps and Push/Pull bypass applyAction; settle buff tiles here.
+            reconcileTowerGroundStatuses(session);
             if (session.status === 'active') endTurn(session, floor);
             continue;
         }
@@ -4038,6 +4108,8 @@ export function runAiUntilHuman(session: TowerSession, floor: TowerFloor, rng: (
         // A summoned pet runs its own PetJutsu turn, not the generic action AI.
         if (isCompanionActor(actor)) {
             runCompanionTurn(session, floor, actor);
+            // A pet's steps and Push/Pull bypass applyAction; settle buff tiles here.
+            reconcileTowerGroundStatuses(session);
             if (session.status === 'active') endTurn(session, floor);
             continue;
         }

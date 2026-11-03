@@ -96,6 +96,14 @@ export const GROUND_EFFECT_TAGS: ReadonlySet<string> = new Set([
     'Decrease Damage Given', 'Recoil', 'Poison',
 ]);
 
+// Tags a 40-AP INSTANT_EFFECT can place on ONE selected hex as a buff tile.
+// Whoever stands on that hex holds the buff; leaving the hex removes it. A
+// player jutsu carries either these or GROUND_EFFECT_TAGS, never both.
+export const SELF_GROUND_EFFECT_TAGS: ReadonlySet<string> = new Set([
+    'Absorb', 'Lifesteal', 'Reflect', 'Decrease Damage Taken', 'Increase Heal',
+]);
+export const SELF_GROUND_EFFECT_AP = 40;
+
 // Copy steals active positive statuses for a fresh two-round window, except
 // for these sustain loops. Keeping the exclusion in the canonical tag contract
 // lets the live resolver and balance simulator consume the same rule.

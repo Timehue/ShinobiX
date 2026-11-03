@@ -3,6 +3,8 @@ import { HEX_H, HEX_W, towerHexPixel, towerNeighbors } from './tower-grid';
 export const TERRAIN_ATLAS_CELLS = {
     fire: 0, water: 1, earth: 2, wind: 3, lightning: 4, ward: 5, frost: 6, poison: 7,
     strike: 8, collapse: 9, healing: 10, shrine: 11, curse: 12, recoil: 13, objective: 14, eruption: 15,
+    // A 40-AP buff tile reuses the shrine surface; its gold comes from CSS.
+    sanctuary: 11,
 } as const;
 export type TowerTerrainKind = keyof typeof TERRAIN_ATLAS_CELLS;
 export const TERRAIN_PROP_CELLS = {

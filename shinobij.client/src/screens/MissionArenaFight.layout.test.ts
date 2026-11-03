@@ -319,8 +319,8 @@ test("every combat jutsu dialog fills battle tokens instead of printing the desc
 test("PvE telegraphs where a tile-targeted cast lands and what it catches", () => {
     assert.match(
         missionSource,
-        /isFootprintTile \? "ground-affected-tile mission-ground-preview-tile" : ""/,
-        "the hovered cast must paint the tiles it would damage",
+        /isFootprintTile \? `ground-affected-tile mission-ground-preview-tile\$\{armedBuffTile \? " mission-ground-preview-sanctuary" : ""\}` : ""/,
+        "the hovered cast must paint the tiles it would damage (gold for a buff tile)",
     );
     assert.match(
         missionSource,
