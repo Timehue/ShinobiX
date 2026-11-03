@@ -36,6 +36,7 @@ export async function mountContinuousWorld(host: Host) {
     let held: WorldPoint | null = null, frame = 0, last = 0, lastSend = 0;
     let inFlight = false, disposed = false, stale = false, sentCursor = '', resyncing = false, drag: { x: number; y: number; moved: boolean } | null = null;
     let requestedSector = sector, retryAfter = 0, refusedInRow = 0, resumed = false;
+    let pendingDestination: string | null = null;
     const pace = createWorldMovePacer(6.5);
     const resumable = (reply: WorldMovementReply) => refusedInRow === 1 && (reply.reason === 'speed' || reply.reason === 'busy');
     function accept(reply: WorldMovementReply) {
@@ -72,28 +73,33 @@ export async function mountContinuousWorld(host: Host) {
     // Adopt a stationary cursor first; this starts the server clock before prediction.
     if (!await send(true)) { renderer.dispose(); throw new Error('World presence is not ready. Try again.'); }
     if (host.signal.aborted) { renderer.dispose(); throw new DOMException('Aborted', 'AbortError'); }
-    const go = (targetSector: number, targetTile: number) => {
+    const chooseDestination = (destination: string) => {
         if (host.blocked()) return;
-        held = null; walker.go(`${targetSector}:${nearestWalkableTile(targetSector, targetTile)}`);
+        held = null;
+        // Closing a modal refreshes authority. Keep an input received during
+        // that refresh instead of letting it discard the chosen route.
+        if (resumed || resyncing || requestedSector !== sector) { pendingDestination = destination; return; }
+        pendingDestination = null; walker.go(destination);
     };
+    const go = (targetSector: number, targetTile: number) => chooseDestination(`${targetSector}:${nearestWalkableTile(targetSector, targetTile)}`);
     const unbind = bindContinuousWorldControl(destination => go(destination.sector, destination.tile));
     function keydown(event: KeyboardEvent) {
         const target = event.target as HTMLElement, key = event.key.toLowerCase();
         if (host.blocked() || target.closest('input,textarea,select,[contenteditable],[data-sector-hud],[role=dialog]')) return;
         if (key.startsWith('arrow') && target.closest('button,a,[role=button],[tabindex]:not(canvas):not([tabindex="-1"])')) return;
-        if (key === 'e' || key === 'escape') { held = null; walker.stop(); return; }
+        if (key === 'e' || key === 'escape') { held = null; pendingDestination = null; walker.stop(); return; }
         const direction = directions[key]; if (!direction) return;
         event.preventDefault(); event.stopImmediatePropagation();
-        held = direction; if (!event.repeat) walker.stop();
+        held = direction; pendingDestination = null; if (!event.repeat) walker.stop();
     }
     const keyup = (event: KeyboardEvent) => { if (directions[event.key.toLowerCase()]) held = null; };
-    const blur = () => { held = null; walker.stop(); };
+    const blur = () => { held = null; pendingDestination = null; walker.stop(); };
     const pointerdown = (event: PointerEvent) => { drag = { x: event.clientX, y: event.clientY, moved: false }; host.canvas.setPointerCapture(event.pointerId); };
     const pointermove = (event: PointerEvent) => {
         if (!drag || host.blocked()) return;
         const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
         if (Math.hypot(dx, dy) < 10) return;
-        if (!drag.moved) walker.stop(); drag.moved = true;
+        if (!drag.moved) { pendingDestination = null; walker.stop(); } drag.moved = true;
         held = Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
     };
     const pointerup = (event: PointerEvent) => {
@@ -108,7 +114,7 @@ export async function mountContinuousWorld(host: Host) {
             const cursor = walker.cursor(world.space.layoutVersion);
             const closest = candidates.find(({ node }) => world.model.distanceWithin(cursor,
                 { layoutVersion: cursor.layoutVersion, from: node.id, to: node.id, progress: 0 }, 32) !== null);
-            if (closest) walker.go(closest.node.id);
+            if (closest) chooseDestination(closest.node.id);
         }
         drag = null; held = null;
     };
@@ -127,6 +133,8 @@ export async function mountContinuousWorld(host: Host) {
             else if (reply.ok && cursor && !disposed) {
                 walker.restore(cursor); sequence = reply.sequence ?? 0; sector = reply.sector!; tile = reply.tile!; resumed = false;
                 requestedSector = sector; pace.reset(); sentCursor = ''; host.onAuthority(sector, tile); host.onStatus('');
+                const destination = pendingDestination; pendingDestination = null;
+                if (destination && !host.blocked()) walker.go(destination);
             } else retryAfter = performance.now() + 1000;
         } catch { if (!disposed) { retryAfter = performance.now() + 1000; host.onStatus('Connection interrupted. Movement paused.'); } }
         finally { resyncing = false; }
@@ -177,7 +185,7 @@ export async function mountContinuousWorld(host: Host) {
         frame = requestAnimationFrame(tick);
     }
     frame = requestAnimationFrame(tick);
-    return { go, externalSector(nextSector: number) { requestedSector = nextSector; void resync(); }, dispose() {
+    return { go, externalSector(nextSector: number) { requestedSector = nextSector; pendingDestination = null; void resync(); }, dispose() {
         disposed = true; walker.stop(); cancelAnimationFrame(frame); unbind(); renderer.dispose();
         window.removeEventListener('keydown', keydown, true); window.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur);
         host.canvas.removeEventListener('pointerdown', pointerdown); host.canvas.removeEventListener('pointermove', pointermove);

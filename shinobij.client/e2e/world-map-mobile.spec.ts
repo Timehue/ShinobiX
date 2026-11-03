@@ -9,6 +9,7 @@ import { sectorFloorImage } from "../src/lib/sector-floor-layout";
 import { sectorExits } from "../../shared/sector-links";
 import { sectorName } from "../../shared/sector-geo";
 import { worldPositionModel } from "../../shared/continuous-world-layout";
+import { quietRoadCooldowns } from "../e2e-live/helpers/quiet-road";
 
 // Map journeys start in the field; the shared town fixture stays in town.
 const uiAuditSave = (): UiAuditSave => ({ ...townUiAuditSave(), currentSector: 40 });
@@ -165,8 +166,15 @@ for (const destination of villageDestinations) {
         test(`rival village compound: ${home.name} visits ${destination.name}`, async ({ page }, testInfo) => {
             test.setTimeout(120_000);
             const save = uiAuditSave();
+            const outskirts = VILLAGE_OUTSKIRTS[destination.name];
+            const checksRoad = home === villageDestinations.find(village => village.name !== destination.name);
+            // Roaming hostiles can open a Fight/Flee dialog without a click.
+            // Keep this road/raid-options journey clear through the return trip.
+            save.character = { ...save.character, village: home.name, wandererCooldowns: quietRoadCooldowns([
+                40, outskirts, ...sectorExits(outskirts).map(exit => exit.destinationSector),
+            ]) };
             const requests: number[] = [];
-            const runtimeErrors = await bootWorldMap(page, { ...save, character: { ...save.character, village: home.name } }, async () => {
+            const runtimeErrors = await bootWorldMap(page, save, async () => {
                 await page.route("**/api/player/travel", route => {
                     requests.push(route.request().postDataJSON().destinationSector);
                     return route.fallback();
@@ -179,6 +187,7 @@ for (const destination of villageDestinations) {
             const arrivalDialog = page.getByRole('dialog', { name: `${destination.name} defenses`, exact: true });
             await expect(arrivalDialog).toContainText('AI garrison');
             await arrivalDialog.getByRole('button', { name: 'Return to outskirts', exact: true }).click();
+            await expect(arrivalDialog).toHaveCount(0);
             const boardSector = VILLAGE_OUTSKIRTS[destination.name];
             const canvas = scene.locator(':scope > canvas');
             await expect(canvas).toHaveAttribute('data-world-sector', String(boardSector));
@@ -190,17 +199,34 @@ for (const destination of villageDestinations) {
             const defenses = page.getByRole('dialog', { name: `${destination.name} defenses`, exact: true });
             await expect(defenses.getByRole('heading', { name: 'Village Raid', exact: true })).toBeVisible();
             await expect(defenses.getByRole('button', { name: 'Raid village garrison', exact: true })).toBeEnabled();
+            const frameGate = checksRoad ? await page.evaluateHandle(() => {
+                const original = window.requestAnimationFrame, pending: FrameRequestCallback[] = [];
+                window.requestAnimationFrame = callback => original.call(window, time => {
+                    if (document.querySelector('[aria-modal=true],dialog[open]')) callback(time);
+                    else pending.push(callback);
+                });
+                return { pending, release() {
+                    window.requestAnimationFrame = original;
+                    for (const callback of pending.splice(0)) callback(performance.now());
+                } };
+            }) : null;
+            if (frameGate) await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
             await defenses.getByRole('button', { name: 'Return to outskirts', exact: true }).click();
+            await expect(defenses).toHaveCount(0);
             await expect(canvas).toHaveAttribute('data-world-sector', String(boardSector));
             expect(requests).toEqual([boardSector]);
-            if (home === villageDestinations.find(village => village.name !== destination.name)) {
+            if (checksRoad) {
+                // Choose a road before the first post-dialog frame starts its
+                // authority refresh. Resuming must retain that accepted input.
+                await expect.poll(() => frameGate!.evaluate(gate => gate.pending.length)).toBeGreaterThan(0);
                 const exit = sectorExits(boardSector)[0]!;
                 const cross = page.getByRole('button', { name: `Cross to ${sectorName(exit.destinationSector)}`, exact: true });
-                await cross.focus(); await cross.press('Enter');
+                try { await cross.focus(); await expect(cross).toBeFocused(); await cross.press('Enter'); }
+                finally { await frameGate!.evaluate(gate => gate.release()); await frameGate!.dispose(); }
                 await expect(canvas).toHaveAttribute('data-world-sector', String(exit.destinationSector), { timeout: 90_000 });
                 await canvas.focus(); await page.keyboard.press('Escape');
                 const reverse = page.getByRole('button', { name: `Cross to ${sectorName(boardSector)}`, exact: true });
-                await reverse.focus(); await reverse.press('Enter');
+                await reverse.focus(); await expect(reverse).toBeFocused(); await reverse.press('Enter');
                 await expect(canvas).toHaveAttribute('data-world-sector', String(boardSector), { timeout: 90_000 });
                 await canvas.focus(); await page.keyboard.press('Escape');
             }
