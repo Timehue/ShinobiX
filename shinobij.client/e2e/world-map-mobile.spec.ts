@@ -5,7 +5,10 @@ import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import { returnToWorldAtlas } from "./helpers/sector-navigation";
 import { getWorldMapRegionForPoint } from "../src/lib/world-map-regions";
 import { VILLAGE_OUTSKIRTS } from "../../shared/sector-geo";
-import { sectorFloorLayout, sectorFloorImage } from "../src/lib/sector-floor-layout";
+import { sectorFloorImage } from "../src/lib/sector-floor-layout";
+import { sectorExits } from "../../shared/sector-links";
+import { sectorName } from "../../shared/sector-geo";
+import { worldPositionModel } from "../../shared/continuous-world-layout";
 
 // Map journeys start in the field; the shared town fixture stays in town.
 const uiAuditSave = (): UiAuditSave => ({ ...townUiAuditSave(), currentSector: 40 });
@@ -114,28 +117,42 @@ for (const mode of ['camera', 'fallback'] as const) {
 
 for (const destination of [
     { name: "Stormveil Village", region: "storm", sector: 0, heading: "Stormveil Village" },
-    { name: "Frostfang Village", region: "frost", sector: 30, heading: "Frostfang Village — Outer Territory" },
-    { name: "Moonshadow Village", region: "moon", sector: 21, heading: "Moonshadow Village — Outer Territory" },
+    { name: "Frostfang Village", region: "frost", sector: 26, heading: "Frostfang Gates" },
+    { name: "Moonshadow Village", region: "moon", sector: 17, heading: "Moonshadow Gates" },
 ] as const) {
     test(`village travel waits for arrival: ${destination.name}`, async ({ page }, testInfo) => {
         test.setTimeout(120_000);
         const requests: number[] = [];
         let startedAt = 0;
+        let runtime!: UiAuditRuntime;
         const runtimeErrors = await bootWorldMap(page, undefined, async () => {
+            // The timer fixture models settled presence independently of an
+            // autosave still carrying the origin during the loading mask.
+            await page.route("**/api/player/world-move", route => startedAt && destination.sector !== 0
+                ? route.fulfill({ json: { ok: true, sector: destination.sector, tile: 102, sequence: 0,
+                    worldPosition: worldPositionModel().fallback(destination.sector, 102), players: [] } })
+                : route.fallback());
             await page.route("**/api/player/travel", async (route) => {
                 requests.push(route.request().postDataJSON().destinationSector);
                 startedAt = Date.now();
+                runtime.commitServerSave({ currentSector: destination.sector, currentTile: 102 }, runtime.currentVersion());
                 await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-                    arrivalAt: startedAt + 3_000, travelMs: 3_000, arrivalTile: 78,
+                    arrivalAt: startedAt + 3_000, travelMs: 3_000, arrivalTile: 102,
                 }) });
             });
-        });
+        }, value => { runtime = value; });
         if (await page.locator('html').evaluate((html) => html.classList.contains('wm-zoom'))) await chooseRegion(page, destination.region);
         await page.getByRole("button", { name: `Enter ${destination.name}`, exact: true }).click();
         await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toBeVisible();
         await expect(page.getByText(destination.heading, { exact: true })).toHaveCount(0);
         await page.screenshot({ path: testInfo.outputPath("village-travel-countdown.png") });
-        await expect(page.getByText(destination.heading, { exact: true })).toBeVisible();
+        if (destination.sector === 0) await expect(page.getByRole("heading", { name: destination.heading, exact: true })).toBeVisible();
+        else {
+            const defenses = page.getByRole('dialog', { name: `${destination.name} defenses`, exact: true });
+            await expect(defenses).toContainText('AI garrison');
+            await defenses.getByRole('button', { name: 'Return to outskirts', exact: true }).click();
+            await expect(page.locator(".continuous-world-map > canvas")).toHaveAttribute("data-world-sector", String(destination.sector));
+        }
         expect(Date.now() - startedAt).toBeGreaterThanOrEqual(3_000);
         expect(requests).toEqual([destination.sector]);
         await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toHaveCount(0);
@@ -150,61 +167,62 @@ for (const destination of villageDestinations) {
             const save = uiAuditSave();
             const requests: number[] = [];
             const runtimeErrors = await bootWorldMap(page, { ...save, character: { ...save.character, village: home.name } }, async () => {
-                await page.route("**/api/world/sector-layout", route => route.fulfill({ json: { obstaclesEnabled: true } }));
                 await page.route("**/api/player/travel", route => {
                     requests.push(route.request().postDataJSON().destinationSector);
-                    return route.fulfill({ json: { arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 } });
+                    return route.fallback();
                 });
             });
             if (await page.locator('html').evaluate(html => html.classList.contains('wm-zoom'))) await chooseRegion(page, destination.region);
             await page.getByRole("button", { name: `Enter ${destination.name}`, exact: true }).click();
-            const scene = page.locator('.village-outskirts-instance');
-            await expect(scene.getByText(`${destination.name} — Outer Territory`, { exact: true })).toBeVisible();
+            const scene = page.locator('.continuous-world-map');
+            await expect(scene).toHaveAttribute('aria-busy', 'false');
+            const arrivalDialog = page.getByRole('dialog', { name: `${destination.name} defenses`, exact: true });
+            await expect(arrivalDialog).toContainText('AI garrison');
+            await arrivalDialog.getByRole('button', { name: 'Return to outskirts', exact: true }).click();
             const boardSector = VILLAGE_OUTSKIRTS[destination.name];
-            const image = sectorFloorImage(boardSector);
-            await expect(scene.locator('.sector-map-backdrop')).toHaveCSS('background-image', new RegExp(image.split('?')[0].replace('.', '\\.')));
+            const canvas = scene.locator(':scope > canvas');
+            await expect(canvas).toHaveAttribute('data-world-sector', String(boardSector));
             expect(await page.evaluate(async src => {
                 const image = new Image(); image.src = src;
                 await image.decode(); return image.naturalWidth;
-            }, image)).toBeGreaterThan(0);
-            const mask = sectorFloorLayout(boardSector)!.mask.join('');
-            const tiles = scene.locator('.walkable-tile');
-            await expect(tiles).toHaveCount(144);
-            expect(await tiles.evaluateAll(nodes => nodes.map(node => (node as HTMLButtonElement).disabled)))
-                .toEqual([...mask].map(tile => !'.='.includes(tile)));
-            // A server arrival inside a painted roof must be grounded onto a path.
-            await expect.poll(async () => tiles.evaluateAll(nodes => nodes.findIndex(node => node.classList.contains('sector-player-tile'))))
-                .not.toBe(78);
-            for (const tile of [102, 101]) {
-                await tiles.nth(tile).click();
-                await expect(tiles.nth(tile)).toHaveClass(/sector-player-tile/);
-                await expect.poll(async () => scene.locator('.sector-avatar-figure').evaluate((figure, tile) => {
-                    const map = figure.closest('.pixel-map')!;
-                    const target = map.querySelectorAll<HTMLElement>('.walkable-tile')[tile];
-                    const transform = (figure as HTMLElement).style.transform.match(/translate\(([\d.]+)px, ([\d.]+)px\)/);
-                    if (!transform) return Infinity;
-                    return Math.max(Math.abs(Number(transform[1]) - target.offsetLeft - target.offsetWidth / 2),
-                        Math.abs(Number(transform[2]) - target.offsetTop - target.offsetHeight / 2));
-                }, tile)).toBeLessThan(2);
+            }, sectorFloorImage(boardSector))).toBeGreaterThan(0);
+            await openVillageDefenses(page, destination.name);
+            const defenses = page.getByRole('dialog', { name: `${destination.name} defenses`, exact: true });
+            await expect(defenses.getByRole('heading', { name: 'Village Raid', exact: true })).toBeVisible();
+            await expect(defenses.getByRole('button', { name: 'Raid village garrison', exact: true })).toBeEnabled();
+            await defenses.getByRole('button', { name: 'Return to outskirts', exact: true }).click();
+            await expect(canvas).toHaveAttribute('data-world-sector', String(boardSector));
+            expect(requests).toEqual([boardSector]);
+            if (home === villageDestinations.find(village => village.name !== destination.name)) {
+                const exit = sectorExits(boardSector)[0]!;
+                const cross = page.getByRole('button', { name: `Cross to ${sectorName(exit.destinationSector)}`, exact: true });
+                await cross.focus(); await cross.press('Enter');
+                await expect(canvas).toHaveAttribute('data-world-sector', String(exit.destinationSector), { timeout: 90_000 });
+                await canvas.focus(); await page.keyboard.press('Escape');
+                const reverse = page.getByRole('button', { name: `Cross to ${sectorName(boardSector)}`, exact: true });
+                await reverse.focus(); await reverse.press('Enter');
+                await expect(canvas).toHaveAttribute('data-world-sector', String(boardSector), { timeout: 90_000 });
+                await canvas.focus(); await page.keyboard.press('Escape');
             }
-            await expect(scene.getByRole('button', { name: 'Explore territory', exact: true })).toBeEnabled();
-            await expect(scene.getByRole('heading', { name: 'Village Raid', exact: true })).toBeVisible();
-            expect(requests).toEqual([boardSector + 4]);
             expect(runtimeErrors).toEqual([]);
             if (home === villageDestinations.find(village => village.name !== destination.name)) {
                 await scene.screenshot({ path: testInfo.outputPath('rival-compound.png') });
             }
-            await scene.getByRole('button', { name: 'Leave', exact: true }).click();
+            await returnToWorldAtlas(page);
             await expect(page.locator('.generated-world-map')).toBeVisible();
         });
     }
 }
 
+async function openVillageDefenses(page: Page, village: string) {
+    const entrance = page.getByRole('button', { name: `View ${village} raid options`, exact: true });
+    await entrance.focus(); await entrance.press('Enter');
+    await expect(page.getByRole('dialog', { name: `${village} defenses`, exact: true })).toContainText('AI garrison');
+}
+
 async function openGuardRaid(page: Page, challenge: () => { status: number; body: unknown }) {
     const seen = { challenges: 0, sessions: 0, raidStarts: 0 };
     await bootWorldMap(page, undefined, async () => {
-        await page.route("**/api/player/travel", (route) => route.fulfill({ status: 200, contentType: "application/json",
-            body: JSON.stringify({ arrivalAt: Date.now() + 500, travelMs: 500, arrivalTile: 78 }) }));
         await page.route("**/api/village-guard/list", (route) => route.fulfill({ status: 200, contentType: "application/json",
             body: JSON.stringify([{ name: "Posted Guard", level: 40, village: "Frostfang Village" }]) }));
         await page.route("**/api/village-guard/challenge", async (route) => {
@@ -223,7 +241,8 @@ async function openGuardRaid(page: Page, challenge: () => { status: number; body
     });
     if (await page.locator('html').evaluate((html) => html.classList.contains('wm-zoom'))) await chooseRegion(page, "frost");
     await page.getByRole("button", { name: "Enter Frostfang Village", exact: true }).click();
-    await expect(page.getByText("Frostfang Village — Outer Territory", { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator(".continuous-world-map")).toHaveAttribute("aria-busy", "false");
+    await expect(page.getByRole('dialog', { name: 'Frostfang Village defenses', exact: true })).toBeVisible();
     return seen;
 }
 

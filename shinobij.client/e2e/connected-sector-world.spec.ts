@@ -106,11 +106,12 @@ test('members can enter the centered village', async ({ page }) => {
     await page.getByRole('dialog').getByRole('button', { name: 'Enter Ashen Leaf Village', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Ashen Leaf Village', exact: true })).toBeVisible();
 });
-test('the centered village entrance preserves its membership restriction', async ({ page }) => {
+test('a rival village opens explained raid options without admitting a visitor inside', async ({ page }) => {
     await boot(page, 9, 102);
-    const counter=page.getByRole('button', { name: 'Visit Ashen Leaf Village gate counter', exact: true });
-    await expect(counter).toBeEnabled();await counter.click();
-    await expect(page.getByRole('dialog')).toContainText('Entry beyond the gate is for village members');
+    const entrance=page.getByRole('button', { name: 'View Ashen Leaf Village raid options', exact: true });
+    await expect(entrance).toBeEnabled();await entrance.click();
+    await expect(page.getByRole('dialog')).toContainText('entry into the village is reserved for its members');
+    await expect(page.getByRole('dialog')).toContainText('AI garrison');
     await expect(page.getByRole('dialog').getByRole('button',{name:'Enter Ashen Leaf Village',exact:true})).toHaveCount(0);
 });
 test('Death’s Gate retains its isolated painted arena and blocked lava', async ({ page }) => {

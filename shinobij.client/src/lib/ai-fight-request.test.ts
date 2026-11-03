@@ -154,10 +154,10 @@ test("World launch presentation is not retired before the sealed start ACK", () 
     }
 });
 
-test("outer-village guard raids bind the exact virtual sector", () => {
+test("outer-village guard raids bind the exact outskirts sector", () => {
     const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
-    assert.match(worldMap, /launchAiGuardRaid\(pickGuardAi\(guard\.level, guard\.defenseBonusPercent \?\? 0\), guard\.level, virtualSector\)/);
-    assert.doesNotMatch(worldMap, /setCurrentSector\(virtualSector\);[\s\S]{0,120}launchAiGuardRaid\([^\n]+currentSector\)/,
+    assert.match(worldMap, /launchAiGuardRaid\(pickGuardAi\(guard\.level, guard\.defenseBonusPercent \?\? 0\), guard\.level, raidSector\)/);
+    assert.doesNotMatch(worldMap, /setCurrentSector\(raidSector\);[\s\S]{0,120}launchAiGuardRaid\([^\n]+currentSector\)/,
         "React's stale currentSector render cannot bind a different raid token/territory target");
 });
 

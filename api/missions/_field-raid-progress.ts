@@ -71,7 +71,8 @@ export function acceptedRaidFetchMissions(
         if (Number.isSafeInteger(raidSector)) {
             const homeVillage = String(character?.village ?? '').trim();
             const isEnemyVillageOutskirts = Object.entries(VILLAGE_OUTSKIRTS).some(([village, outskirts]) =>
-                village !== homeVillage && raidSector === outskirts + 4,
+                // Retain settlement of raids sealed in the former territory sector.
+                village !== homeVillage && (raidSector === outskirts || raidSector === outskirts + 4),
             );
             if (!homeVillage || !isEnemyVillageOutskirts) continue;
         }

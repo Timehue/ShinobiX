@@ -1420,7 +1420,7 @@ jobs:
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    # Preserve all ten real-server commands while keeping setup plus journeys
+    # Preserve all eleven real-server commands while keeping setup plus journeys
     # below the existing 35-minute ceiling. Every child is required by the aggregate.
     timeout-minutes: 35
     strategy:
@@ -1522,6 +1522,11 @@ jobs:
         env:
           LIVE_E2E_REALTIME: '1'
         run: npm run test:e2e:live --prefix shinobij.client -- resource-gathering.spec.ts recipes.spec.ts crafting-lifecycle.spec.ts wild-binding-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --output=test-results/fieldwork-crafting-ci 2>&1 | tee .ci-evidence/e2e-village-stores/fieldwork-crafting.log
+      - name: Live Express connected outskirts and village raids on desktop and mobile
+        if: ${{ matrix.shard == 2 }}
+        env:
+          LIVE_E2E_REALTIME: '1'
+        run: npm run test:e2e:live --prefix shinobij.client -- village-outskirts.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --output=test-results/village-outskirts-ci 2>&1 | tee .ci-evidence/e2e-village-stores/village-outskirts.log
       - name: Live Express Exchange and sector-war player journeys
         if: ${{ matrix.shard == 3 }}
         run: npm run test:e2e:live --prefix shinobij.client -- sunscar-exchange-express.spec.ts sector-war-express.spec.ts --project=chromium-desktop-live --retries=1 --output=test-results/economy-war-journeys-ci 2>&1 | tee .ci-evidence/e2e-village-stores/economy-war-journeys.log

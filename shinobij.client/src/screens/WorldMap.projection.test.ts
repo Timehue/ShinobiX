@@ -237,13 +237,14 @@ test("world overview keeps live charting before sector markers without retired d
     assert.doesNotMatch(finalOverview, /\b(?:sea-label|atlas-landmass|atlas-region-label)\b/u);
 });
 
-test("selected enemy-village territory uses its total SectorMap path without retired scene fallbacks", () => {
-    const selectedVillage = sliceBetween(worldMapSource, "if (selectedVillageTerritory) {", "if (selectedLandmark) {");
-
-    assert.match(selectedVillage, /const sectorMapSrc = villageOuterTerritoryMapUrl\(loc\.name, virtualSector\);/u);
-    assert.match(selectedVillage, /<div className="pixel-map walkable-sector-map sector-image-map">\s*<SectorMap image=\{sectorMapSrc\} \/>/u);
-    assert.doesNotMatch(selectedVillage, /\b(?:sectorMapMode|territoryBg|villageTerritorySectorBg)\b/u);
-    assert.doesNotMatch(selectedVillage, /<(?:SectorScene|SectorScene3D|SectorScatter|SceneAmbience3D|SectorForeground)\b/u);
+test("village visits use the connected sector and defenses keep the same location", () => {
+    const entry = sliceBetween(worldMapSource, "function enterLandmark(", "// Warm the destination");
+    assert.match(entry, /const destination = home \? 0 : outskirts;/u);
+    assert.match(entry, /setSelectedSector\(home \? null : destination\);/u);
+    const defenses = sliceBetween(worldMapSource, "const villageRaidDialog =", "if (selectedSector &&");
+    assert.match(defenses, /const raidSector = villageOutskirtsSector\(loc.name\);/u);
+    assert.match(defenses, /<Modal open onClose=\{close\}/u);
+    assert.doesNotMatch(worldMapSource, /virtualSector|villageOuterTerritoryMap|village-outskirts-instance/u);
 });
 
 test("WorldSectorCanvas stays hook-free, network-free, and persistence-free", () => {
@@ -403,7 +404,7 @@ test("selected-sector canvas preserves stage and stacking order", () => {
 });
 
 test("WorldMap retains controller and portal ownership around the canvas slots", () => {
-    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedVillageTerritory) {");
+    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedLandmark) {");
     assertOrdered(projection, [
         "onSelectTile={roadWalk.selectTile}",
         "onCrossExit={roadWalk.requestExit}",
@@ -492,7 +493,7 @@ test("the sector HUD stays mounted across sectors and resets what a remount rese
     // the board-size variables, forced a layout at the default size and measured
     // again, in the crossing's longest task. Each piece of state the remount
     // reset is now reset per sector instead.
-    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedVillageTerritory) {");
+    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedLandmark) {");
     assert.match(projection, /<SectorHud\s/u);
     assert.doesNotMatch(projection, /<SectorHud key=/u, "a key remounts the whole HUD at every crossing");
     assert.match(hudSource, /if \(sheetSector !== sector\) \{ setSheetSector\(sector\); setSheet\(null\); \}/u, "an open sheet closes on crossing");
@@ -527,7 +528,7 @@ test("selected-sector scouting is read-only and never impersonates travel", () =
     assertOrdered(launch, ["captureSectorAction(sector)()", "capabilityAdmissionAllowed", "requestAiFight"], "World fight location guard");
     assert.doesNotMatch(launch, /setCurrentSector\(/u);
 
-    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedVillageTerritory) {");
+    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedLandmark) {");
     assert.match(projection, /wanderers=\{sectorIsCurrent \? sectorOverlayWanderers : \[\]\}/u);
     assert.match(projection, /rift=\{sectorIsCurrent \? sectorOverlayRift : null\}/u);
     assert.match(projection, /vault=\{sectorIsCurrent \? sectorOverlayVault : null\}/u);

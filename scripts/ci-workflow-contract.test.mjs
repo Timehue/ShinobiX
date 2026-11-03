@@ -596,14 +596,25 @@ test('both Warfront slices feed its stable required check with complete evidence
     assert.ok(aggregate.includes('test "$WARFRONT_SHARDS" = success'));
 });
 
-test('live Express sharding preserves ten exclusive invocations and a fail-closed stable aggregate', () => {
+test('live Express sharding preserves eleven exclusive invocations and a fail-closed stable aggregate', () => {
  const matrix=workflow.split('  e2e_village_stores_matrix:\n')[1]?.split('\n  e2e_village_stores:')[0];
  assert.ok(matrix);assert.match(matrix,/shard: \[1, 2, 3\]/);assert.match(matrix,/fail-fast: false/);
  const steps=matrix.split('      - name: ').filter(step=>step.includes('run: npm run test:e2e:live'));
- assert.equal(steps.length,10);const groups=steps.map(step=>Number(step.match(/if: \$\{\{ matrix\.shard == ([123]) \}\}/)?.[1]));
- assert.deepEqual(groups,[1,1,2,3,3,3,2,3,3,3]);for(const step of steps)assert.doesNotMatch(step,/continue-on-error|--grep|--shard|--max-failures/);
+ assert.equal(steps.length,11);const groups=steps.map(step=>Number(step.match(/if: \$\{\{ matrix\.shard == ([123]) \}\}/)?.[1]));
+ assert.deepEqual(groups,[1,1,2,3,3,3,2,2,3,3,3]);for(const step of steps)assert.doesNotMatch(step,/continue-on-error|--grep|--shard|--max-failures/);
  assert.match(matrix,/name: evidence-e2e-village-stores-\$\{\{ matrix\.shard \}\}-of-3/);
  const aggregate=workflow.split('  e2e_village_stores:\n')[1]?.split('\n  test_build:')[0];assert.ok(aggregate);
  assert.match(aggregate,/needs: e2e_village_stores_matrix/);assert.ok(aggregate.includes('if: ${{ always() }}'));assert.ok(aggregate.includes('test "$VILLAGE_SHARDS" = success'));
  assert.match(workflow.split('  test_build:\n')[1],/- e2e_village_stores\n/);
+});
+
+test('required live Express CI gates outskirts raid launch and recovery on both viewports', () => {
+ const job=workflow.split('  e2e_village_stores_matrix:\n')[1]?.split('\n  e2e_village_stores:')[0];
+ const step=job?.split('      - name: ').find(block=>block.includes('run: npm run test:e2e:live')&&block.includes('village-outskirts.spec.ts'));
+ assert.ok(step);
+ assert.match(step,/LIVE_E2E_REALTIME: '1'/);
+ assert.match(step,/--project=chromium-desktop-live --project=chromium-mobile-live/);
+ assert.match(step,/--output=test-results\/village-outskirts-ci/);
+ assert.match(step,/tee \.ci-evidence\/e2e-village-stores\/village-outskirts.log/);
+ assert.doesNotMatch(step,/--grep|continue-on-error/);
 });
