@@ -23,6 +23,7 @@ const staleReply = (reply: WorldMovementReply, version: string) => Boolean(reply
 const directions: Record<string, WorldPoint> = { w:{x:0,y:-1}, a:{x:-1,y:0}, s:{x:0,y:1}, d:{x:1,y:0}, arrowup:{x:0,y:-1}, arrowleft:{x:-1,y:0}, arrowdown:{x:0,y:1}, arrowright:{x:1,y:0} };
 export async function mountContinuousWorld(host: Host) {
     const [world, initial] = await Promise.all([loadContinuousWorld(), worldMovementRequest(undefined, undefined, host.signal)]);
+    host.signal.throwIfAborted();
     if (staleReply(initial, world.space.layoutVersion)) throw new Error(STALE_WORLD_STATUS);
     const initialPosition = world.model.read(initial.worldPosition);
     if (!initial.ok || !initialPosition) throw new Error('World presence is not ready. Try again.');
@@ -37,6 +38,7 @@ export async function mountContinuousWorld(host: Host) {
     let inFlight = false, disposed = false, stale = false, sentCursor = '', resyncing = false, drag: { x: number; y: number; moved: boolean } | null = null;
     let requestedSector = sector, retryAfter = 0, refusedInRow = 0, resumed = false;
     let pendingDestination: string | null = null;
+    let startupThrottled = false;
     const pace = createWorldMovePacer(6.5);
     const resumable = (reply: WorldMovementReply) => refusedInRow === 1 && (reply.reason === 'speed' || reply.reason === 'busy');
     function accept(reply: WorldMovementReply) {
@@ -63,7 +65,8 @@ export async function mountContinuousWorld(host: Host) {
         inFlight = true; const update = pace.next(cursor, performance.now() / 1000), signature = JSON.stringify(update.cursor), sentSector = sector;
         try {
             const reply = await worldMovementRequest(update.cursor, sequence, host.signal);
-            if (disposed) return false;
+            if (disposed || host.signal.aborted) return false;
+            startupThrottled = reply.reason === 'throttled';
             if (accept(reply)) { if (reply.ok) pace.accepted(update, performance.now() / 1000); if (requestedSector === sentSector) requestedSector = sector; sentCursor = reply.ok ? signature : ''; host.onStatus(reply.ok || resumable(reply) ? '' : 'Movement paused. Choose a new destination.'); return true; }
             if (!stale) pace.dropped(update);
             return false;
@@ -71,7 +74,18 @@ export async function mountContinuousWorld(host: Host) {
         finally { inFlight = false; }
     }
     // Adopt a stationary cursor first; this starts the server clock before prediction.
-    if (!await send(true)) { renderer.dispose(); throw new Error('World presence is not ready. Try again.'); }
+    let adopted = await send(true);
+    // A remount can land inside the previous controller's socket throttle window.
+    // Retry only that transient refusal, once, after its 80 ms admission window.
+    if (!adopted && startupThrottled && !host.signal.aborted) {
+        await new Promise<void>(resolve => {
+            const timer = setTimeout(done, 125);
+            function done() { clearTimeout(timer); host.signal.removeEventListener('abort', done); resolve(); }
+            host.signal.addEventListener('abort', done, { once: true });
+        });
+        adopted = await send(true);
+    }
+    if (!adopted) { renderer.dispose(); throw new Error('World presence is not ready. Try again.'); }
     if (host.signal.aborted) { renderer.dispose(); throw new DOMException('Aborted', 'AbortError'); }
     const chooseDestination = (destination: string) => {
         if (host.blocked()) return;
