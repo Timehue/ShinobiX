@@ -5810,7 +5810,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
 @container shinobi-combat (max-width: 979px) and (min-height: 501px) {
     #combat .combat-layout {
         grid-template-columns: minmax(0, 1fr) 86px minmax(0, 1fr) !important;
-        grid-template-rows: minmax(116px, auto) auto minmax(196px, 42cqh) 48px auto minmax(88px, 1fr) !important;
+        grid-template-rows: minmax(116px, auto) auto var(--combat-mobile-board-height, minmax(196px, 42cqh)) 48px auto minmax(88px, 1fr) !important;
         grid-template-areas: none !important;
         align-items: stretch !important;
         gap: 6px !important;
@@ -5818,7 +5818,7 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
     }
 
     #combat .combat-layout.has-action-notice {
-        grid-template-rows: minmax(116px, auto) auto auto minmax(196px, 42cqh) 48px auto minmax(88px, 1fr) !important;
+        grid-template-rows: minmax(116px, auto) auto auto var(--combat-mobile-board-height, minmax(196px, 42cqh)) 48px auto minmax(88px, 1fr) !important;
     }
 
     #combat .combat-layout > .combat-main-area {
@@ -6047,12 +6047,12 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
 
 @container shinobi-combat (max-width: 979px) and (min-height: 501px) and (max-height: 740px) {
     #combat .combat-layout {
-        grid-template-rows: minmax(100px, auto) auto minmax(150px, 36cqh) 44px auto minmax(64px, 1fr) !important;
+        grid-template-rows: minmax(100px, auto) auto var(--combat-mobile-board-height, minmax(150px, 36cqh)) 44px auto minmax(64px, 1fr) !important;
         gap: 4px !important;
     }
 
     #combat .combat-layout.has-action-notice {
-        grid-template-rows: minmax(100px, auto) auto auto minmax(150px, 36cqh) 44px auto minmax(64px, 1fr) !important;
+        grid-template-rows: minmax(100px, auto) auto auto var(--combat-mobile-board-height, minmax(150px, 36cqh)) 44px auto minmax(64px, 1fr) !important;
     }
 
     #combat .combat-layout > .combat-side-hud,
@@ -6110,10 +6110,10 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell#combat .combat-layout {
         padding-left: 0 !important;
         padding-right: 0 !important;
+        --combat-mobile-board-inset: 0px;
     }
 }
 }
-
 /* Short portrait phones have enough width for three cards but not enough panel
    height for the generic square-card + stacked details layout. At 375x667 that
    produced a 103px card inside a 62px scrollport: the visible cast card's
@@ -7399,6 +7399,11 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:focus-visi
            floor on phones. */
         #combat .combat-action-tray .combat-equipped-jutsu-grid {
             grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)) !important;
+            /* Retire the short-phone 44px implicit tracks along with its
+               44px cards. Each row must contain the square cards it paints.
+               Explicit minmax also makes WebKit recalculate the intrinsic
+               tracks after returning from the short-landscape layout. */
+            grid-auto-rows: minmax(44px, auto) !important;
             gap: 4px !important;
             padding: 4px !important;
         }
@@ -7577,6 +7582,24 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:focus-visi
 
     #combat .combat-layout.has-action-notice {
         grid-template-rows: minmax(126px, auto) auto auto minmax(90px, 1fr) 44px 0px 156px !important;
+    }
+}
+
+/* PvP's portrait board is aspect-fitted inside its stage. Cap only that
+   stage's fixed-height track at the existing width-fitted board height, so
+   terrain and tabs meet the board and the reclaimed space reaches the tray.
+   Solo's direct battlefield, short landscape, the tiny-phone flexible track,
+   and desktop geometry keep their existing row definitions. The 12px inset
+   matches the mobile layout's two 6px side paddings (zero at <=320px). */
+@container shinobi-combat (max-width: 799px) and (min-height: 501px) {
+    #combat.shinobi-combat-shell--pvp .combat-layout {
+        --combat-mobile-board-height: min(max(196px, 42cqh), calc((100cqw - var(--combat-mobile-board-inset, 12px)) / var(--combat-board-aspect)));
+    }
+}
+
+@container shinobi-combat (max-width: 799px) and (min-height: 501px) and (max-height: 740px) {
+    #combat.shinobi-combat-shell--pvp .combat-layout {
+        --combat-mobile-board-height: min(max(150px, 36cqh), calc((100cqw - var(--combat-mobile-board-inset, 12px)) / var(--combat-board-aspect)));
     }
 }
 
