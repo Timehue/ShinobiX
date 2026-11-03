@@ -404,7 +404,7 @@
     gap: 8px !important;
 }
 .profile-page-card .jutsu-card,
-.profile-page-card .jutsu-effect-card {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-effect-card {
     background: linear-gradient(180deg, rgba(15,22,40,0.92) 0%, rgba(8,12,24,0.96) 100%) !important;
     border: 1px solid var(--bsv2-gold-soft) !important;
     border-radius: 6px !important;
@@ -2129,7 +2129,7 @@
 .profile-page-card .jutsu-section-heading,
 .profile-page-card .jutsu-collection-heading,
 .profile-page-card .jutsu-subscriber-callout,
-.profile-page-card .jutsu-detail-title {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-title {
     display: flex;
     align-items: center;
 }
@@ -2535,7 +2535,7 @@
     text-wrap: balance;
 }
 
-.profile-page-card .jutsu-workbench-art {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-workbench-art {
     position: relative;
     display: grid;
     place-items: center;
@@ -2551,14 +2551,14 @@
     box-shadow: inset 0 0 20px rgba(0,0,0,0.34);
 }
 
-.profile-page-card .jutsu-workbench-art.is-fallback {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-workbench-art.is-fallback {
     background:
         radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--jutsu-element, #64748b) 44%, transparent), transparent 39%),
         linear-gradient(180deg, rgba(2, 8, 15, 0.04), rgba(1, 5, 10, 0.52)),
         url("../assets/jutsu/jutsu-seal-fallback.webp") center / cover no-repeat;
 }
 
-.profile-page-card .jutsu-workbench-art img {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-workbench-art img {
     width: 100%;
     height: 100%;
     min-height: 62px;
@@ -2566,7 +2566,7 @@
     display: block;
 }
 
-.profile-page-card .jutsu-workbench-art > strong {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-workbench-art > strong {
     position: relative;
     z-index: 1;
     color: color-mix(in srgb, var(--jutsu-element, #d5dde7) 74%, white);
@@ -2576,14 +2576,14 @@
         0 0 16px color-mix(in srgb, var(--jutsu-element, #d5dde7) 58%, transparent);
 }
 
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Fire"] { --jutsu-element: #e85d3f; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Water"] { --jutsu-element: #3e9bc9; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Wind"] { --jutsu-element: #58b77c; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Lightning"] { --jutsu-element: #e8b936; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Earth"] { --jutsu-element: #9b754a; }
-.profile-page-card :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="None"] { --jutsu-element: #8a61b9; }
+:is(.profile-page-card, .jutsu-loadout-info-modal) :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Fire"] { --jutsu-element: #e85d3f; }
+:is(.profile-page-card, .jutsu-loadout-info-modal) :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Water"] { --jutsu-element: #3e9bc9; }
+:is(.profile-page-card, .jutsu-loadout-info-modal) :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Wind"] { --jutsu-element: #58b77c; }
+:is(.profile-page-card, .jutsu-loadout-info-modal) :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Lightning"] { --jutsu-element: #e8b936; }
+:is(.profile-page-card, .jutsu-loadout-info-modal) :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="Earth"] { --jutsu-element: #9b754a; }
+:is(.profile-page-card, .jutsu-loadout-info-modal) :where(.jutsu-workbench-art, .jutsu-element-legend span)[data-element="None"] { --jutsu-element: #8a61b9; }
 
-.profile-page-card .jutsu-workbench-level {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-workbench-level {
     position: absolute;
     z-index: 3;
     top: 30px;
@@ -2801,7 +2801,7 @@
     text-transform: uppercase;
 }
 
-.profile-page-card .jutsu-bloodline-chip {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-bloodline-chip {
     display: block;
     margin-top: 3px;
     overflow: hidden;
@@ -2813,7 +2813,7 @@
     white-space: nowrap;
 }
 
-.profile-page-card .jutsu-detail-title .jutsu-bloodline-chip {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-title .jutsu-bloodline-chip {
     font-size: 0.55rem;
 }
 
@@ -2999,7 +2999,7 @@
     font-size: 0.76rem !important;
 }
 
-.profile-page-card .jutsu-detail-empty {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-empty {
     display: grid;
     place-items: center;
     min-height: 245px;
@@ -3010,7 +3010,7 @@
     text-align: center;
 }
 
-.profile-page-card .jutsu-detail-seal {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-seal {
     display: grid;
     place-items: center;
     width: 110px;
@@ -3027,47 +3027,47 @@
     text-shadow: 0 2px 10px rgba(0,0,0,0.8);
 }
 
-.profile-page-card .jutsu-detail-empty p {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-empty p {
     font-size: 0.75rem;
     line-height: 1.45;
 }
 
-.profile-page-card .jutsu-detail-content {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-content {
     min-width: 0;
 }
 
-.profile-page-card .jutsu-detail-hero {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-hero {
     position: relative;
     height: 170px;
     margin-bottom: 10px;
 }
 
-.profile-page-card .jutsu-detail-art,
-.profile-page-card .jutsu-detail-art img {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-art,
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-art img {
     height: 170px;
     min-height: 170px;
 }
 
-.profile-page-card .jutsu-detail-hero .jutsu-workbench-level {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-hero .jutsu-workbench-level {
     top: 8px;
     right: 8px;
     width: 28px;
     height: 28px;
 }
 
-.profile-page-card .jutsu-detail-title {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-title {
     align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
 }
 
-.profile-page-card .jutsu-detail-title small {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-title small {
     color: #7f8999;
     font-size: 0.57rem;
     text-transform: uppercase;
 }
 
-.profile-page-card .jutsu-detail-title h3 {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-title h3 {
     margin: 2px 0 0 !important;
     color: #f3f5f8 !important;
     font-size: 0.84rem !important;
@@ -3075,7 +3075,7 @@
     text-transform: none;
 }
 
-.profile-page-card .jutsu-detail-ap {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-ap {
     display: grid;
     flex: 0 0 auto;
     place-items: center;
@@ -3087,70 +3087,70 @@
     font: 900 0.7rem Inter, sans-serif;
 }
 
-.profile-page-card .jutsu-detail-ap small {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-ap small {
     margin-top: -5px;
     color: #111821;
     font-size: 0.43rem;
 }
 
-.profile-page-card .jutsu-detail-stat-grid {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-stat-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 5px;
     margin: 10px 0;
 }
 
-.profile-page-card .jutsu-detail-stat-grid span {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-stat-grid span {
     padding: 6px;
     background: rgba(4, 10, 17, 0.5);
     border: 1px solid rgba(147, 163, 184, 0.16);
     border-radius: 3px;
 }
 
-.profile-page-card .jutsu-detail-stat-grid small,
-.profile-page-card .jutsu-detail-stat-grid strong {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-stat-grid small,
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-stat-grid strong {
     display: block;
 }
 
-.profile-page-card .jutsu-detail-stat-grid small {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-stat-grid small {
     color: #727e8e;
     font-size: 0.5rem;
     text-transform: uppercase;
 }
 
-.profile-page-card .jutsu-detail-stat-grid strong {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-stat-grid strong {
     margin-top: 2px;
     color: #d8dee7;
     font-size: 0.66rem;
 }
 
-.profile-page-card .jutsu-detail-description,
-.profile-page-card .jutsu-detail-target,
-.profile-page-card .jutsu-detail-effects > p {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-description,
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-target,
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-effects > p {
     color: #9ba5b4;
     font-size: 0.62rem;
     line-height: 1.45;
 }
 
-.profile-page-card .jutsu-detail-target strong,
-.profile-page-card .jutsu-detail-effects > strong {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-target strong,
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-effects > strong {
     color: #d9c27c;
 }
 
-.profile-page-card .jutsu-detail-effects .jutsu-effect-cards {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-effects .jutsu-effect-cards {
     gap: 5px;
 }
 
-.profile-page-card .jutsu-detail-effects .jutsu-effect-card {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-effects .jutsu-effect-card {
     padding: 8px !important;
 }
 
-.profile-page-card .jutsu-detail-effects .jutsu-effect-card :where(p, small, span, strong) {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-effects .jutsu-effect-card :where(p, small, span, strong) {
     font-size: 0.6rem !important;
 }
 
-.profile-page-card .jutsu-detail-equip,
-.profile-page-card .jutsu-detail-remove {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-equip,
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-remove {
     width: 100%;
     min-height: 34px;
     margin-top: 8px;
@@ -3159,17 +3159,40 @@
     cursor: pointer;
 }
 
-.profile-page-card .jutsu-detail-equip {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-equip {
     color: #071018;
     background: linear-gradient(180deg, #a6d5df, #6aa5b5);
     border: 1px solid #bce5ed;
 }
 
-.profile-page-card .jutsu-detail-remove {
+:is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-remove {
     color: #f8e8e8;
     background: linear-gradient(180deg, #9d4046, #6f2c31);
     border: 1px solid #bd5a61;
 }
+
+/* Tap-to-inspect popup for the loadout and learned grids (portaled out of
+   .profile-page-card, hence the :is() pairs above). Sidebar type is sized
+   for a 300px column; read on a phone it needs a size up. */
+.ui-modal-card.jutsu-loadout-info-modal {
+    width: min(94vw, 460px);
+    max-height: min(88dvh, 760px);
+    border-color: rgba(196, 162, 90, 0.42);
+    background: linear-gradient(160deg, #111a2b, #050a16 72%);
+    color: #e8edf5;
+}
+.jutsu-loadout-info-modal > .ui-modal-body { overflow-y: auto; overscroll-behavior: contain; }
+.jutsu-loadout-info-modal .jutsu-detail-hero { width: min(150px, 46vw); margin-inline: auto; }
+.jutsu-loadout-info-modal .jutsu-detail-title { display: flex; }
+.jutsu-loadout-info-modal .jutsu-detail-title small { font-size: 0.7rem; }
+.jutsu-loadout-info-modal .jutsu-detail-title h3 { font-size: 1.05rem !important; }
+.jutsu-loadout-info-modal .jutsu-detail-ap { width: 40px; height: 40px; font-size: 0.85rem; }
+.jutsu-loadout-info-modal .jutsu-detail-ap small { font-size: 0.55rem; }
+.jutsu-loadout-info-modal .jutsu-detail-stat-grid small { font-size: 0.62rem; }
+.jutsu-loadout-info-modal .jutsu-detail-stat-grid strong { font-size: 0.85rem; }
+.jutsu-loadout-info-modal :is(.jutsu-detail-description, .jutsu-detail-target, .jutsu-detail-effects > p) { font-size: 0.8rem; }
+.jutsu-loadout-info-modal .jutsu-detail-effects .jutsu-effect-card :where(p, small, span, strong) { font-size: 0.75rem !important; }
+.jutsu-loadout-info-modal :is(.jutsu-detail-equip, .jutsu-detail-remove) { min-height: 44px; font-size: 0.8rem; }
 
 .profile-page-card .jutsu-sidebar-section ul {
     display: grid;

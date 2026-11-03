@@ -136,20 +136,23 @@
         grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
         gap: 12px !important;
     }
+    /* Loadout slots run one column denser than the collection: they carry
+       art only, and the full read is a tap away in the info popup. */
+    .profile-page-card .jutsu-loadout-grid { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
     .profile-page-card .jutsu-loadout-slot.is-filled { min-height: 0 !important; }
     .profile-page-card .jutsu-slot-select {
         min-height: 0 !important;
         padding: 5px !important;
         gap: 0 !important;
     }
-    .profile-page-card .jutsu-workbench-art:not(.jutsu-detail-art) {
+    :is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-workbench-art:not(.jutsu-detail-art) {
         aspect-ratio: 1 !important;
         height: auto !important;
         min-height: 0 !important;
         border: 0 !important;
         border-radius: 3px !important;
     }
-    .profile-page-card .jutsu-workbench-art img {
+    :is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-workbench-art img {
         position: absolute !important;
         inset: 0 !important;
         width: 100% !important;
@@ -183,7 +186,7 @@
         border: 1px solid rgba(255, 255, 255, 0.12) !important;
         border-radius: 3px !important;
     }
-    .profile-page-card .jutsu-workbench-level {
+    :is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-workbench-level {
         top: auto !important;
         right: 6px !important;
         bottom: 6px !important;
@@ -228,9 +231,9 @@
         width: 72px !important;
         height: 72px !important;
     }
-    .profile-page-card .jutsu-detail-hero { height: auto !important; }
-    .profile-page-card .jutsu-detail-art { aspect-ratio: 1 !important; height: auto !important; min-height: 0 !important; }
-    .profile-page-card .jutsu-detail-hero .jutsu-workbench-level {
+    :is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-hero { height: auto !important; }
+    :is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-art { aspect-ratio: 1 !important; height: auto !important; min-height: 0 !important; }
+    :is(.profile-page-card, .jutsu-loadout-info-modal) .jutsu-detail-hero .jutsu-workbench-level {
         width: auto !important; height: 24px !important; top: 8px !important; bottom: auto !important; right: 8px !important;
     }
     .technique-grid {
@@ -258,12 +261,14 @@
         .profile-page-card .jutsu-collection-grid:not(.is-list-view) {
             grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
         }
+        .profile-page-card .jutsu-loadout-grid { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
     }
     @media (max-width: 680px) {
         .profile-page-card .jutsu-loadout-grid,
         .profile-page-card .jutsu-collection-grid:not(.is-list-view) {
             grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         }
+        .profile-page-card .jutsu-loadout-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 8px !important; }
         .jutsu-training-screen .technique-card {
             grid-template-columns: 80px minmax(0, 1fr) !important;
             grid-template-rows: auto !important;
@@ -276,5 +281,6 @@
         .profile-page-card .jutsu-collection-grid:not(.is-list-view) {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         }
+        .profile-page-card .jutsu-loadout-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
     }
 }

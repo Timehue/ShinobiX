@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import type { JutsuType } from "../types/core";
@@ -14,6 +14,7 @@ import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { useFirstContractLoadoutTab } from "../lib/use-first-contract-loadout-tab";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { GameArtIcon } from "./GameArtIcon";
+import { Modal } from "./ui/Modal";
 import { hasBloodlineMarker } from "../lib/bloodline-marker";
 
 type JutsuCollectionSort = "default" | "name" | "level" | "ap" | "element" | "bloodline";
@@ -35,6 +36,24 @@ const ELEMENT_GLYPHS: Record<string, string> = {
 };
 
 const DRAG_TYPE = "application/x-shinobij-jutsu";
+
+/**
+ * Below this width the Jutsu Details sidebar stacks under the grids
+ * (profile-skin.css), so a tap would update a panel the player can't see.
+ * There, tapping a jutsu opens the same details in a popup instead.
+ */
+const DETAILS_POPUP_QUERY = "(max-width: 860px)";
+
+/**
+ * A learned-jutsu card also quick-equips on double-tap. Opening its popup on
+ * the first tap would swallow the second one, so the card waits out the
+ * double-tap window first; a double-tap cancels the popup and equips.
+ */
+const DOUBLE_TAP_MS = 300;
+
+function detailsSidebarOffscreen() {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(DETAILS_POPUP_QUERY).matches;
+}
 
 function jutsuGlyph(jutsu: Jutsu) {
     return ELEMENT_GLYPHS[jutsu.element] ?? jutsu.name.slice(0, 1).toUpperCase();
@@ -239,6 +258,28 @@ export function JutsuLoadoutPanel({
     const [view, setView] = useState<"grid" | "list">("grid");
     const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
     const [lensOverride, setLensOverride] = useState<JutsuType | null>(null);
+    const [popupJutsuId, setPopupJutsuId] = useState<string | null>(null);
+    const pendingPopup = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cancelPendingPopup = () => {
+        if (pendingPopup.current !== null) clearTimeout(pendingPopup.current);
+        pendingPopup.current = null;
+    };
+    useEffect(() => () => {
+        if (pendingPopup.current !== null) clearTimeout(pendingPopup.current);
+    }, []);
+    const inspectJutsu = (jutsuId: string, waitForDoubleTap = false) => {
+        setSelectedId(jutsuId);
+        cancelPendingPopup();
+        if (!detailsSidebarOffscreen()) return;
+        if (!waitForDoubleTap) {
+            setPopupJutsuId(jutsuId);
+            return;
+        }
+        pendingPopup.current = setTimeout(() => {
+            pendingPopup.current = null;
+            setPopupJutsuId(jutsuId);
+        }, DOUBLE_TAP_MS);
+    };
     const academyLoadoutStep = normalizeOnboardingStep(character.onboardingStep) === "jutsuLoadout";
     const [workspaceTab, setWorkspaceTab] = useFirstContractLoadoutTab<"loadout" | "collection">(character, 'workspace', academyLoadoutStep ? "collection" : "loadout", "collection");
     const subscriber = isPatreonSubscriber(character);
@@ -254,6 +295,11 @@ export function JutsuLoadoutPanel({
     const automaticLensDiscipline = resolveLoadoutLensDiscipline(character, learnedJutsus, savedBloodlines);
     const lensDiscipline = lensOverride ?? automaticLensDiscipline;
     const selectedJutsu = learnedJutsus.find((jutsu) => jutsu.id === selectedId) ?? equippedJutsus[0] ?? learnedJutsus[0];
+    // Equipped slots resolve against the full catalog, so a slotted jutsu
+    // that is element-locked right now is still inspectable.
+    const popupJutsu = popupJutsuId
+        ? learnedJutsus.find((jutsu) => jutsu.id === popupJutsuId) ?? equippedJutsus.find((jutsu) => jutsu.id === popupJutsuId)
+        : undefined;
     const signature = legacySignatureFor(character);
     const academyRecommendedJutsuId = academyLoadoutStep
         ? learnedJutsus.find((jutsu) => !character.equippedJutsuIds.includes(jutsu.id))?.id ?? ""
@@ -435,7 +481,7 @@ export function JutsuLoadoutPanel({
                                     <span className="jutsu-slot-number">{slotIndex + 1}</span>
                                     {jutsu ? (
                                         <>
-                                            <button type="button" className="jutsu-slot-select" onClick={() => setSelectedId(jutsu.id)} aria-label={`View ${jutsu.name}`}>
+                                            <button type="button" className="jutsu-slot-select" onClick={() => inspectJutsu(jutsu.id)} aria-label={`View ${jutsu.name}`}>
                                                 <JutsuArtwork jutsu={jutsu}>
                                                     <span className="jutsu-workbench-level">{getJutsuMastery(character, jutsu.id).level}</span>
                                                 </JutsuArtwork>
@@ -523,8 +569,9 @@ export function JutsuLoadoutPanel({
                                     view={view}
                                     isBloodline={isBloodlineJutsu(jutsu)}
                                     bloodlineName={bloodlineNameFor(jutsu)}
-                                    onSelect={() => setSelectedId(jutsu.id)}
+                                    onSelect={() => inspectJutsu(jutsu.id, true)}
                                     onEquip={() => {
+                                        cancelPendingPopup();
                                         setSelectedId(jutsu.id);
                                         onPlaceJutsu(jutsu.id);
                                     }}
@@ -586,6 +633,34 @@ export function JutsuLoadoutPanel({
                     </section>
                 </aside>
             </div>
+            <Modal
+                open={popupJutsu !== undefined}
+                onClose={() => setPopupJutsuId(null)}
+                title={popupJutsu?.name ?? "Jutsu details"}
+                size="md"
+                className="jutsu-loadout-info-modal"
+            >
+                {popupJutsu && (
+                    <SelectedJutsuDetails
+                        jutsu={popupJutsu}
+                        character={character}
+                        lensDiscipline={lensDiscipline}
+                        equipped={character.equippedJutsuIds.includes(popupJutsu.id)}
+                        loadoutFull={loadoutFull}
+                        isBloodline={isBloodlineJutsu(popupJutsu)}
+                        bloodlineName={bloodlineNameFor(popupJutsu)}
+                        onEquip={() => {
+                            onPlaceJutsu(popupJutsu.id);
+                            setPopupJutsuId(null);
+                        }}
+                        onUnequip={() => {
+                            onUnequip(popupJutsu.id);
+                            setPopupJutsuId(null);
+                        }}
+                        highlightEquip={academyRecommendedJutsuId === popupJutsu.id}
+                    />
+                )}
+            </Modal>
         </section>
     );
 }
