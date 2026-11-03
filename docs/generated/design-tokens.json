@@ -2581,7 +2581,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3317
+            "line": 3340
           }
         ]
       },
@@ -2690,7 +2690,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-frames.css",
-            "line": 274
+            "line": 279
           },
           {
             "source": "shinobij.client/src/styles/logbook-career.css",
@@ -3762,7 +3762,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-frames.css",
-            "line": 262
+            "line": 266
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -3774,7 +3774,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3262
+            "line": 3285
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -4510,7 +4510,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3239
+            "line": 3262
           }
         ]
       },
@@ -5208,11 +5208,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/jutsu-frames.css",
-            "line": 256
+            "line": 259
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3225
+            "line": 3248
           }
         ]
       },
