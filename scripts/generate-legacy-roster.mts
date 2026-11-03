@@ -13,7 +13,7 @@ const requirement = (req: LegacyReq): string => 'stat' in req
 export function renderLegacyRoster(definitions: readonly LegacyDef[] = LEGACY_DEFS): string {
     const lines = ['# Legacy roster', '',
         '> Generated from `api/_legacy-defs.ts` and `api/_legacy-core.ts`. Regenerate with `npm run generate:legacy-roster`; validate with `npm run check:legacy-roster`. Server overlay thresholds and disabled paths can override this code baseline.', '',
-        'Tracking continues through level 100. Sage offers begin at level 50; a path may require late-game deeds. Accepting one path is permanent. Declining lets later appearances rotate through eligible choices. Qualification is checked again before the initial acceptance seal.', '',
+        'Sage offers begin at level 50. Qualification and all later trials have earning routes below level 100, including prerequisite chains. Tracking continues at higher levels. One accepted path remains sealed; paid replacement is separate future work. Declining rotates eligible choices. Qualification is rechecked before initial acceptance.', '',
         'Style deeds follow the character’s permanent specialty. Support counts applied HP restoration, successful shield grants and damage absorbed by shields. `comebackWins` is the historical counter name for clutch wins ending at 15% HP or less. `higherLevelWins` counts wins against opponents at least five levels higher; at level 96+, a sealed player-ranked opponent rated at least 100 higher also qualifies as an upset.', '',
         'PvP credit uses the sealed match, excludes practice/pet/NPC/quick-surrender matches, and applies opponent decay to both fighters and war proof. Each opponent renews at midnight UTC: full, full, half, quarter, then zero credit. Account-age, shared-IP/device, level-gap and suspicion checks still apply.', '',
         'Trials use fresh progress after their sealed baselines. A reroll replaces an unfinished trial with the other variant and fresh baselines; completed stages remain. Paths without PvP qualification requirements have PvE trial routes. An older active trial keeps its issued objectives until completion or reroll.', '',
@@ -24,7 +24,7 @@ export function renderLegacyRoster(definitions: readonly LegacyDef[] = LEGACY_DE
         for (const def of defs) lines.push(`| ${cell(def.name)} (${def.id}) | ${cell(def.title)} | ${def.category} | ${cell(def.villageAffinity ?? '—')} | ${def.reqs.map(requirement).join('; ')} | ${cell(def.flavor)} |`);
         lines.push('');
     }
-    lines.push('## Trial routes', '', 'Each stage cell lists variant 0 / variant 1. The signature technique unlocks at Bound (stage 3).', '',
+    lines.push('## Trial routes', '', 'Each stage cell lists variant 0 / variant 1. The signature technique unlocks at Awakening (stage 2), with stage-derived mastery 20 / 30 / 40 / 50. Routes are authored per identity. Estimated Awakening effort is 1–2 sessions for Basic, 3–5 for Rare, 1–2 weeks for Legendary and 3–4 weeks for Mythic, assuming 45-minute sessions five times weekly. These are tuning estimates, not timers or new reward rates.', '',
         '| Path | Activities preview | Awaken (2) | Bind (3) | Prove (4) | Summit (5) |', '|---|---|---|---|---|---|');
     for (const def of definitions) {
         const stages = (['awaken', 'bind', 'prove', 'mythic'] as const).map((kind) => [0, 1].map((variant) =>

@@ -542,7 +542,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : trial.kind === 'prove' ? provenTitleFor(def.title)
                     : trial.kind === 'mythic' ? mythicTitleFor(def.title)
                     : null;
-                const signatureName = trial.kind === 'bind' && def.specialtyJutsuId
+                const signatureName = trial.kind === 'awaken' && def.specialtyJutsuId
                     ? LEGACY_JUTSU_CATALOG[def.specialtyJutsuId]?.name ?? null
                     : null;
                 const completion = signatureName

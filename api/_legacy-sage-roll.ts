@@ -7,6 +7,7 @@ import { legacyAcceptedKey } from './_legacy-core.js';
 import { storyKeyFor, type StoryRecord } from './_story-record.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './pvp/_legacy-jutsu-catalog.js';
 import { legacyTrialActivities } from './_legacy-core.js';
+import { LEGACY_SIGNATURE_MIN_STAGE, legacySignatureShape } from '../shared/legacy-signature.js';
 
 export const SAGE_OFFER_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const sageOfferKey = (player: string) => `legacy:sage-offer:${player}`;
@@ -60,15 +61,9 @@ function signaturePreview(legacyId: string): SignaturePreview | null {
     const jutsuId = LEGACY_JUTSU_ID_BY_LEGACY[legacyId];
     const jutsu = jutsuId ? LEGACY_JUTSU_CATALOG[jutsuId] : undefined;
     if (!jutsu) return null;
-    const shape = jutsu.method === 'AOE_BURST'
-        ? 'Area nova'
-        : jutsu.method === 'AOE_CIRCLE'
-            ? 'Dashing strike'
-            : jutsu.ap === 40
-                ? 'Self technique'
-                : 'Focused strike';
+    const shape = legacySignatureShape(jutsu);
     const effects = jutsu.tags.filter((tag) => tag.name !== 'Move').map((tag) => tag.name);
-    return { name: jutsu.name, shape, effects, unlockStage: 3 };
+    return { name: jutsu.name, shape, effects, unlockStage: LEGACY_SIGNATURE_MIN_STAGE };
 }
 
 function homeSector(village: unknown, requested: unknown): number {

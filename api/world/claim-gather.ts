@@ -7,6 +7,7 @@ import { safeLogValue } from '../_safe-log.js';
 import { isCommonGatherId } from '../../shared/gathering.js';
 import { applyGatherClaim } from './_gather.js';
 import { rememberHarvestGround } from './_harvest-ground.js';
+import { legacyActivityCommit } from '../_legacy-activity-commit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -24,11 +25,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your find.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'world-claim-gather', 60, 60_000, identity.name))) return;
-        const result = await mutatePlayerSave(playerName, ({ character }) => {
+        const result = await mutatePlayerSave(playerName, async ({ character }) => {
             const claimed = applyGatherClaim(character, id, sector, { common: body.common, takeTrace: body.takeTrace });
             if (!claimed.ok) return { ok: false as const, status: 409, error: claimed.error };
             return { ok: true as const, character: claimed.character, write: !claimed.replayed,
-                value: { rewards: claimed.rewards, replayed: claimed.replayed,ground:claimed.ground } };
+                value: { rewards: claimed.rewards, replayed: claimed.replayed,ground:claimed.ground },
+                ...(!claimed.replayed ? await legacyActivityCommit(playerName, character, { gatheringClaims: 1 }) : {}) };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         await rememberHarvestGround(playerName,id,sector,result.value.ground);

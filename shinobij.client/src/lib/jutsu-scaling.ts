@@ -32,7 +32,7 @@ export function jutsuXpNeeded(level: number) {
 
 export function getJutsuMastery(character: Character, jutsuId: string): JutsuMastery {
     // Legacy signatures: mastery is DERIVED from the server-owned Legacy stage
-    // (Bound 3→30, Proven 4→40, Mythic 5→50), never from stored entries — so it
+    // (Awakened 2→20, Bound 3→30, Proven 4→40, Mythic 5→50), never from stored entries — so it
     // can't be trained, spoofed, or sit at level 0 when the signature unlocks.
     // Mirrors the server's stage-scaled injection in api/pvp/session.ts.
     if (isLegacyJutsuId(jutsuId)) {

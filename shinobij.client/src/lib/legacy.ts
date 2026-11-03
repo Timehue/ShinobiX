@@ -86,7 +86,7 @@ export type SageOfferView = {
     status: "spawned" | "declined" | "accepted" | "expired";
     offers: Array<{ legacyId: string; name: string; category: string; flavor: string; title: string; villageAffinity: string | null; badge?: string | null;
         /** Rank-free preview of the signature technique this legacy grants (name,
-         *  shape, effect names; NO percents/EP/rank). Unlocks at Stage 3. */
+         *  shape, effect names; NO percents/EP/rank). Unlocks at Stage 2. */
         signature?: { name: string; shape: string; effects: string[]; unlockStage: number } | null;
         trialActivities?: string[] }>;
     sector: number;
@@ -364,11 +364,17 @@ export function synthSageWanderer(sector: number): Wanderer {
 // the server lint (api/_legacy-defs.test.ts) fails if a trial template uses a
 // stat with no label here.
 export const TRIAL_STAT_LABELS: Record<string, string> = {
+    towerClears: "Battle Tower clears", towerCleanClears: "Tower clears with no squad knockouts",
+    towerParClears: "Tower clears within par", towerMechanicClears: "Tower clears with a successful boss-mechanic response",
+    spireClears: "Endless Spire clears", clanBossOperations: "active Clan Boss operation victories",
+    worldBossOperations: "active World Boss operations", riftQuests: "Rift quests completed",
+    gatheringClaims: "gathering finds collected", craftsCompleted: "items forged",
+    professionActions: "verified profession deeds",
     ninjutsuKills: "Ninjutsu specialist victories", genjutsuKills: "Genjutsu specialist victories",
     taijutsuKills: "Taijutsu specialist victories", bukijutsuKills: "Bukijutsu specialist victories",
     ninjutsuDamage: "damage dealt as a Ninjutsu specialist", genjutsuDamage: "damage dealt as a Genjutsu specialist",
     taijutsuDamage: "damage dealt as a Taijutsu specialist", bukijutsuDamage: "damage dealt as a Bukijutsu specialist",
-    pvpWins: "PvP wins", pvpKills: "PvP takedowns",
+    pvpWins: "PvP wins", pvpKills: "PvP takedowns", rankedWins: "ranked player wins",
     sameRankWins: "wins against your own rank", defensiveWins: "defensive wins",
     missionCompletions: "missions completed",
     pveKills: "foes defeated", eliteKills: "elite foes defeated",
