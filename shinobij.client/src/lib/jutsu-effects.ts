@@ -20,13 +20,13 @@ import { TEMPO_AP_SWING } from "./combat-action-display";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType } from "../types/core";
 
-// What a buff tile gives whoever stands on it; "%" becomes the tag's percent.
-const BUFF_TILE_EFFECTS: Readonly<Record<string, string>> = {
-    "Absorb": "converts % of incoming post-shield damage into healing",
-    "Lifesteal": "heals for % of the damage they deal",
-    "Reflect": "reflects % of post-shield damage back at attackers",
-    "Decrease Damage Taken": "takes % less damage",
-    "Increase Heal": "gets % more jutsu healing",
+// What a buff tile gives whoever stands on it, at the tag's percent.
+const BUFF_TILE_EFFECTS: Readonly<Record<string, (pct: string) => string>> = {
+    "Absorb": (pct) => `converts ${pct} of incoming post-shield damage into healing`,
+    "Lifesteal": (pct) => `heals for ${pct} of the damage they deal`,
+    "Reflect": (pct) => `reflects ${pct} of post-shield damage back at attackers`,
+    "Decrease Damage Taken": (pct) => `takes ${pct} less damage`,
+    "Increase Heal": (pct) => `gets ${pct} more jutsu healing`,
 };
 
 export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: JutsuType) {
@@ -49,7 +49,7 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     const tileEffect = BUFF_TILE_EFFECTS[tag.name];
     if (tileEffect && Number(jutsu.ap) === SELF_GROUND_EFFECT_AP && isBuffTileJutsu({ method: jutsu.method, tags: [tag] })) {
         return {
-            summary: `Buff tile: whoever stands on it ${tileEffect.replace("%", `${pct}%`)}.`,
+            summary: `Buff tile: whoever stands on it ${tileEffect(`${pct}%`)}.`,
             rule: "Lasts 2 rounds. Anyone standing on the tile gains it at once and loses it on stepping off. Buff Prevent blocks it.",
             duration: "While standing on the tile",
             value: `${pct}%`,
