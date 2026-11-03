@@ -5,6 +5,7 @@ import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {docker,loadImage,pins} from './images.mjs';
 import {qualify} from './scenarios.mjs';
+import {postgresCommand,waitForPostgres} from './postgres.mjs';
 const[artifactArg,outputArg]=process.argv.slice(2);assert.ok(artifactArg&&outputArg,'Supply artifact directory and output directory');
 const artifacts=resolve(artifactArg),output=resolve(outputArg),root=import.meta.dirname;mkdirSync(output,{recursive:true});
 const nonce=randomBytes(6).toString('hex'),prefix='wbqual-'+nonce,network=prefix,pgName=prefix+'-pg',database='wbqual_'+nonce,password=randomBytes(24).toString('hex'),secret=randomBytes(32).toString('hex'),created=[];
@@ -27,7 +28,7 @@ async function start(role){
 }
 async function stop(runtime){
  docker(['stop','--time','65',runtime.name]);assert.equal(JSON.parse(docker(['container','inspect',runtime.name]))[0].State.Running,false);
- const deadline=Date.now()+5000;for(;;){const sessions=docker(['exec',pgName,'psql','-U','wb_qual','-d',database,'-tAc',"SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()"]);if(Number(sessions.trim())===0)break;assert.ok(Date.now()<deadline,'Stopped image retains database sessions');await wait(100);}
+ const deadline=Date.now()+5000;for(;;){const sessions=docker(postgresCommand(pgName,database,password,['-tAc',"SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()"]));if(Number(sessions.trim())===0)break;assert.ok(Date.now()<deadline,'Stopped image retains database sessions');await wait(100);}
  result.runtime.at(-1).retiredAndNoDatabaseSessions=true;
 }
 try{
@@ -38,9 +39,9 @@ try{
  docker(['pull','postgres:16'],{stdio:'inherit'});const pgImage=JSON.parse(docker(['image','inspect','postgres:16']))[0];result.postgres={imageId:pgImage.Id,repoDigests:pgImage.RepoDigests};
  created.push(pgName);docker(['run','--detach','--name',pgName,'--network',network,'--mount','type=bind,src='+join(artifacts,'candidate')+',dst=/fixture-schema,readonly','--env','POSTGRES_DB='+database,'--env','POSTGRES_USER=wb_qual','--env','POSTGRES_PASSWORD='+password,pgImage.Id]);
  const pgContainer=JSON.parse(docker(['container','inspect',pgName]))[0];assert.deepEqual(Object.keys(pgContainer.NetworkSettings.Networks),[network]);assert.ok(Object.values(pgContainer.NetworkSettings.Ports).every(binding=>binding===null));
- const deadline=Date.now()+60000;for(;;){try{docker(['exec',pgName,'pg_isready','-U','wb_qual','-d',database]);break;}catch{assert.ok(Date.now()<deadline,'Disposable Postgres startup timed out');await wait(250);}}
+ await waitForPostgres({docker,name:pgName,database,password});
  result.postgres.version=docker(['exec',pgName,'postgres','--version']).trim();assert.match(result.postgres.version,/PostgreSQL\) 16\./);
- docker(['exec',pgName,'psql','-U','wb_qual','-d',database,'-v','ON_ERROR_STOP=1','-f','/fixture-schema/schema.sql']);
+ docker(postgresCommand(pgName,database,password,['-f','/fixture-schema/schema.sql']));
  Object.assign(result,await qualify({start,stop,control}));
 }catch(error){result.failed=1;result.checks=error.qualificationChecks??[];result.error=String(error.stack??error);process.exitCode=1;}
 finally{
