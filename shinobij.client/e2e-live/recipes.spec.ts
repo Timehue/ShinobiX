@@ -63,16 +63,19 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     await page.getByRole('button', { name: 'Visit the Crafter in Central', exact: true }).click();
     const crafter = page.getByRole('dialog', { name: 'Crafter', exact: true });
     await expect(crafter).toBeVisible(); await expect(crafter).not.toContainText(/craft pts|craft points/);
-    const recipe = (name: string) => crafter.locator('.cf-card').filter({ has: page.getByText(name, { exact: true }) });
+    // Match the card title only: ingredient checklist rows can carry another recipe's name.
+    const recipe = (name: string) => crafter.locator('.cf-card').filter({ has: page.locator('.cf-card-head strong').getByText(name, { exact: true }) });
     // Plenty of old generic points cannot replace missing actual ingredients.
     await expect(recipe('Elemental Treats').getByRole('button', { name: 'Craft ×1', exact: true })).toBeDisabled();
     await crafter.locator('.cf-batch').getByRole('button', { name: '×20', exact: true }).click();
     await expect(recipe('Shuriken ×3').getByRole('button')).toBeDisabled();
     await crafter.locator('.cf-batch').getByRole('button', { name: '×5', exact: true }).click();
-    await expect(recipe('Shuriken ×3')).toContainText('Iron Sand or better: 64/30');
+    // Checklist rows cap the count at what the craft needs and show the rest as "+N".
+    const ingredient = (card: ReturnType<typeof recipe>, label: string) => card.locator(`.cf-check-row[data-ingredient="${label}"] .cf-check-count`);
+    await expect(ingredient(recipe('Shuriken ×3'), 'Iron Sand or better')).toContainText('30/30 +34');
     // Fuel row: Heartwood Bark, Common Ember Ore or Ember Scale (2026-10 item-use pass).
-    await expect(recipe('Shuriken ×3')).toContainText('Heartwood Bark or Ember fuel: 10/5');
-    await expect(recipe('Shuriken ×3')).toContainText('Binding Fiber: 18/10');
+    await expect(ingredient(recipe('Shuriken ×3'), 'Heartwood Bark or Ember fuel')).toContainText('5/5 +5');
+    await expect(ingredient(recipe('Shuriken ×3'), 'Binding Fiber')).toContainText('10/10 +8');
     await recipe('Shuriken ×3').scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath('shuriken-three-materials.png'), fullPage: true });
     await recipe('Shuriken ×3').getByRole('button', { name: 'Craft ×5', exact: true }).click();
@@ -185,8 +188,8 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     expect(await owned('gather-field-herb')).toBe(4); expect(await owned('hunt-beast-meat')).toBe(6);
     await crafter.getByRole('button', { name: 'Armor', exact: true }).click();
     const chest = recipe('Rare Chest Plate');
-    await expect(chest).toContainText('Fine Iron Sand or better: 23/14');
-    await expect(chest).toContainText('Binding Fiber: 6/6');
+    await expect(ingredient(chest, 'Fine Iron Sand or better')).toContainText('14/14 +9');
+    await expect(ingredient(chest, 'Binding Fiber')).toHaveText(/^6\/6,/);
     await chest.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath('armor-ingredient-recipe.png'), fullPage: true });
     const beforeArmorRyo = (await readCharacter()).ryo;
     await chest.getByRole('button', { name: 'Forge', exact: true }).click();
