@@ -7,10 +7,12 @@ import {docker,loadImage,pins} from './images.mjs';
 import {qualify} from './scenarios.mjs';
 import {postgresCommand,waitForPostgres} from './postgres.mjs';
 import {internalContainerBase} from './network.mjs';
+import {validateRetainedImages} from './resolve-images.mjs';
+import {qualificationReport} from './qualification-report.mjs';
 const[artifactArg,outputArg]=process.argv.slice(2);assert.ok(artifactArg&&outputArg,'Supply artifact directory and output directory');
 const artifacts=resolve(artifactArg),output=resolve(outputArg),root=import.meta.dirname;mkdirSync(output,{recursive:true});
 const nonce=randomBytes(6).toString('hex'),prefix='wbqual-'+nonce,network=prefix,pgName=prefix+'-pg',database='wbqual_'+nonce,password=randomBytes(24).toString('hex'),secret=randomBytes(32).toString('hex'),created=[];
-const result={startedAt:new Date().toISOString(),productionAccess:false,scope:'New retained synthetic-build images, not Railway source rebuild',images:{},runtime:[],checks:[]};
+const result={startedAt:new Date().toISOString(),productionAccess:false,scope:'Retained synthetic-build images, not Railway source rebuild',recheck:{runId:Number(process.env.GITHUB_RUN_ID)||null,attempt:Number(process.env.GITHUB_RUN_ATTEMPT)||null,eventCommit:process.env.GITHUB_SHA??null,toolingHead:process.env.QUALIFICATION_TOOLING_HEAD??null},images:{},runtime:[],checks:[]};
 const wait=ms=>new Promise(done=>setTimeout(done,ms));let networkCreated=false;
 const control=(runtime,input)=>{const text=docker(['exec','--interactive',runtime.name,'node','/qualification/control.cjs'],{input:JSON.stringify(input)});const line=text.split(/\r?\n/).find(x=>x.startsWith('QUALIFICATION_RESULT '));assert.ok(line,'Missing fixture result');return JSON.parse(line.slice(21));};
 const env=['DATABASE_URL=postgresql://wb_qual:'+password+'@'+pgName+':5432/'+database,'PG_SSL=disable','SESSION_SECRET='+secret,'QUALIFICATION_DISPOSABLE=1','DISABLE_SCHEDULED_JOBS=1','DISABLE_SNAPSHOT_CRON=1','DISABLE_PRESENCE_STATE_JOBS=1','DISABLE_COMBAT_RECEIPTS=1','PORT=3000'];
@@ -34,6 +36,8 @@ async function stop(runtime){
 }
 try{
  for(const role of['candidate','recovery'])result.images[role]=loadImage(join(artifacts,role),role);
+ const source=JSON.parse(readFileSync(new URL('./image-source.json',import.meta.url)));validateRetainedImages(result.images,source,pins);
+ result.imageSource={mode:source.mode,producerRunId:source.mode==='retained'?source.runId:Number(process.env.GITHUB_RUN_ID),producerToolingHead:source.mode==='retained'?source.toolingHead:process.env.GITHUB_SHA,artifacts:source.mode==='retained'?source.artifacts:undefined};
  assert.equal(result.images.candidate.schemaSha256,result.images.recovery.schemaSha256);
  docker(['network','create','--internal',network]);networkCreated=true;
  assert.equal(JSON.parse(docker(['network','inspect',network]))[0].Internal,true);
@@ -59,5 +63,5 @@ finally{
  result.diagnostics=diagnostics;
  const errors=[];for(const name of created.reverse()){try{docker(['rm','--force','--volumes',name]);}catch(error){errors.push('Container cleanup failed: '+name);}}
  if(networkCreated)try{docker(['network','rm',network]);}catch{errors.push('Network cleanup failed');}
- result.cleanup={complete:errors.length===0,errors};if(errors.length){result.failed=1;process.exitCode=1;}result.finishedAt=new Date().toISOString();const report=redact(JSON.stringify(result,null,2));writeFileSync(join(output,'qualification.json'),report+'\n');console.log(report);
+ result.cleanup={complete:errors.length===0,errors};if(errors.length){result.failed=1;process.exitCode=1;}result.finishedAt=new Date().toISOString();result.isolatedQualification=qualificationReport(result);if(result.isolatedQualification.status!=='passed'){result.failed=1;process.exitCode=1;}const report=redact(JSON.stringify(result,null,2));writeFileSync(join(output,'qualification.json'),report+'\n');console.log(report);
 }
