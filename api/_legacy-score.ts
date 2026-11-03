@@ -114,7 +114,7 @@ export function evaluateLegacy(
             if (value >= floor) passed = true;
             parts.push(`${f.stat} ${Math.floor(value).toLocaleString('en-US')}/${floor.toLocaleString('en-US')}`);
         }
-        const weight = 'stat' in req ? (req.weight ?? 1) : 1;
+        const weight = req.weight ?? 1;
         weightSum += weight;
         scoreSum += weight * Math.min(bestRatio, 2);
         const label = (anyMode ? 'any of: ' : '') + parts.join(' | ');

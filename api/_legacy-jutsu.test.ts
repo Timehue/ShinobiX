@@ -5,9 +5,11 @@
  * Locks the tier design so a mis-authored signature fails `npm test`:
  *   • every Legacy has exactly one signature and vice versa;
  *   • cooldown 10, element "None", AP ∈ {40, 60}, starter-convention costs;
+ *   • at most two tags on 60-AP damage signatures, three on 40-AP utilities;
  *   • capped-tag percents by rarity — mythic 40 / legendary one 40 + one 35 /
- *     rare 35 / basic 30; Wound uses its own ladder (35/35/30/25);
- *   • bloodlineRank carries the cap tier (S/S/A/absent);
+ *     rare 35 / basic damage 30 / basic utility 32;
+ *     Wound uses its own ladder (35/35/30/25);
+ *   • bloodlineRank carries the cap tier (S/S/A; basic utility A, damage absent);
  *   • no bloodline-unique control tags (bloodline STRENGTH, not CONTROL);
  *   • Increase Discipline only on discipline-typed jutsu, and every style-category
  *     Legacy's signature is typed to its own discipline;
@@ -69,6 +71,21 @@ describe('legacy jutsu ⇄ legacy defs linkage', () => {
 });
 
 describe('legacy jutsu tier rules (locked design)', () => {
+    it('all 100 signatures have distinct tactical mechanics beyond tier percentages', () => {
+        const seen = new Map<string, string>();
+        for (const j of ALL) {
+            // Utilities must have distinct effect combinations. Self-target reach
+            // and utility metadata cannot disguise a repeated technique.
+            const utility = j.ap === 40;
+            const key = JSON.stringify([utility ? 'utility' : j.type, j.ap,
+                utility ? 'utility' : j.target, utility ? 'utility' : j.method,
+                utility || j.target === 'SELF' ? 0 : j.range,
+                j.tags.map(t => t.name).sort()]);
+            assert.ok(!seen.has(key), `${j.legacyId} repeats ${seen.get(key)} without distinct combat mechanics`);
+            seen.set(key, j.legacyId);
+        }
+        assert.equal(seen.size, 100);
+    });
     it('no mythic signature is mechanically identical to a lower-tier reward', () => {
         const mechanics = (j: LegacyCatalogJutsu) => JSON.stringify({
             type: j.type, element: j.element, ap: j.ap, range: j.range, effectPower: j.effectPower,
@@ -110,15 +127,16 @@ describe('legacy jutsu tier rules (locked design)', () => {
         }
     });
 
-    it('bloodlineRank carries the cap tier: mythic/legendary S, rare A, basic none', () => {
+    it('bloodlineRank carries the cap tier, including Common utility effects above the global cap', () => {
         for (const j of ALL) {
             const rarity = rarityOf(j);
-            const want = rarity === 'mythic' || rarity === 'legendary' ? 'S Rank' : rarity === 'rare' ? 'A Rank' : undefined;
+            const want = rarity === 'mythic' || rarity === 'legendary' ? 'S Rank'
+                : rarity === 'rare' || (rarity === 'basic' && j.ap === 40) ? 'A Rank' : undefined;
             assert.equal(j.bloodlineRank, want, `${j.id}: ${rarity} must carry bloodlineRank ${want ?? '(none)'}`);
         }
     });
 
-    it('capped-tag percents follow the tier ladder (M 40 / L 40+35 / R 35 / B 30)', () => {
+    it('capped-tag percents follow the tier ladder, with Common utilities at 32', () => {
         for (const j of ALL) {
             const rarity = rarityOf(j);
             const capped = tierPercentTags(j);
@@ -130,10 +148,24 @@ describe('legacy jutsu tier rules (locked design)', () => {
                 assert.equal(at40 + at35, capped.length, `${j.id}: legendary capped tags must be 40 or 35`);
                 assert.ok(capped.length <= 2, `${j.id}: legendary carries at most two tier tags`);
             } else {
-                const want = CAP_BY_RARITY[rarity];
+                const want = rarity === 'basic' && j.ap === 40 ? 32 : CAP_BY_RARITY[rarity];
                 for (const t of capped) {
                     assert.equal(t.percent, want, `${j.id}: ${rarity} "${t.name}" must be ${want}% (got ${t.percent})`);
                 }
+            }
+        }
+    });
+
+    it('every Common 40-AP utility has exactly two distinct, executable tags', () => {
+        const utilities = ALL.filter(j => rarityOf(j) === 'basic' && j.ap === 40);
+        assert.equal(utilities.length, 8);
+        for (const j of utilities) {
+            assert.equal(j.tags.length, 2, j.id);
+            assert.equal(new Set(j.tags.map(tag => tag.name)).size, 2, j.id);
+            for (const tag of j.tags) {
+                assert.ok(!['Siphon', 'Wound', 'Move', 'Increase Discipline'].includes(tag.name),
+                    `${j.id}: ${tag.name} cannot serve as a working utility effect`);
+                assert.equal(tag.percent, tag.name === 'Heal' || tag.name === 'Shield' ? 0 : 32, j.id);
             }
         }
     });
@@ -155,7 +187,9 @@ describe('legacy jutsu tier rules (locked design)', () => {
     it('tag vocabulary: canonical names only, no bloodline-unique control tags', () => {
         const canonical = new Set(CANONICAL_TAG_NAMES);
         for (const j of ALL) {
-            assert.ok(j.tags.length >= 1 && j.tags.length <= 3, `${j.id}: 1-3 tags`);
+            const tagBudget = j.ap === 60 ? 2 : 3;
+            assert.ok(j.tags.length >= 1 && j.tags.length <= tagBudget,
+                `${j.id}: ${j.ap}-AP signatures allow at most ${tagBudget} tags`);
             for (const t of j.tags) {
                 assert.ok(canonical.has(t.name), `${j.id}: unknown/non-canonical tag "${t.name}"`);
                 assert.ok(!BLOODLINE_ONLY.has(t.name), `${j.id}: "${t.name}" is bloodline-unique — banned on legacy signatures`);

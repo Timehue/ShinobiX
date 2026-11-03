@@ -4,6 +4,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { professionRankForXp } from '../missions/_progress.js';
 import type { Profession } from '../missions/_pool.js';
+import { legacyActivityCommit } from '../_legacy-activity-commit.js';
 
 type OperationProfessionReceipt = { id: string; runId: string; xp: number; at: number };
 
@@ -29,7 +30,7 @@ export async function awardOperationProfessionXp(input: {
     type Award = { awarded: number; xp?: number; rank?: number; character?: Record<string, unknown> };
     // The receipt commits with the XP, so re-running the whole award after a
     // lost compare-and-set grants it once.
-    const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<Award>(playerName, ({ character }) => {
+    const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<Award>(playerName, async ({ character }) => {
         const unwritten = (value: Award) => ({ ok: true as const, write: false, character, value });
         const profession = typeof character.profession === 'string' ? character.profession : '';
         if (!['healer', 'vanguard', 'petTamer'].includes(profession)) return unwritten({ awarded: 0 });
@@ -50,7 +51,8 @@ export async function awardOperationProfessionXp(input: {
             professionRank: rank,
             operationProfessionReceipts: [{ id: receiptId, runId: input.runId, xp: awarded, at: Date.now() }, ...receipts].slice(0, 30),
         };
-        return { ok: true, character: nextCharacter, value: { awarded, xp, rank } };
+        return { ok: true, character: nextCharacter, value: { awarded, xp, rank },
+            ...await legacyActivityCommit(playerName, character, { professionActions: 1 }) };
     }));
     if (!out.ok) throw new Error('Clan Boss profession credit is pending. Retry this result.');
     // A granted award answers with the committed character, like the replies above.

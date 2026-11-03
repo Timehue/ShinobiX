@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { before, beforeEach, describe, test } from 'node:test';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG } from '../pvp/_legacy-jutsu-catalog.js';
+import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import type { CombatJutsu } from './types.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession } from '../pvp/session.js';
 import { createSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
@@ -426,6 +427,73 @@ function assertParity(result: { pvp: NormalizedCast; solo: NormalizedCast }, lab
 }
 
 describe('authoritative PvP/Solo-PvE jutsu parity', () => {
+    test('Common utilities apply both effects and exceed comparable global percentages by two points', async () => {
+        const utilities = Object.values(LEGACY_JUTSU_CATALOG).filter(j =>
+            LEGACY_BY_ID.get(j.legacyId)?.rarity === 'basic' && j.ap === 40);
+        assert.equal(utilities.length, 8);
+        let index = 25000;
+        for (const [level, masteryLevel] of [[50, 20], [70, 30], [90, 40], [99, 50]]) {
+            for (const jutsu of utilities) {
+                const result = await runParityCase(jutsu, index++, { level, masteryLevel, casterHp: 500_000 });
+                const label = `${jutsu.id} level ${level} mastery ${masteryLevel}`;
+                assertParity(result, label);
+                const cast = result.pvp;
+                assert.equal(cast.applied, true, label);
+                assert.equal(cast.apSpent, 40, label);
+                assert.equal(cast.damageToHp, 0, label);
+                assert.equal(cast.cooldown[jutsu.id], 10, label);
+                for (const tag of jutsu.tags) {
+                    if (tag.name === 'Heal' || tag.name === 'Shield') {
+                        const amount = tag.name === 'Heal' ? cast.healing : cast.shielding;
+                        assert.ok(amount > 0, `${label}: immediate ${tag.name}`);
+                        if (masteryLevel === 50) assert.equal(amount, 750, label);
+                        continue;
+                    }
+                    const status = [...cast.caster.statuses, ...cast.target.statuses].find(s => s.name === tag.name);
+                    assert.ok(status, `${label}: ${tag.name} must actually resolve`);
+                    const expected = Math.floor(32 - (50 - masteryLevel) * 0.2);
+                    assert.equal(status.percent, expected, `${label}: must not silently cap at 30`);
+                    assert.equal(status.activeRound, 2, label);
+                    assert.equal(status.rounds, 2, label);
+                    const global = Object.values(JUTSU_CATALOG).find(j => j.ap === 40
+                        && j.tags.some(t => t.name === tag.name && t.percent === 30));
+                    assert.ok(global, `${label}: comparable global ${tag.name}`);
+                    const baseline = await runParityCase(global, index++, { level, masteryLevel, casterHp: 500_000 });
+                    assertParity(baseline, `${label}: global baseline`);
+                    assert.equal(baseline.pvp.applied, true, `${label}: global baseline applies`);
+                    const normalStatus = [...baseline.pvp.caster.statuses, ...baseline.pvp.target.statuses]
+                        .find(s => s.name === tag.name);
+                    assert.ok(normalStatus, `${label}: normal ${tag.name}`);
+                    assert.equal(status.percent! - normalStatus.percent!, 2, `${label}: two-point premium`);
+                }
+            }
+        }
+    });
+
+    test('every refreshed signature resolves its role below level 100 at all four mastery stages', async () => {
+        let index = 20000;
+        for (const [level, masteryLevel] of [[50, 20], [70, 30], [90, 40], [99, 50]]) {
+            for (const jutsu of Object.values(LEGACY_JUTSU_CATALOG)) {
+                const result = await runParityCase(jutsu, index++, { level, masteryLevel, casterHp: 500_000 });
+                const label = `${jutsu.id} level ${level} mastery ${masteryLevel}`;
+                assertParity(result, label);
+                assert.equal(result.pvp.applied, true, `${label}: ${result.pvpRejection}`);
+                assert.equal(result.pvp.apSpent, jutsu.ap, label);
+                if (jutsu.ap === 60) assert.ok(result.pvp.damageToHp > 0, `${label}: signature damage`);
+                else assert.equal(result.pvp.damageToHp, 0, `${label}: utility must not deal direct damage`);
+                if (jutsu.tags.some(tag => tag.name === 'Heal' || tag.name === 'Siphon'))
+                    assert.ok(result.pvp.healing > 0, `${label}: immediate recovery must apply`);
+                if (jutsu.tags.some(tag => tag.name === 'Shield'))
+                    assert.ok(result.pvp.shielding > 0, `${label}: protection must apply`);
+                if (jutsu.tags.some(tag => tag.name === 'Move'))
+                    assert.equal(result.pvp.caster.pos, 64, `${label}: movement must reach the selected tile`);
+                for (const status of [...result.pvp.caster.statuses, ...result.pvp.target.statuses]) {
+                    assert.equal(status.activeRound, 2, `${label}: delayed status timing`);
+                }
+            }
+        }
+    });
+
     test('every executable built-in and legacy jutsu has a neutral behavioral parity case', async () => {
         const catalog = new Map<string, CombatJutsu>();
         for (const jutsu of [...Object.values(JUTSU_CATALOG), ...Object.values(LEGACY_JUTSU_CATALOG)]) {

@@ -38,6 +38,8 @@ import { PET_EXPEDITION_DAILY_CAP } from '../shared/pet-expedition-contract.js';
 // (Verification finding: 8 dead stats shipped in requirements, making 7/10
 // mythics unobtainable and stranding village/explorer/pets trials forever.)
 const LIVE_STATS: ReadonlySet<LegacyStatKey> = new Set<LegacyStatKey>([
+    'towerClears', 'towerCleanClears', 'towerParClears', 'towerMechanicClears', 'spireClears',
+    'clanBossOperations', 'worldBossOperations', 'riftQuests', 'gatheringClaims', 'craftsCompleted', 'professionActions',
     'pvpWins', 'pvpKills', 'pvpLosses', 'rankedWins', 'sameRankWins', 'higherLevelWins',
     // defensiveWins/sectorDefenses (defender wins) + warPvpKills (raider wins)
     // are credited by report-pvp-win from an authoritative village-guard queue
@@ -284,10 +286,11 @@ test('weighted primary mastery floors strictly increase between tiers', () => {
         const tierPrimaries: Array<{ def: LegacyDef; stat: LegacyStatKey; atLeast: number }> = [];
         for (const d of LEGACY_DEFS) {
             if (d.rarity !== tier) continue;
-            const direct = d.reqs.filter((req): req is Extract<typeof req, { stat: LegacyStatKey }> => 'stat' in req);
-            const primaryWeight = Math.max(...direct.map((req) => req.weight ?? 1));
-            for (const req of direct.filter((floor) => (floor.weight ?? 1) === primaryWeight)) {
-                tierPrimaries.push({ def: d, stat: req.stat, atLeast: req.atLeast });
+            const primaryWeight = Math.max(...d.reqs.map((req) => req.weight ?? 1));
+            for (const req of d.reqs.filter((floor) => (floor.weight ?? 1) === primaryWeight)) {
+                for (const proof of 'stat' in req ? [req] : req.anyOf) {
+                    tierPrimaries.push({ def: d, stat: proof.stat, atLeast: proof.atLeast });
+                }
             }
         }
         for (const primary of tierPrimaries) {

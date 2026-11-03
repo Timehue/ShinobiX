@@ -1,5 +1,37 @@
 # Legacy System — Implementation Plan
 
+**Current Common utility tuning (2026-11-03):** each Common (Basic) 40-AP
+signature has two working tags. Percentage effects reach 32% at mastery 50,
+two percentage points above comparable normal/global utilities and below Rare's
+35%. An A-rank combat cap carrier permits the authored 32%; the Legacy remains
+Common. Flat Heal and Shield keep their normal mastery-scaled values. Rallying
+Banner gains Increase Heal, Camp Respite gains Lifesteal, and Neighbor's Vigil
+gains Increase Heal. Existing two-tag utilities keep their combinations. This
+owner-requested tuning supersedes the earlier 30% Common utility rule; Common
+damage signatures retain their existing budget. See the generated
+[signature reference](legacy-jutsu-reference.md) for the authored abilities.
+
+**Current tag budget (2026-11-03):** damaging 60-AP Legacy signatures have at most
+two tags, counting Move and Increase Discipline. Pure 40-AP utilities may retain
+three. The thirteen over-budget damage signatures each lose one effect, with
+no compensating increase to power, percentages, reach or targeting. Sovereign's
+Decree keeps damage increase and lifesteal; reflection is removed. The generated
+[signature reference](legacy-jutsu-reference.md) records the resulting abilities.
+This owner-approved budget supersedes older three-tag damage designs below.
+
+**Current refresh rules (2026-11-02):** the approved identity and progression
+refresh keeps all 100 paths and their IDs. Signatures unlock at Awakening
+(Stage II), then improve with stage-derived mastery 20 / 30 / 40 / 50. The
+[signature reference](legacy-jutsu-reference.md) is generated from the actual
+authored techniques. Qualification and all trial stages have repeatable earning
+routes below level 100; the final Era campaign is excluded. New activity counters
+are server-owned, and existing accepted identities, totals, stages, receipts and
+valid active trials remain intact. Qualification and rarity stay hidden. Paid
+Fate Shard replacement is separate future work; a free trial reroll changes
+objectives within the accepted identity only. These rules supersede conflicting
+historical unlock and balance proposals below. Validation status belongs to
+[the refresh work state](legacy-refresh-work-state.md).
+
 **Current acquisition rules (2026-10-02):** tracking continues to level 100;
 level 50 is the first Sage-offer level. Late-game qualification remains valid.
 The generated [roster and trial routes](legacy-roster.md) are the current code

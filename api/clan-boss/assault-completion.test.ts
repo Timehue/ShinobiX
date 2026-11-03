@@ -4,6 +4,7 @@ import { buildTowerEncounter } from '../towers/_encounter.js';
 import { CLAN_BOSS_FLOORS } from '../towers/_floor-catalog.js';
 import { configureClanBossEncounter } from './_encounter-config.js';
 import type { TowerSession } from '../towers/_tower-session.js';
+import type { LegacyStats } from '../_legacy-track.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -76,7 +77,7 @@ async function finish(session: TowerSession) {
 async function evidence(weekId: string, members = ['host', 'peer']) {
     return { progress: await bossStore.loadClanBossProgress(weekId, 'Completion'),
         saves: await Promise.all(members.map(member => kv.get(`save:${member}`))),
-        legacy: await Promise.all(members.map(member => kv.get(`legacy:stats:${member}`))) };
+        legacy: await Promise.all(members.map(member => kv.get<LegacyStats>(`legacy:stats:${member}`))) };
 }
 
 describe('Clan Boss complete-flow recovery', { concurrency: false }, () => {
@@ -106,12 +107,17 @@ describe('Clan Boss complete-flow recovery', { concurrency: false }, () => {
         party.status = 'active'; party.runId = runId; await parties.saveParty(party); await parties.indexPartyMembers(party);
         const assault = await assaultStore.loadAssault(runId); await assaultStore.saveAssault({ ...assault!, partyId: party.id });
         const original = kv.set;
+        const originalCompareSet = kv.compareSet;
         for (const failedKey of [parties.partyKey(party.id), 'legacy:stats:host']) {
             kv.set = (async (key: string, ...rest: unknown[]) => {
                 if (key === failedKey) throw new Error('injected terminal delivery outage');
                 return original.call(kv, key, ...rest as [never]);
             }) as typeof kv.set;
-            try { assert.ok((await request(settle, 'host', runId)).status >= 500); } finally { kv.set = original; }
+            kv.compareSet = async (key, expected, value, options) => {
+                if (key === failedKey) throw new Error('injected terminal delivery outage');
+                return originalCompareSet(key, expected, value, options);
+            };
+            try { assert.ok((await request(settle, 'host', runId)).status >= 500); } finally { kv.set = original; kv.compareSet = originalCompareSet; }
             assert.equal((await store.readSession(runId))?.rewardSettlementState, 'pending');
             assert.equal((await request(myRun, 'host')).body.runId, runId);
         }
@@ -168,7 +174,11 @@ describe('Clan Boss complete-flow recovery', { concurrency: false }, () => {
         assert.equal((await store.readSession(runId))?.rewardSettlementState, 'pending');
         const before = await evidence(weekId);
         assert.equal((await request(settle, 'host', runId)).status, 200);
-        assert.deepEqual(await evidence(weekId), before);
+        const after = await evidence(weekId);
+        assert.ok(before.legacy[0]?.durableActivityReceipts?.length, 'pending delivery keeps its durable proof');
+        assert.deepEqual(after.legacy[0]?.durableActivityReceipts, [], 'terminal delivery releases its durable proof');
+        for (const stats of before.legacy) if (stats) { stats.activityReceipts = []; stats.durableActivityReceipts = []; }
+        assert.deepEqual(after, before, 'terminal cleanup changes no gameplay totals or rewards');
         const newer = structuredClone(session); newer.runId = `${runId}-new`; newer.status = 'active'; newer.winner = null;
         newer.rewardSettlementState = 'pending'; await store.writeSession(newer); await store.setTowerInvite('host', newer.runId);
         assert.equal((await request(settle, 'peer', runId)).status, 200);

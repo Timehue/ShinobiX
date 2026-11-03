@@ -25,6 +25,8 @@ import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
 import { applyWorldBossRetreatPenalty } from './_retreat.js';
 import { rememberWorldBossTopCacheEvent, settleWorldBossTopCaches } from './_top-cache.js';
 import { announceWorldBossEventTransition } from './_announcements.js';
+import { bumpLegacyStats, acknowledgeLegacyCombatReceipt } from '../_legacy-track.js';
+import { extractTowerLegacyDeltas } from '../_legacy-pve.js';
 
 function cleanDamage(value: unknown): number {
     const damage = Math.floor(Number(value));
@@ -162,11 +164,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!paid) throw new Error('World boss reward settlement is pending.');
                 member.reward = paid.reward;
                 if (member.slug === playerSlug) callerReward = paid;
+                if (!(await bumpLegacyStats(member.slug, {
+                    ...extractTowerLegacyDeltas(bodySession ?? session, member.slug, 0), worldBossOperations: 1,
+                }, { receiptId: `world-boss-operation:${runId}:${member.slug}`, durableReceipt: true,
+                    sourceSettled: async () => {
+                        const source = await readWorldBossMatch(eventId, matchId);
+                        if (!source) throw new Error('Legacy World Boss source is unavailable.');
+                        return source.status === 'settled';
+                    } }))) {
+                    throw new Error('World boss rewards are safe; Legacy contribution is pending. Retry this match.');
+                }
             }
             callerContribution = settledMatch.members.find(member => member.slug === playerSlug)?.contribution ?? null;
             settledMatch.status = 'settled';
             settledMatch.settledAt = settledMatch.settledAt ?? Date.now();
             await writeWorldBossMatch(settledMatch);
+            for (const member of settledMatch.members) await acknowledgeLegacyCombatReceipt(member.slug, `world-boss-operation:${runId}:${member.slug}`);
             const settledSession = await readSession(runId);
             if (settledSession?.worldBossEvent?.matchId === matchId && settledSession.rewardSettlementState !== 'settled') {
                 settledSession.rewardSettlementState = 'settled';

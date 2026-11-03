@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { v2JutsuCosts, v2PoisonOnSpend } from '../_combat-resources.js';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
+import { LEGACY_JUTSU_CATALOG } from '../pvp/_legacy-jutsu-catalog.js';
 import { towerActorToPvpFighter } from '../combat-adapters/clanBossAdapter.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { applyJutsu as applyPvpJutsu } from '../pvp/move.js';
@@ -105,6 +106,39 @@ function begin(entries: TowerActor[], map: TowerMap = MAP): TowerSession {
 }
 
 describe('Tower direct-cast canonical tag parity', () => {
+    it('all 100 Legacy signatures resolve costs, recovery, movement and area coverage below level 100', () => {
+        for (const level of [50, 99]) for (const entry of Object.values(LEGACY_JUTSU_CATALOG)) {
+            const specialty = entry.type === 'Any' ? 'Bukijutsu' : entry.type;
+            const jutsu = { ...entry, type: entry.ap === 60 ? specialty : 'Any', ...v2JutsuCosts(entry, level, specialty) };
+            const caster = actor('legacy-caster', 'squad', 0, { ai: false, hp: 50_000,
+                character: { specialty, level, stats: {
+                    speed: 3000, ninjutsuOffense: 2500, genjutsuOffense: 2500,
+                    taijutsuOffense: 2500, bukijutsuOffense: 2500,
+                }, jutsu: [jutsu], jutsuMastery: [{ jutsuId: jutsu.id, level: 50 }] } });
+            const target = actor('legacy-target', 'enemy', 9);
+            const bystander = actor('legacy-bystander', 'enemy', 10);
+            const s = begin([caster, target, bystander]);
+            const targetBefore = getActor(s, target.id)!.hp;
+            const bystanderBefore = structuredClone(towerReceipt(getActor(s, bystander.id)!));
+            const result = applyAction(s, floor(), { actorId: caster.id, type: 'jutsu', jutsuId: jutsu.id,
+                ...(jutsu.target === 'EMPTY_GROUND' ? { tile: 8 } : { targetId: jutsu.target === 'SELF' ? caster.id : target.id }) }, makeRng(1));
+            const label = `${jutsu.id} at level ${level}`;
+            assert.equal(result.applied, true, label);
+            assert.equal(s.activeAp, 100 - jutsu.ap, label);
+            assert.equal(getActor(s, caster.id)!.cooldowns[jutsu.id], 10, label);
+            if (jutsu.ap === 60) assert.ok(getActor(s, target.id)!.hp < targetBefore, `${label}: damage`);
+            else assert.equal(getActor(s, target.id)!.hp, targetBefore, `${label}: no direct damage`);
+            if (jutsu.tags.some(tag => tag.name === 'Heal' || tag.name === 'Siphon'))
+                assert.ok(getActor(s, caster.id)!.hp > 50_000, `${label}: immediate recovery`);
+            if (jutsu.tags.some(tag => tag.name === 'Shield'))
+                assert.ok(getActor(s, caster.id)!.shield > 0, `${label}: shield`);
+            if (jutsu.target === 'EMPTY_GROUND') assert.equal(getActor(s, caster.id)!.pos, 8, label);
+            if (jutsu.method === 'SINGLE') assert.deepEqual(towerReceipt(getActor(s, bystander.id)!), bystanderBefore, label);
+            if (jutsu.method === 'AOE_BURST' && jutsu.ap === 60)
+                assert.ok(getActor(s, bystander.id)!.hp < bystanderBefore.hp, `${label}: adjacent enemy coverage`);
+        }
+    });
+
     const positional = new Set(['Barrier', 'Push', 'Pull', 'Move']);
     const nonPositionalTags = CANONICAL_TAG_NAMES.filter(name => !positional.has(name));
 
