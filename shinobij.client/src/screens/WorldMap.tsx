@@ -63,6 +63,8 @@ import { findSectorSpectatorBattle } from "../lib/sector-spectate";
 import { useSectorPlayerAction } from "../lib/use-sector-player-action";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
 import { SectorVillageEntrance } from "../components/SectorVillageEntrance";
+import { sectorFloorLayout } from "../lib/sector-floor-layout";
+import { openBuildingCounter } from "../lib/sector-building-counter";
 import { sectorWalkMask } from "../../../shared/sector-walk-mask";
 import { stepSectorTile, useSectorTileGrounding } from "../lib/sector-obstacles";
 import { WorldSectorOverlayLayer } from "../components/WorldSectorOverlayLayer";
@@ -4319,6 +4321,12 @@ function WorldMapContent({
                             )}
                         </div>
 
+                    <button onClick={() => {
+                        const entrance = sectorFloorLayout(raidSector)?.village;
+                        if (!entrance) return;
+                        close();
+                        openBuildingCounter({ buildingId: `village-${raidSector}`, entrance: { sector: raidSector, tile: entrance.approach }, restriction: "The public gate counter receives travelers from every village. Entry beyond the gate is for village members." });
+                    }}>Visit the public gate counter</button>
                     <button onClick={close}>Return to outskirts</button>
                 </div>
             </Modal>

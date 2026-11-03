@@ -58,7 +58,17 @@ async function openCounter(page:Page,id:string,atThreshold=true,input:'pointer'|
         const position={x:box!.width/2,y:Math.max(2,box!.height*.2)};
         if(test.info().project.use.hasTouch)await opener.tap({position});else await opener.click({position});
     }
-    const counter=page.getByRole('dialog',{name:b.name,exact:true});await expect(counter.locator('[data-building-counter]')).toBeVisible();
+    const counter=page.getByRole('dialog',{name:b.name,exact:true});
+    if(b.kind==='village'){
+        const defenses=page.getByRole('dialog',{name:`${b.village} defenses`,exact:true});
+        await expect(counter.or(defenses)).toBeVisible();
+        if(await defenses.isVisible()){
+            await expect(defenses.getByRole('button',{name:'Raid village garrison',exact:true})).toBeVisible();
+            await defenses.getByRole('button',{name:'Visit the public gate counter',exact:true}).click();
+            await expect(defenses).toHaveCount(0);
+        }
+    }
+    await expect(counter.locator('[data-building-counter]')).toBeVisible();
     if(atThreshold){
         const speak=counter.getByRole('button',{name:'Speak with the keeper',exact:true}),approach=counter.getByRole('button',{name:'Walk to the public counter',exact:true});
         await expect(speak.or(approach)).toBeVisible();
