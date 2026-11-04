@@ -103,6 +103,34 @@ describe('a paid awakening reroll always changes the elements', () => {
         assert.equal(pairs.size, 18);
     });
 
+    it('a single reroll replaces the element the player chose, in its own slot', () => {
+        const secondary = rollAwakening({ fateShards: 10, elements: ['Fire', 'Earth'] }, AWAKENING_PAID_SINGLE_ID, 'awakening_pick_2', () => 0, 'Earth');
+        assert.equal(secondary.ok, true); if (!secondary.ok) return;
+        assert.deepEqual(secondary.character.elements, ['Fire', 'Water'], 'the primary is kept first');
+        assert.equal(secondary.character.element, 'Fire');
+        assert.equal(secondary.character.fateShards, 0);
+
+        const primary = rollAwakening({ fateShards: 10, elements: ['Fire', 'Earth'] }, AWAKENING_PAID_SINGLE_ID, 'awakening_pick_1', () => 0, 'Fire');
+        assert.equal(primary.ok, true); if (!primary.ok) return;
+        assert.deepEqual(primary.character.elements, ['Water', 'Earth']);
+    });
+
+    it('refuses an unowned or malformed reroll target without a debit', () => {
+        const character = { fateShards: 10, elements: ['Fire', 'Earth'], redeemedAwakeningActions: [] };
+        for (const target of ['Water', 'fire', 7, {}]) {
+            const result = rollAwakening(character, AWAKENING_PAID_SINGLE_ID, 'awakening_bad_target', () => 0, target);
+            assert.deepEqual(result, { ok: false, reason: 'invalid-reroll-target' }, `target ${String(target)}`);
+        }
+        assert.equal(character.fateShards, 10);
+        assert.deepEqual(character.redeemedAwakeningActions, []);
+    });
+
+    it('the two-element reroll ignores a target', () => {
+        const result = rollAwakening({ fateShards: 15, elements: ['Fire', 'Earth'] }, AWAKENING_PAID_BOTH_ID, 'awakening_both_target', () => 0, 'Water');
+        assert.equal(result.ok, true); if (!result.ok) return;
+        assert.deepEqual(result.character.elements, ['Water', 'Wind']);
+    });
+
     it('refuses without a debit or a receipt when there is no new element to roll', () => {
         const all = { fateShards: 50, elements: ['Water', 'Wind', 'Earth', 'Lightning', 'Fire'], redeemedAwakeningActions: [] };
         for (const kind of [AWAKENING_PAID_SINGLE_ID, AWAKENING_PAID_BOTH_ID]) {

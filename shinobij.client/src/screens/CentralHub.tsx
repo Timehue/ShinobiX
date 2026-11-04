@@ -202,8 +202,11 @@ export function CentralHub({
     const publicPlayerBloodlines = usePublicBloodlines(showArchives, character.name);
     const [showAwakening, setShowAwakening] = useState(false);
     const [awakeningMsg, setAwakeningMsg] = useState("");
+    // With two elements, "Reroll element" first asks which one the stone replaces.
+    const [rerollPickOpen, setRerollPickOpen] = useState(false);
     const awakeningOpen = showAwakening || openAwakeningOnMount;
     const closeAwakening = () => {
+        setRerollPickOpen(false);
         setShowAwakening(false);
         onAwakeningRequestHandled?.();
     };
@@ -490,13 +493,13 @@ export function CentralHub({
             ? AWAKENING_FREE_LV20_ID
             : null;
 
-    async function rollAwakening(kind: string) {
+    async function rollAwakening(kind: string, target?: string) {
         if (awakeningRequestRef.current || ritualBusy) return;
         awakeningRequestRef.current = true;
         setAwakeningBusy(true);
         try {
             const previous = getCharacterElements(character);
-            const result = await rollAwakeningServer(character.name, kind);
+            const result = await rollAwakeningServer(character.name, kind, target);
             // Rolled and paid even if a newer save was adopted first and this commit
             // is refused as stale (see completeCraft): reveal the result rather than
             // leave a paid reroll looking like it never happened.
@@ -509,12 +512,15 @@ export function CentralHub({
             const revealed = next.find(element => !previous.includes(element));
             const isPaidSingle = kind === AWAKENING_PAID_SINGLE_ID;
             const isPaidBoth = kind === AWAKENING_PAID_BOTH_ID;
+            // The single reroll replaces the chosen slot, which may be the secondary.
+            const singleResult = revealed ?? next[0];
             setAwakeningCinematic({
-                elements: isPaidSingle ? next.slice(0, 1) : isPaidBoth ? next.slice(0, 2) : revealed ? [revealed] : next,
+                elements: isPaidSingle ? (singleResult ? [singleResult] : []) : isPaidBoth ? next.slice(0, 2) : revealed ? [revealed] : next,
                 mode: isPaidSingle || isPaidBoth ? "reroll" : "awakening",
             });
+            const kept = next.filter(element => element !== singleResult);
             setAwakeningMsg(isPaidSingle
-                ? `Awakened: The stone swirls and reveals ${next[0]}! Your other element was preserved (-10 Fate Shards).`
+                ? `Awakened: The stone swirls and reveals ${singleResult}!${kept.length ? ` Your ${kept.join(" / ")} element was preserved` : ""} (-10 Fate Shards).`
                 : isPaidBoth
                     ? `Awakened: The stone surges and reveals: ${next.slice(0, 2).join(" / ")}! Both elements were rerolled (-15 Fate Shards).`
                     : `Awakened: The stone pulses${revealed ? ` with ${revealed} chakra` : ""}! Your awakened elements: ${next.join(" / ")}.`);
@@ -531,21 +537,36 @@ export function CentralHub({
     }
 
     // A paid reroll spends Fate Shards and replaces an element at random, which can
-    // leave element-bound gear and jutsu unusable, so it asks first.
-    async function awakeningPaidRoll() {
+    // leave element-bound gear and jutsu unusable, so it asks first. With two
+    // elements the player first picks which one the stone replaces.
+    function awakeningPaidRollStart() {
         if (character.fateShards < 10) {
             setAwakeningMsg("Error: Not enough Fate Shards — you need 10 to reroll your element.");
             return;
         }
         if (awakeningRequestRef.current || ritualBusy) return;
-        const [primary, other] = getCharacterElements(character);
+        if (getCharacterElements(character).length >= 2) {
+            setRerollPickOpen(open => !open);
+            return;
+        }
+        void awakeningPaidRoll(getCharacterElements(character)[0]);
+    }
+
+    async function awakeningPaidRoll(target: string | undefined) {
+        setRerollPickOpen(false);
+        if (character.fateShards < 10) {
+            setAwakeningMsg("Error: Not enough Fate Shards — you need 10 to reroll your element.");
+            return;
+        }
+        if (awakeningRequestRef.current || ritualBusy) return;
+        const kept = getCharacterElements(character).filter(element => element !== target);
         if (!(await gameConfirm(
-            primary
-                ? `Reroll your ${primary} element for 10 Fate Shards? The stone picks a different random element to replace it${other ? `, and your ${other} element stays` : ""}. You cannot choose the result. Gear and jutsu that need ${primary} may stop working.`
+            target
+                ? `Reroll your ${target} element for 10 Fate Shards? The stone picks a different random element to replace it${kept.length ? `, and your ${kept.join(" / ")} element stays` : ""}. You cannot choose the result. Gear and jutsu that need ${target} may stop working.`
                 : "Roll an element for 10 Fate Shards? The stone picks one at random. You cannot choose the result.",
             { title: "Reroll element", confirmLabel: "Reroll", danger: true },
         ))) return;
-        void rollAwakening(AWAKENING_PAID_SINGLE_ID);
+        void rollAwakening(AWAKENING_PAID_SINGLE_ID, target);
     }
 
     async function awakeningPaidBothRoll() {
@@ -1262,9 +1283,11 @@ export function CentralHub({
                                     <>
                                         <button
                                             className="aw-paid-btn"
-                                            onClick={() => void awakeningPaidRoll()}
+                                            onClick={awakeningPaidRollStart}
                                             disabled={character.fateShards < 10 || ritualBusy}
-                                            title={character.fateShards < 10 ? "Not enough Fate Shards" : "Reroll your primary element and preserve the other"}
+                                            aria-expanded={awakenedElements.length >= 2 ? rerollPickOpen : undefined}
+                                            aria-controls={awakenedElements.length >= 2 ? "aw-reroll-pick" : undefined}
+                                            title={character.fateShards < 10 ? "Not enough Fate Shards" : awakenedElements.length >= 2 ? "Choose which element to reroll" : "Reroll your element"}
                                         >
                                             <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
                                             <span className="aw-action-copy">
@@ -1275,7 +1298,7 @@ export function CentralHub({
                                         </button>
                                         <button
                                             className="aw-paid-btn aw-paid-btn--both"
-                                            onClick={() => void awakeningPaidBothRoll()}
+                                            onClick={() => { setRerollPickOpen(false); void awakeningPaidBothRoll(); }}
                                             disabled={awakenedElements.length < 2 || character.fateShards < 15 || ritualBusy}
                                             title={awakenedElements.length < 2 ? "Awaken your second element first" : character.fateShards < 15 ? "Not enough Fate Shards" : "Reroll both elements"}
                                         >
@@ -1289,6 +1312,26 @@ export function CentralHub({
                                     </>
                                 )}
                             </div>
+                            {!hasFreeRoll && rerollPickOpen && awakenedElements.length >= 2 && (
+                                <div className="aw-reroll-pick" id="aw-reroll-pick" role="group" aria-label="Choose the element to reroll">
+                                    <p className="aw-hint">Which element should the stone replace? The other one stays.</p>
+                                    <div className="aw-reroll-pick-options">
+                                        {awakenedElements.map((element) => (
+                                            <button
+                                                key={element}
+                                                type="button"
+                                                className={`aw-reroll-pick-btn element-${element.toLowerCase()}`}
+                                                onClick={() => void awakeningPaidRoll(element)}
+                                                disabled={character.fateShards < 10 || ritualBusy}
+                                            >
+                                                <ElementSigil element={element} size={24} />
+                                                <span>Reroll {element}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button type="button" className="aw-reroll-pick-cancel" onClick={() => setRerollPickOpen(false)}>Cancel</button>
+                                </div>
+                            )}
                             {/* Why "Reroll Elements" is grey, in words a phone can show (no tooltip there). */}
                             {!hasFreeRoll && (awakenedElements.length < 2 || character.fateShards < 15) && (
                                 <p className="aw-hint">{awakenedElements.length < 2
