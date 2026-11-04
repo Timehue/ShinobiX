@@ -17,6 +17,7 @@ import { formatJutsuResourcePercent, jutsuResourceBackingCost, lockJutsuResource
 import { maxStoredBloodlines, isPatreonSubscriber } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
+import { bloodlineCreatorDraftOffense, normalizeCreatorDraftJutsu } from "../lib/bloodline-creator-draft";
 import { bloodlineCreatorMethodAllowsTag, bloodlineCreatorMethodForTags, bloodlineCreatorRangeForTarget, bloodlineCreatorTargetForMethod, instantEffectCreatorTags, instantEffectFamily, instantEffectOfferedTags, instantEffectTagBlockReason, normalizeBloodlineCreatorMethodTags } from "../lib/bloodline-creator-methods";
 import { makeId } from "../lib/utils";
 import { equipOwnedBloodline } from "../lib/bloodline-swap";
@@ -43,27 +44,6 @@ function defaultWeatherElement(bloodline: SavedBloodline | null | undefined, spe
     return (BASE_WEATHER_ELEMENTS.includes(source) ? source : "None") as JutsuElement;
 }
 
-/** Project an editable draft through the same tag-percent rules as save ingress. */
-function normalizeCreatorDraftJutsu(jutsu: Jutsu, rank: Rank): Jutsu {
-    const method = bloodlineCreatorMethodForTags(jutsu.method ?? "SINGLE", jutsu.ap, jutsu.tags);
-    const tags = normalizeBloodlineCreatorMethodTags(normalizeJutsuTags(jutsu.tags).map((tag) => ({
-        ...tag,
-        percent: normalizeBloodlineCreatorTagPercent(tag.name, tag.percent, rank),
-    })), method);
-    const target = bloodlineCreatorTargetForMethod(method, jutsu.target, { ap: jutsu.ap, tags });
-    const groundZone = method === "INSTANT_EFFECT" || method === "AOE_SPIRAL";
-    const normalized = normalizeJutsu({
-        ...jutsu,
-        bloodlineRank: rank,
-        method,
-        target,
-        range: bloodlineCreatorRangeForTarget(target, jutsu.range, method),
-        ...(groundZone ? { groundRangeVersion: 2 as const } : {}),
-        tags,
-    });
-    return target === "SELF" ? { ...normalized, range: 0 } : normalized;
-}
-
 export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, onClose, onOpenAwakening, onAwakenComplete }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: Dispatch<SetStateAction<Character | null>>; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void | Promise<void>; onClose?: () => void; onOpenAwakening?: () => void; onAwakenComplete?: () => void }) {
     const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
     const [bloodlineName, setBloodlineName] = useState(editingBloodline?.name ?? "Custom Bloodline");
@@ -71,9 +51,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     const [bloodlineImage, setBloodlineImage] = useState(editingBloodline?.image ?? "");
     const [specialElement, setSpecialElement] = useState(editingBloodline?.specialElement ?? initialSpecialElement ?? "");
     const [weatherElement, setWeatherElement] = useState<JutsuElement>(defaultWeatherElement(editingBloodline, initialSpecialElement ?? ""));
-    const [bloodlineOffense, setBloodlineOffense] = useState<JutsuType>((editingBloodline?.jutsus[0]?.type ?? "Ninjutsu") as JutsuType);
+    const [bloodlineOffense, setBloodlineOffense] = useState<JutsuType>(bloodlineCreatorDraftOffense(editingBloodline?.jutsus ?? []));
     const [jutsus, setJutsus] = useState<Jutsu[]>(
-        editingBloodline?.jutsus.map((jutsu) => normalizeCreatorDraftJutsu(jutsu, editingBloodline.rank))
+        editingBloodline?.jutsus.map((jutsu) => normalizeCreatorDraftJutsu(jutsu, editingBloodline.rank, bloodlineOffense))
         ?? Array.from({ length: jutsuCountForRank(initialRank) }).map((_, i) => blankJutsu(i, initialRank)),
     );
     // Wizard step: 0 = details, 1..N = one jutsu each, final = review & save.
@@ -97,7 +77,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             setBloodlineLore(editingBloodline.lore ?? "");
             setBloodlineImage(editingBloodline.image ?? "");
             setSpecialElement(editingBloodline.specialElement ?? "");
-            setBloodlineOffense((editingBloodline.jutsus[0]?.type ?? "Ninjutsu") as JutsuType);
+            const offense = bloodlineCreatorDraftOffense(editingBloodline.jutsus);
+            setBloodlineOffense(offense);
             setJutsus(editingBloodline.jutsus.map((j0) => {
                 // AOE Movement (ground nova) is locked to 60 AP — correct any
                 // legacy 40-AP entry on load so the editor shows the real state.
@@ -111,7 +92,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     : j.ap === 60 && ![40, 50].includes(j.effectPower)
                     ? { ...j, effectPower: 40 }
                     : j;
-                return normalizeCreatorDraftJutsu(corrected, editingBloodline.rank);
+                return normalizeCreatorDraftJutsu(corrected, editingBloodline.rank, offense);
             }));
             return;
         }
@@ -126,10 +107,10 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     function changeRank(newRank: Rank) {
         setRank(newRank);
         setStep((s) => clampBloodlineWizardStep(s, newRank));
-        setJutsus(Array.from({ length: jutsuCountForRank(newRank) }).map((_, i) => normalizeJutsu({
+        setJutsus(Array.from({ length: jutsuCountForRank(newRank) }).map((_, i) => normalizeCreatorDraftJutsu({
             ...blankJutsu(i, newRank),
             element: (specialElement || "Fire") as JutsuElement,
-        })));
+        }, newRank, bloodlineOffense)));
     }
     // Load a balanced starter set for an archetype, themed to the current
     // element + offense. Behavior-preserving: only pre-fills editable jutsu,
@@ -138,7 +119,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         const hasContent = jutsus.some((jutsu) => jutsu.tags.some((tag) => tag.name));
         if (hasContent && !(await gameConfirm("Replace your current jutsu with this template? Your name, lore, element and image are kept."))) return;
         const generated = bloodlineTemplateJutsus(key, rank, specialElement || "Fire", bloodlineOffense);
-        setJutsus(generated.map((jutsu) => normalizeCreatorDraftJutsu(jutsu, rank)));
+        setJutsus(generated.map((jutsu) => normalizeCreatorDraftJutsu(jutsu, rank, bloodlineOffense)));
         const arch = bloodlineArchetypes.find((a) => a.key === key);
         setTemplateMsg(`Loaded ${arch?.name ?? "template"} — ${generated.length} jutsu created. Rename & tweak them in the next steps.`);
     }
@@ -171,7 +152,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             // Choosing SINGLE on a damaging cast drops Move, or the draft would
             // snap straight back to Circle Movement and the method could never change.
             if (updated.method === "SINGLE" && merged.ap > 40) merged.tags = merged.tags.filter((tag) => tag.name !== "Move");
-            const next = normalizeCreatorDraftJutsu(lockJutsuResourceCosts({ ...merged, bloodlineRank: rank }), rank);
+            const next = normalizeCreatorDraftJutsu(lockJutsuResourceCosts({ ...merged, bloodlineRank: rank }), rank, bloodlineOffense);
             if (!bloodlineJutsuMethods.includes(next.method)) next.method = "SINGLE";
             if (next.method === "INSTANT_EFFECT") next.target = "EMPTY_GROUND";
             // AOE_BURST is a direct-target nuke (not a ground zone): lock it to OPPONENT
@@ -249,7 +230,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             // When the tag name changes, auto-set percent to the correct value for that tag type.
             if ('name' in updated) merged.percent = bloodlineCreatorPercentPolicy(merged.name ?? "", rank).defaultPercent;
             tags[tagIndex] = merged;
-            const next = normalizeCreatorDraftJutsu({ ...jutsu, bloodlineRank: rank, tags: normalizeJutsuTags(tags) }, rank);
+            const next = normalizeCreatorDraftJutsu({ ...jutsu, bloodlineRank: rank, tags: normalizeJutsuTags(tags) }, rank, bloodlineOffense);
             if (next.method === "INSTANT_EFFECT") {
                 next.tags = instantEffectCreatorTags(next.tags, next.ap);
             }
@@ -593,7 +574,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                             : allTags);
                         const authoredTagNames = jutsu.tags.map((tag) => tag.name);
                         allowedTags = base.filter((tagName) => bloodlineCreatorMethodAllowsTag(tagName, jutsu.method, authoredTagNames));
-                        return <TagPicker key={tagIndex} ariaLabel={`Tag ${tagIndex + 1}`} rank={rank} jutsuTarget={jutsu.target} jutsuMethod={jutsu.method} jutsuAp={jutsu.ap} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} disabledTagLabels={disabledTagLabels} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
+                        return <TagPicker key={tagIndex} ariaLabel={`Tag ${tagIndex + 1}`} rank={rank} jutsuType={jutsu.type} jutsuTarget={jutsu.target} jutsuMethod={jutsu.method} jutsuAp={jutsu.ap} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} disabledTagLabels={disabledTagLabels} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
                     })}
                     <div className="summary-box bloodline-effect-preview"><strong>What it does:</strong> {describeJutsuEffects(jutsu)}</div>
                     {(() => {

@@ -3,11 +3,25 @@ import { it } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Jutsu } from "../types/combat";
+import type { JutsuType } from "../types/core";
+import { starterJutsus } from "../data/jutsu";
 import { describeJutsuEffects } from "../lib/jutsu-effects.js";
 import { JutsuEffectCards } from "./JutsuEffectCards.js";
 import { jutsuEffectTargetLabel } from "../lib/jutsu-effect-card-model.js";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
+
+it("keeps Undertow Fang accurate when Training or combat inspection supplies scaled effect power", () => {
+    const fang = starterJutsus.find((entry) => entry.name === "Undertow Fang");
+    assert.ok(fang);
+    for (const lensDiscipline of [undefined, "Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu", "Any"] as const) {
+        for (const scaledEffectPower of [undefined, 40]) {
+            const html = renderToStaticMarkup(<JutsuEffectCards jutsu={fang} masteryLevel={8} scaledEffectPower={scaledEffectPower} lensDiscipline={lensDiscipline} />);
+            assert.match(html, /damage this hit deals/);
+            assert.doesNotMatch(html, /(?:Ninjutsu|Genjutsu|Taijutsu|Bukijutsu|Any) damage/);
+        }
+    }
+});
 
 // Shaped like the live authored "Overload": a 40 AP SELF utility whose two
 // independent Increase Damage Given pulses are BOTH written into the record.
@@ -83,4 +97,35 @@ it("normalizes legacy tag aliases before choosing an effect recipient", () => {
     assert.equal(jutsuEffectTargetLabel(overload, "Vamp"), "Self");
     assert.equal(jutsuEffectTargetLabel(overload, "Seal"), "Enemy");
     assert.equal(jutsuEffectTargetLabel(overload, "Barrier"), "Battlefield");
+});
+
+it("renders hit and attack scope consistently for every discipline lens across custom, bloodline and weapon effects", () => {
+    const disciplines: JutsuType[] = ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu", "Any"];
+    for (const type of disciplines) {
+        const technique: Jutsu & { weaponSwing: boolean } = {
+            ...overload,
+            id: `custom-${type}`,
+            type,
+            ap: 60,
+            target: "OPPONENT",
+            bloodlineRank: "A Rank",
+            weaponSwing: type === "Bukijutsu",
+            isUtility: false,
+            tags: [
+                { name: "Siphon", percent: 30 },
+                { name: "Lifesteal", percent: 30 },
+                { name: "Wound", percent: 30 },
+                { name: "Increase Discipline", percent: 30 },
+            ],
+        };
+        for (const masteryLevel of [0, 50]) {
+            const baseline = renderToStaticMarkup(<JutsuEffectCards jutsu={technique} masteryLevel={masteryLevel} />);
+            assert.match(baseline, /damage this hit deals/);
+            assert.match(baseline, /post-shield damage the applying hit dealt/);
+            assert.match(baseline, /regardless of offense type/);
+            for (const lensDiscipline of disciplines) {
+                assert.equal(renderToStaticMarkup(<JutsuEffectCards jutsu={technique} masteryLevel={masteryLevel} lensDiscipline={lensDiscipline} />), baseline, `${type}, mastery ${masteryLevel}, ${lensDiscipline} lens`);
+            }
+        }
+    }
 });

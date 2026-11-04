@@ -75,7 +75,12 @@ export function consumeRecipeIngredients(character: Record<string, unknown>, ing
 }
 
 export type CraftKind = 'supply' | 'weapon' | 'armor' | 'relic';
-export function applyForge(character: Record<string, unknown>, kind: CraftKind, recipeId: string, quantityRaw: unknown, materials?: unknown) {
+/** The ryo a supply craft costs; the Crafter charges supplyCraftRyo, the keeper workshops their own rate. */
+export function supplyForgeRyo(recipeId: string, quantity = 1, fee: typeof supplyCraftRyo = supplyCraftRyo): number {
+    return fee(recipeId, ITEM_CATALOG[recipeId]?.cost ?? 0, SUPPLY_CRAFT_RECIPES[recipeId]?.count ?? 1) * quantity;
+}
+
+export function applyForge(character: Record<string, unknown>, kind: CraftKind, recipeId: string, quantityRaw: unknown, materials?: unknown, supplyFee: typeof supplyCraftRyo = supplyCraftRyo) {
     const quantity = Math.max(1, Math.min(20, count(quantityRaw) || 1));
     if (kind === 'relic') {
         if (recipeId !== 'dungeon-legendary-relic' || countOwned(character, 'dungeon-legendary-fragment') < 5) return null;
@@ -85,7 +90,7 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
         const recipe = Object.hasOwn(SUPPLY_CRAFT_RECIPES, recipeId) ? SUPPLY_CRAFT_RECIPES[recipeId] : undefined;
         if (!recipe || count(character.level) < (recipe.levelReq ?? 1)) return null;
         if (isVillageSupplyGood(recipeId) && !villageStoresEnabled()) return null;
-        const ryo = supplyCraftRyo(recipeId, ITEM_CATALOG[recipeId]?.cost ?? 0, recipe.count ?? 1) * quantity;
+        const ryo = supplyForgeRyo(recipeId, quantity, supplyFee);
         if (count(character.ryo) < ryo) return null;
         const output = ITEM_CATALOG[recipeId];
         const cap = isPetFood(recipeId) ? 9999 : output?.slot === 'thrown' ? 50 : output?.slot === 'potion' ? 2

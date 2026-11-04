@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { TagPicker } from "./TagPicker";
-import type { Rank } from "../types/core";
+import type { JutsuType, Rank } from "../types/core";
 
 function render(tag: string, rank: Rank, percent: number): string {
     return renderToStaticMarkup(createElement(TagPicker, {
@@ -53,6 +53,18 @@ describe("TagPicker player-creator percent choices", () => {
 });
 
 describe("TagPicker effect timing preview", () => {
+    it("describes damage-reading effects without inventing a discipline requirement", () => {
+        const siphon = render("Siphon", "A Rank", 30);
+        const wound = render("Wound", "A Rank", 30);
+        const lifesteal = render("Lifesteal", "A Rank", 30);
+        assert.match(siphon, /damage this hit deals/);
+        assert.match(wound, /post-shield damage the applying hit dealt/);
+        assert.match(lifesteal, /every damaging attack.*regardless of offense type/);
+        for (const html of [siphon, wound, lifesteal]) {
+            assert.doesNotMatch(html, /(?:Ninjutsu|Genjutsu|Taijutsu|Bukijutsu|Any) damage/);
+        }
+    });
+
     function renderRecoil(jutsuTarget: "OPPONENT" | "EMPTY_GROUND", jutsuMethod: "SINGLE" | "INSTANT_EFFECT"): string {
         return renderToStaticMarkup(createElement(TagPicker, {
             tag: "Recoil",
@@ -72,5 +84,61 @@ describe("TagPicker effect timing preview", () => {
         assert.match(ground, /A caught target suffers recoil on attacks made during that turn/);
         assert.doesNotMatch(ground, /Queues a negative status for the next combat round/);
         assert.match(direct, /Queues a negative status for the next combat round/);
+    });
+});
+
+describe("TagPicker previews the authored discipline", () => {
+    function preview(jutsuType?: JutsuType, rank?: Rank) {
+        return renderToStaticMarkup(createElement(TagPicker, {
+            tag: "Increase Discipline",
+            percent: 30,
+            jutsuType,
+            rank,
+            setTag: () => undefined,
+            setPercent: () => undefined,
+        }));
+    }
+
+    it("uses each selected style in both admin and ranked bloodline previews", () => {
+        for (const type of ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const) {
+            for (const rank of [undefined, "A Rank", "S Rank"] as const) {
+                assert.match(preview(type, rank), new RegExp(`Raises your ${type} offense`), `${type}, ${rank ?? "admin"}`);
+            }
+        }
+    });
+
+    it("does not invent a Ninjutsu boost for Any-style utilities or missing type context", () => {
+        for (const type of ["Any", undefined] as const) {
+            const html = preview(type);
+            assert.match(html, /Any-style cast has no discipline to boost/);
+            assert.doesNotMatch(html, /Raises your Ninjutsu offense/);
+        }
+    });
+});
+
+describe("TagPicker combines actual AP with authored discipline and buff-tile context", () => {
+    it("uses 40 AP for tile occupancy copy and 60 AP for ordinary Lifesteal across styles", () => {
+        for (const jutsuType of ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu", "Any"] as const) {
+            const preview = (jutsuAp: number) => renderToStaticMarkup(createElement(TagPicker, {
+                tag: "Lifesteal", rank: "S Rank", percent: 30, jutsuType, jutsuAp,
+                jutsuTarget: "EMPTY_GROUND", jutsuMethod: "INSTANT_EFFECT",
+                setTag: () => undefined, setPercent: () => undefined,
+            }));
+            assert.match(preview(40), /Buff tile: whoever stands on it heals for 30% of the damage they deal/);
+            assert.doesNotMatch(preview(40), /During the next 2 rounds/);
+            assert.match(preview(60), /every damaging attack.*regardless of offense type/);
+            assert.doesNotMatch(preview(60), /Buff tile:/);
+        }
+    });
+
+    it("preserves the reason an enemy-field tag is unavailable on a buff tile", () => {
+        const html = renderToStaticMarkup(createElement(TagPicker, {
+            tag: "Absorb", rank: "S Rank", percent: 30, jutsuType: "Any", jutsuAp: 40,
+            jutsuTarget: "EMPTY_GROUND", jutsuMethod: "INSTANT_EFFECT",
+            allowedTags: ["Absorb", "Poison"], disabledTags: ["Poison"], disabledTagLabels: { Poison: "buff tile" },
+            setTag: () => undefined, setPercent: () => undefined,
+        }));
+        assert.match(html, /<option value="Poison" disabled="">Poison \[buff tile\]<\/option>/);
+        assert.match(html, /Buff tile: whoever stands on it converts/);
     });
 });

@@ -2464,6 +2464,78 @@
       "notes": "A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
     },
     {
+      "system": "keeper-workshop",
+      "id": "beast-seal-master",
+      "currency": "ryo",
+      "amount": 8000,
+      "cadence": "per keeper craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+    },
+    {
+      "system": "keeper-workshop",
+      "id": "consum-cleansing-incense",
+      "currency": "ryo",
+      "amount": 896,
+      "cadence": "per keeper craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+    },
+    {
+      "system": "keeper-workshop",
+      "id": "consum-lifeline-elixir",
+      "currency": "ryo",
+      "amount": 1152,
+      "cadence": "per keeper craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+    },
+    {
+      "system": "keeper-workshop",
+      "id": "consum-phantom-charm",
+      "currency": "ryo",
+      "amount": 768,
+      "cadence": "per keeper craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+    },
+    {
+      "system": "keeper-workshop",
+      "id": "consum-smoke-pellet",
+      "currency": "ryo",
+      "amount": 480,
+      "cadence": "per keeper craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+    },
+    {
+      "system": "keeper-workshop",
+      "id": "elemental-pet-treat",
+      "currency": "ryo",
+      "amount": 1000,
+      "cadence": "per keeper craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+    },
+    {
+      "system": "keeper-workshop",
+      "id": "pet-treat",
+      "currency": "ryo",
+      "amount": 320,
+      "cadence": "per keeper craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+    },
+    {
+      "system": "keeper-workshop",
+      "id": "village-supply-bundle",
+      "currency": "ryo",
+      "amount": 30,
+      "cadence": "per keeper craft",
+      "authority": "shared/craft-fees.ts",
+      "notes": "A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+    },
+    {
       "system": "kage",
       "id": "declare-challenge",
       "currency": "ryo",

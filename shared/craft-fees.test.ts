@@ -4,7 +4,7 @@ import { ITEM_CATALOG } from '../api/pvp/_item-catalog.js';
 import { applyForge, countOwned } from '../api/craft/_forge.js';
 import { SUPPLY_CRAFT_RECIPES } from './crafting-recipes.js';
 import { VILLAGE_SUPPLY_GOODS } from './gathering-supplies.js';
-import { GEAR_CRAFT_RYO, SUPPLY_CRAFT_RYO, gearCraftRyo, supplyCraftRyo } from './craft-fees.js';
+import { GEAR_CRAFT_RYO, SUPPLY_CRAFT_RYO, gearCraftRyo, keeperWorkshopCraftRyo, supplyCraftRyo } from './craft-fees.js';
 
 /** The fee both the server and the Crafter UI compute for a recipe. */
 const feeOf = (id: string) => supplyCraftRyo(id, ITEM_CATALOG[id]?.cost ?? 0, SUPPLY_CRAFT_RECIPES[id]?.count ?? 1);
@@ -75,5 +75,12 @@ describe('crafter ryo fees', () => {
         assert.equal(supplyCraftRyo('village-supply-bundle'), 30);
         assert.equal(supplyCraftRyo('village-supply-crate'), 100);
         assert.equal(supplyCraftRyo('not-a-recipe'), 0);
+    });
+
+    it('keeper workshops charge a fifth of the shelf price and keep every hand-priced fee', () => {
+        assert.equal(keeperWorkshopCraftRyo('pet-treat', ITEM_CATALOG['pet-treat']!.cost), 320);
+        assert.equal(feeOf('pet-treat'), 400, 'the Crafter keeps its quarter');
+        for (const id of [...Object.keys(SUPPLY_CRAFT_RYO), 'village-supply-bundle', 'village-supply-crate'])
+            assert.equal(keeperWorkshopCraftRyo(id, ITEM_CATALOG[id]?.cost ?? 0, SUPPLY_CRAFT_RECIPES[id]?.count ?? 1), feeOf(id), id);
     });
 });

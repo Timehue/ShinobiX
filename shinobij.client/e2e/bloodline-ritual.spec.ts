@@ -75,7 +75,10 @@ for (const rank of ["B Rank", "A Rank", "S Rank"]) {
 
 test("skip and Escape enter the builder once and release focus", async ({ page }) => {
     await page.goto("http://ritual.local/?resumed");
-    await page.clock.install();
+    await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+    // Keep automatic completion from removing the controls before the real
+    // pointer/keyboard actions. Advance the exit timers after each dismissal.
+    await page.clock.pauseAt(new Date("2026-01-01T00:00:01Z"));
     for (let count = 1; count <= 2; count++) {
         // Open with the keyboard so WebKit pointer-click blur does not replace
         // the opener whose keyboard focus this test checks after dismissal.
