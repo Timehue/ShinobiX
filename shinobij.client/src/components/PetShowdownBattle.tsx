@@ -1,4 +1,5 @@
 import { describeShowdownBeat } from "../lib/showdown-event-text";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import { type DisplayEntry, TeamPanel } from './pet-showdown/team-panel';
 import { ELEMENT_TINT, elementCrest, KIND_FAMILY } from './pet-showdown/presentation-tokens';
 /*
@@ -2437,6 +2438,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
     const stage = useMemo(() => stageForSession(initialState.sessionId), [initialState.sessionId]);
 
     // ── Fullscreen overlay + body scroll lock + music ───────────────────────
+    useFullScaleViewport();
     useEffect(() => {
         document.body.classList.add("pet-combat-active");
         startBattleMusic("showdown");

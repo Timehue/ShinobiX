@@ -6,6 +6,7 @@ import { rememberedCircuitTrial } from '../features/dojo-circuit/client';
 import { CircuitCardResult } from '../features/dojo-circuit/CircuitCombatResult';
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import { visiblePoll } from "../lib/poll";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import type { TileCard } from "../data/tile-cards";
 import "../styles/chronicle-duel.css";
 import "../styles/chronicle-packs.css";
@@ -109,6 +110,8 @@ export function CardHall(props: CardHallProps) {
   useEffect(() => {
     if (lock.locked && autoStart) onAutoStartConsumed?.();
   }, [lock.locked, autoStart, onAutoStartConsumed]);
+  // The card game keeps its tuned full-size layout; phones only shrink menus.
+  useFullScaleViewport();
   if (!lock.locked) return <CardHallInner {...props} />;
   return (
     <div style={{ maxWidth: 560, margin: "48px auto 0", padding: "0 16px", textAlign: "center" }}>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type SyntheticEvent } from "react";
 import { getSharedNow, subscribeSharedNow } from "../lib/shared-now-store";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import {
   CHRONICLE_FOUNDING_FORMAT,
   CHRONICLE_ROOM_TITLE,
@@ -295,6 +296,8 @@ export function ChronicleDuelBoard({
   onResolutionReadyChange?: (ready: boolean) => void;
 }) {
   const stageFigures = useStageFigures();
+  // Every card duel renders this board; it keeps its full-size layout on phones.
+  useFullScaleViewport();
   useEffect(() => {
     primeChronicleSfx();
   }, []);

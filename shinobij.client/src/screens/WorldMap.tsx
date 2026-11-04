@@ -1,4 +1,5 @@
 import { useWorldMapScouts, scoutDotTitle } from "../lib/use-world-map-scouts";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import { gainXp } from "../lib/character-level-projection";
 import { AncientChestRewards } from "../components/AncientChestRewards";
 import {ClanShrineGateway} from '../features/clanWar/ClanShrineGateway';
@@ -5212,6 +5213,9 @@ function WorldMapContent({
 
 type WorldMapProps = Parameters<typeof WorldMapContent>[0];
 export function WorldMap(props: WorldMapProps) {
+    // The map has its own zoom and its geometry is tuned to the real phone
+    // width, so it keeps full scale while the menus around it shrink.
+    useFullScaleViewport();
     return <StoryFieldRouteBoundary onReturn={() => props.setScreen("village")}>
         <WorldMapContent {...props} />
     </StoryFieldRouteBoundary>;
