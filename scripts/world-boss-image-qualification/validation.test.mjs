@@ -48,5 +48,21 @@ test('workflow permits scoped same-repository PR execution without publication o
  const local=new URL('./workflow.yml',import.meta.url);const workflow=readFileSync(existsSync(local)?local:new URL('../../.github/workflows/world-boss-image-qualification.yml',import.meta.url),'utf8');assert.match(workflow,/workflow_dispatch:/);assert.match(workflow,/pull_request:/);assert.match(workflow,/head\.repo\.full_name == github\.repository/);assert.doesNotMatch(workflow,/pull_request_target:|workflow_run:|push:|secrets\.|packages:|contents: write|railway up|docker push|node-version:/);
  assert.match(workflow,/node-version-file: \.nvmrc/);assert.match(workflow,/actions\/upload-artifact@v7/);assert.match(workflow,/actions\/download-artifact@v8/);assert.match(workflow,/if-no-files-found: error/);
  assert.equal((workflow.match(/uses: actions\/checkout@v7/g)||[]).length,(workflow.match(/persist-credentials: false/g)||[]).length);
- assert.match(workflow,/artifact-ids: \$\{\{ needs\.retain\.outputs\.candidate_artifact_id \}\}/);assert.match(workflow,/artifact-ids: \$\{\{ needs\.retain\.outputs\.recovery_artifact_id \}\}/);
+ assert.match(workflow,/artifact-ids: \$\{\{ needs\.resolve\.outputs\.candidate_artifact_id \|\| needs\.retain_candidate\.outputs\.artifact_id \}\}/);assert.match(workflow,/artifact-ids: \$\{\{ needs\.resolve\.outputs\.recovery_artifact_id \|\| needs\.retain_recovery\.outputs\.artifact_id \}\}/);
+});
+
+function isolatedWorkflow(){const local=new URL('./workflow.yml',import.meta.url);return readFileSync(existsSync(local)?local:new URL('../../.github/workflows/world-boss-image-qualification.yml',import.meta.url),'utf8');}
+function workflowJobs(){const text=isolatedWorkflow().split('\njobs:\n')[1];assert.ok(text);const headers=[...text.matchAll(/^  ([a-z_]+):$/gm)];return Object.fromEntries(headers.map((header,i)=>[header[1],text.slice(header.index,headers[i+1]?.index??text.length)]));}
+test('each newly built role has a separate runner and one immutable artifact output',()=>{
+ const jobs=workflowJobs();assert.deepEqual(Object.keys(jobs),['resolve','retain_candidate','retain_recovery','qualify']);
+ for(const role of ['candidate','recovery']){const job=jobs['retain_'+role];assert.match(job,/needs: resolve/);assert.match(job,/if: needs\.resolve\.outputs\.reuse != 'true'/);assert.match(job,/runs-on: ubuntu-latest/);assert.equal((job.match(/images\.mjs build /g)??[]).length,1);assert.ok(job.includes('images.mjs build '+role+' source-'+role));assert.ok(job.includes('ref: $'+'{{ needs.resolve.outputs.'+role+' }}'));assert.ok(job.includes('world-boss-image-'+role+'-$'+'{{ github.run_id }}-$'+'{{ github.run_attempt }}'));assert.match(job,/artifact_id: \$\{\{ steps\.upload\.outputs\.artifact-id \}\}/);}
+});
+test('qualification requires successful resolution and both fresh producers or verified retained mode',()=>{
+ const job=workflowJobs().qualify;assert.match(job,/needs: \[resolve, retain_candidate, retain_recovery\]/);
+ const expected="if: $"+"{{ !cancelled() && needs.resolve.result == 'success' && (needs.resolve.outputs.reuse == 'true' || (needs.retain_candidate.result == 'success' && needs.retain_recovery.result == 'success')) }}";
+ assert.ok(job.includes(expected));assert.doesNotMatch(isolatedWorkflow(),/continue-on-error:/);
+});
+test('artifact consumers use exact resolver run identity and role-specific uploaded IDs',()=>{
+ const job=workflowJobs().qualify;assert.equal((job.match(/run-id: \$\{\{ needs\.resolve\.outputs\.artifact_run_id \}\}/g)??[]).length,2);assert.equal((job.match(/digest-mismatch: error/g)??[]).length,2);
+ for(const role of ['candidate','recovery'])assert.ok(job.includes('artifact-ids: $'+'{{ needs.resolve.outputs.'+role+'_artifact_id || needs.retain_'+role+'.outputs.artifact_id }}'));
 });
