@@ -316,7 +316,7 @@ test('keeper workshop discloses the Pet Treat fee and refuses short ryo without 
     await expect(card).toContainText('320 ryo fee');await expect(card).toContainText('You need 320 ryo.');
     await expect(card.getByRole('button',{name:'Choose exact materials',exact:true})).toBeDisabled();
     const before=await(await request.get(`/api/save/${owner.name}`,{headers:owner.headers})).json();
-    const refused=await request.post('/api/sector/buildings',{headers:owner.headers,data:{playerName:owner.name,buildingId:owner.building.id,action:'craft',recipeId:'pet-treat',requestId:`short-keeper-craft-${Date.now()}`,materials:[{'gather-river-fish':4},{'gather-field-herb':2}]}});
+    const refused=await request.post('/api/sector/buildings',{headers:owner.headers,data:{playerName:owner.name,buildingId:owner.building.id,action:'craft',recipeId:'pet-treat',requestId:`short-keeper-craft-${Date.now()}`,materials:[{'gather-river-fish':6},{'gather-field-herb':2}]}});
     expect(refused.status(),await refused.text()).toBe(409);
     expect((await refused.json()).error).toContain('fee for this craft is 320 ryo, and you carry 319. Nothing was spent.');
     const after=await(await request.get(`/api/save/${owner.name}`,{headers:owner.headers})).json();

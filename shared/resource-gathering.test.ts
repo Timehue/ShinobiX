@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resourceQualityWeights, resourceQuality, resourceSuccessRate, resourceActionsToday, resourceNodeState } from './resource-gathering.js';
+import { resourceQualityWeights, resourceQuality, resourceSuccessRate, resourceActionsToday, resourceAttemptsToday, exploreActionsToday, resourceNodeState } from './resource-gathering.js';
 import { initializeGatheringTool, useGatheringTool, gatheringToolRemaining } from './gathering-tools.js';
 import { FRACTURE_TEMPLATES, fractureTemplatePool, solveFractureChain } from './fracture-chain.js';
 
@@ -40,6 +40,19 @@ test('50th basic use is admitted and breaks; re-equip cannot reset uses; gold is
     assert.equal(useGatheringTool({ ...last.character, equipment: { pickaxe: 'tool-basic-pickaxe' } }, 'pickaxe'), null);
     const gold = { equipment: { pickaxe: 'tool-golden-pickaxe' } };
     assert.equal(useGatheringTool(gold, 'pickaxe')!.character, gold);
+});
+
+test('independent counters start fresh for legacy saves and reset together at UTC midnight', () => {
+    const now = Date.parse('2026-11-03T23:59:59Z');
+    const legacy = { serverExploreDate: '2026-11-03', serverExploresToday: 100,
+        resourceGathering: { date: '2026-11-03', attemptsToday: 100, miningXp: 700 } };
+    assert.equal(exploreActionsToday(legacy, now), 100);
+    for (const activity of ['mining', 'fishing'] as const) assert.equal(resourceAttemptsToday(legacy, activity, now), 0);
+    const migrated = { ...legacy, resourceGathering: { ...legacy.resourceGathering, miningAttemptsToday: 50, fishingAttemptsToday: 49 } };
+    assert.equal(resourceAttemptsToday(migrated, 'mining', now), 50);
+    assert.equal(resourceAttemptsToday(migrated, 'fishing', now), 49);
+    assert.equal(exploreActionsToday(migrated, now + 1000), 0);
+    for (const activity of ['mining', 'fishing'] as const) assert.equal(resourceAttemptsToday(migrated, activity, now + 1000), 0);
 });
 test('every fracture formation has a clean solution, legal partial paths and destructive overlap', () => {
     FRACTURE_TEMPLATES.forEach((template, index) => {

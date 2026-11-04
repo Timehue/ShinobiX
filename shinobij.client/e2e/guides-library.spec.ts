@@ -8,10 +8,11 @@ async function openGuideLibrary(page: Page) {
     await expect(page.getByRole("heading", { name: "Game guides", exact: true })).toBeVisible();
 }
 
-test("world guide distinguishes the bandit toll from other road escape costs", async ({ page }, info) => {
+test("world guide explains independent daily budgets and road escape costs", async ({ page }, info) => {
     await openGuideLibrary(page);
     await page.getByRole("searchbox", { name: "Search guides" }).fill("Travel, Exploration");
     await page.getByRole("button", { name: "Read Travel, Exploration, and World Events" }).click();
+    await expect(page.getByText("Separate daily allowances give you 100 explores, 50 Mining attempts, and 50 Fishing attempts per UTC day.", { exact: false })).toBeVisible();
     const costs = page.getByText("Road bandits offer Fight or Pay 500 ryo.", { exact: false });
     await costs.scrollIntoViewIfNeeded();
     await expect(costs).toBeVisible();

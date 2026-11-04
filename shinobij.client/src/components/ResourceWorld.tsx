@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Character, PlayerRecord, VersionedCharacterCommit } from '../types/character';
 import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES, resourceNode, resourceNodeAtLevel, resourceNodeOffer, resourceNodePosition, type ResourceNode } from '../../../shared/resource-nodes';
-import { readResourceGathering, resourceSkillLevel, resourceSuccessRate, resourceActionsToday, RESOURCE_GRADES, type ResourceReceipt } from '../../../shared/resource-gathering';
+import { readResourceGathering, resourceSkillLevel, resourceSuccessRate, resourceAttemptsToday, DAILY_RESOURCE_ATTEMPT_LIMIT, RESOURCE_GRADES, type ResourceReceipt } from '../../../shared/resource-gathering';
 import { useSharedResourceNodes } from '../lib/use-shared-resource-nodes';
 import { ResourceNodeContest } from './ResourceNodeContest';
 import { playerSlug } from '../lib/utils';
@@ -86,7 +86,7 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
     }, [offerLevel, idle]);
     const charges = availability?.remaining ?? 0;
     const occupied = !!availability?.gatherer && availability.gatherer !== playerSlug(character.name);
-    const today = resourceActionsToday(character, now);
+    const today = resourceAttemptsToday(character, active?.activity ?? node?.activity ?? receipt?.activity ?? 'mining', now);
     async function request(action: 'start' | 'resolve' | 'cancel', input: Record<string, unknown> = {}) {
         if (inFlight.current || !node || !ready) return;
         inFlight.current = true; setBusy(true); setError('');
@@ -149,18 +149,18 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
                 <p role="status">{recovery.status === 'failed' ? 'Gathering could not be checked. Your attempt has not been restarted.' : 'Checking your gathering attempt…'}</p>
                 {recovery.status === 'failed' && <button type="button" className="resource-primary" onClick={() => { setRecovery({ name: character.name, status: 'checking' }); setError(''); setRecoveryRetry(value => value + 1); }}>Check gathering again</button>}
             </div> : receipt ? <GatheringResult character={character} receipt={receipt} node={node} requiredSkill={availability?.difficulty} charges={charges} today={today} busy={busy || occupied || !availability}
-                onBack={close} onAgain={() => { void request('start').then(started => { if (started) setReceipt(null); }); }} /> : active ? <><div className="resource-attempt-strip"><span>Action spent · {today}/100 today</span><span>{Math.max(0, Math.min(Math.ceil((active.expiresAt - active.startedAt) / 1000), Math.ceil((active.expiresAt - now) / 1000)))}s remaining</span></div>
+                onBack={close} onAgain={() => { void request('start').then(started => { if (started) setReceipt(null); }); }} /> : active ? <><div className="resource-attempt-strip"><span>Attempt spent · {today}/{DAILY_RESOURCE_ATTEMPT_LIMIT} today</span><span>{Math.max(0, Math.min(Math.ceil((active.expiresAt - active.startedAt) / 1000), Math.ceil((active.expiresAt - now) / 1000)))}s remaining</span></div>
                 {now >= active.expiresAt && <p role="status">This attempt expired. Close it to return to the map.</p>}
                 <ResourceMinigame key={active.id} attempt={active} busy={busy || now >= active.expiresAt} fishingGold={toolId === 'tool-golden-fishing-pole'} resolve={input => void request('resolve', input)} />
-                <button type="button" className="resource-cancel" disabled={busy} onClick={() => void request('cancel')}>{now >= active.expiresAt ? 'Close expired attempt' : 'Abandon attempt (action stays spent)'}</button>
+                <button type="button" className="resource-cancel" disabled={busy} onClick={() => void request('cancel')}>{now >= active.expiresAt ? 'Close expired attempt' : 'Abandon attempt (attempt stays spent)'}</button>
             </> : node && offer && <div className="resource-node-intro">
                 <p className="resource-kicker">{node.worldBossCrystal ? 'World threat · Hollow Shard' : node.activity === 'mining' ? 'Mountain seam · Veinbreaking' : 'Water shoal · Kunai fishing'}</p>
                 <div className="resource-node-stats"><span>Your skill <strong>{level}</strong></span><span>Attempts <strong>{charges}/3</strong></span><span>{node.activity === 'fishing' ? 'Relaxed success' : 'Baseline success'} <strong>{resourceSuccessRate(level, offer.difficulty)}%</strong></span></div>
                 <p>{offer.difficulty === 1 ? 'Basic' : offer.difficulty === 4 ? 'Rich' : 'Master'} site · Requires skill {offer.difficulty} · Quality up to {RESOURCE_GRADES[offer.ceiling]}</p>
                 {node.worldBossCrystal && <p>This vein is shared across the world. A successful mine stores one Hollow Shard for you. Turn it in on the World Bosses screen for contribution points and to fill the world's weakening meter.</p>}
-                <p>These three attempts are shared by everyone. Empty nodes replenish after 10 minutes, and every 10 minutes a site can change level. Explore, fishing and mining share your 100 actions per UTC day. Failures and abandoned attempts count.</p>
+                <p>These three attempts are shared by everyone. Empty nodes replenish after 10 minutes, and every 10 minutes a site can change level. Mining and fishing each allow 50 attempts per UTC day, separate from your 100 explores. Failures and abandoned attempts count.</p>
                 <p>Gathering does not protect you from PvP. Fighting or leaving ends your claim; prolonged disconnection can also end it. An unfinished attempt grants no reward.</p>
-                <p><strong>{100 - Math.min(100, today)} actions left today</strong></p>
+                <p><strong>{Math.max(0, DAILY_RESOURCE_ATTEMPT_LIMIT - today)} {node.activity} attempts left today</strong></p>
                 {!availability ? <p role="status">{shared.error || 'Checking shared node availability…'}</p>
                     : occupied ? <ResourceNodeContest gatherer={availability.gatherer!} selfName={character.name} onContest={onContest} />
                     : charges === 0 ? <p role="status">Replenishes in {Math.max(1, Math.ceil((availability.refillAt - now) / 60_000))} {Math.ceil((availability.refillAt - now) / 60_000) <= 1 ? 'minute' : 'minutes'}.</p>
@@ -168,7 +168,7 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
                     : !usableTool ? <p role="status">Equip a {toolSlot === 'pickaxe' ? 'pickaxe' : 'fishing kunai'} in Inventory first. Basic tools are available at the Ryo Shop.</p>
                     : tile !== node.approach || sector !== node.sector ? <button type="button" className="resource-primary" onClick={() => { setSelected(null); requestAnimationFrame(() => walk(node.sector, node.approach)); }}>Approach {node.activity === 'mining' ? 'rock base' : 'shore'}</button>
                     : <><fieldset className="resource-mode"><legend>Gathering style</legend><label><input type="radio" name="gather-mode" checked={mode === 'active'} onChange={() => setMode('active')} />{node.activity === 'fishing' ? 'Kunai fishing · higher-level fish fail the attempt' : 'Play minigame · up to +10% success'}</label><label><input type="radio" name="gather-mode" checked={mode === 'relaxed'} onChange={() => setMode('relaxed')} />Watch animation · baseline success</label></fieldset>
-                        <button type="button" className="resource-primary" disabled={busy || today >= 100} onClick={() => void request('start')}>{busy ? 'Starting…' : node.activity === 'mining' ? 'Begin mining · 1 action' : 'Ready kunai · 1 action'}</button></>}
+                        <button type="button" className="resource-primary" disabled={busy || today >= DAILY_RESOURCE_ATTEMPT_LIMIT} onClick={() => void request('start')}>{busy ? 'Starting…' : node.activity === 'mining' ? 'Begin mining · 1 attempt' : 'Ready kunai · 1 attempt'}</button></>}
             </div>}
             {receipt && node?.worldBossCrystal && receipt.outcome === 'success' && worldBossHollowShard && <p className="resource-world-boss-receipt" role="status">{worldBossHollowShard.harvested ? 'Hollow Shard secured' : 'This Hollow Shard was already claimed'} · You hold {worldBossHollowShard.heldHollowShards} · {worldBossHollowShard.pointsPerShard.toLocaleString()} points per shard when turned in.</p>}
             {error && <p className="resource-warning" role="alert">{error}</p>}

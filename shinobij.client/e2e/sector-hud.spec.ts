@@ -1002,8 +1002,8 @@ test('Explore clearly uses the shared fishing and mining allowance at the daily 
     await page.goto('/e2e/fixtures/sector-hud.html?capped');
     const explore = page.getByRole('button', { name: 'Explore', exact: true });
     await expect(explore).toBeDisabled();
-    await expect(explore).toContainText('Shared 100/100');
-    await expect(explore).toHaveAttribute('aria-description', /Explore, fishing and mining: 100\/100 shared daily actions/);
+    await expect(explore).toContainText('100/100');
+    await expect(explore).toHaveAttribute('aria-description', /Explores: 100\/100 daily explores/);
     await page.getByRole('button', { name: 'Sector info · Claim ready', exact: true }).click();
-    await expect(page.getByText(/Explore, fishing and mining: 100\/100 shared daily actions/)).toBeVisible();
+    await expect(page.getByText(/Explores: 100\/100 daily explores/)).toBeVisible();
 });

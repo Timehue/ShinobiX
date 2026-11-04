@@ -4,6 +4,7 @@ process.env.SESSION_SECRET = 'silence-surfaces-test-secret-32-bytes-x';
 
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { namedForgeIngredients } from '../shared/named-forge-materials.js';
 
 /*
  * A silence must hold on EVERY surface that reaches another player.
@@ -75,11 +76,8 @@ async function seed(character: Json = {}) {
             ryo: 100_000, fateShards: 500,
             petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
             // One named weapon roll's materials (shared/named-forge-materials.ts).
-            stats: {}, inventory: [], itemStacks: [
-                { itemId: 'gather-iron-sand-pristine', count: 20 }, { itemId: 'hunt-legendary-material', count: 2 },
-                { itemId: 'hunt-titan-bone', count: 1 }, { itemId: 'hunt-ancient-beast-core', count: 1 },
-                { itemId: 'gather-rime-crystal-superior', count: 2 }, { itemId: 'dungeon-legendary-relic', count: 1 },
-            ],
+            stats: {}, inventory: [], itemStacks: namedForgeIngredients('weapon')
+                .map(row => ({ itemId: row.ids[0], count: row.count })),
             ...character,
         },
     });

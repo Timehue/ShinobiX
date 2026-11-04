@@ -4,7 +4,7 @@ import { gainXp } from "../lib/character-level-projection";
 import { AncientChestRewards } from "../components/AncientChestRewards";
 import {ClanShrineGateway} from '../features/clanWar/ClanShrineGateway';
 import type {CwChallenge} from '../lib/clan-war-api';
-import { resourceActionsToday } from '../../../shared/resource-gathering';
+import { exploreActionsToday } from '../../../shared/resource-gathering';
 import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 import { useSectorOrder } from "../lib/use-sector-order";
@@ -3314,9 +3314,9 @@ function WorldMapContent({
                 gameToast("Collect a saved find to make room for more exploration.", { kind: "info" });
                 return;
             }
-            const dailyTiles = resourceActionsToday(character);
+            const dailyTiles = exploreActionsToday(character, serverNow());
             if (dailyTiles >= 100) {
-                alert("Daily Explore, Fishing and Mining limit reached (100/100). Resets at midnight UTC.");
+                alert("Daily exploration limit reached (100/100). Resets at midnight UTC.");
                 return;
             }
             const depleted = sectorExploreRefusal(sector, loadSectorTerritory(sector).ownerVillage, character.village);
@@ -4571,7 +4571,7 @@ function WorldMapContent({
                         onOpenSigns={handleOpenSectorSigns}
                         onOpenShrine={handleOpenSectorShrine}
                         contract={sectorContract} contractBusy={contractBusy} onClaimContract={() => { void handleClaimContract(); }}
-                        onExplore={handleExploreSelectedSector} dailyExplores={resourceActionsToday(character)} exploreBusy={explorePresentationInFlight}
+                        onExplore={handleExploreSelectedSector} dailyExplores={exploreActionsToday(character, serverNow())} exploreBusy={explorePresentationInFlight}
                         onFindRicherGround={handleFindRicherGround}
                         onHunt={handleHuntSelectedSector}
                     /></>
