@@ -19,8 +19,8 @@ export function groundZoneTilesForDisplay(
                 : "debuff";
         const remaining = `${effect.rounds} round${effect.rounds === 1 ? "" : "s"} remaining`;
         const description = buffTile
-            ? `Buff tile: ${effect.tags.map(tag => `${tag.name} ${tag.percent ?? 30}%`).join(", ")}, ${remaining}. Anyone standing here gains it`
-            : `${effect.name}, ${remaining}`;
+            ? `Buff tile: ${effect.tags.map(tag => `${tag.name} ${tag.percent ?? 30}%`).join(", ")}, ${remaining}. Anyone standing here gains it. Cannot be cleared or cleansed`
+            : `${effect.name}, ${remaining}. Cannot be cleared or cleansed`;
         for (const tile of effect.tiles) {
             if (!Number.isInteger(tile) || tile < 0 || tile >= tileCount) continue;
             const previous = tiles.get(tile);

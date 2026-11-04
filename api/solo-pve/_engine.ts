@@ -43,7 +43,7 @@ import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { castHeaderLine } from '../combat-core/cast-flavor.js';
-import { activeCombatStatuses, addCombatStatus, removeActiveCombatStatusesByKind, removeActiveCombatStatusesByName, removeCombatStatusesByKind } from '../combat-core/statuses.js';
+import { activeCombatStatuses, addCombatStatus, groundStatusRemovalNote, isGroundCombatStatus, removeActiveCombatStatusesByKind, removeActiveCombatStatusesByName, removeCombatStatusesByKind } from '../combat-core/statuses.js';
 import { validateServerAiRules, type ServerAiRule } from '../combat-core/ai-authoring.js';
 import {
     projectAuthoritativeCombatEvent,
@@ -702,7 +702,7 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     if (kind === 'cleanse') {
         companion.statuses = removeCombatStatusesByKind(companion.statuses, 'negative').statuses;
         if (mastery.mastered) addCompanionStatus(companion, { name: 'Stun Prevent', rounds: mastery.cleanseResistRounds, kind: 'positive' });
-        session.log.push(`${companion.name}${label} and clears harmful conditions.`);
+        session.log.push(`${companion.name}${label} and clears harmful conditions.${groundStatusRemovalNote(companion.statuses, 'negative')}`);
         return undefined;
     }
     if (kind === 'heal') {
@@ -822,7 +822,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
         const moveAp = companionMoveAp(companion.speed, MOVE_AP);
         while (ap >= moveAp && actions < MAX_ACTIONS && session.status === 'active' && companion.hp > 0) {
             const move = pickCompanionMove(companion.moves, companion.cooldowns, companion.hp / Math.max(1, companion.maxHp),
-                companion.statuses.some(status => status.kind === 'negative'),
+                companion.statuses.some(status => status.kind === 'negative' && !isGroundCombatStatus(status)),
                 companion.signatureReadyAfter === undefined ? undefined : { ordinaryActions: companion.ordinaryActions ?? 0, requiredActions: companion.signatureReadyAfter });
             const selfCast = isCompanionSupportMove(move);
             if (!selfCast && hexDistance(companion.pos, session.enemy.pos) > COMPANION_RANGE) {
@@ -1356,29 +1356,29 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         if (!canAct(session, side, CLEAR_AP) || (session.cooldowns[side].clear ?? 0) > 0) return { applied: false, reason: 'cannot-act' };
         if (hexDistance(self.pos, opponent.pos) > BASIC_CLEAR_RANGE) return { applied: false, reason: 'out-of-range' };
         const blocked = activeStatuses(opponent, session.round).some((status) => status.name === 'Clear Prevent');
+        const cleared = removeActiveCombatStatusesByKind(opponent.statuses, 'positive', session.round);
         if (!blocked) {
-            const cleared = removeActiveCombatStatusesByKind(opponent.statuses, 'positive', session.round);
             setFighter(session, otherSide(side), { ...opponent, shield: 0, statuses: cleared.statuses });
         }
         session.cooldowns[side].clear = 10;
         spendAction(session, side, CLEAR_AP);
-        session.log.push(blocked ? `${opponent.name}'s Clear Prevent blocks the clear.` : `${self.name} clears ${opponent.name}'s positive effects.`);
+        session.log.push(blocked ? `${opponent.name}'s Clear Prevent blocks the clear.` : `Clear: removed ${cleared.removed.length ? cleared.removed.map(status => status.name).join(', ') : 'no positive effects'} from ${opponent.name}${opponent.shield > 0 ? ' and broke their shield' : ''}.${groundStatusRemovalNote(opponent.statuses, 'positive')}`);
         return { applied: true };
     }
     if (action.type === 'cleanse') {
         if (!canAct(session, side, CLEANSE_AP) || (session.cooldowns[side].cleanse ?? 0) > 0) return { applied: false, reason: 'cannot-act' };
         const committedApCost = actionCost(session, side, CLEANSE_AP);
         const blocked = activeStatuses(self, session.round).some((status) => status.name === 'Cleanse Prevent');
+        const cleansed = removeCombatStatusesByKind(self.statuses, 'negative');
         if (!blocked) {
             // Pending debuffs too, as in PvP: a Wound or Drain cast earlier this round
             // is gone before it ever ticks.
-            const cleansed = removeCombatStatusesByKind(self.statuses, 'negative');
             setFighter(session, side, { ...self, statuses: cleansed.statuses });
         }
         session.cooldowns[side].cleanse = 10;
         session.ap[side] = Math.max(0, session.ap[side] - committedApCost);
         session.actionsThisTurn += 1;
-        session.log.push(blocked ? `${self.name}'s Cleanse Prevent blocks the cleanse.` : `${self.name} cleanses negative effects.`);
+        session.log.push(blocked ? `${self.name}'s Cleanse Prevent blocks the cleanse.` : `Cleanse: removed ${cleansed.removed.length ? cleansed.removed.map(status => status.name).join(', ') : 'no negative effects'} from ${self.name}.${groundStatusRemovalNote(self.statuses, 'negative')}`);
         return { applied: true };
     }
     if (action.type === 'jutsu') {
@@ -1862,7 +1862,7 @@ function aiTacticalAction(session: SoloPveSession, recoveryFirst = false): SoloP
     if (Number.isFinite(competence.cleanseSelfThreshold)
         && canAct(session, 'enemy', CLEANSE_AP)
         && (session.cooldowns.enemy.cleanse ?? 0) <= 0
-        && activeStatuses(session.enemy, session.round).filter((status) => status.kind === 'negative').length >= competence.cleanseSelfThreshold) {
+        && activeStatuses(session.enemy, session.round).filter((status) => status.kind === 'negative' && !isGroundCombatStatus(status)).length >= competence.cleanseSelfThreshold) {
         return { type: 'cleanse' };
     }
     return heal;
@@ -1882,7 +1882,7 @@ function enemyClearHasBenefit(session: SoloPveSession, threshold: number): boole
 function enemyCleanseHasBenefit(session: SoloPveSession, threshold: number): boolean {
     if (!Number.isFinite(threshold) || activeStatuses(session.enemy, session.round).some((status) => status.name === 'Cleanse Prevent')) return false;
     // Cleanse removes pending negatives too, unlike Clear's active-only rule.
-    return session.enemy.statuses.filter((status) => status.kind === 'negative' && status.rounds > 0).length >= threshold;
+    return session.enemy.statuses.filter((status) => status.kind === 'negative' && !isGroundCombatStatus(status) && status.rounds > 0).length >= threshold;
 }
 
 function enemyMoveTowardPlayerAction(session: SoloPveSession): SoloPveAction | null {
@@ -2006,7 +2006,7 @@ function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule, candi
     if (rule.action === 'cleanse_self') {
         return canAct(session, 'enemy', CLEANSE_AP)
             && (session.cooldowns.enemy.cleanse ?? 0) <= 0
-            && (standardPlanner ? enemyCleanseHasBenefit(session, 1) : activeStatuses(session.enemy, session.round).some((status) => status.kind === 'negative'))
+            && (standardPlanner ? enemyCleanseHasBenefit(session, 1) : activeStatuses(session.enemy, session.round).some((status) => status.kind === 'negative' && !isGroundCombatStatus(status)))
             ? { type: 'cleanse' }
             : null;
     }

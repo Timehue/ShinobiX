@@ -17,6 +17,16 @@ const combatHudSource = readFileSync(new URL("../components/CombatHudLayout.tsx"
 const pvpSource = readFileSync(new URL("./PvpBattleScreen.tsx", import.meta.url), "utf8");
 const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
 
+test("mission ground highlights use the legal target set, including a buff tile under the caster", () => {
+    assert.match(missionSource, /armedBuffTile && t === myPos/);
+    assert.match(missionSource, /const isGroundTile = [^;]*tileTargets\.has\(i\);/);
+    assert.doesNotMatch(missionSource, /const isGroundTile = [^;]*!unavailableGroundTiles\.has\(i\)/);
+    for (const source of [missionSource, pvpSource, towerSource]) {
+        assert.match(source, /Ground effects cannot be cleared/);
+        assert.match(source, /Ground effects cannot be cleansed/);
+    }
+});
+
 // The combat shell places its bands in a FIXED-track grid — `.combat-main-area`
 // on desktop, `.combat-layout` on mobile (where `.combat-main-area` flattens to
 // `display: contents`) — and orders them with `order` / explicit `grid-row`.

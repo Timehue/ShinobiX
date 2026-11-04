@@ -2413,6 +2413,38 @@ const buffTileJutsu = {
     tags: [{ name: 'Decrease Damage Taken', percent: 30 }],
 };
 
+for (const action of ['clear', 'cleanse'] as const) {
+    test(`PvP ${action} preserves ground effects and removes only ordinary statuses`, async () => {
+        const kind = action === 'clear' ? 'positive' : 'negative';
+        const name = action === 'clear' ? 'Reflect' : 'Poison';
+        const pos = action === 'clear' ? 1 : 0;
+        const target = fighter(action === 'clear' ? 'bob' : 'alice', pos, { shield: 200, statuses: [
+            { name, kind, rounds: 2, percent: 20, source: 'ground:immune' },
+            { name, kind, rounds: 2, percent: 10, source: 'direct' },
+        ] });
+        const battleId = `ground-immune-${action}`;
+        seed(session(battleId, {
+            roundOpener: 'p1',
+            p1: action === 'cleanse' ? target : fighter('alice', 0),
+            p2: action === 'clear' ? target : fighter('bob', 1),
+            groundEffects: [{ id: 'immune', owner: 'p2', name: 'Immune Ground', rounds: 2, tiles: [pos],
+                ...(action === 'clear' ? { kind: 'occupant' as const } : {}), tags: [{ name, percent: 20 }] }],
+        }));
+        const response = await postMove('alice', { battleId, role: 'p1', action, moveToken: battleId });
+        assert.equal(response.statusCode, 200);
+        const after = storedSession(battleId);
+        const holder = action === 'clear' ? after.p2 : after.p1;
+        assert.equal(holder.statuses.filter(status => status.name === name).length, 1);
+        assert.equal(holder.statuses.find(status => status.name === name)?.source, 'ground:immune');
+        assert.equal(after.groundEffects?.length, 1);
+        assert.equal(after.ap.p1, 40);
+        assert.equal(after.cooldowns.p1[action], 10);
+        if (action === 'clear') assert.equal(holder.shield, 0);
+        assert.ok(after.log.some(line => line.includes('Ground effects cannot be cleared or cleansed.')));
+        assert.equal(after.log.some(line => line.startsWith('Immune Ground:')), false, 'Clear must not remove then re-grant the tile buff');
+    });
+}
+
 test('a 40 AP buff tile under the caster buffs them at once and holds through the handoff', async () => {
     seed(session('buff-tile-self', {
         roundOpener: 'p1',

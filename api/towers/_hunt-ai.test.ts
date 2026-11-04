@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { makePveEngineTestSession } from './_pve-engine-test-fixture.js';
 import { applyAction, pickAiAction } from './_engine.js';
-import { HUNT_AI_POLICY, HUNT_REACTIVE_POLICY, huntHoldsBurst } from './_hunt-ai.js';
+import { HUNT_AI_POLICY, HUNT_REACTIVE_POLICY, huntHoldsBurst, pickHuntAiAction } from './_hunt-ai.js';
 import { huntFixture } from '../../scripts/test-fixtures/hunt-shrine.js';
 import { applySoloPveAction } from '../solo-pve/_engine.js';
 
@@ -14,6 +14,26 @@ function fixture(level=20,rank='C') {
     enemy.pos=33;player.pos=62;
     return {s,enemy,player};
 }
+
+test('hunt counter candidates ignore ground effects while retaining ordinary cleanup', () => {
+    for (const groundOnly of [true, false]) {
+        const { s, enemy, player } = fixture(60, 'A');
+        const source = groundOnly ? 'ground:immune' : 'direct';
+        player.statuses = [{ name: 'Reflect', kind: 'positive', rounds: 3, percent: 30, source }];
+        enemy.statuses = [
+            { name: 'Poison', kind: 'negative', rounds: 3, percent: 20, source },
+            { name: 'Decrease Damage Given', kind: 'negative', rounds: 3, percent: 20, source },
+        ];
+        const attempted: string[] = [];
+        pickHuntAiAction(s, enemy, {
+            apply: (_session, action) => { attempted.push(action.type); return { applied: false }; },
+            step: () => enemy.pos,
+            ready: () => false,
+        });
+        assert.equal(attempted.includes('clear'), !groundOnly);
+        assert.equal(attempted.includes('cleanse'), !groundOnly);
+    }
+});
 
 test('last affordable ranged cast beats waiting and does not spend AP in a preview',()=>{
     const {s,enemy}=fixture(20,'D');

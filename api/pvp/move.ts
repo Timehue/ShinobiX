@@ -62,6 +62,7 @@ import {
     addCombatStatus,
     capDeferredCombatStatusStacks,
     hasCombatStatus,
+    groundStatusRemovalNote,
     removeActiveCombatStatusesByKind,
     removeActiveCombatStatusesByName,
     removeCombatStatusesByKind,
@@ -2272,7 +2273,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } else {
                     const cleared = removeActiveCombatStatusesByKind(opp.statuses, 'positive', session.round);
                     const removed = cleared.removed.map(s => s.name);
-                    lines.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${opp.name}${opp.shield > 0 ? ' and broke their shield' : ''}.`);
+                    lines.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${opp.name}${opp.shield > 0 ? ' and broke their shield' : ''}.${groundStatusRemovalNote(opp.statuses, 'positive')}`);
                     result = commit(null, { ...opp, shield: 0, statuses: cleared.statuses }, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'cleanse', 'target')]);
                 }
                 break;
@@ -2288,7 +2289,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // before it ever ticks (removeCombatStatusesByKind).
                     const cleansed = removeCombatStatusesByKind(me.statuses, 'negative');
                     const removed = cleansed.removed.map(s => s.name);
-                    lines.push(`Cleanse: removed ${removed.length ? removed.join(', ') : 'no negative effects'} from ${me.name}.`);
+                    lines.push(`Cleanse: removed ${removed.length ? removed.join(', ') : 'no negative effects'} from ${me.name}.${groundStatusRemovalNote(me.statuses, 'negative')}`);
                     result = commit({ ...me, statuses: cleansed.statuses }, null, 60, { cleanse: 10 }, undefined, undefined, [vfxEvent('self', 'cleanse', 'caster')]);
                 }
                 break;
