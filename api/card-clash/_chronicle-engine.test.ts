@@ -452,9 +452,7 @@ test("deck validation enforces the number of physical copies owned", () => {
 });
 
 test("all cards carry art while Smoke Bomb is the locked Trap", () => {
-  // 2026-10-14: +5 Summoning Calls, +5 called Monsters, +1 Shadow Clone. The
-  // Shadow Double token is deliberately not in the catalog.
-  assert.equal(CHRONICLE_CARD_CATALOG.length, 403);
+  assert.equal(CHRONICLE_CARD_CATALOG.length, 435);
   assert.equal(CHRONICLE_CARD_CATALOG.some((card) => card.id === SHADOW_DOUBLE_ID), false);
   for (const card of CHRONICLE_CARD_CATALOG) {
     assert.ok(
@@ -489,8 +487,7 @@ test("Effects are an Epic-and-up perk, with complete typed metadata", () => {
     (card) => card.monsterType === "effect",
   );
 
-  // 2026-10-14: +5 called Monsters, each an Effect Monster (callSummonOnly).
-  assert.equal(monsters.length, 297);
+  assert.equal(monsters.length, 327);
   assert.equal(effectMonsters.length, 162);
   assert.equal(CHRONICLE_EFFECT_MONSTER_IDS.length, 162);
   assert.equal(new Set(CHRONICLE_EFFECT_MONSTER_IDS).size, 162);
@@ -584,11 +581,11 @@ test("the Monster pool uses exactly five nearly-even elements and no neutral Mon
   );
   // One called Monster per element (2026-10-14) keeps the spread even.
   assert.deepEqual(counts, {
-    Fire: 59,
-    Water: 59,
-    Earth: 59,
-    Wind: 59,
-    Lightning: 61,
+    Fire: 65,
+    Water: 65,
+    Earth: 65,
+    Wind: 65,
+    Lightning: 67,
   });
   assert.equal(
     monsters.some((card) => !CHRONICLE_ELEMENTS.includes(card.element)),
@@ -820,8 +817,8 @@ test("founding role pass provides deep Jutsu and Snare pools without copied iden
     (card) => card.cardClass === "trap",
   );
   // 2026-10-14: +5 Summoning Calls and Shadow Clone.
-  assert.equal(magicCards.length, 54);
-  assert.equal(trapCards.length, 52);
+  assert.equal(magicCards.length, 55);
+  assert.equal(trapCards.length, 53);
   assert.ok(
     magicCards.filter((card) => card.effectTier === "advanced").length >= 16,
   );

@@ -41,7 +41,7 @@ const TUTORIAL_PAGES: ReadonlyArray<{ title: string; lines: readonly string[] }>
   {
     title: "Snares and battle previews",
     lines: [
-      "A Set Snare waits one turn, then lets you answer one matching move. There are no chains.",
+      "A Set Snare waits one turn before it can answer a matching move. Guardian's Reversal can also counter a Snare that targets one of your Monsters.",
       "Target badges preview a battle from the stats you can see. A hidden Snare can still change the result.",
     ],
   },

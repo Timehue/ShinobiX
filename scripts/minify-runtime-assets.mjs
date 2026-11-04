@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { minifyRuntimeJson, minifyRuntimeSource } from './runtime-asset-minifier.mjs';
+import { minifyRuntimeHtmlComments, minifyRuntimeJson, minifyRuntimeSource } from './runtime-asset-minifier.mjs';
 
 const repoRoot = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const clientRoot = join(repoRoot, 'shinobij.client');
@@ -28,3 +28,11 @@ const manifest = readFileSync(manifestPath, 'utf8');
 const compactManifest = minifyRuntimeJson(manifest);
 writeFileSync(manifestPath, compactManifest);
 console.log(`[runtime-assets] .vite/manifest.json: ${Buffer.byteLength(manifest)} -> ${Buffer.byteLength(compactManifest)} bytes`);
+
+// This runs before prerender-legal copies the shell into all nine legal pages.
+// Leave markup, CSS, external scripts, CSP and the readable source unchanged.
+const indexPath = join(clientRoot, 'dist', 'index.html');
+const index = readFileSync(indexPath, 'utf8');
+const compactIndex = minifyRuntimeHtmlComments(index);
+writeFileSync(indexPath, compactIndex);
+console.log(`[runtime-assets] index.html: ${Buffer.byteLength(index)} -> ${Buffer.byteLength(compactIndex)} bytes`);

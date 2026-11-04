@@ -445,6 +445,7 @@ export function ChronicleDuelBoard({
     magicTargetScope === "anyFaceUpMonster";
   const targetsOpponentBackrow = magicTargetScope === "opponentMagicTrap";
   const targetsGraveyard =
+    magicTargetScope === "ownGraveyardMonster" ||
     magicTargetScope === "ownGraveyardLevel4OrLowerMonster" ||
     magicTargetScope === "ownGraveyardMagic" ||
     magicTargetScope === "ownGraveyardFieldMagic";
@@ -487,6 +488,8 @@ export function ChronicleDuelBoard({
       return candidate?.cardClass === "magic";
     if (magicTargetScope === "ownGraveyardFieldMagic")
       return candidate?.cardClass === "magic" && candidate.magicType === "field";
+    if (magicTargetScope === "ownGraveyardMonster")
+      return candidate?.cardClass === "monster" && !candidate.token && !callOnlySummonBlocker(candidate);
     if (magicTargetScope === "ownGraveyardLevel4OrLowerMonster")
       return (
         candidate?.cardClass === "monster" &&
@@ -498,7 +501,7 @@ export function ChronicleDuelBoard({
   };
   const selectedMagicNeedsOpenMonsterZone =
     selected?.cardClass === "magic" &&
-    (selected.effect.kind === "reviveLevel4OrLowerMonster" ||
+    (selected.effect.kind === "reviveOneMonster" || selected.effect.kind === "reviveLevel4OrLowerMonster" ||
       selected.effect.kind === "reviveLevel4OrLowerNormalMonster");
   const selectedMagicTargetReady =
     selected?.cardClass === "magic" &&
@@ -560,11 +563,17 @@ export function ChronicleDuelBoard({
   }) as Record<SideKey, string>, [meKey, foeKey, meName, foeName]);
   const recentBeats = useMemo(() => chronicleBeats(presentationEvents, cardsById, duelistNames), [presentationEvents, cardsById, duelistNames]);
   const lastEffect = recentBeats.at(-1);
-  const pendingTrigger = state.responseWindow ? presentationEvents.findLast(event => ["monster-summoned", "monster-flipped", "attack-declared", "magic-activated"].includes(event.kind)) : undefined;
+  const pendingTrigger = state.responseWindow ? presentationEvents.findLast(event =>
+    state.responseWindow?.trigger === "onTrapActivated"
+      ? event.kind === "trap-activated"
+      : ["monster-summoned", "monster-flipped", "attack-declared", "magic-activated"].includes(event.kind),
+  ) : undefined;
   const responseHint = state.responseWindow?.trigger === "onMonsterSummoned"
     ? "The summon has landed. Activate a Snare now, or pass to leave the Monster in play."
     : state.responseWindow?.trigger === "onAttackDeclared"
       ? "The attack is paused before damage. Activate a Snare, or pass to let the attack continue."
+      : state.responseWindow?.trigger === "onTrapActivated"
+        ? "A Snare targets your Monster. Activate Guardian's Reversal, or pass to let the Snare resolve."
       : "The Jutsu is waiting to resolve. Activate a Snare, or pass to let its effect continue.";
 
   useEffect(() => {

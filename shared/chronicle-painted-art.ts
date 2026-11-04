@@ -291,6 +291,36 @@ export const CHRONICLE_PAINTED_ART: Readonly<Record<string, string>> = Object.fr
   "pet-witness-wind": "/chronicle/cards/pet-witness-wind-painted-v2.webp",
   "pet-witness-lightning": "/chronicle/cards/pet-witness-lightning-painted-v2.webp",
   "pet-witness-earth": "/chronicle/cards/pet-witness-earth-painted-v2.webp",
+  "chronicle-coalwhisker-cub": "/chronicle/cards/chronicle-coalwhisker-cub-painted-v2.webp",
+  "chronicle-kilnback-gecko": "/chronicle/cards/chronicle-kilnback-gecko-painted-v2.webp",
+  "chronicle-cindercrest-quail": "/chronicle/cards/chronicle-cindercrest-quail-painted-v2.webp",
+  "chronicle-hearthshell-tortoise": "/chronicle/cards/chronicle-hearthshell-tortoise-painted-v2.webp",
+  "chronicle-sootpaw-badger": "/chronicle/cards/chronicle-sootpaw-badger-painted-v2.webp",
+  "chronicle-flintfang-jackal": "/chronicle/cards/chronicle-flintfang-jackal-painted-v2.webp",
+  "chronicle-brookfin-otter": "/chronicle/cards/chronicle-brookfin-otter-painted-v2.webp",
+  "chronicle-reedglass-frog": "/chronicle/cards/chronicle-reedglass-frog-painted-v2.webp",
+  "chronicle-tidepool-hermit": "/chronicle/cards/chronicle-tidepool-hermit-painted-v2.webp",
+  "chronicle-raincoat-duck": "/chronicle/cards/chronicle-raincoat-duck-painted-v2.webp",
+  "chronicle-foamspine-newt": "/chronicle/cards/chronicle-foamspine-newt-painted-v2.webp",
+  "chronicle-canalwatch-heron": "/chronicle/cards/chronicle-canalwatch-heron-painted-v2.webp",
+  "chronicle-mossnose-mole": "/chronicle/cards/chronicle-mossnose-mole-painted-v2.webp",
+  "chronicle-pebblehorn-kid": "/chronicle/cards/chronicle-pebblehorn-kid-painted-v2.webp",
+  "chronicle-clayplate-armadillo": "/chronicle/cards/chronicle-clayplate-armadillo-painted-v2.webp",
+  "chronicle-rootburrow-hare": "/chronicle/cards/chronicle-rootburrow-hare-painted-v2.webp",
+  "chronicle-shaleback-pangolin": "/chronicle/cards/chronicle-shaleback-pangolin-painted-v2.webp",
+  "chronicle-amberclaw-scorpion": "/chronicle/cards/chronicle-amberclaw-scorpion-painted-v2.webp",
+  "chronicle-thistledown-finch": "/chronicle/cards/chronicle-thistledown-finch-painted-v2.webp",
+  "chronicle-gusttail-ferret": "/chronicle/cards/chronicle-gusttail-ferret-painted-v2.webp",
+  "chronicle-bamboo-glider": "/chronicle/cards/chronicle-bamboo-glider-painted-v2.webp",
+  "chronicle-cloudstep-crane": "/chronicle/cards/chronicle-cloudstep-crane-painted-v2.webp",
+  "chronicle-whirleaf-mantis": "/chronicle/cards/chronicle-whirleaf-mantis-painted-v2.webp",
+  "chronicle-kitesail-fox": "/chronicle/cards/chronicle-kitesail-fox-painted-v2.webp",
+  "chronicle-flickerfur-mouse": "/chronicle/cards/chronicle-flickerfur-mouse-painted-v2.webp",
+  "chronicle-coppercoil-skink": "/chronicle/cards/chronicle-coppercoil-skink-painted-v2.webp",
+  "chronicle-stormtuft-stoat": "/chronicle/cards/chronicle-stormtuft-stoat-painted-v2.webp",
+  "chronicle-sparkbill-kingfisher": "/chronicle/cards/chronicle-sparkbill-kingfisher-painted-v2.webp",
+  "chronicle-wireweb-spider": "/chronicle/cards/chronicle-wireweb-spider-painted-v2.webp",
+  "chronicle-thunderpad-marten": "/chronicle/cards/chronicle-thunderpad-marten-painted-v2.webp",
   "story-wandering-sage": "/chronicle/cards/story-wandering-sage-painted-v2.webp",
   "summon-cinderhorn-qilin": "/chronicle/cards/summon-cinderhorn-qilin-painted-v2.webp",
   "summon-rimetide-leviathan": "/chronicle/cards/summon-rimetide-leviathan-painted-v2.webp",
@@ -403,6 +433,8 @@ export const CHRONICLE_PAINTED_ART: Readonly<Record<string, string>> = Object.fr
   "chronicle-call-of-the-galewing": "/chronicle/cards/chronicle-call-of-the-galewing-painted-v2.webp",
   "chronicle-call-of-the-stormcrown": "/chronicle/cards/chronicle-call-of-the-stormcrown-painted-v2.webp",
   "chronicle-shadow-clone": "/chronicle/cards/chronicle-shadow-clone-painted-v2.webp",
+  "chronicle-reanimation-jutsu": "/chronicle/cards/chronicle-reanimation-jutsu-painted-v2.webp",
+  "chronicle-guardians-reversal": "/chronicle/cards/chronicle-guardians-reversal-painted-v2.webp",
   "chronicle-shadow-double": "/chronicle/cards/chronicle-shadow-double-painted-v2.webp"
 });
 
@@ -1006,5 +1038,125 @@ export const CHRONICLE_PAINTED_FIGURES: Readonly<Record<string, { front: string;
   "tc-150": {
     "front": "/chronicle/figures/tc-150-painted-v2.webp",
     "back": "/chronicle/figures/tc-150-painted-v2-back.webp"
+  },
+  "chronicle-coalwhisker-cub": {
+    "front": "/chronicle/figures/chronicle-coalwhisker-cub-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-coalwhisker-cub-painted-v2-back.webp"
+  },
+  "chronicle-kilnback-gecko": {
+    "front": "/chronicle/figures/chronicle-kilnback-gecko-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-kilnback-gecko-painted-v2-back.webp"
+  },
+  "chronicle-cindercrest-quail": {
+    "front": "/chronicle/figures/chronicle-cindercrest-quail-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-cindercrest-quail-painted-v2-back.webp"
+  },
+  "chronicle-hearthshell-tortoise": {
+    "front": "/chronicle/figures/chronicle-hearthshell-tortoise-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-hearthshell-tortoise-painted-v2-back.webp"
+  },
+  "chronicle-sootpaw-badger": {
+    "front": "/chronicle/figures/chronicle-sootpaw-badger-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-sootpaw-badger-painted-v2-back.webp"
+  },
+  "chronicle-flintfang-jackal": {
+    "front": "/chronicle/figures/chronicle-flintfang-jackal-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-flintfang-jackal-painted-v2-back.webp"
+  },
+  "chronicle-brookfin-otter": {
+    "front": "/chronicle/figures/chronicle-brookfin-otter-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-brookfin-otter-painted-v2-back.webp"
+  },
+  "chronicle-reedglass-frog": {
+    "front": "/chronicle/figures/chronicle-reedglass-frog-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-reedglass-frog-painted-v2-back.webp"
+  },
+  "chronicle-tidepool-hermit": {
+    "front": "/chronicle/figures/chronicle-tidepool-hermit-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-tidepool-hermit-painted-v2-back.webp"
+  },
+  "chronicle-raincoat-duck": {
+    "front": "/chronicle/figures/chronicle-raincoat-duck-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-raincoat-duck-painted-v2-back.webp"
+  },
+  "chronicle-foamspine-newt": {
+    "front": "/chronicle/figures/chronicle-foamspine-newt-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-foamspine-newt-painted-v2-back.webp"
+  },
+  "chronicle-canalwatch-heron": {
+    "front": "/chronicle/figures/chronicle-canalwatch-heron-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-canalwatch-heron-painted-v2-back.webp"
+  },
+  "chronicle-mossnose-mole": {
+    "front": "/chronicle/figures/chronicle-mossnose-mole-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-mossnose-mole-painted-v2-back.webp"
+  },
+  "chronicle-pebblehorn-kid": {
+    "front": "/chronicle/figures/chronicle-pebblehorn-kid-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-pebblehorn-kid-painted-v2-back.webp"
+  },
+  "chronicle-clayplate-armadillo": {
+    "front": "/chronicle/figures/chronicle-clayplate-armadillo-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-clayplate-armadillo-painted-v2-back.webp"
+  },
+  "chronicle-rootburrow-hare": {
+    "front": "/chronicle/figures/chronicle-rootburrow-hare-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-rootburrow-hare-painted-v2-back.webp"
+  },
+  "chronicle-shaleback-pangolin": {
+    "front": "/chronicle/figures/chronicle-shaleback-pangolin-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-shaleback-pangolin-painted-v2-back.webp"
+  },
+  "chronicle-amberclaw-scorpion": {
+    "front": "/chronicle/figures/chronicle-amberclaw-scorpion-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-amberclaw-scorpion-painted-v2-back.webp"
+  },
+  "chronicle-thistledown-finch": {
+    "front": "/chronicle/figures/chronicle-thistledown-finch-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-thistledown-finch-painted-v2-back.webp"
+  },
+  "chronicle-gusttail-ferret": {
+    "front": "/chronicle/figures/chronicle-gusttail-ferret-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-gusttail-ferret-painted-v2-back.webp"
+  },
+  "chronicle-bamboo-glider": {
+    "front": "/chronicle/figures/chronicle-bamboo-glider-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-bamboo-glider-painted-v2-back.webp"
+  },
+  "chronicle-cloudstep-crane": {
+    "front": "/chronicle/figures/chronicle-cloudstep-crane-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-cloudstep-crane-painted-v2-back.webp"
+  },
+  "chronicle-whirleaf-mantis": {
+    "front": "/chronicle/figures/chronicle-whirleaf-mantis-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-whirleaf-mantis-painted-v2-back.webp"
+  },
+  "chronicle-kitesail-fox": {
+    "front": "/chronicle/figures/chronicle-kitesail-fox-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-kitesail-fox-painted-v2-back.webp"
+  },
+  "chronicle-flickerfur-mouse": {
+    "front": "/chronicle/figures/chronicle-flickerfur-mouse-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-flickerfur-mouse-painted-v2-back.webp"
+  },
+  "chronicle-coppercoil-skink": {
+    "front": "/chronicle/figures/chronicle-coppercoil-skink-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-coppercoil-skink-painted-v2-back.webp"
+  },
+  "chronicle-stormtuft-stoat": {
+    "front": "/chronicle/figures/chronicle-stormtuft-stoat-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-stormtuft-stoat-painted-v2-back.webp"
+  },
+  "chronicle-sparkbill-kingfisher": {
+    "front": "/chronicle/figures/chronicle-sparkbill-kingfisher-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-sparkbill-kingfisher-painted-v2-back.webp"
+  },
+  "chronicle-wireweb-spider": {
+    "front": "/chronicle/figures/chronicle-wireweb-spider-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-wireweb-spider-painted-v2-back.webp"
+  },
+  "chronicle-thunderpad-marten": {
+    "front": "/chronicle/figures/chronicle-thunderpad-marten-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-thunderpad-marten-painted-v2-back.webp"
   }
 });
