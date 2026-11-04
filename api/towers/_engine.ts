@@ -5,6 +5,7 @@ import { clanBossOutcomeLog } from '../../shared/clan-boss-operation.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { HUNT_AI_POLICY, huntOpeningIsPreparation, pickHuntAiAction } from './_hunt-ai.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
+import { prepareWorldBossEffectOrigins, stampWorldBossEffectOrigins, stampWorldBossZoneStatuses, worldBossActorOwner, worldBossEffectOwner, snapshotWorldBossContribution, recordWorldBossContribution, recordWorldBossSupplementalDamage, recordWorldBossPoisonDamage, recordWorldBossStatusDamage } from '../world-boss-event/_contribution.js';
 import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
  * Battle Towers — N-actor combat ENGINE (Phase 1, P1.A2).
@@ -1133,6 +1134,14 @@ function placeTowerBarrier(session: TowerSession, caster: TowerActor, target: To
     session.log.push(`Barrier: ${caster.name} blocks Tower tile ${tile} for 2 rounds, starting now.`);
 }
 
+function worldBossReactiveDamageObserver(session: TowerSession, actor: TowerActor, target: TowerActor): Parameters<typeof applyPvpJutsu>[7] {
+    if (!session.worldBossEvent || actor.id !== session.phaseState.bossId || objectiveBossDamageLocked(session, actor)) return undefined;
+    return event => {
+        if (event.kind === 'itemReflect') recordWorldBossSupplementalDamage(session, worldBossActorOwner(session, target), event.damage);
+        else recordWorldBossStatusDamage(session, event.statuses, event.damage, event.kind === 'recoil' ? 30 : 0);
+    };
+}
+
 /** Resolve one jutsu/weapon/attack from `actor` onto `target` (target===actor for a
  *  self-cast buff/heal) through the PvP resolver, with the tower env multiplier folded in. */
 function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, jutsu: JutsuLike, wMult: number): void {
@@ -1174,6 +1183,7 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
         jutsu: jutsu as Parameters<typeof applyPvpJutsu>[2],
         wMult,
         resolver: applyPvpJutsu,
+        onReactiveDamage: worldBossReactiveDamageObserver(session, actor, target),
         damageCap: cap,
     });
     writeBackFighter(actor, res.self);
@@ -1260,6 +1270,7 @@ function resolveAoeFighters(
     jutsu: JutsuLike,
     wMult: number,
     damageCap?: number,
+    onReactiveDamage?: Parameters<typeof applyPvpJutsu>[7],
 ): ReturnType<typeof applyPvpJutsu> {
     const normalized = towerJutsuToCombatJutsu(
         jutsu as Parameters<typeof towerJutsuToCombatJutsu>[0],
@@ -1272,6 +1283,7 @@ function resolveAoeFighters(
         String(session.map.biome ?? 'central'),
         session.round,
         damageCap,
+        onReactiveDamage,
     );
 }
 
@@ -1415,6 +1427,7 @@ function runAoeJutsu(
                 wMult / formationDefendMult(session, primary) * formationDefendMult(session, victim)
                     * incomingBossDamageMultiplier(session, actor, victim),
                 cap,
+                worldBossReactiveDamageObserver(session, actor, victim),
             );
             return {
                 mutations: [
@@ -1499,6 +1512,7 @@ function layOccupantTowerTile(session: TowerSession, actor: TowerActor, jutsuId:
         ...(typeof jutsu.bloodlineRank === 'string' && jutsu.bloodlineRank ? { bloodlineRank: jutsu.bloodlineRank } : {}),
         tags,
     };
+    if (session.worldBossEvent) Object.assign(effect, { worldBossOwnerSlug: worldBossActorOwner(session, actor) });
     session.groundEffects = [...(session.groundEffects ?? []), effect];
     session.log.push(`${actor.name} turns hex ${tile} into a buff tile for 2 rounds.`,
         ...buffTileBlockedLines(session.actors.map(actorToFighter), effect, session.round));
@@ -1527,6 +1541,7 @@ function applyZoneToUnits(session: TowerSession, effect: PvpGroundEffect, includ
         caught = true;
         const r = applyGroundEffectToFighter(actorToFighter(a), effect, session.round, includePending);
         a.statuses = r.fighter.statuses;
+        stampWorldBossZoneStatuses(session, a.statuses, effect);
         if (r.lines.length) session.log.push(...r.lines);
     }
     return caught;
@@ -1539,6 +1554,7 @@ function applyZonesToActor(session: TowerSession, actor: TowerActor): void {
         if (!groundZoneTargets(session, effect).some(target => target.id === actor.id)) continue;
         const r = applyGroundEffectToFighter(actorToFighter(actor), effect, session.round);
         actor.statuses = r.fighter.statuses;
+        stampWorldBossZoneStatuses(session, actor.statuses, effect);
         if (r.lines.length) session.log.push(...r.lines);
     }
 }
@@ -1564,6 +1580,7 @@ function layGroundZone(session: TowerSession, actor: TowerActor, jutsuId: string
         ...(typeof jutsu.bloodlineRank === 'string' && jutsu.bloodlineRank ? { bloodlineRank: jutsu.bloodlineRank } : {}),
         tags,
     };
+    if (session.worldBossEvent) Object.assign(effect, { worldBossOwnerSlug: worldBossActorOwner(session, actor) });
     session.log.push(`${actor.name} lays ${effect.name} across ${effect.tiles.length} tiles for 2 rounds.`);
     if (actor.side === 'squad') {
         effect = { ...effect, castPulseConsumed: applyZoneToUnits(session, effect, true) };
@@ -1817,7 +1834,9 @@ function applyRoundStatusTicks(session: TowerSession): void {
             continue;
         }
         const hpBefore = a.hp;
-        const dot = applyDoTs(actorToFighter(a), session.round);
+        const dot = applyDoTs(actorToFighter(a), session.round, session.worldBossEvent && a.id === session.phaseState.bossId
+            ? (status, damage) => recordWorldBossSupplementalDamage(session, worldBossEffectOwner(status), damage)
+            : undefined);
         a.hp = Math.max(0, Math.min(a.maxHp, Math.floor(dot.fighter.hp)));
         // A bleed must not slip a squad member under the easy-band mercy floor,
         // and it spends the same per-turn budget (the client counts the player's
@@ -2097,9 +2116,13 @@ function hasActiveStatus(actor: TowerActor, name: string, round: number): boolea
 // (and its armor / Decrease Damage Taken reduction) is the shared PvP poisonSpendDamage.
 function spendPoison(session: TowerSession, actor: TowerActor, ck: number, st: number, round: number): void {
     if (objectiveBossDamageLocked(session, actor)) return;
-    const dmg = poisonSpendDamage(actorToFighter(actor), (ck || 0) + (st || 0), round);
+    let sources: readonly PvpStatus[] = [];
+    const tracksBoss = !!session.worldBossEvent && actor.id === session.phaseState.bossId;
+    const dmg = poisonSpendDamage(actorToFighter(actor), (ck || 0) + (st || 0), round, tracksBoss ? statuses => { sources = statuses; } : undefined);
     if (dmg <= 0) return;
+    const hpBefore = actor.hp;
     actor.hp = Math.max(0, actor.hp - dmg);
+    if (tracksBoss) recordWorldBossPoisonDamage(session, sources, hpBefore - actor.hp);
     session.log.push(`${actor.name} loses ${dmg} HP to Poison for spending resources on jutsu.`);
 }
 /** Tick down an actor's jutsu cooldowns at the START of their turn. Delegates to
@@ -2504,17 +2527,22 @@ function towerActionVfx(session: TowerSession, actor: TowerActor, action: TowerA
 }
 
 /**
- * Thin cosmetic wrapper around the resolver. It snapshots the actors' HP, runs
- * the UNCHANGED resolution below, then authors the plates for what happened.
- * Kept as a wrapper (rather than emission scattered through the resolver's many
- * early returns) so the combat path itself is byte-for-byte what it was.
+ * Action boundary for server-owned effect origins and combat feedback. The
+ * resolver below still owns combat math; rejected actions retain neither a
+ * command receipt nor newly initialized origin metadata.
  */
 export function applyAction(session: TowerSession, floor: TowerFloor, action: TowerAction, rng: () => number): ActionResult {
+    const initializedOrigins = prepareWorldBossEffectOrigins(session);
     const guardBefore = clanBossGuardSnapshot(session);
     const hpBefore = new Map(session.actors.map(a => [a.id, a.hp]));
     const vfxSeqBefore = session.vfxSeq;
     const result = applyResolvedAction(session, floor, action, rng);
-    if (!result.applied) return result;
+    if (!result.applied) {
+        for (const effect of initializedOrigins) Reflect.deleteProperty(effect, 'worldBossOwnerSlug');
+        return result;
+    }
+    const source = session.actors.find(actor => actor.id === action.actorId);
+    stampWorldBossEffectOrigins(session, source ? worldBossActorOwner(session, source) : null);
     noteClanBossGuardAction(session, action, guardBefore);
     reconcileTowerGroundStatuses(session);
     if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
@@ -2584,7 +2612,9 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             .find(t => !isTileBlocked(session, t));
         if (spot === undefined) return { applied: false, reason: 'no-space' };
         session.activeAp -= summonAp;
-        session.actors.push(companionActor(seal, spot));
+        const companion = companionActor(seal, spot);
+        if (session.worldBossEvent) companion.ownerSlug = actor.ownerSlug;
+        session.actors.push(companion);
         session.pendingCompanion = undefined;
         session.companionUsage = {
             petId: seal.petId,
@@ -3881,8 +3911,9 @@ function companionSelfBuffMult(actor: TowerActor): number {
 }
 
 /** The pet's owner — the real (non-companion) squad fighter it was summoned by. */
-function companionOwner(session: TowerSession): TowerActor | undefined {
-    return session.actors.find(a => a.side === 'squad' && !isCompanionActor(a));
+function companionOwner(session: TowerSession, companion: TowerActor): TowerActor | undefined {
+    return session.actors.find(a => a.side === 'squad' && !isCompanionActor(a)
+        && (!companion.ownerSlug || a.ownerSlug === companion.ownerSlug));
 }
 
 /** Apply the pet's damage for this move: flat base × kind scale, lifted by the pet's
@@ -3892,7 +3923,7 @@ function companionOwner(session: TowerSession): TowerActor | undefined {
 function companionDealDamage(session: TowerSession, actor: TowerActor, target: TowerActor, move: CompanionMove | null): number {
     if (objectiveBossDamageLocked(session, target)) return 0;
     const base = Number(actor.character.companionDamage ?? 0);
-    const owner = companionOwner(session);
+    const owner = companionOwner(session, actor);
     if ([actor, target, owner].some(combatant => combatant && activeCombatStatuses(combatant.statuses, session.round)
         .some(status => status.source === 'item-smoke-bomb'))) return 0;
     const gearId = String(actor.character.companionPveGear ?? '');
@@ -3938,6 +3969,16 @@ export function companionObedienceRoll(session: Pick<TowerSession, 'seed' | 'rou
 }
 
 function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: TowerActor): void {
+    const before = session.worldBossEvent ? snapshotWorldBossContribution(session) : null;
+    prepareWorldBossEffectOrigins(session);
+    runCompanionActions(session, floor, actor);
+    if (before) {
+        stampWorldBossEffectOrigins(session, worldBossActorOwner(session, actor));
+        recordWorldBossContribution(session, actor.id, before, false);
+    }
+}
+
+function runCompanionActions(session: TowerSession, floor: TowerFloor, actor: TowerActor): void {
     const c = actor.character;
     if (!companionObeys(
         Number(c.companionHappiness ?? 0),
