@@ -1,4 +1,5 @@
 import { test,expect,type Page } from '@playwright/test';
+import { visiblePageSize } from './helpers/visible-page-size';
 import { mkdirSync,writeFileSync } from 'node:fs';
 import { installUiAuditRuntime,uiAuditSave } from './helpers/ui-audit-runtime';
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
@@ -275,7 +276,7 @@ for(const memory of ['observed','unwitnessed','expired'] as const)test(`duel wit
     await page.clock.runFor(300);
     writeFileSync(`${evidence}/${info.project.name}-witness-layout.json`,JSON.stringify(await dialog.evaluate(node=>{const card=getComputedStyle(node),backdrop=getComputedStyle(node.parentElement!);return {card:{position:card.position,display:card.display,maxHeight:card.maxHeight,background:card.background,rect:node.getBoundingClientRect().toJSON()},backdrop:{position:backdrop.position,display:backdrop.display,rect:node.parentElement!.getBoundingClientRect().toJSON()},viewport:{width:innerWidth,height:innerHeight},sheets:Array.from(document.styleSheets).map(s=>s.href)};}),null,2));
     await expect(page.locator('.ui-modal-backdrop')).toHaveCSS('position','fixed');
-    const bounds=await dialog.boundingBox();expect(bounds).not.toBeNull();expect(bounds!.y).toBeGreaterThanOrEqual(0);expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(info.project.use.viewport!.height+1);
+    const bounds=await dialog.boundingBox();expect(bounds).not.toBeNull();expect(bounds!.y).toBeGreaterThanOrEqual(0);expect(bounds!.y+bounds!.height).toBeLessThanOrEqual((await visiblePageSize(page)).height+1);
     const close=dialog.getByRole('button',{name:/Close/});await expect(close).toBeInViewport();await close.click({trial:true});
     if(memory==='observed')await expect(dialog).toContainText('I saw Rin and Kota fighting near here.');else await expect(dialog).not.toContainText('I saw');
     await page.screenshot({path:`${evidence}/${info.project.name}-duel-witness-${memory}.png`});

@@ -1,4 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
+import { visiblePageSize } from './helpers/visible-page-size';
 import AxeBuilder from '@axe-core/playwright';
 
 async function expectHitTarget(control: Locator) {
@@ -46,7 +47,7 @@ test('world toast expires despite 10 parent renders per second and has a keyboar
     const bounds = await page.locator('.world-toast').boundingBox();
     expect(bounds!.width).toBeGreaterThanOrEqual(300);
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual((await visiblePageSize(page)).width);
     expect((await new AxeBuilder({ page }).include('.world-toast').analyze()).violations).toEqual([]);
     await expect(dismiss).toHaveCount(0, { timeout: 8500 });
     await page.getByRole('button', { name: 'Show update' }).click();

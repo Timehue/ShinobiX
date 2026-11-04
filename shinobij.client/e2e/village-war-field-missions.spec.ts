@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 import { expectViewportSafe } from './helpers/adaptive-assertions';
+import { visiblePageSize } from './helpers/visible-page-size';
 import { isWalkableTile, nearestWalkableTile } from '../../shared/sector-walk-mask';
 import { sectorFloorLayout } from '../src/lib/sector-floor-layout';
 
@@ -118,7 +119,7 @@ test('an espionage traveler enters the assigned stronghold, sees sentry and play
     await expect(room.getByRole('alert')).toHaveText('Finish your current combat settlement first.');
     expect(actions.find(a => a.action === 'start')?.fieldMissionId).toBe(mission.id);
     const bounds = await room.boundingBox(); expect(bounds?.x).toBeGreaterThanOrEqual(-1);
-    expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+    expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual((await visiblePageSize(page)).width + 1);
     await testInfo.attach('espionage-stronghold', { body: await page.screenshot({ path: testInfo.outputPath('espionage-stronghold.png') }), contentType: 'image/png' });
     await expectViewportSafe(page, { horizontalScrollers: ['.world-map-grid', '.world-sector-stage'] });
     await room.getByRole('button', { name: 'Leave stronghold', exact: true }).click();

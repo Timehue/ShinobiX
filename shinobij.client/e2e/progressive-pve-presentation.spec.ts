@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { visiblePageSize } from './helpers/visible-page-size';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { rollOrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter';
@@ -199,8 +200,8 @@ test('final Kage canonical art, highest difficulty and readable tell details ren
     const bounds = await details.boundingBox();
     expect(bounds).not.toBeNull();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual((await visiblePageSize(page)).width + 1);
     expect(bounds!.y).toBeGreaterThanOrEqual(0);
-    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height + 1);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual((await visiblePageSize(page)).height + 1);
     await screenshot(page, info, 'kage-tells');
 });

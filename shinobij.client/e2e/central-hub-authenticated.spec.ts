@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
+import { visiblePageSize } from "./helpers/visible-page-size";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 
 type SavePayload = {
@@ -467,7 +468,7 @@ test("Central premium destinations stay within the mobile viewport", async ({ pa
                 const rect = button.getBoundingClientRect();
                 return { width: rect.width, height: rect.height, left: rect.left, right: rect.right };
             }));
-            const viewportWidth = page.viewportSize()?.width ?? 390;
+            const viewportWidth = (await visiblePageSize(page)).width;
             expect(rerollMetrics.every((button) => button.width >= 250)).toBe(true);
             expect(rerollMetrics.every((button) => button.height >= 60)).toBe(true);
             expect(rerollMetrics.every((button) => button.left >= 0 && button.right <= viewportWidth)).toBe(true);

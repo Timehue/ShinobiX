@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { visiblePageSize } from './helpers/visible-page-size';
 import AxeBuilder from '@axe-core/playwright';
 import { createRequire } from 'node:module';
 import { uiAuditSave } from './helpers/ui-audit-runtime';
@@ -252,7 +253,7 @@ test('Veinbreaking exposes the core and consumes the final basic tool use once',
     const detonate = page.getByRole('button', { name: 'Release fracture', exact: true });
     await expect(detonate).toBeVisible();
     const actionBox = await detonate.boundingBox();
-    expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual((await visiblePageSize(page)).height);
     const charges = page.locator('.vein-seal');
     await expect(page.locator('.vein-talisman').first()).toBeVisible();
     await expect(page.locator('.vein-talisman')).toHaveCount(await charges.count());

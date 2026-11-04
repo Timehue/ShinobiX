@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { visiblePageSize } from './helpers/visible-page-size';
 
 test('a successful fresh entry publishes its counter and intro once, then resumes without another entry', async ({ page }) => {
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
@@ -173,7 +174,7 @@ test('Warden decision shows its sealed cue and round-cap warning without horizon
     await expect(instruction).toBeVisible();
     for (const rule of [warning, instruction]) {
         const bounds = await rule.boundingBox(); expect(bounds).not.toBeNull();
-        expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+        expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual((await visiblePageSize(page)).width + 1);
     }
     await page.screenshot({ path: info.outputPath('warden-round-warning.png'), fullPage: true });
     expect(errors).toEqual([]);
