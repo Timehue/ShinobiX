@@ -2,8 +2,8 @@ import { expect, test, type Locator, type Page, type Route, type TestInfo } from
 import AxeBuilder from "@axe-core/playwright";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_TUTORIAL_LESSON_IDS } from "../../shared/pet-tutorial";
-import { visiblePageSize } from "./helpers/visible-page-size";
 import { worldPositionModel } from "../../shared/continuous-world-layout";
+import { visibleViewport } from "./helpers/visible-viewport";
 
 /**
  * Assert an <img> ships full-resolution art, waiting for it to actually decode.
@@ -278,14 +278,14 @@ async function openArena(page: Page) {
 async function assertFitsViewport(page: Page) {
     const dialog = page.getByRole("dialog", { name: "Tamer Tomoe & Kuro" });
     const bounds = await dialog.boundingBox();
-    const viewport = await visiblePageSize(page);
+    const viewport = await visibleViewport(page);
     expect(bounds).not.toBeNull();
     expect(viewport).not.toBeNull();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.y).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport!.width + 1);
-    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport!.height + 1);
-    expect(await page.locator("body").evaluate((body) => body.scrollWidth)).toBeLessThanOrEqual(viewport!.width);
+    expect(bounds!.x).toBeGreaterThanOrEqual(viewport.left);
+    expect(bounds!.y).toBeGreaterThanOrEqual(viewport.top);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.left + viewport.width + 1);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.top + viewport.height + 1);
+    expect(await page.locator("body").evaluate((body) => body.scrollWidth)).toBeLessThanOrEqual(viewport.layoutWidth);
 }
 
 test("Tomoe appears on the active road while a paced lesson is waiting", async ({ page }, testInfo) => {

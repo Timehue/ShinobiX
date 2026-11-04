@@ -1381,6 +1381,58 @@ describe('solo-PvE action service', () => {
 });
 
 describe('solo PvE 40 AP buff tiles', () => {
+    for (const action of ['clear', 'cleanse'] as const) {
+        it(`${action} preserves ground effects and removes same-name ordinary statuses`, () => {
+            const session = makeSession();
+            const kind = action === 'clear' ? 'positive' : 'negative';
+            const name = action === 'clear' ? 'Reflect' : 'Poison';
+            const holder = action === 'clear' ? session.enemy : session.player;
+            holder.shield = 200;
+            holder.statuses = [
+                { name, kind, rounds: 2, percent: 20, source: 'ground:immune' },
+                { name, kind, rounds: 2, percent: 10, source: 'direct' },
+            ];
+            session.groundEffects = [{ id: 'immune', owner: 'p2', name: 'Immune Ground', rounds: 2, tiles: [holder.pos],
+                ...(action === 'clear' ? { kind: 'occupant' as const } : {}), tags: [{ name, percent: 20 }] }];
+            const result = applySoloPveAction(session, { type: action });
+            assert.equal(result.applied, true);
+            const after = action === 'clear' ? result.session.enemy : result.session.player;
+            assert.deepEqual(after.statuses.filter(status => status.name === name).map(status => status.source), ['ground:immune']);
+            assert.equal(result.session.groundEffects.length, 1);
+            assert.equal(result.session.ap.player, 40);
+            assert.equal(result.session.cooldowns.player[action], 10);
+            if (action === 'clear') assert.equal(after.shield, 0);
+            assert.ok(result.session.log.some(line => line.includes('Ground effects cannot be cleared or cleansed.')));
+            assert.equal(result.session.log.some(line => line.startsWith('Immune Ground:')), false);
+        });
+    }
+
+    it('AI skips Clear and Cleanse when only ground effects meet its thresholds, including authored counters', () => {
+        for (const authored of [false, true]) {
+            const session = makeSession();
+            session.enemy.character.level = 60;
+            session.player.statuses = [{ name: 'Reflect', kind: 'positive', rounds: 3, percent: 30, source: 'ground:buff' }];
+            session.enemy.statuses = [
+                { name: 'Poison', kind: 'negative', rounds: 3, percent: 5, source: 'ground:field' },
+                { name: 'Decrease Damage Given', kind: 'negative', rounds: 3, percent: 5, source: 'ground:field' },
+            ];
+            session.groundEffects = [
+                { id: 'buff', owner: 'p1', name: 'Buff Ground', kind: 'occupant', tiles: [session.player.pos], rounds: 3, tags: [{ name: 'Reflect', percent: 30 }] },
+                { id: 'field', owner: 'p1', name: 'Hostile Ground', tiles: [session.enemy.pos], rounds: 3, tags: [{ name: 'Poison', percent: 5 }, { name: 'Decrease Damage Given', percent: 5 }] },
+            ];
+            if (authored) session.enemy.character.aiRules = [
+                { condition: 'always', value: 0, action: 'clear_player_buffs' },
+                { condition: 'always', value: 0, action: 'cleanse_self' },
+                { condition: 'always', value: 0, action: 'use_basic_attack' },
+            ];
+            const after = applySoloPveAction(session, { type: 'wait' }).session;
+            const actions = after.events.filter(event => event.actor === 'enemy').map(event => event.action);
+            assert.ok(actions.length > 0);
+            assert.equal(actions.includes('clear'), false, `authored=${authored}`);
+            assert.equal(actions.includes('cleanse'), false, `authored=${authored}`);
+        }
+    });
+
     it('lays a single-hex buff tile under the caster and grants it at once', () => {
         const session = makeSession();
         session.player.character.jutsu = [{

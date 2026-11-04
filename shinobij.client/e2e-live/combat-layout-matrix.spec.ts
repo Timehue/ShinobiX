@@ -12,29 +12,29 @@ import { sampleStableGrid } from '../scripts/combat-layout-settling';
 import { assertTargetConfirmation } from './helpers/target-confirmation';
 
 // The loadout's scroll container. Phones wrap basic commands and the loadout in
-// one `.combat-action-tray` scrollport. Desktop PvP/PvE trays are `display:
-// contents` and their `.combat-jutsu-bar` scrolls; desktop Tower trays contain
-// a scrolling `.combat-equipped-jutsu-grid`. The callbacks resolve the actual
+// one `.combat-action-tray` scrollport. Desktop trays can instead scroll their
+// `.combat-jutsu-bar` or inner `.combat-equipped-jutsu-grid`, depending on the
+// active shell breakpoint. The callbacks resolve the actual
 // scrollport so lower-card detail checks observe and restore its position.
 // They run inside page.evaluate (serialized by source), so each must stay
 // self-contained — no shared helper closure.
 const ACTION_PANEL_SELECTOR = '.combat-action-tray, .combat-jutsu-bar';
 const readTrayScrollTop = (panel: Element): number => {
     const element = panel as HTMLElement;
-    const scroller = element.classList.contains('tower-action-dock') && getComputedStyle(element).overflowY === 'hidden'
-        ? element.querySelector<HTMLElement>('.combat-equipped-jutsu-grid') ?? element
-        : element.classList.contains('combat-action-tray') && getComputedStyle(element).display === 'contents'
-        ? element.querySelector<HTMLElement>('.combat-jutsu-bar') ?? element
-        : element;
+    const scroller = [...element.querySelectorAll<HTMLElement>('.combat-jutsu-bar, .combat-equipped-jutsu-grid')].reverse()
+        .concat(element).find((candidate) => {
+            const style = getComputedStyle(candidate);
+            return style.display !== 'contents' && ['auto', 'scroll'].includes(style.overflowY);
+        }) ?? element;
     return scroller.scrollTop;
 };
 const resetTrayScroll = (panel: Element): void => {
     const element = panel as HTMLElement;
-    const scroller = element.classList.contains('tower-action-dock') && getComputedStyle(element).overflowY === 'hidden'
-        ? element.querySelector<HTMLElement>('.combat-equipped-jutsu-grid') ?? element
-        : element.classList.contains('combat-action-tray') && getComputedStyle(element).display === 'contents'
-        ? element.querySelector<HTMLElement>('.combat-jutsu-bar') ?? element
-        : element;
+    const scroller = [...element.querySelectorAll<HTMLElement>('.combat-jutsu-bar, .combat-equipped-jutsu-grid')].reverse()
+        .concat(element).find((candidate) => {
+            const style = getComputedStyle(candidate);
+            return style.display !== 'contents' && ['auto', 'scroll'].includes(style.overflowY);
+        }) ?? element;
     scroller.scrollTop = 0;
 };
 
@@ -894,7 +894,7 @@ type LayoutMeasurement = {
     jutsuCardOverlaps: string[];
     jutsuGridRows: string;
     jutsuGridAutoRows: string;
-    actionScroll: { scrollTop: number; clientHeight: number; scrollHeight: number } | null;
+    actionScroll: { className: string; scrollTop: number; clientHeight: number; scrollHeight: number } | null;
     tileCenterBounds: Rect | null;
     minCommandTouchTarget: number | null;
     /** Command-deck text spilling out of its own button, `label:part+Npx`. */
@@ -921,14 +921,16 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
         const boardNode = root?.querySelector('.hex-battlefield') ?? null;
         // The action panel is whichever element actually clips and scrolls the
         // loadout: on phones that is the shared `.combat-action-tray` (basic
-        // commands + loadout in one scrollport), everywhere else the tray is
-        // `display: contents` and `.combat-jutsu-bar` scrolls itself. Measuring
-        // the bar on a phone would report its unclipped rect, which slides up
-        // under the board as soon as a card is scrolled into view.
+        // commands + loadout in one scrollport); desktop breakpoints can scroll
+        // either the bar or the inner grid. Use the same computed overflow rule
+        // as the fixture reset so bounds and diagnostics name the real owner.
         const trayNode = root?.querySelector<HTMLElement>('.combat-action-tray') ?? null;
-        const actionNode = trayNode && getComputedStyle(trayNode).display !== 'contents'
-            ? trayNode
-            : root?.querySelector('.combat-jutsu-bar') ?? null;
+        const panelNode = trayNode ?? root?.querySelector<HTMLElement>('.combat-jutsu-bar') ?? null;
+        const actionNode = panelNode ? [...panelNode.querySelectorAll<HTMLElement>('.combat-jutsu-bar, .combat-equipped-jutsu-grid')].reverse()
+            .concat(panelNode).find((candidate) => {
+                const style = getComputedStyle(candidate);
+                return style.display !== 'contents' && ['auto', 'scroll'].includes(style.overflowY);
+            }) ?? panelNode : null;
         const tabNode = root?.querySelector('.battle-tabbar') ?? null;
         const logNode = root?.querySelector('.combat-text-log') ?? null;
         const terrainNode = root?.querySelector('.twp-strip') ?? null;
@@ -1132,6 +1134,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             jutsuGridRows: root?.querySelector('.combat-equipped-jutsu-grid') ? getComputedStyle(root.querySelector('.combat-equipped-jutsu-grid')!).gridTemplateRows : '',
             jutsuGridAutoRows: root?.querySelector('.combat-equipped-jutsu-grid') ? getComputedStyle(root.querySelector('.combat-equipped-jutsu-grid')!).gridAutoRows : '',
             actionScroll: actionNode ? {
+                className: actionNode.className,
                 scrollTop: (actionNode as HTMLElement).scrollTop,
                 clientHeight: (actionNode as HTMLElement).clientHeight,
                 scrollHeight: (actionNode as HTMLElement).scrollHeight,
@@ -1246,6 +1249,11 @@ async function settleBoardGeometry(page: Page, rootSelector: string, diagnostic?
 async function measureStable(page: Page, rootSelector: string, diagnostic?: MeasurementDiagnostic): Promise<LayoutMeasurement> {
     await measurementPhase(diagnostic, 'initial-frames', () => settleLayout(page));
     await settleBoardGeometry(page, rootSelector, diagnostic);
+    // Earlier arming/detail checks scroll lower cards, and Firefox can retain
+    // that offset when a resize transfers scrolling to the inner desktop grid.
+    // Restore the fixture's first-card baseline after the breakpoint settles.
+    await measurementPhase(diagnostic, 'action-scroll-reset', () => page.locator(rootSelector).locator(ACTION_PANEL_SELECTOR).first().evaluate(resetTrayScroll));
+    await measurementPhase(diagnostic, 'action-scroll-frames', () => settleLayout(page));
     let current = await measurementPhase(diagnostic, 'measure', () => measure(page, rootSelector));
     if (diagnostic) diagnostic.measurement = current;
     for (let attempt = 0; attempt < 8 && (!current.tileCentersInsideBoard || current.visibleTileCount !== 120); attempt += 1) {
@@ -1933,6 +1941,7 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         return measureStable(page, rootSelector, diagnostic);
     };
     const assertLayout = (current: LayoutMeasurement, label: string) => {
+        expect(current.actionScroll?.scrollTop, `${label} first-card scroll baseline`).toBe(0);
         expect(current.devicePixelRatio, `${label} device pixel ratio`).toBe(Number(testInfo.project.use.deviceScaleFactor ?? 1));
         expect(current.documentOverflow, `${label} horizontal overflow`).toBeLessThanOrEqual(1);
         expect(current.visibleTileCount, `${label} tile count`).toBe(120);

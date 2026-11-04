@@ -55,6 +55,7 @@ export function viewportContentFor(inputs: ViewportScaleInputs): string {
 let holds = 0;
 let installed = false;
 let currentScale = 1;
+let zoomReset: { baseContent: string; content: string } | null = null;
 
 /** The page scale the viewport meta currently asks for (1 or MOBILE_UI_SCALE). */
 export function currentViewportBaseScale(): number {
@@ -72,18 +73,10 @@ export function isWebKitOnlyBrowser(userAgent: string, platform = "", maxTouchPo
     return /AppleWebKit/.test(userAgent) && !/(Chrome|Chromium|Edg|OPR|SamsungBrowser)\//.test(userAgent);
 }
 
-/**
- * Read once at install. Playwright's touch emulation reports a fine pointer for
- * a moment around reloads and resizes; re-reading it switched the page to 1.0,
- * and Chrome then saved and restored that zoom. A phone's pointer type does not
- * change mid-session, and a mouse plugged in takes effect on the next load.
- */
-let coarsePointer = false;
-
 function isPortraitPhone(): boolean {
     try {
-        if (!coarsePointer) return false;
         if (isWebKitOnlyBrowser(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) return false;
+        if (!window.matchMedia("(pointer: coarse)").matches) return false;
         const shortSide = Math.min(window.screen.width, window.screen.height);
         if (!shortSide || shortSide > PHONE_MAX_SHORT_SIDE) return false;
         // Screen orientation, not viewport aspect: an open keyboard shortens the
@@ -102,21 +95,65 @@ function apply(): void {
     const inputs = { portraitPhone: isPortraitPhone(), fullScaleHeld: holds > 0 };
     currentScale = viewportScaleFor(inputs);
     const content = viewportContentFor(inputs);
-    if (meta.getAttribute("content") === content) return;
-    // Write the meta and nothing else. Two earlier guards made things worse.
-    // A maximum-scale cap lifted two frames later zoomed the page to 1.0 (e2e
-    // timeline: 0.852, cap, release, 1.000 16 ms later). A "zoom is stuck"
-    // fallback misread the moment after a reload, when Chrome briefly restores
-    // a held screen's 1.0, and kept every later menu at 1.0. Chrome follows the
-    // next meta change on its own (e2e/mobile-ui-scale-reload.spec.ts).
-    meta.setAttribute("content", content);
+    // A full-scale hold or device change cancels an obsolete history reset.
+    if (zoomReset && zoomReset.baseContent !== content) zoomReset = null;
+    const desired = zoomReset?.content ?? content;
+    if (meta.getAttribute("content") !== desired) meta.setAttribute("content", desired);
+}
+
+/** How long after load a scale jump counts as Chrome restoring a zoom. */
+const HISTORY_RESTORE_WINDOW_MS = 2_000;
+
+/**
+ * Chrome restores a page's saved zoom from history just after `load` (seen as
+ * a 0.85 -> 1.0 jump at readyState "complete" on reload). At 1.0 the 458px
+ * phone layout overflows the screen and taps land on the wrong control. A
+ * Changing maximum-scale alone does not make Chrome recompute its restored
+ * zoom. Briefly change initial-scale too, then restore the base after a paint.
+ * Release the temporary cap after another paint so pinch-zoom keeps working.
+ */
+function snapToBaseScale(): void {
+    const viewport = window.visualViewport;
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (!viewport || !meta || zoomReset || currentScale === 1 || Math.abs(viewport.scale - currentScale) < 0.02) return;
+    const baseContent = viewportContentFor({ portraitPhone: true, fullScaleHeld: false });
+    const kickScale = currentScale + 0.01;
+    const reset = { baseContent, content: `${baseContent.replace(`initial-scale=${currentScale}`, `initial-scale=${kickScale}`)}, maximum-scale=${kickScale}` };
+    zoomReset = reset;
+    meta.setAttribute("content", reset.content);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (zoomReset !== reset) return;
+        reset.content = `${baseContent}, maximum-scale=${currentScale}`;
+        meta.setAttribute("content", reset.content);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (zoomReset !== reset) return;
+            zoomReset = null;
+            meta.setAttribute("content", baseContent);
+        }));
+    }));
+}
+
+function guardHistoryZoomRestore(): void {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const until = performance.now() + HISTORY_RESTORE_WINDOW_MS;
+    const onResize = () => {
+        if (performance.now() > until) viewport.removeEventListener("resize", onResize);
+        else snapToBaseScale();
+    };
+    viewport.addEventListener("resize", onResize);
+    snapToBaseScale();
+    // A restore with no resize event left to catch is checked once more.
+    window.setTimeout(() => {
+        viewport.removeEventListener("resize", onResize);
+        snapToBaseScale();
+    }, HISTORY_RESTORE_WINDOW_MS);
 }
 
 /** Starts phone scaling. Call once at startup, before first paint. */
 export function installMobileUiScale(): void {
     if (installed || typeof document === "undefined") return;
     installed = true;
-    try { coarsePointer = window.matchMedia("(pointer: coarse)").matches; } catch { coarsePointer = false; }
     apply();
     window.screen.orientation?.addEventListener?.("change", apply);
     window.addEventListener("orientationchange", apply);
@@ -125,7 +162,10 @@ export function installMobileUiScale(): void {
     // orientation, never innerWidth, so the resize its own meta write causes
     // settles on the same content instead of looping.
     window.addEventListener("resize", apply, { passive: true });
-    // Deliberately no `(pointer: coarse)` change listener; see coarsePointer.
+    if (document.readyState === "complete") guardHistoryZoomRestore();
+    else window.addEventListener("load", guardHistoryZoomRestore, { once: true });
+    window.addEventListener("pageshow", (event) => { if (event.persisted) guardHistoryZoomRestore(); });
+    try { window.matchMedia("(pointer: coarse)").addEventListener("change", apply); } catch { /* old Safari */ }
 }
 
 /** Keeps the page at full scale until the returned release is called. */

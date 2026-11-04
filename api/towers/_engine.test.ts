@@ -2025,6 +2025,58 @@ describe('Tower 40 AP buff tiles', () => {
         id: 'golden', name: 'Golden Ground', type: 'Any', method: 'INSTANT_EFFECT', ap, range: 4, target: 'EMPTY_GROUND', tags,
     });
 
+    for (const action of ['clear', 'cleanse'] as const) {
+        it(`${action} preserves ground statuses without re-granting them`, () => {
+            const sq = makeActor('sq-1', 'squad', 0, { character: STRONG });
+            const en = makeActor('en-1', 'enemy', 1, { character: WEAK });
+            const s = makeSession([sq, en]);
+            startRound(s);
+            const holder = action === 'clear' ? en : sq;
+            const name = action === 'clear' ? 'Reflect' : 'Poison';
+            const kind = action === 'clear' ? 'positive' : 'negative';
+            holder.shield = 200;
+            holder.statuses = [
+                { name, kind, rounds: 2, percent: 20, source: 'ground:immune' },
+                { name, kind, rounds: 2, percent: 10, source: 'direct' },
+            ];
+            s.groundEffects = [{ id: 'immune', owner: 'p2', name: 'Immune Ground', rounds: 2, tiles: [holder.pos],
+                ...(action === 'clear' ? { kind: 'occupant' as const } : {}), tags: [{ name, percent: 20 }] }];
+            const beforeAp = s.activeAp;
+            const result = applyAction(s, floor, { actorId: sq.id, type: action, targetId: en.id }, makeRng(1));
+            assert.equal(result.applied, true);
+            assert.deepEqual(holder.statuses.filter(status => status.name === name).map(status => status.source), ['ground:immune']);
+            assert.equal(s.groundEffects.length, 1);
+            assert.equal(s.activeAp, beforeAp - 60);
+            assert.equal(sq.cooldowns[action], 10);
+            if (action === 'clear') assert.equal(holder.shield, 0);
+            assert.ok(s.log.some(line => line.includes('Ground effects cannot be cleared or cleansed.')));
+            assert.equal(s.log.some(line => line.startsWith('Immune Ground:')), false);
+        });
+    }
+
+    it('AI counters ordinary statuses but never ground-only buffs or debuffs', () => {
+        for (const groundOnly of [true, false]) {
+            const sq = makeActor('sq-1', 'squad', 0, { character: STRONG, ownerSlug: 'alice', ai: false });
+            const en = makeActor('en-1', 'enemy', 1, { character: { ...WEAK, level: 60 } });
+            const s = makeSession([en, sq]);
+            s.pveGuard = { enemyLevel: 60, turnStartHp: {}, dealtThisTurn: {} };
+            startRound(s);
+            const source = groundOnly ? 'ground:immune' : 'direct';
+            sq.statuses = [{ name: 'Reflect', kind: 'positive', rounds: 3, percent: 30, source }];
+            en.statuses = [
+                { name: 'Poison', kind: 'negative', rounds: 3, percent: 5, source },
+                { name: 'Decrease Damage Given', kind: 'negative', rounds: 3, percent: 5, source },
+            ];
+            const choice = pickAiAction(s, en, makeRng(1));
+            if (groundOnly) assert.ok(choice.type !== 'clear' && choice.type !== 'cleanse', choice.type);
+            else assert.equal(choice.type, 'clear');
+            sq.statuses = [];
+            const cleanseChoice = pickAiAction(s, en, makeRng(1));
+            if (groundOnly) assert.notEqual(cleanseChoice.type, 'cleanse');
+            else assert.equal(cleanseChoice.type, 'cleanse');
+        }
+    });
+
     it('lays one gold hex that buffs any actor standing on it, ally or enemy', () => {
         const sq = makeActor('sq-1', 'squad', 27, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [tileJutsu([{ name: 'Decrease Damage Taken', percent: 30 }])] } });
         const en = makeActor('en-1', 'enemy', 40, { character: WEAK });

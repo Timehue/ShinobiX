@@ -49,7 +49,7 @@ for (const [method, expectedCount] of [["INSTANT_EFFECT", 61], ["AOE_SPIRAL", 19
         const visible = groundZoneTilesForDisplay([zone], tileCount);
         assert.equal(visible.size, zone.tiles.length);
         for (const tile of zone.tiles) {
-            assert.deepEqual(visible.get(tile), { label: "Venom Field, 2 rounds remaining", tone: "poison" });
+            assert.deepEqual(visible.get(tile), { label: "Venom Field, 2 rounds remaining. Cannot be cleared or cleansed", tone: "poison" });
             const fighter: PvpFighter = {
                 name: "Target", hp: 100, maxHp: 100, chakra: 100, maxChakra: 100,
                 stamina: 100, maxStamina: 100, shield: 0, statuses: [], character: {}, pos: tile,
@@ -70,8 +70,8 @@ test("overlapping and expired ground effects retain accurate tile labels", () =>
     ];
     const visible = groundZoneTilesForDisplay(zones, tileCount);
     assert.deepEqual([...visible.keys()], [2, 3, 4]);
-    assert.deepEqual(visible.get(2), { label: "Ash, 1 round remaining", tone: "recoil" });
-    assert.deepEqual(visible.get(3), { label: "Ash, 1 round remaining; Haze, 2 rounds remaining", tone: "debuff" });
+    assert.deepEqual(visible.get(2), { label: "Ash, 1 round remaining. Cannot be cleared or cleansed", tone: "recoil" });
+    assert.deepEqual(visible.get(3), { label: "Ash, 1 round remaining. Cannot be cleared or cleansed; Haze, 2 rounds remaining. Cannot be cleared or cleansed", tone: "debuff" });
 });
 
 test("a buff tile shows gold on its one hex, even where an enemy field overlaps", () => {
@@ -82,4 +82,5 @@ test("a buff tile shows gold on its one hex, even where an enemy field overlaps"
     assert.equal(tiles.get(5)?.tone, "sanctuary");
     assert.equal(tiles.get(6)?.tone, "poison");
     assert.match(tiles.get(5)?.label ?? "", /Buff tile: Absorb 30%, 2 rounds remaining\. Anyone standing here gains it/);
+    assert.match(tiles.get(5)?.label ?? "", /Cannot be cleared or cleansed/);
 });

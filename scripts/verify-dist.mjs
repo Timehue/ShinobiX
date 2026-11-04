@@ -32,6 +32,7 @@ const forbiddenClientPrefixes = [
     'pet-models/roster-references/',
 ];
 const forbiddenClientPaths = [
+    'ui/village-war/manifest.json',
     'assets/warfront/elemental-impact-atlas-source.png',
     'pet-models/roster-manifest.json',
     'pet-models/roster-reference-report.json',
@@ -323,7 +324,9 @@ if (collapsedPrefixes.length) {
 const leakedAuthoringPath = clientRelativeFiles.find((file) => forbiddenClientPrefixes.some((prefix) => file.startsWith(prefix)));
 if (leakedAuthoringPath) fail(`client dist contains pet authoring output: ${leakedAuthoringPath}`);
 const leakedAuthoringManifest = forbiddenClientPaths.find((file) => clientRelativeFileSet.has(file));
-if (leakedAuthoringManifest) fail(`client dist contains a pet authoring manifest: ${leakedAuthoringManifest}`);
+if (leakedAuthoringManifest) fail(`client dist contains an authoring manifest: ${leakedAuthoringManifest}`);
+const leakedSectorReceipt = clientRelativeFiles.find((file) => /^sector-life\/[^/]+\.json$/.test(file));
+if (leakedSectorReceipt) fail(`client dist contains a painted-sector authoring receipt: ${leakedSectorReceipt}`);
 const leakedSourceFile = clientRelativeFiles.find((file) => {
     const dot = file.lastIndexOf('.');
     return dot >= 0 && forbiddenClientExtensions.has(file.slice(dot).toLowerCase());

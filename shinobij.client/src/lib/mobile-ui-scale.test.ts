@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import vm from "node:vm";
+import ts from "typescript";
 import {
     BASE_VIEWPORT_CONTENT,
     MOBILE_UI_SCALE,
@@ -79,15 +80,6 @@ test("the scale is re-checked when the window resizes without rotating", () => {
     assert.match(source, /Math\.min\(window\.screen\.width, window\.screen\.height\)/);
 });
 
-test("nothing rewrites the viewport on a pointer change or caps the zoom", () => {
-    // A pointer-change listener fired just before reload (e2e touch emulation),
-    // set 1.0, and Chrome restored that zoom on the next load. A maximum-scale
-    // cap lifted two frames later zoomed the page to 1.0 by itself.
-    const source = readFileSync(new URL("./mobile-ui-scale.ts", import.meta.url), "utf8");
-    assert.doesNotMatch(source, /\(pointer: coarse\)"\)\.addEventListener/);
-    assert.doesNotMatch(source, /maximum-scale=\$\{/);
-});
-
 test("the pre-module boot script picks the same viewport before the first layout", () => {
     // A phone must never load through a 1.0 viewport: with one, Chrome could
     // restore 1.0 after a reload and leave the 85% layout cut off.
@@ -123,4 +115,53 @@ test("the pre-module boot script picks the same viewport before the first layout
 test("keyboard detection compares the visual scale with the base scale, not 1", () => {
     const contract = readFileSync(new URL("./use-viewport-contract.ts", import.meta.url), "utf8");
     assert.match(contract, /viewport\.scale - currentViewportBaseScale\(\)/);
+});
+
+test("a resize from the history-zoom clamp cannot cancel it before Chrome applies the scale", () => {
+    const source = readFileSync(new URL("./mobile-ui-scale.ts", import.meta.url), "utf8");
+    const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+    let content = viewportContentFor({ portraitPhone: true, fullScaleHeld: false });
+    const meta = { getAttribute: () => content, setAttribute: (_key: string, value: string) => { content = value; } };
+    const events = new Map<string, () => void>();
+    const frames: Array<() => void> = [];
+    const visualEvents = new Map<string, () => void>();
+    const viewport = { scale: 1, addEventListener: (name: string, callback: () => void) => visualEvents.set(name, callback), removeEventListener() {} };
+    const window = {
+        visualViewport: viewport,
+        screen: { width: 390, height: 844, orientation: { type: "portrait-primary", addEventListener() {} } },
+        matchMedia: () => ({ matches: true, addEventListener() {} }),
+        addEventListener: (name: string, callback: () => void) => events.set(name, callback),
+        setTimeout() {},
+    };
+    const exports: Record<string, () => unknown> = {};
+    vm.runInNewContext(compiled, {
+        exports, require: () => ({ useLayoutEffect() {} }), window,
+        navigator: { userAgent: "Chrome/151.0", platform: "Linux", maxTouchPoints: 5 },
+        document: { readyState: "complete", querySelector: () => meta },
+        performance: { now: () => 0 }, requestAnimationFrame: (callback: () => void) => frames.push(callback),
+    });
+    exports.installMobileUiScale();
+    assert.match(content, /initial-scale=0\.86, minimum-scale=0\.85/);
+    assert.match(content, /maximum-scale=0\.86$/);
+    events.get("resize")!();
+    assert.match(content, /maximum-scale=0\.86$/, "the resize caused by the reset must retain it");
+    frames.shift()!();
+    frames.shift()!();
+    assert.match(content, /initial-scale=0\.85, minimum-scale=0\.85/);
+    assert.match(content, /maximum-scale=0\.85$/);
+    events.get("resize")!();
+    assert.match(content, /maximum-scale=0\.85$/);
+    frames.shift()!();
+    viewport.scale = MOBILE_UI_SCALE;
+    frames.shift()!();
+    assert.equal(content, viewportContentFor({ portraitPhone: true, fullScaleHeld: false }), "the cap releases for pinch zoom");
+    viewport.scale = 1;
+    visualEvents.get("resize")!();
+    assert.match(content, /maximum-scale=0\.86$/);
+    const release = exports.holdFullScaleViewport() as () => void;
+    assert.equal(content, BASE_VIEWPORT_CONTENT, "a combat hold cancels the pending reset immediately");
+    while (frames.length) frames.shift()!();
+    assert.equal(content, BASE_VIEWPORT_CONTENT, "an old reset cannot shrink mounted combat");
+    release();
+    assert.equal(content, viewportContentFor({ portraitPhone: true, fullScaleHeld: false }));
 });

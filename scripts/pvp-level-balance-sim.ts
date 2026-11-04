@@ -37,6 +37,7 @@ import { adjustedApCost } from '../api/combat-core/resources.js';
 import { hexDistance, hexNeighbors, nextStepToward } from '../api/combat-core/grid.js';
 import {
     activeCombatStatuses,
+    isGroundCombatStatus,
     removeActiveCombatStatusesByKind,
     removeActiveCombatStatusesByName,
 } from '../api/combat-core/statuses.js';
@@ -1385,8 +1386,8 @@ export function chooseAction(
         });
         return { ok: ap >= cost && actions < MAX_ACTIONS, cost };
     };
-    const negative = activeStatuses(self, round).filter((status) => status.kind === 'negative');
-    const positive = activeStatuses(opponent, round).filter((status) => status.kind === 'positive');
+    const negative = activeStatuses(self, round).filter((status) => status.kind === 'negative' && !isGroundCombatStatus(status));
+    const positive = activeStatuses(opponent, round).filter((status) => status.kind === 'positive' && !isGroundCombatStatus(status));
     const cleanse = canPay(60);
     if (cleanse.ok && (cooldowns.cleanse ?? 0) <= 0 && negative.length && !hasStatus(self, 'Cleanse Prevent', round)) {
         const score = negative.reduce((sum, status) => sum + statusValue(status, self, opponent, round), 0);

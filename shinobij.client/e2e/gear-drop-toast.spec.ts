@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
-import { visiblePageSize } from './helpers/visible-page-size';
+import { visibleViewport } from './helpers/visible-viewport';
 
 // A gear step drop can arrive from any fight, chest or boss. The client announces
 // it by noticing the new item in the bag, so a stubbed reply that adds one stands
@@ -38,9 +38,9 @@ test('a gear step drop pops up, and items already owned at login do not', async 
     // The card says what the piece improves on, so it reads as an upgrade and not a stranger.
     await expect(toast).toContainText('Damage 14.5 EP, up from 14 on the Training Katana');
     const box = await toast.boundingBox();
-    const viewport = await visiblePageSize(page);
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+    const viewport = await visibleViewport(page);
+    expect(box!.x).toBeGreaterThanOrEqual(viewport.left);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.left + viewport.width);
     // A modal dialog is open underneath. Probe what a tap on the card would really
     // hit, rather than reasoning about z-index: it must be the card, not the dialog.
     const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('.gear-drop-toast') !== null, {

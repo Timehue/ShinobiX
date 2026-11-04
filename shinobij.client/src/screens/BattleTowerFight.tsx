@@ -2239,11 +2239,13 @@ export function BattleTowerFight({
                                 <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP · 10◆{healCd > 0 ? ` · CD${healCd}` : ""}</small>
                             </CombatHotkeyButton>
                             <CombatHotkeyButton action="clear" className={mode === "clear" ? "selected-action" : ""}
+                                title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles. Ground effects cannot be cleared.`}
                                 aria-pressed={mode === "clear"} onClick={() => toggleMode("clear")}
                                 disabled={!myTurn || busy || clearCd > 0 || session.activeAp < utilityAp}>
                                 <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP · R{BASIC_CLEAR_RANGE}{clearCd > 0 ? ` · CD${clearCd}` : ""}</small>
                             </CombatHotkeyButton>
                             <CombatHotkeyButton action="cleanse" className={mode === "cleanse" ? "selected-action" : ""}
+                                title="Remove your negative effects. Ground effects cannot be cleansed."
                                 aria-pressed={mode === "cleanse"} onClick={() => toggleMode("cleanse")}
                                 disabled={!myTurn || busy || cleanseCd > 0 || session.activeAp < utilityAp}>
                                 <i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP{cleanseCd > 0 ? ` · CD${cleanseCd}` : " · Ready"}</small>

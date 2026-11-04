@@ -2,7 +2,7 @@ import { hexDistance } from '../combat-core/grid.js';
 import { enemyStatusValue, enemyTurnValue, type EnemyTurnSnapshot } from '../solo-pve/_ai-turn-policy.js';
 import { pveEasyBandHoldsBurst, pveEasyBandAllowsLethal, pveAiCompetence, pveDifficultyBand } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
-import { activeCombatStatuses } from '../combat-core/statuses.js';
+import { activeCombatStatuses, isGroundCombatStatus } from '../combat-core/statuses.js';
 import { aiGapCloserLandingTile, aiApproachLandingTile, aiRangedAttackReach, isDamagingAiGapCloser, isDistantAiGapCloser, prefersAiGapClosingMovement, aiJustFlickered, isAiFlicker } from '../combat-core/ai-mobility.js';
 import type { TowerAction } from './_engine.js';
 import type { TowerActor, TowerSession } from './_tower-session.js';
@@ -83,7 +83,7 @@ export function pickHuntAiAction(session: TowerSession, actor: TowerActor, hooks
         const buffs = pveMeaningfulBuffCount(activeCombatStatuses(foe.statuses,s.round));
         if (Number.isFinite(comp.clearBuffThreshold) && buffs + Number(foe.shield >= foe.maxHp * .1) >= comp.clearBuffThreshold)
             actions.push({ actorId:self.id,type:'clear',targetId:foe.id });
-        if (self.statuses.filter(t=>t.kind==='negative' && t.rounds>0).length >= comp.cleanseSelfThreshold)
+        if (self.statuses.filter(t=>t.kind==='negative' && !isGroundCombatStatus(t) && t.rounds>0).length >= comp.cleanseSelfThreshold)
             actions.push({actorId:self.id,type:'cleanse'});
         for (const j of (self.character.jutsu ?? []) as HuntJutsu[]) {
             if (!healthGate(self,j)) continue;

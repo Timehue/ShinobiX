@@ -1,26 +1,15 @@
 import type { Page } from '@playwright/test';
+import { visibleViewport } from './visible-viewport';
 
 /**
- * The on-screen area in CSS pixels, the same coordinates `boundingBox()` and
- * `getBoundingClientRect()` report.
+ * The visible page size in CSS pixels, for "fits the screen" checks.
  *
- * Don't use `page.viewportSize()` for an "is it on screen" check: it is the
- * DEVICE size. Portrait Android phones draw menus at 85% scale
- * (src/lib/mobile-ui-scale.ts), so there the page is laid out 1/0.85 wider
- * and taller than the device: a 360px phone shows about 424 CSS px across,
- * and a box ending at x = 380 is fully on screen. Wherever the scale is 1
- * (desktop, WebKit, landscape, combat, card game, world map) the two sizes
- * are equal, so this is the right ruler everywhere.
- *
- * Read from the visual viewport, so a page left zoomed in (Chrome restoring a
- * zoom after reload) still counts what it pushed off screen. Rounded up: at
- * 0.85 a 360px device shows 423.53 CSS px over a 424px layout.
+ * `page.viewportSize()` is the DEVICE size. Phones draw menus at 85%
+ * (src/lib/mobile-ui-scale.ts), so a 390px phone lays out ~458 CSS px and
+ * element bounds are measured in those pixels. Rounded up, because the visible
+ * width is fractional (457.7) while a full-width element ends at 458.
  */
 export async function visiblePageSize(page: Page): Promise<{ width: number; height: number }> {
-    return page.evaluate(() => {
-        const viewport = window.visualViewport;
-        const width = viewport?.width ?? window.innerWidth;
-        const height = viewport?.height ?? window.innerHeight;
-        return { width: Math.ceil(width), height: Math.ceil(height) };
-    });
+    const viewport = await visibleViewport(page);
+    return { width: Math.ceil(viewport.width), height: Math.ceil(viewport.height) };
 }
