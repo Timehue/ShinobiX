@@ -528,7 +528,14 @@ export function applyOccupantGroundEffect(fighter: PvpFighter, effect: PvpGround
         // Two rounds so a round-end status tick never drops it between settles;
         // every settle resets it, and reconcileGroundStatuses removes it the
         // moment the fighter leaves the tile or the tile expires.
-        next = addGroundStatus(next, { name: tagName, rounds: 2, percent: pct, kind: 'positive' }, effect.id);
+        next = addGroundStatus(next, {
+            name: tagName, rounds: 2, percent: pct, kind: 'positive',
+            // Copy sealed raid ownership from the field that actually creates this
+            // status. Same-round recasts can share an ID on different tiles.
+            ...(Object.hasOwn(effect, 'worldBossOwnerSlug') ? {
+                worldBossOwnerSlug: (effect as PvpGroundEffect & { worldBossOwnerSlug?: string | null }).worldBossOwnerSlug ?? null,
+            } : {}),
+        }, effect.id);
         if (!held) lines.push(`${effect.name}: ${line(next.name, pct)}`);
     }
     return { fighter: next, lines };
