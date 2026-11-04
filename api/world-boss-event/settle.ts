@@ -15,7 +15,7 @@ import {
     worldBossMatchKey,
     writeWorldBossEvent,
     writeWorldBossMatch,
-    writeWorldBossPlayerPointer,
+    updateWorldBossMatchPointer,
     type WorldBossContributionResult,
     type WorldBossMatchRecord,
 } from './_event.js';
@@ -51,7 +51,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const session = await readSession(runId);
         if (!session?.worldBossEvent || session.worldBossEvent.eventId.length < 1) return res.status(404).json({ error: 'World boss match not found.' });
-        if (session.status !== 'done') return res.status(409).json({ error: 'Finish the encounter before settling event contribution.' });
+        // The unguarded lookup can be cached on another worker. Validate the
+        // terminal result from the fresh read under the match lock below.
         const isMember = identity.admin || session.actors.some(actor => actor.side === 'squad' && actor.ai === false && actor.ownerSlug === playerSlug);
         if (!isMember) return res.status(403).json({ error: 'Not a member of this event match.' });
 
@@ -77,10 +78,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!usage.consumed && !['none', 'already-consumed'].includes(usage.reason ?? '')) {
                         throw new Error('World boss item usage settlement is pending.');
                     }
-                    const contribution = scoreWorldBossContribution(freshSession.worldBossContributions?.[member.slug]);
+                    const contributions = freshSession.worldBossContributions ?? {};
+                    const contribution = scoreWorldBossContribution(Object.hasOwn(contributions, member.slug) ? contributions[member.slug] : undefined);
                     member.contribution = contribution;
                 }
-                const teamDamage = match.members.reduce((sum, member) => sum + cleanDamage(member.contribution?.damage), 0);
+                const teamDamage = match.members.reduce((sum, member) => sum + cleanDamage(member.contribution?.damage), cleanDamage(freshSession.worldBossUnattributedDamage));
                 const applied = await withKvLock(worldBossEventKey(eventId), async () => {
                     const current = await readWorldBossEvent(eventId);
                     if (!current) throw new Error('World boss event record is missing.');
@@ -94,8 +96,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         for (const member of match.members) {
                             const contribution = member.contribution;
                             if (!contribution?.active) continue;
-                            const prior = current.participants[member.slug];
-                            current.participants[member.slug] = {
+                            const participants = new Map(Object.entries(current.participants));
+                            const prior = participants.get(member.slug);
+                            participants.set(member.slug, {
                                 slug: member.slug,
                                 name: member.name,
                                 village: prior?.village ?? member.village,
@@ -107,7 +110,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 actions: (prior?.actions ?? 0) + contribution.actions,
                                 matches: (prior?.matches ?? 0) + 1,
                                 firstAt: prior?.firstAt ?? match.startedAt,
-                            };
+                            });
+                            current.participants = Object.fromEntries(participants);
                         }
                         current.settledMatchIds = [...current.settledMatchIds, matchId].slice(-5_000);
                         const damageReceipts = { ...current.bankedDamageByMatch, [matchId]: banked };
@@ -186,7 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await writeSession(settledSession);
             }
             await releaseTowerBattleLeases(runId, towerBattleLeaseMembers(session));
-            for (const member of settledMatch.members) await writeWorldBossPlayerPointer(eventId, member.slug, {
+            for (const member of settledMatch.members) await updateWorldBossMatchPointer(eventId, member.slug, {
                 matchId,
                 status: 'settled',
                 updatedAt: Date.now(),
