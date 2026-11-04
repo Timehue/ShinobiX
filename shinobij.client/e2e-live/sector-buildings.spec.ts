@@ -289,6 +289,7 @@ test('regional workshop consumes exact existing ingredients without unlocking a 
     const owner=await player(request,context,'stronghold-3',85,0,{inventory:[],itemStacks:[{itemId:'gather-heartwood-bark',count:5},{itemId:'gather-field-herb',count:20},{itemId:'gather-binding-fiber',count:10}]});
     await enterWorld(page,owner.building.sector);const counter=await openCounter(page,owner.building.id);await counter.getByRole('button',{name:'Workshop',exact:true}).click();
     const recipes=(await world(request,owner)).buildings.find(b=>b.building.id===owner.building.id)!.recipes,recipe=recipes[0];
+    await expect(counter.locator('.building-recipe-list article').first()).toContainText(`${recipe.ryo} ryo fee`);
     await expect(counter.locator('.building-recipe-list article').nth(2).getByRole('button')).toBeDisabled();
     // Each ingredient row shows what the player holds against what the recipe needs.
     for(const row of recipe.ingredients){const have=Math.min(row.owned.reduce((sum,item)=>sum+item.count,0),row.count);
@@ -299,9 +300,30 @@ test('regional workshop consumes exact existing ingredients without unlocking a 
     for(const row of recipe.ingredients){const item=row.owned.find(item=>item.count>=row.count)!;expect(item).toBeTruthy();await counter.getByLabel(`${item.name} for ${row.label}`,{exact:true}).fill(String(row.count));spent.set(item.id,{owned:item.count,count:(spent.get(item.id)?.count??0)+row.count});}
     await counter.getByRole('button',{name:'Confirm craft',exact:true}).click();await expect(counter).toContainText('The keeper checks your selected materials and hands over the finished item.');
     const saved=await(await request.get(`/api/save/${owner.name}`,{headers:owner.headers})).json();expect(saved.character.itemStacks.find((s:{itemId:string})=>s.itemId===recipe.id)?.count).toBe(1);
+    expect(saved.character.ryo).toBe(1000-recipe.ryo);
     for(const[id,stock]of spent)expect(saved.character.itemStacks.find((s:{itemId:string})=>s.itemId===id)?.count??0).toBe(stock.owned-stock.count);
     await expect(counter.locator('.building-recipe-list article').nth(2).getByRole('button')).toBeDisabled();
     await counter.screenshot({path:info.outputPath('regional-workshop-crafted.png')});
+});
+
+test('keeper workshop discloses the Pet Treat fee and refuses short ryo without spending inventory',async({page,request,context},info)=>{
+    const owner=await player(request,context,'stronghold-28',85,0,{ryo:319,inventory:[],itemStacks:[{itemId:'gather-river-fish',count:9},{itemId:'gather-field-herb',count:17}]});
+    await enterWorld(page,owner.building.sector);
+    const counter=await openCounter(page,owner.building.id);await counter.getByRole('button',{name:'Workshop',exact:true}).click();
+    const recipes=(await world(request,owner)).buildings.find(b=>b.building.id===owner.building.id)!.recipes;
+    const recipeIndex=recipes.findIndex(recipe=>recipe.id==='pet-treat');expect(recipeIndex).toBeGreaterThanOrEqual(0);
+    const card=counter.locator('.building-recipe-list article').nth(recipeIndex);await card.scrollIntoViewIfNeeded();
+    await expect(card).toContainText('320 ryo fee');await expect(card).toContainText('You need 320 ryo.');
+    await expect(card.getByRole('button',{name:'Choose exact materials',exact:true})).toBeDisabled();
+    const before=await(await request.get(`/api/save/${owner.name}`,{headers:owner.headers})).json();
+    const refused=await request.post('/api/sector/buildings',{headers:owner.headers,data:{playerName:owner.name,buildingId:owner.building.id,action:'craft',recipeId:'pet-treat',requestId:`short-keeper-craft-${Date.now()}`,materials:[{'gather-river-fish':4},{'gather-field-herb':2}]}});
+    expect(refused.status(),await refused.text()).toBe(409);
+    expect((await refused.json()).error).toContain('fee for this craft is 320 ryo, and you carry 319. Nothing was spent.');
+    const after=await(await request.get(`/api/save/${owner.name}`,{headers:owner.headers})).json();
+    expect(after.character.ryo).toBe(before.character.ryo);expect(after.character.inventory).toEqual(before.character.inventory);
+    expect(after.character.itemStacks).toEqual(before.character.itemStacks);
+    expect(after.character.sectorBuildings.receipts).toEqual(before.character.sectorBuildings.receipts);
+    await counter.screenshot({path:info.outputPath('keeper-workshop-short-ryo.png')});
 });
 
 test('festival premises have different duties and fit the crowded painted square',async({page,request,context},info)=>{
