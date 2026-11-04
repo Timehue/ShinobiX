@@ -1580,7 +1580,7 @@ export function MissionArenaFight({
                                     const { left, top } = towerHexPixel(i, w);
                                     const isMoveTile = moveTiles.has(i);
                                     const isRangeTile = (mode === "weapon" || (mode === "jutsu" && !isSelfCastJutsu(selJutsu) && !isMoveJutsu(selJutsu) && selJutsu?.target !== "EMPTY_GROUND")) && rangeTiles.has(i);
-                                    const isGroundTile = mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" && !isMoveJutsu(selJutsu) && rangeTiles.has(i) && !unavailableGroundTiles.has(i);
+                                    const isGroundTile = mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" && !isMoveJutsu(selJutsu) && tileTargets.has(i);
                                     const isFlickerTile = mode === "jutsu" && isMoveJutsu(selJutsu) && rangeTiles.has(i);
                                     const isEnemyTarget = enemy != null && i === enemyPos && enemyInRange && (mode === "attack" || mode === "weapon" || mode === "clear" || (mode === "jutsu" && !isSelfCastJutsu(selJutsu) && selJutsu?.target !== "EMPTY_GROUND" && !isMoveJutsu(selJutsu)));
                                     const isSelfTarget = i === myPos && (mode === "heal" || mode === "cleanse" || mode === "item" || mode === "summon" || (mode === "jutsu" && isSelfCastJutsu(selJutsu)));
@@ -1706,9 +1706,9 @@ export function MissionArenaFight({
                                 disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP<span className="cmd-detail"> | 10 CP | CD {healCd}</span></small></CombatHotkeyButton>
                             <CombatHotkeyButton action="clear" onClick={() => armBasicAction("clear")} aria-pressed={mode === "clear"} className={mode === "clear" ? "selected-action" : ""}
                                 disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < utilityAp || !enemy || enemy.hp <= 0 || towerHexDistance(myPos, enemyPos, w) > BASIC_CLEAR_RANGE}
-                                title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles`}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {clearCd}</span></small></CombatHotkeyButton>
+                                title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles. Ground effects cannot be cleared.`}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {clearCd}</span></small></CombatHotkeyButton>
                             <CombatHotkeyButton action="cleanse" onClick={() => armBasicAction("cleanse")} aria-pressed={mode === "cleanse"} className={mode === "cleanse" ? "selected-action" : ""}
-                                disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {cleanseCd}</span></small></CombatHotkeyButton>
+                                disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp} title="Remove your negative effects. Ground effects cannot be cleansed."><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {cleanseCd}</span></small></CombatHotkeyButton>
                             <CombatHotkeyButton action="summon"
                                 className={`summon-pet-command${session.pendingCompanion ? " has-summon-price" : ""}${mode === "summon" ? " selected-action" : ""}`}
                                 aria-pressed={mode === "summon"}
