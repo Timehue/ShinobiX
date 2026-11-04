@@ -103,7 +103,7 @@ import { playerSlug } from "../lib/utils";
 
 import { biomeLabel } from "../data/world";
 import { equipSlotForItem } from "../lib/equipment";
-import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
+import { isBuffTileJutsu, pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
 import { hollowGateSessionDirective } from "../../../shared/hollow-gate-telegraph";
 import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
@@ -1098,20 +1098,23 @@ export function MissionArenaFight({
         false,
         { casterPos: myPos, range: armedJutsuRange },
     );
+    // A buff tile is one chosen hex, and without Move it may go under the caster.
+    const armedBuffTile = Boolean(selJutsu && isBuffTileJutsu(selJutsu));
     // Legal centres for the armed cast — a Move landing tile or a ground placement.
     const tileTargets = (() => {
         if (mode !== "jutsu" || !selJutsu) return new Set<number>();
         if (isMoveJutsu(selJutsu)) return rangeTiles;
-        if (selJutsu.target === "EMPTY_GROUND") return new Set([...rangeTiles].filter(t => !unavailableGroundTiles.has(t)));
+        if (selJutsu.target === "EMPTY_GROUND") return new Set([...rangeTiles].filter(t => !unavailableGroundTiles.has(t) || (armedBuffTile && t === myPos)));
         return new Set<number>();
     })();
     // Instant ground fields show their full caster range as soon as armed;
-    // movement impacts still follow the hovered or focused landing tile.
+    // movement impacts and buff tiles follow the hovered or focused tile.
     const hoveredFootprint = (() => {
-        if ((selJutsu?.method === "INSTANT_EFFECT" || selJutsu?.method === "AOE_LINE") && tileTargets.size > 0) {
+        if (!armedBuffTile && (selJutsu?.method === "INSTANT_EFFECT" || selJutsu?.method === "AOE_LINE") && tileTargets.size > 0) {
             return footprintOf([...tileTargets][0]!);
         }
         if (hoverTile === null || !tileTargets.has(hoverTile)) return new Set<number>();
+        if (armedBuffTile) return new Set([hoverTile]);
         const impact = footprintOf(hoverTile);
         // Pure movement has no blast, but its destination still needs a marker
         // distinct from the reachable-range wash.
@@ -1189,7 +1192,8 @@ export function MissionArenaFight({
             void send({ type: "jutsu", jutsuId: selJutsu.id, tile }); return;
         }
         // Ground-target jutsu → place the zone on an actually empty legal tile.
-        if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND" && rangeTiles.has(tile) && !unavailableGroundTiles.has(tile)) {
+        // A buff tile may also go on the caster's own hex (tileTargets allows it).
+        if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND" && tileTargets.has(tile)) {
             void send({ type: "jutsu", jutsuId: selJutsu.id, tile }); return;
         }
         if (myActor && tile === myPos) {
@@ -1623,7 +1627,7 @@ export function MissionArenaFight({
                                         isEnemyTarget ? "jutsu-target-tile" : "",
                                         isSelfTarget ? "jutsu-target-tile jutsu-self-target-tile" : "",
                                         activeGroundZone ? `mission-ground-zone-tile mission-ground-zone-${activeGroundZone.tone}` : "",
-                                        isFootprintTile ? "ground-affected-tile mission-ground-preview-tile" : "",
+                                        isFootprintTile ? `ground-affected-tile mission-ground-preview-tile${armedBuffTile ? " mission-ground-preview-sanctuary" : ""}` : "",
                                         isHittingTarget ? "jutsu-aoe-tile" : "",
                                         gateHazards.has(i) ? "hg-hazard-tile" : "",
                                         gateSafe.has(i) ? "hg-safe-tile" : "",

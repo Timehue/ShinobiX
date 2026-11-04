@@ -946,7 +946,11 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 9,787,236 B with the production env. Owner approved 9.80 MB, about 12.7 KB of
 // headroom for the changes still queued. Startup is 398,584 B gzip against the
 // unchanged 399,000 B gate; startup, per-chunk and asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_800_000;
+// 2026-11-03 BUFF TILES: 40-AP self ground effects add ~4.7 KB to main
+// 812acc43f4 (9,795,668 B without the production env, 9,800,368 B with the
+// feature). Owner approved 9.81 MB. Startup is 396,598 B gzip against the
+// unchanged 399,000 B gate; startup, per-chunk and asset gates stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_810_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

@@ -2842,10 +2842,10 @@ export function AdminPanel({
                             <label>Health / Chakra / Stamina Cost Reduction Per Level</label>
                             <div className="inline-grid"><input type="number" value={healthCostReducePerLvl} onChange={(e) => setHealthCostReducePerLvl(Number(e.target.value))} /><input type="number" value={chakraCostReducePerLvl} onChange={(e) => setChakraCostReducePerLvl(Number(e.target.value))} /><input type="number" value={staminaCostReducePerLvl} onChange={(e) => setStaminaCostReducePerLvl(Number(e.target.value))} /></div>
                             <label>Tags</label>
-                            <TagPicker jutsuType={jutsuAp === 40 ? "Any" : jutsuType} jutsuTarget={jutsuTarget} jutsuMethod={jutsuMethod} tag={tag1} setTag={setTag1} percent={tag1Percent} setPercent={setTag1Percent} />
-                            <TagPicker jutsuType={jutsuAp === 40 ? "Any" : jutsuType} jutsuTarget={jutsuTarget} jutsuMethod={jutsuMethod} tag={tag2} setTag={setTag2} percent={tag2Percent} setPercent={setTag2Percent} />
-                            <TagPicker jutsuType={jutsuAp === 40 ? "Any" : jutsuType} jutsuTarget={jutsuTarget} jutsuMethod={jutsuMethod} tag={tag3} setTag={setTag3} percent={tag3Percent} setPercent={setTag3Percent} />
-                            <TagPicker jutsuType={jutsuAp === 40 ? "Any" : jutsuType} jutsuTarget={jutsuTarget} jutsuMethod={jutsuMethod} tag={tag4} setTag={setTag4} percent={tag4Percent} setPercent={setTag4Percent} />
+                            <TagPicker jutsuType={jutsuAp === 40 ? "Any" : jutsuType} jutsuAp={jutsuAp} jutsuTarget={jutsuTarget} jutsuMethod={jutsuMethod} tag={tag1} setTag={setTag1} percent={tag1Percent} setPercent={setTag1Percent} />
+                            <TagPicker jutsuType={jutsuAp === 40 ? "Any" : jutsuType} jutsuAp={jutsuAp} jutsuTarget={jutsuTarget} jutsuMethod={jutsuMethod} tag={tag2} setTag={setTag2} percent={tag2Percent} setPercent={setTag2Percent} />
+                            <TagPicker jutsuType={jutsuAp === 40 ? "Any" : jutsuType} jutsuAp={jutsuAp} jutsuTarget={jutsuTarget} jutsuMethod={jutsuMethod} tag={tag3} setTag={setTag3} percent={tag3Percent} setPercent={setTag3Percent} />
+                            <TagPicker jutsuType={jutsuAp === 40 ? "Any" : jutsuType} jutsuAp={jutsuAp} jutsuTarget={jutsuTarget} jutsuMethod={jutsuMethod} tag={tag4} setTag={setTag4} percent={tag4Percent} setPercent={setTag4Percent} />
                             <div className="menu">
                                 <button onClick={createAdminJutsu}>Create + Import Jutsu</button>
                                 {editingJutsuId && <button onClick={saveAdminJutsuEdit}>Save Loaded Jutsu</button>}

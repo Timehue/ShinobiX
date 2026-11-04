@@ -58,16 +58,20 @@ import { canonicalTagName, OPPONENT_AFFECTING_TAGS, REQUIRES_DAMAGE_TAGS, STACKA
 import {
     createCanonicalGroundEffect,
     groundFieldOpeningHit,
+    isOccupantGroundJutsu,
     resolveJutsuActionPlan,
     type JutsuActionPlan,
 } from '../combat-core/resolve-jutsu-action.js';
 import {
     applyDoTs,
     applyGroundEffectToFighter,
+    applyOccupantGroundEffect,
+    buffTileBlockedLines,
     applyJutsu,
     catalogWeaponFlatTags,
     poisonSpendDamage,
     reconcileGroundStatuses,
+    settleOccupantGroundStatuses,
     tickGroundEffects,
     tickStatuses,
 } from '../pvp/move.js';
@@ -136,9 +140,27 @@ function fighter(session: SoloPveSession, side: SoloPveSide): PvpFighter {
 }
 
 function setFighter(session: SoloPveSession, side: SoloPveSide, value: PvpFighter): void {
-    const next = reconcileGroundStatuses(value, session.groundEffects, side === 'player' ? 'p1' : 'p2');
-    if (side === 'player') session.player = next;
-    else session.enemy = next;
+    // Leaving a zone drops its statuses; standing on a buff tile grants its buff.
+    const settled = settleOccupantGroundStatuses(
+        reconcileGroundStatuses(value, session.groundEffects, side === 'player' ? 'p1' : 'p2'),
+        session.groundEffects,
+        session.round,
+    );
+    session.log.push(...settled.lines);
+    if (side === 'player') session.player = settled.fighter;
+    else session.enemy = settled.fighter;
+}
+
+function syncCompanionGroundStatuses(session: SoloPveSession): void {
+    const companion = session.companion;
+    if (!companion) return;
+    const settled = settleOccupantGroundStatuses(
+        reconcileGroundStatuses(companion, session.groundEffects, 'p1'),
+        session.groundEffects,
+        session.round,
+    );
+    companion.statuses = settled.fighter.statuses;
+    session.log.push(...settled.lines);
 }
 
 function otherSide(side: SoloPveSide): SoloPveSide {
@@ -535,6 +557,8 @@ function applyGroundEffects(session: SoloPveSession, side: SoloPveSide): void {
     const owner = side === 'player' ? 'p2' : 'p1';
     let value = fighter(session, side);
     for (const effect of session.groundEffects) {
+        // Buff tiles are settled by occupancy (setFighter), not by a turn-start pulse.
+        if (effect.kind === 'occupant') continue;
         if (effect.owner !== owner || !effect.tiles.includes(value.pos)) continue;
         const applied = applyGroundEffectToFighter(value, effect, session.round);
         value = applied.fighter;
@@ -769,6 +793,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
     const effectsBefore = eventSnapshot(session);
     const effectsLogStart = session.log.length;
     for (const effect of session.groundEffects) {
+        if (effect.kind === 'occupant') continue;
         if (effect.owner !== 'p2' || !effect.tiles.includes(companion.pos)) continue;
         const applied = applyGroundEffectToFighter(companion, effect, session.round);
         session.companion = Object.assign(companion, applied.fighter);
@@ -809,7 +834,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
                 const before = eventSnapshot(session);
                 const logStart = session.log.length;
                 companion.pos = tile;
-                companion.statuses = reconcileGroundStatuses(companion, session.groundEffects, 'p1').statuses;
+                syncCompanionGroundStatuses(session);
                 session.log.push(`${companion.name} closes in on ${session.enemy.name}.`);
                 ap -= moveAp;
                 actions += 1;
@@ -908,7 +933,7 @@ function resolveSoloPveTurnEnd(session: SoloPveSession): void {
         setFighter(session, 'player', session.player);
         setFighter(session, 'enemy', session.enemy);
         if (session.companion) {
-            session.companion.statuses = reconcileGroundStatuses(session.companion, session.groundEffects, 'p1').statuses;
+            syncCompanionGroundStatuses(session);
         }
         if (session.weeklyBossGuard && session.round >= session.weeklyBossGuard.roundBudget) {
             session.terminalReason = 'survived';
@@ -1067,6 +1092,10 @@ function spendItemCharge(session: SoloPveSession, itemId: string, side: SoloPveS
 // player has already acted this round. The old version pulsed every cast at once and aged
 // every zone at each round end, so an enemy zone reached the player for one turn only.
 function addGroundEffect(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu, plan: JutsuActionPlan): void {
+    if (plan.groundKind === 'occupant') {
+        addOccupantTile(session, side, jutsu, plan);
+        return;
+    }
     const opponent = fighter(session, 'enemy');
     const effect: PvpGroundEffect = {
         ...createCanonicalGroundEffect({
@@ -1088,6 +1117,27 @@ function addGroundEffect(session: SoloPveSession, side: SoloPveSide, jutsu: Solo
         setFighter(session, 'enemy', applied.fighter);
         session.log.push(...applied.lines);
     }
+}
+
+// A 40-AP buff tile on one hex: whoever stands on it holds its buff, at once.
+// Its lifetime matches a hostile zone's (activeRound + tickGroundEffects).
+function addOccupantTile(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu, plan: JutsuActionPlan): void {
+    const effect: PvpGroundEffect = {
+        ...createCanonicalGroundEffect({
+            id: `${session.sessionId}:${session.eventSeq + 1}:${side}:${jutsu.id}`,
+            owner: side === 'player' ? 'p1' : 'p2',
+            name: jutsu.name,
+            plan,
+            bloodlineRank: jutsu.bloodlineRank,
+        }),
+        activeRound: session.round + 1,
+    };
+    session.groundEffects.push(effect);
+    session.log.push(`${jutsu.name} turns hex ${effect.tiles[0]} into a buff tile for 2 rounds.`,
+        ...buffTileBlockedLines([session.player, session.enemy, ...(session.companion ? [session.companion] : [])], effect, session.round));
+    setFighter(session, 'player', session.player);
+    setFighter(session, 'enemy', session.enemy);
+    syncCompanionGroundStatuses(session);
 }
 
 // A damaging field hits once on cast, on either side's turn, then lays the zone.
@@ -1149,7 +1199,9 @@ function applyJutsuAction(session: SoloPveSession, side: SoloPveSide, action: Ex
     if (plan.move) {
         setFighter(session, side, { ...fighter(session, side), pos: plan.targetTile! });
         session.log.push(`${self.name} dashes to hex ${tile}.`);
-        if (plan.createsGroundEffect) {
+        if (plan.createsGroundEffect && plan.groundKind === 'occupant') {
+            addOccupantTile(session, side, jutsu, plan);
+        } else if (plan.createsGroundEffect) {
             resolution = castGroundField(session, side, jutsu, plan);
         } else if (plan.method === 'AOE_CIRCLE') {
             if (plan.hitsOpponent) {
@@ -1522,7 +1574,7 @@ function directAction(
     setFighter(session, 'player', session.player);
     setFighter(session, 'enemy', session.enemy);
     if (session.companion) {
-        session.companion.statuses = reconcileGroundStatuses(session.companion, session.groundEffects, 'p1').statuses;
+        syncCompanionGroundStatuses(session);
     }
 
     const actionLog = session.log.slice(logStart);
@@ -1572,6 +1624,10 @@ function directAction(
 
 function aiTileForJutsu(session: SoloPveSession, jutsu: SoloPveJutsu): number | undefined {
     if (jutsu.target !== 'EMPTY_GROUND' && !hasMoveTag(jutsu)) return undefined;
+    // A buff tile serves whoever stands on it, so an AI lays it under its own
+    // feet. Placed near its foe, as other ground jutsu are, it would hand the
+    // buff to the player. A dashing buff tile lands like any other dash.
+    if (isOccupantGroundJutsu(jutsu) && !hasMoveTag(jutsu)) return session.enemy.pos;
     if (isDamagingAiGapCloser(jutsu)) return aiGapCloserLandingTile({
         jutsu, from: session.enemy.pos, target: session.player.pos, width: GRID_W, height: GRID_H,
         blocked: tile => !validOpenTile(session, 'enemy', tile, Math.max(1, Number(jutsu.range) || 4)),
@@ -1623,7 +1679,22 @@ function aiJutsuScore(session: SoloPveSession, jutsu: SoloPveJutsu, tile: number
     let afterOpponent = opponent;
     let score = Number(jutsu.effectPower ?? 0);
 
-    if (move && tile !== undefined) {
+    if (isOccupantGroundJutsu(jutsu) && tile !== undefined) {
+        // Score a buff tile by the buff the AI gains standing on it. Laid
+        // underfoot, it is only worth casting from where the AI will fight;
+        // otherwise its next step toward the foe walks straight off it.
+        if (!move && hexDistance(self.pos, opponent.pos) > aiRangedAttackReach(jutsuList(self))) return -2_000;
+        if (move) score += Math.max(0, hexDistance(self.pos, opponent.pos) - hexDistance(tile, opponent.pos)) * 8;
+        afterSelf = { ...self, pos: move ? tile : self.pos };
+        const plan = jutsuActionPlan(session, 'enemy', jutsu, tile);
+        if (plan.accepted && plan.createsGroundEffect) {
+            const tileEffect: PvpGroundEffect = {
+                ...createCanonicalGroundEffect({ id: 'ai-preview', owner: 'p2', name: jutsu.name, plan, bloodlineRank: jutsu.bloodlineRank }),
+            };
+            afterSelf = applyOccupantGroundEffect(afterSelf, tileEffect, session.round).fighter;
+        }
+        if (session.groundEffects.some((effect) => effect.kind === 'occupant' && effect.owner === 'p2' && effect.name === jutsu.name)) score -= 35;
+    } else if (move && tile !== undefined) {
         afterSelf.pos = tile;
         const catches = method === 'AOE_CIRCLE' && hexNeighbors(tile).includes(opponent.pos);
         const spiralPlan = method === 'AOE_SPIRAL' ? jutsuActionPlan(session, 'enemy', jutsu, tile) : null;

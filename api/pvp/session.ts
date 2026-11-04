@@ -177,6 +177,8 @@ export type PvpGroundEffect = {
     id: string;
     owner: 'p1' | 'p2';
     name: string;
+    /** 'occupant' = a 40-AP buff tile for whoever stands on it; absent = hostile field. */
+    kind?: 'occupant';
     tiles: number[];
     rounds: number;
     /** First round in which the zone may reapply after its one cast-time hit. */

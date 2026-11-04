@@ -115,3 +115,30 @@ describe("TagPicker previews the authored discipline", () => {
         }
     });
 });
+
+describe("TagPicker combines actual AP with authored discipline and buff-tile context", () => {
+    it("uses 40 AP for tile occupancy copy and 60 AP for ordinary Lifesteal across styles", () => {
+        for (const jutsuType of ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu", "Any"] as const) {
+            const preview = (jutsuAp: number) => renderToStaticMarkup(createElement(TagPicker, {
+                tag: "Lifesteal", rank: "S Rank", percent: 30, jutsuType, jutsuAp,
+                jutsuTarget: "EMPTY_GROUND", jutsuMethod: "INSTANT_EFFECT",
+                setTag: () => undefined, setPercent: () => undefined,
+            }));
+            assert.match(preview(40), /Buff tile: whoever stands on it heals for 30% of the damage they deal/);
+            assert.doesNotMatch(preview(40), /During the next 2 rounds/);
+            assert.match(preview(60), /every damaging attack.*regardless of offense type/);
+            assert.doesNotMatch(preview(60), /Buff tile:/);
+        }
+    });
+
+    it("preserves the reason an enemy-field tag is unavailable on a buff tile", () => {
+        const html = renderToStaticMarkup(createElement(TagPicker, {
+            tag: "Absorb", rank: "S Rank", percent: 30, jutsuType: "Any", jutsuAp: 40,
+            jutsuTarget: "EMPTY_GROUND", jutsuMethod: "INSTANT_EFFECT",
+            allowedTags: ["Absorb", "Poison"], disabledTags: ["Poison"], disabledTagLabels: { Poison: "buff tile" },
+            setTag: () => undefined, setPercent: () => undefined,
+        }));
+        assert.match(html, /<option value="Poison" disabled="">Poison \[buff tile\]<\/option>/);
+        assert.match(html, /Buff tile: whoever stands on it converts/);
+    });
+});

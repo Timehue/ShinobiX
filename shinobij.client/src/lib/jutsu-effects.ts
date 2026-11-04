@@ -11,7 +11,7 @@
  * constants/game and the type modules. Extracted from App.tsx (jutsu cluster).
  */
 
-import { poisonCapForRank, tagMatchesName } from "./tags";
+import { isBuffTileJutsu, poisonCapForRank, SELF_GROUND_EFFECT_AP, tagMatchesName } from "./tags";
 import { loneDisciplineBonusFromPotency, loneGeneralBonusFromPotency } from "./stat-effect-potency";
 import { isRecurringGroundZone, POISON_SPEND_FACTOR, scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
 import { interpolateJutsuPercentages } from "../../../shared/jutsu-description";
@@ -19,6 +19,15 @@ import { JUTSU_MAX_LEVEL, PUSH_PULL_TILES, STUN_AP_PENALTY, COMBAT_RESOURCES_V2 
 import { TEMPO_AP_SWING } from "./combat-action-display";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType } from "../types/core";
+
+// What a buff tile gives whoever stands on it, at the tag's percent.
+const BUFF_TILE_EFFECTS: Readonly<Record<string, (pct: string) => string>> = {
+    "Absorb": (pct) => `converts ${pct} of incoming post-shield damage into healing`,
+    "Lifesteal": (pct) => `heals for ${pct} of the damage they deal`,
+    "Reflect": (pct) => `reflects ${pct} of post-shield damage back at attackers`,
+    "Decrease Damage Taken": (pct) => `takes ${pct} less damage`,
+    "Increase Heal": (pct) => `gets ${pct} more jutsu healing`,
+};
 
 export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, _lensDiscipline?: JutsuType) {
     const pct = tag.percent > 0 ? tag.percent : 30;
@@ -32,6 +41,20 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, _lensDiscipline?: J
     // Keep the optional display lens for existing callers, but describe combat
     // effects from the jutsu itself. A player's selected discipline does not
     // change the applying hit or restrict effects that work across attack types.
+
+    // A 40-AP buff tile: the effect lives on the chosen hex, for whoever stands on it.
+    const tileEffect = BUFF_TILE_EFFECTS[tag.name];
+    if (tileEffect && Number(jutsu.ap) === SELF_GROUND_EFFECT_AP && isBuffTileJutsu({ method: jutsu.method, tags: [tag] })) {
+        return {
+            summary: `Buff tile: whoever stands on it ${tileEffect(`${pct}%`)}.`,
+            rule: "Lasts 2 rounds. Anyone standing on the tile gains it at once and loses it on stepping off. Buff Prevent blocks it.",
+            duration: "While standing on the tile",
+            value: `${pct}%`,
+        };
+    }
+    if (tag.name === "Move" && Number(jutsu.ap) === SELF_GROUND_EFFECT_AP && isBuffTileJutsu(jutsu)) {
+        return { summary: "Dash onto the hex you choose; that hex becomes the buff tile.", rule: "The selected tile must be open and in range. You land on it and gain its buff at once.", duration: "Instant", value: "Dash" };
+    }
 
     if (tag.name === "Damage") return { summary: `Deals damage at ${effectPower}% effect power.`, rule: "Uses the jutsu offense type against the target's matching defense, then applies weather, terrain, bloodline, armor, and status modifiers.", duration: "Instant", value: `${effectPower}% EP` };
     if (tag.name === "Heal") return { summary: "Immediately restores up to 750 HP to the user, scaling with mastery.", rule: "Resolves on cast. A damaging jutsu keeps its hit and heals on top; a 40 AP utility still deals no direct damage. Existing Increase Heal can raise the result above 750. Buff Prevent does not block direct healing.", duration: "Instant", value: "Up to 750 HP" };
@@ -157,6 +180,15 @@ export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: stri
                 detail: "The user moves to a chosen tile, then the surrounding ring takes the jutsu's direct hit. It does not create a persistent zone.",
             };
         case "INSTANT_EFFECT":
+            if (isBuffTileJutsu(jutsu)) {
+                const dashes = (jutsu.tags ?? []).some((tag) => tagMatchesName(tag.name, "Move"));
+                return {
+                    short: "Buff Tile",
+                    detail: dashes
+                        ? "The user dashes onto a chosen open tile, which becomes a 2-round buff tile. Anyone standing on it gains its effects."
+                        : "Turns one chosen tile, including the user's own, into a 2-round buff tile. Anyone standing on it gains its effects.",
+                };
+            }
             return {
                 short: "AOE Ground",
                 detail: `Creates a persistent 2-round zone across every tile in the user's jutsu range. Choose a highlighted ground tile to cast it.${openingHit}`,

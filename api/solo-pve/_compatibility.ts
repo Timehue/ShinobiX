@@ -1,5 +1,6 @@
 import type { CombatItem, CombatJutsu } from '../combat-core/types.js';
-import { canonicalTagName, GROUND_EFFECT_TAGS, KNOWN_TAG_NAMES } from '../pvp/_tags.js';
+import { canonicalTagName, GROUND_EFFECT_TAGS, KNOWN_TAG_NAMES, SELF_GROUND_EFFECT_AP } from '../pvp/_tags.js';
+import { isOccupantGroundJutsu } from '../combat-core/resolve-jutsu-action.js';
 
 export const SOLO_PVE_SUPPORTED_TARGETS = [
     'OPPONENT',
@@ -48,7 +49,11 @@ export function soloPveJutsuCompatibility(jutsu: CombatJutsu): SoloPveCompatibil
     if (method === 'AOE_SPIRAL' && (!names.includes('Move') || target !== 'EMPTY_GROUND')) {
         issues.push({ kind: 'jutsu', id: jutsu.id, field: 'method', value: method, reason: 'AOE_SPIRAL requires Move and EMPTY_GROUND' });
     }
-    if ((effectiveMethod === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL') && !names.some((name) => GROUND_EFFECT_TAGS.has(name))) {
+    // A 40-AP Instant Effect may instead carry buff-tile tags (one-hex self ground effect).
+    const buffTile = effectiveMethod === 'INSTANT_EFFECT'
+        && Number(jutsu.ap) === SELF_GROUND_EFFECT_AP
+        && isOccupantGroundJutsu({ method: effectiveMethod, tags: jutsu.tags });
+    if ((effectiveMethod === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL') && !buffTile && !names.some((name) => GROUND_EFFECT_TAGS.has(name))) {
         issues.push({ kind: 'jutsu', id: jutsu.id, field: 'tags', value: names.join(','), reason: 'persistent ground methods require a supported ground tag' });
     }
     return issues;

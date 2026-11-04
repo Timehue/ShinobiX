@@ -55,7 +55,7 @@ import { weaponEffectDisplayValue } from "../lib/weapon-effect-display";
 import { hasAffordablePvpPaidAction } from "../lib/pvp-action-affordability";
 import { normalizeJutsu } from "../lib/jutsu";
 import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
-import { normalizeTagName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
+import { isBuffTileJutsu, normalizeTagName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import {
     PVP_RECONNECT_BADGE_GRACE_MS,
     PVP_STREAM_HEALTHY_AFTER_MS,
@@ -1713,11 +1713,14 @@ export function PvpBattleScreen({
     // below), so exclude it here — otherwise the enemy hex would light up and a
     // click on the enemy would fire a self-buff at the wrong tile.
     const jutsuRangeTiles = useMemo(() => new Set(pendingJutsuDirect && !pvpIsSelfTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, jutsuRange, allTiles]);
-    const groundJutsuTiles = useMemo(() => new Set(pvpIsGroundTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && t !== boardOppPos && !pvpBarrierTiles.has(t) && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, boardOppPos, jutsuRange, allTiles, pvpBarrierTiles]);
+    // A buff tile without Move may also go under the caster's own feet
+    // (mirrors api/combat-core/resolve-jutsu-action.ts).
+    const pendingBuffTileOnSelf = Boolean(pendingJutsuDirect && isBuffTileJutsu(pendingJutsuDirect) && !pvpIsMoveJutsu(pendingJutsuDirect));
+    const groundJutsuTiles = useMemo(() => new Set(pvpIsGroundTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => (t !== boardMyPos || pendingBuffTileOnSelf) && t !== boardOppPos && !pvpBarrierTiles.has(t) && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, pendingBuffTileOnSelf, boardMyPos, boardOppPos, jutsuRange, allTiles, pvpBarrierTiles]);
     // Instant ground effects cover the full caster range as soon as they are
-    // armed. Movement effects still preview their landing footprint on hover.
+    // armed. Movement effects and buff tiles preview their one hex on hover.
     const groundJutsuAffectedTiles = useMemo(() => {
-        if (pendingJutsuDirect?.method === "INSTANT_EFFECT" && groundJutsuTiles.size > 0) {
+        if (pendingJutsuDirect?.method === "INSTANT_EFFECT" && !isBuffTileJutsu(pendingJutsuDirect) && groundJutsuTiles.size > 0) {
             return jutsuImpactPreviewTiles("INSTANT_EFFECT", [...groundJutsuTiles][0]!, allTiles, pvpDist, pvpHexNeighbors, false, { casterPos: boardMyPos, range: jutsuRange });
         }
         if (pendingJutsuDirect && pvpIsGroundTargetJutsu(pendingJutsuDirect) && hoveredPvpTile !== null && groundJutsuTiles.has(hoveredPvpTile)) {
@@ -1877,6 +1880,7 @@ export function PvpBattleScreen({
         if (!jutsu) return "";
         const tagNames = new Set((jutsu.tags ?? []).map(tag => normalizeTagName(tag.name)));
         const element = jutsu.element;
+        if (isBuffTileJutsu(jutsu)) return " ground-effect-sanctuary";
         if (tileUse === "target" && tagNames.has("Move")) return " ground-effect-move";
         if (tagNames.has("Poison") || tagNames.has("Drain") || tagNames.has("Siphon")) return " ground-effect-poison";
         if (tagNames.has("Ignition") || element === "Fire") return " ground-effect-fire";
@@ -1889,6 +1893,7 @@ export function PvpBattleScreen({
     };
     const pvpGroundZoneClass = (effect: PvpGroundEffectState | undefined) => {
         if (!effect) return "";
+        if (effect.kind === "occupant") return " ground-effect-sanctuary";
         const tagNames = new Set((effect.tags ?? []).map(tag => normalizeTagName(tag.name)));
         // Wide ground fields get an extra pulse so their full area reads clearly.
         const nova = (effect.tiles?.length ?? 0) >= 8 ? " ground-effect-nova" : "";

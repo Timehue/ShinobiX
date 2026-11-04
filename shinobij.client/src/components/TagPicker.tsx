@@ -5,7 +5,7 @@ import { bloodlineCreatorPercentPolicy, normalizeBloodlineCreatorTagPercent } fr
 import { jutsuEffectInfo } from "../lib/jutsu-effects";
 import { normalizeJutsu } from "../lib/jutsu";
 
-export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuType = "Any", jutsuTarget, jutsuMethod, disabledTags = [], allowedTags, ariaLabel = "Jutsu tag" }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuType?: JutsuType; jutsuTarget?: JutsuTarget; jutsuMethod?: JutsuMethod; disabledTags?: string[]; allowedTags?: string[]; ariaLabel?: string }) {
+export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuType = "Any", jutsuTarget, jutsuMethod, jutsuAp, disabledTags = [], disabledTagLabels = {}, allowedTags, ariaLabel = "Jutsu tag" }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuType?: JutsuType; jutsuTarget?: JutsuTarget; jutsuMethod?: JutsuMethod; jutsuAp?: number; disabledTags?: string[]; disabledTagLabels?: Readonly<Record<string, string>>; allowedTags?: string[]; ariaLabel?: string }) {
     const creatorPolicy = rank ? bloodlineCreatorPercentPolicy(tag, rank) : null;
     const displayedPercent = rank ? normalizeBloodlineCreatorTagPercent(tag, percent, rank) : percent;
     // Poison keeps a stored creator value (the server schema requires one), but combat
@@ -13,11 +13,11 @@ export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuType = 
     // Offering "25% / 30%" would advertise a difference that does not exist; the effect
     // help below states the real value instead.
     const showStrengthChoice = creatorPolicy?.scalable === true && tag !== "Poison";
-    // Without an AP value, normalization defaults to a 40-AP Any-style utility
-    // and loses the selected offense. This synthetic record is display-only.
+    // Use the actual AP when supplied, including 40-AP buff tiles. Older callers
+    // retain a display-only fallback that preserves their selected offense.
     const selectedTagInfo = tag
         ? jutsuEffectInfo(
-            normalizeJutsu({ id: "tag-preview", name: "Tag Preview", type: jutsuType, ap: jutsuType === "Any" ? 40 : 60, effectPower: 100, bloodlineRank: rank ?? undefined, target: jutsuTarget ?? "OPPONENT", method: jutsuMethod ?? "SINGLE", tags: [{ name: tag, percent: displayedPercent }] }),
+            normalizeJutsu({ id: "tag-preview", name: "Tag Preview", type: jutsuType, ap: jutsuAp ?? (jutsuType === "Any" ? 40 : 60), effectPower: 100, bloodlineRank: rank ?? undefined, target: jutsuTarget ?? "OPPONENT", method: jutsuMethod ?? "SINGLE", tags: [{ name: tag, percent: displayedPercent }] }),
             { name: tag, percent: displayedPercent },
         )
         : null;
@@ -47,7 +47,7 @@ export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuType = 
                     <optgroup key={group.label} label={group.label}>
                         {group.tags.map((tagName) => (
                             <option key={tagName} value={tagName} disabled={disabledTagSet.has(tagName)}>
-                                {tagName}{disabledTagSet.has(tagName) ? " [already used]" : ""}
+                                {tagName}{disabledTagSet.has(tagName) ? ` [${disabledTagLabels[tagName] ?? "already used"}]` : ""}
                             </option>
                         ))}
                     </optgroup>

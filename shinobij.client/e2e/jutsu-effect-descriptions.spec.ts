@@ -46,7 +46,7 @@ test("Profile's selected effect preview cannot relabel Undertow Fang's damage", 
 });
 
 for (const offense of ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const) {
-    test(`${offense} bloodline previews and save agree after an AP round-trip`, async ({ page }) => {
+    test(`${offense} previews and save agree through AP changes and a buff tile`, async ({ page }) => {
         const save = uiAuditSave();
         const character = { ...save.character, mythicSeals: 140, element: "Lightning", elements: ["Lightning"] };
         save.character = character;
@@ -60,7 +60,7 @@ for (const offense of ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const
             runtime.commitServerCharacter(purchase.character, version);
             await route.fulfill({ json: { ok: true, rank: "S Rank", character: purchase.character, _saveVersion: version } });
         });
-        const posted: Array<{ rank: string; jutsus: Array<{ ap: number; type: string }> }> = [];
+        const posted: Array<{ rank: string; jutsus: Array<{ ap: number; type: string; method: string; tags: Array<{ name: string }> }> }> = [];
         page.on("request", request => {
             if (request.method() === "POST" && request.headers()["x-bloodline-write-intent"]) posted.push(request.postDataJSON().savedBloodlines[0]);
         });
@@ -82,12 +82,32 @@ for (const offense of ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu"] as const
         await expect(page.locator(".maker-card")).toContainText(offense);
         await page.locator(".bloodline-wizard-next").click();
         await page.getByRole("button", { name: "40 AP utility", exact: true }).click();
+        const method = page.getByRole("combobox", { name: "Jutsu method", exact: true });
+        const first = page.getByRole("combobox", { name: "Tag 1", exact: true });
+        const second = page.getByRole("combobox", { name: "Tag 2", exact: true });
+        await method.selectOption("INSTANT_EFFECT");
+        await first.selectOption("Lifesteal");
+        await expect(help).toContainText("Buff tile: whoever stands on it heals");
+        await expect(second.locator('option[value="Poison"]')).toBeDisabled();
+        await expect(second.locator('option[value="Poison"]')).toHaveText("Poison [buff tile]");
+        await second.selectOption("Move");
+        await expect(summary).toContainText("buff tile");
+        await page.getByRole("button", { name: "60 AP damage", exact: true }).click();
+        await expect(first).toHaveValue("");
+        await expect(page.locator(".maker-card")).toContainText(offense);
+        await page.getByRole("button", { name: "40 AP utility", exact: true }).click();
+        await first.selectOption("Lifesteal");
+        await second.selectOption("Move");
         for (let step = 0; step < 8 && await page.locator(".bloodline-wizard-next").count(); step++) await page.locator(".bloodline-wizard-next").click();
         await page.getByRole("button", { name: "Awaken bloodline", exact: true }).click();
         await expect.poll(() => posted.length).toBe(1);
         expect(posted[0].jutsus[0]).toMatchObject({ ap: 60, type: offense });
-        expect(posted[0].jutsus[1]).toMatchObject({ ap: 40, type: "Any" });
-        expect(normalizePlayerBloodlineJutsus(posted[0].jutsus, posted[0].rank)[0].type).toBe(offense);
+        expect(posted[0].jutsus[1]).toMatchObject({ ap: 40, type: "Any", method: "INSTANT_EFFECT" });
+        expect(posted[0].jutsus[1].tags.map(tag => tag.name)).toEqual(["Move", "Lifesteal"]);
+        const canonical = normalizePlayerBloodlineJutsus(posted[0].jutsus, posted[0].rank);
+        expect(canonical[0].type).toBe(offense);
+        expect(canonical[1]).toMatchObject({ ap: 40, type: "Any", method: "INSTANT_EFFECT" });
+        expect(canonical[1].tags.map(tag => tag.name)).toEqual(["Move", "Lifesteal"]);
     });
 
 }

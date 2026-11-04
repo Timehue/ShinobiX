@@ -300,3 +300,45 @@ describe("jutsuDetailDescription — details-panel prose never shows a battle to
         assert.equal(jutsuDetailDescription({ battleDescription: text, target: "EMPTY_GROUND" }), text);
     });
 });
+
+describe("buff tile effect copy", () => {
+    it("keeps all five occupancy effects and the landing dash independent of a mismatched lens", () => {
+        const styles: JutsuType[] = ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu", "Any"];
+        for (const name of ["Absorb", "Lifesteal", "Reflect", "Decrease Damage Taken", "Increase Heal"]) {
+            const tag = { name, percent: 30 };
+            const tile = jutsu({ type: "Any", ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [tag] });
+            const expected = jutsuEffectInfo(tile, tag);
+            assert.match(expected.summary, /^Buff tile: whoever stands on it /);
+            assert.equal(expected.duration, "While standing on the tile");
+            assert.match(expected.rule, /loses it on stepping off/);
+            for (const lens of [...styles, undefined]) assert.deepEqual(jutsuEffectInfo(tile, tag, lens), expected);
+        }
+        const move = { name: "Move", percent: 0 };
+        const dash = jutsu({ type: "Any", ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [move, { name: "Lifesteal", percent: 30 }] });
+        for (const lens of [...styles, undefined]) assert.match(jutsuEffectInfo(dash, move, lens).summary, /Dash onto the hex you choose/);
+    });
+
+    it("describes a 40 AP buff tile as the hex's effect for whoever stands on it", () => {
+        const tile = jutsu({ ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [{ name: "Decrease Damage Taken", percent: 30 }] });
+        const info = jutsuEffectInfo(tile, { name: "Decrease Damage Taken", percent: 30 });
+        assert.equal(info.summary, "Buff tile: whoever stands on it takes 30% less damage.");
+        assert.equal(info.duration, "While standing on the tile");
+    });
+
+    it("keeps the normal self-buff copy on a 60 AP jutsu", () => {
+        const direct = jutsu({ ap: 60, target: "SELF", method: "SINGLE", tags: [{ name: "Decrease Damage Taken", percent: 30 }] });
+        assert.equal(jutsuEffectInfo(direct, { name: "Decrease Damage Taken", percent: 30 }).summary, "Reduces your damage taken from every offense type.");
+    });
+});
+
+describe("buff tile targeting label", () => {
+    it("names a buff tile and its dash variant instead of the range field", () => {
+        const tile = jutsu({ ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [{ name: "Absorb", percent: 30 }] });
+        assert.equal(jutsuTargetingLabel(tile).short, "Buff Tile");
+        assert.match(jutsuTargetingLabel(tile).detail, /including the user's own/);
+        const dash = jutsu({ ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [{ name: "Move", percent: 0 }, { name: "Absorb", percent: 30 }] });
+        assert.match(jutsuTargetingLabel(dash).detail, /dashes onto/);
+        const field = jutsu({ ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [{ name: "Poison", percent: 10 }] });
+        assert.equal(jutsuTargetingLabel(field).short, "AOE Ground");
+    });
+});

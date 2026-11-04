@@ -18,7 +18,7 @@ import { maxStoredBloodlines, isPatreonSubscriber } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
 import { bloodlineCreatorDraftOffense, normalizeCreatorDraftJutsu } from "../lib/bloodline-creator-draft";
-import { bloodlineCreatorMethodAllowsTag, bloodlineCreatorMethodForTags, bloodlineCreatorRangeForTarget, bloodlineCreatorTargetForMethod, normalizeBloodlineCreatorMethodTags } from "../lib/bloodline-creator-methods";
+import { bloodlineCreatorMethodAllowsTag, bloodlineCreatorMethodForTags, bloodlineCreatorRangeForTarget, bloodlineCreatorTargetForMethod, instantEffectCreatorTags, instantEffectFamily, instantEffectOfferedTags, instantEffectTagBlockReason, normalizeBloodlineCreatorMethodTags } from "../lib/bloodline-creator-methods";
 import { makeId } from "../lib/utils";
 import { equipOwnedBloodline } from "../lib/bloodline-swap";
 import { bloodlineWizardStepCount, bloodlineWizardStepKind, bloodlineWizardJutsuIndex, bloodlineWizardStepLabel, canLeaveBloodlineDetails, clampBloodlineWizardStep } from "../lib/bloodline-wizard";
@@ -178,7 +178,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                 next.target = "EMPTY_GROUND";
             }
             if (next.method === "INSTANT_EFFECT") {
-                next.tags = next.tags.filter((t) => instantEffectGroundTags.includes(t.name));
+                next.tags = instantEffectCreatorTags(next.tags, next.ap);
             }
             // AOE_SPIRAL — tied to BOTH movement (Move tag, slot 0) and the
             // instant-effect ground tags: you dash to a tile and erupt a spiral
@@ -232,7 +232,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             tags[tagIndex] = merged;
             const next = normalizeCreatorDraftJutsu({ ...jutsu, bloodlineRank: rank, tags: normalizeJutsuTags(tags) }, rank, bloodlineOffense);
             if (next.method === "INSTANT_EFFECT") {
-                next.tags = next.tags.filter((tag) => instantEffectGroundTags.includes(tag.name));
+                next.tags = instantEffectCreatorTags(next.tags, next.ap);
             }
             if (next.method === "AOE_SPIRAL") {
                 const groundTags = next.tags.filter((tag) => tag.name !== "Move" && instantEffectGroundTags.includes(tag.name));
@@ -268,9 +268,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                 ...tag,
                 percent: normalizeBloodlineCreatorTagPercent(tag.name, tag.percent, rank),
             }));
-            const methodTags = normalizeBloodlineCreatorMethodTags(normalizedTags, finalMethod);
+            const creatorTags = normalizeBloodlineCreatorMethodTags(normalizedTags, finalMethod);
+            const methodTags = finalMethod === "INSTANT_EFFECT" ? instantEffectCreatorTags(creatorTags, jutsu.ap) : creatorTags;
             const tags = methodTags.filter((tag) => {
-                if (finalMethod === "INSTANT_EFFECT" && !instantEffectGroundTags.includes(tag.name)) return false;
                 if (finalMethod === "AOE_SPIRAL" && tag.name !== "Move" && !instantEffectGroundTags.includes(tag.name)) return false;
                 if (jutsu.ap === 40 && fortyApBlockedBloodlineTags.includes(tag.name)) return false;
                 if (seenJutsuTags.has(tag.name)) return false;
@@ -436,18 +436,19 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     <div className="inline-grid">
                         <select aria-label="Jutsu target" value={jutsu.target} disabled={directCopyMirrorTargetLocked} title={directCopyMirrorTargetLocked ? "Direct Copy and Mirror casts target an opponent" : undefined} onChange={(e) => updateJutsu(jutsuIndex, { target: e.target.value as JutsuTarget })}>{jutsuTargets.map((target) => <option key={target} value={target}>{target === "EMPTY_GROUND" ? "GROUND" : target}</option>)}</select>
                         <select aria-label="Jutsu method" value={bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE"} onChange={(e) => updateJutsu(jutsuIndex, { method: e.target.value as JutsuMethod })}>
-                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "Circle Movement (Ring Damage)" : method === "INSTANT_EFFECT" ? "Instant Effect (Range Field)" : method === "AOE_SPIRAL" ? "AOE Movement (Ground Nova)" : method === "AOE_BURST" ? "AOE Burst (Area Damage)" : method}</option>)}
+                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "Circle Movement (Ring Damage)" : method === "INSTANT_EFFECT" ? "Instant Effect (Range Field or Buff Tile)" : method === "AOE_SPIRAL" ? "AOE Movement (Ground Nova)" : method === "AOE_BURST" ? "AOE Burst (Area Damage)" : method}</option>)}
                         </select>
                     </div>
                     {directCopyMirrorTargetLocked && <small className="tag-effect-help">Direct Copy and Mirror casts are locked to OPPONENT. Movement methods still target the ground.</small>}
                     {jutsu.method === "AOE_CIRCLE" && <div className="summary-box bloodline-element-lock">Circle Movement: you move to a chosen tile, then deal damage to every hex surrounding your destination. Move tag is required and auto-added. If the opponent is adjacent to your landing tile, they take the hit.</div>}
-                    {jutsu.method === "INSTANT_EFFECT" && <div className="summary-box bloodline-element-lock">Instant Effect: target is locked to GROUND. Click an open ground tile in battle to cast; every tile in your jutsu range becomes a 2-round zone. Decrease Damage Given, Recoil, or Poison apply immediately if the enemy is inside the range and again while they stand in it. Costs +1 jutsu point.</div>}
+                    {jutsu.method === "INSTANT_EFFECT" && <div className="summary-box bloodline-element-lock">Instant Effect: target is locked to GROUND. Click an open ground tile in battle to cast; every tile in your jutsu range becomes a 2-round zone. Decrease Damage Given, Recoil, or Poison apply immediately if the enemy is inside the range and again while they stand in it. At 40 AP you can instead make a gold buff tile on the one hex you choose with Absorb, Lifesteal, Reflect, Decrease Damage Taken, or Increase Heal. Anyone standing on it gains its effects for 2 rounds. Add Move to dash onto it. Costs +1 jutsu point.</div>}
+                    {jutsu.method === "INSTANT_EFFECT" && jutsu.ap !== 40 && <small className="tag-effect-help">Buff tiles are 40 AP only. Switch to 40 AP utility to place one.</small>}
                     {jutsu.method === "AOE_SPIRAL" && <div className="summary-box bloodline-element-lock">AOE Movement: you dash to a chosen ground tile, then erupt a spiral ground nova — a filled hex disk (radius 2) around your landing tile becomes a 2-round zone. Move tag is required and auto-added; the other slots take Decrease Damage Given, Recoil, or Poison. The effect hits the enemy immediately if they're inside the burst and again while they stand in it. Locked to 60 AP. Costs +1 jutsu point.</div>}
                     {jutsu.method === "AOE_BURST" && <div className="summary-box bloodline-element-lock">AOE Burst: a direct area nuke — no movement, no ground tile. Target an enemy in range; they take the hit and every other enemy in the 6 hexes touching them takes the same full damage. In a 1v1 fight it just hits your target like a normal nuke; in multi-enemy fights (Battle Towers, team battles) it blasts the whole cluster. Locked to 60 AP. Costs +1 jutsu point.</div>}
                     <label>AP Type</label>
                     <div className="admin-ap-toggle">
                         <button type="button" className={jutsu.ap === 40 ? "active" : ""} disabled={jutsu.method === "AOE_SPIRAL"} title={jutsu.method === "AOE_SPIRAL" ? "AOE Movement is locked to 60 AP" : undefined} onClick={() => updateJutsuAp(jutsuIndex, 40)}>40 AP utility</button>
-                        <button type="button" className={jutsu.ap === 60 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 60)}>60 AP damage</button>
+                        <button type="button" className={jutsu.ap === 60 ? "active" : ""} title={jutsu.method === "INSTANT_EFFECT" && instantEffectFamily(jutsu.tags) === "buff-tile" ? "Buff tiles are 40 AP only. Switching removes the buff tile tags." : undefined} onClick={() => updateJutsuAp(jutsuIndex, 60)}>60 AP damage</button>
                     </div>
                     {jutsu.method === "AOE_SPIRAL" && <small className="tag-effect-help">AOE Movement is locked to 60 AP — it cannot be a 40 AP utility jutsu.</small>}
                     {jutsu.ap === 60 && jutsu.target !== "SELF" && (
@@ -547,16 +548,22 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                                 <small className="tag-effect-help">Move is required for Circle Movement. Choose SINGLE to remove it.</small>
                             </div>;
                         }
+                        const otherTagNames = jutsu.tags.filter((_, index) => index !== tagIndex).map((tag) => tag.name);
+                        const disabledTagLabels: Record<string, string> = {};
                         const disabledTags = allTags.filter((tagName) => {
                             if (tagName === currentTag) return false;
                             const usedOnThisJutsu = jutsu.tags.some((tag, index) => index !== tagIndex && tag.name === tagName);
                             const usedOnAnotherJutsu = bloodlineUniqueTags.includes(tagName) && jutsus.some((candidate, candidateIndex) =>
                                 candidateIndex !== jutsuIndex && candidate.tags.some((tag) => tag.name === tagName)
                             );
-                            return usedOnThisJutsu || usedOnAnotherJutsu;
+                            if (usedOnThisJutsu || usedOnAnotherJutsu) return true;
+                            // An Instant Effect is an enemy field or a buff tile, never both.
+                            const familyBlock = jutsu.method === "INSTANT_EFFECT" ? instantEffectTagBlockReason(tagName, otherTagNames) : null;
+                            if (familyBlock) disabledTagLabels[tagName] = familyBlock;
+                            return familyBlock !== null;
                         });
                         let allowedTags = jutsu.method === "INSTANT_EFFECT"
-                            ? instantEffectGroundTags
+                            ? instantEffectOfferedTags(jutsu.ap)
                             : jutsu.method === "AOE_SPIRAL"
                                 ? ["Move", ...instantEffectGroundTags]
                                 : jutsu.ap === 40
@@ -567,7 +574,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                             : allTags);
                         const authoredTagNames = jutsu.tags.map((tag) => tag.name);
                         allowedTags = base.filter((tagName) => bloodlineCreatorMethodAllowsTag(tagName, jutsu.method, authoredTagNames));
-                        return <TagPicker key={tagIndex} ariaLabel={`Tag ${tagIndex + 1}`} rank={rank} jutsuType={jutsu.type} jutsuTarget={jutsu.target} jutsuMethod={jutsu.method} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
+                        return <TagPicker key={tagIndex} ariaLabel={`Tag ${tagIndex + 1}`} rank={rank} jutsuType={jutsu.type} jutsuTarget={jutsu.target} jutsuMethod={jutsu.method} jutsuAp={jutsu.ap} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} disabledTagLabels={disabledTagLabels} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
                     })}
                     <div className="summary-box bloodline-effect-preview"><strong>What it does:</strong> {describeJutsuEffects(jutsu)}</div>
                     {(() => {

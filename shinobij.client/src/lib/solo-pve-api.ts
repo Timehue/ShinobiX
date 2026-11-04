@@ -39,6 +39,7 @@ export type SoloPveGroundEffect = {
     id: string;
     owner: 'p1' | 'p2';
     name: string;
+    kind?: 'occupant';
     tiles: number[];
     rounds: number;
     tags: Array<{ name: string; percent?: number; amount?: number }>;

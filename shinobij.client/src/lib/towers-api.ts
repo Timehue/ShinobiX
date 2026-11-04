@@ -109,6 +109,7 @@ export type TowerGroundEffect = {
     id: string;
     owner: string;
     name: string;
+    kind?: 'occupant';
     tiles: number[];
     rounds: number;
     tags: Array<{ name: string; percent?: number }>;

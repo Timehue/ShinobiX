@@ -43,6 +43,7 @@ export type CombatEventGroundEffect = {
     id: string;
     owner?: string;
     name?: string;
+    kind?: 'occupant';
     tiles: number[];
     rounds?: number;
     tags?: Array<{ name: string; percent?: number; amount?: number }>;
@@ -237,6 +238,7 @@ function groundEffects(value: unknown): CombatEventGroundEffect[] {
             id,
             ...(typeof source.owner === 'string' ? { owner: text(source.owner, 24) } : {}),
             ...(typeof source.name === 'string' ? { name: text(source.name, 80) } : {}),
+            ...(source.kind === 'occupant' ? { kind: 'occupant' as const } : {}),
             tiles: Array.isArray(source.tiles) ? source.tiles.slice(0, MAX_GROUND_TILES).map(tile) : [],
             ...(Number.isFinite(Number(source.rounds)) ? { rounds: Math.max(0, Math.floor(number(source.rounds))) } : {}),
             ...(Array.isArray(source.tags) ? {

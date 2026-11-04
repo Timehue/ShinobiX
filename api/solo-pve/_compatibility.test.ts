@@ -66,3 +66,20 @@ describe('solo-PvE published content compatibility', () => {
         assert.equal(methodFixtures.length, SOLO_PVE_SUPPORTED_METHODS.length);
     });
 });
+
+describe('solo-PvE accepts creator buff tiles', () => {
+    const tile = (over: Partial<CombatJutsu> = {}): CombatJutsu => ({
+        id: 'golden-ground', name: 'Golden Ground', type: 'Any', ap: 40, range: 4,
+        target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT', tags: [{ name: 'Absorb', percent: 30 }], ...over,
+    });
+
+    it('a 40 AP Instant Effect buff tile, with or without Move, is a supported loadout', () => {
+        assert.deepEqual(soloPveJutsuCompatibility(tile()), []);
+        assert.deepEqual(soloPveJutsuCompatibility(tile({ tags: [{ name: 'Move', percent: 0 }, { name: 'Reflect', percent: 30 }] })), []);
+    });
+
+    it('a buff tile on any other AP, or on a spiral, is still unsupported', () => {
+        assert.equal(soloPveJutsuCompatibility(tile({ ap: 60 })).length, 1);
+        assert.equal(soloPveJutsuCompatibility(tile({ ap: 60, method: 'AOE_SPIRAL', tags: [{ name: 'Move', percent: 0 }, { name: 'Absorb', percent: 30 }] })).length, 1);
+    });
+});
