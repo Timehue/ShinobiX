@@ -19,3 +19,12 @@ test("Friends and Blocked rows expose reversible list actions", () => {
     assert.match(source, /addFriend\(currentName, target\)/);
     assert.match(source, /\/api\/player\/blocks/);
 });
+
+test("directory avatars load lazily so opening Users does not fetch every player's art", () => {
+    // Measured live on 2026-11-04: 186 eager avatars (some 0.7-2 MB GIFs shown at
+    // 46px) made the Users page a ~10 MB download with only ~52 rows on screen.
+    const avatarImg = source.match(/<img src=\{avatar\}[^>]*\/>/);
+    assert.ok(avatarImg, "UserHubRow avatar <img> not found");
+    assert.match(avatarImg[0], /loading="lazy"/);
+    assert.match(avatarImg[0], /decoding="async"/);
+});

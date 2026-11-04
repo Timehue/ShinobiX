@@ -360,7 +360,9 @@ function UserHubRow({ p, sharedImages, timeAgo, onSelect, tab, isFollowed, onTog
         >
             <div className="user-hub-avatar">
                 {avatar
-                    ? <img src={avatar} alt={p.name} />
+                    // The directory lists every player, and an avatar can be a
+                    // multi-megabyte GIF. Only fetch the rows the player scrolls to.
+                    ? <img src={avatar} alt={p.name} width={48} height={48} loading="lazy" decoding="async" />
                     : <span>{p.name.slice(0, 2).toUpperCase()}</span>}
             </div>
             <div className="user-hub-meta">
