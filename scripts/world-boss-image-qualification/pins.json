@@ -1,0 +1,7 @@
+{
+  "candidate": "d34140fbbc25f99c6c7944525e5149b65030f658",
+  "recovery": "bb90fc13c772ca3774d48189eda9be4c750d1821",
+  "node": "24.21.0",
+  "platform": "linux/amd64",
+  "recoveryMeaning": "Main d31549eb and reviewed runtime repairs including projection cleanup and buff tile caster credit; only the wildlife browser fixture differs, not application behavior"
+}
