@@ -21,6 +21,7 @@ import { applyWorldBossCrystalHarvest, worldBossCrystalCanBeMined } from '../wor
 import { readActiveWorldBossEvent } from '../world-boss-event/_event.js';
 import { rememberMinedGround } from './_harvest-ground.js';
 import { resourceBattleActive } from './_resource-battle.js';
+import { legacyActivityCommit } from '../_legacy-activity-commit.js';
 import { withPlayerResourceNodes, reserveSharedResourceNode, finishSharedResourceAdmission,
     sharedResourceClaimHeld, releaseSharedResourceClaim, sharedResourceViews, sharedResourceOffer } from './_shared-resource-nodes.js';
 const resourceTxId = (name: string, id: string) => `resource-gathering:${createHash('sha256').update(`${name}:${id}`).digest('hex')}`;
@@ -130,9 +131,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const resolved = resolveResourceAttempt(current, id, { cancel: action === 'cancel' || claimLost, placements: body.placements, events: body.events }, onlineStore.get(identity.name), Date.now(), activeSeal);
                 if (!resolved.ok) return { ok: false, status: 409, error: resolved.error };
                 if (resolved.replayed && activeSeal?.id === id) await finishReceipt(resolved.receipt, resolved.character);
+                const legacyCredit = !resolved.replayed && resolved.receipt.outcome === 'success'
+                    ? await legacyActivityCommit(identity.name, current, { gatheringClaims: 1 }) : {};
                 return { ok: true, character: resolved.character, write: !resolved.replayed,
                     value: { receipt: resolved.receipt, replayed: resolved.replayed },
-                    afterCommit: () => finishReceipt(resolved.receipt, resolved.character) };
+                    ...legacyCredit,
+                    afterCommit: async () => {
+                        await finishReceipt(resolved.receipt, resolved.character);
+                        await legacyCredit.afterCommit?.();
+                    } };
             }
             if (!node) return { ok: false, status: 400, error: 'Unknown node.' };
             const fingerprint = `${node.id}:${body.mode}`;

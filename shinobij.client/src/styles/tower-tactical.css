@@ -304,6 +304,11 @@
 .tower-terrain-zone--poison { --terrain-edge: #b8d874; }
 .tower-terrain-zone--recoil { --terrain-edge: #f78c8c; }
 .tower-terrain-zone--collapse { --terrain-edge: #ffb467; }
+.tower-terrain-zone--sanctuary {
+    --terrain-edge: var(--buff-tile-edge);
+    filter: sepia(.55) saturate(2.1) drop-shadow(0 0 5px var(--buff-tile-edge));
+}
+.tower-terrain-zone--sanctuary .tower-terrain-boundary { stroke-width: 2; stroke-opacity: .9; }
 .tower-terrain-zone[data-holder="squad"] { --terrain-edge: #8df7ed; }
 .tower-terrain-zone[data-holder="enemy"] { --terrain-edge: #ff8399; }
 .tower-terrain-zone[data-holder] .tower-terrain-boundary { stroke-width: 2; stroke-opacity: .85; }

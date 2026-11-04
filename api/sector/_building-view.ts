@@ -1,4 +1,5 @@
-import { countOwned } from '../craft/_forge.js';
+import { countOwned, supplyForgeRyo } from '../craft/_forge.js';
+import { keeperWorkshopCraftRyo } from '../../shared/craft-fees.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { SUPPLY_CRAFT_RECIPES, craftMaterialName, type CraftIngredient } from '../../shared/crafting-recipes.js';
 import { buildingConditions, buildingGreeting, buildingOnTetsuCircuit, buildingRecipeTrust, buildingRegisterEntries, buildingRelationship, buildingTeaClosure, buildingWorkView, buildingWorkshopRecipes, BUILDING_REPAIR_INGREDIENTS } from '../../shared/sector-building-content.js';
@@ -16,7 +17,7 @@ const serviceCopy:Record<BuildingService,readonly[string,string]>={
     repair:['Public shelter repairs','Supply ore, hunting materials, fish and harvested materials, then complete three work steps. Materials are reserved until completion or cancellation.'],
     courier:['Sealed relay delivery','Carry an entrusted pouch through two named relay counters using the connected roads.'],
     watch:['Public watch round','Inspect the footing and marker, then return a signal report for the next travelers.'],
-    workshop:['Regional workshop','Ask the keeper to craft a regional recipe. Choose your materials, meet the required level and leave room for the finished item.'],
+    workshop:['Regional workshop','Ask the keeper to craft a regional recipe. Choose your materials, meet the required level, pay the keeper’s ryo fee and leave room for the finished item.'],
     intelligence:['Entrusted handoff','Observe the contact and respect the seal and speaking-window instructions. Exposing the handoff raises suspicion.'],
     register:['Keeper’s witness register','Read the local account and sign the deeds the keeper can confirm in the road and work rolls.'],
     festival:['Festival rehearsal','Learn bow, left, right, bow, then rehearse the sequence with the guide. The keeper records one paid participation per day.'],
@@ -53,7 +54,7 @@ export function buildingDetailView(building:SectorBuilding,character:Record<stri
             ...(survey?.recordedAt?{account:investigation.account,...(survey.interpretation==='open-question'?{question:investigation.question}:{})}:{})}}:{}),
         register:building.services.includes('register')?buildingRegisterEntries(building,progress):[],
         recipes:building.services.includes('workshop')?buildingWorkshopRecipes(building).flatMap(id=>{
-            const recipe=SUPPLY_CRAFT_RECIPES[id],trust=buildingRecipeTrust(building,id);return recipe?[{id,name:ITEM_CATALOG[id]?.name??id,ingredients:rows(character,recipe.ingredients),level:recipe.levelReq??1,trust,available:standing.trust>=trust}]:[];
+            const recipe=SUPPLY_CRAFT_RECIPES[id],trust=buildingRecipeTrust(building,id);return recipe?[{id,name:ITEM_CATALOG[id]?.name??id,ingredients:rows(character,recipe.ingredients),level:recipe.levelReq??1,trust,ryo:supplyForgeRyo(id,1,keeperWorkshopCraftRyo),available:standing.trust>=trust}]:[];
         }):[],
         leads:SECTOR_BUILDINGS.filter(b=>b.id!==building.id&&(b.region===building.region||b.services.includes('courier')))
             .sort((a,b)=>Math.abs(a.sector-building.sector)-Math.abs(b.sector-building.sector)||a.id.localeCompare(b.id)).slice(0,standing.trust>=5?4:2)

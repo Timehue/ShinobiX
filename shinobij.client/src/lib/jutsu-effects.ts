@@ -11,7 +11,7 @@
  * constants/game and the type modules. Extracted from App.tsx (jutsu cluster).
  */
 
-import { poisonCapForRank, tagMatchesName } from "./tags";
+import { isBuffTileJutsu, poisonCapForRank, SELF_GROUND_EFFECT_AP, tagMatchesName } from "./tags";
 import { loneDisciplineBonusFromPotency, loneGeneralBonusFromPotency } from "./stat-effect-potency";
 import { isRecurringGroundZone, POISON_SPEND_FACTOR, scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
 import { interpolateJutsuPercentages } from "../../../shared/jutsu-description";
@@ -20,7 +20,16 @@ import { TEMPO_AP_SWING } from "./combat-action-display";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType } from "../types/core";
 
-export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: JutsuType) {
+// What a buff tile gives whoever stands on it, at the tag's percent.
+const BUFF_TILE_EFFECTS: Readonly<Record<string, (pct: string) => string>> = {
+    "Absorb": (pct) => `converts ${pct} of incoming post-shield damage into healing`,
+    "Lifesteal": (pct) => `heals for ${pct} of the damage they deal`,
+    "Reflect": (pct) => `reflects ${pct} of post-shield damage back at attackers`,
+    "Decrease Damage Taken": (pct) => `takes ${pct} less damage`,
+    "Increase Heal": (pct) => `gets ${pct} more jutsu healing`,
+};
+
+export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, _lensDiscipline?: JutsuType) {
     const pct = tag.percent > 0 ? tag.percent : 30;
     const effectPower = jutsu.effectPower;
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
@@ -29,12 +38,23 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     const zoneOrNextRound = (rounds: number) => recurringGroundZone
         ? "While inside the zone"
         : nextRound(rounds);
-    // Display-only lens (Profile discipline dropdown). For tags that key off
-    // the player's OWN outgoing damage, name the chosen discipline so it's
-    // clear what's being modified (e.g. "Taijutsu damage given"). Trailing
-    // space so `${disc}damage` reads naturally with or without a lens. Tags
-    // that describe the enemy's damage or incoming damage stay neutral.
-    const disc = lensDiscipline && lensDiscipline !== "Any" ? `${lensDiscipline} ` : "";
+    // Keep the optional display lens for existing callers, but describe combat
+    // effects from the jutsu itself. A player's selected discipline does not
+    // change the applying hit or restrict effects that work across attack types.
+
+    // A 40-AP buff tile: the effect lives on the chosen hex, for whoever stands on it.
+    const tileEffect = BUFF_TILE_EFFECTS[tag.name];
+    if (tileEffect && Number(jutsu.ap) === SELF_GROUND_EFFECT_AP && isBuffTileJutsu({ method: jutsu.method, tags: [tag] })) {
+        return {
+            summary: `Buff tile: whoever stands on it ${tileEffect(`${pct}%`)}.`,
+            rule: "Lasts 2 rounds. Anyone standing on the tile gains it at once and loses it on stepping off. Buff Prevent blocks it.",
+            duration: "While standing on the tile",
+            value: `${pct}%`,
+        };
+    }
+    if (tag.name === "Move" && Number(jutsu.ap) === SELF_GROUND_EFFECT_AP && isBuffTileJutsu(jutsu)) {
+        return { summary: "Dash onto the hex you choose; that hex becomes the buff tile.", rule: "The selected tile must be open and in range. You land on it and gain its buff at once.", duration: "Instant", value: "Dash" };
+    }
 
     if (tag.name === "Damage") return { summary: `Deals damage at ${effectPower}% effect power.`, rule: "Uses the jutsu offense type against the target's matching defense, then applies weather, terrain, bloodline, armor, and status modifiers.", duration: "Instant", value: `${effectPower}% EP` };
     if (tag.name === "Heal") return { summary: "Immediately restores up to 750 HP to the user, scaling with mastery.", rule: "Resolves on cast. A damaging jutsu keeps its hit and heals on top; a 40 AP utility still deals no direct damage. Existing Increase Heal can raise the result above 750. Buff Prevent does not block direct healing.", duration: "Instant", value: "Up to 750 HP" };
@@ -45,11 +65,11 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     if (tag.name === "Increase Damage Taken") return { summary: "Makes the target take more damage from your attacks.", rule: "Queues a negative status for the next combat round. It raises damage from all offense types but cannot amplify the cast that applies it.", duration: nextRound(2), value: `${pct}%` };
     if (tag.name === "Decrease Damage Taken") return { summary: "Reduces your damage taken from every offense type.", rule: "Queues a positive status for the next combat round that lowers incoming damage from every offense type.", duration: nextRound(2), value: `${pct}%` };
     if (tag.name === "Absorb") return { summary: `Converts ${pct}% of incoming post-shield damage into healing.`, rule: "Queues a positive status for the next combat round. Buff Prevent can block it; Pierce bypasses it. Stacked Absorb is capped at 60% of the final hit.", duration: nextRound(2), value: `${pct}%` };
-    if (tag.name === "Siphon") return { summary: `Heals the user for ${pct}% of the ${disc}damage dealt.`, rule: "Triggers after damage. Instant heal based on final damage.", duration: "Instant after hit", value: `${pct}%` };
-    if (tag.name === "Lifesteal") return { summary: `During the next 2 rounds, every damaging attack heals you for ${pct}% of the ${disc}damage dealt.`, rule: "Queues a positive status on the caster. It can trigger on multiple attacks per round; stacked Lifesteal is capped at 60% of final damage.", duration: nextRound(2), value: `${pct}%` };
+    if (tag.name === "Siphon") return { summary: `Heals the user for ${pct}% of the damage this hit deals.`, rule: "Triggers after damage. Instant heal based on final damage.", duration: "Instant after hit", value: `${pct}%` };
+    if (tag.name === "Lifesteal") return { summary: `During the next 2 rounds, every damaging attack heals you for ${pct}% of the damage it deals, regardless of offense type.`, rule: "Queues a positive status on the caster. It can trigger on multiple attacks per round; stacked Lifesteal is capped at 60% of final damage.", duration: nextRound(2), value: `${pct}%` };
     if (tag.name === "Reflect") return { summary: `Reflects ${pct}% of post-shield damage back at attackers.`, rule: "Queues a positive status for the next combat round. Buff Prevent can block it; Pierce bypasses it. Stacked Reflect is capped at 60% of the final hit.", duration: nextRound(2), value: `${pct}%` };
     if (tag.name === "Recoil") return { summary: `Makes the target take self-damage equal to ${pct}% of the damage their attacks deal, subject to the recoil cap.`, rule: recurringGroundZone ? "A caught target suffers recoil on attacks made during that turn; the zone refreshes it at each target-turn start spent inside." : "Queues a negative status for the next combat round. The target then suffers capped self-damage whenever their attack deals damage.", duration: zoneOrNextRound(2), value: `${pct}%` };
-    if (tag.name === "Wound") return { summary: `Causes bleeding equal to ${pct}% of the damage this hit caused, once per round for 2 rounds starting next round.`, rule: `Ticks at the end of the target's turn in Solo/PvP, or at round end in Towers. Each tick is the capped share of the post-shield ${disc}damage the applying hit dealt; armor does not reduce it again. Cleanse removes Wound before it ticks. At most 2 stacks can be active.`, duration: nextRound(2), value: `${pct}%` };
+    if (tag.name === "Wound") return { summary: `Causes bleeding equal to ${pct}% of the damage this hit caused, once per round for 2 rounds starting next round.`, rule: "Ticks at the end of the target's turn in Solo/PvP, or at round end in Towers. Each tick is the capped share of the post-shield damage the applying hit dealt; armor does not reduce it again. Cleanse removes Wound before it ticks. At most 2 stacks can be active.", duration: nextRound(2), value: `${pct}%` };
     if (tagMatchesName(tag.name, "Ignition")) return { summary: "Applies Ignition, which strengthens later hits against the target for 2 rounds.", rule: "Queues a stackable negative status. It joins Increase Damage Given and Increase Damage Taken in the shared diminishing-returns amplification pool; it cannot amplify the cast that applies it.", duration: nextRound(2), value: `${pct}%` };
     if (tag.name === "Stun") return { summary: `Removes ${STUN_AP_PENALTY} AP from the target's turn in the next combat round.`, rule: "Queues the penalty unless Stun Prevent or Debuff Prevent blocks it. It does not skip the turn, and it cannot reduce AP during the cast round.", duration: "Target turn next round", value: `-${STUN_AP_PENALTY} AP` };
     if (tag.name === "Bloodline Seal" || tag.name === "Seal") return { summary: "Seals the target's bloodline and suppresses its combat bonuses.", rule: "Applies immediately unless Debuff Prevent blocks it. While active, the bloodline multiplier is 1.0 and Increase Generals/Discipline bonuses are suppressed; it does not prevent jutsu use.", duration: "Instant · 2 rounds", value: "No bloodline bonus" };
@@ -160,6 +180,15 @@ export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: stri
                 detail: "The user moves to a chosen tile, then the surrounding ring takes the jutsu's direct hit. It does not create a persistent zone.",
             };
         case "INSTANT_EFFECT":
+            if (isBuffTileJutsu(jutsu)) {
+                const dashes = (jutsu.tags ?? []).some((tag) => tagMatchesName(tag.name, "Move"));
+                return {
+                    short: "Buff Tile",
+                    detail: dashes
+                        ? "The user dashes onto a chosen open tile, which becomes a 2-round buff tile. Anyone standing on it gains its effects."
+                        : "Turns one chosen tile, including the user's own, into a 2-round buff tile. Anyone standing on it gains its effects.",
+                };
+            }
             return {
                 short: "AOE Ground",
                 detail: `Creates a persistent 2-round zone across every tile in the user's jutsu range. Choose a highlighted ground tile to cast it.${openingHit}`,

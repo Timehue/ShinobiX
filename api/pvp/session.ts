@@ -60,6 +60,7 @@ import {
 } from './_clan-war-authorization.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
+import { legacySignatureMasteryLevel } from '../../shared/legacy-signature.js';
 import { legacyEnabled, LEGACY_PVP_RECEIPT_TTL_SECONDS } from '../_legacy-track.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses, derivePveBonuses, buildItemLookup } from './_multipliers.js';
 import { namedGearFitsEquipSlot } from '../../shared/named-gear-rules.js';
@@ -176,6 +177,8 @@ export type PvpGroundEffect = {
     id: string;
     owner: 'p1' | 'p2';
     name: string;
+    /** 'occupant' = a 40-AP buff tile for whoever stands on it; absent = hostile field. */
+    kind?: 'occupant';
     tiles: number[];
     rounds: number;
     /** First round in which the zone may reapply after its one cast-time hit. */
@@ -1521,11 +1524,11 @@ export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknow
     // equipped by the player, so no regular jutsu (and no other Legacy's
     // signature) can be placed in it by any means. Written only by
     // api/legacy/sage.ts / trial.ts / admin; the save sanitizer discards client
-    // legacy writes, so there is no equip field to spoof: reach Stage 3 (Bound)
+    // legacy writes, so there is no equip field to spoof: reach Stage 2 (Awakened)
     // and the signature joins the sealed loadout; lose the Legacy and it's gone.
     // Resolved from the SEPARATE legacy catalog — these ids never resolve out of
     // equippedJutsuIds, so a tampered save can't put one inside the 15 or claim
-    // another Legacy's signature. Mastery is the legacy stage ×10 (3→30, 4→40,
+    // another Legacy's signature. Mastery is the legacy stage ×10 (2→20, 3→30, 4→40,
     // 5→50): signatures deepen with the Legacy, never via the training grind.
     //
     // BALANCE (owner-documented, intentional): this is a strictly-additive slot
@@ -1548,7 +1551,7 @@ export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknow
         const stage = Number(lg?.stage);
         const jutsuId = typeof lg?.legacyId === 'string' ? LEGACY_JUTSU_ID_BY_LEGACY[lg.legacyId] : undefined;
         const entry = jutsuId ? LEGACY_JUTSU_CATALOG[jutsuId] : undefined;
-        if (entry && Number.isInteger(stage) && stage >= 3) {
+        if (entry && legacySignatureMasteryLevel(stage) > 0) {
             // Legacy signatures intentionally bind non-style damage to the
             // owner's trained specialty. Player-authored "Any" casts remain
             // adaptive in the shared formula; this older prestige convention is
@@ -1561,7 +1564,7 @@ export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknow
             merged.jutsu = [...withoutDupe, ...sanitizeJutsuList([stamped])];
             // Stage-scaled mastery, overriding any stray save-side entry for the id.
             const mastery = (merged.jutsuMastery as Array<{ jutsuId: string; level: number }>).filter((m) => m.jutsuId !== entry.id);
-            mastery.push({ jutsuId: entry.id, level: Math.min(50, stage * 10) });
+            mastery.push({ jutsuId: entry.id, level: legacySignatureMasteryLevel(stage) });
             merged.jutsuMastery = mastery;
         }
     }

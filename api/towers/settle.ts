@@ -21,8 +21,8 @@ import {
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { closeTowerPartyRun, towerPartyHumanMembers, type StoredTowerParty } from './_party.js';
 import type { TowerSession } from './_tower-session.js';
-import { extractTowerLegacyDeltas } from '../_legacy-pve.js';
-import { bumpLegacyStats } from '../_legacy-track.js';
+import { extractTowerLegacyDeltas, extractTowerLegacyProgress } from '../_legacy-pve.js';
+import { bumpLegacyStats, acknowledgeLegacyCombatReceipt } from '../_legacy-track.js';
 import { recordTowerRunSettled } from './_telemetry.js';
 import { recordTowerCombatUsage } from '../_combat-usage.js';
 import { refreshTowerBattleLeases, releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
@@ -125,9 +125,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const reward = results[slug];
             if (!a.ai && (reward.paid || reward.reason === 'already-paid' || reward.reason === 'already-first-cleared') && session.winner === 'squad') {
                 const record = await kv.get<Record<string, unknown>>(`save:${slug}`);
-                if (!(await bumpLegacyStats(slug, extractTowerLegacyDeltas(session, slug), {
+                if (!(await bumpLegacyStats(slug, { ...extractTowerLegacyDeltas(session, slug), ...extractTowerLegacyProgress(session) }, {
                     characterForBootstrap: record?.character as Record<string, unknown> | undefined,
                     receiptId: `tower-combat:${session.runId}:${slug}`,
+                    durableReceipt: true,
+                    sourceSettled: async () => {
+                        const source = await readSession(runId);
+                        if (!source) throw new Error('Legacy Tower source is unavailable.');
+                        return source.rewardSettlementState === 'settled';
+                    },
                 }))) results[slug] = { ...reward, reason: 'legacy-delivery-pending' };
             }
         }
@@ -158,6 +164,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         let closedParty: StoredTowerParty | null = null;
         if (authoritativeSession.status === 'done' && authoritativeSession.rewardSettlementState === 'settled') {
+            for (const actor of authoritativeSession.actors.filter(a => a.side === 'squad' && !a.ai && a.ownerSlug)) {
+                await acknowledgeLegacyCombatReceipt(actor.ownerSlug!, `tower-combat:${runId}:${actor.ownerSlug}`);
+            }
             const towerPartyId = (authoritativeSession as PartyBoundSession).towerPartyId;
             if (towerPartyId) closedParty = await closeTowerPartyRun(towerPartyId, authoritativeSession.runId).catch(() => null);
             await releaseTowerBattleLeases(runId, leaseMembers).catch(() => undefined);

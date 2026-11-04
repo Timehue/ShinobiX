@@ -79,6 +79,10 @@ before(async () => {
     return "OK";
   };
   kv.compareSet = async (key: string, expected: unknown | null, value: unknown) => {
+    if (key.startsWith("legacy:stats:") && failLegacyWrites > 0) {
+      failLegacyWrites -= 1;
+      throw new Error("injected Legacy write outage");
+    }
     const current = store.has(key) ? clone(store.get(key)) : null;
     if (!isDeepStrictEqual(current, expected)) return false;
     store.set(key, clone(value));

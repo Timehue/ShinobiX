@@ -1,7 +1,7 @@
 /*
  * Legacy progression core — trial derivation and the character.legacy shape.
  *
- * Trials are derived mechanically from a legacy's category + rarity as
+ * Trials are authored per identity and scaled by rarity and stage as
  * FRESH-DELTA objectives over the server-owned counters (api/_legacy-track.ts):
  * "prove it again, under our eyes". Because the counters only move through
  * server settle endpoints, a trial needs no mint-token of its own — the sealed
@@ -10,11 +10,12 @@
  *
  * NOTE: unlike the ELIGIBILITY floors (runtime-tunable via the shared:legacy-defs
  * overlay — see _legacy-score.ts getLegacyOverlay), these trial deltas are code
- * constants (RARITY_FACTOR / KIND_FACTOR / TRIAL_TEMPLATES below). Retuning trial
+ * constants in _legacy-trial-paths.ts. Retuning trial
  * difficulty currently requires a deploy. A future `overlay.trials.deltaScale`
  * could make it runtime-tunable; it is deliberately not wired yet.
  */
-import type { LegacyCategory, LegacyDef, LegacyRarity, LegacyStatKey } from './_legacy-defs.js';
+import type { LegacyCategory, LegacyDef, LegacyStatKey } from './_legacy-defs.js';
+import { individualTrialObjectives } from './_legacy-trial-paths.js';
 
 export type TrialKind = 'awaken' | 'bind' | 'prove' | 'mythic';
 // stage 1→2 (Awakened), 2→3 (Bound), 3→4 (Proven), 4→5 (Mythic)
@@ -104,140 +105,11 @@ export function legacyTrialReceiptId(trial: Pick<LegacyTrial, 'id' | 'legacyId' 
         || `${trial.legacyId}:${trial.kind}:${Math.max(0, Math.floor(trial.startedAt))}:${Math.max(1, Math.floor(trial.attempt))}`;
 }
 
-/** Per-category trial templates: the stat(s) a trial re-proves, with the delta
- *  a BASIC-rarity awaken trial demands. Rarity and stage scale from here. */
-// Every template stat here MUST have a live server-side write path (enforced
-// by the dead-stat lint in _legacy-defs.test.ts) — a trial objective over a
-// stat nothing increments would strand the player at their current stage
-// FOREVER, because a legacy can never be exchanged (verification finding).
-// Two primary variants per category. Variant 0 is the canonical proof; variant
-// 1 is an equivalent-effort alternate — the "reroll" a stuck or bored player
-// can ask for (attempt++, fresh baselines, so rerolling is never a shortcut).
-const TRIAL_TEMPLATES: Record<LegacyCategory, ReadonlyArray<ReadonlyArray<TrialObjective>>> = {
-    ninjutsu: [
-        [{ stat: 'ninjutsuKills', delta: 12 }],
-        [{ stat: 'ninjutsuDamage', delta: 9000 }],
-    ],
-    genjutsu: [
-        [{ stat: 'genjutsuKills', delta: 12 }],
-        [{ stat: 'genjutsuDamage', delta: 7000 }],
-    ],
-    taijutsu: [
-        [{ stat: 'taijutsuKills', delta: 12 }],
-        [{ stat: 'taijutsuDamage', delta: 8000 }],
-    ],
-    bukijutsu: [
-        [{ stat: 'bukijutsuKills', delta: 12 }],
-        [{ stat: 'bukijutsuDamage', delta: 8000 }],
-    ],
-    pvp: [
-        [{ stat: 'pvpWins', delta: 6 }],
-        [{ stat: 'pvpKills', delta: 8 }],
-    ],
-    pve: [
-        [{ stat: 'missionCompletions', delta: 10 }, { stat: 'pveKills', delta: 40 }],
-        [{ stat: 'huntCompletions', delta: 6 }, { stat: 'eliteKills', delta: 10 }],
-    ],
-    village: [
-        [{ stat: 'villageDonations', delta: 5000 }, { stat: 'warContribution', delta: 3000 }],
-        // NOTE: no missionCompletions here — it is village's BIND_SECONDARY,
-        // and a shared stat would be deduped out of the v1 bind trial, leaving
-        // it shape-identical to awaken (verification finding).
-        [{ stat: 'villageDonations', delta: 8000 }, { stat: 'sectorDefenses', delta: 1 }],
-    ],
-    support: [
-        [{ stat: 'healingDone', delta: 15_000 }],
-        [{ stat: 'shieldsApplied', delta: 20 }],
-    ],
-    explorer: [
-        [{ stat: 'sectorDiscoveries', delta: 3 }, { stat: 'wandererQuests', delta: 2 }],
-        [{ stat: 'hiddenFinds', delta: 1 }, { stat: 'wandererQuests', delta: 3 }],
-    ],
-    pets: [
-        [{ stat: 'petExpeditions', delta: 6 }],
-        [{ stat: 'petExpeditions', delta: 4 }, { stat: 'huntCompletions', delta: 3 }],
-    ],
-    cards: [
-        [{ stat: 'cardClashWins', delta: 8 }],
-        [{ stat: 'cardClashWins', delta: 6 }, { stat: 'missionCompletions', delta: 6 }],
-    ],
-    war: [
-        [{ stat: 'warContribution', delta: 4500 }],
-        [{ stat: 'raidsCompleted', delta: 8 }],
-    ],
-    mythic: [
-        [{ stat: 'missionCompletions', delta: 12 }, { stat: 'pvpWins', delta: 6 }],
-        [{ stat: 'eliteKills', delta: 12 }, { stat: 'pvpWins', delta: 5 }],
-    ],
-};
-
+/** Both identity-owned routes use fresh deltas from live, repeatable deeds. */
 export const TRIAL_VARIANT_COUNT = 2;
 
-// Per-kind mechanical signatures (design: each stage must FEEL different, not
-// just cost more — depth-audit finding). Bind adds a cross-category secondary
-// ("bind your path to the wider world"); Prove adds a discipline proof from
-// the path's own school; the Mythic trial is the culmination and carries both.
-const BIND_SECONDARIES: Record<LegacyCategory, TrialObjective> = {
-    ninjutsu: { stat: 'missionCompletions', delta: 8 },
-    genjutsu: { stat: 'sectorDiscoveries', delta: 2 },
-    taijutsu: { stat: 'huntCompletions', delta: 4 },
-    bukijutsu: { stat: 'pveKills', delta: 30 },
-    pvp: { stat: 'cardClashWins', delta: 3 },
-    pve: { stat: 'sectorDiscoveries', delta: 2 },
-    village: { stat: 'missionCompletions', delta: 8 },
-    support: { stat: 'missionCompletions', delta: 8 },
-    explorer: { stat: 'huntCompletions', delta: 4 },
-    pets: { stat: 'wandererQuests', delta: 2 },
-    cards: { stat: 'pvpWins', delta: 2 },
-    war: { stat: 'pvpWins', delta: 3 },
-    mythic: { stat: 'hollowGateClears', delta: 2 },
-};
-const PROVE_EXTRAS: Record<LegacyCategory, TrialObjective> = {
-    ninjutsu: { stat: 'eliteKills', delta: 8 },
-    genjutsu: { stat: 'defensiveWins', delta: 3 },
-    taijutsu: { stat: 'damageBlocked', delta: 6000 },
-    bukijutsu: { stat: 'sameRankWins', delta: 2 },
-    pvp: { stat: 'sameRankWins', delta: 3 },
-    pve: { stat: 'dungeonClears', delta: 2 },
-    village: { stat: 'defensiveWins', delta: 3 },
-    support: { stat: 'damageBlocked', delta: 10_000 },
-    explorer: { stat: 'pveKills', delta: 30 },
-    pets: { stat: 'eliteKills', delta: 6 },
-    cards: { stat: 'sameRankWins', delta: 2 },
-    war: { stat: 'warPvpKills', delta: 4 },
-    mythic: { stat: 'bossContribution', delta: 40_000 },
-};
-
-const RARITY_FACTOR: Record<LegacyRarity, number> = { basic: 1, rare: 1.75, legendary: 3, mythic: 4.5 };
-const KIND_FACTOR: Record<TrialKind, number> = { awaken: 1, bind: 1.5, prove: 2.5, mythic: 4 };
-// Secondaries scale gentler than the primary — they add BREADTH to a stage,
-// not a second mountain (the primary already carries the kind's full weight).
-const SECONDARY_KIND_FACTOR: Record<TrialKind, number> = { awaken: 0, bind: 1, prove: 1.25, mythic: 1.75 };
-
 export function trialObjectivesFor(def: LegacyDef, kind: TrialKind, variant = 0): TrialObjective[] {
-    const requiresPvp = def.reqs.some((r) => 'stat' in r ? PVP_TRIAL_STATS.has(r.stat) : r.anyOf.every((part) => PVP_TRIAL_STATS.has(part.stat)));
-    const factor = RARITY_FACTOR[def.rarity] * KIND_FACTOR[kind];
-    const templates = TRIAL_TEMPLATES[def.category];
-    const primary = templates[((variant % templates.length) + templates.length) % templates.length];
-    const out: TrialObjective[] = primary.map((t) => ({
-        stat: !requiresPvp && t.stat === 'sectorDefenses' ? 'raidsCompleted' : t.stat,
-        delta: Math.max(1, Math.round(t.delta * factor)),
-    }));
-    const secondaryFactor = RARITY_FACTOR[def.rarity] * SECONDARY_KIND_FACTOR[kind];
-    const addSecondary = (o: TrialObjective) => {
-        if (out.some((existing) => existing.stat === o.stat)) return;
-        out.push({ stat: o.stat, delta: Math.max(1, Math.round(o.delta * secondaryFactor)) });
-    };
-    const themeProof = (objective: TrialObjective): TrialObjective => {
-        if (requiresPvp || !PVP_TRIAL_STATS.has(objective.stat)) return objective;
-        if (def.category === 'cards') return objective.stat === 'pvpWins'
-            ? { stat: 'wandererQuests', delta: 2 } : { stat: 'huntCompletions', delta: 3 };
-        if (def.category === 'war' && objective.stat === 'pvpWins') return { stat: 'missionCompletions', delta: 6 };
-        return { stat: 'eliteKills', delta: 6 };
-    };
-    if (kind === 'bind' || kind === 'mythic') addSecondary(themeProof(BIND_SECONDARIES[def.category]));
-    if (kind === 'prove' || kind === 'mythic') addSecondary(themeProof(PROVE_EXTRAS[def.category]));
-    return out;
+    return individualTrialObjectives(def, kind, variant);
 }
 
 const PVP_TRIAL_STATS = new Set<LegacyStatKey>(['pvpWins', 'pvpKills', 'rankedWins', 'higherLevelWins', 'sameRankWins', 'comebackWins', 'bestKillStreak', 'defensiveWins', 'sectorDefenses', 'warPvpKills']);
@@ -249,6 +121,12 @@ export function legacyTrialActivities(def: LegacyDef): string[] {
         for (let variant = 0; variant < TRIAL_VARIANT_COUNT; variant++) {
             for (const { stat } of trialObjectivesFor(def, kind, variant)) {
                 families.add(PVP_TRIAL_STATS.has(stat) ? 'player battles'
+                    : stat === 'towerClears' || stat === 'towerCleanClears' || stat === 'towerParClears' || stat === 'towerMechanicClears' ? 'Battle Towers'
+                    : stat === 'riftQuests' ? 'Rift quests'
+                    : stat === 'gatheringClaims' ? 'gathering, Fishing and Mining'
+                    : stat === 'craftsCompleted' ? 'item forging'
+                    : stat === 'professionActions' ? 'profession work'
+                    : stat === 'clanBossOperations' ? 'Clan Boss operations'
                     : stat === 'dungeonClears' || stat === 'hollowGateClears' ? 'dungeons'
                     : stat === 'cardClashWins' ? 'Card Clash'
                     : stat === 'petExpeditions' ? 'pet expeditions'

@@ -39,7 +39,8 @@ async function deliverPetExpeditionLegacy(
     character?: Record<string, unknown> | null,
 ): Promise<boolean> {
     if (!expeditionReceipt) return true;
-    return bumpLegacyStats(playerName, { petExpeditions: 1 }, {
+    return bumpLegacyStats(playerName, { petExpeditions: 1,
+        ...(character?.profession === 'petTamer' ? { professionActions: 1 } : {}) }, {
         receiptId: `pet-expedition:${expeditionReceipt}`,
         characterForBootstrap: character ?? null,
     });

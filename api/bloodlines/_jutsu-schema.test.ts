@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { normalizePlayerBloodlineJutsus } from './_jutsu-schema.js';
@@ -334,4 +334,83 @@ test('a previously shortened instant field reaches its fourth hex ring', () => {
     assert.equal(plan.range, 4);
     assert.equal(plan.footprint.length, 61);
     assert.equal(plan.hitsOpponent, true);
+});
+
+describe('40 AP buff tiles (self ground effects)', () => {
+    const base = {
+        id: 'buff-tile', name: 'Golden Ground', type: 'Ninjutsu', element: 'Fire',
+        range: 4, effectPower: 0, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+    };
+
+    test('a 40 AP Instant Effect keeps its buff tags and puts Move first', () => {
+        const [jutsu] = normalizePlayerBloodlineJutsus([{
+            ...base, ap: 40,
+            tags: [{ name: 'Absorb', percent: 30 }, { name: 'Move', percent: 0 }, { name: 'Reflect', percent: 25 }],
+        }], 'A Rank');
+        assert.equal(jutsu?.method, 'INSTANT_EFFECT');
+        assert.equal(jutsu?.target, 'EMPTY_GROUND');
+        assert.equal(jutsu?.ap, 40);
+        assert.deepEqual(jutsu?.tags, [
+            { name: 'Move', percent: 0 },
+            { name: 'Absorb', percent: 30 },
+            { name: 'Reflect', percent: 25 },
+        ]);
+        assert.deepEqual(normalizePlayerBloodlineJutsus([jutsu], 'A Rank'), [jutsu], 'round-trip stable');
+    });
+
+    test('a 60 AP jutsu can never store a buff tile', () => {
+        const [buffOnly] = normalizePlayerBloodlineJutsus([{
+            ...base, ap: 60, effectPower: 40, tags: [{ name: 'Move', percent: 0 }, { name: 'Absorb', percent: 30 }],
+        }], 'A Rank');
+        assert.equal(buffOnly?.method, 'SINGLE');
+        assert.equal(buffOnly?.tags.length, 0);
+        const [mixed] = normalizePlayerBloodlineJutsus([{
+            ...base, ap: 60, effectPower: 40, tags: [{ name: 'Absorb', percent: 30 }, { name: 'Poison', percent: 30 }],
+        }], 'A Rank');
+        assert.equal(mixed?.method, 'INSTANT_EFFECT');
+        assert.deepEqual(mixed?.tags.map((tag) => tag.name), ['Poison']);
+    });
+
+    test('the first ground tag picks the family; the other family is dropped', () => {
+        const [buff] = normalizePlayerBloodlineJutsus([{
+            ...base, ap: 40, tags: [{ name: 'Lifesteal', percent: 30 }, { name: 'Poison', percent: 30 }],
+        }], 'A Rank');
+        assert.deepEqual(buff?.tags.map((tag) => tag.name), ['Lifesteal']);
+        const [field] = normalizePlayerBloodlineJutsus([{
+            ...base, ap: 40, tags: [{ name: 'Recoil', percent: 30 }, { name: 'Move', percent: 0 }, { name: 'Lifesteal', percent: 30 }],
+        }], 'A Rank');
+        assert.deepEqual(field?.tags.map((tag) => tag.name), ['Recoil']);
+    });
+
+    test('Move alone becomes an ordinary dash, and other methods drop buff-tile intent', () => {
+        const [dash] = normalizePlayerBloodlineJutsus([{ ...base, ap: 40, tags: [{ name: 'Move', percent: 0 }] }], 'A Rank');
+        assert.equal(dash?.method, 'SINGLE');
+        const [spiral] = normalizePlayerBloodlineJutsus([{
+            ...base, ap: 60, effectPower: 40, method: 'AOE_SPIRAL', tags: [{ name: 'Move', percent: 0 }, { name: 'Absorb', percent: 30 }],
+        }], 'A Rank');
+        assert.equal(spiral?.tags.some((tag) => tag.name === 'Absorb'), false);
+    });
+
+    test('costs the same points as an enemy Instant Effect field', () => {
+        const [buff] = normalizePlayerBloodlineJutsus([{ ...base, ap: 40, tags: [{ name: 'Absorb', percent: 30 }] }], 'A Rank');
+        const [field] = normalizePlayerBloodlineJutsus([{ ...base, id: 'field', ap: 40, tags: [{ name: 'Decrease Damage Given', percent: 30 }] }], 'A Rank');
+        assert.equal(bloodlinePoints([buff!], 'A Rank'), 2.75);
+        assert.equal(bloodlinePoints([buff!], 'A Rank'), bloodlinePoints([field!], 'A Rank'));
+        const [dashing] = normalizePlayerBloodlineJutsus([{ ...base, ap: 40, tags: [{ name: 'Move', percent: 0 }, { name: 'Absorb', percent: 30 }] }], 'A Rank');
+        assert.equal(bloodlinePoints([dashing!], 'A Rank'), 3.25);
+    });
+
+    test('a sealed buff tile plans as a single-hex occupant tile', () => {
+        const [jutsu] = normalizePlayerBloodlineJutsus([{ ...base, ap: 40, tags: [{ name: 'Decrease Damage Taken', percent: 30 }] }], 'A Rank');
+        const plan = resolveJutsuActionPlan({
+            jutsu: { id: 'bt', name: 'Golden Ground', type: 'Any', target: String(jutsu!.target), method: String(jutsu!.method), range: Number(jutsu!.range), ap: Number(jutsu!.ap), tags: jutsu!.tags },
+            casterPos: 26, opponentPos: 40, tile: 28,
+            casterChakra: 100, casterStamina: 100, casterStatuses: [],
+            round: 1, availableAp: 100, actionsThisTurn: 0, cooldownRemaining: 0,
+            board: { width: 12, height: 10, unavailableTiles: new Set<number>() },
+        });
+        assert.ok(plan.accepted);
+        assert.equal(plan.groundKind, 'occupant');
+        assert.deepEqual(plan.footprint, [28]);
+    });
 });

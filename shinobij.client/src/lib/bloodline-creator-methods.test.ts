@@ -5,6 +5,10 @@ import {
     bloodlineCreatorMethodForTags,
     bloodlineCreatorRangeForTarget,
     bloodlineCreatorTargetForMethod,
+    instantEffectCreatorTags,
+    instantEffectFamily,
+    instantEffectOfferedTags,
+    instantEffectTagBlockReason,
     normalizeBloodlineCreatorMethodTags,
 } from "./bloodline-creator-methods";
 
@@ -89,5 +93,33 @@ describe("player bloodline method/tag reachability", () => {
             ap: 40,
             tags: [{ name: "Mirror" }],
         }), "SELF");
+    });
+});
+
+describe("Instant Effect buff tiles (40 AP only)", () => {
+    it("keeps buff tags with Move first at 40 AP and strips them at 60 AP", () => {
+        const tags = [{ name: "Absorb", percent: 30 }, { name: "Move", percent: 0 }, { name: "Reflect", percent: 30 }];
+        assert.deepEqual(instantEffectCreatorTags(tags, 40).map((tag) => tag.name), ["Move", "Absorb", "Reflect"]);
+        assert.deepEqual(instantEffectCreatorTags(tags, 60), []);
+    });
+
+    it("lets the first ground tag pick the family and never mixes the two", () => {
+        assert.equal(instantEffectFamily([{ name: "Lifesteal" }, { name: "Poison" }]), "buff-tile");
+        assert.equal(instantEffectFamily([{ name: "Recoil" }, { name: "Absorb" }]), "enemy-field");
+        assert.deepEqual(instantEffectCreatorTags([{ name: "Recoil", percent: 30 }, { name: "Absorb", percent: 30 }], 40).map((tag) => tag.name), ["Recoil"]);
+    });
+
+    it("offers buff tags and Move only at 40 AP", () => {
+        assert.ok(instantEffectOfferedTags(40).includes("Increase Heal"));
+        assert.ok(instantEffectOfferedTags(40).includes("Move"));
+        assert.deepEqual(instantEffectOfferedTags(60), ["Decrease Damage Given", "Recoil", "Poison"]);
+    });
+
+    it("names why a tag is greyed out in the picker", () => {
+        assert.equal(instantEffectTagBlockReason("Absorb", ["Poison"]), "enemy field");
+        assert.equal(instantEffectTagBlockReason("Poison", ["Absorb"]), "buff tile");
+        assert.equal(instantEffectTagBlockReason("Move", []), "needs a buff tag");
+        assert.equal(instantEffectTagBlockReason("Move", ["Absorb"]), null);
+        assert.equal(instantEffectTagBlockReason("Reflect", ["Absorb"]), null);
     });
 });

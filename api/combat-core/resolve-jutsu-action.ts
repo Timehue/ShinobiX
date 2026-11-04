@@ -5,7 +5,13 @@ import { hexDistance, hexNeighbors } from './grid.js';
 import { adjustedApCost } from './resources.js';
 import { activeCombatStatuses } from './statuses.js';
 import type { CombatJutsu, CombatStatus, CombatTag } from './types.js';
-import { canonicalTagName, GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS } from '../pvp/_tags.js';
+import {
+    canonicalTagName,
+    GROUND_EFFECT_TAGS,
+    OPPONENT_AFFECTING_TAGS,
+    SELF_GROUND_EFFECT_AP,
+    SELF_GROUND_EFFECT_TAGS,
+} from '../pvp/_tags.js';
 import { canonicalJutsuMethod, canonicalJutsuTagNames } from './jutsu-vfx.js';
 
 export type JutsuActionRejectionCode =
@@ -18,7 +24,18 @@ export type JutsuActionRejectionCode =
     | 'out-of-range'
     | 'invalid-move-target'
     | 'invalid-ground-target'
-    | 'ground-effect-needs-supported-tag';
+    | 'ground-effect-needs-supported-tag'
+    | 'self-ground-effect-40-ap-only';
+
+/**
+ * `hostile` zones affect the caster's opponents; an `occupant` buff tile
+ * affects whoever stands on it. A zone stored before kinds existed is hostile.
+ */
+export type GroundEffectKind = 'hostile' | 'occupant';
+
+export function groundEffectKind(effect: { kind?: unknown } | null | undefined): GroundEffectKind {
+    return effect?.kind === 'occupant' ? 'occupant' : 'hostile';
+}
 
 export type JutsuActionBoard = {
     width: number;
@@ -46,6 +63,7 @@ export type JutsuActionPlan = {
     footprint: number[];
     hitsOpponent: boolean;
     createsGroundEffect: boolean;
+    groundKind: GroundEffectKind;
     groundTags: CombatTag[];
 };
 
@@ -84,6 +102,22 @@ export function canonicalGroundTags(tags: readonly CombatTag[] | undefined): Com
         .filter((tag) => GROUND_EFFECT_TAGS.has(tag.name));
 }
 
+export function canonicalOccupantGroundTags(tags: readonly CombatTag[] | undefined): CombatTag[] {
+    return (tags ?? [])
+        .map((tag) => ({ ...tag, name: canonicalTagName(tag.name) }))
+        .filter((tag) => SELF_GROUND_EFFECT_TAGS.has(tag.name));
+}
+
+/**
+ * A buff tile: an INSTANT_EFFECT that carries only buff-tile tags (plus an
+ * optional Move). Any hostile field tag keeps the jutsu a hostile field.
+ */
+export function isOccupantGroundJutsu(jutsu: Pick<CombatJutsu, 'method' | 'tags'>): boolean {
+    return canonicalJutsuMethod(jutsu.method) === 'INSTANT_EFFECT'
+        && canonicalOccupantGroundTags(jutsu.tags).length > 0
+        && canonicalGroundTags(jutsu.tags).length === 0;
+}
+
 /**
  * The direct hit a damaging field lands once on each enemy inside it on cast, or
  * null for a status-only field (no power, or a 40-AP utility cast). Field tags
@@ -100,7 +134,7 @@ export function groundFieldOpeningHit<T extends Pick<CombatJutsu, 'id' | 'ap' | 
         target: 'OPPONENT',
         tags: (jutsu.tags ?? []).filter((tag) => {
             const name = canonicalTagName(tag.name);
-            return name !== 'Move' && !GROUND_EFFECT_TAGS.has(name);
+            return name !== 'Move' && !GROUND_EFFECT_TAGS.has(name) && !SELF_GROUND_EFFECT_TAGS.has(name);
         }),
     };
 }
@@ -145,6 +179,13 @@ export function resolveJutsuActionPlan(input: ResolveJutsuActionPlanInput): Reso
     const range = Math.max(move || groundTarget ? 1 : 0, Number(jutsu.range) || 4);
     const targetTile = input.tile === undefined ? undefined : Math.floor(input.tile);
 
+    // Buff tiles are a 40-AP-only creator option. The player schema already
+    // strips them from heavier jutsu; refusing here keeps a forged or legacy
+    // definition from casting one.
+    const occupantTile = (move || groundTarget) && isOccupantGroundJutsu(jutsu);
+    if (occupantTile && apCost !== SELF_GROUND_EFFECT_AP) {
+        return { accepted: false, rejection: 'self-ground-effect-40-ap-only' };
+    }
     if ((move || groundTarget) && targetTile === undefined) {
         return { accepted: false, rejection: 'target-tile-required' };
     }
@@ -156,25 +197,32 @@ export function resolveJutsuActionPlan(input: ResolveJutsuActionPlanInput): Reso
         const valid = targetTile >= 0
             && targetTile < board.width * board.height
             && hexDistance(input.casterPos, targetTile, board.width) <= range
-            && targetTile !== input.casterPos
+            // A buff tile without Move may be laid under the caster's own feet.
+            && (targetTile !== input.casterPos || (occupantTile && !move))
             && !board.unavailableTiles.has(targetTile);
         if (!valid) return { accepted: false, rejection: move ? 'invalid-move-target' : 'invalid-ground-target' };
     }
 
-    const groundTags = canonicalGroundTags(jutsu.tags);
+    const groundKind: GroundEffectKind = occupantTile ? 'occupant' : 'hostile';
+    const groundTags = occupantTile ? canonicalOccupantGroundTags(jutsu.tags) : canonicalGroundTags(jutsu.tags);
     // Preserve the live PvP contract: a movement spiral creates a zone, while
     // an ordinary movement cast owns relocation only. Empty-ground instant and
-    // spiral casts both create zones.
-    const createsGroundEffect = (move && method === 'AOE_SPIRAL')
+    // spiral casts both create zones, and a buff tile is laid with or without
+    // the Move that lands its caster on it.
+    const createsGroundEffect = occupantTile
+        || (move && method === 'AOE_SPIRAL')
         || (groundTarget && (method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL'));
     if (createsGroundEffect && groundTags.length === 0) {
         return { accepted: false, rejection: 'ground-effect-needs-supported-tag' };
     }
 
     // Instant ground fields fill the range already shown around the caster;
-    // their selected open tile confirms the cast without moving the field.
+    // their selected open tile confirms the cast without moving the field. A
+    // buff tile is exactly the selected hex (the landing hex with Move).
     const footprint = targetTile === undefined
         ? []
+        : occupantTile
+            ? [targetTile]
         : method === 'AOE_SPIRAL'
             ? filledDiskTiles(targetTile, SPIRAL_RADIUS, board.width, board.height)
             : groundTarget && method === 'INSTANT_EFFECT'
@@ -182,7 +230,9 @@ export function resolveJutsuActionPlan(input: ResolveJutsuActionPlanInput): Reso
             : method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT'
                 ? [targetTile, ...hexNeighbors(targetTile, board.width, board.height)]
                 : [targetTile];
-    const hitsOpponent = targetTile === undefined
+    const hitsOpponent = occupantTile
+        ? false
+        : targetTile === undefined
         ? !selfTarget && affectsOpponent
         : method === 'AOE_CIRCLE'
             ? footprint.includes(input.opponentPos) && input.opponentPos !== targetTile
@@ -209,6 +259,7 @@ export function resolveJutsuActionPlan(input: ResolveJutsuActionPlanInput): Reso
         footprint,
         hitsOpponent,
         createsGroundEffect,
+        groundKind,
         groundTags,
     };
 }
@@ -220,12 +271,14 @@ export function createCanonicalGroundEffect<TOwner extends string>(input: {
     plan: JutsuActionPlan;
     /** The casting jutsu's bloodline rank; the zone's Poison is capped by it. */
     bloodlineRank?: string | null;
-}): { id: string; owner: TOwner; name: string; tiles: number[]; rounds: number; bloodlineRank?: string; tags: CombatTag[] } {
+}): { id: string; owner: TOwner; name: string; kind?: 'occupant'; tiles: number[]; rounds: number; bloodlineRank?: string; tags: CombatTag[] } {
     if (!input.plan.createsGroundEffect) throw new Error('Jutsu action plan does not create a ground effect.');
     return {
         id: input.id,
         owner: input.owner,
         name: input.name,
+        // Hostile zones stay unstamped so their stored shape is unchanged.
+        ...(input.plan.groundKind === 'occupant' ? { kind: 'occupant' as const } : {}),
         tiles: [...input.plan.footprint],
         rounds: 2,
         ...(input.bloodlineRank ? { bloodlineRank: input.bloodlineRank } : {}),

@@ -18,6 +18,7 @@ const require = createRequire(import.meta.url);
 const server = require('../api/pvp/_tags.ts');
 const playerSchema = require('../api/bloodlines/_jutsu-schema.ts');
 const client = require('../shinobij.client/src/lib/tags.ts');
+const clientJutsuData = require('../shinobij.client/src/data/jutsu.ts');
 
 const sorted = (xs) => [...xs].sort();
 
@@ -43,6 +44,15 @@ describe('PvP tag parity (server ⇄ client)', () => {
 
     it('the opponent-affecting tag set matches (drives client/server targeting parity)', () => {
         assert.deepEqual(sorted(server.OPPONENT_AFFECTING_TAGS), sorted(client.opponentAffectingTags));
+    });
+
+    it('the hostile ground-field and buff-tile tag sets match the builder lists', () => {
+        assert.deepEqual(sorted(server.GROUND_EFFECT_TAGS), sorted(clientJutsuData.instantEffectGroundTags));
+        assert.deepEqual(sorted(server.SELF_GROUND_EFFECT_TAGS), sorted(clientJutsuData.selfGroundEffectTags));
+        assert.equal(server.SELF_GROUND_EFFECT_AP, clientJutsuData.SELF_GROUND_EFFECT_AP);
+        for (const name of server.SELF_GROUND_EFFECT_TAGS) {
+            assert.ok(!server.GROUND_EFFECT_TAGS.has(name), `${name} cannot be in both ground families`);
+        }
     });
 
     it('every tag the bloodline builder can offer is a known server tag', () => {

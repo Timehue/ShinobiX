@@ -65,6 +65,8 @@ import { pvpSessionHp } from '../api/pvp/_low-level-hp.js';
 import {
     applyDoTs,
     applyGroundEffectToFighter,
+    reconcileGroundStatuses,
+    settleOccupantGroundStatuses,
     applyJutsu,
     catalogWeaponFlatTags,
     poisonSpendDamage,
@@ -966,7 +968,7 @@ function targetTilePlan(
         const result = resolveJutsuActionPlan({ ...baseInput, tile });
         if (!result.accepted) continue;
         const score = (result.hitsOpponent ? 10_000 : 0)
-            + (result.createsGroundEffect && result.footprint.includes(opponent.pos) ? 8_000 : 0)
+            + (result.createsGroundEffect && result.groundKind === 'hostile' && result.footprint.includes(opponent.pos) ? 8_000 : 0)
             - hexDistance(tile, opponent.pos) * 100
             - hexDistance(self.pos, tile);
         if (!best || score > best.score) best = { plan: result, score };
@@ -1262,7 +1264,7 @@ function jutsuScore(
     // inside it. The first pulse is resolved through the live helper above; this
     // modest continuation value prevents the policy from treating a legal zone
     // as a one-shot effect without inventing synthetic status behavior.
-    if (plan.createsGroundEffect && score > 0) score *= 1.25;
+    if (plan.createsGroundEffect && plan.groundKind === 'hostile' && score > 0) score *= 1.25;
     if (plan.move && plan.targetTile !== undefined) {
         const beforeDistance = hexDistance(self.pos, opponent.pos);
         const afterDistance = hexDistance(plan.targetTile, opponent.pos);
@@ -1615,6 +1617,7 @@ function executeJutsu(
     }
     state[seat] = self;
     state[opponentSeat] = opponent;
+    settleBuffTiles(state);
     if (plan.cooldown > 0) state.cooldowns[seat][jutsu.id] = plan.cooldown;
     const groundNames = new Set(plan.createsGroundEffect
         ? plan.groundTags.map((tag) => canonicalTagName(tag.name))
@@ -1674,8 +1677,16 @@ function executeAction(state: BattleState, seat: Seat, action: SimAction): numbe
         }
         case 'move':
             state[seat] = { ...self, pos: action.tile };
+            settleBuffTiles(state);
             increment(state.actionCounts, 'move');
             return action.apCost;
+    }
+}
+
+/** Live buff-tile occupancy (api/pvp/move.ts): leaving drops the buff, standing on a tile grants it. */
+function settleBuffTiles(state: BattleState): void {
+    for (const seat of ['p1', 'p2'] as const) {
+        state[seat] = settleOccupantGroundStatuses(reconcileGroundStatuses(state[seat], state.groundEffects, seat), state.groundEffects, state.round).fighter;
     }
 }
 
@@ -1689,6 +1700,7 @@ function startTurn(state: BattleState, seat: Seat): number {
         recordGroundPulseResolution(state, effect, pulse.lines);
     }
     fighter = moveQueuedFighter(fighter, state[opponentSeat], state.round);
+    fighter = settleOccupantGroundStatuses(reconcileGroundStatuses(fighter, state.groundEffects, seat), state.groundEffects, state.round).fighter;
     fighter = applyDoTs(fighter, state.round).fighter;
     if (COMBAT_RESOURCES_V2) {
         const regen = v2ResourceRegen(Number(fighter.character.level ?? 1));

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { extractSoloPveLegacyDeltas, extractTowerLegacyDeltas } from './_legacy-pve.js';
+import { extractSoloPveLegacyDeltas, extractTowerLegacyDeltas, extractTowerLegacyProgress } from './_legacy-pve.js';
+import { createTowerSession } from './towers/_tower-session.js';
 import { projectAuthoritativeCombatEvent, type CombatProjectionSnapshot } from './combat-core/events.js';
 import { extractPvpLegacyDeltas } from './_legacy-pvp.js';
 import { applyJutsu } from './pvp/move.js';
@@ -10,6 +11,20 @@ import type { TowerSession } from './towers/_tower-session.js';
 import { createSoloPveSession } from './solo-pve/_session.js';
 import { applySoloPveAction } from './solo-pve/_engine.js';
 import { appendSoloPveCombatEvent } from './solo-pve/_legacy-totals.js';
+
+test('repeatable low-floor Tower clears distinguish clean, par and mechanic performance', () => {
+    const s = createTowerSession({ towerId: 'celestial', runId: 'legacy-low-floor', floor: 1, seed: 1, partySize: 1, now: 1,
+        map: { width: 16, height: 10, blockedTiles: [], hazardTiles: [], objectiveTiles: [] },
+        actors: [{ id: 'sq', side: 'squad', name: 'Rill', ai: false, ownerSlug: 'rill', hp: 100, maxHp: 100,
+            chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100, shield: 0, statuses: [], cooldowns: {}, pos: 0, character: { level: 50 } }],
+        objectiveKind: 'defeat-all' });
+    s.status = 'done'; s.winner = 'squad'; s.round = 2;
+    s.towerTactics = { version: 1, disruptedPylons: [1], chargeBaits: 0, avoidedStrikes: 0, squadKnockouts: [] };
+    assert.deepEqual(extractTowerLegacyProgress(s), { towerClears: 1, towerCleanClears: 1, towerParClears: 1, towerMechanicClears: 1 });
+    s.towerTactics.squadKnockouts = ['sq']; s.towerTactics.disruptedPylons = []; s.round = 100;
+    assert.deepEqual(extractTowerLegacyProgress(s), { towerClears: 1 });
+    s.winner = 'enemy'; assert.deepEqual(extractTowerLegacyProgress(s), {});
+});
 
 test('solo PvE uses applied HP, shield and damage facts, excluding overheal and companion damage', () => {
     const before: CombatProjectionSnapshot = {

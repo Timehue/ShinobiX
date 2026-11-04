@@ -795,6 +795,15 @@ html body.ui-scroll-locked {
     padding: var(--sp-3);
   }
 
+  /* A phone dialog is a bottom sheet that may grow to just under the status
+     bar. It used to stop at 92dvh (and some sheets at 88dvh), which left a
+     dead band of game above every long popup; the header's close button is
+     the way out, so that band bought nothing. The sliver kept is only enough
+     to read the sheet as sitting over the game. */
+  :root {
+    --phone-sheet-max-height: calc(100dvh - max(10px, env(safe-area-inset-top, 0px) + 6px));
+  }
+
   .ui-modal-backdrop {
     align-items: flex-end;
     padding: 0;
@@ -802,7 +811,7 @@ html body.ui-scroll-locked {
 
   .ui-modal-card {
     max-width: none;
-    max-height: min(92dvh, 860px);
+    max-height: var(--phone-sheet-max-height);
     border-right: 0;
     border-bottom: 0;
     border-left: 0;

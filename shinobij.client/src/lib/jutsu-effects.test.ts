@@ -1,9 +1,11 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { jutsuDetailDescription, jutsuDisplayAtLevel, jutsuEffectInfo, jutsuTargetingLabel } from "./jutsu-effects";
+import { describeJutsuEffects, jutsuDetailDescription, jutsuDisplayAtLevel, jutsuEffectInfo, jutsuTargetingLabel } from "./jutsu-effects";
 import { allTags } from "./tags";
 import { starterJutsus, starterSavedBloodlines } from "../data/jutsu";
 import type { Jutsu, JutsuTag } from "../types/combat";
+import type { JutsuType } from "../types/core";
+import { stampLegacyJutsuType } from "../data/legacy-jutsu";
 
 function jutsu(overrides: Partial<Jutsu> = {}): Jutsu {
     return {
@@ -28,6 +30,68 @@ function info(name: string, overrides: Partial<Jutsu> = {}) {
     const tag: JutsuTag = { name, percent: 30 };
     return jutsuEffectInfo(jutsu({ tags: [tag], ...overrides }), tag);
 }
+
+describe("effect descriptions use combat scope instead of the player's display lens", () => {
+    const disciplines: JutsuType[] = ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu", "Any"];
+
+    it("describes Undertow Fang's applying hit with a Genjutsu player lens", () => {
+        const undertow = starterJutsus.find((entry) => entry.name === "Undertow Fang");
+        assert.ok(undertow, "Undertow Fang must remain in the built-in catalog");
+        const shown = jutsuDisplayAtLevel(undertow, 50);
+        assert.equal(shown.type, "Ninjutsu");
+        assert.equal(shown.element, "Water");
+        assert.equal(shown.ap, 60);
+        assert.equal(shown.tags[0]!.name, "Siphon");
+        assert.equal(jutsuEffectInfo(shown, shown.tags[0]!, "Genjutsu").summary, `Heals the user for ${shown.tags[0]!.percent}% of the damage this hit deals.`);
+        assert.equal(describeJutsuEffects(undertow, 50, "Genjutsu"), describeJutsuEffects(undertow, 50));
+    });
+
+    it("keeps all effect copy independent of every matching, mismatched, Any, and absent player lens", () => {
+        for (const type of disciplines) {
+            for (const name of [...allTags, "Increase Discipline", "Pierce", "Barrier"]) {
+                const tag = { name, percent: 30 };
+                const technique = jutsu({ type, tags: [tag] });
+                for (const lens of [...disciplines, undefined]) {
+                    assert.deepEqual(jutsuEffectInfo(technique, tag, lens), jutsuEffectInfo(technique, tag), `${type}: ${name} with ${lens} lens`);
+                    for (const mastery of [0, 50]) {
+                        assert.equal(describeJutsuEffects(technique, mastery, lens), describeJutsuEffects(technique, mastery), `${type}: ${name} at mastery ${mastery} with ${lens} lens`);
+                    }
+                }
+            }
+        }
+    });
+
+    it("distinguishes hit-based effects from Lifesteal's later attacks", () => {
+        assert.match(info("Siphon").summary, /damage this hit deals/);
+        assert.match(info("Wound").rule, /post-shield damage the applying hit dealt/);
+        assert.match(info("Lifesteal").summary, /every damaging attack.*damage it deals, regardless of offense type/);
+    });
+
+    it("preserves the actual style for Increase Discipline, including Any's lack of a boost", () => {
+        for (const type of disciplines) {
+            const effect = jutsuEffectInfo(jutsu({ type }), { name: "Increase Discipline", percent: 30 }, "Genjutsu");
+            if (type === "Any") {
+                assert.match(effect.summary, /Any-style cast has no discipline to boost/);
+                assert.equal(effect.value, "30% potency");
+            } else {
+                assert.match(effect.summary, new RegExp(`Raises your ${type} offense`));
+                assert.match(effect.value, new RegExp(`\\+1874 ${type}$`));
+            }
+        }
+    });
+
+    it("preserves adaptive signature resolution without inventing a damage-type restriction", () => {
+        const adaptive = jutsu({ type: "Any", tags: [{ name: "Siphon", percent: 30 }, { name: "Wound", percent: 30 }] });
+        for (const specialty of disciplines.filter((type) => type !== "Any")) {
+            const stamped = stampLegacyJutsuType(adaptive, specialty);
+            assert.equal(stamped.type, specialty);
+            assert.equal(adaptive.type, "Any");
+            for (const lens of [...disciplines, undefined]) {
+                assert.equal(describeJutsuEffects(stamped, 50, lens), describeJutsuEffects(adaptive, 50));
+            }
+        }
+    });
+});
 
 describe("player-facing jutsu tag contract", () => {
     it("has an explicit description and activation timing for every live tag", () => {
@@ -234,5 +298,47 @@ describe("jutsuDetailDescription — details-panel prose never shows a battle to
     it("leaves token-free prose exactly as written", () => {
         const text = "The user vanishes and reappears on a nearby open tile.";
         assert.equal(jutsuDetailDescription({ battleDescription: text, target: "EMPTY_GROUND" }), text);
+    });
+});
+
+describe("buff tile effect copy", () => {
+    it("keeps all five occupancy effects and the landing dash independent of a mismatched lens", () => {
+        const styles: JutsuType[] = ["Ninjutsu", "Genjutsu", "Taijutsu", "Bukijutsu", "Any"];
+        for (const name of ["Absorb", "Lifesteal", "Reflect", "Decrease Damage Taken", "Increase Heal"]) {
+            const tag = { name, percent: 30 };
+            const tile = jutsu({ type: "Any", ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [tag] });
+            const expected = jutsuEffectInfo(tile, tag);
+            assert.match(expected.summary, /^Buff tile: whoever stands on it /);
+            assert.equal(expected.duration, "While standing on the tile");
+            assert.match(expected.rule, /loses it on stepping off/);
+            for (const lens of [...styles, undefined]) assert.deepEqual(jutsuEffectInfo(tile, tag, lens), expected);
+        }
+        const move = { name: "Move", percent: 0 };
+        const dash = jutsu({ type: "Any", ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [move, { name: "Lifesteal", percent: 30 }] });
+        for (const lens of [...styles, undefined]) assert.match(jutsuEffectInfo(dash, move, lens).summary, /Dash onto the hex you choose/);
+    });
+
+    it("describes a 40 AP buff tile as the hex's effect for whoever stands on it", () => {
+        const tile = jutsu({ ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [{ name: "Decrease Damage Taken", percent: 30 }] });
+        const info = jutsuEffectInfo(tile, { name: "Decrease Damage Taken", percent: 30 });
+        assert.equal(info.summary, "Buff tile: whoever stands on it takes 30% less damage.");
+        assert.equal(info.duration, "While standing on the tile");
+    });
+
+    it("keeps the normal self-buff copy on a 60 AP jutsu", () => {
+        const direct = jutsu({ ap: 60, target: "SELF", method: "SINGLE", tags: [{ name: "Decrease Damage Taken", percent: 30 }] });
+        assert.equal(jutsuEffectInfo(direct, { name: "Decrease Damage Taken", percent: 30 }).summary, "Reduces your damage taken from every offense type.");
+    });
+});
+
+describe("buff tile targeting label", () => {
+    it("names a buff tile and its dash variant instead of the range field", () => {
+        const tile = jutsu({ ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [{ name: "Absorb", percent: 30 }] });
+        assert.equal(jutsuTargetingLabel(tile).short, "Buff Tile");
+        assert.match(jutsuTargetingLabel(tile).detail, /including the user's own/);
+        const dash = jutsu({ ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [{ name: "Move", percent: 0 }, { name: "Absorb", percent: 30 }] });
+        assert.match(jutsuTargetingLabel(dash).detail, /dashes onto/);
+        const field = jutsu({ ap: 40, target: "EMPTY_GROUND", method: "INSTANT_EFFECT", tags: [{ name: "Poison", percent: 10 }] });
+        assert.equal(jutsuTargetingLabel(field).short, "AOE Ground");
     });
 });

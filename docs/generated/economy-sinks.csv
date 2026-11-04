@@ -180,6 +180,14 @@ craft,consum-cleansing-incense,ryo,1120,per supply craft,shared/craft-fees.ts,"A
 craft,consum-thornmail-oil,ryo,1280,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
 craft,consum-lifeline-elixir,ryo,1440,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
 craft,consum-second-wind,ryo,1600,per supply craft,shared/craft-fees.ts,"A quarter of the shop price of one batch, or a fixed fee where the shop does not sell it."
+keeper-workshop,beast-seal-master,ryo,8000,per keeper craft,shared/craft-fees.ts,"A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+keeper-workshop,consum-cleansing-incense,ryo,896,per keeper craft,shared/craft-fees.ts,"A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+keeper-workshop,consum-lifeline-elixir,ryo,1152,per keeper craft,shared/craft-fees.ts,"A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+keeper-workshop,consum-phantom-charm,ryo,768,per keeper craft,shared/craft-fees.ts,"A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+keeper-workshop,consum-smoke-pellet,ryo,480,per keeper craft,shared/craft-fees.ts,"A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+keeper-workshop,elemental-pet-treat,ryo,1000,per keeper craft,shared/craft-fees.ts,"A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+keeper-workshop,pet-treat,ryo,320,per keeper craft,shared/craft-fees.ts,"A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
+keeper-workshop,village-supply-bundle,ryo,30,per keeper craft,shared/craft-fees.ts,"A fifth of the shop price of one batch, or the same fixed fee the Crafter charges."
 kage,declare-challenge,ryo,400000,per challenge,api/village/_kage-challenge.ts,
 shrine,communal-offering,ryo,10-250000,per offering,shared/shrines.ts,Pure sink; no payout.
 war,declare-war,warResources,800,per declaration,api/_war-economy.ts,

@@ -507,5 +507,5 @@ export const builtInJutsuIds: ReadonlySet<string> = new Set([
 export const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
 export const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL", "AOE_BURST"];
 export const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL", "AOE_BURST"];
-export const instantEffectGroundTags = ["Decrease Damage Given", "Recoil", "Poison"];
+export { instantEffectGroundTags, selfGroundEffectTags, SELF_GROUND_EFFECT_AP } from "../lib/tags";
 export const fortyApBlockedBloodlineTags = ["Pierce", "Siphon", "Mirror", "Copy", "Wound"];

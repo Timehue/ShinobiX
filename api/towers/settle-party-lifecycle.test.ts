@@ -91,7 +91,7 @@ async function settle(runId: string): Promise<ResponseOut> {
 describe('Tower party settlement lifecycle', { concurrency: false }, () => {
     it('credits each human caster through real settlement and holds recovery leases until Legacy delivery succeeds', async () => {
         const previousFlag = process.env.ENABLE_LEGACY;
-        const originalSet = kv.set;
+        const originalSet = kv.compareSet;
         process.env.ENABLE_LEGACY = '1';
         const runId = 'tower-legacy-caster-recovery';
         try {
@@ -112,16 +112,16 @@ describe('Tower party settlement lifecycle', { concurrency: false }, () => {
             ];
             await writeSession(session);
             let fail = true;
-            kv.set = async (key, value, options) => {
-                if (fail && key === 'legacy:stats:alice') { fail = false; return null; }
-                return originalSet(key, value, options);
+            kv.compareSet = async (key, expected, value, options) => {
+                if (fail && key === 'legacy:stats:alice') { fail = false; return false; }
+                return originalSet(key, expected, value, options);
             };
             const partial = await settle(runId);
             assert.equal(partial.statusCode, 200);
             assert.equal(partial.body?.settled, false);
             assert.notEqual(await kv.get('battle-lock:host'), null);
             assert.notEqual(await kv.get('battle-lock:alice'), null);
-            kv.set = originalSet;
+            kv.compareSet = originalSet;
             const recovered = await settle(runId);
             assert.equal(recovered.statusCode, 200);
             assert.equal(recovered.body?.settled, true);
@@ -142,7 +142,7 @@ describe('Tower party settlement lifecycle', { concurrency: false }, () => {
             assert.deepEqual(await kv.get('legacy:stats:host'), host);
             assert.deepEqual(await kv.get('legacy:stats:alice'), alice);
         } finally {
-            kv.set = originalSet;
+            kv.compareSet = originalSet;
             if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
             else process.env.ENABLE_LEGACY = previousFlag;
         }
