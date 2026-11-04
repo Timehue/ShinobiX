@@ -3181,6 +3181,10 @@
     background: linear-gradient(160deg, #111a2b, #050a16 72%);
     color: #e8edf5;
 }
+@media (max-width: 800px) {
+    /* Phone: the same full-width bottom sheet as every other dialog. */
+    .ui-modal-card.jutsu-loadout-info-modal { width: 100%; max-height: var(--phone-sheet-max-height); }
+}
 .jutsu-loadout-info-modal > .ui-modal-body { overflow-y: auto; overscroll-behavior: contain; }
 .jutsu-loadout-info-modal .jutsu-detail-hero { width: min(150px, 46vw); margin-inline: auto; }
 .jutsu-loadout-info-modal .jutsu-detail-title { display: flex; }
