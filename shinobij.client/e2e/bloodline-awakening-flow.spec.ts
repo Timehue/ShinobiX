@@ -56,6 +56,13 @@ for (const tier of ranks) {
         await expectUiAuditBoot(page, runtime, "centralHub");
         await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
         if (tier.rank === "B Rank") await expect(page.locator(".aw-forge-card.rank-b .aw-forge-material")).toContainText("100 Bone Charms");
+        // Hold the real ceremony's exit while verifying the B/A shortcut paths.
+        // S Rank still covers normal completion with real timers.
+        if (tier.rank !== "S Rank") {
+            const now = Date.now();
+            await page.clock.install({ time: new Date(now) });
+            await page.clock.pauseAt(new Date(now + 1000));
+        }
         await page.locator(`.aw-forge-card.rank-${tier.rank[0].toLowerCase()} button`).click();
         const ritual = page.getByRole("dialog", { name: `${tier.rank} Attuned` });
         await expect(ritual).toBeVisible();
@@ -64,6 +71,10 @@ for (const tier of ranks) {
         await expect.poll(() => ritual.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(768);
         if (tier.rank === "B Rank") await ritual.getByRole("button", { name: "Skip to builder" }).click();
         else if (tier.rank === "A Rank") await page.keyboard.press("Escape");
+        if (tier.rank !== "S Rank") {
+            await page.clock.fastForward(4500);
+            await page.clock.resume();
+        }
         await expect(page.locator('.app-shell[data-screen="bloodlineMaker"]')).toBeVisible();
         await expect(ritual).toHaveCount(0);
         expect(requests).toBe(1);
