@@ -83,21 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: `Travel to Sector ${position.currentSector} to join the team queue.` });
         }
         if (!identity.admin && isIncapacitated(character)) return res.status(409).json({ error: 'Recover before joining the world boss team.' });
-        if (await findTowerBattleStartConflict([playerSlug])) return res.status(409).json({ error: 'Finish your current battle before joining the queue.' });
 
-        const pointer = await readWorldBossPlayerPointer(event.eventId, playerSlug);
-        if (pointer?.status === 'preparing' || pointer?.status === 'active') {
-            const pointedMatch = pointer.matchId ? await readWorldBossMatch(event.eventId, pointer.matchId) : null;
-            if (pointedMatch?.status === 'preparing' || pointedMatch?.status === 'active') {
-                return res.status(409).json({ error: 'Your current world boss team is still active.' });
-            }
-            await writeWorldBossPlayerPointer(event.eventId, playerSlug, {
-                ...(pointer.matchId ? { matchId: pointer.matchId } : {}),
-                status: pointedMatch?.status === 'cancelled' ? 'cancelled' : 'settled',
-                updatedAt: now,
-                ...(pointedMatch?.error ? { error: pointedMatch.error } : {}),
-            });
-        }
         const ticketId = `wbt_${playerSlug}_${now.toString(36)}`;
         const hostLoadout = safeLoadout(body.hostLoadout);
         const ticket: WorldBossQueueTicket = {
@@ -123,6 +109,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const freshPresence = onlineStore.get(playerSlug);
             if (freshPresence?.pendingAttacker) return { ok: false as const, status: 409, reason: 'Resolve your current PvP engagement before joining the world boss queue.' };
             if (freshPresence?.inBattle) return { ok: false as const, status: 409, reason: 'Finish your current battle before joining the world boss queue.' };
+            // Another worker may just have released a completed raid's lease.
+            // Check current authority under the lock, rather than a cached preflight.
+            if (await findTowerBattleStartConflict([playerSlug])) return { ok: false as const, status: 409, reason: 'Finish your current battle before joining the queue.' };
             const pvpPointer = await loadPvpPendingSessionPointer(kv, playerSlug);
             if (pvpPointer?.phase === 'reserving' && (pvpPointer.reservedUntil ?? 0) > now) {
                 return { ok: false as const, status: 409, reason: 'Finish starting your PvP battle before joining the world boss queue.' };
@@ -144,6 +133,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 return withKvLock(queueKey, async () => {
                     const queue = await readWorldBossQueue(event.eventId);
+                    // Formation uses this same lock. An earlier preflight can
+                    // become stale while a concurrent poll forms this team.
+                    const pointer = await readWorldBossPlayerPointer(event.eventId, playerSlug);
+                    if (pointer?.matchId && (pointer.status === 'preparing' || pointer.status === 'active')) {
+                        const pointed = await readWorldBossMatch(event.eventId, pointer.matchId);
+                        if (pointed?.status === 'preparing' || pointed?.status === 'active') {
+                            return { ok: false as const, status: 409, reason: 'Your current world boss team is still active.' };
+                        }
+                    }
                     const existing = queue.tickets.find(entry => entry.slug === playerSlug);
                     if (existing) {
                         await writeWorldBossPlayerPointer(event.eventId, playerSlug, {

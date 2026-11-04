@@ -528,7 +528,14 @@ export function applyOccupantGroundEffect(fighter: PvpFighter, effect: PvpGround
         // Two rounds so a round-end status tick never drops it between settles;
         // every settle resets it, and reconcileGroundStatuses removes it the
         // moment the fighter leaves the tile or the tile expires.
-        next = addGroundStatus(next, { name: tagName, rounds: 2, percent: pct, kind: 'positive' }, effect.id);
+        next = addGroundStatus(next, {
+            name: tagName, rounds: 2, percent: pct, kind: 'positive',
+            // Copy sealed raid ownership from the field that actually creates this
+            // status. Same-round recasts can share an ID on different tiles.
+            ...(Object.hasOwn(effect, 'worldBossOwnerSlug') ? {
+                worldBossOwnerSlug: (effect as PvpGroundEffect & { worldBossOwnerSlug?: string | null }).worldBossOwnerSlug ?? null,
+            } : {}),
+        }, effect.id);
         if (!held) lines.push(`${effect.name}: ${line(next.name, pct)}`);
     }
     return { fighter: next, lines };
@@ -1054,7 +1061,9 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
 //   9. lifesteal (status)     attacker heal from finalDmg
 // All post-damage effects are capped at 60% of finalDmg via cappedPostDamage().
 // Pierce skips shield/reflect/absorb (true damage). Reordering changes outcomes.
-function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round: number, masteryLevel: number, damage: number, pierce: boolean, healBoost: number): { s: PvpFighter; o: PvpFighter; lines: string[]; fx: HitFxEvent[] } {
+export type ReactiveDamage = { kind: 'reflect' | 'itemReflect' | 'recoil'; damage: number; statuses: readonly PvpStatus[] };
+
+function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round: number, masteryLevel: number, damage: number, pierce: boolean, healBoost: number, onReactiveDamage?: (event: ReactiveDamage) => void): { s: PvpFighter; o: PvpFighter; lines: string[]; fx: HitFxEvent[] } {
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
     const fx: HitFxEvent[] = [];
@@ -1101,8 +1110,12 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
     if (finalDmg > 0) { lines.push(`${finalDmg} damage to ${o.name}.`); pushFx(fx, 'opp', finalDmg, 'damage'); }
     if (appliedAbsorb > 0) { lines.push(`${o.name} restores ${appliedAbsorb} HP through Absorb.`); pushFx(fx, 'opp', appliedAbsorb, 'heal'); }
     if (appliedItemAbsorb > 0) { lines.push(`${o.name}'s armor restores ${appliedItemAbsorb} HP through Absorb.`); pushFx(fx, 'opp', appliedItemAbsorb, 'heal'); }
+    const hpBeforeReflect = s.hp;
     if (reflectedDmg > 0) { s = damageCombatHealth(s, reflectedDmg); lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`); pushFx(fx, 'self', reflectedDmg, 'damage'); }
+    if (s.hp < hpBeforeReflect) onReactiveDamage?.({ kind: 'reflect', damage: hpBeforeReflect - s.hp, statuses: activeStatuses(o, round).filter(status => status.name === 'Reflect') });
+    const hpBeforeItemReflect = s.hp;
     if (itemReflectedDmg > 0) { s = damageCombatHealth(s, itemReflectedDmg); lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`); pushFx(fx, 'self', itemReflectedDmg, 'damage'); }
+    if (s.hp < hpBeforeItemReflect) onReactiveDamage?.({ kind: 'itemReflect', damage: hpBeforeItemReflect - s.hp, statuses: [] });
     const appliedItemLifeSteal = Math.min(itemLifeStealHeal, Math.max(0, s.maxHp - s.hp));
     if (appliedItemLifeSteal > 0) { s = { ...s, hp: s.hp + appliedItemLifeSteal }; lines.push(`${s.name}'s armor restores ${appliedItemLifeSteal} HP through Lifesteal.`); pushFx(fx, 'self', appliedItemLifeSteal, 'heal'); }
 
@@ -1141,7 +1154,9 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
         .filter((status) => nameMatches(status.name, 'Recoil'))
         .reduce<PvpStatus | undefined>((strongest, status) =>
             !strongest || (status.percent ?? 30) > (strongest.percent ?? 30) ? status : strongest, undefined);
+    const hpBeforeRecoil = s.hp;
     if (recoilStatus && finalDmg > 0) { const rc = postDamagePercentAmount(finalDmg, recoilStatus.percent ?? 30); s = damageCombatHealth(s, rc); lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`); pushFx(fx, 'self', rc, 'damage'); }
+    if (recoilStatus && s.hp < hpBeforeRecoil) onReactiveDamage?.({ kind: 'recoil', damage: hpBeforeRecoil - s.hp, statuses: [recoilStatus] });
 
     // Sum all active Lifesteal stacks' percents (capped at 60% by
     // cappedPostDamage), matching PvE — was first-stack-only (.find).
@@ -1169,7 +1184,7 @@ const pvpResolveJutsuPhases = {
 // Exported for the Lifesteal/tag-lifecycle regression test (_lifesteal.test.ts)
 // and the characterization snapshot (_applyjutsu-characterization.test.ts), which
 // pin the "lingering tags don't fire on the cast turn" behaviour + exact numbers.
-export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central', round = 1, damageCap?: number): { self: PvpFighter; opponent: PvpFighter; lines: string[]; fx: HitFxEvent[]; metadata: ResolveJutsuMetadata } {
+export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central', round = 1, damageCap?: number, onReactiveDamage?: (event: ReactiveDamage) => void): { self: PvpFighter; opponent: PvpFighter; lines: string[]; fx: HitFxEvent[]; metadata: ResolveJutsuMetadata } {
     // Normalize legacy/forged over-cap rows before either fighter participates
     // in damage or support resolution; otherwise one old oversized shield could
     // still absorb a full hit before checkWinner repaired it after the action.
@@ -1218,6 +1233,7 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
         damageCap,
         phases: {
             ...pvpResolveJutsuPhases,
+            resolvePostDamage: (...args) => resolvePostDamage(...args, onReactiveDamage),
             applyShield: (fighter, amount) => timeShieldGain(
                 pvpResolveJutsuPhases.applyShield(fighter, amount), fighter.shield, round,
             ),
@@ -1254,7 +1270,7 @@ function ownDotMitigation(f: PvpFighter, round: number): number {
 // ceiling, which covers a Poison sealed onto a fighter before the rank caps
 // existed. Shared by PvP, solo PvE and Battle Towers. 0 when v2 is off, the
 // fighter is not poisoned, or the cast was free.
-export function poisonSpendDamage(fighter: PvpFighter, spend: number, round: number): number {
+export function poisonSpendDamage(fighter: PvpFighter, spend: number, round: number, onSources?: (statuses: readonly PvpStatus[]) => void): number {
     if (!COMBAT_RESOURCES_V2) return 0;
     const poisons = activeStatuses(fighter, round).filter((status) => nameMatches(status.name, 'Poison'));
     const directPct = poisons.filter((status) => !status.source?.startsWith('ground:'))
@@ -1265,6 +1281,9 @@ export function poisonSpendDamage(fighter: PvpFighter, spend: number, round: num
     if (pct <= 0) return 0;
     const raw = v2PoisonOnSpend(spend, pct);
     if (raw <= 0) return 0;
+    const strongestGround = poisons.filter(status => status.source?.startsWith('ground:'))
+        .reduce<PvpStatus | undefined>((strongest, status) => !strongest || (status.percent ?? POISON_DEFAULT_PCT) > (strongest.percent ?? POISON_DEFAULT_PCT) ? status : strongest, undefined);
+    onSources?.(groundPct > directPct && strongestGround ? [strongestGround] : poisons.filter(status => !status.source?.startsWith('ground:')));
     const mitigation = ownDotMitigation(fighter, round);
     return mitigation <= 0 ? 0 : Math.max(1, Math.floor(raw * mitigation));
 }
@@ -1275,11 +1294,16 @@ export function poisonSpendDamage(fighter: PvpFighter, spend: number, round: num
 // so a ranked 300 Drain landed 238. The legacy Poison tick stays partially mitigated
 // by the holder's own DR pool (armor + DDT stacks), scaled by DR_DOT_SCALE.
 // Exported so Battle Towers' engine can tick Wound/Poison/Drain with identical math.
-export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFighter; lines: string[]; fx: HitFxEvent[]; vfx: RelativeVfxEvent[] } {
+export function applyDoTs(fighter: PvpFighter, round: number, onDamage?: (status: PvpStatus, damage: number) => void): { fighter: PvpFighter; lines: string[]; fx: HitFxEvent[]; vfx: RelativeVfxEvent[] } {
     const lines: string[] = [];
     const fx: HitFxEvent[] = [];
     const vfx: RelativeVfxEvent[] = [];
     let f = { ...fighter };
+    const damageFromStatus = (status: PvpStatus, damage: number) => {
+        const before = f.hp;
+        f = damageCombatHealth(f, damage);
+        onDamage?.(status, Math.max(0, before - f.hp));
+    };
     // Compute own DR pool against incoming Poison.
     const dotMitigation = ownDotMitigation(f, round);
     const mit = (raw: number) => Math.max(0, Math.floor(raw * dotMitigation));
@@ -1297,7 +1321,7 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
     for (const s of activeStatuses(f, round)) {
         if (s.name === 'Wound' && s.amount) {
             const dmg = Math.max(0, Math.floor(s.amount));
-            f = damageCombatHealth(f, dmg);
+            damageFromStatus(s, dmg);
             lines.push(`${f.name} loses ${dmg} HP to Wound.`);
             pushFx(fx, 'self', dmg, 'damage');
             vfx.push(vfxEvent('self', 'wound', 'target', 'minor'));
@@ -1309,7 +1333,7 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
             // instead. Mirrors the PvE engine (Arena.tsx applyDoTs Poison branch).
             const poisonPct = s.percent && s.percent > 0 ? s.percent : 6;
             const dmg = mit(Math.floor(f.maxChakra * (poisonPct / 100)));
-            f = damageCombatHealth(f, dmg);
+            damageFromStatus(s, dmg);
             lines.push(`${f.name} takes ${dmg} Poison damage.`);
             pushFx(fx, 'self', dmg, 'damage');
             vfx.push(vfxEvent('self', 'poisonCloud', 'target', 'minor'));
@@ -1317,7 +1341,9 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
         if (s.name === 'Drain') {
             const amt = Math.max(0, Math.floor(s.amount ?? DRAIN_BASE_TICK));
             const chakraLost = Math.min(f.chakra, amt);
+            const hpBeforeDrain = f.hp;
             f = { ...damageCombatHealth(f, amt), chakra: Math.max(0, f.chakra - amt) };
+            onDamage?.(s, Math.max(0, hpBeforeDrain - f.hp));
             lines.push(`${f.name} loses ${amt} HP and ${chakraLost} chakra to Drain.`);
             pushFx(fx, 'self', amt, 'damage');
             vfx.push(vfxEvent('self', 'drain', 'target', 'minor'));
