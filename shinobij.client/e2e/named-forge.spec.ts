@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { visiblePageSize } from './helpers/visible-page-size';
 import type { NamedRoll } from '../../api/craft/_named';
 
 // The mocked server's spend per roll: a copy of shared/named-forge-materials.ts
@@ -98,7 +99,7 @@ test('weapon pop-out shows the kept roll, stays open, and restores the Crafter',
     await page.waitForTimeout(3400);
     await expect(reveal).toBeVisible();
     const box = await reveal.boundingBox();
-    const viewport = page.viewportSize()!;
+    const viewport = await visiblePageSize(page);
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
     expect(box!.height).toBeLessThanOrEqual(viewport.height);

@@ -4,6 +4,7 @@ import { ASCENSION_STONE_ID, AWAKENING_STONE_ID, evolvePet, evolutionLineFor } f
 import { EVOLUTION_TOTAL_MS } from "../src/lib/pet-evolution-cutscene";
 import { PET_SCENE_RECALL_MAX_WAIT_MS } from "../src/lib/pet-scene-recall";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
+import { visiblePageSize } from "./helpers/visible-page-size";
 
 async function prepare(page: Page) {
     const save = uiAuditSave();
@@ -245,7 +246,9 @@ test("nonzero phone safe areas keep both controls clear in portrait and landscap
     const skip = page.locator(".pet-evo-skip");
     await expectReachable(skip);
     expect((await skip.boundingBox())!.y).toBe(50);
-    expect((await skip.boundingBox())!.x + (await skip.boundingBox())!.width).toBeLessThanOrEqual(350);
+    // The 24px right inset plus the 16px edge gap, from the visible width: a
+    // portrait phone at 85% scale lays out 458 CSS px across, not 390.
+    expect((await skip.boundingBox())!.x + (await skip.boundingBox())!.width).toBeLessThanOrEqual((await visiblePageSize(page)).width - 40);
     await page.setViewportSize({ width: 844, height: 390 });
     await session.send("Emulation.setSafeAreaInsetsOverride", { insets: { top: 0, right: 44, bottom: 21, left: 44 } });
     await expectReachable(skip);

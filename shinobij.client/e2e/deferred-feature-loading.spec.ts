@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { previewRootFor, smokeE2ePort } from "../e2e-ports";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
+import { visiblePageSize } from "./helpers/visible-page-size";
 
 test.beforeEach(({ browserName }, testInfo) => {
     test.skip(browserName !== "chromium" || !["chromium-desktop", "chromium-mobile"].includes(testInfo.project.name), "download ownership runs on desktop and phone");
@@ -41,6 +42,8 @@ test("cinematic story styles load with the reader after a normal village visit",
     await expect(stage).toHaveCSS("z-index", "1000000");
     await expect(stage).toHaveCSS("background-color", "rgb(7, 9, 12)");
     const bounds = await stage.boundingBox();
-    expect(bounds?.width).toBe(page.viewportSize()!.width);
-    expect(bounds?.height).toBe(page.viewportSize()!.height);
+    const visible = await visiblePageSize(page);
+    // The visible size is rounded up; a scaled phone shows 991.16 CSS px.
+    expect(Math.abs(bounds!.width - visible.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(bounds!.height - visible.height)).toBeLessThanOrEqual(1);
 });

@@ -79,6 +79,15 @@ test("the scale is re-checked when the window resizes without rotating", () => {
     assert.match(source, /Math\.min\(window\.screen\.width, window\.screen\.height\)/);
 });
 
+test("nothing rewrites the viewport on a pointer change or caps the zoom", () => {
+    // A pointer-change listener fired just before reload (e2e touch emulation),
+    // set 1.0, and Chrome restored that zoom on the next load. A maximum-scale
+    // cap lifted two frames later zoomed the page to 1.0 by itself.
+    const source = readFileSync(new URL("./mobile-ui-scale.ts", import.meta.url), "utf8");
+    assert.doesNotMatch(source, /\(pointer: coarse\)"\)\.addEventListener/);
+    assert.doesNotMatch(source, /maximum-scale=\$\{/);
+});
+
 test("the pre-module boot script picks the same viewport before the first layout", () => {
     // A phone must never load through a 1.0 viewport: with one, Chrome could
     // restore 1.0 after a reload and leave the 85% layout cut off.

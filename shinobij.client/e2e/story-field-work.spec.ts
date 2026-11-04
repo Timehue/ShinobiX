@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
+import { visiblePageSize } from "./helpers/visible-page-size";
 import { installUiAuditRuntime, uiAuditSave, type UiAuditSave } from "./helpers/ui-audit-runtime";
 
 const QUEST_ID = "story-reckoning-mira-marker";
@@ -27,7 +28,7 @@ async function configureReader(page: Page) {
 async function expectMobileWhisperAboveNavigation(page: Page) {
     const whisper = page.getByRole("status").filter({ hasText: /whisper on the road/i });
     const navigation = page.locator(".mobile-bottom-nav");
-    const viewport = page.viewportSize();
+    const viewport = await visiblePageSize(page);
     expect(viewport).not.toBeNull();
     const compactLandscape = viewport!.width > viewport!.height && viewport!.height <= 480;
     await expect(whisper).toBeVisible();
@@ -91,7 +92,7 @@ async function expectHeadingInView(page: Page, heading: Locator) {
     await expect(heading).toBeVisible();
     const [box, viewport, visibleInsets] = await Promise.all([
         heading.boundingBox(),
-        Promise.resolve(page.viewportSize()),
+        visiblePageSize(page),
         page.evaluate(() => {
             const hud = document.querySelector<HTMLElement>('.mobile-top-hud');
             const content = document.querySelector<HTMLElement>('main.center-game');

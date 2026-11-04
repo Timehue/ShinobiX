@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { visiblePageSize } from './helpers/visible-page-size';
 
 async function setup(page: Page, query = '', failFirstTransfer = false) {
     const purchases: Record<string, unknown>[] = [];
@@ -44,9 +45,9 @@ test('buy, cancel without consumption, reopen, and confirm a new home', async ({
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     const box = (await dialog.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
-    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(box.x + box.width).toBeLessThanOrEqual((await visiblePageSize(page)).width);
     const confirmBox = (await dialog.getByRole('button', { name: 'Transfer to Ashen Leaf Village' }).boundingBox())!;
-    expect(confirmBox.y + confirmBox.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    expect(confirmBox.y + confirmBox.height).toBeLessThanOrEqual((await visiblePageSize(page)).height);
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     expect(transfers).toHaveLength(0);
     await page.getByRole('button', { name: 'Use scroll · Choose village' }).click();

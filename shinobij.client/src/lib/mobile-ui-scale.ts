@@ -72,10 +72,18 @@ export function isWebKitOnlyBrowser(userAgent: string, platform = "", maxTouchPo
     return /AppleWebKit/.test(userAgent) && !/(Chrome|Chromium|Edg|OPR|SamsungBrowser)\//.test(userAgent);
 }
 
+/**
+ * Read once at install. Playwright's touch emulation reports a fine pointer for
+ * a moment around reloads and resizes; re-reading it switched the page to 1.0,
+ * and Chrome then saved and restored that zoom. A phone's pointer type does not
+ * change mid-session, and a mouse plugged in takes effect on the next load.
+ */
+let coarsePointer = false;
+
 function isPortraitPhone(): boolean {
     try {
+        if (!coarsePointer) return false;
         if (isWebKitOnlyBrowser(navigator.userAgent, navigator.platform, navigator.maxTouchPoints)) return false;
-        if (!window.matchMedia("(pointer: coarse)").matches) return false;
         const shortSide = Math.min(window.screen.width, window.screen.height);
         if (!shortSide || shortSide > PHONE_MAX_SHORT_SIDE) return false;
         // Screen orientation, not viewport aspect: an open keyboard shortens the
@@ -94,52 +102,21 @@ function apply(): void {
     const inputs = { portraitPhone: isPortraitPhone(), fullScaleHeld: holds > 0 };
     currentScale = viewportScaleFor(inputs);
     const content = viewportContentFor(inputs);
-    if (meta.getAttribute("content") !== content) meta.setAttribute("content", content);
-}
-
-/** How long after load a scale jump counts as Chrome restoring a zoom. */
-const HISTORY_RESTORE_WINDOW_MS = 2_000;
-
-/**
- * Chrome restores a page's saved zoom from history just after `load` (seen as
- * a 0.85 -> 1.0 jump at readyState "complete" on reload). At 1.0 the 458px
- * phone layout overflows the screen and taps land on the wrong control. A
- * maximum-scale cap clamps the page back to the base scale; the cap is
- * released two frames later so pinch-zoom keeps working.
- */
-function snapToBaseScale(): void {
-    const viewport = window.visualViewport;
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-    if (!viewport || !meta || currentScale === 1 || Math.abs(viewport.scale - currentScale) < 0.02) return;
-    const content = meta.getAttribute("content") ?? "";
-    if (content.includes("maximum-scale")) return;
-    meta.setAttribute("content", `${content}, maximum-scale=${currentScale}`);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (meta.getAttribute("content")?.startsWith(content)) meta.setAttribute("content", content);
-    }));
-}
-
-function guardHistoryZoomRestore(): void {
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-    const until = performance.now() + HISTORY_RESTORE_WINDOW_MS;
-    const onResize = () => {
-        if (performance.now() > until) viewport.removeEventListener("resize", onResize);
-        else snapToBaseScale();
-    };
-    viewport.addEventListener("resize", onResize);
-    snapToBaseScale();
-    // A restore with no resize event left to catch is checked once more.
-    window.setTimeout(() => {
-        viewport.removeEventListener("resize", onResize);
-        snapToBaseScale();
-    }, HISTORY_RESTORE_WINDOW_MS);
+    if (meta.getAttribute("content") === content) return;
+    // Write the meta and nothing else. Two earlier guards made things worse.
+    // A maximum-scale cap lifted two frames later zoomed the page to 1.0 (e2e
+    // timeline: 0.852, cap, release, 1.000 16 ms later). A "zoom is stuck"
+    // fallback misread the moment after a reload, when Chrome briefly restores
+    // a held screen's 1.0, and kept every later menu at 1.0. Chrome follows the
+    // next meta change on its own (e2e/mobile-ui-scale-reload.spec.ts).
+    meta.setAttribute("content", content);
 }
 
 /** Starts phone scaling. Call once at startup, before first paint. */
 export function installMobileUiScale(): void {
     if (installed || typeof document === "undefined") return;
     installed = true;
+    try { coarsePointer = window.matchMedia("(pointer: coarse)").matches; } catch { coarsePointer = false; }
     apply();
     window.screen.orientation?.addEventListener?.("change", apply);
     window.addEventListener("orientationchange", apply);
@@ -148,10 +125,7 @@ export function installMobileUiScale(): void {
     // orientation, never innerWidth, so the resize its own meta write causes
     // settles on the same content instead of looping.
     window.addEventListener("resize", apply, { passive: true });
-    if (document.readyState === "complete") guardHistoryZoomRestore();
-    else window.addEventListener("load", guardHistoryZoomRestore, { once: true });
-    window.addEventListener("pageshow", (event) => { if (event.persisted) guardHistoryZoomRestore(); });
-    try { window.matchMedia("(pointer: coarse)").addEventListener("change", apply); } catch { /* old Safari */ }
+    // Deliberately no `(pointer: coarse)` change listener; see coarsePointer.
 }
 
 /** Keeps the page at full scale until the returned release is called. */

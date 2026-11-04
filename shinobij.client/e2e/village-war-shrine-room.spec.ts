@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { installUiAuditRuntime, expectUiAuditBoot, uiAuditSave } from './helpers/ui-audit-runtime';
 import { expectViewportSafe } from './helpers/adaptive-assertions';
+import { visiblePageSize } from './helpers/visible-page-size';
 import { sectorArtKey } from '../../shared/sector-geo';
 
 // Fixed, not Date.now(): a roaming Legacy Emissary ignores wanderer cooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
@@ -105,7 +106,7 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
     // The underlying continuous-world camera intentionally pans its fixed tile
     // stage past the viewport; the native modal makes that background inert.
     await expectViewportSafe(page, { logicalStages: ['.continuous-world-map'] });
-    const bounds = await dialog.boundingBox(), viewport = page.viewportSize()!;
+    const bounds = await dialog.boundingBox(), viewport = await visiblePageSize(page);
     expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.y).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
     expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);

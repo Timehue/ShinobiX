@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { visiblePageSize } from './helpers/visible-page-size';
 import { installUiAuditRuntime, uiAuditSave, expectUiAuditBoot } from './helpers/ui-audit-runtime';
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 
@@ -34,10 +35,10 @@ test('saved find survives dismissal and refresh; exact choice claims once', asyn
     await expect(dialog.locator('.gather-reward')).toContainText('2 × Iron Sand + 1 × Ember Ore');
     const box=await dialog.boundingBox();
     expect(box).not.toBeNull();expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x+box!.width).toBeLessThanOrEqual(page.viewportSize()!.width+1);
+    expect(box!.x+box!.width).toBeLessThanOrEqual((await visiblePageSize(page)).width+1);
     const collectBox=await dialog.getByRole('button',{name:'Collect this harvest',exact:true}).boundingBox();
     expect(collectBox!.y).toBeGreaterThanOrEqual(0);
-    expect(collectBox!.y+collectBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height+1);
+    expect(collectBox!.y+collectBox!.height).toBeLessThanOrEqual((await visiblePageSize(page)).height+1);
     expect((await dialog.getByRole('radio',{name:/Iron Sand/}).boundingBox())!.width).toBeLessThanOrEqual(22);
     await page.screenshot({path:testInfo.outputPath('the-find-choice.png'),fullPage:true});
     await dialog.getByRole('button',{name:'Collect this harvest',exact:true}).click();

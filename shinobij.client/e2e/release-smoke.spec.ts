@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { visiblePageSize } from './helpers/visible-page-size';
 import { openLandingLogin } from './helpers/landing-navigation';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -95,7 +96,7 @@ test('landing and creator journey render without runtime, image, or responsive f
     await expect(creatorProgress.locator('[aria-current="step"]')).toHaveText('Gate');
     const chooseVillage = page.getByRole('button', { name: 'Choose village' });
     const chooseVillageBox = await chooseVillage.boundingBox();
-    const viewport = page.viewportSize();
+    const viewport = await visiblePageSize(page);
     expect(chooseVillageBox, 'the creator primary action must render').not.toBeNull();
     expect(viewport, 'the release-smoke project must define a viewport').not.toBeNull();
     expect(chooseVillageBox!.y + chooseVillageBox!.height, 'the first creator action must be visible without scrolling')
