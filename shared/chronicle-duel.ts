@@ -283,7 +283,9 @@ export interface ChronicleEffect {
   penaltyElement?: ChronicleElement;
   /** callSummon: the one Monster this Call brings onto the field. */
   calledMonsterId?: string;
-  duration: "instant" | "untilEndTurn" | "whileEquipped" | "whileFieldActive";
+  /** untilOpponentEndTurn: a guard cast on your own turn that still holds
+   * when the opponent attacks, and expires at the end of their next turn. */
+  duration: "instant" | "untilEndTurn" | "untilOpponentEndTurn" | "whileEquipped" | "whileFieldActive";
   originatingActionContinues: boolean;
   order: number;
 }
@@ -1195,7 +1197,7 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
       trigger: "onFlip",
     },
     effectText:
-      "FLIP: Change the highest-ATK face-up opponent Monster to its other battle position. Lock it through the next turn.",
+      "FLIP: Change the highest-ATK face-up opponent Monster to its other battle position. It cannot change its battle position until the end of your opponent's next turn.",
     attackAdjustment: -300,
   },
   "tc-27": {
@@ -1547,7 +1549,7 @@ const REVIEWED_MONSTER_EFFECTS: Readonly<
       trigger: "whileFaceUp",
       amount: 200,
     },
-    effectText: "Other face-up Wind Monsters you control gain 200 ATK.",
+    effectText: "Other face-up Fire Monsters you control gain 200 ATK.",
     attackAdjustment: -200,
     deckLimit: 1,
   },
@@ -1983,13 +1985,13 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "/legacy/jutsu/mountains-descent.webp",
     "A deliberate defensive form rooted like the northern cliffs.",
     "normal",
-    "One face-up Monster gains 500 DEF until the End Phase.",
+    "One face-up Monster gains 500 DEF until the end of your opponent's next turn.",
     {
       kind: "modifyDefenseUntilEndTurn",
       legalController: "owner",
       targetScope: "ownedFaceUpMonster",
       amount: 500,
-      duration: "untilEndTurn",
+      duration: "untilOpponentEndTurn",
       originatingActionContinues: true,
       order: 10,
     },
@@ -2371,13 +2373,13 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "/legacy/jutsu/defiant-rampart.webp",
     "Earth-scripted barricades harden around a chosen defender.",
     "normal",
-    "One face-up Monster gains 800 DEF until the End Phase.",
+    "One face-up Monster gains 800 DEF until the end of your opponent's next turn.",
     {
       kind: "modifyDefenseUntilEndTurn",
       legalController: "owner",
       targetScope: "ownedFaceUpMonster",
       amount: 800,
-      duration: "untilEndTurn",
+      duration: "untilOpponentEndTurn",
       originatingActionContinues: true,
       order: 10,
     },
@@ -2715,13 +2717,13 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     CHRONICLE_PAINTED_ART["chronicle-iron-root-stance"],
     "A shinobi anchors their chakra through the ground and refuses to yield.",
     "normal",
-    "One face-up Monster gains 600 DEF until the End Phase.",
+    "One face-up Monster gains 600 DEF until the end of your opponent's next turn.",
     {
       kind: "modifyDefenseUntilEndTurn",
       legalController: "owner",
       targetScope: "ownedFaceUpMonster",
       amount: 600,
-      duration: "untilEndTurn",
+      duration: "untilOpponentEndTurn",
       originatingActionContinues: true,
       order: 10,
     },
@@ -3643,7 +3645,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Earthen Grave Array",
     CHRONICLE_PAINTED_ART["chronicle-earthen-grave-array"],
     "Stone jaws rise beneath a newly summoned junior combatant.",
-    "When a Level 4 or lower Monster is Summoned: it loses 800 ATK and cannot change its battle position until the End Phase.",
+    "When a Level 4 or lower Monster is Summoned: it loses 800 ATK until the End Phase, and it cannot change its battle position until the end of its controller's next turn.",
     {
       kind: "weakenSummonedMonster",
       legalController: "owner",
@@ -4288,6 +4290,11 @@ export interface ChronicleFieldMonster {
   lastAttackTurn: number;
   temporaryAttack: number;
   temporaryDefense: number;
+  /** DEF from an untilOpponentEndTurn guard. Kept apart from temporaryDefense,
+   * which clears at every End Phase; this clears once turnNumber reaches
+   * lingeringDefenseUntilTurn (the end of the opponent's next turn). */
+  lingeringDefense?: number;
+  lingeringDefenseUntilTurn?: number;
   monsterEffectUsedTurn?: number;
   positionLockedUntilTurn?: number;
   attachedEquipId?: string;
@@ -4622,7 +4629,7 @@ function effectiveAttack(
 function effectiveDefense(monster: ChronicleFieldMonster): number {
   const card = getChronicleCard(monster.cardId);
   if (!card || card.cardClass !== "monster") return 0;
-  return Math.max(0, card.defense + monster.temporaryDefense);
+  return Math.max(0, card.defense + monster.temporaryDefense + (monster.lingeringDefense ?? 0));
 }
 
 export function monsterAttack(
@@ -4839,6 +4846,31 @@ function sendMagicTrapToGrave(
   side.magicTrapZones[zoneIndex] = null;
 }
 
+/**
+ * The last turn number of `controller`'s next turn. A position lock has to
+ * reach it, because a Monster can only change position on its controller's
+ * own turn: a lock that ends sooner never stops anything.
+ */
+function endOfNextTurnOf(
+  state: ChronicleMatch,
+  controller: ChronicleSideKey,
+): number {
+  return state.turnNumber + (state.activePlayer === controller ? 2 : 1);
+}
+
+/** Locks `monster` through its controller's next turn, never shortening a
+ *  longer lock it already carries. */
+function lockPositionThroughNextTurn(
+  state: ChronicleMatch,
+  controller: ChronicleSideKey,
+  monster: ChronicleFieldMonster,
+): void {
+  monster.positionLockedUntilTurn = Math.max(
+    monster.positionLockedUntilTurn ?? 0,
+    endOfNextTurnOf(state, controller),
+  );
+}
+
 function drawForMonsterEffect(
   state: ChronicleMatch,
   owner: ChronicleSideKey,
@@ -4928,7 +4960,7 @@ function applyStandaloneFlipEffect(
       target.monster.position =
         target.monster.position === "attack" ? "defense" : "attack";
       target.monster.lastPositionChangeTurn = state.turnNumber;
-      target.monster.positionLockedUntilTurn = state.turnNumber + 1;
+      lockPositionThroughNextTurn(state, opponentKey, target.monster);
     }
   } else if (effect.kind === "recoverMagicOnFlip") {
     const side = sideOf(state, owner);
@@ -5225,7 +5257,8 @@ function eligibleTrapZones(
         (pendingMagic.effect.kind !== card.effect.requiresMagicKind &&
           !(
             card.effect.requiresMagicKind === "drawCards" &&
-            pendingMagic.effect.kind === "drawThenDiscardRandom"
+            (pendingMagic.effect.kind === "drawThenDiscardRandom" ||
+              pendingMagic.effect.kind === "cycleBothHands")
           ) &&
           !(
             card.effect.requiresMagicKind === "modifyAttackUntilEndTurn" &&
@@ -5271,6 +5304,21 @@ function eligibleTrapZones(
       if (
         card.effect.kind === "defensiveFeint" &&
         (!battleTarget?.faceUp || battleTarget.position !== "attack")
+      )
+        return [];
+      // A face-up Attack Position Monster battles with ATK, so extra DEF would
+      // spend the Snare for nothing. A face-down target flips into Defense, and
+      // a changeToDefenseWhenAttacked Monster switches before damage (see
+      // resolveAttack), so both still battle with DEF.
+      const battleTargetCard = battleTarget ? getChronicleCard(battleTarget.cardId) : undefined;
+      const switchesToDefense =
+        battleTargetCard?.cardClass === "monster" &&
+        battleTargetCard.monsterEffect?.kind === "changeToDefenseWhenAttacked";
+      if (
+        card.effect.kind === "modifyDefenseUntilEndTurn" &&
+        battleTarget?.faceUp &&
+        battleTarget.position === "attack" &&
+        !switchesToDefense
       )
         return [];
       if (
@@ -5917,7 +5965,10 @@ function applyMagicEffect(
     if (target) {
       if (effect.kind === "modifyAttackUntilEndTurn")
         target.temporaryAttack += effect.amount ?? 0;
-      else target.temporaryDefense += effect.amount ?? 0;
+      else if (effect.duration === "untilOpponentEndTurn") {
+        target.lingeringDefense = (target.lingeringDefense ?? 0) + (effect.amount ?? 0);
+        target.lingeringDefenseUntilTurn = state.turnNumber + 1;
+      } else target.temporaryDefense += effect.amount ?? 0;
     }
   } else if (
     effect.kind === "destroyOneMonster" ||
@@ -6264,23 +6315,22 @@ function resolveAttack(
   let atk = effectiveAttack(attacker, next.activeField, next);
   const originalAttackerAtk = atk;
   let defenderStrongerBattleBonus = 0;
-  if (defender.position === "attack") {
-    const originalDefenderAtk = effectiveAttack(
-      defender,
-      next.activeField,
-      next,
+  // The attacker is always in Attack Position, so its bonus compares ATK
+  // with ATK whatever position the defender is in: a Monster with higher ATK
+  // sitting in Defense Position is still a stronger Monster.
+  const originalDefenderAtk = effectiveAttack(defender, next.activeField, next);
+  if (
+    attackerCard.monsterEffect?.kind === "gainAttackWhenBattlingStronger" &&
+    originalDefenderAtk > originalAttackerAtk
+  ) {
+    const amount = attackerCard.monsterEffect.amount ?? 0;
+    atk += amount;
+    next.log.push(
+      `${attackerCard.name} gains ${amount} ATK while battling a stronger Monster.`,
     );
-    if (
-      attackerCard.monsterEffect?.kind ===
-        "gainAttackWhenBattlingStronger" &&
-      originalDefenderAtk > originalAttackerAtk
-    ) {
-      const amount = attackerCard.monsterEffect.amount ?? 0;
-      atk += amount;
-      next.log.push(
-        `${attackerCard.name} gains ${amount} ATK while battling a stronger Monster.`,
-      );
-    }
+  }
+  // A defender's ATK only counts in damage calculation in Attack Position.
+  if (defender.position === "attack") {
     if (
       defenderCard.monsterEffect?.kind ===
         "gainAttackWhenBattlingStronger" &&
@@ -6907,9 +6957,9 @@ function resolveTrapEffect(
         if (trapCard.effect.kind === "weakenSummonedMonster") {
           const amount = trapCard.effect.amount ?? 800;
           target.temporaryAttack -= amount;
-          target.positionLockedUntilTurn = next.turnNumber;
+          lockPositionThroughNextTurn(next, actor, target);
           next.log.push(
-            `${trapCard.name} weakens the summoned Monster by ${amount} ATK and seals its position for the turn.`,
+            `${trapCard.name} weakens the summoned Monster by ${amount} ATK and seals its position through its controller's next turn.`,
           );
         } else if (trapCard.effect.kind === "sealSummonedMonsterFaceDown") {
           target.faceUp = false;
@@ -7232,6 +7282,13 @@ function clearEndTurnModifiers(state: ChronicleMatch): void {
       }
       monster.temporaryAttack = equipAttack;
       monster.temporaryDefense = equipDefense;
+      if (
+        monster.lingeringDefenseUntilTurn !== undefined &&
+        state.turnNumber >= monster.lingeringDefenseUntilTurn
+      ) {
+        delete monster.lingeringDefense;
+        delete monster.lingeringDefenseUntilTurn;
+      }
     }
   }
 }
@@ -7505,7 +7562,6 @@ export function previewChronicleBattle(
     defenderPosition === "attack" ? originalDefenderAttack : defender.defense;
 
   if (
-    defenderPosition === "attack" &&
     attackerCard.monsterEffect?.kind === "gainAttackWhenBattlingStronger" &&
     originalDefenderAttack > originalAttackerAttack
   )

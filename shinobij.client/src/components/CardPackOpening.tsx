@@ -24,6 +24,7 @@ import { createPortal } from "react-dom";
 import type { CSSProperties } from "react";
 import { ChronicleCardView } from "./ChronicleCardView";
 import { CARD_ART_SIZES_PACK } from "../lib/chronicle-card-art";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
 import type { CardPackType } from "../lib/card-pack";
 import {
@@ -90,6 +91,8 @@ export function CardPackOpening({
     openAnotherLabel?: string;
     openAnotherDisabled?: boolean;
 }) {
+    // Pack reveals are card-game UI and keep their full-size layout on phones.
+    useFullScaleViewport();
     const theme = useMemo(() => packTheme(packType), [packType]);
     const plan = useMemo(
         () => planPackReveal(cards, (id) => cardsById[id]?.rarity, ownedBefore, conversions),

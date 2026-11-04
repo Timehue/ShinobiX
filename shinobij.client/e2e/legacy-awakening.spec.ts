@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
+import { visibleViewport } from './helpers/visible-viewport';
 
 for (const stage of [1, 2]) test(`Legacy stage ${stage} shows the correct signature access and trial guidance`, async ({ page }, testInfo) => {
     const save = uiAuditSave();
@@ -35,8 +36,9 @@ for (const stage of [1, 2]) test(`Legacy stage ${stage} shows the correct signat
         await guidance.scrollIntoViewIfNeeded();
         const box = await guidance.boundingBox();
         expect(box).not.toBeNull();
-        expect(box!.x).toBeGreaterThanOrEqual(0);
-        expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+        const viewport = await visibleViewport(page);
+        expect(box!.x).toBeGreaterThanOrEqual(viewport.left);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.left + viewport.width + 1);
         await expect(page.getByText(/Finish the Rift run, exit it, then claim its quest/)).toBeVisible();
         await page.screenshot({ path: testInfo.outputPath('legacy-awakened-trial.png') });
     }

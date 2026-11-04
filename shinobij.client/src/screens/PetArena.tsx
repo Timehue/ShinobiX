@@ -30,6 +30,7 @@ import { displayPlayerName } from "../../../shared/player-name";
 import { SHOWDOWN_DAILY_WIN_CAP } from "../../../shared/pet-showdown-contract";
 import { useState, useEffect, useMemo, useRef, Suspense, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import { readPendingWarfrontReceipt, queueWarfrontReceipt, sendQueuedWarfrontReceipt, clearPendingWarfrontReceipt, type PendingWarfrontReceipt } from "../lib/warfront-pending-receipt";
 import { PetSettlementRetryError, postPetBattleReceipt } from "../lib/pet-battle-receipt";
 import "../styles/pet-skin.css";
@@ -1227,6 +1228,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         onFullscreenActiveChange?.(fullscreenBattleActive);
         return () => onFullscreenActiveChange?.(false);
     }, [fullscreenBattleActive, onFullscreenActiveChange]);
+    useFullScaleViewport(fullscreenBattleActive);
     useEffect(() => {
         if (!fullscreenBattleActive) return;
         document.body.classList.add("pet-combat-active");

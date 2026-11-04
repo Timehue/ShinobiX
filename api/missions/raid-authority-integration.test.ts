@@ -10,6 +10,7 @@ type Out = { statusCode: number; body?: Record<string, unknown> };
 
 const FIELD_MISSION = 'fetch-d-supply-trail';
 let raidStartDailyResetDelay: typeof import('./raid-start.js').raidStartDailyResetDelay;
+let MAX_RAID_STARTS_PER_DAY: typeof import('./raid-start.js').MAX_RAID_STARTS_PER_DAY;
 let utcDateKey: typeof import('./_progress.js').utcDateKey;
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
@@ -33,6 +34,7 @@ before(async () => {
     const raidStartModule = await import('./raid-start.js');
     raidStart = raidStartModule.default as unknown as Handler;
     raidStartDailyResetDelay = raidStartModule.raidStartDailyResetDelay;
+    MAX_RAID_STARTS_PER_DAY = raidStartModule.MAX_RAID_STARTS_PER_DAY;
     ({ utcDateKey } = await import('./_progress.js'));
     reportRaid = (await import('./report-raid.js')).default as unknown as Handler;
 });
@@ -353,7 +355,7 @@ describe('sealed raid authority', () => {
             },
         }, { acceptedMissionIds: [FIELD_MISSION] });
         onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
-        await kv.set(`raid-start-count:${player}:${utcDateKey()}`, 30);
+        await kv.set(`raid-start-count:${player}:${utcDateKey()}`, MAX_RAID_STARTS_PER_DAY);
 
         const requestId = 'raid-daily-cap-request01';
         const capped = await post(raidStart, player, { requestId, sector: 18 });
@@ -367,6 +369,129 @@ describe('sealed raid authority', () => {
         assert.equal(replayed.statusCode, 200);
         assert.equal(replayed.body?.reason, 'daily-mint-cap');
         assert.equal(replayed.body?.retryAfterMs, capped.body?.retryAfterMs);
+    });
+
+    // The daily launch cap, end to end. Each case freezes Date and steps it past
+    // the 30-second launch throttle between new launches, so only the daily cap
+    // decides. Earlier launches are seeded through the legacy counter, which
+    // the handler adds to its durable launch receipts.
+    async function seedLaunchCapPlayer(player: string, launchedToday: number) {
+        // Every case restarts the frozen clock, so throttle windows left by an
+        // earlier case would read as still open.
+        (await import('../_ratelimit.js')).__resetRateLimitsForTest();
+        await seed(player, {
+            serverFieldMissionRuns: {
+                [FIELD_MISSION]: { missionId: FIELD_MISSION, runId: `fieldrun${player}`, acceptedAt: Date.now() - 1_000 },
+            },
+        }, { acceptedMissionIds: [FIELD_MISSION] });
+        onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
+        await kv.set(`raid-start-count:${player}:${utcDateKey()}`, launchedToday);
+    }
+    const launch = (player: string, requestId: string) => post(raidStart, player, { requestId, sector: 18 });
+    const PAST_THROTTLE_MS = 31_000;
+
+    it('allows 100 AI raid launches per UTC day', () => {
+        assert.equal(MAX_RAID_STARTS_PER_DAY, 100);
+    });
+
+    it('allows the 100th launch, blocks the 101st, and never spends a slot on a retry', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-03T12:00:00.000Z') });
+        const player = 'raidauthlaunchcap';
+        await seedLaunchCapPlayer(player, 99);
+
+        const hundredth = await launch(player, 'raid-cap-launch-100');
+        assert.equal(hundredth.statusCode, 200);
+        assert.equal(hundredth.body?.reason, undefined);
+        assert.match(String(hundredth.body?.token), /^[A-Za-z0-9]{16,96}$/);
+
+        // A lost response retried at the cap recovers the same launch.
+        t.mock.timers.tick(PAST_THROTTLE_MS);
+        const retried = await launch(player, 'raid-cap-launch-100');
+        assert.equal(retried.statusCode, 200);
+        assert.equal(retried.body?.token, hundredth.body?.token);
+        assert.equal(retried.body?.replayed, true);
+
+        t.mock.timers.tick(PAST_THROTTLE_MS);
+        const hundredFirst = await launch(player, 'raid-cap-launch-101');
+        assert.equal(hundredFirst.statusCode, 200);
+        assert.equal(hundredFirst.body?.reason, 'daily-mint-cap');
+        assert.equal(hundredFirst.body?.token, null);
+    });
+
+    it('a retry before the cap does not consume a slot', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-03T12:00:00.000Z') });
+        const player = 'raidauthlaunchretry';
+        await seedLaunchCapPlayer(player, 98);
+
+        const ninetyNinth = await launch(player, 'raid-retry-launch-099');
+        assert.ok(ninetyNinth.body?.token);
+        for (let attempt = 0; attempt < 3; attempt++) {
+            t.mock.timers.tick(PAST_THROTTLE_MS);
+            const retried = await launch(player, 'raid-retry-launch-099');
+            assert.equal(retried.body?.token, ninetyNinth.body?.token);
+        }
+        // Three retries later, the 100th launch is still available.
+        t.mock.timers.tick(PAST_THROTTLE_MS);
+        const hundredth = await launch(player, 'raid-retry-launch-100');
+        assert.equal(hundredth.body?.reason, undefined);
+        assert.ok(hundredth.body?.token);
+        assert.notEqual(hundredth.body?.token, ninetyNinth.body?.token);
+    });
+
+    it('counts a lost or expired launch toward the day', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-03T12:00:00.000Z') });
+        const player = 'raidauthlaunchspent';
+        await seedLaunchCapPlayer(player, 98);
+
+        const lost = await launch(player, 'raid-spent-launch-lost');
+        const lostToken = String(lost.body?.token);
+        const tokenKey = `raid-token:${player}:${lostToken}`;
+        const tokenRecord = await kv.get<Record<string, unknown>>(tokenKey);
+        await kv.set(tokenKey, { ...tokenRecord, status: 'settled' });
+        const lostReplay = await launch(player, 'raid-spent-launch-lost');
+        assert.equal(lostReplay.statusCode, 409);
+        assert.equal(lostReplay.body?.reason, 'raid-launch-spent');
+
+        t.mock.timers.tick(PAST_THROTTLE_MS);
+        const expiring = await launch(player, 'raid-spent-launch-expired');
+        assert.ok(expiring.body?.token);
+        // Past the 5-minute token lifetime, unused.
+        t.mock.timers.tick(6 * 60_000);
+        const expiredReplay = await launch(player, 'raid-spent-launch-expired');
+        assert.equal(expiredReplay.statusCode, 409);
+        assert.equal(expiredReplay.body?.reason, 'raid-launch-expired');
+
+        const next = await launch(player, 'raid-spent-launch-next');
+        assert.equal(next.body?.reason, 'daily-mint-cap');
+        assert.equal(next.body?.token, null);
+    });
+
+    it('resets the launch count at midnight UTC', async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-03T23:58:00.000Z') });
+        const player = 'raidauthlaunchreset';
+        await seedLaunchCapPlayer(player, 99);
+
+        // The 100th launch lands as a durable receipt dated 2026-11-03.
+        const lastOfDay = await launch(player, 'raid-reset-launch-day1');
+        assert.ok(lastOfDay.body?.token);
+        t.mock.timers.tick(PAST_THROTTLE_MS);
+        const capped = await launch(player, 'raid-reset-launch-capped');
+        assert.equal(capped.body?.reason, 'daily-mint-cap');
+        const resetAt = Date.parse('2026-11-04T00:00:00.000Z');
+        assert.equal(capped.body?.retryAfterMs, resetAt - Date.now());
+
+        // Just before midnight it is still the old day.
+        t.mock.timers.tick(resetAt - PAST_THROTTLE_MS - Date.now());
+        const stillCapped = await launch(player, 'raid-reset-launch-2359');
+        assert.equal(stillCapped.body?.reason, 'daily-mint-cap');
+
+        // At midnight the old receipt is still stored but no longer counts.
+        t.mock.timers.tick(PAST_THROTTLE_MS);
+        const firstOfDay = await launch(player, 'raid-reset-launch-day2');
+        assert.equal(firstOfDay.statusCode, 200);
+        assert.equal(firstOfDay.body?.reason, undefined);
+        assert.ok(firstOfDay.body?.token);
+        assert.ok(await kv.get(`raid-start-request:${player}:raid-reset-launch-day1`));
     });
 
     it('binds PvP raid credit to the sealed creator side, not fighter ordering', async () => {

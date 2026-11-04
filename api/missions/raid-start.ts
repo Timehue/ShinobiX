@@ -34,12 +34,15 @@ import { territoryIsBreached } from '../_territory-lifecycle.js';
  * lost response. aiId only selects a published creator raid; field targets
  * are reconstructed from server territory/mission authority.
  *
- * Rate limited 1 per 30s + 30 per day (half the report-raid cap, since the
- * report itself also rate-limits — the effective ceiling stays at 30/day for
- * AI raids).
+ * Rate limited 1 per 30s + 100 launches per player per UTC day, shared across
+ * every village and target and reset at midnight UTC. Every issued launch
+ * counts, including one that is lost or expires unused; replaying the same
+ * requestId never spends another slot. This is a separate rule from
+ * MAX_RAID_REPORTS_PER_DAY (_raid-progression.ts), which still caps how many
+ * settled raids credit progression each day.
  */
 
-const MAX_RAID_STARTS_PER_DAY = 30;
+export const MAX_RAID_STARTS_PER_DAY = 100;
 const RAID_TOKEN_TTL_SECONDS = 5 * 60;
 const RAID_START_RECEIPT_TTL_SECONDS = 25 * 60 * 60;
 

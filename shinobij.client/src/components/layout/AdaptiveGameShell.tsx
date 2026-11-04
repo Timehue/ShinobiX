@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Screen } from "../../types/core";
+import { useFullScaleViewport } from "../../lib/mobile-ui-scale";
 
 type AdaptiveShellStyle = CSSProperties & { "--facility-accent"?: string };
 
@@ -32,6 +33,8 @@ export function AdaptiveGameShell({
     sealedFightEngaged = false,
     style: suppliedStyle,
 }: AdaptiveGameShellProps) {
+    // Battle screens keep their full-size layout on phones; only menus shrink.
+    useFullScaleViewport(uiMode === "combat");
     const facility = Boolean(facilityAccent);
     const style: AdaptiveShellStyle = {
         "--facility-accent": facilityAccent,
