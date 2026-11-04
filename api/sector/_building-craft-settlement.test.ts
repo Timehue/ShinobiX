@@ -113,3 +113,24 @@ test('two different keeper requests cannot both spend the same last 320 ryo', as
     assert.equal(saved!.character.ryo, 0); assert.equal(countOwned(saved!.character, 'pet-treat'), 1);
     assert.equal(countOwned(saved!.character, 'gather-river-fish'), 5);
 });
+
+test('a keeper craft counts toward the Legacy items-forged trials in the same transaction, once', async () => {
+    process.env.ENABLE_LEGACY = '1';
+    try {
+        for (const key of await kv.keys('legacy:*')) await kv.del(key);
+        await kv.set('save:workshopper', stocked());
+        const transactions: (readonly KvCasOp[])[] = [];
+        const store: Store = { get: kv.get.bind(kv), compareSet: async () => { throw Error('craft must commit atomically'); },
+            compareSetMany: async ops => { transactions.push(ops); return kv.compareSetMany!(ops); } };
+        assert.ok((await run(store)).ok);
+        assert.equal(transactions.length, 1);
+        assert.ok(transactions[0].some(op => op.key === 'legacy:stats:workshopper'), 'the Legacy proof rides the save write');
+        const stats = await kv.get<{ craftsCompleted?: number }>('legacy:stats:workshopper');
+        assert.equal(stats?.craftsCompleted, 1);
+        const replay = await run(store);
+        assert.ok(replay.ok && replay.replayed);
+        assert.equal((await kv.get<{ craftsCompleted?: number }>('legacy:stats:workshopper'))?.craftsCompleted, 1, 'a replay counts nothing');
+    } finally {
+        delete process.env.ENABLE_LEGACY;
+    }
+});

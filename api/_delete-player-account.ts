@@ -210,8 +210,93 @@ async function releasePlayerImages(slug: string, save: unknown, result: DeletePl
 }
 
 /**
- * Detach every row that POINTS AT a player, without touching the player's own
- * `auth:` / `save:` records.
+ * Side-car rows the account owns outside `save:<slug>`, by exact key.
+ *
+ * Slugs are reusable, and each of these was read back by whoever registered
+ * the name next: the Legacy marker (the Sage then re-seeded the old Legacy and
+ * paid its Aura Stones again, so delete-and-re-register was also a farm), the
+ * story record (the newcomer's interlude choices were locked to the old
+ * ones), and the DM inbox (a private message list; the threads themselves are
+ * hidden, not deleted: see hideDmThreadsFromReusedName).
+ */
+export function playerOwnedSideRowKeys(slug: string): string[] {
+    return [
+        `story:${slug}`,
+        `dm:inbox:${slug}`,
+        `legacy:accepted:${slug}`,
+        `legacy:aura-granted:${slug}`,
+        `legacy:stats:${slug}`,
+        `legacy:events:${slug}`,
+        `legacy:trial:${slug}`,
+        `legacy:eligibility:${slug}`,
+        `legacy:sage-offer:${slug}`,
+        `legacy:sage-pity:${slug}`,
+        `legacy:economy-outbox:${slug}`,
+    ];
+}
+
+/**
+ * Side-car rows the account owns, by pattern. A slug never contains `:` or
+ * `|`, so each pattern can only match this account's rows.
+ * - `pet-sanctuary:` holds stored companions; a newcomer could withdraw them.
+ * - `tower-firstclear:` receipts would deny the newcomer every first clear.
+ */
+export function playerOwnedSideRowPatterns(slug: string): string[] {
+    return [
+        `pet-sanctuary:${slug}:*`,
+        `tower-firstclear:${slug}:*`,
+    ];
+}
+
+/**
+ * Hide every DM thread from whoever registers this name next, without erasing
+ * it. A thread is keyed by the two names, so a newcomer could read the old
+ * conversation by naming the partner. The thread is also the partner's
+ * history, which the published policy keeps ("messages you sent to others"
+ * may outlive the account), so this writes the same per-partner hide stamp
+ * as the player's own "delete conversation" (api/messages.ts): the name sees
+ * only messages sent after now, and the partner keeps everything.
+ */
+async function hideDmThreadsFromReusedName(slug: string, now: number, result: DeletePlayerAccountResult): Promise<void> {
+    try {
+        const threads = [...await kv.keys(`dm:thread:${slug}|*`), ...await kv.keys(`dm:thread:*|${slug}`)];
+        for (const key of new Set(threads)) {
+            const [a, b] = key.slice('dm:thread:'.length).split('|');
+            const partner = a === slug ? b : a;
+            if (!partner || partner === slug) continue;
+            const stampKey = `dm:deleted-at:${slug}|${partner}`;
+            await kv.set(stampKey, now);
+            result.detached.push(stampKey);
+        }
+    } catch (err) {
+        result.failures.push(`dm:thread:* (${slug}): ${(err as Error).message}`);
+    }
+}
+
+async function removePlayerOwnedSideRows(slug: string, result: DeletePlayerAccountResult): Promise<void> {
+    await hideDmThreadsFromReusedName(slug, Date.now(), result);
+    for (const key of playerOwnedSideRowKeys(slug)) {
+        try {
+            if (await kv.del(key)) result.removed.push(key);
+        } catch (err) {
+            result.failures.push(`${key}: ${(err as Error).message}`);
+        }
+    }
+    for (const pattern of playerOwnedSideRowPatterns(slug)) {
+        try {
+            for (const key of await kv.keys(pattern)) {
+                if (await kv.del(key)) result.removed.push(key);
+            }
+        } catch (err) {
+            result.failures.push(`${pattern}: ${(err as Error).message}`);
+        }
+    }
+}
+
+/**
+ * Detach every row that POINTS AT a player, and remove the side-car rows the
+ * account owns outside `save:` (see playerOwnedSideRowKeys), without touching
+ * the player's own `auth:` / `save:` records.
  *
  * Split out from full deletion because the two are not the same operation. The
  * `DELETE /api/save/:name` path removes a character and must run this; the
@@ -272,6 +357,7 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
     }
     await detachFromModerationIndexes(slug, result);
     await releasePlayerImages(slug, save, result);
+    await removePlayerOwnedSideRows(slug, result);
     return result;
 }
 

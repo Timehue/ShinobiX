@@ -95,6 +95,7 @@ describe('the shared daily stat-point budget on the mission cards (owner A9)', (
             assert.equal(dailyStatBudgetLine('rin'), null, 'nothing before a reply');
             assert.equal(dailyStatPointsAvailable('rin'), true, 'unknown counts as available');
             assert.equal(missionStatPointText('rin', 3), '+3 Stat Pts');
+            assert.equal(missionStatPointText('rin', 1), '+1 Stat Pt', 'the combat mission card (and its e2e) reads the singular');
 
             setSharedDailyStatBudget('rin', { day: '2026-10-21', spent: 41, cap: 60 });
             assert.equal(dailyStatBudgetLine('rin'), 'Stat points today: 41 / 60');

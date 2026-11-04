@@ -500,7 +500,11 @@ async function doReportLocked(res: VercelResponse, identity: Identity, playerNam
                 // toward this month's clan missions (economy rebalance 2026-10, I-15).
                 members[i] = withRosterEventContrib(members[i] as Record<string, unknown>, 1, Date.now());
                 await kv.set(key, { ...rec, members });
-            }); // default lock semantics — contrib is a counter, not currency
+            }, { failClosed: true });
+            // Fail closed: the counter is minor, but this rewrites the WHOLE clan
+            // row, treasury included. A fail-open lock ran the write unlocked
+            // while a treasury donate or transfer held it, putting a stale copy
+            // back over that change. A refused credit only skips this +1.
         }
     } catch (hookErr) {
         console.error('[village/anbu-infiltration] post-win hooks (non-fatal)', hookErr);

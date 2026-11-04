@@ -1,4 +1,5 @@
 import { runKageChallengeClocks } from '../village/_kage-clock.js';
+import { kv } from '../_storage.js';
 import { backgroundWorkStopped, runBackgroundWork } from '../_background-work.js';
 import { runElderElections } from '../village/_elder-council.js';
 /**
@@ -23,7 +24,7 @@ import {
 } from './snapshot-saves.js';
 import { runRankedSeasonRollover } from './_ranked-season.js';
 import { runClanBossWeekly } from './_clan-boss-weekly.js';
-import { startClanBossInitialization } from '../_startup-initialization.js';
+import { ensureCurrentClanBossWeek, startClanBossInitialization } from '../_startup-initialization.js';
 import { runVillageWarDailyCatchUp, runVillageWarDailyPass, type VillageWarDailyResult } from '../_war-daily.js';
 import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
@@ -67,6 +68,8 @@ const CURRENCY_LEDGER_SWEEP_BOOT_DELAY_MS = 2 * 60_000;
 // the pass, which only finishes what is missing, when it is not.
 const VILLAGE_WAR_CATCHUP_TICK_MS = 10 * 60_000;
 const VILLAGE_WAR_CATCHUP_BOOT_DELAY_MS = 60_000;
+// After the village-war and snapshot boot checks, so the pass does not race them.
+const DAILY_PASS_CATCHUP_BOOT_DELAY_MS = 120_000;
 const SNAPSHOT_RECOVERY_TICK_MS = 60 * 60_000;
 const SNAPSHOT_RECOVERY_RETRY_MS = 5 * 60_000;
 // The snapshot pass has a five-minute budget. Keep crash ownership only a little
@@ -122,6 +125,7 @@ let _snapshotRecoveryInterval: ReturnType<typeof setInterval> | null = null;
 let _snapshotRecoveryRetryTimeout: ReturnType<typeof setTimeout> | null = null;
 let _villageWarCatchUpInterval: ReturnType<typeof setInterval> | null = null;
 let _villageWarCatchUpBootTimeout: ReturnType<typeof setTimeout> | null = null;
+let _dailyPassCatchUpBootTimeout: ReturnType<typeof setTimeout> | null = null;
 let _villageWarCatchUpRunning = false;
 let _settlementScanRunning = false;
 let _clanBossPartySweepRunning = false;
@@ -197,6 +201,10 @@ async function fireClanBossPartySweep(): Promise<void> {
     if (_clanBossPartySweepRunning) return;
     _clanBossPartySweepRunning = true;
     try {
+        // A week that began since the last tick opens here, not at 03:00.
+        await ensureCurrentClanBossWeek().catch((err) => {
+            console.error('[cron-scheduler] clan-boss week open threw:', (err as Error).message);
+        });
         const leased = await withScheduledJobLease(
             'clan-boss-party-sweep',
             () => sweepClanBossPartyRegistry(),
@@ -465,7 +473,37 @@ function fire(): Promise<void> {
     return runBackgroundWork(fireCore).then(() => undefined);
 }
 
+/**
+ * Durable "today's 03:00 pass ran" marker, keyed by the UTC date the pass
+ * started. Only the snapshot and the village-war day used to catch up after a
+ * restart across 03:00; ranked rollover, Kage inactivity, elder elections,
+ * clan-war campaign payouts, the guest sweep and the era pass waited a whole
+ * day. Every job keeps its own 20-hour lease, so a catch-up can never run one
+ * twice; the marker only says whether the day's pass was attempted at all.
+ */
+export const DAILY_PASS_MARKER_TTL_SEC = 3 * 24 * 60 * 60;
+export function dailyPassMarkerKey(now: number): string {
+    return `cron:daily-pass:${new Date(now).toISOString().slice(0, 10)}`;
+}
+/** True once today's 03:00 UTC has passed and no pass has started today. */
+export function dailyPassDue(now: number, marker: unknown): boolean {
+    const d = new Date(now);
+    return now >= Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), TARGET_UTC_HOUR) && !marker;
+}
+
+/** Boot check: run the daily pass now if this process came up after a missed 03:00. */
+export async function fireDailyPassCatchUp(now: number = Date.now()): Promise<boolean> {
+    if (scheduledJobsDisabled()) return false;
+    const marker = await kv.get(dailyPassMarkerKey(now)).catch(() => 'unreadable');
+    if (!dailyPassDue(now, marker)) return false;
+    console.warn('[cron-scheduler] the 03:00 UTC daily pass has not run today; catching up now.');
+    await fire();
+    return true;
+}
+
 async function fireCore(): Promise<void> {
+    await kv.set(dailyPassMarkerKey(Date.now()), { startedAt: Date.now() }, { ex: DAILY_PASS_MARKER_TTL_SEC })
+        .catch((err) => console.error('[cron-scheduler] daily pass marker write failed:', (err as Error).message));
     if (process.env.DISABLE_SNAPSHOT_CRON !== '1') {
         try {
             const r = await runLeasedJob('snapshot', LEASE_TTL.snapshot, () => runSnapshotSaves(NIGHTLY_BUDGET_MS), (result) => result.ok);
@@ -484,8 +522,13 @@ async function fireCore(): Promise<void> {
     // clock and no-ops (`pending`) until the ~30-day window expires, so running
     // it nightly just means the rollover fires within 24h of the month ending.
     try {
-        const s = await runLeasedJob('ranked-rollover', LEASE_TTL.rankedRollover, () => runRankedSeasonRollover());
-        if (s?.action === 'rolled-over') {
+        // A failure is returned, not thrown, and it can leave the season gate
+        // CLOSED (ranked refuses every match). Release the lease so a restart
+        // or the admin force can resume it, and say so: it used to log nothing.
+        const s = await runLeasedJob('ranked-rollover', LEASE_TTL.rankedRollover, () => runRankedSeasonRollover(), (result) => result.ok !== false);
+        if (s && s.ok === false) {
+            console.error(`[cron-scheduler] ranked-season rollover FAILED (ranked admission may stay closed until it resumes): ${s.error ?? 'unknown'}`);
+        } else if (s?.action === 'rolled-over') {
             console.log(`[cron-scheduler] ranked season ${s.seasonId} → ${s.nextSeasonId}: champion=${s.playerChampion ?? '—'} pet=${s.petChampion ?? '—'}, ${s.resetCount} reset, ${s.rewardedCount} rewarded.`);
         } else if (s?.action === 'initialized') {
             console.log(`[cron-scheduler] ranked season ${s.seasonId} initialised.`);
@@ -693,6 +736,12 @@ export function startSnapshotCron(): void {
     // immediately (rather than dark until the next 03:00 tick). The core kill switch
     // makes it a no-op; NX guards ensure it never double-spawns.
     void startClanBossInitialization();
+    // A restart across 03:00 UTC ran none of the daily jobs until the next day.
+    _dailyPassCatchUpBootTimeout = setTimeout(() => {
+        _dailyPassCatchUpBootTimeout = null;
+        void fireDailyPassCatchUp().catch((err) => console.error('[cron-scheduler] daily pass catch-up threw:', (err as Error).message));
+    }, DAILY_PASS_CATCHUP_BOOT_DELAY_MS);
+    _dailyPassCatchUpBootTimeout.unref?.();
     console.log(`[cron-scheduler] daily jobs scheduled in ${Math.round(delay / 60000)} min (03:00 UTC).`);
 }
 
@@ -708,6 +757,7 @@ export function stopSnapshotCron(): void {
     if (_sectorWarSettleInterval) { clearInterval(_sectorWarSettleInterval); _sectorWarSettleInterval = null; }
     if (_villageWarCatchUpInterval) { clearInterval(_villageWarCatchUpInterval); _villageWarCatchUpInterval = null; }
     if (_villageWarCatchUpBootTimeout) { clearTimeout(_villageWarCatchUpBootTimeout); _villageWarCatchUpBootTimeout = null; }
+    if (_dailyPassCatchUpBootTimeout) { clearTimeout(_dailyPassCatchUpBootTimeout); _dailyPassCatchUpBootTimeout = null; }
     if (_battleLapseInterval) { clearInterval(_battleLapseInterval); _battleLapseInterval = null; }
     if (_battleLapseBootTimeout) { clearTimeout(_battleLapseBootTimeout); _battleLapseBootTimeout = null; }
     if (_rankedSettlementInterval) { clearInterval(_rankedSettlementInterval); _rankedSettlementInterval = null; }
