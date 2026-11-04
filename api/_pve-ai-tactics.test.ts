@@ -55,6 +55,12 @@ describe('PvE AI meaningful-buff list', () => {
         assert.equal(pveMeaningfulBuffCount([{ name: 42, kind: 'positive' }, { kind: 'positive' }, {}]), 0);
     });
 
+    it('never counts a ground buff as a Clear target, even beside a same-name direct buff', () => {
+        const ground = [...PVE_MEANINGFUL_BUFFS].map(name => ({ name, kind: 'positive', source: 'ground:tile' }));
+        assert.equal(pveMeaningfulBuffCount(ground), 0);
+        assert.equal(pveMeaningfulBuffCount([...ground, { name: 'Reflect', kind: 'positive', source: 'jutsu:reflect' }]), 1);
+    });
+
     it('masterAi never moves the Clear threshold the count is compared against', () => {
         for (const level of [1, 20, 30, 31, 50, 51, 90, 91, 100]) {
             assert.equal(pveAiCompetence(level).clearBuffThreshold, pveAiCompetence(level, true).clearBuffThreshold,

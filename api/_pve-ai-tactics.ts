@@ -19,8 +19,10 @@
  * change.
  */
 
+import { isGroundCombatStatus } from './combat-core/statuses.js';
+
 /** Buffs the AI considers worth spending a 60-AP Clear on. Trivial / cosmetic
- *  positives are excluded so a single throwaway buff doesn't bait a wasted turn. */
+ *  positives and ground effects are excluded so they cannot bait a wasted turn. */
 export const PVE_MEANINGFUL_BUFFS: ReadonlySet<string> = new Set<string>([
     'Increase Damage Given',
     'Increase Generals',
@@ -40,11 +42,11 @@ export const PVE_MEANINGFUL_BUFFS: ReadonlySet<string> = new Set<string>([
  *  ALREADY round-filtered (active) list, mirroring the client's
  *  `activeStatuses(playerStatuses)` argument. */
 export function pveMeaningfulBuffCount(
-    statuses: ReadonlyArray<{ name?: unknown; kind?: unknown }>,
+    statuses: ReadonlyArray<{ name?: unknown; kind?: unknown; source?: string }>,
 ): number {
     let n = 0;
     for (const s of statuses) {
-        if (s && s.kind === 'positive' && typeof s.name === 'string' && PVE_MEANINGFUL_BUFFS.has(s.name)) n++;
+        if (s && s.kind === 'positive' && !isGroundCombatStatus(s) && typeof s.name === 'string' && PVE_MEANINGFUL_BUFFS.has(s.name)) n++;
     }
     return n;
 }

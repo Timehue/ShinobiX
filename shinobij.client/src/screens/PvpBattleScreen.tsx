@@ -2594,11 +2594,11 @@ export function PvpBattleScreen({
                                 </CombatHotkeyButton>
                                 <CombatHotkeyButton action="clear" onClick={() => armBasicAction("clear")} aria-pressed={selectedActionId === "clear"} className={selectedActionId === "clear" ? "selected-action" : ""}
                                     disabled={!isMyTurn || submitting || !clearAvailability.affordable || pvpDist(myPos, oppPos) > BASIC_CLEAR_RANGE}
-                                    title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles`}>
+                                    title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles. Ground effects cannot be cleared.`}>
                                     <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{clearAvailability.apCost} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {myCooldowns.clear ?? 0}</span></small>
                                 </CombatHotkeyButton>
                                 <CombatHotkeyButton action="cleanse" onClick={() => armBasicAction("cleanse")} aria-pressed={selectedActionId === "cleanse"} className={selectedActionId === "cleanse" ? "selected-action" : ""}
-                                    disabled={!isMyTurn || submitting || !cleanseAvailability.affordable}>
+                                    disabled={!isMyTurn || submitting || !cleanseAvailability.affordable} title="Remove your negative effects. Ground effects cannot be cleansed.">
                                     <i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{cleanseAvailability.apCost} AP<span className="cmd-detail"> | CD {myCooldowns.cleanse ?? 0}</span></small>
                                 </CombatHotkeyButton>
                                 <CombatHotkeyButton action="flee" onClick={() => submitAction("flee")} disabled={!isMyTurn || submitting || !fleeAvailability.affordable}>

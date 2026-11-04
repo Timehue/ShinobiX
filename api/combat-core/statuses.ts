@@ -9,6 +9,16 @@ export type CombatStatusNameMatcher = (actual: string, expected: string) => bool
 
 const exactStatusNameMatches: CombatStatusNameMatcher = (actual, expected) => actual === expected;
 
+/** Ground statuses belong to their field and leave only through its lifecycle. */
+export function isGroundCombatStatus(status: { source?: string }): boolean {
+    return status.source?.startsWith('ground:') === true;
+}
+
+export function groundStatusRemovalNote(statuses: readonly CombatStatus[], kind: CombatStatus['kind']): string {
+    return statuses.some(status => status.kind === kind && isGroundCombatStatus(status))
+        ? ' Ground effects cannot be cleared or cleansed.' : '';
+}
+
 export function isCombatStatusActive(status: CombatStatusTiming, round: number): boolean {
     return (status.activeRound === undefined || status.activeRound <= round)
         && (status.inactiveRound === undefined || status.inactiveRound > round);
@@ -19,7 +29,7 @@ export function activeCombatStatuses<T extends CombatStatusTiming>(statuses: rea
 }
 
 /**
- * Remove only statuses of `kind` that are already active in `round`.
+ * Clear removes only non-ground statuses of `kind` already active in `round`.
  *
  * Cleanup actions must preserve deferred effects: deleting an `activeRound =
  * round + 1` status before it can activate gives the round closer a cleanup
@@ -30,15 +40,16 @@ export function removeActiveCombatStatusesByKind<T extends CombatStatus>(
     kind: T['kind'],
     round: number,
 ): { statuses: T[]; removed: T[] } {
-    const removed = statuses.filter(status => status.kind === kind && isCombatStatusActive(status, round));
+    const removable = (status: T) => status.kind === kind && !isGroundCombatStatus(status) && isCombatStatusActive(status, round);
+    const removed = statuses.filter(removable);
     return {
-        statuses: statuses.filter(status => status.kind !== kind || !isCombatStatusActive(status, round)),
+        statuses: statuses.filter(status => !removable(status)),
         removed,
     };
 }
 
 /**
- * Remove every status of `kind`, active or still pending. Cleanse uses this (owner
+ * Remove every non-ground status of `kind`, active or still pending. Cleanse uses this (owner
  * ruling, 2026-10-05): a player who Cleanses as soon as they are debuffed takes no
  * Wound or Drain, even when the debuff was cast earlier in the same round and has
  * not started yet. Wound and Drain tick at the end of the holder's turn, so the
@@ -49,8 +60,8 @@ export function removeCombatStatusesByKind<T extends CombatStatus>(
     kind: T['kind'],
 ): { statuses: T[]; removed: T[] } {
     return {
-        statuses: statuses.filter(status => status.kind !== kind),
-        removed: statuses.filter(status => status.kind === kind),
+        statuses: statuses.filter(status => status.kind !== kind || isGroundCombatStatus(status)),
+        removed: statuses.filter(status => status.kind === kind && !isGroundCombatStatus(status)),
     };
 }
 

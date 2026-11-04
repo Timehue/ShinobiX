@@ -69,7 +69,7 @@ import {
     pveIsBurstJutsuAp,
 } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
-import { activeCombatStatuses, isCombatStatusActive, removeActiveCombatStatusesByKind } from '../combat-core/statuses.js';
+import { activeCombatStatuses, groundStatusRemovalNote, isCombatStatusActive, isGroundCombatStatus, removeActiveCombatStatusesByKind, removeCombatStatusesByKind } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { expireShield, shieldExpiryForGrant } from '../combat-core/shields.js';
@@ -2675,9 +2675,10 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         if (hasActiveStatus(actor, 'Cleanse Prevent', session.round)) {
             session.log.push(`${actor.name}'s Cleanse Prevent blocks the cleanse.`);
         } else {
-            const removed = actor.statuses.filter(s => s.kind === 'negative').map(s => s.name);
-            actor.statuses = actor.statuses.filter(s => s.kind !== 'negative');
-            session.log.push(`Cleanse: removed ${removed.length ? removed.join(', ') : 'no negative effects'} from ${actor.name}.`);
+            const cleansed = removeCombatStatusesByKind(actor.statuses, 'negative');
+            const removed = cleansed.removed.map(status => status.name);
+            actor.statuses = cleansed.statuses;
+            session.log.push(`Cleanse: removed ${removed.length ? removed.join(', ') : 'no negative effects'} from ${actor.name}.${groundStatusRemovalNote(actor.statuses, 'negative')}`);
         }
         actor.cooldowns['cleanse'] = CLEANSE_CD;
         session.activeAp = Math.max(0, session.activeAp - committedApCost);
@@ -2705,7 +2706,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             if (isHuman(actor) && cTarget.id === session.clanBossGuard?.bossId) openClanBossGuard(session, 'Clear');
             const hadShield = cTarget.shield > 0;
             cTarget.shield = 0;
-            session.log.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${cTarget.name}${hadShield ? ' and broke their shield' : ''}.`);
+            session.log.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${cTarget.name}${hadShield ? ' and broke their shield' : ''}.${groundStatusRemovalNote(cTarget.statuses, 'positive')}`);
         }
         actor.cooldowns['clear'] = CLEAR_CD;
         spendActionAp(session, actor, CLEAR_AP);
@@ -3729,7 +3730,7 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
             // positives, so its perception above deliberately stays active-only.
             const statuses = tacticalCounters ? actor.statuses.filter(s => s.rounds > 0)
                 : activeCombatStatuses(actor.statuses, session.round);
-            const debuffs = statuses.filter(s => s.kind === 'negative').length;
+            const debuffs = statuses.filter(s => s.kind === 'negative' && !isGroundCombatStatus(s)).length;
             if (debuffs >= comp.cleanseSelfThreshold) return { actorId: actor.id, type: 'cleanse' };
         }
     }
@@ -3972,7 +3973,7 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
         const moves = (Array.isArray(c.companionMoves) ? c.companionMoves : []) as CompanionMove[];
         const hpFrac = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
         const move = pickCompanionMove(moves, (actor.cooldowns ?? {}) as Record<string, number>, hpFrac,
-            actor.statuses.some(status => status.kind === 'negative'),
+            actor.statuses.some(status => status.kind === 'negative' && !isGroundCombatStatus(status)),
             c.companionSignatureReadyAfter === undefined ? undefined : {
                 ordinaryActions: Number(c.companionOrdinaryActions ?? 0), requiredActions: Number(c.companionSignatureReadyAfter),
             });
@@ -4011,9 +4012,9 @@ function companionCast(
     // Pure-support kinds never damage; everything else lands its scaled hit first.
     switch (kind) {
         case 'cleanse': {
-            actor.statuses = actor.statuses.filter(status => status.kind !== 'negative');
+            actor.statuses = removeCombatStatusesByKind(actor.statuses, 'negative').statuses;
             if (mastery.mastered) addTowerStatus(actor, { name: 'Stun Prevent', rounds: mastery.cleanseResistRounds, kind: 'positive' } as never, true);
-            session.log.push(`${actor.name}${label} and clears harmful conditions.`);
+            session.log.push(`${actor.name}${label} and clears harmful conditions.${groundStatusRemovalNote(actor.statuses, 'negative')}`);
             return;
         }
         case 'heal': {
