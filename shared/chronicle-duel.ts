@@ -7,6 +7,7 @@
  */
 import { shinobiTileCards, type TileCard } from "./tile-cards.js";
 import { CHRONICLE_PAINTED_ART } from "./chronicle-painted-art.js";
+import { CHRONICLE_COMMON_EXPANSION } from "./chronicle-expansion-monsters.js";
 import {
   CHRONICLE_LEGACY_SOURCES,
   type ChronicleLegacySource,
@@ -75,7 +76,7 @@ export const CHRONICLE_FOUNDING_FORMAT = Object.freeze({
       "Activate during an open Main Phase; replace the previous shared environment.",
     trap: "Set during an open Main Phase, wait at least one turn, then answer the printed trigger window.",
     responseOrder:
-      "The non-turn player receives one server-owned Snare response before the pending action resolves; Chronicle Showdown does not build multi-link chains.",
+      "The non-turn player receives one server-owned Snare response before the pending action resolves. Guardian's Reversal may answer a Snare targeting its controller's Monster; no further response follows that counter.",
   }),
 });
 
@@ -240,11 +241,13 @@ export type ChronicleEffectKind =
   | "returnOneMonsterToHand"
   | "recoverOneGraveyardCard"
   | "reviveLevel4OrLowerMonster"
+  | "reviveOneMonster"
+  | "negateMonsterTargetingCard"
   | "reviveLevel4OrLowerNormalMonster"
   | "callSummon"
   | "summonShadowDoubles";
 export type ChronicleTrigger =
-  "onMonsterSummoned" | "onAttackDeclared" | "onMagicActivated";
+  "onMonsterSummoned" | "onAttackDeclared" | "onMagicActivated" | "onTrapActivated";
 export type ChronicleTargetScope =
   | "none"
   | "ownedFaceUpMonster"
@@ -253,6 +256,7 @@ export type ChronicleTargetScope =
   | "opponentLevel4OrLowerMonster"
   | "opponentMagicTrap"
   | "ownGraveyardMagic"
+  | "ownGraveyardMonster"
   | "ownGraveyardFieldMagic"
   | "ownGraveyardLevel4OrLowerMonster"
   | "triggerMonster"
@@ -3934,6 +3938,24 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     },
     { rarity: "legendary", effectTier: "advanced", deckLimit: 2 },
   ),
+  magic(
+    "chronicle-reanimation-jutsu", "Reanimation Jutsu",
+    CHRONICLE_PAINTED_ART["chronicle-reanimation-jutsu"],
+    "A fallen ally answers the lantern's call and steps once more onto the battlefield.",
+    "normal", "Special Summon 1 Monster from your Graveyard in face-up Defense Position.",
+    { kind: "reviveOneMonster", legalController: "owner", targetScope: "ownGraveyardMonster",
+      duration: "instant", originatingActionContinues: true, order: 10 },
+    { rarity: "legendary", effectTier: "advanced", deckLimit: 1 },
+  ),
+  trap(
+    "chronicle-guardians-reversal", "Guardian's Reversal",
+    CHRONICLE_PAINTED_ART["chronicle-guardians-reversal"],
+    "A guardian's mirrored seal unravels the technique reaching for an ally.",
+    "When an opponent activates a Jutsu or Snare that targets 1 of your Monsters: negate it and send it to the Graveyard.",
+    { kind: "negateMonsterTargetingCard", legalController: "owner", targetScope: "none",
+      trigger: "onMagicActivated", duration: "instant", originatingActionContinues: false, order: 1 },
+    { rarity: "epic", effectTier: "advanced", deckLimit: 2 },
+  ),
 ];
 
 export const CHRONICLE_SUPPORT_CARDS = Object.freeze(SUPPORT_CARDS.map(ensureChronicleArt));
@@ -4042,6 +4064,7 @@ export const CHRONICLE_CARD_CATALOG: readonly ChronicleCard[] = Object.freeze(
       ...LEGACY_MONSTER_CARDS,
       ...STORY_MONSTER_CARDS,
       ...PET_WITNESS_MONSTER_CARDS,
+      ...CHRONICLE_COMMON_EXPANSION,
       applyReviewedMonsterEffect(WANDERING_SAGE_CARD),
     ]),
     ...CALLED_MONSTER_CARDS,
@@ -4340,6 +4363,9 @@ export interface ChronicleResponseWindow {
   openedAt: number;
   expiresAt: number;
   pendingAction: ChronicleActionIntent & { actor: ChronicleSideKey };
+  /** A spent Snare waiting for the one permitted protective counter. Never
+   * projected to clients; it preserves the original action across reconnects. */
+  pendingTrap?: { cardId: string; window: ChronicleResponseWindow };
 }
 
 export interface ChronicleActiveField {
@@ -5239,12 +5265,26 @@ function eligibleTrapZones(
   return side.magicTrapZones.flatMap((zone, index) => {
     if (!zone || zone.faceUp || zone.setOnTurn >= state.turnNumber) return [];
     const card = getChronicleCard(zone.cardId);
-    if (!card || card.cardClass !== "trap" || card.effect.trigger !== trigger)
+    if (!card || card.cardClass !== "trap") return [];
+    const guardsMonster = card.effect.kind === "negateMonsterTargetingCard";
+    if (card.effect.trigger !== trigger && !(trigger === "onTrapActivated" && guardsMonster))
       return [];
     const pendingMagic =
       trigger === "onMagicActivated"
         ? cardInHand(state, other(responder), Number(pending.handIndex))
         : undefined;
+    if (guardsMonster && trigger === "onMagicActivated") {
+      const targetIndex = pending.targetZoneIndex;
+      const targetsDefender =
+        pendingMagic?.cardClass === "magic" &&
+        ["anyFaceUpMonster", "opponentMonster", "opponentLevel4OrLowerMonster"].includes(
+          pendingMagic.effect.targetScope,
+        ) &&
+        (pending.targetSide ?? responder) === responder &&
+        validZone(targetIndex, MONSTER_ZONE_COUNT) &&
+        Boolean(side.monsterZones[targetIndex]);
+      if (!targetsDefender) return [];
+    }
     if (
       card.effect.requiresMagicType &&
       (pendingMagic?.cardClass !== "magic" ||
@@ -5747,24 +5787,32 @@ function validateEffectTarget(
       return "Choose a Jutsu Card in your Graveyard.";
     return null;
   }
-  if (scope === "ownGraveyardLevel4OrLowerMonster") {
+  if (scope === "ownGraveyardLevel4OrLowerMonster" || scope === "ownGraveyardMonster") {
     const index = Number(intent.graveyardIndex);
-    const id = sideOf(state, actor).graveyard[index];
+    const id = side.graveyard[index];
     const target = id ? getChronicleCard(id) : undefined;
     if (
+      (scope === "ownGraveyardMonster" && !validZone(intent.graveyardIndex, side.graveyard.length)) ||
       !target ||
       target.cardClass !== "monster" ||
-      target.level > 4 ||
+      (scope !== "ownGraveyardMonster" && target.level > 4) ||
+      target.token ||
       (card.effect.kind === "reviveLevel4OrLowerNormalMonster" &&
         target.monsterType !== "normal")
     )
       return card.effect.kind === "reviveLevel4OrLowerNormalMonster"
         ? "Choose a Level 4 or lower Normal Monster in your Graveyard."
-        : "Choose a Level 4 or lower Monster in your Graveyard.";
+        : scope === "ownGraveyardMonster"
+          ? "Choose a Monster in your Graveyard."
+          : "Choose a Level 4 or lower Monster in your Graveyard.";
+    if (scope === "ownGraveyardMonster") {
+      const summonBlock = callOnlySummonBlocker(target);
+      if (summonBlock) return summonBlock;
+    }
     if (
-      (card.effect.kind === "reviveLevel4OrLowerMonster" ||
+      (card.effect.kind === "reviveOneMonster" || card.effect.kind === "reviveLevel4OrLowerMonster" ||
         card.effect.kind === "reviveLevel4OrLowerNormalMonster") &&
-      !sideOf(state, actor).monsterZones.some((zone) => zone === null)
+      !side.monsterZones.some((zone) => zone === null)
     )
       return "You need an open Monster Zone.";
     return null;
@@ -5783,7 +5831,7 @@ function validateEffectTarget(
   const targetSide =
     intent.targetSide ??
     (scope === "ownedFaceUpMonster" ? actor : other(actor));
-  const index = Number(intent.targetZoneIndex);
+  const index = intent.targetZoneIndex;
   if (!validZone(index, MONSTER_ZONE_COUNT))
     return "Choose a valid Monster target.";
   const monster = sideOf(state, targetSide).monsterZones[index];
@@ -6045,7 +6093,7 @@ function applyMagicEffect(
       side.hand.push(id);
     }
   } else if (
-    effect.kind === "reviveLevel4OrLowerMonster" ||
+    effect.kind === "reviveOneMonster" || effect.kind === "reviveLevel4OrLowerMonster" ||
     effect.kind === "reviveLevel4OrLowerNormalMonster"
   ) {
     const graveIndex = Number(intent.graveyardIndex);
@@ -6055,7 +6103,8 @@ function applyMagicEffect(
     if (
       open >= 0 &&
       monsterCard?.cardClass === "monster" &&
-      monsterCard.level <= 4 &&
+      (effect.kind === "reviveOneMonster" || monsterCard.level <= 4) &&
+      !monsterCard.token &&
       (effect.kind !== "reviveLevel4OrLowerNormalMonster" ||
         monsterCard.monsterType === "normal")
     ) {
@@ -6641,6 +6690,11 @@ function resolvePending(
   state: ChronicleMatch,
   window: ChronicleResponseWindow,
 ): ChronicleResult {
+  if (window.pendingTrap) {
+    const trap = getChronicleCard(window.pendingTrap.cardId);
+    if (trap?.cardClass !== "trap") return failure(state, "The pending Snare is unavailable.");
+    return finishTrapResolution(state, trap, window.pendingTrap.window);
+  }
   const { actor, action } = window.pendingAction;
   // Summon windows carry an action that already resolved, so closing one —
   // by Snare or by passing — leaves nothing further to apply.
@@ -7009,10 +7063,21 @@ function resolveTrapEffect(
   };
 }
 
+const MONSTER_TARGETING_SNARE_EFFECTS: ReadonlySet<ChronicleEffectKind> = new Set([
+  ...SINGLE_TARGET_REMOVAL_SNARES,
+  "changeOneMonsterPosition",
+  "defensiveFeint",
+  "destroyLowestAttackWhenOutnumbered",
+  "modifyAttackUntilEndTurn",
+  "sealSummonedMonsterFaceDown",
+  "weakenSummonedMonster",
+]);
+
 export function activateTrap(
   state: ChronicleMatch,
   actor: ChronicleSideKey,
   zoneIndex: number,
+  now = Date.now(),
 ): ChronicleResult {
   const window = state.responseWindow;
   if (!window) return failure(state, "There is no Snare response window.");
@@ -7047,6 +7112,45 @@ export function activateTrap(
     );
   next.responseWindow = null;
   next.log.push(`${side.name} activates ${card.name}.`);
+  // The counter answers a Snare that singles out an opposing field Monster.
+  // That includes effects that also change the Snare controller's own Monster.
+  if (MONSTER_TARGETING_SNARE_EFFECTS.has(card.effect.kind)) {
+    const triggerIndex = copiedWindow.trigger === "onAttackDeclared"
+      ? copiedWindow.pendingAction.attackerZoneIndex
+      : copiedWindow.pendingAction.zoneIndex;
+    const protectedSide = copiedWindow.pendingAction.actor;
+    const targetsOwnMonster = validZone(triggerIndex, MONSTER_ZONE_COUNT) &&
+      Boolean(sideOf(next, protectedSide).monsterZones[triggerIndex]);
+    const pendingAction = { action: "activate-trap", actor, zoneIndex };
+    const eligibleZoneIndexes = targetsOwnMonster
+      ? eligibleTrapZones(next, protectedSide, "onTrapActivated", pendingAction)
+      : [];
+    if (eligibleZoneIndexes.length) {
+      next.responseWindow = {
+        id: nextIid(next, "response"), trigger: "onTrapActivated", responder: protectedSide,
+        eligibleZoneIndexes, openedAt: now, expiresAt: now + RESPONSE_TIMEOUT_MS,
+        pendingAction,
+        pendingTrap: { cardId: card.id, window: copiedWindow },
+      };
+      next.log.push(`${sideOf(next, protectedSide).name} may protect their Monster with a set Snare.`);
+      return success(next);
+    }
+  }
+  return finishTrapResolution(next, card, copiedWindow);
+}
+
+function finishTrapResolution(
+  next: ChronicleMatch,
+  card: ChronicleTrapCard,
+  copiedWindow: ChronicleResponseWindow,
+): ChronicleResult {
+  const actor = copiedWindow.responder;
+  if (copiedWindow.pendingTrap && card.effect.kind === "negateMonsterTargetingCard") {
+    next.log.push(`${getChronicleCard(copiedWindow.pendingTrap.cardId)?.name ?? "The Snare"} is negated.`);
+    // The first Snare was already paid for and sent to the Graveyard. Resume
+    // its original action exactly once, without applying that Snare's effect.
+    return resolvePending(next, copiedWindow.pendingTrap.window);
+  }
   const delayedTargetInstanceId =
     card.effect.kind === "destroyAttackerIfTargetDestroyed"
       ? sideOf(next, actor).monsterZones[
@@ -7825,7 +7929,7 @@ function applyActionOnce(
         Number(intent.zoneIndex),
       );
     case "activate-trap":
-      return activateTrap(state, actor, Number(intent.zoneIndex));
+      return activateTrap(state, actor, Number(intent.zoneIndex), now);
     case "pass-response":
       return passResponse(state, actor);
     case "advance-phase":

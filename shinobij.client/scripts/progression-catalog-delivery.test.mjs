@@ -67,6 +67,19 @@ test('literal packing refuses executable expressions and leaves unrelated module
     assert.equal(progressionCatalogDelivery().transform('const value = 1;', '/shared/other.ts'), undefined);
 });
 
+test('packed Chronicle expansion preserves every common, stat, element and lore line', async () => {
+    const source = readFileSync(new URL('../../shared/chronicle-expansion-monsters.ts', import.meta.url), 'utf8');
+    const packed = progressionCatalogDelivery().transform(source, 'C:\\project\\shared\\chronicle-expansion-monsters.ts?build').code;
+    const before = (await moduleFrom(source)).CHRONICLE_COMMON_EXPANSION;
+    const after = (await moduleFrom(packed)).CHRONICLE_COMMON_EXPANSION;
+    assert.equal(before.length, 30);
+    assert.deepEqual(after, before);
+    assert.deepEqual(after.map(card => card.id), before.map(card => card.id));
+    assert.equal(Object.isFrozen(after), Object.isFrozen(before));
+    assert(packed.length < source.length - 5000, 'lossless delivery must recover meaningful runtime space');
+    assert.equal(readFileSync(new URL('../../shared/chronicle-expansion-monsters.ts', import.meta.url), 'utf8'), source);
+});
+
 test('world catalog delivery retains every card, reviewed effect and reckoning', async () => {
     for (const [relative, name] of [
         ['../../shared/tile-cards.ts', 'shinobiTileCards'],
