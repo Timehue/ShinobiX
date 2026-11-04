@@ -1,4 +1,5 @@
-import { addOwned, applyForge, countOwned, removeOwned } from '../craft/_forge.js';
+import { addOwned, applyForge, countOwned, removeOwned, supplyForgeRyo } from '../craft/_forge.js';
+import { keeperWorkshopCraftRyo } from '../../shared/craft-fees.js';
 import { planSelectedCraftIngredients } from '../../shared/crafting-recipes.js';
 import { buildingHasService, sectorBuilding } from '../../shared/sector-buildings.js';
 import { BUILDING_REPAIR_INGREDIENTS, buildingCompanion, buildingCourierRoute, buildingRecipeTrust, buildingRegisterEntries, buildingTeaClosure, buildingWorkshopRecipes, buildingWorkView } from '../../shared/sector-building-content.js';
@@ -155,7 +156,8 @@ export function reduceBuildingAction(character:Character,action:BuildingAction,r
         if(standing.trust<buildingRecipeTrust(building,action.recipeId!))return refuse('Build 5 local trust through visits or public work before using this keeper’s third regional recipe. Its other crafting locations remain available.');
         if(state.active)return refuse('Finish or cancel the work in your hands before using the workshop.');
         if(!Array.isArray(action.materials))return refuse('Choose the exact materials before asking the workshop to craft.');
-        const crafted=applyForge(next,'supply',action.recipeId!,1,action.materials);if(!crafted)return refuse('The keeper cannot begin: check the recipe’s level, selected materials and room for the finished item. Nothing was spent.');
+        const fee=supplyForgeRyo(action.recipeId!,1,keeperWorkshopCraftRyo);if(positive(next.ryo)<fee)return refuse(`The keeper’s fee for this craft is ${fee.toLocaleString('en-US')} ryo, and you carry ${positive(next.ryo).toLocaleString('en-US')}. Nothing was spent.`);
+        const crafted=applyForge(next,'supply',action.recipeId!,1,action.materials,keeperWorkshopCraftRyo);if(!crafted)return refuse('The keeper cannot begin: check the recipe’s level, selected materials and room for the finished item. Nothing was spent.');
         const full=inventoryGrowthBlock(next,crafted);if(full)return refuse(full.error);
         next=crafted;message='The keeper checks your selected materials and hands over the finished item.';
     }else return refuse('Choose an action from the building counter.');
