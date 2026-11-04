@@ -14,6 +14,11 @@ test('a restored phone zoom recovers its menu scale and keeps controls clickable
     const control = page.locator('.settings-page button:enabled').first();
     await expect(control).toBeVisible();
     await control.click({ trial: true });
+    const mute = page.getByRole('checkbox', { name: 'Mute all audio', exact: true });
+    const wasMuted = await mute.isChecked();
+    await mute.tap();
+    await expect(mute).toBeChecked({ checked: !wasMuted });
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('audioMuted'))).toBe(wasMuted ? '0' : '1');
     await info.attach('recovered-phone-zoom', { body: await page.screenshot(), contentType: 'image/png' });
     await session.detach();
 });
