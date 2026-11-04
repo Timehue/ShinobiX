@@ -45,8 +45,8 @@ async function request(handler: Handler, slug: string, body: Record<string, unkn
     return { status, body: value };
 }
 
-for (const knownOwner of [true, false]) test(`${knownOwner ? 'cast' : 'retained unknown'} Reflect tile preserves damage ownership and once-only Legacy settlement`, async t => {
-    const { kv } = storage, now = Date.now(), suffix = knownOwner ? 'cast' : 'old';
+for (const [knownOwner, recast, collidingId] of [[true, false, false], [false, false, false], [false, false, true], [true, true, false]]) test(`${knownOwner ? 'cast' : 'retained unknown'}${recast ? ' recast' : ''}${collidingId ? ' same-ID' : ''} Reflect tile preserves damage ownership and once-only Legacy settlement`, async t => {
+    const { kv } = storage, now = Date.now(), suffix = `${knownOwner ? 'cast' : 'old'}${collidingId ? '-id' : ''}${recast ? '-twice' : ''}`;
     const owner = `tile-owner-${suffix}`, holder = `tile-holder-${suffix}`;
     const event: WorldBossEventRecord = {
         version: 1, eventId: `fixture-buff-tile-${suffix}`, bossId: 'hollow-maze-minotaur', bossName: 'Murogane',
@@ -91,11 +91,17 @@ for (const knownOwner of [true, false]) test(`${knownOwner ? 'cast' : 'retained 
     caster.character.jutsuMastery = [{ jutsuId: 'fixture-reflect-tile', level: 50 }];
     session.activeIndex = session.turnQueue.indexOf(caster.id); session.activeAp = 100; session.actionsThisTurn = 0;
     session.turnStartedAt = now;
-    if (!knownOwner) session.groundEffects = [{ id: 'retained-reflect-tile', name: 'Retained Reflect Tile', kind: 'occupant',
+    if (!knownOwner) session.groundEffects = [{ id: collidingId ? `gz-${session.round}-${caster.id}-fixture-reflect-tile` : 'retained-reflect-tile', name: 'Retained Reflect Tile', kind: 'occupant',
         owner: 'p1', tiles: [defender.pos], rounds: 3, activeRound: session.round, tags: [{ name: 'Reflect', percent: 30 }] }];
     await tower.writeSession(session);
     const cast = await request(action, owner, { runId: match.runId, type: 'jutsu', jutsuId: 'fixture-reflect-tile', tile: knownOwner ? defender.pos : caster.pos });
     assert.equal(cast.status, 200, JSON.stringify(cast.body)); assert.equal(cast.body.applied, true, JSON.stringify(cast.body));
+    if (recast) {
+        const again = await request(action, owner, { runId: match.runId, type: 'jutsu', jutsuId: 'fixture-reflect-tile', tile: caster.pos });
+        assert.equal(again.status, 200, JSON.stringify(again.body)); assert.equal(again.body.applied, true);
+        const fields = (await tower.readSession(match.runId))!.groundEffects!;
+        assert.equal(fields.length, 2); assert.equal(fields[0]!.id, fields[1]!.id, 'Exercise a real same-round recast ID collision');
+    }
     const moving = (await tower.readSession(match.runId))!;
     moving.activeIndex = moving.turnQueue.indexOf(defender.id); moving.activeAp = 100; moving.actionsThisTurn = 0;
     moving.turnStartedAt = Date.now(); await tower.writeSession(moving);

@@ -1633,10 +1633,6 @@ function reconcileTowerGroundStatuses(session: TowerSession): void {
         // Any live actor on a buff tile, ally or hostile, holds its buff.
         const settled = settleOccupantGroundStatuses(reconciled, session.groundEffects, session.round);
         actor.statuses = settled.fighter.statuses;
-        // Occupancy refresh replaces statuses; retain the sealed field's caster, never the occupant.
-        if (session.worldBossEvent) for (const effect of session.groundEffects ?? []) {
-            stampWorldBossZoneStatuses(session, actor.statuses, effect);
-        }
         if (settled.lines.length) session.log.push(...settled.lines);
     }
 }
