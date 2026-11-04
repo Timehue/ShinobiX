@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { previewRootFor, smokeE2ePort } from "../e2e-ports";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
+import { visibleViewport } from "./helpers/visible-viewport";
 
 test.beforeEach(({ browserName }, testInfo) => {
     test.skip(browserName !== "chromium" || !["chromium-desktop", "chromium-mobile"].includes(testInfo.project.name), "download ownership runs on desktop and phone");
@@ -23,7 +24,7 @@ test("village restoration defers PvP until entering a combat gateway", async ({ 
     await expect.poll(() => pvpRequests().length).toBeGreaterThan(0);
 });
 
-test("cinematic story styles load with the reader after a normal village visit", async ({ page }) => {
+test("cinematic story styles load with the reader after a normal village visit", async ({ page }, info) => {
     const save = uiAuditSave();
     save.character = { ...save.character, storyProgress: 0, storyTraits: [] };
     const runtime = await installUiAuditRuntime(page, save);
@@ -41,6 +42,13 @@ test("cinematic story styles load with the reader after a normal village visit",
     await expect(stage).toHaveCSS("z-index", "1000000");
     await expect(stage).toHaveCSS("background-color", "rgb(7, 9, 12)");
     const bounds = await stage.boundingBox();
-    expect(bounds?.width).toBe(page.viewportSize()!.width);
-    expect(bounds?.height).toBe(page.viewportSize()!.height);
+    const viewport = await visibleViewport(page);
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBe(viewport.left);
+    expect(bounds!.y).toBe(viewport.top);
+    // DOM bounds use CSS viewport pixels; viewport units round fractional edges outward.
+    expect(bounds!.width).toBe(Math.ceil(viewport.width));
+    expect(bounds!.height).toBe(Math.ceil(viewport.height));
+    await info.attach("cinematic-viewport-bounds", { body: JSON.stringify({ bounds, viewport }), contentType: "application/json" });
+    await page.screenshot({ path: info.outputPath("cinematic-viewport.png") });
 });

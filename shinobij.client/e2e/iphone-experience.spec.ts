@@ -61,12 +61,13 @@ test('chat follows the visible keyboard viewport without treating pinch zoom as 
     await input.fill('Testing the iPhone keyboard');
     // Desktop WebKit cannot summon an iOS keyboard. Exercise the actual
     // VisualViewport event path with the geometry supplied by that keyboard.
+    // Opening a keyboard preserves page zoom: Android menus keep their 0.85 scale.
     await page.evaluate(() => {
         const viewport = window.visualViewport!;
         Object.defineProperties(viewport, {
             height: { value: window.innerHeight - Math.min(300, Math.floor(window.innerHeight * 0.45)), configurable: true },
             offsetTop: { value: 30, configurable: true },
-            scale: { value: 1, configurable: true },
+            scale: { value: viewport.scale, configurable: true },
         });
         viewport.dispatchEvent(new Event('resize'));
     });
@@ -182,9 +183,11 @@ test('returning to Safari refreshes keyboard geometry without losing the typed m
     const input = page.getByRole('textbox', { name: 'Message the tavern' });
     await input.fill('Keep this message when I return');
     await page.evaluate(() => {
-        Object.defineProperties(window.visualViewport!, {
+        const viewport = window.visualViewport!;
+        // Preserve this device's unpinched scale while simulating keyboard geometry.
+        Object.defineProperties(viewport, {
             height: { value: window.innerHeight - Math.min(300, Math.floor(window.innerHeight * 0.45)), configurable: true },
-            scale: { value: 1, configurable: true },
+            scale: { value: viewport.scale, configurable: true },
         });
         // A BFCache/app return need not emit a resize event.
         window.dispatchEvent(new Event('pageshow'));

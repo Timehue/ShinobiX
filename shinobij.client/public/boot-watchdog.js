@@ -1,3 +1,33 @@
+// ── Phone UI scale, before the first layout ─────────────────────────────────
+// Mirrors src/lib/mobile-ui-scale.ts, which owns the rule once the app runs and
+// re-applies it (combat and the card game then hold 1.0). index.html ships the
+// PHONE viewport, and this resets everything that is not a portrait phone to
+// the full-size one before the first layout. A phone therefore never loads
+// through a 1.0 viewport: with one, Chrome sometimes restored 1.0 just after a
+// reload and left the 85% layout cut off, which a static 0.85 page never did.
+// src/lib/mobile-ui-scale.test.ts runs this file and requires the same meta.
+(function applyEarlyPhoneScale(window, document) {
+    'use strict';
+    try {
+        var nav = window.navigator;
+        var ua = nav.userAgent || '';
+        var screen = window.screen;
+        var shortSide = Math.min(screen.width, screen.height);
+        var type = screen.orientation && screen.orientation.type;
+        var phone = !(/iPad|iPhone|iPod/.test(ua)
+                || (nav.platform === 'MacIntel' && (nav.maxTouchPoints || 0) > 1)
+                || (/AppleWebKit/.test(ua) && !/(Chrome|Chromium|Edg|OPR|SamsungBrowser)\//.test(ua)))
+            && window.matchMedia('(pointer: coarse)').matches
+            && shortSide > 0 && shortSide <= 470
+            && (type ? type.indexOf('portrait') === 0 : screen.height >= screen.width);
+        var meta = document.querySelector('meta[name="viewport"]');
+        if (meta && !phone) meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
+    } catch (error) {
+        // A missing API keeps the shipped viewport; the app module re-applies
+        // the rule as soon as it runs.
+    }
+})(window, document);
+
 (function installBootWatchdog(window, document) {
     'use strict';
 

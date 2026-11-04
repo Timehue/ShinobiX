@@ -109,6 +109,8 @@ const PUBLIC_AUTHORING_PREFIXES = [
     'pet-models/roster-references',
 ] as const;
 const PUBLIC_LOCAL_ONLY_ASSETS = new Set([
+    // Generation prompts and production notes; the game loads only the artwork.
+    'ui/village-war/manifest.json',
     // Elemental VFX loads the WebP export; retain its PNG master only for authoring.
     'assets/warfront/elemental-impact-atlas-source.png',
     // Approval and LOD generation records are read from public/ by the asset
@@ -151,6 +153,8 @@ function runtimePublicAssetsPlugin() {
     const isRuntimePath = (sourcePath: string) => {
         const relative = path.relative(PUBLIC_ROOT, sourcePath).replace(/\\/g, '/');
         return !PUBLIC_LOCAL_ONLY_ASSETS.has(relative)
+            // Painted-sector edit receipts are authoring/test inputs, not runtime data.
+            && !/^sector-life\/[^/]+\.json$/.test(relative)
             && !PUBLIC_AUTHORING_PREFIXES.some((prefix) => relative === prefix || relative.startsWith(`${prefix}/`));
     };
     const mergeRuntimePath = (sourcePath: string, destinationPath: string) => {

@@ -13,6 +13,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { setPetEffectTexture } from "../lib/pet-effect-texture";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
@@ -810,6 +811,8 @@ function PetBoardArenaView({ result, sharedImages = {}, stars, onDone }: { resul
         return () => window.clearTimeout(timer);
     }, [ready, arenaFailed, frameloop, handleArenaFailure]);
 
+    // Pet fights keep their full-size layout on phones; only menus shrink.
+    useFullScaleViewport();
     // The portal is the only pet-combat takeover mounted by the Gauntlet, so it
     // owns scroll locking while present without disturbing a class another mode
     // may already have installed.

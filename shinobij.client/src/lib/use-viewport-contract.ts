@@ -1,5 +1,6 @@
 import { useLayoutEffect } from "react";
 import { viewportClassForWidth } from "./viewport-contract";
+import { currentViewportBaseScale } from "./mobile-ui-scale";
 
 /** Installs the root viewport compatibility attribute from one shared source. */
 export function useViewportContract() {
@@ -17,7 +18,9 @@ export function useViewportContract() {
             const editing = focused instanceof HTMLElement
                 && (focused.matches('textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"])')
                     || focused.isContentEditable);
-            const keyboardOpen = Boolean(viewport && editing && Math.abs(viewport.scale - 1) < 0.05
+            // Phones run at a base page scale below 1 (mobile-ui-scale.ts), so
+            // "not pinched" means "at the base scale", not "at 1".
+            const keyboardOpen = Boolean(viewport && editing && Math.abs(viewport.scale - currentViewportBaseScale()) < 0.05
                 && window.innerHeight - viewport.height > 120);
             root.toggleAttribute("data-keyboard-open", keyboardOpen);
             root.style.setProperty("--visual-viewport-height", `${viewport?.height ?? window.innerHeight}px`);

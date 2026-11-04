@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 
 interface CombatInstanceProps {
     children: ReactNode;
@@ -16,6 +17,8 @@ interface CombatInstanceProps {
  * position, or responsive center-column rule may move the fight out of view.
  */
 export function CombatInstance({ children, className = "", id, style }: CombatInstanceProps) {
+    // Fights keep their tuned full-size layout; phones only shrink menus.
+    useFullScaleViewport();
     const combat = (
         <div id={id} className={`arena-fullscreen combat-instance${className ? ` ${className}` : ""}`} style={style}>
             {children}

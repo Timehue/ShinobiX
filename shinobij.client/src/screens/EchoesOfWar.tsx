@@ -43,6 +43,7 @@ import {
 } from "../data/echoes-of-war";
 import { readEchoesContent, resetEchoesContent } from "../lib/echoes-content-loader";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import type { EchoesSettleSummary } from "../lib/chronicle-duel";
 import { playEchoesSfx, startEchoesAmbience, stopEchoesAmbience } from "../lib/echoes-sfx";
 import { echoesConclusionPending, recordEchoesWitness } from "../lib/echoes-witness";
@@ -170,6 +171,8 @@ type EchoesOfWarProps = {
 };
 
 export function EchoesOfWar(props: EchoesOfWarProps) {
+    // The card campaign hub is card-game UI and keeps its full-size layout.
+    useFullScaleViewport();
     return (
         <ContentLoadBoundary
             reset={resetEchoesContent}

@@ -447,7 +447,10 @@ function chooseMainAction(
     if (
       !monster ||
       monster.faceUp ||
-      monster.summonedOnTurn === state.turnNumber
+      monster.summonedOnTurn === state.turnNumber ||
+      // A sealed Monster cannot be Flip Summoned. The engine refuses it, and a
+      // refused Main Phase 1 choice gives up the rest of that Main Phase.
+      (monster.positionLockedUntilTurn ?? 0) >= state.turnNumber
     )
       return false;
     const card = getChronicleCard(monster.cardId);
@@ -579,10 +582,16 @@ function chooseMainAction(
       if (card.effect.kind === "healLifePoints" && side.lifePoints <= 6_800)
         return { action: "activate-magic", handIndex };
       if (scope === "ownedFaceUpMonster") {
+        // A DEF guard only matters on a Monster that will be attacked in
+        // Defense Position; with none, keep the card for a later turn.
+        const guardsDefenseOnly =
+          card.magicType === "normal" &&
+          card.effect.kind === "modifyDefenseUntilEndTurn";
         const legalOwnedTargets = side.monsterZones.flatMap(
           (monster, targetZoneIndex) =>
             monster?.faceUp &&
-            (card.magicType !== "equip" || !monster.attachedEquipId)
+            (card.magicType !== "equip" || !monster.attachedEquipId) &&
+            (!guardsDefenseOnly || monster.position === "defense")
               ? [{ monster, targetZoneIndex }]
               : [],
         );

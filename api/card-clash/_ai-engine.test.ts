@@ -169,6 +169,68 @@ test("hard Keeper attacks a Monster that drops to a weaker Defense when attacked
   assert.equal(session.state.p1.monsterZones[0], null, "the attack breaks its Defense");
 });
 
+test("the Keeper casts a DEF guard on a Defense Position Monster, or keeps it", () => {
+  const guardId = "chronicle-guard-stance";
+  const byAttack = [...plainMonsters()].sort((a, b) => a.attack - b.attack);
+  const wall = byAttack[0];
+  const strong = byAttack[Math.floor(byAttack.length / 2)];
+  const threat = byAttack[byAttack.length - 1];
+  assert.ok(wall && strong && threat && threat.attack > strong.attack);
+  const mainBoard = (name: string) => {
+    const board = battleBoard(name);
+    board.state.phase = "main1";
+    board.state.p2.hand = [guardId];
+    // A stronger opposing Monster, so the Keeper has a reason to keep
+    // defending instead of standing its defender up to attack.
+    board.state.p1.monsterZones[0] = board.body(threat.id, "p1", 0);
+    return board;
+  };
+
+  // With a defender on the field, the guard goes on it, not the attacker.
+  {
+    const { session, state, body } = mainBoard("match-guard-defender");
+    state.p2.monsterZones[0] = body(strong.id, "p2", 0);
+    state.p2.monsterZones[1] = body(wall.id, "p2", 1, "defense");
+    advanceAi(session, 2_000);
+    assert.ok(session.state.p2.graveyard.includes(guardId), "the guard was cast");
+    assert.equal(session.state.p2.monsterZones[1]?.lingeringDefense, 500);
+    assert.equal(session.state.p2.monsterZones[0]?.lingeringDefense, undefined);
+  }
+
+  // With only Attack Position Monsters, the guard stays in hand.
+  {
+    const { session, state, body } = mainBoard("match-guard-held");
+    state.p2.monsterZones[0] = body(strong.id, "p2", 0);
+    advanceAi(session, 2_000);
+    assert.ok(!session.state.p2.graveyard.includes(guardId), "the guard was not wasted");
+    assert.ok(session.state.p2.hand.includes(guardId));
+  }
+});
+
+test("the Keeper does not try to Flip Summon a sealed Monster, and still summons", () => {
+  // A refused Main Phase 1 choice gives up the rest of that Main Phase, so a
+  // Flip Summon the engine refuses (a sealed FLIP Monster) cost the Keeper
+  // its summon for the turn.
+  const flip = getChronicleCard("tc-10");
+  assert.equal(flip?.cardClass === "monster" && flip.monsterEffect?.kind, "drawOnFlip");
+  const summon = plainMonsters().find((card) => card.level <= 4);
+  assert.ok(summon);
+  const { session, state, body } = battleBoard("match-sealed-flip");
+  state.phase = "main1";
+  state.p2.hand = [summon.id];
+  state.p2.monsterZones[0] = {
+    ...body("tc-10", "p2", 0, "defense"),
+    faceUp: false,
+    positionLockedUntilTurn: state.turnNumber,
+  };
+  advanceAi(session, 2_000);
+  assert.ok(
+    session.state.p2.monsterZones.some((monster) => monster?.cardId === summon.id),
+    "the Keeper summoned from its hand",
+  );
+  assert.equal(session.state.p2.monsterZones[0]?.faceUp, false, "the sealed Monster stayed Set");
+});
+
 test("hard Keeper attacks the guard instead of a target the guard makes illegal", () => {
   const guard = getChronicleCard("tc-121");
   assert.equal(guard?.cardClass === "monster" && guard.monsterEffect?.kind, "guardOtherMonsters");

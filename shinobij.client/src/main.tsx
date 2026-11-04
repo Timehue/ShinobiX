@@ -14,6 +14,7 @@ import './lib/perfTelemetry.ts' // register load/refresh perf observers before f
 import { initSentry } from './lib/sentry.ts' // env-gated crash reporting (no-op without VITE_SENTRY_DSN)
 import { applyLiteFxClass } from './lib/device-tier.ts' // tag <html class="lite-fx"> on weak mobiles to drop decorative motion
 import { applyDisplayBrightness } from './lib/display-brightness.ts' // the player's saved brightness, before first paint
+import { installMobileUiScale } from './lib/mobile-ui-scale.ts' // portrait phones draw menus at 85%; combat + card game hold full scale
 import { registerAssetServiceWorker } from './lib/register-sw.ts' // prod-only SW: hashed assets + offline fallback (never API)
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
@@ -63,6 +64,7 @@ const CinematicVnPreview = qaPreviewsEnabled
 initSentry()
 applyLiteFxClass()
 applyDisplayBrightness()
+installMobileUiScale()
 // Keep the controller runtime off the startup graph for touch/mouse players.
 // Gamepad connection is exposed by the browser as devices are connected, and
 // the current list handles controllers already present when the game launches.

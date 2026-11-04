@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Modal } from "./ui/Modal";
 import { ChronicleCardView } from "./ChronicleCardView";
 import { CARD_ART_SIZES_INSPECTOR } from "../lib/chronicle-card-art";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
 import { WARDED_RULE_TEXT } from "../../../shared/chronicle-keywords";
 
@@ -51,6 +52,9 @@ export function ChronicleCardInspector({
   /** Extra buttons (e.g. Add to Deck) rendered beside Close. */
   actions?: ReactNode;
 }) {
+  // The enlarged card exists for legibility, so it keeps the card game's
+  // full-size frame on phones, including when opened from the Inventory.
+  useFullScaleViewport(Boolean(card));
   if (!card) return null;
   // Normal monsters carry no rules text — their lore below is the whole body.
   // Warded is a keyword either kind of Monster can carry, so it leads.

@@ -43,6 +43,7 @@ import {
   elementBattleBonus,
   flipSummon,
   getChronicleCard,
+  monsterDefense,
   migrateLegacyDeck,
   normalSet as normalSetRaw,
   normalSummon as normalSummonRaw,
@@ -1357,6 +1358,158 @@ test("direct attack is blocked by a defender and battle damage is server-compute
       false,
     );
   }
+});
+
+test("Mountain Guard Stance holds its 500 DEF through the opponent's next turn", () => {
+  const guardCard = getChronicleCard("chronicle-guard-stance");
+  assert.ok(guardCard?.cardClass === "magic");
+  assert.match(guardCard.effectText, /until the end of your opponent's next turn/);
+
+  // A same-element pair whose ATK lands inside the guard: above the printed DEF,
+  // below DEF + 500, so only the guard decides the battle.
+  const vanilla = CHRONICLE_CARD_CATALOG.filter(
+    (card) => card.cardClass === "monster" && card.monsterType === "normal",
+  );
+  let pair: { defender: string; attacker: string; defense: number } | null = null;
+  for (const def of vanilla) {
+    if (def.cardClass !== "monster") continue;
+    const atk = vanilla.find((card) => card.cardClass === "monster"
+      && card.element === def.element
+      && card.attack > def.defense + 100
+      && card.attack < def.defense + 400);
+    if (atk) { pair = { defender: def.id, attacker: atk.id, defense: def.defense }; break; }
+  }
+  assert.ok(pair, "no vanilla pair fits inside a 500 DEF guard");
+
+  const state = match();
+  const me = state.activePlayer;
+  const foe = me === "p1" ? "p2" : "p1";
+  state.turnNumber = 2;
+  state.phase = "main1";
+  state[me].hand[0] = "chronicle-guard-stance";
+  placeMonster(state, me, 0, pair.defender, { position: "defense", faceUp: true });
+  placeMonster(state, foe, 0, pair.attacker);
+
+  // Face-up Defense Position is a legal target.
+  const cast = activateMagic(state, me, {
+    action: "activate-magic",
+    handIndex: 0,
+    targetSide: me,
+    targetZoneIndex: 0,
+  });
+  assert.equal(cast.ok, true, cast.ok ? "" : cast.error);
+  if (!cast.ok) return;
+  assert.equal(monsterDefense(cast.state[me].monsterZones[0]!), pair.defense + 500);
+
+  // My End Phase no longer wipes it.
+  const myEnd = structuredClone(cast.state);
+  myEnd.phase = "end";
+  const foeTurn = endTurn(myEnd, me, 2_000);
+  assert.equal(foeTurn.ok, true);
+  if (!foeTurn.ok) return;
+  assert.equal(foeTurn.state.activePlayer, foe);
+  assert.equal(monsterDefense(foeTurn.state[me].monsterZones[0]!), pair.defense + 500);
+
+  // The opponent's attack bounces off the guard: my Monster survives and the
+  // attacker's controller takes the difference.
+  const battleState = structuredClone(foeTurn.state);
+  battleState.phase = "battle";
+  const attack = declareAttack(battleState, foe, {
+    action: "attack",
+    attackerZoneIndex: 0,
+    targetZoneIndex: 0,
+  });
+  assert.equal(attack.ok, true, attack.ok ? "" : attack.error);
+  if (!attack.ok) return;
+  assert.ok(attack.state[me].monsterZones[0], "the guarded Monster survives");
+  const attackerAtk = (getChronicleCard(pair.attacker) as { attack: number }).attack;
+  assert.equal(
+    attack.state[foe].lifePoints,
+    STARTING_LIFE_POINTS - (pair.defense + 500 - attackerAtk),
+  );
+
+  // It expires at the end of the opponent's turn.
+  const foeEnd = structuredClone(attack.state);
+  foeEnd.phase = "end";
+  const backToMe = endTurn(foeEnd, foe, 3_000);
+  assert.equal(backToMe.ok, true);
+  if (!backToMe.ok) return;
+  const guarded = backToMe.state[me].monsterZones[0]!;
+  assert.equal(monsterDefense(guarded), pair.defense);
+  assert.equal(guarded.lingeringDefense, undefined);
+  assert.equal(guarded.lingeringDefenseUntilTurn, undefined);
+});
+
+test("no own-turn DEF Jutsu expires before the opponent can attack", () => {
+  // A normal Jutsu resolves only in your Main Phases, and DEF only counts when
+  // your Monster is attacked on the opponent's turn. "untilEndTurn" would clear
+  // it at your own End Phase, so the card would never do anything.
+  const dead = CHRONICLE_CARD_CATALOG.filter(
+    (card) => card.cardClass === "magic"
+      && card.magicType === "normal"
+      && card.effect.kind === "modifyDefenseUntilEndTurn"
+      && card.effect.duration !== "untilOpponentEndTurn",
+  ).map((card) => card.id);
+  assert.deepEqual(dead, []);
+  for (const id of ["chronicle-guard-stance", "chronicle-defiant-rampart", "chronicle-iron-root-stance"]) {
+    const card = getChronicleCard(id);
+    assert.ok(card?.cardClass === "magic", id);
+    assert.match(card.effectText, /until the end of your opponent's next turn/, id);
+  }
+});
+
+test("an allied element boost names the element it actually boosts", () => {
+  // effectiveAttack boosts allies that share the booster's own element.
+  const boosters = CHRONICLE_CARD_CATALOG.filter(
+    (card) => card.cardClass === "monster"
+      && card.monsterEffect?.kind === "alliedElementAttackBoost",
+  );
+  assert.ok(boosters.length > 0);
+  for (const card of boosters) {
+    if (card.cardClass !== "monster") continue;
+    assert.match(card.effectText ?? "", new RegExp(`face-up ${card.element} Monsters`), card.id);
+  }
+});
+
+test("Tidal Deflection is offered only when the extra DEF can decide the battle", () => {
+  const water = monsterWhere((card) => card.element === "Water", "of Water");
+  const attackerId = monsterWhere(() => true, "to attack with");
+  // A Monster that switches to Defense when attacked battles with DEF even
+  // from Attack Position, so the Snare must still be offered for it.
+  const switcher = CHRONICLE_CARD_CATALOG.find(
+    (card) => card.cardClass === "monster"
+      && card.monsterEffect?.kind === "changeToDefenseWhenAttacked",
+  );
+  assert.ok(switcher, "no changeToDefenseWhenAttacked Monster");
+  const window = (position: "attack" | "defense", targetId = water) => {
+    const state = match();
+    const attacker = state.activePlayer;
+    const defender = attacker === "p1" ? "p2" : "p1";
+    state.turnNumber = 3;
+    state.phase = "battle";
+    placeMonster(state, attacker, 0, attackerId);
+    placeMonster(state, defender, 0, targetId, { position, faceUp: true });
+    // Tidal Deflection needs a face-up Water Monster on its owner's side.
+    placeMonster(state, defender, 1, water, { position: "defense", faceUp: true });
+    state[defender].magicTrapZones[0] = {
+      instanceId: "tidal",
+      cardId: "chronicle-tidal-deflection",
+      owner: defender,
+      zoneIndex: 0,
+      faceUp: false,
+      setOnTurn: 1,
+    };
+    const declared = declareAttack(state, attacker, {
+      action: "attack",
+      attackerZoneIndex: 0,
+      targetZoneIndex: 0,
+    });
+    assert.equal(declared.ok, true, declared.ok ? "" : declared.error);
+    return declared.ok ? declared.state.responseWindow : undefined;
+  };
+  assert.deepEqual(window("defense")?.eligibleZoneIndexes, [0]);
+  assert.equal(window("attack"), null);
+  assert.deepEqual(window("attack", switcher.id)?.eligibleZoneIndexes, [0]);
 });
 
 test("the five-element wheel adds 200 only to the advantaged battle stat", () => {
@@ -3042,10 +3195,19 @@ test("supplied Trap guidelines add reinforcement, delayed retribution, formation
   };
   const weakened = summonTrap("chronicle-earthen-grave-array", "tc-03");
   assert.equal(weakened[weakened.activePlayer].monsterZones[0]?.temporaryAttack, -800);
-  assert.equal(
-    weakened[weakened.activePlayer].monsterZones[0]?.positionLockedUntilTurn,
-    3,
-  );
+  // Summoned on turn 3, so the lock has to cover its controller's NEXT turn
+  // (5): a Monster can never change position on the turn it is Summoned, so a
+  // lock ending on turn 3 stopped nothing.
+  const summoner = weakened.activePlayer;
+  assert.equal(weakened[summoner].monsterZones[0]?.positionLockedUntilTurn, 5);
+  const nextTurn = structuredClone(weakened);
+  nextTurn.turnNumber = 5;
+  nextTurn.phase = "main1";
+  assert.equal(changePosition(nextTurn, summoner, 0, "defense").ok, false);
+  const turnAfter = structuredClone(weakened);
+  turnAfter.turnNumber = 7;
+  turnAfter.phase = "main1";
+  assert.equal(changePosition(turnAfter, summoner, 0, "defense").ok, true);
 
   const sealed = summonTrap("chronicle-flash-burial-tag", "tc-04");
   const sealedMonster = sealed[sealed.activePlayer].monsterZones[0];
@@ -4468,4 +4630,151 @@ test("a match persisted before the rule cannot be struck on its first expiry", (
 test("returns the very same state when nothing has expired", () => {
   const state = match();
   assert.equal(advanceExpiredChronicleTurn(state, state.turnStartedAt + 1_000), state);
+});
+
+test("the draw-negating traps answer War-Camp Feast, which draws for both players", () => {
+  for (const trapId of [
+    "chronicle-still-water-rebuttal",
+    "chronicle-kage-archive-lock",
+  ]) {
+    const state = match();
+    state.turnNumber = 3;
+    const caster = state.activePlayer;
+    const responder: ChronicleSideKey = caster === "p1" ? "p2" : "p1";
+    state[caster].hand = ["chronicle-war-camp-feast", "tc-01"];
+    state[responder].hand = ["tc-02"];
+    state[responder].magicTrapZones[0] = {
+      instanceId: `${trapId}-set`,
+      cardId: trapId,
+      owner: responder,
+      zoneIndex: 0,
+      faceUp: false,
+      setOnTurn: 1,
+    };
+    const casterDeck = state[caster].deck.length;
+    const responderDeck = state[responder].deck.length;
+    const feast = activateMagic(state, caster, {
+      action: "activate-magic",
+      handIndex: 0,
+    });
+    if (!feast.ok) assert.fail(feast.error);
+    assert.deepEqual(feast.state.responseWindow?.eligibleZoneIndexes, [0], trapId);
+    const negated = activateTrap(feast.state, responder, 0);
+    if (!negated.ok) assert.fail(negated.error);
+    assert.deepEqual(negated.state[caster].hand, ["tc-01"], `${trapId}: nothing discarded`);
+    assert.deepEqual(negated.state[responder].hand, ["tc-02"], `${trapId}: nothing discarded`);
+    assert.equal(negated.state[caster].deck.length, casterDeck, `${trapId}: nothing drawn`);
+    assert.equal(negated.state[responder].deck.length, responderDeck, `${trapId}: nothing drawn`);
+    assert.ok(negated.state[caster].graveyard.includes("chronicle-war-camp-feast"));
+  }
+});
+
+test("Shadow Fox flipped by an attack still locks the attacker's strongest Monster through their next turn", () => {
+  const state = match();
+  state.turnNumber = 3;
+  state.phase = "battle";
+  const attacker = state.activePlayer;
+  const defender: ChronicleSideKey = attacker === "p1" ? "p2" : "p1";
+  const vanilla = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" && card.monsterType === "normal" ? [card] : [],
+  ).sort((a, b) => a.attack - b.attack);
+  const weakest = vanilla[0]!;
+  const strongest = vanilla[vanilla.length - 1]!;
+  assert.ok(strongest.attack > weakest.attack);
+  placeMonster(state, attacker, 0, weakest.id);
+  placeMonster(state, attacker, 1, strongest.id);
+  placeMonster(state, defender, 0, "tc-24", { position: "defense", faceUp: false });
+  const attacked = declareAttack(state, attacker, {
+    action: "attack",
+    attackerZoneIndex: 0,
+    targetZoneIndex: 0,
+  });
+  if (!attacked.ok) assert.fail(attacked.error);
+  const locked = attacked.state[attacker].monsterZones[1];
+  assert.equal(locked?.position, "defense", "the flip turned the strongest Monster");
+  // Turn 3 is the attacker's own turn. Turn 4 is the Fox owner's, when the
+  // attacker could not change position anyway, so the lock must reach turn 5.
+  assert.equal(locked?.positionLockedUntilTurn, 5);
+  const nextTurn = structuredClone(attacked.state);
+  nextTurn.turnNumber = 5;
+  nextTurn.activePlayer = attacker;
+  nextTurn.phase = "main1";
+  assert.equal(changePosition(nextTurn, attacker, 1, "attack").ok, false);
+  nextTurn.turnNumber = 7;
+  assert.equal(changePosition(nextTurn, attacker, 1, "attack").ok, true);
+});
+
+test("a battling-stronger attacker gains its ATK against a stronger Monster in Defense Position too", () => {
+  // Searched by shape: an underdog, and a vanilla target with higher ATK whose
+  // DEF the underdog only beats with its bonus. Same element, so no edge.
+  const vanilla = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" && card.monsterType === "normal" ? [card] : [],
+  );
+  const pair = CHRONICLE_CARD_CATALOG.flatMap((card) => {
+    if (
+      card.cardClass !== "monster" ||
+      card.monsterEffect?.kind !== "gainAttackWhenBattlingStronger"
+    )
+      return [];
+    const bonus = card.monsterEffect.amount ?? 0;
+    const target = vanilla.find(
+      (candidate) =>
+        candidate.element === card.element &&
+        candidate.attack > card.attack &&
+        candidate.defense >= card.attack &&
+        candidate.defense < card.attack + bonus,
+    );
+    return target ? [{ underdog: card.id, target: target.id }] : [];
+  })[0];
+  assert.ok(pair, "no stronger vanilla Monster whose DEF sits inside an underdog's bonus");
+
+  const state = match();
+  state.turnNumber = 3;
+  state.phase = "battle";
+  const actor = state.activePlayer;
+  const opponent: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
+  placeMonster(state, actor, 0, pair.underdog);
+  placeMonster(state, opponent, 0, pair.target, { position: "defense" });
+  const preview = previewChronicleBattle(projectMatchForViewer(state, actor), 0, 0);
+  assert.equal(preview?.kind, "break", "the preview shows the bonus");
+  const attacked = declareAttack(state, actor, {
+    action: "attack",
+    attackerZoneIndex: 0,
+    targetZoneIndex: 0,
+  });
+  if (!attacked.ok) assert.fail(attacked.error);
+  assert.equal(attacked.state[opponent].monsterZones[0], null, "the bonus broke the defender");
+  assert.ok(attacked.state[actor].monsterZones[0]);
+});
+
+test("a battling-stronger defender in Defense Position still uses its DEF, with no ATK bonus", () => {
+  const underdog = CHRONICLE_CARD_CATALOG.find(
+    (card) =>
+      card.cardClass === "monster" &&
+      card.monsterEffect?.kind === "gainAttackWhenBattlingStronger",
+  );
+  assert.ok(underdog?.cardClass === "monster");
+  const attackerCard = CHRONICLE_CARD_CATALOG.find(
+    (card) =>
+      card.cardClass === "monster" &&
+      card.monsterType === "normal" &&
+      card.element === underdog.element &&
+      card.attack > underdog.defense &&
+      card.attack > underdog.attack,
+  );
+  assert.ok(attackerCard);
+  const state = match();
+  state.turnNumber = 3;
+  state.phase = "battle";
+  const actor = state.activePlayer;
+  const opponent: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
+  placeMonster(state, actor, 0, attackerCard.id);
+  placeMonster(state, opponent, 0, underdog.id, { position: "defense" });
+  const attacked = declareAttack(state, actor, {
+    action: "attack",
+    attackerZoneIndex: 0,
+    targetZoneIndex: 0,
+  });
+  if (!attacked.ok) assert.fail(attacked.error);
+  assert.equal(attacked.state[opponent].monsterZones[0], null);
 });

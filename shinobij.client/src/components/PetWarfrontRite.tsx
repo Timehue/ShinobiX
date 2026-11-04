@@ -31,6 +31,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
+import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import type { Pet } from "../types/pet";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { DUEL_TPS } from "../lib/pet-duel-sim";
@@ -874,6 +875,8 @@ function useReducedMotionPreference(): boolean {
 export const PetWarfrontRite = withPetSceneRecall(PetWarfrontRiteView, ['onExit']);
 function PetWarfrontRiteView(props: PetWarfrontRiteProps) {
     useBodyScrollLock(true);
+    // A pet fight keeps its full-size layout on phones; only menus shrink.
+    useFullScaleViewport();
     // Escape the lobby's relative-positioned children and clipping ancestors.
     return typeof document === "undefined" ? null : createPortal(<WarfrontRiteMatch {...props} />, document.body);
 }
