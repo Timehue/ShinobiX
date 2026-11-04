@@ -441,6 +441,11 @@
     background: linear-gradient(160deg, #111d33, #050b18 72%);
 }
 
+@media (max-width: 800px) {
+    /* Phone: the same full-width bottom sheet as every other dialog. */
+    .ui-modal-card.jutsu-mobile-info-modal { width: 100%; max-height: var(--phone-sheet-max-height); }
+}
+
 .jutsu-mobile-info-modal > .ui-modal-body { overflow-y: auto; overscroll-behavior: contain; }
 .jutsu-mobile-info-content { display: grid; gap: 14px; min-width: 0; }
 .jutsu-mobile-info-hero { display: grid; grid-template-columns: 70px minmax(0, 1fr); align-items: center; gap: 12px; }
