@@ -491,7 +491,73 @@ function addGroundStatus(fighter: PvpFighter, status: PvpStatus, effectId: strin
         ],
     };
 }
+// Buff-tile pulse wording, one per SELF_GROUND_EFFECT_TAGS entry. Each line
+// states the jutsu's percent and nothing else.
+const OCCUPANT_TILE_LINES: Readonly<Record<string, (name: string, pct: number) => string>> = {
+    'Absorb': (name, pct) => `${name} restores HP from ${pct}% of damage received after shields while standing on this tile.`,
+    'Lifesteal': (name, pct) => `${name} restores HP equal to ${pct}% of damage dealt while standing on this tile.`,
+    'Reflect': (name, pct) => `${name} returns ${pct}% of damage received after shields to the attacker while standing on this tile.`,
+    'Decrease Damage Taken': (name, pct) => `${name} takes ${pct}% less damage while standing on this tile.`,
+    'Increase Heal': (name, pct) => `${name}'s jutsu healing increases by ${pct}% while standing on this tile.`,
+};
+/**
+ * A buff tile grants its statuses to whoever stands on it, at once and for as
+ * long as they stay. Statuses are sourced to the tile, so a refresh never
+ * stacks and reconcileGroundStatuses removes them the moment the fighter
+ * leaves. Only a newly granted status writes a log line.
+ */
+export function applyOccupantGroundEffect(fighter: PvpFighter, effect: PvpGroundEffect, round: number): { fighter: PvpFighter; lines: string[] } {
+    let next = fighter;
+    const lines: string[] = [];
+    if (effect.rounds <= 0 || !effect.tiles.includes(fighter.pos)) return { fighter: next, lines };
+    const source = `ground:${effect.id}`;
+    // Settles run on every action, so a blocked fighter is not logged here
+    // (it would repeat each time); the cast logs it once (buffTileBlockedLines).
+    if (hasStatus(next, 'Buff Prevent', round)) return { fighter: next, lines };
+    for (const tag of effect.tags) {
+        const tagName = normalizeTagName(tag.name);
+        const line = OCCUPANT_TILE_LINES[tagName];
+        if (!line) continue;
+        // The tile applies its authored value at full strength, still held to
+        // the caster's rank ceiling like every other amp tag.
+        const pct = Math.max(1, Math.floor(scaleCombatTagPercent(
+            Number(tag.percent ?? 0), JUTSU_MAX_LEVEL, tagName, effect.bloodlineRank, CAPPED_AMP_TAGS,
+        )));
+        const held = next.statuses.some((status) => status.source === source && nameMatches(status.name, tagName));
+        // Two rounds so a round-end status tick never drops it between settles;
+        // every settle resets it, and reconcileGroundStatuses removes it the
+        // moment the fighter leaves the tile or the tile expires.
+        next = addGroundStatus(next, { name: tagName, rounds: 2, percent: pct, kind: 'positive' }, effect.id);
+        if (!held) lines.push(`${effect.name}: ${line(next.name, pct)}`);
+    }
+    return { fighter: next, lines };
+}
+/** The one-time cast line for each fighter on a new buff tile whose Buff Prevent blocks it. */
+export function buffTileBlockedLines(fighters: readonly PvpFighter[], effect: PvpGroundEffect, round: number): string[] {
+    return fighters
+        .filter((fighter) => fighter.hp > 0 && effect.tiles.includes(fighter.pos) && hasStatus(fighter, 'Buff Prevent', round))
+        .map((fighter) => `${fighter.name}'s Buff Prevent blocks ${effect.name}.`);
+}
+/** Grant every buff tile under this fighter. Removal is reconcileGroundStatuses' job. */
+export function settleOccupantGroundStatuses(fighter: PvpFighter, effects: PvpGroundEffect[] | undefined, round: number): { fighter: PvpFighter; lines: string[] } {
+    let next = fighter;
+    const lines: string[] = [];
+    for (const effect of effects ?? []) {
+        if (effect.kind !== 'occupant') continue;
+        const applied = applyOccupantGroundEffect(next, effect, round);
+        next = applied.fighter;
+        lines.push(...applied.lines);
+    }
+    return { fighter: next, lines };
+}
+/** Drop statuses from zones a fighter left, then grant the buff tiles they stand on. */
+function settleGroundStatusesForSession(session: PvpSession, round: number): { session: PvpSession; lines: string[] } {
+    const p1 = settleOccupantGroundStatuses(reconcileGroundStatuses(session.p1, session.groundEffects, 'p1'), session.groundEffects, round);
+    const p2 = settleOccupantGroundStatuses(reconcileGroundStatuses(session.p2, session.groundEffects, 'p2'), session.groundEffects, round);
+    return { session: { ...session, p1: p1.fighter, p2: p2.fighter }, lines: [...p1.lines, ...p2.lines] };
+}
 export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroundEffect, round: number, includePending = false): { fighter: PvpFighter; lines: string[] } {
+    if (effect.kind === 'occupant') return applyOccupantGroundEffect(fighter, effect, round);
     let next = { ...fighter };
     const lines: string[] = [];
     const activeRound = effect.activeRound;
@@ -538,8 +604,9 @@ export function reconcileGroundStatuses(fighter: PvpFighter, effects: PvpGroundE
     const statuses = fighter.statuses.filter((status) => {
         if (!status.source?.startsWith('ground:')) return true;
         const id = status.source.slice('ground:'.length);
+        // A hostile zone never affects its owner; a buff tile affects anyone on it.
         return (effects ?? []).some((effect) => effect.id === id
-            && (owner === undefined || effect.owner !== owner)
+            && (owner === undefined || effect.kind === 'occupant' || effect.owner !== owner)
             && effect.tiles.includes(fighter.pos));
     });
     return statuses.length === fighter.statuses.length ? fighter : { ...fighter, statuses };
@@ -549,6 +616,8 @@ function applyGroundEffects(session: PvpSession, round: number, targetOnly?: Pvp
     let p2 = session.p2;
     const lines: string[] = [];
     for (const effect of session.groundEffects ?? []) {
+        // Buff tiles are settled by occupancy, not by a turn-start pulse.
+        if (effect.kind === 'occupant') continue;
         const targetRole = effect.owner === 'p1' ? 'p2' : 'p1';
         if (targetOnly !== undefined && targetRole !== targetOnly) continue;
         if (targetRole === 'p1') {
@@ -860,8 +929,11 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         if (tagName === 'Stun Prevent') { s = addJutsuStatus(s, jutsu, { name: 'Stun Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Stun Prevent: ${s.name} blocks new Stun effects ${effectWindow}.`); continue; }
         if (tagName === 'Copy') {
             if (!hasStatus(s, 'Buff Prevent', round)) {
+                // A buff tile's status belongs to the hex, not the fighter on it.
                 const copied = activeStatuses(o, round).filter(st => (
-                    st.kind === 'positive' && !COPY_EXCLUDED_BUFFS.has(normalizeTagName(st.name))
+                    st.kind === 'positive'
+                    && !COPY_EXCLUDED_BUFFS.has(normalizeTagName(st.name))
+                    && !st.source?.startsWith('ground:')
                 ));
                 copied.forEach(st => {
                     s = addJutsuStatus(s, jutsu, { ...st, rounds: 2 }, round);
@@ -1388,11 +1460,9 @@ function endTurn(session: PvpSession): PvpSession {
             groundEffects: tickGroundEffects(s.groundEffects, session.round),
         };
     }
-    s = {
-        ...s,
-        p1: reconcileGroundStatuses(s.p1, s.groundEffects, 'p1'),
-        p2: reconcileGroundStatuses(s.p2, s.groundEffects, 'p2'),
-    };
+    const settledAtHandoff = settleGroundStatusesForSession(s, newRound);
+    s = settledAtHandoff.session;
+    lines.push(...settledAtHandoff.lines);
     if (current === 'p1') {
         s = { ...s, cooldowns: { ...s.cooldowns, p1: tickCooldowns(s.cooldowns.p1) } };
     } else {
@@ -1414,8 +1484,9 @@ function endTurn(session: PvpSession): PvpSession {
     lines.push(...groundApplied.lines);
     const otherFighter = next === 'p1' ? s.p2 : s.p1;
     const moved = applyQueuedMovement(nextFighter, otherFighter, newRound);
-    nextFighter = reconcileGroundStatuses(moved.fighter, s.groundEffects, next);
-    lines.push(...moved.lines);
+    const settledAfterMove = settleOccupantGroundStatuses(reconcileGroundStatuses(moved.fighter, s.groundEffects, next), s.groundEffects, newRound);
+    nextFighter = settledAfterMove.fighter;
+    lines.push(...moved.lines, ...settledAfterMove.lines);
     if (COMBAT_RESOURCES_V2) {
         const rgLvl = rankedCombatLevel(nextFighter.character);
         const rg = v2ResourceRegen(rgLvl);
@@ -1985,11 +2056,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (updMe) s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
             if (updOpp) s = role === 'p1' ? { ...s, p2: updOpp } : { ...s, p1: updOpp };
-            s = {
-                ...s,
-                p1: reconcileGroundStatuses(s.p1, s.groundEffects, 'p1'),
-                p2: reconcileGroundStatuses(s.p2, s.groundEffects, 'p2'),
-            };
+            const settled = settleGroundStatusesForSession(s, session.round);
+            s = settled.session;
+            lines.push(...settled.lines);
             s = { ...s, ap: { ...s.ap, [role as 'p1' | 'p2']: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
             if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role as 'p1' | 'p2']: { ...myCooldowns, ...cd } } };
             if (lines.length) s = { ...s, log: [...s.log, ...lines] };
@@ -2286,7 +2355,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         case 'invalid-ground-target':
                             return finish(await rejectWithLog(`${me.name}: ${jutsu.name} — target tile out of range or occupied.`));
                         case 'ground-effect-needs-supported-tag':
-                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect.`));
+                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect, or a buff tile tag at 40 AP.`));
+                        case 'self-ground-effect-40-ap-only':
+                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} can only make a buff tile as a 40 AP jutsu.`));
                     }
                 }
 
@@ -2326,6 +2397,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // client's weatherElementOf (lib/elements.ts).
                 const jWMult = weatherMultiplier(jutsu.weatherElement ?? jutsu.element, weatherPositiveElement, weatherNegativeElement);
                 const cd = plan.cooldown > 0 ? { [jutsuId]: plan.cooldown } : undefined;
+                // A 40-AP buff tile: lay it on the selected hex (the landing hex
+                // when the jutsu dashes). commit() settles occupancy, so whoever
+                // stands on it gains the buff at once.
+                const layOccupantTile = (paidSelf: PvpFighter, tile: number): PvpSession => {
+                    const tileEffect: PvpGroundEffect = {
+                        ...createCanonicalGroundEffect({
+                            id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                            owner: role,
+                            name: jutsu.name,
+                            plan,
+                            bloodlineRank: jutsu.bloodlineRank,
+                        }),
+                        activeRound: session.round + 1,
+                    };
+                    lines.push(`${jutsu.name} turns hex ${tile} into a buff tile for 2 rounds.`,
+                        ...buffTileBlockedLines([paidSelf, opp], tileEffect, session.round));
+                    return commit(
+                        paidSelf,
+                        null,
+                        apCost,
+                        cd,
+                        { groundEffects: [...(session.groundEffects ?? []), tileEffect] },
+                        undefined,
+                        [
+                            vfxForJutsu(jutsu, paidSelf, opp, undefined, { ground: true, tiles: tileEffect.tiles, persistent: true, who: 'self' }),
+                            ...spendPoisonVfx,
+                        ],
+                    );
+                };
 
                 // Ground-target and movement jutsus: choose an open tile in range.
                 // AOE_CIRCLE resolves from the chosen tile and only hits if the opponent
@@ -2334,6 +2434,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const destTile = plan.targetTile;
                     const movedSelf = paySpendPoison({ ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) });
                     lines.push(`${me.name} dashes to hex ${destTile}.`);
+                    if (plan.createsGroundEffect && plan.groundKind === 'occupant') {
+                        result = layOccupantTile(movedSelf, destTile);
+                        break;
+                    }
                     if (plan.createsGroundEffect) {
                         // Dash in, then erupt a spiral ground nova centred on the
                         // landing tile. If the target still has a turn this round,
@@ -2463,6 +2567,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 if (groundTarget && plan.targetTile !== undefined) {
+                    if (plan.createsGroundEffect && plan.groundKind === 'occupant') {
+                        result = layOccupantTile(
+                            paySpendPoison({ ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) }),
+                            plan.targetTile,
+                        );
+                        break;
+                    }
                     if (plan.createsGroundEffect) {
                         let groundEffect: PvpGroundEffect = {
                             ...createCanonicalGroundEffect({

@@ -16,6 +16,8 @@ import {
     GROUND_EFFECT_TAGS,
     OPPONENT_AFFECTING_TAGS,
     REQUIRES_DAMAGE_TAGS,
+    SELF_GROUND_EFFECT_AP,
+    SELF_GROUND_EFFECT_TAGS,
 } from '../pvp/_tags.js';
 
 type Json = Record<string, unknown>;
@@ -89,7 +91,20 @@ function normalizeTags(
         .filter((tag) => PLAYER_BLOODLINE_TAGS.has(tag.name));
 
     if (method === 'INSTANT_EFFECT') {
-        candidates = candidates.filter((tag) => GROUND_EFFECT_TAGS.has(tag.name));
+        // An instant effect is either a hostile field around the caster or, at
+        // 40 AP only, a buff tile on the selected hex (optionally dashed onto
+        // with Move). The first authored ground tag picks the family.
+        const firstFamilyTag = candidates.find((tag) => GROUND_EFFECT_TAGS.has(tag.name) || SELF_GROUND_EFFECT_TAGS.has(tag.name));
+        const buffTile = ap === SELF_GROUND_EFFECT_AP && !!firstFamilyTag && SELF_GROUND_EFFECT_TAGS.has(firstFamilyTag.name);
+        if (buffTile) {
+            const hasMove = candidates.some((tag) => tag.name === 'Move');
+            candidates = [
+                ...(hasMove ? [{ name: 'Move', percent: 0 }] : []),
+                ...candidates.filter((tag) => SELF_GROUND_EFFECT_TAGS.has(tag.name)),
+            ];
+        } else {
+            candidates = candidates.filter((tag) => GROUND_EFFECT_TAGS.has(tag.name));
+        }
     } else if (method === 'AOE_SPIRAL') {
         candidates = [
             { name: 'Move', percent: 0 },
@@ -160,7 +175,8 @@ function normalizeOne(
 
     // An effect-less ground zone cannot resolve. Preserve the jutsu as an
     // ordinary direct cast instead of sealing a silent no-op.
-    if (method === 'INSTANT_EFFECT' && tags.length === 0) method = 'SINGLE';
+    // A Move-only buff tile has no payload left: it is an ordinary dash.
+    if (method === 'INSTANT_EFFECT' && tags.every((tag) => tag.name === 'Move')) method = 'SINGLE';
     if (method === 'AOE_SPIRAL' && tags.every((tag) => tag.name === 'Move')) method = 'AOE_CIRCLE';
 
     const groundTarget = hasMove || method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL';

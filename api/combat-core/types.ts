@@ -91,6 +91,8 @@ export type CombatGroundEffect = {
     id: string;
     owner: string;
     name: string;
+    /** 'occupant' = a 40-AP buff tile for whoever stands on it; absent = hostile field. */
+    kind?: 'occupant';
     tiles: number[];
     rounds: number;
     tags: CombatTag[];

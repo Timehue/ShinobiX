@@ -251,6 +251,23 @@ export const bloodlineUniqueTags = [
     "Pierce",
 ];
 
+/** 40-AP-only buff-tile tags. Mirrors SELF_GROUND_EFFECT_TAGS in api/pvp/_tags.ts. */
+export const selfGroundEffectTags = ["Absorb", "Lifesteal", "Reflect", "Decrease Damage Taken", "Increase Heal"];
+export const SELF_GROUND_EFFECT_AP = 40;
+/** Enemy-field Instant Effect tags. Mirrors GROUND_EFFECT_TAGS in api/pvp/_tags.ts. */
+export const instantEffectGroundTags = ["Decrease Damage Given", "Recoil", "Poison"];
+
+/**
+ * A buff tile: an Instant Effect whose ground tags are buff-tile tags only.
+ * Mirrors isOccupantGroundJutsu in api/combat-core/resolve-jutsu-action.ts.
+ */
+export function isBuffTileJutsu(jutsu: { method?: string; tags?: ReadonlyArray<{ name?: string }> }): boolean {
+    if (normalizeJutsuMethod(jutsu.method) !== "INSTANT_EFFECT") return false;
+    const names = (jutsu.tags ?? []).map((tag) => normalizeTagName(tag.name ?? ""));
+    return names.some((name) => selfGroundEffectTags.includes(name))
+        && !names.some((name) => instantEffectGroundTags.includes(name));
+}
+
 // Tags that mean a jutsu touches the OPPONENT (debuffs / displacement / DoTs).
 // Canonical names only. MUST mirror OPPONENT_AFFECTING_TAGS in api/pvp/_tags.ts
 // — scripts/pvp-tags-parity.test.mjs would fail if the two drift. Self-buffs

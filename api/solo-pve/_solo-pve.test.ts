@@ -8,7 +8,7 @@ import type { AdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from './_ai-encounter.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { GRID_H, GRID_W } from '../combat-core/constants.js';
-import { applySoloPveAction, endSoloPveTurn } from './_engine.js';
+import { applySoloPveAction, endSoloPveTurn, runSoloPveAiUntilPlayer } from './_engine.js';
 import { executeSoloPveAction, type SoloPveLock } from './_action-service.js';
 import {
     createSoloPveSession,
@@ -1377,5 +1377,94 @@ describe('solo-PvE action service', () => {
         });
         assert.equal(retry.body.duplicate, true);
         assert.deepEqual(retry.body.session?.terminalEvidence, stored.terminalEvidence);
+    });
+});
+
+describe('solo PvE 40 AP buff tiles', () => {
+    it('lays a single-hex buff tile under the caster and grants it at once', () => {
+        const session = makeSession();
+        session.player.character.jutsu = [{
+            id: 'golden-ground', name: 'Golden Ground', type: 'Any', target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+            effectPower: 0, ap: 40, range: 4, tags: [{ name: 'Decrease Damage Taken', percent: 30 }],
+        }];
+        const cast = applySoloPveAction(session, { type: 'jutsu', jutsuId: 'golden-ground', tile: session.player.pos });
+        assert.equal(cast.applied, true);
+        assert.equal(cast.session.groundEffects.length, 1);
+        assert.equal(cast.session.groundEffects[0]!.kind, 'occupant');
+        assert.deepEqual(cast.session.groundEffects[0]!.tiles, [session.player.pos]);
+        assert.ok(cast.session.player.statuses.some((status) => status.name === 'Decrease Damage Taken' && status.source?.startsWith('ground:')));
+        assert.equal(cast.session.enemy.statuses.some((status) => status.name === 'Decrease Damage Taken'), false);
+    });
+
+    it('with Move, dashes onto the hex and gains the buff on landing; stepping off removes it', () => {
+        const session = makeSession();
+        session.player.character.jutsu = [{
+            id: 'golden-dash', name: 'Golden Dash', type: 'Any', target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+            effectPower: 0, ap: 40, range: 4, tags: [{ name: 'Move' }, { name: 'Reflect', percent: 30 }],
+        }];
+        const dash = applySoloPveAction(session, { type: 'jutsu', jutsuId: 'golden-dash', tile: 50 });
+        assert.equal(dash.applied, true);
+        assert.equal(dash.session.player.pos, 50);
+        assert.deepEqual(dash.session.groundEffects[0]!.tiles, [50]);
+        assert.ok(dash.session.player.statuses.some((status) => status.name === 'Reflect'));
+        const step = applySoloPveAction(dash.session, { type: 'move', tile: 51 });
+        assert.equal(step.applied, true);
+        assert.equal(step.session.player.statuses.some((status) => status.name === 'Reflect'), false);
+    });
+
+    it('refuses a buff tile on a 60 AP jutsu', () => {
+        const session = makeSession();
+        session.player.character.jutsu = [{
+            id: 'heavy-ground', name: 'Heavy Ground', type: 'Ninjutsu', target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+            effectPower: 40, ap: 60, range: 4, tags: [{ name: 'Absorb', percent: 30 }],
+        }];
+        const cast = applySoloPveAction(session, { type: 'jutsu', jutsuId: 'heavy-ground', tile: 61 });
+        assert.equal(cast.applied, false);
+        assert.equal(cast.reason, 'self-ground-effect-40-ap-only');
+    });
+});
+
+describe('solo PvE session creation with a buff tile equipped', () => {
+    it('starts a fight for a player whose loadout carries a 40 AP buff tile', () => {
+        const player = makeFighter('Alice', 62);
+        player.character.jutsu = [{
+            id: 'golden-ground', name: 'Golden Ground', type: 'Any', target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+            effectPower: 0, ap: 40, range: 4, tags: [{ name: 'Move' }, { name: 'Absorb', percent: 30 }],
+        }];
+        const session = createSoloPveSession({
+            sessionId: 'buff-tile-start', ownerSlug: 'alice',
+            encounter: { kind: 'generic-ai', id: 'academy-rival', level: 20 },
+            player, enemy: makeFighter('Rival', 63), now: NOW, difficultyEnemyLevel: 20,
+        });
+        const cast = applySoloPveAction(session, { type: 'jutsu', jutsuId: 'golden-ground', tile: 50 });
+        assert.equal(cast.applied, true);
+        assert.ok(cast.session.player.statuses.some((status) => status.name === 'Absorb'));
+    });
+});
+
+describe('solo PvE AI with a buff tile (player-copy opponents)', () => {
+    it('lays a buff tile under its own feet, never beside its foe', () => {
+        const session = makeSession();
+        session.player.pos = 62;
+        session.enemy.pos = 66;
+        session.enemy.character.jutsu = [{
+            id: 'golden-ground', name: 'Golden Ground', type: 'Any', target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+            effectPower: 0, ap: 40, range: 4, cooldown: 7, tags: [{ name: 'Decrease Damage Taken', percent: 30 }],
+        }];
+        // The AI walks in first, then lays the tile on a later turn.
+        for (let turn = 0; turn < 3 && !session.groundEffects.some((effect) => effect.kind === 'occupant'); turn++) {
+            endSoloPveTurn(session);
+            runSoloPveAiUntilPlayer(session);
+        }
+        const tiles = session.groundEffects.filter((effect) => effect.kind === 'occupant');
+        assert.ok(tiles.length > 0, 'the AI uses its buff tile');
+        for (const tile of tiles) {
+            assert.equal(hexDistance(tile.tiles[0]!, session.player.pos) <= 1 && tile.tiles[0] !== session.enemy.pos, false,
+                `tile ${tile.tiles[0]} would hand the buff to the player at ${session.player.pos}`);
+        }
+        assert.deepEqual(tiles.map((tile) => tile.tiles), [[session.enemy.pos]], 'laid on the hex the AI fights from');
+        assert.ok(hexDistance(session.enemy.pos, session.player.pos) <= 1, 'it closed in before laying the tile');
+        assert.ok(session.enemy.statuses.some((status) => status.name === 'Decrease Damage Taken'),
+            `the AI holds its own buff (enemy at ${session.enemy.pos}; log: ${session.log.slice(-8).join(' | ')})`);
     });
 });
