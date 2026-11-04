@@ -1,7 +1,7 @@
 {
-  "candidate": "da1f465eee170f21e5b9f1f2ede04fd6803a5ab6",
-  "recovery": "b4e1ae0a673c074268f61867394b15a0dd16fa5b",
+  "candidate": "7c8e1323280808140dcc6b14181d541ce0a5776c",
+  "recovery": "0180423d957457405356cbf1365b95b4513bb706",
   "node": "24.21.0",
   "platform": "linux/amd64",
-  "recoveryMeaning": "Main badbd8c7 and reviewed runtime repairs including projection cleanup and buff tile caster credit; only the wildlife browser fixture differs, not application behavior"
+  "recoveryMeaning": "Main87f0d2b7 with lazy avatar loading and reviewed world boss repairs; deterministic fairness tests in both; only wildlife browser fixture differs, not application behavior"
 }
