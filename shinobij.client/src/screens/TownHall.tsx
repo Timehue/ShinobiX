@@ -644,12 +644,12 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         const cost = HOLLOW_GATE_UNLOCK_COST;
         // An unconfirmed unlock may already have spent the seals; pressing again
         // finishes it without spending twice (lib/economy-request-intent).
-        if ((character.honorSeals ?? 0) < cost && !hollowGateUnlockPending) return alert(`Not enough Honor Seals. The Hollow Gate seal demands ${cost.toLocaleString()} Honor Seals.`);
+        if ((state.treasury?.honorSeals ?? 0) < cost && !hollowGateUnlockPending) return alert(`The village treasury needs ${cost.toLocaleString()} Honor Seals.`);
         const wasOpen = isHollowGateUnlocked(state);
         townActionBusyRef.current = true;
         setTownActionBusy("hollow-gate");
         const confirmed = await gameConfirm(
-            `${wasOpen ? "Extend" : "Open"} the Hollow Gate for ${HOLLOW_GATE_UNLOCK_DAYS} days at a cost of ${cost.toLocaleString()} Honor Seals? The seals are spent immediately and cannot be refunded.`,
+            `${wasOpen ? "Extend" : "Open"} the Hollow Gate for ${HOLLOW_GATE_UNLOCK_DAYS} days at a cost of ${cost.toLocaleString()} Honor Seals from the village treasury? The seals are spent immediately and cannot be refunded.`,
             { title: wasOpen ? "Extend Hollow Gate" : "Open Hollow Gate", confirmLabel: wasOpen ? "Extend Gate" : "Open Gate" },
         );
         if (!confirmed) {
@@ -661,15 +661,13 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             const { ok, data } = await postHollowGateUnlock(character.name, character.village);
             if (!ok || !data?.character || !data.hollowGateUnlockedUntil) return alert(data?.error || 'The Hollow Gate action did not return an updated save. Refresh before retrying.');
             const until = data.hollowGateUnlockedUntil;
-            const notice = wasOpen
-                ? `${character.name} renewed the Hollow Gate seal for ${cost.toLocaleString()} Honor Seals. The shrine stays open until ${new Date(until).toLocaleDateString()}.`
-                : `${character.name} broke the Hollow Gate seal for ${cost.toLocaleString()} Honor Seals. The shrine has revealed itself on the World Map until ${new Date(until).toLocaleDateString()}.`;
+            const notice = `${character.name} spent ${cost.toLocaleString()} Honor Seals from the village treasury to ${wasOpen ? "renew" : "open"} the Hollow Gate until ${new Date(until).toLocaleDateString()}.`;
             // The seals are spent and the gate is open even when a newer save was
             // adopted first and this commit is refused as stale (the coordinator
             // then reads the stored save back). Returning here left "Open Gate"
             // live, and a second press paid again as an extension.
             onVersionedCharacter(data.character, data._saveVersion);
-            updateVillageState(addNotice(notice, { ...state, hollowGateUnlockedUntil: until, contributionPoints: state.contributionPoints + 25 }));
+            updateVillageState(addNotice(notice, { ...state, hollowGateUnlockedUntil: until, treasury: { ...state.treasury, honorSeals: data.treasuryHonorSeals ?? state.treasury?.honorSeals }, contributionPoints: state.contributionPoints + 25 }));
         } catch {
             alert("The Hollow Gate response was lost. Refresh your save before retrying so you can confirm whether the seal changed.");
         } finally {
@@ -868,7 +866,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     const isSeatedKage = serverKage?.seatedKage?.toLowerCase() === character.name.toLowerCase();
     const hollowGateOpen = isHollowGateUnlocked(state);
     const hollowGateUnlockPending = hasPendingHollowGateUnlock(character.name, character.village);
-    const hollowGateSealsShort = (character.honorSeals ?? 0) < HOLLOW_GATE_UNLOCK_COST && !hollowGateUnlockPending;
+    const hollowGateSealsShort = (state.treasury?.honorSeals ?? 0) < HOLLOW_GATE_UNLOCK_COST && !hollowGateUnlockPending;
     const hollowGateUntil = state.hollowGateUnlockedUntil ?? 0;
     const isAnbu = isVillageAnbu(character);
     const isSeatedElder = elderSeats.some(name => name.toLowerCase() === character.name.toLowerCase());
@@ -1214,11 +1212,11 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         </div>}
         {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><div className="town-section-heading"><p className="act-label">Development office</p><h3>Village Upgrades</h3></div><div className="town-upgrade-overview"><span><small>Authority</small><strong>{isSeatedKage ? "Kage access" : state.seatedKage ?? "Seat unclaimed"}</strong></span><span><small>Development</small><strong>{totalUpgradeLevel} / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</strong></span><span><small>Treasury funds</small><strong>{memberShown(`${(state.treasury?.honorSeals ?? 0).toLocaleString()} seals`)}</strong></span></div><p className="hint">Upgrades you can authorize now appear first. Future and completed projects follow.</p>
             <div className="town-upgrade-grid">
-                <div className="town-upgrade-card hollow-gate-card" data-state={isSeatedKage && (character.honorSeals ?? 0) >= HOLLOW_GATE_UNLOCK_COST ? "ready" : "locked"} style={{ order: isSeatedKage && (character.honorSeals ?? 0) >= HOLLOW_GATE_UNLOCK_COST ? 0 : 1 }}>
+                <div className="town-upgrade-card hollow-gate-card" data-state={isSeatedKage && (state.treasury?.honorSeals ?? 0) >= HOLLOW_GATE_UNLOCK_COST ? "ready" : "locked"} style={{ order: isSeatedKage && (state.treasury?.honorSeals ?? 0) >= HOLLOW_GATE_UNLOCK_COST ? 0 : 1 }}>
                     <div className="town-upgrade-topline"><span className="town-upgrade-icon"><img src={HOLLOW_GATE_IMAGE} alt="Hollow Gate" /></span><div><strong>Hollow Gate</strong><p>{hollowGateOpen ? `Sealed Door Opened — ${hollowGateDaysLeft(state)}d left` : `Sealed Door — ${HOLLOW_GATE_UNLOCK_DAYS}-Day Unlock`}</p></div></div>
-                    <p className="town-upgrade-desc">Opens the Hollow Gate dungeon from the World Map for {HOLLOW_GATE_UNLOCK_DAYS} days.</p>
+                    <p className="town-upgrade-desc">Spends village treasury Honor Seals to open the Hollow Gate dungeon from the World Map for {HOLLOW_GATE_UNLOCK_DAYS} days.</p>
                     <p className="town-upgrade-bonus">{hollowGateOpen ? <span style={{ color: "#86efac" }}>Open until {new Date(hollowGateUntil).toLocaleDateString()} · re-break to add {HOLLOW_GATE_UNLOCK_DAYS} days.</span> : <>Cost: <strong>{HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals</strong> · {HOLLOW_GATE_UNLOCK_DAYS} days</>}</p>
-                    <button disabled={townActionBusy !== null || !isSeatedKage || hollowGateSealsShort} onClick={purchaseHollowGateUnlock}>{townActionBusy === "hollow-gate" ? "Committing…" : !isSeatedKage ? "Kage only" : hollowGateSealsShort ? `Need ${HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals` : hollowGateOpen ? `Extend +${HOLLOW_GATE_UNLOCK_DAYS} days — ${HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals` : `Break the seal — ${HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals`}</button>
+                    <button disabled={townActionBusy !== null || !isSeatedKage || hollowGateSealsShort} onClick={purchaseHollowGateUnlock}>{townActionBusy === "hollow-gate" ? "Committing…" : !isSeatedKage ? "Kage only" : hollowGateSealsShort ? `Treasury needs ${HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals` : hollowGateOpen ? `Extend +${HOLLOW_GATE_UNLOCK_DAYS} days — ${HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals` : `Break the seal — ${HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals`}</button>
                 </div>
                 {villageUpgradeDefinitions.map((upgrade) => { const level = upgrades[upgrade.key]; const bonus = level * upgrade.perLevel; const cost = villageUpgradeCost(upgrade.key, level); const maxed = level >= VILLAGE_UPGRADE_MAX_LEVEL; const canAfford = (state.treasury?.honorSeals ?? 0) >= cost; const ready = isSeatedKage && canAfford && !maxed; return <div key={upgrade.key} className="town-upgrade-card" data-state={ready ? "ready" : maxed ? "done" : "locked"} style={{ order: ready ? 0 : maxed ? 2 : 1 }}><div className="town-upgrade-topline"><span className="town-upgrade-icon">{UPGRADE_IMAGES[upgrade.key] ? <img src={UPGRADE_IMAGES[upgrade.key]} alt="" /> : <GameArtIcon kind={VILLAGE_UPGRADE_ART[upgrade.key]} size={24} />}</span><div><strong>{upgrade.name}</strong><p>Level {level}/{VILLAGE_UPGRADE_MAX_LEVEL}</p></div></div><div className="town-upgrade-bar"><span style={{ width: `${level / VILLAGE_UPGRADE_MAX_LEVEL * 100}%` }} /></div><p className="town-upgrade-desc">{upgrade.description}</p><p className="town-upgrade-bonus">Current <strong>{bonus.toFixed(2)}{upgrade.unit}</strong></p><button disabled={townActionBusy !== null || !isSeatedKage || maxed || !canAfford} onClick={() => upgradeTownFeature(upgrade.key)}>{townActionBusy === upgrade.key ? "Upgrading…" : !isSeatedKage ? "Kage authorization required" : maxed ? "Complete" : canAfford ? `Upgrade · ${cost.toLocaleString()} seals` : `Need ${cost.toLocaleString()} seals`}</button></div>; })}
             </div>

@@ -8,14 +8,9 @@ process.env.SESSION_SECRET = randomBytes(32).toString('hex');
 delete process.env.ADMIN_PASSWORD;
 
 /*
- * Three stakes that debit a player save and then open something on a shared
- * row: the Hollow Gate window (village row), a clan war (war-pair row) and a
- * Kage challenge (Kage row). Each wrote a plain debit and then a plain row
- * write. A row write that committed but reported an error was refunded
- * anyway (a free window or challenge); a debit whose row write failed before
- * committing was lost with no war (clan war), and pressing again charged a
- * second time. They now run through the save-debit saga with a request id.
- * Real handlers, token auth, locks and the memory store.
+ * Real handlers, token authentication, locks and the memory store prove
+ * exactly-once payments and recovery after lost responses. The Gate debits
+ * its shared treasury atomically; personal stakes use the save-debit saga.
  */
 
 type Handler = (req: never, res: never) => Promise<unknown>;
@@ -93,7 +88,7 @@ function failRowWriteOnce(key: string, landed: boolean): () => void {
     if (originalBatch) kv.compareSetMany = async ops => {
         if (!armed || !ops.some(op=>op.op==='cas' && op.key===key)) return originalBatch(ops);
         armed=false;
-        if (landed) { await originalBatch(ops); blind=2; }
+        if (landed) { await originalBatch(ops); blind=key === 'game:village-state:frostfangvillage' ? 1 : 2; }
         throw new Error(`injected: ${key} atomic publication ${landed ? 'landed' : 'failed'}`);
     };
     kv.get = (async (k: string) => {
@@ -119,10 +114,11 @@ const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 async function seatGateKage(seals = 30_000) {
     await kv.set('village:kage:frostfang-village', { kageSystemUnlocked: true, seatedKage: GATE_KAGE, challenge: null });
-    await kv.set(GATE_SAVE, { _saveVersion: 1, character: { name: GATE_KAGE, village: GATE_VILLAGE, honorSeals: seals } });
-    await kv.set(GATE_ROW, { hollowGateUnlockedUntil: 0 });
+    await kv.set(GATE_SAVE, { _saveVersion: 1, character: { name: GATE_KAGE, village: GATE_VILLAGE, honorSeals: 123 } });
+    await kv.set(GATE_ROW, { hollowGateUnlockedUntil: 0, treasury: { honorSeals: seals } });
 }
 
+const treasurySeals = async () => Number((await kv.get<{ treasury: { honorSeals: number } }>(GATE_ROW))?.treasury.honorSeals);
 const gateUntil = async () => Number((await kv.get<Record<string, unknown>>(GATE_ROW))?.hollowGateUnlockedUntil) || 0;
 
 describe('Hollow Gate unlock settles exactly once', { concurrency: false }, () => {
@@ -135,18 +131,18 @@ describe('Hollow Gate unlock settles exactly once', { concurrency: false }, () =
         const retry = await callAs(unlock, GATE_KAGE, { playerName: GATE_KAGE, requestId: 'gate-unlock-once-000001' });
         assert.equal(retry.status, 200);
         assert.equal(retry.body?.hollowGateUnlockedUntil, until, 'a lost answer does not buy a second 30 days');
-        assert.equal(await field(GATE_SAVE, 'honorSeals'), 20_000);
+        assert.equal(await treasurySeals(), 20_000);
     });
 
     test('concurrent duplicates charge once', async () => {
         await seatGateKage();
         const answers = await Promise.all(Array.from({ length: 4 }, () => callAs(unlock, GATE_KAGE, { playerName: GATE_KAGE, requestId: 'gate-unlock-burst-00001' })));
         assert.ok(answers.some((a) => a.status === 200), JSON.stringify(answers));
-        assert.equal(await field(GATE_SAVE, 'honorSeals'), 20_000);
+        assert.equal(await treasurySeals(), 20_000);
         assert.ok(await gateUntil() < Date.now() + WINDOW_MS + 60_000, 'one window, not several');
     });
 
-    test('a window write that committed but reported an error is not refunded; the retry finishes it', async () => {
+    test('an atomic payment with a lost answer is not refunded; the retry finishes it', async () => {
         await seatGateKage();
         const restore = failRowWriteOnce(GATE_ROW, true);
         let failed: Out;
@@ -157,12 +153,12 @@ describe('Hollow Gate unlock settles exactly once', { concurrency: false }, () =
         }
         // Before the fix the handler refunded here: the window stayed open and
         // the seals came back.
-        assert.equal(await field(GATE_SAVE, 'honorSeals'), 20_000, 'no refund of a window that opened');
+        assert.equal(await treasurySeals(), 20_000, 'no refund of a window that opened');
         assert.ok(await gateUntil() > Date.now());
         assert.equal(failed.status, 503);
         const retry = await callAs(unlock, GATE_KAGE, { playerName: GATE_KAGE, requestId: 'gate-unlock-landed-0001' });
         assert.equal(retry.status, 200, JSON.stringify(retry.body));
-        assert.equal(await field(GATE_SAVE, 'honorSeals'), 20_000);
+        assert.equal(await treasurySeals(), 20_000);
     });
 
     test('short balances, forged identities and a non-Kage move nothing', async () => {
@@ -171,13 +167,150 @@ describe('Hollow Gate unlock settles exactly once', { concurrency: false }, () =
         await kv.set('save:gateoutsider', { _saveVersion: 1, character: { name: 'gateoutsider', village: GATE_VILLAGE, honorSeals: 30_000 } });
         assert.equal((await callAs(unlock, 'gateoutsider', { playerName: GATE_KAGE, requestId: 'gate-unlock-forged-0001' })).status, 403);
         assert.equal((await callAs(unlock, 'gateoutsider', { playerName: 'gateoutsider', requestId: 'gate-unlock-notkage-001' })).status, 403);
-        assert.equal(await field(GATE_SAVE, 'honorSeals'), 9_999);
+        assert.equal(await treasurySeals(), 9_999);
         assert.equal(await field('save:gateoutsider', 'honorSeals'), 30_000);
         assert.equal(await gateUntil(), 0);
     });
 });
 
 // ── Clan war declaration ──────────────────────────────────────────────────
+
+describe('Hollow Gate treasury safety', { concurrency: false }, () => {
+    const buy = (requestId = 'treasury-gate-request-001') => callAs(unlock, GATE_KAGE, { playerName: GATE_KAGE, requestId });
+    test('the reported 11,661 treasury seals buy the gate with only 123 personal seals', async () => {
+        await seatGateKage(11_661);
+        const save = await kv.get(GATE_SAVE);
+        const answer = await buy();
+        assert.equal(answer.status, 200, JSON.stringify(answer.body));
+        assert.equal(answer.body?.treasuryHonorSeals, 1_661);
+        assert.equal(await treasurySeals(), 1_661);
+        assert.deepEqual(await kv.get(GATE_SAVE), save, 'no save, version or Hollow Gate external credit changes');
+    });
+    test('a rich personal wallet cannot fund an insufficient or missing treasury', async () => {
+        await seatGateKage(9_999);
+        await kv.set(GATE_SAVE, { _saveVersion: 7, character: { name: GATE_KAGE, village: GATE_VILLAGE, honorSeals: 100_000 } });
+        const save = await kv.get(GATE_SAVE);
+        assert.equal((await buy()).status, 409);
+        await kv.set(GATE_ROW, { hollowGateUnlockedUntil: 0 });
+        assert.equal((await buy()).status, 409);
+        assert.equal(await gateUntil(), 0);
+        assert.deepEqual(await kv.get(GATE_SAVE), save);
+    });
+    test('an extension adds exactly 30 days to the current future expiry', async () => {
+        await seatGateKage(10_000);
+        const prior = Date.now() + WINDOW_MS;
+        await kv.set(GATE_ROW, { hollowGateUnlockedUntil: prior, treasury: { honorSeals: 10_000, ryo: 777 }, notices: ['keep me'] });
+        assert.equal((await buy()).status, 200);
+        assert.equal(await gateUntil(), prior + WINDOW_MS);
+        assert.equal(await treasurySeals(), 0);
+        const state = await kv.get<any>(GATE_ROW);
+        assert.equal(state.treasury.ryo, 777);
+        assert.deepEqual(state.notices, ['keep me']);
+    });
+    test('concurrent different requests cannot overdraw the treasury', async () => {
+        await seatGateKage(10_000);
+        const results = await Promise.all([buy('treasury-gate-unique-001'), buy('treasury-gate-unique-002')]);
+        assert.equal(results.filter(r => r.status === 200).length, 1);
+        assert.equal(await treasurySeals(), 0);
+        assert.ok(await gateUntil() < Date.now() + WINDOW_MS + 60_000);
+        assert.equal(await field(GATE_SAVE, 'honorSeals'), 123);
+    });
+    test('concurrent affordable extensions each retain their paid window', async () => {
+        await seatGateKage(20_000);
+        const results = await Promise.all([buy('treasury-gate-unique-001'), buy('treasury-gate-unique-002')]);
+        assert.ok(results.every(r => r.status === 200), JSON.stringify(results));
+        assert.equal(await treasurySeals(), 0);
+        assert.ok(await gateUntil() >= Date.now() + WINDOW_MS * 2 - 60_000);
+    });
+    test('a competing village write is preserved when CAS retries', async t => {
+        await seatGateKage();
+        const batch = kv.compareSetMany!.bind(kv);
+        let changed = false;
+        t.after(() => { kv.compareSetMany = batch; });
+        kv.compareSetMany = async ops => {
+            if (!changed && ops.some(op => op.key === GATE_ROW)) {
+                changed = true;
+                const state = await kv.get<any>(GATE_ROW);
+                await kv.set(GATE_ROW, { ...state, treasury: { ...state.treasury, honorSeals: 30_007 }, notices: ['concurrent update'] });
+            }
+            return batch(ops);
+        };
+        assert.equal((await buy()).status, 200);
+        assert.equal(await treasurySeals(), 20_007);
+        assert.deepEqual((await kv.get<any>(GATE_ROW)).notices, ['concurrent update']);
+    });
+    test('a Kage change just before commit fails authorization without spending', async t => {
+        await seatGateKage();
+        const batch = kv.compareSetMany!.bind(kv);
+        let changed = false;
+        t.after(() => { kv.compareSetMany = batch; });
+        kv.compareSetMany = async ops => {
+            if (!changed) { changed = true; await kv.set('village:kage:frostfang-village', { seatedKage: 'replacement' }); }
+            return batch(ops);
+        };
+        assert.equal((await buy()).status, 403);
+        assert.equal(await treasurySeals(), 30_000);
+        assert.equal(await gateUntil(), 0);
+    });
+    test('a village membership change just before commit moves nothing', async t => {
+        await seatGateKage();
+        const batch = kv.compareSetMany!.bind(kv);
+        let changed = false;
+        t.after(() => { kv.compareSetMany = batch; });
+        kv.compareSetMany = async ops => {
+            if (!changed) {
+                changed = true;
+                const save = (await kv.get<Save>(GATE_SAVE))!;
+                await kv.set(GATE_SAVE, { ...save, character: { ...save.character, village: 'Moonshadow Village' } });
+            }
+            return batch(ops);
+        };
+        assert.equal((await buy()).status, 409);
+        assert.equal(await treasurySeals(), 30_000);
+        assert.equal(await gateUntil(), 0);
+    });
+    test('a failed atomic commit leaves treasury, window and personal save untouched', async () => {
+        await seatGateKage();
+        const save = await kv.get(GATE_SAVE), state = await kv.get(GATE_ROW);
+        const restore = failRowWriteOnce(GATE_ROW, false);
+        try { assert.equal((await buy()).status, 503); } finally { restore(); }
+        assert.deepEqual(await kv.get(GATE_ROW), state);
+        assert.deepEqual(await kv.get(GATE_SAVE), save);
+        assert.equal((await buy()).status, 200);
+        assert.equal(await treasurySeals(), 20_000);
+    });
+    test('storage without atomic batches fails closed', async t => {
+        await seatGateKage();
+        const batch = kv.compareSetMany;
+        t.after(() => { kv.compareSetMany = batch; });
+        kv.compareSetMany = undefined;
+        assert.equal((await buy()).status, 503);
+        assert.equal(await treasurySeals(), 30_000);
+        assert.equal(await gateUntil(), 0);
+    });
+    for (const pending of [false, true]) test('a pre-release personal payment is recovered without a treasury charge: pending=' + pending, async () => {
+        await seatGateKage();
+        const save = (await kv.get<Save>(GATE_SAVE))!;
+        await kv.set(GATE_SAVE, { ...save, character: { ...save.character, honorSeals: 30_000 } });
+        const { runSaveDebitSaga } = await import('../_save-debit-saga.js');
+        const { HOLLOW_GATE_UNLOCK_SAGA } = await import('../_save-debit-kinds.js');
+        const definition = pending ? { ...HOLLOW_GATE_UNLOCK_SAGA, refund: undefined, save: async () => { throw new Error('pre-release interruption'); } } : HOLLOW_GATE_UNLOCK_SAGA;
+        try {
+            await runSaveDebitSaga({ definition, playerName: GATE_KAGE, requestId: 'treasury-gate-legacy-001',
+                identity: { village: 'frostfangvillage' }, sharedKey: GATE_ROW, resource: 'honorSeals', amount: 10_000,
+                decide: ({ character }) => ({ ok: true as const, character: { ...character, honorSeals: 20_000 }, plan: { windowMs: WINDOW_MS, cost: 10_000 }, result: { cost: 10_000 } }) });
+        } catch (error) { if (!pending) throw error; }
+        const result = await buy('treasury-gate-legacy-001');
+        assert.equal(result.status, 200, JSON.stringify(result.body));
+        assert.equal(await treasurySeals(), 30_000);
+        assert.equal(await field(GATE_SAVE, 'honorSeals'), 20_000);
+        const until = await gateUntil();
+        assert.ok(until > Date.now());
+        assert.equal((await buy('treasury-gate-legacy-001')).status, 200);
+        assert.equal(await gateUntil(), until);
+    });
+});
+
 const OFFICER = 'waroffice';
 const OFFICER_SAVE = `save:${OFFICER}`;
 const PAIR = 'clan-war:ashwind-vs-emberfall';

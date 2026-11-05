@@ -72,7 +72,7 @@ export function hasPendingHollowGateUnlock(playerName: string, village: string):
     return readPendingEconomyIntent("hollow-gate-unlock", stakeIntentParts(playerName, village)) !== null;
 }
 
-export type HollowGateUnlockReply = { character?: Character; hollowGateUnlockedUntil?: number; error?: string; _saveVersion?: number };
+export type HollowGateUnlockReply = { character?: Character; hollowGateUnlockedUntil?: number; treasuryHonorSeals?: number; error?: string; _saveVersion?: number };
 
 // The Kage opens or extends the Hollow Gate (api/village/hollow-gate-unlock.ts).
 // The retained requestId makes pressing again after a lost answer return the
@@ -86,7 +86,14 @@ export async function postHollowGateUnlock(playerName: string, village: string):
         body: JSON.stringify({ playerName, requestId: intent.requestId }),
     });
     const data = await res.json().catch(() => null) as HollowGateUnlockReply | null;
-    if (economyIntentSettled(res.status, data)) intent.complete();
+    // A 2xx with a truncated/missing body may already have charged the
+    // treasury. Keep its id until the UI can confirm the unlock result.
+    const confirmed = !!data?.character && typeof data.character === "object" && !Array.isArray(data.character)
+        && typeof data.hollowGateUnlockedUntil === "number"
+        && Number.isFinite(data.hollowGateUnlockedUntil) && data.hollowGateUnlockedUntil > 0;
+    if (!res.ok || confirmed) {
+        if (economyIntentSettled(res.status, data)) intent.complete();
+    }
     return { ok: res.ok, data };
 }
 
