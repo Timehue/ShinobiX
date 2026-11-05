@@ -25,8 +25,10 @@ TARGET="${2:-railway-deploy}"
 # Mirrors .dockerignore: none of these end up in the image.
 DROP=(docs release-audit mobile android shinobij.client/art-source shinobij.client/art-references .ci-evidence
   output outputs shinobij.client/dist-perf 'shinobij.client/.playwright-dist-*')
-# The build verifies portrait hashes against this manifest, so it ships.
-KEEP='shinobij.client/art-source/pet-portrait-refresh/production.json'
+# verify:dist checks delivered art against these review records, so they ship
+# (each mirrors a `!` exception in .dockerignore).
+KEEP=(-e 'shinobij.client/art-source/pet-portrait-refresh/production.json'
+  -e 'shinobij.client/art-source/hollow-gate-cavern-chambers.json')
 
 INDEX_FILE="$(mktemp -u)"
 PATH_LIST="$(mktemp)"
@@ -36,7 +38,7 @@ trap 'rm -f "$INDEX_FILE" "$PATH_LIST"' EXIT
 git read-tree "$SHA"
 
 for dir in "${DROP[@]}"; do
-  git ls-files -z -- "$dir" | { grep -zvxF "$KEEP" || true; } > "$PATH_LIST"
+  git ls-files -z -- "$dir" | { grep -zvxF "${KEEP[@]}" || true; } > "$PATH_LIST"
   # A folder that does not exist at this commit yields an empty list, and
   # `git rm` with no pathspec is an error, so skip it.
   if [ -s "$PATH_LIST" ]; then

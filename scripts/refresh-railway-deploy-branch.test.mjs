@@ -30,6 +30,7 @@ test('lean deployment publishes the same source tree without fetching promised b
         'Dockerfile', 'railway.json', 'package.json', 'server.ts', 'api/example.ts',
         'shinobij.client/src/main.ts', '.github/workflows/ci.yml',
         'shinobij.client/art-source/pet-portrait-refresh/production.json',
+        'shinobij.client/art-source/hollow-gate-cavern-chambers.json',
     ];
     const dropped = [
         'docs/evidence.txt', 'release-audit/evidence.txt', 'mobile/source.txt',

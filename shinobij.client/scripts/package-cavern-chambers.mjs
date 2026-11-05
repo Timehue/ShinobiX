@@ -1,4 +1,4 @@
-// Package the Hollow Gate cave-chamber art set (docs/art/hollow-gate-cavern-chambers.json)
+// Package the Hollow Gate cave-chamber art set (shinobij.client/art-source/hollow-gate-cavern-chambers.json)
 // into public/underground. Run from shinobij.client/:
 //   node scripts/package-cavern-chambers.mjs
 // Each record's `source` is the full-size generated PNG; `output` and `size`
@@ -33,7 +33,7 @@ const KEEP = {
     },
 };
 
-const manifest = JSON.parse(await readFile('../docs/art/hollow-gate-cavern-chambers.json', 'utf8'));
+const manifest = JSON.parse(await readFile('art-source/hollow-gate-cavern-chambers.json', 'utf8'));
 await mkdir('public/underground', { recursive: true });
 for (const record of manifest.records) {
     const output = record.output.replace('shinobij.client/', '');

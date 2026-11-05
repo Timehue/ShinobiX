@@ -148,7 +148,7 @@ export function hollowGateEncounterPresentation(floor: unknown, kind: HollowGate
 }
 
 /** Painted crypt prefab for each room of a crypt floor (public/underground,
- *  provenance in docs/art/hollow-gate-cavern-chambers.json). Each depth has
+ *  provenance in shinobij.client/art-source/hollow-gate-cavern-chambers.json). Each depth has
  *  its own palette: two chamber paintings (alternated) and a hall. The final
  *  floor's stair hall is always the Sanctum, because that is where the boss
  *  waits. Undefined for BSP floors, which have no prefabs. */

@@ -41,7 +41,7 @@ import { HollowGateFissureArt } from "../../components/HollowGateFissureArt";
 /** Painted weakened-rock decal for a sealed secret passage. */
 const CAVERN_CRACKED_WALL_ART = "/underground/cavern-cracked-wall-v1.webp";
 /** Painted props that stand on the chamber floors instead of UI badges
- *  (docs/art/hollow-gate-cavern-chambers.json). */
+ *  (shinobij.client/art-source/hollow-gate-cavern-chambers.json). */
 const PAINTED_PROP: Partial<Record<HollowGateTileKind, string>> = {
     descend: "/underground/cavern-prop-descend-v1.webp", exit: "/underground/cavern-prop-exit-v1.webp",
     chest: "/underground/cavern-prop-chest-v1.webp", shard_vein: "/underground/cavern-prop-shard-vein-v1.webp",

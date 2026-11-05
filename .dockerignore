@@ -41,6 +41,8 @@ shinobij.client/art-source/*
 !shinobij.client/art-source/pet-portrait-refresh/
 shinobij.client/art-source/pet-portrait-refresh/*
 !shinobij.client/art-source/pet-portrait-refresh/production.json
+# verify:dist checks the Hollow Gate cavern art against this exact-byte record.
+!shinobij.client/art-source/hollow-gate-cavern-chambers.json
 shinobij.client/playwright*.ts
 shinobij.client/*preview.html
 # The Android app shell (Flutter) and the old TWA's native sources. Neither is

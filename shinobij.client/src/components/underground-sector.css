@@ -134,7 +134,7 @@
 .underground-world .hg-layout { grid-template-columns: minmax(0, 1fr); }
 .underground-world .hg-cell::before, .underground-world .hg-wall-face::after { content: none; }
 .underground-world .hg-cell.hg-dark { background: transparent; }
-/* Painted decals (docs/art/hollow-gate-cavern-chambers.json): a weakened wall
+/* Painted decals (shinobij.client/art-source/hollow-gate-cavern-chambers.json): a weakened wall
    over a sealed secret passage, and boss-arena fissures whose painted eruption
    fades in with the rhythm. Only placement and opacity live here. */
 .hg-painted-prop { position: absolute; inset: 4%; width: 92%; height: 92%; object-fit: contain; pointer-events: none; z-index: 1; }

@@ -107,10 +107,10 @@ const maxPetPortraitBytes = 16 * 1024 * 1024;
 const sectorBuildingArtCount = 15;
 const maxSectorBuildingArtBytes = 1_410_782;
 // 2026-11-04 (owner approved): the painted Hollow Gate cave set (five chamber
-// floors, the passage floor and three decals; docs/art/hollow-gate-cavern-chambers.json)
+// floors, the passage floor and three decals; shinobij.client/art-source/hollow-gate-cavern-chambers.json)
 // gets the same exact-byte partition, so it neither consumes nor relaxes the
 // general runtime allowance. Repackaging the set means updating this receipt.
-const CAVERN_ART_FILES = JSON.parse(readFileSync(join(root, 'docs', 'art', 'hollow-gate-cavern-chambers.json'), 'utf8'))
+const CAVERN_ART_FILES = JSON.parse(readFileSync(join(root, 'shinobij.client', 'art-source', 'hollow-gate-cavern-chambers.json'), 'utf8'))
     .records.map((record) => record.output.replace('shinobij.client/public/', ''));
 const maxCavernArtBytes = 8839476;
 const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes + maxPetPortraitBytes + maxSectorBuildingArtBytes + maxCavernArtBytes;
