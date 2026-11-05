@@ -1155,12 +1155,12 @@ export function JutsuTrainingHall({
                     highlightJutsuId={showAcademyJutsuHint && selectedMastery?.level !== 0 ? academyUntrainedJutsuId : undefined}
                     renderDetails={renderJutsuDetails}
                     bloodlineJutsuNames={bloodlineJutsuNames}
-                    onSelectJutsu={(jutsu) => {
-                        setSelectedJutsuId(jutsu.id);
-                        if (typeof window !== "undefined" && window.matchMedia("(max-width: 800px)").matches) {
-                            setMobileJutsuInfoId(jutsu.id);
-                        }
-                    }}
+                    viewToggle
+                    onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)}
+                    // Tapping a card only selects it; players found the
+                    // automatic popup intrusive. The card's "?" (shown where the
+                    // side details panel is hidden, <=800px) opens the details.
+                    onShowInfo={(jutsu) => setMobileJutsuInfoId(jutsu.id)}
                 />
             </section>
 

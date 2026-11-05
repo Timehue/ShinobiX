@@ -322,7 +322,8 @@ test(`a new player completes the full persisted Academy first session against bu
     await expect(page.getByRole('button', { name: 'Go to Jutsu Training' })).toBeVisible();
     await page.getByRole('button', { name: 'Go to Jutsu Training' }).click();
     await expect(page.getByRole('heading', { name: 'Jutsu Training Hall' })).toBeVisible();
-    const jutsuList = page.getByRole('listbox', { name: 'Jutsu library' });
+    // A list of card + "?" pairs (an option cannot hold the "?" button).
+    const jutsuList = page.getByRole('list', { name: 'Jutsu library' });
     await jutsuList.getByText('Flicker', { exact: true }).click();
     const jutsuResponse = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/training/jutsu-ryo');

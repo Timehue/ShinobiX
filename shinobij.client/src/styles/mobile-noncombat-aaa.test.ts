@@ -13,6 +13,7 @@ const nav = readFileSync(join(HERE, "..", "components", "MobileNav.tsx"), "utf8"
 const training = readFileSync(join(HERE, "..", "screens", "Training.tsx"), "utf8");
 const trainingCss = readFileSync(join(HERE, "training-skin.css"), "utf8");
 const jutsuCss = readFileSync(join(HERE, "jutsu-training-skin.css"), "utf8");
+const framesCss = readFileSync(join(HERE, "jutsu-frames.css"), "utf8");
 const missionCss = readFileSync(join(HERE, "hub-screens-skin.css"), "utf8");
 const sectorFigures = {
     "SectorAvatar.tsx": readFileSync(join(HERE, "..", "components", "SectorAvatar.tsx"), "utf8"),
@@ -99,11 +100,23 @@ test("mobile navigation keeps five anchors and a compact destination sheet", () 
 });
 
 test("mobile jutsu cards open readable details with the training action inside", () => {
-    assert.ok(training.includes('window.matchMedia("(max-width: 800px)").matches'));
+    // The card's "?" opens the dialog; tapping the card itself only selects it.
+    assert.ok(training.includes("onShowInfo={(jutsu) => setMobileJutsuInfoId(jutsu.id)}"));
+    assert.ok(!training.includes('window.matchMedia("(max-width: 800px)").matches'), "a card tap must not open the dialog");
+    assert.match(jutsuCss, /@media \(max-width: 800px\) \{\s*\/\*[^*]*\*\/\s*\.jutsu-training-screen \.technique-info-btn \{[^}]*width: 44px;[^}]*height: 44px;/);
     assert.ok(training.includes('className="jutsu-mobile-info-modal"'));
     assert.ok(training.includes("void startPaidJutsuTraining()"));
     assert.match(jutsuCss, /\.jutsu-training-screen \.technique-selected-panel \{ display: none; \}/);
     assert.match(jutsuCss, /\.jutsu-training-screen \.technique-grid \{ grid-template-columns: minmax\(0, 1fr\); max-height: none;/);
+});
+
+test("the Training Hall library offers the Profile's grid/list switch on every width", () => {
+    assert.ok(training.includes("viewToggle"), "Training must opt the library into the view switch");
+    // The list layout follows the chosen view, not the phone breakpoint.
+    assert.match(jutsuCss, /\.jutsu-training-screen \.technique-grid\.is-list-view \.technique-name \{/);
+    assert.match(framesCss, /\.jutsu-training-screen \.technique-grid\.is-list-view \{ grid-template-columns: minmax\(0, 1fr\) !important; \}/);
+    // The old unconditional phone rule forced every card into a row.
+    assert.doesNotMatch(framesCss, /\n\s*\.jutsu-training-screen \.technique-card \{\s*grid-template-columns: 80px/);
 });
 
 test("accepted field missions keep their abandon action in mobile flow", () => {

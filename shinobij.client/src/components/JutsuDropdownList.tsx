@@ -14,6 +14,25 @@ import { hasBloodlineMarker } from "../lib/bloodline-marker";
 import type { Jutsu } from "../types/combat";
 import type { JutsuType, JutsuElement, JutsuSort } from "../types/core";
 
+export type TechniqueView = "grid" | "list";
+
+/** Remembers the Training Hall library's grid/list choice on this device. */
+const TECHNIQUE_VIEW_STORAGE_KEY = "sj.jutsuLibraryView";
+
+/**
+ * The view a toggle-enabled library opens in: the player's last choice, or
+ * (first visit) the layout the library always had — a one-column list on
+ * phones, a grid everywhere wider.
+ */
+function initialTechniqueView(): TechniqueView {
+    if (typeof window === "undefined") return "grid";
+    try {
+        const stored = window.localStorage.getItem(TECHNIQUE_VIEW_STORAGE_KEY);
+        if (stored === "grid" || stored === "list") return stored;
+    } catch { /* storage blocked: fall through to the width default */ }
+    return typeof window.matchMedia === "function" && window.matchMedia("(max-width: 560px)").matches ? "list" : "grid";
+}
+
 export function JutsuDropdownList({
     jutsus,
     label,
@@ -25,6 +44,8 @@ export function JutsuDropdownList({
     highlightJutsuId,
     onReorder,
     bloodlineJutsuNames,
+    viewToggle = false,
+    onShowInfo,
 }: {
     jutsus: Jutsu[];
     label: string;
@@ -48,7 +69,26 @@ export function JutsuDropdownList({
      * creator tools, cards render exactly as before.
      */
     bloodlineJutsuNames?: ReadonlyMap<string, string>;
+    /**
+     * Opt-in grid/list switch in the header, as on the Profile's learned-jutsu
+     * page. The Training Hall turns it on; lists that leave it unset keep their
+     * single fixed layout and markup.
+     */
+    viewToggle?: boolean;
+    /**
+     * Opt-in "?" button in each card's bottom-right corner. Tapping the card
+     * only selects it; the "?" selects it AND calls this (the Training Hall
+     * opens its jutsu info dialog). With it set the library is a list of
+     * card + "?" pairs instead of a listbox, since an option cannot hold a
+     * second button.
+     */
+    onShowInfo?: (jutsu: Jutsu) => void;
 }) {
+    const [view, setViewState] = useState<TechniqueView>(() => viewToggle ? initialTechniqueView() : "grid");
+    const setView = (next: TechniqueView) => {
+        setViewState(next);
+        try { window.localStorage.setItem(TECHNIQUE_VIEW_STORAGE_KEY, next); } catch { /* not remembered; still switches */ }
+    };
     const [nameFilter, setNameFilter] = useState("");
     const [typeFilter, setTypeFilter] = useState<"All" | JutsuType>("All");
     const [elementFilter, setElementFilter] = useState<"All" | JutsuElement>("All");
@@ -112,10 +152,16 @@ export function JutsuDropdownList({
                         >▶</button>
                     </div>
                 )}
+                {viewToggle && (
+                    <div className="technique-view-toggle" role="group" aria-label="Library view">
+                        <button type="button" className={view === "grid" ? "active" : ""} aria-pressed={view === "grid"} onClick={() => setView("grid")} title="Grid view" aria-label="Grid view">▦</button>
+                        <button type="button" className={view === "list" ? "active" : ""} aria-pressed={view === "list"} onClick={() => setView("list")} title="List view" aria-label="List view">☷</button>
+                    </div>
+                )}
                 <span>{sortedJutsus.length}/{jutsus.length}</span>
             </div>
             <div className="technique-shell">
-                <div className="technique-grid" role="listbox" aria-label={label}>
+                <div className={`technique-grid${viewToggle ? (view === "list" ? " is-list-view" : " is-grid-view") : ""}`} role={onShowInfo ? "list" : "listbox"} aria-label={label}>
                     {sortedJutsus.length === 0 ? (
                         <div className="summary-box">{emptyText}</div>
                     ) : sortedJutsus.map((jutsu) => {
@@ -123,18 +169,20 @@ export function JutsuDropdownList({
                         const image = jutsu.image;
                         const isBloodline = Boolean(bloodlineJutsuNames && hasBloodlineMarker(jutsu, bloodlineJutsuNames));
                         const bloodlineName = bloodlineJutsuNames?.get(jutsu.id) ?? "";
-                        return (
+                        const choose = () => {
+                            setLocalSelectedId(jutsu.id);
+                            onSelectJutsu?.(jutsu);
+                        };
+                        const card = (
                             <button
-                                key={jutsu.id}
+                                key={onShowInfo ? undefined : jutsu.id}
                                 className={`technique-card ${selected ? "selected" : ""}${isBloodline ? " is-bloodline" : ""}${highlightJutsuId === jutsu.id ? " academy-click-target" : ""}`}
                                 data-academy-hint={highlightJutsuId === jutsu.id ? "Next · choose this" : undefined}
                                 data-academy-autoscroll={highlightJutsuId === jutsu.id ? "true" : undefined}
-                                role="option"
-                                aria-selected={selected}
-                                onClick={() => {
-                                    setLocalSelectedId(jutsu.id);
-                                    onSelectJutsu?.(jutsu);
-                                }}
+                                role={onShowInfo ? undefined : "option"}
+                                aria-selected={onShowInfo ? undefined : selected}
+                                aria-pressed={onShowInfo ? selected : undefined}
+                                onClick={choose}
                                 type="button"
                             >
                                 <span className="technique-thumb">
@@ -146,6 +194,22 @@ export function JutsuDropdownList({
                                 )}
                                 <span className="technique-cost" aria-label={`${jutsu.ap} action points`} title={`${jutsu.ap} action points`}>{jutsu.ap}</span>
                             </button>
+                        );
+                        if (!onShowInfo) return card;
+                        return (
+                            <div key={jutsu.id} className="technique-card-slot" role="listitem">
+                                {card}
+                                <button
+                                    type="button"
+                                    className="technique-info-btn"
+                                    aria-label={`${jutsu.name} info`}
+                                    title="Jutsu info"
+                                    onClick={() => {
+                                        choose();
+                                        onShowInfo(jutsu);
+                                    }}
+                                ><span aria-hidden="true">?</span></button>
+                            </div>
                         );
                     })}
                 </div>

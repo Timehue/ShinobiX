@@ -22,6 +22,9 @@ test("the Jutsu Hall describes Undertow Fang's own hit for a Genjutsu player", a
     const runtime = await installUiAuditRuntime(page, waterSave());
     await expectUiAuditBoot(page, runtime, "jutsuTraining");
     await page.locator(".technique-grid .technique-name").filter({ hasText: "Undertow Fang" }).click();
+    // Where the side details panel is hidden (<=800px), the card's "?" opens them.
+    const info = page.getByRole("button", { name: "Undertow Fang info" });
+    if (await info.isVisible()) await info.click();
     const details = page.locator(".jutsu-detail-stack").filter({ visible: true }).first();
     await expect(details).toContainText("Ninjutsu");
     await expect(details).toContainText("Water");

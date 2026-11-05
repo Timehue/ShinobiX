@@ -106,7 +106,8 @@ test("the Academy banner stands down for the Jutsu Hall's mobile lesson dialog",
     const banner = page.locator(COACH_BANNER);
     await expect(banner).toBeVisible();
 
-    await page.getByRole("listbox", { name: "Jutsu library" }).locator(".technique-card").first().click();
+    // A card tap only selects; the card's "?" opens the lesson dialog.
+    await page.getByRole("list", { name: "Jutsu library" }).locator(".technique-info-btn").first().click();
 
     const lesson = page.locator(".jutsu-mobile-info-modal");
     await expect(lesson).toBeVisible();
