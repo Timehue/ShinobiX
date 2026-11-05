@@ -3427,23 +3427,6 @@ button.chronicle-card {
   background: rgba(53, 13, 17, 0.94);
   color: #ffb5b5;
 }
-@keyframes chronicle-target-breathe {
-  50% {
-    transform: translateY(-3px) scale(1.025);
-    box-shadow:
-      0 0 0 3px rgba(240, 194, 109, 0.45),
-      0 0 30px rgba(240, 160, 68, 0.48);
-  }
-}
-@keyframes chronicle-attacker-ready {
-  50% {
-    transform: translateY(-3px);
-    border-color: #b5eaff;
-    box-shadow:
-      0 0 0 3px rgba(121, 204, 235, 0.38),
-      0 0 26px rgba(65, 169, 211, 0.42);
-  }
-}
 @keyframes chronicle-target-lane {
   to {
     opacity: 0.62;
@@ -5545,8 +5528,6 @@ button.chronicle-card {
 @media (max-width: 900px), (max-height: 500px) and (max-width: 960px) {
   .chronicle-shell {
     --chron-touch: 44px;
-    --chron-ink: #081119;
-    --chron-gold: #e3bd76;
   }
   .chronicle-shell button, .chronicle-shell select, .chronicle-shell summary {
     min-height: var(--chron-touch);

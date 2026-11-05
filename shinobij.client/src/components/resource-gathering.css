@@ -1,4 +1,4 @@
-.shinobi-outpost,.resource-dialog,.gathering-equipment{--resource-gold:#e3be79;--resource-ink:#141b24;--resource-paper:#eee4d0;--resource-muted:#b5b9ba;--resource-line:rgba(226,194,132,.25)}
+.shinobi-outpost,.resource-dialog,.gathering-equipment{--resource-gold:#e3be79;--resource-paper:#eee4d0;--resource-muted:#b5b9ba;--resource-line:rgba(226,194,132,.25)}
 .outpost-header{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:28px clamp(16px,4vw,40px);border:1px solid var(--resource-line);border-radius:12px 12px 0 0;background:radial-gradient(ellipse at 90% 0,#3d3c39 0,transparent 65%),linear-gradient(120deg,#141b24,#24323a);color:var(--resource-paper)}
 .outpost-header h1{margin:6px 0;font-size:clamp(26px,4vw,38px);font-family:Georgia,serif;letter-spacing:.02em}.outpost-header p{margin:6px 0;color:#c5c9c5}.outpost-header>strong{font-size:30px;white-space:nowrap;color:var(--resource-gold)}.outpost-header small{display:block;font-size:12px;font-weight:400;color:#c5c9c5}
 .resource-kicker{font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:var(--resource-gold);font-weight:700}

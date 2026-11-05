@@ -1297,8 +1297,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
 .arena-fullscreen.pvp-battle-layout {
     --combat-frame: rgba(196, 162, 90, 0.64);
     --combat-frame-faint: rgba(196, 162, 90, 0.28);
-    --combat-panel: rgba(4, 10, 18, 0.9);
-    --combat-panel-deep: rgba(3, 7, 14, 0.96);
     --combat-board: rgba(8, 28, 29, 0.72);
 }
 
@@ -2493,13 +2491,8 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     --hud3-gold-soft: rgba(227, 199, 126, 0.72);
     --hud3-gold-dim: rgba(196, 162, 90, 0.5);
     --hud3-gold-faint: rgba(196, 162, 90, 0.2);
-    --hud3-ink: rgba(7, 12, 22, 0.92);
-    --hud3-ink-deep: rgba(2, 5, 11, 0.96);
     --hud3-sunken: rgba(0, 0, 0, 0.34);
-    --hud3-ally: #58a9f5;
-    --hud3-foe: #e8564a;
     --hud3-text: #e9eef6;
-    --hud3-text-dim: rgba(203, 213, 225, 0.72);
 
     /* Glyphs are SVG masks rather than emoji/font characters so they render
        identically on every platform and inherit `color` for per-row tinting. */

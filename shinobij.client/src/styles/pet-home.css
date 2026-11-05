@@ -1,5 +1,4 @@
 :root {
-    --home-ink: var(--sj-void);
     --home-panel: color-mix(in srgb, var(--sj-surface-low) 94%, transparent);
     --home-line: var(--sj-border-soft);
     --home-gold: var(--sj-gold-bright);

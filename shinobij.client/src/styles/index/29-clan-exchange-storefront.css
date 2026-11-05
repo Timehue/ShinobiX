@@ -5,8 +5,6 @@
 
 /* Superseded verbose storefront pass; kept commented for visual archaeology.
 .clan-exchange {
-    --exchange-ink: #07101d;
-    --exchange-panel: rgba(7, 16, 29, .94);
     --exchange-line: rgba(148, 163, 184, .2);
     display: grid;
     gap: 22px;

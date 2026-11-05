@@ -10,8 +10,6 @@
 .gather-backdrop { background: rgb(4 5 7 / 82%); }
 .gather-panel, .gather-resume {
   --find-ground: #111215;
-  --find-surface: #1a1b1f;
-  --find-raised: #222328;
   --find-line: #36373d;
   --find-text: #eeeae2;
   --find-muted: #b2b0ad;

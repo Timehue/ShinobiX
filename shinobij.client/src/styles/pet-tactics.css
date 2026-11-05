@@ -1,8 +1,7 @@
 /* pta: private PetTacticsArena UI namespace. */
 .pet-tactics, .pta-console {
     --tactics-ink: #f5ebd6; --tactics-muted: #b5b7bc; --tactics-gold: #e9bd75;
-    --tactics-line: #41434c; --tactics-bg: #10151e; --tactics-surface: #1b222e;
-    color: var(--tactics-ink); font-family: Inter, system-ui, sans-serif;
+    --tactics-line: #41434c; color: var(--tactics-ink); font-family: Inter, system-ui, sans-serif;
 }
 .pet-tactics { padding: clamp(16px, 3vw, 40px); min-height: 90vh; background: radial-gradient(ellipse at 80% 0%, #34302580, transparent 50%), linear-gradient(150deg, #141d2a, #090d14); border-radius: 16px; }
 .pet-tactics *, .pta-console * { box-sizing: border-box; }
@@ -52,7 +51,7 @@
 .pta-sheet { font-size: 12px; }.pta-sheet > summary { min-height: 44px; cursor: pointer; padding: 12px; border: 1px solid #515867; border-radius: 6px; background: #1e2732; }.pta-sheet-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 12px 0; }.pta-sheet article { padding: 16px; background: #141d29; border: 1px solid #515867; border-radius: 6px; }.pta-sheet img { height: 80px; width: 70px; float: right; object-fit: contain; }.pta-sheet article > strong, .pta-sheet article > small { display: block; }.pta-sheet p { font-size: 11px; }.pta-sheet dl { display: flex; gap: 6px; flex-wrap: wrap; }.pta-sheet dl div { padding: 3px 6px; background: #202c39; }.pta-sheet dt { font-size: 9px; }.pta-sheet dd { margin: 0; font-weight: 700; }
 .showdown-takeover:has(.pta-console) .showdown-bottombar { padding: 0; }
 .pta-console { position: fixed; bottom: 0; left: 0; width: 100%; pointer-events: auto; z-index: 35; overflow-y: auto; }
-.pta-orders { width: 100%; margin: auto; --tactics-card: #192634; --tactics-muted: #b8c4cf; display: flex; flex-direction: column; min-height: 0; }
+.pta-orders { width: 100%; margin: auto; --tactics-muted: #b8c4cf; display: flex; flex-direction: column; min-height: 0; }
 .pta-orders-heading { display: flex; align-items: center; gap: 22px; padding-bottom: 12px; border-bottom: 1px solid #324452; }
 .pta-orders-heading > div { flex: 1; }.pta-orders-heading strong { display: block; }
 .pta-opponent-state { display: flex; align-items: center; gap: 7px; }.pta-opponent-state i { width: 6px; height: 6px; border-radius: 50%; background: #91a2b6; box-shadow: 0 0 8px #91a2b640; }.pta-opponent-state.is-ready i { background: #86d7ad; }

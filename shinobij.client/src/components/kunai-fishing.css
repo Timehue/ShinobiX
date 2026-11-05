@@ -1,4 +1,4 @@
-.kunai-game{--kunai-gold:#dfc38c;--kunai-muted:#b9bbae;--kunai-line:#b69b603b}
+.kunai-game{--kunai-muted:#b9bbae}
 .kunai-game .gather-game-heading{padding-block:14px 12px}.kunai-game .gather-game-heading h3{font-size:27px}
 .kunai-pond{position:relative;height:clamp(280px,46dvh,420px);overflow:hidden;border:1px solid #85724c;border-radius:5px;background:#17434a;box-shadow:inset 0 0 45px #07172466}
 .kunai-pond canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair;outline-offset:-5px}
