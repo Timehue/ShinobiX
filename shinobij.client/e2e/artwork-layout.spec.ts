@@ -63,54 +63,62 @@ async function expectUncropped(images: Locator) {
     }
 }
 
-for (const shape of ['fallback', '2:3', '3:4'] as const) {
-    test(`profession ${shape} art stays readable through intro, choice and confirmation`, async ({ page }, info) => {
-        const save = uiAuditSave();
-        save.character = { ...save.character, profession: undefined };
-        await installUiAuditRuntime(page, save);
-        const errors: string[] = [];
-        page.on('pageerror', error => errors.push(error.message));
-        if (shape !== 'fallback') {
-            // Hydrate actual sharedImages props through the image fixture. The
-            // marker figure makes face cropping obvious in retained captures.
-            await page.route('**/api/images?*', route => route.fulfill({ json: { version: '1', ids: portraitIds } }));
-            await page.route('**/api/img?*', route => route.fulfill({ contentType: 'image/svg+xml', body:
-                `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="${shape === '2:3' ? 900 : 800}"><rect width="600" height="900" fill="#203c59"/><circle cx="300" cy="145" r="90" fill="#cfa67a"/><circle cx="270" cy="140" r="8"/><circle cx="330" cy="140" r="8"/><rect x="150" y="250" width="300" height="400" rx="60" fill="#b16636"/><g fill="white" font-family="sans-serif" font-size="38" text-anchor="middle"><text x="300" y="50">TOP / HEAD</text><text x="300" y="430">TORSO</text><text x="300" y="760">LOWER BODY</text></g></svg>` }));
-        }
-        await page.goto('/#/missions');
-        const elder = page.locator('.pp-elder-art img');
-        await expect(elder).toBeVisible();
-        if (shape === 'fallback') {
-            await expect(elder).toHaveCSS('object-fit', 'cover');
-            await expect(elder).toHaveCSS('animation-name', 'pp-kenburns');
-        } else await expectUncropped(elder);
-        await page.screenshot({ path: info.outputPath(`profession-${shape.replace(':', '-')}-elder.png`), animations: 'disabled' });
-        await page.getByRole('button', { name: /Continue/ }).click();
-        const choices = page.locator('.pp-card-art > img');
-        await expect(choices).toHaveCount(3);
-        if (shape === 'fallback') await expect(choices.first()).toHaveCSS('object-fit', 'cover');
-        else {
-            await expectUncropped(choices);
-            await page.getByRole('button', { name: /Walk the Healer/ }).focus();
-            await expectUncropped(choices);
-            if (!info.project.use.isMobile) {
-                await page.locator('.pp-card').first().hover();
-                await expectUncropped(choices);
+// CI phones can correctly auto-select lite effects even with no reduced-motion
+// preference. Select both supported modes so hardware cannot change the contract.
+for (const effects of ['full', 'lite'] as const) {
+    for (const shape of ['fallback', '2:3', '3:4'] as const) {
+        test(`profession ${shape} art stays readable through intro, choice and confirmation (${effects} effects)`, async ({ page }, info) => {
+            await page.addInitScript(mode => localStorage.setItem('liteFx.v1', mode), effects === 'lite' ? '1' : '0');
+            const save = uiAuditSave();
+            save.character = { ...save.character, profession: undefined };
+            await installUiAuditRuntime(page, save);
+            const errors: string[] = [];
+            page.on('pageerror', error => errors.push(error.message));
+            if (shape !== 'fallback') {
+                // Hydrate actual sharedImages props through the image fixture. The
+                // marker figure makes face cropping obvious in retained captures.
+                await page.route('**/api/images?*', route => route.fulfill({ json: { version: '1', ids: portraitIds } }));
+                await page.route('**/api/img?*', route => route.fulfill({ contentType: 'image/svg+xml', body:
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="${shape === '2:3' ? 900 : 800}"><rect width="600" height="900" fill="#203c59"/><circle cx="300" cy="145" r="90" fill="#cfa67a"/><circle cx="270" cy="140" r="8"/><circle cx="330" cy="140" r="8"/><rect x="150" y="250" width="300" height="400" rx="60" fill="#b16636"/><g fill="white" font-family="sans-serif" font-size="38" text-anchor="middle"><text x="300" y="50">TOP / HEAD</text><text x="300" y="430">TORSO</text><text x="300" y="760">LOWER BODY</text></g></svg>` }));
             }
-            await page.emulateMedia({ reducedMotion: 'reduce' });
-            await expectUncropped(choices);
-            await page.emulateMedia({ reducedMotion: 'no-preference' });
-        }
-        await page.screenshot({ path: info.outputPath(`profession-${shape.replace(':', '-')}-choices.png`), animations: 'disabled' });
-        await page.getByRole('button', { name: /Walk the Healer/ }).click();
-        const confirmation = page.locator('.pp-confirm-art img');
-        await expect(confirmation).toBeVisible();
-        if (shape === 'fallback') {
-            await expect(confirmation).toHaveCSS('object-fit', 'cover');
-            await expect(confirmation).toHaveCSS('animation-name', 'pp-kenburns');
-        } else await expectUncropped(confirmation);
-        await expect(page.getByRole('button', { name: "Yes, I'm sure" })).toBeInViewport();
-        await page.screenshot({ path: info.outputPath(`profession-${shape.replace(':', '-')}-confirm.png`), animations: 'disabled' });
-        expect(errors).toEqual([]);
-    });
+            await page.goto('/#/missions');
+            if (effects === 'lite') await expect(page.locator('html')).toHaveClass(/lite-fx/);
+            else await expect(page.locator('html')).not.toHaveClass(/lite-fx/);
+            const expectedAnimation = effects === 'lite' ? 'none' : 'pp-kenburns';
+            const elder = page.locator('.pp-elder-art img');
+            await expect(elder).toBeVisible();
+            if (shape === 'fallback') {
+                await expect(elder).toHaveCSS('object-fit', 'cover');
+                await expect(elder).toHaveCSS('animation-name', expectedAnimation);
+            } else await expectUncropped(elder);
+            await page.screenshot({ path: info.outputPath(`profession-${shape.replace(':', '-')}-elder.png`), animations: 'disabled' });
+            await page.getByRole('button', { name: /Continue/ }).click();
+            const choices = page.locator('.pp-card-art > img');
+            await expect(choices).toHaveCount(3);
+            if (shape === 'fallback') await expect(choices.first()).toHaveCSS('object-fit', 'cover');
+            else {
+                await expectUncropped(choices);
+                await page.getByRole('button', { name: /Walk the Healer/ }).focus();
+                await expectUncropped(choices);
+                if (!info.project.use.isMobile) {
+                    await page.locator('.pp-card').first().hover();
+                    await expectUncropped(choices);
+                }
+                await page.emulateMedia({ reducedMotion: 'reduce' });
+                await expectUncropped(choices);
+                await page.emulateMedia({ reducedMotion: 'no-preference' });
+            }
+            await page.screenshot({ path: info.outputPath(`profession-${shape.replace(':', '-')}-choices.png`), animations: 'disabled' });
+            await page.getByRole('button', { name: /Walk the Healer/ }).click();
+            const confirmation = page.locator('.pp-confirm-art img');
+            await expect(confirmation).toBeVisible();
+            if (shape === 'fallback') {
+                await expect(confirmation).toHaveCSS('object-fit', 'cover');
+                await expect(confirmation).toHaveCSS('animation-name', expectedAnimation);
+            } else await expectUncropped(confirmation);
+            await expect(page.getByRole('button', { name: "Yes, I'm sure" })).toBeInViewport();
+            await page.screenshot({ path: info.outputPath(`profession-${shape.replace(':', '-')}-confirm.png`), animations: 'disabled' });
+            expect(errors).toEqual([]);
+        });
+    }
 }
