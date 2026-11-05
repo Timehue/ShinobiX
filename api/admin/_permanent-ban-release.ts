@@ -22,7 +22,7 @@ import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
-import { applyClanSuccession, resolveClanSuccession, type ClanSuccessionRecord } from '../clan/_succession.js';
+import { applyClanSuccession, resolveEligibleClanSuccession, type ClanSuccessionRecord } from '../clan/_succession.js';
 
 export type PermanentBanRelease = { released: string[]; failures: string[] };
 
@@ -39,7 +39,7 @@ async function handOffFoundedClan(slug: string, out: PermanentBanRelease): Promi
     await withKvLock(clanKey, async () => {
         const record = await kv.get<ClanSuccessionRecord & Record<string, unknown>>(clanKey);
         if (!record) return;
-        const succession = resolveClanSuccession(record, slug);
+        const succession = await resolveEligibleClanSuccession(record, slug);
         if (succession.kind !== 'succeeded') return;
         const { roleOverrides } = applyClanSuccession(record, slug, succession);
         await kv.set(clanKey, { ...record, founderName: succession.nextFounderName, roleOverrides });

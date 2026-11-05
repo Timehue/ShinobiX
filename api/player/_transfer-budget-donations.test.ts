@@ -86,6 +86,43 @@ for (const door of [
     { name: 'village treasury', handler: () => villageDonate },
 ]) {
     describe(`${door.name} donations`, () => {
+        it('does not spend budget if the atomic donor commit is refused', async (t) => {
+            await seedDonor('conflictdonor', { level: 5 });
+            const store = kv as typeof kv & Required<Pick<typeof kv, 'compareSetMany'>>;
+            const commit = store.compareSetMany.bind(store);
+            t.mock.method(store, 'compareSetMany', async (ops: readonly import('../_storage.js').KvCasOp[]) => {
+                if (ops.some(op => op.key === 'save:conflictdonor')) return false;
+                return commit(ops);
+            });
+            const result = await donate(door.handler(), 'conflictdonor', { currency: 'ryo', amount: 10_000 });
+            assert.notEqual(result.statusCode, 200);
+            assert.equal(await ryoOf('conflictdonor'), 200_000);
+            assert.equal(await spentRyo('conflictdonor'), 0);
+        });
+        it('charges the debit even when treasury credit fails and admin recovery finishes it', async (t) => {
+            await seedDonor('interrupted', { level: 5 });
+            const sharedKey = door.name.startsWith('clan') ? CLAN_KEY : VILLAGE_KEY;
+            const originalSet = kv.set.bind(kv);
+            const fault = t.mock.method(kv, 'set', async (key: string, value: unknown, options?: any) => {
+                if (key === sharedKey) throw new Error('injected treasury credit outage');
+                return originalSet(key, value, options);
+            });
+            const body = { currency: 'ryo', amount: 20_000, requestId: 'donation-budget-interrupted-01' };
+            assert.equal((await donate(door.handler(), 'interrupted', body)).statusCode, 503);
+            assert.equal(await ryoOf('interrupted'), 180_000);
+            assert.equal(await spentRyo('interrupted'), 20_000, 'the committed debit already reserved budget');
+            fault.mock.restore();
+            const { resumeSaveDebitSaga } = await import('../_save-debit-saga.js');
+            const kinds = await import('../_save-debit-kinds.js');
+            const definition = door.name.startsWith('clan') ? kinds.CLAN_DONATION_SAGA : kinds.VILLAGE_DONATION_SAGA;
+            const keys = await kv.keys(`economy-tx:${definition.kind}-*`);
+            assert.equal(keys.length, 1);
+            await resumeSaveDebitSaga(keys[0].slice('economy-tx:'.length), { [definition.kind]: definition });
+            assert.equal(await spentRyo('interrupted'), 20_000);
+            assert.equal((await donate(door.handler(), 'interrupted', body)).statusCode, 200);
+            assert.equal(await spentRyo('interrupted'), 20_000, 'replay does not charge again');
+            assert.equal((await donate(door.handler(), 'interrupted', { currency: 'ryo', amount: 6_000 })).statusCode, 429);
+        });
         it('cap a restricted donor at the trade budget, shared with its trades', async () => {
             await seedDonor('newdonor', { level: 5 });
             const limit = budget.RESTRICTED_OUTBOUND.ryo;

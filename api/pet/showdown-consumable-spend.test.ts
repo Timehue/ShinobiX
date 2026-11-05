@@ -164,3 +164,13 @@ test('a bout that played a round, or was conceded, keeps the spend after it laps
     assert.equal((await post({ action: 'arena', format: '1v1', petIds: ['pet-b'] })).status, 200);
     assert.equal((await savedPets())[2].loadout?.consumable, undefined, 'a conceded bout is a decided loss');
 });
+
+test('a played bout still keeps its spend after a four-day absence', async (t) => {
+    const started = await post({ action: 'arena', format: '1v1', petIds: ['pet-a'] });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    assert.equal((await post({ action: 'turn', sessionId: started.body.state.sessionId, commands: [] })).status, 200);
+    t.mock.timers.tick(4 * 24 * 60 * 60 * 1000);
+    const next = await post({ action: 'arena', format: '1v1', petIds: ['pet-b'] });
+    assert.equal(next.status, 200, JSON.stringify(next.body));
+    assert.equal((await savedPets())[0].loadout?.consumable, undefined, 'played consumables cannot return when a marker ages out');
+});

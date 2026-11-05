@@ -4,6 +4,8 @@ import { ACCOUNT_AGE_MIN_MS } from '../pvp/_vanguard-rewards.js';
 import { ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { isUnclaimedGuest } from '../_guest-gate.js';
 import type { TradeCurrency } from './_trade-core.js';
+import type { AtomicSaveProof } from '../save/_commit-player-save.js';
+import { SaveDebitRefusal } from '../_save-debit-saga.js';
 
 /*
  * Rolling SEND-side transfer budget.
@@ -207,18 +209,29 @@ export async function donationBudgetRefusal(cap: DonationBudget | null, amount: 
 }
 
 /**
- * Run a donation settlement under the donor's budget gate and charge it once it
- * moved something, exactly as the treasury gift doors do. Uncapped: just runs it.
+ * Run under the donor's budget gate. The fresh debit carries its budget proof
+ * in the same save transaction; neither replay nor recovery charges it again.
  */
 export async function settleWithinDonationBudget<T extends { replayed?: boolean }>(
-    cap: DonationBudget | null, amount: number, settle: () => Promise<T>,
+    cap: DonationBudget | null, _amount: number, settle: () => Promise<T>,
 ): Promise<T> {
     if (!cap) return settle();
-    return withOutboundBudgetGate(cap.slug, cap.currency, async () => {
-        const settled = await settle();
-        if (!settled.replayed) await chargeOutboundBudget(cap.slug, cap.currency, amount);
-        return settled;
-    });
+    return withOutboundBudgetGate(cap.slug, cap.currency, settle);
+}
+
+/** Called only for a validated fresh donation, under its outbound gate. A
+ * failed read or CAS must stop the debit; a lost reply can prove both writes
+ * through the existing save readback. Uses the existing rolling ledger shape. */
+export async function donationBudgetProof(cap: DonationBudget | null, amount: number, now = Date.now()): Promise<AtomicSaveProof | undefined> {
+    if (!cap) return undefined;
+    const key = transferBudgetKey(cap.slug, cap.currency);
+    const expected = await kv.get<Ledger>(key);
+    const { spent, kept } = sumWindow(expected?.stamps, now);
+    if (amount > outboundLimit(cap.currency, 'restricted') - spent) {
+        throw new SaveDebitRefusal(429, `You have reached today's ${cap.currency} transfer limit.`);
+    }
+    kept.push([now, amount]);
+    return { key, expected, value: { stamps: boundStamps(kept) }, ex: Math.ceil(TRANSFER_WINDOW_MS * 2 / 1000) };
 }
 
 /** How many stamps a ledger row may hold before the oldest are coalesced. */

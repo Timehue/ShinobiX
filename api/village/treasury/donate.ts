@@ -20,7 +20,7 @@ import {
     deliverEconomyLegacyIntent,
     queueEconomyLegacyIntent,
 } from '../../_legacy-economy-outbox.js';
-import { donationBudgetRefusal, restrictedDonationBudget, settleWithinDonationBudget } from '../../player/_transfer-budget.js';
+import { donationBudgetProof, donationBudgetRefusal, restrictedDonationBudget, settleWithinDonationBudget } from '../../player/_transfer-budget.js';
 
 /*
  * /api/village/treasury/donate  — POST only
@@ -214,7 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const creditedDonorChar = { ...outcome.nextDonorChar, ...meritPlan?.stamp, villageMerit: meritNum((outcome.nextDonorChar as Record<string, unknown>).villageMerit) + meritForDonation(ryoValue) };
                 // Credit ONLY the treasury; every other village-state field is
                 // preserved (VILLAGE_DONATION_SAGA.applyCredit).
-                return { ok: true, character: creditedDonorChar, plan: { treasury: treasuryCreditPlan(donation, routed) }, result: {} };
+                return { ok: true, character: creditedDonorChar, atomicProof: await donationBudgetProof(cap, amount), plan: { treasury: treasuryCreditPlan(donation, routed) }, result: {} };
             },
             messages: {
                 pending: 'Your donation was taken but not yet added to the village treasury. Donate again to finish it; you will not be charged twice.',

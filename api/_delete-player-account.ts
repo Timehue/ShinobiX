@@ -33,7 +33,7 @@ import { recoveryCodeKey } from './_recovery-code.js';
 import { currencyLedgerKey } from './_currency-ledger.js';
 import { REGISTRY_KEY } from './player/_public-index.js';
 import { clanSlugBare } from './clan/_kick-core.js';
-import { applyClanSuccession, resolveClanSuccession } from './clan/_succession.js';
+import { applyClanSuccession, resolveEligibleClanSuccession } from './clan/_succession.js';
 import { cancelSubscriptionForDeletedAccount } from './tebex/_cancel-subscription.js';
 import { IMG_OWNER_PREFIX, removeStoredImages, storedImageExists } from './images.js';
 
@@ -87,7 +87,7 @@ async function detachFromClan(slug: string, clanName: string, result: DeletePlay
             // (clan/_succession.ts). Deletion used to drop them from the roster
             // but keep `founderName`, so nobody could dissolve the clan,
             // distribute its seal pool or run any other founder-only action.
-            const succession = resolveClanSuccession(record, slug);
+            const succession = await resolveEligibleClanSuccession(record, slug);
             const next = applyClanSuccession(record, slug, succession);
             const rolesBefore = Object.keys(record.roleOverrides ?? {}).length;
 
@@ -314,6 +314,7 @@ export function playerOwnedSideRowPatterns(slug: string): string[] {
     return [
         `pet-sanctuary:${slug}:*`,
         `tower-firstclear:${slug}:*`,
+        `pet:showdown-played:${slug}:*`,
     ];
 }
 

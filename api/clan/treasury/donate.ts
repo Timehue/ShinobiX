@@ -15,7 +15,7 @@ import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
 import { CLAN_XP_RYO_PER_POINT, clanItemDonationXp, reserveClanDonationXp, reserveClanRyoDonationXp } from './_donation-xp.js';
 import { addClanContrib } from '../../_clan-contrib-month.js';
-import { donationBudgetRefusal, restrictedDonationBudget, settleWithinDonationBudget } from '../../player/_transfer-budget.js';
+import { donationBudgetProof, donationBudgetRefusal, restrictedDonationBudget, settleWithinDonationBudget } from '../../player/_transfer-budget.js';
 
 /*
  * /api/clan/treasury/donate  — POST only
@@ -212,6 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return {
                     ok: true,
                     character: { ...nextDonorChar, clanDonationXp: reservation.quota },
+                    atomicProof: await donationBudgetProof(cap, amount),
                     // clanXpDay is the non-ryo daily audit's marker, so a ryo plan never carries it.
                     plan: { treasury: treasuryCreditPlan(donation, routed), clanXp, ...(!ryoDonation && reservation.quota.day ? { clanXpDay: reservation.quota.day } : {}) },
                     result: {},

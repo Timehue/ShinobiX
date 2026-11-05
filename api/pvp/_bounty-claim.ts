@@ -35,6 +35,7 @@ import {
 } from '../_settlement-receipts.js';
 import { receiptAbsenceProvable } from '../_save-debit-saga.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { bountyOwnerProof, validBountyOwnerId } from './_bounty-owner-identity.js';
 import {
     finishBountyClaim,
     restoreBountyClaim,
@@ -66,6 +67,7 @@ function claimFingerprint(pending: PendingBountyClaim): string {
         winner: pending.winner,
         target: pending.head.target,
         amount: pending.head.amount,
+        ...(pending.ownerId ? { ownerId: pending.ownerId } : {}),
     });
 }
 
@@ -85,9 +87,14 @@ export type BountyPayResult =
  * and the next attempt or sweep resumes it.
  */
 export async function payPendingBountyClaim(pending: PendingBountyClaim): Promise<BountyPayResult> {
+    if (pending.refundHold) return { status: 'unprovable', reason: `Refund requires reconciliation: ${pending.refundHold}` };
+    const refund = pending.id.startsWith('deleted-target:');
+    if (refund && !validBountyOwnerId(pending.ownerId)) return { status: 'unprovable', reason: 'Original refund owner identity is unproven' };
     const receiptId = bountyClaimReceiptId(pending.id);
     const fingerprint = claimFingerprint(pending);
-    const out = await mutatePlayerSave<{ creditedNow: boolean; ryo: number } | { unprovable: string }>(pending.winner, ({ character }) => {
+    const out = await mutatePlayerSave<{ creditedNow: boolean; ryo: number } | { unprovable: string }>(pending.winner, async ({ character }) => {
+        const owner = refund ? await bountyOwnerProof(pending.winner, pending.ownerId) : null;
+        if (refund && !owner) return { ok: true, character, value: { unprovable: 'Original refund owner identity does not match' }, write: false };
         const inspected = inspectSettlementReceipt(character, receiptId, fingerprint);
         if (inspected.status === 'replay') {
             return { ok: true, character, value: { creditedNow: false, ryo: num(character.ryo) }, write: false };
@@ -113,6 +120,7 @@ export async function payPendingBountyClaim(pending: PendingBountyClaim): Promis
                 settledAt: Date.now(),
             }),
             value: { creditedNow: true, ryo },
+            atomicProof: owner?.proof,
         };
     });
     if (!out.ok) return out.status === 404 ? { status: 'missing-save' } : { status: 'unprovable', reason: out.error };
@@ -140,8 +148,13 @@ export async function writeDuelBountyRecord(battleId: string, record: DuelBounty
  * left pending and logged, never paid twice.
  */
 export async function sweepPendingBountyClaims(board: BountyBoard, now: number, exceptId?: string): Promise<BountyBoard> {
+    const { settleBountyOwnerRefunds } = await import('./_bounty-deleted-target.js');
+    await settleBountyOwnerRefunds(now);
     let next = board;
     for (const pending of board.pendingClaims ?? []) {
+        // Legacy board refunds must be migrated under the cutover procedure.
+        // New refunds are only read from their separate, account-bound escrow.
+        if (pending.refundHold || pending.id.startsWith('deleted-target:')) continue;
         if (pending.id === exceptId || now - pending.at < BOUNTY_CLAIM_SWEEP_AFTER_MS) continue;
         try {
             const paid = await payPendingBountyClaim(pending);

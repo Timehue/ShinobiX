@@ -12,3 +12,10 @@ export function minifyRuntimeSource(source) {
 export function minifyRuntimeJson(source) {
     return JSON.stringify(JSON.parse(source));
 }
+
+/** Remove explanatory template comments before the shell is copied to legal
+ * pages. Keep conditional, server and email-protection directives intact. */
+export function minifyRuntimeHtmlComments(source) {
+    return source.replace(/<(script|style|textarea|title)\b[^>]*>[\s\S]*?<\/\1\s*>|<!--([\s\S]*?)-->/gi, (match, rawTag, body) =>
+        rawTag || /^\s*(?:\[|<!\[|#|\/?email_off\b)/i.test(body) ? match : '');
+}

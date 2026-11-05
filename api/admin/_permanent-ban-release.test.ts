@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { before, beforeEach, describe, it } from 'node:test';
 
 process.env.NODE_ENV = 'test';
+process.env.BOUNTY_OWNER_REFUNDS_ENABLED = '1';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.ADMIN_PASSWORD = 'permanent-ban-release-admin';
 process.env.SESSION_SECRET = 'permanent-ban-release-secret';
@@ -41,6 +42,7 @@ function save(name: string, extra: Obj = {}): Obj {
 
 beforeEach(async () => {
     for (const key of await kv.keys('*')) await kv.del(key);
+    for (const name of ['kaze', 'rival']) await kv.set(`auth:${name}`, { hash: 'scrypt:owner', salt: name, sessionEpoch: 0 });
     const [home] = WAR_VILLAGES;
     await kv.set('save:wanderer', save('Wanderer', { clan: 'Storm Petals', inventory: [itemId] }));
     await kv.set('save:kaze', save('Kaze', { clan: 'Storm Petals' }));
@@ -71,6 +73,29 @@ async function placeBounty(placer: string, target: string, amount: number) {
 }
 
 describe('banning a player', () => {
+    it('keeps timed bans eligible but refuses succession when ban state cannot be read', async (t) => {
+        const { resolveEligibleClanSuccession } = await import('../clan/_succession.js');
+        const clan = (await kv.get<Obj>('save:clan-stormpetals'))!;
+        await kv.set('mod:ban:kaze', { permanent: false, until: Date.now() + 86_400_000 });
+        const result = await resolveEligibleClanSuccession(clan, 'wanderer');
+        assert.equal(result.kind, 'succeeded');
+        const mget = kv.mget.bind(kv);
+        t.mock.method(kv, 'mget', async (...keys: string[]) => {
+            if (keys.includes('mod:ban:kaze')) throw new Error('injected ban lookup outage');
+            return mget(...keys);
+        });
+        await assert.rejects(resolveEligibleClanSuccession(clan, 'wanderer'), /ban lookup outage/);
+    });
+    it('does not give the clan back to an earlier permanently banned founder', async () => {
+        const clan = (await kv.get<Obj>('save:clan-stormpetals'))!;
+        await kv.set('save:clan-stormpetals', { ...clan, members: [...clan.members, { name: 'Rival', joinedAt: 3 }] });
+        await kv.set('save:rival', save('Rival', { clan: 'Storm Petals' }));
+        await ban('Wanderer', 'permanent');
+        assert.equal((await kv.get<Obj>('save:clan-stormpetals'))?.founderName, 'Kaze');
+        await ban('Kaze', 'permanent');
+        assert.equal((await kv.get<Obj>('save:clan-stormpetals'))?.founderName, 'Rival');
+        assert.equal((await kv.get<Obj>('save:clan-stormpetals'))?.members.length, 3);
+    });
     it('permanently takes down a bounty on them and refunds every backer', async () => {
         await placeBounty('kaze', 'wanderer', 2_000);
         await placeBounty('rival', 'wanderer', 1_000);
@@ -81,6 +106,21 @@ describe('banning a player', () => {
         assert.equal((await kv.get<Obj>('save:kaze'))!.character.ryo, before.kaze + 2_000);
         assert.equal((await kv.get<Obj>('save:rival'))!.character.ryo, before.rival + 1_000);
         assert.ok(body.released.includes('pvp:bounties[wanderer]'));
+    });
+
+    it('permanently removes an unproven legacy bounty while retaining the money for reconciliation', async () => {
+        await kv.set('pvp:bounties', { bounties: [{ target: 'wanderer', amount: 3_001, contributors: ['kaze', 'rival'], updatedAt: 50 }] });
+        const before = { kaze: (await kv.get<Obj>('save:kaze'))!.character.ryo, rival: (await kv.get<Obj>('save:rival'))!.character.ryo };
+        const body = await ban('Wanderer', 'permanent');
+        assert.deepEqual(body.releaseFailures, []);
+        const board = await kv.get<Obj>('pvp:bounties');
+        assert.deepEqual(board?.bounties, []);
+        const keys = await kv.keys('pvp:bounty-owner-refund:v1:*');
+        assert.equal((await kv.get<Obj>(keys[0]))?.unresolvedAmount, 3_001);
+        assert.equal(board?.pendingClaims, undefined);
+        await ban('Wanderer', 'permanent');
+        assert.equal((await kv.get<Obj>('save:kaze'))!.character.ryo, before.kaze);
+        assert.equal((await kv.get<Obj>('save:rival'))!.character.ryo, before.rival);
     });
 
     it('for a few days leaves a bounty on them standing', async () => {

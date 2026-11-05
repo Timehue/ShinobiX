@@ -102,7 +102,7 @@ export type AtomicSaveProof = {
     key: string;
     expected?: unknown;
     value: unknown;
-    ex: number;
+    ex?: number;
     /**
      * For a proof row other writers also change (Legacy stats, under their own
      * lock): rebuilds `value` on the row as it now stands. With it, a refusal

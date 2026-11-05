@@ -1,6 +1,6 @@
 import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 import { grantShowdownParticipationXp } from './_showdown-xp.js';
-import { admitShowdown, arenaAdmissionId, clearArenaAdmission, refundLapsedAdmission, SHOWDOWN_PLAYED_TTL_SECONDS, showdownAdmissionKey, showdownPlayedKey, type AdmittedShowdown } from './_showdown-admission.js';
+import { admitShowdown, arenaAdmissionId, clearArenaAdmission, refundLapsedAdmission, showdownAdmissionKey, showdownPlayedKey, type AdmittedShowdown } from './_showdown-admission.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -1113,7 +1113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!session.finished) {
                     // A concession is a decided loss, never a refundable lapse.
                     if ((session as AdmittedShowdown).consumablesCommitted) {
-                        await kv.set(showdownPlayedKey(playerName, session.sessionId), 1, { ex: SHOWDOWN_PLAYED_TTL_SECONDS });
+                        await kv.set(showdownPlayedKey(playerName, session.sessionId), 1);
                     }
                     session.finished = true;
                     session.outcome = 'loss';
@@ -1232,7 +1232,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // spent items are used (refundLapsedAdmission). A failed write
                 // refuses the round rather than leaving it refundable.
                 if (session.round === 0 && (session as AdmittedShowdown).consumablesCommitted) {
-                    await kv.set(showdownPlayedKey(playerName, session.sessionId), 1, { ex: SHOWDOWN_PLAYED_TTL_SECONDS });
+                    await kv.set(showdownPlayedKey(playerName, session.sessionId), 1);
                 }
                 const events = resolveShowdownRound(session, commands, aiCommands);
                 if (session.finished) session.circuitFinishedAt = Date.now();

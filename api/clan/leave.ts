@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { clanSlugBare } from './_kick-core.js';
-import { applyClanSuccession, resolveClanSuccession } from './_succession.js';
+import { applyClanSuccession, resolveEligibleClanSuccession } from './_succession.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 
 /*
@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
             if (!clanRec) return { ok: false as const, status: 404, error: 'Clan not found.' };
 
-            const succession = resolveClanSuccession(clanRec, playerName);
+            const succession = await resolveEligibleClanSuccession(clanRec, playerName);
             const next = applyClanSuccession(clanRec, playerName, succession);
             // The leaver's own save version, so the client can adopt it. Without
             // it their next autosave echoes a stale base version, takes the 409

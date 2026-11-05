@@ -98,7 +98,7 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: '_war-tax-apply.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'VILLAGE_TAX_SAGA'] },
     { file: 'village/_kage-inactivity.ts', mechanism: 'in-save-receipt', markers: ['inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt'] },
     // Stakes that open something on a shared row, moved onto the saga.
-    { file: 'village/hollow-gate-unlock.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'HOLLOW_GATE_UNLOCK_SAGA', 'parseSettlementRequestId'] },
+    { file: 'village/hollow-gate-unlock.ts', mechanism: 'economy-tx', markers: ['kv.compareSetMany', 'economyTxKey', "funding: 'treasury'", 'parseSettlementRequestId'] },
     { file: 'clan/war/declare.ts', mechanism: 'economy-tx', markers: ['declareClanWarCampaign', 'parseSettlementRequestId'] },
     { file: 'clan/war/_campaign-declare.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'CLAN_WAR_DECLARE_SAGA', 'claimClanWarReservations', 'publishPoolDeclaration'] },
     { file: 'clan/war/_pool-declaration.ts', mechanism: 'economy-tx', markers: ['kv.compareSetMany', 'economyTxKey', "state:'complete'", 'clanWarReservationKey'] },

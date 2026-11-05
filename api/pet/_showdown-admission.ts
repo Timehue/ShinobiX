@@ -76,6 +76,8 @@ export async function admitShowdown<T extends ShowdownSession>(
         const written = await writeVersionedPlayerSaveWithStore(store, saveKey, record, character, {}, {
             regenAt: carriedRegenCursor(recovery.character, character, recovery.regen),
         });
+        const previousId = arenaAdmissionId(recovery.character);
+        if (previousId && previousId !== session.sessionId) await retirePlayedProof(name, previousId);
         return { ...decision, character, _saveVersion: written._saveVersion };
     }, { failClosed: true }));
 }
@@ -83,10 +85,17 @@ export async function admitShowdown<T extends ShowdownSession>(
 /**
  * Written before an admitted fight resolves its first round (or is conceded),
  * so a lapse can tell a fight that was never played from one that was. The
- * admission row lives 45 minutes; this outlives it.
+ * admission row lives 45 minutes; the saved refund entitlement has no expiry,
+ * so this proof must not expire until the saved admission is removed or replaced.
+ * Account deletion also removes these rows.
  */
 export const showdownPlayedKey = (name: string, id: string) => `pet:showdown-played:${name}:${id}`;
-export const SHOWDOWN_PLAYED_TTL_SECONDS = 3 * 24 * 60 * 60;
+
+/** Once the refund entitlement is durably gone, bound proof retention. Never
+ * create a missing marker, and never retire it before the save commit. */
+async function retirePlayedProof(name: string, id: string): Promise<void> {
+    await kv.compareSet(showdownPlayedKey(name, id), 1, 1, { ex: 3 * 24 * 60 * 60 }).catch(() => undefined);
+}
 
 type SpentConsumable = { petId: string; consumableId: string };
 function admissionSpends(character: Record<string, unknown>): SpentConsumable[] {
@@ -124,9 +133,10 @@ export function arenaAdmissionId(character: Record<string, unknown>): string | n
 
 export async function clearArenaAdmission(name: string, sessionId: string): Promise<void> {
     const { mutatePlayerSave } = await import('../save/_mutate-player-save.js');
-    await retryOnSaveVersionConflict(() => mutatePlayerSave(name, ({ character }) => ({
+    const cleared = await retryOnSaveVersionConflict(() => mutatePlayerSave(name, ({ character }) => ({
         ok: true as const, value: null,
         character: arenaAdmissionId(character) === sessionId ? { ...character, petShowdownAdmission: undefined } : character,
         write: arenaAdmissionId(character) === sessionId,
     })));
+    if (cleared.ok) await retirePlayedProof(name, sessionId);
 }

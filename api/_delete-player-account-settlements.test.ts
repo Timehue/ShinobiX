@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 process.env.NODE_ENV = 'test';
+process.env.BOUNTY_OWNER_REFUNDS_ENABLED = '1';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.ADMIN_PASSWORD = 'delete-settlements-admin';
 process.env.SESSION_SECRET = 'delete-settlements-secret';
@@ -68,6 +69,7 @@ before(async () => {
 beforeEach(async () => {
     for (const key of await kv.keys('*')) await kv.del(key);
     for (const name of PLAYERS) await kv.set(`save:${name}`, freshSave(name, name === 'wanderer' ? { inventory: [itemId, itemId] } : {}));
+    for (const name of ['kaze', 'rival']) await kv.set(`auth:${name}`, { hash: 'scrypt:owner', salt: name, sessionEpoch: 0 });
     await kv.set('auth:wanderer', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
 });
 
@@ -147,6 +149,20 @@ for (const path of ['guest sweep (deletePlayerAccount)', 'interactive delete (de
             assert.equal((await character('kaze')).ryo, before.kaze + 3_500, 'a second deletion pays nobody twice');
         });
 
+        it('keeps unproven bounty money pending without blocking account teardown', async () => {
+            await kv.set('pvp:bounties', { bounties: [{ target: 'wanderer', amount: 3_001, contributors: ['kaze', 'rival'], updatedAt: 50 }] });
+            const result = await remove('wanderer');
+            assert.deepEqual(result.failures, []);
+            assert.equal(await kv.get('save:wanderer'), null);
+            const board = await kv.get<Obj>('pvp:bounties');
+            assert.deepEqual(board?.bounties, []);
+            const keys = await kv.keys('pvp:bounty-owner-refund:v1:*');
+            assert.equal((await kv.get<Obj>(keys[0]))?.unresolvedAmount, 3_001);
+            assert.equal(board?.pendingClaims, undefined);
+            assert.equal((await character('kaze')).ryo, 10_000);
+            assert.equal((await character('rival')).ryo, 10_000);
+        });
+
         it('empties the deleted player\'s Elder and ANBU seats in every village', async () => {
             const [home, other] = WAR_VILLAGES;
             await kv.set(elderCouncilKey(home), { termStartedAt: 1, seats: ['Wanderer', 'Kaze', ''] });
@@ -171,20 +187,15 @@ for (const path of ['guest sweep (deletePlayerAccount)', 'interactive delete (de
 describe('bounty refund shares', () => {
     const head = { target: 'Wanderer', amount: 3_000, contributors: ['kaze', 'rival'], updatedAt: 50 };
 
-    it('ignores the placements of an earlier head that was already claimed', () => {
-        const { shares, exact } = bountyShares(head, [
-            { placer: 'kaze', amount: 9_000, at: 1 }, // paid out with a previous head
-            { placer: 'kaze', amount: 2_000, at: 10 },
-            { placer: 'rival', amount: 1_000, at: 20 },
-        ]);
+    it('returns the proven contribution amounts recorded on this head', () => {
+        const { shares, exact } = bountyShares({ ...head, contributions: [{ owner: 'rival', ownerId: '11111111-1111-4111-8111-111111111111', amount: 1_000 }, { owner: 'kaze', ownerId: '22222222-2222-4222-8222-222222222222', amount: 2_000 }] });
         assert.equal(exact, true);
         assert.deepEqual(Object.fromEntries(shares), { rival: 1_000, kaze: 2_000 });
     });
 
-    it('splits evenly, never paying outside the backer list, when the journals cannot prove the shares', () => {
-        const { shares, exact } = bountyShares({ ...head, amount: 3_001 }, [{ placer: 'stranger', amount: 3_001, at: 30 }]);
+    it('does not invent equal shares when the ownership amounts are unproven', () => {
+        const { shares, exact } = bountyShares({ ...head, amount: 3_001 });
         assert.equal(exact, false);
-        assert.deepEqual(Object.fromEntries(shares), { kaze: 1_501, rival: 1_500 });
-        assert.equal([...shares.values()].reduce((a, b) => a + b, 0), 3_001, 'every escrowed ryo goes back');
+        assert.deepEqual(Object.fromEntries(shares), {});
     });
 });
