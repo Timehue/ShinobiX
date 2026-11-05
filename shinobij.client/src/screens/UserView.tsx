@@ -30,6 +30,8 @@ import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { achievementBadgeSrc } from "../lib/achievement-badge";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 
 const ELEMENT_COLORS: Record<string, string> = {
     fire: "var(--red-400)", water: "var(--blue-400)", earth: "#d4a574", lightning: "#fbbf24",
@@ -225,8 +227,8 @@ export function UserView({
                 {followError && <p role="status">{followError}</p>}
                 <section className="profile-build-panel" style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
                     <div
-                        className={(viewedCharacter.legacy?.stage ?? 0) >= 2 ? `legacy-aura-s${Math.min(5, viewedCharacter.legacy!.stage)}` : undefined}
-                        style={{ width: 110, height: 110, borderRadius: "50%", border: "3px solid var(--gold)", boxShadow: "0 0 0 3px rgba(230, 196, 119, 0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
+                        className={`art-backdrop${(viewedCharacter.legacy?.stage ?? 0) >= 2 ? ` legacy-aura-s${Math.min(5, viewedCharacter.legacy!.stage)}` : ""}`}
+                        style={{ ...artBackdropStyle(avatar), width: 110, height: 110, borderRadius: "50%", border: "3px solid var(--gold)", boxShadow: "0 0 0 3px rgba(230, 196, 119, 0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
                     >
                         {avatar
                             ? <img src={avatar} alt={viewedCharacter.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />

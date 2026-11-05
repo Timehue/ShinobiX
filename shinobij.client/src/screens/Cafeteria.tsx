@@ -29,6 +29,8 @@ import { GameIcon, ShinobiCurrencyIcon } from "../components/icons/GameIcon";
 import mealSmallRamen from "../assets/facilities/meal-small-ramen.webp";
 import mealShinobiMeal from "../assets/facilities/meal-shinobi-meal.webp";
 import mealFeast from "../assets/facilities/meal-feast.webp";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 
 /* Painted meal art (gen-asset pipeline) replaces the old CSS line-art bowls. */
 const MEAL_ART: Record<CafeteriaMealId, string> = {
@@ -180,8 +182,8 @@ export function Cafeteria({
                     const affordable = character.ryo >= meal.cost;
                     return (
                         <article key={meal.id} className={`cafeteria-meal-card cafeteria-meal-card--${meal.id}`} data-affordable={affordable}>
-                            <div className="cafeteria-meal-art" aria-hidden="true">
-                                <img src={MEAL_ART[meal.id]} alt="" loading="lazy" />
+                            <div className="cafeteria-meal-art art-backdrop" aria-hidden="true" style={artBackdropStyle(MEAL_ART[meal.id])}>
+                                <img className="art-backdrop-feather" src={MEAL_ART[meal.id]} alt="" loading="lazy" />
                             </div>
                             <span className="cafeteria-meal-tag">{copy.tag}</span>
                             <p className="facility-eyebrow">{copy.label}</p>

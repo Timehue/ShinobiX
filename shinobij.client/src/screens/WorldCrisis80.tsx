@@ -36,6 +36,8 @@ import hollowGateMark from "../assets/map-landmarks/hollow-gate.webp";
 import reckoningOutskirtsArt from "../assets/world-crisis-80/reckoning-outskirts.webp";
 import collectionCellArt from "../assets/world-crisis-80/collection-cell-lineup.webp";
 import pursuitPackArt from "../assets/world-crisis-80/pursuit-pack.webp";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 import "./WorldCrisisTabs.css";
 import "./WorldCrisis80.css";
 
@@ -252,13 +254,13 @@ export function WorldCrisis80({
                     <span className="reckoning__eyebrow">Choose your front</span>
                     {towerRecovery && <button type="button" className="reckoning__resume" onClick={() => void resumeShinobi()}>Resume sealed ledger defense</button>}
                     <article className="reckoning__operation reckoning__operation--shinobi">
-                        <img className="reckoning__operation-art" src={collectionCellArt} alt="" />
+                        <div className="reckoning__operation-media art-backdrop" style={artBackdropStyle(collectionCellArt)}><img className="reckoning__operation-art art-backdrop-feather" src={collectionCellArt} alt="" /></div>
                         <small>ELITE SHINOBI OPERATION · 1 VS 3</small><h2>Break the Collection Cell</h2><p>Face the vanguard, hunter, and assessor together on a contracting tactical field.</p>
                         <ul><li>Three simultaneous enemy turns</li><li>Separate roles and focus policies</li><li>1 verified win advances the ledger</li></ul>
                         <button type="button" onClick={() => void launchShinobi()} disabled={!active || !!launching || !!towerRecovery}>{launching === "shinobi" ? "Sealing three combatants…" : resolved ? "Claims broken" : locked ? "Awaiting the first witness" : "Deploy against all three"}</button>
                     </article>
                     <article className="reckoning__operation reckoning__operation--pets">
-                        <img className="reckoning__operation-art" src={pursuitPackArt} alt="" />
+                        <div className="reckoning__operation-media art-backdrop" style={artBackdropStyle(pursuitPackArt)}><img className="reckoning__operation-art art-backdrop-feather" src={pursuitPackArt} alt="" /></div>
                         <small>COMPANION OPERATION · 3 VS 3</small><h2>Hunt the Pursuit Pack</h2><p>Field exactly three carried companions against {encounter.petPackName}. This is a separate front, not an easier copy.</p>
                         <div className="reckoning__pet-grid">
                             {availablePets.map((pet) => { const picked = selectedPets.includes(pet.id); const art = petCardImage(pet, sharedImages); return <button key={pet.id} type="button" className={picked ? "is-picked" : ""} onClick={() => setSelectedPets((ids) => picked ? ids.filter((id) => id !== pet.id) : ids.length < 3 ? [...ids, pet.id] : ids)} aria-pressed={picked}>{art ? <img src={art} alt="" /> : <span aria-hidden="true">{pet.name.slice(0, 1)}</span>}<strong>{pet.name}</strong><small>Lv {pet.level}</small></button>; })}

@@ -3,6 +3,8 @@ import type { Character } from "../types/character";
 import type { BountyEntry } from "../lib/pvp-bounty";
 import { buildReputationProfile, type ReputationBadge } from "../lib/reputation-profile";
 import { titleStyleColor } from "../lib/legacy";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 
 type ShinobiIdentityCardProps = {
     character: Character;
@@ -48,6 +50,7 @@ export function ShinobiIdentityCard({
     const legacyStage = Math.min(5, character.legacy?.stage ?? 0);
     const avatarClasses = [
         "sic-avatar",
+        avatarSrc ? "art-backdrop" : "",
         avatarClassName,
         legacyStage >= 2 ? `legacy-aura-s${legacyStage}` : "",
     ].filter(Boolean).join(" ");
@@ -56,7 +59,7 @@ export function ShinobiIdentityCard({
         <section className="shinobi-identity-card" aria-label={`${(character.accountName || character.name)} identity and reputation`}>
             <div className="sic-hero">
                 <div className="sic-avatar-stack">
-                    <div className={avatarClasses}>
+                    <div className={avatarClasses} style={artBackdropStyle(avatarSrc)}>
                         {avatarSrc ? (
                             <img
                                 src={avatarSrc}

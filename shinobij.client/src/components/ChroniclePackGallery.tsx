@@ -5,6 +5,7 @@ import { ownedChronicleCounts } from "../lib/chronicle-duel";
 import { activeElderFocus } from "../lib/village-elder-focus";
 import { hasPendingCardPackRequest, openCardPack, type CardPackType } from "../lib/card-pack";
 import { packArtUrl } from "../lib/card-pack-reveal";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { makeId } from "../lib/utils";
 import { CardPackOpening } from "./CardPackOpening";
@@ -109,7 +110,9 @@ export function ChroniclePackGallery({ character, cardsById, onVersionedCharacte
 
   const renderPack = (pack: PackListing) => (
     <article className={`chronicle-pack chronicle-pack--${pack.type}`} key={pack.type}>
-      <img className="chronicle-pack__art" src={packArtUrl(pack.type)} alt="" loading="lazy" />
+      <div className="chronicle-pack__frame art-backdrop" style={artBackdropStyle(packArtUrl(pack.type))}>
+        <img className="chronicle-pack__art art-backdrop-feather" src={packArtUrl(pack.type)} alt="" loading="lazy" />
+      </div>
       <div className="chronicle-pack__body">
         <div className="chronicle-pack__eyebrow">{pack.currency === "chroniclePoints" ? "CHRONICLE ARCHIVE" : "PREMIUM ARCHIVE"}</div>
         <h3>{pack.name}</h3>

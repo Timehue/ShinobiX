@@ -53,6 +53,8 @@ import { useFieldTrailRefreshVersion } from "../lib/use-field-trail-refresh";
 import missionHallArt from "../assets/facilities/mission-hall.webp";
 import { sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
 import { sectorFloorImage, sectorFloorThumb } from "../lib/sector-floor-layout";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { useFirstContractMissionTab } from "../lib/use-first-contract-mission-tab";
 import { ScreenHint } from "../components/ScreenHint";
@@ -633,9 +635,9 @@ export function Missions({
                                     {mission.rank}-Rank
                                 </div>
                                 {recommended && <span className="mh-recommended-badge">Recommended First Mission</span>}
-                                <div className="mh-combat-avatar">
+                                <div className="mh-combat-avatar art-backdrop" style={artBackdropStyle(ai?.image)}>
                                     {ai?.image
-                                        ? <img src={ai.image} alt={ai.name} />
+                                        ? <img className="art-backdrop-feather" src={ai.image} alt={ai.name} />
                                         : <GameArtIcon kind="attack" size={64} />}
                                 </div>
                                 <div className="mh-combat-body">
@@ -718,8 +720,8 @@ export function Missions({
                                     className={`mh-field-card${accepted ? " mh-field-accepted" : ""}${accepted && nextAction.objective === "explore" ? " mh-field-explore" : ""}${complete && accepted ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}${locked ? " mh-field-locked" : ""}`}
                                     style={{ "--mission-rank-color": accent } as CSSProperties}
                                 >
-                                    <div className="mh-field-art">
-                                        <img src={art} srcSet={artThumb ? `${artThumb} 256w, ${art} 1024w` : undefined} sizes="(max-width: 700px) 68px, (max-width: 1080px) 50vw, 33vw" alt="" loading="lazy" decoding="async" />
+                                    <div className="mh-field-art art-backdrop" style={artBackdropStyle(art)}>
+                                        <img className="art-backdrop-feather" src={art} srcSet={artThumb ? `${artThumb} 256w, ${art} 1024w` : undefined} sizes="(max-width: 700px) 68px, (max-width: 1080px) 50vw, 33vw" alt="" loading="lazy" decoding="async" />
                                         <span className="mh-field-rank">{mission.rank}</span>
                                         <span className="mh-field-sector">
                                             <small>Sector {mission.targetSector} · {regionName}</small>

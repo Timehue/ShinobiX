@@ -27,6 +27,8 @@ import {
     withMercRetry,
 } from "../lib/village-war-merc-panel";
 import { mercPortrait } from "../lib/merc-ai";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 import { mercTierName } from "../lib/merc-roam-client";
 import { gameToast } from "./GameToast";
 import { GameArtIcon } from "./GameArtIcon";
@@ -132,7 +134,7 @@ export function VillageWarMercPanel({ character, onChanged }: { character: Chara
                             const outOfHires = canHire && c.callerHiresLeft <= 0;
                             return (
                                 <div key={t.id} className="vwm-merc-tier">
-                                    {portrait && <img className="vwm-merc-portrait" src={portrait} alt={t.id} />}
+                                    {portrait && <span className="vwm-merc-portrait-frame art-backdrop" style={artBackdropStyle(portrait)}><img className="vwm-merc-portrait" src={portrait} alt={t.id} /></span>}
                                     <div className="vwm-merc-name">{mercTierName(t.id)} · L{t.level}</div>
                                     <button
                                         disabled={!canHire || outOfHires || !!busy || !afford.affordable || !treasury.affordable || kageOnly}

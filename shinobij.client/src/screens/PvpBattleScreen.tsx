@@ -15,6 +15,8 @@ import {
 } from "../components/icons/LightweightGameIcons";
 import "../styles/battle-skin.css";
 import "../styles/pvp-spectator.css";
+// CombatSideHud's portrait frame (it is node-tested, so it cannot import CSS).
+import "../styles/art-backdrop.css";
 import { visiblePoll } from "../lib/poll";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";
