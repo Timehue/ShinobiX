@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   CHRONICLE_CARD_CATALOG, CHRONICLE_FIXED_FALLBACK_DECK,
   activateMagic, activateTrap, applyAction, createMatch, declareAttack,
-  getChronicleCard, normalSummon, passResponse, projectMatchForViewer, startBattlePhase,
+  getChronicleCard, normalSummon, passExpiredResponse, passResponse, projectMatchForViewer, startBattlePhase,
   type ChronicleMatch, type ChronicleMonsterCard, type ChronicleResult,
   type ChronicleSideKey,
 } from "../../shared/chronicle-duel.js";
@@ -210,6 +210,118 @@ test("a countered Jutsu is consumed without resolving or allowing a replay", () 
   assert.equal(activateMagic(stopped, "p1", intent).ok, false);
   assert.equal(activateTrap(stopped, "p2", 0).ok, false);
 });
+
+const reanimation = "chronicle-reanimation-jutsu";
+const reversal = "chronicle-guardians-reversal";
+
+test("Reanimation Special Summons one chosen high-level Monster from the owner's Graveyard", () => {
+  const state = match();
+  state.phase = "main1";
+  state.normalSummonUsed = true;
+  state.p1.hand = [reanimation];
+  state.p1.graveyard = [junior.id, senior.id, senior.id, "chronicle-recon-scroll", "summon-cinderhorn-qilin"];
+  state.p2.graveyard = [senior.id];
+  place(state, "p1", 0);
+  const intent = { action: "activate-magic", handIndex: 0, graveyardIndex: 1 };
+  for (const graveyardIndex of [-1, 1.5, 3, 4, 5]) {
+    assert.equal(activateMagic(state, "p1", { ...intent, graveyardIndex }).ok, false);
+  }
+  const revived = accepted(applyAction(state, "p1", intent));
+  assert.equal(revived.p1.monsterZones[1]?.cardId, senior.id);
+  assert.equal(revived.p1.monsterZones[1]?.position, "defense");
+  assert.equal(revived.p1.monsterZones[1]?.faceUp, true);
+  assert.equal(revived.normalSummonUsed, true);
+  assert.deepEqual(revived.p1.graveyard, [junior.id, senior.id, "chronicle-recon-scroll", "summon-cinderhorn-qilin", reanimation]);
+  assert.deepEqual(revived.p2.graveyard, [senior.id]);
+  assert.deepEqual(revived.p1.hand, []);
+  for (let zone = 1; zone < state.p1.monsterZones.length; zone++) place(state, "p1", zone);
+  assert.equal(activateMagic(state, "p1", intent).ok, false);
+  assert.deepEqual(state.p1.hand, [reanimation]);
+});
+
+test("Guardian's Reversal negates a Jutsu targeting the defender's Monster", () => {
+  const state = match();
+  state.phase = "main1";
+  place(state, "p1", 0);
+  place(state, "p2", 0);
+  setSnare(state, reversal);
+  state.p1.hand = ["chronicle-recall-seal", "chronicle-recon-scroll", "chronicle-tempered-kunai"];
+  assert.equal(activateMagic(state, "p1", {
+    action: "activate-magic", handIndex: 0, targetZoneIndex: null,
+  }).ok, false);
+  for (const intent of [
+    { action: "activate-magic", handIndex: 1 },
+    { action: "activate-magic", handIndex: 2, targetSide: "p1" as const, targetZoneIndex: 0 },
+  ]) {
+    assert.equal(accepted(activateMagic(state, "p1", intent)).responseWindow, null);
+  }
+  const activated = accepted(applyAction(state, "p1", {
+    action: "activate-magic", handIndex: 0, targetSide: "p2", targetZoneIndex: 0,
+  }));
+  assert.deepEqual(activated.responseWindow?.eligibleZoneIndexes, [0]);
+  const stopped = accepted(applyAction(activated, "p2", { action: "activate-trap", zoneIndex: 0 }));
+  assert.equal(stopped.responseWindow, null);
+  assert.equal(stopped.p2.monsterZones[0]?.cardId, junior.id);
+  assert.deepEqual(stopped.p2.graveyard, [reversal]);
+  assert.deepEqual(stopped.p1.graveyard, ["chronicle-recall-seal"]);
+});
+
+test("Guardian's Reversal can answer a targeting Snare and resumes the original attack once", () => {
+  const state = match();
+  place(state, "p1", 0);
+  setSnare(state, "chronicle-explosive-tag");
+  setSnare(state, "chronicle-smoke-bomb", 1);
+  state.p1.magicTrapZones[0] = {
+    instanceId: "guardian", cardId: reversal, owner: "p1", zoneIndex: 0, faceUp: false, setOnTurn: 1,
+  };
+  const attack = accepted(applyAction(state, "p1", { action: "attack", attackerZoneIndex: 0, targetZoneIndex: null }, 2_000));
+  const targeted = accepted(applyAction(attack, "p2", { action: "activate-trap", zoneIndex: 0 }, 3_000));
+  const window = targeted.responseWindow!;
+  assert.equal(window.trigger, "onTrapActivated");
+  assert.equal(window.responder, "p1");
+  assert.deepEqual(window.eligibleZoneIndexes, [0]);
+  assert.equal(projectMatchForViewer(targeted, "p2").responseWindow?.eligibleZoneIndexes, undefined);
+  assert.equal(applyAction(targeted, "p2", { action: "activate-trap", zoneIndex: 0 }).ok, false);
+  const resumed = accepted(applyAction(targeted, "p1", { action: "activate-trap", zoneIndex: 0 }, 4_000));
+  assert.equal(resumed.responseWindow, null);
+  assert.equal(resumed.p2.lifePoints, state.p2.lifePoints - junior.attack);
+  assert.equal(resumed.attacksDeclaredThisTurn, 1);
+  assert.deepEqual(resumed.p1.graveyard, [reversal]);
+  assert.deepEqual(resumed.p2.graveyard, ["chronicle-explosive-tag"]);
+  assert.equal(resumed.p1.monsterZones[0]?.lastAttackTurn, state.turnNumber);
+  const expired = accepted(passExpiredResponse(targeted, window.expiresAt));
+  assert.equal(expired.responseWindow, null);
+  assert.equal(expired.p1.monsterZones[0], null);
+  assert.equal(expired.p1.magicTrapZones[0]?.cardId, reversal);
+  const nonTargeting = accepted(applyAction(attack, "p2", { action: "activate-trap", zoneIndex: 1 }));
+  assert.equal(nonTargeting.responseWindow, null);
+  assert.equal(nonTargeting.p1.magicTrapZones[0]?.cardId, reversal);
+});
+
+for (const snare of ["chronicle-ironwood-bulwark", "chronicle-scorpion-wire"]) {
+  test(`Guardian's Reversal protects the attacker from ${snare}`, () => {
+    const state = match();
+    place(state, "p1", 0, senior.id);
+    place(state, "p2", 0);
+    setSnare(state, snare);
+    state.p1.magicTrapZones[0] = {
+      instanceId: "guardian", cardId: reversal, owner: "p1", zoneIndex: 0,
+      faceUp: false, setOnTurn: 1,
+    };
+    const attack = accepted(applyAction(state, "p1", {
+      action: "attack", attackerZoneIndex: 0, targetZoneIndex: 0,
+    }));
+    const unmodifiedBattle = accepted(passResponse(attack, "p2"));
+    const counterWindow = accepted(activateTrap(attack, "p2", 0));
+    assert.deepEqual(counterWindow.responseWindow?.eligibleZoneIndexes, [0]);
+    const resolved = accepted(activateTrap(counterWindow, "p1", 0));
+    assert.equal(resolved.responseWindow, null);
+    assert.deepEqual(resolved.p1.monsterZones, unmodifiedBattle.p1.monsterZones);
+    assert.deepEqual(resolved.p2.monsterZones, unmodifiedBattle.p2.monsterZones);
+    assert.equal(resolved.p2.lifePoints, unmodifiedBattle.p2.lifePoints);
+    assert.ok(resolved.p2.graveyard.includes(snare));
+  });
+}
 
 for (const trapId of ["chronicle-pitfall-tag-array", "chronicle-sealing-circle", "chronicle-flash-burial-tag"]) {
   test(`${trapId} does not refund the Normal Summon`, () => {

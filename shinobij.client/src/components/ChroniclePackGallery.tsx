@@ -21,21 +21,21 @@ type PackListing = {
 };
 
 const BASIC_PACKS: readonly PackListing[] = [
-  { type: "standard", name: "Random Pack", note: "All elements, plus Jutsu and Snares", count: 5, cost: 100, currency: "chroniclePoints", pool: 125, rarities: { common: 55, rare: 70 } },
-  { type: "fire", name: "Fire Pack", note: "Fire Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 13, rarities: { common: 8, rare: 5 } },
-  { type: "water", name: "Water Pack", note: "Water Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 15, rarities: { common: 7, rare: 8 } },
-  { type: "earth", name: "Earth Pack", note: "Earth Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 16, rarities: { common: 10, rare: 6 } },
-  { type: "wind", name: "Wind Pack", note: "Wind Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 14, rarities: { common: 9, rare: 5 } },
-  { type: "lightning", name: "Lightning Pack", note: "Lightning Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 15, rarities: { common: 6, rare: 9 } },
+  { type: "standard", name: "Random Pack", note: "All elements, plus Jutsu and Snares", count: 5, cost: 100, currency: "chroniclePoints", pool: 155, rarities: { common: 85, rare: 70 } },
+  { type: "fire", name: "Fire Pack", note: "Fire Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 19, rarities: { common: 14, rare: 5 } },
+  { type: "water", name: "Water Pack", note: "Water Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 21, rarities: { common: 13, rare: 8 } },
+  { type: "earth", name: "Earth Pack", note: "Earth Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 22, rarities: { common: 16, rare: 6 } },
+  { type: "wind", name: "Wind Pack", note: "Wind Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 20, rarities: { common: 15, rare: 5 } },
+  { type: "lightning", name: "Lightning Pack", note: "Lightning Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 21, rarities: { common: 12, rare: 9 } },
   { type: "snare", name: "Snare Pack", note: "Five Snares for traps, counters and combat tricks", count: 5, cost: 100, currency: "chroniclePoints", pool: 25, rarities: { common: 6, rare: 19 } },
   { type: "jutsu", name: "Jutsu Pack", note: "Five Jutsu cards for direct plays and setup", count: 5, cost: 100, currency: "chroniclePoints", pool: 27, rarities: { common: 9, rare: 18 } },
 ];
 
 const PREMIUM_PACKS: readonly PackListing[] = [
-  { type: "epic", name: "Elite Pack", note: "1 top-tier Rare or Epic card", count: 1, cost: 6, currency: "fateShards", pool: 76, rarities: { rare: 12, epic: 64 } },
-  { type: "legendary", name: "Legendary Pack", note: "1 guaranteed Legendary card", count: 1, cost: 20, currency: "fateShards", pool: 60, rarities: { legendary: 60 }, mythic: 1 },
-  { type: "epic-five", name: "Epic Quintet Pack", note: "5 random Epic cards · all five guaranteed Epic", count: 5, cost: 35, currency: "fateShards", pool: 64, rarities: { epic: 64 } },
-  { type: "legendary-five", name: "Legendary Quintet Pack", note: "5 random Legendary cards · all five guaranteed Legendary", count: 5, cost: 100, currency: "fateShards", pool: 60, rarities: { legendary: 60 }, mythic: 1 },
+  { type: "epic", name: "Elite Pack", note: "1 top-tier Rare or Epic card", count: 1, cost: 6, currency: "fateShards", pool: 77, rarities: { rare: 12, epic: 65 } },
+  { type: "legendary", name: "Legendary Pack", note: "1 guaranteed Legendary card", count: 1, cost: 20, currency: "fateShards", pool: 61, rarities: { legendary: 61 }, mythic: 1 },
+  { type: "epic-five", name: "Epic Quintet Pack", note: "5 random Epic cards · all five guaranteed Epic", count: 5, cost: 35, currency: "fateShards", pool: 65, rarities: { epic: 65 } },
+  { type: "legendary-five", name: "Legendary Quintet Pack", note: "5 random Legendary cards · all five guaranteed Legendary", count: 5, cost: 100, currency: "fateShards", pool: 61, rarities: { legendary: 61 }, mythic: 1 },
 ];
 
 const PACKS = [...BASIC_PACKS, ...PREMIUM_PACKS];

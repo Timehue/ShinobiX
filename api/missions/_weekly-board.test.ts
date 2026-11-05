@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    weekIndex, weekKey, weekEndsAt, pickWeeklyBoard, pickWeeklyBoardForPlayer, computeProgress, snapshotCounters, resolveWeeklyBoardForRecord,
+    weeklyMissionById, RESOURCE_XP_WEEKLY_START_WEEK, weekIndex, weekKey, weekEndsAt, pickWeeklyBoard, pickWeeklyBoardForPlayer, computeProgress, snapshotCounters, resolveWeeklyBoardForRecord,
     WEEKLY_CATALOG, WEEKLY_CLAIMABLE_CATALOG, WEEKLY_BOARD_SIZE, WEEK_EPOCH_MS, WEEK_MS, WEEKLY_COUNTERS,
 } from './_weekly-board.js';
 import { canPlayerReceiveMission } from './_eligibility.js';
-import { RESOURCE_ATTEMPT_MS, resourceSkillLevel, resourceSuccessRate } from '../../shared/resource-gathering.js';
+import { RESOURCE_ATTEMPT_MS, RESOURCE_SUCCESS_XP, RESOURCE_FAILURE_XP, resourceSkillLevel, resourceSuccessRate } from '../../shared/resource-gathering.js';
 import { RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
 
 test('weekKey is stable within a week and advances across the Monday boundary', () => {
@@ -15,6 +15,28 @@ test('weekKey is stable within a week and advances across the Monday boundary', 
     assert.equal(weekIndex(base + WEEK_MS), 101);       // next week
     assert.equal(weekKey(base), 'w100');
     assert.equal(weekEndsAt(base), base + WEEK_MS);
+});
+
+test('resource XP targets change at the next weekly reset without replacing active assignments or claims', () => {
+    assert.equal(weekKey(Date.parse('2026-11-09T00:00:00Z')), `w${RESOURCE_XP_WEEKLY_START_WEEK}`);
+    const character = { level: 100, resourceGathering: { fishingXp: 3700, miningXp: 3950 } };
+    const record = { baseline: { fishingXp: 3200, miningXp: 3200 }, claimed: ['wk-fishing-500'],
+        missionIds: ['wk-fishing-500', 'wk-mining-750'] };
+    const original = structuredClone(record);
+    const active = resolveWeeklyBoardForRecord('w148', character, record);
+    assert.equal(active.find(m => m.id === 'wk-fishing-500')!.target, 500);
+    assert.equal(active.find(m => m.id === 'wk-mining-750')!.target, 750);
+    assert.deepEqual(record, original);
+    for (const activity of ['fishing', 'mining']) for (const target of [500, 750]) {
+        const id = `wk-${activity}-${target}`;
+        const old = weeklyMissionById('w148', id)!;
+        const next = weeklyMissionById('w149', id)!;
+        assert.equal(old.target, target);
+        assert.equal(next.target, target / 2);
+        assert.ok(next.desc.includes(String(target / 2)));
+        assert.deepEqual(next.reward, old.reward);
+        assert.equal(next.id, old.id);
+    }
 });
 
 test('pickWeeklyBoard is deterministic per week and the right size', () => {
@@ -103,24 +125,24 @@ test('stored assignments preserve unfinished work on level-up and replace only u
 
 test('weekly goals fit moderate sessions alongside normal progression', () => {
     function expectedCommonNodeAttempts(goal: number): number {
-        const attempts = Array<number>(goal + 10).fill(0);
+        const attempts = Array<number>(goal + RESOURCE_SUCCESS_XP).fill(0);
         for (let xp = goal - 1; xp >= 0; xp--) {
             const success = resourceSuccessRate(resourceSkillLevel(xp), 1, 0) / 100;
-            attempts[xp] = 1 + success * attempts[xp + 10] + (1 - success) * attempts[xp + 3];
+            attempts[xp] = 1 + success * attempts[xp + RESOURCE_SUCCESS_XP] + (1 - success) * attempts[xp + RESOURCE_FAILURE_XP];
         }
         return attempts[0];
     }
     const resources = WEEKLY_CATALOG.filter((m) => m.counter === 'fishingXp' || m.counter === 'miningXp');
     for (const mission of resources) {
         const attempts = expectedCommonNodeAttempts(mission.target);
-        assert.ok(attempts >= 60 && attempts <= 100, `${mission.name} fits roughly 9–14 common-node attempts per day`);
+        assert.ok(attempts >= 60 && attempts <= 110, `${mission.name} fits roughly 10–15 common-node attempts per day`);
     }
     const fishing = Math.max(...resources.filter((m) => m.counter === 'fishingXp').map((m) => m.target));
     const mining = Math.max(...resources.filter((m) => m.counter === 'miningXp').map((m) => m.target));
     const totalAttempts = expectedCommonNodeAttempts(fishing) + expectedCommonNodeAttempts(mining);
-    // Gathering no longer has a daily action cap. Keep an explicit workload
-    // bound rather than depending on the removed shared-action allowance.
-    assert.ok(totalAttempts < 200, `both hardest resource goals need under 200 attempts per week: about ${totalAttempts.toFixed(1)}`);
+    // Each skill has 350 attempts per week. Keep a separate workload bound so
+    // these goals fit moderate sessions without requiring the full allowances.
+    assert.ok(totalAttempts < 210, `both hardest resource goals need under 210 attempts per week: about ${totalAttempts.toFixed(1)}`);
     assert.ok(totalAttempts * RESOURCE_ATTEMPT_MS / 7 < 45 * 60_000, 'both hardest goals fit under 45 minutes of gathering per day');
     for (const mission of WEEKLY_CLAIMABLE_CATALOG.filter((m) => m.counter === 'totalMissionsCompleted')) {
         assert.ok(mission.target >= 45 && mission.target <= 80, 'mission goals fit several ordinary sessions without requiring full daily clears');

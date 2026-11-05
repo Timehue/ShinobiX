@@ -28,6 +28,11 @@ import type { HollowGateShrineRun } from "../../types/character";
 export const HOLLOW_GATE_STEP_MS = 175;
 // An issued step that hasn't moved us after this long was rejected — stop.
 const WALK_WATCHDOG_MS = 900;
+/** Lowercased WASD / arrow key → [dx, dy]. Mirrors MOVEMENT_KEYS in lib/held-movement-keys.ts (a test holds them equal). */
+const UP: [number, number] = [0, -1], DOWN: [number, number] = [0, 1], LEFT: [number, number] = [-1, 0], RIGHT: [number, number] = [1, 0];
+export const KEY_DIRECTIONS: Record<string, [number, number] | undefined> = {
+    w: UP, arrowup: UP, s: DOWN, arrowdown: DOWN, a: LEFT, arrowleft: LEFT, d: RIGHT, arrowright: RIGHT,
+};
 
 export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     active: boolean;                              // the shrine screen is up
@@ -54,13 +59,12 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     const targetRef = useRef<number | null>(null);
     const walkFloorRef = useRef<number>(-1);      // floor the walk started on
     const walkTokenRef = useRef<string | undefined>(undefined);
-    const stepTimerRef = useRef<number | null>(null);
-    const watchdogRef = useRef<number | null>(null);
+    // Timer ids are only ever cleared or replaced. Clearing one that already
+    // fired is a no-op (browsers never reuse an id), so nothing nulls them.
+    const stepTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+    const watchdogRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-    const clearTimers = () => {
-        if (stepTimerRef.current != null) { window.clearTimeout(stepTimerRef.current); stepTimerRef.current = null; }
-        if (watchdogRef.current != null) { window.clearTimeout(watchdogRef.current); watchdogRef.current = null; }
-    };
+    const clearTimers = () => { clearTimeout(stepTimerRef.current); clearTimeout(watchdogRef.current); };
     const stopWalk = () => {
         clearTimers();
         pathRef.current = [];
@@ -73,7 +77,6 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     // Issue the next queued step (or stop). Called immediately by walkTo and
     // then re-armed by the position-commit effect after each landed step.
     function issueNext() {
-        stepTimerRef.current = null;
         const r = runRef.current;
         if (!r || !activeRef.current || document.hidden || blockedRef.current || targetRef.current == null
             || r.floor !== walkFloorRef.current || r.runToken !== walkTokenRef.current) { stopRef.current(); return; }
@@ -92,8 +95,8 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
         }
         pathRef.current = pathRef.current.slice(1);
         // Watchdog: if this step never lands (rejected move), stop the walk.
-        if (watchdogRef.current != null) window.clearTimeout(watchdogRef.current);
-        watchdogRef.current = window.setTimeout(() => stopRef.current(), WALK_WATCHDOG_MS);
+        clearTimeout(watchdogRef.current);
+        watchdogRef.current = setTimeout(() => stopRef.current(), WALK_WATCHDOG_MS);
         moveRef.current((next % r.width) - r.playerX, Math.floor(next / r.width) - r.playerY);
     }
     const issueRef = useRef(issueNext);
@@ -105,10 +108,10 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     useEffect(() => {
         if (targetRef.current == null) return;
         if (!run || run.floor !== walkFloorRef.current || run.runToken !== walkTokenRef.current) { stopRef.current(); return; }
-        if (watchdogRef.current != null) { window.clearTimeout(watchdogRef.current); watchdogRef.current = null; }
+        clearTimeout(watchdogRef.current);
         if (posKey === targetRef.current || posKey < 0) { stopRef.current(); return; }
-        if (stepTimerRef.current != null) window.clearTimeout(stepTimerRef.current);
-        stepTimerRef.current = window.setTimeout(() => issueRef.current(), HOLLOW_GATE_STEP_MS);
+        clearTimeout(stepTimerRef.current);
+        stepTimerRef.current = setTimeout(() => issueRef.current(), HOLLOW_GATE_STEP_MS);
         // Timers are intentionally NOT cleared on effect cleanup here — the
         // next commit re-arms them and stopWalk owns teardown.
         // Floor/run identity can change without changing the tile index.
@@ -152,32 +155,61 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     // is not in a text field. (Moved here from App.tsx.)
     useEffect(() => {
         if (!active) return;
-        // A held key auto-repeats at the OS rate (~30/s), and every move is a
-        // server step. Let a repeat through at most once per walk cadence, so
-        // holding a key walks exactly as fast as click-to-move and stays inside
-        // the hollow-gate-step limit. Fresh presses are never delayed.
-        let lastKeyStepAt = 0;
+        // Every move is a server step, so a held key walks once per walk
+        // cadence: exactly as fast as click-to-move, and inside the
+        // hollow-gate-step limit. It walks on its own timer from the first
+        // press rather than on the OS key repeat, whose first delay (about half
+        // a second by default on Windows) made a held key step, stall, then
+        // walk. Fresh presses are never delayed.
+        // The held key, as in lib/held-movement-keys.ts and the open world: a
+        // new press takes over and letting go of it ends the hold. App loads
+        // this hook eagerly, and importing that module here split it into its
+        // own startup chunk (+243 B gzip on a nearly full budget).
+        let held: string | null = null, holdTimer: ReturnType<typeof setTimeout> | undefined;
+        // A pending tick finds `held` empty and ends, so stopping needs no clearTimeout.
+        const stopHold = () => { held = null; };
+        function holdStep() {
+            const dir = held && KEY_DIRECTIONS[held];
+            if (!dir) return;
+            // An overlay or an unfocused window (alt-tab, the address bar, a hidden
+            // tab: the key's keyup goes elsewhere) ends the hold; walking again takes
+            // a fresh press. So does a click-walk (targetRef set), or both would step
+            // each cadence: walkTo steps at once, so this tick finds it and only stops.
+            if (!document.hasFocus() || blockedRef.current || targetRef.current != null) return stopHold();
+            moveRef.current(dir[0], dir[1]);
+            holdTimer = setTimeout(holdStep, HOLLOW_GATE_STEP_MS);
+        }
         function handleKey(e: KeyboardEvent) {
-            if (document.hidden) return;
-            if ((e.target as HTMLElement)?.closest('dialog, [role="dialog"], [role="alertdialog"], [contenteditable="true"]')) return;
-            const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-            if (tag === "input" || tag === "textarea" || tag === "select") return;
+            // Cmd/Ctrl/Alt chords (Cmd+S, Ctrl+D) are browser shortcuts, not steps.
+            // On macOS a Cmd chord also sends no keyup, so it would hold forever.
+            // (No document.hidden check: a hidden page receives no key events.)
+            // closest() matches the element itself, so one selector covers text fields too.
+            if (e.ctrlKey || e.metaKey || e.altKey
+                || (e.target as HTMLElement)?.closest('input,textarea,select,dialog,[role="dialog"],[role="alertdialog"],[contenteditable="true"]')) return;
             const k = e.key.toLowerCase();
-            const dir = k === "w" || k === "arrowup" ? [0, -1]
-                : k === "s" || k === "arrowdown" ? [0, 1]
-                : k === "a" || k === "arrowleft" ? [-1, 0]
-                : k === "d" || k === "arrowright" ? [1, 0]
-                : null;
+            const dir = KEY_DIRECTIONS[k];
             if (!dir) return;
             e.preventDefault();
-            const now = performance.now();
-            if (e.repeat && now - lastKeyStepAt < HOLLOW_GATE_STEP_MS) return;
-            lastKeyStepAt = now;
+            // A real held key is walked by holdStep. Synthetic presses (a held
+            // controller stick) keep the one-step-per-press, paced behaviour.
+            if (e.isTrusted && e.repeat) return;
             stopRef.current();
             if (!blockedRef.current) moveRef.current(dir[0], dir[1]);
+            if (e.isTrusted) { held = k; clearTimeout(holdTimer); holdTimer = setTimeout(holdStep, HOLLOW_GATE_STEP_MS); }
+        }
+        function handleKeyUp(e: KeyboardEvent) {
+            // macOS sends no keyup for a key let go while Cmd is down, so Cmd's
+            // own keyup ends the hold too.
+            const k = e.key.toLowerCase();
+            if (k === held || k === "meta") stopHold();
         }
         window.addEventListener("keydown", handleKey);
-        return () => window.removeEventListener("keydown", handleKey);
+        window.addEventListener("keyup", handleKeyUp);
+        return () => {
+            clearTimeout(holdTimer);
+            window.removeEventListener("keydown", handleKey);
+            window.removeEventListener("keyup", handleKeyUp);
+        };
     }, [active]);
 
     return { walkTo, stopWalk, walkTarget };

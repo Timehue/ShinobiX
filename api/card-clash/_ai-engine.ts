@@ -656,17 +656,21 @@ function chooseMainAction(
             targetZoneIndex,
             targetSide: "p1",
           };
-      } else if (scope === "ownGraveyardLevel4OrLowerMonster") {
+      } else if (scope === "ownGraveyardLevel4OrLowerMonster" || scope === "ownGraveyardMonster") {
         const graveyardIndex = side.graveyard.findIndex((id) => {
           const target = getChronicleCard(id);
           return (
             target?.cardClass === "monster" &&
-            target.level <= 4 &&
+            (scope === "ownGraveyardMonster"
+              ? target.monsterEffect?.kind !== "callSummonOnly"
+              : target.level <= 4) &&
+            !target.token &&
             (card.effect.kind !== "reviveLevel4OrLowerNormalMonster" ||
               target.monsterType === "normal")
           );
         });
         const needsOpenMonsterZone =
+          card.effect.kind === "reviveOneMonster" ||
           card.effect.kind === "reviveLevel4OrLowerMonster" ||
           card.effect.kind === "reviveLevel4OrLowerNormalMonster";
         if (

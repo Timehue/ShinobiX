@@ -92,7 +92,9 @@ const forbiddenClientExtensions = new Set([
 // while matching animated atlases shrink by 50,338 B. Credit only that fixed
 // 5,695,550 B increase; preserve the existing non-art headroom and JS/CSS gates.
 // The exact selected 483-file pet inventory and delivery hashes remain enforced.
-const maxChronicleArtBytes = 144 * 1024 * 1024;
+// The expansion adds 8,445,908 B of card art and 7,021,754 B of duel figures.
+// Credit the measured delivery bytes within Chronicle's partition.
+const maxChronicleArtBytes = 144 * 1024 * 1024 + 8_445_908 + 7_021_754;
 const maxPetShapeReviewGrowthBytes = 5695550;
 const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes;
 // The 161 scenic companion portraits ship separately from their unchanged
@@ -338,13 +340,13 @@ const chronicleArtBytes = clientFiles
     .filter((file) => /^chronicle\/(?:cards|figures)\//.test(relative(clientDist, file).replace(/\\/g, '/')))
     .reduce((total, file) => total + statSync(file).size, 0);
 if (chronicleArtBytes > maxChronicleArtBytes) {
-    fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxChronicleArtBytes / 1024 / 1024} MiB`);
+    fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${(maxChronicleArtBytes / 1024 / 1024).toFixed(1)} MiB`);
 }
 const otherClientBytes = clientArtifactBytes - chronicleArtBytes - petPortraitBytes - sectorBuildingArtBytes;
 if (otherClientBytes > maxOtherClientBytes) {
-    fail(`client excluding Chronicle art and scenic companions is ${(otherClientBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxOtherClientBytes / 1024 / 1024} MiB`);
+    fail(`client excluding Chronicle art and scenic companions is ${otherClientBytes} B (${(otherClientBytes / 1024 / 1024).toFixed(3)} MiB); ceiling is ${maxOtherClientBytes} B; over by ${otherClientBytes - maxOtherClientBytes} B`);
 }
-console.log(`[verify:dist] Chronicle art ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} / 144 MiB; other runtime assets ${(otherClientBytes / 1024 / 1024).toFixed(1)} / ${(maxOtherClientBytes / 1024 / 1024).toFixed(1)} MiB.`);
+console.log(`[verify:dist] Chronicle art ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} / ${(maxChronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; other runtime assets ${(otherClientBytes / 1024 / 1024).toFixed(1)} / ${(maxOtherClientBytes / 1024 / 1024).toFixed(1)} MiB.`);
 if (clientArtifactBytes > maxClientArtifactBytes) {
     fail(`client dist is ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB; runtime artifact ceiling is ${maxClientArtifactBytes / 1024 / 1024} MB`);
 }

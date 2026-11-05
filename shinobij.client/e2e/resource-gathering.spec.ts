@@ -79,7 +79,7 @@ test('shared occupied nodes offer a working contest action and never offer a sec
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
     await expect(page.getByRole('button', { name: 'Contest node', exact: true })).toBeEnabled();
-    await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Begin mining · 1 attempt' })).toHaveCount(0);
     await noOverflow(page);
     await page.screenshot({ path: info.outputPath('shared-node-contest.png'), fullPage: true });
     await page.getByRole('button', { name: 'Contest node', exact: true }).click();
@@ -98,7 +98,7 @@ test('a depleted shared node blocks a fresh player who has never gathered there'
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
     await expect(page.getByText(/Replenishes in 10 minutes/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Begin mining · 1 attempt' })).toHaveCount(0);
     expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(0);
     await noOverflow(page);
 });
@@ -115,7 +115,7 @@ test('a refused start clears when the open node rotates to another level', async
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
     await expect(page.getByText(/Requires skill 1 ·/)).toBeVisible();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await expect(page.locator('.resource-warning')).toHaveText('Requires Mining skill 4.');
     difficulty = 7;
     await expect(page.getByText(/Requires skill 7 ·/)).toBeVisible();
@@ -133,7 +133,7 @@ test('a level rotation keeps the recovery prompt of an overtaken start', async (
     });
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await expect(page.locator('.resource-warning')).toHaveText(/A newer save arrived/);
     difficulty = 7;
     // The open dialog hides the map from role queries, so read the marker directly.
@@ -249,7 +249,7 @@ test('Veinbreaking exposes the core and consumes the final basic tool use once',
     await page.addInitScript(seed => { (window as unknown as { resourceSeed: unknown }).resourceSeed = seed; }, runtime.character());
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     const detonate = page.getByRole('button', { name: 'Release fracture', exact: true });
     await expect(detonate).toBeVisible();
     const actionBox = await detonate.boundingBox();
@@ -291,7 +291,7 @@ async function startKunai(page: Page, fishingXp = 3200) {
     const runtime = await install(page, 'resource-1', 0, 3200, fishingXp);
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-1');
     await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
-    await page.getByRole('button', { name: 'Ready kunai · 1 action' }).click();
+    await page.getByRole('button', { name: 'Ready kunai · 1 attempt' }).click();
     await expect(page.getByRole('button', { name: 'Throw kunai', exact: true })).toBeEnabled();
     return runtime;
 }
@@ -322,7 +322,7 @@ test('kunai aiming, swimming fish and tether retrieval produce one server-replay
     await page.screenshot({ path: info.outputPath('kunai-haul.png'), fullPage: true });
     await expect(page.getByRole('heading', { name: 'Fine River Fish', exact: true })).toBeVisible();
     const state = readResourceGathering(runtime.character().resourceGathering);
-    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'success', xp: 10 });
+    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'success', xp: 5 });
     expect(state.attemptsToday).toBe(1); expect(runtime.settlements()).toBe(1);
     await noOverflow(page);
     expect((await new AxeBuilder({ page }).include('.resource-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
@@ -341,7 +341,7 @@ test('kunai misses scatter the shoal and three throws exhaust the attempt withou
     }
     await expect(page.getByRole('heading', { name: 'This one got away.' })).toBeVisible();
     const state = readResourceGathering(runtime.character().resourceGathering);
-    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'failed', xp: 3 });
+    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'failed', xp: 1 });
     expect(state.receipts.at(-1)?.itemId).toBeUndefined(); expect(runtime.settlements()).toBe(1);
     await noOverflow(page);
 });
@@ -415,7 +415,7 @@ test('kunai stale settlement replies offer direct recovery without abandoning or
     await expect(recover).toBeVisible();
     await expectVisibleTouchTarget(recover);
     await expect(page.getByRole('alert')).toContainText('Check gathering again');
-    await expect(page.getByRole('button', { name: 'Abandon attempt (action stays spent)', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Abandon attempt (attempt stays spent)', exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath('stale-settlement-recovery.png'), fullPage: true });
     await recover.click();
     await expect(page.getByRole('heading', { name: 'Fine River Fish', exact: true })).toBeVisible();
@@ -438,7 +438,7 @@ test('kunai watch mode recovered from status keeps its mode when fishing again',
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-1');
     await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
     await page.getByRole('radio', { name: /Watch animation/ }).check();
-    await page.getByRole('button', { name: 'Ready kunai · 1 action' }).click();
+    await page.getByRole('button', { name: 'Ready kunai · 1 attempt' }).click();
     await expect(page.getByText('River technique', { exact: true })).toBeVisible();
     const id = readResourceGathering(runtime.character().resourceGathering).active!.id;
     // Keep the original stale boot save: status alone must restore the attempt and mode.
@@ -458,7 +458,7 @@ test('kunai relaxed mode animates a throw and retrieval without timed input', as
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-1');
     await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
     await page.getByRole('radio', { name: /Watch animation/ }).check();
-    await page.getByRole('button', { name: 'Ready kunai · 1 action' }).click();
+    await page.getByRole('button', { name: 'Ready kunai · 1 attempt' }).click();
     await expect(page.getByRole('application', { name: 'Kunai fishing pool' })).toBeVisible();
     await expect(page.getByText('Animation mode uses your skill’s baseline success rate.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Throw kunai', exact: true })).toHaveCount(0);
@@ -484,7 +484,7 @@ for (const challenge of [
         await page.screenshot({ path: info.outputPath(challenge.blocked ? 'fish-breaking-free.png' : 'ranked-catch.png'), fullPage: true });
         await expect(page.getByRole('heading', { name: challenge.blocked ? 'Outmatched by the fish.' : 'Fine River Fish', exact: true })).toBeVisible();
         const state = readResourceGathering(runtime.character().resourceGathering), receipt = state.receipts.at(-1)!;
-        expect(receipt).toMatchObject({ outcome: challenge.blocked ? 'failed' : 'success', xp: challenge.blocked ? 3 : 10,
+        expect(receipt).toMatchObject({ outcome: challenge.blocked ? 'failed' : 'success', xp: challenge.blocked ? 1 : 5,
             fishingCatch: { name: challenge.species, requiredLevel: challenge.required, fisherLevel: challenge.level, tooStrong: challenge.blocked } });
         if (challenge.blocked) { expect(receipt.itemId).toBeUndefined(); await expect(page.getByRole('region', { name: 'Fishing result' })).toContainText(`requires Fishing Lv.${challenge.required}`); }
         expect(state.attemptsToday).toBe(1); expect(runtime.settlements()).toBe(1);
@@ -498,7 +498,7 @@ for (const deposit of [{ id: 'resource-15', skin: 'frozen' }, { id: 'resource-22
         const runtime = await install(page, deposit.id);
         await page.goto(`/e2e/fixtures/resource-gathering.html?node=${deposit.id}`);
         await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, mining`) }).click();
-        await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+        await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
         await expect(page.locator(`.vein-scene--${deposit.skin}`)).toBeVisible();
         for (const site of ['Crown seam', 'East seam', 'West seam']) await page.getByRole('button', { name: new RegExp(`^${site}`) }).click();
         await expect(page.getByText('3 / 3 seals placed', { exact: false })).toBeVisible();
@@ -515,7 +515,7 @@ for (const template of [3, 4, 5, 6, 7]) test(`Veinbreaking formation ${template}
     const runtime = await install(page, nodeId, 0, 3200, 3200, { template });
     await page.goto(`/e2e/fixtures/resource-gathering.html?node=${nodeId}`);
     await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, mining`) }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await expect(page.getByRole('heading', { name: 'Veinbreaking', exact: true })).toBeVisible();
     await expect(page.locator('.vein-talisman').first()).toBeVisible();
     await page.getByRole('button', { name: 'Read seam', exact: true }).click();
@@ -544,7 +544,7 @@ test('Veinbreaking previews crossing damage and distinguishes a clean extraction
     await install(page, 'resource-13', 0, 3200, 3200, { successDraw: .999 });
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await page.getByRole('button', { name: /^Northwest seam/ }).click();
     await page.getByRole('button', { name: /^East cross-fault/ }).click();
     await expect(page.getByText('1 pocket under crossing fractures', { exact: true })).toBeVisible();
@@ -559,7 +559,7 @@ test('Veinbreaking propagates cracks, sheds stone and honors reduced motion', as
     await install(page);
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await page.getByRole('button', { name: /^Northwest seam/ }).click();
     await page.getByRole('button', { name: /^Southeast seam/ }).click();
     await expect(page.locator('.vein-talisman').first()).toHaveClass(/is-primed/);
@@ -580,11 +580,11 @@ test('Veinbreaking propagates cracks, sheds stone and honors reduced motion', as
 });
 
 test('field report shows a skill level up, repeat gathering and an exhausted node', async ({ page }, info) => {
-    const runtime = await install(page, 'resource-13', 0, 90);
+    const runtime = await install(page, 'resource-13', 0, 95);
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
     await page.getByRole('radio', { name: /Watch animation/ }).check();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await page.getByRole('button', { name: 'Collect result', exact: true }).click();
     await expect(page.getByText('Level up · Mining 2', { exact: true })).toBeVisible();
     await expect(page.getByText('Common quality', { exact: true })).toBeVisible();
@@ -592,7 +592,7 @@ test('field report shows a skill level up, repeat gathering and an exhausted nod
     await page.screenshot({ path: info.outputPath('mining-level-up.png'), fullPage: true });
     for (let attempt = 0; attempt < 2; attempt++) {
         await page.getByRole('button', { name: 'Mine again' }).click();
-        await page.getByRole('button', { name: 'Abandon attempt (action stays spent)', exact: true }).click();
+        await page.getByRole('button', { name: 'Abandon attempt (attempt stays spent)', exact: true }).click();
         await expect(page.getByRole('heading', { name: 'Tools down.' })).toBeVisible();
     }
     await expect(page.getByRole('button', { name: 'Mine again' })).toHaveCount(0);
@@ -609,12 +609,12 @@ test('overlapping charges destroy the core even with a successful extraction rol
     const runtime = await install(page, 'resource-22');
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-22');
     await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, mining`) }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     for (const site of ['Crown seam', 'East seam', 'Diagonal fracture']) await page.getByRole('button', { name: new RegExp(`^${site}`) }).click();
     await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'The seam gave way.', exact: true })).toBeVisible();
     const state = readResourceGathering(runtime.character().resourceGathering);
-    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'failed', xp: 3 });
+    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'failed', xp: 1 });
     expect(state.receipts.at(-1)?.itemId).toBeUndefined();
     expect(state.attemptsToday).toBe(1);
     await page.screenshot({ path: info.outputPath('shattered-core-result.png'), fullPage: true });
@@ -625,7 +625,7 @@ test('refreshing an admitted attempt preserves its node, charges and repeat acti
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
     await page.getByRole('radio', { name: /Watch animation/ }).check();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await expect(page.getByText('Animation mode uses your skill’s baseline success rate.', { exact: true })).toBeVisible();
     await expect(page.locator('.vein-talisman').first()).toBeVisible();
     await expect(page.locator('.vein-scene img[src*="pickaxe"]')).toHaveCount(0);
@@ -636,7 +636,7 @@ test('refreshing an admitted attempt preserves its node, charges and repeat acti
     await expect(page.getByRole('region', { name: 'Mining result' }).getByText('2/3', { exact: true })).toBeVisible();
     await expect(page.getByText('This node replenishes in 10 minutes.')).toHaveCount(0);
     await page.getByRole('button', { name: 'Mine again', exact: false }).click();
-    await expect(page.getByText('Action spent · 2/100 today')).toBeVisible();
+    await expect(page.getByText('Attempt spent · 2/50 today')).toBeVisible();
     expect(readResourceGathering(runtime.character().resourceGathering).active?.mode).toBe('relaxed');
     expect(runtime.settlements()).toBe(1);
     expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(2);
@@ -649,7 +649,7 @@ test('a missing gathering tool explains the prerequisite before spending an acti
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
     await expect(page.getByRole('status')).toContainText('Equip a pickaxe in Inventory first.');
-    await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Begin mining · 1 attempt' })).toHaveCount(0);
     expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(0);
 });
 
@@ -677,7 +677,7 @@ for (const activity of ['mining', 'fishing'] as const) {
             await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, ${activity}`) }).click();
             await expect(page.getByRole('status')).toContainText('Checking your gathering attempt');
             release();
-            await expect(page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 action' : 'Ready kunai · 1 action' })).toBeEnabled();
+            await expect(page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 attempt' : 'Ready kunai · 1 attempt' })).toBeEnabled();
             expect(statusCalls).toBe((opening + 1) * 2);
             await expect(page.getByRole('button', { name: 'Check gathering again', exact: true })).toHaveCount(0);
             const state = JSON.parse(await page.getByTestId('resource-state').textContent() ?? '{}');
@@ -691,7 +691,7 @@ for (const activity of ['mining', 'fishing'] as const) {
             }
         }
         await page.screenshot({ path: info.outputPath(`${activity}-first-open-recovered.png`), fullPage: true });
-        await page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 action' : 'Ready kunai · 1 action' }).click();
+        await page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 attempt' : 'Ready kunai · 1 attempt' }).click();
         await expect(page.locator('.resource-attempt-strip')).toBeVisible();
         expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
         expect(runtime.settlements()).toBe(0);
@@ -703,7 +703,7 @@ for (const activity of ['mining', 'fishing'] as const) {
         await page.goto(`/e2e/fixtures/resource-gathering.html?node=${nodeId}`);
         await page.getByRole('button', { name: new RegExp(`^${runtime.node.name}, ${activity}`) }).click();
         await page.getByRole('radio', { name: /Watch animation/ }).check();
-        await page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 action' : 'Ready kunai · 1 action' }).click();
+        await page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 attempt' : 'Ready kunai · 1 attempt' }).click();
         // This case rejects a status version after an acknowledged admission;
         // wait for that acknowledgement before intentionally reloading.
         await expect(page.locator('.resource-attempt-strip')).toBeVisible();
@@ -759,7 +759,7 @@ test('changing selected nodes during the status readback keeps the current node 
     releaseCurrent();
     await expect(page.getByRole('dialog', { name: 'Dockside shoal', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Approach shore', exact: true })).toBeEnabled();
-    await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Begin mining · 1 attempt' })).toHaveCount(0);
     const state = JSON.parse(await page.getByTestId('resource-state').textContent() ?? '{}');
     expect(state.version).toBe(2); expect(readResourceGathering(state.character.resourceGathering).attemptsToday).toBe(0);
     expect(calls).toBe(2); expect(runtime.settlements()).toBe(0);
@@ -787,10 +787,10 @@ for (const failure of ['service', 'stale'] as const) {
         const retry = page.getByRole('button', { name: 'Check gathering again', exact: true });
         await expect(retry).toBeVisible();
         expect(calls).toBe(failure === 'service' ? 1 : 2);
-        await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Begin mining · 1 attempt' })).toHaveCount(0);
         if (failure === 'service') await expect(page.getByRole('alert')).toContainText('Gathering service unavailable.');
         recover = true; await retry.click();
-        await expect(page.getByRole('button', { name: 'Begin mining · 1 action' })).toBeEnabled();
+        await expect(page.getByRole('button', { name: 'Begin mining · 1 attempt' })).toBeEnabled();
         expect(calls).toBe(failure === 'service' ? 2 : 3);
         expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(0);
     });
@@ -830,7 +830,7 @@ test('mining settlement recovery stays reachable after a transient resolve error
     });
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await page.getByRole('button', { name: /^Northwest seam/ }).click();
     await page.getByRole('button', { name: /^Southeast seam/ }).click();
     await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
@@ -847,7 +847,7 @@ test('reload during committed mining detonation cannot reopen or improve its for
     const runtime = await install(page);
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await page.getByRole('button', { name: /^Northwest seam/ }).click();
     await page.getByRole('button', { name: /^East cross-fault/ }).click();
     await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
@@ -869,7 +869,7 @@ test('reload during committed mining detonation cannot reopen or improve its for
     release();
     await expect(page.getByRole('heading', { name: 'The seam gave way.', exact: true })).toBeVisible();
     const state = readResourceGathering(runtime.character().resourceGathering);
-    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'failed', xp: 3 });
+    expect(state.receipts.at(-1)).toMatchObject({ outcome: 'failed', xp: 1 });
     expect(state.attemptsToday).toBe(1); expect(runtime.settlements()).toBe(1);
 });
 
@@ -883,7 +883,7 @@ test('reload resumes spent talismans without replaying their ignition or spendin
     });
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     for (const site of ['Northwest seam', 'Southeast seam']) await page.getByRole('button', { name: new RegExp(`^${site}`) }).click();
     await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
     await expect(page.locator('.vein-seal.is-fired')).toHaveCount(2);
@@ -908,7 +908,7 @@ test('reload recovers the same committed mining receipt after a lost acknowledge
     const runtime = await install(page);
     await page.goto('/e2e/fixtures/resource-gathering.html?node=resource-13');
     await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     const admitted = runtime.character();
     await page.getByRole('button', { name: /^Northwest seam/ }).click();
     await page.getByRole('button', { name: /^East cross-fault/ }).click();
@@ -922,6 +922,6 @@ test('reload recovers the same committed mining receipt after a lost acknowledge
     await expect(page.getByRole('region', { name: 'Mining result' })).toContainText('2/3');
     expect(runtime.settlements()).toBe(1);
     const state = readResourceGathering(runtime.character().resourceGathering);
-    expect(state.attemptsToday).toBe(1); expect(state.receipts).toHaveLength(1); expect(state.receipts[0].xp).toBe(3);
+    expect(state.attemptsToday).toBe(1); expect(state.receipts).toHaveLength(1); expect(state.receipts[0].xp).toBe(1);
     await page.screenshot({ path: info.outputPath('mining-lost-ack-recovered.png'), fullPage: true });
 });

@@ -6,8 +6,8 @@ import type { NamedRoll } from '../../api/craft/_named';
 // (Playwright's loader cannot follow that module's `.js` imports). The real
 // recipe and debit are proven by api/craft/named-registry.integration.test.ts.
 const ROLL_SPEND: Record<'weapon' | 'armor', Record<string, number>> = {
-    weapon: { 'gather-iron-sand-pristine': 20, 'hunt-legendary-material': 2, 'hunt-titan-bone': 1, 'hunt-ancient-beast-core': 1, 'gather-rime-crystal-superior': 2, 'dungeon-legendary-relic': 1 },
-    armor: { 'gather-iron-sand-pristine': 16, 'hunt-legendary-material': 2, 'hunt-shadow-pelt': 4, 'hunt-ancient-beast-core': 1, 'gather-rime-crystal-superior': 2, 'dungeon-legendary-relic': 1 },
+    weapon: { 'gather-iron-sand-pristine': 30, 'hunt-legendary-material': 2, 'hunt-titan-bone': 1, 'hunt-ancient-beast-core': 1, 'gather-rime-crystal-superior': 3, 'dungeon-legendary-relic': 1 },
+    armor: { 'gather-iron-sand-pristine': 24, 'hunt-legendary-material': 2, 'hunt-shadow-pelt': 4, 'hunt-ancient-beast-core': 1, 'gather-rime-crystal-superior': 3, 'dungeon-legendary-relic': 1 },
 };
 
 /*
@@ -70,9 +70,13 @@ test('each roll lists its full price, apex materials included', async ({ page })
     await page.locator('.cf-tabs').getByRole('button', { name: 'Weapons', exact: true }).click();
     const cost = page.locator('.nw-cost');
     for (const label of ['Fate Shards', 'Pristine Iron Sand', 'Legendary Material', 'Titan Bone', 'Ancient Beast Core', 'relic']) await expect(cost).toContainText(label);
+    await expect(cost.getByText('30× Pristine Iron Sand', { exact: true })).toBeVisible();
+    await expect(cost.getByText(/^3× Superior Rime Crystal/)).toBeVisible();
     await expect(cost).toContainText('Sunscar Exchange');
     await page.locator('.cf-tabs').getByRole('button', { name: 'Armor', exact: true }).click();
     await expect(page.locator('.nw-cost')).toContainText('Shadow Pelt');
+    await expect(cost.getByText('24× Pristine Iron Sand', { exact: true })).toBeVisible();
+    await expect(cost.getByText(/^3× Superior Rime Crystal/)).toBeVisible();
 });
 
 test('weapon pop-out shows the kept roll, stays open, and restores the Crafter', async ({ page }, testInfo) => {
@@ -207,7 +211,8 @@ for (const [kind, tab, slot] of [['Weapon', 'Weapons', 'hand'], ['Armor', 'Armor
         expect(creatorItems).toHaveLength(1);
         const [item] = creatorItems;
         expect(character.inventory).toEqual([item.id]);
-        expect(character.itemStacks).toContainEqual({ itemId: 'gather-iron-sand-pristine', count: kind === 'Weapon' ? 80 : 84 });
+        expect(character.itemStacks).toContainEqual({ itemId: 'gather-iron-sand-pristine', count: kind === 'Weapon' ? 70 : 76 });
+        expect(character.itemStacks).toContainEqual({ itemId: 'gather-rime-crystal-superior', count: 7 });
         expect(character.itemStacks).toContainEqual({ itemId: 'hunt-legendary-material', count: 8 });
         expect(character.itemStacks).toContainEqual({ itemId: 'dungeon-legendary-relic', count: 4 });
         expect([character.boneCharms, character.auraStones, character.mythicSeals]).toEqual([5000, 5000, 5000]);

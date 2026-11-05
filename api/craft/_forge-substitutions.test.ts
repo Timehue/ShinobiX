@@ -12,20 +12,20 @@ const save = (itemStacks: Stack[], extra: Record<string, unknown> = {}) => ({ le
 
 describe('Crafter substitutions (item-use pass)', () => {
     it('burns Ember Ore or Ember Scale as forge fuel when the player picks it', () => {
-        const base = save([{ itemId: 'gather-iron-sand', count: 6 }, { itemId: 'gather-binding-fiber', count: 2 },
-            { itemId: 'gather-heartwood-bark', count: 1 }, { itemId: 'hunt-ember-scale', count: 1 }]);
-        const out = applyForge(base, 'supply', 'thrown-shuriken', 1, [{ 'gather-iron-sand': 6 }, { 'hunt-ember-scale': 1 }, { 'gather-binding-fiber': 2 }])!;
+        const base = save([{ itemId: 'gather-iron-sand', count: 9 }, { itemId: 'gather-binding-fiber', count: 2 },
+            { itemId: 'gather-heartwood-bark', count: 1 }, { itemId: 'hunt-ember-scale', count: 2 }]);
+        const out = applyForge(base, 'supply', 'thrown-shuriken', 1, [{ 'gather-iron-sand': 9 }, { 'hunt-ember-scale': 2 }, { 'gather-binding-fiber': 2 }])!;
         assert.ok(out);
         assert.equal(countOwned(out, 'thrown-shuriken'), 3);
         assert.equal(countOwned(out, 'hunt-ember-scale'), 0);
         assert.equal(countOwned(out, 'gather-heartwood-bark'), 1, 'the bark the player kept back is untouched');
-        const ore = applyForge(save([{ itemId: 'gather-iron-sand-fine', count: 3 }, { itemId: 'gather-binding-fiber', count: 2 }, { itemId: 'gather-ember-ore', count: 1 }]), 'supply', 'thrown-senbon', 1)!;
+        const ore = applyForge(save([{ itemId: 'gather-iron-sand-fine', count: 5 }, { itemId: 'gather-binding-fiber', count: 2 }, { itemId: 'gather-ember-ore', count: 2 }]), 'supply', 'thrown-senbon', 1)!;
         assert.ok(ore, 'with no selection the planner finds the Ember Ore');
         assert.equal(countOwned(ore, 'gather-ember-ore'), 0);
     });
 
     it('binds a Master Beast Seal from Shadow Pelts held as a stack and as legacy copies', () => {
-        const base = save([{ itemId: 'gather-stormglass-shard-fine', count: 4 }, { itemId: 'gather-heartwood-bark', count: 4 },
+        const base = save([{ itemId: 'gather-stormglass-shard-fine', count: 6 }, { itemId: 'gather-heartwood-bark', count: 4 },
             { itemId: 'gather-binding-fiber', count: 8 }, { itemId: 'hunt-shadow-pelt', count: 2 }], { inventory: ['hunt-shadow-pelt', 'hunt-shadow-pelt'] });
         const out = applyForge(base, 'supply', 'beast-seal-master', 1)!;
         assert.ok(out);
@@ -36,7 +36,7 @@ describe('Crafter substitutions (item-use pass)', () => {
 
     it('builds an Apex Predator Fang from Ancient Beast Cores and a Sanguine Charm from Titan Bones', () => {
         const apex = applyForge(save([{ itemId: 'hunt-ancient-beast-core', count: 4 }, { itemId: 'hunt-shadow-claw', count: 8 },
-            { itemId: 'gather-iron-sand-superior', count: 10 }, { itemId: 'gather-binding-fiber', count: 8 }]), 'supply', 'pve-apex-predator-fang', 1)!;
+            { itemId: 'gather-iron-sand-superior', count: 15 }, { itemId: 'gather-binding-fiber', count: 8 }]), 'supply', 'pve-apex-predator-fang', 1)!;
         assert.ok(apex);
         assert.equal(countOwned(apex, 'pve-apex-predator-fang'), 1);
         assert.equal(countOwned(apex, 'hunt-ancient-beast-core'), 0);
@@ -48,24 +48,24 @@ describe('Crafter substitutions (item-use pass)', () => {
     });
 
     it('forges a legendary weapon with a Weekly Boss Core as its relic, and an epic one with a core as its catalyst', () => {
-        const legendary = applyForge(save([{ itemId: 'gather-iron-sand-pristine', count: 24 }, { itemId: 'gather-heartwood-bark', count: 2 },
+        const legendary = applyForge(save([{ itemId: 'gather-iron-sand-pristine', count: 36 }, { itemId: 'gather-heartwood-bark', count: 3 },
             { itemId: 'gather-binding-fiber', count: 8 }, { itemId: 'gather-shadow-thread', count: 3 }, { itemId: 'weekly-boss-core', count: 1 }]), 'weapon', 'black-lotus-dagger', 1)!;
         assert.ok(legendary);
         assert.equal(countOwned(legendary, 'black-lotus-dagger'), 1);
         assert.equal(countOwned(legendary, 'weekly-boss-core'), 0);
-        const epic = applyForge(save([{ itemId: 'gather-iron-sand-superior', count: 18 }, { itemId: 'gather-heartwood-bark', count: 2 },
-            { itemId: 'gather-binding-fiber', count: 6 }, { itemId: 'weekly-boss-core', count: 1 }]), 'weapon', 'ashglass-katana', 1)!;
+        const epic = applyForge(save([{ itemId: 'gather-iron-sand-superior', count: 27 }, { itemId: 'gather-heartwood-bark', count: 3 },
+            { itemId: 'gather-binding-fiber', count: 6 }, { itemId: 'weekly-boss-core', count: 2 }]), 'weapon', 'ashglass-katana', 1)!;
         assert.ok(epic);
         assert.equal(countOwned(epic, 'weekly-boss-core'), 0);
         // A real relic is still spent ahead of the core when both are held.
-        const both = applyForge(save([{ itemId: 'gather-iron-sand-pristine', count: 24 }, { itemId: 'gather-heartwood-bark', count: 2 },
+        const both = applyForge(save([{ itemId: 'gather-iron-sand-pristine', count: 36 }, { itemId: 'gather-heartwood-bark', count: 3 },
             { itemId: 'gather-binding-fiber', count: 8 }, { itemId: 'gather-shadow-thread', count: 3 }, { itemId: 'warforged-relic', count: 1 }, { itemId: 'weekly-boss-core', count: 1 }]), 'weapon', 'black-lotus-dagger', 1)!;
         assert.equal(countOwned(both, 'warforged-relic'), 0);
         assert.equal(countOwned(both, 'weekly-boss-core'), 1);
     });
 
     it('makes Treats from a Pristine River Fish once Beast Meat runs out', () => {
-        const out = applyForge(save([{ itemId: 'gather-river-fish-pristine', count: 4 }, { itemId: 'gather-field-herb', count: 2 }]), 'supply', 'pet-treat', 1)!;
+        const out = applyForge(save([{ itemId: 'gather-river-fish-pristine', count: 6 }, { itemId: 'gather-field-herb', count: 2 }]), 'supply', 'pet-treat', 1)!;
         assert.ok(out);
         assert.equal(countOwned(out, 'pet-treat'), 1);
         assert.equal(countOwned(out, 'gather-river-fish-pristine'), 0);

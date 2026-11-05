@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { CHRONICLE_STARTER_GRANT_IDS, deckLimitForCard, getChronicleCard } from '../../shared/chronicle-duel.js';
+import { CHRONICLE_COMMON_EXPANSION } from '../../shared/chronicle-expansion-monsters.js';
 import {
     applyCardPackOpen, cardPackBaseCost, cardPackCost, cardPackDiscountPercent, parseCardPackType,
     splitSurplusCardCopies, CARD_DUPLICATE_CONVERSION, CARD_PACK_TYPES, CARD_PLAYSET_COPIES, type CardPackType,
@@ -23,6 +24,31 @@ function poolOf(type: CardPackType): string[] {
     }
     return ids;
 }
+
+test('the Chronicle expansion drops only from its intended packs', () => {
+    const pools = new Map(CARD_PACK_TYPES.map(type => [type, new Set(poolOf(type))]));
+    const expansions = [
+        ...CHRONICLE_COMMON_EXPANSION.map(card => ({
+            id: card.id, packs: ['standard', card.element.toLowerCase()],
+        })),
+        { id: 'chronicle-reanimation-jutsu', packs: ['legendary', 'legendary-five'] },
+        { id: 'chronicle-guardians-reversal', packs: ['epic', 'epic-five'] },
+    ];
+    for (const { id, packs } of expansions) {
+        const actual = CARD_PACK_TYPES.filter(type => pools.get(type)!.has(id));
+        assert.deepEqual(actual, packs, id);
+    }
+    for (const element of ['Fire', 'Water', 'Earth', 'Wind', 'Lightning']) {
+        const cards = CHRONICLE_COMMON_EXPANSION.filter(card => card.element === element);
+        assert.equal(cards.length, 6, element);
+        assert.deepEqual([...new Set(cards.map(card => card.level))].sort(), [1, 2, 3, 4], element);
+        for (const card of cards) {
+            assert.equal(card.rarity, 'common', card.id);
+            assert.ok(card.attack >= 500 && card.attack <= 1600, card.id);
+            assert.ok(card.defense >= 500 && card.defense <= 1600, card.id);
+        }
+    }
+});
 
 test('each elemental Basic pack draws five matching Monsters for 100 Chronicle Points', () => {
     for (const element of ['fire', 'water', 'earth', 'wind', 'lightning'] as const) {

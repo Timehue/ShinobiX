@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let spent = 0;
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             spent = 0;
-            const rolled = rollAwakening(character, body.kind, body.actionId, randomInt);
+            const rolled = rollAwakening(character, body.kind, body.actionId, randomInt, body.target);
             if (!rolled.ok) return { ok: false as const, status: 409, error: rolled.reason };
             if (!rolled.alreadyApplied) {
                 spent = Math.max(0, Math.floor(Number(character.fateShards) || 0) - Math.floor(Number(rolled.character.fateShards) || 0));

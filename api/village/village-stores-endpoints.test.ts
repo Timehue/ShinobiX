@@ -459,13 +459,13 @@ describe('cafeteria cook (Village Stores)', { concurrency: false }, () => {
         // batches would reset the counter, so the over-cap batch would not be
         // refused for the daily limit. Freeze Date for the whole check.
         t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
-        await seedPlayer('cook', DEFENDER, { ryo: 500, itemStacks: [{ itemId: 'hunt-beast-meat', count: 6 }, { itemId: 'gather-field-herb', count: 8 }, { itemId: 'gather-heartwood-bark', count: 4 }], inventory: ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'] });
+        await seedPlayer('cook', DEFENDER, { ryo: 500, itemStacks: [{ itemId: 'hunt-beast-meat', count: 6 }, { itemId: 'gather-field-herb', count: 8 }, { itemId: 'gather-heartwood-bark', count: 7 }], inventory: ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'] });
         const a = await call(cafeteria, { playerName: 'cook', recipeId: 'field-rations' });
         assert.equal(a.statusCode, 200, JSON.stringify(a.body));
         assert.deepEqual({ cooked: a.body?.cooked, dailyCooked: a.body?.dailyCooked, dailyCap: a.body?.dailyCap }, { cooked: 5, dailyCooked: 5, dailyCap: 40 });
         let ch = a.body?.character as Record<string, unknown>;
         assert.equal(ch.ryo, 470);
-        assert.deepEqual(ch.itemStacks, [{ itemId: 'hunt-beast-meat', count: 5 }, { itemId: 'gather-field-herb', count: 7 }, { itemId: 'gather-heartwood-bark', count: 3 }, { itemId: 'ration-pack', count: 5 }]);
+        assert.deepEqual(ch.itemStacks, [{ itemId: 'hunt-beast-meat', count: 5 }, { itemId: 'gather-field-herb', count: 7 }, { itemId: 'gather-heartwood-bark', count: 5 }, { itemId: 'ration-pack', count: 5 }]);
         assert.equal(typeof a.body?._saveVersion, 'number');
 
         const b = await call(cafeteria, { playerName: 'cook', recipeId: 'campaign-rations' });
