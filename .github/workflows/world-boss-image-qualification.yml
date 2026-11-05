@@ -1,0 +1,181 @@
+name: Isolated world boss image qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/world-boss-image-qualification.yml'
+      - 'scripts/world-boss-image-qualification/**'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: isolated-world-boss-images-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      candidate: ${{ steps.pins.outputs.candidate }}
+      recovery: ${{ steps.pins.outputs.recovery }}
+      reuse: ${{ steps.pins.outputs.reuse }}
+      candidate_artifact_id: ${{ steps.pins.outputs.candidate_artifact_id }}
+      recovery_artifact_id: ${{ steps.pins.outputs.recovery_artifact_id }}
+      artifact_run_id: ${{ steps.pins.outputs.artifact_run_id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/world-boss-image-qualification
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Resolve reviewed source pins
+        id: pins
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/world-boss-image-qualification/resolve-images.mjs
+  retain_candidate:
+    needs: resolve
+    if: needs.resolve.outputs.reuse != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/world-boss-image-qualification
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.candidate }}
+          persist-credentials: false
+          path: source-candidate
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/
+            !/release-audit/
+            !/mobile/
+            !/android/
+      - name: Measure candidate runner disk before build
+        timeout-minutes: 2
+        run: |
+          df -h "$RUNNER_TEMP" "$GITHUB_WORKSPACE"
+          timeout 30s docker system df
+      - name: Build once and export the candidate image
+        run: node scripts/world-boss-image-qualification/images.mjs build candidate source-candidate "$RUNNER_TEMP/retained-candidate"
+      - uses: actions/upload-artifact@v7
+        id: upload
+        with:
+          name: world-boss-image-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/retained-candidate/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Measure candidate runner disk after retention
+        if: always()
+        timeout-minutes: 2
+        run: |
+          df -h "$RUNNER_TEMP" "$GITHUB_WORKSPACE"
+          timeout 30s docker system df
+  retain_recovery:
+    needs: resolve
+    if: needs.resolve.outputs.reuse != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/world-boss-image-qualification
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.recovery }}
+          persist-credentials: false
+          path: source-recovery
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/
+            !/release-audit/
+            !/mobile/
+            !/android/
+      - name: Measure recovery runner disk before build
+        timeout-minutes: 2
+        run: |
+          df -h "$RUNNER_TEMP" "$GITHUB_WORKSPACE"
+          timeout 30s docker system df
+      - name: Build once and export the recovery image
+        run: node scripts/world-boss-image-qualification/images.mjs build recovery source-recovery "$RUNNER_TEMP/retained-recovery"
+      - uses: actions/upload-artifact@v7
+        id: upload
+        with:
+          name: world-boss-image-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/retained-recovery/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Measure recovery runner disk after retention
+        if: always()
+        timeout-minutes: 2
+        run: |
+          df -h "$RUNNER_TEMP" "$GITHUB_WORKSPACE"
+          timeout 30s docker system df
+  qualify:
+    needs: [resolve, retain_candidate, retain_recovery]
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && (needs.resolve.outputs.reuse == 'true' || (needs.retain_candidate.result == 'success' && needs.retain_recovery.result == 'success')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/world-boss-image-qualification
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.resolve.outputs.candidate_artifact_id || needs.retain_candidate.outputs.artifact_id }}
+          run-id: ${{ needs.resolve.outputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+          path: ${{ runner.temp }}/images/candidate
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.resolve.outputs.recovery_artifact_id || needs.retain_recovery.outputs.artifact_id }}
+          run-id: ${{ needs.resolve.outputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+          path: ${{ runner.temp }}/images/recovery
+      - name: Measure qualification disk after downloads
+        timeout-minutes: 2
+        run: |
+          df -h "$RUNNER_TEMP" "$GITHUB_WORKSPACE"
+          timeout 30s docker system df
+      - name: Load retained images and qualify on disposable PostgreSQL
+        env:
+          QUALIFICATION_TOOLING_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/world-boss-image-qualification/run.mjs "$RUNNER_TEMP/images" "$RUNNER_TEMP/qualification-results"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: world-boss-image-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/qualification-results/
+          if-no-files-found: error
+          retention-days: 14
