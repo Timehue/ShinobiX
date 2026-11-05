@@ -101,8 +101,6 @@
 .pet-yard-refined :is(input,select) { width: 100% !important; min-width: 0; padding: 9px !important; border: 1px solid #d6b77b44 !important; border-radius: 4px !important; color: #e3ded1 !important; background: #0e171d !important; }
 .pet-yard-refined .pet-yard-workbench .pet-evolve-panel output { font-size: 12px; }
 .pet-yard-refined .pet-yard-workbench .pet-evolve-panel button { min-width: 35px; }
-.pet-yard-screen.pet-yard-refined .pet-expedition-board { background: #10181d !important; border: 1px solid var(--yard-line) !important; border-radius: 6px !important; box-shadow: none !important; }
-.pet-yard-refined .pet-expedition-board__header p { max-width: 45ch !important; }
 .pet-yard-refined .pet-expedition-log summary { cursor: pointer; min-height: 44px !important; color: #ccb888 !important; }
 .pet-yard-refined .pet-battle-readiness { padding: 18px !important; margin-bottom: 26px; background: #111a20 !important; border: 1px solid var(--yard-line) !important; border-radius: 5px !important; box-shadow: none !important; }
 .pet-yard-refined .pet-circuit-grid { grid-template-columns: 1fr !important; }
@@ -154,19 +152,14 @@
     .pet-yard-screen.pet-yard-refined .pet-slots-row { display: flex !important; }
     .pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card { flex: 0 0 155px; min-height: 196px !important; }
 }
-.pet-yard-refined .pet-expedition-board__header { align-items: start; padding-bottom: 20px; border-bottom: 1px solid var(--yard-line); }
-.pet-yard-refined .pet-expedition-routes { gap: 12px; margin-top: 20px; }
-.pet-yard-refined .pet-expedition-routes > button { border-radius: 4px; background: #101b21; box-shadow: none; padding: 16px; }
-.pet-yard-refined .pet-expedition-routes > button.is-selected { border-color: #d6b77b; background: #d6b77b0a; }
-.pet-yard-refined .pet-expedition-routes strong { font: 400 18px var(--font-display,serif); padding-right: 0; }
-.pet-yard-refined .pet-expedition-route__time { position: static; justify-self: start; border-radius: 2px; background: #d6b77b16; color: #ddc79b; }
-.pet-yard-refined .pet-expedition-routes dt { color: #a8b5b8; font-size: 9px; font-weight: 500; }
-.pet-yard-refined .pet-expedition-routes dd { font-size: 13px; font-weight: 500; }
-.pet-yard-refined :is(.pet-expedition-caps,.pet-expedition-setup fieldset,.pet-expedition-provision,.pet-expedition-action) { border-radius: 4px; }
+.pet-yard-refined .pet-expedition-board__header { align-items: start; }
 .pet-yard-refined .pet-expedition-setup label.pet-expedition-risk { cursor: pointer; min-height: 44px; }
-.pet-yard-screen.pet-yard-refined .pet-expedition-setup label small { color: #b4c0c3 !important; }
+.pet-yard-screen.pet-yard-refined .pet-expedition-provision select { border-color: var(--exp-line-strong) !important; background: var(--exp-ink) !important; font: 500 13px var(--font-body,sans-serif) !important; }
 .pet-yard-screen.pet-yard-refined input[type=radio] { width: 16px !important; min-inline-size: 16px !important; height: 16px !important; min-block-size: 16px !important; flex: 0 0 16px; accent-color: #d6b77b; }
-.pet-yard-refined .pet-expedition-action button { background: linear-gradient(#d9be84,#b6955e) !important; color: #10171b !important; border-radius: 4px !important; font: 600 12px var(--font-body,sans-serif) !important; }
+.pet-yard-refined .pet-expedition-action button { border-radius: 4px !important; font: 600 12px var(--font-body,sans-serif) !important; }
+.pet-yard-refined .pet-expedition-action button:not(:disabled) { background: linear-gradient(#d9be84,#b6955e) !important; color: #10171b !important; }
+/* Secure is the safe default, so the riskier Investigate keeps the gold fill. */
+.pet-yard-refined .pet-expedition-return-choice button:not(.is-bold):not(:disabled) { border: 1px solid var(--exp-line-strong); background: none !important; color: var(--exp-gold-bright) !important; }
 @container yard (max-width:640px) {
     .pet-yard-screen.pet-yard-refined .pet-yard-header { width: calc(100% + 28px) !important; }
     .pet-yard-screen.pet-yard-refined .pet-slots-row { flex-wrap: nowrap; justify-content: flex-start; }
