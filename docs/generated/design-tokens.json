@@ -2819,15 +2819,19 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 187
+            "line": 154
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 214
+            "line": 207
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 255
+            "line": 234
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 275
           },
           {
             "source": "shinobij.client/src/components/veinbreaking.css",
@@ -3181,7 +3185,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
-            "line": 910
+            "line": 879
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
@@ -3489,15 +3493,19 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 197
+            "line": 154
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 214
+            "line": 217
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
             "line": 234
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 254
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -3824,7 +3832,7 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 234
+            "line": 254
           },
           {
             "source": "shinobij.client/src/components/veinbreaking.css",
@@ -4559,7 +4567,7 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 178
+            "line": 198
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -4607,7 +4615,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
-            "line": 892
+            "line": 861
           },
           {
             "source": "shinobij.client/src/styles/landing-home.css",
