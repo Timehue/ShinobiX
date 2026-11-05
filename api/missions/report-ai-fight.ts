@@ -25,6 +25,7 @@ import {
 } from './_ai-fight-token.js';
 import { settleRaidAiToken } from './_generic-ai-fight-authority.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
+import { recordExamAiDefeat } from '../exams/_pass.js';
 import { GEAR_DROP_CHANCE_BP, rollGearDrop } from '../_gear-drops.js';
 import { compareWriteSoloPveSession, readSoloPveSession } from '../solo-pve/_store.js';
 import { isSoloPveSession } from '../solo-pve/_session.js';
@@ -315,6 +316,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { ok: false as const, status: 409, error: dungeonSettled.error };
                 }
                 let noPurseCharacter = dungeonSettled.character;
+                // An exam bout is a practice fight, so it pays nothing, but the
+                // Chunin and Jonin exams read its defeat from `defeatedAiIds`.
+                if (outcome === 'win' && sealedBattleKind === 'practice') {
+                    noPurseCharacter = recordExamAiDefeat(noPurseCharacter, tokenData.opponentId, tokenData.opponentLevel);
+                }
                 let statPoints = 0;
                 // Dungeon Warden wins use their own reward settlement, so they
                 // skip the ordinary AI purse above. They still receive the same

@@ -19,7 +19,6 @@
 .pl-pet-name { font-weight: 700; font-size: 12.5px; line-height: 1.2; }
 .pl-pet-role { font-size: 11px; font-weight: 700; margin-top: 1px; }
 .pl-pet-stat { font-size: 11px; color: rgba(231,237,247,.62); margin-top: 3px; line-height: 1.35; }
-.pl-pet-gear { font-size: 10px; color: #ffd86b; margin-top: 2px; }
 .pl-pet-order { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; border-radius: 50%; background: #f4c451; color: #2a1c00; font-weight: 900; font-size: 12px; display: grid; place-items: center; z-index: 1; box-shadow: 0 2px 6px rgba(0,0,0,.5); }
 .pl-pet-check { position: absolute; top: 5px; right: 7px; color: #f4c451; font-size: 17px; z-index: 1; text-shadow: 0 1px 3px #000; }
 

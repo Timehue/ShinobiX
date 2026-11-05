@@ -2,7 +2,7 @@ import { creditElderWinDeltas } from '../../shared/elder-elections.js';
 import { bumpSaveVersion } from './_save-version.js';
 import { storedValueEquals } from '../_stored-value.js';
 import type { KvLike } from '../_storage.js';
-import { commitPlayerSaveRecord } from './_commit-player-save.js';
+import { commitPlayerSaveRecord, type AtomicSaveProof } from './_commit-player-save.js';
 import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
 import { reconcileElderFocus } from '../village/_elders.js';
@@ -24,7 +24,7 @@ export type PlayerSaveMutation<T> =
         character: PlayerCharacter;
         value: T;
         recordPatch?: PlayerSaveRecord;
-        atomicProof?: { key: string; expected?: unknown; value: unknown; ex: number };
+        atomicProof?: AtomicSaveProof;
         write?: boolean;
         /**
          * Overrides the call's `options.hollowGateCurrencySource` for this one
@@ -86,7 +86,7 @@ export type PlayerSaveMutationResult<T> =
 
 /** Write options shared by the versioned writers. */
 export type VersionedWriteOptions = {
-    atomicProof?: { key: string; expected?: unknown; value: unknown; ex: number };
+    atomicProof?: AtomicSaveProof;
     /** The regeneration cursor to carry (see bumpSaveVersion); omitted = fence to now. */
     regenAt?: number;
     /** Run rewards are already recorded in the run ledger; sanctify absorbs the external baseline. */

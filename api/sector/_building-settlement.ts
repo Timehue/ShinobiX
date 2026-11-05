@@ -6,6 +6,8 @@ import { buildingSharedKey, sectorBuilding } from '../../shared/sector-buildings
 import { readBuildingProgress } from '../../shared/sector-building-state.js';
 import type { BuildingAction, BuildingReceipt } from '../../shared/sector-building-types.js';
 import { buildingActionTarget, reduceBuildingAction } from './_building-actions.js';
+import { countOwned } from '../craft/_forge.js';
+import { legacyActivityCommit } from '../_legacy-activity-commit.js';
 import { battleLockKey } from '../_elapsed-state.js';
 import { buildingConditions } from '../../shared/sector-building-content.js';
 import { isWalkableTile, pathInMask, sectorWalkMask } from '../../shared/sector-walk-mask.js';
@@ -59,7 +61,15 @@ export async function settleBuildingAction(store:BuildingStore,player:string,act
             :store.compareSet(name,expected,value,opts),
         ...(store.compareSetMany?{compareSetMany:(ops:readonly KvCasOp[])=>store.compareSetMany!([...ops,...sharedOps])}:{}),
     };
+    // A keeper craft is the same deed as a Crafter forge (craft/forge.ts) for the
+    // Legacy trials that count items forged; its stats proof joins this write.
+    const legacy:{atomicProof?:{key:string;expected?:unknown;value:unknown;ex:number};afterCommit?:()=>unknown}=action.action==='craft'&&action.recipeId
+        ?await legacyActivityCommit(player,settled.character,{craftsCompleted:Math.max(0,countOwned(result.character,action.recipeId)-countOwned(settled.character,action.recipeId))})
+        :{};
     const committed=await writeVersionedPlayerSaveWithStore(atomicStore,`save:${player}`,record,result.character,{},
-        {regenAt:carriedRegenCursor(settled.character,result.character,settled.regen)});
+        {regenAt:carriedRegenCursor(settled.character,result.character,settled.regen),...(legacy.atomicProof?{atomicProof:legacy.atomicProof}:{})});
+    // Awaited inside the caller's locks, as mutatePlayerSave runs afterCommit: a
+    // detached call outlives the lock context and its storage use is refused.
+    if(legacy.afterCommit)await Promise.resolve().then(legacy.afterCommit).catch(()=>undefined);
     return{ok:true,character:committed.record.character as Record<string,unknown>,_saveVersion:committed._saveVersion,receipt:result.receipt,replayed:result.replayed};
 }

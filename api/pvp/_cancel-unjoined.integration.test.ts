@@ -280,12 +280,12 @@ test('reloading onto a duel nobody was left to win goes straight back to the wor
     assert.equal(await kv.get(`pvp:pending-session:${session.p1.name}`), null);
 });
 
-test('the join window leaves every duel alone that is not an unstarted casual one', async () => {
+test('the join window leaves a duel alone once both fighters are seated, and a ranked duel always', async () => {
     const seated = await seed('window-seated');
     await aged(seated, PVP_JOIN_WINDOW_MS * 2, { joined: { p1: true, p2: true }, turnStartedAt: Date.now() + 5_000 });
-    const clanWar = await seed('window-clan-war');
-    await aged(clanWar, PVP_JOIN_WINDOW_MS * 2, { clanWarId: 'war', rewardAuthority: 'clan-war' });
-    for (const session of [seated, clanWar]) {
+    const ranked = await seed('window-ranked');
+    await aged(ranked, PVP_JOIN_WINDOW_MS * 2, { rewardAuthority: 'ranked', ranked: true });
+    for (const session of [seated, ranked]) {
         const read = await call(getSession, session.p1.name, {}, { id: session.battleId });
         assert.equal(read.status, 200);
         assert.equal(read.body.status, 'active', session.battleId);
@@ -425,4 +425,28 @@ test('a cancellation cleanup failure remains repairable from the committed termi
     assert.equal((await kv.get<PvpSession>(`pvp:${session.battleId}`))?.status, 'done');
     assert.equal((await call(getSession, session.p1.name, {}, { id: session.battleId })).status, 200);
     for (const fighter of [session.p1, session.p2]) assert.ok(online.moveToTile(fighter.name, 66));
+});
+
+test('a clan-war duel the accepted opponent never opens closes after the window and cancels its challenge with no points', async () => {
+    const session = await seed('window-clan-war');
+    const warId = 'war-no-show';
+    const challenge = { id: 'challenge-no-show', battleId: session.battleId, status: 'accepted', mode: 'pvp1v1',
+        fromClan: 'Ember', fromPlayer: session.p1.name, acceptedPlayer: session.p2.name, createdAt: Date.now() - 60_000 };
+    await kv.set(`clan-war:${warId}`, { id: warId, clans: ['Ember', 'Tide'], pendingChallenges: [challenge], completedChallenges: [], updatedAt: Date.now() });
+    await aged(session, PVP_JOIN_WINDOW_MS + 5_000, {
+        rewardAuthority: 'clan-war', clanWarId: warId, clanWarChallengeId: challenge.id, continuousVitals: false,
+    });
+
+    const read = await call(getSession, session.p1.name, {}, { id: session.battleId });
+    assert.equal(read.status, 200, JSON.stringify(read.body));
+    assert.equal(read.body.status, 'done', 'the creator is no longer held in battle');
+    assert.equal(read.body.terminalReason, 'no-show');
+
+    const reward = await call(claim, session.p1.name, { battleId: session.battleId, outcome: 'win', completionVersion: 1 });
+    assert.equal(reward.status, 200, JSON.stringify(reward.body));
+    assert.equal(reward.body.rewardAuthorized, false, 'a no-show pays nothing');
+    const war = (await kv.get<{ pendingChallenges: unknown[]; completedChallenges: Array<{ id: string; status: string; result?: string }> }>(`clan-war:${warId}`))!;
+    assert.equal(war.pendingChallenges.length, 0, 'the accepted challenge is released');
+    assert.deepEqual(war.completedChallenges.map(({ id, status, result }) => ({ id, status, result })),
+        [{ id: challenge.id, status: 'cancelled', result: undefined }], 'cancelled with no result, so no war points');
 });

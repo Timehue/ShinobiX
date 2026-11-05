@@ -1,5 +1,5 @@
 /* A trading hall within the game, sized to the actual center column. */
-.sx-hall.sx-refined { --sx-gold: #d6b77b; --sx-text: #eee9dd; --sx-muted: #aeb5b4; container: exchange / inline-size; background: #0c1115; border-color: #d6b77b38; border-radius: 10px; font-family: var(--font-body,sans-serif); }
+.sx-hall.sx-refined { --sx-text: #eee9dd; container: exchange / inline-size; background: #0c1115; border-color: #d6b77b38; border-radius: 10px; font-family: var(--font-body,sans-serif); }
 .sx-refined :is(h1,h2,h3), .sx-dialog h3 { font-family: var(--font-display,Georgia,serif); }
 .sx-refined .sx-hero { min-height: 295px; padding: 24px 30px 0; background-position: 65% center; border-color: #d6b77b38; }
 .sx-refined .sx-hero::after { content: ''; position: absolute; inset: 10px 10px 0; border: 1px solid #ead5ab24; border-bottom: 0; pointer-events: none; }

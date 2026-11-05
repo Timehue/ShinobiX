@@ -1,6 +1,6 @@
 import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 import { grantShowdownParticipationXp } from './_showdown-xp.js';
-import { admitShowdown, arenaAdmissionId, clearArenaAdmission, showdownAdmissionKey } from './_showdown-admission.js';
+import { admitShowdown, arenaAdmissionId, clearArenaAdmission, refundLapsedAdmission, showdownAdmissionKey, showdownPlayedKey, type AdmittedShowdown } from './_showdown-admission.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -930,11 +930,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const teamName = built.teamName;
             if (!enemyPets.length) return res.status(500).json({ error: 'Could not assemble an opponent team.' });
 
-            const opened = await admitShowdown(playerName, async character => {
+            const opened = await admitShowdown(playerName, async admittedCharacter => {
+                let character = admittedCharacter;
                 const existingId = arenaAdmissionId(character);
                 const existing = existingId ? await kv.get<ShowdownSession>(showdownAdmissionKey(playerName, existingId)) : null;
                 if (existing?.playerName === playerName && existing.rewardEligible && !existing.finished) {
                     return { ok: true as const, session: existing, character, write: false };
+                }
+                // The previous admission's row expired: a paid fight that lapsed
+                // unplayed returns the consumables it spent, in this same write.
+                if (existingId && !existing) {
+                    const played = !!(await kv.get(showdownPlayedKey(playerName, existingId)));
+                    character = refundLapsedAdmission(character, played);
                 }
                 const currentRoster = activeCarriedPets<Pet>(character);
                 const currentChosen = petIds.map(id => currentRoster.find(pet => pet.id === id)).filter(Boolean) as Pet[];
@@ -1104,6 +1111,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const bindings = await refreshShowdownBindings(playerName, session);
                 if (isShowdownBindingMissing(session, bindings)) return { bindingMissing: true as const };
                 if (!session.finished) {
+                    // A concession is a decided loss, never a refundable lapse.
+                    if ((session as AdmittedShowdown).consumablesCommitted) {
+                        await kv.set(showdownPlayedKey(playerName, session.sessionId), 1);
+                    }
                     session.finished = true;
                     session.outcome = 'loss';
                     session.turnDeadlineAt = undefined;
@@ -1217,6 +1228,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const commands = parseCommands(body.commands, session.player.length)
                     .filter((c) => playerIds.has(c.petId));
                 const aiCommands = chooseShowdownAiCommands(session);
+                // Before the first round of a paid admission: once played, its
+                // spent items are used (refundLapsedAdmission). A failed write
+                // refuses the round rather than leaving it refundable.
+                if (session.round === 0 && (session as AdmittedShowdown).consumablesCommitted) {
+                    await kv.set(showdownPlayedKey(playerName, session.sessionId), 1);
+                }
                 const events = resolveShowdownRound(session, commands, aiCommands);
                 if (session.finished) session.circuitFinishedAt = Date.now();
                 armTurnDeadline(session);

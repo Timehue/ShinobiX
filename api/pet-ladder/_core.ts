@@ -4,7 +4,7 @@
  * blobs, the lock, seed minting, notifications — and delegates every decision here
  * so it can be unit-tested in isolation (api/pet-ladder/_core.test.ts).
  *
- * MODEL (Sword-x-Staff style positional ladder, rank 1..N over real players):
+ * MODEL (positional ladder, rank 1..N over real players):
  *   • You SET A DEFENSE (1 pet for Coliseum, a 4-pet Warfront formation), sealed
  *     server-side from your save so a challenger fights the pet/team YOU chose —
  *     even while you are OFFLINE.

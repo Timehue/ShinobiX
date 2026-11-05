@@ -101,6 +101,23 @@ export function resolveClanSuccession(
     };
 }
 
+/** Permanent bans release leadership but retain roster membership. All founder
+ * departures must exclude those retained members; timed bans remain eligible.
+ * A failed read aborts the caller's locked change rather than electing blindly. */
+export async function resolveEligibleClanSuccession(
+    clanRec: ClanSuccessionRecord, departingSlug: string,
+): Promise<ClanSuccession> {
+    if (safeName(String(clanRec.founderName ?? '')) !== departingSlug) return { kind: 'not-founder' };
+    const { kv } = await import('../_storage.js');
+    const candidates = (Array.isArray(clanRec.members) ? clanRec.members : [])
+        .filter(member => member && typeof member === 'object' && memberSlug(member) && memberSlug(member) !== departingSlug);
+    const bans = candidates.length
+        ? await kv.mget<({ permanent?: boolean } | null)[]>(...candidates.map(member => `mod:ban:${memberSlug(member)}`))
+        : [];
+    const members = candidates.filter((_member, index) => !bans[index]?.permanent);
+    return resolveClanSuccession({ ...clanRec, members }, departingSlug);
+}
+
 /**
  * The roster with `departingSlug` removed and, when they were the founder, the
  * successor's stale role override dropped (they are the founder now — leaving a

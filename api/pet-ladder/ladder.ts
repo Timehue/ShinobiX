@@ -21,7 +21,7 @@ import {
 /*
  * Historical Pet Colosseum positional records remain readable, but new ranked
  * Colosseum fights use the live 2v2 queue and Pet Elo. Beastbound Warfront is a
- * Sword-x-Staff style positional ladder (rank 1..N) with OFFLINE defense:
+ * positional ladder (rank 1..N) with OFFLINE defense:
  *   GET  ?mode=coliseum|tactical[&top=N]   → { ladder, you, notifications }
  *   POST { action:'defense', mode, petIds } → seal your defending pet/team (owned)
  *   POST { action:'offer',   mode }         → 3 close-above opponents (+ AI fill)

@@ -5,12 +5,9 @@
    ========================================================================= */
 
 .central-hub {
-    --central-gold: #d6b66c;
     --central-gold-bright: #f5dfa3;
     --central-gold-soft: rgba(214, 182, 108, 0.42);
     --central-gold-faint: rgba(214, 182, 108, 0.18);
-    --central-ink: #050914;
-    --central-ink-raised: #0b1222;
     --central-azure: #6cc9ff;
     --central-crimson: #ff7c73;
     position: relative !important;
@@ -2099,7 +2096,6 @@
 }
 
 .relic-command-panel {
-    --relic-accent: 93, 210, 255;
     overflow: hidden;
     color: #eef5fc;
     border: 1px solid rgba(105, 194, 236, 0.32);

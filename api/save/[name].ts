@@ -1693,8 +1693,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // clan roster and still occupying a slot in the capped
                 // `mod:by-ip` / `mod:by-fp` alt-detection lists, where dead names
                 // push live players out. Clan records route through this same
-                // handler, so it is scoped to player saves only. Best-effort: a
-                // failure here must not block the deletion the player asked for.
+                // handler, so it is scoped to player saves only. Retain the
+                // save on cleanup failure so deletion can safely be retried.
                 //
                 // Runs INSIDE the save lock and AFTER the version fence above:
                 // the fence has to be durable before any part of this account is
@@ -1704,9 +1704,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const detached = await detachPlayerReferences(name);
                     if (detached.failures.length) {
                         console.warn(`[save DELETE] partial detach for ${name}: ${detached.failures.join('; ')}`);
+                        if (detached.failures.some(failure => !failure.startsWith('tebex subscription:'))) {
+                            return { body: { ok: false, retryable: true }, finalizedWars: [] };
+                        }
                     }
                 } catch (err) {
                     console.error('[save DELETE detach]', safeLogValue(err));
+                    return { body: { ok: false, retryable: true }, finalizedWars: [] };
                 }
                 // Fail closed on the standalone story lock before deleting the
                 // character or registry row. A retry can then complete the same
@@ -1729,6 +1733,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             for (const war of deletionResult.finalizedWars) {
                 await awardWarEndClanXp(war).catch((error) => console.error('[save DELETE] clan-war XP award failed', safeLogValue(error)));
             }
+            if (!deletionResult.body.ok) return reply(503, { error: 'Account cleanup is incomplete. Please retry deletion.', retryable: true });
             return reply(200, deletionResult.body);
         } catch (err) {
             if (err instanceof AccountDeletionWaitError) return reply(409, { error: err.message });

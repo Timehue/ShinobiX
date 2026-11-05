@@ -10,6 +10,7 @@ import {
     SERVER_SETTLEMENT_RECEIPTS_FIELD,
 } from './_settlement-receipts.js';
 import { mutatePlayerSave, type PlayerCharacter, type PlayerSaveRecord } from './save/_mutate-player-save.js';
+import type { AtomicSaveProof } from './save/_commit-player-save.js';
 import { hollowGateRefundCurrencySource } from './hollow-gate/_external-credits.js';
 
 /*
@@ -117,7 +118,7 @@ export type SaveDebitDefinition<Shared extends Record<string, unknown>, Plan> = 
 
 export type SaveDebitDecision<Plan, Result> =
     | { ok: false; status: number; error: string; details?: Record<string, unknown> }
-    | { ok: true; character: PlayerCharacter; plan: Plan; result: Result };
+    | { ok: true; character: PlayerCharacter; plan: Plan; result: Result; atomicProof?: AtomicSaveProof };
 
 export type SaveDebitSagaOptions<Shared extends Record<string, unknown>, Plan, Result> = {
     definition: SaveDebitDefinition<Shared, Plan>;
@@ -429,6 +430,7 @@ export async function runSaveDebitSaga<Shared extends Record<string, unknown>, P
             held.debit = { replayed: false, journalComplete: false, plan: decision.plan, result: decision.result, debitAt, charged: decision.character };
             return {
                 ok: true,
+                atomicProof: decision.atomicProof,
                 character: appendSettlementReceipt(decision.character, inspected.receipts, {
                     requestId: transactionId,
                     fingerprint,

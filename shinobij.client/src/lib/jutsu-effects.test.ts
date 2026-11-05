@@ -148,7 +148,7 @@ describe("player-facing jutsu tag contract", () => {
         assert.match(copy.summary, /all .* active positive statuses/i);
         assert.match(copy.summary, /except Absorb and Lifesteal/i);
         assert.match(copy.rule, /fresh 2 rounds starting next combat round/i);
-        assert.match(copy.rule, /pending enemy buffs are not included/i);
+        assert.match(copy.rule, /pending enemy buffs and a buff tile's buff are not included/i);
         assert.match(copy.rule, /active Buff Prevent on the user blocks Copy/i);
 
         const mirror = info("Mirror");
@@ -157,7 +157,7 @@ describe("player-facing jutsu tag contract", () => {
         assert.match(mirror.rule, /including Wound, Ignition, Poison, and Drain/i);
         assert.match(mirror.rule, /fresh 2 rounds starting next combat round/i);
         assert.match(mirror.rule, /originals stay on the user/i);
-        assert.match(mirror.rule, /pending debuffs are not included/i);
+        assert.match(mirror.rule, /pending debuffs and a ground field's debuff are not included/i);
         assert.match(mirror.rule, /active Debuff Prevent on the enemy blocks Mirror/i);
 
         assert.equal(copy.duration, "Starts next round · fresh 2 rounds");

@@ -102,6 +102,8 @@ export function isReservedNameShape(name: string): boolean {
 // session token. Every password comparison must therefore treat a missing
 // credential as an authentication FAILURE, never as a match — see verifyAgainst.
 export type AuthRecord = {
+    /** Private refund ownership ID; created atomically with the first bounty debit. */
+    bountyOwnerId?: string;
     hash?: string;
     salt?: string;
     sessionEpoch?: number;
