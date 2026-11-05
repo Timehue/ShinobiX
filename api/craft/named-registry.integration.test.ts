@@ -151,6 +151,27 @@ test('a full inventory refuses the roll without charging, then succeeds after ma
     assert.equal(retried.body?.character.inventory.length, INVENTORY_CAP);
 });
 
+test('legacy named ore quantities refuse atomically while the full price consumes every required row', async () => {
+    for (const [index, kind] of (['weapon', 'armor'] as const).entries()) {
+        const playerName = `namedoreboundary${index}`, key = `save:${playerName}`;
+        const itemStacks = rollMaterials(kind).map(stack => stack.itemId === 'gather-iron-sand-pristine'
+            ? { ...stack, count: kind === 'weapon' ? 20 : 16 } : stack);
+        const character = { name: playerName, level: 100, fateShards: 200, inventory: [], itemStacks };
+        await kv.set(key, { _saveVersion: 1, character, creatorItems: [] });
+        const refused = await roll(playerName, `127.0.8.${index + 1}`, kind, `namedOreBoundary${index}xxxx`);
+        assert.equal(refused.statusCode, 409);
+        assert.match(String(refused.body?.error), new RegExp(`${kind === 'weapon' ? 30 : 24} Pristine Iron Sand`));
+        assert.deepEqual((await kv.get<{ character: unknown }>(key))?.character, character);
+
+        await kv.set(key, { _saveVersion: 2, character: { ...character, itemStacks: rollMaterials(kind) }, creatorItems: [] });
+        const paid = await roll(playerName, `127.0.8.${index + 1}`, kind, `namedOreFullPrice${index}xxxx`);
+        assert.equal(paid.statusCode, 200, JSON.stringify(paid.body));
+        assert.equal(paid.body?.character.fateShards, 0);
+        for (const row of namedForgeIngredients(kind)) assert.equal(countOwned(paid.body!.character, row.ids[0]), 0);
+        assert.equal(paid.body?.character.inventory.length, 1);
+    }
+});
+
 test('competing rolls spend one price once and ignore client-sent stats', async () => {
     const playerName = 'concurrentnamedforgeplayer';
     const key = `save:${playerName}`;
@@ -174,7 +195,7 @@ test('a roll token sealed before paid rolls still pays the full price to forge',
     const ip = '127.0.3.3';
     const key = `save:${playerName}`;
     const token = 'legacySealedToken123456';
-    const character = { name: playerName, level: 100, fateShards: 200, inventory: [], itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 20 }] };
+    const character = { name: playerName, level: 100, fateShards: 200, inventory: [], itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 30 }] };
     await kv.set(key, { _saveVersion: 1, character, creatorItems: [] });
     await kv.set(`named-forge:${playerName}:${token}`, { playerName, roll: rollNamedForge('weapon') });
     const oreOnly = await post(playerName, ip, { action: 'forge', token, name: 'Old Roll' });

@@ -80,7 +80,7 @@ test('a fifth local trust point admits the third canonical recipe without bypass
 test('keeper workshops show and charge a fifth of the shelf price, and name the fee when the player is short',()=>{
     const building=SECTOR_BUILDINGS.find(b=>b.services.includes('workshop')&&buildingWorkshopRecipes(b).includes('pet-treat')&&buildingRecipeTrust(b,'pet-treat')===0)!;
     const stocked=(ryo:number):Record<string,unknown>=>({level:20,ryo,itemStacks:[{itemId:'gather-river-fish',count:9},{itemId:'gather-field-herb',count:17}]});
-    const materials:CraftMaterialSelection=[{'gather-river-fish':4},{'gather-field-herb':2}];
+    const materials:CraftMaterialSelection=[{'gather-river-fish':6},{'gather-field-herb':2}];
     // Pet Treats shelve at 1,600: the Crafter charges 400 (a quarter), a keeper 320.
     const recipe=buildingDetailView(building,stocked(320),null,NOW).recipes.find(r=>r.id==='pet-treat')!;assert.equal(recipe.ryo,320);
     const crafted=act(stocked(320),{action:'craft',buildingId:building.id,recipeId:'pet-treat',materials});

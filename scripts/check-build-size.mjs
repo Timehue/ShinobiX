@@ -950,8 +950,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 812acc43f4 (9,795,668 B without the production env, 9,800,368 B with the
 // feature). Owner approved 9.81 MB. Startup is 396,598 B gzip against the
 // unchanged 399,000 B gate; startup, per-chunk and asset gates stay fixed.
-// 2026-11-04 DUNGEON PASS: painted Hollow Gate chambers, explored-only maps, the
-// corner map, secret passages and boss-arena fissures add ~8 KB of lazy code
+// 2026-11-04 INTERIOR HELD-KEY WALKING: held WASD in strongholds, Hollow Gate
+// and both golden shrines, plus shrine copy polish, add ~700 B after trimming
+// from ~2.1 KB. Main 1a21fd4ecd measured 9,809,627 B in its Production Image
+// (373 B left); with this change it measured 9,810,327 B with the production
+// env. Owner approved 9,812,000. Startup is 398,514 B gzip against the
+// unchanged 399,000 B gate; startup, per-chunk and asset gates stay fixed.
+// 2026-11-04 DUNGEON PASS: painted Hollow Gate chambers, explored-only maps, secret
+// passages and boss-arena fissures add ~8 KB of lazy code
 // on main badbd8c7c9 (9,809,131 B with the production env). Owner approved
 // 9.825 MB. The startup gzip, per-chunk and asset gates stay fixed.
 const TOTAL_JS_CSS_FAIL_BYTES = 9_825_000;
@@ -1374,8 +1380,14 @@ try {
 if (budgetedJsCssTotal > TOTAL_JS_CSS_WARN_BYTES) {
     console.warn(`[sizecheck] WARN budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (all emitted: ${fmt(jsCssTotal)}).`);
 }
-if (budgetedJsCssTotal > TOTAL_JS_CSS_FAIL_BYTES) {
-    failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(TOTAL_JS_CSS_FAIL_BYTES)} (${TOTAL_JS_CSS_FAIL_BYTES} B)`);
+// 2026-11-03 CHRONICLE EXPANSION: 32 card definitions, art paths, and the two
+// new effects bring the built product total to 9,812,645 B. Allow the measured
+// ~12.3 KB feature growth with the existing margin. The initial graph is
+// 396,681 B gzip against its 399,000 B ceiling.
+const CHRONICLE_JS_CSS_FAIL_BYTES = 9_822_500;
+const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES);
+if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
+    failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);
 }
 
 if (failures.length) {

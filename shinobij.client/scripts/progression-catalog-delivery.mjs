@@ -12,6 +12,8 @@ export function progressionCatalogDelivery() {
             if (file.endsWith('/shared/pet-ability-progression.ts')) return { code: packStaticCatalogLiteral(source, 'SPECIES_ABILITIES'), map: null };
             if (file.endsWith('/shared/pet-tactics-catalog.ts')) return { code: packStaticCatalogLiteral(source, 'PET_TACTICS_IDENTITIES'), map: null };
             if (file.endsWith('/shared/chronicle-painted-art.ts')) return { code: packStaticCatalogLiteral(packStaticCatalogLiteral(source, 'CHRONICLE_PAINTED_ART'), 'CHRONICLE_PAINTED_FIGURES'), map: null };
+            // Keep the expansion's repeated stat fields out of the runtime budget.
+            if (file.endsWith('/shared/chronicle-expansion-monsters.ts')) return { code: packStaticCatalogLiteral(source, 'CHRONICLE_COMMON_EXPANSION'), map: null };
             if (file.endsWith('/shared/tile-cards.ts')) return { code: packStaticCatalogLiteral(source, 'shinobiTileCards'), map: null };
             if (file.endsWith('/shared/chronicle-duel.ts')) return { code: packStaticCatalogLiteral(source, 'REVIEWED_MONSTER_EFFECTS'), map: null };
             if (file.endsWith('/src/data/story-reckonings.ts')) return { code: packStaticCatalogLiteral(source, 'storyReckonings'), map: null };

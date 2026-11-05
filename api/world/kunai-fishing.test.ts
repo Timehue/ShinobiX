@@ -22,7 +22,7 @@ test('a visible kunai hit secures one sealed reward and survives retries without
     assert.equal(resolveResourceAttempt(admitted, seal.id, { events: [shot] }, player, end - 1250, seal).ok, false);
     const result = resolveResourceAttempt(admitted, seal.id, { events: [shot] }, player, end, seal);
     assert.ok(result.ok); if (!result.ok) return;
-    assert.equal(result.receipt.outcome, 'success'); assert.equal(result.receipt.xp, 10);
+    assert.equal(result.receipt.outcome, 'success'); assert.equal(result.receipt.xp, 5);
     assert.equal(countOwned(result.character, 'gather-river-fish-fine'), 1);
     assert.equal(resourceActionsToday(result.character, now), 1);
     assert.equal((result.character.gatheringToolUses as Record<string, number>)['tool-basic-fishing-pole'], 1);
@@ -33,7 +33,7 @@ test('a visible kunai hit secures one sealed reward and survives retries without
 test('timeout yields failure XP only; animation mode keeps baseline chance; old sealed casts remain compatible', () => {
     const active = mintResourceSeal(character, node, 'kunai-timeout', 'active', player, now);
     const timeout = resolveResourceAttempt(admitResourceAttempt(character, active, now)!, active.id, { events: [] }, player, now + 18_001, active);
-    assert.ok(timeout.ok); if (timeout.ok) { assert.equal(timeout.receipt.outcome, 'failed'); assert.equal(timeout.receipt.xp, 3); assert.equal(timeout.receipt.itemId, undefined); }
+    assert.ok(timeout.ok); if (timeout.ok) { assert.equal(timeout.receipt.outcome, 'failed'); assert.equal(timeout.receipt.xp, 1); assert.equal(timeout.receipt.itemId, undefined); }
     const relaxed = { ...mintResourceSeal(character, node, 'kunai-animation', 'relaxed', player, now), successDraw: .999 };
     const watched = resolveResourceAttempt(admitResourceAttempt(character, relaxed, now)!, relaxed.id, {}, player, now + 3000, relaxed);
     assert.ok(watched.ok); if (watched.ok) assert.equal(watched.receipt.outcome, 'failed');
@@ -54,7 +54,7 @@ test('an over-level fish grants failure XP only, uses the sealed skill and settl
     const changed = { ...admitted, resourceGathering: { ...admitted.resourceGathering, fishingXp: 3200, active: { ...admitted.resourceGathering.active, skillLevel: 10 } } };
     const result = resolveResourceAttempt(changed, seal.id, { events: [shot] }, player, now + shot.at + kunaiFlightMs(shot) + 1251, seal);
     assert.ok(result.ok); if (!result.ok) return;
-    assert.equal(result.receipt.outcome, 'failed'); assert.equal(result.receipt.itemId, undefined); assert.equal(result.receipt.xp, 3);
+    assert.equal(result.receipt.outcome, 'failed'); assert.equal(result.receipt.itemId, undefined); assert.equal(result.receipt.xp, 1);
     assert.deepEqual(result.receipt.fishingCatch, { name: 'Bronze Carp', requiredLevel: 4, fisherLevel: 1, tooStrong: true });
     assert.equal(resourceActionsToday(result.character, now), 1);
     assert.equal((result.character.gatheringToolUses as Record<string, number>)['tool-basic-fishing-pole'], 1);

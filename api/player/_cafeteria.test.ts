@@ -63,7 +63,7 @@ describe('_cafeteria', () => {
 describe('_cafeteria - Village Stores cook recipes', () => {
     const NOW = Date.UTC(2026, 7, 22, 12, 0, 0);
     it('field rations consume meat, herbs, fuel and ryo for five stacked rations', () => {
-        const r = applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 1 }, { itemId: 'gather-heartwood-bark', count: 1 }] }, cookRecipe('field-rations')!, NOW);
+        const r = applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 1 }, { itemId: 'gather-heartwood-bark', count: 2 }] }, cookRecipe('field-rations')!, NOW);
         assert.equal(r.ok, true);
         if (!r.ok) return;
         assert.equal(r.cooked, 5);
@@ -75,7 +75,7 @@ describe('_cafeteria - Village Stores cook recipes', () => {
         assert.equal(r.character.rationsCookedToday, 5);
     });
     it('campaign rations preserve four cuts of meat (80 ryo -> 20), never pelts or scales', () => {
-        const r = applyCookRecipe({ ryo: 80, inventory: ['hunt-beast-meat'], itemStacks: [{ itemId: 'hunt-beast-meat', count: 3 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 2 }] }, cookRecipe('campaign-rations')!, NOW);
+        const r = applyCookRecipe({ ryo: 80, inventory: ['hunt-beast-meat'], itemStacks: [{ itemId: 'hunt-beast-meat', count: 3 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 3 }] }, cookRecipe('campaign-rations')!, NOW);
         assert.equal(r.ok, true);
         if (!r.ok) return;
         assert.equal(r.materialUsed, 'hunt-beast-meat');
@@ -92,7 +92,7 @@ describe('_cafeteria - Village Stores cook recipes', () => {
         assert.equal(poor.ok, false);
         const bare = applyCookRecipe({ ryo: 999 }, cookRecipe('field-rations')!, NOW);
         assert.equal(bare.ok, false);
-        const newDay = applyCookRecipe({ ryo: 999, inventory: Array(4).fill('hunt-beast-meat'), itemStacks: [{ itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 2 }], rationsCookedDate: '2026-08-21', rationsCookedToday: 40 }, cookRecipe('campaign-rations')!, NOW);
+        const newDay = applyCookRecipe({ ryo: 999, inventory: Array(4).fill('hunt-beast-meat'), itemStacks: [{ itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 3 }], rationsCookedDate: '2026-08-21', rationsCookedToday: 40 }, cookRecipe('campaign-rations')!, NOW);
         assert.equal(newDay.ok, true);
         assert.equal(cookRecipe('bogus'), null);
     });
@@ -100,7 +100,7 @@ describe('_cafeteria - Village Stores cook recipes', () => {
         const base = { ryo: 80, itemStacks: [{ itemId: 'hunt-beast-meat', count: 4 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 1 }] };
         const before = structuredClone(base);
         const result = applyCookRecipe(base, cookRecipe('campaign-rations')!, NOW);
-        assert.deepEqual(result, { ok: false, error: 'Campaign Rations needs 2 Heartwood Bark for cooking fuel (Ember Ore or Ember Scale also burn).', dailyCooked: 0, dailyCap: 40 });
+        assert.deepEqual(result, { ok: false, error: 'Campaign Rations needs 3 Heartwood Bark for cooking fuel (Ember Ore or Ember Scale also burn).', dailyCooked: 0, dailyCap: 40 });
         assert.deepEqual(base, before);
     });
     it('Ember Ore and Ember Scale burn as fuel 1:1, after the bark is spent (item-use pass)', () => {
@@ -113,10 +113,10 @@ describe('_cafeteria - Village Stores cook recipes', () => {
         if (!result.ok) return;
         const left = (id: string) => (result.character.itemStacks as Array<{ itemId: string; count: number }>).find(s => s.itemId === id)?.count ?? 0;
         assert.equal(left('gather-heartwood-bark'), 0, 'bark burns first');
-        assert.equal(left('gather-ember-ore'), 2, 'then one Ember Ore covers the second unit');
+        assert.equal(left('gather-ember-ore'), 1, 'then two Ember Ore cover the remaining fuel');
         assert.equal(left('hunt-ember-scale'), 2, 'Ember Scale is untouched while ore remains');
-        const scalesOnly = applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 1 }, { itemId: 'hunt-ember-scale', count: 1 }] }, cookRecipe('field-rations')!, NOW);
-        assert.equal(scalesOnly.ok, true, 'an Ember Scale alone fuels a batch');
+        const scalesOnly = applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 1 }, { itemId: 'hunt-ember-scale', count: 2 }] }, cookRecipe('field-rations')!, NOW);
+        assert.equal(scalesOnly.ok, true, 'two Ember Scales fuel a batch');
         // Ash Scale is not fuel, so a pile of it still cooks nothing.
         assert.equal(applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 1 }, { itemId: 'hunt-ash-scale', count: 9 }] }, cookRecipe('field-rations')!, NOW).ok, false);
     });

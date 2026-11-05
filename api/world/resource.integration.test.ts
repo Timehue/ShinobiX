@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { before, beforeEach, test } from 'node:test';
 import { resourceNode, RETIRED_RESOURCE_NODE_IDS } from '../../shared/resource-nodes.js';
-import { readResourceGathering, resourceActionsToday } from '../../shared/resource-gathering.js';
+import { readResourceGathering, resourceActionsToday, resourceAttemptsToday, exploreActionsToday } from '../../shared/resource-gathering.js';
 import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing.js';
 import { countOwned } from '../craft/_forge.js';
 import { sectorPoolKey, cleanSectorPoolRow } from './_sector-pool.js';
@@ -194,7 +194,7 @@ test('two players racing for one node admit exactly one and expose its gatherer'
     const results = await Promise.all(['nodealice', 'nodebob'].map(name => post(name, {
         action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: `shared-race-${name}-001`,
     })));
-    assert.equal(results.filter(result => result.status === 200).length, 1);
+    assert.equal(results.filter(result => result.status === 200).length, 1, JSON.stringify(results));
     assert.equal(results.filter(result => result.status === 409).length, 1);
     const winner = results[0].status === 200 ? 'nodealice' : 'nodebob';
     const loser = winner === 'nodealice' ? 'nodebob' : 'nodealice';
@@ -278,6 +278,37 @@ async function post(name: string, body: Json, auth = true, target = handler) {
 beforeEach(async () => {
     for (const key of await kv.keys('world:resource-node:*')) await kv.del(key);
 });
+
+for (const activity of ['mining', 'fishing'] as const) {
+    test(`concurrent ${activity} starts spend the final allowance and sector slot exactly once`, async (t) => {
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+        const { RESOURCE_NODES } = await import('../../shared/resource-nodes.js');
+        const node = RESOURCE_NODES.find(candidate => candidate.activity === activity && candidate.difficulty === 1)!;
+        const name = `lastslot${activity}`, day = new Date().toISOString().slice(0, 10);
+        await seed(name, { serverExploreDate: day, serverExploresToday: 100,
+            equipment: { pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole' },
+            resourceGathering: { date: day, [`${activity}AttemptsToday`]: 49 } });
+        online.remove(name);
+        online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
+        const key = sectorPoolKey(node.sector, Date.now());
+        const poolBefore = cleanSectorPoolRow(await kv.get(key)).explores;
+        const results = await Promise.all(['first', 'second'].map(suffix => post(name, {
+            action: 'start', nodeId: node.id, mode: 'relaxed', requestId: `lastslot-${activity}-${suffix}`,
+        })));
+        assert.equal(results.filter(result => result.status === 200).length, 1, JSON.stringify(results));
+        assert.equal(results.filter(result => result.status === 409).length, 1);
+        const stored = (await kv.get<Json>(`save:${name}`))!.character as Json;
+        assert.equal(resourceAttemptsToday(stored, activity), 50);
+        assert.equal(exploreActionsToday(stored), 100);
+        assert.equal(cleanSectorPoolRow(await kv.get(key)).explores, poolBefore + 1);
+        const active = readResourceGathering(stored.resourceGathering).active!;
+        assert.equal((await post(name, { action: 'cancel', requestId: active.id })).status, 200);
+        const rejected = await post(name, { action: 'start', nodeId: node.id, mode: 'relaxed', requestId: `lastslot-${activity}-third` });
+        assert.equal(rejected.status, 409);
+        assert.match(String(rejected.body.error), /50/);
+        assert.equal(cleanSectorPoolRow(await kv.get(key)).explores, poolBefore + 1);
+    });
+}
 async function seed(name: string, patch: Json = {}) {
     const node = resourceNode('resource-17')!;
     const character = { name, level: 100, hp: 100, maxHp: 100, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
@@ -321,6 +352,7 @@ test('all retired building and ruin sites reject new starts without spending res
         await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe' }, gatheringToolUses: { 'tool-basic-pickaxe': 0 } });
         const key = `save:${name}`, saved = (await kv.get<Json>(key))!;
         await kv.set(key, { ...saved, currentSector: node.sector });
+        online.remove(name);
         online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
         online.startTravel(name, node.sector, Date.now(), 29, node.approach);
         const poolKey = sectorPoolKey(node.sector, Date.now());
@@ -375,7 +407,7 @@ for (const activity of ['mining', 'fishing'] as const) {
             }
             const settlement = await post(name, { action: 'resolve', requestId: id }); assert.equal(settlement.status, 200);
             const settled = settlement.body.character as Json, receipt = settlement.body.receipt as Json;
-            assert.equal(receipt.xp, interruption === 'heartbeat' ? 10 : 0);
+            assert.equal(receipt.xp, interruption === 'heartbeat' ? 5 : 0);
             assert.equal(resourceActionsToday(settled), 1);
             assert.equal(readResourceGathering(settled.resourceGathering).nodes[node.id].attempts, 1);
             assert.equal((settled.gatheringToolUses as Json)[activity === 'mining' ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole'], 1);
@@ -388,26 +420,31 @@ for (const activity of ['mining', 'fishing'] as const) {
         });
     }
 }
-test('authenticated mixed action #100 admits once, shares one pool slot and refuses #101', async (t) => {
-    // The seeded serverExploreDate comes from a no-argument `new Date()`, and the
-    // handler counts today's actions from its own Date.now(). A run that straddles
-    // UTC midnight would reset that count, so #101 would be admitted. Freeze Date
-    // (Date.now and new Date alike) for the whole check.
+test('authenticated mining attempt #50 admits once at 100 explores and refuses #51', async (t) => {
+    // Freeze both clocks so a UTC rollover cannot reopen the mining allowance
+    // between admission, replay and the refused fifty-first attempt.
     t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
-    const name = 'resourcehundred'; await seed(name, { serverExploreDate: new Date().toISOString().slice(0, 10), serverExploresToday: 99 });
+    const name = 'resourcehundred'; await seed(name, { serverExploreDate: new Date().toISOString().slice(0, 10), serverExploresToday: 100, resourceGathering: { date: new Date().toISOString().slice(0, 10), miningAttemptsToday: 49 } });
     const body = { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: 'resource-shared-hundred-001' };
     assert.equal((await post(name, body, false)).status, 401);
     const attempts = await Promise.all([post(name, body), post(name, body)]);
     assert.ok(attempts.some(result => result.status === 200));
     const replay = await post(name, body); assert.equal(replay.status, 200);
     const char = replay.body.character as Json;
-    assert.equal(resourceActionsToday(char), 100); assert.equal(readResourceGathering(char.resourceGathering).nodes['resource-17'].attempts, 1);
+    assert.equal(resourceAttemptsToday(char, 'mining'), 50); assert.equal(resourceAttemptsToday(char, 'fishing'), 0); assert.equal(exploreActionsToday(char), 100); assert.equal(readResourceGathering(char.resourceGathering).nodes['resource-17'].attempts, 1);
     const cancel = await post(name, { action: 'cancel', requestId: body.requestId }); assert.equal(cancel.status, 200);
     assert.equal((await post(name, { ...body, requestId: 'resource-shared-hundred-002' })).status, 409);
     assert.equal((await post(name, { ...body, nodeId: 'resource-18' })).status, 409);
 });
-test('server-owned outcome ignores forged amounts and replay never credits twice', async () => {
+test('server-owned outcome ignores forged amounts and replay never credits twice', async (t) => {
+    const previousLegacySetting = process.env.ENABLE_LEGACY;
+    process.env.ENABLE_LEGACY = '1';
+    t.after(() => {
+        if (previousLegacySetting === undefined) delete process.env.ENABLE_LEGACY;
+        else process.env.ENABLE_LEGACY = previousLegacySetting;
+    });
     const name = 'resourcereward'; await seed(name);
+    await kv.set(`legacy:stats:${name}`, { bootstrappedAt: Date.now(), gatheringClaims: 0 });
     const id = 'resource-reward-attempt-001';
     const start = await post(name, { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: id }); assert.equal(start.status, 200);
     // Trusted fixture advances the admitted timeline and fixes the random draw;
@@ -426,19 +463,26 @@ test('server-owned outcome ignores forged amounts and replay never credits twice
         seal: { ...(sealedJournal.meta.seal as Json), startedAt, successDraw: 0, qualityDraw: .999 } } });
     const forged = { action: 'resolve', requestId: id,nodeId:'resource-0', success: true, grade: 3, amount: 999, itemId: 'tool-golden-pickaxe' };
     const result = await post(name, forged); assert.equal(result.status, 200);
+    assert.equal((await kv.get<Json>(`legacy:stats:${name}`))?.gatheringClaims, 1);
+    assert.equal(resourceAttemptsToday(result.body.character as Json, 'mining'), 1);
+    assert.equal(readResourceGathering((result.body.character as Json).resourceGathering).miningXp, 5);
     const {readHarvestGround,harvestGroundKey}=await import('./_harvest-ground.js');
     const ground=await readHarvestGround(resourceNode('resource-17')!.sector);assert(ground.length>0,'the real mined seam leaves worked ground');
     const groundRow=await kv.get(harvestGroundKey(resourceNode('resource-17')!.sector));
     assert.equal(countOwned(result.body.character as Json, 'gather-iron-sand'), 1);
     assert.equal(countOwned(result.body.character as Json, 'gather-iron-sand-pristine'), 0);
     const replay = await post(name, forged); assert.equal(replay.status, 200); assert.equal(replay.body.replayed, true);
+    assert.equal((await kv.get<Json>(`legacy:stats:${name}`))?.gatheringClaims, 1, 'replay cannot duplicate legacy credit');
     assert.deepEqual(await kv.get(harvestGroundKey(resourceNode('resource-17')!.sector)),groundRow,'replay cannot refresh the mined ground');
     assert.equal(countOwned(replay.body.character as Json, 'gather-iron-sand'), 1);
     const persisted = (await kv.get<Json>(`save:${name}`))!.character as Json;
     assert.equal(readResourceGathering(persisted.resourceGathering).active, undefined, 'settlement must clear the stored attempt');
     const nextId = 'resource-reward-attempt-002';
     assert.equal((await post(name, { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: nextId })).status, 200);
-    assert.equal((await post(name, { action: 'cancel', requestId: nextId })).status, 200);
+    const cancelled = await post(name, { action: 'cancel', requestId: nextId }); assert.equal(cancelled.status, 200);
+    assert.equal((await kv.get<Json>(`legacy:stats:${name}`))?.gatheringClaims, 1, 'cancellation grants no legacy credit');
+    assert.equal(resourceAttemptsToday(cancelled.body.character as Json, 'mining'), 2);
+    assert.equal(readResourceGathering((cancelled.body.character as Json).resourceGathering).miningXp, 5);
     assert.equal(readResourceGathering(((await kv.get<Json>(`save:${name}`))!.character as Json).resourceGathering).active, undefined);
     const journals = await kv.keys('economy-tx:resource-gathering:*');
     const journal = (await Promise.all(journals.map(key => kv.get<{ id: string; meta: Json }>(key)))).find(tx => tx?.meta.playerName === name)!;
@@ -545,7 +589,7 @@ for (const challenge of [
         assert.equal(receipt.outcome, challenge.blocked ? 'failed' : 'success');
         assert.deepEqual(receipt.fishingCatch, { name: challenge.species, requiredLevel: challenge.requirement,
             fisherLevel: challenge.level, tooStrong: challenge.blocked });
-        assert.equal(receipt.xp, challenge.blocked ? 3 : 10);
+        assert.equal(receipt.xp, challenge.blocked ? 1 : 5);
         assert.equal(state.fishingXp, challenge.xp + receipt.xp); assert.equal(state.active, undefined);
         assert.equal(resourceActionsToday(character), 1); assert.equal(state.nodes[node.id].attempts, 1);
         assert.equal((character.gatheringToolUses as Json)['tool-basic-fishing-pole'], 50);

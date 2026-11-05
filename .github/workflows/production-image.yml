@@ -32,6 +32,15 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Docker excludes docs; avoid filling the runner with review evidence
+          # before the image build can start.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
 
       - name: Build the Railway production image
         env:

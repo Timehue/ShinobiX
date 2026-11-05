@@ -48,7 +48,7 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
     const gatherDepleted = sectorGatherLineFor(props.gathering)?.depleted === true;
     const dailyActions = props.dailyExplores;
     const dailyCapped = (dailyActions ?? 0) >= 100;
-    const dailyLabel = dailyActions !== undefined ? `Explore, fishing and mining: ${dailyActions}/100 shared daily actions${dailyCapped ? ' · Resets at midnight UTC' : ''}` : undefined;
+    const dailyLabel = dailyActions !== undefined ? `Explores: ${dailyActions}/100 daily explores${dailyCapped ? ' · Resets at midnight UTC' : ''}` : undefined;
     const close = (restore = false, touch = false) => {
         if (touch) consumeTouchClick();
         setSheet(null);
@@ -69,7 +69,7 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
                     aria-label={gatherDepleted ? 'Find richer ground' : 'Explore'}
                     aria-description={dailyLabel}
                     disabled={!gatherDepleted && (!present || dailyCapped || props.exploreBusy)} onClick={gatherDepleted ? onFindRicherGround : onExplore}>
-                    <span>{gatherDepleted ? 'Find richer ground' : dailyActions !== undefined ? `Explore · Shared ${dailyActions}/100` : 'Explore'}</span>
+                    <span>{gatherDepleted ? 'Find richer ground' : dailyActions !== undefined ? `Explore · ${dailyActions}/100` : 'Explore'}</span>
                     <small aria-hidden="true">{gatherDepleted ? 'Follow a richer trail' : dailyCapped ? 'Daily limit reached' : props.exploreBusy ? 'Exploring…' : 'Search this sector'}</small></button>
                 <button type="button" ref={triggerRef} className={`sector-hud-info${open ? ' is-open' : ''}`}
                     aria-label={`Sector info${props.contract?.claimable ? ' · Claim ready' : ''}`}

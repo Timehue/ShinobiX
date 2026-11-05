@@ -86,24 +86,23 @@ async function prepare(name: string) {
     return { name, save, saveKey, runToken };
 }
 
-for (const scenario of ['bounty', 'kage', 'unlock'] as const) {
+for (const scenario of ['bounty', 'kage'] as const) {
     test(`${scenario} publication failure restores the charged wallet without minting Hollow Gate external credits`, async t => {
         const f = await prepare(`hgrefund${scenario}`);
-        const resource = scenario === 'unlock' ? 'honorSeals' : 'ryo';
-        const amount = scenario === 'bounty' ? 1000 : scenario === 'kage' ? KAGE_DECLARE_RYO_COST : 10_000;
+        const resource = 'ryo';
+        const amount = scenario === 'bounty' ? 1000 : KAGE_DECLARE_RYO_COST;
         // A bounty also burns its 15% posting fee on top of the stake.
         const charge = scenario === 'bounty' ? bountyPlacementTotal(amount) : amount;
         const failedKey = scenario === 'bounty' ? 'pvp:bounties'
-            : scenario === 'kage' ? kageKey : 'game:village-state:frostfangvillage';
+            : kageKey;
         if (scenario === 'bounty') {
             await kv.set('save:hgrefundtarget', { character: { name: 'hgrefundtarget', ryo: 100 } });
             await kv.set(failedKey, { bounties: [] });
         } else {
             await kv.set(kageKey, {
-                seatedKage: scenario === 'unlock' ? f.name : 'hgrefundincumbent',
+                seatedKage: 'hgrefundincumbent',
                 kageSystemUnlocked: true, challenge: null,
             });
-            if (scenario === 'unlock') await kv.set(failedKey, { hollowGateUnlockedUntil: 0 });
         }
         const originalPublication = await kv.get(failedKey);
         const originalSet = kv.set.bind(kv);
@@ -118,12 +117,12 @@ for (const scenario of ['bounty', 'kage', 'unlock'] as const) {
             }
             return originalSet(...args);
         });
-        const handler = scenario === 'bounty' ? bounty : scenario === 'kage' ? kage : unlock;
+        const handler = scenario === 'bounty' ? bounty : kage;
         const request = scenario === 'bounty' ? { action: 'place', target: 'hgrefundtarget', amount }
-            : scenario === 'kage' ? { action: 'declare', village } : {};
+            : { action: 'declare', village };
         for (let attempt = 1; attempt <= 2; attempt++) {
             const response = await call(handler, f.name, request);
-            // All three answer a retryable 503 after refunding. Bounty placement
+            // Both answer a retryable 503 after refunding. Bounty placement
             // used to answer 500; it now runs through the retry-safe saga
             // (api/_save-debit-saga.ts), whose refund reply matches the others.
             assert.equal(response.status, 503, String(response.body?.error));

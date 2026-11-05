@@ -6,6 +6,7 @@ import type { Character, PlayerRecord } from '../../types/character';
 import type { SoloPveSession } from '../../lib/solo-pve-api';
 import { computeHollowGateVisible } from '../../lib/hollow-gate-visibility';
 import { findHollowGatePath } from '../../lib/hollow-gate-path';
+import { MOVEMENT_KEYS, useHeldMovementKey } from '../../lib/held-movement-keys';
 import { buildVaultInterior } from './vault-interior';
 import { strongholdRequest, type StrongholdResponse } from './stronghold-api';
 import { StrongholdDialog } from './StrongholdDialog';
@@ -110,12 +111,16 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     const lifetime = useRef<{ controller: AbortController; presenceId: string } | null>(null);
     const actionPending = useRef(false);
     const path = useRef<number[]>([]);
-    const walkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Only ever cleared or replaced; clearing a fired timer is a no-op.
+    const walkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
     // Deliberate inputs that arrived while a step was in flight or gliding (a
     // fresh key press, a D-pad tap, a tile click). They run in order, one glide
     // apart. Held-key repeats are never queued, so letting go cannot add a step;
     // a tile click replaces the queue, since it names a destination.
     const queued = useRef<Array<{ dx: number; dy: number } | { tile: number }>>([]);
+    // Physically held movement keys. A held key keeps walking from the first
+    // press, one glide apart, instead of waiting out the OS key repeat's delay.
+    const held = useHeldMovementKey();
     const lastStepAt = useRef(Number.NEGATIVE_INFINITY);
     const lastStepReplyAt = useRef(Number.NEGATIVE_INFINITY);
     const movementBlocked = blocked || !!state?.combatBlocked || overview || !!pending || playersOpen || intelOpen || !!selectedPeer || !!error || !!actionError;
@@ -177,8 +182,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     function stopWalk() {
         path.current = [];
         queued.current = [];
-        if (walkTimer.current) clearTimeout(walkTimer.current);
-        walkTimer.current = null;
+        clearTimeout(walkTimer.current);
     }
     function showStep(visit: StrongholdVisit | null) {
         predictedRef.current = visit;
@@ -276,19 +280,20 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     }
     /**
      * Once the last step's glide has ended, run the next queued input, else
-     * the next tile of a walked path. Nothing is taken from the queue until it
-     * runs, so rescheduling this never loses an input.
+     * the next tile of a walked path, else a step toward the key still held.
+     * Nothing is taken from the queue until it runs, so rescheduling this
+     * never loses an input.
      */
     function continueWalk() {
-        if (!queued.current.length && !path.current.length) return;
-        if (walkTimer.current) clearTimeout(walkTimer.current);
+        if (!queued.current.length && !path.current.length && !held.current) return;
+        clearTimeout(walkTimer.current);
         walkTimer.current = setTimeout(() => {
-            walkTimer.current = null;
             if (!alive.current) return;
             const input = queued.current.shift();
-            if (!input) void pump();
-            else if ('tile' in input) startWalk(input.tile);
-            else void stepToward(input.dx, input.dy);
+            const hold = held.current && MOVEMENT_KEYS[held.current];
+            if (input) { if ('tile' in input) startWalk(input.tile); else void stepToward(input.dx, input.dy); }
+            else if (path.current.length || !hold) void pump();
+            else void stepToward(hold[0], hold[1]);
         }, Math.max(0, STEP_MS - (performance.now() - lastStepAt.current)));
     }
     async function pump() {
@@ -334,13 +339,17 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     }
     useEffect(() => {
         const key = (event: KeyboardEvent) => {
-            if (document.hidden) return;
+            // A hidden page receives no key events, and step() checks document.hidden itself.
             const element = event.target as HTMLElement;
             if (element?.closest('input, textarea, select, dialog, [contenteditable="true"]') || event.ctrlKey || event.metaKey || event.altKey) return;
-            const delta = ({ arrowup: [0, -1], arrowdown: [0, 1], arrowleft: [-1, 0], arrowright: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] } as Record<string, number[]>)[event.key.toLowerCase()];
-            // The controller layer re-sends a held stick as synthetic presses
-            // (lib/gamepad-navigation.ts), which are a held key's repeats.
-            if (delta) { event.preventDefault(); direction(delta[0], delta[1], event.repeat || !event.isTrusted); }
+            const k = event.key.toLowerCase(), delta = MOVEMENT_KEYS[k];
+            if (!delta) return;
+            event.preventDefault();
+            // A real key's OS repeats add nothing: continueWalk walks it while it
+            // is held. The controller layer re-sends a held stick as synthetic
+            // presses (lib/gamepad-navigation.ts), which stay paced repeats.
+            if (event.isTrusted) { if (event.repeat) return; held.current = k; }
+            direction(delta[0], delta[1], !event.isTrusted);
         };
         window.addEventListener('keydown', key);
         return () => window.removeEventListener('keydown', key);
@@ -355,6 +364,8 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         walkToRef.current(Number(event.currentTarget.dataset.tile));
     }, []);
     const anbuCaption = targetVillage === character.village ? 'Village vault · Protected' : (character.level ?? 0) < ANBU_RAID_MIN_LEVEL ? `Treasury raid · Level ${ANBU_RAID_MIN_LEVEL}` : 'Vault defender · Challenge to raid';
+    // A held key needs no clearing here: the window keyup still releases it
+    // while a dialog is open, and a hidden tab blurs the window.
     useEffect(() => { if (movementBlocked || overview) stopWalk(); }, [movementBlocked, overview]);
     useEffect(() => {
         const onVisibility = () => { if (document.hidden) stopWalk(); };

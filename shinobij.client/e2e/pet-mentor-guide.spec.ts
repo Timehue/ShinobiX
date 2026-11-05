@@ -4,6 +4,7 @@ import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_TUTORIAL_LESSON_IDS } from "../../shared/pet-tutorial";
 import { worldPositionModel } from "../../shared/continuous-world-layout";
 import { visibleViewport } from "./helpers/visible-viewport";
+import { gotoSettled, reloadSettled } from './helpers/network-settle';
 
 /**
  * Assert an <img> ships full-resolution art, waiting for it to actually decode.
@@ -321,8 +322,8 @@ test("the field lesson notice collapses without activating Study or moving the c
     await installApi(page, 1);
     // This test targets Tomoe's controls; keep unrelated level-milestone whispers already heard.
     await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:petmentorqa', JSON.stringify([10, 20, 30, 40, 45])));
-    await page.goto('/#/worldMap', { waitUntil: 'networkidle' });
-    await page.reload({ waitUntil: 'networkidle' });
+    await gotoSettled(page, '/#/worldMap');
+    await reloadSettled(page);
     const action = page.getByRole('button', { name: /Tamer Tomoe & Kuro/ });
     const banner = page.locator('.pet-mentor-road-prompt');
     const canvas = page.locator('.continuous-world-map > canvas');

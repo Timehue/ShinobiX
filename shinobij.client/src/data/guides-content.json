@@ -726,7 +726,7 @@
     "blurb": "Walking, exploration, gathering, road encounters, contracts, changing weather, and shared world events.",
     "audience": "All shinobi",
     "readMinutes": 5,
-    "reviewedAt": "October 2026",
+    "reviewedAt": "November 2026",
     "hero": "world",
     "heroAlt": "A lone shinobi looking across connected mountain roads, villages, and a distant storm.",
     "heroPosition": "center 52%",
@@ -747,7 +747,7 @@
     ],
     "quickTake": [
       "The map has 66 ordinary sectors plus special destinations. Follow connected roads and learn the places you use most.",
-      "Explore, Fishing, and Mining share 100 actions per UTC day. A sector's shared exploration pool is a separate limit.",
+      "Separate daily allowances give you 100 explores, 50 Mining attempts, and 50 Fishing attempts per UTC day. A sector's shared exploration pool is a separate limit.",
       "The world completes a day every two real hours. Night work follows that clock, while daily allowances reset at midnight UTC."
     ],
     "relatedGuideIds": [
@@ -787,7 +787,7 @@
           },
           {
             "type": "p",
-            "text": "Your personal allowance is 100 actions per UTC day across Explore, Fishing, and Mining. Check the remaining count before committing to a contract or gathering trip. Moving to a fresh sector only helps while you still have personal actions left."
+            "text": "Your personal allowances are 100 explores, 50 Mining attempts, and 50 Fishing attempts per UTC day. They reset at midnight UTC. Check the corresponding count before committing to a contract or gathering trip. Moving to a fresh sector only helps while you still have allowance left for that activity."
           },
           {
             "type": "p",
@@ -1468,7 +1468,7 @@
     "blurb": "Profession ranks and Mastery, Fishing and Mining, gathering tools, material use, and everyday money decisions.",
     "audience": "All shinobi; professions at level 13",
     "readMinutes": 5,
-    "reviewedAt": "October 2026",
+    "reviewedAt": "November 2026",
     "hero": "professions",
     "heroAlt": "Three shinobi representing the Healer, Vanguard, and Pet Tamer professions.",
     "heroPosition": "center 42%",
@@ -1575,7 +1575,7 @@
           },
           {
             "type": "p",
-            "text": "A success awards 10 skill XP and a resource. A completed failure awards 3 XP. Each ordinary node allows three attempts before a ten-minute refill. Explore, Fishing, and Mining share 100 total actions per UTC day. Starting spends the action and one basic-tool use, even if you fail or abandon the attempt."
+            "text": "A success awards 5 skill XP and a resource. A completed failure awards 1 XP. Each ordinary node shares three attempts among players before a ten-minute refill. Mining and Fishing each have a separate daily allowance of 50 attempts, in addition to 100 explores. All three allowances reset at midnight UTC. Starting gathering spends one attempt and one basic-tool use, even if you fail, cancel, are interrupted, or let it expire. An attempt that does not start spends nothing. Unfinished attempts award no XP. World-event crystal seams use your Mining allowance."
           }
         ]
       },
