@@ -145,6 +145,10 @@ describe('player deletion', () => {
         ];
         for (const key of [...mine, ...theirs]) store.set(key, { v: key });
         store.set('dm:deleted-at:wanderer|kaze', 5);
+        // Login-name reservations: the account's own (current and renamed-away) go; another account's stay.
+        store.set('account-name:wanderer', 'wanderer');
+        store.set('account-name:old-wander', 'wanderer');
+        store.set('account-name:kazeling', 'kaze');
         const before = Date.now();
 
         const result = await detachPlayerReferences('wanderer');
@@ -156,6 +160,9 @@ describe('player deletion', () => {
             assert.ok(Number(store.get(`dm:deleted-at:wanderer|${partner}`)) >= before, `the ${partner} thread is hidden from a reused name`);
         }
         assert.equal(store.has('dm:deleted-at:wanderer2|zed'), false, 'a lookalike name is untouched');
+        assert.equal(store.has('account-name:wanderer'), false, 'the login name can be registered again');
+        assert.equal(store.has('account-name:old-wander'), false, 'so can a name the account renamed away from');
+        assert.equal(store.get('account-name:kazeling'), 'kaze', 'another account keeps its name');
         assert.deepEqual([...result.removed].filter((key) => mine.includes(key)).sort(), [...mine].sort());
         assert.deepEqual(result.failures, []);
     });

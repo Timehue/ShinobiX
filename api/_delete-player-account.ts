@@ -210,6 +210,32 @@ async function releasePlayerImages(slug: string, save: unknown, result: DeletePl
 }
 
 /**
+ * Free every login name the account reserved (`account-name:<name>` → slug,
+ * api/player/account-name.ts). Registration refuses a reserved name, so a
+ * deleted account used to lock its login name, and every name it renamed
+ * away from, out of registration forever. Same shape as the image-claim
+ * release: a keys-only scan, batched reads, and a compare-and-delete so a
+ * name another account holds is never touched. A freed reservation cannot
+ * sign anyone in: login also requires the committed save to carry the name,
+ * and the session epoch is rotated by the deletion.
+ */
+async function releaseAccountNames(slug: string, result: DeletePlayerAccountResult): Promise<void> {
+    try {
+        const keys = (await kv.keys('account-name:*')).filter((key) => key.startsWith('account-name:'));
+        for (let i = 0; i < keys.length; i += IMAGE_CLAIM_READ_CHUNK) {
+            const chunk = keys.slice(i, i + IMAGE_CLAIM_READ_CHUNK);
+            const owners = await kv.mget<unknown[]>(...chunk);
+            for (const [index, key] of chunk.entries()) {
+                if (typeof owners[index] !== 'string' || safeName(owners[index] as string) !== slug) continue;
+                if (await kv.delIfEqual(key, owners[index])) result.removed.push(key);
+            }
+        }
+    } catch (err) {
+        result.failures.push(`account-name:* reservations: ${(err as Error).message}`);
+    }
+}
+
+/**
  * Side-car rows the account owns outside `save:<slug>`, by exact key.
  *
  * Slugs are reusable, and each of these was read back by whoever registered
@@ -356,6 +382,7 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
         result.failures.push(`kage seat: ${(err as Error).message}`);
     }
     await detachFromModerationIndexes(slug, result);
+    await releaseAccountNames(slug, result);
     await releasePlayerImages(slug, save, result);
     await removePlayerOwnedSideRows(slug, result);
     return result;
