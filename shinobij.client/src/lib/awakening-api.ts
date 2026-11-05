@@ -5,8 +5,9 @@ export type AwakeningRollResult = {
     _saveVersion?: number;
 };
 
-export async function rollAwakeningServer(playerName: string, kind: string): Promise<AwakeningRollResult> {
-    const payload = { playerName, kind, actionId: `awaken_${Date.now().toString(36)}_${crypto.randomUUID().replaceAll('-', '')}` };
+/** `target` names the owned element a single reroll replaces; the server refuses one the player does not hold. */
+export async function rollAwakeningServer(playerName: string, kind: string, target?: string): Promise<AwakeningRollResult> {
+    const payload = { playerName, kind, ...(target ? { target } : {}), actionId: `awaken_${Date.now().toString(36)}_${crypto.randomUUID().replaceAll('-', '')}` };
     let message = 'Elemental awakening failed.';
     for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
