@@ -2690,7 +2690,11 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-frames.css",
-            "line": 279
+            "line": 281
+          },
+          {
+            "source": "shinobij.client/src/styles/jutsu-frames.css",
+            "line": 284
           },
           {
             "source": "shinobij.client/src/styles/logbook-career.css",
@@ -3189,7 +3193,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
-            "line": 500
+            "line": 503
           },
           {
             "source": "shinobij.client/src/styles/landing-home.css",
@@ -4313,6 +4317,14 @@
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
             "line": 480
+          },
+          {
+            "source": "shinobij.client/src/styles/jutsu-training-skin.css",
+            "line": 554
+          },
+          {
+            "source": "shinobij.client/src/styles/jutsu-training-skin.css",
+            "line": 564
           },
           {
             "source": "shinobij.client/src/styles/landing-home.css",
