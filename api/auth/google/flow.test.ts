@@ -120,6 +120,7 @@ before(async () => {
 });
 
 beforeEach(() => {
+    delete process.env.GOOGLE_SESSION_PROOF_PHASE;
     store.clear();
     beforeStoreSet = undefined;
     afterStoreGet = undefined;
@@ -131,6 +132,7 @@ beforeEach(() => {
 });
 
 after(() => {
+    delete process.env.GOOGLE_SESSION_PROOF_PHASE;
     delete process.env.SESSION_SECRET;
     delete process.env.GOOGLE_CLIENT_ID;
     delete process.env.GOOGLE_CLIENT_SECRET;
@@ -435,7 +437,8 @@ describe('google sign-in', () => {
             assert.equal(store.has('auth-google:110000000000000000001'), false, 'no identity is claimed until signup completes');
         });
 
-        it('resolves a Google account that already owns a shinobi', async () => {
+        for (const phase of ['prepare', 'issue', 'enforce', 'drain']) it(`resolves an existing Google owner with the ${phase} token format`, async () => {
+            process.env.GOOGLE_SESSION_PROOF_PHASE = phase;
             store.set('auth:kaze', { google: { sub: '110000000000000000001', email: 'x@y.test', linkedAt: 1 }, sessionEpoch: 0 });
             store.set('auth-google:110000000000000000001', { name: 'kaze' });
 
@@ -446,6 +449,7 @@ describe('google sign-in', () => {
             assert.equal(claimed.statusCode, 200);
             assert.equal(claimed.body?.name, 'kaze');
             assert.equal(await verifyPlayerToken(String(claimed.body?.token)), 'kaze');
+            assert.ok(String(claimed.body?.token).startsWith(phase === 'issue' || phase === 'enforce' ? 'v3.' : 'v2.'));
             assert.equal(claimed.body?.email, undefined, 'the email must never be echoed to the ticket holder');
         });
 
@@ -811,7 +815,8 @@ describe('google sign-in', () => {
             assert.equal(claimed.body?.token, undefined);
         });
 
-        it('a Google sign-in records when it happened, so the owner may then set a first password', async () => {
+        it('an enforced Google sign-in binds proof to the credential used to set a first password', async () => {
+            process.env.GOOGLE_SESSION_PROOF_PHASE = 'enforce';
             store.set('auth:kaze', { google: { sub: '110000000000000000001', linkedAt: 1 }, sessionEpoch: 0 });
             store.set('auth-google:110000000000000000001', { name: 'kaze' });
             const before = Date.now();
@@ -922,13 +927,15 @@ describe('google sign-in', () => {
             assert.equal(await verifyPlayerToken(String(claimed.body?.token)), 'kaze', 'the committed owner has a working login door');
         });
 
-        it('creates a passwordless account owned by the Google subject', async () => {
+        for (const phase of ['prepare', 'issue', 'enforce', 'drain']) it(`creates a Google account with the ${phase} token format`, async () => {
+            process.env.GOOGLE_SESSION_PROOF_PHASE = phase;
             const ticket = await signupTicketFor();
             const created = await call(playerAuthHandler, 'POST', {
                 body: { action: 'register-google', name: 'Kaze', signupTicket: ticket, nonce: NONCE },
             });
             assert.equal(created.statusCode, 200);
             assert.equal(await verifyPlayerToken(String(created.body?.token)), 'kaze');
+            assert.ok(String(created.body?.token).startsWith(phase === 'issue' || phase === 'enforce' ? 'v3.' : 'v2.'));
 
             const record = store.get('auth:kaze') as { hash?: string; google?: { sub: string } };
             assert.equal(record.hash, undefined, 'a Google account stores no password');

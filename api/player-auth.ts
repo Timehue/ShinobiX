@@ -6,6 +6,7 @@ import {
     issuePlayerToken,
     issueGooglePlayerToken,
     googlePlayerTokenAuthenticatedAt,
+    googleProofRolloutPhase,
     readPlayerSessionEpoch,
     rotatePlayerSessionEpoch,
     isFullAdmin,
@@ -1220,6 +1221,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // (and receive the recovery code), then unlink Google with
                     // it and lock the owner out for good. Guests without Google
                     // keep the token-only path: the token is all they have.
+                    if (record.google?.sub && googleProofRolloutPhase() !== 'enforce') {
+                        return res.status(503).json({
+                            ok: false,
+                            code: 'google-password-setup-paused',
+                            error: 'Setting a first password is temporarily unavailable. You can continue signing in with Google.',
+                        });
+                    }
                     if (record.google?.sub && !await googleSignInIsRecent(suppliedToken)) {
                         return res.status(409).json({
                             ok: false,

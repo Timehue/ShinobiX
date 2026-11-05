@@ -76,6 +76,7 @@ before(async () => {
 });
 
 beforeEach(() => {
+    process.env.GOOGLE_SESSION_PROOF_PHASE = 'enforce';
     store.clear();
     failNextAuthWrite = false;
     beforeStoreSet = undefined;
@@ -85,6 +86,7 @@ beforeEach(() => {
 });
 
 after(() => {
+    delete process.env.GOOGLE_SESSION_PROOF_PHASE;
     delete process.env.SESSION_SECRET;
     delete process.env.ADMIN_PASSWORD;
 });
@@ -301,6 +303,31 @@ describe('player auth hardening', () => {
             assert.equal(record.google?.sub, 'g-12345', 'setting a password must not unlink Google');
             assert.equal(await verifyPlayerToken(token), null, 'the epoch rotates, revoking the pre-change token');
         });
+
+        for (const phase of [undefined, 'prepare', 'issue', 'drain', 'typo']) {
+            it(`pauses Google first-password setup without mutation in phase ${phase ?? 'unset'}`, async () => {
+                const { issueGooglePlayerToken } = await import('./_auth.js');
+                const token = issueGooglePlayerToken('googleonly')!;
+                const record = { ...passwordless, google: { ...passwordless.google, lastAuthAt: Date.now() } };
+                store.set('auth:googleonly', record);
+                if (phase === undefined) delete process.env.GOOGLE_SESSION_PROOF_PHASE;
+                else process.env.GOOGLE_SESSION_PROOF_PHASE = phase;
+                const result = await post({ action: 'change', name: 'googleonly', newPassword: 'BrandNew1' },
+                    { 'x-player-token': token });
+                assert.equal(result.statusCode, 503, JSON.stringify(result.body));
+                assert.equal(result.body?.code, 'google-password-setup-paused');
+                assert.deepEqual(store.get('auth:googleonly'), record);
+                assert.equal(store.has('auth-session:googleonly'), false, 'no credential revocation on refusal');
+                assert.equal(await verifyPlayerToken(token), 'googleonly', 'normal play remains authenticated');
+                const { issuePlayerToken } = await import('./_auth.js');
+                store.set('auth:guestonly', { guest: true, createdAt: Date.now(), sessionEpoch: 0 });
+                const guestToken = issuePlayerToken('guestonly')!;
+                const guest = await post({ action: 'change', name: 'guestonly', newPassword: 'GuestPass1' },
+                    { 'x-player-token': guestToken });
+                assert.equal(guest.statusCode, 200, 'a guest without Google may still set their first password');
+                assert.equal(await verifyPlayerPassword('guestonly', 'GuestPass1'), true);
+            });
+        }
 
         it('a password account cannot be deleted with only its session token (2026-11-04)', async () => {
             const registered = await register('pwdelete', 'Original1');

@@ -96,6 +96,12 @@ const LEGACY_TOKEN_VERSION = 'v1';
 // silently re-mints from the stored password on the rare expiry-mid-session.
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** Unknown/unset configuration never activates issuance or password setup. */
+export function googleProofRolloutPhase(env: NodeJS.ProcessEnv = process.env): 'prepare' | 'issue' | 'enforce' | 'drain' {
+    const phase = env.GOOGLE_SESSION_PROOF_PHASE;
+    return phase === 'issue' || phase === 'enforce' || phase === 'drain' ? phase : 'prepare';
+}
+
 function sessionSecret(): string | null {
     const s = process.env.SESSION_SECRET;
     return s && s.length > 0 ? s : null;
@@ -190,6 +196,8 @@ export function issuePlayerToken(
 
 /** Only the completed Google claim/signup paths may mint this proof. */
 export function issueGooglePlayerToken(name: string, sessionEpoch = 0, authenticatedAt = Date.now()): string | null {
+    const phase = googleProofRolloutPhase();
+    if (phase === 'prepare' || phase === 'drain') return issuePlayerToken(name, undefined, sessionEpoch);
     const secret = sessionSecret();
     const canonical = safeName(name);
     if (!secret || !canonical || !Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0
@@ -330,7 +338,10 @@ export async function maybeRefreshPlayerToken(token: string): Promise<string | n
     const remainingMs = claims.expMs - Date.now();
     // Dead already, or still comfortably fresh — no refresh in either case.
     if (remainingMs <= 0) return null;
-    if (remainingMs > TOKEN_TTL_MS * REFRESH_AFTER_FRACTION) return null;
+    // Drain exchanges even fresh v3 sessions for old-compatible v2. Still verify
+    // expiry, signature and epoch below; this never renews Google proof.
+    const drainGoogleProof = googleProofRolloutPhase() === 'drain' && token.split('.')[0] === GOOGLE_TOKEN_VERSION;
+    if (!drainGoogleProof && remainingMs > TOKEN_TTL_MS * REFRESH_AFTER_FRACTION) return null;
     // Only now do the real work: full verification (HMAC + epoch read + ban-free
     // identity). This is the sole gate on issuing the replacement.
     const canonical = await verifyPlayerToken(token);
