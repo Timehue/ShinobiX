@@ -224,8 +224,9 @@ describe('ancient chest duplicates pay instead of vanishing', () => {
             if (isStackedChestGear(id)) { assert.equal(value, 0, `${id} stacks, so it is granted, never converted`); continue; }
             assert.equal(value, soldFor(id), `${id} pays its sale value`);
             // Exempt from "has a value": an item the shop will not buy, and a craft made
-            // only of gathered materials (Shuriken, Senbon), which the crafted-goods cap
-            // prices at 0 (shared/crafting-recipes.ts).
+            // only of gathered materials, which the crafted-goods cap prices at 0
+            // (shared/crafting-recipes.ts). Shuriken and Senbon are such crafts but sell
+            // anyway (CRAFTED_SALE_CAP_EXEMPT); they stack, so they never reach this line.
             if (id !== 'potion-rejuvenation' && craftedSaleCapRyo(id) !== 0) assert.ok(value > 0, `${id} has a sale value`);
         }
         assert.equal(chestDuplicateGearValue({ inventory: ['potion-rejuvenation'] }, 'potion-rejuvenation'), 0, 'the potion stacks, so it never converts');

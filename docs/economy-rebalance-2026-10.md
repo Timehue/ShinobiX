@@ -173,7 +173,11 @@ Shadow Pelt 176). The release audit still found L70+ hunts paying about 1.7 x A 
 material sales, so the owner cut the top three again (2026-10-23): Ancient Beast Core and
 Titan Bone sell for 200 (were 360) and Legendary Material for 240 (was 480). The lower
 tiers carry early-game hunt income and are unchanged. A gear step sells for 150. A
-crafted charm sells for at most 0.7x its inputs. The shop route now enforces the same
+crafted charm sells for at most 0.7x its inputs. On 2026-11-05 the owner exempted the
+nine shop items made only of gathered materials (Shuriken, Senbon, Smoke Bomb, Smoke
+Pellet, Cleansing Incense, Lifeline Elixir, Avenger's Pendant, Loyal Companion Bell and
+Treats). They sell for half their pre-scale cost, which is still below every craft fee
+(`CRAFTED_SALE_CAP_EXEMPT`, shared/crafting-recipes.ts). The shop route now enforces the same
 rarity level ladder as the client. Pet supplies buy in stacks up to 50. The B-rank
 bloodline forge costs 100 Bone Charms (reduced on 2026-10-31).
 
