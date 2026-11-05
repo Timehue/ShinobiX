@@ -949,7 +949,11 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
             // Copy every currently-active caster debuff for a fresh two-round
             // window. Originals stay on the caster; pending effects are omitted
             // by activeStatuses. Debuff Prevent blocks the whole Mirror cast.
-            const mirrored = activeStatuses(s, round).filter(st => st.kind === 'negative');
+            // A field's debuff belongs to the hex, not the fighter in it, so it
+            // is skipped exactly as Copy skips a buff tile's buff: a copy kept
+            // the field as its source, then vanished at the next settle (or,
+            // where no owner settles it, stuck past Cleanse).
+            const mirrored = activeStatuses(s, round).filter(st => st.kind === 'negative' && !st.source?.startsWith('ground:'));
             if (!hasStatus(o, 'Debuff Prevent', round)) {
                 mirrored.forEach(st => {
                     o = addJutsuStatus(o, jutsu, { ...st, rounds: 2 }, round);

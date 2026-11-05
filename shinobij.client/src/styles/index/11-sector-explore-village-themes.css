@@ -4,26 +4,10 @@
 
 /* Instance-frame coordinate geometry is owned by layout/adaptive-stages.css. */
 
-.instance-actions {
-    padding: 6px !important;
-    font-size: 10px !important;
-    overflow: hidden !important;
-}
 
 
 
-.instance-actions button {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-}
 
-.scene-title {
-    padding: 4px 8px !important;
-    font-size: 12px !important;
-}
 
 .walkable-tile {
     min-height: 0 !important;
@@ -364,28 +348,8 @@
         color: var(--gold);
     }
 
-.central-full-scene {
-    height: 720px;
-    display: grid;
-    place-items: center;
-    background: radial-gradient(circle, #5b3b12, #111827 70%);
-}
 
-.sunscar-npc {
-    font-size: 70px;
-    text-align: center;
-}
 
-.sunscar-portrait {
-    width: 96px;
-    height: 96px;
-    margin: 0 auto 10px;
-    display: block;
-    border-radius: 14px;
-    object-fit: contain;
-    border: 2px solid rgba(230, 196, 119, 0.65);
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35);
-}
 
 .central-hub {
     min-height: 720px;

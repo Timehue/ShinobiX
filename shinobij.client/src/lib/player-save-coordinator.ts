@@ -5,7 +5,7 @@ import { normalizeAdminCharacter } from "./admin-character";
 import { preserveNarrativeState } from "./story-history";
 import { preserveAcademyCinematicState } from "./academy-cinematic-state";
 import { createSaveFlightCoordinator, nextSavePayloadRevision } from "./save-flight";
-import { createSavePersistence } from "./save-persistence";
+import { createSavePersistence, type SaveBlockedState } from "./save-persistence";
 import { createSaveAuthorityScope } from "./save-authority-scope";
 import { createSaveConflictDraftStore, saveConflictAccountKey, type SaveConflictDraft } from "./save-conflict";
 import { acceptVersionedSnapshot } from "./versioned-snapshot";
@@ -26,7 +26,7 @@ export function createPlayerSaveCoordinator({
     pvpCreateScopeAbortRef: RefObject<AbortController>;
     setCharacter: Dispatch<SetStateAction<Character | null>>;
     setSaveConflictDraft: Dispatch<SetStateAction<SaveConflictDraft | null>>;
-    setSaveBlocked: Dispatch<SetStateAction<boolean>>;
+    setSaveBlocked: (blocked: SaveBlockedState) => void;
     storage: Storage;
     applyServerSnapshot: (snapshot: PlayerSavePayload) => boolean;
 }) {

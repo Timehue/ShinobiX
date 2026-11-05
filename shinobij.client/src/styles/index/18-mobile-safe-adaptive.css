@@ -280,14 +280,12 @@ body:has(.ancient-chest-reveal-card) > .screen-hint-banner.screen-hint-worldMap.
 /* ===== Adaptive layout sizing ===== */
 :root {
     --banner-h: clamp(108px, 15dvh, 170px);
-    --sector-side-w: clamp(124px, 15vw, 190px);
     --battle-side-w: clamp(150px, 16vw, 210px);
     /* Board height drives the auto-fit grid scale. Raised so the hex grid grows
        to fill widescreen instead of floating small. Width is capped to ~grid
        aspect (1.62:1) below so the arena hugs the grid rather than ballooning. */
     --battle-board-h: clamp(360px, 50dvh, 640px);
     --jutsu-card-min: clamp(82px, 8.6vw, 118px);
-    --jutsu-card-h: clamp(82px, 11vh, 104px);
 }
 
 
@@ -451,7 +449,6 @@ body:has(.ancient-chest-reveal-card) > .screen-hint-banner.screen-hint-worldMap.
     :root {
         --battle-board-h: clamp(240px, 34dvh, 320px);
         --jutsu-card-min: 78px;
-        --jutsu-card-h: 78px;
     }
 
 

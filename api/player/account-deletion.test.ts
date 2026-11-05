@@ -93,6 +93,25 @@ test('missing-save signup recovery can still clear its auth lock', async () => {
     assert.equal((await call(authHandler, 'POST', { action: 'delete', name: 'settingsowner' })).status, 200);
 });
 
+for (const failedPrefix of ['dm:thread:', 'sunscar-exchange:']) {
+    test(`interactive deletion retains the retry anchor when ${failedPrefix} cleanup fails`, async (t) => {
+        const authRecord = await kv.get<Record<string, unknown>>('auth:settingsowner');
+        await kv.set('auth:settingsowner', { ...authRecord, deletionRequestedAt: Date.now() - wait });
+        const method = failedPrefix === 'dm:thread:' ? 'keys' : 'hgetall';
+        const original = kv[method].bind(kv);
+        const fault = t.mock.method(kv, method, (async (key: string) => {
+            if (key.startsWith(failedPrefix)) throw new Error('injected cleanup outage');
+            return original(key);
+        }) as typeof kv[typeof method]);
+        const result = await call(saveHandler, 'DELETE');
+        assert.equal(result.status, 503, JSON.stringify(result.body));
+        assert.ok(await kv.get('save:settingsowner'), 'retain reference evidence');
+        assert.ok(await kv.get('auth:settingsowner'), 'retain credentials for retry');
+        fault.mock.restore();
+        assert.equal((await call(saveHandler, 'DELETE')).status, 200);
+    });
+}
+
 test('password-only servers enforce the same wait without a session token', async () => {
     const secret = process.env.SESSION_SECRET;
     delete process.env.SESSION_SECRET;

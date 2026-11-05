@@ -162,6 +162,35 @@ async function ensureCooldown(war: ClanWar): Promise<void> {
 }
 
 /**
+ * A clan-war duel that ended before both fighters joined (the absent fighter's
+ * 90 s no-show, or the waiting fighter's cancel) settles nothing for the war.
+ * The accepted challenge is cancelled, with no result and no points, exactly as
+ * a campaign match nobody joined is ('battle-not-joined',
+ * _campaign-reconcile.ts, which keeps owning campaign matches). It used to stay
+ * "accepted" with the creator stuck in battle for 15 minutes, and settling it
+ * threw because a payout needs both fighters joined.
+ */
+export async function cancelUnjoinedClanWarChallenge(session: PvpSession): Promise<boolean> {
+    if (session.rewardAuthority !== 'clan-war' || session.status !== 'done' || pvpSessionMayReward(session)) return false;
+    if (!session.clanWarId || !session.clanWarChallengeId) return false;
+    const warKey = `${CLAN_WAR_KEY_PREFIX}${session.clanWarId}`;
+    return withKvLock(warKey, async () => {
+        const war = await kv.get<ClanWar>(warKey);
+        if (!war || war.id !== session.clanWarId) return false;
+        const challenge = war.pendingChallenges.find((entry) => entry.id === session.clanWarChallengeId);
+        if (!challenge || challenge.battleId !== session.battleId || challenge.status !== 'accepted' || challenge.campaignMatchId) return false;
+        const now = Date.now();
+        await kv.set(warKey, {
+            ...war,
+            pendingChallenges: war.pendingChallenges.filter((entry) => entry.id !== challenge.id),
+            completedChallenges: [{ ...challenge, status: 'cancelled' as const, completedAt: now }, ...war.completedChallenges].slice(0, 200),
+            updatedAt: now,
+        });
+        return true;
+    }, { failClosed: true });
+}
+
+/**
  * Help the exact server-authored Clan War result forward from either fighter's
  * reward claim. No sessionStorage report or opposing-side confirmation is
  * required: the joined terminal PvP row already seals both consent and winner.

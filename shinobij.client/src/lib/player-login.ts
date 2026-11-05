@@ -84,6 +84,8 @@ export const SESSION_ENDED_MESSAGE =
 
 export const SAVE_UNREACHABLE_MESSAGE = "Could not load your save from the server. Try again in a moment.";
 
+const VERIFY_UNREACHABLE = "Could not reach server to verify password. Check your connection and try again.";
+
 /** Remembered entries keep their immutable ID even when the login label changes. */
 export async function continueRememberedPlayer(
     name: string,
@@ -127,7 +129,7 @@ export async function verifyPlayerCredentials(
                 body: JSON.stringify({ action: "verify", name: name.trim().toLowerCase(), password }),
             }, 15000);
             if (!isCurrent()) return { status: "superseded" };
-            if (response.status === 503) continue; // storage unavailable — retry
+            if (response.status === 503 && attempt < 1) continue; // storage unavailable — retry
             const data = await response.json().catch(() => ({})) as PlayerAuthResponse;
             if (!isCurrent()) return { status: "superseded" };
 
@@ -174,6 +176,9 @@ export async function verifyPlayerCredentials(
                     : { status: "rejected", message: FORGOT_PASSWORD_HINT };
             } else {
                 verified = true; // non-retriable HTTP error
+                // A wrong password answers 200 { ok: false }, so nothing here is
+                // one: say what the server said (maintenance, storage) instead.
+                result = { status: "rejected", message: data.error || (response.status < 500 ? FORGOT_PASSWORD_HINT : VERIFY_UNREACHABLE) };
             }
         } catch {
             // Network/timeout — retry once, then require an online login.
@@ -183,7 +188,7 @@ export async function verifyPlayerCredentials(
     if (!verified) {
         return {
             status: "rejected",
-            message: "Could not reach server to verify password. Check your connection and try again.",
+            message: VERIFY_UNREACHABLE,
         };
     }
     return result;

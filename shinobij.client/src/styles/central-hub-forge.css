@@ -413,18 +413,7 @@
     box-sizing: border-box;
 }
 
-.nw-commit {
-    flex: 1;
-    background: linear-gradient(135deg, #14532d, #16a34a);
-    color: #dcfce7;
-    border: 1px solid #16a34a;
-}
 
-@media (hover: hover) {
-    .nw-commit:hover {
-        opacity: 0.85;
-    }
-}
 
 /* Keep this override beside the component styles. CentralHub is lazy-loaded,
    so a mobile rule in the eager shell stylesheet can be inserted before this

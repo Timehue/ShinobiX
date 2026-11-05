@@ -71,6 +71,20 @@ export function requireChampionship(progress: RallyProgress, id: unknown): Rally
     if (!progress.current || progress.current.id !== id) throw new FestivalError('This Grand Prix changed. Reload the race desk.', 409);
     return progress.current;
 }
+/**
+ * Leave the current Grand Prix. A started championship had no way out but to
+ * finish it: the run kept its pet busy and refused every later entry with
+ * "Resume your current Grand Prix." Withdrawing pays nothing and keeps the
+ * day's entry used, so it cannot be used to retry a bad day. A replay of a
+ * lost reply (the run already gone) changes nothing.
+ */
+export function withdrawChampionship(character: Obj, id: unknown): Obj {
+    const progress = rallyProgress(character);
+    if (!progress.current || progress.current.id !== id) return character;
+    if (progress.current.status === 'complete') throw new FestivalError('This Grand Prix has already finished.', 409);
+    progress.current = null;
+    return { ...character, sunscarRally: progress };
+}
 export function beginChampionshipRace(character: Obj, id: unknown, now: number): Obj {
     const progress = rallyProgress(character);
     const run = requireChampionship(progress, id);

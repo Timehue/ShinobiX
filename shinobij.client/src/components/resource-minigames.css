@@ -1,5 +1,5 @@
 /* Fieldwork: lit stone, bamboo and stamped bronze. The playfield owns the space. */
-.resource-dialog.resource-dialog--working{--gather-edge:#69573d;--gather-soft:#b6afa1;max-width:760px!important;background:linear-gradient(135deg,#1c2026,#11151b 65%)!important}
+.resource-dialog.resource-dialog--working{--gather-soft:#b6afa1;max-width:760px!important;background:linear-gradient(135deg,#1c2026,#11151b 65%)!important}
 .resource-dialog.resource-dialog--working>.ui-modal-body{padding:0 24px 16px}
 .resource-dialog.resource-dialog--working .resource-attempt-strip{padding:10px 0;border-bottom:1px solid #d7ba7826;color:var(--gather-soft);font-size:10px;letter-spacing:.03em}
 .resource-dialog.resource-dialog--working .resource-cancel{margin:12px auto 0;min-height:44px;border:0;padding:8px;color:#b6afa1;font-size:11px}

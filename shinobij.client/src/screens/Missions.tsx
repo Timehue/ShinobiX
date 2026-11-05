@@ -650,7 +650,7 @@ export function Missions({
                                             : <span className="mh-tag mh-tag-req">Lv {mission.min}+</span>}
                                     </div>
                                     <div className="mh-combat-rewards">
-                                        <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />+{COMBAT_MISSION_STAT_POINTS} Stat Pt</span>
+                                        <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{missionStatPointText(character.name, COMBAT_MISSION_STAT_POINTS)}</span>
                                         <span><GameIcon name="ryo" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
                                     </div>
                                 </div>

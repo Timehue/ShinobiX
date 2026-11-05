@@ -94,3 +94,39 @@ test('an authored practice without a selector retains its level and ignores lega
     assert.equal(opened.status, 200, JSON.stringify(opened.body));
     assert.equal((opened.body.session as SoloPveSession).enemy.character.level, 70);
 });
+
+test('a won exam bout records the exam AI so the Chunin and Jonin exams can pass; a re-levelled bout does not', async () => {
+    const { passRankExam } = await import('../exams/_pass.js');
+    const { executeSoloPveAction } = await import('../solo-pve/_action-service.js');
+    async function winPractice(name: string, opponentId: string, practiceLevel?: number) {
+        const opened = await call(start, name, { battleKind: 'practice', opponentId, ...(practiceLevel ? { practiceLevel } : {}) });
+        assert.equal(opened.status, 200, JSON.stringify(opened.body));
+        const session = opened.body.session as SoloPveSession;
+        await kv.set(`solo-pve:${session.sessionId}`, { ...session, activeSide: 'player' as const, ap: { ...session.ap, player: 100 },
+            enemy: { ...session.enemy, hp: 1, pos: session.player.pos - 1 } });
+        const action = await executeSoloPveAction({ sessionId: session.sessionId, ownerSlug: name,
+            expectedVersion: session.version, moveToken: `exam-${opponentId}-${practiceLevel ?? 0}`, action: { type: 'basicAttack' } });
+        assert.equal(action.body.session?.outcome, 'win');
+        const settled = await call(report, name, { aiFightToken: opened.body.token });
+        assert.equal(settled.status, 200, JSON.stringify(settled.body));
+        assert.equal(settled.body.xp, 0, 'an exam bout still pays nothing');
+        assert.equal(settled.body.ryo, 0);
+        return ((await kv.get<{ character: Record<string, unknown> }>(`save:${name}`))!.character);
+    }
+
+    const weakened = 'examweakened'; await seed(weakened);
+    assert.deepEqual((await winPractice(weakened, 'builtin-ai-exam-proctor', 5)).defeatedAiIds ?? [], [], 'a proctor re-levelled to 5 is not the exam');
+
+    const name = 'examcandidate'; await seed(name);
+    const afterProctor = await winPractice(name, 'builtin-ai-exam-proctor');
+    assert.deepEqual(afterProctor.defeatedAiIds, ['builtin-ai-exam-proctor']);
+    assert.equal(afterProctor.ryo, 456, 'no purse');
+    const chuninReady = { ...afterProctor, level: 39, examsPassed: ['genin'], elements: ['Fire', 'Water'], totalMissionsCompleted: 50, totalTilesExplored: 100, clan: 'Emberfall' };
+    assert.equal(passRankExam(chuninReady, 'chunin').ok, true);
+
+    const afterRogue = await winPractice(name, 'builtin-ai-rogue-ninja');
+    assert.deepEqual(afterRogue.defeatedAiIds, ['builtin-ai-exam-proctor', 'builtin-ai-rogue-ninja']);
+
+    const ordinary = 'examordinary'; await seed(ordinary);
+    assert.deepEqual((await winPractice(ordinary, 'builtin-ai-central-champion')).defeatedAiIds ?? [], [], 'other practice opponents stay unrecorded');
+});

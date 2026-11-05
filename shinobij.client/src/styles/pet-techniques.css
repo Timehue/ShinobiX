@@ -1,6 +1,5 @@
 .pet-techniques-editor { --tactics-gold: var(--yard-gold, #e9bd75); --tactics-muted: #b5b7bc; color: #f5ebd6; min-width: 0; padding: 16px; background: #1a222e; border: 1px solid #41434c; border-radius: 8px; font: 400 13px/1.55 var(--font-body, Inter, sans-serif); }
 .pet-techniques-editor * { box-sizing: border-box; }
-.pet-tactics .pta-builds { grid-template-columns: minmax(0, 1fr); align-items: start; }
 .pet-techniques-editor > summary { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; min-height: 44px; padding-inline-end: 20px; cursor: pointer; }
 .pet-techniques-editor > summary::after { content: ''; position: absolute; right: 3px; top: 17px; width: 7px; height: 7px; border-right: 2px solid var(--tactics-gold); border-bottom: 2px solid var(--tactics-gold); transform: rotate(45deg); }
 .pet-techniques-editor[open] > summary::after { transform: rotate(225deg); top: 20px; }
@@ -36,11 +35,7 @@
 .pet-technique-signature { border-left: 2px solid var(--tactics-gold); padding: 0 12px; margin: 20px 0; }
 .pet-techniques-advanced { border-top: 1px solid #41434c; padding-top: 14px; margin-top: 18px; }
 .pet-techniques-advanced summary { cursor: pointer; font-size: 12px; }
-.pet-techniques-editor .pta-allocation { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
-.pet-techniques-editor .pta-allocation label { font-size: 11px; text-transform: capitalize; }
 .pet-techniques-editor .pta-allocation input, .pet-techniques-editor select { background: #0e131c; color: #f5ebd6; border: 1px solid #515867; border-radius: 5px; padding: 9px; min-height: 44px; max-width: 100%; }
-.pet-techniques-editor .pta-allocation input { width: 100%; margin-top: 5px; }
-.pet-techniques-editor .pta-item { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 8px; font-size: 12px; }
 .pet-techniques-editor .pet-techniques-validity { color: #a3dcb5; }
 .pet-techniques-editor .pet-techniques-validity.has-issue { color: #ffce9d; }
 .pet-techniques-editor .pet-techniques-save { width: 100%; color: #17130c; background: #e9bd75; border-color: #e9bd75; font-weight: 750; }

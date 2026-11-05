@@ -85,24 +85,7 @@
   image-rendering: pixelated;
 }
 
-.map-instance .instance-frame > aside.instance-actions {
-  grid-area: actions;
-  position: static;
-  inline-size: 100%;
-  min-inline-size: 0;
-  max-inline-size: 100%;
-  block-size: auto;
-  max-block-size: calc(100dvh - 48px);
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
 
-.map-instance .instance-frame > aside.instance-actions > button {
-  block-size: auto !important;
-  min-block-size: var(--touch-target-min) !important;
-  max-block-size: none !important;
-}
 
 @media (max-width: 979px) {
   .map-instance .instance-frame {
@@ -131,11 +114,6 @@
     inline-size: min(100%, max(240px, calc(100dvh - 300px)));
   }
 
-  .map-instance .instance-frame > aside.instance-actions {
-    flex: 0 0 auto;
-    max-block-size: none;
-    overflow: visible;
-  }
 
   /* The verbs are the point of the panel, and on the stacked layout they sat
      behind every detail card — territory, intel, traces, presence, hunt — so

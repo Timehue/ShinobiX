@@ -121,6 +121,27 @@ test('a non-throttling save failure retains the existing stay-or-leave guard', a
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'village');
 });
 
+// A 426 means the server will never take a save from this build again, so the
+// banner must stop promising automatic retries and tell the player to refresh.
+test('an out-of-date client (426) switches the save banner to refresh copy', async ({ page }) => {
+    const runtime = await installUiAuditRuntime(page, completedContractSave());
+    await expectUiAuditBoot(page, runtime, 'village');
+    const banner = page.getByRole('alert').filter({ hasText: "Couldn't save your progress" });
+    await expect(banner).toHaveCount(0);
+    await page.route('**/api/save/auditninja', async (route) => route.request().method() === 'POST'
+        ? route.fulfill({ status: 426, json: { error: 'Your game client is out of date. Please refresh the page to keep saving.', code: 'CLIENT_REFRESH_REQUIRED' } })
+        : route.fallback());
+    await logout(page);
+    const dialog = page.getByRole('alertdialog', { name: 'Save Failed' });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'village');
+    await expect(banner).toContainText('Your game client is out of date. Please refresh the page to keep saving.');
+    await expect(banner).not.toContainText('retries automatically');
+    await expect(banner).toBeInViewport();
+});
+
 test('a malformed save acknowledgement keeps the session until a valid retry succeeds', async ({ page }) => {
     const runtime = await installUiAuditRuntime(page, completedContractSave());
     await expectUiAuditBoot(page, runtime, 'village');

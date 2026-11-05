@@ -1,5 +1,4 @@
 .pet-battle-readiness {
-    --br-gold: #e6bd70;
     --br-line: rgba(148, 163, 184, .16);
     display: grid;
     gap: .7rem;

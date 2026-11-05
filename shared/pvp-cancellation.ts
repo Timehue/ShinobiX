@@ -38,11 +38,18 @@ type CancellableDuel = {
     log: string[];
 };
 
+/**
+ * World, challenge and clan-war duels share the join window. A clan-war duel
+ * whose accepted opponent never opened it used to hold its creator "in battle"
+ * for 15 minutes; it now closes like the others (owner ruling 2026-11-04), and
+ * the war cancels the challenge with no points (cancelUnjoinedClanWarChallenge).
+ * Ranked and Kage duels keep their own rules.
+ */
 function hasUnstartedCasualDuelState(session: CancellableDuel): boolean {
-    return !((session.rewardAuthority !== 'world' && session.rewardAuthority !== 'challenge')
+    return !((session.rewardAuthority !== 'world' && session.rewardAuthority !== 'challenge' && session.rewardAuthority !== 'clan-war')
         || session.ranked === true || session.rankedKind !== undefined
         || session.playerRankedAuthorityVersion !== undefined
-        || session.kageDuelAuthority || session.clanWarId
+        || session.kageDuelAuthority
         || session.turnStartedAt !== undefined || session.round !== 1
         || session.actionsThisTurn !== 0
         || !session.joined || (session.joined.p1 && session.joined.p2));

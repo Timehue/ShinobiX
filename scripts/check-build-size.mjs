@@ -956,13 +956,23 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // (373 B left); with this change it measured 9,810,327 B with the production
 // env. Owner approved 9,812,000. Startup is 398,514 B gzip against the
 // unchanged 399,000 B gate; startup, per-chunk and asset gates stay fixed.
-// 2026-11-04 IMAGE FRAMING: ~30 letterboxed art frames fixed (scenery back to
-// cover, portraits on a blurred copy of themselves via one shared
-// styles/art-backdrop.css) add ~2.9 KB; before merging main the branch
-// measured 9,812,084 B. Owner approved 9.815 MB. Startup is 397,946 B gzip
+// 2026-11-04 GAP SCAN: the 426 refresh banner, login error copy and rule fixes
+// put the production-env build at 9,810,335 B, 335 B over. Owner approved
+// 9.815 MB, which also covers the interior held-key (~+757 B) and
+// image-framing (~+2,084 B) branches. The owner wants this brought back down
+// later, by trimming rather than another raise. Startup is ~398,673 B gzip
 // against the unchanged 399,000 B gate; startup, per-chunk and asset gates
 // stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_815_000;
+// 2026-11-04 TRIM, same day: removing CSS rules whose classes no markup renders
+// any more (31 classes; e.g. the old instance-actions panel, the Spire result
+// card, the Black Market crate dialog) cut ~10.1 KB, to 9,800,251 B with the
+// production env, and startup gzip to 397,592 B. The cap goes back to 9.81 MB.
+// Merged with main (#59) the same night: the trims more than cover #59's ~700 B, so the cap stays at 9.81 MB rather than main's 9,812,000.
+// 2026-11-04 IMAGE FRAMING (~30 letterboxed art frames on one shared
+// styles/art-backdrop.css, ~2.9 KB) merged after the trim measures 9,809,953 B
+// with the production env and 397,385 B startup gzip, so the cap stays at
+// 9.81 MB; the Chronicle cap below still sets the effective threshold.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_810_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

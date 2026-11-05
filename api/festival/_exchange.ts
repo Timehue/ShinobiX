@@ -85,6 +85,7 @@ async function transition(current: StoredExchangeListing, patch: Partial<StoredE
     const next = { ...current, ...patch };
     // Match JSON storage on both success and ambiguous-write readback.
     if (next.buyer === undefined) delete next.buyer;
+    if (next.highestBid === undefined) delete next.highestBid;
     const key = exchangeListingKey(current.id);
     if (pending(next)) {
         if (next.state !== current.state) next.recoveryKey = `${next.id}:${randomUUID()}`;
@@ -496,6 +497,127 @@ export async function recoverPendingExchangeListings(limit = 50) {
         }
     }
     return result;
+}
+
+/** Fields read from each live listing to find a departing player's rows. */
+const DELETION_PROJECTION = { seller: ['seller'], bidder: ['highestBid', 'player'] } as const;
+
+/**
+ * Close out every Exchange row that names a player whose account is being
+ * deleted. Runs BEFORE the save is removed (account deletion composes it), so
+ * any settlement that still needs the departing save can finish against it.
+ *
+ * Slugs are reusable. A listing left open would otherwise belong to whoever
+ * registers the name next: their `cancel` would run the return leg and hand
+ * them the escrowed asset, and a buyer's payment would land on them.
+ *
+ *  - A trade already in flight finishes through the normal recovery
+ *    (recoverLocked), exactly as the five-minute scheduler would finish it, so
+ *    a counterparty who already paid or delivered is made whole. An expired
+ *    auction settles with its winning bid first, for the same reason.
+ *  - The seller's listings that are still open are then VOIDED: moved straight
+ *    to `cancelled` without a return leg. The escrowed asset was taken from the
+ *    save being deleted, so it leaves with it. Bids are never escrowed (a bid
+ *    only checks the bidder's balance; the purchase leg debits the winner), so
+ *    there is nothing to refund to a live bidder.
+ *  - The player's own standing high bid on someone else's open auction is
+ *    withdrawn. Otherwise the auction would close against a reused name and
+ *    charge an unrelated newcomer for it.
+ *  - The player index row goes last, and only when nothing above failed, so a
+ *    retried deletion can still find what is left.
+ */
+async function exchangeListingIdsNaming(player: string): Promise<Set<string>> {
+    const ids = new Set(Object.keys(await kv.hgetall<Record<string, number>>(playerIndex(player)) ?? {}));
+    // The player index already lists every listing the player created or bid
+    // on; the live index is read too (two projected fields per row) so a lost
+    // index pointer cannot hide an open listing.
+    const liveIds = Object.keys(await kv.hgetall<Record<string, number>>(LIVE_INDEX) ?? {});
+    for (let i = 0; i < liveIds.length; i += MARKET_READ_CHUNK) {
+        const chunk = liveIds.slice(i, i + MARKET_READ_CHUNK);
+        const rows = await readKvProjection(kv, chunk.map(exchangeListingKey), DELETION_PROJECTION);
+        rows.forEach((row, index) => { if (row && (row.seller === player || row.bidder === player)) ids.add(chunk[index]!); });
+    }
+    return ids;
+}
+
+/**
+ * Take a permanently banned player off the market (owner ruling 2026-11-04).
+ * Unlike deletion the save stays, so the seller's open listings are cancelled
+ * through the ordinary return leg (the escrow goes back to their save, exactly
+ * as their own Cancel would), and a standing high bid on someone else's auction
+ * is withdrawn so a player who can no longer log in cannot win it. Trades
+ * already in flight finish first. A timed ban never calls this.
+ */
+export async function pullExchangeListingsOfBannedPlayer(player: string): Promise<{ closed: string[]; failures: string[] }> {
+    const out = { closed: [] as string[], failures: [] as string[] };
+    for (const id of await exchangeListingIdsNaming(player)) {
+        if (!/^[a-f0-9]{32}$/.test(id)) continue;
+        try {
+            await withKvLock(exchangeListingKey(id), async () => {
+                const key = exchangeListingKey(id);
+                let listing = await kv.get<StoredExchangeListing>(key);
+                if (!listing) return;
+                if (listing.seller !== player && listing.highestBid?.player !== player) return;
+                if (listing.state === 'active' && listing.listingType === 'auction' && (listing.auctionEndsAt ?? Infinity) <= Date.now()) {
+                    listing = await closeExpiredAuctionLocked(listing);
+                }
+                if (pending(listing)) listing = await recoverLocked(listing);
+                if (listing.state !== 'active') return;
+                if (listing.seller === player) {
+                    listing = await recoverLocked(await transition(listing, { state: 'cancelling' }));
+                    if (listing.state === 'cancelled') out.closed.push(id);
+                    else throw new Error(`the return leg left the listing ${listing.state}`);
+                } else if (listing.highestBid?.player === player) {
+                    await transition(listing, { highestBid: undefined });
+                }
+            }, { failClosed: true, ttlSec: 60 });
+        } catch (error) {
+            out.failures.push(`exchange listing ${id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+    return out;
+}
+
+export async function settleExchangeForDeletedPlayer(player: string): Promise<{ closed: string[]; failures: string[] }> {
+    const out = { closed: [] as string[], failures: [] as string[] };
+    const ids = await exchangeListingIdsNaming(player);
+    for (const id of ids) {
+        if (!/^[a-f0-9]{32}$/.test(id)) continue;
+        try {
+            await withKvLock(exchangeListingKey(id), async () => {
+                const key = exchangeListingKey(id);
+                let listing = await kv.get<StoredExchangeListing>(key);
+                if (!listing) return;
+                if (listing.seller !== player && listing.buyer !== player && listing.highestBid?.player !== player) return;
+                listing = await closeExpiredAuctionLocked(listing).catch(async (error) => {
+                    if (!(error instanceof ExchangeError)) throw error;
+                    return (await kv.get<StoredExchangeListing>(key)) ?? listing!;
+                });
+                if (pending(listing) || listing.saleNoticePending) {
+                    try { listing = await recoverLocked(listing); }
+                    catch (error) {
+                        // A refusal leaves the listing in a definite state (a
+                        // refused purchase reopens it; a refused return stays
+                        // `cancelling`). Storage errors are ambiguous: stop.
+                        if (!(error instanceof ExchangeError)) throw error;
+                        listing = (await kv.get<StoredExchangeListing>(key)) ?? listing;
+                    }
+                }
+                if (listing.seller === player && (listing.state === 'active' || listing.state === 'cancelling')) {
+                    listing = await transition(listing, { state: 'cancelled', completedAt: Date.now(), failure: 'The seller account was deleted.' });
+                    await cleanup(listing);
+                    out.closed.push(id);
+                } else if (listing.state === 'active' && listing.highestBid?.player === player) {
+                    listing = await transition(listing, { highestBid: undefined });
+                }
+                if (pending(listing)) throw new Error('a trade on this listing is still settling');
+            }, { failClosed: true, ttlSec: 60 });
+        } catch (error) {
+            out.failures.push(`exchange listing ${id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+    if (!out.failures.length) await kv.del(playerIndex(player));
+    return out;
 }
 
 /** Expire auctions from the live index and settle their winning bid through

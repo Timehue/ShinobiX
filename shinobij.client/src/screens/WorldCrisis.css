@@ -1,7 +1,4 @@
 .world-crisis {
-    --crisis-ink: #070b12;
-    --crisis-red: #ef4444;
-    --crisis-gold: #f6c453;
     min-height: 100%;
     padding: clamp(14px, 2vw, 28px);
     color: #e8edf6;

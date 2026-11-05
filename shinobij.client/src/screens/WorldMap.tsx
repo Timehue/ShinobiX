@@ -4035,7 +4035,7 @@ function WorldMapContent({
                                     }
                                 }
                             } else {
-                                setTimeout(() => alert(resp.reason === "busy" ? "Finish the rift you already carry first." : resp.reason === "cooldown" ? "The energy has not gathered again yet. Come back later." : "The rift could not be marked. Try again in a moment."), 40);
+                                setTimeout(() => alert(resp.reason === "busy" ? "Finish the rift you already carry first." : resp.reason === "cooldown" ? "The energy has not gathered again yet. Come back later." : resp.reason === "daily-cap" ? "You've claimed today's rift rewards. New rifts open at midnight UTC." : "The rift could not be marked. Try again in a moment."), 40);
                             }
                         });
                         return;

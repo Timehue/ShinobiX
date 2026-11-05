@@ -24,6 +24,7 @@ import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
 import {
     isPlayerRankedV2Session,
     pvpSessionMayGrantProgress,
+    pvpSessionMayReward,
     type PvpSession,
 } from './session.js';
 import type { PlayerRankedJournal } from './_player-ranked-journal.js';
@@ -34,7 +35,7 @@ import { settlePvpTerminalVitals } from './_vitals-settlement.js';
 import { settleTerminalWorldRaid, type TerminalWorldSettlement } from './_terminal-world-raid.js';
 import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
-import { settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
+import { cancelUnjoinedClanWarChallenge, settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
 import type { PvpClanWarSettlement } from '../clan/war/_pvp-settlement.js';
 import { settlePvpLegacyProgress } from '../_legacy-pvp-settlement.js';
 
@@ -217,6 +218,13 @@ async function runCommittedPvpTerminalEffects(
     // would route them back into it, however it ended (cancel, flee, knockout).
     await releaseBattleChallengeNotices(session);
     mark('notices');
+    // A clan-war duel nobody fully joined (cancelled, or a 90 s no-show)
+    // releases its accepted challenge and settles nothing for the war.
+    if (session.rewardAuthority === 'clan-war' && !pvpSessionMayReward(session)) {
+        await cancelUnjoinedClanWarChallenge(session);
+        mark('clan-war');
+        return {};
+    }
     if (isCancelledUnstartedPvpDuel(session)) return {};
 
     // A terminal retry is also the final action's durable replay path. The

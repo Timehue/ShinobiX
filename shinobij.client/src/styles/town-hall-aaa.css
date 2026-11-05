@@ -10,8 +10,6 @@
     --town-gold: #e6b85c;
     --town-gold-bright: #f7d98c;
     --town-cyan: #78c9e8;
-    --town-ink: #050a10;
-    --town-panel: #0a131e;
     --town-line: rgba(169, 197, 219, 0.2);
     width: min(100%, 1280px);
     gap: 16px;

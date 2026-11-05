@@ -181,12 +181,15 @@ test('only the current Kage can spend village funds or pay to extend the Hollow 
     assert.equal((await request(gate, 'villager')).status, 403);
     assert.equal((await request(upgrade, 'kage', { key: 'training' })).status, 200);
     assert.equal((await kv.get<any>(stateKey)).treasury.honorSeals, 990);
+    const state = (await kv.get<any>(stateKey));
+    await kv.set(stateKey, { ...state, treasury: { ...state.treasury, honorSeals: 20_990 } });
     const first = await request(gate, 'kage');
     assert.equal(first.status, 200);
     const second = await request(gate, 'kage');
     assert.equal(second.status, 200);
     assert.equal(second.body.hollowGateUnlockedUntil - first.body.hollowGateUnlockedUntil, 30 * 86400000);
-    assert.equal((await kv.get<any>('save:kage')).character.honorSeals, 10000);
+    assert.equal((await kv.get<any>(stateKey)).treasury.honorSeals, 990);
+    assert.equal((await kv.get<any>('save:kage')).character.honorSeals, 30000, 'personal seals are unchanged');
 });
 
 test('new Elders can inherit former leaders terrain while current quotas and authority remain enforced', async () => {
