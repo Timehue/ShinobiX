@@ -33,10 +33,11 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
     await page.route('**/api/world-state', route => route.fulfill({ json: { territories: [], standings: [], wars: [{
         id: warId, villages: [village, enemy], startedAt: startsAt, updatedAt: startsAt, campaignVersion: version,
         campaignEndsAt: endsAt, warGroundSector: 40, hp: { [village]: 5000, [enemy]: 5000 }, warPoints: { [village]: 250, [enemy]: 100 } }] } }));
-    let holdStep: Promise<void> | null = null;
+    let holdStep: Promise<void> | null = null, refuseSteps = false;
     await page.route('**/api/village/war-campaign', async route => {
         const body = route.request().postDataJSON();
         actions.push(body);
+        if (body.action === 'shrine-step' && refuseSteps) return route.fulfill({ status: 409, json: { error: 'The shrine window has closed.' } });
         if (body.action === 'shrine-step') { if (holdStep) await holdStep; tile = body.tile; }
         const players = [{ name: 'auditninja', displayName: 'AuditNinja', village, tile, inBattle: false },
             ...(rivalInside ? [{ name: 'moonshinobi', displayName: 'MoonShinobi', village: enemy, tile: 65, inBattle: false }] : [])];
@@ -74,7 +75,10 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
     const entryBounds = await room.boundingBox(), floorBounds = await room.locator('.war-shrine-floor-art').boundingBox();
     expect(floorBounds!.y - entryBounds!.y).toBeLessThanOrEqual(140);
     await testInfo.attach('golden-shrine-viewport', { body: await page.screenshot({ path: testInfo.outputPath('golden-shrine-viewport.png') }), contentType: 'image/png' });
-    await room.getByRole('group', { name: 'Shrine floor' }).focus();
+    // The countdown reads as a clock, matching the control times beside it.
+    await expect(room.getByText(/^The shrine window closes in (\d+h \d+m|\d+m \d+s)\.$/)).toBeVisible();
+    // The room opens on the floor, so the arrow keys walk with no click first.
+    await expect(room.getByRole('group', { name: 'Shrine floor' })).toBeFocused();
     const outsideSteps = worldSteps;
     await page.keyboard.press('ArrowUp');
     await expect.poll(() => tile).toBe(114);
@@ -102,6 +106,30 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
         expect(await page.evaluate(() => document.activeElement === document.body
             || document.activeElement?.closest('dialog')?.getAttribute('aria-label') === 'Golden shrine interior')).toBe(true);
     }
+    // WASD works from any control in the room, and a held key keeps walking with
+    // no OS key repeat at all (Playwright's keyboard.down sends none).
+    await room.getByRole('button', { name: 'Leave shrine', exact: true }).focus();
+    // On a button the arrows stay the browser's (Android sends a controller D-pad as arrows).
+    const onLeave = tile;
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(400);
+    expect(tile, 'an arrow on the Leave button does not walk the player').toBe(onLeave);
+    await page.keyboard.down('d');
+    await expect.poll(() => tile, { timeout: 5_000 }).toBeGreaterThanOrEqual(104);
+    await page.keyboard.up('d');
+    await expect.poll(() => tile, { timeout: 3_000 }).toBeLessThanOrEqual(106);
+    const heldTo = tile;
+    await page.waitForTimeout(600);
+    expect(tile, 'letting go of the key stops the walk').toBe(heldTo);
+    // A step the server refuses (the window just closed) ends the walk without an error banner.
+    refuseSteps = true;
+    const refusedFrom = tile, refusedBefore = actions.filter(a => a.action === 'shrine-step').length;
+    await page.keyboard.press('s');
+    await expect.poll(() => actions.filter(a => a.action === 'shrine-step').length).toBe(refusedBefore + 1);
+    await page.waitForTimeout(500);
+    await expect(room.getByRole('alert')).toHaveCount(0);
+    await expect.poll(async () => parseFloat(await rowOf())).toBeCloseTo(((Math.floor(refusedFrom / 12) + .5) / 12) * 100, 2);
+    refuseSteps = false;
     await expect.poll(() => actions.filter(a => a.action === 'shrine-enter').length).toBe(1);
     // The underlying continuous-world camera intentionally pans its fixed tile
     // stage past the viewport; the native modal makes that background inert.
@@ -117,7 +145,7 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
     await expect(room.getByText(scoredBouts === 0 ? `${village} held the most uncontested time and earned ${version === 2 ? "1,000" : "100"} War Points.`
         : 'Uncontested time was tied or zero. No window bonus was awarded.', { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(room.getByText('This scoring window is complete.', { exact: true })).toBeVisible();
-    await room.getByText('Controls and scoring', { exact: true }).click();
+    await room.getByText('How Scoring Works', { exact: true }).click();
     if (version === 3) {
         await expect(room.getByText(/These continue after the extra-point cap: Kage wins earn 30/)).toBeVisible();
         await expect(room.getByText(/earn 20 extra War Points each/)).toBeVisible();
