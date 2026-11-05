@@ -373,7 +373,9 @@ test('a first-time Google user lands in the creator and registers without a pass
 
 test('footer policy links open public, responsive, accessible pages', async ({ page }) => {
     const runtimeFailures = captureRuntimeFailures(page);
-    await page.goto('/', { waitUntil: 'networkidle' });
+    // Firefox can retain duplicate image requests after the visible page loads.
+    // The storage notice and policy-link assertions below certify readiness.
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
 
     // The first-visit storage notice is intentionally fixed above the viewport
     // edge. Acknowledge it before exercising links that sit in the page footer;
