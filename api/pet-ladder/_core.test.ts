@@ -12,7 +12,7 @@ import { petStatCeil } from "../_pet-stat-ceil.js";
  * load + run in the server build: resolveColiseum runs the Showdown engine
  * (api/_pet-showdown/) and resolveLadderWarfront runs the Beastbound Warfront Rite.
  * Determinism + stronger-wins are the invariants both must hold; the offer/swap
- * logic guards the Sword-x-Staff ladder math.
+ * logic guards the positional ladder math.
  */
 
 const pet = (over: Partial<LadderPet> = {}): LadderPet => ({

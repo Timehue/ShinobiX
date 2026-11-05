@@ -98,9 +98,23 @@ export type PlayerSaveCommit = {
     intended: SaveRecord;
 };
 
+export type AtomicSaveProof = {
+    key: string;
+    expected?: unknown;
+    value: unknown;
+    ex: number;
+    /**
+     * For a proof row other writers also change (Legacy stats, under their own
+     * lock): rebuilds `value` on the row as it now stands. With it, a refusal
+     * caused only by that row moving is retried once on the fresh row, as the
+     * ledger row is below; without it such a refusal is the caller's conflict.
+     */
+    rebase?: (current: unknown) => unknown;
+};
+
 export type PlayerSaveCommitOptions = {
     /** Publish or replace a proof with its save/ledger mutation; defaults to NX. */
-    atomicProof?: { key: string; expected?: unknown; value: unknown; ex: number };
+    atomicProof?: AtomicSaveProof;
     /** Test seam for the fail-closed gate (defaults to CURRENCY_LEDGER_GATE_ENFORCED). */
     gateEnforced?: boolean;
     now?: number;
@@ -123,7 +137,20 @@ export function commitPlayerSaveRecord(
 ): Promise<boolean> {
     // The scope the runtime raw-write guard (api/_save-write-guard.ts) treats
     // as the sanctioned path for a player-save write.
-    return withinPlayerSaveCommit(() => commitInScope(store, commit, opts));
+    return withinPlayerSaveCommit(async () => {
+        if (await commitInScope(store, commit, opts)) return true;
+        const proof = opts.atomicProof;
+        if (!proof?.rebase) return false;
+        // Retry only when the save is exactly as read and the proof row is not:
+        // the save lock is held, so that row is the only thing that moved.
+        if (!storedValueEquals(await store.get<SaveRecord>(commit.saveKey), commit.expected)) return false;
+        const current = (await store.get(proof.key)) ?? null;
+        if (storedValueEquals(current, proof.expected ?? null)) return false;
+        return commitInScope(store, commit, {
+            ...opts,
+            atomicProof: { key: proof.key, expected: current, value: proof.rebase(current), ex: proof.ex },
+        });
+    });
 }
 
 async function commitInScope(

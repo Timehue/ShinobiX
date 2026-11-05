@@ -73,22 +73,43 @@ test('a failed stats CAS cannot consume a find or grant its reward; retry comple
     assert.equal((await stats(player))?.gatheringClaims, 1);
 });
 
-test('concurrent legacy progress cannot be overwritten by the source transaction', async () => {
+test('concurrent legacy progress is kept, and the claim still lands on the moved row', async () => {
     const player = 'legacygatherrace'; await gatherSeed(player);
-    const original = kv.compareSetMany!; let raced = false;
+    const original = kv.compareSetMany!; let raced = false, attempts = 0;
     kv.compareSetMany = async ops => {
+        if (ops.some(op => op.key === `legacy:stats:${player}`)) attempts++;
         if (!raced && ops.some(op => op.key === `legacy:stats:${player}`)) {
             raced = true;
             await kv.set(`legacy:stats:${player}`, { ...await stats(player), healingDone: 500 });
         }
         return original.call(kv, ops);
     };
-    try { assert.equal((await post(claim, player, choice)).status, 500); }
+    let first;
+    try { first = await post(claim, player, choice); }
     finally { kv.compareSetMany = original; }
-    assert.equal((await stats(player))?.healingDone, 500);
-    assert.equal((await post(claim, player, choice)).status, 200);
+    // Before 2026-11-04 this answered 500 and the player had to claim again.
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.equal(attempts, 2, 'one refusal, then one rebased commit');
     assert.equal((await stats(player))?.healingDone, 500);
     assert.equal((await stats(player))?.gatheringClaims, 1);
+    assert.equal((await post(claim, player, choice)).body.replayed, true);
+    assert.equal((await stats(player))?.gatheringClaims, 1);
+});
+
+test('a stats row that keeps moving is rebased only once, then refused with nothing spent', async () => {
+    const player = 'legacygatherchurn'; await gatherSeed(player);
+    const before = await kv.get(`save:${player}`), original = kv.compareSetMany!; let bumps = 0;
+    kv.compareSetMany = async ops => {
+        if (ops.some(op => op.key === `legacy:stats:${player}`)) {
+            await kv.set(`legacy:stats:${player}`, { ...await stats(player), healingDone: ++bumps });
+        }
+        return original.call(kv, ops);
+    };
+    try { assert.equal((await post(claim, player, choice)).status, 500); }
+    finally { kv.compareSetMany = original; }
+    assert.equal(bumps, 2);
+    assert.deepEqual(await kv.get(`save:${player}`), before);
+    assert.equal((await stats(player))?.gatheringClaims, 0);
 });
 
 test('lost atomic-write acknowledgement preserves both reward and exactly one deed', async () => {
