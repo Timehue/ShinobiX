@@ -41,7 +41,7 @@ import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUnti
 import { queuePresenceUpdate, registerPresenceClient, setPresenceBroadcastIo } from './presence-broadcast.js';
 import { setOnSweep } from './game-loop.js';
 import { wireChatRooms } from './chat-rooms.js';
-import { setRealtimeEmitter } from './notify.js';
+import { setRealtimeDisconnector, setRealtimeEmitter } from './notify.js';
 import { clearSleeperCampOnBeat } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from './travel-lease.js';
 import { readSavedLocation } from './saved-location.js';
@@ -70,6 +70,7 @@ export async function closeSocketServer(): Promise<void> {
     _io = null;
     setOnSweep(null);
     setRealtimeEmitter(null);
+    setRealtimeDisconnector(null);
     setPresenceBroadcastIo(null);
     if (!io) return;
     await new Promise<void>((resolve) => io.close(() => resolve()));
@@ -169,6 +170,16 @@ function wireRealtime(io: IOServer): void {
     // poll immediately — emit to that player's `user:<canonical>` room.
     setRealtimeEmitter((room, event, payload) => {
         io.to(room).emit(event, payload);
+    });
+    // Revocation closes the player's sockets (notify.ts disconnectPlayerSockets).
+    // A Socket.IO DISCONNECT packet disables automatic reconnection even when
+    // disconnectSockets(true) also closes the transport. Close Engine.IO alone
+    // so the client retries with its current auth; the handshake rejects revoked
+    // tokens and bans. This server uses the local, single-instance adapter.
+    setRealtimeDisconnector((room) => {
+        for (const socket of io.sockets.sockets.values()) {
+            if (socket.rooms.has(room)) socket.conn.close();
+        }
     });
 
     // ── Handshake auth: reuse the EXACT HTTP auth (token → password → ban). ──
@@ -456,14 +467,36 @@ function wireRealtime(io: IOServer): void {
             if (typeof acknowledge === 'function') acknowledge(result);
         });
 
-        // On-demand snapshot (e.g. right after a reconnect).
-        socket.on('presence:request', (payload: unknown) => {
+        // On-demand snapshot (e.g. right after a reconnect). Each answer is an
+        // O(sector) build and a frame that can reach ~200 KB in a crowded
+        // sector, so one socket may ask at most once a second; the client only
+        // asks on reconnect or sector entry. A request inside the window is
+        // answered once at its end (with the latest payload), never dropped.
+        let lastPresenceRequestAt = 0;
+        let pendingPresenceRequest: unknown;
+        let presenceRequestTimer: ReturnType<typeof setTimeout> | null = null;
+        const answerPresenceRequest = (payload: unknown): void => {
+            lastPresenceRequestAt = Date.now();
+            if (!socket.connected) return;
             const requested = normalizeSector(
                 (payload as { sector?: unknown })?.sector,
                 socket.data.sector >= 0 ? socket.data.sector : 40,
             );
             const sector = socket.data.sector >= 0 ? socket.data.sector : requested;
             socket.emit('presence:sector', { sector, players: sectorSnapshot(sector) });
+        };
+        socket.on('presence:request', (payload: unknown) => {
+            const elapsed = Date.now() - lastPresenceRequestAt;
+            if (elapsed >= 1_000 && !presenceRequestTimer) {
+                answerPresenceRequest(payload);
+                return;
+            }
+            pendingPresenceRequest = payload;
+            presenceRequestTimer ??= setTimeout(() => {
+                presenceRequestTimer = null;
+                answerPresenceRequest(pendingPresenceRequest);
+                pendingPresenceRequest = undefined;
+            }, Math.max(0, 1_000 - elapsed));
         });
 
         socket.on('disconnect', () => {
@@ -474,6 +507,7 @@ function wireRealtime(io: IOServer): void {
                 socket.data.presenceTimer = null;
             }
             if (moveTimer) clearTimeout(moveTimer);
+            if (presenceRequestTimer) clearTimeout(presenceRequestTimer);
             // Do NOT remove from the store here. Per the presence spec the player
             // stays "online" until the 45-60s sweep (they may reconnect, and the
             // HTTP heartbeat may still own the row). Just leave the room; the

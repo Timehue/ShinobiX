@@ -68,8 +68,15 @@ const nextIp = () => `10.20.0.${++ipSeed}`;
 let actorSeed = 0;
 const nextRaider = () => `raider${++actorSeed}`;
 
-function place(name: string, sector: number, level: number, extra: Record<string, unknown> = {}) {
+let kvStore: typeof import('../_storage.js').kv;
+before(async () => {
+    ({ kv: kvStore } = await import('../_storage.js'));
+});
+
+/** Online at `sector`, with the same level in presence AND in the save (the authority). */
+async function place(name: string, sector: number, level: number, extra: Record<string, unknown> = {}) {
     onlineStore.upsert({ name, sector, character: { name, level, ...extra } });
+    await kvStore.set(`save:${name}`, { character: { name, level, hp: 100, maxHp: 100 } });
 }
 
 beforeEach(() => {
@@ -78,8 +85,8 @@ beforeEach(() => {
 
 test('attack: a co-located target is claimable, and the claim is what marks them engaged', async () => {
     const raider = nextRaider();
-    place(raider, 12, 40);
-    place('quarry', 12, 40);
+    await place(raider, 12, 40);
+    await place('quarry', 12, 40);
 
     const out = await post(attackHandler, raider, { targetName: 'quarry', attacker: { name: raider } }, nextIp());
     assert.equal(out.statusCode, 200, JSON.stringify(out.body));
@@ -97,8 +104,8 @@ test('attack: the newcomer floor is level 10, and it applies on the world path',
     // Explicitly NOT ACADEMY_MIN_LEVEL (15) — that would protect levels 10-14,
     // which the ruling rejects.
     const raider = nextRaider();
-    place(raider, 12, 40);
-    place('rookie', 12, ATTACKABLE_MIN_LEVEL - 1);
+    await place(raider, 12, 40);
+    await place('rookie', 12, ATTACKABLE_MIN_LEVEL - 1);
 
     const out = await post(attackHandler, raider, { targetName: 'rookie', attacker: { name: raider } }, nextIp());
     assert.equal(out.statusCode, 403, JSON.stringify(out.body));
@@ -106,16 +113,42 @@ test('attack: the newcomer floor is level 10, and it applies on the world path',
     assert.equal(onlineStore.get('rookie')?.pendingAttacker ?? null, null,
         'a refused claim must not leave the target engaged');
 
-    place('genin', 12, ATTACKABLE_MIN_LEVEL);
+    await place('genin', 12, ATTACKABLE_MIN_LEVEL);
     const allowed = await post(attackHandler, raider, { targetName: 'genin', attacker: { name: raider } }, nextIp());
     assert.equal(allowed.statusCode, 200, 'exactly at the threshold is attackable');
 });
 
+test('attack: a level claimed in presence cannot buy newcomer protection; the save decides', async () => {
+    // Presence `level` is whatever the target's own client last sent. A level-40
+    // shinobi broadcasting level 5 used to be refused as a newcomer by every
+    // attacker, indefinitely.
+    const raider = nextRaider();
+    await place(raider, 12, 40);
+    await place('veteran', 12, 40);
+    onlineStore.upsert({ name: 'veteran', sector: 12, character: { name: 'veteran', level: 5 } });
+
+    const out = await post(attackHandler, raider, { targetName: 'veteran', attacker: { name: raider } }, nextIp());
+    assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+
+    // The reverse holds too: a real newcomer stays protected whatever presence says.
+    await place('fresh', 12, ATTACKABLE_MIN_LEVEL - 1);
+    onlineStore.upsert({ name: 'fresh', sector: 12, character: { name: 'fresh', level: 60 } });
+    const refused = await post(attackHandler, nextRaiderPlaced(), { targetName: 'fresh' }, nextIp());
+    assert.equal(refused.statusCode, 403, JSON.stringify(refused.body));
+    assert.match(String(refused.body.error), /newcomer protection/i);
+});
+
+function nextRaiderPlaced(): string {
+    const raider = nextRaider();
+    onlineStore.upsert({ name: raider, sector: 12, character: { name: raider, level: 40 } });
+    return raider;
+}
+
 test('attack: refuses a target in another sector or in a safe zone', async () => {
     const raider = nextRaider();
-    place(raider, 12, 40);
-    place('elsewhere', 13, 40);
-    place('intown', 0, 40);
+    await place(raider, 12, 40);
+    await place('elsewhere', 13, 40);
+    await place('intown', 0, 40);
 
     const crossSector = await post(attackHandler, raider, { targetName: 'elsewhere', attacker: { name: raider } }, nextIp());
     assert.equal(crossSector.statusCode, 409, JSON.stringify(crossSector.body));
@@ -128,9 +161,9 @@ test('attack: refuses a target in another sector or in a safe zone', async () =>
 test('attack: a second raider is refused while the first still holds the claim', async () => {
     const first = nextRaider();
     const second = nextRaider();
-    place(first, 12, 40);
-    place(second, 12, 40);
-    place('quarry', 12, 40);
+    await place(first, 12, 40);
+    await place(second, 12, 40);
+    await place('quarry', 12, 40);
 
     assert.equal((await post(attackHandler, first, { targetName: 'quarry', attacker: { name: first } }, nextIp())).statusCode, 200);
     const contested = await post(attackHandler, second, { targetName: 'quarry', attacker: { name: second } }, nextIp());
@@ -140,8 +173,8 @@ test('attack: a second raider is refused while the first still holds the claim',
 
 test('attack: cannot claim on someone else\'s behalf', async () => {
     const raider = nextRaider();
-    place(raider, 12, 40);
-    place('quarry', 12, 40);
+    await place(raider, 12, 40);
+    await place('quarry', 12, 40);
     const out = await post(attackHandler, raider, { targetName: 'quarry', attacker: { name: 'someoneelse' } }, nextIp());
     assert.equal(out.statusCode, 403, JSON.stringify(out.body));
 });
@@ -151,8 +184,8 @@ test('clear-attack: the attacker who stamped a claim may release it', async () =
     // refused. Without a release the target shows a phantom "under attack" and
     // reads as engaged to everyone else until their next heartbeat drains it.
     const raider = nextRaider();
-    place(raider, 12, 40);
-    place('quarry', 12, 40);
+    await place(raider, 12, 40);
+    await place('quarry', 12, 40);
     assert.equal((await post(attackHandler, raider, { targetName: 'quarry', attacker: { name: raider } }, nextIp())).statusCode, 200);
 
     const released = await post(clearHandler, raider, { name: 'quarry' }, nextIp());
@@ -162,9 +195,9 @@ test('clear-attack: the attacker who stamped a claim may release it', async () =
 
 test('clear-attack: the target may still clear their own flag, and a bystander may not', async () => {
     const raider = nextRaider();
-    place(raider, 12, 40);
-    place('quarry', 12, 40);
-    place('nosy', 12, 40);
+    await place(raider, 12, 40);
+    await place('quarry', 12, 40);
+    await place('nosy', 12, 40);
     assert.equal((await post(attackHandler, raider, { targetName: 'quarry', attacker: { name: raider } }, nextIp())).statusCode, 200);
 
     const bystander = await post(clearHandler, 'nosy', { name: 'quarry' }, nextIp());

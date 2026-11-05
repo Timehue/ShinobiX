@@ -4,7 +4,7 @@ import { cors, parseJsonBody, safeName } from './_utils.js';
 import { enforceRateLimit } from './_ratelimit.js';
 import { readActiveWorldBossEvent, readWorldBossEvent, publicWorldBossEvent, worldBossEventKey } from './world-boss-event/_event.js';
 import { worldBossEventPosition, worldBossEventStatus } from '../shared/world-boss-event.js';
-import { closeWorldBossQueue, tickWorldBossQueue, worldBossQueueView } from './world-boss-event/_queue.js';
+import { closeWorldBossQueue, tickWorldBossQueueCoalesced, worldBossQueueView } from './world-boss-event/_queue.js';
 import { withKvLock } from './_lock.js';
 import { writeWorldBossEvent } from './world-boss-event/_event.js';
 import { applyWorldBossRetreatPenalty } from './world-boss-event/_retreat.js';
@@ -124,8 +124,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const pendingCacheDeliveries = playerSlug ? await settlePendingWorldBossTopCaches(now) : [];
         let status = worldBossEventStatus(event, now);
+        // Once the retreat is recorded (status, end time, Ashfall applied) the
+        // locked rewrite below would only bump updatedAt, so a settled retreat
+        // skips the fail-closed event lock instead of taking it on every poll.
+        const retreatRecorded = event.status === 'retreated' && event.retreatPenaltyApplied === true && event.endedAt != null;
         if (status === 'retreated') {
-            await withKvLock(worldBossEventKey(event.eventId), async () => {
+            if (!retreatRecorded) await withKvLock(worldBossEventKey(event.eventId), async () => {
                 const fresh = await readWorldBossEvent(event!.eventId);
                 if (!fresh || fresh.status === 'victory' || fresh.status === 'stopped') return;
                 fresh.status = 'retreated';
@@ -139,9 +143,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             status = worldBossEventStatus(event, now);
         }
 
+        // Status polls share one queue tick per second process-wide; anonymous
+        // (map overlay) polls never tick early, so they add no ticks of their own.
         const queue = playerSlug
-            ? await worldBossQueueView(event, playerSlug, now)
-            : { waitingCount: (await tickWorldBossQueue(event.eventId, now)).tickets.length };
+            ? await worldBossQueueView(event, playerSlug, now, { coalesceTick: true })
+            : { waitingCount: (await tickWorldBossQueueCoalesced(event.eventId, now, { event })).queue.tickets.length };
         event = (await readWorldBossEvent(event.eventId)) ?? event;
         status = worldBossEventStatus(event, now);
         await announceWorldBossEventTransition(event, status);

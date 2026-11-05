@@ -14,6 +14,7 @@ import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock, LockContendedError } from './_lock.js';
 import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-state-validate.js';
+import { exceedsRowGrowthCap, ROW_GROWTH_CAPS, ROW_TOO_LARGE_ERROR } from './_row-growth-cap.js';
 import { publicVillageStateView } from './_village-state-view.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { applyTournamentVictory } from './achievements/_tournament.js';
@@ -265,9 +266,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         },
                         kageState,
                     );
+                    if (!identity.admin && exceedsRowGrowthCap(existing, next, ROW_GROWTH_CAPS.villageState)) return null;
                     await kv.set(key, next);
                     return suppressed;
                 }, { failClosed: true });
+                if (suppressedLog === null) {
+                    console.warn('[game-state villageState] refused oversized write:', identity.admin ? 'admin' : identity.name, village);
+                    return res.status(413).json({ error: ROW_TOO_LARGE_ERROR });
+                }
                 if (suppressedLog.length > 0) {
                     console.warn('[game-state villageState] suppressed:', identity.admin ? 'admin' : identity.name, suppressedLog.join('; '));
                 }

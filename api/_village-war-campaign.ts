@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { kv } from './_storage.js';
 import { readKvProjection, type KvProjection } from './_storage-projection.js';
 import { withKvLock } from './_lock.js';
@@ -75,6 +76,10 @@ export async function mutateCampaignWar<T>(id: string, action: (war: CampaignWar
         const current = await kv.get<CampaignWarRow>(key);
         if (!current?.campaign) throw new Error('This village war has no campaign objectives.');
         const { row, value } = await action(structuredClone(current));
+        // Read-only actions (the guard-state / shrine-state polls) hand back the
+        // war unchanged; rewriting the whole row for them cost a full-row
+        // compare-and-set every few seconds per player in the war.
+        if (isDeepStrictEqual(row, current)) return value;
         const commit = await commitWarBattleSettlement(kv, key, current, row);
         if (commit.status === 'conflict') throw new Error('Village war changed. Please retry.');
         return value;

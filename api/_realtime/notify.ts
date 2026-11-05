@@ -54,6 +54,33 @@ export function setRealtimeEmitter(fn: Emitter | null): void {
     _emit = fn;
 }
 
+type Disconnector = (room: string) => void;
+let _disconnect: Disconnector | null = null;
+
+/** socket.ts registers this at attach; null detaches (tests). */
+export function setRealtimeDisconnector(fn: Disconnector | null): void {
+    _disconnect = fn;
+}
+
+/**
+ * Close every live socket of a player whose credentials were just revoked
+ * (ban, "sign out other devices", password change, account recovery or
+ * deletion). The socket handshake is the only place a socket is
+ * authenticated, so before this an open socket outlived its revocation and
+ * kept placing that player in the world.
+ *
+ * The transport is closed, not the socket.io session, so the client's own
+ * reconnect runs: the player's current device reconnects with the fresh token
+ * it was just given, and a revoked token or a banned player is refused at the
+ * handshake. No-op without a socket layer.
+ */
+export function disconnectPlayerSockets(name: string | undefined | null): void {
+    if (!_disconnect || !name) return;
+    const slug = safeName(name);
+    if (!slug) return;
+    try { _disconnect(`user:${slug}`); } catch { /* best-effort */ }
+}
+
 /** Accepted world movement is a compact delta, not a full character/roster. */
 export function pushWorldMovement(sector: number, name: string, tile: number | undefined, sequence: number, worldPosition: WorldPosition): void {
     try { _emit?.(`sector:${sector}`, 'presence:world', { sector, name, tile, sequence, worldPosition }); }

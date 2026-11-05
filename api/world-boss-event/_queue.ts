@@ -46,18 +46,46 @@ export type WorldBossQueueView = {
     };
 };
 
+/** Whether the roaming clock should be frozen for this event + queue at `now`. */
+function movementShouldPause(event: WorldBossEventRecord, queue: WorldBossQueueRecord, now: number): boolean {
+    return queue.tickets.length > 0 && worldBossEventIsOpen({
+        ...event,
+        status: worldBossEventStatus(event, now),
+    }, now) && now < event.roamEndsAt;
+}
+
+function movementPauseInSync(event: WorldBossEventRecord, queue: WorldBossQueueRecord, now: number): boolean {
+    return movementShouldPause(event, queue, now) === (event.movementPausedAt != null);
+}
+
+type MovementPauseSnapshot = { event: WorldBossEventRecord | null; queue: WorldBossQueueRecord };
+
 /** Freeze the roaming clock whenever one or two players are waiting for a team.
  * Lock order is event → queue; queue-only mutations release their lock before
  * calling this helper. */
 export async function syncWorldBossMovementPause(eventId: string, now = Date.now()): Promise<void> {
-    await withKvLock(worldBossEventKey(eventId), async () => {
+    await syncMovementPause(eventId, now);
+}
+
+/** {@link syncWorldBossMovementPause}, returning the event and queue it last saw.
+ *
+ * A lock-free peek decides first: when the stored pause state already matches
+ * the queue (the steady state on every status poll) nothing would be written,
+ * so neither lock is taken. Any mismatch takes the same event → queue locks as
+ * before and re-decides from records read under them, so the write itself is
+ * exactly as guarded as it always was. Every writer that changes the ticket
+ * list (join, leave, tick, close) either sets the pause itself under the event
+ * lock or calls this after its commit, so a peek that reads just before such a
+ * commit is followed by a sync that reads after it. */
+async function syncMovementPause(eventId: string, now: number): Promise<MovementPauseSnapshot> {
+    const [peekEvent, peekQueue] = await Promise.all([readWorldBossEvent(eventId), readWorldBossQueue(eventId)]);
+    if (!peekEvent) return { event: null, queue: peekQueue };
+    if (movementPauseInSync(peekEvent, peekQueue, now)) return { event: peekEvent, queue: peekQueue };
+    return withKvLock(worldBossEventKey(eventId), async (): Promise<MovementPauseSnapshot> => {
         const event = await readWorldBossEvent(eventId);
-        if (!event) return;
+        if (!event) return { event: null, queue: peekQueue };
         const queue = await withKvLock(worldBossQueueKey(eventId), () => readWorldBossQueue(eventId), { failClosed: true });
-        const shouldPause = queue.tickets.length > 0 && worldBossEventIsOpen({
-            ...event,
-            status: worldBossEventStatus(event, now),
-        }, now) && now < event.roamEndsAt;
+        const shouldPause = movementShouldPause(event, queue, now);
         let changed = false;
         if (shouldPause && event.movementPausedAt == null) {
             event.movementPausedAt = now;
@@ -74,6 +102,7 @@ export async function syncWorldBossMovementPause(eventId: string, now = Date.now
             event.updatedAt = now;
             await writeWorldBossEvent(event);
         }
+        return { event, queue };
     }, { failClosed: true });
 }
 
@@ -176,10 +205,57 @@ function makeMatch(event: WorldBossEventRecord, tickets: WorldBossQueueTicket[],
     };
 }
 
+type MatchStatus = WorldBossMatchRecord['status'] | null;
+
+/** Read every listed match's status in parallel (the rows are independent). */
+async function readMatchStatuses(eventId: string, matchIds: string[]): Promise<Map<string, MatchStatus>> {
+    const matches = await Promise.all(matchIds.map(matchId => readWorldBossMatch(eventId, matchId)));
+    return new Map(matchIds.map((matchId, index) => [matchId, matches[index]?.status ?? null]));
+}
+
+const matchIsLive = (status: MatchStatus) => status === 'preparing' || status === 'active';
+
+/** The pure part of a tick: drop finished matches and cut the ticket list into
+ * the teams that are ready to start. Works on a copy; `queue` is not touched. */
+function planQueueTick(queue: WorldBossQueueRecord, statuses: Map<string, MatchStatus>, now: number): {
+    next: WorldBossQueueRecord;
+    groups: WorldBossQueueTicket[][];
+} {
+    const next: WorldBossQueueRecord = {
+        ...queue,
+        tickets: [...queue.tickets],
+        activeMatchIds: queue.activeMatchIds.filter(matchId => matchIsLive(statuses.get(matchId) ?? null)),
+    };
+    const groups: WorldBossQueueTicket[][] = [];
+    while (next.tickets.length >= WORLD_BOSS_EVENT_MAX_PARTY) {
+        groups.push(next.tickets.splice(0, WORLD_BOSS_EVENT_MAX_PARTY));
+    }
+    const first = next.tickets[0];
+    if (first && now - first.joinedAt >= WORLD_BOSS_EVENT_QUEUE_MS) {
+        groups.push(next.tickets.splice(0, WORLD_BOSS_EVENT_MAX_PARTY));
+    }
+    return { next, groups };
+}
+
+/** Deep-equal on the fields a tick can change (`updatedAt` is bookkeeping only). */
+function sameQueueContent(a: WorldBossQueueRecord, b: WorldBossQueueRecord): boolean {
+    return JSON.stringify(a.tickets) === JSON.stringify(b.tickets)
+        && JSON.stringify(a.activeMatchIds) === JSON.stringify(b.activeMatchIds);
+}
+
 /** Form full trios immediately, then release one or two waiting players after 30 seconds. */
 export async function tickWorldBossQueue(eventId: string, now = Date.now()): Promise<WorldBossQueueRecord> {
-    await syncWorldBossMovementPause(eventId, now);
-    const event = await readWorldBossEvent(eventId);
+    try {
+        return await runWorldBossQueueTick(eventId, now);
+    } finally {
+        coalescerFor(eventId).lastFinishedAt = Date.now();
+    }
+}
+
+async function runWorldBossQueueTick(eventId: string, now: number): Promise<WorldBossQueueRecord> {
+    const synced = await syncMovementPause(eventId, now);
+    // The sync read (or wrote) the event a moment ago; no second read needed.
+    const event = synced.event;
     if (!event) return emptyWorldBossQueue(now);
     const status = worldBossEventStatus(event, now);
     if (!worldBossEventIsOpen({ ...event, status }, now)) {
@@ -198,65 +274,181 @@ export async function tickWorldBossQueue(eventId: string, now = Date.now()): Pro
         return closeWorldBossQueue(eventId, now);
     }
 
-    const queueKey = worldBossQueueKey(eventId);
-    const toStart = await withKvLock(queueKey, async () => {
-        const queue = await readWorldBossQueue(eventId);
-        const liveIds: string[] = [];
-        for (const matchId of queue.activeMatchIds) {
-            const match = await readWorldBossMatch(eventId, matchId);
-            if (match && (match.status === 'preparing' || match.status === 'active')) liveIds.push(matchId);
-        }
-        queue.activeMatchIds = liveIds;
-        const groups: WorldBossQueueTicket[][] = [];
-        while (queue.tickets.length >= WORLD_BOSS_EVENT_MAX_PARTY) {
-            groups.push(queue.tickets.splice(0, WORLD_BOSS_EVENT_MAX_PARTY));
-        }
-        const first = queue.tickets[0];
-        if (first && now - first.joinedAt >= WORLD_BOSS_EVENT_QUEUE_MS) {
-            groups.push(queue.tickets.splice(0, WORLD_BOSS_EVENT_MAX_PARTY));
-        }
-        for (const group of groups) {
-            const match = makeMatch(event, group, now);
-            await writeWorldBossMatch(match);
-            await Promise.all(match.members.map(member => writeWorldBossPlayerPointer(eventId, member.slug, {
-                matchId: match.matchId,
-                status: 'preparing',
-                updatedAt: now,
-            })));
-            queue.activeMatchIds.push(match.matchId);
-        }
-        queue.updatedAt = now;
-        await writeWorldBossQueue(eventId, queue);
-        return queue;
-    }, { failClosed: true });
+    // Lock-free peek with the queue the sync just read. When there is no team to
+    // form and no finished match to drop, the locked section below would only
+    // rewrite the same row, so it is skipped. Anything to change takes the queue
+    // lock (fail-closed, as before) and re-plans from the row read under it.
+    const peekQueue = synced.queue;
+    const peekStatuses = await readMatchStatuses(eventId, peekQueue.activeMatchIds);
+    const peekPlan = planQueueTick(peekQueue, peekStatuses, now);
+    let result: WorldBossQueueRecord;
+    let preparingIds: string[];
+    let formedTeams = 0;
+    if (peekPlan.groups.length === 0 && sameQueueContent(peekQueue, peekPlan.next)) {
+        result = peekQueue;
+        preparingIds = peekQueue.activeMatchIds.filter(matchId => peekStatuses.get(matchId) === 'preparing');
+    } else {
+        const locked = await withKvLock(worldBossQueueKey(eventId), async () => {
+            const queue = await readWorldBossQueue(eventId);
+            const statuses = await readMatchStatuses(eventId, queue.activeMatchIds);
+            const { next, groups } = planQueueTick(queue, statuses, now);
+            const preparing = next.activeMatchIds.filter(matchId => statuses.get(matchId) === 'preparing');
+            for (const group of groups) {
+                const match = makeMatch(event, group, now);
+                await writeWorldBossMatch(match);
+                await Promise.all(match.members.map(member => writeWorldBossPlayerPointer(eventId, member.slug, {
+                    matchId: match.matchId,
+                    status: 'preparing',
+                    updatedAt: now,
+                })));
+                next.activeMatchIds.push(match.matchId);
+                preparing.push(match.matchId);
+            }
+            if (!sameQueueContent(queue, next)) {
+                next.updatedAt = now;
+                await writeWorldBossQueue(eventId, next);
+            }
+            return { queue: next, preparing, formed: groups.length };
+        }, { failClosed: true });
+        result = locked.queue;
+        preparingIds = locked.preparing;
+        formedTeams = locked.formed;
+    }
 
-    for (const matchId of toStart.activeMatchIds) {
+    // Only a preparing match has anything to start; ensureWorldBossMatchStarted
+    // returns untouched for active, settled, cancelled or missing ones.
+    for (const matchId of preparingIds) {
         await ensureWorldBossMatchStarted(eventId, matchId, now);
     }
-    await syncWorldBossMovementPause(eventId, now);
-    return toStart;
+    // Re-sync the roaming clock when this tick changed anything it depends on:
+    // tickets left the queue, a start may have closed the event, or the queue
+    // moved under us between the first sync and the locked read.
+    if (formedTeams > 0 || preparingIds.length > 0 || JSON.stringify(result.tickets) !== JSON.stringify(peekQueue.tickets)) {
+        await syncMovementPause(eventId, now);
+    }
+    return result;
 }
 
 export async function closeWorldBossQueue(eventId: string, now = Date.now()): Promise<WorldBossQueueRecord> {
     const queueKey = worldBossQueueKey(eventId);
-    const pending = await withKvLock(queueKey, async () => {
-        const queue = await readWorldBossQueue(eventId);
-        const ids = [...queue.activeMatchIds];
-        queue.tickets = [];
-        queue.updatedAt = now;
-        await writeWorldBossQueue(eventId, queue);
-        return { queue, ids };
-    }, { failClosed: true });
+    // Lock-free peek: an already-empty queue has nothing to clear, so the
+    // fail-closed queue lock is only taken when there are tickets to drop.
+    const peek = await readWorldBossQueue(eventId);
+    const pending = peek.tickets.length === 0
+        ? { queue: peek, ids: [...peek.activeMatchIds] }
+        : await withKvLock(queueKey, async () => {
+            const queue = await readWorldBossQueue(eventId);
+            const ids = [...queue.activeMatchIds];
+            if (queue.tickets.length > 0) {
+                queue.tickets = [];
+                queue.updatedAt = now;
+                await writeWorldBossQueue(eventId, queue);
+            }
+            return { queue, ids };
+        }, { failClosed: true });
+    const statuses = await readMatchStatuses(eventId, pending.ids);
     for (const matchId of pending.ids) {
-        const match = await readWorldBossMatch(eventId, matchId);
-        if (match?.status === 'preparing') await ensureWorldBossMatchStarted(eventId, matchId, now);
+        if (statuses.get(matchId) === 'preparing') await ensureWorldBossMatchStarted(eventId, matchId, now);
     }
-    await syncWorldBossMovementPause(eventId, now);
+    await syncMovementPause(eventId, now);
     return pending.queue;
 }
 
-export async function worldBossQueueView(event: WorldBossEventRecord, playerSlug: string, now = Date.now()): Promise<WorldBossQueueView> {
-    const queue = await tickWorldBossQueue(event.eventId, now);
+// ── Status-poll tick coalescing ─────────────────────────────────────────────
+// Every open world-boss window polls status (2 s, 6 s in a fight; the map
+// overlay every 20 s, anonymously). Each poll used to run a full tick. Now the
+// status GET runs at most one tick per WORLD_BOSS_TICK_COALESCE_MS across the
+// whole process: callers that arrive while a tick is running wait for it, and
+// callers inside the window serve a plain read of the committed queue. An
+// authenticated poll may still tick early when the plain read shows work that
+// a tick would do right now (a full trio, the 30-second release, a pause flip,
+// a closing event), so teams form and the clock pauses on the same poll as
+// before. Join/leave keep calling tickWorldBossQueue directly.
+
+export const WORLD_BOSS_TICK_COALESCE_MS = 1_000;
+/** Floor between early ("due") ticks, so a tick that keeps failing cannot spin. */
+const WORLD_BOSS_DUE_TICK_MIN_GAP_MS = 250;
+
+type TickCoalescer = { inFlight: Promise<WorldBossQueueRecord> | null; lastFinishedAt: number };
+const tickCoalescers = new Map<string, TickCoalescer>();
+
+function coalescerFor(eventId: string): TickCoalescer {
+    let state = tickCoalescers.get(eventId);
+    if (!state) {
+        if (tickCoalescers.size >= 16) {
+            for (const [id, entry] of tickCoalescers) if (!entry.inFlight) tickCoalescers.delete(id);
+        }
+        state = { inFlight: null, lastFinishedAt: 0 };
+        tickCoalescers.set(eventId, state);
+    }
+    return state;
+}
+
+/** Test hook: forget every coalescer's history. */
+export function resetWorldBossQueueTickCoalescing(): void {
+    tickCoalescers.clear();
+}
+
+/** Would a tick do something at `now` that a player would see? Reads nothing. */
+export function worldBossQueueTickDue(event: WorldBossEventRecord, queue: WorldBossQueueRecord, now: number): boolean {
+    const status = worldBossEventStatus(event, now);
+    if (worldBossEventIsOpen({ ...event, status }, now)) {
+        if (queue.tickets.length >= WORLD_BOSS_EVENT_MAX_PARTY) return true;
+        const first = queue.tickets[0];
+        if (first && now - first.joinedAt >= WORLD_BOSS_EVENT_QUEUE_MS) return true;
+    } else {
+        if (queue.tickets.length > 0) return true;
+        if (status === 'retreated' && event.hp > 0 && (event.status !== 'retreated' || !event.retreatPenaltyApplied)) return true;
+    }
+    return !movementPauseInSync(event, queue, now);
+}
+
+function startCoalescedTick(eventId: string, state: TickCoalescer, now: number): Promise<WorldBossQueueRecord> {
+    const run = tickWorldBossQueue(eventId, now);
+    state.inFlight = run;
+    const settle = () => { if (state.inFlight === run) state.inFlight = null; };
+    run.then(settle, settle);
+    return run;
+}
+
+async function awaitInFlightThenRead(eventId: string, inFlight: Promise<WorldBossQueueRecord>): Promise<WorldBossQueueRecord> {
+    // The request that started the tick reports its failure; a waiter serves
+    // the committed queue either way.
+    await inFlight.catch(() => undefined);
+    return readWorldBossQueue(eventId);
+}
+
+/** Run the queue tick for a status poll, at most once per window process-wide.
+ * Always resolves to the queue as committed after any tick it ran or waited on. */
+export async function tickWorldBossQueueCoalesced(eventId: string, now = Date.now(), options: {
+    /** Authenticated polls may tick early when a tick is due (see above). */
+    allowDueTick?: boolean;
+    /** The event the caller already read, used only for the due check. */
+    event?: WorldBossEventRecord | null;
+} = {}): Promise<{ queue: WorldBossQueueRecord; ticked: boolean }> {
+    const state = coalescerFor(eventId);
+    if (state.inFlight) return { queue: await awaitInFlightThenRead(eventId, state.inFlight), ticked: false };
+    const seenFinishedAt = state.lastFinishedAt;
+    const sinceLast = Date.now() - seenFinishedAt;
+    if (sinceLast >= WORLD_BOSS_TICK_COALESCE_MS) return { queue: await startCoalescedTick(eventId, state, now), ticked: true };
+
+    const queue = await readWorldBossQueue(eventId);
+    if (!options.allowDueTick || sinceLast < WORLD_BOSS_DUE_TICK_MIN_GAP_MS) return { queue, ticked: false };
+    const event = options.event ?? await readWorldBossEvent(eventId);
+    if (!event || !worldBossQueueTickDue(event, queue, now)) return { queue, ticked: false };
+    // Another request may have started or finished a tick while we read.
+    if (state.inFlight) return { queue: await awaitInFlightThenRead(eventId, state.inFlight), ticked: false };
+    if (state.lastFinishedAt !== seenFinishedAt) return { queue: await readWorldBossQueue(eventId), ticked: false };
+    return { queue: await startCoalescedTick(eventId, state, now), ticked: true };
+}
+
+export async function worldBossQueueView(event: WorldBossEventRecord, playerSlug: string, now = Date.now(), options: {
+    /** Status polls share one tick per window (tickWorldBossQueueCoalesced); queue actions tick directly. */
+    coalesceTick?: boolean;
+} = {}): Promise<WorldBossQueueView> {
+    const queue = options.coalesceTick
+        ? (await tickWorldBossQueueCoalesced(event.eventId, now, { allowDueTick: true, event })).queue
+        : await tickWorldBossQueue(event.eventId, now);
     const ticket = queue.tickets.find(entry => entry.slug === playerSlug);
     const waitingSince = queue.tickets[0]?.joinedAt ?? null;
     const cooldownUntil = await readWorldBossQueueCooldownUntil(playerSlug);

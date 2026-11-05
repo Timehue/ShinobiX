@@ -133,6 +133,49 @@ test("an idle-regen tick re-running the trackers leaves the save clean; real cha
     assert.equal(f.owner.charDirtyRef.current, true, "accepting a mission still saves");
 });
 
+test("a render with unchanged save inputs keeps the published snapshot instead of rebuilding it", () => {
+    const f = fixture();
+    let builds = 0;
+    const fields = { ...f.fields, buildPlayerSavePayload: (c: Character) => { builds += 1; return f.fields.buildPlayerSavePayload(c); } };
+    refreshPlayerSaveSnapshot(f.initial, f.initial.name, fields, f.owner);
+    assert.equal(builds, 0, "the fixture already published this exact snapshot");
+    const published = f.owner.latestSaveRef.current;
+
+    // An idle-regen tick changes `character`: the payload must carry the new vitals.
+    const ticked = regenerateIdleVitals({ ...f.initial, hp: 1 }, 1);
+    f.owner.prevCharRef.current = { ...f.initial, hp: 1 };
+    refreshPlayerSaveSnapshot(ticked, ticked.name, fields, f.owner);
+    assert.equal(builds, 1);
+    assert.equal(f.owner.latestSaveRef.current?.payload.character.hp, ticked.hp);
+    assert.notEqual(f.owner.latestSaveRef.current, published);
+    assert.equal(f.owner.charDirtyRef.current, false, "the tick still does not dirty the save");
+
+    // Renders that move nothing (other App state) reuse it.
+    const kept = f.owner.latestSaveRef.current;
+    for (let i = 0; i < 5; i += 1) refreshPlayerSaveSnapshot(ticked, ticked.name, fields, f.owner);
+    assert.equal(builds, 1);
+    assert.equal(f.owner.latestSaveRef.current, kept);
+
+    // A coordinator substitution of the ref is never left in place by the reuse.
+    f.owner.latestSaveRef.current = { ...kept!, payload: { ...kept!.payload } };
+    refreshPlayerSaveSnapshot(ticked, ticked.name, fields, f.owner);
+    assert.equal(builds, 2);
+
+    // Nor is an account change.
+    refreshPlayerSaveSnapshot(ticked, "Someone Else", fields, f.owner);
+    assert.equal(builds, 3);
+    assert.equal(f.owner.latestSaveRef.current?.name, "Someone Else");
+
+    // A real edit still rebuilds, dirties, and bumps the revision.
+    const revision = f.owner.savePayloadRevisionRef.current;
+    const edited = { ...ticked, nindo: "Protect the village" };
+    refreshPlayerSaveSnapshot(edited, "Someone Else", fields, f.owner);
+    assert.equal(builds, 4);
+    assert.equal(f.owner.latestSaveRef.current?.character, edited);
+    assert.equal(f.owner.charDirtyRef.current, true);
+    assert.ok(f.owner.savePayloadRevisionRef.current > revision);
+});
+
 test("the save lifecycle passes the trackers their last-tracked refs", async () => {
     const { readFile } = await import("node:fs/promises");
     const source = await readFile(new URL("./use-player-save-lifecycle.ts", import.meta.url), "utf8");

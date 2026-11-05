@@ -10,6 +10,8 @@ import { FORGED_ITEM_ID } from '../_forged-item-registry.js';
 import { recordEconomyTxn, recordExchangeResourceSale } from '../_economy.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
+import { prepareAtomicOutboundBudgetCharge, senderTrustTier, withOutboundBudgetGate } from '../player/_transfer-budget.js';
+import { isTradeCurrency, type TradeCurrency } from '../player/_trade-core.js';
 
 // The Exchange is a player-to-player transfer channel like /api/player/trade,
 // so it carries the same two rules: no buying from (or bidding against) an
@@ -130,6 +132,17 @@ async function cleanup(listing: StoredExchangeListing): Promise<void> {
 }
 
 async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'escrow' | 'purchase' | 'payment' | 'return', catalogs?: SettlementCatalogs) {
+    const budgetCurrency = leg === 'escrow' && listing.asset.kind === 'resource'
+        && listing.asset.id !== 'ryo' && isTradeCurrency(listing.asset.id) ? listing.asset.id : null;
+    // Every entry into escrow (creation and recovery) takes this gate before
+    // the save lock. No Exchange caller holds a sender gate before a listing
+    // lock, so acquiring it here cannot close a lock cycle.
+    const apply = () => applyLegToSave(listing, actor, leg, catalogs, budgetCurrency);
+    return budgetCurrency ? withOutboundBudgetGate(actor, budgetCurrency, apply) : apply();
+}
+
+async function applyLegToSave(listing: StoredExchangeListing, actor: string, leg: 'escrow' | 'purchase' | 'payment' | 'return',
+    catalogs: SettlementCatalogs | undefined, budgetCurrency: TradeCurrency | null) {
     const marker = `${listing.id}:${leg}`;
     const out = await mutatePlayerSave(actor, async ({ character, record }) => {
         const fresh = await kv.get<StoredExchangeListing>(exchangeListingKey(listing.id));
@@ -138,6 +151,7 @@ async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'esc
         if (journal(character).includes(marker)) return { ok: true as const, character, value: null, write: false };
         let next: Obj = character;
         let recordPatch: Obj | undefined;
+        let atomicProof: { key: string; expected?: unknown; value: unknown; ex: number } | undefined;
         const currency = exchangeCurrency(listing);
         if (leg === 'escrow') {
             if (await battleLockedFor(actor)) throw new ExchangeError('Finish your current battle before listing an asset.');
@@ -150,6 +164,12 @@ async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'esc
             // Seal the exact current pet/forged definition before removing it.
             listing = await transition(listing, { sealed, asset: sealed.asset });
             next = removeAsset(character, sealed, listing.quantity);
+            if (budgetCurrency) {
+                const tier = await senderTrustTier(actor, character);
+                const charge = await prepareAtomicOutboundBudgetCharge(actor, budgetCurrency, listing.quantity, tier);
+                if (!charge.ok) throw new ExchangeError(charge.error, 409);
+                atomicProof = charge.proof;
+            }
         } else if (leg === 'purchase') {
             const seller = await kv.get<Obj>(`save:${listing.seller}`);
             if (!seller?.character) throw new ExchangeError('The seller’s account is no longer available.');
@@ -165,7 +185,7 @@ async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'esc
         if ((leg === 'purchase' || leg === 'return') && FORGED_ITEM_ID.test(listing.asset.id)) {
             recordPatch = { creatorItems: [...objects(record.creatorItems).filter(item => item.id !== listing.asset.id), listing.sealed.definition] };
         }
-        return { ok: true as const, character: stamp(next, marker), value: null, recordPatch };
+        return { ok: true as const, character: stamp(next, marker), value: null, recordPatch, atomicProof };
     });
     if (!out.ok) throw new ExchangeError(out.error, out.status);
     return listing;
@@ -262,6 +282,23 @@ export async function createExchangeListing(player: string, input: { requestId: 
     if (listingType !== 'fixed' && listingType !== 'auction') throw new ExchangeError('Choose fixed price or auction.', 400);
     const durationHours = Number(input.durationHours);
     if (listingType === 'auction' && ![6, 24, 48].includes(durationHours)) throw new ExchangeError('Choose an auction duration of 6, 24, or 48 hours.', 400);
+    // A resource lot of Fate Shards, Bone Charms or Aura Stones hands that
+    // currency to whoever buys it, at any price down to 1 (where the fee rounds
+    // to 0). That made the Exchange a send door with no ceiling, next to
+    // /api/player/trade and both treasury gifts, which all charge the rolling
+    // outbound budget. Escrow happens at creation, so that is where this lot
+    // is charged, under the same per-sender gate. Items, pets and cards, and
+    // every purchase, are untouched.
+    return createExchangeListingLocked(player, input, currency, listingType, durationHours);
+}
+
+async function createExchangeListingLocked(
+    player: string,
+    input: { requestId: string; kind: ExchangeKind; assetId: string; quantity: number; price: number },
+    currency: ExchangeCurrency,
+    listingType: 'fixed' | 'auction',
+    durationHours: number,
+): Promise<ExchangeListing> {
     const id = createHash('sha256').update(`${player}:${input.requestId}`).digest('hex').slice(0, 32);
     // Keep old ryo request fingerprints replayable across this rollout.
     const fingerprint = listingType === 'fixed'
@@ -292,7 +329,8 @@ export async function createExchangeListing(player: string, input: { requestId: 
             await kv.hset(PENDING_INDEX, { [id]: listing.createdAt });
             if (!await kv.set(exchangeListingKey(id), listing, { nx: true })) throw new ExchangeError('This listing is already being created. Refresh to recover it.');
         }
-        return publicListing(await recoverLocked(listing, catalogs));
+        const settled = await recoverLocked(listing, catalogs);
+        return publicListing(settled);
     }, { failClosed: true, ttlSec: 60 }), { failClosed: true, ttlSec: 60 });
 }
 
