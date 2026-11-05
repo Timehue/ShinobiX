@@ -2004,11 +2004,6 @@ button.chronicle-card {
 
 /* Progress through the set, so the header states plainly that this is YOUR
    shelf rather than the catalog. */
-.chronicle-collection-progress {
-  color: #9aa3b2;
-  font-size: 0.82rem;
-  white-space: nowrap;
-}
 .chronicle-card-inspect-trigger:focus-visible .chronicle-card {
   transform: translateY(-5px);
   box-shadow:

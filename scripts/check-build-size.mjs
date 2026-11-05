@@ -957,7 +957,11 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // later, by trimming rather than another raise. Startup is ~398,673 B gzip
 // against the unchanged 399,000 B gate; startup, per-chunk and asset gates
 // stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_815_000;
+// 2026-11-04 TRIM, same day: removing CSS rules whose classes no markup renders
+// any more (31 classes; e.g. the old instance-actions panel, the Spire result
+// card, the Black Market crate dialog) cut ~10.1 KB, to 9,800,251 B with the
+// production env, and startup gzip to 397,592 B. The cap goes back to 9.81 MB.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_810_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

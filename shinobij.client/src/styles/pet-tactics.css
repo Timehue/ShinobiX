@@ -29,19 +29,14 @@
 .pta-roster-pet small { font-size: 10px; margin-top: 6px; text-transform: capitalize; }
 .pta-roster-pet b { position: absolute; top: 5px; right: 7px; font-size: 10px; color: var(--element); }
 .element-Fire { --element: #ffad83; }.element-Water { --element: #87c9f0; }.element-Wind { --element: #9cdfba; }.element-Lightning { --element: #e7d389; }.element-Earth { --element: #c4af8c; }
-.pta-builds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
 .pta-build { padding: 16px; border-top: 1px solid #596071; background: #1a222ed9; border-radius: 0 0 8px 8px; }
 .pta-build summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; cursor: pointer; }
 .pta-build summary span { color: var(--tactics-gold); font-size: 11px; }
-.pta-trait { font-size: 12px; min-height: 36px; }
 .pta-preset { display: flex; gap: 8px; margin-bottom: 12px; }.pta-preset button { font-size: 11px; padding: 6px 10px; flex: 1; }
 .pta-move-pool { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .pta-move-pool label { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; min-height: 44px; }
 .pta-move-pool input { min-height: 16px; accent-color: var(--tactics-gold); padding: 0; width: 16px; height: 16px; flex-shrink: 0; }
 .pta-move-pool small { display: block; font-size: 9px; margin-top: 3px; }
-.pta-allocation { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; border-top: 1px solid #41434c; padding-top: 14px; margin: 14px 0; }
-.pta-allocation label { font-size: 10px; text-transform: capitalize; }.pta-allocation input { width: 100%; margin-top: 5px; }
-.pta-item { display: grid; grid-template-columns: 1fr 1fr; font-size: 11px; align-items: center; gap: 8px; }.pta-item-effect { margin-bottom: 0; font-size: 10px; }
 .pta-admission { align-self: start; position: sticky; top: 20px; border: 1px solid #766344; padding: 22px; background: linear-gradient(150deg, #2b2b28, #131922); border-radius: 8px; }
 .pta-admission > button, .pta-admission > input { width: 100%; margin: 10px 0; }.pta-admission label { display: block; font-size: 12px; }
 .pta-admission p, .pta-admission details { font-size: 13px; }.pta-admission details { margin-top: 18px; border-top: 1px solid #514e42; padding-top: 16px; }
@@ -88,7 +83,7 @@
     .pta-action-detail.is-empty { display: none; }.pta-action-detail .pta-order-effect { margin-bottom: 9px; }.pta-action-detail > .pta-kicker { display: none; }.pta-targets button { min-height: 48px; }.pta-range { margin-top: 8px; }.pta-range > small { display: inline; margin-left: 5px; }
 }
 @media(max-width: 1000px) { .pta-builder-layout { grid-template-columns: 1fr; }.pta-admission { position: static; }.pta-roster { grid-template-columns: repeat(4, minmax(0, 1fr)); }.pta-roster-pet img { width: 42px; }.pta-roster-pet small { font-size: 9px; }.pta-sheet-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media(max-width: 650px) { .pta-heading { flex-direction: column; }.pta-heading button { align-self: start; }.pta-roster { grid-template-columns: repeat(2, minmax(0, 1fr)); }.pta-builds { grid-template-columns: 1fr; }.pta-roster-pet img { width: 52px; }.pta-leads { grid-template-columns: repeat(2, 1fr); }.pta-leads img { height: 85px; }.pta-sheet-grid { grid-template-columns: 1fr; }}
+@media(max-width: 650px) { .pta-heading { flex-direction: column; }.pta-heading button { align-self: start; }.pta-roster { grid-template-columns: repeat(2, minmax(0, 1fr)); }.pta-roster-pet img { width: 52px; }.pta-leads { grid-template-columns: repeat(2, 1fr); }.pta-leads img { height: 85px; }.pta-sheet-grid { grid-template-columns: 1fr; }}
 @media(prefers-reduced-motion: reduce) { .pet-tactics *, .pta-console * { scroll-behavior: auto; transition: none; animation: none; } }
 
 /* Keep the command deck in the HUD flow below the arena. */

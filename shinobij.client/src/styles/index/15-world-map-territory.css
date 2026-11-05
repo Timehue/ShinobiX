@@ -1,51 +1,11 @@
 /* Village action sizing lives in adaptive-stages.css; sector controls use sector-hud.css. */
     /* Sector action appearance; sizing is owned by adaptive-stages.css. */
-    .map-instance .instance-frame > aside.instance-actions {
-        grid-area: actions !important;
-        padding: 4px !important;
-        gap: 4px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        font-size: 9px !important;
-    }
 
         /* Compact only the sector buttons */
-        .map-instance .instance-frame > aside.instance-actions > button {
-            width: 100% !important;
-            height: 22px !important;
-            min-height: 22px !important;
-            max-height: 22px !important;
-            padding: 0 5px !important;
-            margin: 0 !important;
-            font-size: 9px !important;
-            line-height: 1 !important;
-            border-radius: 5px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            box-shadow: none !important;
-        }
 
-            @media (hover: hover) {
-                .map-instance .instance-frame > aside.instance-actions > button:hover {
-                    transform: none !important;
-                }
-            }
 
         /* Compact title/weather/player box */
-        .map-instance .instance-frame > aside.instance-actions h3 {
-            margin: 0 !important;
-            padding: 0 0 3px !important;
-            font-size: 11px !important;
-            line-height: 1.1 !important;
-        }
 
-        .map-instance .instance-frame > aside.instance-actions p {
-            margin: 0 !important;
-            padding: 0 !important;
-            font-size: 8px !important;
-            line-height: 1.15 !important;
-        }
 
 /* ================================================= */
 /* SECTOR UI/UX AUDIT PASS                          */

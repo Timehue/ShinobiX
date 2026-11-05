@@ -6790,14 +6790,6 @@ body:has(.plain-combat-battle-log.is-expanded) > .screen-hint-banner {
         text-transform: uppercase !important;
     }
 
-    #combat .combat-mode-panel-body {
-        display: flex !important;
-        flex: 1 1 auto !important;
-        flex-direction: column !important;
-        gap: 6px !important;
-        min-height: 0 !important;
-        padding: 6px !important;
-    }
 
     #combat .battle-chat-messages {
         flex: 1 1 auto !important;

@@ -1579,14 +1579,6 @@ body.coach-banner-open .coach-guide-actions .location-button {
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.055), 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
-.app-shell:not(.screen-start) .right-menu-header-row .audio-mute-btn {
-  min-height: 40px;
-  border-radius: 3px;
-  color: var(--sj-text-primary);
-  background: linear-gradient(180deg, rgba(35, 49, 62, 0.94), rgba(13, 19, 27, 0.98));
-  border-color: color-mix(in srgb, var(--village-accent-soft) 38%, var(--sj-border-soft));
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.055), 0 8px 20px rgba(0, 0, 0, 0.2);
-}
 
 .app-shell:not(.screen-start) .right-menu-buttons {
   position: relative;

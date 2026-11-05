@@ -804,18 +804,6 @@ textarea {
 /* Sector player cards */
 
 /* Live badge */
-.live-badge {
-    display: inline-block;
-    background: var(--success);
-    color: #000;
-    font-size: 0.6rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    padding: 1px 5px;
-    border-radius: 3px;
-    margin-left: 6px;
-    vertical-align: middle;
-}
 
 /* ── Territory page tags ─────────────────────────────────── */
 .territory-hostile-tag {
