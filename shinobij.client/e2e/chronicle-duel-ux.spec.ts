@@ -1,4 +1,11 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
+import {
+  CHRONICLE_FIXED_FALLBACK_DECK,
+  applyAction,
+  createMatch,
+  projectMatchForViewer,
+  type ChronicleActionIntent,
+} from "../../shared/chronicle-duel";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import {
   expectUiAuditBoot,
@@ -13,6 +20,82 @@ function json(route: Route, body: unknown, status = 200) {
     body: JSON.stringify(body),
   });
 }
+
+test("Reanimation and Guardian's Reversal resolve from their duel controls", async ({ page }) => {
+  // This flow boots the client, opens a modal, then sends several duel moves.
+  // On desktop WebKit under the full suite, that can exceed the default 45s.
+  test.setTimeout(90_000);
+  const save = uiAuditSave();
+  save.character = { ...save.character, starterCardsClaimed: true, cardClashTutorialVersion: 999 };
+  const runtime = await installUiAuditRuntime(page, save);
+  const deck = CHRONICLE_FIXED_FALLBACK_DECK;
+  const matchId = "chronicle-expansion-playtest";
+  let duel = createMatch("AuditNinja", deck, "The Veiled Keeper", deck, () => 0);
+  duel.turnNumber = 3;
+  duel.activePlayer = "p1";
+  duel.phase = "main1";
+  duel.p1.hand = ["chronicle-reanimation-jutsu"];
+  duel.p1.graveyard = ["chronicle-recon-scroll", "tc-41"];
+  duel.p1.monsterZones[0] = {
+    instanceId: "expansion-attacker", cardId: "chronicle-cindercrest-quail",
+    owner: "p1", zoneIndex: 0, position: "attack", faceUp: true,
+    summonedOnTurn: 1, lastPositionChangeTurn: 1, lastAttackTurn: 0,
+    temporaryAttack: 0, temporaryDefense: 0,
+  };
+  duel.p1.magicTrapZones[0] = {
+    instanceId: "expansion-protector", cardId: "chronicle-guardians-reversal",
+    owner: "p1", zoneIndex: 0, faceUp: false, setOnTurn: 1,
+  };
+  duel.p2.magicTrapZones[0] = {
+    instanceId: "expansion-targeting-snare", cardId: "chronicle-explosive-tag",
+    owner: "p2", zoneIndex: 0, faceUp: false, setOnTurn: 1,
+  };
+
+  const session = () => ({ ...projectMatchForViewer(duel, "p1"), matchId, aiDifficulty: "medium" });
+  await page.route("**/api/card-clash/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/card-clash/sync-progression") {
+      return json(route, { granted: [], character: save.character, _saveVersion: runtime.currentVersion() });
+    }
+    if (path === "/api/card-clash/ai-start") return json(route, { ok: true, matchId, session: session() });
+    if (path === "/api/card-clash/ai-move") {
+      const intent = route.request().postDataJSON() as ChronicleActionIntent;
+      const result = applyAction(duel, "p1", intent);
+      if (!result.ok) return json(route, { ok: false, error: result.error }, 400);
+      duel = result.state;
+      if (duel.responseWindow?.responder === "p2") {
+        const response = applyAction(duel, "p2", { action: "activate-trap", zoneIndex: 0 });
+        if (!response.ok) return json(route, { ok: false, error: response.error }, 400);
+        duel = response.state;
+      }
+      return json(route, { ok: true, matchId, session: session() });
+    }
+    return json(route, { ok: false, error: "Unexpected Chronicle playtest route." }, 404);
+  });
+
+  await expectUiAuditBoot(page, runtime, "shinobiTiles");
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await page.getByRole("button", { name: "Start Showdown vs AI" }).click();
+  await page.getByRole("button", { name: /^Reanimation Jutsu\./ }).click();
+  const activate = page.getByRole("button", { name: "Activate Jutsu", exact: true });
+  await expect(activate).toBeDisabled();
+  await page.getByRole("button", { name: /^Open (your )?Graveyard/ }).first().click();
+  await page.getByRole("button", { name: "Choose Blue Blade Raccoon", exact: true }).click();
+  await expect(activate).toBeEnabled();
+  await activate.click();
+  await expect.poll(() => duel.p1.monsterZones[1]?.cardId, { timeout: 20_000 }).toBe("tc-41");
+  await page.getByRole("button", { name: "Start attacking" }).click();
+  await page.getByRole("button", { name: /Choose attacker in your Monster Zone 1/ }).click();
+  await page.getByRole("button", { name: /^Direct attack/ }).click();
+
+  const response = page.getByRole("group", { name: "Snare response" });
+  await expect(response).toContainText("A Snare targets your Monster");
+  await response.getByRole("button", { name: "Activate Guardian's Reversal" }).click();
+  await expect(response).toBeHidden();
+  expect(duel.responseWindow).toBeNull();
+  expect(duel.p1.monsterZones[0]?.cardId).toBe("chronicle-cindercrest-quail");
+  expect(duel.p2.lifePoints).toBe(8_900);
+});
 
 type Rect = {
   top: number;

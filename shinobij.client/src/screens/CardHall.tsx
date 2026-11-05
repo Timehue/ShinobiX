@@ -1160,8 +1160,9 @@ function Rules() {
         field advantages never stack.
       </p>
       <p>
-        <strong>Support:</strong> Set Snares wait one turn and allow one matching
-        response—no chains. Most cards allow three copies; printed LIMIT 1/2
+        <strong>Support:</strong> Set Snares wait one turn before answering a matching
+        move. Guardian's Reversal can counter a Snare that targets one of your Monsters.
+        Most cards allow three copies; printed LIMIT 1/2
         exceptions and the number of copies in your collection are enforced when you save and play. Lose
         at zero Health Points, on an empty Deck draw, or by forfeit.
       </p>
