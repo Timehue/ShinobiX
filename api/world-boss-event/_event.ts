@@ -180,6 +180,14 @@ export async function writeWorldBossPlayerPointer(eventId: string, slug: string,
     if (written === null) throw new Error('World boss player state write rejected.');
 }
 
+/** Match receipts may repair only the exact pointer they observed. Admission
+ * and formation own later tickets; an old poll/settlement must leave them alone. */
+export async function updateWorldBossMatchPointer(eventId: string, slug: string, pointer: WorldBossPlayerPointer, observed?: WorldBossPlayerPointer): Promise<boolean> {
+    const prior = observed ?? await readWorldBossPlayerPointer(eventId, slug);
+    if (!pointer.matchId || (prior && prior.matchId !== pointer.matchId)) return false;
+    return kv.compareSet(worldBossPlayerKey(eventId, slug), prior ?? null, pointer, { ex: WORLD_BOSS_EVENT_TTL_SECONDS });
+}
+
 export function worldBossEventIsOpen(event: WorldBossEventRecord, now: number): boolean {
     return (event.status === 'roaming' || event.status === 'final-stand')
         && event.hp > 0

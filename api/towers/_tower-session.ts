@@ -350,6 +350,8 @@ export type TowerSession = {
         seededVitals?: Record<string, { hp?: number }>;
     };
     worldBossContributions?: Record<string, WorldBossContribution>;
+    /** Engine-verified damage whose retained effect has no provable player owner. */
+    worldBossUnattributedDamage?: number;
 };
 
 /**

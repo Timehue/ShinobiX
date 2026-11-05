@@ -9,7 +9,7 @@ import { lifeAnchors,lifeEventView,lifeSceneView,parseLifeState,advanceLifeEvent
 import { travelerRoute,lifeActorsAt,lifeCourierRoute,LIFE_ACTIVE_MS } from '../../shared/sector-life';
 import { COURIER_REST_MS } from '../../shared/sector-life-courier';
 import { isWorldNight } from '../../shared/world-phase';
-import { nearestWalkableTile,tileNeighbors,isWalkableTile } from '../../shared/sector-walk-mask';
+import { nearestWalkableTile,tileNeighbors,isWalkableTile,walkPath } from '../../shared/sector-walk-mask';
 import { WORLD_DAY_MS, WORLD_HOUR_MS } from '../../shared/world-clock';
 import {DOCK_SHIPMENT_DELIVERY_MS} from '../../shared/sector-dock-shipment';
 import { wandererCastAt } from '../../shared/wanderer-roster';
@@ -743,18 +743,22 @@ for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays 
     expect(errors).toEqual([]);
 });
 
-test('daytime wildlife reacts to walking and stays visible without animation under reduced motion',async({page},info)=>{
+for(const liteFx of ['0','1'])test(`daytime wildlife reacts to walking and stays visible without animation under reduced motion (liteFx=${liteFx})`,async({page},info)=>{
     await page.clock.install({time:new Date(LIFE_SCENARIO_EPOCH)});
     const save=uiAuditSave();save.currentSector=42;save.currentTile=112;
     save.character={...save.character,wandererCooldowns:quietRoadCooldowns([42],LIFE_SCENARIO_EPOCH)};
     await installUiAuditRuntime(page,save);
-    await page.addInitScript(()=>{
+    await page.addInitScript(lite=>{
         localStorage.setItem('dayCycle.hour','12');localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45]));
+        localStorage.setItem('liteFx.v1',lite);
         const state={frames:0,points:[] as number[][]};Object.assign(window,{wildlifeQa:state});
+        // Keep this reaction fixture's cast near reachable midfield ground. A
+        // random distant flyer can leave its sampled tile before the walk arrives.
+        Math.random=()=>.5;
         const clear=CanvasRenderingContext2D.prototype.clearRect,translate=CanvasRenderingContext2D.prototype.translate;
         CanvasRenderingContext2D.prototype.clearRect=function(...args){if(this.canvas.closest('.sector-life-wildlife')){state.frames++;state.points=[];}return clear.apply(this,args);};
         CanvasRenderingContext2D.prototype.translate=function(x,y){if(this.canvas.closest('.sector-life-wildlife'))state.points.push([x,y,this.canvas.clientWidth,this.canvas.clientHeight]);return translate.call(this,x,y);};
-    });
+    },liteFx);
     await page.route('**/api/sector/life**',async request=>{const now=await page.evaluate(()=>Date.now());return request.fulfill({json:{ok:true,serverNow:now,view:lifeSceneView(42,parseLifeState(null,now),now,'clear')}});});
     const stats=()=>page.evaluate(()=>(window as unknown as {wildlifeQa:{frames:number;points:number[][]}}).wildlifeQa);
     async function enter() {
@@ -769,9 +773,15 @@ test('daytime wildlife reacts to walking and stays visible without animation und
     expect(points.length).toBeGreaterThan(0);
     const [x,y,w,h]=points.at(-1)!;
     const target=nearestWalkableTile(42,Math.min(11,Math.floor(y/h*12))*12+Math.min(11,Math.floor(x/w*12)));
+    await expect(page.locator('.continuous-world-tile').nth(Number(save.currentTile))).toHaveClass(/sector-player-tile/);
+    expect(target).not.toBe(save.currentTile);
+    const path=walkPath(42,Number(save.currentTile),target);expect(path).not.toBeNull();expect(path!.length).toBeLessThanOrEqual(4);
     const tile=page.locator('.continuous-world-tile').nth(target);await tile.focus();await tile.press('Enter');
-    await expect.poll(async()=>Number(await canvas.getAttribute('data-wildlife-reaction')??0),{timeout:30_000}).toBeGreaterThan(before);
-    await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-wildlife-response.png`});
+    await Promise.all([
+        expect(tile).toHaveClass(/sector-player-tile/),
+        expect.poll(async()=>Number(await canvas.getAttribute('data-wildlife-reaction')??0),{timeout:30_000}).toBeGreaterThan(before),
+    ]);
+    await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-wildlife-response-lite-${liteFx}.png`});
     await page.evaluate(()=>{const cover=document.createElement('div');cover.className='combat-instance';document.body.append(cover);});
     await page.waitForTimeout(100);const paused=(await stats()).frames;await page.waitForTimeout(250);expect((await stats()).frames).toBe(paused);
     await page.evaluate(()=>document.querySelector('body > .combat-instance')?.remove());
