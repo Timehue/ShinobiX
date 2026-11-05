@@ -526,8 +526,7 @@ const DELETION_PROJECTION = { seller: ['seller'], bidder: ['highestBid', 'player
  *  - The player index row goes last, and only when nothing above failed, so a
  *    retried deletion can still find what is left.
  */
-export async function settleExchangeForDeletedPlayer(player: string): Promise<{ closed: string[]; failures: string[] }> {
-    const out = { closed: [] as string[], failures: [] as string[] };
+async function exchangeListingIdsNaming(player: string): Promise<Set<string>> {
     const ids = new Set(Object.keys(await kv.hgetall<Record<string, number>>(playerIndex(player)) ?? {}));
     // The player index already lists every listing the player created or bid
     // on; the live index is read too (two projected fields per row) so a lost
@@ -538,6 +537,50 @@ export async function settleExchangeForDeletedPlayer(player: string): Promise<{ 
         const rows = await readKvProjection(kv, chunk.map(exchangeListingKey), DELETION_PROJECTION);
         rows.forEach((row, index) => { if (row && (row.seller === player || row.bidder === player)) ids.add(chunk[index]!); });
     }
+    return ids;
+}
+
+/**
+ * Take a permanently banned player off the market (owner ruling 2026-11-04).
+ * Unlike deletion the save stays, so the seller's open listings are cancelled
+ * through the ordinary return leg (the escrow goes back to their save, exactly
+ * as their own Cancel would), and a standing high bid on someone else's auction
+ * is withdrawn so a player who can no longer log in cannot win it. Trades
+ * already in flight finish first. A timed ban never calls this.
+ */
+export async function pullExchangeListingsOfBannedPlayer(player: string): Promise<{ closed: string[]; failures: string[] }> {
+    const out = { closed: [] as string[], failures: [] as string[] };
+    for (const id of await exchangeListingIdsNaming(player)) {
+        if (!/^[a-f0-9]{32}$/.test(id)) continue;
+        try {
+            await withKvLock(exchangeListingKey(id), async () => {
+                const key = exchangeListingKey(id);
+                let listing = await kv.get<StoredExchangeListing>(key);
+                if (!listing) return;
+                if (listing.seller !== player && listing.highestBid?.player !== player) return;
+                if (listing.state === 'active' && listing.listingType === 'auction' && (listing.auctionEndsAt ?? Infinity) <= Date.now()) {
+                    listing = await closeExpiredAuctionLocked(listing);
+                }
+                if (pending(listing)) listing = await recoverLocked(listing);
+                if (listing.state !== 'active') return;
+                if (listing.seller === player) {
+                    listing = await recoverLocked(await transition(listing, { state: 'cancelling' }));
+                    if (listing.state === 'cancelled') out.closed.push(id);
+                    else throw new Error(`the return leg left the listing ${listing.state}`);
+                } else if (listing.highestBid?.player === player) {
+                    await transition(listing, { highestBid: undefined });
+                }
+            }, { failClosed: true, ttlSec: 60 });
+        } catch (error) {
+            out.failures.push(`exchange listing ${id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+    return out;
+}
+
+export async function settleExchangeForDeletedPlayer(player: string): Promise<{ closed: string[]; failures: string[] }> {
+    const out = { closed: [] as string[], failures: [] as string[] };
+    const ids = await exchangeListingIdsNaming(player);
     for (const id of ids) {
         if (!/^[a-f0-9]{32}$/.test(id)) continue;
         try {
