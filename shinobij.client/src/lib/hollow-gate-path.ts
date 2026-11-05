@@ -10,7 +10,7 @@
  *
  * Pure helpers — no App state, unit-tested in hollow-gate-path.test.ts.
  */
-import { computeHollowGateVisible } from "./hollow-gate-visibility";
+import { computeHollowGateSight } from "./hollow-gate-visibility";
 import { hollowGateFlavorFor } from "../data/hollow-gate-flavor";
 import type { HollowGateShrineRun, HollowGateTile } from "../types/character";
 import type { WingStep } from "./hollow-gate-wings";
@@ -21,9 +21,9 @@ const CARD: ReadonlyArray<readonly [number, number]> = [[0, -1], [0, 1], [-1, 0]
 /** Everything the player can currently see plus everything already explored
  *  (stepped on OR ever seen — the persisted map memory). */
 export function hollowGateKnownSet(run: HollowGateShrineRun): Set<number> {
-    const known = run.diviner
-        ? new Set(run.tiles.map((_, i) => i))       // Diviner's Eye — whole floor known
-        : computeHollowGateVisible(run);
+    // Diviner's Eye widens the sight around the player (computeHollowGateSight);
+    // it no longer makes the whole floor known.
+    const known = computeHollowGateSight(run);
     run.tiles.forEach((t, i) => { if (t.revealed || t.seen) known.add(i); });
     return known;
 }
@@ -35,7 +35,7 @@ export function hollowGateKnownSet(run: HollowGateShrineRun): Set<number> {
  * without spurious re-renders. Call after each committed move.
  */
 export function markHollowGateSeen(run: HollowGateShrineRun): HollowGateShrineRun {
-    const visible = computeHollowGateVisible(run);
+    const visible = computeHollowGateSight(run);
     let dirty = false;
     for (const i of visible) {
         const t = run.tiles[i];
@@ -57,6 +57,8 @@ export type HollowGateMoveEffect = {
     torchSputtered: boolean;
     justResolved: { tile: HollowGateTile; nx: number; ny: number } | null;
     ambushImmediate: boolean;
+    /** This step broke open a sealed secret passage (lib/hollow-gate-secrets). */
+    secretFound?: boolean;
     step?: { requestId: string; fromX: number; fromY: number; toX: number; toY: number };
 };
 
@@ -76,6 +78,7 @@ export function projectHollowGateMove(
             torchSputtered: false,
             justResolved: tile.resolved ? null : { tile: { ...tile, revealed: true }, nx, ny },
             ambushImmediate: false,
+            ...(tile.secret && !tile.revealed ? { secretFound: true } : {}),
             step: { requestId, fromX: run.playerX, fromY: run.playerY, toX: nx, toY: ny },
         },
     };

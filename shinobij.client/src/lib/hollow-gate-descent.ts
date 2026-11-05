@@ -36,9 +36,18 @@ export function openHollowGateDescent(ctx: HollowGateTileCtx, flavor: string, ov
                     if (!current()) return;
                     const floor = await deps.descend({ playerName: character.name, token: run.runToken, fromFloor: run.floor }, ctx.onVersionedCharacter);
                     if (!current()) return;
-                    const next = applyAttunementToRun(generator.generateHollowGateShrineRun(floor, run.variant, run.serverSeed), character, false);
-                    const sealed = await deps.seal(character.name, run.runToken, next);
+                    let next = applyAttunementToRun(generator.generateHollowGateShrineRun(floor, run.variant, run.serverSeed, false, true, "auto", { width: run.width, height: run.height }), character, false);
+                    let sealed = await deps.seal(character.name, run.runToken, next);
                     if (!current()) return;
+                    // A floor sealed by an earlier generator (a descent replayed
+                    // across a deploy) is redrawn the way it was sealed.
+                    for (const { secrets, layout } of generator.HOLLOW_GATE_BOARD_GENERATIONS?.slice(1) ?? []) {
+                        if (sealed.ok || !/already sealed/i.test(sealed.error ?? '')) break;
+                        const earlier = applyAttunementToRun(generator.generateHollowGateShrineRun(floor, run.variant, run.serverSeed, false, secrets, layout, { width: run.width, height: run.height }), character, false);
+                        const retry = await deps.seal(character.name, run.runToken, earlier);
+                        if (!current()) return;
+                        if (retry.ok) { next = earlier; sealed = retry; }
+                    }
                     if (!sealed.ok) return fail(sealed.error || 'The next floor could not be saved. Try the staircase again.');
                     ctx.setHollowGateRun({ ...next, keys: run.keys, torch: Math.min(10, run.torch + 4),
                         entryCurrencies: run.entryCurrencies, runToken: run.runToken, serverSeed: run.serverSeed,

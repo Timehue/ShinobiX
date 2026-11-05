@@ -219,8 +219,10 @@ export function isProtectedAdminName(name: string | undefined | null): boolean {
 // 25×17 = 425 cells: real chambers (from 4×3 up to ~9×7) connected by
 // corridors, explored through a scrolling camera viewport (Zelda-DS-style
 // dungeon scale) instead of the old cramped single-screen board.
-export const HOLLOW_GATE_SHRINE_W = 25;
-export const HOLLOW_GATE_SHRINE_H = 17;
+// 2026-11-04: 31x21, the crypt board: a 4x3 graph of painted prefab rooms
+// (lib/hollow-gate-crypt-layout). Runs sealed at 25x17 keep that size.
+export const HOLLOW_GATE_SHRINE_W = 31;
+export const HOLLOW_GATE_SHRINE_H = 21;
 
 // The standard server-sealed run is exactly five floors. Shorter event gates
 // use HollowGateVariant; runtime mutation here would desynchronise the client

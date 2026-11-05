@@ -15,6 +15,7 @@ import { HollowGateShrineView } from "./features/hollowGate/HollowGateShrineView
 import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
 import { generateHollowGateShrineRun } from "./lib/hollow-gate-dungeon";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
+import { projectHollowGateMovement } from "./lib/hollow-gate-movement-projection";
 import type { Character, HollowGateShrineRun, HollowGateVariant } from "./types/character";
 
 const stubCharacter = {
@@ -61,8 +62,13 @@ const SHRINE_KEY_SNAPSHOT = [
 ];
 
 function Harness() {
-    const [floorNum, setFloorNum] = useState(1);
-    const [run, setRun] = useState<HollowGateShrineRun>(() => generateHollowGateShrineRun(1));
+    // ?floor=N&seed=S draws a repeatable seeded floor for QA.
+    const params = new URLSearchParams(location.search);
+    const [floorNum, setFloorNum] = useState(() => Math.max(1, Math.min(5, Number(params.get("floor")) || 1)));
+    // ?rift=<id> previews a quest rift's floor (its id starts with "rift-").
+    const riftId = params.get("rift");
+    const riftVariant: HollowGateVariant | undefined = riftId ? { id: riftId.startsWith("rift-") ? riftId : `rift-${riftId}`, label: "Preview Rift", maxFloor: 3, bossName: "Rift Guardian" } : undefined;
+    const [run, setRun] = useState<HollowGateShrineRun>(() => generateHollowGateShrineRun(floorNum, riftVariant, params.get("seed") ?? undefined));
     const [log, setLog] = useState<string[]>(["Preview harness — movement is geometry-only."]);
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const pushLog = (line: string) => setLog(prev => [line, ...prev].slice(0, 30));
@@ -81,25 +87,26 @@ function Harness() {
         return () => { alive = false; };
     }, []);
 
-    // Geometry-only movement: walls block, tiles reveal; stepping on descend
-    // regenerates the next floor. No events/economy — renderer test only.
+    // The real movement rules (walls, secret passages, arena fissures, wing
+    // seals) with no server step: no events or economy — renderer test only.
     function moveStep(dx: number, dy: number) {
-        setRun(prev => {
-            const nx = prev.playerX + dx;
-            const ny = prev.playerY + dy;
-            if (nx < 0 || ny < 0 || nx >= prev.width || ny >= prev.height) return prev;
-            const idx = ny * prev.width + nx;
-            const tile = prev.tiles[idx];
-            if (tile.kind === "wall" || tile.terrain === "wall") return prev;
-            const tiles = prev.tiles.slice();
-            tiles[idx] = { ...tile, revealed: true, resolved: true };
-            return markHollowGateSeen({ ...prev, playerX: nx, playerY: ny, tiles });
-        });
+        const projected = projectHollowGateMovement(run, dx, dy);
+        if (!projected) return;
+        if (projected.effect.wallBump) { if (projected.effect.blockMessage) pushLog(projected.effect.blockMessage); return; }
+        if (projected.effect.secretFound) pushLog("The cracked wall gives way under your shoulder. A hidden passage opens.");
+        const idx = projected.nextRun.playerY * run.width + projected.nextRun.playerX;
+        const tiles = projected.nextRun.tiles.slice();
+        tiles[idx] = { ...tiles[idx], resolved: tiles[idx].kind === "boss" ? tiles[idx].resolved : true };
+        setRun({ ...projected.nextRun, tiles });
     }
     const { walkTo, walkTarget } = useHollowGateWalk({ active: true, run, blocked: false, moveStep });
-    // Dev probe for driving/verifying the harness from the browser console.
+    // Dev probe for driving/verifying the harness from the browser console:
+    // `__hg.teleport(index)` stands the player on a tile (QA screenshots).
     useEffect(() => {
-        (window as unknown as Record<string, unknown>).__hg = { run, walkTo, walkTarget };
+        (window as unknown as Record<string, unknown>).__hg = { run, walkTo, walkTarget,
+            teleport: (index: number) => setRun(prev => markHollowGateSeen({ ...prev, playerX: index % prev.width, playerY: Math.floor(index / prev.width) })),
+            // QA only: remember the whole floor, to review a layout at a glance.
+            revealAll: () => setRun(prev => ({ ...prev, tiles: prev.tiles.map(t => ({ ...t, seen: true })) })) };
     });
 
     // Regenerate floors from the toolbar to eyeball generator variety.

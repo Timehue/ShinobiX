@@ -38,6 +38,7 @@ import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H } from "../constants/game";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain } from "../types/character";
 import { hollowGateOrdinaryBattleCount } from '../../../shared/hollow-gate-pacing';
+import { hollowGateCryptLayout } from "./hollow-gate-crypt-layout";
 
 const CARD: ReadonlyArray<readonly [number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
@@ -47,9 +48,14 @@ export type HollowGateFloorDims = { width: number; height: number };
 
 /** Public entry: a fully-connected, intentionally-laid-out floor. Retries a few
  *  times if an invariant fails (regenerate-on-invalid is microseconds at 425 cells). */
-export function generateHollowGateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims, rng: () => number = Math.random, legacyPacing = false): HollowGateShrineRun {
+/** Floor geometry: "crypt" (painted prefab rooms on a room graph, the 31 x 21
+ *  board since 2026-11-04) or "bsp" (the original rectangle rooms, for runs
+ *  sealed at the older board sizes). "auto" picks crypt where the board fits. */
+export type HollowGateFloorLayout = "crypt" | "bsp" | "auto";
+
+export function generateHollowGateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims, rng: () => number = Math.random, legacyPacing = false, layout: HollowGateFloorLayout = "auto"): HollowGateShrineRun {
     for (let attempt = 0; attempt < 20; attempt += 1) {
-        const run = tryGenerateFloor(floor, isFinalFloor, dims, rng, legacyPacing);
+        const run = tryGenerateFloor(floor, isFinalFloor, dims, rng, legacyPacing, layout);
         if (run) return run;
     }
     throw new Error("hollow-gate floor generation failed after retries");
@@ -71,12 +77,33 @@ function chamberInLeaf(node: BSPRect, rng: () => number): BSPRect {
     return { x: roomX, y: roomY, w: roomW, h: roomH };
 }
 
-function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGateFloorDims | undefined, rng: () => number, legacyPacing: boolean): HollowGateShrineRun | null {
+function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGateFloorDims | undefined, rng: () => number, legacyPacing: boolean, layout: HollowGateFloorLayout): HollowGateShrineRun | null {
     const w = dims?.width ?? HOLLOW_GATE_SHRINE_W;
     const h = dims?.height ?? HOLLOW_GATE_SHRINE_H;
     const total = w * h;
     const at = (x: number, y: number) => y * w + x;
 
+    // ── 1-2. Geometry: crypt prefabs, or BSP rooms + MST corridors ──────────
+    const crypt = layout !== "bsp" ? hollowGateCryptLayout(w, h, rng) : null;
+    if (layout === "crypt" && !crypt) return null;
+    const geometry = crypt
+        ? { rooms: crypt.rooms, terrain: crypt.terrain, roomIds: crypt.roomIds, centers: crypt.anchors }
+        : bspGeometry(floor, w, h, rng);
+    if (!geometry) return null;
+    const { rooms, terrain, roomIds, centers } = geometry;
+    // A crypt's spawn is its entrance (room 0); its stairs wait in the stair hall.
+    const run = placeFloorContent({ floor, isFinalFloor, w, h, total, at, rng, legacyPacing, rooms, terrain, roomIds, centers,
+        spawnRoom: crypt ? 0 : undefined, preferredTargetRoom: crypt?.stairRoom });
+    // Crypt rooms carry their prefab, so the renderer paints the right room.
+    return run && crypt ? { ...run, roomPrefabs: Object.fromEntries(crypt.prefabs.map((prefab, id) => [id, id === crypt.stairRoom ? "stair" : prefab])) } : run;
+}
+
+/** The original geometry: BSP leaves → chunky chambers, joined by an MST of
+ *  L-corridors plus one loop. Unchanged, so sealed BSP floors redraw exactly. */
+function bspGeometry(floor: number, w: number, h: number, rng: () => number):
+    { rooms: BSPRect[]; terrain: HollowGateTerrain[]; roomIds: number[]; centers: Array<{ x: number; y: number }> } | null {
+    const total = w * h;
+    const at = (x: number, y: number) => y * w + x;
     // ── 1. Rooms via BSP leaves ──────────────────────────────────────────────
     // Depth 3 on 25×17 yields ~6-8 chunky leaves; deeper floors sometimes split
     // once more for a busier, tighter warren. minLeaf 6 keeps every leaf big
@@ -133,10 +160,18 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGate
         }
         if (la >= 0) bspCarveCorridor(terrain, w, centers[la], centers[lb], rng);
     }
+    return { rooms, terrain, roomIds, centers };
+}
 
-    // ── Spawn (leftmost room) — needed before the connectivity flood ──────────
-    let spawnRoom = 0;
-    for (let i = 1; i < rooms.length; i += 1) if (centers[i].x < centers[spawnRoom].x) spawnRoom = i;
+/** Steps 3-8: connectivity, doors, room roles and content. Shared by both layouts. */
+function placeFloorContent({ floor, isFinalFloor, w, h, total, at, rng, legacyPacing, rooms, terrain, roomIds, centers, spawnRoom: fixedSpawn, preferredTargetRoom }: {
+    floor: number; isFinalFloor: boolean; w: number; h: number; total: number; at: (x: number, y: number) => number;
+    rng: () => number; legacyPacing: boolean; rooms: BSPRect[]; terrain: HollowGateTerrain[]; roomIds: number[];
+    centers: Array<{ x: number; y: number }>; spawnRoom?: number; preferredTargetRoom?: number;
+}): HollowGateShrineRun | null {
+    // ── Spawn (leftmost room, or the layout's own entrance) — needed before the connectivity flood
+    let spawnRoom = fixedSpawn ?? 0;
+    if (fixedSpawn == null) for (let i = 1; i < rooms.length; i += 1) if (centers[i].x < centers[spawnRoom].x) spawnRoom = i;
     const spawnIdx = at(centers[spawnRoom].x, centers[spawnRoom].y);
 
     // ── 3. Connectivity guarantee — carve a repair corridor to any unreached
@@ -156,7 +191,7 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims: HollowGate
     for (let i = 0; i < total; i += 1) if (terrain[i] === "room_floor" && reachable(i) && i !== spawnIdx) roomCellsByDepth.push(i);
     roomCellsByDepth.sort((a, b) => dist[b] - dist[a]);
     if (roomCellsByDepth.length < 2) return null;
-    const targetIdx = roomCellsByDepth[0];
+    const targetIdx = preferredTargetRoom == null ? roomCellsByDepth[0] : roomCellsByDepth.find((i) => roomIds[i] === preferredTargetRoom) ?? roomCellsByDepth[0];
     const targetRoom = roomIds[targetIdx];
     const exitIdx = roomCellsByDepth.find((i) => roomIds[i] !== targetRoom && roomIds[i] !== roomIds[spawnIdx]) ?? roomCellsByDepth[1];
 

@@ -112,6 +112,9 @@
     .rift-energy-mote { opacity: .35; }
 }
 .underground-terrain { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+/* Painted floors sit in darkness: no tinted glow past the board's edges. */
+.underground-world--cave .hg-viewport { background: #000; background-image: none; }
+
 .underground-fixture { filter: drop-shadow(0 0.025px 0.035px #000a); }
 .underground-built-in { filter: none; }
 .underground-world .hg-board { will-change: auto; }
@@ -138,6 +141,24 @@
 .underground-world .hg-layout { grid-template-columns: minmax(0, 1fr); }
 .underground-world .hg-cell::before, .underground-world .hg-wall-face::after { content: none; }
 .underground-world .hg-cell.hg-dark { background: transparent; }
+/* Painted decals (docs/art/hollow-gate-cavern-chambers.json): a weakened wall
+   over a sealed secret passage, and boss-arena fissures whose painted eruption
+   fades in with the rhythm. Only placement and opacity live here. */
+.hg-painted-prop { position: absolute; inset: 4%; width: 92%; height: 92%; object-fit: contain; pointer-events: none; z-index: 1; }
+.hg-cell.hg-dim .hg-painted-prop { opacity: .55; }
+.hg-secret-decal { position: absolute; inset: 4%; width: 92%; height: 92%; object-fit: contain; pointer-events: none; z-index: 2; }
+.hg-fissure { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.hg-fissure img { position: absolute; inset: 2%; width: 96%; height: 96%; object-fit: contain; }
+.hg-fissure .hg-fissure-fire { opacity: 0; transition: opacity .3s ease-out; }
+.hg-fissure.is-warning .hg-fissure-fire { opacity: .35; }
+.hg-fissure.is-erupting .hg-fissure-fire { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .hg-fissure .hg-fissure-fire { transition: none; } }
+
+
+.hg-arena-note { position: absolute; z-index: 5; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: calc(100% - 24px); width: max-content;
+    padding: 6px 10px; border: 1px solid #ff9b4566; border-radius: 6px; background: #170b08eb; color: #ffd9b8; font-size: 11px; text-align: center; pointer-events: none; }
+/* Phones float the collapsed journal button at the board's bottom-right. */
+@media (max-width: 620px), (max-height: 500px) and (orientation: landscape) { .hg-arena-note { bottom: 60px; } }
 .underground-world .hg-flame { display: none; }
 .stronghold-shell.underground-world .stronghold-tile.is-floor:not([role=button]), .stronghold-shell.underground-world .stronghold-tile[aria-disabled=true] { cursor: default; }
 .stronghold-shell.underground-world .stronghold-tile.is-floor[role=button]:not([aria-disabled=true]):hover::after,

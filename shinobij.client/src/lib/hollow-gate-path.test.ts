@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { findHollowGatePath, hollowGateKnownSet, projectHollowGateMove } from "./hollow-gate-path";
+import { findHollowGatePath, hollowGateKnownSet, markHollowGateSeen, projectHollowGateMove } from "./hollow-gate-path";
 import type { HollowGateShrineRun, HollowGateTile } from "../types/character";
 
 // Tiny hand-built floor: one 5×5 room split by a wall spur, so paths must
@@ -82,7 +82,7 @@ test("walking to your own tile is a no-op path", () => {
     assert.deepEqual(findHollowGatePath(run, at(1, 1)), []);
 });
 
-test("knownSet = visible ∪ revealed; diviner knows the whole floor", () => {
+test("knownSet = visible ∪ revealed; diviner senses nearby tiles", () => {
     const run = makeRun();
     run.tiles[at(5, 3)].revealed = false;
     run.tiles[at(5, 3)].roomId = 1;      // out of the player's room flood
@@ -90,7 +90,25 @@ test("knownSet = visible ∪ revealed; diviner knows the whole floor", () => {
     assert.ok(!known.has(at(5, 3)), "unseen off-room cell unknown");
     run.diviner = true;
     const divinerKnown = hollowGateKnownSet(run);
-    assert.ok(divinerKnown.has(at(5, 3)), "Diviner's Eye knows everything");
+    assert.ok(divinerKnown.has(at(5, 3)), "Diviner's Eye senses a cell within its radius");
+});
+
+test("Diviner's Eye never maps the far side of the floor", () => {
+    // 20×3 corridor: the player at the west end, an unseen room at the east end.
+    const w = 20, h = 3;
+    const tiles: HollowGateTile[] = [];
+    for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
+        const wall = y !== 1 || x === 0 || x === w - 1 || x === 10;
+        tiles.push({ kind: wall ? "wall" : "empty", terrain: wall ? "wall" : "room_floor", roomId: wall ? null : x, revealed: false, resolved: false }); // one-tile rooms: ordinary sight lights only your own tile
+    }
+    const run: HollowGateShrineRun = { width: w, height: h, playerX: 1, playerY: 1, tiles, floor: 1, threat: 0, torch: 10, keys: 0, completed: false, diviner: true };
+    const known = hollowGateKnownSet(run);
+    assert.ok(known.has(1 * w + 6), "a tile 5 away is sensed");
+    assert.ok(!known.has(1 * w + 7), "a tile 6 away is not");
+    assert.ok(!known.has(1 * w + 18), "the far room stays unknown");
+    const seen = markHollowGateSeen(run);
+    assert.equal(seen.tiles[1 * w + 6].seen, true, "sensed tiles enter map memory");
+    assert.equal(seen.tiles[1 * w + 6].revealed, false, "sensed tiles are not unmasked");
 });
 
 test("rapid projected steps chain from the latest tile and retain each seal identity", () => {

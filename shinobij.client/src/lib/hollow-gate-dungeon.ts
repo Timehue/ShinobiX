@@ -12,8 +12,9 @@
  * unit-testable (see hollow-gate-dungeon.test.ts).
  */
 import { hollowGateReachableSet, bspSplit, bspRoomInNode, bspRoomCenter, bspCarveCorridor, type BSPRect } from "./hollow-gate-bsp";
-import { generateHollowGateMazeRun } from "./hollow-gate-maze";
-import { generateHollowGateFloor } from "./hollow-gate-generate";
+import { generateHollowGateFloor, type HollowGateFloorLayout } from "./hollow-gate-generate";
+import { sealHollowGateSecretPassage } from "./hollow-gate-secrets";
+import { hollowGateArenaFissures } from "./hollow-gate-arena";
 import { hollowGateRunMaxFloor, hollowGateVariantDims } from "./hollow-gate-variant";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H, HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
@@ -421,17 +422,34 @@ export function hollowGateSeededRandom(serverSeed: string, floor: number): () =>
     };
 }
 
-export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVariant, serverSeed?: string, legacyPacing = false): HollowGateShrineRun {
+/** Every way a sealed floor may have been drawn, newest first: recovery and a
+ *  replayed descent try each until one matches the floor the server sealed.
+ *  (Floors sealed before secret passages existed have none.) */
+export const HOLLOW_GATE_BOARD_GENERATIONS: ReadonlyArray<{ secrets: boolean; layout: HollowGateFloorLayout }> = [
+    { secrets: true, layout: "auto" }, { secrets: false, layout: "bsp" },
+];
+
+/**
+ * `boardDims` is the board size the server sealed for this run (it refuses a
+ * floor of any other size). A run started on the crypt board (31 x 21, the
+ * default since 2026-11-04) gets painted prefab rooms; a run sealed at an
+ * older or event size keeps the BSP rooms at that size.
+ */
+export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVariant, serverSeed?: string, legacyPacing = false, secrets = true, layout: HollowGateFloorLayout = "auto", boardDims?: { width?: number; height?: number }): HollowGateShrineRun {
     // The run's own shape wins: an event variant can shorten the gate (its
-    // final floor holds the boss) and shrink the board. No variant = the
-    // standard shrine, byte-identical to before variants existed.
+    // final floor holds the boss) and resize the board.
     const isFinalFloor = floor >= hollowGateRunMaxFloor({ variant });
-    const dims = hollowGateVariantDims(variant);
-    const stamp = (run: HollowGateShrineRun): HollowGateShrineRun => ({
-        ...run,
-        ...(variant ? { variant } : {}),
-        ...(serverSeed ? { serverSeed } : {}),
-    });
+    const dims = hollowGateVariantDims({ id: variant?.id ?? "", ...variant,
+        width: boardDims?.width ?? variant?.width, height: boardDims?.height ?? variant?.height });
+    // Every floor then hides one optional side area behind a cracked wall
+    // (deterministic, no RNG, so a sealed floor regenerates identically).
+    // `secrets: false` redraws a floor sealed before secret passages existed.
+    const stamp = (run: HollowGateShrineRun): HollowGateShrineRun => {
+        const stamped = { ...run, ...(variant ? { variant } : {}), ...(serverSeed ? { serverSeed } : {}) };
+        const sealed = secrets ? sealHollowGateSecretPassage(stamped) : stamped;
+        const fissures = hollowGateArenaFissures(sealed);
+        return fissures.size ? { ...sealed, arenaFissures: Object.fromEntries(fissures) } : sealed;
+    };
 
     // ONE coherent generator (lib/hollow-gate-generate) — rooms + MST corridors +
     // guaranteed connectivity + room-ROLE content (guarded stairs, locked treasury,
@@ -445,10 +463,11 @@ export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVaria
     // fallbacks only.
     try {
         const rng = serverSeed ? hollowGateSeededRandom(serverSeed, floor) : Math.random;
-        return stamp(generateHollowGateFloor(floor, isFinalFloor, dims, rng, legacyPacing));
+        return stamp(generateHollowGateFloor(floor, isFinalFloor, dims, rng, legacyPacing, layout));
     } catch {
         if (serverSeed) throw new Error("The sealed Hollow Gate floor could not be regenerated.");
-        try { return stamp(generateHollowGateMazeRun(floor, isFinalFloor, dims)); } catch { return stamp(generateHollowGateShrineRunBSP(floor, isFinalFloor, dims)); }
+        // Unseeded (preview) generation only: every live run is seeded.
+        return stamp(generateHollowGateShrineRunBSP(floor, isFinalFloor, dims));
     }
 }
 

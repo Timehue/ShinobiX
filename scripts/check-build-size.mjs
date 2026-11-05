@@ -950,7 +950,11 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 812acc43f4 (9,795,668 B without the production env, 9,800,368 B with the
 // feature). Owner approved 9.81 MB. Startup is 396,598 B gzip against the
 // unchanged 399,000 B gate; startup, per-chunk and asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_810_000;
+// 2026-11-04 DUNGEON PASS: painted Hollow Gate chambers, explored-only maps, the
+// corner map, secret passages and boss-arena fissures add ~8 KB of lazy code
+// on main badbd8c7c9 (9,809,131 B with the production env). Owner approved
+// 9.825 MB. The startup gzip, per-chunk and asset gates stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_825_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

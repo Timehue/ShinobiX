@@ -10,6 +10,8 @@
  */
 import type { Character, HollowGateShrineRun } from "../types/character";
 import { snapshotHollowGateCurrencies } from "./hollow-gate-run";
+import { markHollowGateSeen } from "./hollow-gate-path";
+import { HOLLOW_GATE_DIVINER_RADIUS } from "./hollow-gate-visibility";
 
 export type HollowShardConsumable = {
     id: string;
@@ -30,7 +32,7 @@ export const HOLLOW_SHARD_CONSUMABLES: HollowShardConsumable[] = [
     { id: "reignite", label: "Reignite Torch", cost: 10, icon: "flame", desc: "Refill the Torch of Reiki to full." },
     { id: "skeleton-key", label: "Skeleton Key", cost: 15, icon: "key", desc: "Gain a Shrine Key to open one sealed door." },
     { id: "hollow-ward", label: "Hollow Ward", cost: 25, icon: "shield-half", desc: "Wipe Threat and hold it back for 6 steps." },
-    { id: "diviner-eye", label: "Diviner's Eye", cost: 25, icon: "eye", desc: "Reveal the entire floor.", once: true },
+    { id: "diviner-eye", label: "Diviner's Eye", cost: 25, icon: "eye", desc: `Sense everything within ${HOLLOW_GATE_DIVINER_RADIUS} tiles of you, through walls, for the rest of this floor.`, once: true },
     { id: "sanctify", label: "Sanctify Loot", cost: 40, icon: "lock", desc: "Bank your haul so death can't claw it back." },
     { id: "second-wind", label: "Second Wind", cost: 60, icon: "heart-plus", desc: "Hold a revive. Survive your next death at half HP.", once: true },
 ];
@@ -75,8 +77,8 @@ export function applyShardConsumable(id: string, run: HollowGateShrineRun, chara
             log = `A Hollow Ward settles over you. Threat drops to zero and stays there for ${HOLLOW_SHARD_WARD_STEPS} steps.`;
             break;
         case "diviner-eye":
-            run2 = { ...run, diviner: true, tiles: run.tiles.map((t) => ({ ...t, revealed: true })) };
-            log = "The Diviner's Eye opens. You can see the whole floor now.";
+            run2 = markHollowGateSeen({ ...run, diviner: true });
+            log = `The Diviner's Eye opens. For the rest of this floor you sense everything within ${HOLLOW_GATE_DIVINER_RADIUS} tiles of you, even through walls.`;
             break;
         case "sanctify":
             // Re-snapshot entry currencies to NOW, so the death claw-back treats

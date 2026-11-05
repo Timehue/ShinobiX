@@ -18,11 +18,19 @@ export function undergroundRooms(tiles: readonly RoomTile[], width: number): Map
 
 /** Scale the world around its smaller chambers, rather than showing a miniature
  * floor plan. The scale stays stable while crossing a floor's rooms. */
-export function undergroundTileSize(view: { width: number; height: number }, rooms: ReadonlyMap<number, UndergroundRoom>, frameArchitecture: boolean | 'rift' = false): number {
+export function undergroundTileSize(view: { width: number; height: number }, rooms: ReadonlyMap<number, UndergroundRoom>, frameArchitecture: boolean | 'rift' | 'chamber' = false): number {
     const sorted = (axis: 'width' | 'height') => [...rooms.values()].map(r => r[axis]).sort((a, b) => a - b);
     const widths = sorted('width'), heights = sorted('height');
     const compact = (sizes: number[], fallback: number) => sizes[0] ?? fallback;
     const worldScale = Math.max(view.width / (compact(widths, 7) + .9), view.height / (compact(heights, 5) + .9));
+    // Hollow Gate's painted chambers: on desktop, frame a typical (median) room
+    // whole, with a tile of margin, so its painted rim and set dressing show
+    // the way a stronghold room does. Phones keep the player-following scale.
+    if (frameArchitecture === 'chamber' && view.width > 620 && view.height > 420) {
+        const median = (sizes: number[], fallback: number) => sizes[Math.floor(sizes.length / 2)] ?? fallback;
+        const fit = Math.min(view.width / (median(widths, 7) + 2), view.height / (median(heights, 5) + 2));
+        return Math.round(Math.max(48, Math.min(112, fit)));
+    }
     // Desktop strongholds need their north/south stations visible together.
     // Phones retain the established world scale and player-following camera.
     const desired = frameArchitecture === 'rift'

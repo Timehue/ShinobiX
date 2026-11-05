@@ -42,7 +42,7 @@ export async function buildHollowGateRunFromStart(
         bossName: start.bossName,
     } : undefined;
     const generated = applyAttunementToRun({
-        ...generateHollowGateShrineRun(1, sealedVariant, start.seed),
+        ...generateHollowGateShrineRun(1, sealedVariant, start.seed, false, true, "auto", { width: start.floorWidth, height: start.floorHeight }),
         entryCurrencies: snapshotHollowGateCurrencies(baseCharacter),
     }, baseCharacter, true);
     const projection = start.character?.hollowGateRun;

@@ -70,7 +70,9 @@ export function computeHollowGateVisible(run: HollowGateShrineRun): Set<number> 
                 const ny = y + dy;
                 if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
                 const nIdx = ny * w + nx;
-                if (run.tiles[nIdx]?.terrain === "door") visible.add(nIdx);
+                const n = run.tiles[nIdx];
+                // Doors, and sealed secret passages (cracked rock) in the room's edge.
+                if (n?.terrain === "door" || (n?.secret && !n.revealed)) visible.add(nIdx);
             }
         }
         // Doorway peek: standing IN a doorway shows one tile of whatever lies
@@ -115,9 +117,11 @@ export function computeHollowGateVisible(run: HollowGateShrineRun): Set<number> 
             const nTile = run.tiles[nIdx];
             if (!nTile) continue;
             if (nTile.terrain === "wall") continue; // walls handled at the end
-            if (nTile.terrain === "door") {
+            // A door, or a secret passage still sealed as cracked rock: you
+            // can see it, but vision stops here.
+            if (nTile.terrain === "door" || (nTile.secret && !nTile.revealed)) {
                 visible.add(nIdx);
-                continue; // can see the door, but vision stops here
+                continue;
             }
             if (nTile.terrain === "corridor_floor" || nTile.terrain == null) {
                 visible.add(nIdx);
@@ -131,5 +135,28 @@ export function computeHollowGateVisible(run: HollowGateShrineRun): Set<number> 
         }
     }
     addWallsAroundLitTiles();
+    return visible;
+}
+
+/** How far the Diviner's Eye lets you sense the floor around you, in tiles. */
+export const HOLLOW_GATE_DIVINER_RADIUS = 5;
+
+/**
+ * What the player can see right now: the room-flood sight above, plus, while
+ * a Diviner's Eye is active on this floor, every tile within
+ * HOLLOW_GATE_DIVINER_RADIUS of them, sensed through walls. The Eye widens your
+ * senses where you stand; it never maps the floor or shows the way to the
+ * stairs from afar. Sensed tiles enter map memory but are not `revealed`, so
+ * disguised traps and ambushes stay hidden until they are stepped on.
+ */
+export function computeHollowGateSight(run: HollowGateShrineRun): Set<number> {
+    const visible = computeHollowGateVisible(run);
+    if (!run.diviner) return visible;
+    const r = HOLLOW_GATE_DIVINER_RADIUS;
+    for (let y = Math.max(0, run.playerY - r); y <= Math.min(run.height - 1, run.playerY + r); y += 1) {
+        for (let x = Math.max(0, run.playerX - r); x <= Math.min(run.width - 1, run.playerX + r); x += 1) {
+            visible.add(y * run.width + x);
+        }
+    }
     return visible;
 }

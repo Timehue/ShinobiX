@@ -145,11 +145,13 @@ describe("hollow gate recovery — the board is the one the run sealed", () => {
         assert.equal(run.floor, 4);
     });
 
-    it("a Diviner's Eye already used on this floor reveals the whole board again", () => {
+    it("a Diviner's Eye already used on this floor restores its local sight, not the whole board", () => {
         const generated = generateHollowGateShrineRun(1, undefined, SEED);
         const run = rebuildHollowGateRun(state({ floor: 1, divinerUsed: true }), generated);
         assert.equal(run.diviner, true);
-        assert.equal(run.tiles.every((tile) => tile.revealed), true);
+        assert.equal(run.tiles.every((tile) => tile.revealed), false, "disguised tiles are not unmasked");
+        assert.equal(run.tiles.every((tile) => tile.seen), false, "the far floor stays unexplored");
+        assert.equal(run.tiles[run.playerY * run.width + run.playerX + 1]?.seen, true, "the tile beside the player is sensed");
     });
 
     it("the detour a player already entered stays committed and the others stay sealed", () => {

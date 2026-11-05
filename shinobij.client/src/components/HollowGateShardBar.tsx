@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 import type { Character, HollowGateShrineRun, VersionedCharacterCommit } from "../types/character";
 import { HOLLOW_SHARD_CONSUMABLES, shardConsumableAvailable } from "../lib/hollow-gate-shards";
 import { requestHollowGateServerConsumable } from "../lib/hollow-gate-server";
+import { markHollowGateSeen } from "../lib/hollow-gate-path";
 import { GameArtIcon } from "./GameArtIcon";
 
 type Props = {
@@ -47,7 +48,7 @@ export function HollowGateShardBar({ run, character, setRun, onVersionedCharacte
             return;
         }
         const latest = latestRunRef.current.runToken === run.runToken ? latestRunRef.current : run;
-        const nextRun: HollowGateShrineRun = {
+        const confirmed: HollowGateShrineRun = {
             ...latest,
             keys: result.runState.keys,
             torch: result.runState.torch,
@@ -56,8 +57,10 @@ export function HollowGateShardBar({ run, character, setRun, onVersionedCharacte
             diviner: result.runState.divinerUsed || latest.diviner,
             secondWindArmed: result.runState.secondWindArmed,
             entryCurrencies: result.entryCurrencies ?? latest.entryCurrencies,
-            ...(result.runState.divinerUsed ? { tiles: latest.tiles.map((tile) => ({ ...tile, revealed: true })) } : {}),
         };
+        // The Eye widens the sight around the player; stamp what it shows into
+        // map memory without unmasking disguised tiles.
+        const nextRun = confirmed.diviner ? markHollowGateSeen(confirmed) : confirmed;
         // The shards are spent even when a newer save was adopted first and this
         // commit is refused as stale (the coordinator then reads the stored save
         // back). The run lives here, not in that save, so it must still show the

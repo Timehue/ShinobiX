@@ -373,7 +373,7 @@ export function useHollowGateAppFlow(params: {
         setDescending(true);
         try {
             const { generateHollowGateShrineRun } = await loadHollowGateGenerator();
-            const generated = generateHollowGateShrineRun(from.floor + 1, from.variant, from.serverSeed);
+            const generated = generateHollowGateShrineRun(from.floor + 1, from.variant, from.serverSeed, false, true, "auto", { width: from.width, height: from.height });
             const next = character ? applyAttunementToRun(generated, character, false) : generated;
             if (!isSameHollowGateFloor(runRef.current, from)) {
                 // Left / forfeited / already advanced while this was building.

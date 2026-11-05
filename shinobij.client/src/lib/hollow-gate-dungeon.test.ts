@@ -82,7 +82,7 @@ test("event variants: shorter gates, compact boards, variant stamped through", (
         const solo = generateHollowGateShrineRun(1, { id: "event-solo", maxFloor: 1 });
         assert.ok(solo.tiles.some((t) => t.kind === "boss"), "1-floor gauntlet spawns its boss on floor 1");
         assert.equal(solo.tiles.findIndex((t) => t.kind === "descend"), -1);
-        assert.equal(solo.width, 25, "omitted dims → standard board");
+        assert.equal(solo.width, 31, "omitted dims → the standard temple board");
     }
     // No variant → identical default behavior (regression guard).
     const std = generateHollowGateShrineRun(1);

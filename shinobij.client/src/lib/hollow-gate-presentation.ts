@@ -147,6 +147,33 @@ export function hollowGateEncounterPresentation(floor: unknown, kind: HollowGate
     };
 }
 
+/** Painted crypt prefab for each room of a crypt floor (public/underground,
+ *  provenance in docs/art/hollow-gate-cavern-chambers.json). Each depth has
+ *  its own palette: two chamber paintings (alternated) and a hall. The final
+ *  floor's stair hall is always the Sanctum, because that is where the boss
+ *  waits. Undefined for BSP floors, which have no prefabs. */
+const HOLLOW_GATE_CRYPT_THEMES = ["threshold", "ossuary", "reliquary", "kennels", "sanctum"] as const;
+export function hollowGateRoomArt(floor: unknown, finalFloor: boolean, roomPrefabs: Readonly<Record<number, string>> | undefined, rift = false): Record<number, string> | undefined {
+    if (!roomPrefabs) return undefined;
+    // Quest rifts share one rift-breach palette on every depth; their stair
+    // hall stays the rift hall, since each rift has its own guardian.
+    const theme = rift ? "rift" : HOLLOW_GATE_CRYPT_THEMES[canonicalHollowGateDepth(floor) - 1] ?? "threshold";
+    const art: Record<number, string> = {};
+    for (const [id, prefab] of Object.entries(roomPrefabs)) {
+        const piece = prefab === "stair" && finalFloor && !rift ? "sanctum-arena"
+            : prefab === "room" ? (Number(id) % 2 === 0 ? `${theme}-room-a` : `${theme}-room-b`)
+            : prefab === "small" ? `${theme}-small` : `${theme}-hall`;
+        art[Number(id)] = `/underground/crypt-${piece}-v1.webp`;
+    }
+    return art;
+}
+
+/** The painted passage cell between a crypt depth's rooms, in its palette. */
+export function hollowGatePassageArt(floor: unknown, rift = false): string {
+    const theme = rift ? "rift" : HOLLOW_GATE_CRYPT_THEMES[canonicalHollowGateDepth(floor) - 1] ?? "threshold";
+    return `/underground/crypt-${theme}-passage-v1.webp`;
+}
+
 export const HOLLOW_GATE_HOUND_COMBAT = "/hollow-gate/hollow-hound-idle.webp";
 export const HOLLOW_GATE_ALPHA_CINEMATIC = "/hollow-gate/hollow-hound-alpha-cinematic.webp";
 

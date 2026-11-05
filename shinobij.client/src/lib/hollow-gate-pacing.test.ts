@@ -40,7 +40,9 @@ test('legacy pacing exactly reproduces all five pre-change seeded boards, includ
         '37ed38c4176a81484413947d47c537d960d28a388a6a1aad55528964bed1efcf',
     ];
     for (const floor of [1, 2, 3, 4, 5]) {
-        const r = generateHollowGateFloor(floor, floor === 5, undefined, random(23 + floor * 1000), true);
+        // Pre-change boards were the 25 x 17 BSP floors (the crypt board took
+        // over as the default on 2026-11-04); runs sealed then must redraw exactly.
+        const r = generateHollowGateFloor(floor, floor === 5, { width: 25, height: 17 }, random(23 + floor * 1000), true, "bsp");
         assert.equal(createHash('sha256').update(JSON.stringify(r)).digest('hex'), expected[floor - 1]);
     }
 });
