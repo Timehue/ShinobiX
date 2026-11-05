@@ -41,7 +41,7 @@
   position: relative; border-radius: 16px; overflow: hidden; margin-bottom: 14px;
   box-shadow: 0 12px 36px rgba(0,0,0,.55), inset 0 0 0 1px rgba(244,196,81,.18);
 }
-.pl-hero img { width: 100%; height: 172px; object-fit: contain; display: block; transform: scale(1); }
+.pl-hero img { width: 100%; height: 172px; object-fit: cover; display: block; transform: scale(1.03); }
 .pl-hero::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(8,10,18,.12) 0%, rgba(8,10,18,.5) 52%, rgba(8,10,18,.93) 100%);

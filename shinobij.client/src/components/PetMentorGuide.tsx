@@ -20,6 +20,8 @@ import {
     type PetTutorialProgress,
 } from "../lib/pet-tutorial";
 import { PET_MENTOR_NAME } from "../lib/pet-tutorial-mentor";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 import "../styles/pet-mentor-guide.css";
 
 type PetMentorGuideProps = {
@@ -222,7 +224,7 @@ export function PetMentorGuide({
                         <h3 id={lessonTitleId}>{lesson.title}</h3>
                         <p className="pet-mentor-summary">{lesson.summary}</p>
 
-                        <figure className={`pet-mentor-story${chronicle.finale ? " is-finale" : ""}`}>
+                        <figure className={`pet-mentor-story art-backdrop${chronicle.finale ? " is-finale" : ""}`} style={artBackdropStyle(chronicle.image)}>
                             <img src={chronicle.image} alt={chronicle.imageAlt} />
                             <figcaption>
                                 <span>{chronicle.kicker}</span>

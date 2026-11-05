@@ -6,6 +6,10 @@ import { startGoogleSignIn } from "../../lib/google-signin";
 import { useBfcacheRestore } from "../../lib/use-bfcache-restore";
 import { AccountRecoveryForm } from "../../components/AccountRecoveryForm";
 import { DISCORD_INVITE_URL } from "../../constants/game";
+import { artBackdropStyle } from "../../lib/card-art-backdrop";
+import "../../styles/art-backdrop.css";
+
+const LOGIN_ART = "/login-shinobi-legacy.webp";
 
 /*
  * The gate: the screen a returning player actually meets.
@@ -171,7 +175,9 @@ export function LoginGate({
         <div className="landing-auth-card landing-login-card start-card login-gate">
             <div className="landing-login-head">
                 <div className="landing-login-art">
-                    <img src="/login-shinobi-legacy.webp" alt="" aria-hidden="true" />
+                    <span className="landing-login-art-media art-backdrop" style={artBackdropStyle(LOGIN_ART)}>
+                        <img className="art-backdrop-feather" src={LOGIN_ART} alt="" aria-hidden="true" />
+                    </span>
                     <div className="landing-login-art-copy">
                         <p className="landing-kicker">Village Gates</p>
                         <h2 className="start-card-title landing-login-art-title">Enter the Village</h2>

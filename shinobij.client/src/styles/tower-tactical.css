@@ -42,21 +42,29 @@
     text-transform: uppercase;
 }
 .tower-combatant-label b { color: var(--tower-hud-gold); letter-spacing: .04em; }
-.tower-combatant-portrait {
+/* The frame owns the border so the fitted portrait sits on a blurred copy of
+   itself (`.art-backdrop`, styles/art-backdrop.css). */
+.tower-combatant-portrait-frame {
+    display: block;
     width: 112px;
     height: 112px;
-    object-fit: contain;
-    object-position: center;
     border: 2px solid var(--tower-rail-ally);
     border-radius: 10px;
     background: #081322;
     box-shadow: 0 0 24px rgba(88, 169, 245, .12);
 }
-.tower-enemy-rail .tower-combatant-portrait {
+.tower-combatant-portrait {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+.tower-enemy-rail .tower-combatant-portrait-frame {
     border-color: var(--tower-rail-foe);
     box-shadow: 0 0 24px rgba(232, 86, 74, .12);
 }
-.tower-combatant-hud[data-active] .tower-combatant-portrait { outline: 1px solid var(--tower-hud-gold); outline-offset: 3px; }
+.tower-combatant-hud[data-active] .tower-combatant-portrait-frame { outline: 1px solid var(--tower-hud-gold); outline-offset: 3px; }
 .tower-combatant-name { max-width: 100%; font-size: 1rem; overflow-wrap: anywhere; }
 .tower-combatant-resources { display: grid; gap: 8px; }
 .tower-combatant-resource > span {
@@ -1325,11 +1333,19 @@
     background: radial-gradient(ellipse at top, #1b2b3c, #0a111b 80%);
 }
 /* Portraits and panoramic chapter art share this holder. Give the complete
-   artwork its own centered area so neither the crop nor the title hides faces. */
+   artwork its own centered area so neither the crop nor the title hides faces.
+   The gutters left by a portrait are filled with a blurred copy of the same
+   art (`.art-backdrop`, styles/art-backdrop.css) instead of an empty band. */
+.tower-completion-media {
+    display: flex;
+    justify-content: center;
+    height: clamp(160px, 30vw, 240px);
+}
 .tower-completion-art {
     display: block;
-    width: 100%;
-    height: clamp(160px, 30vw, 240px);
+    width: auto;
+    max-width: 100%;
+    height: 100%;
     object-fit: contain;
     object-position: center;
 }
@@ -1354,6 +1370,7 @@
 }
 .tower-completion-encounter { margin: 9px 0 0; color: #b7c1cb; font-size: .77rem; line-height: 1.5; }
 .tower-completion-card.loss .tower-completion-art { filter: saturate(.35); }
+.tower-completion-card.loss .tower-completion-media::before { filter: blur(14px) saturate(.35) brightness(0.5); }
 .tower-completion-card.loss .tower-completion-heading h1 { color: #d7ad9d; }
 .tower-completion-body { padding: 18px 24px 22px; }
 .tower-completion-card .tower-result-debrief { max-width: none; margin: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
@@ -2073,7 +2090,7 @@
 }
 
 @media (min-width: 980px) and (max-height: 740px) {
-    .tower-combatant-portrait { width: 72px; height: 72px; }
+    .tower-combatant-portrait-frame { width: 72px; height: 72px; }
     .tower-combatant-hud { margin-bottom: 8px; padding-bottom: 8px; }
     .tower-combatant-resources { gap: 5px; }
     .tower-combatant-name { font-size: .85rem; }

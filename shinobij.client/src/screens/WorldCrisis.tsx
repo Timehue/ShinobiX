@@ -12,6 +12,8 @@ import stormveilArt from "../assets/map-landmarks/stormveil.webp";
 import ashenLeafArt from "../assets/map-landmarks/ashen-leaf.webp";
 import frostfangArt from "../assets/map-landmarks/frostfang.webp";
 import moonshadowArt from "../assets/map-landmarks/moonshadow.webp";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 import {
     WORLD_CRISIS_TITLE,
     WORLD_CRISIS_VILLAGES,
@@ -146,7 +148,7 @@ export function WorldCrisis({ character, creatorItems, savedBloodlines, setScree
 
                 <aside className="world-crisis__orders">
                     <span className="world-crisis__orders-label">Your defense order</span>
-                    <img src={encounter.portrait} alt={`${encounter.name} portrait`} />
+                    <div className="world-crisis__orders-portrait art-backdrop" style={artBackdropStyle(encounter.portrait)}><img className="art-backdrop-feather" src={encounter.portrait} alt={`${encounter.name} portrait`} /></div>
                     <h2>{encounter.name}</h2>
                     <p>This is the same hidden machinery uncovered in {village}'s level 35 record. Here it scales to your shinobi, so every level can answer the same world event.</p>
                     <dl>

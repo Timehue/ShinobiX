@@ -1,5 +1,6 @@
 import React from "react";
 import { isImageAvatar } from "../lib/avatar";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
 import { partitionCombatDisplayStatuses, TEMPO_AP_SWING, type CombatDisplayStatus } from "../lib/combat-action-display";
 
 // These values are effect strength, not a literal change to final damage.
@@ -191,7 +192,9 @@ export function CombatSideHud({
                 </span>
             </div>
 
-            <div className="combat-avatar">
+            {/* The 2:3 portrait is fitted whole into the round frame; `art-backdrop`
+                fills the crescents either side with the same art, blurred. */}
+            <div className="combat-avatar art-backdrop" style={artBackdropStyle(isImageAvatar(avatar) ? avatar : undefined)}>
                 {isImageAvatar(avatar) ? (
                     <>
                         <span className="combat-avatar-fallback" aria-hidden="true">{name.slice(0, 2).toUpperCase()}</span>

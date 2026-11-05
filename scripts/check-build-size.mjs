@@ -950,7 +950,12 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 812acc43f4 (9,795,668 B without the production env, 9,800,368 B with the
 // feature). Owner approved 9.81 MB. Startup is 396,598 B gzip against the
 // unchanged 399,000 B gate; startup, per-chunk and asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_810_000;
+// 2026-11-04 IMAGE FRAMING: ~30 letterboxed art frames fixed (scenery back to
+// cover, portraits on a blurred copy of themselves via one shared
+// styles/art-backdrop.css) add ~2.9 KB; the branch measures 9,812,084 B.
+// Owner approved 9.815 MB. Startup is 397,946 B gzip against the unchanged
+// 399,000 B gate; startup, per-chunk and asset gates stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_815_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

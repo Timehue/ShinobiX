@@ -557,19 +557,20 @@
     height: 100%;
     min-height: 152px;
     display: block;
-    object-fit: contain;
-    object-position: center;
+    object-fit: cover;
     filter: saturate(0.88) contrast(1.06) brightness(0.82);
-    transform: scale(1);
+    transform: scale(1.01);
     transition: filter 180ms ease, transform 240ms ease;
 }
 
 .central-card:focus-visible .central-card-art img {
     filter: saturate(1.04) contrast(1.06) brightness(0.96);
+    transform: scale(1.045);
 }
 @media (hover: hover) {
     .central-card:hover .central-card-art img {
         filter: saturate(1.04) contrast(1.06) brightness(0.96);
+        transform: scale(1.045);
     }
 }
 
@@ -924,7 +925,7 @@
     .central-card-art img {
         min-height: 0;
         height: 100%;
-        object-position: center;
+        object-position: center 45%;
     }
 
     .central-card-content {
