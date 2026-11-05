@@ -1,6 +1,7 @@
 /** Compatibility catalog for pack, shop and ownership settlement. Duel logic
  * lives exclusively in shared/chronicle-duel; no retired stats are retained. */
 import { CHRONICLE_CARD_CATALOG } from '../../../shared/chronicle-duel.js';
+import { CHRONICLE_COMMON_EXPANSION } from '../../../shared/chronicle-expansion-monsters.js';
 
 export type MarketplaceCardRarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type ChronicleMarketplaceCard = { rarity: MarketplaceCardRarity };
@@ -46,9 +47,8 @@ function qualityScore(card: (typeof CHRONICLE_CARD_CATALOG)[number]): number {
  * rather than by rank. Ranking them in would move the median and push existing
  * Rares across the line (it would have moved tc-29 and tc-34 to the Shop).
  *
- * All eleven are Legendary and sit in the Grand Marketplace, so they come from
- * the Legendary packs (owner ruling). A Summoning Call and its Monster are
- * separate pulls, so owning a pair takes luck.
+ * Premium Jutsu and Snares follow their rarity's Marketplace packs. The
+ * common expansion sits in the Shop's mixed and matching elemental packs.
  */
 export const STOREFRONT_ADDITIONS: Readonly<Record<string, 'marketplace' | 'shop'>> = {
     'chronicle-call-of-the-cinderhorn': 'marketplace',
@@ -62,6 +62,9 @@ export const STOREFRONT_ADDITIONS: Readonly<Record<string, 'marketplace' | 'shop
     'summon-galewing-tengu': 'marketplace',
     'summon-stormcrown-raiju': 'marketplace',
     'chronicle-shadow-clone': 'marketplace',
+    'chronicle-reanimation-jutsu': 'marketplace',
+    'chronicle-guardians-reversal': 'marketplace',
+    ...Object.fromEntries(CHRONICLE_COMMON_EXPANSION.map(card => [card.id, 'shop' as const])),
 };
 
 const RANKED = PACKABLE.filter((card) => !(card.id in STOREFRONT_ADDITIONS)).sort(

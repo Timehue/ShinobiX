@@ -950,7 +950,11 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 812acc43f4 (9,795,668 B without the production env, 9,800,368 B with the
 // feature). Owner approved 9.81 MB. Startup is 396,598 B gzip against the
 // unchanged 399,000 B gate; startup, per-chunk and asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_810_000;
+// 2026-11-03 CHRONICLE EXPANSION: 32 card definitions, art paths, and the two
+// new effects bring the built product total to 9,812,645 B. Allow the measured
+// ~12.3 KB feature growth with the existing margin. The initial graph is
+// 396,681 B gzip against its 399,000 B ceiling.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_822_500;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
