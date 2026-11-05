@@ -147,6 +147,49 @@ async function detachFromModerationIndexes(slug: string, result: DeletePlayerAcc
     }
 }
 
+/**
+ * Release the shared rows that hold value or standing for the player and need
+ * a settlement rather than a plain delete. Each runs while the save still
+ * exists, so anything owed to or by the departing player can still settle.
+ * The modules load lazily: they pull in the save pipeline, which this
+ * module's importers must not depend on.
+ *
+ *  - Sunscar Exchange: in-flight trades finish, the player's open listings are
+ *    voided, a standing high bid is withdrawn, and the player index goes.
+ *  - PvP bounty board: the head on the player comes down and every backer is
+ *    refunded their stake through the claim payout's save receipts.
+ *  - Elder and ANBU seats, in every village (Kage seats are handled above).
+ */
+async function releaseSettledPlayerRows(slug: string, result: DeletePlayerAccountResult): Promise<void> {
+    try {
+        const { settleExchangeForDeletedPlayer } = await import('./festival/_exchange.js');
+        const exchange = await settleExchangeForDeletedPlayer(slug);
+        for (const id of exchange.closed) result.detached.push(`sunscar-exchange:listing:${id}`);
+        result.failures.push(...exchange.failures);
+    } catch (err) {
+        result.failures.push(`sunscar exchange: ${(err as Error).message}`);
+    }
+    try {
+        const { refundBountyOnDeletedTarget } = await import('./pvp/_bounty-deleted-target.js');
+        const bounty = await refundBountyOnDeletedTarget(slug);
+        if (bounty.removedHead) result.detached.push(`pvp:bounties[${slug}]`);
+        result.failures.push(...bounty.failures);
+    } catch (err) {
+        result.failures.push(`pvp bounty: ${(err as Error).message}`);
+    }
+    try {
+        const [{ clearAppointments }, { WAR_VILLAGES }] = await Promise.all([
+            import('./village/_clear-appointments.js'),
+            import('./_war-map-sectors.js'),
+        ]);
+        for (const village of WAR_VILLAGES) {
+            if (await clearAppointments(village, slug)) result.detached.push(`village-seats:${village}`);
+        }
+    } catch (err) {
+        result.failures.push(`village seats: ${(err as Error).message}`);
+    }
+}
+
 /** Values read per batch while looking for the player's image claims. */
 const IMAGE_CLAIM_READ_CHUNK = 200;
 
@@ -381,6 +424,7 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
     } catch (err) {
         result.failures.push(`kage seat: ${(err as Error).message}`);
     }
+    await releaseSettledPlayerRows(slug, result);
     await detachFromModerationIndexes(slug, result);
     await releaseAccountNames(slug, result);
     await releasePlayerImages(slug, save, result);
