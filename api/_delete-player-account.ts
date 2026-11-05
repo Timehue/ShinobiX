@@ -33,7 +33,7 @@ import { recoveryCodeKey } from './_recovery-code.js';
 import { currencyLedgerKey } from './_currency-ledger.js';
 import { REGISTRY_KEY } from './player/_public-index.js';
 import { clanSlugBare } from './clan/_kick-core.js';
-import { applyClanSuccession, resolveClanSuccession } from './clan/_succession.js';
+import { applyClanSuccession, resolveEligibleClanSuccession } from './clan/_succession.js';
 import { cancelSubscriptionForDeletedAccount } from './tebex/_cancel-subscription.js';
 import { IMG_OWNER_PREFIX, removeStoredImages, storedImageExists } from './images.js';
 
@@ -87,7 +87,7 @@ async function detachFromClan(slug: string, clanName: string, result: DeletePlay
             // (clan/_succession.ts). Deletion used to drop them from the roster
             // but keep `founderName`, so nobody could dissolve the clan,
             // distribute its seal pool or run any other founder-only action.
-            const succession = resolveClanSuccession(record, slug);
+            const succession = await resolveEligibleClanSuccession(record, slug);
             const next = applyClanSuccession(record, slug, succession);
             const rolesBefore = Object.keys(record.roleOverrides ?? {}).length;
 
@@ -144,6 +144,49 @@ async function detachFromModerationIndexes(slug: string, result: DeletePlayerAcc
         } catch (err) {
             result.failures.push(`${forwardKey}: ${(err as Error).message}`);
         }
+    }
+}
+
+/**
+ * Release the shared rows that hold value or standing for the player and need
+ * a settlement rather than a plain delete. Each runs while the save still
+ * exists, so anything owed to or by the departing player can still settle.
+ * The modules load lazily: they pull in the save pipeline, which this
+ * module's importers must not depend on.
+ *
+ *  - Sunscar Exchange: in-flight trades finish, the player's open listings are
+ *    voided, a standing high bid is withdrawn, and the player index goes.
+ *  - PvP bounty board: the head on the player comes down and every backer is
+ *    refunded their stake through the claim payout's save receipts.
+ *  - Elder and ANBU seats, in every village (Kage seats are handled above).
+ */
+async function releaseSettledPlayerRows(slug: string, result: DeletePlayerAccountResult): Promise<void> {
+    try {
+        const { settleExchangeForDeletedPlayer } = await import('./festival/_exchange.js');
+        const exchange = await settleExchangeForDeletedPlayer(slug);
+        for (const id of exchange.closed) result.detached.push(`sunscar-exchange:listing:${id}`);
+        result.failures.push(...exchange.failures);
+    } catch (err) {
+        result.failures.push(`sunscar exchange: ${(err as Error).message}`);
+    }
+    try {
+        const { refundBountyOnDeletedTarget } = await import('./pvp/_bounty-deleted-target.js');
+        const bounty = await refundBountyOnDeletedTarget(slug);
+        if (bounty.removedHead) result.detached.push(`pvp:bounties[${slug}]`);
+        result.failures.push(...bounty.failures);
+    } catch (err) {
+        result.failures.push(`pvp bounty: ${(err as Error).message}`);
+    }
+    try {
+        const [{ clearAppointments }, { WAR_VILLAGES }] = await Promise.all([
+            import('./village/_clear-appointments.js'),
+            import('./_war-map-sectors.js'),
+        ]);
+        for (const village of WAR_VILLAGES) {
+            if (await clearAppointments(village, slug)) result.detached.push(`village-seats:${village}`);
+        }
+    } catch (err) {
+        result.failures.push(`village seats: ${(err as Error).message}`);
     }
 }
 
@@ -210,8 +253,120 @@ async function releasePlayerImages(slug: string, save: unknown, result: DeletePl
 }
 
 /**
- * Detach every row that POINTS AT a player, without touching the player's own
- * `auth:` / `save:` records.
+ * Free every login name the account reserved (`account-name:<name>` → slug,
+ * api/player/account-name.ts). Registration refuses a reserved name, so a
+ * deleted account used to lock its login name, and every name it renamed
+ * away from, out of registration forever. Same shape as the image-claim
+ * release: a keys-only scan, batched reads, and a compare-and-delete so a
+ * name another account holds is never touched. A freed reservation cannot
+ * sign anyone in: login also requires the committed save to carry the name,
+ * and the session epoch is rotated by the deletion.
+ */
+async function releaseAccountNames(slug: string, result: DeletePlayerAccountResult): Promise<void> {
+    try {
+        const keys = (await kv.keys('account-name:*')).filter((key) => key.startsWith('account-name:'));
+        for (let i = 0; i < keys.length; i += IMAGE_CLAIM_READ_CHUNK) {
+            const chunk = keys.slice(i, i + IMAGE_CLAIM_READ_CHUNK);
+            const owners = await kv.mget<unknown[]>(...chunk);
+            for (const [index, key] of chunk.entries()) {
+                if (typeof owners[index] !== 'string' || safeName(owners[index] as string) !== slug) continue;
+                if (await kv.delIfEqual(key, owners[index])) result.removed.push(key);
+            }
+        }
+    } catch (err) {
+        result.failures.push(`account-name:* reservations: ${(err as Error).message}`);
+    }
+}
+
+/**
+ * Side-car rows the account owns outside `save:<slug>`, by exact key.
+ *
+ * Slugs are reusable, and each of these was read back by whoever registered
+ * the name next: the Legacy marker (the Sage then re-seeded the old Legacy and
+ * paid its Aura Stones again, so delete-and-re-register was also a farm), the
+ * story record (the newcomer's interlude choices were locked to the old
+ * ones), and the DM inbox (a private message list; the threads themselves are
+ * hidden, not deleted: see hideDmThreadsFromReusedName).
+ */
+export function playerOwnedSideRowKeys(slug: string): string[] {
+    return [
+        `story:${slug}`,
+        `dm:inbox:${slug}`,
+        `legacy:accepted:${slug}`,
+        `legacy:aura-granted:${slug}`,
+        `legacy:stats:${slug}`,
+        `legacy:events:${slug}`,
+        `legacy:trial:${slug}`,
+        `legacy:eligibility:${slug}`,
+        `legacy:sage-offer:${slug}`,
+        `legacy:sage-pity:${slug}`,
+        `legacy:economy-outbox:${slug}`,
+    ];
+}
+
+/**
+ * Side-car rows the account owns, by pattern. A slug never contains `:` or
+ * `|`, so each pattern can only match this account's rows.
+ * - `pet-sanctuary:` holds stored companions; a newcomer could withdraw them.
+ * - `tower-firstclear:` receipts would deny the newcomer every first clear.
+ */
+export function playerOwnedSideRowPatterns(slug: string): string[] {
+    return [
+        `pet-sanctuary:${slug}:*`,
+        `tower-firstclear:${slug}:*`,
+        `pet:showdown-played:${slug}:*`,
+    ];
+}
+
+/**
+ * Hide every DM thread from whoever registers this name next, without erasing
+ * it. A thread is keyed by the two names, so a newcomer could read the old
+ * conversation by naming the partner. The thread is also the partner's
+ * history, which the published policy keeps ("messages you sent to others"
+ * may outlive the account), so this writes the same per-partner hide stamp
+ * as the player's own "delete conversation" (api/messages.ts): the name sees
+ * only messages sent after now, and the partner keeps everything.
+ */
+async function hideDmThreadsFromReusedName(slug: string, now: number, result: DeletePlayerAccountResult): Promise<void> {
+    try {
+        const threads = [...await kv.keys(`dm:thread:${slug}|*`), ...await kv.keys(`dm:thread:*|${slug}`)];
+        for (const key of new Set(threads)) {
+            const [a, b] = key.slice('dm:thread:'.length).split('|');
+            const partner = a === slug ? b : a;
+            if (!partner || partner === slug) continue;
+            const stampKey = `dm:deleted-at:${slug}|${partner}`;
+            await kv.set(stampKey, now);
+            result.detached.push(stampKey);
+        }
+    } catch (err) {
+        result.failures.push(`dm:thread:* (${slug}): ${(err as Error).message}`);
+    }
+}
+
+async function removePlayerOwnedSideRows(slug: string, result: DeletePlayerAccountResult): Promise<void> {
+    await hideDmThreadsFromReusedName(slug, Date.now(), result);
+    for (const key of playerOwnedSideRowKeys(slug)) {
+        try {
+            if (await kv.del(key)) result.removed.push(key);
+        } catch (err) {
+            result.failures.push(`${key}: ${(err as Error).message}`);
+        }
+    }
+    for (const pattern of playerOwnedSideRowPatterns(slug)) {
+        try {
+            for (const key of await kv.keys(pattern)) {
+                if (await kv.del(key)) result.removed.push(key);
+            }
+        } catch (err) {
+            result.failures.push(`${pattern}: ${(err as Error).message}`);
+        }
+    }
+}
+
+/**
+ * Detach every row that POINTS AT a player, and remove the side-car rows the
+ * account owns outside `save:` (see playerOwnedSideRowKeys), without touching
+ * the player's own `auth:` / `save:` records.
  *
  * Split out from full deletion because the two are not the same operation. The
  * `DELETE /api/save/:name` path removes a character and must run this; the
@@ -270,8 +425,11 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
     } catch (err) {
         result.failures.push(`kage seat: ${(err as Error).message}`);
     }
+    await releaseSettledPlayerRows(slug, result);
     await detachFromModerationIndexes(slug, result);
+    await releaseAccountNames(slug, result);
     await releasePlayerImages(slug, save, result);
+    await removePlayerOwnedSideRows(slug, result);
     return result;
 }
 

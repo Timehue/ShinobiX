@@ -53,6 +53,17 @@ function validRetryAfterMs(value: unknown): number | null {
 export const SAVE_PERSISTENCE_REQUEST_TIMEOUT_MS = 15_000;
 
 /**
+ * A 426 (`CLIENT_REFRESH_REQUIRED`) means the server will never accept a save
+ * body from this build again, for example after a deploy tightened the save
+ * contract. Retrying cannot help, so autosave stops and the save-error banner
+ * switches to this mode, which tells the player to refresh. A reload is the
+ * only way out of it.
+ */
+export const SAVE_REFRESH_REQUIRED = "refresh" as const;
+export type SaveBlockedState = boolean | typeof SAVE_REFRESH_REQUIRED;
+export const SAVE_REFRESH_REQUIRED_MESSAGE = "Your game client is out of date. Please refresh the page to keep saving.";
+
+/**
  * The server accepts one successful player save per aligned 3-second window
  * (`save-burst` in api/save/[name].ts) and answers 429 to the next. Nothing on
  * the client respected that: a travel or training flush, a mission-progress
@@ -148,7 +159,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
     installSnapshot: (snapshot: SaveSnapshot<TPayload>) => void;
     onConflictSnapshot: (snapshot: TPayload & { _saveVersion?: number }, submittedRevision: number) => boolean;
     writePreview: (accountName: string, payload: unknown) => void;
-    setBlocked: (blocked: boolean) => void;
+    setBlocked: (blocked: SaveBlockedState) => void;
     /** Receives the stored ryo a save acknowledgement carries (ryo is server-owned). */
     onAuthoritativeRyo?: (accountName: string, ryo: number) => void;
     onAuthoritativeFateShards?: (accountName: string, fateShards: number) => void;
@@ -198,6 +209,13 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
         return pacing.streak;
     };
     let authorityGeneration = 0;
+    // Set by a 426 and never cleared: no later autosave from this build can land.
+    let refreshRequired = false;
+    const requireRefresh = () => {
+        refreshRequired = true;
+        params.dirty.current = true;
+        params.setBlocked(SAVE_REFRESH_REQUIRED);
+    };
     let unresolvedSequence = 0;
     let unresolvedPost: (Omit<UnresolvedSavePost, "body"> & { sequence: number }) | null = null;
     const conflictKey = (accountKey: string, epoch: number) => `${epoch}:${accountKey}`;
@@ -338,6 +356,8 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
 
     const persistAutosave = async (snapshot: SaveSnapshot<TPayload>) => {
         const result = await params.flight.runAutosave(async () => {
+            // The state stays dirty, so the unload guard still protects it.
+            if (refreshRequired) { params.dirty.current = true; return; }
             const accountKey = saveConflictAccountKey(snapshot.name);
             const epoch = params.currentSessionEpoch();
             // Wait for the server's save window inside the flight, so a required
@@ -411,6 +431,7 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                         }
                     }
                 }
+                if (response.status === 426) { requireRefresh(); return; }
                 if (!response.ok) {
                     console.warn(`[autosave] server rejected save (status ${response.status})`);
                     params.dirty.current = true;
@@ -504,9 +525,11 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
             noteSaveThrottled(accountKey, error.retryAfterMs);
             throw error;
         }
-        if (response.status === 422) {
+        if (response.status === 422 || response.status === 426) {
             const rejection = await readSaveError(await response.json().catch(() => null));
-            throw new Error(typeof rejection?.error === "string" ? rejection.error : `Server returned ${response.status}`);
+            if (response.status === 426) requireRefresh();
+            throw new Error(typeof rejection?.error === "string" ? rejection.error
+                : response.status === 426 ? SAVE_REFRESH_REQUIRED_MESSAGE : `Server returned ${response.status}`);
         }
         if (!response.ok) throw new Error(`Server returned ${response.status}`);
         if (save.echoVersion && !params.isCurrentSession(accountKey, epoch)) {

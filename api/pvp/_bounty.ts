@@ -16,6 +16,7 @@
 // KO (api/player/sleeper-kill.ts). Two copies of this string would silently
 // split the board in half — one pool nobody could claim from the other door.
 import { safeName } from '../_utils.js';
+import { validBountyOwnerId } from './_bounty-owner-identity.js';
 import { bountyPlacementFee } from '../../shared/pvp-bounty-fee.js';
 
 export const BOUNTY_KEY = 'pvp:bounties';
@@ -26,10 +27,14 @@ export const BOUNTY_MAX_PLACE = 1_000_000;    // max ryo per single placement
 export const BOUNTY_MAX_PER_TARGET = 10_000_000; // cap on a single head's pool
 export const BOUNTY_BOARD_MAX = 50;           // most heads tracked at once
 
+export type BountyContribution = { owner: string; ownerId: string; amount: number };
+
 export type Bounty = {
     target: string;          // display name of the hunted player
     amount: number;          // escrowed ryo pool on this head
     contributors: string[];  // lower-name slugs who chipped in (deduped)
+    /** Account-bound stakes; absent/partial on legacy heads. Server-owned. */
+    contributions?: BountyContribution[];
     updatedAt: number;
 };
 
@@ -43,12 +48,16 @@ export type PendingBountyClaim = {
     id: string;
     /** safeName of the player being paid. */
     winner: string;
+    /** Required for exceptional refunds; never inferred from a reusable slug. */
+    ownerId?: string;
     /** The removed head, exactly, so a claim that cannot pay can put it back. */
     head: Bounty;
     /** When the head was reserved: the earliest the credit can have landed. */
     at: number;
     /** A duel claim also owns the per-battle receipt `pvp:bounty-claimed:<battleId>`. */
     battleId?: string;
+    /** Escrow requiring operator reconciliation; never automatically paid/restored. */
+    refundHold?: 'unproven-contributions' | 'missing-owner';
 };
 
 export type BountyBoard = {
@@ -67,12 +76,37 @@ export function emptyBoard(): BountyBoard {
 }
 
 function normalizeBounty(b: Bounty): Bounty {
-    return {
+    const head: Bounty = {
         target: b.target,
         amount: Math.max(0, Math.floor(Number(b.amount) || 0)),
         contributors: Array.isArray(b.contributors) ? Array.from(new Set(b.contributors.map(lower).filter(Boolean))) : [],
         updatedAt: Math.floor(Number(b.updatedAt) || 0),
     };
+    return b.contributions !== undefined ? { ...head, contributions: provenBountyContributions({ ...head, contributions: b.contributions }) } : head;
+}
+
+/** Amount and durable identity must both be recorded on this pool. */
+export function provenBountyContributions(head: Bounty): BountyContribution[] {
+    if (!Array.isArray(head.contributions)) return [];
+    const owners = new Set(head.contributors.map(safeName));
+    const shares = new Map<string, BountyContribution>();
+    let total = 0;
+    for (const stake of head.contributions) {
+        if (!stake || typeof stake.owner !== 'string' || !owners.has(safeName(stake.owner))
+            || !validBountyOwnerId(stake.ownerId) || !Number.isSafeInteger(stake.amount) || stake.amount <= 0) return [];
+        total += stake.amount;
+        if (!Number.isSafeInteger(total) || total > head.amount) return [];
+        const owner = safeName(stake.owner);
+        const key = owner + ':' + stake.ownerId;
+        shares.set(key, { owner, ownerId: stake.ownerId, amount: (shares.get(key)?.amount ?? 0) + stake.amount });
+    }
+    return [...shares.values()];
+}
+
+function mergeContributions(...heads: Bounty[]): BountyContribution[] {
+    const contributors = [...new Set(heads.flatMap(h => h.contributors))];
+    return provenBountyContributions({ target: '', amount: heads.reduce((sum, h) => sum + h.amount, 0), contributors,
+        updatedAt: 0, contributions: heads.flatMap(provenBountyContributions) });
 }
 
 function isBounty(b: unknown): b is Bounty {
@@ -94,14 +128,16 @@ export function normalizeBoard(raw: unknown): BountyBoard {
     const pendingClaims = (Array.isArray(stored.pendingClaims) ? stored.pendingClaims : [])
         .filter((p): p is PendingBountyClaim => !!p && typeof p === 'object'
             && typeof p.id === 'string' && !!p.id
-            && typeof p.winner === 'string' && !!p.winner
+            && typeof p.winner === 'string' && (!!p.winner || (p.id.startsWith('deleted-target:') && p.refundHold === 'unproven-contributions'))
             && isBounty(p.head))
         .map((p) => ({
             id: p.id,
             winner: p.winner,
+            ...(validBountyOwnerId(p.ownerId) ? { ownerId: p.ownerId } : {}),
             head: normalizeBounty(p.head),
             at: Math.floor(Number(p.at) || 0),
             ...(typeof p.battleId === 'string' && p.battleId ? { battleId: p.battleId } : {}),
+            ...(p.refundHold === 'unproven-contributions' || p.refundHold === 'missing-owner' ? { refundHold: p.refundHold } : {}),
         }))
         .filter((p) => p.head.amount > 0);
     return {
@@ -117,6 +153,7 @@ export function findBounty(board: BountyBoard, targetName: string): Bounty | und
 
 export type PlaceInput = {
     placerName: string;   // display name
+    ownerId?: string;
     targetName: string;   // display name
     amount: number;
     placerRyo: number;
@@ -153,13 +190,13 @@ export function placeBounty(input: PlaceInput, now: number): PlaceResult {
         return { ok: false, reason: 'The bounty board is full right now.' };
     }
 
-    const credited = creditBountyPlacement(board, { target: targetName, amount, placer: placerName }, now);
+    const credited = creditBountyPlacement(board, { target: targetName, amount, placer: placerName, ownerId: input.ownerId }, now);
     if (!credited) return { ok: false, reason: 'The bounty board is full right now.' };
     return { ok: true, board: credited, amount, fee };
 }
 
 /** `fee` is the burned posting fee; journals written before the fee existed omit it. */
-export type BountyPlacementPlan = { target: string; amount: number; placer: string; fee?: number };
+export type BountyPlacementPlan = { target: string; amount: number; placer: string; fee?: number; ownerId?: string };
 
 /**
  * Whether the duel or KO winner funded this head. A contributor who beats the
@@ -185,17 +222,19 @@ export function isBountyContributor(head: Pick<Bounty, 'contributors'> | undefin
 export function creditBountyPlacement(board: BountyBoard, plan: BountyPlacementPlan, now: number): BountyBoard | null {
     const amount = Math.max(0, Math.floor(Number(plan.amount) || 0));
     const placerSlug = lower(plan.placer);
+    const placed: Bounty = { target: plan.target, amount, contributors: [placerSlug], updatedAt: now,
+        contributions: validBountyOwnerId(plan.ownerId) ? [{ owner: safeName(placerSlug), ownerId: plan.ownerId, amount }] : [] };
     const existing = findBounty(board, plan.target);
     if (existing) {
         return {
             ...board,
             bounties: board.bounties.map((b) => b === existing
-                ? { ...b, amount: b.amount + amount, contributors: Array.from(new Set([...b.contributors, placerSlug])), updatedAt: now }
+                ? { ...b, amount: b.amount + amount, contributors: Array.from(new Set([...b.contributors, placerSlug])), contributions: mergeContributions(b, placed), updatedAt: now }
                 : b),
         };
     }
     if (board.bounties.length >= BOUNTY_BOARD_MAX) return null;
-    return { ...board, bounties: [...board.bounties, { target: plan.target, amount, contributors: [placerSlug], updatedAt: now }] };
+    return { ...board, bounties: [...board.bounties, { ...placed, contributions: provenBountyContributions(placed) }] };
 }
 
 export type ClaimResult = { ok: false; reason: string } | { ok: true; board: BountyBoard; amount: number };
@@ -262,7 +301,7 @@ export function finishBountyClaim(board: BountyBoard, id: string): BountyBoard {
  */
 export function restoreBountyClaim(board: BountyBoard, id: string): BountyBoard {
     const pending = findPendingBountyClaim(board, id);
-    if (!pending) return board;
+    if (!pending || pending.id.startsWith('deleted-target:') || pending.refundHold) return board;
     const withoutClaim = finishBountyClaim(board, id);
     const current = findBounty(withoutClaim, pending.head.target);
     if (current) {
@@ -273,6 +312,7 @@ export function restoreBountyClaim(board: BountyBoard, id: string): BountyBoard 
                     ...b,
                     amount: b.amount + pending.head.amount,
                     contributors: Array.from(new Set([...b.contributors, ...pending.head.contributors])),
+                    contributions: mergeContributions(b, pending.head),
                     updatedAt: Math.max(b.updatedAt, pending.head.updatedAt),
                 }
                 : b),

@@ -80,6 +80,13 @@ function publicBounty(entry: BountyBoard['bounties'][number]) {
     };
 }
 
+/** Preserve the saga's board -> save order; never wait for a credential writer. */
+async function withPlacementAuthority<T>(name: string, work: () => Promise<T>): Promise<T> {
+    return withKvLock(BOUNTY_KEY, () => withKvLock(`save:${name}`, () =>
+        withKvLock(`auth:${name}`, work, { failClosed: true, maxAttempts: 1 }),
+    { failClosed: true }), { failClosed: true });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -145,7 +152,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             // A SaveDebitRefusal or LockContendedError is answered by the outer catch.
-            const settled = await runSaveDebitSaga({
+            // The saga reenters these leases. Hold auth until the ID/debit commit,
+            // so a credential writer cannot later persist a pre-ID snapshot.
+            const settled = await withPlacementAuthority(playerName, () => runSaveDebitSaga({
                 definition: BOUNTY_PLACE_SAGA,
                 playerName,
                 requestId,
@@ -154,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 resource: 'ryo',
                 amount,
                 meta: { target: targetSlug, fee: bountyPlacementFee(amount) },
-                decide: ({ character, shared }) => {
+                decide: async ({ character, shared }) => {
                     const passedExams = Array.isArray(character.examsPassed)
                         ? character.examsPassed.map((exam) => String(exam).toLowerCase())
                         : [];
@@ -163,14 +172,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return { ok: false, status: 403, error: 'Only Jonin rank and above may place bounties.' };
                     }
                     const placer = identity.admin ? playerName : (character.name as string ?? playerName);
+                    const { bountyOwnerProof } = await import('./_bounty-owner-identity.js');
+                    const owner = await bountyOwnerProof(playerName);
                     const board = shared ?? normalizeBoard(null);
-                    const result = placeBounty({ placerName: placer, targetName: targetDisplay, amount, placerRyo: num(character.ryo), targetExists, board }, now);
+                    const result = placeBounty({ placerName: placer, ownerId: owner?.ownerId, targetName: targetDisplay, amount, placerRyo: num(character.ryo), targetExists, board }, now);
                     if (!result.ok) return { ok: false, status: 400, error: result.reason };
                     // The stake is escrowed; the 15% posting fee is burned (#30).
                     return {
                         ok: true,
+                        atomicProof: owner?.proof,
                         character: { ...character, ryo: num(character.ryo) - result.amount - result.fee },
-                        plan: { target: targetDisplay, amount: result.amount, placer, fee: result.fee },
+                        plan: { target: targetDisplay, amount: result.amount, placer, fee: result.fee, ...(owner ? { ownerId: owner.ownerId } : {}) },
                         result: { placer },
                     };
                 },
@@ -178,7 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     refunded: 'The bounty board did not record your stake, so your ryo was returned. Please try again.',
                     pending: 'Your stake was taken but not yet posted. Place it again to finish; you will not be charged twice.',
                 },
-            });
+            }));
             // Herald, notice and audit follow the escrow landing, once: a replay
             // moved nothing, and a resumed placement lands in this call.
             const placed = settled.replayed ? null : { placer: settled.result.placer ?? playerName, amount: settled.plan.amount };

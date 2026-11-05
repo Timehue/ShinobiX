@@ -82,3 +82,16 @@ test('declined offers eventually visit every eligible path without depending on 
     }
     assert.deepEqual([...seen].sort(), eligible.map((ev) => ev.legacyId).sort());
 });
+
+test('with no sector given, the Sage waits in the player\'s own village outskirts', async () => {
+    const { VILLAGE_OUTSKIRTS } = await import('../shared/sector-geo.js');
+    const { LEGACY_DEFS } = await import('./_legacy-defs.js');
+    const stats = Object.fromEntries(LEGACY_DEFS.flatMap((def) => def.reqs.flatMap((req) => 'stat' in req ? [req.stat] : req.anyOf.map((r) => r.stat))).map((stat) => [stat, 10_000_000]));
+    for (const [village, sector] of Object.entries(VILLAGE_OUTSKIRTS)) {
+        for (const spelling of [village, village.replace(/ Village$/, '')]) {
+            const player = `sagehome${sector}${spelling.length}`;
+            const result = await attemptSageRoll(player, { forced: true, character: { name: player, level: 100, village: spelling }, stats, now: Date.now() });
+            assert.equal(result.offer?.sector, sector, `${spelling} players meet the Sage in sector ${sector}`);
+        }
+    }
+});

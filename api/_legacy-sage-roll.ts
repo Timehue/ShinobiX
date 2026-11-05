@@ -1,4 +1,4 @@
-import { kv } from './_storage.js';
+﻿import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { LEGACY_BY_ID, LEGACY_MIN_LEVEL } from './_legacy-defs.js';
 import { evaluateAllLegacies, getLegacyOverlay, pickSageOffers } from './_legacy-score.js';
@@ -8,6 +8,7 @@ import { storyKeyFor, type StoryRecord } from './_story-record.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './pvp/_legacy-jutsu-catalog.js';
 import { legacyTrialActivities } from './_legacy-core.js';
 import { LEGACY_SIGNATURE_MIN_STAGE, legacySignatureShape } from '../shared/legacy-signature.js';
+import { VILLAGE_OUTSKIRTS } from '../shared/sector-geo.js';
 
 export const SAGE_OFFER_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const sageOfferKey = (player: string) => `legacy:sage-offer:${player}`;
@@ -20,9 +21,6 @@ export const sageMetricKey = (field: 'offers' | 'accepts' | 'declines', d = new 
 export const bumpSageMetric = (field: 'offers' | 'accepts' | 'declines') =>
     kv.incr(sageMetricKey(field), { ex: 8 * 24 * 60 * 60 }).catch(() => 0);
 
-const VILLAGE_OUTSKIRTS: Record<string, number> = {
-    stormveil: 31, 'ashen leaf': 38, frostfang: 47, moonshadow: 11,
-};
 
 export type SignaturePreview = { name: string; shape: string; effects: string[]; unlockStage: number };
 type SageOfferEntry = {
@@ -70,8 +68,10 @@ function homeSector(village: unknown, requested: unknown): number {
     const wanted = Math.floor(num(requested));
     if (wanted >= 1 && wanted <= 99) return wanted;
     const normalizedVillage = String(village ?? '').toLowerCase();
+    // The shared map, not a local copy: the old copy (31/38/47/11) predated the
+    // sector renumbering and sent Frostfang players to a castle sector.
     for (const [name, sector] of Object.entries(VILLAGE_OUTSKIRTS)) {
-        if (normalizedVillage.includes(name)) return sector;
+        if (normalizedVillage.includes(name.toLowerCase().replace(/ village$/, ''))) return sector;
     }
     return 56;
 }

@@ -14,8 +14,7 @@
     grid-column: 1; grid-row: 1; inline-size: min(100%, var(--sector-board-size, 100%)); border-radius: 8px 8px 0 0 !important;
 }
 .sector-hud {
-    --hud-ink: #171319; --hud-border: #654b54; --hud-muted: #c2b6b9;
-    grid-column: 1; grid-row: 2; position: relative; z-index: 30; color: #f3ece4;
+    --hud-border: #654b54; grid-column: 1; grid-row: 2; position: relative; z-index: 30; color: #f3ece4;
     inline-size: 100%; justify-self: center; box-sizing: border-box;
     background: #171319 url('/ui/sector-ink-panel-v1.webp') center / 100% 100%;
     border: 1px solid #805e60; border-radius: 0 0 8px 8px; font-size: 14px; line-height: 1.4; text-align: left;

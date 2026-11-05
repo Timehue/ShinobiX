@@ -273,8 +273,6 @@
 .showdown-hud {
     --brass: #d9b478;
     --brass-hot: var(--sj-gold-bright);
-    --lacquer-hi: #2a1e10;
-    --lacquer-lo: #0b0805;
     --ink: #f3ead7;
     --ink-dim: #b9a583;
     /* Family tints — the icon's own colour, never a background. */

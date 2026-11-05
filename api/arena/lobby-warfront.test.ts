@@ -47,3 +47,14 @@ test('co-op start seals current earned stats and techniques, then polling preser
     assert.deepEqual((polled.body.lobby as Lobby).match, match, 'a running match must not be rewritten by later training');
     await post({ action: 'leave', code });
 });
+
+test('create and join are budgeted per player, so lobby codes cannot be walked', async () => {
+    const { __resetRateLimitsForTest } = await import('../_ratelimit.js');
+    __resetRateLimitsForTest();
+    const statuses: number[] = [];
+    for (let i = 0; i < 21; i++) statuses.push((await post({ action: 'join', code: `Z${String(i).padStart(3, '0')}` })).status);
+    assert.ok(statuses.slice(0, 20).every((status) => status !== 429), `the first 20 attempts are served: ${statuses.join(',')}`);
+    assert.equal(statuses[20], 429, 'the 21st join in a minute is refused');
+    assert.equal((await post({ action: 'create' })).status, 429, 'create shares the join budget');
+    __resetRateLimitsForTest();
+});

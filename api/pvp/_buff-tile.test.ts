@@ -180,4 +180,17 @@ describe('buff tile occupancy', () => {
         const result = applyJutsu(fighter('A', 6), onTile, copy, 1, 'central', 1);
         assert.equal(result.self.statuses.some((entry) => entry.name === 'Reflect'), false);
     });
+
+    it('Mirror never hands over a debuff that belongs to the field the caster stands in', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mirror: any = { id: 'm', name: 'Mirror', type: 'Ninjutsu', element: 'Fire', ap: 60, range: 4, effectPower: 40, cooldown: 0, chakraCost: 0, staminaCost: 0, target: 'OPPONENT', method: 'SINGLE', tags: [{ name: 'Mirror', percent: 0 }] };
+        const caster = fighter('A', 6, [
+            { name: 'Poison', percent: 10, rounds: 2, kind: 'negative', source: 'ground:enemy-field' },
+            { name: 'Bleed', percent: 10, rounds: 2, kind: 'negative', source: 'jutsu:enemy-strike' },
+        ]);
+        const result = applyJutsu(caster, fighter('Rin', 5), mirror, 1, 'central', 1);
+        const copied = result.opponent.statuses.map((entry) => entry.name);
+        assert.equal(copied.includes('Bleed'), true, 'a fighter-borne debuff is still mirrored');
+        assert.equal(copied.includes('Poison'), false, 'the field keeps its own debuff');
+    });
 });

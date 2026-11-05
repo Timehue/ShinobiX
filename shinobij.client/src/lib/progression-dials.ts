@@ -83,7 +83,7 @@ export function dailyStatBudgetLine(playerName: string): string | null {
 
 /** The mission card's stat text: the per-claim grant, or the spent budget. */
 export function missionStatPointText(playerName: string, points: number): string {
-    if (dailyStatPointsAvailable(playerName)) return `+${points} Stat Pts`;
+    if (dailyStatPointsAvailable(playerName)) return `+${points} Stat Pt${points === 1 ? "" : "s"}`;
     const budget = dailyStatBudgetToday(playerName);
     return budget ? `Daily stat points reached (${budget.cap} / ${budget.cap})` : "Daily stat points reached";
 }

@@ -10,6 +10,8 @@ import { withoutKvLeaseContext } from '../_kv-lock-context.js';
 import { runBackgroundWork } from '../_background-work.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { kickVillageChat } from '../_realtime/notify.js';
+import { safeLogValue } from '../_safe-log.js';
+import { releasePermanentlyBannedStanding } from './_permanent-ban-release.js';
 
 // ─── Moderation key model ─────────────────────────────────────────────────────
 //
@@ -379,6 +381,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Also clear active presence + any auth header session won't help, so
             // the player will be kicked on next auth check.
             onlineStore.remove(targetName);
+            // A permanent ban also releases the seats, clan and listings the
+            // player held (owner ruling 2026-11-04). A timed ban never does.
+            const release = permanent ? await releasePermanentlyBannedStanding(targetName) : null;
+            if (release?.failures.length) console.warn('[moderation] permanent ban release incomplete:', safeLogValue(release.failures));
             await appendAudit({
                 ts: Date.now(),
                 actor: actorName,
@@ -386,7 +392,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 target: targetName,
                 detail: permanent ? 'permanent' : `${Math.round(dur / 86400000)}d — ${rec.reason}`,
             });
-            return res.status(200).json({ ok: true, ban: rec });
+            return res.status(200).json({ ok: true, ban: rec, ...(release ? { released: release.released, releaseFailures: release.failures } : {}) });
         }
 
         if (kind === 'unban') {

@@ -90,6 +90,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 if (num(char.level) < def.levelReq) return answer({ ok: false, reason: 'level' });
                 if (Date.now() < num(char.riftCooldownUntil)) return answer({ ok: false, reason: 'cooldown' });
+                // The claim cap is checked here too. The 6 h cooldown allows a
+                // fourth rift in one UTC day, and its boss reward then sat
+                // unclaimable until midnight while re-entry was refused.
+                if (num(await kv.get<number>(`rift-quest-count:${playerName}:${utcDateKey()}`)) >= RIFT_DAILY_CAP) {
+                    return answer({ ok: false, reason: 'daily-cap' });
+                }
 
                 const targetSector = riftTargetSector(playerName, def.id);
                 const baseline = num(char.hollowGateWardenKills);

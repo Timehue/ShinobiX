@@ -109,7 +109,7 @@ export function evaluateLaunchControl(
             allowed: false,
             status: 503,
             code: 'maintenance_mode',
-            error: 'ShinobiX is temporarily in maintenance mode.',
+            error: 'Shinobi Journey is down for maintenance. Please try again in a few minutes.',
             retryAfterSeconds: 60,
         };
     }
@@ -168,7 +168,7 @@ export function evaluateLaunchControl(
             allowed: false,
             status: 503,
             code: 'gameplay_mutations_frozen',
-            error: 'Gameplay mutations are temporarily paused.',
+            error: 'Game actions are paused for a moment. Please try again shortly.',
             retryAfterSeconds: 60,
         };
     }

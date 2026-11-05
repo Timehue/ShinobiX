@@ -15,6 +15,7 @@ import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
 import { CLAN_XP_RYO_PER_POINT, clanItemDonationXp, reserveClanDonationXp, reserveClanRyoDonationXp } from './_donation-xp.js';
 import { addClanContrib } from '../../_clan-contrib-month.js';
+import { donationBudgetProof, donationBudgetRefusal, restrictedDonationBudget, settleWithinDonationBudget } from '../../player/_transfer-budget.js';
 
 /*
  * /api/clan/treasury/donate  — POST only
@@ -130,6 +131,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const clanSaveKey = `save:clan-${targetSlug}`;
         const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
         const ryoDonation = donation.kind === 'currency' && donation.currency === 'ryo';
+        // A restricted donor shares its trade budget (owner ruling 2026-11-04).
+        const cap = !identity.admin && donation.kind === 'currency' ? await restrictedDonationBudget(playerName, donation.currency) : null;
 
         // ── Atomic donate ──────────────────────────────────────────────
         // The clan save row (the shared, contended resource) is locked first,
@@ -139,7 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // leave the treasury credited without a matching debit.
         // Reserving XP in the same debit commit also covers interrupted
         // credits. There is no post-credit counter write for a crash to skip.
-        const settled = await runSaveDebitSaga({
+        const settled = await settleWithinDonationBudget(cap, amount, () => runSaveDebitSaga({
             definition: CLAN_DONATION_SAGA,
             playerName,
             requestId,
@@ -150,6 +153,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             meta: { clan },
             decide: async ({ character: donorChar, shared: clanRec }) => {
                 if (!clanRec) return { ok: false, status: 404, error: 'Clan not found.' };
+                const overBudget = await donationBudgetRefusal(cap, amount);
+                if (overBudget) return { ok: false, status: 429, error: overBudget };
                 // Membership: donor's character.clan must resolve to this clan.
                 if (!identity.admin) {
                     const donorClanSlug = clanSlugBare(String(donorChar.clan ?? ''));
@@ -207,6 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return {
                     ok: true,
                     character: { ...nextDonorChar, clanDonationXp: reservation.quota },
+                    atomicProof: await donationBudgetProof(cap, amount),
                     // clanXpDay is the non-ryo daily audit's marker, so a ryo plan never carries it.
                     plan: { treasury: treasuryCreditPlan(donation, routed), clanXp, ...(!ryoDonation && reservation.quota.day ? { clanXpDay: reservation.quota.day } : {}) },
                     result: {},
@@ -215,7 +221,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             messages: {
                 pending: 'Your donation was taken but not yet added to the clan treasury. Donate again to finish it; you will not be charged twice.',
             },
-        });
+        }));
         const clanRow = settled.shared;
         const treasury = (clanRow.treasury ?? {}) as Record<string, unknown>;
 

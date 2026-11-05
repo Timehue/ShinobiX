@@ -1,8 +1,6 @@
 .underground-world {
     --under-floor: #445158;
     --under-rock: #202b36;
-    --under-wall: #34414b;
-    --under-wall-light: #677780;
     --under-highlight: #afc6cb;
     --under-glow: #eebb7f;
     --under-water: #0e2831;
@@ -10,21 +8,17 @@
 .underground-world--obsidian {
     --under-floor: #574c51;
     --under-rock: #292533;
-    --under-wall: #41333d;
-    --under-wall-light: #80676b;
     --under-highlight: #debda8;
     --under-glow: #ff985a;
 }
 .underground-world--cave {
     --under-floor: #354d4f;
     --under-rock: #1a2930;
-    --under-wall: #293a42;
-    --under-wall-light: #60777b;
     --under-highlight: #9dc7c3;
     --under-glow: var(--hg-floor-accent, #68d2bf);
     --under-water: #061f29;
 }
-.underground-world--cave[data-hg-floor="1"] { --under-floor: #584f48; --under-rock: #302b30; --under-wall-light: #86756a; --under-highlight: #d0b59c; }
+.underground-world--cave[data-hg-floor="1"] { --under-floor: #584f48; --under-rock: #302b30; --under-highlight: #d0b59c; }
 .underground-world--cave[data-hg-floor="3"] { --under-floor: #35495c; --under-rock: #1b2839; --under-highlight: #a1bcd7; }
 .underground-world--cave[data-hg-floor="4"] { --under-floor: #494359; --under-rock: #282333; --under-highlight: #b8a7d6; }
 .underground-world--cave[data-hg-floor="5"] { --under-floor: #543d51; --under-rock: #2d2034; --under-highlight: #d7a8c3; }
@@ -36,33 +30,32 @@
     --hg-floor-fog: #352b4b80;
     --under-floor: #494457;
     --under-rock: #252431;
-    --under-wall-light: #79718c;
     --under-highlight: #c2b6de;
     --under-water: #151d30;
 }
 .underground-world--rift[data-hg-rift="rift-hollow-stalker"] {
     --hg-floor-accent: #7fb9a6; --hg-floor-accent-soft: #7fb9a626; --hg-floor-fog: #153c3880;
-    --under-floor: #354b45; --under-rock: #1a2b29; --under-wall-light: #617d71; --under-highlight: #a9ccbc; --under-water: #0a2525;
+    --under-floor: #354b45; --under-rock: #1a2b29; --under-highlight: #a9ccbc; --under-water: #0a2525;
 }
 .underground-world--rift[data-hg-rift="rift-beast-warren"] {
     --hg-floor-accent: #d5a16c; --hg-floor-accent-soft: #d5a16c26; --hg-floor-fog: #49332180;
-    --under-floor: #594c3e; --under-rock: #302925; --under-wall-light: #88755f; --under-highlight: #d6bb94; --under-water: #252724;
+    --under-floor: #594c3e; --under-rock: #302925; --under-highlight: #d6bb94; --under-water: #252724;
 }
 .underground-world--rift[data-hg-rift="rift-engine-echo"] {
     --hg-floor-accent: #e5a36d; --hg-floor-accent-soft: #e5a36d26; --hg-floor-fog: #3f2e2a80;
-    --under-floor: #4c5053; --under-rock: #252b30; --under-wall-light: #7b858b; --under-highlight: #bfcbd0; --under-water: #162731;
+    --under-floor: #4c5053; --under-rock: #252b30; --under-highlight: #bfcbd0; --under-water: #162731;
 }
 .underground-world--rift[data-hg-rift="rift-hollow-name"] {
     --hg-floor-accent: #c995aa; --hg-floor-accent-soft: #c995aa26; --hg-floor-fog: #48293880;
-    --under-floor: #55434e; --under-rock: #2c222c; --under-wall-light: #897080; --under-highlight: #d6b1c2; --under-water: #211d2c;
+    --under-floor: #55434e; --under-rock: #2c222c; --under-highlight: #d6b1c2; --under-water: #211d2c;
 }
 .underground-world--rift[data-hg-rift="rift-mirror-shard"] {
     --hg-floor-accent: #9bbfe4; --hg-floor-accent-soft: #9bbfe426; --hg-floor-fog: #253c5580;
-    --under-floor: #3e4f62; --under-rock: #202c3d; --under-wall-light: #748ca3; --under-highlight: #c0d8ef; --under-water: #112c42;
+    --under-floor: #3e4f62; --under-rock: #202c3d; --under-highlight: #c0d8ef; --under-water: #112c42;
 }
 .underground-world--rift[data-hg-rift="rift-gate-heir"] {
     --hg-floor-accent: #dcc18b; --hg-floor-accent-soft: #dcc18b26; --hg-floor-fog: #433a2780;
-    --under-floor: #535348; --under-rock: #2c2c29; --under-wall-light: #858572; --under-highlight: #dbd0ad; --under-water: #202a2d;
+    --under-floor: #535348; --under-rock: #2c2c29; --under-highlight: #dbd0ad; --under-water: #202a2d;
 }
 .underground-world.underground-world--rift .hg-cave-header .act-label { color: var(--hg-floor-accent) !important; }
 .hg-rift-badge { display: inline-block; margin-left: 8px; padding: 2px 7px; border: 1px solid var(--hg-floor-accent); border-radius: 4px; color: var(--hg-floor-accent); background: var(--hg-floor-accent-soft); font-size: 9px; letter-spacing: .12em; vertical-align: middle; }

@@ -71,13 +71,3 @@
     .sunscar-daily-ledger small { font-size: 9px; }
 }
 @media(max-width:600px) { .sunscar-mode.sunscar-hub-refined { padding: 0 16px; } .sunscar-hub-refined .sunscar-new-hero { margin: 0 -16px; } }
-.ui-modal-card.bm-crate-dialog { background: radial-gradient(ellipse at 50% 30%,#64502b35,transparent 65%),#0c141b; border: 1px solid #d6b77b66; border-radius: 8px; color: #eee9dd; }
-.bm-crate-dialog .bm-crate-stage { max-width: 100%; padding: 24px; }
-.bm-crate-dialog .bm-crate-tier { font: 400 28px/1.25 var(--font-display,Georgia,serif); }
-.bm-crate-dialog .bm-crate-img { width: min(230px,55vw); }
-.bm-crate-dialog :is(.bm-crate-open-btn,.bm-crate-collect) { min-height: 44px; border-radius: 4px; background: linear-gradient(#d9be84,#b6955e); color: #10171b; border: 1px solid #d6b77b88; font: 600 13px var(--font-body,sans-serif); }
-.bm-crate-dialog .bm-crate-dismiss { min-height: 44px; background: transparent; border: 0; color: #b9c1be; font-size: 12px; }
-.bm-crate-dialog .bm-crate-rewards { width: 100%; }
-.bm-crate-dialog .bm-crate-reward-row { border: 0; border-bottom: 1px solid #d6b77b30; border-radius: 0; background: none; padding: 12px 0; justify-content: space-between; font-size: 14px; }
-.bm-crate-dialog .bm-crate-hint { font: 400 12px/1.7 var(--font-body,sans-serif); }
-@media(prefers-reduced-motion:reduce) { .bm-crate-overlay,.bm-crate-dialog *,.bm-crate-dialog *::before { animation: none !important; } }

@@ -3,6 +3,7 @@ import type { Character } from "../types/character";
 import type { PlayerSaveOverrides, PlayerSavePayload } from "./player-save-types";
 import type { SaveConflictDraft } from "./save-conflict";
 import { createPlayerSaveCoordinator } from "./player-save-coordinator";
+import { SAVE_REFRESH_REQUIRED, type SaveBlockedState } from "./save-persistence";
 
 type CoordinatorPorts = Omit<Parameters<typeof createPlayerSaveCoordinator>[0], "storage" | "setSaveConflictDraft" | "setSaveBlocked">;
 
@@ -12,9 +13,12 @@ export function usePlayerSaveCoordinator({ buildPlayerSavePayload, ...ports }: C
     buildPlayerSavePayload: (character: Character, overrides?: PlayerSaveOverrides) => PlayerSavePayload;
 }) {
     const [saveConflictDraft, setSaveConflictDraft] = useState<SaveConflictDraft | null>(null);
-    const [saveBlocked, setSaveBlocked] = useState(false);
+    const [saveBlocked, setSaveBlockedState] = useState<SaveBlockedState>(false);
+    // Only a reload clears a refresh-required block: no save from this build can
+    // land after a 426, so a later success or account switch must not hide it.
     const [coordinator] = useState(() => createPlayerSaveCoordinator({
-        ...ports, storage: localStorage, setSaveConflictDraft, setSaveBlocked,
+        ...ports, storage: localStorage, setSaveConflictDraft,
+        setSaveBlocked: blocked => setSaveBlockedState(current => current === SAVE_REFRESH_REQUIRED ? current : blocked),
     }));
     function pushSaveToServer(
         characterToSave: Character,

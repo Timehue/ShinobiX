@@ -1,5 +1,4 @@
 :root {
-    --home-ink: var(--sj-void);
     --home-panel: color-mix(in srgb, var(--sj-surface-low) 94%, transparent);
     --home-line: var(--sj-border-soft);
     --home-gold: var(--sj-gold-bright);
@@ -186,10 +185,6 @@
 .hatch-requirements { display: grid; gap: .6rem; }
 .hatch-requirements h3 { margin: 0; font: 400 1.4rem var(--font-display); }
 .hatch-requirements > div { display: grid; grid-template-columns: 1fr 130px 42px; gap: .7rem; align-items: center; padding: .6rem; border-radius: var(--r-sm); background: rgba(255,255,255,.04); font-size: .78rem; }
-.hatch-requirement { border-left: 3px solid rgba(230,189,112,.55); }
-.hatch-requirement.requirement-care { border-left-color: #83d6a5; }
-.hatch-requirement.requirement-adventure { border-left-color: #7fb9e7; }
-.hatch-requirement.requirement-elementalBond { border-left-color: #e6bd70; }
 .hatch-requirements progress { width: 100%; accent-color: var(--home-mint); }
 .pet-home-message { width: fit-content; margin: .5rem auto; border: 1px solid rgba(240,143,115,.35); border-radius: var(--r-sm); color: #ffd2c4; background: rgba(93,37,31,.55); padding: .6rem .8rem; }
 .pet-yard-screen .pet-trait-tag--apex { border-color: rgba(246,211,123,.72); color: #fff1b7; background: linear-gradient(120deg,rgba(77,37,116,.92),rgba(142,70,118,.92)); box-shadow: 0 0 14px rgba(209,135,255,.25); }
