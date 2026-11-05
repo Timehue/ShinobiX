@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import {
     newLobby, codeFromBytes, openSeat, slotOf, findPlayerSlot, chooseOwnedPets,
@@ -52,8 +53,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── GET: read a lobby for the authed viewer ───────────────────────────────
     if (req.method === 'GET') {
+        if (!enforceRateLimit(req, res, 'arena-lobby-preauth', 90 * 20, 60_000)) return;
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && !enforceRateLimit(req, res, 'arena-lobby', 90, 60_000, identity.name)) return;
         const me = identity.admin ? safeName(String(req.query.name ?? '')) : identity.name;
         const code = normCode(req.query.code);
         if (!CODE_RE.test(code)) return res.status(400).json({ error: 'Invalid lobby code.' });
@@ -70,11 +73,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { name, action } = (body ?? {}) as { name?: string; action?: string };
         if (!name || !action) return res.status(400).json({ error: 'Missing name or action.' });
 
+        if (!enforceRateLimit(req, res, 'arena-lobby-preauth', 90 * 20, 60_000)) return;
         const identity = await authedPlayerOrAdmin(req, name);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== safeName(name)) {
             return res.status(403).json({ error: 'Cannot act as another player.' });
         }
+        // Same shape as the Tower and Clan Boss party routes. A waiting lobby
+        // polls every 2 s (30 a minute). Codes are 4 characters (~1M), so the
+        // tighter create/join budget is what stops a script walking them into
+        // other players' private lobbies or minting rows without bound.
+        if (!identity.admin && !enforceRateLimit(req, res, 'arena-lobby', 90, 60_000, identity.name)) return;
+        if (!identity.admin && (action === 'create' || action === 'join')
+            && !enforceRateLimit(req, res, 'arena-lobby-join', 20, 60_000, identity.name)) return;
         const me = identity.admin ? safeName(name) : identity.name;
         const now = Date.now();
 

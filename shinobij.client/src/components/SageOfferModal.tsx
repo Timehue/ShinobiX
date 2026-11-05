@@ -258,7 +258,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                                 // that would reveal the hidden rank.
                                 <span style={{ display: "block", margin: "4px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
                                     ◆ Signature: <b>{o.signature.name}</b> — {o.signature.shape}
-                                    {o.signature.effects.length ? ` · ${o.signature.effects.join(", ")}` : ""}. Unlocks at Stage III.
+                                    {o.signature.effects.length ? ` · ${o.signature.effects.join(", ")}` : ""}. Unlocks at Stage II.
                                 </span>
                             )}
                         </button>

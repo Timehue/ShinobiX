@@ -1,11 +1,8 @@
 /* Pet Arena lobby — cinematic command deck layered over the existing combat UI. */
 .pet-arena-lobby {
     --arena-cyan: #66e0df;
-    --arena-cyan-soft: rgba(102, 224, 223, .24);
     --arena-gold: #f0ca79;
-    --arena-gold-soft: rgba(240, 202, 121, .25);
     --arena-red: #ff806f;
-    --arena-panel: rgba(8, 17, 31, .92);
     --arena-line: rgba(173, 207, 224, .16);
     max-width: none !important;
     min-height: 100%;

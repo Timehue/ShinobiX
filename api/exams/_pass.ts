@@ -1,9 +1,29 @@
 import { applyDerivedLevel, effectiveStatsTrained } from '../_xp-engine.js';
+import { builtinAiProfile } from '../_ai-profile-catalog.js';
 
 const EXAMS = ['genin', 'chunin', 'jonin', 'specialJonin'] as const;
 type ExamKey = typeof EXAMS[number];
 const n = (value: unknown) => Math.max(0, Math.floor(Number(value) || 0));
 const list = (value: unknown) => Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+
+/**
+ * The AI opponents an exam requires defeating (Chunin: the Proctor, Jonin: the
+ * Rogue Ninja). The Logbook fights them as practice bouts, which pay nothing
+ * and so never reached the ordinary win bookkeeping: the Chunin exam, and the
+ * level hold at 39 behind it, could not be passed. The fight report records
+ * the defeat through this, and nothing else.
+ */
+export const EXAM_AI_IDS: readonly string[] = ['builtin-ai-exam-proctor', 'builtin-ai-rogue-ninja'];
+
+/** Record a won exam bout. A bout Arena re-levelled below the authored level is not the exam. */
+export function recordExamAiDefeat(character: Record<string, unknown>, opponentId: unknown, enemyLevel: unknown): Record<string, unknown> {
+    if (typeof opponentId !== 'string' || !EXAM_AI_IDS.includes(opponentId)) return character;
+    const profile = builtinAiProfile(opponentId);
+    if (!profile || !(Number(enemyLevel) >= profile.level)) return character;
+    const defeated = list(character.defeatedAiIds);
+    if (defeated.includes(opponentId)) return character;
+    return { ...character, defeatedAiIds: [...defeated, opponentId] };
+}
 
 export function passRankExam(character: Record<string, unknown>, examRaw: unknown, leadership: { isKage?: boolean; isElder?: boolean } = {}) {
     const exam = typeof examRaw === 'string' && EXAMS.includes(examRaw as ExamKey) ? examRaw as ExamKey : null;

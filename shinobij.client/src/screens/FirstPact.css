@@ -1,7 +1,6 @@
 .first-pact-screen {
     --fp-gold: #e7bd72;
     --fp-cyan: #54d7d9;
-    --fp-ink: #050a12;
     position: fixed;
     inset: 0;
     z-index: 2300;

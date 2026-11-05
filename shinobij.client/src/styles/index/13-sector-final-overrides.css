@@ -5,26 +5,8 @@
 /* Instance-frame geometry is owned by layout/adaptive-stages.css. */
 
 /* Village outskirts are an operation hub, not the old narrow sector sidebar. */
-.village-outskirts-instance .instance-frame > aside.instance-actions {
-    padding: clamp(12px, 1.5vw, 20px) !important;
-    gap: 12px !important;
-    border: 1px solid rgba(148, 163, 184, .35) !important;
-    border-radius: 14px !important;
-    background: linear-gradient(180deg, rgba(15, 23, 42, .98), rgba(7, 14, 28, .98)) !important;
-    box-shadow: 0 14px 38px rgba(0, 0, 0, .35), inset 0 1px rgba(255, 255, 255, .04) !important;
-}
 
-.village-outskirts-instance .instance-actions h3 {
-    font-size: clamp(17px, 1.4vw, 21px) !important;
-    padding-bottom: 10px !important;
-    white-space: normal !important;
-}
 
-.village-outskirts-instance .instance-actions > p {
-    margin: 0 !important;
-    font-size: 13px !important;
-    line-height: 1.5 !important;
-}
 
 .village-outskirts-instance .instance-actions > button,
 .village-outskirts-instance .territory-guard-section button {
@@ -77,10 +59,6 @@
     font-size: 12px;
 }
 
-.scene-title {
-    padding: 4px 8px !important;
-    font-size: 12px !important;
-}
 
 .walkable-tile {
     min-height: 0 !important;
@@ -98,58 +76,9 @@
 
 
 /* ── Actions panel ── */
-.instance-actions {
-    box-sizing: border-box !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    padding: 6px 5px !important;
-    background: linear-gradient(180deg, rgba(22,27,38,0.98), rgba(8,12,22,0.98)) !important;
-    border: 2px solid rgba(230, 196, 119, 0.65) !important;
-    border-radius: 10px !important;
-    box-shadow: inset 0 0 30px rgba(0,0,0,0.7) !important;
-    overflow: hidden !important;
-    display: grid !important;
-    align-content: start !important;
-    gap: 5px !important;
-    word-break: break-word !important;
-}
 
-    .instance-actions h3 {
-        font-size: 11px !important;
-        color: #fef3c7 !important;
-        margin: 0 0 3px !important;
-        padding-bottom: 4px !important;
-        border-bottom: 1px solid rgba(230, 196, 119, 0.35) !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
 
-    .instance-actions p,
-    .instance-actions span {
-        font-size: 9px !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-        overflow-wrap: break-word !important;
-        margin: 0 !important;
-    }
 
-    .instance-actions button {
-        display: block !important;
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-        padding: 5px 3px !important;
-        font-size: 10px !important;
-        min-height: 28px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        background: linear-gradient(#1f2f4d, #101827) !important;
-        border: 1px solid rgba(230, 196, 119, 0.6) !important;
-        box-shadow: none !important;
-    }
 
 .sector-banner-panel {
     background: #05070d;

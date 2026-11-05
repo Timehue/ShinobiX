@@ -65,13 +65,65 @@ export async function admitShowdown<T extends ShowdownSession>(
         try { character = spendShowdownConsumables(decision.character, session); }
         catch { return { ok: false as const, status: 409, error: 'A companion’s equipped item changed. Review its loadout and retry.' }; }
         session.consumablesCommitted = true;
+        // Remember what was spent on the admission itself, so a fight that
+        // lapses unplayed can give it back after its row has expired.
+        const spent = showdownConsumableSpends(session);
+        if (spent.length && arenaAdmissionId(character) === session.sessionId) {
+            character = { ...character, petShowdownAdmission: { ...(character.petShowdownAdmission as Record<string, unknown>), spent } };
+        }
         const artifact: KvCasOp = { op: 'cas', key: showdownAdmissionKey(name, session.sessionId), expected: null, value: session, ex: TTL };
         const store = showdownAdmissionStore(kv, artifact);
         const written = await writeVersionedPlayerSaveWithStore(store, saveKey, record, character, {}, {
             regenAt: carriedRegenCursor(recovery.character, character, recovery.regen),
         });
+        const previousId = arenaAdmissionId(recovery.character);
+        if (previousId && previousId !== session.sessionId) await retirePlayedProof(name, previousId);
         return { ...decision, character, _saveVersion: written._saveVersion };
     }, { failClosed: true }));
+}
+
+/**
+ * Written before an admitted fight resolves its first round (or is conceded),
+ * so a lapse can tell a fight that was never played from one that was. The
+ * admission row lives 45 minutes; the saved refund entitlement has no expiry,
+ * so this proof must not expire until the saved admission is removed or replaced.
+ * Account deletion also removes these rows.
+ */
+export const showdownPlayedKey = (name: string, id: string) => `pet:showdown-played:${name}:${id}`;
+
+/** Once the refund entitlement is durably gone, bound proof retention. Never
+ * create a missing marker, and never retire it before the save commit. */
+async function retirePlayedProof(name: string, id: string): Promise<void> {
+    await kv.compareSet(showdownPlayedKey(name, id), 1, 1, { ex: 3 * 24 * 60 * 60 }).catch(() => undefined);
+}
+
+type SpentConsumable = { petId: string; consumableId: string };
+function admissionSpends(character: Record<string, unknown>): SpentConsumable[] {
+    const spent = (character.petShowdownAdmission as { spent?: unknown } | undefined)?.spent;
+    return Array.isArray(spent)
+        ? spent.filter((entry): entry is SpentConsumable => !!entry && typeof entry === 'object'
+            && typeof (entry as SpentConsumable).petId === 'string' && typeof (entry as SpentConsumable).consumableId === 'string')
+        : [];
+}
+
+/**
+ * Give back the consumables a paid admission spent when its fight lapsed
+ * without a single round (the 45-minute row expired with nobody fighting).
+ * Each item returns to its pet's empty consumable slot, or to the bag when
+ * the slot was refilled or the pet is gone, as unequipping does. A played or
+ * conceded fight keeps the spend. Clears the admission either way.
+ */
+export function refundLapsedAdmission(character: Record<string, unknown>, played: boolean): Record<string, unknown> {
+    const spends = played ? [] : admissionSpends(character);
+    const pets = Array.isArray(character.pets) ? [...character.pets as Record<string, unknown>[]] : [];
+    const inventory = Array.isArray(character.inventory) ? [...character.inventory as unknown[]] : [];
+    for (const { petId, consumableId } of spends) {
+        const index = pets.findIndex(pet => pet?.id === petId);
+        const loadout = index >= 0 ? (pets[index].loadout ?? {}) as Record<string, unknown> : null;
+        if (loadout && !loadout.consumable) pets[index] = { ...pets[index], loadout: { ...loadout, consumable: consumableId } };
+        else inventory.push(consumableId);
+    }
+    return { ...character, ...(spends.length ? { pets, inventory } : {}), petShowdownAdmission: undefined };
 }
 
 export function arenaAdmissionId(character: Record<string, unknown>): string | null {
@@ -81,9 +133,10 @@ export function arenaAdmissionId(character: Record<string, unknown>): string | n
 
 export async function clearArenaAdmission(name: string, sessionId: string): Promise<void> {
     const { mutatePlayerSave } = await import('../save/_mutate-player-save.js');
-    await retryOnSaveVersionConflict(() => mutatePlayerSave(name, ({ character }) => ({
+    const cleared = await retryOnSaveVersionConflict(() => mutatePlayerSave(name, ({ character }) => ({
         ok: true as const, value: null,
         character: arenaAdmissionId(character) === sessionId ? { ...character, petShowdownAdmission: undefined } : character,
         write: arenaAdmissionId(character) === sessionId,
     })));
+    if (cleared.ok) await retirePlayedProof(name, sessionId);
 }

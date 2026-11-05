@@ -1,7 +1,7 @@
 import { beforeEach, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createStartupRecovery } from './_startup-recovery.js';
-import { initializeClanBoss, initializeTerritory, STARTUP_LEASE_SECONDS } from './_startup-initialization.js';
+import { ensureCurrentClanBossWeek, initializeClanBoss, initializeTerritory, STARTUP_LEASE_SECONDS } from './_startup-initialization.js';
 import { kv } from './_storage.js';
 import { currentKvLockContext, poisonKvLockContext, assertKvLockContext } from './_kv-lock-context.js';
 import { WAR_VILLAGES, homeSectorsForVillage } from './_war-map-sectors.js';
@@ -310,4 +310,27 @@ it('recomputes the boss week after a delayed retry and honors kill switches with
     const stop = startTournamentClock();
     assert.equal(typeof stop, 'function');
     stop();
+});
+
+it('opens the new week minutes after Monday 00:00 UTC, leaving the ended week to the 03:00 settle', async t => {
+    const mondayMorning = Date.UTC(2026, 10, 2, 0, 5); // a v2 week, which starts at Monday 00:00
+    t.mock.method(Date, 'now', () => mondayMorning);
+    const ended = clanBossWeekId(mondayMorning - 10 * 60_000);
+    const current = clanBossWeekId(mondayMorning);
+    assert.notEqual(ended, current);
+    await kv.set(clanBossWeekKey(ended), { weekId: ended, bossId: 'oni-warlord', rulesVersion: 2, spawnedAt: mondayMorning - 5 * 60_000 - CB_WEEK_MS, endsAt: mondayMorning - 5 * 60_000 });
+    await ensureCurrentClanBossWeek(mondayMorning);
+    const week = await kv.get<{ spawnedAt: number; endsAt: number }>(clanBossWeekKey(current));
+    assert.ok(week, 'the current week is live before 03:00');
+    assert.equal(week.spawnedAt, Date.UTC(2026, 10, 2));
+    assert.equal((await kv.get<{ settled?: boolean }>(clanBossWeekKey(ended)))?.settled, undefined, 'the ended week waits for the 03:00 pass, so assaults still running at midnight bank first');
+    await ensureCurrentClanBossWeek(mondayMorning);
+    const announcements = (await kv.get<Announcement[]>(ANNOUNCEMENTS_KEY)) ?? [];
+    assert.equal(announcements.filter(a => a.type === 'clan-boss-spawn').length, 1, 'one spawn announcement');
+    // Once the week exists, each 5-minute tick is a single read.
+    t.mock.method(kv, 'set', async () => { throw new Error('an open week must not write'); });
+    await ensureCurrentClanBossWeek(mondayMorning + 5 * 60_000);
+    process.env.DISABLE_CLAN_BOSS = '1';
+    t.mock.method(kv, 'get', async () => { throw new Error('kill switch must avoid storage'); });
+    await ensureCurrentClanBossWeek(mondayMorning + 7 * 86_400_000);
 });

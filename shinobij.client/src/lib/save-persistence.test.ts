@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { createSaveConflictRevision, saveConflictAccountKey, type SaveConflictDraft } from "./save-conflict";
 import { SAVE_FAILURE_BANNER_THRESHOLD, createSaveFlightCoordinator, type SaveFlightCoordinator } from "./save-flight";
-import { AUTOSAVE_RETRY, createSavePersistence, SaveConflictError, SaveRateLimitError } from "./save-persistence";
+import {
+    AUTOSAVE_RETRY, createSavePersistence, SAVE_REFRESH_REQUIRED, SAVE_REFRESH_REQUIRED_MESSAGE, SaveConflictError, SaveRateLimitError,
+    type SaveBlockedState,
+} from "./save-persistence";
 
 type Payload = {
     character: { name: string; level: number; ryo?: number };
@@ -49,7 +52,7 @@ function harness(options?: {
     const captured: Array<{ accountName: string; payload: unknown }> = [];
     const applied: Payload[] = [];
     const previews: Array<{ accountName: string; payload: unknown }> = [];
-    const blocked: boolean[] = [];
+    const blocked: SaveBlockedState[] = [];
     const ryoAdoptions: Array<{ accountName: string; ryo: number }> = [];
     const shardAdoptions: Array<{ accountName: string; fateShards: number }> = [];
     const acknowledgedSnapshots: Payload[] = [];
@@ -860,6 +863,61 @@ describe("extracted save persistence", () => {
         assert.equal(network.failureCount.current, SAVE_FAILURE_BANNER_THRESHOLD);
         assert.equal(network.dirty.current, true);
         assert.equal(network.blocked.at(-1), true);
+    });
+
+    it("stops autosaving after a 426 and switches the banner to refresh mode", async () => {
+        const h = harness({ latestVersion: 4 });
+        let posts = 0;
+        globalThis.fetch = (async () => {
+            posts += 1;
+            return jsonResponse(426, { error: SAVE_REFRESH_REQUIRED_MESSAGE, code: "CLIENT_REFRESH_REQUIRED" });
+        }) as typeof fetch;
+
+        await h.persistence.persistAutosave(snapshot());
+        assert.equal(posts, 1);
+        assert.deepEqual(h.blocked, [SAVE_REFRESH_REQUIRED], "one 426 is enough: retrying can never land");
+        assert.equal(h.failureCount.current, 0, "a 426 is not a transient failure streak");
+        assert.equal(h.dirty.current, true, "the unsaved state stays dirty so the unload guard still protects it");
+        assert.ok(h.persistence.getUnresolvedPost(), "the rejected body stays available to the unload guard");
+
+        // Later ticks do not POST again, even though the state is still dirty.
+        for (let tick = 0; tick < SAVE_FAILURE_BANNER_THRESHOLD + 2; tick += 1) {
+            const result = await h.persistence.persistAutosave(snapshot(tick + 2));
+            assert.equal(result.status, "completed");
+        }
+        assert.equal(posts, 1);
+        assert.equal(h.dirty.current, true);
+        assert.deepEqual(h.blocked, [SAVE_REFRESH_REQUIRED]);
+    });
+
+    it("throws the refresh message for a required save that gets a 426", async () => {
+        for (const body of [{ error: "Your game client is out of date. Please refresh the page to keep saving.", code: "CLIENT_REFRESH_REQUIRED" }, null]) {
+            const h = harness({ latestVersion: 4 });
+            globalThis.fetch = (async () => body ? jsonResponse(426, body) : new Response("", { status: 426 })) as typeof fetch;
+            await assert.rejects(h.persistence.persistRequired(() => requiredSave()), (error: Error) => {
+                assert.equal(error.message, SAVE_REFRESH_REQUIRED_MESSAGE, "never the raw 'Server returned 426'");
+                return true;
+            });
+            assert.deepEqual(h.blocked, [SAVE_REFRESH_REQUIRED]);
+            let posted = false;
+            globalThis.fetch = (async () => { posted = true; return jsonResponse(200, { ok: true, _saveVersion: 5 }); }) as typeof fetch;
+            await h.persistence.persistAutosave(snapshot());
+            assert.equal(posted, false, "a required-save 426 also stops the autosave loop");
+        }
+    });
+
+    it("keeps 413 and 5xx on the retrying failure path", async () => {
+        for (const status of [413, 500, 503]) {
+            const h = harness();
+            let posts = 0;
+            globalThis.fetch = (async () => { posts += 1; return jsonResponse(status, { error: "nope" }); }) as typeof fetch;
+            for (let attempt = 0; attempt < SAVE_FAILURE_BANNER_THRESHOLD + 1; attempt += 1) {
+                await h.persistence.persistAutosave(snapshot());
+            }
+            assert.equal(posts, SAVE_FAILURE_BANNER_THRESHOLD + 1, `${status} keeps retrying`);
+            assert.equal(h.blocked.at(-1), true, `${status} shows the keep-the-tab-open banner`);
+            assert.equal(h.blocked.includes(SAVE_REFRESH_REQUIRED), false);
+        }
     });
 
     it("treats a 200 persisted:false acknowledgement as a retryable failure", async () => {

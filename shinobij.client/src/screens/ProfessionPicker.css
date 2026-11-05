@@ -27,7 +27,6 @@
 
 .pp-root {
     --pp-accent: var(--gold-500);
-    --pp-ink: #05070c;
     --pp-panel-top: rgba(20, 26, 34, 0.94);
     --pp-panel-bot: rgba(7, 10, 15, 0.97);
     font-family: var(--font-body);

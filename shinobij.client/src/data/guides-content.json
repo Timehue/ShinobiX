@@ -357,7 +357,7 @@
           },
           {
             "type": "p",
-            "text": "Bound, Stage III, grants your Legacy’s signature technique in an extra combat slot. Its mastery rises with the Legacy stage instead of through ordinary lessons. The Hall of Legends also records world Eras and offers longer personal campaigns; see Endgame Modes and How to Prepare before starting one."
+            "text": "Awakened, Stage II, grants your Legacy’s signature technique in an extra combat slot. Its mastery rises with the Legacy stage instead of through ordinary lessons. The Hall of Legends also records world Eras and offers longer personal campaigns; see Endgame Modes and How to Prepare before starting one."
           }
         ]
       }
@@ -588,7 +588,7 @@
           },
           {
             "type": "p",
-            "text": "A Bound Legacy adds a separate signature slot at Stage III. The signature arrives at mastery 30, rises to 40 at Stage IV and 50 at Stage V, and does not need ordinary jutsu lessons."
+            "text": "An Awakened Legacy adds a separate signature slot at Stage II. The signature arrives at mastery 20 and rises by 10 with each later stage, to 50 at Stage V. It does not need ordinary jutsu lessons."
           }
         ]
       },

@@ -4,6 +4,8 @@ import { ACCOUNT_AGE_MIN_MS } from '../pvp/_vanguard-rewards.js';
 import { ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { isUnclaimedGuest } from '../_guest-gate.js';
 import type { TradeCurrency } from './_trade-core.js';
+import type { AtomicSaveProof } from '../save/_commit-player-save.js';
+import { SaveDebitRefusal } from '../_save-debit-saga.js';
 
 /*
  * Rolling SEND-side transfer budget.
@@ -180,6 +182,56 @@ export async function checkOutboundBudget(
         };
     }
     return { ok: true, spent, limit, remaining: remaining - amount };
+}
+
+/**
+ * Treasury donations from an untrusted account (owner ruling 2026-11-04).
+ *
+ * A clan or village treasury is a pool an officer can gift out at the TRUSTED
+ * ceiling, so an uncapped donation let a crowd of guest alts launder through it
+ * past the restricted tier. A restricted donor may now put in no more than it
+ * could trade away: the same rolling budget, shared with its trades. A trusted
+ * donor is neither checked nor charged, so its gift budget is untouched.
+ * Returns null when no cap applies (trusted, admin, or not a budgeted currency).
+ */
+export type DonationBudget = { slug: string; currency: TradeCurrency };
+
+export async function restrictedDonationBudget(slug: string, currency: unknown): Promise<DonationBudget | null> {
+    if (typeof currency !== 'string' || !Object.hasOwn(RESTRICTED_OUTBOUND, currency)) return null;
+    return (await senderTrustTierBySlug(slug)) === 'restricted' ? { slug, currency: currency as TradeCurrency } : null;
+}
+
+/** The refusal for a capped donation over the budget, or null. Run inside the settlement's decide. */
+export async function donationBudgetRefusal(cap: DonationBudget | null, amount: number): Promise<string | null> {
+    if (!cap) return null;
+    const budget = await checkOutboundBudget(cap.slug, cap.currency, amount, 'restricted');
+    return budget.ok ? null : budget.error;
+}
+
+/**
+ * Run under the donor's budget gate. The fresh debit carries its budget proof
+ * in the same save transaction; neither replay nor recovery charges it again.
+ */
+export async function settleWithinDonationBudget<T extends { replayed?: boolean }>(
+    cap: DonationBudget | null, _amount: number, settle: () => Promise<T>,
+): Promise<T> {
+    if (!cap) return settle();
+    return withOutboundBudgetGate(cap.slug, cap.currency, settle);
+}
+
+/** Called only for a validated fresh donation, under its outbound gate. A
+ * failed read or CAS must stop the debit; a lost reply can prove both writes
+ * through the existing save readback. Uses the existing rolling ledger shape. */
+export async function donationBudgetProof(cap: DonationBudget | null, amount: number, now = Date.now()): Promise<AtomicSaveProof | undefined> {
+    if (!cap) return undefined;
+    const key = transferBudgetKey(cap.slug, cap.currency);
+    const expected = await kv.get<Ledger>(key);
+    const { spent, kept } = sumWindow(expected?.stamps, now);
+    if (amount > outboundLimit(cap.currency, 'restricted') - spent) {
+        throw new SaveDebitRefusal(429, `You have reached today's ${cap.currency} transfer limit.`);
+    }
+    kept.push([now, amount]);
+    return { key, expected, value: { stamps: boundStamps(kept) }, ex: Math.ceil(TRANSFER_WINDOW_MS * 2 / 1000) };
 }
 
 /** How many stamps a ledger row may hold before the oldest are coalesced. */

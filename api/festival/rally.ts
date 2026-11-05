@@ -7,7 +7,7 @@ import { LockContendedError } from '../_lock.js';
 import { safeLogValue } from '../_safe-log.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { recordEconomyTxn } from '../_economy.js';
-import { beginChampionshipRace, checkpointChampionship, FestivalError, makeRallyEntrants, ownedRallyPet, prepareChampionship, rallyDaily, rallyProgress } from './_rally.js';
+import { beginChampionshipRace, checkpointChampionship, FestivalError, makeRallyEntrants, ownedRallyPet, prepareChampionship, rallyDaily, rallyProgress, withdrawChampionship } from './_rally.js';
 import { createRallyRace } from '../../shared/sunscar/rally-simulation.js';
 import { RALLY_TRACKS } from '../../shared/sunscar/rally-tracks.js';
 import type { RallyState } from '../../shared/sunscar/rally-types.js';
@@ -53,6 +53,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (body.action === 'begin') {
                 const next = beginChampionshipRace(character, body.runId, now);
+                return { ok: true, character: next, value: { paid: 0 }, write: next !== character };
+            }
+            if (body.action === 'withdraw') {
+                const next = withdrawChampionship(character, body.runId);
                 return { ok: true, character: next, value: { paid: 0 }, write: next !== character };
             }
             if (body.action === 'checkpoint') {

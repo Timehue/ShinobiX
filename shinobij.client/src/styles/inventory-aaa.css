@@ -9,13 +9,11 @@
    ======================================================================== */
 
 .inventory-page {
-    --inventory-gold: #c9a968;
     --inventory-gold-bright: #ead9a7;
     --inventory-cyan: #74adbd;
     --inventory-panel: rgba(8, 13, 22, 0.94);
     --inventory-panel-high: rgba(14, 22, 34, 0.96);
     --inventory-line: rgba(201, 169, 104, 0.2);
-    --inventory-line-strong: rgba(201, 169, 104, 0.42);
     display: grid !important;
     grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1.58fr) !important;
     gap: 12px !important;

@@ -477,8 +477,16 @@ export async function recordEraTrigger(
  * the NX marker; safe to call from the cron pass, trigger hooks, and admin.
  */
 export async function checkEraUnlocks(): Promise<string[]> {
-    if (!legacyEnabled()) return [];
+    return (await evaluateEraUnlocks(false)).unlocked;
+}
+
+/** Daily completion requires durable effects receipts as well as a finished
+ * scan. Trigger/admin callers retain their existing best-effort array result
+ * and read path; an unlock transition alone never proves its effects landed. */
+async function evaluateEraUnlocks(verifyEffects: boolean): Promise<{ unlocked: string[]; complete: boolean }> {
+    if (!legacyEnabled()) return { unlocked: [], complete: true };
     const unlocked: string[] = [];
+    let complete = true;
     try {
         const [state, counters] = await Promise.all([getEraState(), readEraContributions()]);
         for (const def of ERA_DEFS) {
@@ -492,6 +500,7 @@ export async function checkEraUnlocks(): Promise<string[]> {
             }
             const did = await unlockEra(def, credited, 'milestone');
             if (did) unlocked.push(def.id);
+            if (verifyEffects && isGatedEra(def) && !(await kv.get(effectsDoneKey(def.id)))) complete = false;
         }
         // Recovery sweep: finish side effects for any gated era that is
         // unlocked but whose effects didn't complete (e.g. a crash between the
@@ -501,11 +510,15 @@ export async function checkEraUnlocks(): Promise<string[]> {
             if (effectiveStatus(def, state.overrides[def.id]) !== 'unlocked') continue;
             if (await kv.get(effectsDoneKey(def.id))) continue;
             await completeEraEffects(def);
+            // false can mean a concurrent caller already finished, or an
+            // unconfirmed effect/title write. The receipt distinguishes them.
+            if (verifyEffects && !(await kv.get(effectsDoneKey(def.id)))) complete = false;
         }
     } catch (err) {
+        complete = false;
         console.error('[era] unlock check failed:', err instanceof Error ? err.message : err);
     }
-    return unlocked;
+    return { unlocked, complete };
 }
 
 const effectsDoneKey = (id: string) => `era:effects-done:${id}`;
@@ -631,10 +644,9 @@ export async function completeEraEffects(def: EraDef): Promise<boolean> {
 }
 
 /** Nightly cron pass: evaluate unlocks. No-op unless ENABLE_LEGACY=1. */
-export async function runEraDailyPass(): Promise<{ enabled: boolean; unlocked: string[] }> {
-    if (!legacyEnabled()) return { enabled: false, unlocked: [] };
-    const unlocked = await checkEraUnlocks();
-    return { enabled: true, unlocked };
+export async function runEraDailyPass(): Promise<{ enabled: boolean; unlocked: string[]; complete: boolean }> {
+    if (!legacyEnabled()) return { enabled: false, unlocked: [], complete: true };
+    return { enabled: true, ...await evaluateEraUnlocks(true) };
 }
 
 export { ERA_DEFS, ERA_BY_ID };

@@ -10,26 +10,9 @@ import { appendSettlementReceipt, inspectSettlementReceipt, parseSettlementReque
 import { isTransferVillage, VILLAGE_TRANSFER_SCROLL_ID, villageTransferUnlockError } from '../../shared/village-transfer.js';
 import { readVillageUpgrades, VILLAGE_UPGRADE_KEYS } from './_upgrade.js';
 import { elderVillageKey } from './_elders.js';
-import { elderCouncilKey } from './_elder-council.js';
-import { invalidateProcCache } from '../_proc-cache.js';
 import { safeLogValue } from '../_safe-log.js';
-
-/** Remove old appointments so returning later does not restore an abandoned seat. */
-async function clearAppointments(village: string, playerName: string) {
-    const clear = (seats: unknown) => Array.isArray(seats)
-        ? seats.map(name => safeName(String(name ?? '')) === playerName ? '' : name) : seats;
-    await withKvLock(elderCouncilKey(village), async () => {
-        const council = await kv.get<Record<string, unknown>>(elderCouncilKey(village));
-        if (council) await kv.set(elderCouncilKey(village), { ...council, seats: clear(council.seats) });
-    }, { failClosed: true });
-    await withKvLock(elderVillageKey(village), async () => {
-        const state = await kv.get<Record<string, unknown>>(elderVillageKey(village));
-        if (state) await kv.set(elderVillageKey(village), {
-            ...state, elderAppointees: clear(state.elderAppointees), anbuAppointees: clear(state.anbuAppointees),
-        });
-    }, { failClosed: true });
-    invalidateProcCache('game-state:frame');
-}
+// Remove old appointments so returning later does not restore an abandoned seat.
+import { clearAppointments } from './_clear-appointments.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);

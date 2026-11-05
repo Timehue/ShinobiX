@@ -4,6 +4,8 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
+import { hasStaffImpersonationName, isCleanPlayerName, isCleanText } from '../_text-moderation.js';
+import { getActiveSilence } from '../admin/moderation.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { applyPetSummonCost, gainServerPetXp, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, petTrainingUpgradeBonusPct, removePetItem, settleFinishedTraining } from './_progress.js';
@@ -65,6 +67,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName); if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only update your own pet.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-progress', 30, 60_000, identity.name))) return;
+        // A nickname is free text other players read (battle logs, showdowns,
+        // Exchange listings), so a silenced player cannot author one, exactly
+        // as with a custom title (player/profile-title.ts).
+        if (!identity.admin && action === 'nickname') {
+            const sil = await getActiveSilence(identity.name);
+            if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
+        }
         const trainingAction = action === 'start-training' || action === 'complete-training';
         // Set by the settle's afterCommit: the session this call settled, and the
         // mission-event list it stored (null if listing it failed).
@@ -222,6 +231,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 nextPet = petted;
             } else if (action === 'nickname') {
                 const nickname = String(body.nickname ?? '').trim().slice(0, 24); if (!nickname) return { ok: false as const, status: 400, error: 'Nickname required.' };
+                // The save sanitizer treats `nickname` as server-owned, so this is
+                // the only gate: the same language filter and staff-name check as a
+                // player name (a symbol-only nickname has nothing for the name scan).
+                if (!isCleanText(nickname) || (/[a-z0-9]/i.test(nickname) && !isCleanPlayerName(nickname)) || hasStaffImpersonationName(nickname)) return { ok: false as const, status: 400, error: 'That nickname is not allowed.' };
                 const shards = Math.max(0, Number(character.fateShards) || 0); if (shards < PET_NICKNAME_FATE_SHARDS) return { ok: false as const, status: 409, error: `Need ${PET_NICKNAME_FATE_SHARDS} Fate Shards.` };
                 nextCharacter = { ...character, fateShards: shards - PET_NICKNAME_FATE_SHARDS }; nextPet = { ...pet, nickname };
             } else if (action === 'equip') {

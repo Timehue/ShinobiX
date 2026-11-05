@@ -66,7 +66,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const before = (board.pendingClaims ?? []).map((p) => p.id);
                 const swept = await sweepPendingBountyClaims(board, Date.now());
                 if (swept !== board) await kv.set(BOUNTY_KEY, swept);
-                const remaining = (swept.pendingClaims ?? []).map((p) => p.id);
+                const { pendingBountyOwnerRefunds } = await import('../pvp/_bounty-deleted-target.js');
+                const remaining = [...(swept.pendingClaims ?? []).map((p) => p.id), ...await pendingBountyOwnerRefunds()];
                 return { finished: before.filter((id) => !remaining.includes(id)), remaining };
             }, { failClosed: true });
             console.log('[admin/economy-reconcile] bounty claims swept', JSON.stringify(result));

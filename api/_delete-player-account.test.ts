@@ -1,4 +1,4 @@
-import { before, beforeEach, describe, it } from 'node:test';
+﻿import { before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { assertKvLockContext, currentKvLockContext, poisonKvLockContext } from './_kv-lock-context.js';
 
@@ -49,11 +49,11 @@ before(async () => {
         if (!h) return 0;
         return fields.reduce((n, f) => (f in h ? (delete h[f], n + 1) : n), 0);
     };
-    // Prefix-only patterns are all this module (and the image helpers) send.
+    // Glob `*` anywhere, like the real store (the DM thread scan puts it first).
     kv.keys = async (pattern: string) => {
         assertKvLockContext();
-        const prefix = pattern.replace(/\*$/, '');
-        return [...store.keys()].filter((k) => k.startsWith(prefix));
+        const re = new RegExp(`^${pattern.split('*').map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`);
+        return [...store.keys()].filter((k) => re.test(k));
     };
     kv.mget = (async (...keys: string[]) => { assertKvLockContext(); return keys.map((k) => clone(store.get(k)) ?? null); }) as typeof kv.mget;
     kv.hkeys = async (key: string) => { assertKvLockContext(); return Object.keys(hashes.get(key) ?? {}); };
@@ -129,6 +129,44 @@ describe('player deletion', () => {
         assert.deepEqual(result.failures, []);
     });
 
+    it('removes the side-car rows a reused name would otherwise inherit, and only this account\'s', async () => {
+        const mine = [
+            'story:wanderer', 'dm:inbox:wanderer', 'legacy:accepted:wanderer', 'legacy:stats:wanderer',
+            'legacy:trial:wanderer', 'legacy:eligibility:wanderer', 'legacy:sage-offer:wanderer',
+            'pet-sanctuary:wanderer:meta', 'pet-sanctuary:wanderer:page:0', 'pet-sanctuary:wanderer:item:abc',
+            'tower-firstclear:wanderer:7',
+        ];
+        const theirs = [
+            'story:kaze', 'dm:inbox:kaze', 'legacy:accepted:wanderer2', 'pet-sanctuary:wanderer2:meta',
+            'tower-firstclear:wanderer2:7', 'dm:thread:kaze|wanderer2', 'dm:thread:wanderer2|zed',
+            'dm:deleted-at:kaze|wanderer', 'mythic-legacy:moon-path:wanderer',
+            // The partner's history stays (published policy: messages sent to others may outlive the account).
+            'dm:thread:kaze|wanderer', 'dm:thread:wanderer|zed',
+        ];
+        for (const key of [...mine, ...theirs]) store.set(key, { v: key });
+        store.set('dm:deleted-at:wanderer|kaze', 5);
+        // Login-name reservations: the account's own (current and renamed-away) go; another account's stay.
+        store.set('account-name:wanderer', 'wanderer');
+        store.set('account-name:old-wander', 'wanderer');
+        store.set('account-name:kazeling', 'kaze');
+        const before = Date.now();
+
+        const result = await detachPlayerReferences('wanderer');
+
+        for (const key of mine) assert.equal(store.has(key), false, `${key} must go with the account`);
+        for (const key of theirs) assert.deepEqual(store.get(key), { v: key }, `${key} is not this account's row to change`);
+        // Whoever registers the name next sees only messages sent after the deletion.
+        for (const partner of ['kaze', 'zed']) {
+            assert.ok(Number(store.get(`dm:deleted-at:wanderer|${partner}`)) >= before, `the ${partner} thread is hidden from a reused name`);
+        }
+        assert.equal(store.has('dm:deleted-at:wanderer2|zed'), false, 'a lookalike name is untouched');
+        assert.equal(store.has('account-name:wanderer'), false, 'the login name can be registered again');
+        assert.equal(store.has('account-name:old-wander'), false, 'so can a name the account renamed away from');
+        assert.equal(store.get('account-name:kazeling'), 'kaze', 'another account keeps its name');
+        assert.deepEqual([...result.removed].filter((key) => mine.includes(key)).sort(), [...mine].sort());
+        assert.deepEqual(result.failures, []);
+    });
+
     it('opens a deleted Kage\'s seat so a reused name cannot inherit it', async () => {
         const { WAR_VILLAGES } = await import('./_war-map-sectors.js');
         const { kageKey } = await import('./village/_kage-settle.js');
@@ -188,7 +226,7 @@ describe('player deletion', () => {
         assert.equal(store.has('player-friends:wanderer'), false);
         assert.equal((hashes.get('player:registry') ?? {}).wanderer, undefined);
         // The clan is read off the save, so detaching has to happen before the
-        // save is deleted — if the order regressed, this roster would still
+        // save is deleted â€” if the order regressed, this roster would still
         // name the departed member.
         const clan = store.get('save:clan-stormpetals') as { members: { name: string }[] };
         assert.deepEqual(clan.members.map((m) => m.name), ['Kaze']);
