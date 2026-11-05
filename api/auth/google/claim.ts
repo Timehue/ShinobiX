@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { cors, safeName } from '../../_utils.js';
 import { kv } from '../../_storage.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { issuePlayerToken, playerSessionsEnabled, readPlayerSessionEpoch } from '../../_auth.js';
+import { issueGooglePlayerToken, playerSessionsEnabled, readPlayerSessionEpoch } from '../../_auth.js';
 import { withKvLock } from '../../_lock.js';
 import { authKey, type AuthRecord } from '../../player-auth.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../../admin/moderation.js';
@@ -13,6 +13,7 @@ import {
     storeGoogleTicket,
     SIGNUP_TICKET_TTL_SECONDS,
 } from '../../_google-auth.js';
+import { linkGoogleToAccount } from './_link.js';
 
 /*
  * POST /api/auth/google/claim  { ticket, nonce }
@@ -70,6 +71,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
+    if (payload.linkRequest) {
+        // Link mode is written here, after the nonce proved this is the browser
+        // that started the flow (see ./_link.ts), never in the callback.
+        try {
+            const linked = await linkGoogleToAccount(payload.linkRequest, { sub: payload.sub, email: payload.email });
+            if (linked.outcome !== 'linked') {
+                const error = linked.outcome === 'taken'
+                    ? 'That Google account is already linked to a different shinobi.'
+                    : linked.outcome === 'expired'
+                        ? 'Your session ended while Google was signing you in. Sign in again, then link Google.'
+                        : 'Google sign-in did not complete. Try again.';
+                return res.status(409).json({ ok: false, error });
+            }
+            payload = { ...payload, name: linked.name, sessionEpoch: linked.sessionEpoch };
+        } catch (err) {
+            console.error('[auth/google/claim link]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
+    }
+
     const name = safeName(payload.name ?? '');
     if (!name) return res.status(410).json({ ok: false, error: 'That sign-in link is no longer valid.' });
 
@@ -97,11 +118,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
 
+            // Diagnostic only: password setup trusts the signed Google proof
+            // on the token issued below, never this account-wide timestamp.
+            try {
+                await kv.set(authKey(name), { ...record, google: { ...record.google!, lastAuthAt: Date.now() } });
+            } catch (err) {
+                console.error('[auth/google/claim lastAuthAt]', String(err));
+            }
+
             void recordClientIp(name, clientIpFrom(req));
             const fp = clientFpFrom(req);
             if (fp) void recordClientFingerprint(name, fp);
 
-            const token = issuePlayerToken(name, undefined, record.sessionEpoch ?? 0);
+            const token = issueGooglePlayerToken(name, record.sessionEpoch ?? 0);
             if (!token) return res.status(503).json({ ok: false, error: 'Google sign-in is unavailable.' });
 
             return res.status(200).json({

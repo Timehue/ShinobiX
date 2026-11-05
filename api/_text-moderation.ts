@@ -181,7 +181,21 @@ export function hasNameProfanity(input: unknown): boolean {
 }
 
 const PHONE_RE = /(\+?\d[\d\s().-]{7,}\d)/g;
-const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
+// Bounded quantifiers (RFC 5321 lengths) keep this linear. The unbounded form
+// `[\w.+-]+@…` re-scanned the whole run from every start position, so a long
+// string with no '@' cost O(n²): 20k characters blocked the event loop ~0.9 s.
+const EMAIL_RE = /[\w.+-]{1,64}@[\w-]{1,63}\.[\w.-]{1,190}/g;
+/**
+ * How much raw input sanitizeUserText scans. The result is cut to maxLen
+ * anyway; the slack covers redactions that shorten text (a long link becomes
+ * "[redacted link]") so the visible tail is unchanged for any real message.
+ * Without this bound, a 1 MB DM or chat line ran every regex below over the
+ * full body on the single Node process.
+ */
+function sanitizeScanLimit(maxLen: number): number {
+    const len = Number.isFinite(maxLen) && maxLen > 0 ? Math.floor(maxLen) : 0;
+    return len * 4 + 256;
+}
 const URL_RE = /\b((?:https?:\/\/|www\.)[^\s]{4,})/gi;
 
 /**
@@ -193,7 +207,8 @@ const URL_RE = /\b((?:https?:\/\/|www\.)[^\s]{4,})/gi;
  */
 export function sanitizeUserText(input: unknown, maxLen: number): string {
     if (typeof input !== 'string') return '';
-    let text = input.trim();
+    const scanLimit = sanitizeScanLimit(maxLen);
+    let text = (input.length > scanLimit ? input.slice(0, scanLimit) : input).trim();
     if (!text) return '';
 
     // Redact PII patterns first so the asterisk pass below doesn't corrupt

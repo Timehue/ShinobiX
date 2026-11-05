@@ -38,8 +38,11 @@ const ROSTER_STRIP_CHAR_FIELDS = new Set<string>([
     'auraStones', 'mythicSeals', 'auraDust',
     // Loadout / scouting surface
     'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
-    'jutsu', 'jutsuMastery', 'equippedJutsu', 'signatureJutsu',
-    'equipment', 'equippedSet',
+    'jutsu', 'jutsuMastery', 'equippedJutsu', 'equippedJutsuIds', 'signatureJutsu',
+    'equipment', 'equippedSet', 'equippedNamedGear',
+    'cardClashDeck', 'warfrontLoadout', 'rankedFormatWeaponId', 'unspentStats',
+    // Private run / outcome state (not display data)
+    'activeDungeonRun', 'worldAiPendingOutcome', 'pendingStoryReports', 'storyChoices',
     'stats', 'trainedStats', 'statPoints',
     'bloodlines', 'activeBloodline',
     // Daily / weekly ledgers

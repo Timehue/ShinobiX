@@ -9,6 +9,11 @@ type SaveState = ReturnType<typeof usePlayerSaveState>;
 type Coordinator = ReturnType<typeof createPlayerSaveCoordinator>;
 export type SectorSaveGuard = { lastSnapshotAppliedSectorRef: RefObject<number | null>; lastLocalSectorChangeRef: RefObject<number> };
 
+// The snapshot refreshPlayerSaveSnapshot last wrote into each coordinator's
+// latestSaveRef, so it can tell its own unchanged snapshot from one the
+// coordinator substituted since.
+const publishedSnapshots = new WeakMap<object, unknown>();
+
 /** Publish this render's snapshot without creating a write or dirtying idle regen. */
 // Dirty-tracking: only auto-save when character state actually changed locally.
 // This prevents a second device (e.g. desktop) from continuously re-uploading the
@@ -82,9 +87,18 @@ export function refreshPlayerSaveSnapshot(character: Character | null, currentAc
         hollowGateEventConfig,
     ];
     const previousIdentity = savePayloadIdentityRef.current;
-    if (!previousIdentity
+    const identityChanged = !previousIdentity
         || previousIdentity.length !== payloadIdentity.length
-        || payloadIdentity.some((value, index) => !Object.is(value, previousIdentity[index]))) {
+        || payloadIdentity.some((value, index) => !Object.is(value, previousIdentity[index]));
+    // This runs after EVERY App render. When none of the payload's inputs moved
+    // and the ref still holds the snapshot this function published, rebuilding
+    // would only copy the same values into a new object, so keep it. Anything
+    // else (a coordinator rewrite of the ref, an account switch) rebuilds.
+    const published = latestSaveRef.current;
+    if (!identityChanged && published && publishedSnapshots.get(latestSaveRef) === published
+        && published.character === character && published.name === currentAccountName
+        && published.revision === savePayloadRevisionRef.current) return;
+    if (identityChanged) {
         // Idle vitals already do not dirty the save. They must not invalidate
         // an in-flight acknowledgement either: otherwise every slow logout save
         // finishes behind the next regen tick and can never clear its dirty flag.
@@ -94,12 +108,14 @@ export function refreshPlayerSaveSnapshot(character: Character | null, currentAc
         if (!onlyIdleRegen) savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
         savePayloadIdentityRef.current = payloadIdentity;
     }
-    latestSaveRef.current = {
+    const snapshot = {
         character,
         name: currentAccountName,
         payload: buildPlayerSavePayload(character),
         revision: savePayloadRevisionRef.current,
     };
+    latestSaveRef.current = snapshot;
+    publishedSnapshots.set(latestSaveRef, snapshot);
 
 }
 

@@ -382,6 +382,8 @@ export type GoogleHandoffTicket = {
     nonce: string;
     /** Outcome of a link-mode flow, reported back to the settings screen. */
     linked?: true;
+    /** Link mode: the link to write once the starting browser proves its nonce at /claim. */
+    linkRequest?: { name: string; epoch: number };
     exp: number;
 };
 
@@ -412,6 +414,10 @@ export async function storeGoogleTicket(
  */
 export async function consumeGoogleTicket(ticket: string, nonce: string): Promise<GoogleHandoffTicket | null> {
     if (!ticket || !nonce) return null;
+    // Compare the nonce BEFORE consuming: anyone who saw the ticket in a URL
+    // could otherwise burn the real player's sign-in with a wrong nonce.
+    const peek = await kv.get<GoogleHandoffTicket>(googleTicketKey(ticket));
+    if (!peek || typeof peek.nonce !== 'string' || !timingSafeEqualStr(nonce, peek.nonce)) return null;
     const payload = await consumeSingleUseToken<GoogleHandoffTicket>(kv, googleTicketKey(ticket));
     if (!payload) return null;
     if (!Number.isFinite(payload.exp) || Date.now() > payload.exp) return null;

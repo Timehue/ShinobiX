@@ -2,6 +2,21 @@ import type { PlayerRecord } from '../types/character';
 import type { SectorPeer } from '../components/SectorPeers';
 import { playerSlug } from './utils';
 
+export type ContinuousWorldPeersProps = { sector: number; selfName: string; sharedImages: Record<string, string>; sleepers: SectorPeer[] };
+
+function sameSleepers(a: readonly SectorPeer[], b: readonly SectorPeer[]): boolean {
+    return a === b || (a.length === b.length && a.every((s, i) => s.name === b[i].name && s.tile === b[i].tile
+        && Object.is(s.level, b[i].level) && s.sleeping === b[i].sleeping && s.avatar === b[i].avatar));
+}
+
+/**
+ * ContinuousWorldPeers' memo comparator. WorldMap rebuilds `sleepers` on every
+ * render, so it is compared by content; the other props by identity.
+ */
+export function sameContinuousWorldPeersProps(a: ContinuousWorldPeersProps, b: ContinuousWorldPeersProps): boolean {
+    return a.sector === b.sector && a.selfName === b.selfName && a.sharedImages === b.sharedImages && sameSleepers(a.sleepers, b.sleepers);
+}
+
 /** Cosmetic world markers. The action roster remains complete and uncapped. */
 export function worldPeerRoster(sector: number, selfName: string, nearby: readonly PlayerRecord[],
     live: readonly PlayerRecord[], sleepers: readonly SectorPeer[]): PlayerRecord[] {
