@@ -10,6 +10,8 @@ import { FORGED_ITEM_ID } from '../_forged-item-registry.js';
 import { recordEconomyTxn, recordExchangeResourceSale } from '../_economy.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
+import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier, withOutboundBudgetGate } from '../player/_transfer-budget.js';
+import { isTradeCurrency, type TradeCurrency } from '../player/_trade-core.js';
 
 // The Exchange is a player-to-player transfer channel like /api/player/trade,
 // so it carries the same two rules: no buying from (or bidding against) an
@@ -262,6 +264,28 @@ export async function createExchangeListing(player: string, input: { requestId: 
     if (listingType !== 'fixed' && listingType !== 'auction') throw new ExchangeError('Choose fixed price or auction.', 400);
     const durationHours = Number(input.durationHours);
     if (listingType === 'auction' && ![6, 24, 48].includes(durationHours)) throw new ExchangeError('Choose an auction duration of 6, 24, or 48 hours.', 400);
+    // A resource lot of Fate Shards, Bone Charms or Aura Stones hands that
+    // currency to whoever buys it, at any price down to 1 (where the fee rounds
+    // to 0). That made the Exchange a send door with no ceiling, next to
+    // /api/player/trade and both treasury gifts, which all charge the rolling
+    // outbound budget. Escrow happens at creation, so that is where this lot
+    // is charged, under the same per-sender gate. Items, pets and cards, and
+    // every purchase, are untouched.
+    const budgetCurrency = input.kind === 'resource' && input.assetId !== 'ryo' && isTradeCurrency(input.assetId) ? input.assetId : null;
+    if (budgetCurrency) {
+        return withOutboundBudgetGate(player, budgetCurrency, () => createExchangeListingLocked(player, input, currency, listingType, durationHours, budgetCurrency));
+    }
+    return createExchangeListingLocked(player, input, currency, listingType, durationHours, null);
+}
+
+async function createExchangeListingLocked(
+    player: string,
+    input: { requestId: string; kind: ExchangeKind; assetId: string; quantity: number; price: number },
+    currency: ExchangeCurrency,
+    listingType: 'fixed' | 'auction',
+    durationHours: number,
+    budgetCurrency: TradeCurrency | null,
+): Promise<ExchangeListing> {
     const id = createHash('sha256').update(`${player}:${input.requestId}`).digest('hex').slice(0, 32);
     // Keep old ryo request fingerprints replayable across this rollout.
     const fingerprint = listingType === 'fixed'
@@ -273,12 +297,18 @@ export async function createExchangeListing(player: string, input: { requestId: 
         if (listing && listing.fingerprint !== fingerprint) throw new ExchangeError('This request ID was already used for a different listing.');
         if (listing?.state === 'failed') throw new ExchangeError(listing.failure ?? 'This listing could not be created.');
         const catalogs = await loadSettlementCatalogs();
+        const isNew = !listing;
         if (!listing) {
             const live = await indexed(LIVE_INDEX);
             if (live.filter(l => l.seller === player && (pending(l) || l.state === 'active')).length >= EXCHANGE_LISTING_LIMIT) throw new ExchangeError(`You can have ${EXCHANGE_LISTING_LIMIT} open listings. Cancel or sell one first.`);
             if (live.length >= 2000) throw new ExchangeError('The Exchange is at capacity. Try again after a listing closes.');
             const record = await kv.get<Obj>(`save:${player}`);
             if (!record?.character) throw new ExchangeError('Player save not found.', 404);
+            if (budgetCurrency) {
+                const tier = await senderTrustTier(player, record.character as Obj);
+                const budget = await checkOutboundBudget(player, budgetCurrency, input.quantity, tier);
+                if (!budget.ok) throw new ExchangeError(budget.error, 409);
+            }
             const sealed = sealAsset(await recoverExchangeDefinitions(record), catalogs, input.kind, input.assetId);
             const fee = exchangeFee(input.price);
             const createdAt = Date.now();
@@ -292,7 +322,14 @@ export async function createExchangeListing(player: string, input: { requestId: 
             await kv.hset(PENDING_INDEX, { [id]: listing.createdAt });
             if (!await kv.set(exchangeListingKey(id), listing, { nx: true })) throw new ExchangeError('This listing is already being created. Refresh to recover it.');
         }
-        return publicListing(await recoverLocked(listing, catalogs));
+        const settled = await recoverLocked(listing, catalogs);
+        // Charged once, by the request that created the lot, after its escrow
+        // committed (a refused or failed listing never eats budget). A replay
+        // of the same request finds the listing and is not charged again.
+        if (budgetCurrency && isNew && settled.state !== 'failed') {
+            await chargeOutboundBudget(player, budgetCurrency, input.quantity);
+        }
+        return publicListing(settled);
     }, { failClosed: true, ttlSec: 60 }), { failClosed: true, ttlSec: 60 });
 }
 

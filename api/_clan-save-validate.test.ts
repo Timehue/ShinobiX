@@ -330,6 +330,28 @@ describe('validateClanSaveWrite — clan xp/level lockdown (server-credited only
     });
 });
 
+describe('validateClanSaveWrite — new notices are attributed and moderated (2026-11-04)', () => {
+    const base = { ...clanWith([], {}), notices: [] as Record<string, unknown>[] };
+    it('a new notice with no author is refused (it used to skip the author check)', () => {
+        const { next, suppressed } = validateClanSaveWrite(base, { ...base, notices: [{ id: 'n1', title: 'Hi', body: 'All hands' }] }, member);
+        assert.deepEqual((next as { notices: unknown[] }).notices, []);
+        assert.ok(suppressed.some((s) => s.startsWith('clan notice rejected')));
+    });
+    it("a member's notice text is moderated and capped", () => {
+        const notice = { id: 'n2', author: 'akira', title: 'Muster', body: `mail kai@example.com ${'x'.repeat(5000)}` };
+        const { next } = validateClanSaveWrite(base, { ...base, notices: [notice] }, member);
+        const [kept] = (next as { notices: Array<{ body: string; author: string }> }).notices;
+        assert.equal(kept.author, 'akira');
+        assert.ok(!kept.body.includes('kai@example.com'), kept.body.slice(0, 80));
+        assert.ok(kept.body.length <= 600, String(kept.body.length));
+    });
+    it('an admin notice is kept verbatim', () => {
+        const notice = { id: 'n3', author: 'System', title: 'Season', body: 'See https://shinobijourney.com/news' };
+        const { next } = validateClanSaveWrite(base, { ...base, notices: [notice] }, admin);
+        assert.deepEqual((next as { notices: unknown[] }).notices, [notice]);
+    });
+});
+
 describe('validateClanSaveWrite — wrong-type fields and roster counters (2026-10-15)', () => {
     it('a null treasury, notices or members keeps the stored value instead of wiping it', () => {
         const prev = { ...clanWith([{ itemId: 'kunai', count: 3 }], { ryo: 5_000, mythicSeals: 2 }), notices: [{ text: 'hi' }], members: [{ name: 'Akira' }] };

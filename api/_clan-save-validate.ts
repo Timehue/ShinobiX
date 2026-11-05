@@ -1,4 +1,4 @@
-import { isCleanText as isCleanClanText } from './_text-moderation.js';
+import { isCleanText as isCleanClanText, sanitizeUserText, TEXT_LIMITS } from './_text-moderation.js';
 import { cleanTreasuryItems } from './_treasury-donate.js';
 import { safeName } from './_utils.js';
 
@@ -602,11 +602,23 @@ export function validateClanSaveWrite(
                 const post = (raw ?? {}) as Record<string, unknown>;
                 const id = String(post.id ?? '');
                 if (id && prevIds.has(id)) { cleaned.push(post); continue; }
-                if (!ctx.isAdmin && lower(post.author) && lower(post.author) !== ctx.callerName) {
+                if (ctx.isAdmin) { cleaned.push(post); continue; }
+                // A new post needs its author to be the caller. An EMPTY author
+                // used to skip this check, so any writer could post anonymously.
+                if (!lower(post.author) || lower(post.author) !== ctx.callerName) {
                     suppressed.push(`clan notice rejected (author "${lower(post.author)}" ≠ caller)`);
                     continue;
                 }
-                cleaned.push(post);
+                // Moderate and cap the text the way village orders are
+                // (api/_village-state-validate.ts); clan notices had neither.
+                const moderated: Record<string, unknown> = { ...post };
+                if (typeof moderated.title === 'string') moderated.title = sanitizeUserText(moderated.title, TEXT_LIMITS.noticeTitle);
+                if (typeof moderated.body === 'string') moderated.body = sanitizeUserText(moderated.body, TEXT_LIMITS.noticeBody);
+                if (!String(moderated.title ?? '').trim() && !String(moderated.body ?? '').trim()) {
+                    suppressed.push('clan notice rejected (empty after moderation)');
+                    continue;
+                }
+                cleaned.push(moderated as typeof post);
             }
             next.notices = cleaned;
         }

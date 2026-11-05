@@ -19,6 +19,7 @@ import { getActiveBan } from './admin/moderation.js';
 import { kv } from './_storage.js';
 import { allow, hasBudget } from './_ratelimit.js';
 import { clientIp } from './_client-ip.js';
+import { disconnectPlayerSockets } from './_realtime/notify.js';
 
 type ReqLike = { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } };
 
@@ -154,7 +155,13 @@ export async function readPlayerSessionEpoch(name: string): Promise<number> {
 /** Atomically revoke existing tokens and return the new epoch. */
 export async function rotatePlayerSessionEpoch(name: string): Promise<number> {
     const epoch = await kv.incr(playerSessionEpochKey(name));
-    return parseSessionEpoch(epoch);
+    const parsed = parseSessionEpoch(epoch);
+    // Every rotation revokes old tokens; close the live sockets too, or one
+    // opened with a revoked token keeps working (see disconnectPlayerSockets).
+    // Deferred a tick so the caller's reply, which carries the new token,
+    // usually lands before the client's reconnect asks for it.
+    setTimeout(() => disconnectPlayerSockets(name), 250).unref?.();
+    return parsed;
 }
 
 /**

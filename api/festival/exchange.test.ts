@@ -305,6 +305,30 @@ it('trades zero-shop-value materials, bulk resources and mixed legacy stacks', a
     assert.equal((await record('buyer')).character.boneCharms, 120);
 });
 
+it('charges a premium-currency lot to the seller’s daily send limit, as player trades do (2026-11-04)', async () => {
+    // A Fate Shard lot listed at a price of 1 paid a fee of 0 and had no daily
+    // ceiling, so one account could hand another unlimited shards.
+    await kv.del('xfer:out:seller:fateShards');
+    await patch('seller', { fateShards: 5_000, level: 5 }); // below level 10 = the restricted tier (25 a day)
+    const refused = await list({ kind: 'resource', assetId: 'fateShards', quantity: 26, price: 1 });
+    assert.equal(refused.status, 409, JSON.stringify(refused.body));
+    assert.match(String(refused.body.error), /fateShards/);
+    assert.equal((await record('seller')).character.fateShards, 5_000, 'a refused lot never leaves the seller');
+
+    const requestId = randomUUID();
+    const first = await list({ kind: 'resource', assetId: 'fateShards', quantity: 20, price: 1, requestId });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    const replay = await list({ kind: 'resource', assetId: 'fateShards', quantity: 20, price: 1, requestId });
+    assert.equal(replay.status, 200, 'a retried create is not charged twice');
+    const over = await list({ kind: 'resource', assetId: 'fateShards', quantity: 6, price: 1 });
+    assert.equal(over.status, 409, '20 of 25 spent; 6 more is over');
+    assert.equal((await list({ kind: 'resource', assetId: 'fateShards', quantity: 5, price: 1 })).status, 200);
+
+    // Item lots and ryo are untouched by the send limit.
+    assert.equal((await list({ price: 1 })).status, 200);
+    await kv.del('xfer:out:seller:fateShards');
+});
+
 it('refuses new Honor Seal and Mythic Seal listings, as player trades do', async () => {
     for (const assetId of ['honorSeals', 'mythicSeals']) {
         const refused = await list({ kind: 'resource', assetId, quantity: 5 });

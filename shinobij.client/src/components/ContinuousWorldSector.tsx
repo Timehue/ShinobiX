@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { WorldSectorCanvasProps } from './WorldSectorCanvas';
 import { mountContinuousWorld, STALE_WORLD_STATUS } from '../lib/continuous-world-controller';
 import { SectorPortrait } from './SectorPortrait';
@@ -8,8 +8,7 @@ import { SceneAmbience } from './SceneAmbience';
 import { RegionSplash } from './WorldWalkFeel';
 import './continuous-world.css';
 import { WorldPlayerPosition } from '../lib/world-player-position';
-import { sectorName } from '../../../shared/sector-geo';
-import { isWalkableTile } from '../../../shared/sector-walk-mask';
+import { ContinuousWorldTiles } from './ContinuousWorldTiles';
 import { ResourceWorld } from './ResourceWorld';
 import { SectorLife } from './SectorLife';
 import { SectorBuildings } from './SectorBuildings';
@@ -45,6 +44,8 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
         return () => { alive = false; abort.abort(); engine.current?.dispose(); engine.current = null; };
     }, [name, retry]);
     useEffect(() => { void engine.current?.externalSector(props.sector); }, [props.sector, props.suspended]);
+    // Stable across renders (reads the engine ref at click time), so the memoized grid below can bail.
+    const go = useCallback((sector: number, tile: number) => { engine.current?.go(sector, tile); }, []);
     return <main className="tile-scene sector-stage-panel">
         {!props.suspended && props.hudLayer}
         <div className="pixel-map walkable-sector-map sector-image-map continuous-world-map" data-ground-floor="true" aria-busy={!ready} data-suspended={props.suspended || undefined}>
@@ -54,15 +55,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
             {props.regionSplash && <RegionSplash {...props.regionSplash} onDone={props.onRegionSplashDone} />}
             <div className="pixel-map continuous-world-chunk" ref={chunk} data-world-chunk={props.sector}>
                 {/* A stronghold covers a suspended world: its tiles would only re-render, unseen, on every map update. */}
-                {!props.suspended && Array.from({ length: 144 }, (_, tile) => <button key={tile} type="button" tabIndex={tile === props.playerTile ? 0 : -1}
-                    className={`scene-tile continuous-world-tile${tile === props.playerTile && onPainting ? ' sector-player-tile' : ''}`}
-                    disabled={!ready} aria-label={props.roadExits.some(e => e.tile === tile)
-                        ? `Cross to ${sectorName(props.roadExits.find(e => e.tile === tile)!.destinationSector)}`
-                        : `${tile === props.playerTile ? 'Current tile' : isWalkableTile(props.sector, tile) ? 'Move to tile' : 'Move near blocked tile'} row ${Math.floor(tile / 12) + 1} column ${tile % 12 + 1}`}
-                    onClick={() => {
-                        const exit = props.roadExits.find(e => e.tile === tile);
-                        engine.current?.go(exit?.destinationSector ?? props.sector, exit?.destinationTile ?? tile);
-                    }} />)}
+                {!props.suspended && <ContinuousWorldTiles sector={props.sector} playerTile={props.playerTile} onPainting={onPainting} ready={ready} roadExits={props.roadExits} go={go} />}
                 {props.showLivePeers && !props.suspended && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} sleepers={props.sleeperPeers} />}
                 <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
                     {!props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}

@@ -254,8 +254,28 @@ describe('player auth hardening', () => {
             assert.equal(await verifyPlayerPassword('googleonly', 'BrandNew1'), false);
         });
 
+        it('a token alone cannot set a Google account\'s first password unless Google sign-in is recent (2026-11-04)', async () => {
+            // The takeover this closes: a lifted token sets a password (and gets
+            // the recovery code), then unlinks Google with it. The owner was
+            // locked out for good.
+            const { issuePlayerToken } = await import('./_auth.js');
+            for (const lastAuthAt of [undefined, Date.now() - 31 * 60_000]) {
+                store.set('auth:googleonly', { ...passwordless, google: { ...passwordless.google, ...(lastAuthAt ? { lastAuthAt } : {}) } });
+                const token = issuePlayerToken('googleonly', undefined, 0)!;
+                const refused = await post(
+                    { action: 'change', name: 'googleonly', newPassword: 'BrandNew1' },
+                    { 'x-player-token': token },
+                );
+                assert.equal(refused.statusCode, 409, JSON.stringify(refused.body));
+                assert.equal(refused.body?.code, 'google-reauth-required');
+                assert.match(String(refused.body?.error), /sign in with Google again/);
+                assert.equal(await verifyPlayerPassword('googleonly', 'BrandNew1'), false, 'no password may be written');
+                assert.equal(await verifyPlayerToken(token), 'googleonly', 'a refusal must not sign the player out');
+            }
+        });
+
         it('lets the account owner set a first password without losing the Google link', async () => {
-            store.set('auth:googleonly', { ...passwordless });
+            store.set('auth:googleonly', { ...passwordless, google: { ...passwordless.google, lastAuthAt: Date.now() - 60_000 } });
             const { issuePlayerToken } = await import('./_auth.js');
             const token = issuePlayerToken('googleonly', undefined, 0)!;
 
@@ -269,6 +289,19 @@ describe('player auth hardening', () => {
             const record = store.get('auth:googleonly') as { google?: { sub: string } };
             assert.equal(record.google?.sub, 'g-12345', 'setting a password must not unlink Google');
             assert.equal(await verifyPlayerToken(token), null, 'the epoch rotates, revoking the pre-change token');
+        });
+
+        it('a password account cannot be deleted with only its session token (2026-11-04)', async () => {
+            const registered = await register('pwdelete', 'Original1');
+            const token = String(registered.body?.token);
+            const tokenOnly = await post({ action: 'delete', name: 'pwdelete' }, { 'x-player-token': token });
+            assert.equal(tokenOnly.statusCode, 401, JSON.stringify(tokenOnly.body));
+            assert.ok(store.has('auth:pwdelete'), 'nothing is deleted without the password');
+            const wrong = await post({ action: 'delete', name: 'pwdelete', password: 'WrongGuess1' }, { 'x-player-token': token });
+            assert.equal(wrong.statusCode, 401);
+            const confirmed = await post({ action: 'delete', name: 'pwdelete', password: 'Original1' }, { 'x-player-token': token });
+            assert.equal(confirmed.statusCode, 200, JSON.stringify(confirmed.body));
+            assert.equal(store.has('auth:pwdelete'), false);
         });
 
         it('lets the owner delete the account by token and releases the Google link', async () => {

@@ -7,8 +7,7 @@ import { SectorPortrait } from './SectorPortrait';
 import type { WorldPosition } from '../../../shared/world-position';
 import type { WorldPoint } from '../../../shared/continuous-world-space';
 import type { PlayerRecord } from '../types/character';
-import type { SectorPeer } from './SectorPeers';
-import { worldPeerRoster } from '../lib/world-peer-roster';
+import { worldPeerRoster, sameContinuousWorldPeersProps, type ContinuousWorldPeersProps } from '../lib/world-peer-roster';
 import { playerSlug } from '../lib/utils';
 import { GameIcon } from './icons/GameIcon';
 
@@ -30,8 +29,14 @@ const PeerFigures = memo(function PeerFigures({ figures, elements }: { figures: 
             <span className="sector-avatar-pin" /></span></span><span className="sector-peer-label">{name}{sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
     </div>)}</>;
 }, (a, b) => a.elements === b.elements && sameFigures(a.figures, b.figures));
-/** Bounded nearby presentation; actions remain in the current sector's HUD. */
-export function ContinuousWorldPeers({ sector, selfName, sharedImages, sleepers }: { sector: number; selfName: string; sharedImages: Record<string, string>; sleepers: SectorPeer[] }) {
+/**
+ * Bounded nearby presentation; actions remain in the current sector's HUD.
+ * Memoized by content (sameContinuousWorldPeersProps) so a parent render that
+ * changes nothing here — App's one-second idle-regen tick — skips it. Live peers
+ * and the poll arrive through this component's own store subscription and
+ * state, which re-render it regardless of the memo.
+ */
+export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector, selfName, sharedImages, sleepers }: ContinuousWorldPeersProps) {
     const live = useLiveSectorPlayers();
     const [nearby, setNearby] = useState<PlayerRecord[]>([]);
     useEffect(() => {
@@ -107,4 +112,4 @@ export function ContinuousWorldPeers({ sector, selfName, sharedImages, sleepers 
     }, [sector]);
     return <div className="continuous-world-peers" ref={root} aria-hidden="true"><PeerFigures figures={figures} elements={elements} />
         {allPeers.length > peers.length && <div className="sector-peers-overflow">+{allPeers.length - peers.length} more here</div>}</div>;
-}
+}, sameContinuousWorldPeersProps);

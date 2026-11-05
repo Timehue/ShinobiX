@@ -44,6 +44,8 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
 import { currencyLedgerKey, decreaseOnlyCurrencyDrops, recordCurrencyLedgerEvent } from '../_currency-ledger.js';
 import { commitPlayerSaveRecord } from './_commit-player-save.js';
+import { exceedsRowGrowthCap, ROW_GROWTH_CAPS, ROW_TOO_LARGE_ERROR } from '../_row-growth-cap.js';
+import { isPasswordlessRecord } from '../player-auth.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
 import { readWalkedTile, resumeTileFor, resumeWorldPositionFor } from '../_realtime/walked-tile.js';
@@ -1331,6 +1333,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // respec debit, a decrease-only spend) commits its currency
                     // ledger row in the same transaction (P0-5). Clan blobs carry
                     // no character and keep the plain compare-and-set.
+                    // Merges keep unknown keys, so cap how far one player can
+                    // grow a row (see api/_row-growth-cap.ts). Admin writes go
+                    // through the admin branch below and are not capped.
+                    if (exceedsRowGrowthCap(existing, committedRecord, isClanSave ? ROW_GROWTH_CAPS.clanSave : ROW_GROWTH_CAPS.playerSave)) {
+                        console.warn('[save] refused oversized write:', key);
+                        return reply(413, { error: ROW_TOO_LARGE_ERROR });
+                    }
                     const committed = isClanSave
                         ? await kv.compareSet(key, existing ?? null, committedRecord)
                         : await commitPlayerSaveRecord(kv, {
@@ -1620,6 +1629,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const authRecord = await kv.get(`auth:${name.toLowerCase()}`);
                     if (!authRecord || !playerPw || !(await verifyPlayerPasswordBudgeted(req, name, playerPw))) {
                         return reply(403, { error: 'Cannot delete another player\'s save.' });
+                    }
+                } else if (!identity.admin) {
+                    // Deleting your OWN save: a password account confirms with its
+                    // password (the client asks for it), not the session token
+                    // alone. Google-only and guest accounts have none to give.
+                    const authRecord = await kv.get<Record<string, unknown>>(`auth:${name.toLowerCase()}`);
+                    if (authRecord && !isPasswordlessRecord(authRecord as never)) {
+                        const playerPw = req.headers['x-player-password'] as string | undefined;
+                        if (!playerPw || !(await verifyPlayerPasswordBudgeted(req, name, playerPw))) {
+                            return reply(401, { error: 'Enter your password to delete this account.' });
+                        }
                     }
                 }
             }

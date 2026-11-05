@@ -103,7 +103,8 @@ export type AuthRecord = {
     salt?: string;
     sessionEpoch?: number;
     /** Linked Google identity. `sub` is Google's stable per-account subject id. */
-    google?: { sub: string; email?: string; linkedAt: number };
+    /** `lastAuthAt`: the last completed Google sign-in or link (see googleSignInIsRecent). */
+    google?: { sub: string; email?: string; linkedAt: number; lastAuthAt?: number };
     /** Guest account: no credential at all, swept after GUEST_INACTIVITY_MS idle. */
     guest?: true;
     /** Digest of the reusable, opaque guest credential; never a password. */
@@ -122,6 +123,15 @@ export type AuthRecord = {
     /** Server time of a cancellable, player-requested 24-hour deletion wait. */
     deletionRequestedAt?: number;
 };
+
+/** How long after a Google sign-in that account may set its first password. */
+export const GOOGLE_FIRST_PASSWORD_WINDOW_MS = 30 * 60_000;
+
+/** True when the account completed a Google sign-in or link within the window. */
+export function googleSignInIsRecent(record: AuthRecord, now = Date.now()): boolean {
+    const at = Math.floor(Number(record.google?.lastAuthAt ?? 0)) || 0;
+    return at > 0 && at <= now + 60_000 && now - at <= GOOGLE_FIRST_PASSWORD_WINDOW_MS;
+}
 
 /** True when the record carries no password and can only be entered by token. */
 export function isPasswordlessRecord(record: AuthRecord | null | undefined): boolean {
@@ -818,7 +828,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     claim = await claimNewAccountSlugLocked(name, (sessionEpoch) => ({
                         sessionEpoch,
                         createdAt: Date.now(),
-                        google: { sub: signupIdentity.sub, email: signupIdentity.email, linkedAt: Date.now() },
+                        google: { sub: signupIdentity.sub, email: signupIdentity.email, linkedAt: Date.now(), lastAuthAt: Date.now() },
                     }));
                 } catch (err) {
                     // A rejected write can have committed remotely. Keep its index
@@ -1202,6 +1212,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!tokenProvesOwnership || await verifyPlayerToken(suppliedToken) !== safeName(name)) {
                         return res.status(401).json({ ok: false, error: 'Sign in again before setting a password.' });
                     }
+                    // A Google account's first password also needs a recent
+                    // Google sign-in, not just a session token. With the token
+                    // alone, someone holding a lifted token could set a password
+                    // (and receive the recovery code), then unlink Google with
+                    // it and lock the owner out for good. Guests without Google
+                    // keep the token-only path: the token is all they have.
+                    if (record.google?.sub && !googleSignInIsRecent(record)) {
+                        return res.status(409).json({
+                            ok: false,
+                            code: 'google-reauth-required',
+                            error: 'For your security, sign out and sign in with Google again, then set your password within 30 minutes.',
+                        });
+                    }
                     if (isCredentialLessGuest(record)) failedGuestCredentialRecord = record;
                     const ban = await getActiveBan(name);
                     if (ban) {
@@ -1505,6 +1528,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 if (deleteTokenProvesOwnership && await verifyPlayerToken(deleteToken) !== safeName(name)) {
                     return res.status(401).json({ ok: false, error: 'Authentication required.' });
+                }
+                // A token is enough only for an account that HAS no password
+                // (Google-only, guest). A password account confirms with it, as
+                // the client already asks: otherwise a lifted token, kept alive
+                // by the sliding refresh, could delete the account outright.
+                if (deleteTokenProvesOwnership && !isPasswordlessRecord(record)) {
+                    if (typeof password !== 'string' || !password || !(await verifyAgainst(record, password))) {
+                        return res.status(401).json({ ok: false, error: 'Enter your password to delete this account.' });
+                    }
                 }
                 if (!deleteTokenProvesOwnership && !(await verifyAgainst(record, password as string))) {
                     return res.status(401).json({ ok: false, error: 'Incorrect password.' });

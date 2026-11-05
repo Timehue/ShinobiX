@@ -2,9 +2,9 @@ import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { cors, safeName } from '../../_utils.js';
 import { kv } from '../../_storage.js';
 import { enforceRateLimit } from '../../_ratelimit.js';
-import { readPlayerSessionEpoch, rotatePlayerSessionEpoch } from '../../_auth.js';
 import { withKvLock } from '../../_lock.js';
-import { authKey, googleIdentityKey, synchronizeVerifiedAuthRecordEpoch, withoutGuestResumeAuthority, type AuthRecord } from '../../player-auth.js';
+import { authKey, googleIdentityKey, synchronizeVerifiedAuthRecordEpoch, type AuthRecord } from '../../player-auth.js';
+import { precheckGoogleLink } from './_link.js';
 import {
     exchangeCodeForIdentity,
     googleAuthEnabled,
@@ -61,68 +61,9 @@ function suggestedNameFrom(identity: GoogleIdentity): string {
     return fromEmail.length >= 2 ? fromEmail.slice(0, 20) : '';
 }
 
-type LinkResult =
-    | { outcome: 'linked'; name: string; sessionEpoch: number }
-    | { outcome: Exclude<Outcome, 'linked'> };
-
-/** Attach the identity and return the exact credential generation committed. */
-async function linkToAccount(state: GoogleAuthState, identity: GoogleIdentity): Promise<LinkResult> {
-    const name = safeName(state.name ?? '');
-    if (!name) return { outcome: 'error' };
-
-    // All Google writers use account -> subject lock order, including signup,
-    // dangling-index cleanup and deletion. NX still enforces unique ownership.
-    return await withKvLock(authKey(name), () => withKvLock(googleIdentityKey(identity.sub), async (): Promise<LinkResult> => {
-        const record = await kv.get<AuthRecord>(authKey(name));
-        if (!record) return { outcome: 'error' };
-        // Revocation can happen while we wait for the lock. Check both records
-        // here, before claiming the identity or changing credentials.
-        if ((record.sessionEpoch ?? 0) !== state.epoch
-            || await readPlayerSessionEpoch(name) !== state.epoch) return { outcome: 'expired' };
-        if (record.google?.sub && record.google.sub !== identity.sub) return { outcome: 'taken' };
-
-        const claimed = await kv.set(
-            googleIdentityKey(identity.sub),
-            { name },
-            { nx: true },
-        );
-        if (!claimed) {
-            // Someone already holds this Google account. Re-linking the same
-            // pair is fine and idempotent; anything else is a genuine conflict.
-            const owner = await kv.get<{ name?: string }>(googleIdentityKey(identity.sub));
-            if (safeName(owner?.name ?? '') !== name) return { outcome: 'taken' };
-        }
-
-        // Linking Google is exactly how a guest account stops being disposable:
-        // it now has a real owner and a way back in.
-        const { guest, ...kept } = withoutGuestResumeAuthority(record);
-        const linkedRecord: AuthRecord = {
-            ...kept,
-            google: { sub: identity.sub, email: identity.email, linkedAt: Date.now() },
-        };
-
-        // Claiming a guest rotates the epoch. The long-lived credential that let
-        // an anonymous browser hold the account must not survive the account
-        // acquiring a real owner; the claim endpoint hands back a fresh token.
-        if (guest) linkedRecord.sessionEpoch = await rotatePlayerSessionEpoch(name);
-
-        try {
-            await kv.set(authKey(name), linkedRecord);
-        } catch (err) {
-            const committed = await kv.get<AuthRecord>(authKey(name));
-            if (claimed && committed?.google?.sub !== identity.sub) {
-                await kv.delIfEqual(googleIdentityKey(identity.sub), { name });
-            }
-            // The signed link state proved this guest before its epoch was
-            // rotated. If publication failed without changing the auth row,
-            // keep its existing resume door usable at the new revoked epoch.
-            if (guest && committed && JSON.stringify(committed) === JSON.stringify(record)) {
-                await synchronizeVerifiedAuthRecordEpoch(name, committed);
-            }
-            throw err;
-        }
-        return { outcome: 'linked', name, sessionEpoch: linkedRecord.sessionEpoch ?? 0 };
-    }, { failClosed: true }), { failClosed: true });
+/** Link mode: check only. The link itself is written in /claim (see ./_link.ts). */
+async function precheckLink(state: GoogleAuthState, identity: GoogleIdentity): Promise<Exclude<Outcome, 'linked'>> {
+    return precheckGoogleLink({ name: state.name ?? '', epoch: state.epoch ?? 0 }, identity.sub);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -151,17 +92,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return bounce(res, target, 'error');
 
         if (state.mode === 'link') {
-            const linked = await linkToAccount(state, identity);
-            if (linked.outcome !== 'linked') return bounce(res, target, linked.outcome);
+            // Report "taken"/"expired" here, as before, so the screens and copy
+            // do not change. Nothing is written until the starting browser
+            // redeems the ticket with its nonce at /claim.
+            const precheck = await precheckLink(state, identity);
+            if (precheck !== 'ok') return bounce(res, target, precheck);
             const ticket = newGoogleTicketId();
             await storeGoogleTicket(ticket, {
-                name: linked.name,
-                sessionEpoch: linked.sessionEpoch,
+                name: safeName(state.name ?? ''),
+                sessionEpoch: state.epoch ?? 0,
                 sub: identity.sub,
                 email: identity.email,
                 suggestedName: '',
                 nonce: state.nonce,
                 linked: true,
+                linkRequest: { name: safeName(state.name ?? ''), epoch: state.epoch ?? 0 },
             });
             return bounce(res, target, 'linked', ticket);
         }
