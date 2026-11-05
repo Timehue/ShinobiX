@@ -1,7 +1,7 @@
 {
-  "candidate": "7c8e1323280808140dcc6b14181d541ce0a5776c",
-  "recovery": "0180423d957457405356cbf1365b95b4513bb706",
+  "candidate": "dd50bbd1012f46f5dac33442651a915c6052966d",
+  "recovery": "62f1949dab81c03341b55f0b12d0adf593fa48df",
   "node": "24.21.0",
   "platform": "linux/amd64",
-  "recoveryMeaning": "Main87f0d2b7 with lazy avatar loading and reviewed world boss repairs; deterministic fairness tests in both; only wildlife browser fixture differs, not application behavior"
+  "recoveryMeaning": "Main 1a21fd4e pet styling and all reviewed repairs; deterministic fairness fixture retained; only wildlife browser fixture differs, not application behavior"
 }
