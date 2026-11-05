@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { EXCHANGE_CURRENCIES, EXCHANGE_LISTING_LIMIT, EXCHANGE_MARKET_PAGE_SIZE, EXCHANGE_MAX_PRICE, EXCHANGE_MAX_QUANTITY, compareExchangeMarketRows, exchangeCurrency, exchangeFee, exchangeMarketMatches, type ExchangeCurrency, type ExchangeKind, type ExchangeListing, type ExchangeMarketPage, type ExchangeMarketQuery, type ExchangeMarketRow, type ExchangePurchaseReadiness, type ExchangePreparationTarget, type ExchangeReadinessReasonCode } from '../../shared/sunscar-exchange.js';
 import { kv } from '../_storage.js';
 import { readKvProjection } from '../_storage-projection.js';
-import { withKvLock } from '../_lock.js';
+import { withKvLock, withNonWaitingKvLocks } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { battleLockedFor } from '../_elapsed-state.js';
 import { FORGED_ITEM_ID } from '../_forged-item-registry.js';
@@ -135,9 +135,9 @@ async function cleanup(listing: StoredExchangeListing): Promise<void> {
 async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'escrow' | 'purchase' | 'payment' | 'return', catalogs?: SettlementCatalogs) {
     const budgetCurrency = leg === 'escrow' && listing.asset.kind === 'resource'
         && listing.asset.id !== 'ryo' && isTradeCurrency(listing.asset.id) ? listing.asset.id : null;
-    // Every entry into escrow (creation and recovery) takes this gate before
-    // the save lock. No Exchange caller holds a sender gate before a listing
-    // lock, so acquiring it here cannot close a lock cycle.
+    // Normal creation/recovery orders listing -> gate -> save. Account deletion
+    // already holds a save, so its recovery scope only tries nested locks once
+    // and defers on contention rather than waiting in the reverse order.
     const apply = () => applyLegToSave(listing, actor, leg, catalogs, budgetCurrency);
     return budgetCurrency ? withOutboundBudgetGate(actor, budgetCurrency, apply) : apply();
 }
@@ -617,6 +617,13 @@ export async function pullExchangeListingsOfBannedPlayer(player: string): Promis
 }
 
 export async function settleExchangeForDeletedPlayer(player: string): Promise<{ closed: string[]; failures: string[] }> {
+    // Deletion must retain its save lock/fence through teardown. Never queue
+    // for a listing, gate, or another actor's save while holding that lock:
+    // a normal settlement may own that lock and be waiting for this save.
+    return withNonWaitingKvLocks(() => settleDeletedPlayerListings(player));
+}
+
+async function settleDeletedPlayerListings(player: string): Promise<{ closed: string[]; failures: string[] }> {
     const out = { closed: [] as string[], failures: [] as string[] };
     const ids = await exchangeListingIdsNaming(player);
     for (const id of ids) {

@@ -73,14 +73,13 @@ export function transferBudgetKey(slug: string, currency: TradeCurrency): string
  * send door holds this gate from before its check until after its charge, so
  * same-sender sends queue behind each other whichever door they came through.
  *
- * Lock order is gate → save/row locks → ledger lock (innermost). The gate is
- * only ever taken first, by code holding no other lock, so it cannot close a
- * cycle with either.
+ * Ordinary sends take gate -> save/treasury row -> ledger lock (innermost).
+ * Exchange recovery takes listing -> gate -> save. Deletion already owns a
+ * save, so its Exchange cleanup uses withNonWaitingKvLocks: it may try these
+ * locks, but must defer cleanup rather than wait in the reverse order.
  *
- * It is a different key from the ledger's own lock because `withKvLock` is not
- * re-entrant: `chargeOutboundBudget` takes the ledger lock inside this one, and
- * on a shared key it would spend its retries waiting on itself and then drop
- * the stamp silently.
+ * The gate covers the whole check/settlement/charge interval; the separate
+ * ledger lock protects the legacy charge helper's shorter read-modify-write.
  */
 export function transferGateKey(slug: string, currency: TradeCurrency): string {
     return `xfer:gate:${slug}:${currency}`;
