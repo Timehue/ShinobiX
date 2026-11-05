@@ -20,6 +20,7 @@ import {
     deliverEconomyLegacyIntent,
     queueEconomyLegacyIntent,
 } from '../../_legacy-economy-outbox.js';
+import { donationBudgetRefusal, restrictedDonationBudget, settleWithinDonationBudget } from '../../player/_transfer-budget.js';
 
 /*
  * /api/village/treasury/donate  — POST only
@@ -126,13 +127,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!slug) return res.status(400).json({ error: 'Invalid village name.' });
         const villageStateKey = `${VILLAGE_STATE_PREFIX}${slug}`;
         const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
+        // A restricted donor shares its trade budget (owner ruling 2026-11-04).
+        const cap = !identity.admin && donation.kind === 'currency' ? await restrictedDonationBudget(playerName, donation.currency) : null;
 
         // ── Atomic donate ──────────────────────────────────────────────
         // Village-state row locked first (shared resource), donor save row
         // inner. Donor debit committed before the treasury credit — same
         // debit-first ordering as the clan endpoint, so a credit failure
         // can't mint free treasury.
-        const settled = await runSaveDebitSaga({
+        const settled = await settleWithinDonationBudget(cap, amount, () => runSaveDebitSaga({
             definition: VILLAGE_DONATION_SAGA,
             playerName,
             requestId,
@@ -143,6 +146,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             meta: { village },
             decide: async ({ character: donorChar, shared, txId }) => {
                 const stateRec = shared ?? {};
+                const overBudget = await donationBudgetRefusal(cap, amount);
+                if (overBudget) return { ok: false, status: 429, error: overBudget };
                 // Membership: donor must belong to this village.
                 if (!identity.admin && String(donorChar.village ?? '').trim() !== village) {
                     return { ok: false, status: 403, error: 'You are not a member of this village.' };
@@ -214,7 +219,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             messages: {
                 pending: 'Your donation was taken but not yet added to the village treasury. Donate again to finish it; you will not be charged twice.',
             },
-        });
+        }));
         const treasury = (settled.shared.treasury ?? {}) as Record<string, unknown>;
 
         if (!settled.replayed) {

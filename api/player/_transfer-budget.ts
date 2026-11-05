@@ -182,6 +182,45 @@ export async function checkOutboundBudget(
     return { ok: true, spent, limit, remaining: remaining - amount };
 }
 
+/**
+ * Treasury donations from an untrusted account (owner ruling 2026-11-04).
+ *
+ * A clan or village treasury is a pool an officer can gift out at the TRUSTED
+ * ceiling, so an uncapped donation let a crowd of guest alts launder through it
+ * past the restricted tier. A restricted donor may now put in no more than it
+ * could trade away: the same rolling budget, shared with its trades. A trusted
+ * donor is neither checked nor charged, so its gift budget is untouched.
+ * Returns null when no cap applies (trusted, admin, or not a budgeted currency).
+ */
+export type DonationBudget = { slug: string; currency: TradeCurrency };
+
+export async function restrictedDonationBudget(slug: string, currency: unknown): Promise<DonationBudget | null> {
+    if (typeof currency !== 'string' || !Object.hasOwn(RESTRICTED_OUTBOUND, currency)) return null;
+    return (await senderTrustTierBySlug(slug)) === 'restricted' ? { slug, currency: currency as TradeCurrency } : null;
+}
+
+/** The refusal for a capped donation over the budget, or null. Run inside the settlement's decide. */
+export async function donationBudgetRefusal(cap: DonationBudget | null, amount: number): Promise<string | null> {
+    if (!cap) return null;
+    const budget = await checkOutboundBudget(cap.slug, cap.currency, amount, 'restricted');
+    return budget.ok ? null : budget.error;
+}
+
+/**
+ * Run a donation settlement under the donor's budget gate and charge it once it
+ * moved something, exactly as the treasury gift doors do. Uncapped: just runs it.
+ */
+export async function settleWithinDonationBudget<T extends { replayed?: boolean }>(
+    cap: DonationBudget | null, amount: number, settle: () => Promise<T>,
+): Promise<T> {
+    if (!cap) return settle();
+    return withOutboundBudgetGate(cap.slug, cap.currency, async () => {
+        const settled = await settle();
+        if (!settled.replayed) await chargeOutboundBudget(cap.slug, cap.currency, amount);
+        return settled;
+    });
+}
+
 /** How many stamps a ledger row may hold before the oldest are coalesced. */
 const MAX_STAMPS = 200;
 
