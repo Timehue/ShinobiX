@@ -168,6 +168,26 @@ export function hollowGateRoomArt(floor: unknown, finalFloor: boolean, roomPrefa
     return art;
 }
 
+/**
+ * A floor generated before the crypt board (a run sealed on the old 25x17
+ * board) has no prefab record. Its rooms still get paintings: each picks the
+ * prefab nearest its shape (a long room is a hall, a small one a cave).
+ */
+export function hollowGateLegacyRoomPrefabs(tiles: ReadonlyArray<{ roomId?: number | null; kind: string }>, width: number): Record<number, string> {
+    const box = new Map<number, [number, number, number, number]>();
+    tiles.forEach((tile, i) => {
+        if (tile.roomId == null || tile.kind === "wall") return;
+        const x = i % width, y = (i - x) / width, b = box.get(tile.roomId);
+        box.set(tile.roomId, b ? [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)] : [x, y, x, y]);
+    });
+    const prefabs: Record<number, string> = {};
+    for (const [id, [l, t, r, b]] of box) {
+        const w = r - l + 1, h = b - t + 1;
+        prefabs[id] = w >= 2 * h ? "hall" : w <= 5 && h <= 5 ? "small" : "room";
+    }
+    return prefabs;
+}
+
 /** The painted passage cell between a crypt depth's rooms, in its palette. */
 export function hollowGatePassageArt(floor: unknown, rift = false): string {
     const theme = rift ? "rift" : HOLLOW_GATE_CRYPT_THEMES[canonicalHollowGateDepth(floor) - 1] ?? "threshold";

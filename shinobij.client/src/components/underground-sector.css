@@ -159,7 +159,6 @@
     padding: 6px 10px; border: 1px solid #ff9b4566; border-radius: 6px; background: #170b08eb; color: #ffd9b8; font-size: 11px; text-align: center; pointer-events: none; }
 /* Phones float the collapsed journal button at the board's bottom-right. */
 @media (max-width: 620px), (max-height: 500px) and (orientation: landscape) { .hg-arena-note { bottom: 60px; } }
-.underground-world .hg-flame { display: none; }
 .stronghold-shell.underground-world .stronghold-tile.is-floor:not([role=button]), .stronghold-shell.underground-world .stronghold-tile[aria-disabled=true] { cursor: default; }
 .stronghold-shell.underground-world .stronghold-tile.is-floor[role=button]:not([aria-disabled=true]):hover::after,
 .underground-world .stronghold-tile.is-floor[role=button]:focus-visible::after { content: ''; position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; border: 1px solid #e6d1a4; border-radius: 50%; background: #e6d1a414; transform: translate(-50%, -50%); pointer-events: none; }

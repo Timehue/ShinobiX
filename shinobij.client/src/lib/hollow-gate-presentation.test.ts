@@ -7,7 +7,23 @@ import {
     hollowGateEncounterPresentation,
     hollowGateFloorProfile,
     hollowGateHoundCombatImage,
+    hollowGateLegacyRoomPrefabs,
+    hollowGateRoomArt,
 } from "./hollow-gate-presentation";
+
+test("a floor from before the crypt board still gets a painting for every room", () => {
+    // 20x6 board: room 0 is a 7x3 hall, room 1 a 3x3 cave, room 2 a 6x6 room.
+    const width = 20, tiles = Array.from({ length: width * 6 }, (_, i) => {
+        const x = i % width, y = Math.floor(i / width);
+        const roomId = y < 3 && x < 7 ? 0 : y < 3 && x >= 8 && x < 11 ? 1 : x >= 12 && x < 18 ? 2 : null;
+        return { kind: roomId == null ? "wall" : "empty", roomId };
+    });
+    const prefabs = hollowGateLegacyRoomPrefabs(tiles, width);
+    assert.deepEqual(prefabs, { 0: "hall", 1: "small", 2: "room" });
+    const art = hollowGateRoomArt(1, false, prefabs);
+    assert.deepEqual(Object.keys(art ?? {}).sort(), ["0", "1", "2"]);
+    assert.match(art![0], /crypt-threshold-hall-v1\.webp$/);
+});
 
 test("every canonical Hollow Gate floor has a distinct authored identity", () => {
     const floors = Array.from({ length: 5 }, (_, index) => hollowGateFloorProfile(index + 1));

@@ -68,7 +68,10 @@ function Harness() {
     // ?rift=<id> previews a quest rift's floor (its id starts with "rift-").
     const riftId = params.get("rift");
     const riftVariant: HollowGateVariant | undefined = riftId ? { id: riftId.startsWith("rift-") ? riftId : `rift-${riftId}`, label: "Preview Rift", maxFloor: 3, bossName: "Rift Guardian" } : undefined;
-    const [run, setRun] = useState<HollowGateShrineRun>(() => generateHollowGateShrineRun(floorNum, riftVariant, params.get("seed") ?? undefined));
+    // ?layout=bsp previews a floor sealed on the old 25x17 board (no prefab record).
+    const [run, setRun] = useState<HollowGateShrineRun>(() => params.get("layout") === "bsp"
+        ? generateHollowGateShrineRun(floorNum, riftVariant, params.get("seed") ?? "bsp-preview", false, false, "bsp", { width: 25, height: 17 })
+        : generateHollowGateShrineRun(floorNum, riftVariant, params.get("seed") ?? undefined));
     const [log, setLog] = useState<string[]>(["Preview harness — movement is geometry-only."]);
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const pushLog = (line: string) => setLog(prev => [line, ...prev].slice(0, 30));
