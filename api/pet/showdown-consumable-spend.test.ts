@@ -120,3 +120,47 @@ test('an unpaid session (Hollow Gate, wanderer, practice) commits and burns noth
     const character = (await kv.get<Json>(`save:${player}`))!.character;
     assert.equal(spendShowdownConsumables(character, unpaid), character, 'nothing is struck');
 });
+
+test('a paid bout that lapses unplayed returns its spent item on the next admission', async () => {
+    const first = await post({ action: 'arena', format: '1v1', petIds: ['pet-a'] });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.equal((await savedPets())[0].loadout?.consumable, undefined);
+    // The 45-minute admission row expires with nobody fighting.
+    await kv.del(`pet:showdown:${player}:${first.body.state.sessionId}`);
+    const next = await post({ action: 'arena', format: '1v1', petIds: ['pet-b'] });
+    assert.equal(next.status, 200, JSON.stringify(next.body));
+    assert.equal((await savedPets())[0].loadout?.consumable, ITEM, 'the unplayed bout gave the item back');
+    assert.notEqual(next.body.state.sessionId, first.body.state.sessionId);
+});
+
+test('a refilled slot sends the refund to the bag instead', async () => {
+    const first = await post({ action: 'arena', format: '1v1', petIds: ['pet-a'] });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    await kv.del(`pet:showdown:${player}:${first.body.state.sessionId}`);
+    const save = (await kv.get<Json>(`save:${player}`))!;
+    save.character.pets[0] = { ...save.character.pets[0], loadout: { consumable: 'consum-iron-hide' } };
+    await kv.set(`save:${player}`, save);
+    assert.equal((await post({ action: 'arena', format: '1v1', petIds: ['pet-b'] })).status, 200);
+    const character = (await kv.get<Json>(`save:${player}`))!.character;
+    assert.equal(character.pets[0].loadout?.consumable, 'consum-iron-hide');
+    assert.ok((character.inventory as string[]).includes(ITEM), 'the refund lands in the bag');
+});
+
+test('a bout that played a round, or was conceded, keeps the spend after it lapses', async () => {
+    const played = await post({ action: 'arena', format: '1v1', petIds: ['pet-a'] });
+    assert.equal(played.status, 200, JSON.stringify(played.body));
+    const turn = await post({ action: 'turn', sessionId: played.body.state.sessionId, commands: [] });
+    assert.equal(turn.status, 200, JSON.stringify(turn.body));
+    await kv.del(`pet:showdown:${player}:${played.body.state.sessionId}`);
+    // The next admission (pet-c, which spends its own item) is where a lapse refund would land.
+    const conceded = await post({ action: 'arena', format: '1v1', petIds: ['pet-c'] });
+    assert.equal(conceded.status, 200, JSON.stringify(conceded.body));
+    assert.equal((await savedPets())[0].loadout?.consumable, undefined, 'a played bout used its item');
+    assert.equal((await savedPets())[2].loadout?.consumable, undefined, 'pet-c spent its item on admission');
+    assert.equal((await post({ action: 'forfeit', sessionId: conceded.body.state.sessionId })).status, 200);
+    await kv.del(`pet:showdown:${player}:${conceded.body.state.sessionId}`);
+    const save = (await kv.get<Json>(`save:${player}`))!;
+    await kv.set(`save:${player}`, { ...save, character: { ...save.character, petShowdownAdmission: { sessionId: conceded.body.state.sessionId, at: Date.now(), spent: [{ petId: 'pet-c', consumableId: ITEM }] } } });
+    assert.equal((await post({ action: 'arena', format: '1v1', petIds: ['pet-b'] })).status, 200);
+    assert.equal((await savedPets())[2].loadout?.consumable, undefined, 'a conceded bout is a decided loss');
+});

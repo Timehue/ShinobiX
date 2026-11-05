@@ -119,3 +119,22 @@ test('clock acceleration, rewinds, altered stats and client placement are not ac
     const resumed = JSON.parse(JSON.stringify(advanced.character));
     assert.deepEqual(rallyProgress(resumed), rallyProgress(advanced.character));
 });
+
+test('a started Grand Prix can be withdrawn: no pay, the pet is free, and today stays entered', async () => {
+    const { withdrawChampionship } = await import('./_rally.js');
+    const { festivalAssignedPetIds } = await import('../pet/_pet-busy.js');
+    const prepared = prepareChampionship(character(), 'racer', 'my-fire', now);
+    const run = rallyProgress(prepared).current!;
+    const begun = beginChampionshipRace(prepared, run.id, now);
+    assert.ok(festivalAssignedPetIds(begun).has('my-fire'), 'a racing pet is held by the festival');
+
+    const withdrawn = withdrawChampionship(begun, run.id);
+    const progress = rallyProgress(withdrawn);
+    assert.equal(progress.current, null);
+    assert.equal(progress.championships, rallyProgress(begun).championships, 'a withdrawal is not a finished championship');
+    assert.equal(withdrawn.ryo, begun.ryo, 'nothing is paid');
+    assert.equal(festivalAssignedPetIds(withdrawn).has('my-fire'), false, 'the pet is free again');
+    assert.throws(() => prepareChampionship(withdrawn, 'racer', 'my-fire', now), /daily Grand Prix/, 'today stays entered');
+    assert.ok(prepareChampionship(withdrawn, 'racer', 'my-fire', now + 86_400_000), 'tomorrow is open');
+    assert.equal(withdrawChampionship(withdrawn, run.id), withdrawn, 'a replayed withdraw changes nothing');
+});

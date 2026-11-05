@@ -205,3 +205,48 @@ describe('rift-quest complete and a save write that cannot be confirmed', { conc
         assert.equal(await ryoOf(name), paid, 'no second payout');
     });
 });
+
+describe('accepting a rift', { concurrency: false }, () => {
+    async function accept(name: string): Promise<Out> {
+        const out: Out = { statusCode: 200 };
+        const res = {
+            setHeader: () => res,
+            status(code: number) { out.statusCode = code; return res; },
+            json(payload: Json) { out.body = payload; return res; },
+            end: () => res,
+        };
+        await handler({
+            method: 'POST',
+            body: { action: 'accept', playerName: name, riftId: RIFT_ID },
+            query: {},
+            headers: { 'content-type': 'application/json', 'x-admin-password': process.env.ADMIN_PASSWORD, 'x-forwarded-for': '127.0.0.96' },
+            socket: { remoteAddress: '127.0.0.96' },
+        } as never, res as never);
+        return out;
+    }
+    async function seedFree(name: string) {
+        await kv.set(`save:${name}`, { _saveVersion: 1, _saveAt: FIXED_NOW, _regenAt: FIXED_NOW, character: {
+            name, level: 40, village: 'Leaf', pets: [], inventory: [], petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
+            hp: 1000, maxHp: 1000, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100, ryo: 5_000,
+        } });
+    }
+
+    it('is refused once today\'s claim cap is reached, so no boss reward is stranded until midnight', async () => {
+        const name = `${PREFIX}capped`;
+        await seedFree(name);
+        await kv.set(countKey(name), 3, { ex: 60 * 60 });
+        const refused = await accept(name);
+        assert.equal(refused.body?.ok, false);
+        assert.equal(refused.body?.reason, 'daily-cap');
+        assert.equal(await kv.get(questKey(name)), null, 'no seal is minted');
+        assert.equal(((await kv.get<{ character: Json }>(`save:${name}`))!.character).activeRiftQuest, undefined);
+    });
+
+    it('is still offered below the cap', async () => {
+        const name = `${PREFIX}open`;
+        await seedFree(name);
+        await kv.set(countKey(name), 2, { ex: 60 * 60 });
+        const accepted = await accept(name);
+        assert.equal(accepted.body?.ok, true, JSON.stringify(accepted.body));
+    });
+});
