@@ -15,6 +15,7 @@ import {
     type HollowGateSealedManifest,
 } from "./hollow-gate-recovery";
 import { computeHollowGateVisible } from "./hollow-gate-visibility";
+import { markHollowGateSeen } from "./hollow-gate-path";
 
 /*
  * A reload mid-run drops the drawn board, because the save holds only the
@@ -52,6 +53,54 @@ function state(overrides: Partial<HollowGateResumeState> = {}): HollowGateResume
         ...overrides,
     };
 }
+
+describe("Diviner's Eye map memory", () => {
+    function corridor() {
+        const run = generateHollowGateShrineRun(1, undefined, SEED);
+        const width = 31, height = 21;
+        const tiles: HollowGateTile[] = Array.from({ length: width * height }, (_, i) => ({
+            kind: Math.floor(i / width) === 10 ? "empty" : "wall",
+            terrain: Math.floor(i / width) === 10 ? "corridor_floor" : "wall",
+            roomId: null, revealed: false, resolved: false,
+        }));
+        // A sensed trap must remain disguised, even across reloads.
+        tiles[6 * width + 14] = { kind: "trap", terrain: "room_floor", roomId: 1, revealed: false, resolved: false };
+        return { ...run, width, height, tiles, playerX: 2, playerY: 10 };
+    }
+
+    it("remembers Eye-sensed ground after walking 12 tiles out and back, without revealing old pre-Eye ground", () => {
+        const generated = corridor();
+        let walked = markHollowGateSeen({ ...generated, diviner: true });
+        const eyeSteps = [2];
+        for (const x of [...Array.from({ length: 12 }, (_, i) => i + 3), ...Array.from({ length: 12 }, (_, i) => 13 - i)]) {
+            walked = markHollowGateSeen({ ...walked, playerX: x });
+            eyeSteps.push(x);
+        }
+        const sensed = 6 * generated.width + 14;
+        assert.equal(walked.tiles[sensed].seen, true);
+        const resumed = rebuildHollowGateRun(state({
+            floor: 1, divinerUsed: true, manifest: sealed(generated, 1), position: { x: 2, y: 10 },
+            visited: mask(generated.tiles.length, [...eyeSteps, 26].map(x => 10 * generated.width + x)),
+            divinerVisited: mask(generated.tiles.length, eyeSteps.map(x => 10 * generated.width + x)),
+        }), generated);
+        assert.equal(resumed.tiles[sensed].seen, true, "the sensed tile survives returning and reloading");
+        assert.equal(resumed.tiles[sensed].revealed, false, "sensing does not expose the trap");
+        assert.equal(Boolean(resumed.tiles[6 * generated.width + 26].seen), false, "pre-Eye steps do not gain retrospective sight");
+        assert.equal(Boolean(resumed.tiles[0].seen), false, "unexplored ground stays unknown");
+    });
+
+    it("ignores absent, malformed or inactive Eye memory and retains current-position sight for legacy runs", () => {
+        const generated = corridor();
+        for (const divinerVisited of [undefined, null, "1", "x".repeat(generated.tiles.length)]) {
+            const resumed = rebuildHollowGateRun(state({ floor: 1, divinerUsed: true, divinerVisited }), generated);
+            assert.equal(resumed.tiles[6 * generated.width + 2].seen, true);
+            assert.equal(Boolean(resumed.tiles[6 * generated.width + 14].seen), false);
+        }
+        const inactive = rebuildHollowGateRun(state({ floor: 1, divinerUsed: false,
+            divinerVisited: "1".repeat(generated.tiles.length) }), generated);
+        assert.equal(Boolean(inactive.tiles[6 * generated.width + 14].seen), false);
+    });
+});
 
 describe("hollow gate recovery — the board is the one the run sealed", () => {
     it('preserves a sealed event title and recovers legacy labels only from the matching variant', () => {

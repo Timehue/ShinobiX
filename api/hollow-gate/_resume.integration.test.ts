@@ -34,7 +34,7 @@ before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
-    for (const [name, path] of [['resume', './resume.js'], ['step', './step.js'], ['floorSeal', './floor-seal.js']] as const) {
+    for (const [name, path] of [['resume', './resume.js'], ['step', './step.js'], ['floorSeal', './floor-seal.js'], ['consumable', './use-consumable.js']] as const) {
         handlers[name] = (await import(path)).default as unknown as Handler;
     }
 });
@@ -157,6 +157,51 @@ test('resume returns the live run, limited to its current floor, and nothing rew
     assert.equal(state.activeCombat, null);
     assert.equal(state.pendingAmbush, null);
     assert.equal(JSON.stringify(reply.body).includes('9000'), false, 'the reward ledger never leaves the server');
+});
+
+test('Eye activation, accepted steps, retries and resume preserve only post-activation positions', async () => {
+    await seed({ currentFloor: 1, position: { x: 1, y: 1 }, divinerUsed: false,
+        threat: 0, wardSteps: 20, visitedTiles: undefined });
+    const record = (await kv.get<Record<string, any>>(saveKey))!;
+    record.character.hollowShards = 100;
+    await kv.set(saveKey, record);
+    const step = (id: string, fromX: number, toX: number) => invoke('step', {
+        token: TOKEN, requestId: id, fromX, fromY: 1, toX, toY: 1,
+    });
+    assert.equal((await step('before-eye-step', 1, 2)).status, 200);
+    assert.equal((await kv.get<HollowGateRunToken>(runKey))!.divinerVisitedTiles, undefined);
+    const action = { token: TOKEN, requestId: 'activate-eye-0001', action: 'diviner-eye' };
+    const used = await invoke('consumable', action);
+    assert.equal(used.status, 200, JSON.stringify(used.body));
+    assert.equal(used.body.character.hollowShards, 75);
+    assert.equal((await step('after-eye-step-1', 2, 3)).status, 200);
+    const after = (await kv.get<HollowGateRunToken>(runKey))!;
+    assert.equal((await step('after-eye-step-1', 2, 3)).status, 200, 'lost step response replays');
+    assert.equal((await invoke('consumable', action)).body.character.hollowShards, 75, 'lost purchase response does not charge twice');
+    assert.deepEqual((await kv.get<HollowGateRunToken>(runKey))!.divinerVisitedTiles, after.divinerVisitedTiles);
+    assert.equal((await step('invalid-eye-step', 1, 2)).status, 409, 'a stale position is rejected');
+    const resumed = await invoke('resume', {});
+    const memory = resumed.body.run.divinerVisited;
+    assert.equal(memory.length, WIDTH * HEIGHT);
+    assert.equal(memory[WIDTH + 1], '0', 'a pre-Eye position stays excluded');
+    assert.equal(memory[WIDTH + 2], '1', 'activation position survives moving away');
+    assert.equal(memory[WIDTH + 3], '1', 'accepted destination survives');
+    assert.equal([...memory].filter(bit => bit === '1').length, 2);
+    assert.deepEqual((await kv.get<HollowGateRunToken>(runKey))!.rewardLedger, after.rewardLedger);
+    await kv.set(runKey, { ...after, currentFloor: 2, divinerUsed: false });
+    assert.equal((await invoke('resume', {})).body.run.divinerVisited, null, 'memory never leaks into another floor');
+});
+
+test('Eye bought before sealing records spawn, and legacy active Eye records its next accepted path', async () => {
+    await seed({ currentFloor: 1, floorManifests: {}, position: undefined, visitedTiles: undefined, divinerUsed: true });
+    assert.equal((await invoke('floorSeal', { token: TOKEN, floor: 1, width: WIDTH, height: HEIGHT,
+        playerX: 1, playerY: 1, tiles: tiles() })).status, 200);
+    assert.equal((await kv.get<HollowGateRunToken>(runKey))!.divinerVisitedTiles?.['1'][WIDTH + 1], '1');
+    await seed({ currentFloor: 1, position: { x: 1, y: 1 }, divinerUsed: true, divinerVisitedTiles: undefined });
+    assert.equal((await invoke('step', { token: TOKEN, requestId: 'legacy-eye-step', fromX: 1, fromY: 1, toX: 2, toY: 1 })).status, 200);
+    const memory = (await invoke('resume', {})).body.run.divinerVisited;
+    assert.equal(memory[WIDTH + 1], '1');
+    assert.equal(memory[WIDTH + 2], '1');
 });
 
 test('resume names an open pet duel with its mode, so the browser reopens the duel itself', async () => {

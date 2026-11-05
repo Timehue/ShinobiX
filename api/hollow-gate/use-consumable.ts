@@ -8,6 +8,7 @@ import { writeVersionedPlayerSaveWithStore } from '../save/_mutate-player-save.j
 import { hollowGatePendingOperationOf, hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
 import { HG_CLAWBACK_KEYS, hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, type HollowGateRunToken, type HgCurrencyKey } from './_run-token.js';
 import { normalizeHollowGateLedger } from './_ledger.js';
+import { hollowGateMarkVisited } from './_floor-manifest.js';
 
 type Action = 'reignite' | 'skeleton-key' | 'hollow-ward' | 'diviner-eye' | 'sanctify' | 'arm-second-wind';
 /** Hollow Shard prices (2026-10 rebalance #26), re-priced with the 0.6x shard
@@ -138,6 +139,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (nextSavedRun) nextSavedRun = { ...nextSavedRun, threat: 0, wardSteps: 6 };
                 } else if (action === 'diviner-eye') {
                     nextRun = { ...nextRun, divinerUsed: true };
+                    const manifest = run.floorManifests?.[String(Math.max(1, Math.floor(Number(run.currentFloor) || 1)))];
+                    if (manifest) nextRun.divinerVisitedTiles = hollowGateMarkVisited(run.divinerVisitedTiles, manifest, run.position ?? manifest.spawn);
                     if (nextSavedRun) nextSavedRun = { ...nextSavedRun, diviner: true };
                 }
                 nextRun = { ...nextRun, recentConsumableIds: [...recent, requestId].slice(-64) };

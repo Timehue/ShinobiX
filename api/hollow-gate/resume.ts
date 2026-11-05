@@ -99,6 +99,7 @@ export function hollowGateResumeState(
         resolvedEncounterIds: onFloor(run.resolvedEncounterIds, `${floor}:`),
         resolvedEventIds: onFloor(run.resolvedEventIds, `event:${floor}:`),
         visited: run.visitedTiles?.[String(floor)] ?? null,
+        divinerVisited: run.divinerVisitedTiles?.[String(floor)] ?? null,
         manifest: run.floorManifests?.[String(floor)] ?? null,
         activeCombat: recovery.activeCombat ?? null,
         pendingAmbush: recovery.pendingAmbush ?? null,

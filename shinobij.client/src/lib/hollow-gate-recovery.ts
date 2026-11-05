@@ -74,6 +74,7 @@ export type HollowGateResumeState = {
     resolvedEncounterIds: string[];
     resolvedEventIds: string[];
     visited: string | null;
+    divinerVisited?: string | null;
     manifest: HollowGateSealedManifest | null;
     activeCombat: HollowGateShrineRun["activeCombat"] | null;
     wanderers?: HollowGateShrineRun["wanderers"];
@@ -205,9 +206,19 @@ export function rebuildHollowGateRun(
         if (!onBoard(index)) continue;
         for (const lit of computeHollowGateVisible({ ...walked, playerX: index % width, playerY: Math.floor(index / width) })) seen.add(lit);
     }
-    // A Diviner's Eye used on this floor widens the sight where the player
-    // stands now; it does not reveal the floor or unmask disguised tiles.
-    if (state.divinerUsed) for (const lit of computeHollowGateSight({ ...walked, diviner: true })) seen.add(lit);
+    // Replay only positions reached with the Eye active. Ordinary visited
+    // tiles include pre-Eye paths and must not gain retrospective sight.
+    if (state.divinerUsed) {
+        const eyePositions = new Set<number>([position.y * width + position.x]);
+        const memory = state.divinerVisited;
+        if (typeof memory === "string" && memory.length === tiles.length && /^[01]*$/.test(memory)) {
+            for (let index = 0; index < memory.length; index += 1) if (memory[index] === "1") eyePositions.add(index);
+        }
+        for (const index of eyePositions) {
+            if (!onBoard(index)) continue;
+            for (const lit of computeHollowGateSight({ ...walked, diviner: true, playerX: index % width, playerY: Math.floor(index / width) })) seen.add(lit);
+        }
+    }
     const remembered = tiles.map((tile, index) => (seen.has(index) && !tile.seen ? { ...tile, seen: true } : tile));
 
     // Wing gating: a player can enter only one detour, which seals the others.

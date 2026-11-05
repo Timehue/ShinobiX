@@ -170,6 +170,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(run.hunterBreatherSteps !== undefined ? { hunterBreatherSteps: Math.max(0, breather - 1) } : {}),
                 ...(wanderers ? { wanderers: { ...run.wanderers, [String(floor)]: wanderers } } : {}),
                 visitedTiles: hollowGateMarkVisited(run.visitedTiles, manifest, to),
+                ...(run.divinerUsed ? { divinerVisitedTiles: hollowGateMarkVisited(
+                    hollowGateMarkVisited(run.divinerVisitedTiles, manifest, run.position), manifest, to,
+                ) } : {}),
             };
             await kv.set(runKey, next);
             return { status: 200, body: {
