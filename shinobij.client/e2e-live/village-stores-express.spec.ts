@@ -142,7 +142,7 @@ async function seedStoresAccount(request: APIRequestContext, testInfo: TestInfo)
         itemStacks: [
             { itemId: 'hunt-beast-meat', count: 5 },
             { itemId: 'gather-field-herb', count: 3 },
-            { itemId: 'gather-heartwood-bark', count: 3 },
+            { itemId: 'gather-heartwood-bark', count: 5 },
             { itemId: 'hunt-frost-pelt', count: 3 },
             { itemId: 'hunt-ash-scale', count: 30 },
         ],
@@ -181,6 +181,7 @@ async function seedStoresAccount(request: APIRequestContext, testInfo: TestInfo)
     const canonical = await readSave(request, name, token);
     expect(countOwned(canonical, 'hunt-beast-meat')).toBe(5);
     expect(countOwned(canonical, 'gather-field-herb')).toBe(3);
+    expect(countOwned(canonical, 'gather-heartwood-bark')).toBe(5);
     expect(countOwned(canonical, 'hunt-ash-scale')).toBe(30);
     expect(Number((canonical.character as Record<string, unknown>).ryo)).toBeGreaterThanOrEqual(50_000);
 
@@ -287,7 +288,9 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         // ── 2. The counters the player reads must be the server's own ────
         await expect(rationChip.locator('strong')).toHaveText(String(FIELD_RATIONS_YIELD));
         await expect(capLine).toContainText(`Cooked today: ${fieldBody.dailyCooked}/40 rations.`);
+        expect(countOwned(await readSave(request, name, token), 'gather-heartwood-bark'), 'Field Rations consume two fuel').toBe(3);
 
+        await expect(kitchen.getByRole('button', { name: /^Campaign Rations/ })).toBeEnabled();
         const cookCampaign = page.waitForResponse((r) =>
             new URL(r.url()).pathname === '/api/player/cafeteria' && r.request().method() === 'POST');
         await kitchen.getByRole('button', { name: /^Campaign Rations/ }).click();
@@ -308,6 +311,7 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         expect(countOwned(afterCook, 'hunt-beast-meat')).toBe(0);
         expect(countOwned(afterCook, 'hunt-frost-pelt')).toBe(3, 'pelts remain available for equipment');
         expect(countOwned(afterCook, 'gather-field-herb'), 'field and campaign rations consume one and two herbs').toBe(0);
+        expect(countOwned(afterCook, 'gather-heartwood-bark'), 'field and campaign rations consume two and three fuel').toBe(0);
         expect(Number((afterCook.character as Record<string, unknown>).ryo)).toBe(50_000 - 30 - 80);
 
         // ── 3. Town Hall → Treasury: donate rations into Provisions (UI) ──

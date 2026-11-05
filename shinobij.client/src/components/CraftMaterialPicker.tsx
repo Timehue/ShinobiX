@@ -13,6 +13,7 @@ type Props = {
     recipe: CraftPickerRecipe; owned: (id: string) => number; ryo: number;
     opener: HTMLElement;
     onCancel: () => void; onConfirm: (materials: CraftMaterialSelection) => Promise<string | undefined>;
+    hasPendingRetry: (materials: CraftMaterialSelection) => boolean;
 };
 
 /**
@@ -29,7 +30,7 @@ function preselectedAmount(ingredient: CraftIngredient, id: string, quantity: nu
     return stocked.length === 1 && stocked[0] === id && owned(id) >= required ? required : 0;
 }
 
-export function CraftMaterialPicker({ recipe, owned, ryo, opener, onCancel, onConfirm }: Props) {
+export function CraftMaterialPicker({ recipe, owned, ryo, opener, onCancel, onConfirm, hasPendingRetry }: Props) {
     const returnFocusRef = useRef(opener);
     const [materials, setMaterials] = useState<Record<string, number>[]>(() => recipe.ingredients.map(ingredient =>
         Object.fromEntries(ingredient.ids.map(id => [id, preselectedAmount(ingredient, id, recipe.quantity, owned)]))));
@@ -37,7 +38,8 @@ export function CraftMaterialPicker({ recipe, owned, ryo, opener, onCancel, onCo
     const [confirmed, setConfirmed] = useState(false);
     const [error, setError] = useState('');
     const submitting = useRef(false);
-    const ready = planSelectedCraftIngredients(recipe.ingredients, owned, recipe.quantity, materials) !== null && ryo >= recipe.ryo;
+    const ready = hasPendingRetry(materials)
+        || (planSelectedCraftIngredients(recipe.ingredients, owned, recipe.quantity, materials) !== null && ryo >= recipe.ryo);
     return <Modal open bare size="lg" ariaLabel="Choose crafting materials" className={`craft-material-picker${busy ? ' craft-material-picker--working' : ''}`}
         returnFocusRef={returnFocusRef} onClose={onCancel}>
         <form onSubmit={async event => {

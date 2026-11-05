@@ -4,7 +4,7 @@ import { gainXp } from "../lib/character-level-projection";
 import { AncientChestRewards } from "../components/AncientChestRewards";
 import {ClanShrineGateway} from '../features/clanWar/ClanShrineGateway';
 import type {CwChallenge} from '../lib/clan-war-api';
-import { resourceActionsToday } from '../../../shared/resource-gathering';
+import { exploreActionsToday } from '../../../shared/resource-gathering';
 import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 import { useSectorOrder } from "../lib/use-sector-order";
@@ -2547,6 +2547,7 @@ function WorldMapContent({
     // sector's vault structure, and the live raid screen (portaled full-screen).
     const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string; warEntry?: boolean } | null>(null);
     const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
+    const [clanShrineOpen, setClanShrineOpen] = useState(false);
     const warShrine = useWarShrine({ character, state: villageCampaign.state, sharedImages, onVersionedCharacter,
         sector: selectedSector, currentSector, blocked: isTraveling || !villageWarAdmissionOpen, onEnterStronghold: target => { setSelectedSector(target.sector); setVaultRaid(target); } });
     useEffect(() => {
@@ -2911,8 +2912,9 @@ function WorldMapContent({
     // W/A/S/D moves one tile in that direction on the 12-wide sector grid.
     // E explores the open sector.
     // Only active while a sector panel is open and focus is not in a text field.
+    // A stronghold covers the sector and owns WASD: a key here re-rendered this map and walked the hidden avatar.
     useEffect(() => {
-        if (!selectedSector || selectedSector === FESTIVAL_SECTOR || !sameSector(currentSector, selectedSector)) return;
+        if (!selectedSector || vaultRaid || selectedSector === FESTIVAL_SECTOR || !sameSector(currentSector, selectedSector)) return;
         const activeSector = selectedSector;
         function handleKey(e: KeyboardEvent) {
             const target = e.target as HTMLElement;
@@ -2953,7 +2955,7 @@ function WorldMapContent({
         }
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [selectedSector, sectorPlayerPos, currentSector, isTraveling]);
+    }, [selectedSector, sectorPlayerPos, currentSector, isTraveling, vaultRaid]);
 
     // Clear the edge-crossing slide class right after its animation plays.
     useEffect(() => {
@@ -3314,9 +3316,9 @@ function WorldMapContent({
                 gameToast("Collect a saved find to make room for more exploration.", { kind: "info" });
                 return;
             }
-            const dailyTiles = resourceActionsToday(character);
+            const dailyTiles = exploreActionsToday(character, serverNow());
             if (dailyTiles >= 100) {
-                alert("Daily Explore, Fishing and Mining limit reached (100/100). Resets at midnight UTC.");
+                alert("Daily exploration limit reached (100/100). Resets at midnight UTC.");
                 return;
             }
             const depleted = sectorExploreRefusal(sector, loadSectorTerritory(sector).ownerVillage, character.village);
@@ -4517,7 +4519,7 @@ function WorldMapContent({
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas {...lifeTracesProps}
                         obstacles={sectorObstacles}
-                        suspended={!!vaultRaid} paused={warShrine.open || !!villageRaidDialog}
+                        suspended={!!vaultRaid} paused={warShrine.open || clanShrineOpen || !!villageRaidDialog}
                         sector={selectedSector}
                         biome={biome}
                         weather={sectorWeather}
@@ -4571,7 +4573,7 @@ function WorldMapContent({
                         onOpenSigns={handleOpenSectorSigns}
                         onOpenShrine={handleOpenSectorShrine}
                         contract={sectorContract} contractBusy={contractBusy} onClaimContract={() => { void handleClaimContract(); }}
-                        onExplore={handleExploreSelectedSector} dailyExplores={resourceActionsToday(character)} exploreBusy={explorePresentationInFlight}
+                        onExplore={handleExploreSelectedSector} dailyExplores={exploreActionsToday(character, serverNow())} exploreBusy={explorePresentationInFlight}
                         onFindRicherGround={handleFindRicherGround}
                         onHunt={handleHuntSelectedSector}
                     /></>
@@ -4580,7 +4582,7 @@ function WorldMapContent({
                             <>
                             {!vaultRaid && <SectorVillageEntrance sector={selectedSector} village={character.village} present={sectorIsCurrent}
                                 onEnter={name => { const village = locations.find(l => l.type === "village" && l.name === name); if (village) enterLandmark(village); }} />}
-                            {!vaultRaid&&<ClanShrineGateway character={character} sector={selectedSector} present={sectorIsCurrent} blocked={combatActive||isTraveling} sharedImages={sharedImages} onLaunchBattle={onLaunchClanWarBattle}/>}
+                            {!vaultRaid&&<ClanShrineGateway character={character} sector={selectedSector} present={sectorIsCurrent} blocked={combatActive||isTraveling} sharedImages={sharedImages} onLaunchBattle={onLaunchClanWarBattle} onRoomOpen={setClanShrineOpen}/>}
                             {!vaultRaid && <WorldSectorOverlayLayer
                                 sector={selectedSector}
                                 biome={ambienceBiomeForSector(selectedSector)}

@@ -1,3 +1,4 @@
+import { resourceIngredientCount } from './resource-material-cost.js';
 import { GATHER_NAMES, GATHER_RECIPE_INGREDIENTS } from './gathering-materials.js';
 import { RESOURCE_ITEMS, resourceItemId, RESOURCE_GRADES, type ResourceFamily, type ResourceGrade } from './resource-items.js';
 import { resourceForgeRequirement } from './resource-forging.js';
@@ -34,11 +35,11 @@ export const CRAFT_MATERIAL_NAMES: Readonly<Record<string, string>> = {
     'ration-pack': 'Ration Pack', 'pet-treat': 'Pet Treat', 'elemental-pet-treat': 'Elemental Treats',
 };
 export const craftMaterialName = (id: string) => CRAFT_MATERIAL_NAMES[id] ?? id;
-const material = (id: string, count: number): CraftIngredient => ({ ids: [id], count, label: craftMaterialName(id) });
+const material = (id: string, count: number): CraftIngredient => ({ ids: [id], count: resourceIngredientCount([id], count), label: craftMaterialName(id) });
 const choice = (ids: readonly string[], count: number, label?: string): CraftIngredient => ({
-    ids, count, label: label ?? ids.map(craftMaterialName).join(' / '),
+    ids, count: resourceIngredientCount(ids, count), label: label ?? ids.map(craftMaterialName).join(' / '),
 });
-const exact = (id: string) => Object.entries(GATHER_RECIPE_INGREDIENTS[id] ?? {}).map(([id, count]) => material(id, count));
+const exact = (id: string) => Object.entries(GATHER_RECIPE_INGREDIENTS[id] ?? {}).map(([id, count]) => ({ ids: [id], count, label: craftMaterialName(id) }));
 export function gradedCraftMaterial(family: ResourceFamily, grade: ResourceGrade, count: number): CraftIngredient {
     return choice(RESOURCE_GRADES.slice(grade).map((_, index) => resourceItemId(family, (grade + index) as ResourceGrade)), count,
         `${craftMaterialName(resourceItemId(family, grade))}${grade < 3 ? ' or better' : ''}`);
@@ -54,7 +55,7 @@ const scale = (count: number) => choice(['hunt-ash-scale', 'hunt-ember-scale'], 
 const iron = (count: number, grade: ResourceGrade = 0) => gradedCraftMaterial('gather-iron-sand', grade, count);
 // 2026-10 rebalance, item-use pass. Each substitute stands in 1:1 and comes
 // LAST in its row, so the planner keeps spending the original material first
-// and a craft never costs more than before.
+// while preserving the row's 1:1 substitutions.
 // Forge fuel: Common Ember Ore and Ember Scale burn like Heartwood Bark
 // (shared/cooking-recipes.ts FUEL_IDS, the same row the Noodle Den uses).
 const fuel = (count: number) => choice(FUEL_IDS, count, 'Heartwood Bark or Ember fuel');

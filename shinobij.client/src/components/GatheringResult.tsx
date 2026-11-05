@@ -1,4 +1,4 @@
-import { RESOURCE_ITEMS, RESOURCE_GRADES, RESOURCE_SKILL_XP, readResourceGathering, resourceSkillLevel, type ResourceReceipt } from '../../../shared/resource-gathering';
+import { DAILY_RESOURCE_ATTEMPT_LIMIT, RESOURCE_ITEMS, RESOURCE_GRADES, RESOURCE_SKILL_XP, readResourceGathering, resourceSkillLevel, type ResourceReceipt } from '../../../shared/resource-gathering';
 import { gatheringToolRemaining } from '../../../shared/gathering-tools';
 import type { ResourceNode } from '../../../shared/resource-nodes';
 import type { Character } from '../types/character';
@@ -17,7 +17,7 @@ export function GatheringResult({ character, receipt, node, requiredSkill = 1, c
     const toolId = character.equipment?.[mining ? 'pickaxe' : 'fishingPole'];
     const usableTool = Boolean(toolId && gatheringToolRemaining(character, toolId) !== 0);
     const skilled = level >= requiredSkill;
-    const repeat = Boolean(node && charges > 0 && today < 100 && usableTool && skilled);
+    const repeat = Boolean(node && charges > 0 && today < DAILY_RESOURCE_ATTEMPT_LIMIT && usableTool && skilled);
     const caught = receipt.fishingCatch;
     const title = item?.name ?? (caught?.tooStrong ? 'Outmatched by the fish.' : receipt.outcome === 'failed' ? mining ? 'The seam gave way.' : 'This one got away.'
         : receipt.outcome === 'expired' ? 'Time to move on.' : 'Tools down.');
@@ -49,9 +49,9 @@ export function GatheringResult({ character, receipt, node, requiredSkill = 1, c
         {receipt.toolBroke && <p className="gather-report-tool" role="status">Your basic tool broke after its 50th use. Equip a replacement in Inventory.</p>}
         <div className="gather-report-supplies">
             <span><span className="gather-report-pips" aria-hidden="true">{[0, 1, 2].map(i => <i key={i} className={i < charges ? 'available' : ''} />)}</span><strong>{charges}/3</strong> attempts left</span>
-            <span><strong>{Math.max(0, 100 - today)}</strong> actions left today</span>
+            <span><strong>{Math.max(0, DAILY_RESOURCE_ATTEMPT_LIMIT - today)}</strong> {activity.toLowerCase()} attempts left today</span>
         </div>
-        {!repeat && <p className="gather-report-return-note">{!usableTool ? 'Equip a tool to gather here again.' : charges === 0 ? 'This node replenishes in 10 minutes.' : !skilled ? `This node now requires skill ${requiredSkill}.` : 'Your shared daily actions reset at 00:00 UTC.'}</p>}
+        {!repeat && <p className="gather-report-return-note">{!usableTool ? 'Equip a tool to gather here again.' : charges === 0 ? 'This node replenishes in 10 minutes.' : !skilled ? `This node now requires skill ${requiredSkill}.` : 'Your daily gathering attempts reset at 00:00 UTC.'}</p>}
         <div className="gather-report-actions"><button type="button" className="gather-report-back" onClick={onBack}>Back to map</button>
             {repeat && <button type="button" className="gather-report-again" disabled={busy} onClick={onAgain}>{busy ? 'Starting…' : mining ? 'Mine again' : 'Fish again'}<span aria-hidden="true"> ↻</span></button>}
         </div>

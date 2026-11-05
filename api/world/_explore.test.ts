@@ -15,6 +15,17 @@ import {
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 describe('sector exploration settlement', () => {
+    it('gathering at both daily caps leaves all 100 explores available', () => {
+        const day = '2026-11-03';
+        const character = { serverExploreDate: day, serverExploresToday: 99,
+            resourceGathering: { date: day, miningAttemptsToday: 50, fishingAttemptsToday: 50, attemptsToday: 100 } };
+        const last = applySectorExploreReward(character, 4, day);
+        assert.equal(last.ok, true);
+        if (!last.ok) return;
+        assert.equal(last.character.serverExploresToday, 100);
+        assert.deepEqual((last.character as Record<string, unknown>).resourceGathering, character.resourceGathering);
+        assert.deepEqual(applySectorExploreReward(last.character, 4, day), { ok: false, reason: 'daily-limit' });
+    });
     it('records a selected discovery contract only on an accepted exploration', () => {
         const firstContract = { version: 1, offeredAt: 1000, source: 'academy', route: 'discovery', selectedAt: 1100 };
         const settled = applySectorExploreReward({ level: 1, firstContract }, 4, '2026-09-11');

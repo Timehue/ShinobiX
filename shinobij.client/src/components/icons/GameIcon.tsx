@@ -26,6 +26,8 @@ export type { GameIconName } from "./icon-names";
 // plain <path> inherits it; lighter accents use opacity, and any line detail is
 // cut out with fillRule="evenodd" so it reads against any background color.
 const PATHS: Record<GameIconName, ReactElement> = {
+    pickaxe: <path d="M3 4c7-3 14-1 19 6l-2 2c-3-4-6-6-10-6l3 3-9 13-3-2 10-12-2-2-6 1V4Z" />,
+    fish: <><path d="M6 12 1 7v10l5-5Zm0 0c4-7 12-7 17 0-5 7-13 7-17 0Z" /><circle cx="18" cy="11" r="1" fill="var(--bg, #0f172a)" /></>,
     // Two overlapping mon coins (circle with a square hole) — reads as currency.
     ryo: (
         <>

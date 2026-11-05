@@ -1,6 +1,6 @@
 import { RESOURCE_NODES, resourceNodeOffer } from '../../../shared/resource-nodes';
 import { RESOURCE_FAMILIES } from '../../../shared/resource-items';
-import { readResourceGathering, resourceSkillLevel, RESOURCE_SKILL_XP, resourceSuccessRate, resourceQualityWeights, RESOURCE_GRADES, type ResourceActivity } from '../../../shared/resource-gathering';
+import { RESOURCE_SUCCESS_XP, RESOURCE_FAILURE_XP, readResourceGathering, resourceSkillLevel, RESOURCE_SKILL_XP, resourceSuccessRate, resourceQualityWeights, RESOURCE_GRADES, type ResourceActivity } from '../../../shared/resource-gathering';
 import { sectorName } from '../../../shared/sector-geo';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import { CentralDestinationHeader } from './CentralDestinationHeader';
@@ -40,7 +40,7 @@ export function OutpostResourcePanel({ activity, character, commit, onBack, onMa
             </div>
             <div className="outpost-skill-progress"><div><span>Skill progression</span><strong>{next ? `${xp} / ${next} XP` : 'Mastered'}</strong></div>
                 <progress aria-label={`${label} skill progress`} max={next ? next - floor : 1} value={next ? xp - floor : 1} />
-                <p>{next ? `Level ${level + 1} at ${next} total XP` : 'Maximum field skill reached'}<span>Success +10 XP · Completed failure +3 XP</span></p>
+                <p>{next ? `Level ${level + 1} at ${next} total XP` : 'Maximum field skill reached'}<span>Success +{RESOURCE_SUCCESS_XP} XP · Completed failure +{RESOURCE_FAILURE_XP} XP</span></p>
             </div>
         </section>
 

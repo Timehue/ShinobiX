@@ -1,5 +1,6 @@
 import { craftMaterialName, planCraftIngredients, type CraftIngredient } from './crafting-recipes.js';
 import { resourceItemId, type ResourceFamily, type ResourceGrade } from './resource-items.js';
+import { resourceIngredientCount } from './resource-material-cost.js';
 
 /*
  * What ONE named-gear roll costs, besides its Fate Shards
@@ -16,8 +17,8 @@ import { resourceItemId, type ResourceFamily, type ResourceGrade } from './resou
  * relic from dungeons, war crates or the Hollow Gate. Every number lives here.
  */
 
-const exact = (id: string, count: number): CraftIngredient => ({ ids: [id], count, label: craftMaterialName(id) });
-const either = (ids: readonly string[], count: number, label: string): CraftIngredient => ({ ids, count, label });
+const exact = (id: string, count: number): CraftIngredient => ({ ids: [id], count: resourceIngredientCount([id], count), label: craftMaterialName(id) });
+const either = (ids: readonly string[], count: number, label: string): CraftIngredient => ({ ids, count: resourceIngredientCount(ids, count), label });
 
 const ELEMENTAL_FAMILIES: readonly ResourceFamily[] = ['gather-rime-crystal', 'gather-ember-ore', 'gather-stormglass-shard'] as ResourceFamily[];
 /** Superior or Pristine grade of any elemental mineral, lowest grade spent first. */

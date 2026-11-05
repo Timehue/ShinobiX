@@ -21,7 +21,7 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
     const save = uiAuditSave(); save.currentSector = 2; save.currentTile = 74; save.worldGeoV = 2; save.currentBiome = 'central';
     save.character = { ...save.character, name, equippedJutsuIds: [], jutsuMastery: [],
         equipment: { pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole' },
-        inventory: [], itemStacks: [{ itemId: 'gather-river-fish-fine', count: 5 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 1 }],
+        inventory: [], itemStacks: [{ itemId: 'gather-river-fish-fine', count: 8 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 2 }],
         resourceGathering: { ...readResourceGathering(null), fishingXp: 3200, miningXp: 3200 },
         wandererCooldowns: quietRoadCooldowns(Array.from({ length: 65 }, (_, i) => i + 1)) };
     const seeded = await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: save });
@@ -57,7 +57,7 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
         await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label', 'Current tile row 7 column 3');
         await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
     }
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
     await expect(page.locator('.vein-scene')).toBeVisible();
     const admitted = await (await request.get(`/api/save/${name}`, { headers })).json();
     const state = readResourceGathering(admitted.character.resourceGathering);
@@ -75,7 +75,7 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
     await expect.poll(async () => (await (await request.get('/api/player/world-move', { headers })).json()).tile, { timeout: 30_000 }).toBe(99);
     await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label', 'Current tile row 9 column 4');
     await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
-    await page.getByRole('button', { name: 'Ready kunai · 1 action' }).click();
+    await page.getByRole('button', { name: 'Ready kunai · 1 attempt' }).click();
     const throwButton = page.getByRole('button', { name: 'Throw kunai', exact: true });
     await expect(throwButton).toBeEnabled();
     if (info.project.name.includes('landscape')) await expectVisibleTouchTarget(throwButton);
@@ -93,19 +93,21 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
     await expect(page.getByRole('region', { name: 'Fishing result' })).toBeVisible();
     const finished = await (await request.get(`/api/save/${name}`, { headers })).json();
     expect(readResourceGathering(finished.character.resourceGathering).attemptsToday).toBe(2);
+    expect(readResourceGathering(finished.character.resourceGathering).miningAttemptsToday).toBe(1);
+    expect(readResourceGathering(finished.character.resourceGathering).fishingAttemptsToday).toBe(1);
     expect(readResourceGathering(finished.character.resourceGathering).receipts).toHaveLength(2);
     expect(readResourceGathering(finished.character.resourceGathering).active).toBeUndefined();
     await page.screenshot({ path: info.outputPath('live-fishing-result.png'), fullPage: true });
     await page.getByRole('button', { name: 'Back to map', exact: true }).click();
-    await expect(page.locator('.sector-hud-explore')).toContainText('Shared 2/100');
+    await expect(page.locator('.sector-hud-explore')).toContainText('0/100');
     const you = page.locator('.mobile-bottom-nav').getByRole('button', { name: 'You', exact: true });
     if (await you.isVisible()) {
         await you.click();
         const profile = page.getByRole('dialog', { name: 'Your shinobi' });
-        await expect(profile.locator('.left-caps-field')).toContainText('2/100');
+        await expect(profile.locator('.left-caps-field')).toContainText('0/100');
         await profile.getByRole('button', { name: 'Close', exact: true }).click();
     } else {
-        await expect(page.locator('.left-profile-card .left-caps-field')).toContainText('2/100');
+        await expect(page.locator('.left-profile-card .left-caps-field')).toContainText('0/100');
     }
     // A new document checks server persistence without reloading a half-mounted
     // page and cancelling its startup requests (WebKit reports those as CORS errors).
@@ -134,9 +136,9 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     save.character = { ...save.character, name, level: 85, ryo: 100_000, fateShards: 200, elderFocus: undefined,
         villageUpgrades: {}, clanUpgradeLevels: {}, clanDoctrine: undefined,
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], gatheringToolUses: {},
-        itemStacks: [{ itemId: 'gather-iron-sand-fine', count: 8 }, { itemId: 'gather-iron-sand-superior', count: 2 },
+        itemStacks: [{ itemId: 'gather-iron-sand-fine', count: 13 }, { itemId: 'gather-iron-sand-superior', count: 2 },
             { itemId: 'gather-iron-sand-pristine', count: 2 }, { itemId: 'hunt-torn-hide', count: 100 },
-            { itemId: 'gather-heartwood-bark', count: 2 }, { itemId: 'gather-binding-fiber', count: 4 }],
+            { itemId: 'gather-heartwood-bark', count: 3 }, { itemId: 'gather-binding-fiber', count: 4 }],
         resourceGathering: { ...readResourceGathering(null), fishingXp: 3200, miningXp: 3200 },
         wandererCooldowns: quietRoadCooldowns(Array.from({ length: 65 }, (_, i) => i + 1)) };
     const seeded = await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: save });
@@ -227,10 +229,10 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     expect(availability.status(), await availability.text()).toBe(200);
     const chargesBefore = (await availability.json()).nodes['resource-14'].remaining as number;
     expect(chargesBefore).toBeGreaterThan(0);
-    await page.getByRole('button', { name: 'Begin mining · 1 action' }).click();
-    await expect(page.getByRole('button', { name: 'Abandon attempt (action stays spent)', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Begin mining · 1 attempt' }).click();
+    await expect(page.getByRole('button', { name: 'Abandon attempt (attempt stays spent)', exact: true })).toBeVisible();
     await page.reload();
-    await page.getByRole('button', { name: 'Abandon attempt (action stays spent)', exact: true }).click();
+    await page.getByRole('button', { name: 'Abandon attempt (attempt stays spent)', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Mining result' })).toContainText(`${chargesBefore - 1}/3`);
     await expect(page.getByRole('button', { name: 'Mine again' })).toBeVisible();
     current = await readSave(); expect(current.gatheringToolUses['tool-basic-pickaxe']).toBe(1);
@@ -269,10 +271,10 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     await expect(crafter).toBeVisible();
     await crafter.getByRole('button', { name: 'Weapons', exact: true }).click();
     const recipe = crafter.locator('.cf-card').filter({ has: page.getByText('Ashen Leaf Saber', { exact: true }) });
-    await expect(recipe.locator('.cf-check-row[data-ingredient="Fine Iron Sand or better"] .cf-check-count')).toContainText('10/10 +2');
+    await expect(recipe.locator('.cf-check-row[data-ingredient="Fine Iron Sand or better"] .cf-check-count')).toContainText('15/15 +2');
     await recipe.getByRole('button', { name: 'Forge', exact: true }).click();
     const picker = page.getByRole('dialog', { name: 'Choose crafting materials', exact: true });
-    await picker.getByRole('spinbutton', { name: 'Fine Iron Sand quantity', exact: true }).fill('8');
+    await picker.getByRole('spinbutton', { name: 'Fine Iron Sand quantity', exact: true }).fill('13');
     await picker.getByRole('spinbutton', { name: 'Superior Iron Sand quantity', exact: true }).fill('2');
     const beforeForgeRyo = (await readSave()).ryo;
     const forgeResponse = page.waitForResponse(response => response.url().endsWith('/craft/forge') && response.request().postDataJSON().recipeId === 'ashen-leaf-saber');
