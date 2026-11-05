@@ -18,6 +18,8 @@ export type GameIconName =
     | "sword"    // attack / power
     | "shield"   // defense / guard
     | "scroll"   // jutsu / technique
+    | "pickaxe"
+    | "fish"
     | "map"      // tiles explored / expedition (folded map)
     | "target"   // hunts (bullseye)
     | "dice"     // roll odds

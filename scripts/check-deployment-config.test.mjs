@@ -186,3 +186,11 @@ test('production image gate reproduces every Railway client build argument', asy
     assert.match(workflow, new RegExp(`--build-arg ${name}\\b`));
   }
 });
+
+test('production image checkout omits only review evidence excluded from Docker', async () => {
+  const workflow = await readFile('.github/workflows/production-image.yml', 'utf8');
+  const dockerignore = await readFile('.dockerignore', 'utf8');
+  assert.match(dockerignore, /^docs\r?$/m);
+  assert.doesNotMatch(dockerignore, /^!\/?docs(?:\/|\r?$)/m);
+  assert.match(workflow, /uses: actions\/checkout@v7\s+with:\s+(?:#[^\n]*\n\s*)*sparse-checkout-cone-mode: false\s+sparse-checkout: \|\s+\/\*\s+!\/docs\/screenshots\/\s+!\/docs\/evidence\/\s+!\/docs\/audits\//);
+});

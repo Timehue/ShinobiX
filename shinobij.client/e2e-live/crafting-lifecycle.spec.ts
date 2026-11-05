@@ -23,7 +23,7 @@ test.beforeEach(async ({ page, request, context }, info) => {
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], itemStacks: [
             { itemId: 'gather-stormglass-shard-fine', count: 8 },
             { itemId: 'gather-field-herb', count: 10 }, { itemId: 'gather-heartwood-bark', count: 10 },
-            { itemId: 'gather-binding-fiber', count: 10 }, { itemId: 'hunt-beast-meat', count: 20 },
+            { itemId: 'gather-binding-fiber', count: 10 }, { itemId: 'hunt-beast-meat', count: 30 },
             { itemId: 'hunt-cracked-horn', count: 12 }, { itemId: 'hunt-small-fang', count: 8 },
         ] };
     if (info.title.includes('established crafter')) {
@@ -78,7 +78,7 @@ for (const loseAcknowledgment of [false, true]) {
         await card.getByRole('button', { name: /^Craft \u00d75$/ }).click();
         const picker = page.getByRole('dialog', { name: 'Choose crafting materials', exact: true });
         await expect(picker.locator('.craft-picker-summary')).toContainText('2,000 ryo');
-        await picker.getByRole('spinbutton', { name: 'Beast Meat quantity', exact: true }).fill('20');
+        await picker.getByRole('spinbutton', { name: 'Beast Meat quantity', exact: true }).fill('30');
         const payloads: Array<Record<string, unknown>> = [];
         const replies: Array<{ character: { ryo: number }; _saveVersion: number; replayed?: boolean }> = [];
         const firstCraftReward = firstCraft ? page.waitForResponse(async response => {
@@ -109,7 +109,7 @@ for (const loseAcknowledgment of [false, true]) {
             expect(payload.recipeId).toBe('pet-treat');
             expect(payload.requestId).toBe(payloads[0].requestId);
             expect(payload.materials).toEqual(expect.arrayContaining([
-                expect.objectContaining({ 'hunt-beast-meat': 20 }), expect.objectContaining({ 'gather-field-herb': 10 }),
+                expect.objectContaining({ 'hunt-beast-meat': 30 }), expect.objectContaining({ 'gather-field-herb': 10 }),
             ]));
         }
         expect(replies[0].character.ryo).toBe(before.character.ryo - 2000);
@@ -140,7 +140,7 @@ test('currency crafts credit the wallet and describe the actual reward', async (
     for (const reward of [{ name: 'Aura Dust', amount: 50 }, { name: 'Bone Charm', amount: 1 }]) {
         const card = crafter.locator('.cf-card').filter({ has: page.getByText(reward.name, { exact: true }) });
         await card.getByRole('button', { name: 'Craft ×1', exact: true }).click();
-        await picker.getByRole('spinbutton', { name: 'Fine Stormglass Shard quantity', exact: true }).fill(reward.name === 'Aura Dust' ? '2' : '1');
+        await picker.getByRole('spinbutton', { name: 'Fine Stormglass Shard quantity', exact: true }).fill(reward.name === 'Aura Dust' ? '3' : '2');
         const response = page.waitForResponse(response => response.url().endsWith('/api/craft/forge'));
         await picker.getByRole('button', { name: 'Confirm craft', exact: true }).click();
         const body = await (await response).json();

@@ -8,6 +8,9 @@ export type { ResourceActivity, ResourceGrade, ResourceFamily } from './resource
 export const RESOURCE_NODE_ATTEMPTS = 3;
 export const RESOURCE_REFILL_MS = 10 * 60_000;
 export const RESOURCE_ATTEMPT_MS = 90_000;
+export const DAILY_RESOURCE_ATTEMPT_LIMIT = 50;
+export const RESOURCE_SUCCESS_XP = 5;
+export const RESOURCE_FAILURE_XP = 1;
 export const RESOURCE_SKILL_XP = [0, 100, 250, 450, 700, 1000, 1400, 1900, 2500, 3200] as const;
 const whole = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
 export function resourceSkillLevel(xp: unknown): number {
@@ -63,14 +66,25 @@ export type ResourceReceipt = {
 };
 export type ResourceGatheringState = {
     fishingXp: number; miningXp: number; date: string; attemptsToday: number;
+    miningAttemptsToday: number; fishingAttemptsToday: number;
     nodes: Record<string, ResourceNodeState>; active?: ResourcePublicAttempt; receipts: ResourceReceipt[];
 };
 export function readResourceGathering(value: unknown): ResourceGatheringState {
     const raw = (value && typeof value === 'object' ? value : {}) as Partial<ResourceGatheringState>;
     return { fishingXp: whole(raw.fishingXp), miningXp: whole(raw.miningXp), date: String(raw.date ?? ''),
+        miningAttemptsToday: whole(raw.miningAttemptsToday), fishingAttemptsToday: whole(raw.fishingAttemptsToday),
         attemptsToday: whole(raw.attemptsToday), nodes: raw.nodes ?? {}, active: raw.active,
         receipts: Array.isArray(raw.receipts) ? raw.receipts.slice(-100) : [] };
 }
+export function exploreActionsToday(character: object, now = Date.now()): number {
+    const c = character as Record<string, unknown>, day = new Date(now).toISOString().slice(0, 10);
+    return c.serverExploreDate === day ? whole(c.serverExploresToday) : 0;
+}
+export function resourceAttemptsToday(character: object, activity: ResourceActivity, now = Date.now()): number {
+    const state = readResourceGathering((character as Record<string, unknown>).resourceGathering);
+    return state.date === new Date(now).toISOString().slice(0, 10) ? state[`${activity}AttemptsToday`] : 0;
+}
+/** Legacy combined statistic only; admission and UI use the independent counters. */
 export function resourceActionsToday(character: object, now = Date.now()): number {
     const c = character as Record<string, unknown>, day = new Date(now).toISOString().slice(0, 10);
     const state = readResourceGathering(c.resourceGathering);

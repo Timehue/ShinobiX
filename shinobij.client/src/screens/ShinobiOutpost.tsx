@@ -1,11 +1,15 @@
 import { useState, type ComponentProps } from 'react';
 import { HunterBoard } from './HunterBoard';
-import { resourceActionsToday, type ResourceActivity } from '../../../shared/resource-gathering';
+import { resourceAttemptsToday, DAILY_RESOURCE_ATTEMPT_LIMIT, type ResourceActivity } from '../../../shared/resource-gathering';
 import { OutpostResourcePanel } from '../components/OutpostResourcePanel';
+import { useSharedNow } from '../lib/use-shared-now';
+import { serverNow } from '../lib/server-clock';
 import { handleHorizontalTabKeyDown } from '../lib/tab-keyboard';
 import '../components/resource-gathering.css';
 
 export function ShinobiOutpost(props: ComponentProps<typeof HunterBoard>) {
+    useSharedNow();
+    const now = serverNow();
     const [tab, setTab] = useState<'hunting' | ResourceActivity>(() => {
         try { const saved = sessionStorage.getItem('shinobiOutpost.tab'); return saved === 'fishing' || saved === 'mining' ? saved : 'hunting'; } catch { return 'hunting'; }
     });
@@ -19,7 +23,7 @@ export function ShinobiOutpost(props: ComponentProps<typeof HunterBoard>) {
         props.setScreen(tab === 'mining' ? 'centralHub' : 'cafeteria');
     }
     return <div className="shinobi-outpost">
-        <header className="outpost-header"><div><p className="resource-kicker">Central · Field command</p><h1>Shinobi Outpost</h1><p>Track the wilds. Read the water. Follow the fault.</p></div><strong>{Math.max(0, 100 - resourceActionsToday(props.character))}<small> / 100 shared actions left</small></strong></header>
+        <header className="outpost-header"><div><p className="resource-kicker">Central · Field command</p><h1>Shinobi Outpost</h1><p>Track the wilds. Read the water. Follow the fault.</p></div><div className="outpost-daily-attempts">{(['mining', 'fishing'] as const).map(activity => <strong key={activity}>{Math.max(0, DAILY_RESOURCE_ATTEMPT_LIMIT - resourceAttemptsToday(props.character, activity, now))}<small> / {DAILY_RESOURCE_ATTEMPT_LIMIT} {activity} attempts left</small></strong>)}</div></header>
         <div role="tablist" aria-label="Outpost activities" className="outpost-tabs">
             {(['hunting', 'fishing', 'mining'] as const).map(value => <button type="button" key={value} role="tab" id={`outpost-tab-${value}`} onKeyDown={handleHorizontalTabKeyDown}
                 aria-selected={tab === value} aria-controls={`outpost-panel-${value}`} tabIndex={tab === value ? 0 : -1} onClick={() => selectTab(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}

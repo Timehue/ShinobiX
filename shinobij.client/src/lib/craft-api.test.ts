@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { forgeServer, hasPendingNamedForgeRoll, rollNamedForgeServer } from './craft-api';
+import { forgeServer, hasPendingForgeCraft, hasPendingNamedForgeRoll, rollNamedForgeServer } from './craft-api';
 
 test('a five-treat retry preserves the exact batch and material selection', async () => {
     const original = globalThis.fetch;
@@ -51,7 +51,13 @@ test('exact-material crafts reuse their request identity after lost or malformed
         return new Response(JSON.stringify({ character: { name: 'exactretry' }, _saveVersion: 2 }), { status: 200 });
     };
     try {
-        for (let attempt = 0; attempt < 4; attempt++) await forgeServer('exactretry', 'supply', 'thrown-shuriken', 1, materials);
+        assert.equal(hasPendingForgeCraft('exactretry', 'supply', 'thrown-shuriken', 1, materials), false);
+        for (let attempt = 0; attempt < 4; attempt++) {
+            await forgeServer('exactretry', 'supply', 'thrown-shuriken', 1, materials);
+            assert.equal(hasPendingForgeCraft('exactretry', 'supply', 'thrown-shuriken', 1, materials), attempt < 2);
+            assert.equal(hasPendingForgeCraft('another-player', 'supply', 'thrown-shuriken', 1, materials), false);
+            assert.equal(hasPendingForgeCraft('exactretry', 'supply', 'thrown-shuriken', 2, materials), false);
+        }
         assert.equal(sent[0].requestId, sent[1].requestId);
         assert.equal(sent[1].requestId, sent[2].requestId);
         assert.notEqual(sent[2].requestId, sent[3].requestId, 'a later deliberate craft gets a fresh receipt');

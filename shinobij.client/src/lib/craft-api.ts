@@ -8,6 +8,10 @@ export type CraftKind = 'supply' | 'weapon' | 'armor' | 'relic';
 export { NAMED_WEAPON_TAGS } from '../../../shared/named-forge-roll';
 import { NAMED_ARMOR_SPECIALS as ARMOR_SPECIALS } from '../../../shared/named-forge-roll';
 export const NAMED_ARMOR_SPECIALS = ARMOR_SPECIALS.map((special) => special.kind);
+/** A refreshed inventory may already reflect this unconfirmed craft's cost. */
+export function hasPendingForgeCraft(playerName: string, kind: CraftKind, recipeId: string, quantity: number, materials: CraftMaterialSelection): boolean {
+    return readPendingEconomyIntent('craft-forge', [playerName, kind, recipeId, quantity, materials]) !== null;
+}
 export async function forgeServer(playerName: string, kind: CraftKind, recipeId: string, quantity = 1, materials?: CraftMaterialSelection): Promise<{ character?: Character; _saveVersion?: number; error?: string }> {
     const intent = materials ? pendingEconomyIntent('craft-forge', [playerName, kind, recipeId, quantity, materials]) : null;
     try {

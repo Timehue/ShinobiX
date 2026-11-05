@@ -126,10 +126,10 @@ test('an older combat writer cannot overwrite a concurrent atomic gathering deed
 
 test('forging real items credits committed output once; refused crafts grant no deed', async () => {
     const player = 'legacyforge';
-    await seed(player, { itemStacks: [{ itemId: 'gather-iron-sand', count: 6 },
-        { itemId: 'gather-heartwood-bark', count: 1 }, { itemId: 'gather-binding-fiber', count: 2 }] });
+    await seed(player, { itemStacks: [{ itemId: 'gather-iron-sand', count: 9 },
+        { itemId: 'gather-heartwood-bark', count: 2 }, { itemId: 'gather-binding-fiber', count: 2 }] });
     const body = { requestId: 'legacy-forge-0001', kind: 'supply', recipeId: 'thrown-shuriken', quantity: 1,
-        materials: [{ 'gather-iron-sand': 6 }, { 'gather-heartwood-bark': 1 }, { 'gather-binding-fiber': 2 }] };
+        materials: [{ 'gather-iron-sand': 9 }, { 'gather-heartwood-bark': 2 }, { 'gather-binding-fiber': 2 }] };
     assert.equal((await post(forge, player, { ...body, materials: [] })).status, 409);
     assert.equal((await stats(player))?.craftsCompleted, undefined);
     const first = await post(forge, player, body); assert.equal(first.status, 200, JSON.stringify(first.body));

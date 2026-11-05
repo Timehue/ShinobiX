@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RESOURCE_NODES, RETIRED_RESOURCE_NODE_IDS, WORLD_BOSS_CRYSTAL_NODES, validResourceNodeTerrain, resourceNode } from '../../shared/resource-nodes.js';
 import { WORLD_BOSS_CRYSTAL_MAX_NODES, WORLD_BOSS_HOLLOW_SHARDS_PER_TIER, WORLD_BOSS_MAX_WEAKENING_TIERS } from '../../shared/world-boss-event.js';
-import { resourceActionsToday, readResourceGathering } from '../../shared/resource-gathering.js';
+import { resourceActionsToday, resourceAttemptsToday, exploreActionsToday, readResourceGathering } from '../../shared/resource-gathering.js';
 import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { admitResourceAttempt, resolveResourceAttempt, mintResourceSeal, resourceAdmissionError, equipGatheringTool } from './_resource-gathering.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
@@ -16,6 +16,57 @@ const now = Date.parse('2026-10-07T12:00:00Z');
 const node = resourceNode('resource-17')!;
 const player: OnlinePlayer = { name: 'miner', displayName: 'Miner', sector: node.sector, tile: node.approach, lastSeenAt: now, connectedAt: now, pendingAttacker: null, character: null, movementSeq: 4 };
 const base = () => ({ name: 'miner', level: 100, ryo: 999999, fateShards: 500, inventory: [] as string[], itemStacks: [] as { itemId: string; count: number }[], equipment: { pickaxe: 'tool-golden-pickaxe' } });
+
+test('each activity admits its 50th attempt independently and blocked starts do not spend tools', () => {
+    for (const activity of ['mining', 'fishing'] as const) {
+        const site = RESOURCE_NODES.find(candidate => candidate.activity === activity && candidate.difficulty === 1)!;
+        const presence = { ...player, sector: site.sector, tile: site.approach };
+        const c = { ...base(), equipment: { pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole' },
+            serverExploreDate: '2026-10-07', serverExploresToday: 100,
+            resourceGathering: { date: '2026-10-07', [`${activity}AttemptsToday`]: 49 } };
+        assert.equal(resourceAdmissionError(c, site, now, true), null);
+        const seal = mintResourceSeal(c, site, `last-${activity}`, 'relaxed', presence, now);
+        const admitted = admitResourceAttempt(c, seal, now)!;
+        const cancelled = resolveResourceAttempt(admitted, seal.id, { cancel: true }, presence, now + 5000, seal);
+        assert.ok(cancelled.ok); if (!cancelled.ok) return;
+        assert.equal(resourceAttemptsToday(cancelled.character, activity, now), 50);
+        assert.match(resourceAdmissionError(cancelled.character, site, now, true)!, /50/);
+        const other = activity === 'mining' ? 'fishing' : 'mining';
+        const otherSite = RESOURCE_NODES.find(candidate => candidate.activity === other && candidate.difficulty === 1)!;
+        assert.equal(resourceAdmissionError(cancelled.character, otherSite, now, true), null);
+        assert.equal(resourceAttemptsToday(cancelled.character, other, now), 0);
+        assert.equal(exploreActionsToday(cancelled.character, now), 100);
+        assert.equal(resourceAttemptsToday(c, activity, now), 49, 'original save is untouched');
+    }
+});
+
+test('legacy attempts keep 10/3 XP while newly sealed attempts use 5/1 XP', () => {
+    for (const version of [1, 2] as const) for (const success of [true, false]) {
+        const fresh = mintResourceSeal(base(), node, `xp-${version}-${success}`, 'relaxed', player, now);
+        assert.equal(fresh.rules.version, 2);
+        const seal = { ...fresh, rules: { ...fresh.rules, version }, successDraw: success ? 0 : .999 };
+        const admitted = admitResourceAttempt(base(), seal, now)!;
+        const settled = resolveResourceAttempt(admitted, seal.id, {}, player, now + 5000, seal);
+        assert.ok(settled.ok); if (!settled.ok) return;
+        assert.equal(settled.receipt.xp, version === 1 ? (success ? 10 : 3) : (success ? 5 : 1));
+        const replay = resolveResourceAttempt(settled.character, seal.id, {}, player, now + 6000, seal);
+        assert.ok(replay.ok); if (replay.ok) assert.deepEqual(replay.character, settled.character);
+    }
+});
+
+test('an attempt settling after midnight retains its charged day and does not consume the new day', () => {
+    const before = Date.parse('2026-10-07T23:59:58Z'), after = before + 5000;
+    const old = { ...base(), resourceGathering: { date: '2026-10-07', miningAttemptsToday: 49, fishingAttemptsToday: 50 } };
+    const seal = { ...mintResourceSeal(old, node, 'midnight-attempt', 'relaxed', player, before), successDraw: 0 };
+    const admitted = admitResourceAttempt(old, seal, before)!;
+    const settled = resolveResourceAttempt(admitted, seal.id, {}, player, after, seal);
+    assert.ok(settled.ok); if (!settled.ok) return;
+    assert.equal(readResourceGathering(settled.character.resourceGathering).miningAttemptsToday, 50);
+    assert.equal(resourceAttemptsToday(settled.character, 'mining', after), 0);
+    const next = admitResourceAttempt(settled.character, mintResourceSeal(settled.character, node, 'new-day-attempt', 'relaxed', player, after), after)!;
+    assert.equal(resourceAttemptsToday(next, 'mining', after), 1);
+    assert.equal(resourceAttemptsToday(next, 'fishing', after), 0);
+});
 test('older open tabs keep receiving formations their deployed client can render', () => {
     for (const difficulty of [1, 4, 7] as const) {
         for (let i = 0; i < 20; i++) {
@@ -36,7 +87,7 @@ test('every new formation preserves extraction, quality, trace rewards, XP and o
             const result = resolveResourceAttempt(admitted, seal.id, { placements: Array.from({ length: FRACTURE_TEMPLATES[template].charges }, (_, i) => i) }, presence, now + 4000, seal);
             assert.ok(result.ok); if (!result.ok) continue;
             assert.equal(result.receipt.outcome, 'success'); assert.equal(result.receipt.performance, 10);
-            assert.equal(result.receipt.xp, 10); assert.equal(result.receipt.grade, site.ceiling);
+            assert.equal(result.receipt.xp, 5); assert.equal(result.receipt.grade, site.ceiling);
             assert.equal(countOwned(result.character, result.receipt.itemId!), 1);
             if (site.trace) { assert.ok(result.receipt.traceId); assert.equal(countOwned(result.character, result.receipt.traceId!), 1); }
             assert.equal(resourceActionsToday(result.character, now), 1);
@@ -53,7 +104,7 @@ test('failed mining reports fracture damage separately from the unchanged extrac
         const result = resolveResourceAttempt(admitted, seal.id, { placements }, player, now + 4000, seal);
         assert.ok(result.ok); if (!result.ok) continue;
         assert.equal(result.receipt.miningFailure, reason); assert.equal(result.receipt.outcome, 'failed');
-        assert.equal(result.receipt.itemId, undefined); assert.equal(result.receipt.xp, 3);
+        assert.equal(result.receipt.itemId, undefined); assert.equal(result.receipt.xp, 1);
         assert.equal(resourceActionsToday(result.character, now), 1);
     }
 });
@@ -73,7 +124,7 @@ test('real fishing and mining settlements advance their weekly goals exactly onc
             assert.ok(admitted);
             const settled = resolveResourceAttempt(admitted, seal.id, { cancel: outcome === 'cancelled' }, presence, now + 5000, seal);
             assert.ok(settled.ok); if (!settled.ok) continue;
-            const earned = outcome === 'success' ? 10 : outcome === 'failed' ? 3 : 0;
+            const earned = outcome === 'success' ? 5 : outcome === 'failed' ? 1 : 0;
             assert.equal(computeProgress(mission, baseline, settled.character), earned);
             const replay = resolveResourceAttempt(settled.character, seal.id, {}, presence, now + 6000);
             assert.ok(replay.ok); if (!replay.ok) continue;
@@ -122,7 +173,7 @@ test('retired sites reject new admission while previously sealed attempts settle
         const result = resolveResourceAttempt(admitted, seal.id, {}, presence, now + 5000, seal);
         assert.ok(result.ok); if (!result.ok) return;
         assert.equal(result.receipt.outcome, 'success');
-        assert.equal(result.receipt.xp, 10);
+        assert.equal(result.receipt.xp, 5);
         assert.equal(countOwned(result.character, 'gather-iron-sand'), 1);
         assert.equal(resourceActionsToday(result.character, now), 1);
         const replay = resolveResourceAttempt(result.character, seal.id, {}, presence, now + 6000);
@@ -132,6 +183,8 @@ test('retired sites reject new admission while previously sealed attempts settle
     }
 });
 test('world-boss Hollow Shard veins can fill every weakening tier', () => {
+    const capped = { ...base(), resourceGathering: { date: '2026-10-07', miningXp: 3200, miningAttemptsToday: 50 } };
+    assert.match(resourceAdmissionError(capped, WORLD_BOSS_CRYSTAL_NODES[0], now, true)!, /50 mining/);
     assert.equal(WORLD_BOSS_CRYSTAL_NODES.length, WORLD_BOSS_CRYSTAL_MAX_NODES);
     assert.equal(new Set(WORLD_BOSS_CRYSTAL_NODES.map(n => n.id)).size, WORLD_BOSS_CRYSTAL_NODES.length);
     const sitesPerSector = new Map<number, number>();
@@ -145,19 +198,21 @@ test('world-boss Hollow Shard veins can fill every weakening tier', () => {
     assert.ok([...sitesPerSector.values()].every(count => count >= 2));
     assert.equal(Math.floor(WORLD_BOSS_CRYSTAL_NODES.length / WORLD_BOSS_HOLLOW_SHARDS_PER_TIER), WORLD_BOSS_MAX_WEAKENING_TIERS);
 });
-test('failed and cancelled attempts spend the shared allowance and all three charges', () => {
-    let c: Record<string, unknown> = { ...base(), serverExploreDate: '2026-10-07', serverExploresToday: 97 };
+test('failed and cancelled attempts spend only the mining allowance and all three charges', () => {
+    let c: Record<string, unknown> = { ...base(), serverExploreDate: '2026-10-07', serverExploresToday: 100, resourceGathering: { date: '2026-10-07', miningAttemptsToday: 47 } };
     for (let i = 0; i < 3; i++) {
         const seal = { ...mintResourceSeal(c, node, `attempt-number-${i}`, 'active', player, now + i * 5000), successDraw: .999 };
         c = admitResourceAttempt(c, seal, now + i * 5000)!;
-        assert.equal(resourceActionsToday(c, now), 98 + i);
+        assert.equal(resourceAttemptsToday(c, 'mining', now), 48 + i);
+        assert.equal(exploreActionsToday(c, now), 100);
+        assert.equal(resourceAttemptsToday(c, 'fishing', now), 0);
         const result = resolveResourceAttempt(c, seal.id, i === 1 ? { cancel: true } : { placements: [0, 1] }, player, now + i * 5000 + 3000, seal);
         assert.ok(result.ok); if (!result.ok) return;
         assert.equal(result.receipt.outcome, i === 1 ? 'cancelled' : 'failed'); c = result.character;
     }
-    assert.equal(readResourceGathering(c.resourceGathering).miningXp, 6);
+    assert.equal(readResourceGathering(c.resourceGathering).miningXp, 2);
     assert.equal(readResourceGathering(c.resourceGathering).nodes[node.id].attempts, 3);
-    assert.match(resourceAdmissionError(c, node, now)!, /100/);
+    assert.match(resourceAdmissionError(c, node, now)!, /50 mining/);
 });
 test('resolution replay pays once and a level-up only improves the next attempt', () => {
     const c = { ...base(), resourceGathering: { miningXp: 99 } };
@@ -167,7 +222,7 @@ test('resolution replay pays once and a level-up only improves the next attempt'
     assert.ok(result.ok); if (!result.ok) return;
     assert.equal(result.receipt.grade, 0);
     assert.equal(countOwned(result.character, 'gather-iron-sand'), 1);
-    assert.equal(readResourceGathering(result.character.resourceGathering).miningXp, 109);
+    assert.equal(readResourceGathering(result.character.resourceGathering).miningXp, 104);
     assert.equal(readResourceGathering(result.character.resourceGathering).fishingXp, 0);
     const replay = resolveResourceAttempt(result.character, seal.id, { placements: [2, 3] }, player, now + 6000);
     assert.ok(replay.ok); if (!replay.ok) return;
@@ -226,17 +281,17 @@ test('public attempts hide reward rolls and missing or mismatched journals canno
     assert.ok(expired.ok); if (!expired.ok) return;
     assert.equal(expired.receipt.outcome, 'expired'); assert.equal(expired.receipt.xp, 0);
 });
-test('weapons require their ore grade; high-grade fish uses five units and respects output cap', () => {
+test('weapons require their ore grade; high-grade fish uses eight units and respects output cap', () => {
     const weapon = Object.values(ITEM_CATALOG).find(item => item.rarity === 'epic' && item.slot === 'hand' && item.weaponEp != null && !item.id.startsWith('named-') && !item.id.includes('step'))!;
     const c = { ...base(), itemStacks: [{ itemId: 'hunt-torn-hide', count: 2000 }, { itemId: 'gather-iron-sand-fine', count: 100 },
-        { itemId: 'gather-heartwood-bark', count: 2 }, { itemId: 'gather-binding-fiber', count: 6 }, { itemId: 'gather-stormglass-shard-fine', count: 1 }] };
+        { itemId: 'gather-heartwood-bark', count: 3 }, { itemId: 'gather-binding-fiber', count: 6 }, { itemId: 'gather-stormglass-shard-fine', count: 2 }] };
     assert.equal(applyForge(c, 'weapon', weapon.id, 1), null);
-    const forged = applyForge({ ...c, itemStacks: [...c.itemStacks, { itemId: 'gather-iron-sand-superior', count: 18 }] }, 'weapon', weapon.id, 1);
+    const forged = applyForge({ ...c, itemStacks: [...c.itemStacks, { itemId: 'gather-iron-sand-superior', count: 27 }] }, 'weapon', weapon.id, 1);
     assert.ok(forged); assert.equal(countOwned(forged!, 'gather-iron-sand-superior'), 0);
     const recipe = cookRecipe('fish-rations-pristine')!;
-    const kitchen = { ...base(), itemStacks: [{ itemId: 'gather-river-fish-pristine', count: 10 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 2 }] };
+    const kitchen = { ...base(), itemStacks: [{ itemId: 'gather-river-fish-pristine', count: 16 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 4 }] };
     const cook = applyCookRecipe(kitchen, recipe, now); assert.ok(cook.ok); if (!cook.ok) return;
-    assert.equal(cook.cooked, 20); assert.equal(countOwned(cook.character, 'gather-river-fish-pristine'), 5);
+    assert.equal(cook.cooked, 20); assert.equal(countOwned(cook.character, 'gather-river-fish-pristine'), 8);
     const twice = applyCookRecipe(cook.character, recipe, now); assert.ok(twice.ok); if (!twice.ok) return;
     assert.equal(twice.dailyCooked, 40); assert.equal(applyCookRecipe(twice.character, recipe, now).ok, false);
 });

@@ -81,7 +81,7 @@ import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { NextGoalPin } from "../components/NextGoalPin";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
-import { forgeServer, hasPendingNamedForgeRoll, rollNamedForgeServer, type NamedRollResult } from "../lib/craft-api";
+import { forgeServer, hasPendingForgeCraft, hasPendingNamedForgeRoll, rollNamedForgeServer, type NamedRollResult } from "../lib/craft-api";
 import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
 import { gameToast } from "../components/GameToast";
 import { gameConfirm } from "../components/GameAlert";
@@ -2145,6 +2145,7 @@ export function CentralHub({
                 );
             })()}
             {pendingCraft && showCrafter && <CraftMaterialPicker recipe={pendingCraft} owned={id => countItem(character, id)} ryo={character.ryo}
+                hasPendingRetry={materials => hasPendingForgeCraft(character.name, pendingCraft.kind, pendingCraft.recipeId, pendingCraft.quantity, materials)}
                 opener={pendingCraft.opener} onCancel={() => { pendingCraftRef.current = null; setPendingCraft(null); }} onConfirm={completeCraft} />}
             {namedForgeAnimation && <NamedForgeRevealModal
                 {...namedForgeAnimation}

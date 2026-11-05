@@ -89,7 +89,8 @@ test("controller can open Settings from the real in-game menu", async ({ page },
     await expect(page.locator("html")).toHaveAttribute("data-gamepad-connected", "true");
     const settings = page.getByRole("button", { name: "Settings", exact: true });
     await expect(settings).toBeVisible();
-    await press(15); // Enter the right-side menu from the page center.
+    // Start in the menu; profile controls can be nearer than the right rail.
+    await page.locator('.right-menu-panel').getByRole('button', { name: 'Hide menu', exact: true }).focus();
     for (let step = 0; step < 10; step += 1) {
         if (await settings.evaluate(element => element === document.activeElement)) break;
         await press(13);

@@ -1,5 +1,5 @@
 import { useSharedNow } from "../lib/use-shared-now";
-import { resourceActionsToday } from '../../../shared/resource-gathering';
+import { exploreActionsToday, resourceAttemptsToday, DAILY_RESOURCE_ATTEMPT_LIMIT } from '../../../shared/resource-gathering';
 import { petTrainingOptions } from "../data/pet-config";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { dailyMissionsCompleted, dailyHuntsCompleted, dailyHuntCap } from "../lib/character-progress";
@@ -135,7 +135,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     // portrait everyone else can see (lib/own-avatar.ts).
     const avatarSrc = useOwnAvatar(character);
     const now = serverNow();
-    const fieldActions = resourceActionsToday(character, now);
+    const fieldActions = exploreActionsToday(character, now);
     const trainingReady = activeTraining !== null && now >= activeTraining.endsAt;
     const jutsuTrainingReady = activeJutsuTraining !== null && now >= activeJutsuTraining.endsAt;
     // Today's Broker crates at the Sunscar Festival; null until the count loads.
@@ -190,21 +190,29 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             {/* Daily caps */}
             <div className="left-daily-caps">
                 <div className="left-caps-grid">
-                    <div className="left-caps-cell left-caps-field" title="Explore, fishing and mining share 100 actions per UTC day">
-                        <span className="left-caps-label"><GameIcon name="map" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Actions</span>
+                    <div className="left-caps-cell left-caps-field" title="100 explores per UTC day">
+                        <span className="left-caps-label"><GameIcon name="map" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Explores</span>
                         <span className="left-caps-value" style={{ color: fieldActions >= 100 ? "var(--danger)" : "var(--gold-400)" }}>{fieldActions}/100</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="scroll" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Missions</span>
                         <span className="left-caps-value" style={{ color: dailyMissionsCompleted(character) >= DAILY_MISSION_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{dailyMissionsCompleted(character)}/{DAILY_MISSION_LIMIT}</span>
                     </div>
+                    {(['mining', 'fishing'] as const).map(activity => {
+                        const used = resourceAttemptsToday(character, activity, now);
+                        const label = activity === 'mining' ? 'Mining' : 'Fishing';
+                        return <div key={activity} className="left-caps-cell" title={`50 ${activity} attempts per UTC day`}>
+                            <span className="left-caps-label"><GameIcon name={activity === 'mining' ? 'pickaxe' : 'fish'} size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />{label}</span>
+                            <span className="left-caps-value" style={{ color: used >= DAILY_RESOURCE_ATTEMPT_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{used}/{DAILY_RESOURCE_ATTEMPT_LIMIT}</span>
+                        </div>;
+                    })}
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="target" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Hunts</span>
                         <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= dailyHuntCap(character) ? "var(--danger)" : "var(--gold-400)" }}>{dailyHuntsCompleted(character)}/{dailyHuntCap(character)}</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="clock" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--text-dim)" }} />Reset In</span>
-                        <span className="left-caps-value" style={{ color: "var(--text-dim)" }}>{(() => { const now = new Date(); const ms = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).getTime() - now.getTime(); const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
+                        <span className="left-caps-value" style={{ color: "var(--text-dim)" }}>{(() => { const date = new Date(now); const ms = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1)).getTime() - now; const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
                     </div>
                     {/* Last and full-width: the name is too long for a half-width
                         cell in the desktop rail, and it fills the grid's odd slot. */}

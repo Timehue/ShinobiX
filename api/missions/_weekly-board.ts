@@ -60,9 +60,8 @@ const LEGACY_FALLBACK_CATALOG: WeeklyMission[] = [
 ];
 
 // Side goals for several ordinary sessions, with room for normal progression.
-// From skill level 1 at common nodes, gathering takes about 66/96 relaxed
-// attempts. The hardest fishing+mining pair uses under 30% of the shared
-// weekly allowance; players need not spend most Explore actions on the board.
+// From skill level 1 at common nodes, the 250/375 XP goals take about 72/105
+// relaxed attempts each with 5/1 XP. Each activity has its own 50-attempt day.
 const WEEKLY_REBALANCE: Record<string, Pick<WeeklyMission, 'target' | 'desc'>> = {
     'wk-ranked-3': { target: 15, desc: 'Win 15 ranked matches.' },
     'wk-ranked-7': { target: 25, desc: 'Win 25 ranked matches.' },
@@ -74,13 +73,21 @@ const WEEKLY_REBALANCE: Record<string, Pick<WeeklyMission, 'target' | 'desc'>> =
     'wk-safe-missions-20': { target: 70, desc: 'Complete 70 missions.' },
 };
 
-export const WEEKLY_CATALOG: WeeklyMission[] = [
+const ORIGINAL_RESOURCE_WEEKLY_CATALOG: WeeklyMission[] = [
     { id: 'wk-fishing-500', name: 'Gone Fishing', desc: 'Earn 500 fishing skill XP at fishing nodes.', counter: 'fishingXp', target: 500, reward: { ryo: 2500, boneCharms: 1 }, eligibility: safeEligibility },
     { id: 'wk-fishing-750', name: 'Patient Angler', desc: 'Earn 750 fishing skill XP at fishing nodes.', counter: 'fishingXp', target: 750, reward: { ryo: 5500, fateShards: 1 }, eligibility: safeEligibility },
     { id: 'wk-mining-500', name: 'Ore Seeker', desc: 'Earn 500 mining skill XP at mining nodes.', counter: 'miningXp', target: 500, reward: { ryo: 2500, boneCharms: 1 }, eligibility: safeEligibility },
     { id: 'wk-mining-750', name: 'Deep Delver', desc: 'Earn 750 mining skill XP at mining nodes.', counter: 'miningXp', target: 750, reward: { ryo: 5500, fateShards: 1 }, eligibility: safeEligibility },
     ...LEGACY_WEEKLY_CATALOG.map((mission) => ({ ...mission, ...WEEKLY_REBALANCE[mission.id] })),
 ];
+
+// New XP targets begin on 2026-11-09 at 00:00 UTC; existing boards keep their rules.
+export const RESOURCE_XP_WEEKLY_START_WEEK = 149;
+export const WEEKLY_CATALOG: WeeklyMission[] = ORIGINAL_RESOURCE_WEEKLY_CATALOG.map(mission => {
+    if (mission.counter !== 'fishingXp' && mission.counter !== 'miningXp') return mission;
+    const target = mission.target / 2;
+    return { ...mission, target, desc: mission.desc.replace(String(mission.target), String(target)) };
+});
 
 export const WEEKLY_FALLBACK_CATALOG: WeeklyMission[] = LEGACY_FALLBACK_CATALOG.map((mission) => ({
     ...mission, ...WEEKLY_REBALANCE[mission.id],
@@ -105,7 +112,9 @@ function expandedRotation(wkKey: string): boolean {
 
 function catalogForWeek(wkKey: string, includeFallbacks = false): WeeklyMission[] {
     const expanded = expandedRotation(wkKey);
-    const catalog = expanded ? WEEKLY_CATALOG : LEGACY_WEEKLY_CATALOG;
+    const week = /^w(\d+)$/.exec(wkKey);
+    const resourceXpRebalanced = !week || Number(week[1]) >= RESOURCE_XP_WEEKLY_START_WEEK;
+    const catalog = expanded ? (resourceXpRebalanced ? WEEKLY_CATALOG : ORIGINAL_RESOURCE_WEEKLY_CATALOG) : LEGACY_WEEKLY_CATALOG;
     const fallbacks = expanded ? WEEKLY_FALLBACK_CATALOG : LEGACY_FALLBACK_CATALOG;
     return includeFallbacks ? [...catalog, ...fallbacks] : catalog;
 }

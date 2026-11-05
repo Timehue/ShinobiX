@@ -69,7 +69,7 @@ for (const activity of ['mining', 'fishing'] as const) {
             await page.getByRole('button', { name: new RegExp(`^${node.name}, ${activity}`) }).click();
         }
         if (activity === 'fishing') await page.getByRole('radio', { name: /Watch animation/ }).check();
-        await page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 action' : 'Ready kunai · 1 action' }).click();
+        await page.getByRole('button', { name: activity === 'mining' ? 'Begin mining · 1 attempt' : 'Ready kunai · 1 attempt' }).click();
         const admitted = await readSave(), attempt = readResourceGathering(admitted.resourceGathering).active!;
         const before = await (await request.get('/api/player/world-move', { headers })).json();
         if (activity === 'mining') {
@@ -78,7 +78,7 @@ for (const activity of ['mining', 'fishing'] as const) {
         }
         await page.reload({ waitUntil: 'domcontentloaded' });
         await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'false', { timeout: 60_000 });
-        if (activity === 'mining') await expect(page.getByRole('button', { name: 'Abandon attempt (action stays spent)', exact: true })).toBeVisible();
+        if (activity === 'mining') await expect(page.getByRole('button', { name: 'Abandon attempt (attempt stays spent)', exact: true })).toBeVisible();
         else await expect(page.getByRole('region', { name: 'Fishing result' })).toBeVisible();
         const after = await (await request.get('/api/player/world-move', { headers })).json();
         await info.attach('reconnect-authority', { body: JSON.stringify({ admitted: attempt, before, after }), contentType: 'application/json' });
@@ -98,7 +98,7 @@ for (const activity of ['mining', 'fishing'] as const) {
         await expect(result).toBeVisible();
         const finished = await readSave(), state = readResourceGathering(finished.resourceGathering);
         const receipt = state.receipts.find(receipt => receipt.id === attempt.id)!;
-        expect(receipt.outcome).toMatch(/^(success|failed)$/); expect(receipt.xp).toBe(receipt.outcome === 'success' ? 10 : 3);
+        expect(receipt.outcome).toMatch(/^(success|failed)$/); expect(receipt.xp).toBe(receipt.outcome === 'success' ? 5 : 1);
         expect(state.active).toBeUndefined(); expect(state.attemptsToday).toBe(1); expect(state.nodes[node.id].attempts).toBe(1);
         expect(finished.gatheringToolUses[activity === 'mining' ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole']).toBe(1);
         expect(state[`${activity}Xp`]).toBe(3200 + receipt.xp); expect(finished.ryo).toBe(admitted.ryo);
@@ -112,7 +112,7 @@ for (const activity of ['mining', 'fishing'] as const) {
             await expect(page.getByText('River technique', { exact: true })).toBeVisible();
             const repeated = readResourceGathering((await readSave()).resourceGathering).active!;
             expect(repeated.mode).toBe('relaxed');
-            await page.getByRole('button', { name: 'Abandon attempt (action stays spent)', exact: true }).click();
+            await page.getByRole('button', { name: 'Abandon attempt (attempt stays spent)', exact: true }).click();
             await expect(result).toBeVisible();
         }
         await page.getByRole('button', { name: 'Back to map', exact: true }).click();

@@ -3,7 +3,8 @@ import { addOwned, countOwned, removeOwned } from '../craft/_forge.js';
 import { gatheringTool, gatheringToolRemaining, useGatheringTool } from '../../shared/gathering-tools.js';
 import { resourceNode, validResourceNodeTerrain, type ResourceNode } from '../../shared/resource-nodes.js';
 import { readResourceGathering, resourceSkillLevel, resourceSuccessRate, resourceQuality, resourceItemId,
-    resourceActionsToday, resourceNodeState, RESOURCE_ATTEMPT_MS, RESOURCE_REFILL_MS, type ResourcePublicAttempt,
+    resourceAttemptsToday, DAILY_RESOURCE_ATTEMPT_LIMIT, RESOURCE_SUCCESS_XP, RESOURCE_FAILURE_XP,
+    resourceNodeState, RESOURCE_ATTEMPT_MS, RESOURCE_REFILL_MS, type ResourcePublicAttempt,
     type ResourceReceipt, type ResourceFamily, type ResourceGrade } from '../../shared/resource-gathering.js';
 import { fractureTemplatePool, solveFractureChain } from '../../shared/fracture-chain.js';
 import { scoreFishing } from '../../shared/fishing-game.js';
@@ -14,7 +15,7 @@ export type ResourceSeal = ResourcePublicAttempt & {
     sharedNode?: true;
     successDraw: number; qualityDraw: number; traceDraw: number; toolBroke: boolean; authorityEpoch: number;
     worldBossEventId?: string;
-    rules: { version: 1; difficulty: number; ceiling: ResourceGrade; family: ResourceFamily; trace?: ResourceFamily };
+    rules: { version: 1 | 2; difficulty: number; ceiling: ResourceGrade; family: ResourceFamily; trace?: ResourceFamily };
 };
 export const resourceDraw = () => randomInt(0, 1_000_000_000) / 1_000_000_000;
 export function resourcePositionError(player: OnlinePlayer | null, node: ResourceNode) {
@@ -29,7 +30,8 @@ export function resourceAdmissionError(character: Record<string, unknown>, node:
     if (state.active) return 'Finish or cancel your current gathering attempt first.';
     if (character.hospitalized) return 'Leave the hospital before gathering.';
     if (resourceSkillLevel(state[`${node.activity}Xp`]) < node.difficulty) return `Requires ${node.activity === 'mining' ? 'Mining' : 'Fishing'} skill ${node.difficulty}.`;
-    if (resourceActionsToday(character, now) >= 100) return 'You have used all 100 Explore, Fishing and Mining actions today.';
+    if (resourceAttemptsToday(character, node.activity, now) >= DAILY_RESOURCE_ATTEMPT_LIMIT)
+        return `You have used all ${DAILY_RESOURCE_ATTEMPT_LIMIT} ${node.activity} attempts today. Resets at midnight UTC.`;
     if (!shared && resourceNodeState(state.nodes[node.id], now).attempts >= 3) return 'This node is empty. Return after it replenishes.';
     const slot = node.activity === 'mining' ? 'pickaxe' : 'fishingPole';
     const id = (character.equipment as Record<string, string> | undefined)?.[slot];
@@ -47,7 +49,7 @@ export function mintResourceSeal(character: Record<string, unknown>, node: Resou
         template: templates[randomInt(templates.length)], hookAt: 1800 + randomInt(0, 1200),
         ...(node.activity === 'fishing' ? { fishingStyle: 'kunai' as const, fishingShoal: 'ranked' as const } : {}),
         movementSequence: player.movementSeq ?? 0, authorityEpoch: player.resourceEpoch ?? 0,
-        rules: { version: 1, difficulty: node.difficulty, ceiling: node.ceiling, family: node.family, trace: node.trace },
+        rules: { version: 2, difficulty: node.difficulty, ceiling: node.ceiling, family: node.family, trace: node.trace },
         successDraw: resourceDraw(), qualityDraw: resourceDraw(), traceDraw: resourceDraw(), toolBroke: false };
 }
 export function admitResourceAttempt(character: Record<string, unknown>, seal: ResourceSeal, now: number) {
@@ -56,7 +58,10 @@ export function admitResourceAttempt(character: Record<string, unknown>, seal: R
     if (!tool) return null;
     const state = readResourceGathering(character.resourceGathering), prior = resourceNodeState(state.nodes[node.id], now);
     const attempts = prior.attempts + 1;
+    const today = new Date(now).toISOString().slice(0, 10);
     return { ...tool.character, resourceGathering: { ...state, date: new Date(now).toISOString().slice(0, 10),
+        miningAttemptsToday: (state.date === today ? state.miningAttemptsToday : 0) + (seal.activity === 'mining' ? 1 : 0),
+        fishingAttemptsToday: (state.date === today ? state.fishingAttemptsToday : 0) + (seal.activity === 'fishing' ? 1 : 0),
         attemptsToday: (state.date === new Date(now).toISOString().slice(0, 10) ? state.attemptsToday : 0) + 1,
         nodes: { ...state.nodes, [node.id]: { attempts, refillAt: attempts === 3 ? now + RESOURCE_REFILL_MS : 0 } },
         active: { id: seal.id, nodeId: seal.nodeId, activity: seal.activity, startedAt: seal.startedAt, expiresAt: seal.expiresAt,
@@ -82,7 +87,7 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
     // Keep the admitted reward table across a deployment. The fallback only
     // covers short-lived attempts created before rule snapshots were added.
     const rules = active.rules ?? { version: 1, difficulty: node.difficulty, ceiling: node.ceiling, family: node.family, trace: node.trace };
-    if (rules.version !== 1 && !input.cancel) return { ok: false as const, error: 'This attempt uses unavailable rules. Cancel it to return to the map.' };
+    if (rules.version !== 1 && rules.version !== 2 && !input.cancel) return { ok: false as const, error: 'This attempt uses unavailable rules. Cancel it to return to the map.' };
     const expired = now >= active.expiresAt;
     const interrupted = Boolean(resourcePositionError(player, node)) || (player ? player.movementSeq ?? 0 : -1) !== active.movementSequence
         || (player ? player.resourceEpoch ?? 0 : -1) !== active.authorityEpoch;
@@ -109,7 +114,8 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
     }
     const grade = outcome === 'success' ? resourceQuality(active.skillLevel, rules.ceiling, active.qualityDraw) : undefined;
     const itemId = grade == null ? undefined : resourceItemId(rules.family, grade);
-    const xp = outcome === 'success' ? 10 : outcome === 'failed' ? 3 : 0;
+    const xp = outcome === 'success' ? (rules.version === 1 ? 10 : RESOURCE_SUCCESS_XP)
+        : outcome === 'failed' ? (rules.version === 1 ? 3 : RESOURCE_FAILURE_XP) : 0;
     const receipt: ResourceReceipt = { id, activity: active.activity, outcome, itemId, grade, xp, performance, toolBroke: active.toolBroke,
         ...(fishingCatch ? { fishingCatch } : {}),
         ...(active.activity === 'mining' && outcome === 'failed' ? { miningFailure: gameFailed ? 'fracture' as const : 'extraction' as const } : {}),

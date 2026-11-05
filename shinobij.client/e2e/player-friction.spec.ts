@@ -20,16 +20,16 @@ test('built map separates capped personal allowance from shared gathering pool',
     save.character = { ...save.character!, wandererCooldowns: quietRoadCooldowns([22]) };
     save.currentSector = 22;
     const date = new Date().toISOString().slice(0, 10);
-    Object.assign(save.character!, { level: 17, dailyTilesExplored: 45, lastDailyReset: date, serverExploresToday: 45, serverExploreDate: date,
-        resourceGathering: { ...readResourceGathering(null), date, attemptsToday: 55 } });
+    Object.assign(save.character!, { level: 17, dailyTilesExplored: 100, lastDailyReset: date, serverExploresToday: 100, serverExploreDate: date,
+        resourceGathering: { ...readResourceGathering(null), date, attemptsToday: 55, miningAttemptsToday: 50, fishingAttemptsToday: 5 } });
     const runtime = await installUiAuditRuntime(page, save);
     await page.route('**/api/world-state*', route => route.fulfill({ json: { territories: [], wars: [], standings: [],
         sectorPools: { '22': { explores: 25, chests: 0 } }, sectorPoolCaps: { explores: 1500, chests: 225, ownerBonus: 0.5 } } }));
     await expectUiAuditBoot(page, runtime, 'worldMap');
     await page.getByRole('button', { name: /Return to Sector 22/ }).click();
     await expect(page.getByRole('button', { name: 'Explore', exact: true })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toContainText('Shared 100/100');
-    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toHaveAccessibleDescription('Explore, fishing and mining: 100/100 shared daily actions · Resets at midnight UTC');
+    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toContainText('100/100');
+    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toHaveAccessibleDescription('Explores: 100/100 daily explores · Resets at midnight UTC');
     await expect(page.getByText(/Shared sector pool:/).first()).toBeVisible();
     await page.screenshot({ path: info.outputPath('daily-cap-built.png') });
 });
