@@ -604,9 +604,11 @@ export function validateClanSaveWrite(
                 if (ctx.isAdmin) { cleaned.push(post); continue; }
                 if (id && prevIds.has(id)) {
                     // Existing IDs are references, not authority to replace a
-                    // post. The board only edits pin state, for leadership.
+                    // post. The board lets leadership or the stored author
+                    // change pin state; submitted authorship grants nothing.
                     const stored = prevNotices.find(n => String((n as Record<string, unknown>).id ?? '') === id) as Record<string, unknown>;
-                    cleaned.push(callerIsAdminRole && typeof post.pinned === 'boolean'
+                    const callerIsAuthor = !!ctx.callerName && safeName(String(stored.author ?? '')) === ctx.callerName;
+                    cleaned.push((callerIsAdminRole || callerIsAuthor) && typeof post.pinned === 'boolean'
                         ? { ...stored, pinned: post.pinned } : stored);
                     continue;
                 }

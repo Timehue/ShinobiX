@@ -27,8 +27,20 @@ it('leadership may pin existing notices without replacing their author or text',
     const edit = { ...prev, notices: [{ ...notice, author: 'forged', body: 'changed', pinned: true }] };
     assert.deepEqual(validateClanSaveWrite(prev, edit, { callerName: 'kaze', isAdmin: false }).next.notices,
         [{ ...notice, pinned: true }]);
-    assert.deepEqual(validateClanSaveWrite(prev, edit, member).next.notices, [notice]);
+    assert.deepEqual(validateClanSaveWrite(prev, edit, { callerName: 'othermember', isAdmin: false }).next.notices, [notice]);
     assert.deepEqual(validateClanSaveWrite(prev, edit, admin).next.notices, edit.notices);
+});
+
+for (const pinned of [true, false]) it(`the stored author may ${pinned ? 'pin' : 'unpin'} their notice without changing its author or text`, () => {
+    const notice = { id: 'own-notice', author: 'Aka Ito', title: 'Stored title', body: 'Stored text', pinned: !pinned };
+    const prev = { name: 'Storm', founderName: 'Kaze', notices: [notice] };
+    const incoming = { ...prev, notices: [{ ...notice, author: 'forged', title: 'Changed title', body: 'forged@example.com', pinned }] };
+    assert.deepEqual(validateClanSaveWrite(prev, incoming, { callerName: 'akaito', isAdmin: false }).next.notices,
+        [{ ...notice, pinned }]);
+    // Claiming authorship in the submitted row never grants pin authority.
+    incoming.notices[0].author = 'othermember';
+    assert.deepEqual(validateClanSaveWrite(prev, incoming, { callerName: 'othermember', isAdmin: false }).next.notices,
+        [notice]);
 });
 
 function clanWith(items: unknown, currency: Record<string, number> = {}) {
