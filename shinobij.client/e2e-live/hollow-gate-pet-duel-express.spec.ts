@@ -63,12 +63,15 @@ import { SHOWDOWN_FORMAT_SIZE, type ShowdownFormat } from '../../shared/pet-show
  * to a Hound over empty floor. The same reply lists the props' footprints.
  * They are solid: the browser bumps into one without sending a step, and the
  * server refuses one. A walk that ignored them ran into one on about 1 floor
- * in 500, so the plan treats them as walls. Every tile adds 4 threat and 100
- * opens an ambush, so the walk must stay under 25 steps. Of 20,000 seeded
- * first floors sealed this way, all but one had a Hound 2 to 22 steps away
- * (median 7). About one floor in 600 hid every Hound behind a trap, so a trap
- * is crossed only when there is no other way; its modal is answered like a
- * player would.
+ * in 500, so the plan treats them as walls. Every tile adds 4 threat (8 once
+ * the torch is out) and 100 opens an ambush. On the old 25x17 board all but
+ * one of 20,000 seeded first floors had a Hound 2 to 22 steps away (median 7).
+ * The 31x21 crypt board (2026-11-05) spreads its rooms further: of 400 seeded
+ * first floors, 20 had the nearest Hound 25 to 47 steps away (median 13). So
+ * the diver carries Hollow Shards, and when threat gets close to an ambush the
+ * walk stops and burns a Hollow Ward from the shrine's relic bar, as a player
+ * would. A trap is crossed only when there is no other way; its modal is
+ * answered like a player would.
  *
  * The server's draw is random and this spec does not pin it: each run fights
  * whichever format was drawn and checks the browser against the server's
@@ -123,8 +126,15 @@ const VILLAGE = 'Moonshadow Village';
 const VILLAGE_STATE_KEY = 'moonshadowvillage';
 const HOLLOW_GATE_KEY = 'hollow-gate-key';
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** Threat rises 4 per step and opens an ambush at 100 (api/hollow-gate/step.ts). */
-const MAX_WALK_STEPS = 24;
+/**
+ * Threat rises 4 per step, 8 with the torch out, and opens an ambush at 100
+ * (api/hollow-gate/step.ts). The walk wards at this threat, so the next step
+ * and the step back off the Hound tile both stay below 100 even in the dark.
+ * HG_PET_DUEL_WARD_AT lowers it locally to exercise the ward on a short walk.
+ */
+const WARD_AT_THREAT = Number(process.env.HG_PET_DUEL_WARD_AT) || 100 - 2 * 8;
+/** Hollow Ward costs 25 (api/hollow-gate/use-consumable.ts); enough for four. */
+const HOLLOW_SHARDS = 100;
 const DUEL_TIMEOUT = 60_000;
 
 function pet(id: string, templateId: string, name: string, element: string, move: string) {
@@ -169,6 +179,8 @@ async function seedDiver(request: APIRequestContext, info: TestInfo) {
             'bukijutsuDefense', 'taijutsuOffense', 'taijutsuDefense', 'genjutsuOffense',
             'genjutsuDefense', 'ninjutsuOffense', 'ninjutsuDefense'].map((key) => [key, 120])),
         ryo: 1000,
+        // A long walk on the crypt board spends some on a Hollow Ward.
+        hollowShards: HOLLOW_SHARDS,
         // The shrine spends one Hollow Gate Key per fresh dive.
         inventory: [], itemStacks: [{ itemId: HOLLOW_GATE_KEY, count: 1 }],
         equipment: {}, pets, activePetId: pets[0].id,
@@ -330,6 +342,22 @@ async function stepOnDpad(page: Page, width: number, from: number, to: number): 
     return body;
 }
 
+/** Burn a Hollow Ward from the shrine's relic bar: threat drops to 0. */
+async function wardOffTheThreat(page: Page) {
+    const shrine = page.locator('.hollow-gate-shrine');
+    const tools = shrine.locator('details.hg-run-tools');
+    const summary = tools.locator('summary');
+    await summary.click();
+    await expect(tools).toHaveAttribute('open', '');
+    const sealed = apiReply(page, '/api/hollow-gate/use-consumable', (body) => body.action === 'hollow-ward');
+    await tools.getByRole('button', { name: /^Hollow Ward · \d+ Shards$/ }).click();
+    const body = await jsonOf<{ runState?: { threat?: number } }>(await sealed, 'use-consumable hollow-ward');
+    expect(body.runState?.threat, 'the ward wipes threat').toBe(0);
+    await expect(shrine.locator('[role="log"]')).toContainText('Hollow Ward activated.');
+    await summary.click();
+    await expect(tools).not.toHaveAttribute('open', '');
+}
+
 function expectDuelMatchesServer(open: DuelOpen, diver: Diver): number {
     const { state, petIds } = open;
     const size = SHOWDOWN_FORMAT_SIZE[state.format];
@@ -459,19 +487,26 @@ async function reachHoundFromTheShrine(page: Page, info: TestInfo, diver: Diver)
     // Walk to a Hollow Hound on the D-pad. Every tile is a real sealed step.
     const plan = planWalk(manifest, floorSeal.floorFeatures ?? []);
     const steps = plan.path.length - 1;
-    expect(steps, 'the walk must finish before threat opens an ambush').toBeLessThanOrEqual(MAX_WALK_STEPS);
     const hound = plan.path[steps];
     const houndTile = { x: hound % manifest.width, y: Math.floor(hound / manifest.width) };
-    info.annotations.push({ type: 'hollow-gate-walk', description: `${steps} steps to a ${plan.kind} Hound at (${houndTile.x},${houndTile.y})` });
+    let threat = 0;
+    let wards = 0;
     for (let i = 1; i <= steps; i++) {
+        if (threat >= WARD_AT_THREAT) {
+            await wardOffTheThreat(page);
+            threat = 0;
+            wards += 1;
+        }
         const reply = await stepOnDpad(page, manifest.width, plan.path[i - 1], plan.path[i]);
         expect(reply.ambush ?? null, 'no ambush interrupts the walk').toBeNull();
+        threat = Number(reply.threat ?? threat);
         if (manifest.nodes[String(plan.path[i])] === 'trap') {
             const trap = page.getByRole('dialog', { name: 'Ancient Seal Trap', exact: true });
             await trap.getByRole('button', { name: 'Press on', exact: true }).click();
             await expect(trap).toHaveCount(0);
         }
     }
+    info.annotations.push({ type: 'hollow-gate-walk', description: `${steps} steps and ${wards} Hollow Ward(s) to a ${plan.kind} Hound at (${houndTile.x},${houndTile.y})` });
 
     return { started, manifest, plan, hound, houndTile };
 }
