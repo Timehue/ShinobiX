@@ -6,6 +6,9 @@
  * gates (dissolve, seal pool, war) locked for everyone, banned Elder and ANBU
  * appointees stayed seated, and the player's Exchange listings stayed buyable.
  *
+ * A bounty on the player is also taken down and its backers refunded, since a
+ * head on someone who can never log in again can never be claimed.
+ *
  * Only a permanent ban does any of this. A timed ban changes nothing, so a
  * short ban can never cost anyone a seat.
  *
@@ -63,6 +66,15 @@ export async function releasePermanentlyBannedStanding(rawName: string): Promise
         }
     });
     await step('clan founder', () => handOffFoundedClan(slug, out));
+    // A head on someone who can never log in again can never be claimed, so the
+    // backers' stakes would sit in escrow for good: refund them, exactly as when
+    // the target's account is deleted (each stake once, behind a save receipt).
+    await step('pvp bounty', async () => {
+        const { refundBountyOnDeletedTarget } = await import('../pvp/_bounty-deleted-target.js');
+        const bounty = await refundBountyOnDeletedTarget(slug);
+        if (bounty.removedHead) out.released.push(`pvp:bounties[${slug}]`);
+        out.failures.push(...bounty.failures);
+    });
     await step('exchange', async () => {
         const { pullExchangeListingsOfBannedPlayer } = await import('../festival/_exchange.js');
         const pulled = await pullExchangeListingsOfBannedPlayer(slug);

@@ -5,6 +5,7 @@ import { before, beforeEach, describe, it } from 'node:test';
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.ADMIN_PASSWORD = 'permanent-ban-release-admin';
+process.env.SESSION_SECRET = 'permanent-ban-release-secret';
 
 /*
  * What a permanent ban releases (owner ruling 2026-11-04): Kage, Elder and ANBU
@@ -20,6 +21,7 @@ let kageKey: (village: string) => string;
 let elderVillageKey: (village: unknown) => string;
 let WAR_VILLAGES: readonly string[];
 let itemId: string;
+let bountyHandler: (req: never, res: never) => Promise<unknown>;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -28,6 +30,7 @@ before(async () => {
     ({ kageKey } = await import('../village/_kage-settle.js'));
     ({ elderVillageKey } = await import('../village/_elders.js'));
     ({ WAR_VILLAGES } = await import('../_war-map-sectors.js'));
+    bountyHandler = (await import('../pvp/bounty.js')).default as unknown as typeof bountyHandler;
     const items = (await (await import('../shop/_catalog.js')).loadSettlementCatalogs()).items;
     itemId = [...items.values()].find(item => item.slot === 'hand' && !item.serviceItem && !item.stackable)!.id;
 });
@@ -59,7 +62,33 @@ async function ban(target: string, days: number | 'permanent') {
     return out.body;
 }
 
+async function placeBounty(placer: string, target: string, amount: number) {
+    const out = { status: 200, body: {} as Obj };
+    const res = { setHeader() { return res; }, status(code: number) { out.status = code; return res; }, json(value: Obj) { out.body = value; return res; }, end() { return res; } };
+    await bountyHandler({ method: 'POST', headers: { 'x-admin-password': 'permanent-ban-release-admin' }, socket: { remoteAddress: '127.0.0.1' },
+        body: { action: 'place', playerName: placer, target, amount, requestId: randomUUID() } } as never, res as never);
+    assert.equal(out.status, 200, JSON.stringify(out.body));
+}
+
 describe('banning a player', () => {
+    it('permanently takes down a bounty on them and refunds every backer', async () => {
+        await placeBounty('kaze', 'wanderer', 2_000);
+        await placeBounty('rival', 'wanderer', 1_000);
+        const before = { kaze: (await kv.get<Obj>('save:kaze'))!.character.ryo, rival: (await kv.get<Obj>('save:rival'))!.character.ryo };
+        const body = await ban('Wanderer', 'permanent');
+        assert.deepEqual(body.releaseFailures, []);
+        assert.deepEqual((await kv.get<Obj>('pvp:bounties'))?.bounties, []);
+        assert.equal((await kv.get<Obj>('save:kaze'))!.character.ryo, before.kaze + 2_000);
+        assert.equal((await kv.get<Obj>('save:rival'))!.character.ryo, before.rival + 1_000);
+        assert.ok(body.released.includes('pvp:bounties[wanderer]'));
+    });
+
+    it('for a few days leaves a bounty on them standing', async () => {
+        await placeBounty('kaze', 'wanderer', 2_000);
+        await ban('Wanderer', 3);
+        assert.equal((await kv.get<Obj>('pvp:bounties'))?.bounties.length, 1);
+    });
+
     it('permanently releases their seats, their clan and their listings', async () => {
         const [home] = WAR_VILLAGES;
         const listing = await exchange.createExchangeListing('wanderer', { requestId: randomUUID(), kind: 'item', assetId: itemId, quantity: 1, price: 500 });
