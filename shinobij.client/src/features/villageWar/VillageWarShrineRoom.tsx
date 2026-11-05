@@ -5,6 +5,8 @@ import type { Character, VersionedCharacterCommit } from '../../types/character'
 import { campaignRequest, type CampaignBattle, type CampaignResponse } from '../../lib/village-war-campaign';
 import { visiblePoll } from '../../lib/poll';
 import { resolveOwnAvatar } from '../../lib/own-avatar';
+import { onShrineFloor, shrineKeyStep, shrineTileToward, useHeldMovementKey } from '../../lib/held-movement-keys';
+import { formatPetTimer } from '../../lib/utils';
 import './war-shrine-room.css';
 const Battle = lazy(() => import('./VillageCampaignBattle'));
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
@@ -33,6 +35,8 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
         const element = dialog.current;
         if (!element || battle) return;
         element.showModal();
+        // Start on the floor, so the arrow keys walk at once (on a button they move focus).
+        element.querySelector<HTMLElement>('[role=group]')?.focus();
         return () => element.close();
     }, [battle]);
     const adopt = useCallback((response: CampaignResponse) => { if (response.room && alive.current) { current.current = response.room; setRoom(response.room); setNow(response.room.serverNow); setError(''); } }, []);
@@ -53,10 +57,12 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
         return () => { alive.current = false; stop(); clearInterval(timer);
             void campaignRequest(character.name, warId, 'shrine-leave', { objectiveId: objective.id }).catch(() => undefined); };
     }, [character.name, warId, objective.id, adopt]);
-    const me = room?.players.find(p => p.name === slug(character.name));
+    const mine = slug(character.name), me = room?.players.find(p => p.name === mine);
     const target = room?.objective ?? objective;
     const rules = shrineRules({ version: campaignVersion });
-    const closed = now >= target.closesAt;
+    const closed = now >= target.closesAt, locked = busy || stepping !== null;
+    // A held movement key walks on, one tile per answered step, without waiting out the OS key repeat's delay.
+    const held = useHeldMovementKey();
     const enemies = room?.players.filter(p => p.village !== character.village) ?? [];
     const avatar = resolveOwnAvatar(character, sharedImages);
     /** `quiet` leaves the floor tiles enabled, so a tap can turn the walk and a step does not re-render
@@ -65,7 +71,9 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
         if (pending.current) return;
         pending.current = true; if (!quiet) setBusy(true);
         try { const response = await campaignRequest(character.name, warId, action, { objectiveId: objective.id, ...extra }); adopt(response); return response; }
-        catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : 'Shrine action failed.'); }
+        // A refused step (the window just closed, a fight began) only ends the walk. The next
+        // poll shows what changed, or the connection error, so walking never raises a banner.
+        catch (reason) { if (alive.current && !quiet) setError(reason instanceof Error ? reason.message : 'Shrine action failed.'); }
         finally { pending.current = false; if (alive.current && !quiet) setBusy(false); }
     }
     async function walkTo(tile: number) {
@@ -74,8 +82,12 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
         if (walking.current) return;
         walking.current = true;
         try { while (alive.current && goal.current !== null) {
-            const from = current.current?.players.find(p => p.name === slug(character.name))?.tile, target = goal.current;
-            if (from === undefined || from === target) return;
+            const from = current.current?.players.find(p => p.name === mine)?.tile;
+            if (from === undefined || goal.current === null) return;
+            // At the goal, a key still held walks on one more tile.
+            const target: number = from !== goal.current ? goal.current : shrineTileToward(held.current, from);
+            if (target < 0) return;
+            goal.current = target;
             const x = from % 12, y = Math.floor(from / 12), tx = target % 12, ty = Math.floor(target / 12);
             const next = x !== tx ? from + Math.sign(tx - x) : from + Math.sign(ty - y) * 12;
             setStepping(next); steps.current++;
@@ -90,44 +102,42 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
     if (battle) return <Suspense fallback={<p>Opening shrine combat…</p>}><Battle character={character} warId={warId} run={battle}
         sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onBack={() => setBattle(null)} /></Suspense>;
     return <dialog ref={dialog} className='war-shrine-dialog' aria-label='Golden shrine interior'
-        onCancel={event => { event.preventDefault(); if (!busy && stepping === null && !me?.inBattle) void leave(); }}>
-        <section className='war-shrine-room' aria-label='Golden war shrine room'>
+        onCancel={event => { event.preventDefault(); if (!locked && !me?.inBattle) void leave(); }}>
+        <section className='war-shrine-room' aria-label='Golden war shrine room' onKeyDown={event => {
+            // Anywhere in the room, so WASD and the arrows work without first focusing the floor.
+            const tile = me ? shrineKeyStep(event, held, stepping ?? me.tile) : -1;
+            if (tile >= 0) void walkTo(tile);
+        }}>
         <header className='war-shrine-header'><h2>Golden War Shrine</h2>
-            <button className='war-shrine-leave' aria-label='Leave shrine' disabled={busy || stepping !== null || !!me?.inBattle} onClick={() => void leave()}>Leave</button>
+            <button className='war-shrine-leave' aria-label='Leave shrine' disabled={locked || !!me?.inBattle} onClick={() => void leave()}>Leave</button>
             <p className='war-shrine-meta'>Sector {objective.sector} · Shinobi PvP · {target.bouts}/{target.limit} {campaignVersion === 3 ? 'extra-point wins' : 'scored wins'}</p></header>
-        <p className='war-shrine-window' role='status'>{closed ? 'This scoring window is complete.' : `Window closes in ${Math.max(0, Math.ceil((target.closesAt - now) / 60_000))} minutes.`}</p>
-        {error && <div><p role='alert'>{error}</p><button disabled={busy || stepping !== null || closed}
+        <p className='war-shrine-window' role='status'>{closed ? 'This scoring window is complete.' : `The shrine window closes in ${formatPetTimer(target.closesAt - now)}.`}</p>
+        {error && <div><p role='alert'>{error}</p><button disabled={locked || closed}
             onClick={async () => { const response = await act('shrine-enter'); if (response) entered.current = true; }}>Re-enter shrine</button></div>}
         {!room && !error && <p>Entering the golden shrine…</p>}
-        <div className='war-shrine-room-body'><div className='war-shrine-floor' role='group' aria-label='Shrine floor' onKeyDown={event => {
-            if (!me) return;
-            const delta = ({ ArrowUp: -12, ArrowDown: 12, ArrowLeft: -1, ArrowRight: 1 } as Record<string, number>)[event.key];
-            if (delta === undefined) return;
-            event.preventDefault(); const tile = (stepping ?? me.tile) + delta, x = tile % 12, y = Math.floor(tile / 12);
-            if (x >= 1 && x <= 10 && y >= 1 && y <= 10) void walkTo(tile);
-        }} tabIndex={0}>
+        <div className='war-shrine-room-body'><div className='war-shrine-floor' role='group' aria-label='Shrine floor' tabIndex={0}>
             <img className='war-shrine-floor-art' src='/ui/village-war/war-shrine-floor-gold-v1.webp' alt='Overhead golden shrine courtyard with a central seal and stone paths' />
             <div className='war-shrine-tiles'>{Array.from({ length: 144 }, (_, tile) => <button key={tile}
                 aria-label={`Walk to shrine tile ${tile % 12 + 1}, ${Math.floor(tile / 12) + 1}`} tabIndex={-1}
-                disabled={busy || closed || !me || tile % 12 < 1 || tile % 12 > 10 || Math.floor(tile / 12) < 1 || Math.floor(tile / 12) > 10}
+                disabled={busy || closed || !me || !onShrineFloor(tile)}
                 onClick={() => void walkTo(tile)} />)}</div>
             {room?.players.map((player, i) => { const tile = player === me ? stepping ?? player.tile : player.tile;
                 return <span key={player.name} className={`war-shrine-player ${player.village === character.village ? 'is-ally' : 'is-enemy'}`}
                 style={{ left: `${((tile % 12 + .5) / 12) * 100}%`, top: `${((Math.floor(tile / 12) + .5) / 12) * 100}%`, transform: `translate(-50%, -50%) translateX(${i * 6}px)` }}>
-                {player.name === slug(character.name) && avatar ? <img src={avatar} alt='' /> : <b>{player.displayName.slice(0, 2).toUpperCase()}</b>}
-                <small>{player.name === slug(character.name) ? 'You' : player.displayName}</small></span>; })}
+                {player === me && avatar ? <img src={avatar} alt='' /> : <b>{player.displayName.slice(0, 2).toUpperCase()}</b>}
+                <small>{player === me ? 'You' : player.displayName}</small></span>; })}
         </div>
-        <aside aria-label='Shrine control'><p className='war-shrine-input-hint'>Choose a tile or use arrow keys to move.</p>
+        <aside aria-label='Shrine control'><p className='war-shrine-input-hint'>Select a tile, or move with WASD or the arrow keys.</p>
         <p className='war-shrine-control' role='status'>{target.bonusSettled ? target.bonusWinner
             ? `${target.bonusWinner} held the most uncontested time and earned ${rules.controlBonus.toLocaleString()} War Points.` : 'Uncontested time was tied or zero. No window bonus was awarded.'
             : enemies.length ? 'Both villages are inside. The shrine is contested.'
                 : me && target.controlVillage === character.village ? 'Your village controls the shrine and is adding uncontested time.' : 'Hold the shrine uncontested to add time for your village.'}</p>
         <ShrineControlTimes objective={target} villages={[...new Set([character.village, ...Object.keys(target.controlTimeMs ?? {}), ...(room?.players.map(p => p.village) ?? [])])]} />
-        {enemies.length > 0 && <div className='war-shrine-opponents'>{enemies.map(player => <button key={player.name} disabled={busy || stepping !== null || closed || !!me?.inBattle || player.inBattle}
+        {enemies.length > 0 && <div className='war-shrine-opponents'>{enemies.map(player => <button key={player.name} disabled={locked || closed || !!me?.inBattle || player.inBattle}
             onClick={async () => { const response = await act('start', { target: player.name }); if (response?.runId) setBattle(response); }}>
             {player.inBattle ? `${player.displayName} is fighting` : `Fight ${player.displayName}`}</button>)}</div>}
-        <details className='war-shrine-rules'><summary>Controls and scoring</summary>
-            <p>Choose a floor tile or use arrow keys to move. The first {target.limit} enemy-player victories inside earn {rules.winPoints} {campaignVersion === 3 ? 'extra War Points' : 'War Points'} each, shared across both villages. Combat stays open until the window closes.</p>
+        <details className='war-shrine-rules'><summary>How Scoring Works</summary>
+            <p>The first {target.limit} enemy-player victories inside earn {rules.winPoints} {campaignVersion === 3 ? 'extra War Points' : 'War Points'} each, shared across both villages. Combat stays open until the window closes.</p>
             {campaignVersion === 3 && <p>Every victory also awards normal role points and deducts the defeated player's role penalty from the enemy score, down to zero. These continue after the extra-point cap: Kage wins earn 30, Elder 20, ANBU 15 and villager 5 points; losing a Kage costs 50 and an Elder 20.</p>}
             <p>The village with the most uncontested time across the window earns {rules.controlBonus.toLocaleString()} points at closing, even if it has left. Empty and contested time does not count. Tied or zero totals award no bonus.</p>
         </details></aside></div>

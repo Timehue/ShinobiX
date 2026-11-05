@@ -15,7 +15,7 @@ let reduce:typeof import('./_building-actions.js').reduceBuildingAction;
 let withLock:typeof import('../_lock.js').withKvLock;
 let building:NonNullable<ReturnType<typeof import('../../shared/sector-buildings.js').sectorBuilding>>;
 const NOW=Date.now();
-const materials:CraftMaterialSelection=[{'gather-iron-sand':3},{'hunt-torn-hide':2},{'gather-river-fish':2},{'gather-binding-fiber':4}];
+const materials:CraftMaterialSelection=[{'gather-iron-sand':5},{'hunt-torn-hide':2},{'gather-river-fish':3},{'gather-binding-fiber':4}];
 before(async()=>{
     ({kv}=await import('../_storage.js'));({settleBuildingAction:settle}=await import('./_building-settlement.js'));
     ({reduceBuildingAction:reduce}=await import('./_building-actions.js'));({withKvLock:withLock}=await import('../_lock.js'));

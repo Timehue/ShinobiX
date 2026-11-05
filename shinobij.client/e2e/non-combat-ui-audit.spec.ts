@@ -1183,11 +1183,14 @@ test.describe("Awakening Stone cinematic", () => {
         initialSave.character = initialCharacter;
         const runtime = await installUiAuditRuntime(page, initialSave);
         let requestedKind = "";
+        let requestedTarget = "";
         let requestCount = 0;
 
         await page.route("**/api/awakening/roll", async (route) => {
             requestCount += 1;
-            requestedKind = String((route.request().postDataJSON() as { kind?: string }).kind ?? "");
+            const body = route.request().postDataJSON() as { kind?: string; target?: string };
+            requestedKind = String(body.kind ?? "");
+            requestedTarget = String(body.target ?? "");
             if (requestCount === 1) {
                 await route.fulfill({
                     status: 400,
@@ -1221,15 +1224,21 @@ test.describe("Awakening Stone cinematic", () => {
         await expect(page.getByRole("dialog", { name: "Awakening Stone" })).toBeVisible();
         await expect(page.locator(".ca-cinematic")).toHaveCount(0);
 
-        // A paid reroll asks first: it spends Fate Shards and the result is random.
-        const confirmReroll = async () => {
+        // With two elements the player first picks which one to replace, then a
+        // paid reroll asks to confirm: it spends Fate Shards and the result is random.
+        const pickAndConfirmReroll = async () => {
+            const requestsBefore = requestCount;
+            await page.getByRole("button", { name: /^Reroll element 1 element/ }).click();
+            const picker = page.getByRole("group", { name: "Choose the element to reroll" });
+            await expect(picker.getByRole("button", { name: "Reroll Wind" })).toBeVisible();
+            await picker.getByRole("button", { name: "Reroll Water" }).click();
+            expect(requestCount, "picking an element only asks to confirm").toBe(requestsBefore);
             const confirm = page.getByRole("alertdialog", { name: "Reroll element", exact: true });
             await expect(confirm).toContainText("10 Fate Shards");
+            await expect(confirm).toContainText("your Wind element stays");
             await confirm.getByRole("button", { name: "Reroll", exact: true }).click();
         };
-        await page.getByRole("button", { name: /^Reroll element 1 element/ }).click();
-        expect(requestCount, "the first tap only asks to confirm").toBe(0);
-        await confirmReroll();
+        await pickAndConfirmReroll();
         // The "Error:" prefix only colours the message; the player reads the sentence.
         await expect(page.locator(".aw-msg-error")).toHaveText("The stone rejected this reroll.");
         await expect(page.locator(".ca-cinematic")).toHaveCount(0);
@@ -1239,8 +1248,7 @@ test.describe("Awakening Stone cinematic", () => {
         ).toEqual([]);
         runtimeErrors.length = 0;
 
-        await page.getByRole("button", { name: /^Reroll element 1 element/ }).click();
-        await confirmReroll();
+        await pickAndConfirmReroll();
         const cinematic = page.getByRole("dialog", { name: "Fire Release" });
         await expect(cinematic).toBeVisible();
         await expect(cinematic).toHaveAttribute("data-element", "fire");
@@ -1257,6 +1265,7 @@ test.describe("Awakening Stone cinematic", () => {
         );
         await expect(cinematic.locator(".ca-sigil img")).toHaveJSProperty("complete", true);
         expect(requestedKind).toBe("paid-single");
+        expect(requestedTarget).toBe("Water");
         expectAwakeningRuntimeClean(runtimeErrors, runtime.saveConflictCount(), "Awakening reroll reveal emitted runtime errors");
 
         if (process.env.UI_AUDIT_CAPTURE === "1") {

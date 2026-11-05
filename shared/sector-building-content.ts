@@ -1,3 +1,4 @@
+import { resourceIngredientCount } from './resource-material-cost.js';
 import { RESOURCE_ITEMS } from './resource-items.js';
 import type { CraftIngredient } from './crafting-recipes.js';
 import { SECTOR_BUILDINGS, sectorBuilding } from './sector-buildings.js';
@@ -14,9 +15,9 @@ import { FESTIVAL_SITE, festivalStallPainting, festivalStallPlan } from './secto
 /** Four required rows: fittings, shelter lining, crew food, and lashings/packing. The
  * player chooses exact item grades through the existing crafting selector. */
 export const BUILDING_REPAIR_INGREDIENTS: readonly CraftIngredient[] = [
-    { label:'Ore and mineral fittings', count:3, ids:RESOURCE_ITEMS.filter(item=>item.activity==='mining').sort((a,b)=>a.grade-b.grade).map(item=>item.id) },
+    { label:'Ore and mineral fittings', count:resourceIngredientCount(['gather-iron-sand'],3), ids:RESOURCE_ITEMS.filter(item=>item.activity==='mining').sort((a,b)=>a.grade-b.grade).map(item=>item.id) },
     { label:'Hunting materials for shelter lining', count:2, ids:['hunt-torn-hide','hunt-wild-feather','hunt-frost-pelt','hunt-shadow-pelt'] },
-    { label:'Fish for the working crew', count:2, ids:RESOURCE_ITEMS.filter(item=>item.activity==='fishing').map(item=>item.id) },
+    { label:'Fish for the working crew', count:resourceIngredientCount(['gather-river-fish'],2), ids:RESOURCE_ITEMS.filter(item=>item.activity==='fishing').map(item=>item.id) },
     { label:'Harvested lashings and packing', count:4, ids:['gather-binding-fiber','gather-heartwood-bark','gather-field-herb','gather-shadow-thread'] },
 ];
 export const BUILDING_WORKSHOP_RECIPES: Readonly<Record<string, readonly string[]>> = {

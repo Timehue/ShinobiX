@@ -941,18 +941,9 @@ textarea {
 
 /* ── Awakening Stone ─────────────────────────────────────── */
 .aw-panel {
-    background: linear-gradient(135deg, #0a0f1e, #12192e);
-    border: 1px solid rgba(139, 92, 246, 0.4);
-    border-radius: 14px;
-    padding: 28px 32px;
-    width: 100%;
-    max-width: 660px;
-    max-height: 85vh;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 22px;
-    box-shadow: 0 0 40px rgba(139, 92, 246, 0.25);
 }
 
 .aw-element-display {
@@ -960,18 +951,11 @@ textarea {
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    padding: 18px;
-    background: rgba(139, 92, 246, 0.08);
     border: 1px solid rgba(139, 92, 246, 0.25);
     border-radius: 10px;
 }
 
 .aw-element-badge {
-    font-size: 1.5rem;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    padding: 8px 20px;
-    border-radius: 8px;
     text-transform: uppercase;
 }
 
@@ -979,7 +963,6 @@ textarea {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 10px;
 }
 
 .element-water {
@@ -1013,8 +996,6 @@ textarea {
 }
 
 .aw-element-desc {
-    font-size: 0.88rem;
-    color: var(--slate-300);
     text-align: center;
     margin: 0;
 }
@@ -1047,20 +1028,15 @@ textarea {
 .aw-section {
     display: flex;
     flex-direction: column;
-    gap: 10px;
 }
 
     .aw-section h3 {
         margin: 0;
-        font-size: 0.95rem;
-        color: #a78bfa;
-        letter-spacing: 0.04em;
     }
 
 .aw-hint {
     margin: 0;
     font-size: 0.8rem;
-    color: var(--text-muted);
 }
 
 .aw-roll-row {
@@ -1071,28 +1047,15 @@ textarea {
 
 .aw-free-btn,
 .aw-paid-btn {
-    display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 12px 22px;
-    border-radius: 10px;
     font-weight: 700;
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s;
-    border: none;
     flex: 1;
     min-width: 180px;
 }
 
-.aw-paid-btn {
-    background: rgba(51, 65, 85, 0.6);
-    color: var(--slate-300);
-    border: 1px solid rgba(100,116,139,0.4);
-}
-
     .aw-paid-btn:disabled {
-        opacity: 0.45;
         cursor: not-allowed;
     }
 
@@ -1107,10 +1070,7 @@ textarea {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(100,116,139,0.2);
     border-radius: 8px;
-    padding: 12px 16px;
 }
 
 .aw-material-row {
@@ -1125,51 +1085,25 @@ textarea {
 
 .aw-material-name {
     flex: 1;
-    font-size: 0.88rem;
-    color: var(--text-dim);
 }
 
 .aw-material-count {
-    font-weight: 700;
-    font-size: 1rem;
-    color: var(--slate-200);
     min-width: 40px;
     text-align: right;
 }
 
 .aw-forge-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 12px;
 }
 
 .aw-forge-card {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 14px;
-    border-radius: 10px;
-    background: rgba(15, 23, 42, 0.7);
     border: 1px solid rgba(100,116,139,0.25);
-    align-items: center;
-    text-align: center;
 }
 
-    .aw-forge-card.rank-b {
-        border-color: rgba(34,197,94,0.4);
-    }
-
-    .aw-forge-card.rank-a {
-        border-color: rgba(59,130,246,0.4);
-    }
-
-    .aw-forge-card.rank-s {
-        border-color: rgba(230, 196, 119, 0.4);
-    }
-
 .aw-forge-rank {
-    font-weight: 800;
-    font-size: 1rem;
     letter-spacing: 0.04em;
 }
 
@@ -1190,33 +1124,12 @@ textarea {
 
 
 .aw-forge-btn {
-    margin-top: 4px;
-    padding: 7px 12px;
     border-radius: 7px;
     font-size: 0.8rem;
     font-weight: 700;
     cursor: pointer;
-    border: none;
     transition: opacity 0.15s;
     width: 100%;
-}
-
-.rank-b .aw-forge-btn {
-    background: rgba(34,197,94,0.2);
-    color: var(--green-400);
-    border: 1px solid rgba(34,197,94,0.4);
-}
-
-.rank-a .aw-forge-btn {
-    background: rgba(59,130,246,0.2);
-    color: var(--blue-400);
-    border: 1px solid rgba(59,130,246,0.4);
-}
-
-.rank-s .aw-forge-btn {
-    background: rgba(230, 196, 119, 0.2);
-    color: #fde047;
-    border: 1px solid rgba(230, 196, 119, 0.4);
 }
 
 /* ── Clan Hall ───────────────────────────────────────────────────────────── */
@@ -2030,6 +1943,5 @@ textarea {
 }
 
 .aw-forge-btn:disabled {
-    opacity: 0.35;
     cursor: not-allowed;
 }

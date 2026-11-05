@@ -32,7 +32,7 @@ for (const activity of ['mining', 'fishing'] as const) {
         assert.ok(reconnected); assert.equal(reconnected.movementSeq, seal.movementSequence);
         const resolved = resolveResourceAttempt(admitted, seal.id, {}, reconnected, now + 4000, seal);
         assert.ok(resolved.ok); if (!resolved.ok) return;
-        assert.equal(resolved.receipt.outcome, 'success'); assert.equal(resolved.receipt.xp, 10);
+        assert.equal(resolved.receipt.outcome, 'success'); assert.equal(resolved.receipt.xp, 5);
         assert.equal(readResourceGathering(resolved.character.resourceGathering).attemptsToday, 1);
         assert.equal((resolved.character.gatheringToolUses as Record<string, number>)[activity === 'mining' ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole'], 1);
     });

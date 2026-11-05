@@ -1,3 +1,4 @@
+import { resourceIngredientCount } from './resource-material-cost.js';
 import type { SectorBiome } from './sector-geo.js';
 
 export const COMMON_GATHER_IDS = ['gather-field-herb', 'gather-binding-fiber', 'gather-iron-sand'] as const;
@@ -15,7 +16,7 @@ export const GATHER_TRACE_CHANCE = 0.15;
 export const MAX_PENDING_FINDS = 24;
 /** Packed village goods use these exact inputs; workshop recipes add no points. */
 export const GATHER_RECIPE_INGREDIENTS: Readonly<Record<string, Readonly<Record<string, number>>>> = {
-    'village-supply-bundle': { 'ration-pack': 5, 'gather-field-herb': 3, 'gather-binding-fiber': 3, 'gather-iron-sand': 3 },
-    'village-supply-crate': { 'ration-pack': 20, 'gather-field-herb': 10, 'gather-binding-fiber': 10, 'gather-iron-sand': 10 },
+    'village-supply-bundle': { 'ration-pack': 5, 'gather-field-herb': 3, 'gather-binding-fiber': 3, 'gather-iron-sand': resourceIngredientCount(['gather-iron-sand'], 3) },
+    'village-supply-crate': { 'ration-pack': 20, 'gather-field-herb': 10, 'gather-binding-fiber': 10, 'gather-iron-sand': resourceIngredientCount(['gather-iron-sand'], 10) },
 };
 export { VILLAGE_SUPPLY_GOODS, isVillageSupplyGood, provisionValue } from './gathering-supplies.js';

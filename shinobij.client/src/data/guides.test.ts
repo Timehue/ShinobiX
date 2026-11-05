@@ -34,6 +34,8 @@ import { PET_TUTORIAL_LESSONS } from "../lib/pet-tutorial";
 import { GUIDE_CATEGORIES, GUIDES } from "./guides";
 import { BANDIT_TOLL_RYO } from "../../../shared/road-toll";
 import { CARD_CHRONICLE_POINTS_DEFAULTS } from "../../../shared/card-chronicle-points";
+import { DAILY_SECTOR_EXPLORE_LIMIT } from "../../../api/world/_explore";
+import { DAILY_RESOURCE_ATTEMPT_LIMIT, RESOURCE_SUCCESS_XP, RESOURCE_FAILURE_XP } from "../../../shared/resource-gathering";
 
 function textForGuide(id: string): string {
     const guide = GUIDES.find((candidate) => candidate.id === id);
@@ -151,6 +153,7 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     const firstHour = textForGuide("first-hour");
     const progression = textForGuide("progression");
     const world = textForGuide("world");
+    const economy = textForGuide("professions-economy");
     const builds = textForGuide("builds");
     const companions = textForGuide("companions");
     const chronicle = textForGuide("chronicle-showdown");
@@ -172,6 +175,12 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     }
 
     assert.match(world, new RegExp(`${MAX_WILD_SECTOR} ordinary sectors`, "i"));
+    assert.match(world, new RegExp(`${DAILY_SECTOR_EXPLORE_LIMIT} explores, ${DAILY_RESOURCE_ATTEMPT_LIMIT} Mining attempts, and ${DAILY_RESOURCE_ATTEMPT_LIMIT} Fishing attempts per UTC day`, "i"));
+    assert.match(economy, new RegExp(`success awards ${RESOURCE_SUCCESS_XP} skill XP`, "i"));
+    assert.match(economy, new RegExp(`completed failure awards ${RESOURCE_FAILURE_XP} XP`, "i"));
+    assert.match(economy, new RegExp(`Mining and Fishing each have a separate daily allowance of ${DAILY_RESOURCE_ATTEMPT_LIMIT} attempts`, "i"));
+    assert.match(economy, new RegExp(`in addition to ${DAILY_SECTOR_EXPLORE_LIMIT} explores`, "i"));
+    assert.doesNotMatch(`${world} ${economy}`, /share 100(?: total)? actions|100 actions per UTC day across Explore/i);
     assert.match(world, new RegExp(`Road bandits offer Fight or Pay ${BANDIT_TOLL_RYO} ryo`, "i"));
     assert.match(world, /Paying uses carried ryo and costs no HP/);
     assert.match(world, /Other hostile road encounters offer Fight or Flee/);

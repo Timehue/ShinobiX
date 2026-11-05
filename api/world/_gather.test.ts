@@ -89,7 +89,7 @@ for(const id of ['elderbranch-katana','black-lotus-dagger','frostfang-oathblade'
     }
 });
 test('shuriken uses exact iron sand, preserves food, charges its ryo fee and keeps the 50 carry cap',()=>{
-    const original={level:65,ryo:10_000,itemStacks:[{itemId:'hunt-beast-meat',count:6},{itemId:'gather-iron-sand',count:12},{itemId:'gather-heartwood-bark',count:2},{itemId:'gather-binding-fiber',count:4}]};
+    const original={level:65,ryo:10_000,itemStacks:[{itemId:'hunt-beast-meat',count:6},{itemId:'gather-iron-sand',count:18},{itemId:'gather-heartwood-bark',count:4},{itemId:'gather-binding-fiber',count:4}]};
     const result=applyForge(original,'supply','thrown-shuriken',2)!;
     assert.equal(countOwned(result,'thrown-shuriken'),6);assert.equal(countOwned(result,'hunt-beast-meat'),6);assert.equal(result.ryo,10_000-2*1_200);
     assert.equal(applyForge({...original,inventory:Array(48).fill('thrown-shuriken')},'supply','thrown-shuriken',1),null);

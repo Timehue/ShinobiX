@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { Script } from 'node:vm';
-import { minifyRuntimeJson, minifyRuntimeSource } from './runtime-asset-minifier.mjs';
+import { minifyRuntimeHtmlComments, minifyRuntimeJson, minifyRuntimeSource } from './runtime-asset-minifier.mjs';
 
 const repoRoot = join(import.meta.dirname, '..');
 
@@ -31,4 +31,25 @@ test('JSON minification preserves the manifest graph, ordering and escaped text'
     assert.ok(Buffer.byteLength(minified) < Buffer.byteLength(source));
     assert.equal(minifyRuntimeJson(minified), minified, 'reruns leave compact JSON unchanged');
     assert.throws(() => minifyRuntimeJson('{broken'), SyntaxError, 'malformed metadata fails the build');
+});
+
+test('shell comment compaction preserves all markup and functional directives', () => {
+    const directives = '<!--[if IE]><p>Fallback</p><![endif]--><!--#include virtual="/part" --><!--email_off-->contact<!--/email_off-->';
+    const markup = '<!doctype html><html><head><script src="/boot-watchdog.js"></script><style id="boot-splash-style">#root { color: white }</style></head><body><div id="root">Loading</div></body></html>';
+    assert.equal(minifyRuntimeHtmlComments(`<!-- author notes -->${markup}<!-- more notes -->${directives}`), markup + directives);
+    assert.equal(minifyRuntimeHtmlComments(directives), directives);
+    assert.equal(minifyRuntimeHtmlComments(markup), markup);
+    const rawText = '<script>const label = "<!--keep script text-->";</script><style>.x::after { content: "<!--keep CSS text-->" }</style><textarea><!--keep input--></textarea><title><!--keep title--></title>';
+    assert.equal(minifyRuntimeHtmlComments(`<!-- author notes -->${rawText}`), rawText);
+});
+
+test('production shell loses only authoring comments and keeps startup and crawler markup', () => {
+    const source = readFileSync(join(repoRoot, 'shinobij.client', 'index.html'), 'utf8');
+    const compact = minifyRuntimeHtmlComments(source);
+    assert.ok(Buffer.byteLength(source) - Buffer.byteLength(compact) > 3000);
+    for (const marker of ['<div id="root">', '/boot-watchdog.js', 'boot-splash-style', 'itemscope', 'itemprop', '/src/main.tsx']) {
+        assert.ok(compact.includes(marker), marker);
+    }
+    assert.equal(compact, source.replace(/<!--[\s\S]*?-->/g, ''), 'the current template contains explanatory comments only');
+    assert.equal(minifyRuntimeHtmlComments(compact), compact);
 });

@@ -82,7 +82,7 @@ test('weapon recipes and the level-30 seal do not require hunting drops from lat
 
 // ── 2026-10 rebalance, item-use pass: substitutions ────────────────────────
 // Each substitute is accepted 1:1 and sits LAST in its row, so the planner
-// still spends the original material first and no craft costs more than before.
+// still spends the original material first at the same quantity as its substitutes.
 const rowWith = (ingredients: readonly { ids: readonly string[] }[], id: string) => ingredients.find(row => row.ids.includes(id));
 const stock = (counts: Record<string, number>) => (id: string) => counts[id] ?? 0;
 
@@ -91,14 +91,14 @@ test('Ember Ore and Ember Scale fuel the forge 1:1 after Heartwood Bark; the Eld
     const shuriken = SUPPLY_CRAFT_RECIPES['thrown-shuriken'].ingredients;
     assert.deepEqual(rowWith(shuriken, 'gather-heartwood-bark')?.ids, [...FUEL_IDS]);
     assert.deepEqual(rowWith(SUPPLY_CRAFT_RECIPES['thrown-senbon'].ingredients, 'gather-heartwood-bark')?.ids, [...FUEL_IDS]);
-    const base = { 'gather-iron-sand': 6, 'gather-binding-fiber': 2 };
-    assert.deepEqual(planCraftIngredients(shuriken, stock({ ...base, 'gather-ember-ore': 1 })), { ...base, 'gather-ember-ore': 1 });
-    assert.deepEqual(planCraftIngredients(shuriken, stock({ ...base, 'hunt-ember-scale': 1 })), { ...base, 'hunt-ember-scale': 1 });
-    assert.deepEqual(planCraftIngredients(shuriken, stock({ ...base, 'gather-heartwood-bark': 1, 'gather-ember-ore': 5 })), { ...base, 'gather-heartwood-bark': 1 }, 'bark is spent first');
+    const base = { 'gather-iron-sand': 9, 'gather-binding-fiber': 2 };
+    assert.deepEqual(planCraftIngredients(shuriken, stock({ ...base, 'gather-ember-ore': 2 })), { ...base, 'gather-ember-ore': 2 });
+    assert.deepEqual(planCraftIngredients(shuriken, stock({ ...base, 'hunt-ember-scale': 2 })), { ...base, 'hunt-ember-scale': 2 });
+    assert.deepEqual(planCraftIngredients(shuriken, stock({ ...base, 'gather-heartwood-bark': 2, 'gather-ember-ore': 5 })), { ...base, 'gather-heartwood-bark': 2 }, 'bark is spent first');
     for (const id of ['ashen-leaf-saber', 'ashglass-katana', 'black-lotus-dagger']) {
         const fuel = rowWith(gearCraftIngredients(ITEM_CATALOG[id]), 'gather-heartwood-bark');
         assert.deepEqual(fuel?.ids, [...FUEL_IDS], id);
-        assert.equal(fuel?.count, 2, id);
+        assert.equal(fuel?.count, 3, id);
     }
     const elder = rowWith(gearCraftIngredients(ITEM_CATALOG['elderbranch-katana']), 'gather-heartwood-bark');
     assert.deepEqual(elder, { ids: ['gather-heartwood-bark'], count: 4, label: 'Heartwood Bark' });
@@ -111,9 +111,9 @@ test('Ember Ore and Ember Scale fuel the forge 1:1 after Heartwood Bark; the Eld
 test('every River Fish grade makes Treats, Beast Meat first', () => {
     const row = SUPPLY_CRAFT_RECIPES['pet-treat'].ingredients[0];
     assert.deepEqual(row.ids, ['hunt-beast-meat', 'gather-river-fish', 'gather-river-fish-fine', 'gather-river-fish-superior', 'gather-river-fish-pristine']);
-    assert.equal(row.count, 4);
-    assert.deepEqual(planCraftIngredients(SUPPLY_CRAFT_RECIPES['pet-treat'].ingredients, stock({ 'gather-river-fish-pristine': 4, 'gather-field-herb': 2 })),
-        { 'gather-river-fish-pristine': 4, 'gather-field-herb': 2 });
+    assert.equal(row.count, 6);
+    assert.deepEqual(planCraftIngredients(SUPPLY_CRAFT_RECIPES['pet-treat'].ingredients, stock({ 'gather-river-fish-pristine': 6, 'gather-field-herb': 2 })),
+        { 'gather-river-fish-pristine': 6, 'gather-field-herb': 2 });
 });
 
 test('Shadow Pelt stands in for Shadow Thread in the seal, totem, charm and serpent dust; the Black Lotus keeps exact thread', () => {
@@ -123,7 +123,7 @@ test('Shadow Pelt stands in for Shadow Thread in the seal, totem, charm and serp
         assert.equal(row?.count, count, id);
     }
     const seal = SUPPLY_CRAFT_RECIPES['beast-seal-master'].ingredients;
-    const sealStock = { 'gather-stormglass-shard-fine': 4, 'gather-heartwood-bark': 4, 'gather-binding-fiber': 8 };
+    const sealStock = { 'gather-stormglass-shard-fine': 6, 'gather-heartwood-bark': 4, 'gather-binding-fiber': 8 };
     assert.deepEqual(planCraftIngredients(seal, stock({ ...sealStock, 'hunt-shadow-pelt': 4 })), { ...sealStock, 'hunt-shadow-pelt': 4 },
         'a hunter can bind with pelts alone, so the seal really is "forged from rare hunt materials"');
     const lotus = rowWith(gearCraftIngredients(ITEM_CATALOG['black-lotus-dagger']), 'gather-shadow-thread');
@@ -145,7 +145,7 @@ test('Ancient Beast Core, Titan Bone and Legendary Material share one S-rank tro
     assert.deepEqual(planCraftIngredients(charm, stock({ 'hunt-small-fang': 10, 'hunt-titan-bone': 2, 'gather-binding-fiber': 6 })),
         { 'hunt-small-fang': 10, 'hunt-titan-bone': 2, 'gather-binding-fiber': 6 });
     const apex = SUPPLY_CRAFT_RECIPES['pve-apex-predator-fang'].ingredients;
-    const apexStock = { 'hunt-shadow-claw': 8, 'gather-iron-sand-superior': 10, 'gather-binding-fiber': 8 };
+    const apexStock = { 'hunt-shadow-claw': 8, 'gather-iron-sand-superior': 15, 'gather-binding-fiber': 8 };
     assert.deepEqual(planCraftIngredients(apex, stock({ ...apexStock, 'hunt-ancient-beast-core': 3, 'hunt-legendary-material': 1 })),
         { 'hunt-ancient-beast-core': 3, 'hunt-legendary-material': 1, ...apexStock });
 });
@@ -156,7 +156,7 @@ test('the Weekly Boss Core forges epic and legendary weapons as its description 
         const coreRow = rowWith(ingredients, 'weekly-boss-core');
         if (item.rarity === 'epic') {
             assert.deepEqual(coreRow?.ids, ['gather-stormglass-shard-fine', 'gather-stormglass-shard-superior', 'gather-stormglass-shard-pristine', 'weekly-boss-core'], item.id);
-            assert.equal(coreRow?.count, 1, item.id);
+            assert.equal(coreRow?.count, 2, item.id);
         } else if (item.rarity === 'legendary') {
             assert.deepEqual(coreRow?.ids, ['dungeon-legendary-relic', 'warforged-relic', 'veil-of-the-hollow', 'weekly-boss-core'], item.id);
             assert.equal(coreRow?.count, 1, item.id);
