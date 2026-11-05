@@ -212,6 +212,25 @@ function boundStamps(kept: Stamp[]): Stamp[] {
 }
 
 /**
+ * Prepare a fail-closed budget charge for the escrow save's atomicProof.
+ * The caller holds the sender gate; the ledger CAS additionally fences an
+ * expired lease. No write happens until escrow, its receipt and this ledger
+ * commit together. Recovery that finds the receipt never charges again.
+ */
+export async function prepareAtomicOutboundBudgetCharge(
+    slug: string, currency: TradeCurrency, amount: number, tier: TransferTier, now = Date.now(),
+) {
+    const key = transferBudgetKey(slug, currency);
+    const expected = await kv.get<Ledger>(key);
+    const { spent, kept } = sumWindow(expected?.stamps, now);
+    const remaining = Math.max(0, outboundLimit(currency, tier) - spent);
+    if (amount > remaining) return { ok: false as const, error: `You can send ${remaining.toLocaleString()} more ${currency} today.` };
+    kept.push([now, amount]);
+    return { ok: true as const, proof: { key, expected, value: { stamps: boundStamps(kept) },
+        ex: Math.ceil(TRANSFER_WINDOW_MS * 2 / 1000) } };
+}
+
+/**
  * Record a committed transfer against the window.
  *
  * Under the lock on the LEDGER key, because this is a read-modify-write on

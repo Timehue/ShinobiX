@@ -10,7 +10,7 @@ import { FORGED_ITEM_ID } from '../_forged-item-registry.js';
 import { recordEconomyTxn, recordExchangeResourceSale } from '../_economy.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
-import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier, withOutboundBudgetGate } from '../player/_transfer-budget.js';
+import { prepareAtomicOutboundBudgetCharge, senderTrustTier, withOutboundBudgetGate } from '../player/_transfer-budget.js';
 import { isTradeCurrency, type TradeCurrency } from '../player/_trade-core.js';
 
 // The Exchange is a player-to-player transfer channel like /api/player/trade,
@@ -132,6 +132,17 @@ async function cleanup(listing: StoredExchangeListing): Promise<void> {
 }
 
 async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'escrow' | 'purchase' | 'payment' | 'return', catalogs?: SettlementCatalogs) {
+    const budgetCurrency = leg === 'escrow' && listing.asset.kind === 'resource'
+        && listing.asset.id !== 'ryo' && isTradeCurrency(listing.asset.id) ? listing.asset.id : null;
+    // Every entry into escrow (creation and recovery) takes this gate before
+    // the save lock. No Exchange caller holds a sender gate before a listing
+    // lock, so acquiring it here cannot close a lock cycle.
+    const apply = () => applyLegToSave(listing, actor, leg, catalogs, budgetCurrency);
+    return budgetCurrency ? withOutboundBudgetGate(actor, budgetCurrency, apply) : apply();
+}
+
+async function applyLegToSave(listing: StoredExchangeListing, actor: string, leg: 'escrow' | 'purchase' | 'payment' | 'return',
+    catalogs: SettlementCatalogs | undefined, budgetCurrency: TradeCurrency | null) {
     const marker = `${listing.id}:${leg}`;
     const out = await mutatePlayerSave(actor, async ({ character, record }) => {
         const fresh = await kv.get<StoredExchangeListing>(exchangeListingKey(listing.id));
@@ -140,6 +151,7 @@ async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'esc
         if (journal(character).includes(marker)) return { ok: true as const, character, value: null, write: false };
         let next: Obj = character;
         let recordPatch: Obj | undefined;
+        let atomicProof: { key: string; expected?: unknown; value: unknown; ex: number } | undefined;
         const currency = exchangeCurrency(listing);
         if (leg === 'escrow') {
             if (await battleLockedFor(actor)) throw new ExchangeError('Finish your current battle before listing an asset.');
@@ -152,6 +164,12 @@ async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'esc
             // Seal the exact current pet/forged definition before removing it.
             listing = await transition(listing, { sealed, asset: sealed.asset });
             next = removeAsset(character, sealed, listing.quantity);
+            if (budgetCurrency) {
+                const tier = await senderTrustTier(actor, character);
+                const charge = await prepareAtomicOutboundBudgetCharge(actor, budgetCurrency, listing.quantity, tier);
+                if (!charge.ok) throw new ExchangeError(charge.error, 409);
+                atomicProof = charge.proof;
+            }
         } else if (leg === 'purchase') {
             const seller = await kv.get<Obj>(`save:${listing.seller}`);
             if (!seller?.character) throw new ExchangeError('The seller’s account is no longer available.');
@@ -167,7 +185,7 @@ async function applyLeg(listing: StoredExchangeListing, actor: string, leg: 'esc
         if ((leg === 'purchase' || leg === 'return') && FORGED_ITEM_ID.test(listing.asset.id)) {
             recordPatch = { creatorItems: [...objects(record.creatorItems).filter(item => item.id !== listing.asset.id), listing.sealed.definition] };
         }
-        return { ok: true as const, character: stamp(next, marker), value: null, recordPatch };
+        return { ok: true as const, character: stamp(next, marker), value: null, recordPatch, atomicProof };
     });
     if (!out.ok) throw new ExchangeError(out.error, out.status);
     return listing;
@@ -271,11 +289,7 @@ export async function createExchangeListing(player: string, input: { requestId: 
     // outbound budget. Escrow happens at creation, so that is where this lot
     // is charged, under the same per-sender gate. Items, pets and cards, and
     // every purchase, are untouched.
-    const budgetCurrency = input.kind === 'resource' && input.assetId !== 'ryo' && isTradeCurrency(input.assetId) ? input.assetId : null;
-    if (budgetCurrency) {
-        return withOutboundBudgetGate(player, budgetCurrency, () => createExchangeListingLocked(player, input, currency, listingType, durationHours, budgetCurrency));
-    }
-    return createExchangeListingLocked(player, input, currency, listingType, durationHours, null);
+    return createExchangeListingLocked(player, input, currency, listingType, durationHours);
 }
 
 async function createExchangeListingLocked(
@@ -284,7 +298,6 @@ async function createExchangeListingLocked(
     currency: ExchangeCurrency,
     listingType: 'fixed' | 'auction',
     durationHours: number,
-    budgetCurrency: TradeCurrency | null,
 ): Promise<ExchangeListing> {
     const id = createHash('sha256').update(`${player}:${input.requestId}`).digest('hex').slice(0, 32);
     // Keep old ryo request fingerprints replayable across this rollout.
@@ -297,18 +310,12 @@ async function createExchangeListingLocked(
         if (listing && listing.fingerprint !== fingerprint) throw new ExchangeError('This request ID was already used for a different listing.');
         if (listing?.state === 'failed') throw new ExchangeError(listing.failure ?? 'This listing could not be created.');
         const catalogs = await loadSettlementCatalogs();
-        const isNew = !listing;
         if (!listing) {
             const live = await indexed(LIVE_INDEX);
             if (live.filter(l => l.seller === player && (pending(l) || l.state === 'active')).length >= EXCHANGE_LISTING_LIMIT) throw new ExchangeError(`You can have ${EXCHANGE_LISTING_LIMIT} open listings. Cancel or sell one first.`);
             if (live.length >= 2000) throw new ExchangeError('The Exchange is at capacity. Try again after a listing closes.');
             const record = await kv.get<Obj>(`save:${player}`);
             if (!record?.character) throw new ExchangeError('Player save not found.', 404);
-            if (budgetCurrency) {
-                const tier = await senderTrustTier(player, record.character as Obj);
-                const budget = await checkOutboundBudget(player, budgetCurrency, input.quantity, tier);
-                if (!budget.ok) throw new ExchangeError(budget.error, 409);
-            }
             const sealed = sealAsset(await recoverExchangeDefinitions(record), catalogs, input.kind, input.assetId);
             const fee = exchangeFee(input.price);
             const createdAt = Date.now();
@@ -323,12 +330,6 @@ async function createExchangeListingLocked(
             if (!await kv.set(exchangeListingKey(id), listing, { nx: true })) throw new ExchangeError('This listing is already being created. Refresh to recover it.');
         }
         const settled = await recoverLocked(listing, catalogs);
-        // Charged once, by the request that created the lot, after its escrow
-        // committed (a refused or failed listing never eats budget). A replay
-        // of the same request finds the listing and is not charged again.
-        if (budgetCurrency && isNew && settled.state !== 'failed') {
-            await chargeOutboundBudget(player, budgetCurrency, input.quantity);
-        }
         return publicListing(settled);
     }, { failClosed: true, ttlSec: 60 }), { failClosed: true, ttlSec: 60 });
 }

@@ -601,8 +601,15 @@ export function validateClanSaveWrite(
             for (const raw of incomingNotices) {
                 const post = (raw ?? {}) as Record<string, unknown>;
                 const id = String(post.id ?? '');
-                if (id && prevIds.has(id)) { cleaned.push(post); continue; }
                 if (ctx.isAdmin) { cleaned.push(post); continue; }
+                if (id && prevIds.has(id)) {
+                    // Existing IDs are references, not authority to replace a
+                    // post. The board only edits pin state, for leadership.
+                    const stored = prevNotices.find(n => String((n as Record<string, unknown>).id ?? '') === id) as Record<string, unknown>;
+                    cleaned.push(callerIsAdminRole && typeof post.pinned === 'boolean'
+                        ? { ...stored, pinned: post.pinned } : stored);
+                    continue;
+                }
                 // A new post needs its author to be the caller. An EMPTY author
                 // used to skip this check, so any writer could post anonymously.
                 if (!lower(post.author) || lower(post.author) !== ctx.callerName) {

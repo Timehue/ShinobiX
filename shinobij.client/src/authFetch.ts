@@ -278,15 +278,15 @@ function notifySessionExpired(): void {
 const TOKEN_REFRESH_HEADER = 'x-player-token-refresh';
 
 /**
- * Read the expiry stamped into a token. Both formats put it in field 3
- * (`v2.<name>.<expMs>.<epoch>.<sig>` / `v1.<name>.<expMs>.<sig>`). Structural
+ * Read the expiry stamped into a token. All formats put it in field 3,
+ * including v3 tokens carrying a signed Google-authentication timestamp. Structural
  * only — the client cannot verify the signature, and never needs to: this is
  * used solely to tell "definitely dead" from "should still work", never to
  * grant access.
  */
 function tokenExpiryMs(token: string): number | null {
     const parts = token.split('.');
-    if (parts[0] !== 'v2' && parts[0] !== 'v1') return null;
+    if (parts[0] !== 'v3' && parts[0] !== 'v2' && parts[0] !== 'v1') return null;
     const expMs = Number(parts[2]);
     return Number.isFinite(expMs) ? expMs : null;
 }

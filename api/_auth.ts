@@ -90,6 +90,7 @@ export function safeEqual(a: string, b: string): boolean {
 // just no speedup until the secret is configured).
 
 const TOKEN_VERSION = 'v2';
+const GOOGLE_TOKEN_VERSION = 'v3';
 const LEGACY_TOKEN_VERSION = 'v1';
 // 24h. Survives any single PvP fight (≤15min sessions) with margin; the client
 // silently re-mints from the stored password on the rare expiry-mid-session.
@@ -187,6 +188,23 @@ export function issuePlayerToken(
     return `${TOKEN_VERSION}.${b64url(canonical)}.${expMs}.${sessionEpoch}.${sig}`;
 }
 
+/** Only the completed Google claim/signup paths may mint this proof. */
+export function issueGooglePlayerToken(name: string, sessionEpoch = 0, authenticatedAt = Date.now()): string | null {
+    const secret = sessionSecret();
+    const canonical = safeName(name);
+    if (!secret || !canonical || !Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0
+        || !Number.isSafeInteger(authenticatedAt) || authenticatedAt <= 0) return null;
+    const expMs = Date.now() + TOKEN_TTL_MS;
+    const claims = `${GOOGLE_TOKEN_VERSION}.${b64url(canonical)}.${expMs}.${sessionEpoch}.${authenticatedAt}`;
+    return `${claims}.${createHmac('sha256', secret).update(claims).digest('base64url')}`;
+}
+
+/** A verified timestamp belongs to this credential, never another device. */
+export async function googlePlayerTokenAuthenticatedAt(token: string): Promise<number | null> {
+    if (token.split('.')[0] !== GOOGLE_TOKEN_VERSION || !await verifyPlayerToken(token)) return null;
+    return Number(token.split('.')[4]);
+}
+
 /**
  * Verify a session token. Returns the canonical player name on success, or
  * null if the token is missing/malformed/expired/forged/revoked, shared
@@ -201,14 +219,16 @@ export async function verifyPlayerToken(token: string): Promise<string | null> {
     if (!token) return null;
     const parts = token.split('.');
     const version = parts[0];
-    if (version !== TOKEN_VERSION && version !== LEGACY_TOKEN_VERSION) return null;
+    if (version !== TOKEN_VERSION && version !== LEGACY_TOKEN_VERSION && version !== GOOGLE_TOKEN_VERSION) return null;
+    if (version === GOOGLE_TOKEN_VERSION && parts.length !== 6) return null;
     if (version === TOKEN_VERSION && parts.length !== 5) return null;
     if (version === LEGACY_TOKEN_VERSION && parts.length !== 4) return null;
 
     const nameB64 = parts[1];
     const expStr = parts[2];
-    const sessionEpoch = version === TOKEN_VERSION ? Number(parts[3]) : 0;
-    const sig = version === TOKEN_VERSION ? parts[4] : parts[3];
+    const sessionEpoch = version !== LEGACY_TOKEN_VERSION ? Number(parts[3]) : 0;
+    const sig = parts[parts.length - 1];
+    if (version === GOOGLE_TOKEN_VERSION && (!Number.isSafeInteger(Number(parts[4])) || Number(parts[4]) <= 0)) return null;
     let canonical: string;
     try {
         canonical = unb64url(nameB64);
@@ -221,7 +241,9 @@ export async function verifyPlayerToken(token: string): Promise<string | null> {
     if (!Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0) return null;
     // Recompute the signature and constant-time compare. safeEqual handles
     // length mismatch without leaking via timing.
-    const expected = version === TOKEN_VERSION
+    const expected = version === GOOGLE_TOKEN_VERSION
+        ? createHmac('sha256', secret).update(parts.slice(0, 5).join('.')).digest('base64url')
+        : version === TOKEN_VERSION
         ? signToken(canonical, expMs, sessionEpoch, secret)
         : signLegacyToken(canonical, expMs, secret);
     if (!safeEqual(sig, expected)) return null;
@@ -278,7 +300,7 @@ function peekTokenClaims(token: string): { expMs: number; sessionEpoch: number }
     if (!token) return null;
     const parts = token.split('.');
     const version = parts[0];
-    if (version === TOKEN_VERSION && parts.length === 5) {
+    if ((version === TOKEN_VERSION && parts.length === 5) || (version === GOOGLE_TOKEN_VERSION && parts.length === 6)) {
         const expMs = Number(parts[2]);
         const sessionEpoch = Number(parts[3]);
         if (!Number.isFinite(expMs) || !Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0) return null;

@@ -12,6 +12,25 @@ import { validateClanSaveWrite } from './_clan-save-validate.js';
 const member = { callerName: 'akira', isAdmin: false };
 const admin = { callerName: '', isAdmin: true };
 
+it('preserves an existing notice when another member replaces its contents using its ID', () => {
+    const notice = { id: 'existing', author: 'kaze', title: 'Welcome', body: 'Stored announcement' };
+    const prev = { name: 'Storm', founderName: 'Kaze', notices: [notice] };
+    const { next } = validateClanSaveWrite(prev, { ...prev, notices: [
+        { ...notice, author: 'akira', body: 'forged@example.com' },
+    ] }, member);
+    assert.deepEqual(next.notices, [notice]);
+});
+
+it('leadership may pin existing notices without replacing their author or text', () => {
+    const notice = { id: 'existing', author: 'akira', title: 'Welcome', body: 'Stored announcement', pinned: false };
+    const prev = { name: 'Storm', founderName: 'Kaze', notices: [notice] };
+    const edit = { ...prev, notices: [{ ...notice, author: 'forged', body: 'changed', pinned: true }] };
+    assert.deepEqual(validateClanSaveWrite(prev, edit, { callerName: 'kaze', isAdmin: false }).next.notices,
+        [{ ...notice, pinned: true }]);
+    assert.deepEqual(validateClanSaveWrite(prev, edit, member).next.notices, [notice]);
+    assert.deepEqual(validateClanSaveWrite(prev, edit, admin).next.notices, edit.notices);
+});
+
 function clanWith(items: unknown, currency: Record<string, number> = {}) {
     return { name: 'Storm', founderName: 'Kaze', treasury: { ...currency, items } };
 }

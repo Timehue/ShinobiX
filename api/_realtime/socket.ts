@@ -172,9 +172,14 @@ function wireRealtime(io: IOServer): void {
         io.to(room).emit(event, payload);
     });
     // Revocation closes the player's sockets (notify.ts disconnectPlayerSockets).
-    // `true` closes the transport, so the client reconnects and re-authenticates.
+    // A Socket.IO DISCONNECT packet disables automatic reconnection even when
+    // disconnectSockets(true) also closes the transport. Close Engine.IO alone
+    // so the client retries with its current auth; the handshake rejects revoked
+    // tokens and bans. This server uses the local, single-instance adapter.
     setRealtimeDisconnector((room) => {
-        io.in(room).disconnectSockets(true);
+        for (const socket of io.sockets.sockets.values()) {
+            if (socket.rooms.has(room)) socket.conn.close();
+        }
     });
 
     // ── Handshake auth: reuse the EXACT HTTP auth (token → password → ban). ──

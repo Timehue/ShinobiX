@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { cors, safeName } from '../../_utils.js';
 import { kv } from '../../_storage.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { issuePlayerToken, playerSessionsEnabled, readPlayerSessionEpoch } from '../../_auth.js';
+import { issueGooglePlayerToken, playerSessionsEnabled, readPlayerSessionEpoch } from '../../_auth.js';
 import { withKvLock } from '../../_lock.js';
 import { authKey, type AuthRecord } from '../../player-auth.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../../admin/moderation.js';
@@ -118,10 +118,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
 
-            // Remember when this account last proved Google ownership: a
-            // Google-only account may set its first password only shortly after
-            // (player-auth `change`). Best effort: a failed stamp just means the
-            // player is asked to sign in with Google again before that step.
+            // Diagnostic only: password setup trusts the signed Google proof
+            // on the token issued below, never this account-wide timestamp.
             try {
                 await kv.set(authKey(name), { ...record, google: { ...record.google!, lastAuthAt: Date.now() } });
             } catch (err) {
@@ -132,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const fp = clientFpFrom(req);
             if (fp) void recordClientFingerprint(name, fp);
 
-            const token = issuePlayerToken(name, undefined, record.sessionEpoch ?? 0);
+            const token = issueGooglePlayerToken(name, record.sessionEpoch ?? 0);
             if (!token) return res.status(503).json({ ok: false, error: 'Google sign-in is unavailable.' });
 
             return res.status(200).json({

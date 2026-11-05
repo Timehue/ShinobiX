@@ -4,6 +4,8 @@ import { cors, safeName } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import {
     issuePlayerToken,
+    issueGooglePlayerToken,
+    googlePlayerTokenAuthenticatedAt,
     readPlayerSessionEpoch,
     rotatePlayerSessionEpoch,
     isFullAdmin,
@@ -103,7 +105,7 @@ export type AuthRecord = {
     salt?: string;
     sessionEpoch?: number;
     /** Linked Google identity. `sub` is Google's stable per-account subject id. */
-    /** `lastAuthAt`: the last completed Google sign-in or link (see googleSignInIsRecent). */
+    /** `lastAuthAt` is diagnostic only; recent ownership is proved by the signed token. */
     google?: { sub: string; email?: string; linkedAt: number; lastAuthAt?: number };
     /** Guest account: no credential at all, swept after GUEST_INACTIVITY_MS idle. */
     guest?: true;
@@ -127,9 +129,9 @@ export type AuthRecord = {
 /** How long after a Google sign-in that account may set its first password. */
 export const GOOGLE_FIRST_PASSWORD_WINDOW_MS = 30 * 60_000;
 
-/** True when the account completed a Google sign-in or link within the window. */
-export function googleSignInIsRecent(record: AuthRecord, now = Date.now()): boolean {
-    const at = Math.floor(Number(record.google?.lastAuthAt ?? 0)) || 0;
+/** Only a credential issued by a recent Google claim can authorize this step. */
+export async function googleSignInIsRecent(token: string, now = Date.now()): Promise<boolean> {
+    const at = await googlePlayerTokenAuthenticatedAt(token) ?? 0;
     return at > 0 && at <= now + 60_000 && now - at <= GOOGLE_FIRST_PASSWORD_WINDOW_MS;
 }
 
@@ -850,7 +852,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({
                     ok: true,
                     name: safeName(name),
-                    token: issuePlayerToken(name, undefined, claim.sessionEpoch) ?? undefined,
+                    token: issueGooglePlayerToken(name, claim.sessionEpoch) ?? undefined,
                 });
             }, { failClosed: true }), { failClosed: true });
         } catch (err) {
@@ -1218,7 +1220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // (and receive the recovery code), then unlink Google with
                     // it and lock the owner out for good. Guests without Google
                     // keep the token-only path: the token is all they have.
-                    if (record.google?.sub && !googleSignInIsRecent(record)) {
+                    if (record.google?.sub && !await googleSignInIsRecent(suppliedToken)) {
                         return res.status(409).json({
                             ok: false,
                             code: 'google-reauth-required',

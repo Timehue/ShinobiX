@@ -46,6 +46,55 @@ async function patch(player: string, patch: Obj) { const rec = await record(play
 async function list(overrides: Obj = {}) { return post({ action: 'list', playerName: 'seller', requestId: randomUUID(), kind: 'item', assetId: itemId, quantity: 1, price: 1000, ...overrides }); }
 async function buy(id: string, player = 'buyer', price = 1000, expectedCurrency?: string) { return post({ action: 'buy', playerName: player, listingId: id, expectedPrice: price, expectedCurrency }); }
 
+for (const afterCommit of [false, true]) it(`currency escrow and budget recover atomically from an ambiguous write (committed: ${afterCommit})`, async () => {
+    const { transferBudgetKey, checkOutboundBudget } = await import('../player/_transfer-budget.js');
+    const { recoverPendingExchangeListings } = await import('./_exchange.js');
+    const budgetKey = transferBudgetKey('seller', 'fateShards');
+    await kv.del(budgetKey);
+    const original = kv.compareSetMany;
+    assert.ok(original, 'the QA store supports atomic multi-key commits');
+    let interrupted = false;
+    kv.compareSetMany = async (...args) => {
+        if (!interrupted && args[0].some(operation => operation.key === budgetKey)) {
+            interrupted = true;
+            if (afterCommit) await original.apply(kv, args);
+            throw new Error('ambiguous escrow/budget write');
+        }
+        return original.apply(kv, args);
+    };
+    try { await list({ kind: 'resource', assetId: 'fateShards', quantity: 20, price: 1 }); }
+    finally { kv.compareSetMany = original; }
+    assert.equal(interrupted, true);
+    assert.equal((await record('seller')).character.fateShards, afterCommit ? 80 : 100);
+    assert.equal((await checkOutboundBudget('seller', 'fateShards', 0, 'trusted')).spent, afterCommit ? 20 : 0);
+    assert.deepEqual((await recoverPendingExchangeListings()).failures, []);
+    assert.deepEqual((await recoverPendingExchangeListings()).failures, []);
+    assert.equal((await record('seller')).character.fateShards, 80);
+    assert.equal((await checkOutboundBudget('seller', 'fateShards', 0, 'trusted')).spent, 20);
+});
+
+it('recovered currency escrow charges the send budget exactly once after an interrupted activation', async () => {
+    const { transferBudgetKey, checkOutboundBudget } = await import('../player/_transfer-budget.js');
+    const { recoverPendingExchangeListings } = await import('./_exchange.js');
+    await kv.del(transferBudgetKey('seller', 'fateShards'));
+    const original = kv.compareSet;
+    let interrupted = false;
+    kv.compareSet = async (key, expected, value, ...rest) => {
+        if (key.startsWith('sunscar-exchange:listing:') && (value as Obj).state === 'active' && !interrupted) {
+            interrupted = true;
+            throw new Error('activation interrupted after escrow');
+        }
+        return original.call(kv, key, expected, value, ...rest);
+    };
+    try { await list({ kind: 'resource', assetId: 'fateShards', quantity: 20, price: 1 }); }
+    finally { kv.compareSet = original; }
+    assert.equal(interrupted, true);
+    assert.deepEqual((await recoverPendingExchangeListings()).failures, []);
+    assert.deepEqual((await recoverPendingExchangeListings()).failures, []);
+    assert.equal((await record('seller')).character.fateShards, 80);
+    assert.equal((await checkOutboundBudget('seller', 'fateShards', 0, 'trusted')).spent, 20);
+});
+
 for (const currency of ['ryo', 'fateShards']) it(`queues one exact seller receipt only after a completed ${currency} sale`, async () => {
     const created = await list({ currency, price: 41, quantity: 2 });
     const id = created.body.listing.id;

@@ -11,6 +11,17 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 type ResponseOut = { statusCode: number; body: Record<string, unknown> | undefined };
 
 const store = new Map<string, unknown>();
+
+it('another device completing Google sign-in does not authorize an older ordinary token to set a password', async () => {
+    const { issuePlayerToken } = await import('./_auth.js');
+    const stolen = issuePlayerToken('googleonly')!;
+    store.set('auth:googleonly', { createdAt: 1, sessionEpoch: 0,
+        google: { sub: 'google-subject', linkedAt: 1, lastAuthAt: Date.now() } });
+    const result = await post({ action: 'change', name: 'googleonly', newPassword: 'BrandNew1' },
+        { 'x-player-token': stolen });
+    assert.equal(result.statusCode, 409, JSON.stringify(result.body));
+    assert.equal(result.body?.code, 'google-reauth-required');
+});
 const clone = <T>(value: T): T => (
     value === undefined || value === null ? value : JSON.parse(JSON.stringify(value)) as T
 );
@@ -276,8 +287,8 @@ describe('player auth hardening', () => {
 
         it('lets the account owner set a first password without losing the Google link', async () => {
             store.set('auth:googleonly', { ...passwordless, google: { ...passwordless.google, lastAuthAt: Date.now() - 60_000 } });
-            const { issuePlayerToken } = await import('./_auth.js');
-            const token = issuePlayerToken('googleonly', undefined, 0)!;
+            const { issueGooglePlayerToken } = await import('./_auth.js');
+            const token = issueGooglePlayerToken('googleonly', 0)!;
 
             const set = await post(
                 { action: 'change', name: 'googleonly', newPassword: 'BrandNew1' },
