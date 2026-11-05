@@ -542,11 +542,15 @@
 }
 .jutsu-training-screen .technique-view-toggle button + button { border-left: 1px solid rgba(196, 162, 90, 0.2) !important; }
 .jutsu-training-screen .technique-view-toggle button.active { background: rgba(232, 185, 54, 0.12) !important; color: #f0c958 !important; }
-/* The shared `.jutsu-training-screen button:hover` ring (0,3,1) would draw a
-   square gold box around these small controls; this selector outranks it. */
-.jutsu-training-screen .technique-header .technique-view-toggle button:hover:not(:disabled),
-.jutsu-training-screen .technique-card-slot .technique-info-btn:hover:not(:disabled) { box-shadow: none !important; }
-.jutsu-training-screen .technique-header .technique-view-toggle button:not(.active):hover { color: #d7dee8 !important; }
+/* The shared `.jutsu-training-screen button:hover` ring (0,3,1, inside
+   @media (hover: hover)) would draw a square gold box around these small
+   controls; this selector outranks it. Gated the same way, so a tap on a
+   touch screen leaves no sticky hover behind. */
+@media (hover: hover) {
+    .jutsu-training-screen .technique-header .technique-view-toggle button:hover:not(:disabled),
+    .jutsu-training-screen .technique-card-slot .technique-info-btn:hover:not(:disabled) { box-shadow: none !important; }
+    .jutsu-training-screen .technique-header .technique-view-toggle button:not(.active):hover { color: #d7dee8 !important; }
+}
 @media (max-width: 800px) {
     .jutsu-training-screen .technique-view-toggle button { width: 46px; height: 44px; }
 }
