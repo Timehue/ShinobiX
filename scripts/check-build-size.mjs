@@ -950,7 +950,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 812acc43f4 (9,795,668 B without the production env, 9,800,368 B with the
 // feature). Owner approved 9.81 MB. Startup is 396,598 B gzip against the
 // unchanged 399,000 B gate; startup, per-chunk and asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_810_000;
+// 2026-11-04 GAP SCAN: the 426 refresh banner, login error copy and rule fixes
+// put the production-env build at 9,810,335 B, 335 B over. Owner approved
+// 9.815 MB, which also covers the interior held-key (~+757 B) and
+// image-framing (~+2,084 B) branches. The owner wants this brought back down
+// later, by trimming rather than another raise. Startup is ~398,673 B gzip
+// against the unchanged 399,000 B gate; startup, per-chunk and asset gates
+// stay fixed.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_815_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
