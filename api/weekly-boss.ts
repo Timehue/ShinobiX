@@ -20,7 +20,8 @@ import { loadAdminAiObjects } from './_admin-ai-catalog.js';
 import { buildSoloPveAiEncounter } from './solo-pve/_ai-encounter.js';
 import { WEEKLY_BOSS_AI_POLICY } from './solo-pve/_ai-turn-policy.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
-import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from './solo-pve/_store.js';
+import { readSoloPveSession, writeSoloPveSession } from './solo-pve/_store.js';
+import { discardFailedStart } from './solo-pve/_discard-start.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from './solo-pve/_settlement.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from './_settlement-receipts.js';
@@ -1166,7 +1167,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return applied;
                     }, { failClosed: true });
                     if (!reserved) {
-                        await kv.del(activeKey, soloPveSessionKey(run.runId), weeklyBossRunKey(run.runId)).catch(() => 0);
+                        // Also retires the fight's battle-state projection, which a
+                        // bare delete left behind (see discardFailedStart).
+                        await discardFailedStart({ playerName: actorName, sessionId: run.runId, keys: [weeklyBossRunKey(run.runId)],
+                            ifEqual: [{ key: activeKey, value: run.runId }] });
                         return { status: 409 as const, body: { error: 'The boss reset or your attempts were already used.' } };
                     }
                     let updatedCharacter = actorChar;
@@ -1203,7 +1207,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
                                 if (fresh) await kv.set(WEEKLY_BOSS_STATE_KEY, rollbackWeeklyBossAttemptReceipt(fresh, run!.runId, actorName));
                             }, { failClosed: true });
-                            await kv.del(activeKey, soloPveSessionKey(run.runId), weeklyBossRunKey(run.runId)).catch(() => 0);
+                            await discardFailedStart({ playerName: actorName, sessionId: run.runId, keys: [weeklyBossRunKey(run.runId)],
+                                ifEqual: [{ key: activeKey, value: run.runId }] });
                             return { status: 409 as const, body: { error: 'Stamina changed before the fight could start. Try again.' } };
                         }
                         updatedCharacter = staminaCharge.character;

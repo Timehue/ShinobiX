@@ -1090,3 +1090,29 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(await kv.get('pvp:pvp-mode-restriction'), null);
     });
 });
+
+// Real timers on purpose: a mocked tick runs the callback in the ticker's
+// context, so it cannot show which async context the timer inherited. The
+// first arm happens inside the shrine-enter mutateCampaignWar lock, and the
+// checkpoint takes that same lock again once the request is long gone.
+describe('shrine closing checkpoint timer', { concurrency: false }, () => {
+    it('publishes after the lock that armed it has been released', async () => {
+        const { scheduleShrineClosing } = await import('./_village-war-shrine-closing.js');
+        const { withKvLeaseContext } = await import('./_kv-lock-context.js');
+        const stored = await seed(Date.now() - 3_600_000, 3);
+        const objective = stored.campaign.shrine[0];
+        objective.opensAt = Date.now() - 1000;
+        objective.closesAt = Date.now() + 40;
+        await kv.set(`world:war:${id}`, stored);
+        const before = (await kv.get<any>(`world:war:${id}`)).updatedAt;
+        await withKvLeaseContext(`lock:world:war:${id}`, 'owner-1', async () => {
+            scheduleShrineClosing(stored, objective);
+        });
+        let after = before;
+        for (let i = 0; i < 100 && after === before; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            after = (await kv.get<any>(`world:war:${id}`)).updatedAt;
+        }
+        assert.notEqual(after, before, 'the checkpoint must reach the war row');
+    });
+});

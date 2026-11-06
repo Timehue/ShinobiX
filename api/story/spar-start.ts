@@ -7,6 +7,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import { writeSoloPveSession } from '../solo-pve/_store.js';
+import { discardFailedStart } from '../solo-pve/_discard-start.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { sectorPlace } from '../../shared/sector-geo.js';
@@ -89,12 +90,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             },
             environment: { biome: sparBiome },
         });
-        await writeSoloPveSession(session);
-        await kv.set(
-            storyCombatBindingKey(runId),
-            binding,
-            { ex: STORY_COMBAT_SESSION_TTL_SECONDS },
-        );
+        try {
+            await writeSoloPveSession(session);
+            await kv.set(
+                storyCombatBindingKey(runId),
+                binding,
+                { ex: STORY_COMBAT_SESSION_TTL_SECONDS },
+            );
+        } catch (error) {
+            // A session with no binding is never returned to the client, and it
+            // would hold the player "in battle" until it lapsed.
+            await discardFailedStart({ playerName, sessionId: runId, keys: [storyCombatBindingKey(runId)] });
+            throw error;
+        }
         return res.status(200).json({ ok: true, runId, session });
     } catch (err) {
         console.error('[story/spar-start]', err);

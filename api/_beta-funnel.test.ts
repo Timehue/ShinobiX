@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { recordBetaFunnelStep, betaFunnelSlug, type BetaFunnelDeps } from './_beta-funnel.js';
 import { applyBetaMetric, type BetaMetricInput } from './_beta-metrics.js';
+import { currentKvLockContext, withKvLeaseContext } from './_kv-lock-context.js';
 
 function gateKv() {
     const values = new Map<string, unknown>();
@@ -34,6 +35,30 @@ describe('beta onboarding funnel', () => {
         for (let i = 0; i < 4; i += 1) results.push(await recordBetaFunnelStep('training.first_started', 'Alice', deps));
         assert.deepEqual(results, [true, false, false, false]);
         assert.equal(recorded.length, 1);
+    });
+
+    // The combat call site fires this without awaiting as the last step of a
+    // locked session write (solo-pve/_action-service.ts). Inside that lock
+    // context the gate write ran after the lock was released and failed.
+    it('writes outside the caller lock, so a write that outlives the lock still lands', async () => {
+        let release!: () => void;
+        const held = new Promise<void>((resolve) => { release = resolve; });
+        const contexts: unknown[] = [];
+        const kv = {
+            async get() { contexts.push(currentKvLockContext()); return null; },
+            async set() {
+                await held;
+                contexts.push(currentKvLockContext());
+                return 'OK' as const;
+            },
+        };
+        let pending!: Promise<boolean>;
+        await withKvLeaseContext('lock:solo-pve:sess-1', 'owner-1', async () => {
+            pending = recordBetaFunnelStep('combat.first_completed', 'alice', { kv, record: () => undefined });
+        });
+        release();
+        assert.equal(await pending, true);
+        assert.deepEqual(contexts, [undefined], 'the gate write must not carry the released lease');
     });
 
     it('treats the same player under different casing and padding as one player', async () => {

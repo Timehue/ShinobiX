@@ -4,6 +4,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { retireHollowGatePresenceByRunKey } from './_presence.js';
+import { clearHollowGateTilesMarker } from '../battle/_hollow-gate-tiles-marker.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -291,6 +292,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { ex: 24 * 60 * 60 }).catch(() => undefined);
         await kv.del(runKey).catch(() => undefined);
         await retireHollowGatePresenceByRunKey(kv, runKey);
+        // The run is over, so no rift card screen can still need its marker
+        // (see clearHollowGateTilesMarker).
+        await clearHollowGateTilesMarker(playerName);
         if (result.alreadyReported) {
             await recordBetaMetric({
                 event: 'hollow_gate.run_settle_replayed',

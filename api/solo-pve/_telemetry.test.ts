@@ -4,6 +4,7 @@ import { recordSoloPveLifecycle, soloPveTelemetrySource, type SoloPveTelemetryDe
 import type { BetaMetricInput } from '../_beta-metrics.js';
 import { applyBetaMetric } from '../_beta-metrics.js';
 import type { SoloPveSession } from './_session.js';
+import { currentKvLockContext, withKvLeaseContext } from '../_kv-lock-context.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -93,6 +94,32 @@ describe('solo-pve lifecycle telemetry', () => {
         });
         assert.equal(result, false);
         assert.equal(recorded.length, 0);
+    });
+
+    // 2026-11-06: writeSoloPveSession fires the created event without awaiting
+    // it, inside the caller's `save:` lock. When the gate write outlived that
+    // lock it failed the lease check and poisoned the request's shared lock
+    // state, so ai-fight-start's next write and its own cleanup both threw.
+    // The fight it had just written stayed live with no resume pointer, and the
+    // player was "fighting" (no travel) until it lapsed half an hour later.
+    it('writes outside the caller lock, so a write that outlives the lock cannot poison it', async () => {
+        let release!: () => void;
+        const held = new Promise<void>((resolve) => { release = resolve; });
+        let contextAtWrite: unknown = 'not written';
+        const slowKv = {
+            async set() {
+                await held;
+                contextAtWrite = currentKvLockContext();
+                return 'OK' as const;
+            },
+        };
+        let pending!: Promise<boolean>;
+        await withKvLeaseContext('lock:save:alice', 'owner-1', async () => {
+            pending = recordSoloPveLifecycle('combat.session_created', session(), { kv: slowKv, record: () => undefined });
+        });
+        release();
+        assert.equal(await pending, true);
+        assert.equal(contextAtWrite, undefined, 'telemetry must not carry a released lease into its write');
     });
 
     it('ignores a session with no id instead of writing a garbage gate key', async () => {
