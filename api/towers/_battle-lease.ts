@@ -482,6 +482,15 @@ export async function releaseTowerBattleLeases(
             const observed = await kv.get<unknown>(battleLockKey(member));
             if (matchingTowerLease(observed, runId)) {
                 if (await deleteExactLease(kv, battleLockKey(member), observed)) await retireTowerPresence(kv, member, runId);
+            } else if (observed === null) {
+                // A prior release may have committed the lease deletion before
+                // losing its outer mutex. Recover its remaining projection on
+                // retry, under this member's mutex, without ending a newer fight.
+                const projection = await kv.get<unknown>(battleStateKey(member));
+                if (isBattleStateProjection(projection)
+                    && projection.kind === 'tower' && projection.sessionId === runId) {
+                    await retireTowerPresence(kv, member, runId);
+                }
             }
         }
     });

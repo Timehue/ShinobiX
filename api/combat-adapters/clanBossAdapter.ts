@@ -1,6 +1,7 @@
 import type { CombatBattleState, CombatFighter, CombatGroundEffect, CombatJutsu } from '../combat-core/types.js';
 import type { CombatFxEvent } from '../combat-core/types.js';
 import type { PvpFighter } from '../pvp/session.js';
+import type { ReactiveDamage } from '../pvp/move.js';
 import type { TowerActor, TowerSession } from '../towers/_tower-session.js';
 
 export type TowerPlayerCombatResources = {
@@ -62,6 +63,7 @@ export type TowerPlayerJutsuResolver = (
     /** Optional damage ceiling, threaded to the core resolver. See
      *  ResolveJutsuArgs.damageCap — undefined is a strict no-op. */
     damageCap?: number,
+    onReactiveDamage?: (event: ReactiveDamage) => void,
 ) => TowerPlayerJutsuResult;
 
 export function towerActorToCombatFighter(actor: TowerActor): CombatFighter {
@@ -175,11 +177,12 @@ export function resolveTowerPlayerJutsu(args: {
     cooldownKey?: string;
     /** Optional damage ceiling for this one cast (PvE difficulty guard). */
     damageCap?: number;
+    onReactiveDamage?: (event: ReactiveDamage) => void;
 }): TowerPlayerJutsuResult & { normalized: TowerPlayerJutsuCombatInput } {
     const normalized = normalizeTowerPlayerJutsuCombat(args);
     const self = towerActorToPvpFighter(args.actor);
     const opponent = args.actor.id === args.target.id ? towerActorToPvpFighter(args.actor) : towerActorToPvpFighter(args.target);
-    const result = args.resolver(
+    const input: Parameters<TowerPlayerJutsuResolver> = [
         self,
         opponent,
         normalized.jutsu,
@@ -187,7 +190,9 @@ export function resolveTowerPlayerJutsu(args: {
         normalized.environment.biome,
         normalized.environment.round,
         args.damageCap,
-    );
+    ];
+    if (args.onReactiveDamage) input.push(args.onReactiveDamage);
+    const result = args.resolver(...input);
     return { ...result, normalized };
 }
 
