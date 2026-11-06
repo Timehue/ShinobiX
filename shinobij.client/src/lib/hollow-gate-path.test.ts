@@ -82,7 +82,7 @@ test("walking to your own tile is a no-op path", () => {
     assert.deepEqual(findHollowGatePath(run, at(1, 1)), []);
 });
 
-test("knownSet = visible ∪ revealed; diviner senses nearby tiles", () => {
+test("knownSet combines normal sight and memory; the Eye maps off-room tiles", () => {
     const run = makeRun();
     run.tiles[at(5, 3)].revealed = false;
     run.tiles[at(5, 3)].roomId = 1;      // out of the player's room flood
@@ -90,10 +90,10 @@ test("knownSet = visible ∪ revealed; diviner senses nearby tiles", () => {
     assert.ok(!known.has(at(5, 3)), "unseen off-room cell unknown");
     run.diviner = true;
     const divinerKnown = hollowGateKnownSet(run);
-    assert.ok(divinerKnown.has(at(5, 3)), "Diviner's Eye senses a cell within its radius");
+    assert.ok(divinerKnown.has(at(5, 3)), "Diviner's Eye maps an off-room cell");
 });
 
-test("Diviner's Eye never maps the far side of the floor", () => {
+test("Diviner's Eye reveals the whole floor without clearing encounters or bypassing walls", () => {
     // 20×3 corridor: the player at the west end, an unseen room at the east end.
     const w = 20, h = 3;
     const tiles: HollowGateTile[] = [];
@@ -104,11 +104,14 @@ test("Diviner's Eye never maps the far side of the floor", () => {
     const run: HollowGateShrineRun = { width: w, height: h, playerX: 1, playerY: 1, tiles, floor: 1, threat: 0, torch: 10, keys: 0, completed: false, diviner: true };
     const known = hollowGateKnownSet(run);
     assert.ok(known.has(1 * w + 6), "a tile 5 away is sensed");
-    assert.ok(!known.has(1 * w + 7), "a tile 6 away is not");
-    assert.ok(!known.has(1 * w + 18), "the far room stays unknown");
+    assert.equal(known.size, tiles.length, "every tile is known, including the far room");
+    assert.equal(findHollowGatePath(run, 1 * w + 18), null, "seeing through a wall does not allow walking through it");
     const seen = markHollowGateSeen(run);
     assert.equal(seen.tiles[1 * w + 6].seen, true, "sensed tiles enter map memory");
-    assert.equal(seen.tiles[1 * w + 6].revealed, false, "sensed tiles are not unmasked");
+    assert.ok(seen.tiles.every(tile => tile.seen && tile.revealed), "the entire floor is unmasked");
+    assert.ok(seen.tiles.every(tile => !tile.resolved), "reveal does not clear encounters");
+    assert.ok(run.tiles.every(tile => !tile.seen && !tile.revealed), "the original run is unchanged");
+    assert.equal(markHollowGateSeen(seen), seen, "repeated reveal is a no-op");
 });
 
 test("rapid projected steps chain from the latest tile and retain each seal identity", () => {
@@ -121,4 +124,16 @@ test("rapid projected steps chain from the latest tile and retain each seal iden
     assert.equal(first.effect.justResolved?.tile.kind, "empty");
     assert.equal(second.effect.justResolved, null);
     assert.deepEqual([initial.playerX, first.run.playerX, second.run.playerX], [1, 2, 3]);
+});
+
+test("the Eye maps secret passages without opening them; stepping still opens one", () => {
+    const run = makeRun();
+    const index = at(2, 1);
+    run.tiles[index] = { ...run.tiles[index], secret: true, revealed: false, resolved: false };
+    const mapped = markHollowGateSeen({ ...run, diviner: true });
+    assert.equal(mapped.tiles[index].seen, true);
+    assert.equal(mapped.tiles[index].revealed, false);
+    const stepped = projectHollowGateMove(mapped, 2, 1, { blocked: false }, "open-secret");
+    assert.equal(stepped.run.tiles[index].revealed, true);
+    assert.equal(stepped.effect.secretFound, true);
 });

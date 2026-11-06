@@ -15,7 +15,8 @@ import { applyAttunementToRun } from "./hollow-gate-attunement";
 import { loadHollowGateGenerator } from "./hollow-gate-generator-loader";
 import { resumeHollowGateServerRun } from "./hollow-gate-server";
 import type { HiddenChamberState, HollowGateEventModal } from "./hollow-gate-tile";
-import { computeHollowGateSight, computeHollowGateVisible } from "./hollow-gate-visibility";
+import { computeHollowGateVisible } from "./hollow-gate-visibility";
+import { markHollowGateSeen } from "./hollow-gate-path";
 
 /*
  * Hollow Gate — rebuild a live run's board after a reload.
@@ -206,19 +207,6 @@ export function rebuildHollowGateRun(
         if (!onBoard(index)) continue;
         for (const lit of computeHollowGateVisible({ ...walked, playerX: index % width, playerY: Math.floor(index / width) })) seen.add(lit);
     }
-    // Replay only positions reached with the Eye active. Ordinary visited
-    // tiles include pre-Eye paths and must not gain retrospective sight.
-    if (state.divinerUsed) {
-        const eyePositions = new Set<number>([position.y * width + position.x]);
-        const memory = state.divinerVisited;
-        if (typeof memory === "string" && memory.length === tiles.length && /^[01]*$/.test(memory)) {
-            for (let index = 0; index < memory.length; index += 1) if (memory[index] === "1") eyePositions.add(index);
-        }
-        for (const index of eyePositions) {
-            if (!onBoard(index)) continue;
-            for (const lit of computeHollowGateSight({ ...walked, diviner: true, playerX: index % width, playerY: Math.floor(index / width) })) seen.add(lit);
-        }
-    }
     const remembered = tiles.map((tile, index) => (seen.has(index) && !tile.seen ? { ...tile, seen: true } : tile));
 
     // Wing gating: a player can enter only one detour, which seals the others.
@@ -232,7 +220,7 @@ export function rebuildHollowGateRun(
             : { committedDetour: detour, sealedWings: Object.keys(themes).map(Number).filter((wing) => wing !== detour && themes[wing] !== "trial") };
     }
 
-    return {
+    const recovered: HollowGateShrineRun = {
         ...walked,
         ...wings,
         tiles: remembered,
@@ -259,6 +247,9 @@ export function rebuildHollowGateRun(
         ...(state.floorFeatures ? { floorFeaturesVersion: 1 as const } : {}),
         ...(variant ? { variant } : {}),
     };
+    // The authoritative purchase flag restores the whole floor, even for
+    // legacy runs without an Eye path mask. No purchase or reward is replayed.
+    return recovered.diviner ? markHollowGateSeen(recovered) : recovered;
 }
 
 export type HollowGateRecoveryParams = {
