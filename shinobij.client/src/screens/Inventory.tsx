@@ -1288,7 +1288,7 @@ export function Inventory({
                                             {selectedGameItem.weaponCooldown != null && selectedGameItem.weaponCooldown > 0 && <p><strong>Cooldown:</strong> {selectedGameItem.weaponCooldown} rounds</p>}
                                             {selectedGameItem.restoreChakra != null && <p><strong>Restores:</strong> {selectedGameItem.restoreChakra} chakra</p>}
                                             {selectedGameItem.restoreStamina != null && <p><strong>Restores:</strong> {selectedGameItem.restoreStamina} stamina</p>}
-                                            {selectedGatheringTool && <p><strong>Durability:</strong> {selectedGatheringTool.durability === null ? 'Permanent · never breaks' : `${gatheringToolRemaining(character, selectedGatheringTool.id)} / 50 uses remaining`}</p>}
+                                            {selectedGatheringTool && <p><strong>Durability:</strong> {selectedGatheringTool.durability === null ? 'Permanent · never breaks' : `${gatheringToolRemaining(character, selectedGatheringTool.id)} / ${selectedGatheringTool.durability} uses remaining`}</p>}
                                             {selectedGameItem.cost > 0 && (selectedMarketplaceScroll || selectedGatheringTool?.durability === null
                                                 ? <p><strong>Marketplace price:</strong> {selectedGameItem.cost} Fate Shards</p>
                                                 : <p><strong>Value:</strong> {selectedGameItem.cost} ryo</p>)}

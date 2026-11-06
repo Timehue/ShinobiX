@@ -523,7 +523,7 @@ test('a committed admission with a lost save acknowledgement spends one action a
 });
 
 test('a refused save CAS releases its reservation without spending a tool use or daily action', async () => {
-    const name = 'resourcefailedcas'; await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe' }, gatheringToolUses: { 'tool-basic-pickaxe': 49 } });
+    const name = 'resourcefailedcas'; await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe' }, gatheringToolUses: { 'tool-basic-pickaxe': 124 } });
     const poolKey = sectorPoolKey(29, Date.now()), beforePool = cleanSectorPoolRow(await kv.get(poolKey)).explores;
     const original = kv.compareSet;
     kv.compareSet = async (key, expected, value, options) => key === `save:${name}` ? false : original.call(kv, key, expected, value, options);
@@ -531,7 +531,7 @@ test('a refused save CAS releases its reservation without spending a tool use or
     try { assert.notEqual((await post(name, body)).status, 200); } finally { kv.compareSet = original; }
     const saved = (await kv.get<Json>(`save:${name}`))!.character as Json;
     assert.equal(resourceActionsToday(saved), 0);
-    assert.equal((saved.gatheringToolUses as Json)['tool-basic-pickaxe'], 49);
+    assert.equal((saved.gatheringToolUses as Json)['tool-basic-pickaxe'], 124);
     assert.equal((saved.equipment as Json).pickaxe, 'tool-basic-pickaxe');
     assert.equal(cleanSectorPoolRow(await kv.get(poolKey)).explores, beforePool);
     assert.equal(((await post(name, { action: 'nodes' })).body.nodes as Record<string, Json>)['resource-17'].remaining, 3);
@@ -540,14 +540,14 @@ test('a refused save CAS releases its reservation without spending a tool use or
 
 test('the final basic pickaxe use stays unequipped after settlement and a fresh save read', async () => {
     const name = 'resourcebrokenpick';
-    await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe' }, gatheringToolUses: { 'tool-basic-pickaxe': 49 } });
+    await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe' }, gatheringToolUses: { 'tool-basic-pickaxe': 124 } });
     const id = 'resource-final-pickaxe-use-001';
     assert.equal((await post(name, { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: id })).status, 200);
     const cancelled = await post(name, { action: 'cancel', requestId: id });
     assert.equal(cancelled.status, 200);
     const saved = (await kv.get<Json>(`save:${name}`))!.character as Json;
     assert.equal((saved.equipment as Json).pickaxe, undefined);
-    assert.equal((saved.gatheringToolUses as Json)['tool-basic-pickaxe'], 50);
+    assert.equal((saved.gatheringToolUses as Json)['tool-basic-pickaxe'], 125);
     assert.equal(readResourceGathering(saved.resourceGathering).active, undefined);
     assert.equal((await post(name, { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: 'resource-final-pickaxe-use-002' })).status, 409);
 });
@@ -563,7 +563,7 @@ for (const challenge of [
         t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const name = `rankedhttp${challenge.level}${challenge.fish}`, node = resourceNode('resource-1')!;
         await seed(name, { equipment: { fishingPole: 'tool-basic-fishing-pole' },
-            gatheringToolUses: { 'tool-basic-fishing-pole': 49 }, resourceGathering: { fishingXp: challenge.xp } });
+            gatheringToolUses: { 'tool-basic-fishing-pole': 124 }, resourceGathering: { fishingXp: challenge.xp } });
         online.startTravel(name, node.sector, Date.now(), 29, node.approach);
         const id = `ranked-http-${challenge.level}-${challenge.fish}-attempt`;
         const admitted = await post(name, { action: 'start', nodeId: node.id, mode: 'active', requestId: id });
@@ -592,7 +592,7 @@ for (const challenge of [
         assert.equal(receipt.xp, challenge.blocked ? 1 : 5);
         assert.equal(state.fishingXp, challenge.xp + receipt.xp); assert.equal(state.active, undefined);
         assert.equal(resourceActionsToday(character), 1); assert.equal(state.nodes[node.id].attempts, 1);
-        assert.equal((character.gatheringToolUses as Json)['tool-basic-fishing-pole'], 50);
+        assert.equal((character.gatheringToolUses as Json)['tool-basic-fishing-pole'], 125);
         assert.equal((character.equipment as Json).fishingPole, undefined);
         assert.equal(receipt.toolBroke, true);
         if (challenge.blocked) { assert.equal(receipt.itemId, undefined); assert.deepEqual(character.itemStacks, []); }
@@ -623,7 +623,7 @@ test('both shop tool kinds persist their price, lifetime and independent equipme
 });
 
 test('a retry after an uncommitted admission expires does not charge a daily action or tool use', async () => {
-    const name = 'resourceexpiredstart'; await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe' }, gatheringToolUses: { 'tool-basic-pickaxe': 49 } });
+    const name = 'resourceexpiredstart'; await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe' }, gatheringToolUses: { 'tool-basic-pickaxe': 124 } });
     const id = 'resource-expired-admission-001', node = resourceNode('resource-17')!;
     const { mintResourceSeal } = await import('./_resource-gathering.js');
     const { reserveEconomyTx, economyTxKey } = await import('../_economy-tx.js');
@@ -639,7 +639,7 @@ test('a retry after an uncommitted admission expires does not charge a daily act
     assert.equal((await post(name, body)).status, 409);
     const saved = (await kv.get<Json>(`save:${name}`))!.character as Json;
     assert.equal(resourceActionsToday(saved), 0);
-    assert.equal((saved.gatheringToolUses as Json)['tool-basic-pickaxe'], 49);
+    assert.equal((saved.gatheringToolUses as Json)['tool-basic-pickaxe'], 124);
     assert.equal((saved.equipment as Json).pickaxe, 'tool-basic-pickaxe');
     assert.equal((await kv.get<{ state: string }>(economyTxKey(txId)))!.state, 'refunded');
 });

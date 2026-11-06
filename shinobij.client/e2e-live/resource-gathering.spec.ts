@@ -177,7 +177,7 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     for (const tool of [{ id: 'tool-basic-pickaxe', name: 'Basic Pickaxe' }, { id: 'tool-basic-fishing-pole', name: 'Basic Fishing Kunai' }]) {
         await page.getByRole('button', { name: new RegExp(tool.name) }).click();
         const popup = page.getByRole('dialog', { name: `${tool.name} item details` });
-        await expect(popup).toContainText('50 gathering attempts');
+        await expect(popup).toContainText('125 gathering attempts');
         await healthy(); await page.screenshot({ path: info.outputPath(`${tool.id}-shop.png`), fullPage: true });
         const purchased = page.waitForResponse(response => response.url().endsWith('/shop/purchase') && response.request().postDataJSON().itemId === tool.id);
         await popup.getByRole('button', { name: 'Buy for 11250 ryo', exact: true }).click();
@@ -198,8 +198,8 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     await equipTool('Basic Pickaxe', 'Pickaxe');
     await equipTool('Basic Fishing Kunai', 'Fishing Kunai');
     const basicSlots = [
-        loadout.getByRole('button', { name: 'Mining equipment slot, equipped with Basic Pickaxe, 50 of 50 uses left', exact: true }),
-        loadout.getByRole('button', { name: 'Fishing equipment slot, equipped with Basic Fishing Kunai, 50 of 50 uses left', exact: true }),
+        loadout.getByRole('button', { name: 'Mining equipment slot, equipped with Basic Pickaxe, 125 of 125 uses left', exact: true }),
+        loadout.getByRole('button', { name: 'Fishing equipment slot, equipped with Basic Fishing Kunai, 125 of 125 uses left', exact: true }),
     ];
     for (const slot of basicSlots) await expect(slot).toBeVisible();
     await loadout.screenshot({ path: info.outputPath('basic-tool-kit.png') });
