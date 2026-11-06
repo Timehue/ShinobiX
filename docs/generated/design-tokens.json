@@ -3463,7 +3463,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/WildPetBindingCinematic.css",
-            "line": 218
+            "line": 240
           }
         ]
       },
@@ -3886,11 +3886,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/WildPetBinding.css",
-            "line": 83
+            "line": 69
           },
           {
             "source": "shinobij.client/src/components/WildPetBindingCinematic.css",
-            "line": 204
+            "line": 226
           },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic-preview.css",
