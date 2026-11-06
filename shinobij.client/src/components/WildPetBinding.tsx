@@ -273,9 +273,10 @@ function WildPetBindingView({
             <p className="wild-binding-footnote">The seal is spent on activation. If the bind fails, the fight continues.</p>
             {error && <p className="wild-binding-error" role="alert">{error}</p>}
         </div>}
-        {captureStage !== 'idle' && <div ref={resultRef} className="wild-binding-result" role="dialog" aria-modal="true" aria-label="Binding result" tabIndex={-1}>
+        {captureStage !== 'idle' && <div ref={resultRef} className="wild-binding-result" data-rarity={wild.rarity} role="dialog" aria-modal="true" aria-label="Binding result" tabIndex={-1}>
             <div className="wild-binding-result-top"><span>THE BINDING RITUAL</span><span>{wild.name.toUpperCase()} · {wild.rarity.toUpperCase()}</span></div>
             <div className="wild-binding-capture-scene" aria-hidden="true">
+                {captureStage === 'success' && <div className="wild-binding-rays" />}
                 <div className="wild-binding-capture-horizon" />
                 <div className="wild-binding-sigil wild-binding-sigil-outer" />
                 <div className="wild-binding-sigil wild-binding-sigil-inner" />
@@ -292,7 +293,10 @@ function WildPetBindingView({
             <div className="wild-binding-ritual-steps" aria-hidden="true"><span>ATTUNE</span><span>DRAW</span><span>SEAL</span></div>
             {captureStage === 'binding' ? <><h2>A bond takes shape</h2><p>{wild.name} is being drawn into the seal.</p></>
                 : captureStage === 'success' ? <><span className="wild-binding-result-kicker">NEW COMPANION</span><h2>Bond formed</h2><strong className="wild-binding-reward-name">{capturedPet?.name ?? wild.name}</strong><p>Joined your {captureDestination === 'sanctuary' ? 'Sanctuary' : 'companions'}.</p>
-                    {capturedPet?.trait && <p className="wild-binding-reward-trait">TRAIT · {capturedPet.trait}</p>}
+                    <div className="wild-binding-reward-tags">
+                        <span className="wild-binding-reward-rarity">{wild.rarity}</span>
+                        {capturedPet?.trait && <span className="wild-binding-reward-trait">TRAIT · {capturedPet.trait}</span>}
+                    </div>
                     <button type="button" className="wild-binding-primary" onClick={() => finish('captured', captureDestination)}>Continue</button></>
                     : <><h2>The seal fractured</h2><p>{wild.name} broke free. The fight continues.</p>
                         <button type="button" className="wild-binding-primary" onClick={() => { setBindingCinematic(null); setCaptureStage('idle'); }}>Keep fighting</button></>}
