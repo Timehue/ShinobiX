@@ -167,7 +167,7 @@ test('narrow equipment panels keep tool controls contained and reachable after e
     for (const name of ['Basic Pickaxe', 'Basic Fishing Kunai']) {
         await kit.getByRole('button', { name: `Equip ${name}`, exact: true }).click();
     }
-    await expect(kit.getByText('50 / 50 uses remaining')).toHaveCount(2);
+    await expect(kit.getByText('125 / 125 uses remaining')).toHaveCount(2);
     expect(await kit.locator('.gathering-tool-slot').evaluateAll(cards => cards.every(card =>
         card.scrollWidth <= card.clientWidth + 1))).toBe(true);
     await kit.getByRole('button', { name: 'Unequip fishing kunai', exact: true }).click();
@@ -182,7 +182,7 @@ test('Outpost tabs, independent skills and tool slots remain accessible on small
     await expect(page.getByRole('heading', { name: 'Mining · Level 10' })).toBeVisible();
     await expect(page.getByText('Permanent · never breaks')).toHaveCount(2);
     await page.getByRole('button', { name: 'Equip Basic Pickaxe', exact: true }).click();
-    await expect(page.getByText('50 / 50 uses remaining')).toBeVisible();
+    await expect(page.getByText('125 / 125 uses remaining')).toBeVisible();
     await page.getByRole('tab', { name: 'Mining', exact: true }).focus();
     await page.keyboard.press('ArrowLeft');
     await expect(page.getByRole('tab', { name: 'Fishing', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -243,7 +243,7 @@ test('level-one Outpost quality values stay within their cards on narrow phones'
 });
 
 test('Veinbreaking exposes the core and consumes the final basic tool use once', async ({ page }, info) => {
-    const runtime = await install(page, 'resource-13', 49);
+    const runtime = await install(page, 'resource-13', 124);
     runtime.character().equipment = { pickaxe: 'tool-basic-pickaxe', fishingPole: 'tool-golden-fishing-pole' };
     // The initial browser seed is supplied again with the final-use tool equipped.
     await page.addInitScript(seed => { (window as unknown as { resourceSeed: unknown }).resourceSeed = seed; }, runtime.character());

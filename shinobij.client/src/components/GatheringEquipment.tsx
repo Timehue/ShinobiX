@@ -25,7 +25,7 @@ export function GatheringEquipment({ character, commit }: { character: Character
             return <article key={slot} className={`gathering-tool-slot${equipped ? ' equipped' : ''}`}>
                 <img src={gatheringToolArtwork(equipped?.id ?? (slot === 'pickaxe' ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole'))} alt="" />
                 <div><h3>{slot === 'pickaxe' ? 'Pickaxe' : 'Fishing Kunai'}</h3><p>{equipped?.name ?? 'Empty slot'}</p>
-                    {equipped && <p className={remaining !== null && remaining <= 5 ? 'resource-warning' : ''}>{remaining === null ? 'Permanent · never breaks' : `${remaining} / 50 uses remaining`}</p>}
+                    {equipped && <p className={remaining !== null && remaining <= 5 ? 'resource-warning' : ''}>{remaining === null ? 'Permanent · never breaks' : `${remaining} / ${equipped.durability} uses remaining`}</p>}
                     {equipped && <button type="button" disabled={busy} onClick={() => void equip(equipped.id, true)}>Unequip {slot === 'pickaxe' ? 'pickaxe' : 'fishing kunai'}</button>}
                     {options.map(tool => <button type="button" key={tool.id} disabled={busy || gatheringToolRemaining(character, tool.id) === 0} onClick={() => void equip(tool.id, false)}>Equip {tool.name}</button>)}
                     {!equipped && options.length === 0 && <small>Available at the Ryo Shop. Permanent gold tools are in the Grand Marketplace.</small>}

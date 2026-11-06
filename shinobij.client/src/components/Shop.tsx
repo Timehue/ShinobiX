@@ -394,7 +394,7 @@ function ShopBase({
 
                                 {gatheringTool(selectedItem.id) ? <div className="item-popup-detail-grid">
                                     <p><strong>Equipment slot:</strong> {equipmentSlotLabel(selectedItem.slot)}</p>
-                                    <p><strong>Durability:</strong> {gatheringTool(selectedItem.id)!.durability === null ? 'Permanent · never breaks' : '50 gathering attempts'}</p>
+                                    <p><strong>Durability:</strong> {gatheringTool(selectedItem.id)!.durability === null ? 'Permanent · never breaks' : `${gatheringTool(selectedItem.id)!.durability} gathering attempts`}</p>
                                     <p><strong>Use:</strong> Equip in Inventory before visiting a world node</p>
                                     <p><strong>Shop Price:</strong> {currencyIcon} {getShopCost(selectedItem.cost, selectedItem.id)} {currencyLabel}</p>
                                 </div> : wildBindingSeal(selectedItem.id) ? <div className="item-popup-detail-grid">
