@@ -9,6 +9,7 @@ import { VILLAGE_CHAT_TTL_SECONDS, villageChatKey } from '../village/_chat-key.j
 import { withoutKvLeaseContext } from '../_kv-lock-context.js';
 import { runBackgroundWork } from '../_background-work.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { disconnectPlayerSockets } from '../_realtime/notify.js';
 import { kickVillageChat } from '../_realtime/notify.js';
 import { safeLogValue } from '../_safe-log.js';
 import { releasePermanentlyBannedStanding } from './_permanent-ban-release.js';
@@ -381,6 +382,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Also clear active presence + any auth header session won't help, so
             // the player will be kicked on next auth check.
             onlineStore.remove(targetName);
+            // An open socket would otherwise put the banned player straight back
+            // in the world on its next presence frame; its reconnect is refused
+            // at the handshake, which checks the ban.
+            disconnectPlayerSockets(targetName);
             // A permanent ban also releases the seats, clan and listings the
             // player held (owner ruling 2026-11-04). A timed ban never does.
             const release = permanent ? await releasePermanentlyBannedStanding(targetName) : null;

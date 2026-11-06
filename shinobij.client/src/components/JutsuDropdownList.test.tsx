@@ -80,6 +80,40 @@ test("the badge sits beside the name, so the name span still holds exactly the j
     assert.match(html, /<span class="technique-name">Blood Gaze<\/span><span class="technique-bloodline"/);
 });
 
+test("the Training Hall's view switch is opt-in and starts in grid where there is no window", () => {
+    const plain = render();
+    assert.doesNotMatch(plain, /technique-view-toggle|is-grid-view|is-list-view/);
+    assert.match(plain, /<div class="technique-grid" role="listbox"/);
+
+    const html = renderToStaticMarkup(
+        <JutsuDropdownList jutsus={library} label="Jutsu library" renderDetails={() => null} viewToggle />,
+    );
+    assert.match(html, /<div class="technique-view-toggle" role="group" aria-label="Library view">/);
+    assert.match(html, /class="active" aria-pressed="true"[^>]*title="Grid view"/);
+    assert.match(html, /<div class="technique-grid is-grid-view" role="listbox"/);
+});
+
+test("the info button is opt-in and sits beside the card, never inside it", () => {
+    const plain = render();
+    assert.doesNotMatch(plain, /technique-info-btn|technique-card-slot/);
+    assert.match(plain, /role="listbox"/);
+    assert.match(plain, /role="option" aria-selected=/);
+
+    const html = renderToStaticMarkup(
+        <JutsuDropdownList jutsus={library} label="Jutsu library" renderDetails={() => null} onShowInfo={() => {}} />,
+    );
+    // A listbox option may not hold a second button, so the pairs form a list.
+    assert.match(html, /<div class="technique-grid" role="list" aria-label="Jutsu library">/);
+    assert.doesNotMatch(html, /role="option"/);
+    const slots = html.split('<div class="technique-card-slot" role="listitem">').slice(1);
+    assert.equal(slots.length, library.length);
+    for (const slot of slots) {
+        // The card closes before the "?" opens: no nested buttons.
+        assert.match(slot, /^<button class="technique-card[^"]*" aria-pressed="(true|false)" type="button">[\s\S]*?<\/button><button type="button" class="technique-info-btn" aria-label="[^"]+ info" title="Jutsu info"><span aria-hidden="true">\?<\/span><\/button><\/div>/);
+    }
+    assert.match(html, /aria-label="Ember Palm info"/);
+});
+
 test("lists that do not opt in, like the admin creator tools, render no marker at all", () => {
     const html = render();
 

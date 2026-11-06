@@ -3,7 +3,8 @@ import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { attackBlock, worldInteractionBlock } from '../_realtime/presence-gating.js';
+import { attackBlock, worldInteractionBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import type { OnlinePlayer } from '../_realtime/types.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
@@ -66,7 +67,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const locationBlock = worldInteractionBlock(onlineStore.get(identity.name), targetPresence);
             if (locationBlock) return res.status(locationBlock.status).json({ error: locationBlock.error });
         }
-        const block = attackBlock(targetPresence);
+        // The presence `level` is whatever the target's own client last sent, so a
+        // level-60 player claiming level 5 there would be refused as a newcomer by
+        // every attacker, forever. For player attacks the newcomer floor is
+        // checked from the target's SAVE below; presence keeps its other gates.
+        const block = attackBlock(identity.admin ? targetPresence : withoutClaimedLevel(targetPresence));
         if (block) return res.status(block.status).json({ error: block.error });
         // Post-defeat protection, read from the target's AUTHORITATIVE save.
         //
@@ -105,6 +110,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (targetChar) {
                 const now = Date.now();
+                if (isBelowAttackableFloor(Math.floor(Number(targetChar.level ?? 0)) || 0)) {
+                    return res.status(403).json({
+                        error: `Shinobi below level ${ATTACKABLE_MIN_LEVEL} are under newcomer protection and cannot be attacked.`,
+                    });
+                }
                 if (isIncapacitated(targetChar, now)) {
                     return res.status(409).json({ error: 'Target has already been defeated.' });
                 }
@@ -139,6 +149,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('[attack]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }
+}
+
+/** The presence record with its client-claimed level dropped (0 = unknown, not protected). */
+function withoutClaimedLevel(target: OnlinePlayer | null): OnlinePlayer | null {
+    if (!target) return target;
+    const character = { ...((target.character as Record<string, unknown> | null) ?? {}) };
+    delete character.level;
+    return { ...target, character } as OnlinePlayer;
 }
 
 /**

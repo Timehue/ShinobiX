@@ -269,12 +269,17 @@
             grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         }
         .profile-page-card .jutsu-loadout-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 8px !important; }
-        .jutsu-training-screen .technique-card {
-            grid-template-columns: 80px minmax(0, 1fr) !important;
-            grid-template-rows: auto !important;
-            align-items: center !important;
-        }
-        .jutsu-training-screen .technique-thumb { width: 80px !important; height: 80px !important; }
+    }
+    /* Training Hall library, list view (the header toggle picks it). */
+    .jutsu-training-screen .technique-grid.is-list-view { grid-template-columns: minmax(0, 1fr) !important; }
+    .jutsu-training-screen .technique-grid.is-list-view .technique-card {
+        grid-template-columns: 80px minmax(0, 1fr) !important;
+        grid-template-rows: auto !important;
+        align-items: center !important;
+    }
+    .jutsu-training-screen .technique-grid.is-list-view .technique-thumb { width: 80px !important; height: 80px !important; }
+    @media (max-width: 480px) {
+        .jutsu-training-screen .technique-grid.is-grid-view { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
     }
     @media (max-width: 480px) {
         .profile-page-card .jutsu-loadout-grid,

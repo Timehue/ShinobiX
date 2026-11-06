@@ -130,7 +130,7 @@ export function Professions({
                             style={{
                                 height: 120,
                                 backgroundImage: `linear-gradient(180deg, rgba(8,10,22,0.1), rgba(8,10,22,0.75)), url(${CARD_IMAGE[info.id]})`,
-                                backgroundSize: "cover, contain",
+                                backgroundSize: "cover",
                                 backgroundPosition: "center",
                                 backgroundRepeat: "no-repeat",
                             }}

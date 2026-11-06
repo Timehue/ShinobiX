@@ -542,11 +542,20 @@ test("Jutsu Training opens mobile technique details with a training action", asy
     const runtime = await installUiAuditRuntime(page);
     await expectUiAuditBoot(page, runtime, "jutsuTraining");
 
-    const technique = page.locator(".jutsu-library .technique-card").first();
+    const slot = page.locator(".jutsu-library .technique-card-slot").nth(1);
+    const technique = slot.locator(".technique-card");
     const techniqueName = (await technique.locator(".technique-name").textContent())?.trim() ?? "";
-    await technique.click();
-
     const dialog = page.locator(".jutsu-mobile-info-modal");
+
+    // Players found the automatic popup intrusive: a card tap only selects it.
+    await technique.click();
+    await expect(technique).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#jutsu-plan-title")).toHaveText(techniqueName);
+    await page.waitForTimeout(300);
+    await expect(dialog).toBeHidden();
+
+    // The small "?" in the card's corner opens the details.
+    await slot.getByRole("button", { name: `${techniqueName} info` }).click();
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("heading", { name: techniqueName })).toBeVisible();
     await expect(dialog.locator(".jutsu-detail-description")).not.toBeEmpty();

@@ -53,6 +53,8 @@ import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { CardClashDuel } from "./CardClashDuel";
 import { GameArtIcon } from "../components/GameArtIcon";
 import "./EchoesOfWar.css";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 
 /** Beat between "you chose to enter" and the board mounting: the matchup
  * splash. Long enough to read both names once; skipped entirely under
@@ -625,7 +627,9 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                     <div className="echoes-detail-backdrop" style={{ backgroundImage: `url(${selected.sceneImage})` }} aria-hidden="true" />
                     <div className="echoes-panel echoes-detail">
                     <div className="echoes-detail-portrait-wrap">
-                        <img className="echoes-detail-portrait" src={selected.portrait} alt={`${selected.name}, ${selected.title}`} />
+                        <span className="echoes-detail-portrait-frame art-backdrop" style={artBackdropStyle(selected.portrait)}>
+                            <img className="echoes-detail-portrait" src={selected.portrait} alt={`${selected.name}, ${selected.title}`} />
+                        </span>
                         {selected.isBoss ? <span className="echoes-boss-mark">Chapter Boss</span> : null}
                         {cleared ? <span className="echoes-cleared-mark">Story complete</span> : null}
                     </div>

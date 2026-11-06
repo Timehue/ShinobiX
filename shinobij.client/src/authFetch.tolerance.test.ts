@@ -6,6 +6,7 @@ import {
     buildSaveVersionEventDetail,
     clearRecoveryAdminSession,
     getSocketAuth,
+    isTokenExpired,
     setActivePlayer,
     setActiveToken,
     setAdminSession,
@@ -65,6 +66,11 @@ function withStorage(body: () => void): void {
 }
 
 describe("transient 401 tolerance", () => {
+    it("recognizes Google-bound token expiry without treating its proof timestamp as expiry", () => {
+        const now = Date.now();
+        assert.equal(isTokenExpired(`v3.cGxheWVy.${now - 1}.0.${now - 1000}.signature`), true);
+        assert.equal(isTokenExpired(`v3.cGxheWVy.${now + 60_000}.0.${now - 3_600_000}.signature`), false);
+    });
     it("clears a tokenless admin fallback before player requests resume", () => {
         const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
         const values = new Map<string, string>();

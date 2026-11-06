@@ -73,14 +73,13 @@ export function transferBudgetKey(slug: string, currency: TradeCurrency): string
  * send door holds this gate from before its check until after its charge, so
  * same-sender sends queue behind each other whichever door they came through.
  *
- * Lock order is gate → save/row locks → ledger lock (innermost). The gate is
- * only ever taken first, by code holding no other lock, so it cannot close a
- * cycle with either.
+ * Ordinary sends take gate -> save/treasury row -> ledger lock (innermost).
+ * Exchange recovery takes listing -> gate -> save. Deletion already owns a
+ * save, so its Exchange cleanup uses withNonWaitingKvLocks: it may try these
+ * locks, but must defer cleanup rather than wait in the reverse order.
  *
- * It is a different key from the ledger's own lock because `withKvLock` is not
- * re-entrant: `chargeOutboundBudget` takes the ledger lock inside this one, and
- * on a shared key it would spend its retries waiting on itself and then drop
- * the stamp silently.
+ * The gate covers the whole check/settlement/charge interval; the separate
+ * ledger lock protects the legacy charge helper's shorter read-modify-write.
  */
 export function transferGateKey(slug: string, currency: TradeCurrency): string {
     return `xfer:gate:${slug}:${currency}`;
@@ -261,6 +260,25 @@ function boundStamps(kept: Stamp[]): Stamp[] {
         if (ts > newest) newest = ts;
     }
     return [[newest, total], ...kept.slice(kept.length - (MAX_STAMPS - 1))];
+}
+
+/**
+ * Prepare a fail-closed budget charge for the escrow save's atomicProof.
+ * The caller holds the sender gate; the ledger CAS additionally fences an
+ * expired lease. No write happens until escrow, its receipt and this ledger
+ * commit together. Recovery that finds the receipt never charges again.
+ */
+export async function prepareAtomicOutboundBudgetCharge(
+    slug: string, currency: TradeCurrency, amount: number, tier: TransferTier, now = Date.now(),
+) {
+    const key = transferBudgetKey(slug, currency);
+    const expected = await kv.get<Ledger>(key);
+    const { spent, kept } = sumWindow(expected?.stamps, now);
+    const remaining = Math.max(0, outboundLimit(currency, tier) - spent);
+    if (amount > remaining) return { ok: false as const, error: `You can send ${remaining.toLocaleString()} more ${currency} today.` };
+    kept.push([now, amount]);
+    return { ok: true as const, proof: { key, expected, value: { stamps: boundStamps(kept) },
+        ex: Math.ceil(TRANSFER_WINDOW_MS * 2 / 1000) } };
 }
 
 /**

@@ -14,6 +14,8 @@ import "../styles/battle-skin.css";
 import { visiblePoll } from "../lib/poll";
 import { retryArenaSettlement } from "../lib/arena-settlement-retry";
 import "../styles/mission-arena-fight.css";
+// CombatSideHud's portrait frame (it is node-tested, so it cannot import CSS).
+import "../styles/art-backdrop.css";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";

@@ -519,10 +519,17 @@
 .mission-hall .mh-fetch-rewards,
 .mission-hall .mh-combat-rewards,
 .mission-hall .mh-fetch-meta,
-.mission-hall .mh-combat-tags,
-.mission-hall .mh-combat-rank {
+.mission-hall .mh-combat-tags {
     color: rgba(196,162,90,0.75) !important;
     font: 400 10px Inter, sans-serif !important;
+}
+/* The rank strip is painted in the rank's own colour (inline style), so the
+   muted gold used for the card's small print vanished into it. */
+.mission-hall .mh-combat-rank {
+    color: #fff !important;
+    font: 800 10px/1.2 Inter, sans-serif !important;
+    letter-spacing: 0.16em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 .mission-hall .mh-stats {
     display: flex; gap: 6px; flex-wrap: wrap;
@@ -772,8 +779,32 @@
     box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
 }
 
+/* Mission art frames (combat portraits, field sector paintings) are
+   `.art-backdrop` frames (styles/art-backdrop.css): the square art is fitted
+   whole into the wide banner and its own blurred copy fills the sides. */
+.mission-hall .mh-combat-avatar,
+.mission-hall .mh-field-art { position: relative; }
+
 .mission-hall .mh-combat-avatar { height: 118px; }
-.mission-hall .mh-combat-avatar img { width: 100%; height: 100%; border-radius: 0; object-fit: contain; object-position: center; }
+.mission-hall .mh-combat-avatar img {
+    width: auto;
+    max-width: 100%;
+    height: 100%;
+    border-radius: 0;
+    object-fit: contain;
+    object-position: center;
+}
+
+/* A soft floor under the portrait so it settles onto the card body. */
+.mission-hall .mh-combat-avatar::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    inset: auto 0 0;
+    height: 38%;
+    background: linear-gradient(180deg, transparent, rgba(5, 11, 22, 0.72));
+    pointer-events: none;
+}
 
 .mission-hall .mh-field-section { padding-top: 22px !important; }
 
@@ -859,9 +890,9 @@
 }
 
 .mission-hall .mh-field-art {
-    position: relative;
+    display: flex;
     min-height: 164px;
-    overflow: hidden;
+    justify-content: center;
     border-bottom: 1px solid color-mix(in srgb, var(--mission-rank-color) 28%, transparent);
     background: #050b16;
 }
@@ -869,13 +900,15 @@
 .mission-hall .mh-field-art::after {
     content: "";
     position: absolute;
+    z-index: 1;
     inset: 0;
     background: linear-gradient(180deg, rgba(3, 8, 17, 0.02) 28%, rgba(3, 8, 17, 0.88) 100%);
     pointer-events: none;
 }
 
 .mission-hall .mh-field-art img {
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     height: 164px;
     display: block;
     object-fit: contain;
@@ -1125,6 +1158,7 @@
 
 .mission-hall .mh-field-locked { opacity: 0.64; }
 .mission-hall .mh-field-locked .mh-field-art img { filter: grayscale(0.45) brightness(0.62); }
+.mission-hall .mh-field-locked .mh-field-art::before { filter: blur(13px) grayscale(0.45) brightness(0.36); }
 
 @media (max-width: 1080px) {
     .mission-hall .mh-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1237,7 +1271,10 @@
         width: 100%;
         height: 100%;
         object-position: center;
+        -webkit-mask-image: none;
+        mask-image: none;
     }
+    .mission-hall .mh-combat-avatar::after { content: none; }
     .mission-hall .mh-combat-body {
         grid-column: 3;
         grid-row: 1;
@@ -1362,6 +1399,8 @@
     }
     .mission-hall .mh-field-card:hover { transform: none; }
     .mission-hall .mh-field-art { display: contents; }
+    /* `display: contents` would turn the backdrop pseudo into a stray grid item. */
+    .mission-hall .mh-field-art::before,
     .mission-hall .mh-field-art::after { content: none; }
     .mission-hall .mh-field-art img {
         grid-column: 2;
@@ -1369,8 +1408,15 @@
         width: 68px;
         height: 100%;
         min-height: 82px;
+        /* No frame to paint a blurred backdrop in (`display: contents`), and a
+           fitted square left dark bars above and below the 68px thumbnail.
+           Sector paintings are terrain, not portraits, so filling the cell
+           trims a sliver of ground off the sides and loses nothing. */
+        object-fit: cover;
         object-position: center;
         transform: none;
+        -webkit-mask-image: none;
+        mask-image: none;
     }
     .mission-hall .mh-field-card:hover .mh-field-art img { transform: none; }
     .mission-hall .mh-field-rank {

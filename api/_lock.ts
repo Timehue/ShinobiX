@@ -31,6 +31,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { kv, type KvLike } from './_storage.js';
 import { alreadyHoldsKvLock, withKvLeaseContext } from './_kv-lock-context.js';
 export { LockOwnershipLostError } from './_kv-lock-context.js';
@@ -162,6 +163,20 @@ export function makeKvLockPrimitives(store: Pick<KvLike, 'set' | 'delIfEqual'>):
 // Real KV-backed primitives.
 const kvLockPrimitives: LockPrimitives = makeKvLockPrimitives(kv);
 
+const nonWaitingLocks = new AsyncLocalStorage<boolean>();
+
+/**
+ * Cleanup may already hold a save lock while visiting shared settlements whose
+ * normal order is shared row -> budget gate -> save. It must not WAIT in the
+ * reverse order. Try each new lock once and fail closed if busy; the caller
+ * retains its retry anchor and retries the cleanup after releasing its locks.
+ * This scope also covers deeper recovery/receipt cleanup locks. It preserves
+ * the existing lease context and reentrant ownership; it never runs unlocked.
+ */
+export function withNonWaitingKvLocks<T>(fn: () => Promise<T>): Promise<T> {
+    return nonWaitingLocks.run(true, fn);
+}
+
 /**
  * Acquire a short-lived KV lock around `target`, run `fn`, release the lock.
  * Falls through to running `fn` unlocked if the lock can't be acquired in
@@ -174,5 +189,7 @@ export async function withKvLock<T>(
     opts: LockOptions = {},
 ): Promise<T> {
     if (alreadyHoldsKvLock(target)) return fn();
-    return withLockCore(target, fn, kvLockPrimitives, opts);
+    return withLockCore(target, fn, kvLockPrimitives, nonWaitingLocks.getStore()
+        ? { ...opts, maxAttempts: 1, failClosed: true }
+        : opts);
 }

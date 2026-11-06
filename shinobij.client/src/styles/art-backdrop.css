@@ -1,0 +1,41 @@
+/* Art frames that fit the WHOLE picture (`object-fit: contain`) into a frame of
+   a different shape. Instead of flat bands either side, the frame paints a
+   blurred, overscanned copy of the same art behind the sharp one.
+
+   Usage: put `art-backdrop` on the (positioned) element that wraps the img and
+   `style={artBackdropStyle(src)}` on it (lib/card-art-backdrop.ts sets
+   `--art-backdrop`). With no art the var is unset and the backdrop is `none`.
+
+   z -1 inside the isolated frame paints over the frame's own background but
+   under everything in it — the img whether it is in flow or positioned, and any
+   overlay pseudo or label — so no site has to renumber its stacking. The frame
+   MUST be positioned, or the backdrop escapes to an outer ancestor unclipped:
+   `relative` is the default here, at zero specificity (`:where`), so a site
+   rule that places its frame absolutely still wins in any stylesheet order.
+
+   `art-backdrop-feather` on the img fades its left/right edges into the blur,
+   for a free-standing tile narrower than its frame. */
+:where(.art-backdrop) {
+    position: relative;
+}
+
+.art-backdrop {
+    isolation: isolate;
+    overflow: hidden;
+}
+
+.art-backdrop::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background: var(--art-backdrop, none) center / cover no-repeat;
+    filter: blur(13px) saturate(1.2) brightness(0.5);
+    transform: scale(1.35);
+    pointer-events: none;
+}
+
+.art-backdrop-feather {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent);
+}

@@ -111,13 +111,22 @@
 .chronicle-pack--legendary,
 .chronicle-pack--legendary-five { --pack-glow: #e9c76c; }
 
+/* Pack art is a 2:3 portrait in a wide frame. It is fitted whole, and the
+   gutters are filled with a blurred copy of it (`.art-backdrop`,
+   styles/art-backdrop.css) instead of flat ink. */
+.chronicle-pack__frame {
+  display: flex;
+  justify-content: center;
+  border-bottom: 1px solid color-mix(in srgb, var(--pack-glow) 50%, #1d2935);
+}
+
 .chronicle-pack__art {
   display: block;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   height: clamp(200px, 24vw, 285px);
   object-fit: contain;
   object-position: center;
-  border-bottom: 1px solid color-mix(in srgb, var(--pack-glow) 50%, #1d2935);
 }
 
 .chronicle-pack__body { padding: 16px; }

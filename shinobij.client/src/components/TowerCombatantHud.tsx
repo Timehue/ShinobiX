@@ -1,4 +1,6 @@
 import type { TowerActor } from "../lib/towers-api";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 
 /** A focused fighter dossier, with the same resource hierarchy as duel combat. */
 export function TowerCombatantHud({ actor, avatar, label, active, onInspect, healthLabel = "Health" }: {
@@ -19,7 +21,7 @@ export function TowerCombatantHud({ actor, avatar, label, active, onInspect, hea
             <button type="button" className="tower-combatant-inspect" id={`tower-dossier-${actor.id}`}
                 onClick={onInspect} aria-label={`Inspect ${actor.name}`} aria-controls="tower-fighter-details">
                 <span className="tower-combatant-label">{label}{active && <b>Acting</b>}</span>
-                <img className="tower-combatant-portrait" src={avatar} alt="" />
+                <span className="tower-combatant-portrait-frame art-backdrop" style={artBackdropStyle(avatar)}><img className="tower-combatant-portrait" src={avatar} alt="" /></span>
                 <strong className="tower-combatant-name">{actor.name}</strong>
             </button>
             <div className="tower-combatant-resources">

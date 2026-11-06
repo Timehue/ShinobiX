@@ -170,6 +170,8 @@
     box-shadow: 0 12px 28px rgba(0, 0, 0, .25);
 }
 
+/* The 16:9 story art is fitted whole into a much wider strip; `.art-backdrop`
+   (styles/art-backdrop.css) fills the sides with a blurred copy of it. */
 .pet-mentor-story::after {
     content: "";
     position: absolute;

@@ -10,6 +10,8 @@ import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import type { TileCard } from "../data/tile-cards";
 import "../styles/chronicle-duel.css";
 import "../styles/chronicle-packs.css";
+// ChroniclePackGallery's art frames (it is node-tested, so it cannot import CSS).
+import "../styles/art-backdrop.css";
 import "../styles/card-pack-opening.css";
 import {
   CHRONICLE_CARD_CATALOG,
