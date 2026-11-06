@@ -662,7 +662,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Use the Shop and Grand Marketplace for catalog purchases, and the Crafter for recipes. Direct player transfers send currency, not items. Sunscar Exchange handles eligible player listings. Check level and element requirements before spending materials or ryo. Crafted goods sell to the shop for at most 7/10 of what their hunt materials fetch; a craft made only of gathered materials cannot be sold."
+            "text": "Use the Shop and Grand Marketplace for catalog purchases, and the Crafter for recipes. Direct player transfers send currency, not items. Sunscar Exchange handles eligible player listings. Check level and element requirements before spending materials or ryo. Crafted goods made with hunt materials sell to the shop for at most 7/10 of what those materials fetch. Goods the shop stocks that are made only of gathered materials sell for half their base price, except the Rejuvenation Potion, which the shop does not buy."
           },
           {
             "type": "p",

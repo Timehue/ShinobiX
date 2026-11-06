@@ -126,8 +126,9 @@ export const SUPPLY_CRAFT_RECIPES: Readonly<Record<string, SupplyCraftRecipe>> =
  * materials at 1.65-17x their own sale price, into ryo. A crafted good now sells
  * for at most 7/10 of the cheapest NPC value its recipe accepts, so crafting to
  * sell is always worse than selling the inputs raw. A recipe made only of
- * gathered materials (which have no NPC price) sells for nothing. Both sale
- * routes and the Inventory preview price through standardSaleUnitValue.
+ * gathered materials (which have no NPC price) would sell for nothing, but every
+ * such shop item is in CRAFTED_SALE_CAP_EXEMPT below. Both sale routes and the
+ * Inventory preview price through standardSaleUnitValue.
  */
 export const CRAFTED_SALE_INPUT_NUM = 7;
 export const CRAFTED_SALE_INPUT_DEN = 10;
@@ -156,9 +157,31 @@ export function craftedSaleCapRyo(itemId: string): number | null {
     return craftedCap(itemId, 0);
 }
 
+/*
+ * Shop items made only of gathered materials that the shop still buys back at
+ * the ordinary half cost (owner rulings 2026-11-05: players expect to sell what
+ * the shop sells them, starting with Shuriken and Senbon). The Crafter's supply
+ * fee keeps crafting to sell a loss: a Senbon costs 400 to craft and sells for
+ * 200, and a batch of 3 Shuriken costs 1,200 and sells for 600. Every item here
+ * was repriced to at least 3x its sale basis, so the fee (a quarter of the shelf
+ * price, a fifth at the Keeper workshop) is always above half the basis
+ * (shared/craft-fees.ts). The Rejuvenation Potion stays out: the shop refuses the
+ * potion slot. craftedSaleCapRyo keeps reporting the input-derived cap; only the
+ * sale price skips it.
+ */
+export const CRAFTED_SALE_CAP_EXEMPT: ReadonlySet<string> = new Set([
+    'thrown-shuriken', 'thrown-senbon',
+    'item-smoke-bomb', 'consum-smoke-pellet', 'consum-cleansing-incense', 'consum-lifeline-elixir',
+    'pve-avengers-pendant', 'pve-loyal-companion-bell',
+    // Ancient Chests also drop one Treat a little under 1 chest in 5
+    // (api/world/_chest.ts), so that roll is now worth 200 ryo more.
+    'pet-treat',
+]);
+
 /** The standard NPC unit price, floor(cost / 2), capped for crafted goods. 0 means unsellable. */
 export function standardSaleUnitValue(itemId: string, cost: number): number {
     const half = Math.floor(Math.max(0, Number(cost) || 0) / 2);
+    if (CRAFTED_SALE_CAP_EXEMPT.has(itemId)) return half;
     const cap = craftedSaleCapRyo(itemId);
     return cap == null ? half : Math.min(half, cap);
 }

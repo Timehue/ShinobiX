@@ -3,12 +3,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import {
+    CRAFTED_SALE_CAP_EXEMPT,
     CRAFTED_SALE_INPUT_DEN,
     CRAFTED_SALE_INPUT_NUM,
     SUPPLY_CRAFT_RECIPES,
     craftedSaleCapRyo,
     standardSaleUnitValue,
 } from '../../shared/crafting-recipes.js';
+import { keeperWorkshopCraftRyo, supplyCraftRyo } from '../../shared/craft-fees.js';
 import { HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
 import { gearCraftRyo } from '../../shared/craft-fees.js';
@@ -46,12 +48,18 @@ function cheapestInputValue(id: string): number {
         sum + row.count * Math.min(...row.ids.map(inputSaleValue)), 0);
 }
 
-/** Outputs whose recipes accept only gathered materials (plus a gathered-only intermediate). */
-const GATHER_ONLY = [
+/** Shop items whose recipes accept only gathered materials and that still sell
+ *  for nothing. Every other such item is in CRAFTED_SALE_CAP_EXEMPT. */
+const GATHER_ONLY = ['potion-rejuvenation'];
+/** Every shop item crafted only from gathered materials (cap 0), exempt or not. */
+const ALL_GATHER_ONLY = [
     'thrown-shuriken', 'thrown-senbon', 'item-smoke-bomb', 'potion-rejuvenation',
     'consum-smoke-pellet', 'consum-cleansing-incense', 'consum-lifeline-elixir',
     'pve-loyal-companion-bell', 'pve-avengers-pendant', 'pet-treat',
 ];
+const settlementItem = (id: string) => ({ ...catalog[id], cost: costOf(id) } as unknown as SettlementItem);
+const holder = (id: string) => ({ name: 'crafter', ryo: 0, inventory: [], itemStacks: [{ itemId: id, count: 3 }], equipment: {} });
+
 /** Crafter-only pet food (main's pet growth v2): no catalog price, so never an NPC sale. */
 const CRAFT_ONLY_FOOD = ['elemental-pet-treat', 'ancient-pet-treat'];
 
@@ -63,7 +71,7 @@ describe('crafted goods sell for at most 7/10 of their inputs', () => {
     it('every crafted output sells for no more than 0.7 x its cheapest inputs, and never above half its cost', () => {
         let checked = 0;
         for (const [id, recipe] of itemRecipes) {
-            if (costOf(id) <= 0) continue;
+            if (costOf(id) <= 0 || CRAFTED_SALE_CAP_EXEMPT.has(id)) continue;
             checked++;
             const unit = standardSaleUnitValue(id, costOf(id));
             const perCraft = unit * (recipe.count ?? 1);
@@ -72,8 +80,64 @@ describe('crafted goods sell for at most 7/10 of their inputs', () => {
             assert.ok(unit <= half(id), `${id}: ${unit} > half cost ${half(id)}`);
             assert.ok(unit >= 0 && Number.isSafeInteger(unit), `${id}: ${unit}`);
         }
-        // 24 since Elemental Treats lost their shop price (main's pet growth v2).
-        assert.ok(checked >= 24, `only ${checked} crafted outputs checked`);
+        // 15: 24 since Elemental Treats lost their shop price (main's pet growth
+        // v2), less the nine gathered-only shop items exempted on 2026-11-05.
+        assert.ok(checked >= 15, `only ${checked} crafted outputs checked`);
+    });
+
+    /** What each exempt item sells for: half its pre-scale cost (owner rulings 2026-11-05). */
+    const EXEMPT_PRICES: Record<string, number> = {
+        'thrown-shuriken': 200, 'thrown-senbon': 200, 'pet-treat': 200,
+        'item-smoke-bomb': 180, 'consum-smoke-pellet': 300, 'consum-cleansing-incense': 560,
+        'consum-lifeline-elixir': 720, 'pve-avengers-pendant': 2_000, 'pve-loyal-companion-bell': 2_400,
+    };
+
+    it('gathered-only shop items sell for half their cost, and crafting them to sell still loses ryo', () => {
+        assert.deepEqual([...CRAFTED_SALE_CAP_EXEMPT].sort(), Object.keys(EXEMPT_PRICES).sort());
+        for (const id of CRAFTED_SALE_CAP_EXEMPT) {
+            // Still made only of gathered materials: the input cap itself is 0.
+            assert.equal(craftedSaleCapRyo(id), 0, id);
+            assert.equal(standardSaleUnitValue(id, costOf(id)), EXEMPT_PRICES[id], id);
+            assert.equal(EXEMPT_PRICES[id], half(id), `${id} sells for exactly half its cost`);
+            const count = SUPPLY_CRAFT_RECIPES[id].count ?? 1;
+            const shelf = Number(catalog[id].cost);
+            const resale = standardSaleUnitValue(id, costOf(id)) * count;
+            assert.ok(supplyCraftRyo(id, shelf, count) > resale, `${id}: Crafter fee must exceed resale ${resale}`);
+            assert.ok(keeperWorkshopCraftRyo(id, shelf, count) > resale, `${id}: Keeper fee must exceed resale ${resale}`);
+        }
+    });
+
+    it('gathered-only shop items sell on /inventory/sell and /shop/sell', () => {
+        for (const id of CRAFTED_SALE_CAP_EXEMPT) {
+            const stored = { name: 'seller', ryo: 0, inventory: [], itemStacks: [{ itemId: id, count: 3 }], equipment: {} };
+            const item = { ...catalog[id], cost: Number(catalog[id].cost) } as unknown as SettlementItem;
+            const inventory = applyInventorySale(stored, item, 'backpack', 2, undefined, `exempt-${id}`, 100);
+            assert.equal(inventory.ok && inventory.value.ryo, EXEMPT_PRICES[id] * 2, `${id} on /inventory/sell`);
+            const shop = sellCatalogItem(stored, id, 1);
+            assert.equal(shop.ok && shop.sale.unitValue, EXEMPT_PRICES[id], `${id} on /shop/sell`);
+        }
+    });
+
+    it('every gathered-only shop item is either exempt or refused for a stated reason', () => {
+        // Scan the live recipes, not a hand list: any new gathered-only recipe
+        // with a shelf price lands here and must be classified.
+        const gatheredOnly = itemRecipes.filter(([id]) => costOf(id) > 0 && craftedSaleCapRyo(id) === 0).map(([id]) => id).sort();
+        assert.deepEqual(gatheredOnly, [...ALL_GATHER_ONLY].sort());
+        for (const id of gatheredOnly) assert.ok(CRAFTED_SALE_CAP_EXEMPT.has(id) !== GATHER_ONLY.includes(id), `${id} must be exempt or in GATHER_ONLY, not both`);
+    });
+
+    it('every priced item in a sellable slot sells back for something', () => {
+        // Players expect to sell what the shop sells them (owner, 2026-11-05).
+        // The potion slot and gathering tools are refused by slot, on purpose.
+        const sellableSlots = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'weapon', 'armor', 'gloves', 'thrown', 'item', 'aura', 'accessory']);
+        let checked = 0;
+        for (const item of Object.values(catalog)) {
+            if (!(Number(item.cost) > 0) || !sellableSlots.has(item.slot)) continue;
+            checked++;
+            const sale = applyInventorySale(holder(item.id), settlementItem(item.id), 'backpack', 1, undefined, `any-${item.id}`, 100);
+            assert.ok(sale.ok && sale.value.ryo > 0, `${item.id} (${item.slot}) costs ${item.cost} but cannot be sold`);
+        }
+        assert.ok(checked >= 100, `only ${checked} priced items checked`);
     });
 
     it('Crafter-only pet food has no price and sells for nothing', () => {
@@ -150,9 +214,6 @@ describe('crafted goods sell for at most 7/10 of their inputs', () => {
 // integration edits in handoff A-professions-crafting-gathering (PCG-1) land in
 // api/inventory/_sale.ts, api/shop/_sale.ts and Inventory.tsx.
 describe('both sale routes and the Inventory preview apply the crafted-goods cap', () => {
-    const settlementItem = (id: string) => ({ ...catalog[id], cost: costOf(id) } as unknown as SettlementItem);
-    const holder = (id: string) => ({ name: 'crafter', ryo: 0, inventory: [], itemStacks: [{ itemId: id, count: 3 }], equipment: {} });
-
     it('refuses a gather-only craft on /inventory/sell and /shop/sell, and changes nothing', () => {
         for (const id of GATHER_ONLY) {
             const stored = holder(id);
