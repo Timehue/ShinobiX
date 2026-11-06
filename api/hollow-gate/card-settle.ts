@@ -14,7 +14,7 @@ import { hollowGateCombatReward } from './_combat-session.js';
 import { hollowGateRunRyoScale } from './_gate-scale.js';
 import { creditHollowGateLedger } from './_ledger.js';
 import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
-import { clearHollowGateTilesMarker } from '../battle/_hollow-gate-tiles-marker.js';
+import { captureHollowGateTilesMarker, clearHollowGateTilesMarker } from '../battle/_hollow-gate-tiles-marker.js';
 import { hollowGateEndedRunCharacter, hollowGatePendingOperationOf, hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
 
 /** Redeem only the terminal server-owned Chronicle match bound to this run. */
@@ -35,6 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-card-settle', 30, 60_000, identity.name))) return;
         const runKey = hollowGateRunKey(playerName, token);
+        const tilesMarker = await captureHollowGateTilesMarker(playerName, token, matchId);
         const result = await withKvLock(runKey, async () => {
             const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
             const record = await kv.get<{ character?: Record<string, unknown>; _saveVersion?: number }>(`save:${playerName}`);
@@ -176,7 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The card match is over, so the card screen's compatibility marker
         // has nothing left to guard. Retire it here rather than trusting the
         // browser's resolve, which a failed localStorage write can skip.
-        if (result.status === 200) await clearHollowGateTilesMarker(playerName);
+        if (result.status === 200) await clearHollowGateTilesMarker(playerName, tilesMarker);
         return res.status(result.status).json(result.body);
     } catch (error) {
         console.error('[hollow-gate/card-settle]', error);

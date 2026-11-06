@@ -79,11 +79,9 @@ export function resetLapseReconciliationForTests(): void {
 /** A projection naming a fight that is over (or gone) is stale: retire it. */
 async function retireStaleProjection(playerName: string | undefined, sessionId: string): Promise<boolean> {
     if (!playerName) return false;
-    const { retireBattleProjection, noteBattleEnded } = await import('./_realtime/battle-projection.js');
+    const { retireBattlePresence } = await import('./_realtime/battle-projection.js');
     const { kv } = await import('./_storage.js');
-    const retired = await retireBattleProjection(kv, playerName, sessionId).catch(() => false);
-    if (retired) noteBattleEnded(playerName);
-    return retired;
+    return retireBattlePresence(kv, playerName, sessionId).catch(() => false);
 }
 
 export async function reconcileLapsedBattle(

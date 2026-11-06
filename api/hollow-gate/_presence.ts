@@ -1,9 +1,8 @@
 import { safeName } from '../_utils.js';
 import {
-    noteBattleEnded,
     noteBattleStarted,
     publishBattleProjection,
-    retireBattleProjection,
+    retireBattlePresence,
     type BattleProjectionStore,
 } from '../_realtime/battle-projection.js';
 
@@ -38,7 +37,7 @@ export async function publishHollowGatePresence(store: BattleProjectionStore, pl
 export async function retireHollowGatePresence(store: BattleProjectionStore, playerName: string, token: string): Promise<void> {
     const slug = safeName(playerName);
     if (!slug || !token) return;
-    if (await retireBattleProjection(store, slug, token).catch(() => false)) noteBattleEnded(slug);
+    await retireBattlePresence(store, slug, token).catch(() => false);
 }
 
 /** Every dive-ending path holds the run key rather than the token; parse it back. */

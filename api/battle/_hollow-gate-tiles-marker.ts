@@ -1,5 +1,6 @@
 import { kv as realKv } from '../_storage.js';
 import { safeName } from '../_utils.js';
+import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
 
 /*
  * The rift card ambush screen holds a client-written compatibility marker,
@@ -14,9 +15,10 @@ import { safeName } from '../_utils.js';
  * settled here, so the server now retires the marker when the match settles
  * or the run ends instead of trusting the browser to.
  *
- * Only a `hollowGateTiles` marker is touched, and only by compare-and-delete on
- * the exact value read: a Tower lease or any other screen's marker under the
- * same key is never removed. Best-effort; the one-hour TTL stays the backstop.
+ * Capture the marker BEFORE settlement and bind that capture to the current
+ * saved run (and pending match for card settlement). Cleanup must not read a
+ * marker after settlement: a newer dive may already have installed its own.
+ * Best-effort; the one-hour TTL stays the backstop for unprovable legacy state.
  */
 
 type MarkerStore = {
@@ -26,14 +28,47 @@ type MarkerStore = {
 
 export const HOLLOW_GATE_TILES_MARKER_KIND = 'hollowGateTiles';
 
-export async function clearHollowGateTilesMarker(playerName: string, store: MarkerStore = realKv): Promise<boolean> {
+export type CapturedHollowGateTilesMarker = {
+    playerName: string;
+    token: string;
+    matchId?: string;
+    marker: object;
+};
+
+export async function captureHollowGateTilesMarker(
+    playerName: string,
+    token: string,
+    matchId?: string,
+    store: MarkerStore = realKv,
+): Promise<CapturedHollowGateTilesMarker | null> {
     const slug = safeName(playerName);
-    if (!slug) return false;
-    const key = `battle-lock:${slug}`;
+    if (!slug || !token) return null;
     try {
-        const current = await store.get<{ kind?: unknown }>(key);
-        if (!current || typeof current !== 'object' || current.kind !== HOLLOW_GATE_TILES_MARKER_KIND) return false;
-        return await store.delIfEqual(key, current);
+        // Read the marker first: subsequent validation can only authorize this
+        // exact snapshot, never a replacement published during settlement.
+        const marker = await store.get<{ kind?: unknown }>(`battle-lock:${slug}`);
+        if (!marker || typeof marker !== 'object' || marker.kind !== HOLLOW_GATE_TILES_MARKER_KIND) return null;
+        const [save, run] = await Promise.all([
+            store.get<{ character?: { hollowGateRun?: { runToken?: string } | null } }>(`save:${slug}`),
+            store.get<HollowGateRunToken>(hollowGateRunKey(slug, token)),
+        ]);
+        if (save?.character?.hollowGateRun?.runToken !== token || !run || safeName(run.playerName) !== slug
+            || (matchId !== undefined && run.cardAmbushMatchId !== matchId)) return null;
+        return { playerName: slug, token, ...(matchId !== undefined ? { matchId } : {}), marker };
+    } catch {
+        return null;
+    }
+}
+
+export async function clearHollowGateTilesMarker(
+    playerName: string,
+    captured: CapturedHollowGateTilesMarker | null,
+    store: MarkerStore = realKv,
+): Promise<boolean> {
+    const slug = safeName(playerName);
+    if (!slug || !captured || captured.playerName !== slug) return false;
+    try {
+        return await store.delIfEqual(`battle-lock:${slug}`, captured.marker);
     } catch {
         return false;
     }

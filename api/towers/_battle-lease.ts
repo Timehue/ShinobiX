@@ -7,10 +7,9 @@ import type { TowerSession } from './_tower-session.js';
 import {
     battleStateKey,
     isBattleStateProjection,
-    noteBattleEnded,
     noteBattleStarted,
     publishBattleProjection,
-    retireBattleProjection,
+    retireBattlePresence,
 } from '../_realtime/battle-projection.js';
 import {
     isMpvpLeaseMode,
@@ -409,8 +408,7 @@ export async function ensureTowerBattleLeases(input: {
 
 /** A released lease ends this account's fight for presence and retires its projection. */
 async function retireTowerPresence(kv: TowerKv, member: string, runId: string): Promise<void> {
-    noteBattleEnded(member);
-    await retireBattleProjection(kv, member, runId).catch(() => false);
+    await retireBattlePresence(kv, member, runId).catch(() => false);
 }
 
 /** Read a well-formed Tower-owned lease for one account. */
