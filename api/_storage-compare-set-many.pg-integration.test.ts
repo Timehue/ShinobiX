@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import pg from 'pg';
 import type { KvCasOp } from './_storage.js';
+import { fork } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { resolve } from 'node:path';
 
 /*
  * kv.compareSetMany against a REAL Postgres.
@@ -157,6 +160,193 @@ async function waitForLockWaiters(count: number): Promise<void> {
 
 const many = (ops: KvCasOp[]) => storage.kv.compareSetMany!(ops);
 const critical = { failClosed: true, maxAttempts: 1, baseBackoffMs: 1 };
+
+test('world boss lifecycle and pointer races across two real Postgres workers', { skip: SKIP, timeout: 300_000 }, async () => {
+    const source = new URL(DATABASE_URL);
+    assert.ok(['127.0.0.1', 'localhost'].includes(source.hostname), 'the world boss worker fixture requires a disposable local cluster');
+    const databaseName = `pgit_world_boss_${randomBytes(8).toString('hex')}`;
+    const control = await openClient();
+    let dedicated: pg.Client | undefined;
+    const children: ReturnType<typeof fork>[] = [];
+    const output: string[] = [];
+    try {
+        await control.query(`CREATE DATABASE ${databaseName}`);
+        source.pathname = `/${databaseName}`;
+        dedicated = new pg.Client({ ...clientConfig(), database: databaseName });
+        await dedicated.connect();
+        const db = dedicated;
+        const schema = readFileSync('supabase-schema.sql', 'utf8').replace(/\r\n/g, '\n');
+        await db.query(schemaStatement(schema, 'create table if not exists public.kv_store (', '\n);'));
+        for (const name of ['kv_set_nx', 'kv_compare_set', 'kv_incr', 'kv_hset', 'kv_hdel']) {
+            await db.query(schemaStatement(schema, `create or replace function public.${name}(`, '\n$$;'));
+        }
+        const get = async (key: string): Promise<any> => (await db.query('SELECT value FROM public.kv_store WHERE key=$1', [key])).rows[0]?.value;
+        const put = async (key: string, value: unknown) => { await db.query('INSERT INTO public.kv_store(key,value) VALUES($1,$2::jsonb) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value', [key, JSON.stringify(value)]); };
+        const workers = await Promise.all([0, 1].map(async index => {
+            const env: NodeJS.ProcessEnv = { ...process.env, DATABASE_URL: source.href, PG_SSL: 'disable', NODE_ENV: 'test', SESSION_SECRET: 'world-boss-disposable-pg-test-secret',
+                SHINOBIX_QA_DISPOSABLE_PG: '1', DISABLE_REALTIME: '1', DISABLE_SCHEDULED_JOBS: '1', DISABLE_SNAPSHOT_CRON: '1' };
+            delete env.SHINOBIX_QA_MEMORY_KV; delete env.SUPABASE_SERVICE_ROLE_KEY; delete env.SUPABASE_URL; delete env.SUPABASE_POSTGRES_URL;
+            const options: import('node:child_process').ForkOptions & { windowsHide: boolean } = { execArgv: ['--import', 'tsx'], env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] };
+            const child = fork(resolve('scripts/world-boss-postgres-worker.mjs'), [], options);
+            children.push(child);
+            for (const stream of [child.stdout, child.stderr]) stream?.on('data', data => { output.push(String(data)); if (output.length > 100) output.shift(); });
+            let sequence = 0;
+            const pending = new Map<number, { resolve(value: any): void; reject(error: Error): void }>();
+            const ready = new Promise<number>((done, reject) => {
+                const timeout = setTimeout(() => reject(new Error(`worker ${index} did not start: ${output.join('').slice(-3000)}`)), 120_000);
+                child.once('exit', code => { clearTimeout(timeout); reject(new Error(`worker ${index} exited ${code}: ${output.join('').slice(-3000)}`)); });
+                child.on('message', (message: any) => {
+                    if (message.ready) { clearTimeout(timeout); done(message.port); }
+                    const wait = pending.get(message.id);
+                    if (wait) { pending.delete(message.id); if (message.error) wait.reject(new Error(message.error)); else wait.resolve(message.value); }
+                });
+            });
+            child.on('exit', code => { for (const wait of pending.values()) wait.reject(new Error(`worker ${index} exited ${code}`)); pending.clear(); });
+            const rpc = (command: string, input: unknown = {}): Promise<any> => new Promise((done, reject) => {
+                const id = ++sequence;
+                const timer = setTimeout(() => { pending.delete(id); reject(new Error(`worker ${index} timed out on ${command}: ${output.join('').slice(-2000)}`)); }, 45_000);
+                pending.set(id, { resolve: value => { clearTimeout(timer); done(value); }, reject: error => { clearTimeout(timer); reject(error); } });
+                child.send({ id, command, input });
+            });
+            return { base: `http://127.0.0.1:${await ready}`, rpc };
+        }));
+        const id = randomBytes(4).toString('hex'), names = ['a', 'b', 'c'].map(suffix => `pgit-wb-${id}-${suffix}`);
+        const eventId = `pgit-wb-${id}`, key = `world-boss-event:${eventId}`;
+        const now = Date.now();
+        const event = { version: 1, eventId, bossId: 'hollow-maze-minotaur' as const, bossName: 'Murogane', status: 'roaming' as const,
+            startedAt: now - 1000, roamEndsAt: now + 48 * 3600000, endsAt: now + 72 * 3600000, endedAt: null,
+            spawnSector: 42, targetVillage: 'Moonshadow Village', hpMax: 600000, hp: 600000, participants: {}, settledMatchIds: [], updatedAt: now };
+        const { worldBossEventPosition } = await import('../shared/world-boss-event.js');
+        const sector = worldBossEventPosition(event, now)!.currentSector;
+        await put(key, event); await put('world-boss-event:active', eventId);
+        await put(`${key}:queue`, { tickets: [], activeMatchIds: [], updatedAt: now });
+        for (const name of names) await put(`save:${name}`, { _saveVersion: 1, currentSector: sector, character: {
+            name, level: 100, hp: 12000, maxHp: 12000, chakra: 1000, maxChakra: 1000, stamina: 1000, maxStamina: 1000,
+            village: 'Moonshadow Village', clan: 'Test Team', specialty: 'Taijutsu', inventory: [], ryo: 0, unspentStats: 500, spentStats: {}, examsPassed: [],
+            stats: { strength: 1000, speed: 1000, taijutsuOffense: 2500, taijutsuDefense: 2500 },
+        } });
+        const tokens = await Promise.all(names.map(slug => workers[0].rpc('token', { slug })));
+        async function request(worker: number, index: number, path: string, body?: any): Promise<{ status: number; body: any }> {
+            const response = await fetch(workers[worker].base + path + (body ? '' : `?playerName=${names[index]}`), {
+                method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', 'x-player-name': names[index], 'x-player-token': tokens[index] },
+                ...(body ? { body: JSON.stringify({ playerName: names[index], ...body }) } : {}), signal: AbortSignal.timeout(45_000),
+            });
+            return { status: response.status, body: await response.json() };
+        }
+        const transientStatuses: number[] = [];
+        async function healthy(operation: () => Promise<{ status: number; body: any }>) {
+            for (let attempt = 0; ; attempt++) {
+                const result = await operation();
+                if (result.status < 500 || attempt === 7) return result;
+                transientStatuses.push(result.status);
+                await sleep(250);
+            }
+        }
+        // Fail-closed lock contention is retryable. Verify the accepted logical
+        // operations and every durable receipt, and report any transient errors.
+        const join = (worker: number, index = 0) => healthy(() => request(worker, index, '/api/world-boss-event/queue', { action: 'join' }));
+        const settle = (worker: number, runId: string, index = 0) => healthy(() => request(worker, index, '/api/world-boss-event/settle', { runId }));
+        const pointerKey = `${key}:player:${names[0]}`;
+        async function pollView(worker: number, expected: 'active' | 'failure') {
+            // Direct timestamp/fault injection does not advance a worker's
+            // polling window. Observe the real HTTP outcome across that window.
+            let view;
+            for (let attempt = 0; attempt <= 8; attempt++) {
+                view = expected === 'active' ? await healthy(() => request(worker, 0, '/api/world-boss-event'))
+                    : await request(worker, 0, '/api/world-boss-event');
+                if (view.status !== 200 || (expected === 'active' && view.body.queue.match?.status === 'active') || attempt === 8) return view;
+                await sleep(250);
+            }
+            throw new Error('Unreachable status polling state.');
+        }
+        async function nextSolo() {
+            const queued = await join(1); assert.equal(queued.status, 200, JSON.stringify(queued.body));
+            await workers[1].rpc('ageQueue', { eventId });
+            const view = await pollView(1, 'active');
+            assert.equal(view.status, 200, JSON.stringify(view.body)); assert.equal(view.body.queue.match?.status, 'active', JSON.stringify(view.body));
+            return view.body.queue.match;
+        }
+        const joins = await Promise.all([join(0, 0), join(1, 0), join(1, 1)]);
+        assert.ok(joins.every(result => result.status === 200), JSON.stringify(joins));
+        assert.equal((await get(`${key}:queue`)).tickets.length, 2);
+        assert.equal((await join(0, 2)).status, 200);
+        const views = await Promise.all([healthy(() => request(0, 0, '/api/world-boss-event')), healthy(() => request(1, 1, '/api/world-boss-event'))]);
+        assert.equal(views[0].body.queue.match.status, 'active');
+        assert.equal(views[0].body.queue.match.runId, views[1].body.queue.match.runId);
+        const first = views[0].body.queue.match;
+        await workers[0].rpc('prepare', { runId: first.runId, slug: names[0] });
+        const action = await healthy(() => request(1, 0, '/api/towers/action', { runId: first.runId, type: 'wait', moveToken: 'pgit_reactive_wait' }));
+        assert.equal(action.status, 200, JSON.stringify(action.body)); assert.equal(action.body.applied, true);
+        assert.equal(action.body.session.worldBossContributions[names[0]].damage, 10000, JSON.stringify({ log: action.body.session.log.slice(-12), actors: action.body.session.actors.map((actor: any) => ({ id: actor.id, hp: actor.hp, pos: actor.pos, statuses: actor.statuses })) }));
+        const settlements = await Promise.all([settle(0, first.runId), settle(1, first.runId, 1)]);
+        assert.ok(settlements.every(result => result.status === 200), JSON.stringify(settlements));
+        assert.equal((await get(key)).hp, 590000); assert.equal((await get(key)).participants[names[0]].matches, 1);
+        assert.equal((await get(`save:${names[0]}`)).character.ryo, 2500);
+        assert.equal((await settle(1, first.runId)).body.bankedDamage, 10000);
+        assert.equal((await get(`save:${names[0]}`)).character.ryo, 2500);
+        console.log('[world-boss-pg] two-worker duplicate joins, shared trio, reactive credit, concurrent settlement and reward replay passed');
+
+        // Hold the old status repair before its CAS while the other process settles
+        // and admits a new raid. The stale PostgreSQL UPDATE must affect zero rows.
+        let current = await nextSolo();
+        await workers[0].rpc('pointer', { eventId, slug: names[0], pointer: { matchId: current.matchId, status: 'preparing', updatedAt: Date.now() } });
+        await workers[0].rpc('holdPointer', { eventId, slug: names[0], status: 'active' });
+        const oldView = settleLater(request(0, 0, '/api/world-boss-event'));
+        await workers[0].rpc('entered');
+        await workers[1].rpc('done', { runId: current.runId }); assert.equal((await settle(1, current.runId)).status, 200);
+        const newer = await nextSolo(); await workers[0].rpc('release'); await oldView;
+        assert.equal((await get(pointerKey)).matchId, newer.matchId);
+        current = newer;
+        await workers[1].rpc('done', { runId: current.runId });
+        await workers[0].rpc('holdPointer', { eventId, slug: names[0], status: 'settled' });
+        const oldSettlement = settleLater(settle(0, current.runId)); await workers[0].rpc('entered');
+        const newest = await nextSolo(); await workers[0].rpc('release'); assert.equal((await oldSettlement).status, 200);
+        assert.equal((await get(pointerKey)).matchId, newest.matchId);
+        console.log('[world-boss-pg] stale status and settlement CAS preserve newer matches across processes');
+        await workers[1].rpc('done', { runId: newest.runId }); assert.equal((await settle(1, newest.runId)).status, 200);
+
+        // A real SQL error poisons a production lock context, unlike a memory-store
+        // exception. A new request must recover the already-published sealed run.
+        await db.query(`CREATE FUNCTION pgit_fail_active_match() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+            IF NEW.key LIKE 'world-boss-event:%:match:%' AND NEW.value->>'status'='active' THEN RAISE EXCEPTION 'pgit active match write fault'; END IF; RETURN NEW; END $$`);
+        await db.query('CREATE TRIGGER pgit_fail_active_match BEFORE INSERT OR UPDATE ON public.kv_store FOR EACH ROW EXECUTE FUNCTION pgit_fail_active_match()');
+        assert.equal((await join(1)).status, 200); await workers[1].rpc('ageQueue', { eventId });
+        const failedStart = await pollView(0, 'failure'); assert.notEqual(failedStart.status, 200);
+        const pending = await get(`${key}:queue`), match = await get(`${key}:match:${pending.activeMatchIds[0]}`);
+        assert.equal(match.status, 'preparing'); const sealed = await get(`tower:${match.runId}`); assert.ok(sealed);
+        assert.equal((await get(`battle-lock:${names[0]}`)).meta.runId, match.runId);
+        await db.query('DROP TRIGGER pgit_fail_active_match ON public.kv_store');
+        const recovered = await pollView(1, 'active');
+        assert.equal(recovered.status, 200, JSON.stringify(recovered.body)); assert.equal(recovered.body.queue.match.status, 'active');
+        assert.equal(recovered.body.queue.match.runId, match.runId); assert.deepEqual(recovered.body.queue.match.session.actors, sealed.actors);
+        console.log('[world-boss-pg] real SQL publication fault recovers one sealed session and its leases on a fresh worker request');
+
+        await workers[1].rpc('done', { runId: match.runId }); assert.equal((await settle(1, match.runId)).status, 200);
+        assert.equal((await join(1)).status, 200); await workers[1].rpc('ageQueue', { eventId });
+        const countMatches = async () => Number((await db.query('SELECT count(*) AS n FROM public.kv_store WHERE key LIKE $1', [`${key}:match:%`])).rows[0].n);
+        const beforeFormation = await countMatches();
+        await db.query(`CREATE FUNCTION pgit_fail_preparing_pointer() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+            IF NEW.key LIKE 'world-boss-event:%:player:%' AND NEW.value->>'status'='preparing' THEN RAISE EXCEPTION 'pgit formation transaction fault'; END IF; RETURN NEW; END $$`);
+        await db.query('CREATE TRIGGER pgit_fail_preparing_pointer BEFORE INSERT OR UPDATE ON public.kv_store FOR EACH ROW EXECUTE FUNCTION pgit_fail_preparing_pointer()');
+        assert.notEqual((await pollView(0, 'failure')).status, 200);
+        assert.equal(await countMatches(), beforeFormation, 'the earlier match-row insert rolls back with the refused player pointer');
+        assert.equal((await get(`${key}:queue`)).tickets.length, 1); assert.equal((await get(pointerKey)).status, 'queued');
+        await db.query('DROP TRIGGER pgit_fail_preparing_pointer ON public.kv_store');
+        const formed = await pollView(1, 'active');
+        assert.equal(formed.status, 200, JSON.stringify(formed.body)); assert.equal(formed.body.queue.match?.status, 'active', JSON.stringify(formed.body));
+        assert.equal(await countMatches(), beforeFormation + 1);
+        console.log('[world-boss-pg] real SQL formation failure rolls back the match, pointer and queue; retry publishes exactly one team');
+        console.log(`[world-boss-pg] transient fail-closed responses retried: ${JSON.stringify(transientStatuses)}`);
+    } catch (error) {
+        console.error(output.join('').slice(-6000)); throw error;
+    } finally {
+        for (const child of children) { if (child.connected) child.disconnect(); }
+        await Promise.all(children.map(child => new Promise<void>(done => { if (child.exitCode !== null) { done(); return; } const timer = setTimeout(() => { child.kill(); done(); }, 5000); child.once('exit', () => { clearTimeout(timer); done(); }); })));
+        await dedicated?.end();
+        await control.query(`DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`);
+        await control.end();
+    }
+});
 
 describe('kv.compareSetMany on a real Postgres', () => {
     before(async () => {
