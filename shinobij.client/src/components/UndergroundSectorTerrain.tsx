@@ -3,7 +3,7 @@ import './underground-sector.css';
 import { planUndergroundFloorFeatures, type UndergroundFloorFeature as FloorFeatureSpec } from '../../../shared/underground-floor-features';
 import { UndergroundFloorFeature } from './UndergroundFloorFeature';
 import { RiftBreach } from './RiftBreach';
-import { riftBreachSites } from '../lib/rift-breach-layout';
+import type { RiftBreachSite } from '../lib/rift-breach-layout';
 
 type TerrainTile = { kind: string; terrain?: string; roomId?: number | null; secret?: boolean };
 type Props = {
@@ -14,7 +14,9 @@ type Props = {
     known: ReadonlySet<number>;
     mode: 'stronghold' | 'cave';
     vault?: boolean;
-    rift?: boolean;
+    /** A quest rift's signpost breaches (lib/rift-breach-layout), computed by
+     *  the view that knows the run, so the energy overlay uses the same list. */
+    breaches?: readonly RiftBreachSite[];
     features?: readonly FloorFeatureSpec[];
     renderWindow?: { left: number; top: number; width: number; height: number };
     /** Hollow Gate and quest-rift floors: each room's painted prefab by roomId
@@ -27,6 +29,7 @@ type Props = {
 };
 
 const CAVERN_RUBBLE = '/underground/cavern-crypt-rubble-v1.webp';
+const NO_BREACHES: readonly RiftBreachSite[] = [];
 
 /** Explored-but-unlit ground: dark enough to read as unlit map memory,
  * bright enough to retrace a route. */
@@ -39,12 +42,11 @@ const FORTRESS_ROOM_ART = ['entry-hall', 'watch-barracks', 'armory', 'signal-cha
  * Their built-in stations match shared collision bays; only the authoritative
  * tile geometry can connect rooms. Unknown terrain stays masked, and the rock
  * around the rooms is plain darkness, never a lit stone slab. */
-export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({ tiles, width, height, visible, known, mode, vault = false, rift = false, features, renderWindow, roomArt, passageArt }: Props) {
+export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({ tiles, width, height, visible, known, mode, vault = false, breaches = NO_BREACHES, features, renderWindow, roomArt, passageArt }: Props) {
     const id = useId().replaceAll(':', '');
     const cave = mode === 'cave';
     // Painted crypt prefabs: every Hollow Gate depth and quest rift.
     const chambers = cave ? roomArt ?? {} : undefined;
-    const breaches = useMemo(() => rift && cave ? riftBreachSites(tiles, width) : [], [tiles, width, rift, cave]);
     const geometry = useMemo(() => tiles.map((tile, index) => {
         const x = index % width, y = Math.floor(index / width);
         const wallAt = (cx: number, cy: number) => cx < 0 || cy < 0 || cx >= width || cy >= height
