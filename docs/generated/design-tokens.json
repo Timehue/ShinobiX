@@ -2513,7 +2513,7 @@
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1596
+            "line": 1601
           },
           {
             "source": "shinobij.client/src/styles/keeper-path-entrance.css",
@@ -3157,7 +3157,7 @@
           },
           {
             "source": "shinobij.client/src/screens/ProfessionPicker.css",
-            "line": 740
+            "line": 750
           },
           {
             "source": "shinobij.client/src/styles/central-hub-forge.css",
@@ -4252,7 +4252,7 @@
           },
           {
             "source": "shinobij.client/src/screens/ProfessionPicker.css",
-            "line": 727
+            "line": 737
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
