@@ -1401,7 +1401,12 @@
     .mission-hall .mh-field-art { display: contents; }
     /* `display: contents` would turn the backdrop pseudo into a stray grid item. */
     .mission-hall .mh-field-art::before,
-    .mission-hall .mh-field-art::after { content: none; }
+    .mission-hall .mh-field-art::after {
+        content: none;
+        /* Chromium can fetch a background even when the pseudo has no content.
+           Only the responsive thumbnail is needed in this mobile grid cell. */
+        background-image: none;
+    }
     .mission-hall .mh-field-art img {
         grid-column: 2;
         grid-row: 1;

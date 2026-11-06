@@ -19,7 +19,7 @@ export function initializeGatheringTool<T extends Record<string, unknown>>(chara
     if (!gatheringTool(id)) return character;
     return { ...character, gatheringToolUses: { ...(character.gatheringToolUses as object ?? {}), [id]: 0 } };
 }
-/** Debit at admission. The 50th use still resolves; the broken tool leaves its slot. */
+/** Debit at admission. The final use still resolves; the broken tool leaves its slot. */
 export function useGatheringTool(character: Record<string, unknown>, slot: GatheringToolSlot) {
     const equipment = { ...(character.equipment as Record<string, string> ?? {}) };
     const id = equipment[slot], tool = gatheringTool(id);
@@ -27,7 +27,7 @@ export function useGatheringTool(character: Record<string, unknown>, slot: Gathe
     const remaining = gatheringToolRemaining(character, id);
     if (remaining === 0) return null;
     if (remaining === null) return { character, broke: false };
-    const uses = { ...(character.gatheringToolUses as Record<string, number> ?? {}), [id]: 51 - remaining };
+    const uses = { ...(character.gatheringToolUses as Record<string, number> ?? {}), [id]: tool.durability! + 1 - remaining };
     const broke = remaining === 1;
     if (broke) delete equipment[slot];
     return { character: { ...character, equipment, gatheringToolUses: uses }, broke };

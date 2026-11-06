@@ -30,9 +30,10 @@ test('mixed actions, midnight and exactly-ten-minute refill boundaries', () => {
     assert.deepEqual(resourceNodeState({ attempts: 3, refillAt: now + 600_000 }, now + 599_999), { attempts: 3, refillAt: now + 600_000 });
     assert.equal(resourceNodeState({ attempts: 3, refillAt: now + 600_000 }, now + 600_000).attempts, 0);
 });
-test('50th basic use is admitted and breaks; re-equip cannot reset uses; gold is permanent', () => {
+test('125th basic use is admitted and breaks; re-equip cannot reset uses; gold is permanent', () => {
     let c: Record<string, unknown> = initializeGatheringTool({ equipment: { pickaxe: 'tool-basic-pickaxe' } }, 'tool-basic-pickaxe');
-    for (let i = 0; i < 49; i++) { const use = useGatheringTool(c, 'pickaxe')!; assert.equal(use.broke, false); c = use.character; }
+    assert.equal(gatheringToolRemaining(c, 'tool-basic-pickaxe'), 125);
+    for (let i = 0; i < 124; i++) { const use = useGatheringTool(c, 'pickaxe')!; assert.equal(use.broke, false); c = use.character; }
     assert.equal(gatheringToolRemaining(c, 'tool-basic-pickaxe'), 1);
     const last = useGatheringTool(c, 'pickaxe')!;
     assert.equal(last.broke, true);

@@ -619,6 +619,16 @@
         radial-gradient(70% 60% at 50% 100%, color-mix(in srgb, var(--pp-accent) 26%, transparent), transparent 70%);
 }
 
+/* Admin-authored portraits can be tall. Keep the entire figure visible while
+   the shared blurred backdrop fills the frame. Scenic bundled fallbacks keep
+   their cover crop and camera movement. Hover/focus must not crop portraits. */
+.pp-root .pp-portrait-art img,
+.pp-root .pp-card .pp-card-art.pp-portrait-art img {
+    object-fit: contain;
+    transform: none;
+    animation: none;
+}
+
 .pp-confirm-inner {
     position: relative;
     padding: 0 clamp(18px, 4vw, 30px) clamp(20px, 3vw, 26px);
