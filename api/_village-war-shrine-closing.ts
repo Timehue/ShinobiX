@@ -1,4 +1,5 @@
 import type { CampaignWarRow } from './_village-war-campaign.js';
+import { withoutKvLeaseContext } from './_kv-lock-context.js';
 import { eligibleShrineRoomVillage, shrineRoomPlayers } from './_village-war-shrine-presence.js';
 import { advanceCampaign, shrineTimeLeader, shrineRules, SHRINE_ROOM_PRESENCE_TTL_MS, type CampaignObjective } from '../shared/village-war-campaign.js';
 import { OFFLINE_AFTER_MS, subscribeBeforeOnlinePresenceMutation, subscribeAfterOnlinePresenceMutation } from './_realtime/online-store.js';
@@ -86,7 +87,12 @@ export function applyShrineClosingControl(war: CampaignWarRow, now: number): voi
 function arm(entry: Window): void {
     const now = Date.now();
     if (now >= entry.objective.closesAt) return;
-    entry.timer = setTimeout(() => {
+    // Armed outside any storage lock context. The first arm runs inside the
+    // shrine-enter mutateCampaignWar lock, and a timer inherits the context it
+    // is created in: every checkpoint then took its own lock under that long
+    // released lease, failed the lease check, and re-armed into the same
+    // dead context until the shrine closed.
+    entry.timer = withoutKvLeaseContext(() => setTimeout(() => {
         delete entry.timer;
         const at = Date.now();
         observe(false); observe(true);
@@ -99,7 +105,7 @@ function arm(entry: Window): void {
             return { row: current, value: undefined };
         })).catch(error => console.warn('[village-war] shrine time publication deferred:', (error as Error)?.message ?? error))
             .finally(() => { if (windows.get(key(entry.war, entry.objective)) === entry) arm(entry); });
-    }, Math.min(5000, entry.objective.closesAt - now));
+    }, Math.min(5000, entry.objective.closesAt - now)));
     entry.timer.unref?.();
 }
 export function scheduleShrineClosing(war: CampaignWarRow, objective: CampaignObjective): void {

@@ -15,7 +15,7 @@ import { loadAiFightProfile } from './_ai-fight-encounter.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { attachHuntCombat } from '../solo-pve/_hunt-combat.js';
 import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
-import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
+import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { settleHeldFights } from '../pve/_held-fights.js';
@@ -39,6 +39,8 @@ import {
     type AiFightToken,
 } from './_ai-fight-token.js';
 import { withKvLock } from '../_lock.js';
+import { withoutKvLeaseContext } from '../_kv-lock-context.js';
+import { discardFailedStart } from '../solo-pve/_discard-start.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { settleMaturedTravelForAction } from '../_realtime/travel-lease.js';
 import {
@@ -557,7 +559,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ...worldStartBody({ pointer, token: record, session: sealedAttempt.session }, false), trait: reward.trait } };
                 } catch (error) {
                     const message = error instanceof Error ? error.message : 'World encounter could not be sealed.';
-                    if (sealedAttempt && tokenAttempt
+                    // Read outside the lock context, which the error may have
+                    // poisoned (see discardFailedStart).
+                    let pointerUnknown = false;
+                    const pointerRaw = tokenAttempt
+                        ? await withoutKvLeaseContext(() => kv.get(worldAiActiveKey(playerName))).catch(() => { pointerUnknown = true; return null; })
+                        : null;
+                    // Resumable only once THIS attempt's pointer is durable. The
+                    // token is minted before the pointer is written, and a fight
+                    // kept with no pointer can never be resumed: it would hold
+                    // the player "in battle" until it lapsed. A read that FAILED
+                    // proves nothing either way, so it keeps the fight as before.
+                    const pointerLanded = !!tokenAttempt && cleanWorldAiActivePointer(pointerRaw)?.token === tokenAttempt;
+                    const keepForResume = pointerLanded || (!!tokenAttempt && pointerUnknown);
+                    if (sealedAttempt && keepForResume
                         && isNaturalWorldEncounter(worldSpec.context)
                         && message !== 'That wanderer has already moved on.') {
                         // Session/token/pointer are the durable start intent.
@@ -573,16 +588,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             },
                         };
                     }
-                    // Only clean resources minted by this attempt. The active-key
-                    // lock prevents racing another start, and explicit ids avoid
-                    // deleting any pre-existing fight.
-                    const cleanupKeys: string[] = [];
-                    if (sealedAttempt) cleanupKeys.push(soloPveSessionKey(sealedAttempt.sessionId));
-                    if (tokenAttempt) cleanupKeys.push(aiFightTokenKey(playerName, tokenAttempt));
-                    const pointer = cleanWorldAiActivePointer(await kv.get(worldAiActiveKey(playerName)).catch(() => null));
-                    if (pointer?.token === tokenAttempt) cleanupKeys.push(worldAiActiveKey(playerName));
-                    if (cleanupKeys.length > 0) await kv.del(...cleanupKeys).catch(() => undefined);
-                    await releaseWorldAiChainStage(playerName, worldSpec.context).catch(() => undefined);
+                    // Only clean resources minted by this attempt: explicit ids,
+                    // and the pointer only while it still names this attempt.
+                    await discardFailedStart({
+                        playerName,
+                        sessionId: sealedAttempt?.sessionId,
+                        keys: tokenAttempt ? [aiFightTokenKey(playerName, tokenAttempt)] : [],
+                        ifEqual: pointerLanded ? [{ key: worldAiActiveKey(playerName), value: pointerRaw }] : [],
+                    });
+                    // A chain lease left active would refuse every retry with
+                    // world-chain-already-active for its hour-long TTL.
+                    await withoutKvLeaseContext(() => releaseWorldAiChainStage(playerName, worldSpec.context)).catch(() => undefined);
                     return { status: 409, body: { error: message } };
                 }
             }, { failClosed: true });
@@ -698,21 +714,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 return { status: 200, body: { ...genericStartBody({ pointer, token: record, session: sealed.session }, false), trait: reward.trait } };
             } catch (error) {
-                const cleanup: string[] = [];
-                if (sealed) cleanup.push(soloPveSessionKey(sealed.sessionId));
-                if (token) cleanup.push(aiFightTokenKey(playerName, token));
-                const pointer = cleanAiFightActivePointer(await kv.get(aiFightActiveKey(playerName)).catch(() => null));
-                if (pointer?.token === token) cleanup.push(aiFightActiveKey(playerName));
-                if (exploreReceiptOwned && genericAuthority.exploreReceiptKey) cleanup.push(genericAuthority.exploreReceiptKey);
-                if (cleanup.length) await kv.del(...cleanup).catch(() => undefined);
+                // Everything below runs outside the lock context, which the error
+                // may have poisoned (see discardFailedStart). Only resources this
+                // attempt minted are touched.
+                const pointerRaw = token
+                    ? await withoutKvLeaseContext(() => kv.get(aiFightActiveKey(playerName))).catch(() => null)
+                    : null;
+                const keys: string[] = [];
+                if (token) keys.push(aiFightTokenKey(playerName, token));
+                if (exploreReceiptOwned && genericAuthority.exploreReceiptKey) keys.push(genericAuthority.exploreReceiptKey);
+                await discardFailedStart({
+                    playerName,
+                    sessionId: sealed?.sessionId,
+                    keys,
+                    ifEqual: token && cleanAiFightActivePointer(pointerRaw)?.token === token
+                        ? [{ key: aiFightActiveKey(playerName), value: pointerRaw }] : [],
+                });
                 if (raidTokenOwned && genericAuthority.raidTokenKey && sealed && token) {
-                    await releaseRaidAiTokenReservation({
+                    const raidTokenKey = genericAuthority.raidTokenKey;
+                    const sessionId = sealed.sessionId;
+                    // A reservation left against a deleted fight refuses the retry
+                    // as "already bound to another encounter".
+                    await withoutKvLeaseContext(() => releaseRaidAiTokenReservation({
                         store: kv,
-                        key: genericAuthority.raidTokenKey,
+                        key: raidTokenKey,
                         aiFightToken: token,
-                        sessionId: sealed.sessionId,
+                        sessionId,
                         ttlSeconds: AI_FIGHT_TOKEN_TTL_SECONDS,
-                    }).catch(() => undefined);
+                    })).catch(() => undefined);
                 }
                 throw error;
             }

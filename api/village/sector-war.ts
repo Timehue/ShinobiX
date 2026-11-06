@@ -80,6 +80,7 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { settleHeldFights } from '../pve/_held-fights.js';
+import { discardFailedStart } from '../solo-pve/_discard-start.js';
 import { villageHasActiveWar, seedHomeSectorOwnership } from '../world-state.js';
 import {
     WAR_DECLARATION_FUNDING_FIELD,
@@ -1102,10 +1103,17 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
             createdAt: now,
             startState: 'ready',
         };
-        await writeSoloPveSession(session);
-        await writeGarrisonRun(run);
-        await alertSectorPreparation(contest, runId, 'combat', now).catch(() => undefined);
-        await kv.set(activeKey, runId, { ex: GARRISON_RUN_TTL });
+        try {
+            await writeSoloPveSession(session);
+            await writeGarrisonRun(run);
+            await alertSectorPreparation(contest, runId, 'combat', now).catch(() => undefined);
+            await kv.set(activeKey, runId, { ex: GARRISON_RUN_TTL });
+        } catch (error) {
+            // Without the active pointer the assault can never be resumed, and
+            // its session would hold the attacker "in battle" until it lapsed.
+            await discardFailedStart({ playerName, sessionId: runId, keys: [garrisonRunKey(runId)] });
+            throw error;
+        }
         return { status: 200 as const, body: {
             ok: true, replayed: false, runId, sector, contestId: contest.id,
             defenderVillage: contest.defenderVillage, anbu: { name: maskedAnbuName }, session,
