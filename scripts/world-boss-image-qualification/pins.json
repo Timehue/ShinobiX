@@ -1,7 +1,7 @@
 {
-  "candidate": "8d18bf4d1119eb7e086dfa80e8495a178a94fb3a",
-  "recovery": "76a46b779a14fc313c4d06be87fe05395ae3a126",
+  "candidate": "6ef677cce71f5b4b689c801197452c053b504279",
+  "recovery": "fce6a69af83699f13605afa137d9886b69b2489c",
   "node": "24.21.0",
   "platform": "linux/amd64",
-  "recoveryMeaning": "Current main f1ef46fa and reviewed world-boss repairs; identical complete trees, distinct compatible continuation/recovery commit identities"
+  "recoveryMeaning": "Current main 6ce0a88e and all reviewed world-boss repairs; identical complete trees with distinct compatible continuation/recovery identities"
 }
