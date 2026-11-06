@@ -5496,6 +5496,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && !hollowGatePveFight && !hollowGatePetFight && (
                     <HollowGateShrineView
                         character={character}
+                        currentConsumableScope={() => { const run = hollowGateMovementRunRef.current, playerName = characterRef.current?.name; return run && playerName ? { run, playerName } : null; }}
                         hollowGateRun={hollowGateRun}
                         hollowGateLog={hollowGateLog}
                         sharedImages={sharedImages}

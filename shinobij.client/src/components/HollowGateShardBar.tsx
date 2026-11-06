@@ -5,71 +5,27 @@
  * catalog/availability projection lives in lib/hollow-gate-shards; all spend and
  * gameplay effects are committed by the server-owned run endpoint.
  */
-import { useEffect, useRef } from "react";
 import type { Character, HollowGateShrineRun, VersionedCharacterCommit } from "../types/character";
 import { HOLLOW_SHARD_CONSUMABLES, shardConsumableAvailable } from "../lib/hollow-gate-shards";
-import { requestHollowGateServerConsumable } from "../lib/hollow-gate-server";
-import { markHollowGateSeen } from "../lib/hollow-gate-path";
+import { activateHollowGateConsumable, type HollowGateConsumableScope } from "../lib/hollow-gate-consumable-confirmation";
 import { GameArtIcon } from "./GameArtIcon";
 
 type Props = {
     run: HollowGateShrineRun;
     character: Character;
+    currentScope: () => HollowGateConsumableScope | null;
     setRun: (r: HollowGateShrineRun) => void;
     onVersionedCharacter: VersionedCharacterCommit;
     pushLog: (line: string) => void;
 };
 
-export function HollowGateShardBar({ run, character, setRun, onVersionedCharacter, pushLog }: Props) {
+export function HollowGateShardBar({ run, character, currentScope, setRun, onVersionedCharacter, pushLog }: Props) {
     const shards = character.hollowShards ?? 0;
-    // The run as last rendered. A relic's reply is applied to it, not to the run
-    // this click saw, so a step taken while the request was in flight is kept.
-    const latestRunRef = useRef(run);
-    useEffect(() => { latestRunRef.current = run; });
 
-    async function use(id: string) {
-        if (!run.runToken) {
-            pushLog("Shrine relics cannot be used in this older run. Leave and start a new run to use them.");
-            return;
-        }
-        const actions = {
-            reignite: "reignite",
-            "skeleton-key": "skeleton-key",
-            "hollow-ward": "hollow-ward",
-            "diviner-eye": "diviner-eye",
-            sanctify: "sanctify",
-            "second-wind": "arm-second-wind",
-        } as const;
-        const action = actions[id as keyof typeof actions];
-        if (!action) return pushLog("Unknown shrine relic.");
-        const result = await requestHollowGateServerConsumable(character.name, run.runToken, action);
-        if (!result?.ok || !result.character || !result.runState) {
-            pushLog(result?.error ?? "The relic use could not be confirmed. Check your run before trying again.");
-            return;
-        }
-        const latest = latestRunRef.current.runToken === run.runToken ? latestRunRef.current : run;
-        const confirmed: HollowGateShrineRun = {
-            ...latest,
-            keys: result.runState.keys,
-            torch: result.runState.torch,
-            threat: result.runState.threat,
-            wardSteps: result.runState.wardSteps,
-            diviner: result.runState.divinerUsed || latest.diviner,
-            secondWindArmed: result.runState.secondWindArmed,
-            entryCurrencies: result.entryCurrencies ?? latest.entryCurrencies,
-        };
-        // The Eye widens the sight around the player; stamp what it shows into
-        // map memory without unmasking disguised tiles.
-        const nextRun = confirmed.diviner ? markHollowGateSeen(confirmed) : confirmed;
-        // The shards are spent even when a newer save was adopted first and this
-        // commit is refused as stale (the coordinator then reads the stored save
-        // back). The run lives here, not in that save, so it must still show the
-        // relic: otherwise its button stays live and a second press, with a new
-        // request id, spends the shards again.
-        onVersionedCharacter({ ...result.character, hollowGateRun: nextRun }, result._saveVersion);
-        setRun(nextRun);
-        const consumable = HOLLOW_SHARD_CONSUMABLES.find((entry) => entry.id === id);
-        pushLog(`${consumable?.label ?? "Shrine relic"} activated.`);
+    function use(id: string) {
+        return activateHollowGateConsumable(id, { run, playerName: character.name }, {
+            current: currentScope, setRun, onVersionedCharacter, pushLog,
+        });
     }
 
     return (

@@ -262,3 +262,46 @@ test('an unfinished Leave preserves Resume and performs no settlement', async ({
     await expect(page.getByRole('button', { name: 'Leave encounter', exact: true })).toBeVisible();
     expect(count()).toBe(0);
 });
+
+for (const mode of ['PvE', 'pet']) for (const timing of ['during', 'after']) {
+    test(`paid Eye survives a ${mode} combat unmount when its reply arrives ${timing} the fight`, async ({ page }) => {
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        const requests: Record<string, unknown>[] = [];
+        await page.route('**/api/hollow-gate/use-consumable', async route => {
+            requests.push(route.request().postDataJSON());
+            await held;
+            await route.fulfill({ json: { ok: true, _saveVersion: 2,
+                character: { name: 'RelicDiver', hp: 100, maxHp: 100, pets: [], inventory: [], hollowShards: 75 },
+                runState: { keys: 0, torch: 10, threat: 0, wardSteps: 0, divinerUsed: true, secondWindArmed: false } } });
+        });
+        await page.goto('/e2e/fixtures/hollow-gate-consumable.html');
+        const state = async () => JSON.parse((await page.getByTestId('relic-state').textContent())!);
+        const before = await state();
+        await page.getByText('Hollow Shard relics & event log', { exact: true }).click();
+        await page.getByRole('button', { name: /Diviner's Eye/ }).click();
+        await expect.poll(() => requests.length).toBe(1);
+        await page.getByRole('button', { name: `Enter ${mode} fight`, exact: true }).click();
+        await expect(page.getByRole('region', { name: 'Active combat' })).toBeVisible();
+        await expect(page.getByRole('button', { name: /Diviner's Eye/ })).toHaveCount(0);
+        if (timing === 'after') await page.getByRole('button', { name: 'Win and return', exact: true }).click();
+        release();
+        await expect.poll(async () => (await state()).receipts).toBe(1);
+        if (timing === 'during') await page.getByRole('button', { name: 'Win and return', exact: true }).click();
+        await page.getByText('Hollow Shard relics & event log', { exact: true }).click();
+        const eye = page.getByRole('button', { name: /Diviner's Eye/ });
+        await expect(eye).toBeVisible();
+        await expect(eye).toBeDisabled();
+        const after = await state();
+        expect(after.run.diviner).toBe(true);
+        expect(after.sight).toBeGreaterThan(before.sight);
+        expect(after.run.runToken).toBe(before.run.runToken);
+        expect(after.run.floor).toBe(before.run.floor);
+        expect(after.run.activeCombat).toBeUndefined();
+        expect(after.character.hollowShards).toBe(75);
+        expect(after.receipts).toBe(1);
+        expect(requests).toHaveLength(1);
+        expect(requests[0]).toMatchObject({ playerName: 'RelicDiver', token: 'paid-eye-run', action: 'diviner-eye' });
+        expect(requests[0].requestId).toBeTruthy();
+    });
+}

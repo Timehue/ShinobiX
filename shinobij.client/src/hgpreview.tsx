@@ -8,7 +8,7 @@
  * run loop. Not part of the player bundle (its own Vite HTML entry, like
  * petvfx.html).
  */
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { HollowGateShrineView } from "./features/hollowGate/HollowGateShrineView";
@@ -73,6 +73,8 @@ function Harness() {
         ? generateHollowGateShrineRun(floorNum, riftVariant, params.get("seed") ?? "bsp-preview", false, false, "bsp", { width: 25, height: 17 })
         : generateHollowGateShrineRun(floorNum, riftVariant, params.get("seed") ?? undefined));
     const [log, setLog] = useState<string[]>(["Preview harness — movement is geometry-only."]);
+    const runRef = useRef(run);
+    useLayoutEffect(() => { runRef.current = run; }, [run]);
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const pushLog = (line: string) => setLog(prev => [line, ...prev].slice(0, 30));
     useEffect(() => {
@@ -137,6 +139,7 @@ function Harness() {
             </div>
             <HollowGateShrineView
                 character={stubCharacter}
+                currentConsumableScope={() => ({ run: runRef.current, playerName: stubCharacter.name })}
                 hollowGateRun={run}
                 hollowGateLog={log}
                 sharedImages={sharedImages}

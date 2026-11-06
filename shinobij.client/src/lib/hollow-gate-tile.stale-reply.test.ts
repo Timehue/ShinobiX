@@ -64,10 +64,15 @@ test("an accepted tile event reply sets the server's run counters", async () => 
 test("the shrine relic bar, befriend, dungeon and rift-card settles finish on a stale refusal", () => {
     const read = (file: string) => readFileSync(new URL(file, import.meta.url), "utf8");
     const bar = read("../components/HollowGateShardBar.tsx");
-    // The relic's effect is shown whatever the commit returns, applied to the run
-    // as last rendered so a step taken meanwhile is kept.
-    assert.match(bar, /onVersionedCharacter\(\{ \.\.\.result\.character, hollowGateRun: nextRun \}, result\._saveVersion\);\s*setRun\(nextRun\);/);
-    assert.match(bar, /const latest = latestRunRef\.current\.runToken === run\.runToken \? latestRunRef\.current : run;/);
+    const confirmation = read("./hollow-gate-consumable-confirmation.ts");
+    // A stale character receipt still displays a paid relic on its original
+    // floor, while a newer floor/run must retain its current projection.
+    assert.match(bar, /activateHollowGateConsumable\(id,/);
+    assert.match(confirmation, /confirm\.onVersionedCharacter\(\{ \.\.\.result\.character, hollowGateRun: nextRun \}, result\._saveVersion\);\s*if \(!sameFloor\) return;/);
+    assert.doesNotMatch(confirmation, /if\s*\([^\n]*confirm\.onVersionedCharacter/);
+    assert.match(confirmation, /const latest = current\.run;/);
+    assert.match(confirmation, /latest\.runToken === run\.runToken && latest\.floor === run\.floor/);
+    assert.match(confirmation, /confirm\.setRun\(nextRun\);/);
     const tile = read("./hollow-gate-tile.ts");
     assert.match(tile, /onVersionedCharacter\(befriended\.character, befriended\.saveVersion\);\s*pushHollowGateLog\(/);
     assert.doesNotMatch(tile, /if \(!adoptServerEvent\(/);
