@@ -21,8 +21,6 @@ const CARD: ReadonlyArray<readonly [number, number]> = [[0, -1], [0, 1], [-1, 0]
 /** Everything the player can currently see plus everything already explored
  *  (stepped on OR ever seen — the persisted map memory). */
 export function hollowGateKnownSet(run: HollowGateShrineRun): Set<number> {
-    // Diviner's Eye widens the sight around the player (computeHollowGateSight);
-    // it no longer makes the whole floor known.
     const known = computeHollowGateSight(run);
     run.tiles.forEach((t, i) => { if (t.revealed || t.seen) known.add(i); });
     return known;
@@ -32,20 +30,23 @@ export function hollowGateKnownSet(run: HollowGateShrineRun): Set<number> {
  * Stamp `seen: true` on every tile in the current visibility flood — the
  * persisted map memory (survives leaving the room + save/resume). Returns the
  * same run object when nothing new was seen, so callers can setState with it
- * without spurious re-renders. Call after each committed move.
+ * without spurious re-renders. The Eye also unmasks encounters, but a secret
+ * passage's revealed flag means physically opened, so leave it for stepping.
+ * Call after each committed move or a confirmed Eye purchase.
  */
 export function markHollowGateSeen(run: HollowGateShrineRun): HollowGateShrineRun {
     const visible = computeHollowGateSight(run);
+    const needsReveal = (t: HollowGateTile) => !!run.diviner && !t.secret && !t.revealed;
     let dirty = false;
     for (const i of visible) {
         const t = run.tiles[i];
-        if (t && !t.seen) { dirty = true; break; }
+        if (t && (!t.seen || needsReveal(t))) { dirty = true; break; }
     }
     if (!dirty) return run;
     const tiles = run.tiles.slice();
     for (const i of visible) {
         const t = tiles[i];
-        if (t && !t.seen) tiles[i] = { ...t, seen: true };
+        if (t && (!t.seen || needsReveal(t))) tiles[i] = { ...t, seen: true, ...(needsReveal(t) ? { revealed: true } : {}) };
     }
     return { ...run, tiles };
 }

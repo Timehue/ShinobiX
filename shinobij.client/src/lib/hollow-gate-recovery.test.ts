@@ -63,12 +63,12 @@ describe("Diviner's Eye map memory", () => {
             terrain: Math.floor(i / width) === 10 ? "corridor_floor" : "wall",
             roomId: null, revealed: false, resolved: false,
         }));
-        // A sensed trap must remain disguised, even across reloads.
+        // The Eye must expose this distant trap, including after a reload.
         tiles[6 * width + 14] = { kind: "trap", terrain: "room_floor", roomId: 1, revealed: false, resolved: false };
         return { ...run, width, height, tiles, playerX: 2, playerY: 10 };
     }
 
-    it("remembers Eye-sensed ground after walking 12 tiles out and back, without revealing old pre-Eye ground", () => {
+    it("retains the full-floor reveal after walking 12 tiles out and back and reloading", () => {
         const generated = corridor();
         let walked = markHollowGateSeen({ ...generated, diviner: true });
         const eyeSteps = [2];
@@ -84,21 +84,22 @@ describe("Diviner's Eye map memory", () => {
             divinerVisited: mask(generated.tiles.length, eyeSteps.map(x => 10 * generated.width + x)),
         }), generated);
         assert.equal(resumed.tiles[sensed].seen, true, "the sensed tile survives returning and reloading");
-        assert.equal(resumed.tiles[sensed].revealed, false, "sensing does not expose the trap");
-        assert.equal(Boolean(resumed.tiles[6 * generated.width + 26].seen), false, "pre-Eye steps do not gain retrospective sight");
-        assert.equal(Boolean(resumed.tiles[0].seen), false, "unexplored ground stays unknown");
+        assert.equal(resumed.tiles[sensed].revealed, true, "the trap remains exposed");
+        assert.equal(resumed.tiles[sensed].resolved, false, "revealing a trap does not resolve it");
+        assert.ok(resumed.tiles.every(tile => tile.seen && tile.revealed), "the entire floor stays mapped");
     });
 
-    it("ignores absent, malformed or inactive Eye memory and retains current-position sight for legacy runs", () => {
+    it("restores the whole floor without relying on legacy Eye path memory, but ignores inactive Eye memory", () => {
         const generated = corridor();
         for (const divinerVisited of [undefined, null, "1", "x".repeat(generated.tiles.length)]) {
             const resumed = rebuildHollowGateRun(state({ floor: 1, divinerUsed: true, divinerVisited }), generated);
             assert.equal(resumed.tiles[6 * generated.width + 2].seen, true);
-            assert.equal(Boolean(resumed.tiles[6 * generated.width + 14].seen), false);
+            assert.ok(resumed.tiles.every(tile => tile.seen && tile.revealed));
         }
         const inactive = rebuildHollowGateRun(state({ floor: 1, divinerUsed: false,
             divinerVisited: "1".repeat(generated.tiles.length) }), generated);
         assert.equal(Boolean(inactive.tiles[6 * generated.width + 14].seen), false);
+        assert.equal(inactive.tiles[6 * generated.width + 14].revealed, false);
     });
 });
 
@@ -194,13 +195,32 @@ describe("hollow gate recovery — the board is the one the run sealed", () => {
         assert.equal(run.floor, 4);
     });
 
-    it("a Diviner's Eye already used on this floor restores its local sight, not the whole board", () => {
+    it("a Diviner's Eye already used on this floor restores its full reveal", () => {
         const generated = generateHollowGateShrineRun(1, undefined, SEED);
         const run = rebuildHollowGateRun(state({ floor: 1, divinerUsed: true }), generated);
         assert.equal(run.diviner, true);
-        assert.equal(run.tiles.every((tile) => tile.revealed), false, "disguised tiles are not unmasked");
-        assert.equal(run.tiles.every((tile) => tile.seen), false, "the far floor stays unexplored");
+        assert.equal(run.tiles.every((tile) => tile.revealed || tile.secret), true, "encounters are unmasked without opening secret passages");
+        assert.equal(run.tiles.every((tile) => tile.seen), true, "the far floor stays mapped");
         assert.equal(run.tiles[run.playerY * run.width + run.playerX + 1]?.seen, true, "the tile beside the player is sensed");
+    });
+
+    it("restores the Eye on legacy floor sizes, then keeps the next floor's fog", () => {
+        for (const [width, height] of [[25, 17], [31, 21]]) {
+            const variant = { id: "eye-recovery", label: "Shrine", maxFloor: 5, width, height };
+            const generated = generateHollowGateShrineRun(1, variant, SEED);
+            const manifest = sealed(generated, 1);
+            const restored = rebuildHollowGateRun(state({ floor: 1, manifest, divinerUsed: true }), generated);
+            assert.equal(restored.width, width);
+            assert.equal(restored.height, height);
+            assert.ok(restored.tiles.every(tile => tile.seen && (tile.revealed || tile.secret)));
+            assert.deepEqual(restored.tiles.map(tile => tile.resolved), generated.tiles.map(tile => tile.resolved));
+            const secret = generated.tiles.findIndex(tile => tile.secret && !tile.revealed);
+            if (secret >= 0) assert.equal(restored.tiles[secret].revealed, false);
+            const next = generateHollowGateShrineRun(2, variant, SEED);
+            const descended = rebuildHollowGateRun(state({ floor: 2, divinerUsed: false, divinerVisited: "1".repeat(next.tiles.length) }), next);
+            assert.equal(descended.diviner, undefined);
+            assert.ok(descended.tiles.some(tile => !tile.seen && !tile.revealed), "the Eye never carries into the next floor");
+        }
     });
 
     it("the detour a player already entered stays committed and the others stay sealed", () => {

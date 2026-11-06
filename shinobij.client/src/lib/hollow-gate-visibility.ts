@@ -138,25 +138,7 @@ export function computeHollowGateVisible(run: HollowGateShrineRun): Set<number> 
     return visible;
 }
 
-/** How far the Diviner's Eye lets you sense the floor around you, in tiles. */
-export const HOLLOW_GATE_DIVINER_RADIUS = 5;
-
-/**
- * What the player can see right now: the room-flood sight above, plus, while
- * a Diviner's Eye is active on this floor, every tile within
- * HOLLOW_GATE_DIVINER_RADIUS of them, sensed through walls. The Eye widens your
- * senses where you stand; it never maps the floor or shows the way to the
- * stairs from afar. Sensed tiles enter map memory but are not `revealed`, so
- * disguised traps and ambushes stay hidden until they are stepped on.
- */
+/** The Eye maps the full current floor; ordinary torch sight is unchanged. */
 export function computeHollowGateSight(run: HollowGateShrineRun): Set<number> {
-    const visible = computeHollowGateVisible(run);
-    if (!run.diviner) return visible;
-    const r = HOLLOW_GATE_DIVINER_RADIUS;
-    for (let y = Math.max(0, run.playerY - r); y <= Math.min(run.height - 1, run.playerY + r); y += 1) {
-        for (let x = Math.max(0, run.playerX - r); x <= Math.min(run.width - 1, run.playerX + r); x += 1) {
-            visible.add(y * run.width + x);
-        }
-    }
-    return visible;
+    return run.diviner ? new Set(run.tiles.keys()) : computeHollowGateVisible(run);
 }
