@@ -15,7 +15,7 @@ import { applyAttunementToRun } from "./hollow-gate-attunement";
 import { loadHollowGateGenerator } from "./hollow-gate-generator-loader";
 import { resumeHollowGateServerRun } from "./hollow-gate-server";
 import type { HiddenChamberState, HollowGateEventModal } from "./hollow-gate-tile";
-import { computeHollowGateVisible } from "./hollow-gate-visibility";
+import { computeHollowGateSight, computeHollowGateVisible } from "./hollow-gate-visibility";
 
 /*
  * Hollow Gate — rebuild a live run's board after a reload.
@@ -74,6 +74,7 @@ export type HollowGateResumeState = {
     resolvedEncounterIds: string[];
     resolvedEventIds: string[];
     visited: string | null;
+    divinerVisited?: string | null;
     manifest: HollowGateSealedManifest | null;
     activeCombat: HollowGateShrineRun["activeCombat"] | null;
     wanderers?: HollowGateShrineRun["wanderers"];
@@ -205,6 +206,19 @@ export function rebuildHollowGateRun(
         if (!onBoard(index)) continue;
         for (const lit of computeHollowGateVisible({ ...walked, playerX: index % width, playerY: Math.floor(index / width) })) seen.add(lit);
     }
+    // Replay only positions reached with the Eye active. Ordinary visited
+    // tiles include pre-Eye paths and must not gain retrospective sight.
+    if (state.divinerUsed) {
+        const eyePositions = new Set<number>([position.y * width + position.x]);
+        const memory = state.divinerVisited;
+        if (typeof memory === "string" && memory.length === tiles.length && /^[01]*$/.test(memory)) {
+            for (let index = 0; index < memory.length; index += 1) if (memory[index] === "1") eyePositions.add(index);
+        }
+        for (const index of eyePositions) {
+            if (!onBoard(index)) continue;
+            for (const lit of computeHollowGateSight({ ...walked, diviner: true, playerX: index % width, playerY: Math.floor(index / width) })) seen.add(lit);
+        }
+    }
     const remembered = tiles.map((tile, index) => (seen.has(index) && !tile.seen ? { ...tile, seen: true } : tile));
 
     // Wing gating: a player can enter only one detour, which seals the others.
@@ -221,7 +235,7 @@ export function rebuildHollowGateRun(
     return {
         ...walked,
         ...wings,
-        tiles: state.divinerUsed ? remembered.map((tile) => (tile.revealed ? tile : { ...tile, revealed: true })) : remembered,
+        tiles: remembered,
         floor: state.floor,
         keys: state.keys,
         torch: state.torch,
@@ -297,11 +311,22 @@ export async function recoverHollowGateRun(params: HollowGateRecoveryParams): Pr
     const variant = hollowGateResumeVariant(state, params.character.hollowGateRun?.variant);
     let run: HollowGateShrineRun;
     try {
-        const { generateHollowGateShrineRun } = await loadHollowGateGenerator();
+        const { generateHollowGateShrineRun, HOLLOW_GATE_BOARD_GENERATIONS } = await loadHollowGateGenerator();
         // The immutable manifest identifies the old count without a save migration.
         // Reproduce its original seeded layout, rooms and fog before rebuilding.
         const legacyPacing = state.manifest && Object.values(state.manifest.nodes).filter(kind => kind === 'battle').length === 4 + Math.min(5, state.floor);
-        run = applyAttunementToRun(rebuildHollowGateRun(state, generateHollowGateShrineRun(state.floor, variant, state.seed, Boolean(legacyPacing)), variant), params.character, false);
+        const sealedDims = { width: state.floorWidth, height: state.floorHeight };
+        let generated = generateHollowGateShrineRun(state.floor, variant, state.seed, Boolean(legacyPacing), true, "auto", sealedDims);
+        // A floor sealed by an earlier generator (before temple layouts or
+        // secret passages): redraw it the way it was drawn, rather than
+        // falling back to the bare manifest.
+        if (state.manifest && !hollowGateBoardMatchesManifest(generated, state.manifest)) {
+            for (const { secrets, layout } of HOLLOW_GATE_BOARD_GENERATIONS.slice(1)) {
+                const earlier = generateHollowGateShrineRun(state.floor, variant, state.seed, Boolean(legacyPacing), secrets, layout, sealedDims);
+                if (hollowGateBoardMatchesManifest(earlier, state.manifest)) { generated = earlier; break; }
+            }
+        }
+        run = applyAttunementToRun(rebuildHollowGateRun(state, generated, variant), params.character, false);
     } catch {
         return "error";
     }

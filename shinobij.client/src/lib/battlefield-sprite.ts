@@ -53,8 +53,14 @@ export function inferSpriteKind(src: string): BattlefieldSpriteKind {
 /** Authored direction of body art; the existing facing system mirrors from it. */
 export function inferSpriteNativeFacing(src: string): BattlefieldSpriteFacing {
     const filename = src.split(/[?#]/, 1)[0].split("/").pop() ?? "";
-    // Murogane and Donkaku are drawn with their heads leading to the right.
-    if (/^(hollow-gate-bull|donkaku)-battle-v1\.webp$/i.test(filename)) return "right";
+    // Murogane, Donkaku and the Hollow Hound are drawn with their heads leading
+    // to the right.
+    if (/^(hollow-gate-bull|donkaku)-battle-v1\.webp$/i.test(filename) || /^hollow-hound-idle\.webp$/i.test(filename)) return "right";
+    // The hound's admin-assigned combat art (/api/img?id=hollow-gate:hound:combat)
+    // replaces that same right-facing painting, so it keeps the same direction.
+    let decoded = src;
+    try { decoded = decodeURIComponent(src); } catch { /* keep the raw src */ }
+    if (/[?&]id=hollow-gate:hound:combat(?:&|#|$)/i.test(decoded)) return "right";
     return "left";
 }
 

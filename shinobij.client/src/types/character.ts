@@ -88,6 +88,9 @@ export type HollowGateTile = {
     // and are walkable by click-to-move. `revealed` (stepped on) stays the
     // gate for surprise-tile disguise. Absent on old saves (falsy = unseen).
     seen?: boolean;
+    // Secret passage (lib/hollow-gate-secrets): a doorway drawn as cracked rock
+    // until the player walks into it. Presentation only; it stays walkable.
+    secret?: boolean;
     flavor?: string;
 };
 
@@ -156,6 +159,13 @@ export type HollowGateShrineRun = {
     // corridor / wall cells. Old saved runs without this field fall back to
     // the base atlas tiles for terrain.
     roomThemes?: Record<number, string>;
+    // Crypt-layout prefab by roomId (lib/hollow-gate-crypt-layout): "room",
+    // "hall" or "stair". The renderer paints each room with its prefab's art.
+    // Presentation only; absent on BSP floors.
+    roomPrefabs?: Record<number, string>;
+    // Boss-arena fissure cells (tile index -> stripe 0-2, lib/hollow-gate-arena),
+    // stamped by the generator so the eager movement check stays tiny.
+    arenaFissures?: Record<number, number>;
     // Random seed baked into the run on creation. Used so the theme picker
     // gives different rooms different themes per-run.
     seed?: number;

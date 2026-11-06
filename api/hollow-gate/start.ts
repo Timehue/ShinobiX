@@ -361,8 +361,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const wardSteps = Math.max(0, Math.min(6, Math.floor(Number(attunement['reiki-reserves']) || 0) * 3));
             const runToken: HollowGateRunToken = {
                 playerName, mintedAt: Date.now(), floorDepth, currentFloor: 1, seed: randomUUID(),
-                floorWidth: eventDef?.width ?? 25,
-                floorHeight: eventDef?.height ?? 17,
+                // 31 x 21: the crypt board of painted prefab rooms (2026-11-04).
+                floorWidth: eventDef?.width ?? 31,
+                floorHeight: eventDef?.height ?? 21,
                 entryCurrencies: entry,
                 entryFragments: itemStackCount(character.itemStacks, HG_HIGH_VALUE_ITEM_ID),
                 entryItems,

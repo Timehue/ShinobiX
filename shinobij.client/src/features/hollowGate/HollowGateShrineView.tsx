@@ -34,12 +34,29 @@ import { HollowGateShardBar } from "../../components/HollowGateShardBar";
 import { GameArtIcon, type GameArtIconKind } from "../../components/GameArtIcon";
 import { HOLLOW_GATE_ICON_KEY, HOLLOW_GATE_ICON_ROLES } from "../../data/hollow-gate-atlas";
 import { hollowGateIntroPagesFor } from "../../data/hollow-gate-flavor";
-import { computeHollowGateVisible } from "../../lib/hollow-gate-visibility";
+import { computeHollowGateSight } from "../../lib/hollow-gate-visibility";
+import { hollowGateSecretSealed } from "../../lib/hollow-gate-secrets";
+import { HollowGateFissureArt } from "../../components/HollowGateFissureArt";
+
+/** Painted weakened-rock decal for a sealed secret passage. */
+const CAVERN_CRACKED_WALL_ART = "/underground/cavern-cracked-wall-v1.webp";
+/** Painted props that stand on the chamber floors instead of UI badges
+ *  (shinobij.client/art-source/hollow-gate-cavern-chambers.json). */
+const PAINTED_PROP: Partial<Record<HollowGateTileKind, string>> = {
+    descend: "/underground/cavern-prop-descend-v1.webp", exit: "/underground/cavern-prop-exit-v1.webp",
+    chest: "/underground/cavern-prop-chest-v1.webp", shard_vein: "/underground/cavern-prop-shard-vein-v1.webp",
+    shrine: "/underground/cavern-prop-shrine-v1.webp", story: "/underground/cavern-prop-story-v1.webp",
+    locked: "/underground/cavern-prop-locked-v1.webp",
+};
+import { HOLLOW_GATE_FISSURE_BEAT_MS, hollowGateArenaFissures, hollowGateFissureState, type HollowGateFissureState } from "../../lib/hollow-gate-arena";
 import { hollowGateBossDisplayName, hollowGateRunMaxFloor } from "../../lib/hollow-gate-variant";
 import { hollowGateClawBackPreview } from "../../lib/hollow-gate-run";
 import {
     HOLLOW_GATE_ALPHA_CINEMATIC,
     hollowGateAlphaCinematicImage,
+    hollowGateLegacyRoomPrefabs,
+    hollowGatePassageArt,
+    hollowGateRoomArt,
     hollowGateFloorProfile,
     hollowGateRiftFloorProfile,
 } from "../../lib/hollow-gate-presentation";
@@ -100,10 +117,9 @@ function rememberBossIntro(key: string): void {
     }
 }
 
-/** The shrine's art lookups for one image set (admin atlas art; CSS fallback when absent). */
+/** The shrine's admin-assigned content icons (game art fallback when absent).
+ *  Floors and walls are the room paintings, so no atlas floor stamps remain. */
 type HollowGateCellArt = {
-    textureFor: (terrainKind: HollowGateTerrain, idx: number, theme?: string, face?: boolean) => string | undefined;
-    hasFaceArt: (theme: string | undefined) => boolean;
     pickRoleIconImage: (role: string, idx: number) => string | undefined;
 };
 
@@ -115,64 +131,11 @@ function variantPick(idx: number, count: number): number {
 }
 
 function hollowGateCellArt(sharedImages: Record<string, string>): HollowGateCellArt {
-    // Variant texture banks: per-terrain arrays. The atlas slicer fills
-    // `shrine:tile-X-0..N` entries; this fallback gathers them. If only
-    // the base (no -0 suffix) exists, we use that single tile everywhere.
-    function gatherVariants(prefix: string, limit = 4): string[] {
-        const variants: string[] = [];
-        for (let i = 0; i < limit; i += 1) {
-            const v = sharedImages[`${prefix}-${i}`];
-            if (v) variants.push(v);
-        }
-        if (variants.length === 0) {
-            const base = sharedImages[prefix];
-            if (base) variants.push(base);
-        }
-        return variants;
-    }
-    const wallVariants = gatherVariants("shrine:tile-wall", 4);
-    // South-facing wall FACES get purpose-drawn masonry art
-    // (shrine:tile-wall-face) distinct from the flat wall TOPS;
-    // when it exists the CSS brick-course pass steps aside
-    // (.hg-tex) and only the cap + contact shading draw over it.
-    const wallFaceVariants = gatherVariants("shrine:tile-wall-face", 4);
-    const roomFloorVariants = gatherVariants("shrine:tile-room-floor", 4);
-    const corridorFloorVariants = gatherVariants("shrine:tile-corridor-floor", 4);
-    // Room theme tile lookup. Each room has a theme stamped on it; for a
-    // given (theme, role) try shrine:icon-theme-<theme>-<role>. If absent
-    // we fall back to the base atlas tile. Themes only apply to tiles that
-    // belong to a room (room_floor + doors); corridors stay default.
-    function themedTileFor(role: "wall" | "wall-face" | "floor" | "corridor" | "door", theme: string | undefined): string | undefined {
-        if (!theme) return undefined;
-        return sharedImages[`shrine:icon-theme-${theme}-${role}`];
-    }
     // Variant-aware icon lookup for a content role (chest, battle, etc.).
     // Tries shrine:icon-<role>-1..N in deterministic hash order, falls back
     // to shrine:icon-<role> (legacy single-icon assignments).
     const roleIconPools = new Map<string, string[]>();
     return {
-        // Optional texture layer for a terrain (admin atlas art). Returns the
-        // image url or undefined — the CSS dungeon look is the fallback.
-        // Wall FACES prefer the dedicated face art and fall back to the
-        // wall-top texture (the CSS course pass keeps depth either way).
-        textureFor(terrainKind, idx, theme, face = false) {
-            if (terrainKind === "wall") {
-                if (face) {
-                    return themedTileFor("wall-face", theme)
-                        ?? wallFaceVariants[variantPick(idx, wallFaceVariants.length)]
-                        ?? themedTileFor("wall", theme)
-                        ?? wallVariants[variantPick(idx, wallVariants.length)];
-                }
-                return themedTileFor("wall", theme) ?? wallVariants[variantPick(idx, wallVariants.length)];
-            }
-            if (terrainKind === "corridor_floor") return themedTileFor("corridor", theme) ?? corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
-            return themedTileFor("floor", theme) ?? roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
-        },
-        // True when a dedicated face texture exists for this theme —
-        // used to swap the CSS painted-brick pass for a lighter one.
-        hasFaceArt(theme) {
-            return Boolean(themedTileFor("wall-face", theme) ?? wallFaceVariants[0]);
-        },
         pickRoleIconImage(role, idx) {
             const cfg = HOLLOW_GATE_ICON_ROLES[role];
             if (!cfg) return undefined;
@@ -207,12 +170,14 @@ function iconSlotIdFor(k: HollowGateTileKind): string | null {
 }
 
 type HollowGateCellProps = {
-    i: number; x: number; y: number; tilePx: number; tile: HollowGateTile;
-    /** A quest rift: its sector-style terrain takes no atlas floor or wall stamps. */
-    rift: boolean;
-    wall: boolean; wallFace: boolean; besideOpening: boolean; theme: string | undefined;
+    i: number; x: number; y: number; tile: HollowGateTile;
+    wall: boolean; wallFace: boolean;
     visible: boolean; known: boolean; isPlayer: boolean; isDest: boolean; clickable: boolean;
     isDetourChest: boolean; isRiftSignal: boolean; roamerOrigin: boolean;
+    /** A sealed secret passage: drawn as cracked rock, walk into it to break through. */
+    secret?: boolean;
+    /** A boss-arena fissure and where it is in its rhythm. */
+    fissure?: HollowGateFissureState;
     /** Only the cells whose label uses them get these; every other cell's stay undefined. */
     playerName?: string; detourExtraSteps?: number; riftLabel?: string;
     art: HollowGateCellArt; onPick: (idx: number) => void;
@@ -223,8 +188,8 @@ type HollowGateCellProps = {
  * whose light, occupancy or contents changed rather than every cell of the
  * floor, and a reply that only moves torch or threat re-renders none.
  */
-const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, rift, wall, wallFace, besideOpening, theme,
-    visible, known, isPlayer, isDest, clickable, isDetourChest, isRiftSignal, roamerOrigin, playerName, detourExtraSteps, riftLabel, art, onPick }: HollowGateCellProps) {
+const HollowGateCell = memo(function HollowGateCell({ i, x, y, tile, wall, wallFace,
+    visible, known, isPlayer, isDest, clickable, isDetourChest, isRiftSignal, roamerOrigin, secret = false, fissure, playerName, detourExtraSteps, riftLabel, art, onPick }: HollowGateCellProps) {
     const revealed = tile.revealed;
     const terrainKind: HollowGateTerrain =
         tile.terrain ?? (tile.kind === "wall" ? "wall" : "room_floor");
@@ -241,15 +206,7 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, rif
         : "hg-floor-room";
     const checkCls = !wall && terrainKind !== "door" && (x + y) % 2 === 0 ? " hg-check" : "";
 
-    // ── Optional admin texture + content tint (lit only) ───
-    // The player's cell renders like any other floor — the
-    // avatar is an overlay, not a tile style.
-    const cellTheme = (visible || known) ? theme : undefined;
-    // Saved/admin atlas tiles otherwise obscure the sector-style
-    // terrain with the old square floor and masonry stamps.
-    const texture = !rift && (visible || known) ? art.textureFor(terrainKind, i, cellTheme, wallFace) : undefined;
-    const texturedFace = wallFace && Boolean(texture) && art.hasFaceArt(cellTheme);
-    const layers: string[] = [];
+    // The room paintings are the floor: cells draw no texture of their own.
     // Surprise tiles (trap/battle/elite/pet) stay disguised as
     // floor until actually stepped on (revealed).
     const isSurpriseKind = tile.kind === "trap"
@@ -257,22 +214,6 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, rif
         || tile.kind === "elite"
         || tile.kind === "pet_event"
         || tile.kind === "pet_battle";
-    if (texture) {
-        // Supertile sampling: floors/corridors draw the texture
-        // across a 2×2 block of cells (world-anchored quadrant per
-        // cell), so the floor reads as ONE continuous surface with
-        // half the repetition — not 400 identical stamps. Wall
-        // faces alternate left/right halves so masonry courses run
-        // on down the wall line. Wall tops/doors stay per-cell.
-        if (terrainKind === "room_floor" || terrainKind === "corridor_floor") {
-            layers.push(`url(${texture}) ${-(x % 2) * tilePx}px ${-(y % 2) * tilePx}px / ${tilePx * 2}px ${tilePx * 2}px no-repeat`);
-        } else if (wallFace) {
-            layers.push(`url(${texture}) ${-(x % 2) * tilePx}px ${-(tilePx >> 1)}px / ${tilePx * 2}px ${tilePx * 2}px no-repeat`);
-        } else {
-            layers.push(`url(${texture}) center/cover no-repeat`);
-        }
-    }
-    const styleBg = layers.length > 0 ? layers.join(", ") : undefined;
 
     // ── Icon: atlas image (shrine:icon-<slot>) or themed game art ────
     const showIcon = tile.kind !== 'npc' && !roamerOrigin && !wall && (visible || known) && !(isSurpriseKind && !revealed) && tile.kind !== "empty";
@@ -286,27 +227,23 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, rif
         ? `${playerName}, current location${spentTrap ? ', spent trap, safe to cross' : ''}, row ${y + 1}, column ${x + 1}`
         : !known
             ? `Unknown tile, row ${y + 1}, column ${x + 1}`
+            : secret
+                ? `Cracked wall, row ${y + 1}, column ${x + 1}${clickable ? ", press Enter to break through" : ""}`
             : wall
                 ? `Wall, row ${y + 1}, column ${x + 1}`
-                : `${isDetourChest ? `Optional echo cache, standard chest contents, about ${detourExtraSteps ?? 0} extra route steps; ` : ""}${isRiftSignal ? `Weekly Rift signal for ${riftLabel}; ` : ""}${spentTrap ? 'Spent trap, safe to cross' : showIcon ? tile.kind.replaceAll("_", " ") : "explored floor"}, row ${y + 1}, column ${x + 1}${clickable ? ", press Enter to walk here" : ""}`;
-
-    // Torch sconces: a wall face beside an OPENING in its wall
-    // line (where a corridor/door pierces through) always carries
-    // a flame — deliberate Zelda-style doorway framing — plus a
-    // sparse deterministic scatter along long unbroken walls.
-    const sconce = wallFace && visible && (besideOpening || ((i * 2654435761) >>> 0) % 5 === 0);
+                : `${fissure ? `Fire fissure, ${fissure === "erupting" ? "erupting, cannot cross now" : fissure === "warning" ? "glowing, erupts next" : "cool, safe to cross"}; ` : ""}${isDetourChest ? `Optional echo cache, standard chest contents, about ${detourExtraSteps ?? 0} extra route steps; ` : ""}${isRiftSignal ? `Weekly Rift signal for ${riftLabel}; ` : ""}${spentTrap ? 'Spent trap, safe to cross' : showIcon ? tile.kind.replaceAll("_", " ") : "explored floor"}, row ${y + 1}, column ${x + 1}${clickable ? ", press Enter to walk here" : ""}`;
 
     return (
         <div
-             title={wall || !known ? undefined : spentTrap ? 'Spent trap (safe to cross)' : showIcon ? tile.kind.replaceAll('_', ' ') : 'Explored floor'}
+             title={secret && known ? 'Cracked wall' : wall || !known ? undefined : spentTrap ? 'Spent trap (safe to cross)' : showIcon ? tile.kind.replaceAll('_', ' ') : 'Explored floor'}
              role="gridcell"
              aria-label={tileLabel}
              aria-rowindex={y + 1}
              aria-colindex={x + 1}
              aria-current={isPlayer ? "location" : undefined}
              tabIndex={clickable ? 0 : -1}
-             className={`hg-cell ${shapeCls} ${fogCls}${texture ? "" : checkCls}${texturedFace ? " hg-tex" : ""}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}${isDetourChest ? " hg-detour-cache" : ""}${isRiftSignal ? " hg-rift-signal" : ""}`}
-             style={{ gridColumn: x + 1, gridRow: y + 1, ...(styleBg ? { background: styleBg } : {}) }}
+             className={`hg-cell ${shapeCls} ${fogCls}${checkCls}${secret ? " hg-secret" : ""}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}${isDetourChest ? " hg-detour-cache" : ""}${isRiftSignal ? " hg-rift-signal" : ""}`}
+             style={{ gridColumn: x + 1, gridRow: y + 1 }}
              onClick={clickable ? () => onPick(i) : undefined}
              onKeyDown={clickable ? (event) => {
                  if (event.key !== "Enter" && event.key !== " ") return;
@@ -314,12 +251,14 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, rif
                  onPick(i);
              } : undefined}
          >
-             {sconce && <span className="hg-flame" aria-hidden="true" />}
+             {secret && known && <img className="hg-secret-decal" src={CAVERN_CRACKED_WALL_ART} alt="" aria-hidden="true" />}
+             {fissure && known && <HollowGateFissureArt state={fissure} />}
              {spentTrap && <span className="hg-spent-trap" aria-hidden="true">✓</span>}
              {isDetourChest && <span className="hg-detour-mark" aria-hidden="true">✦</span>}
              {isRiftSignal && <span className="hg-rift-mark" aria-hidden="true">◈</span>}
              {known && (tile.kind === 'descend' || tile.kind === 'exit' || tile.kind === 'boss') && <span className="hg-cave-waypoint" aria-hidden="true">{tile.kind === 'descend' ? '↓ Deeper' : tile.kind === 'exit' ? '↑ Exit' : tile.resolved ? 'Cleared' : 'Boss'}</span>}
-             {iconImage ? (
+             {showIcon && PAINTED_PROP[tile.kind] ? <img className="hg-painted-prop" src={PAINTED_PROP[tile.kind]} alt="" aria-hidden="true" draggable={false} />
+             : iconImage ? (
                  <img
                      src={iconImage}
                      alt=""
@@ -386,9 +325,8 @@ export function HollowGateShrineView({
     // computeHollowGateVisible reads only the board, its size and the position,
     // so a server reply that moves torch, threat or wanderers reuses the set.
     const { tiles: runTiles, width: runWidth, height: runHeight, playerX: runPlayerX, playerY: runPlayerY, diviner: runDiviner } = run;
-    const visibleSet = useMemo(() => runDiviner
-        ? new Set(runTiles.map((_, i) => i))
-        : computeHollowGateVisible({ tiles: runTiles, width: runWidth, height: runHeight, playerX: runPlayerX, playerY: runPlayerY } as HollowGateShrineRun),
+    const visibleSet = useMemo(() => computeHollowGateSight({ tiles: runTiles, width: runWidth, height: runHeight,
+        playerX: runPlayerX, playerY: runPlayerY, diviner: runDiviner } as HollowGateShrineRun),
     [runTiles, runWidth, runHeight, runPlayerX, runPlayerY, runDiviner]);
     // Known = currently visible ∪ previously explored (stepped OR ever seen) —
     // the click-to-walk surface and the "map memory" fog tier.
@@ -397,6 +335,26 @@ export function HollowGateShrineView({
         runTiles.forEach((t, i) => { if (t.revealed || t.seen) known.add(i); });
         return known;
     }, [visibleSet, runTiles]);
+    // Boss arena fissures (lib/hollow-gate-arena): tick once per beat, and only
+    // while the chamber is in sight, so a beat re-renders just those cells.
+    const fissures = useMemo(() => hollowGateArenaFissures({ tiles: runTiles, width: runWidth }), [runTiles, runWidth]);
+    const fissuresInSight = fissures.size > 0 && [...fissures.keys()].some((i) => visibleSet.has(i));
+    const [arenaNow, setArenaNow] = useState(() => Date.now());
+    useEffect(() => {
+        if (!fissuresInSight) return;
+        let timer = 0;
+        const tick = () => {
+            const now = Date.now();
+            setArenaNow(now);
+            timer = window.setTimeout(tick, HOLLOW_GATE_FISSURE_BEAT_MS - (now % HOLLOW_GATE_FISSURE_BEAT_MS) + 5);
+        };
+        tick();
+        return () => window.clearTimeout(timer);
+    }, [fissuresInSight]);
+    // The terrain painter draws a sealed secret passage as plain rock.
+    const terrainTiles = useMemo(() => runTiles.some(hollowGateSecretSealed)
+        ? runTiles.map((t) => (hollowGateSecretSealed(t) ? { ...t, terrain: "wall" as const } : t))
+        : runTiles, [runTiles]);
     const cellArt = useMemo(() => hollowGateCellArt(sharedImages), [sharedImages]);
     const floorFeatures = run.floorFeatures;
     const blockedCells = useMemo(() => {
@@ -431,6 +389,15 @@ export function HollowGateShrineView({
         ? `linear-gradient(180deg, rgba(15,9,28,0.78), rgba(8,4,18,0.88)), url(${shrineBg}) center/cover no-repeat`
         : "linear-gradient(180deg, rgba(15,9,28,0.92), rgba(8,4,18,0.95))";
     const maxFloor = hollowGateRunMaxFloor(run);
+    // Stable art props, so the memoized terrain is not redrawn on every step
+    // or fissure beat (a fresh object each render would defeat its memo).
+    const runFloor = run.floor, savedPrefabs = run.roomPrefabs;
+    // A floor from before the crypt board has no prefab record; its rooms
+    // still get the painting nearest their shape. (Same object while saved.)
+    const runRoomPrefabs = useMemo(() => savedPrefabs ?? hollowGateLegacyRoomPrefabs(runTiles, runWidth), [savedPrefabs, runTiles, runWidth]);
+    const roomArt = useMemo(() => hollowGateRoomArt(runFloor, runFloor >= maxFloor, runRoomPrefabs, isQuestRift),
+        [runFloor, maxFloor, runRoomPrefabs, isQuestRift]);
+    const passageArt = hollowGatePassageArt(runFloor, isQuestRift);
     const introPages = hollowGateIntroPagesFor(run.variant);
     const bossName = hollowGateBossDisplayName(run);
     const floorProfile = isQuestRift ? hollowGateRiftFloorProfile(run.floor, maxFloor, bossName) : hollowGateFloorProfile(run.floor);
@@ -482,7 +449,7 @@ export function HollowGateShrineView({
 
     // Derived from the measured viewport rather than window.innerWidth at module
     // load, so rotation, split-screen, and browser zoom update the camera.
-    const tilePx = undergroundTileSize({ width: vp.w, height: vp.h }, chamberBounds, isQuestRift ? 'rift' : false);
+    const tilePx = undergroundTileSize({ width: vp.w, height: vp.h }, chamberBounds, isQuestRift ? 'rift' : 'chamber');
     const boardW = run.width * tilePx;
     const boardH = run.height * tilePx;
     const playerRoom = run.tiles[run.playerY * run.width + run.playerX]?.roomId;
@@ -641,34 +608,13 @@ export function HollowGateShrineView({
                                     disguised until stepped on. */}
                                 {(() => {
                                     // knownSet, cellArt and blockedCells are memoized above the return.
-                                    // Per-cell theme resolver — null roomId (wall / corridor outside a room)
-                                    // gets the room theme of the nearest 4-neighbour room cell, so walls
-                                    // bordering a themed room pick up that theme. Falls back to "" if no
-                                    // neighbour has a theme.
-                                    function tileTheme(idx: number): string | undefined {
-                                        const tile = run.tiles[idx];
-                                        if (!tile) return undefined;
-                                        if (tile.roomId != null && run.roomThemes) return run.roomThemes[tile.roomId];
-                                        if (!run.roomThemes) return undefined;
-                                        // Look at 4-cardinal neighbours; first room neighbour wins.
-                                        const cx = idx % run.width;
-                                        const cy = Math.floor(idx / run.width);
-                                        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-                                            const nx = cx + dx, ny = cy + dy;
-                                            if (nx < 0 || ny < 0 || nx >= run.width || ny >= run.height) continue;
-                                            const nTile = run.tiles[ny * run.width + nx];
-                                            if (nTile?.roomId != null && run.roomThemes[nTile.roomId]) {
-                                                return run.roomThemes[nTile.roomId];
-                                            }
-                                        }
-                                        return undefined;
-                                    }
                                     const w = run.width, h = run.height;
                                     const riftLabel = RIFT_DISTORTION_LABEL[run.riftDistortionId ?? ""]?.label ?? "the active distortion";
+                                    // A sealed secret passage draws as rock until it is broken open.
                                     const isWallAt = (x: number, y: number) => {
                                         if (x < 0 || y < 0 || x >= w || y >= h) return true;   // outside = solid
                                         const t = run.tiles[y * w + x];
-                                        return t.terrain === "wall" || (t.terrain == null && t.kind === "wall");
+                                        return t.terrain === "wall" || (t.terrain == null && t.kind === "wall") || hollowGateSecretSealed(t);
                                     };
                                     return (
                                  <div className="hg-viewport" ref={viewportRef} style={{ ["--hg-bh" as string]: `${boardH}px` }} aria-label={`Hollow Gate floor ${run.floor} map`}>
@@ -690,7 +636,8 @@ export function HollowGateShrineView({
                                              ["--hg-tile" as string]: `${tilePx}px`,
                                         }}
                                     >
-                                    <UndergroundSectorTerrain tiles={run.tiles} width={w} height={h} known={knownSet} visible={visibleSet} mode="cave" rift={isQuestRift} features={run.floorFeatures}
+                                    <UndergroundSectorTerrain tiles={terrainTiles} width={w} height={h} known={knownSet} visible={visibleSet} mode="cave" rift={isQuestRift} features={run.floorFeatures}
+                                        roomArt={roomArt} passageArt={passageArt}
                                         renderWindow={terrainWindow} />
                                     {breachSites.filter(site => site.x >= terrainWindow.left && site.x < terrainWindow.left + terrainWindow.width
                                         && site.y >= terrainWindow.top && site.y < terrainWindow.top + terrainWindow.height
@@ -706,11 +653,12 @@ export function HollowGateShrineView({
                                         const isDetourChest = run.detourTileIndex === i;
                                         const isRiftSignal = run.riftSignalTileIndex === i;
                                         const wall = isWallAt(x, y);
-                                        const wallFace = wall && !isWallAt(x, y + 1);
-                                        return <HollowGateCell key={i} i={i} x={x} y={y} tilePx={tilePx} tile={tile} rift={isQuestRift}
-                                            wall={wall} wallFace={wallFace} besideOpening={wallFace && (!isWallAt(x - 1, y) || !isWallAt(x + 1, y))}
-                                            theme={tileTheme(i)} visible={visible} known={known} isPlayer={isPlayer} isDest={walkTarget === i}
-                                            clickable={known && !wall && !isPlayer && !blockedCells.has(i)}
+                                        const secret = hollowGateSecretSealed(tile);
+                                        return <HollowGateCell key={i} i={i} x={x} y={y} tile={tile}
+                                            wall={wall} wallFace={wall && !isWallAt(x, y + 1)} visible={visible} known={known} isPlayer={isPlayer} isDest={walkTarget === i}
+                                            secret={secret}
+                                            fissure={fissures.has(i) ? hollowGateFissureState(fissures.get(i)!, arenaNow) : undefined}
+                                            clickable={known && (!wall || secret) && !isPlayer && !blockedCells.has(i)}
                                             isDetourChest={isDetourChest} isRiftSignal={isRiftSignal} roamerOrigin={Boolean(hollowGateWandererOrigin(run.wanderers, i))}
                                             playerName={isPlayer ? character.name : undefined} detourExtraSteps={isDetourChest ? run.detourExtraSteps : undefined}
                                             riftLabel={isRiftSignal ? riftLabel : undefined} art={cellArt} onPick={pickTile} />;
@@ -733,6 +681,7 @@ export function HollowGateShrineView({
                                         name={character.name}
                                     />
                                     </div>
+                                    {fissuresInSight && <div className="hg-arena-note" role="status">Fissures vent spirit fire in a rhythm. Cross a crack once its glow dies down.</div>}
                                 </div>
                                     );
                                 })()}
@@ -752,11 +701,13 @@ export function HollowGateShrineView({
                                                         const x = i % run.width, y = Math.floor(i / run.width);
                                                         const isYou = x === run.playerX && y === run.playerY;
                                                         const seen = visibleSet.has(i) || t.revealed || t.seen;
-                                                        const isWall = t.terrain === "wall" || (t.terrain == null && t.kind === "wall");
+                                                        const isWall = t.terrain === "wall" || (t.terrain == null && t.kind === "wall") || hollowGateSecretSealed(t);
+                                                        // Explored-only: nothing (not even a Rift signal or an
+                                                        // Echo Cache) is marked before the player has seen it.
                                                         const cls = isYou ? "hg-mm-you"
+                                                            : !seen ? "hg-mm-dark"
                                                             : run.riftSignalTileIndex === i ? "hg-mm-rift-signal"
                                                             : run.detourTileIndex === i ? "hg-mm-detour"
-                                                            : !seen ? "hg-mm-dark"
                                                             : isWall ? "hg-mm-wall"
                                                             : t.kind === "descend" || t.kind === "boss" ? "hg-mm-goal"
                                                             : t.kind === "exit" ? "hg-mm-exit"
@@ -775,7 +726,7 @@ export function HollowGateShrineView({
                                     </div>}
                                     {run.riftDistortionId && RIFT_DISTORTION_LABEL[run.riftDistortionId] && <div className="hg-rift-card" role="note">
                                         <b>This week’s Rift distortion · {RIFT_DISTORTION_LABEL[run.riftDistortionId].label}</b>
-                                        <span>{RIFT_DISTORTION_LABEL[run.riftDistortionId].detail} Use the signal to choose your route; the Rift’s boss, daily offer, and rewards stay the same.</span>
+                                        <span>{RIFT_DISTORTION_LABEL[run.riftDistortionId].detail} Watch for its signal mark as you explore. The Rift’s boss, daily offer and rewards stay the same.</span>
                                     </div>}
                                     {(() => {
                                         const maxFloor = hollowGateRunMaxFloor(run);
@@ -814,7 +765,7 @@ export function HollowGateShrineView({
                                                 tilegame: "dice", npc: "healer", descend: "worldMap", exit: "worldMap", locked: "key", wall: "biomeCentral",
                                             };
                                             // Walls use the atlas wall tile (terrain), not an icon slot.
-                                            const wallTileImg = isQuestRift ? undefined : sharedImages["shrine:tile-wall"] ?? sharedImages["shrine:tile-wall-0"];
+                                            const wallTileImg: string | undefined = undefined; // walls are part of the painted floor
                                             // Legend picks any-variant: shrine:icon-<role>-1 first, then
                                             // shrine:icon-<role>-2..N, then the legacy un-suffixed key.
                                             // This way the legend reflects "an assignment exists" without
@@ -842,20 +793,25 @@ export function HollowGateShrineView({
                                                     </span>
                                                 );
                                             };
+                                            // Discovered-only, like the floor map: a kind joins the legend once
+                                            // the player has found one (surprise tiles once they were stepped on).
+                                            const surprise = new Set(["trap", "battle", "elite", "pet_event", "pet_battle"]);
+                                            const found = new Set<string>();
+                                            run.tiles.forEach((t, i) => { if (knownSet.has(i) && (!surprise.has(t.kind) || t.revealed)) found.add(t.kind); });
+                                            const entries: Array<[string, string]> = [
+                                                ["battle", isQuestRift ? "Encounter" : "Hollow Hound"], ["elite", isQuestRift ? "Elite" : "Elite Hound"],
+                                                ["boss", isQuestRift ? bossName : "Alpha Hound"], ["trap", "Trap"], ["chest", "Chest"], ["shrine", "Shrine"],
+                                                ["story", "Story"], ["npc", "Keeper"], ["descend", "Descend"], ["exit", "Leave"], ["locked", "Locked Door"],
+                                            ];
                                             return (
                                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                                                    {legendCell("you",     "You")}      {legendCell("battle",  isQuestRift ? "Encounter" : "Hollow Hound")}
-                                                    {legendCell("elite",   isQuestRift ? "Elite" : "Elite Hound")}{legendCell("boss",  isQuestRift ? bossName : "Alpha Hound")}
-                                                    {legendCell("trap",    "Trap")}     {legendCell("chest",   "Chest")}
-                                                    {legendCell("shrine",  "Shrine")}   {legendCell("story",   "Story")}
-                                                    {legendCell("npc",     "Keeper")}   {legendCell("descend", "Descend")}
-                                                    {legendCell("exit",    "Leave")}    {legendCell("locked",   "Locked Door")}
-                                                    {legendCell("wall",    "Wall")}
+                                                    {legendCell("you", "You")}
+                                                    {entries.filter(([kind]) => found.has(kind)).map(([kind, label]) => <span key={kind} style={{ display: "contents" }}>{legendCell(kind, label)}</span>)}
                                                 </div>
                                             );
                                         })()}
                                         <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(168,85,247,0.2)", fontSize: 11, color: "#a78bfa" }}>
-                                            Every room has a purpose: guarded stairs, a sealed treasury, a keeper's alcove. Fights hold the doorways.
+                                            Every room has a purpose: guarded stairs, a sealed treasury, a keeper's alcove. Fights hold the doorways. Some walls are cracked: walk into one to break through.
                                         </div>
                                     </div>
                                     <div style={nativePresentationStyle2}>

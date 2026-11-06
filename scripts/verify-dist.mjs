@@ -106,7 +106,14 @@ const maxPetPortraitBytes = 16 * 1024 * 1024;
 // existing non-building runtime allowance when merged with newer main assets.
 const sectorBuildingArtCount = 15;
 const maxSectorBuildingArtBytes = 1_410_782;
-const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes + maxPetPortraitBytes + maxSectorBuildingArtBytes;
+// 2026-11-04 (owner approved): the painted Hollow Gate cave set (five chamber
+// floors, the passage floor and three decals; shinobij.client/art-source/hollow-gate-cavern-chambers.json)
+// gets the same exact-byte partition, so it neither consumes nor relaxes the
+// general runtime allowance. Repackaging the set means updating this receipt.
+const CAVERN_ART_FILES = JSON.parse(readFileSync(join(root, 'shinobij.client', 'art-source', 'hollow-gate-cavern-chambers.json'), 'utf8'))
+    .records.map((record) => record.output.replace('shinobij.client/public/', ''));
+const maxCavernArtBytes = 8839476;
+const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes + maxPetPortraitBytes + maxSectorBuildingArtBytes + maxCavernArtBytes;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
@@ -176,6 +183,15 @@ for (const file of sectorBuildingFiles) {
 }
 if (sectorBuildingArtBytes !== maxSectorBuildingArtBytes) fail(`sector-building art differs from its ${maxSectorBuildingArtBytes}-byte receipt`);
 console.log(`[verify:dist] Sector buildings: ${sectorBuildingArtCount} reviewed assets / ${sectorBuildingArtBytes} B, matching source delivery bytes.`);
+let cavernArtBytes = 0;
+for (const file of CAVERN_ART_FILES) {
+    if (!clientRelativeFileSet.has(file)) { fail(`cavern art is missing from the client: ${file}`); continue; }
+    const delivered = readFileSync(join(clientDist, file));
+    if (!delivered.equals(readFileSync(join(root, 'shinobij.client', 'public', file)))) fail(`cavern art delivery differs from its reviewed source: ${file}`);
+    cavernArtBytes += delivered.length;
+}
+if (cavernArtBytes !== maxCavernArtBytes) fail(`cavern art differs from its ${maxCavernArtBytes}-byte receipt (${cavernArtBytes} B)`);
+console.log(`[verify:dist] Cavern art: ${CAVERN_ART_FILES.length} reviewed assets / ${cavernArtBytes} B, matching source delivery bytes.`);
 const portraitProduction = JSON.parse(readFileSync(join(root, 'shinobij.client', 'art-source', 'pet-portrait-refresh', 'production.json'), 'utf8'));
 const portraitEntries = portraitProduction.entries;
 if (!portraitProduction.symbolPolicy?.required) fail('scenic companion artwork must require a current visual symbol review');
@@ -342,7 +358,7 @@ const chronicleArtBytes = clientFiles
 if (chronicleArtBytes > maxChronicleArtBytes) {
     fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${(maxChronicleArtBytes / 1024 / 1024).toFixed(1)} MiB`);
 }
-const otherClientBytes = clientArtifactBytes - chronicleArtBytes - petPortraitBytes - sectorBuildingArtBytes;
+const otherClientBytes = clientArtifactBytes - chronicleArtBytes - petPortraitBytes - sectorBuildingArtBytes - cavernArtBytes;
 if (otherClientBytes > maxOtherClientBytes) {
     fail(`client excluding Chronicle art and scenic companions is ${otherClientBytes} B (${(otherClientBytes / 1024 / 1024).toFixed(3)} MiB); ceiling is ${maxOtherClientBytes} B; over by ${otherClientBytes - maxOtherClientBytes} B`);
 }

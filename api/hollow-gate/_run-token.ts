@@ -197,6 +197,9 @@ export interface HollowGateRunToken {
      * rebuilds the explored board from it after a reload. Absent on runs that
      * began before it existed. */
     visitedTiles?: Record<string, string>;
+    /** Positions sensed from while the Eye was active, in the same per-floor
+     * mask format. Separate from visitedTiles to avoid revealing pre-Eye paths. */
+    divinerVisitedTiles?: Record<string, string>;
     /** Currency already committed by authoritative combat. Final extraction
      * treats this as a stored baseline, so a stale browser cannot erase it. */
     serverCreditedCurrencies?: Partial<Record<HgCurrencyKey, number>>;

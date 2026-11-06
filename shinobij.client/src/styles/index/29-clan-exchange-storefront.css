@@ -1053,7 +1053,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .hg-board { transition: none; }
-    .hg-flame, .hg-dest::after, .hg-avatar.is-walking .hg-avatar-sprite { animation: none; }
+    .hg-dest::after, .hg-avatar.is-walking .hg-avatar-sprite { animation: none; }
 }
 
 /* ————— Sector traces: trail signs, shrine standee, traces reader ————— */

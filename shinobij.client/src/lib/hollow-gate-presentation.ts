@@ -147,6 +147,53 @@ export function hollowGateEncounterPresentation(floor: unknown, kind: HollowGate
     };
 }
 
+/** Painted crypt prefab for each room of a crypt floor (public/underground,
+ *  provenance in shinobij.client/art-source/hollow-gate-cavern-chambers.json). Each depth has
+ *  its own palette: two chamber paintings (alternated) and a hall. The final
+ *  floor's stair hall is always the Sanctum, because that is where the boss
+ *  waits. Undefined for BSP floors, which have no prefabs. */
+const HOLLOW_GATE_CRYPT_THEMES = ["threshold", "ossuary", "reliquary", "kennels", "sanctum"] as const;
+export function hollowGateRoomArt(floor: unknown, finalFloor: boolean, roomPrefabs: Readonly<Record<number, string>> | undefined, rift = false): Record<number, string> | undefined {
+    if (!roomPrefabs) return undefined;
+    // Quest rifts share one rift-breach palette on every depth; their stair
+    // hall stays the rift hall, since each rift has its own guardian.
+    const theme = rift ? "rift" : HOLLOW_GATE_CRYPT_THEMES[canonicalHollowGateDepth(floor) - 1] ?? "threshold";
+    const art: Record<number, string> = {};
+    for (const [id, prefab] of Object.entries(roomPrefabs)) {
+        const piece = prefab === "stair" && finalFloor && !rift ? "sanctum-arena"
+            : prefab === "room" ? (Number(id) % 2 === 0 ? `${theme}-room-a` : `${theme}-room-b`)
+            : prefab === "small" ? `${theme}-small` : `${theme}-hall`;
+        art[Number(id)] = `/underground/crypt-${piece}-v1.webp`;
+    }
+    return art;
+}
+
+/**
+ * A floor generated before the crypt board (a run sealed on the old 25x17
+ * board) has no prefab record. Its rooms still get paintings: each picks the
+ * prefab nearest its shape (a long room is a hall, a small one a cave).
+ */
+export function hollowGateLegacyRoomPrefabs(tiles: ReadonlyArray<{ roomId?: number | null; kind: string }>, width: number): Record<number, string> {
+    const box = new Map<number, [number, number, number, number]>();
+    tiles.forEach((tile, i) => {
+        if (tile.roomId == null || tile.kind === "wall") return;
+        const x = i % width, y = (i - x) / width, b = box.get(tile.roomId);
+        box.set(tile.roomId, b ? [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)] : [x, y, x, y]);
+    });
+    const prefabs: Record<number, string> = {};
+    for (const [id, [l, t, r, b]] of box) {
+        const w = r - l + 1, h = b - t + 1;
+        prefabs[id] = w >= 2 * h ? "hall" : w <= 5 && h <= 5 ? "small" : "room";
+    }
+    return prefabs;
+}
+
+/** The painted passage cell between a crypt depth's rooms, in its palette. */
+export function hollowGatePassageArt(floor: unknown, rift = false): string {
+    const theme = rift ? "rift" : HOLLOW_GATE_CRYPT_THEMES[canonicalHollowGateDepth(floor) - 1] ?? "threshold";
+    return `/underground/crypt-${theme}-passage-v1.webp`;
+}
+
 export const HOLLOW_GATE_HOUND_COMBAT = "/hollow-gate/hollow-hound-idle.webp";
 export const HOLLOW_GATE_ALPHA_CINEMATIC = "/hollow-gate/hollow-hound-alpha-cinematic.webp";
 

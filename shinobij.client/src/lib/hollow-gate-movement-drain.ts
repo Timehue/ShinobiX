@@ -32,6 +32,7 @@ export async function drainHollowGateMovement(ctx: Context) {
         if (!current()) return;
         if (fx.wallBump) { ctx.log(fx.blockMessage ?? 'Solid shrine stone. You cannot pass.'); continue; }
         if (fx.committedTheme) ctx.log(`You commit to the ${fx.committedTheme === 'treasure' ? 'Treasure' : 'Beast'} wing — the other detour seals behind you. The Trial path remains open.`);
+        if (fx.secretFound) ctx.log('The cracked wall gives way under your shoulder. A hidden passage opens.');
         if (!fx.step) continue;
         const step = await (ctx.sealStep ?? sealHollowGateStep)({ playerName: ctx.playerName, token: ctx.run.runToken, floor: ctx.run.floor, floorFeaturesVersion: ctx.run.floorFeaturesVersion, ...fx.step });
         if (!current()) return;

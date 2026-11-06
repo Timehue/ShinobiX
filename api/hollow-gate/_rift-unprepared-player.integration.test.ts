@@ -66,8 +66,9 @@ async function call(name: string, body: Record<string, unknown>): Promise<Reply>
     return reply;
 }
 
-const WIDTH = 25;
-const HEIGHT = 17;
+// The crypt board every new run is sealed at (31 x 21 since 2026-11-04).
+const WIDTH = 31;
+const HEIGHT = 21;
 const tileIndex = (x: number, y: number) => y * WIDTH + x;
 
 /** A legal single-floor rift board. The walk under test runs along row 1:

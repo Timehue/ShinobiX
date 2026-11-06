@@ -80,6 +80,12 @@ test("world boss board art is sized as a boss and faces the way it was drawn", (
     }
 });
 
+test("the Hollow Hound's art is drawn facing right, so it mirrors to face a player on its left", () => {
+    assert.equal(inferSpriteNativeFacing("/hollow-gate/hollow-hound-idle.webp"), "right");
+    assert.equal(inferSpriteNativeFacing("/api/img?id=hollow-gate%3Ahound%3Acombat&v=3"), "right", "the admin combat art replaces the same painting");
+    assert.equal(inferSpriteNativeFacing("/api/img?id=hollow-gate:other"), "left");
+});
+
 test("each broodguard uses the matching boss body and portrait", () => {
     for (const boss of WORLD_BOSS_DEFINITIONS) {
         const visual = worldBossGuardVisual(boss.id);

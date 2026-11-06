@@ -107,7 +107,7 @@ try {
                     assert.equal(await page.locator('.underground-world--rift').getAttribute('data-hg-rift'), rift.id);
                     assert.equal(await page.locator('.hg-rift-badge').innerText(), 'RIFT');
                     assert(await page.locator('.rift-breach.is-awake').count() > 0, 'the arrival chamber visibly contains the power source');
-                    assert(await page.locator('.rift-chamber-floor').count() > 0, 'rift chambers use their authored ritual floor');
+                    assert(await page.locator('.cavern-chamber-floor').count() > 0, 'rift chambers use their painted rift rooms');
                     assert.equal(await page.locator('.rift-energy-ribbon').first().evaluate(el => getComputedStyle(el).animationName), 'none', 'reduced motion preserves static mystical scenery');
                     assert.equal(await page.locator('.hg-cave-header .act-label').evaluate(el => getComputedStyle(el).color), await page.locator('.hg-rift-badge').evaluate(el => getComputedStyle(el).color), 'rift title follows its theme palette');
                     assert.equal(await page.locator('.hg-cell').evaluateAll(cells => cells.some(cell => cell.style.background)), false, 'legacy atlas must not cover the cavern');

@@ -1,0 +1,1154 @@
+{
+  "tool": "OpenAI images/edits (gpt-image-2 for floors, gpt-image-1.5 for transparent decals), quality high",
+  "description": "Hollow Gate crypt art: painted prefab rooms with their doorways painted in (per depth palette: two 7x5 chambers, a 5x5 cave and a 15x5 hall, plus the 15x5 boss arena), a painted passage cell and a rubble fall for unused doorways; boss-arena fissures, the secret-passage cracked wall and painted floor props. Rooms were made with the stronghold room floor and each depth's earlier cave chamber as style references, and halls with a layout guide marking their doorway cells, the same method as the golden shrine and stronghold art. Quest rifts use one rift-breach palette (two chambers, a cave, a hall and a passage) on every depth.",
+  "usage": "UndergroundSectorTerrain roomArt (one painting per crypt room), the passage and rubble art, HollowGateFissureArt, the secret-passage decal and painted props in HollowGateShrineView. Each room has a -sealed copy (the same painting with its doorways walled up); a closed doorway is drawn from it at the same spot.",
+  "normalization": "Chambers 980x700, caves 700x700, halls 2100x700 (cut from their black letterbox), passage and rubble 256x256, WebP 78-86; decals cut to their painted crack or edge. Package with shinobij.client/scripts/package-cavern-chambers.mjs.",
+  "records": [
+    {
+      "key": "cavern-fissure-calm-v1",
+      "prompt": "DECAL MATCHING THE REFERENCE FLOOR: same dark charcoal-violet flagstone colours and lighting as the reference chamber floors, never lighter than them; its outer edge fades softly into transparency so it blends into that floor. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Composition: an isolated overhead DECAL of a single jagged crack running across a stone floor, as if the floor split open: a dark deep fissure with chipped stone edges and a few loose stone chips, the faintest dull ember glow deep inside. Centered, fills about 80% of the square, transparent background everywhere outside the crack and its chipped edge. Painted to sit naturally on the reference floor.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-04",
+      "references": [
+        "(this set) cavern-chamber-sanctum-v1.png",
+        "(this set) cavern-chamber-kennels-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-fissure-calm-v1.png",
+      "output": "shinobij.client/public/underground/cavern-fissure-calm-v1.webp",
+      "size": [
+        384,
+        384
+      ],
+      "alphaFrom": "crack"
+    },
+    {
+      "key": "cavern-fissure-erupting-v1",
+      "prompt": "DECAL MATCHING THE REFERENCE FLOOR AND THE SAME CRACK SHAPE as the reference crack decal: the stone around the crack is the same dark charcoal of the reference floor; only the crack itself glows. Its outer edge fades softly into transparency. No square slab of stone. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Composition: an isolated overhead DECAL of the same kind of jagged floor crack, now ERUPTING: white-hot molten light along the crack, orange spirit fire licking up out of it seen from above, glowing embers and heat haze, warm light spilling onto the chipped stone edges. Centered, fills about 80% of the square, transparent background outside the fire and its glow. Painted, not cartoon, matching the reference lighting.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-04",
+      "references": [
+        "(this set) cavern-chamber-sanctum-v1.png",
+        "(this set) cavern-fissure-calm-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-fissure-erupting-v1.png",
+      "output": "shinobij.client/public/underground/cavern-fissure-erupting-v1.webp",
+      "size": [
+        384,
+        384
+      ],
+      "alphaFrom": "fireCrack"
+    },
+    {
+      "key": "cavern-cracked-wall-v1",
+      "prompt": "DECAL MATCHING THE REFERENCE ROCK: the same dark grey cave rock colour and texture as the reference rock face, never lighter than it; thin dark cracks only, no brown disk, the outer edge fades softly into transparency. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Composition: an isolated overhead DECAL for a weakened cave wall: a cluster of fresh cracks radiating through dark rock with a few loose fallen pebbles and a thin line of faint cold draught-light seeping through the deepest crack, suggesting a hidden space beyond. Subtle, so a sharp-eyed player notices it. Centered, about 70% of the square, transparent background outside the cracked rock.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-04",
+      "references": [
+        "underground/cavern-rock-face-v1.webp",
+        "(this set) cavern-chamber-kennels-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-cracked-wall-v1.png",
+      "output": "shinobij.client/public/underground/cavern-cracked-wall-v1.webp",
+      "size": [
+        384,
+        384
+      ],
+      "alphaFrom": "fracture"
+    },
+    {
+      "key": "cavern-prop-descend-v1",
+      "prompt": "PROP MATCHING THE REFERENCE FLOORS: a single object painted in the exact style, overhead camera, scale, dark palette and warm baked lighting of the reference cave chamber floors, so it looks painted into that floor, never a sticker or icon. Strict top-down orthographic view looking straight down (no side view, no isometric tilt). A soft dark contact shadow is painted under it. Centered, filling about 75% of a square, transparent background everywhere else. No text, no letters, no logo, no UI frame, no circle badge, no characters. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Subject: A stone stairway cut into the cave floor, worn steps spiralling down into a pitch-black shaft, a little rubble at its lip, faint cold air rising.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) cavern-chamber-threshold-v1.png",
+        "(this set) cavern-chamber-ossuary-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-prop-descend-v1.png",
+      "output": "shinobij.client/public/underground/cavern-prop-descend-v1.webp",
+      "size": [
+        256,
+        256
+      ],
+      "defringe": true
+    },
+    {
+      "key": "cavern-prop-exit-v1",
+      "prompt": "PROP MATCHING THE REFERENCE FLOORS: a single object painted in the exact style, overhead camera, scale, dark palette and warm baked lighting of the reference cave chamber floors, so it looks painted into that floor, never a sticker or icon. Strict top-down orthographic view looking straight down (no side view, no isometric tilt). A soft dark contact shadow is painted under it. Centered, filling about 75% of a square, transparent background everywhere else. No text, no letters, no logo, no UI frame, no circle badge, no characters. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Subject: Worn stone steps leading up out of the cave toward a soft pale daylight glow falling on them from above, an old weathered rope handrail.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) cavern-chamber-threshold-v1.png",
+        "(this set) cavern-chamber-ossuary-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-prop-exit-v1.png",
+      "output": "shinobij.client/public/underground/cavern-prop-exit-v1.webp",
+      "size": [
+        256,
+        256
+      ],
+      "defringe": true
+    },
+    {
+      "key": "cavern-prop-chest-v1",
+      "prompt": "PROP MATCHING THE REFERENCE FLOORS: a single object painted in the exact style, overhead camera, scale, dark palette and warm baked lighting of the reference cave chamber floors, so it looks painted into that floor, never a sticker or icon. Strict top-down orthographic view looking straight down (no side view, no isometric tilt). A soft dark contact shadow is painted under it. Centered, filling about 75% of a square, transparent background everywhere else. No text, no letters, no logo, no UI frame, no circle badge, no characters. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Subject: A closed old wooden treasure chest bound with dark iron bands and a heavy lock, weathered lacquer, a few coins spilled beside it.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) cavern-chamber-threshold-v1.png",
+        "(this set) cavern-chamber-ossuary-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-prop-chest-v1.png",
+      "output": "shinobij.client/public/underground/cavern-prop-chest-v1.webp",
+      "size": [
+        256,
+        256
+      ],
+      "defringe": true
+    },
+    {
+      "key": "cavern-prop-shard-vein-v1",
+      "prompt": "PROP MATCHING THE REFERENCE FLOORS: a single object painted in the exact style, overhead camera, scale, dark palette and warm baked lighting of the reference cave chamber floors, so it looks painted into that floor, never a sticker or icon. Strict top-down orthographic view looking straight down (no side view, no isometric tilt). ONLY THE OBJECT ITSELF: no square or round patch of floor, no stone slab or base plate under it, no rim of lighter stone around it; only a soft dark contact shadow directly beneath it. Centered, filling about 75% of a square, transparent background everywhere else. No text, no letters, no logo, no UI frame, no circle badge, no characters. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Subject: A cluster of jagged violet spirit crystals growing out of a crack in the stone floor, glowing softly from within.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) cavern-chamber-threshold-v1.png",
+        "(this set) cavern-chamber-ossuary-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-prop-shard-vein-v1.png",
+      "output": "shinobij.client/public/underground/cavern-prop-shard-vein-v1.webp",
+      "size": [
+        256,
+        256
+      ],
+      "defringe": true
+    },
+    {
+      "key": "cavern-prop-shrine-v1",
+      "prompt": "PROP MATCHING THE REFERENCE FLOORS: a single object painted in the exact style, overhead camera, scale, dark palette and warm baked lighting of the reference cave chamber floors, so it looks painted into that floor, never a sticker or icon. Strict top-down orthographic view looking straight down (no side view, no isometric tilt). ONLY THE OBJECT ITSELF: no square or round patch of floor, no stone slab or base plate under it, no rim of lighter stone around it; only a soft dark contact shadow directly beneath it. Centered, filling about 75% of a square, transparent background everywhere else. No text, no letters, no logo, no UI frame, no circle badge, no characters. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Subject: A small weathered stone shrine altar with a shallow offering bowl, two stubby candles and a folded paper charm, moss on its base.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) cavern-chamber-threshold-v1.png",
+        "(this set) cavern-chamber-ossuary-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-prop-shrine-v1.png",
+      "output": "shinobij.client/public/underground/cavern-prop-shrine-v1.webp",
+      "size": [
+        256,
+        256
+      ],
+      "defringe": true
+    },
+    {
+      "key": "cavern-prop-story-v1",
+      "prompt": "PROP MATCHING THE REFERENCE FLOORS: a single object painted in the exact style, overhead camera, scale, dark palette and warm baked lighting of the reference cave chamber floors, so it looks painted into that floor, never a sticker or icon. Strict top-down orthographic view looking straight down (no side view, no isometric tilt). A soft dark contact shadow is painted under it. Centered, filling about 75% of a square, transparent background everywhere else. No text, no letters, no logo, no UI frame, no circle badge, no characters. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Subject: An ancient engraved stone tablet lying flat on the floor, carved with worn abstract symbols (no readable writing), cracked at one corner.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) cavern-chamber-threshold-v1.png",
+        "(this set) cavern-chamber-ossuary-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-prop-story-v1.png",
+      "output": "shinobij.client/public/underground/cavern-prop-story-v1.webp",
+      "size": [
+        256,
+        256
+      ],
+      "defringe": true
+    },
+    {
+      "key": "cavern-prop-locked-v1",
+      "prompt": "PROP MATCHING THE REFERENCE FLOORS: a single object painted in the exact style, overhead camera, scale, dark palette and warm baked lighting of the reference cave chamber floors, so it looks painted into that floor, never a sticker or icon. Strict top-down orthographic view looking straight down (no side view, no isometric tilt). A soft dark contact shadow is painted under it. Centered, filling about 75% of a square, transparent background everywhere else. No text, no letters, no logo, no UI frame, no circle badge, no characters. Use case: production game art for Shinobi Journey, a dark fantasy shinobi browser RPG. The input images are references for the EXACT painted style, camera and quality to match: a strict orthographic top-down (overhead, no perspective, no horizon, no tilt) hand-painted room floor, richly detailed weathered stone, baked warm lantern light pooling on the floor, deep charcoal shadows, grounded subdued palette, the same scale of stones and the same painterly finish. They are style references only, not edit targets. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no borders drawn as UI frames. Subject: A heavy sealed stone gate slab set in the floor of a doorway, bound with an iron band and a circular seal of old dark metal with an abstract warding glyph (no writing).",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) cavern-chamber-threshold-v1.png",
+        "(this set) cavern-chamber-ossuary-v1.png"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\cave-art\\cavern-prop-locked-v1.png",
+      "output": "shinobij.client/public/underground/cavern-prop-locked-v1.webp",
+      "size": [
+        256,
+        256
+      ],
+      "defringe": true
+    },
+    {
+      "key": "cavern-crypt-rubble-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. An isolated overhead DECAL: a heap of fallen cave rock and rubble that has collapsed and completely blocks a doorway, seen straight from above, broken stones of different sizes, dust, a dark contact shadow. Only the rubble itself: no square patch of floor under it. Centered, filling about 85% of the square, transparent background everywhere else.",
+      "provider": "openai gpt-image-1.5 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-ossuary-v1"
+      ],
+      "transparent": true,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\cavern-crypt-rubble-v1.png",
+      "output": "shinobij.client/public/underground/cavern-crypt-rubble-v1.webp",
+      "size": [
+        256,
+        256
+      ],
+      "defringe": true
+    },
+    {
+      "key": "crypt-kennels-hall-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. LETTERBOX: the painted room is a wide horizontal band exactly one third of the image height, centred vertically, spanning the full width; above and below the band the image is pure flat black (#000000). Inside the band the room is exactly 15 equal columns by 5 equal rows of floor cells (aspect 3:1). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 and at column 12 of 15 (from 3/15 to 4/15 and from 11/15 to 12/15 of the width), south edge at column 4 and at column 12 of 15, west end at row 3 of 5, east end at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. A long grand hall. Theme: MOONLESS KENNELS: scarred dark granite with claw marks, rusted iron rings and broken chains bolted at the edges, dim violet-grey light and one guttering torch. Layout: a long gallery, worn processional flagstones down its length, alcoves cut into the long edges. LAYOUT GUIDE: the third input image is an exact layout guide for this hall (not a style reference): its grey band is the room, darker grey cells are the edge band, and the RED cells are exactly where the six doorway gaps must be. Match the doorway positions to the red cells precisely; ignore the guide colours.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-kennels-v1",
+        "(this set) guide-hall: a 15x5 layout guide marking the six doorway cells"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-kennels-hall-v1.png",
+      "output": "shinobij.client/public/underground/crypt-kennels-hall-v1.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-kennels-room-a-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: MOONLESS KENNELS: scarred dark granite with claw marks, rusted iron rings and broken chains bolted at the edges, dim violet-grey light and one guttering torch. Layout: a plain chamber, its character in the corners.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-kennels-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-kennels-room-a-v1.png",
+      "output": "shinobij.client/public/underground/crypt-kennels-room-a-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-kennels-room-b-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: MOONLESS KENNELS: scarred dark granite with claw marks, rusted iron rings and broken chains bolted at the edges, dim violet-grey light and one guttering torch. Layout: a chamber with one flush feature at its centre (a worn engraved floor seal, a drain grate or an inlaid mosaic, perfectly flat and walkable).",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-kennels-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-kennels-room-b-v1.png",
+      "output": "shinobij.client/public/underground/crypt-kennels-room-b-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-kennels-small-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 5 equal columns by 5 equal rows of floor cells (square). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 3 of 5 (the middle fifth of the width), south edge at column 3 of 5, west edge at row 3 of 5 (the middle fifth of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. This is a small rough cave pocket, its rock lip more ragged and natural. Theme: MOONLESS KENNELS: scarred dark granite with claw marks, rusted iron rings and broken chains bolted at the edges, dim violet-grey light and one guttering torch. Layout: a cramped natural cave pocket.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-kennels-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-kennels-small-v1.png",
+      "output": "shinobij.client/public/underground/crypt-kennels-small-v1.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-ossuary-hall-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. LETTERBOX: the painted room is a wide horizontal band exactly one third of the image height, centred vertically, spanning the full width; above and below the band the image is pure flat black (#000000). Inside the band the room is exactly 15 equal columns by 5 equal rows of floor cells (aspect 3:1). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 and at column 12 of 15 (from 3/15 to 4/15 and from 11/15 to 12/15 of the width), south edge at column 4 and at column 12 of 15, west end at row 3 of 5, east end at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. A long grand hall. Theme: LANTERN OSSUARY: dark stone floor, small candle niches and old bones kept to the edges, warm candlelight in a cold teal-grey cave. Layout: a long gallery, worn processional flagstones down its length, alcoves cut into the long edges. LAYOUT GUIDE: the third input image is an exact layout guide for this hall (not a style reference): its grey band is the room, darker grey cells are the edge band, and the RED cells are exactly where the six doorway gaps must be. Match the doorway positions to the red cells precisely; ignore the guide colours.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-ossuary-v1",
+        "(this set) guide-hall: a 15x5 layout guide marking the six doorway cells"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-ossuary-hall-v1.png",
+      "output": "shinobij.client/public/underground/crypt-ossuary-hall-v1.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-ossuary-room-a-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: LANTERN OSSUARY: dark stone floor, small candle niches and old bones kept to the edges, warm candlelight in a cold teal-grey cave. Layout: a plain chamber, its character in the corners.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-ossuary-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-ossuary-room-a-v1.png",
+      "output": "shinobij.client/public/underground/crypt-ossuary-room-a-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-ossuary-room-b-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: LANTERN OSSUARY: dark stone floor, small candle niches and old bones kept to the edges, warm candlelight in a cold teal-grey cave. Layout: a chamber with one flush feature at its centre (a worn engraved floor seal, a drain grate or an inlaid mosaic, perfectly flat and walkable).",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-ossuary-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-ossuary-room-b-v1.png",
+      "output": "shinobij.client/public/underground/crypt-ossuary-room-b-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-ossuary-small-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 5 equal columns by 5 equal rows of floor cells (square). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 3 of 5 (the middle fifth of the width), south edge at column 3 of 5, west edge at row 3 of 5 (the middle fifth of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. This is a small rough cave pocket, its rock lip more ragged and natural. Theme: LANTERN OSSUARY: dark stone floor, small candle niches and old bones kept to the edges, warm candlelight in a cold teal-grey cave. Layout: a cramped natural cave pocket.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-ossuary-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-ossuary-small-v1.png",
+      "output": "shinobij.client/public/underground/crypt-ossuary-small-v1.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-reliquary-hall-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. LETTERBOX: the painted room is a wide horizontal band exactly one third of the image height, centred vertically, spanning the full width; above and below the band the image is pure flat black (#000000). Inside the band the room is exactly 15 equal columns by 5 equal rows of floor cells (aspect 3:1). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 and at column 12 of 15 (from 3/15 to 4/15 and from 11/15 to 12/15 of the width), south edge at column 4 and at column 12 of 15, west end at row 3 of 5, east end at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. A long grand hall. Theme: DROWNED RELIQUARY: wet blue-grey flagstones with thin glistening puddles, half-sunken bronze relic boxes and chains at the edges, cold teal light and one warm lantern. Layout: a long gallery, worn processional flagstones down its length, alcoves cut into the long edges. LAYOUT GUIDE: the third input image is an exact layout guide for this hall (not a style reference): its grey band is the room, darker grey cells are the edge band, and the RED cells are exactly where the six doorway gaps must be. Match the doorway positions to the red cells precisely; ignore the guide colours.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-reliquary-v1",
+        "(this set) guide-hall: a 15x5 layout guide marking the six doorway cells"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-reliquary-hall-v1.png",
+      "output": "shinobij.client/public/underground/crypt-reliquary-hall-v1.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-reliquary-room-a-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: DROWNED RELIQUARY: wet blue-grey flagstones with thin glistening puddles, half-sunken bronze relic boxes and chains at the edges, cold teal light and one warm lantern. Layout: a plain chamber, its character in the corners.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-reliquary-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-reliquary-room-a-v1.png",
+      "output": "shinobij.client/public/underground/crypt-reliquary-room-a-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-reliquary-room-b-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: DROWNED RELIQUARY: wet blue-grey flagstones with thin glistening puddles, half-sunken bronze relic boxes and chains at the edges, cold teal light and one warm lantern. Layout: a chamber with one flush feature at its centre (a worn engraved floor seal, a drain grate or an inlaid mosaic, perfectly flat and walkable).",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-reliquary-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-reliquary-room-b-v1.png",
+      "output": "shinobij.client/public/underground/crypt-reliquary-room-b-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-reliquary-small-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 5 equal columns by 5 equal rows of floor cells (square). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 3 of 5 (the middle fifth of the width), south edge at column 3 of 5, west edge at row 3 of 5 (the middle fifth of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. This is a small rough cave pocket, its rock lip more ragged and natural. Theme: DROWNED RELIQUARY: wet blue-grey flagstones with thin glistening puddles, half-sunken bronze relic boxes and chains at the edges, cold teal light and one warm lantern. Layout: a cramped natural cave pocket.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-reliquary-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-reliquary-small-v1.png",
+      "output": "shinobij.client/public/underground/crypt-reliquary-small-v1.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-sanctum-arena-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. LETTERBOX: the painted room is a wide horizontal band exactly one third of the image height, centred vertically, spanning the full width; above and below the band the image is pure flat black (#000000). Inside the band the room is exactly 15 equal columns by 5 equal rows of floor cells (aspect 3:1). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 and at column 12 of 15 (from 3/15 to 4/15 and from 11/15 to 12/15 of the width), south edge at column 4 and at column 12 of 15, west end at row 3 of 5, east end at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. A long grand hall. Theme: ALPHA SANCTUM: dark ritual stone, faint violet glowing cracks, purple spirit-fire braziers at the corners, claw-gouged stone, antique gold accents. STRICT GEOMETRY: the band is THREE TIMES as wide as it is tall (exactly one third of the image height), with exactly SIX doorways: two in the top edge, two in the bottom edge, one at each end, nowhere else. Layout: the boss arena, a long ritual hall with a great faint engraved circular seal in the middle (flush with the floor), the Alpha's lair: deep claw gouges, scattered bones at the edges, braziers at the four corners. LAYOUT GUIDE: the third input image is an exact layout guide for this hall (not a style reference): its grey band is the room, darker grey cells are the edge band, and the RED cells are exactly where the six doorway gaps must be. Match the doorway positions to the red cells precisely; ignore the guide colours.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-sanctum-v1",
+        "(this set) guide-hall: a 15x5 layout guide marking the six doorway cells"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-arena-v1.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-arena-v1.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-sanctum-hall-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. LETTERBOX: the painted room is a wide horizontal band exactly one third of the image height, centred vertically, spanning the full width; above and below the band the image is pure flat black (#000000). Inside the band the room is exactly 15 equal columns by 5 equal rows of floor cells (aspect 3:1). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 and at column 12 of 15 (from 3/15 to 4/15 and from 11/15 to 12/15 of the width), south edge at column 4 and at column 12 of 15, west end at row 3 of 5, east end at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. A long grand hall. Theme: ALPHA SANCTUM: dark ritual stone, faint violet glowing cracks, purple spirit-fire braziers at the corners, claw-gouged stone, antique gold accents. Layout: a long gallery, worn processional flagstones down its length, alcoves cut into the long edges. LAYOUT GUIDE: the third input image is an exact layout guide for this hall (not a style reference): its grey band is the room, darker grey cells are the edge band, and the RED cells are exactly where the six doorway gaps must be. Match the doorway positions to the red cells precisely; ignore the guide colours.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-sanctum-v1",
+        "(this set) guide-hall: a 15x5 layout guide marking the six doorway cells"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-hall-v1.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-hall-v1.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-sanctum-room-a-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: ALPHA SANCTUM: dark ritual stone, faint violet glowing cracks, purple spirit-fire braziers at the corners, claw-gouged stone, antique gold accents. Layout: a plain chamber, its character in the corners.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-sanctum-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-room-a-v1.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-room-a-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-sanctum-room-b-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: ALPHA SANCTUM: dark ritual stone, faint violet glowing cracks, purple spirit-fire braziers at the corners, claw-gouged stone, antique gold accents. Layout: a chamber with one flush feature at its centre (a worn engraved floor seal, a drain grate or an inlaid mosaic, perfectly flat and walkable).",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-sanctum-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-room-b-v1.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-room-b-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-sanctum-small-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 5 equal columns by 5 equal rows of floor cells (square). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 3 of 5 (the middle fifth of the width), south edge at column 3 of 5, west edge at row 3 of 5 (the middle fifth of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. This is a small rough cave pocket, its rock lip more ragged and natural. Theme: ALPHA SANCTUM: dark ritual stone, faint violet glowing cracks, purple spirit-fire braziers at the corners, claw-gouged stone, antique gold accents. Layout: a cramped natural cave pocket.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-sanctum-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-small-v1.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-small-v1.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-threshold-hall-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. LETTERBOX: the painted room is a wide horizontal band exactly one third of the image height, centred vertically, spanning the full width; above and below the band the image is pure flat black (#000000). Inside the band the room is exactly 15 equal columns by 5 equal rows of floor cells (aspect 3:1). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 and at column 12 of 15 (from 3/15 to 4/15 and from 11/15 to 12/15 of the width), south edge at column 4 and at column 12 of 15, west end at row 3 of 5, east end at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. A long grand hall. Theme: BROKEN THRESHOLD, the entrance depth: cracked sandstone-grey flagstones fitted into cave rock, warm amber stone lanterns, dust, a few broken shrine roof tiles. Layout: a long gallery, worn processional flagstones down its length, alcoves cut into the long edges. LAYOUT GUIDE: the third input image is an exact layout guide for this hall (not a style reference): its grey band is the room, darker grey cells are the edge band, and the RED cells are exactly where the six doorway gaps must be. Match the doorway positions to the red cells precisely; ignore the guide colours.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-threshold-v1",
+        "(this set) guide-hall: a 15x5 layout guide marking the six doorway cells"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-threshold-hall-v1.png",
+      "output": "shinobij.client/public/underground/crypt-threshold-hall-v1.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-threshold-room-a-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: BROKEN THRESHOLD, the entrance depth: cracked sandstone-grey flagstones fitted into cave rock, warm amber stone lanterns, dust, a few broken shrine roof tiles. Layout: a plain chamber, its character in the corners.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-threshold-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-threshold-room-a-v1.png",
+      "output": "shinobij.client/public/underground/crypt-threshold-room-a-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-threshold-room-b-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: BROKEN THRESHOLD, the entrance depth: cracked sandstone-grey flagstones fitted into cave rock, warm amber stone lanterns, dust, a few broken shrine roof tiles. Layout: a chamber with one flush feature at its centre (a worn engraved floor seal, a drain grate or an inlaid mosaic, perfectly flat and walkable).",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-threshold-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-threshold-room-b-v1.png",
+      "output": "shinobij.client/public/underground/crypt-threshold-room-b-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-threshold-small-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 5 equal columns by 5 equal rows of floor cells (square). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 3 of 5 (the middle fifth of the width), south edge at column 3 of 5, west edge at row 3 of 5 (the middle fifth of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. This is a small rough cave pocket, its rock lip more ragged and natural. Theme: BROKEN THRESHOLD, the entrance depth: cracked sandstone-grey flagstones fitted into cave rock, warm amber stone lanterns, dust, a few broken shrine roof tiles. Layout: a cramped natural cave pocket.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-threshold-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-threshold-small-v1.png",
+      "output": "shinobij.client/public/underground/crypt-threshold-small-v1.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-threshold-passage-v1",
+      "prompt": "Create ONE square cell of a top-down orthographic RPG battle map, hand painted, matching the style and exact palette of the second reference image (its floor and rock). The cell shows a short narrow stone passage running straight from the left edge to the right edge: worn flagstones of the same kind as that reference floor across the middle half of the image, open at the left and right edges so it joins a doorway on each side; rough natural cave rock filling the top quarter and the bottom quarter. Plain and even: no lanterns, no candles, no light pools, no objects, no vignette. No text, no UI, no frame.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-threshold-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-threshold-passage-v1.png",
+      "output": "shinobij.client/public/underground/crypt-threshold-passage-v1.webp",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "key": "crypt-ossuary-passage-v1",
+      "prompt": "Create ONE square cell of a top-down orthographic RPG battle map, hand painted, matching the style and exact palette of the second reference image (its floor and rock). The cell shows a short narrow stone passage running straight from the left edge to the right edge: worn flagstones of the same kind as that reference floor across the middle half of the image, open at the left and right edges so it joins a doorway on each side; rough natural cave rock filling the top quarter and the bottom quarter. Plain and even: no lanterns, no candles, no light pools, no objects, no vignette. No text, no UI, no frame.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-ossuary-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-ossuary-passage-v1.png",
+      "output": "shinobij.client/public/underground/crypt-ossuary-passage-v1.webp",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "key": "crypt-reliquary-passage-v1",
+      "prompt": "Create ONE square cell of a top-down orthographic RPG battle map, hand painted, matching the style and exact palette of the second reference image (its floor and rock). The cell shows a short narrow stone passage running straight from the left edge to the right edge: worn flagstones of the same kind as that reference floor across the middle half of the image, open at the left and right edges so it joins a doorway on each side; rough natural cave rock filling the top quarter and the bottom quarter. Plain and even: no lanterns, no candles, no light pools, no objects, no vignette. No text, no UI, no frame.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-reliquary-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-reliquary-passage-v1.png",
+      "output": "shinobij.client/public/underground/crypt-reliquary-passage-v1.webp",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "key": "crypt-kennels-passage-v1",
+      "prompt": "Create ONE square cell of a top-down orthographic RPG battle map, hand painted, matching the style and exact palette of the second reference image (its floor and rock). The cell shows a short narrow stone passage running straight from the left edge to the right edge: worn flagstones of the same kind as that reference floor across the middle half of the image, open at the left and right edges so it joins a doorway on each side; rough natural cave rock filling the top quarter and the bottom quarter. Plain and even: no lanterns, no candles, no light pools, no objects, no vignette. No text, no UI, no frame.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-kennels-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-kennels-passage-v1.png",
+      "output": "shinobij.client/public/underground/crypt-kennels-passage-v1.webp",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "key": "crypt-sanctum-passage-v1",
+      "prompt": "Create ONE square cell of a top-down orthographic RPG battle map, hand painted, matching the style and exact palette of the second reference image (its floor and rock). The cell shows a short narrow stone passage running straight from the left edge to the right edge: worn flagstones of the same kind as that reference floor across the middle half of the image, open at the left and right edges so it joins a doorway on each side; rough natural cave rock filling the top quarter and the bottom quarter. Plain and even: no lanterns, no candles, no light pools, no objects, no vignette. No text, no UI, no frame.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "(this set) cavern-chamber-sanctum-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-passage-v1.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-passage-v1.webp",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "key": "crypt-rift-room-a-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: A RIFT BREACH CHAMBER: cold blue-grey slate cracked by thin glowing violet-white rift veins, worn concentric ward circles and carved inscriptions in the stone, pale spirit light, broken ward stones at the edges. EVERY doorway gap is clearly framed by two carved standing ward stones, one on each side of the gap, and floored with a pale glowing threshold slab, so each exit reads at a glance; the rock edge between doorways is darker and heavier than the floor. Layout: a plain chamber, its character in the corners.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "underground/rift-chamber-floor-v2.webp"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-rift-room-a-v1.png",
+      "output": "shinobij.client/public/underground/crypt-rift-room-a-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-rift-room-b-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 7 equal columns by 5 equal rows of floor cells (aspect 7:5). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 of 7 (from 3/7 to 4/7 of the width), south edge at column 4 of 7, west edge at row 3 of 5 (from 2/5 to 3/5 of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. Theme: A RIFT BREACH CHAMBER: cold blue-grey slate cracked by thin glowing violet-white rift veins, worn concentric ward circles and carved inscriptions in the stone, pale spirit light, broken ward stones at the edges. EVERY doorway gap is clearly framed by two carved standing ward stones, one on each side of the gap, and floored with a pale glowing threshold slab, so each exit reads at a glance; the rock edge between doorways is darker and heavier than the floor. Layout: a chamber with one flush feature at its centre (a worn engraved floor seal, a drain grate or an inlaid mosaic, perfectly flat and walkable).",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "underground/rift-chamber-floor-v2.webp"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-rift-room-b-v1.png",
+      "output": "shinobij.client/public/underground/crypt-rift-room-b-v1.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-rift-small-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. The image is exactly 5 equal columns by 5 equal rows of floor cells (square). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 3 of 5 (the middle fifth of the width), south edge at column 3 of 5, west edge at row 3 of 5 (the middle fifth of the height), east edge at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. This is a small rough cave pocket, its rock lip more ragged and natural. Theme: A RIFT BREACH CHAMBER: cold blue-grey slate cracked by thin glowing violet-white rift veins, worn concentric ward circles and carved inscriptions in the stone, pale spirit light, broken ward stones at the edges. EVERY doorway gap is clearly framed by two carved standing ward stones, one on each side of the gap, and floored with a pale glowing threshold slab, so each exit reads at a glance; the rock edge between doorways is darker and heavier than the floor. Layout: a cramped natural cave pocket.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "underground/rift-chamber-floor-v2.webp"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-rift-small-v1.png",
+      "output": "shinobij.client/public/underground/crypt-rift-small-v1.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-rift-hall-v1",
+      "prompt": "Create a finished raster GAMEPLAY FLOOR MAP for a dark fantasy shinobi RPG, not a screenshot or concept illustration. Camera strictly straight overhead orthographic, looking directly down, like a professionally painted RPG battle map. No horizon, no isometric tilt, no perspective, no visible vertical faces. High quality, detailed, hand painted, the same finish and material scale as the first reference image (a painted stronghold room) and the same palette and mood as the second reference image (this depth of the cave). Baked warm or eerie light pooling on the floor, deep shadows. No characters, no creatures, no text, no letters, no logos, no UI, no grid lines, no border or frame outside the room. LETTERBOX: the painted room is a wide horizontal band exactly one third of the image height, centred vertically, spanning the full width; above and below the band the image is pure flat black (#000000). Inside the band the room is exactly 15 equal columns by 5 equal rows of floor cells (aspect 3:1). The room fills the canvas edge to edge. Along every edge runs only a THIN natural rock lip, no more than a quarter of a cell deep, so the whole room is walkable floor right up to the edges. DOORWAYS: the lip is broken by open doorway gaps, each exactly one cell wide, where the floor runs straight out to the image edge with a worn threshold stone: north edge at column 4 and at column 12 of 15 (from 3/15 to 4/15 and from 11/15 to 12/15 of the width), south edge at column 4 and at column 12 of 15, west end at row 3 of 5, east end at row 3 of 5. Everything else is open, level, walkable floor; set dressing (rubble, bones, candles, roots, small lanterns) only hugs the corners and edges and never blocks a doorway or the middle. A long grand hall. Theme: A RIFT BREACH CHAMBER: cold blue-grey slate cracked by thin glowing violet-white rift veins, worn concentric ward circles and carved inscriptions in the stone, pale spirit light, broken ward stones at the edges. EVERY doorway gap is clearly framed by two carved standing ward stones, one on each side of the gap, and floored with a pale glowing threshold slab, so each exit reads at a glance; the rock edge between doorways is darker and heavier than the floor. Layout: a long gallery, worn processional flagstones down its length, alcoves cut into the long edges. LAYOUT GUIDE: the third input image is an exact layout guide for this hall (not a style reference): its grey band is the room, darker grey cells are the edge band, and the RED cells are exactly where the six doorway gaps must be. Match the doorway positions to the red cells precisely; ignore the guide colours.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "underground/rift-chamber-floor-v2.webp",
+        "(this set) guide-hall: a 15x5 layout guide marking the six doorway cells"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-rift-hall-v1.png",
+      "output": "shinobij.client/public/underground/crypt-rift-hall-v1.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-rift-passage-v1",
+      "prompt": "Create ONE square cell of a top-down orthographic RPG battle map, hand painted, matching the style and exact palette of the second reference image (its floor and rock). The cell shows a short narrow stone passage running straight from the left edge to the right edge: worn flagstones of the same kind as that reference floor across the middle half of the image, open at the left and right edges so it joins a doorway on each side; rough natural cave rock filling the top quarter and the bottom quarter. Plain and even: no lanterns, no candles, no light pools, no objects, no vignette. No text, no UI, no frame.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "underground/fortress-room-base-v3.webp",
+        "underground/rift-chamber-floor-v2.webp"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-rift-passage-v1.png",
+      "output": "shinobij.client/public/underground/crypt-rift-passage-v1.webp",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "key": "crypt-kennels-hall-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-kennels-hall-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-kennels-hall-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-kennels-hall-v1-sealed.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-kennels-room-a-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-kennels-room-a-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-kennels-room-a-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-kennels-room-a-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-kennels-room-b-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-kennels-room-b-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-kennels-room-b-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-kennels-room-b-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-kennels-small-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-kennels-small-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-kennels-small-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-kennels-small-v1-sealed.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-ossuary-hall-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-ossuary-hall-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-ossuary-hall-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-ossuary-hall-v1-sealed.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-ossuary-room-a-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-ossuary-room-a-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-ossuary-room-a-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-ossuary-room-a-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-ossuary-room-b-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-ossuary-room-b-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-ossuary-room-b-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-ossuary-room-b-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-ossuary-small-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-ossuary-small-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-ossuary-small-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-ossuary-small-v1-sealed.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-reliquary-hall-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-reliquary-hall-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-reliquary-hall-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-reliquary-hall-v1-sealed.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-reliquary-room-a-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-reliquary-room-a-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-reliquary-room-a-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-reliquary-room-a-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-reliquary-room-b-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-reliquary-room-b-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-reliquary-room-b-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-reliquary-room-b-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-reliquary-small-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-reliquary-small-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-reliquary-small-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-reliquary-small-v1-sealed.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-sanctum-arena-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-sanctum-arena-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-arena-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-arena-v1-sealed.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-sanctum-hall-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-sanctum-hall-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-hall-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-hall-v1-sealed.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-sanctum-room-a-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-sanctum-room-a-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-room-a-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-room-a-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-sanctum-room-b-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-sanctum-room-b-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-room-b-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-room-b-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-sanctum-small-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-sanctum-small-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-sanctum-small-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-sanctum-small-v1-sealed.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-threshold-hall-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-threshold-hall-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-threshold-hall-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-threshold-hall-v1-sealed.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    },
+    {
+      "key": "crypt-threshold-room-a-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-threshold-room-a-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-threshold-room-a-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-threshold-room-a-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-threshold-room-b-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-threshold-room-b-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-threshold-room-b-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-threshold-room-b-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-threshold-small-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-threshold-small-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-threshold-small-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-threshold-small-v1-sealed.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-rift-room-a-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-rift-room-a-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-rift-room-a-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-rift-room-a-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-rift-room-b-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-rift-room-b-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-rift-room-b-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-rift-room-b-v1-sealed.webp",
+      "size": [
+        980,
+        700
+      ]
+    },
+    {
+      "key": "crypt-rift-small-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-rift-small-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-rift-small-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-rift-small-v1-sealed.webp",
+      "size": [
+        700,
+        700
+      ]
+    },
+    {
+      "key": "crypt-rift-hall-v1-sealed",
+      "prompt": "Edit this hand-painted top-down RPG floor map. Keep EVERYTHING exactly the same: same camera, same floor, same lighting, same objects in the same places, same colours, same size and framing (any black letterbox stays black). The ONLY change: every doorway gap in the outer rock edge (the openings where the floor runs out to the edge of the room, often with a threshold stone or framing stones) is closed up with solid natural rock, continuing the rock edge on either side so the edge runs unbroken around the whole room. Do not add any new object, lantern, candle or light. No text.",
+      "provider": "openai gpt-image-2 images/edits quality=high",
+      "generatedAt": "2026-11-05",
+      "references": [
+        "(this set) crypt-rift-hall-v1"
+      ],
+      "transparent": false,
+      "source": "C:\\Users\\TYLERR~1\\AppData\\Local\\Temp\\claude\\cd0caa61a39d18af\\21d710c3-2f12-4198-ad6c-2b7a3368060b\\scratchpad\\crypt-art\\crypt-rift-hall-v1-sealed.png",
+      "output": "shinobij.client/public/underground/crypt-rift-hall-v1-sealed.webp",
+      "size": [
+        2100,
+        700
+      ],
+      "band": true
+    }
+  ]
+}

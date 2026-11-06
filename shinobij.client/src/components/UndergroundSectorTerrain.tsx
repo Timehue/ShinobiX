@@ -5,7 +5,7 @@ import { UndergroundFloorFeature } from './UndergroundFloorFeature';
 import { RiftBreach } from './RiftBreach';
 import { riftBreachSites } from '../lib/rift-breach-layout';
 
-type TerrainTile = { kind: string; terrain?: string; roomId?: number | null };
+type TerrainTile = { kind: string; terrain?: string; roomId?: number | null; secret?: boolean };
 type Props = {
     tiles: readonly TerrainTile[];
     width: number;
@@ -17,27 +17,40 @@ type Props = {
     rift?: boolean;
     features?: readonly FloorFeatureSpec[];
     renderWindow?: { left: number; top: number; width: number; height: number };
+    /** Hollow Gate and quest-rift floors: each room's painted prefab by roomId
+     *  (like the stronghold's painted rooms). Its doorways are painted in; an
+     *  unused one is closed with the room's sealed painting, and passages are
+     *  painted too. */
+    roomArt?: Readonly<Record<number, string>>;
+    /** The painted passage cell joining crypt rooms (the depth's palette). */
+    passageArt?: string;
 };
+
+const CAVERN_RUBBLE = '/underground/cavern-crypt-rubble-v1.webp';
+
+/** Explored-but-unlit ground: dark enough to read as unlit map memory,
+ * bright enough to retrace a route. */
+const MEMORY_OPACITY = .2;
 
 const FORTRESS_ROOM_ART = ['entry-hall', 'watch-barracks', 'armory', 'signal-chamber', 'supply-depot', 'training-hall',
     'war-archives', 'officer-quarters', 'cistern', 'seal-workshop', 'inner-guard', 'anbu-vault'];
 
 /** Painted room floors use the same overhead map approach as sector floors.
  * Their built-in stations match shared collision bays; only the authoritative
- * tile geometry can connect rooms. Unknown terrain stays masked. */
-export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({ tiles, width, height, visible, known, mode, vault = false, rift = false, features, renderWindow }: Props) {
+ * tile geometry can connect rooms. Unknown terrain stays masked, and the rock
+ * around the rooms is plain darkness, never a lit stone slab. */
+export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({ tiles, width, height, visible, known, mode, vault = false, rift = false, features, renderWindow, roomArt, passageArt }: Props) {
     const id = useId().replaceAll(':', '');
     const cave = mode === 'cave';
+    // Painted crypt prefabs: every Hollow Gate depth and quest rift.
+    const chambers = cave ? roomArt ?? {} : undefined;
     const breaches = useMemo(() => rift && cave ? riftBreachSites(tiles, width) : [], [tiles, width, rift, cave]);
     const geometry = useMemo(() => tiles.map((tile, index) => {
         const x = index % width, y = Math.floor(index / width);
         const wallAt = (cx: number, cy: number) => cx < 0 || cy < 0 || cx >= width || cy >= height
             || tiles[cy * width + cx]?.kind === 'wall' || tiles[cy * width + cx]?.terrain === 'wall';
-        const wall = wallAt(x, y);
-        return { x, y, wall, north: wallAt(x, y - 1), south: wallAt(x, y + 1),
-            west: wallAt(x - 1, y), east: wallAt(x + 1, y),
-            lamp: wall && !wallAt(x, y + 1) && (index % 5 === 0 || !wallAt(x - 1, y)),
-            seed: ((index * 2654435761) >>> 0) % 7 };
+        return { x, y, wall: wallAt(x, y), north: wallAt(x, y - 1), south: wallAt(x, y + 1),
+            west: wallAt(x - 1, y), east: wallAt(x + 1, y) };
     }), [tiles, width, height]);
     const rooms = useMemo(() => {
         const bounds = new Map<number, { x: number; y: number; right: number; bottom: number }>();
@@ -48,7 +61,7 @@ export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({
                 right: Math.max(previous.right, x + 1), bottom: Math.max(previous.bottom, y + 1) }
                 : { x, y, right: x + 1, bottom: y + 1 });
         });
-        return [...bounds].map(([roomId, b]) => ({ ...b, roomId, cx: (b.x + b.right) / 2, cy: (b.y + b.bottom) / 2 }));
+        return [...bounds].map(([roomId, b]) => ({ ...b, roomId }));
     }, [tiles, width]);
     const discoveredRooms = useMemo(() => {
         const ids = new Set<number>();
@@ -57,10 +70,9 @@ export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({
         return rooms.filter(room => ids.has(room.roomId));
     }, [rooms, tiles, known, visible]);
     const fixtures = useMemo(() => features ?? (cave ? [] : planUndergroundFloorFeatures(tiles, width, false, vault, 4 * width + 5)), [features, tiles, width, cave, vault]);
-    const paintRoom = (room: typeof rooms[number]) => rift ? <g key={room.roomId} className="rift-chamber-floor" data-room={room.roomId}>
-        <image href="/underground/rift-chamber-floor-v2.webp" x={room.x} y={room.y}
-            width={room.right - room.x} height={room.bottom - room.y} preserveAspectRatio="none" />
-        <rect x={room.x} y={room.y} width={room.right - room.x} height={room.bottom - room.y} fill="var(--hg-floor-accent)" opacity=".035" />
+    const paintRoom = (room: typeof rooms[number]) => chambers ? <g key={room.roomId} className="cavern-chamber-floor" data-room={room.roomId}>
+        {chambers[room.roomId] && <image href={chambers[room.roomId]} x={room.x} y={room.y}
+            width={room.right - room.x} height={room.bottom - room.y} preserveAspectRatio="none" />}
     </g> : <g key={room.roomId} className="underground-room-floor" data-room={room.roomId}>
         <image href="/underground/fortress-room-base-v3.webp" x={room.x} y={room.y}
             width={room.right - room.x} height={room.bottom - room.y} preserveAspectRatio="none" />
@@ -90,112 +102,97 @@ export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({
         style={renderWindow ? { left: `${drawing.left / width * 100}%`, top: `${drawing.top / height * 100}%`, right: 'auto', bottom: 'auto', width: `${drawing.width / width * 100}%`, height: `${drawing.height / height * 100}%` } : undefined}
         data-render-window={`${drawing.left},${drawing.top},${drawing.width},${drawing.height}`} width="100%" height="100%" aria-hidden="true" focusable="false">
         <defs>
-            {cave && <pattern id={`${id}-slate`} width="2.8" height="2.1" patternUnits="userSpaceOnUse">
-                <rect width="2.8" height="2.1" fill="var(--under-floor)" />
-                    <path d="M0 .2 .6 .12 1 .4 1.6 .18 2.8 .28 M.6 .12 .4 1 1.1 1.3 .9 2.1 M2 .2 1.8 .8 2.3 1.4 2.1 2.1 M0 1.7 .4 1.6 M2.3 1.4 2.8 1.6" fill="none" stroke="#030b11" strokeWidth=".025" opacity=".5" />
-                    <path d="M.16 .48 .42 .36 .64 .55 .36 .72Z M1.2 1.5 1.6 1.34 1.94 1.56 1.66 1.86 1.26 1.84Z M2.24 .45 2.56 .32 2.7 .7 2.36 .88Z" fill="var(--under-highlight)" opacity=".1" />
-                    <path d="M0 1.2 .4 1.14 1 .96 1.5 1.06 1.9 1.02 2.8 1.1" stroke="var(--under-water)" strokeWidth=".24" fill="none" opacity=".22" />
-                    <path d="M.05 1.26 .5 1.18 1 .99 1.7 1.12 2.76 1.14" stroke="var(--under-highlight)" strokeWidth=".012" fill="none" opacity=".26" />
-            </pattern>}
-            {cave && <pattern id={`${id}-wall-art`} width="3" height="2" patternUnits="userSpaceOnUse">
-                <image href="/underground/cavern-rock-face-v1.webp" width="3" height="2" preserveAspectRatio="none" />
-                <rect width="3" height="2" fill="var(--under-rock)" opacity=".2" />
-            </pattern>}
-            <radialGradient id={`${id}-light`}>
-                <stop stopColor="var(--under-glow)" stopOpacity=".35" /><stop offset="1" stopColor="var(--under-glow)" stopOpacity="0" />
-            </radialGradient>
-            {cave && <pattern id={`${id}-material`} width="6" height="6" patternUnits="userSpaceOnUse">
-                <rect width="6" height="6" fill={`url(#${id}-slate)`} />
-                <image href={rift ? '/underground/rift-chamber-floor-v2.webp' : '/underground/hollow-cavern-v1.webp'} width="6" height="6" preserveAspectRatio="none" />
-                <rect width="6" height="6" fill="var(--under-floor)" opacity=".22" />
-            </pattern>}
             {!cave && <pattern id={`${id}-passage-floor`} width="2" height="2" patternUnits="userSpaceOnUse">
                 <image href="/underground/fortress-corridor-floor-v3.webp" width="2" height="2" preserveAspectRatio="none" />
             </pattern>}
-            <pattern id={`${id}-bedrock`} width="6" height="6" patternUnits="userSpaceOnUse">
-                <rect width="6" height="6" fill="var(--under-rock)" />
-                <image href={cave ? '/underground/hollow-cavern-v1.webp' : '/underground/fortress-corridor-floor-v3.webp'} width="6" height="6" preserveAspectRatio="none" opacity=".25" />
-            </pattern>
             <clipPath id={`${id}-known`}>
                 {geometry.map((g, i) => inDrawing(g) && (known.has(i) || visible.has(i)) ? <rect key={i} data-tile={i} x={g.x} y={g.y} width="1" height="1" /> : null)}
             </clipPath>
-            <clipPath id={`${id}-floor`}>
-                {geometry.map((g, i) => inDrawing(g) && !g.wall && visible.has(i) ? <rect key={i} x={g.x} y={g.y} width="1" height="1" /> : null)}
+            {/* Feathered masks that blend a sealed doorway's patch of painted
+                wall into the wall beside it (horizontal and vertical edges). */}
+            {chambers && (['h', 'v'] as const).map(dir => <g key={dir}>
+                <linearGradient id={`${id}-seal-${dir}-fade`} x1="0" y1="0" x2={dir === 'h' ? 1 : 0} y2={dir === 'h' ? 0 : 1}>
+                    <stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".24" stopColor="#fff" />
+                    <stop offset=".76" stopColor="#fff" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
+                </linearGradient>
+                <mask id={`${id}-seal-${dir}`} maskContentUnits="objectBoundingBox">
+                    <rect width="1" height="1" fill={`url(#${id}-seal-${dir}-fade)`} />
+                </mask>
+            </g>)}
+            {/* Remembered floor only (the Obsidian tint never lifts the dark rock). */}
+            <clipPath id={`${id}-known-floor`}>
+                {geometry.map((g, i) => inDrawing(g) && !g.wall && (known.has(i) || visible.has(i)) ? <rect key={i} x={g.x} y={g.y} width="1" height="1" /> : null)}
+            </clipPath>
+            {/* Lit cells including their walls: a crypt room's painting also
+                lies under its sealed doorways. */}
+            <clipPath id={`${id}-${chambers ? 'lit' : 'floor'}`}>
+                {geometry.map((g, i) => inDrawing(g) && (chambers || !g.wall) && visible.has(i) ? <rect key={i} x={g.x} y={g.y} width="1" height="1" /> : null)}
             </clipPath>
         </defs>
-        <rect x={drawing.left} y={drawing.top} width={drawing.width} height={drawing.height} fill="#080d14" />
-        {/* Solid rock fills the darkness without exposing any unknown rooms. */}
-        <rect x={drawing.left} y={drawing.top} width={drawing.width} height={drawing.height} fill={`url(#${id}-bedrock)`} opacity=".18" />
-        {geometry.map((g, i) => {
-            if (!inDrawing(g) || (!known.has(i) && !visible.has(i))) return null;
-            if (!cave && !g.wall && tiles[i].roomId != null && visible.has(i)) return null; // The opaque room painting covers this floor.
-            return <g key={i} transform={`translate(${g.x} ${g.y})`} opacity={visible.has(i) ? 1 : .32}>
+        <rect x={drawing.left} y={drawing.top} width={drawing.width} height={drawing.height} fill="#000" />
+        {/* A stronghold's corridors: painted passage floor between the rooms. */}
+        {!cave && geometry.map((g, i) => {
+            if (!inDrawing(g) || g.wall || (!known.has(i) && !visible.has(i))) return null;
+            if (tiles[i].roomId != null && visible.has(i)) return null; // The opaque room painting covers this floor.
+            return <g key={i} transform={`translate(${g.x} ${g.y})`} opacity={visible.has(i) ? 1 : MEMORY_OPACITY}>
                 {/* Patterns use absolute world coordinates so cells never look stamped. */}
-                <rect width="1.005" height="1.005" fill={`url(#${id}-${g.wall ? 'bedrock' : cave ? 'material' : 'passage-floor'})`} transform={`translate(${-g.x} ${-g.y})`} x={g.x} y={g.y} />
-                {g.wall && !cave && <>
-                    <rect width="1" height="1" fill={`url(#${id}-passage-floor)`} transform={`translate(${-g.x} ${-g.y})`} x={g.x} y={g.y} />
-                    <rect width="1" height="1" fill="#111820" opacity=".65" />
-                    <path d={`${!g.north ? 'M0 .04H1' : ''} ${!g.south ? 'M0 .96H1' : ''} ${!g.west ? 'M.04 0V1' : ''} ${!g.east ? 'M.96 0V1' : ''}`}
-                        fill="none" stroke="#998a6f" strokeWidth=".03" opacity=".35" />
-                </>}
-                {g.wall && cave && !g.south && <>
-                    {/* Sample wall art in world coordinates, as the floor does,
-                        so adjoining wall faces do not restart the same crop. */}
-                    <path transform={`translate(${-g.x} ${-g.y})`}
-                        d={rift ? `M${g.x} ${g.y + .22}l.16-.03 .19.05 .22-.06 .21.05 .22-.01V${g.y + 1}h-1Z` : cave ? `M${g.x} ${g.y + .28}q.2-.18 .4-.05t.3-.05q.18-.06 .3.1V${g.y + 1}h-1Z` : `M${g.x} ${g.y + .18}h1v.82h-1Z`} fill={`url(#${id}-wall-art)`} />
-                    <path d={rift ? 'M0 .22L.16 .19 .35 .24 .57 .18 .78 .23 1 .22' : cave ? 'M0 .28Q.2 .1 .4 .23T.7 .18Q.88 .12 1 .28' : 'M0 .19H1'} fill="none" stroke="var(--under-highlight)" strokeWidth=".012" opacity=".45" />
-                    <rect y=".86" width="1" height=".14" fill="#02070c" opacity=".35" />
-                </>}
-                {!g.wall && <>
-                    {g.north && <rect width="1" height=".2" fill="#000" opacity=".3" />}
-                    {g.west && <path d="M0 0H.08L.13 .4 .06 .7 .1 1H0Z" fill="#071019" opacity=".55" />}
-                    {g.east && <path d="M1 0H.91L.87 .3 .94 .6 .9 1H1Z" fill="#071019" opacity=".55" />}
-                    {g.south && <path d="M0 .97H1" stroke="var(--under-highlight)" opacity=".2" strokeWidth=".035" />}
-                </>}
+                <rect width="1.005" height="1.005" fill={`url(#${id}-passage-floor)`} transform={`translate(${-g.x} ${-g.y})`} x={g.x} y={g.y} />
+                {g.north && <rect width="1" height=".2" fill="#000" opacity=".3" />}
+                {g.west && <path d="M0 0H.08L.13 .4 .06 .7 .1 1H0Z" fill="#071019" opacity=".55" />}
+                {g.east && <path d="M1 0H.91L.87 .3 .94 .6 .9 1H1Z" fill="#071019" opacity=".55" />}
+                {g.south && <path d="M0 .97H1" stroke="var(--under-highlight)" opacity=".2" strokeWidth=".035" />}
             </g>;
         })}
-        {(!cave || rift) && <>
-            {/* Every room is one coherent painting: flooring, light and built-in
-                stations share a camera, material scale and architectural plan.
-                Only discovered rooms are mounted, so a phone loads its current
-                room rather than downloading all twelve room paintings. */}
-            <g clipPath={`url(#${id}-known)`} opacity=".32">
-                {paintableRooms.map(paintRoom)}
-            </g>
-            <g clipPath={`url(#${id}-floor)`}>
-                {paintableRooms.map(paintRoom)}
-            </g>
-        </>}
-        <g clipPath={`url(#${id}-floor)`}>
-            {cave && rooms.filter(roomInDrawing).map(room => <g key={room.roomId}>
-                {vault && room.roomId === 11 && <g>
-                    <path d={`M${room.cx - .75} ${room.cy}h1.5 M${room.cx} ${room.cy - .6}v1.2`} stroke="#b89557" strokeWidth=".012" opacity=".25" />
-                    <circle cx={room.cx} cy={room.cy} r=".7" fill="none" stroke="#c2ab7e" strokeWidth=".014" opacity=".3" />
-                    <circle cx={room.cx} cy={room.cy} r=".58" fill="none" stroke="#c2ab7e" strokeWidth=".01" opacity=".22" />
-                </g>}
-                <ellipse cx={room.cx} cy={room.cy} rx={(room.right - room.x) * .48} ry={(room.bottom - room.y) * .45} fill={`url(#${id}-light)`} opacity=".55" />
-            </g>)}
-            {cave && geometry.map((g, i) => inDrawing(g) && g.lamp && visible.has(i) ? <ellipse key={i} cx={g.x + .5} cy={g.y + 1.2} rx="1.6" ry="1.9" fill={`url(#${id}-light)`} /> : null)}
+        {/* Every room is one coherent painting: flooring, light and built-in
+            stations share a camera, material scale and architectural plan.
+            Only discovered rooms are mounted, so a phone loads its current
+            room rather than downloading all twelve room paintings. */}
+        <g clipPath={`url(#${id}-known)`} opacity={MEMORY_OPACITY}>
+            {paintableRooms.map(paintRoom)}
         </g>
-        <g clipPath={`url(#${id}-known)`} fill="none" stroke="var(--under-highlight)" opacity=".08" strokeWidth=".02">
-            {cave && rooms.filter(roomInDrawing).map(room => <path key={room.roomId} d={`M${room.x} ${room.bottom - .6}q${(room.right - room.x) * .4} -1 ${room.right - room.x} -.2`} />)}
+        <g clipPath={`url(#${id}-${chambers ? 'lit' : 'floor'})`}>
+            {paintableRooms.map(paintRoom)}
         </g>
+        {chambers && geometry.map((g, i) => {
+            // Crypt passages and sealed doorways, painted. A passage cell
+            // turns to run between its open neighbours; a sealed doorway lies
+            // only inside a painted room, never in the open dark.
+            if (!inDrawing(g) || (!known.has(i) && !visible.has(i))) return null;
+            const opacity = visible.has(i) ? 1 : MEMORY_OPACITY;
+            if (!g.wall && tiles[i].terrain === 'corridor_floor') {
+                const vertical = g.east && g.west;
+                return <image key={`p-${i}`} href={passageArt} x={g.x} y={g.y} width="1" height="1" opacity={opacity} preserveAspectRatio="none"
+                    transform={vertical ? `rotate(90 ${g.x + .5} ${g.y + .5})` : undefined} />;
+            }
+            if (!g.wall) return null;
+            const room = rooms.find(r => g.x >= r.x && g.x < r.right && g.y >= r.y && g.y < r.bottom);
+            const art = room && chambers[room.roomId];
+            if (room && art) {
+                // An unused doorway is closed with the room's "sealed" painting
+                // (the same room with every doorway walled up), drawn at the
+                // same spot. The patch is wider than the doorway and fades out
+                // along the wall, so it blends into the painting around it.
+                const along = g.y === room.y || g.y === room.bottom - 1;
+                const px = along ? g.x - .45 : g.x, py = along ? g.y : g.y - .45, pw = along ? 1.9 : 1, ph = along ? 1 : 1.9;
+                return <svg key={`r-${i}`} x={px} y={py} width={pw} height={ph} viewBox={`${px} ${py} ${pw} ${ph}`} opacity={opacity} overflow="hidden">
+                    <g mask={`url(#${id}-seal-${along ? 'h' : 'v'})`}>
+                        <image href={art.replace(/-v1\.webp$/, '-v1-sealed.webp')} x={room.x} y={room.y} width={room.right - room.x} height={room.bottom - room.y} preserveAspectRatio="none" />
+                    </g>
+                </svg>;
+            }
+            // A sealed secret passage reads as a rubble fall (its cracks are drawn on top).
+            if (!room && !tiles[i].secret) return null;
+            // The rubble art is painted for a north doorway; turn it to its side.
+            const turn = !room ? (g.east && g.west ? 0 : 90) : g.y === room.y ? 0 : g.y === room.bottom - 1 ? 180 : g.x === room.x ? 270 : 90;
+            return <image key={`r-${i}`} href={CAVERN_RUBBLE} x={g.x - .1} y={g.y - .1} width="1.2" height="1.2" opacity={opacity} preserveAspectRatio="none"
+                transform={turn ? `rotate(${turn} ${g.x + .5} ${g.y + .5})` : undefined} />;
+        })}
         <g clipPath={`url(#${id}-known)`}>
-            {geometry.map((g, i) => {
-                if (!inDrawing(g) || !cave || tiles[i].terrain !== 'door' || (!known.has(i) && !visible.has(i))) return null;
-                const north = tiles[i - width]?.terrain === 'corridor_floor', south = tiles[i + width]?.terrain === 'corridor_floor';
-                const east = tiles[i + 1]?.terrain === 'corridor_floor', west = tiles[i - 1]?.terrain === 'corridor_floor';
-                if (!north && !south && !east && !west) return null;
-                const angle = north ? 0 : south ? 180 : east ? 90 : -90;
-                return <g className="underground-doorway" data-tile={i} key={`passage-${i}`} transform={`translate(${g.x + .5} ${g.y + .5}) rotate(${angle})`} opacity={visible.has(i) ? 1 : .32}>
-                    <image href={`/underground/${cave ? 'cavern' : 'fortress'}-passage-v1.webp`} x="-1.2" y="-1.25" width="2.4" height="1.55" preserveAspectRatio="xMidYMax meet" />
-                </g>;
-            })}
             {fixtures.map((fixture, i) => {
                 const index = fixture.cells[0];
                 if (!inDrawing({ x: fixture.left, y: fixture.top }) && !inDrawing({ x: fixture.left + fixture.span - 1, y: fixture.top })) return null;
                 if (!known.has(index) && !visible.has(index)) return null;
-                return cave ? <UndergroundFloorFeature key={i} feature={fixture} cave opacity={visible.has(index) ? 1 : .32} />
+                return cave ? <UndergroundFloorFeature key={i} feature={fixture} cave opacity={visible.has(index) ? 1 : MEMORY_OPACITY} />
                     : <g key={i} className="underground-fixture underground-built-in" data-room={fixture.roomId} data-purpose={fixture.purpose}
                         data-collision={fixture.cells.join(',')} data-role={fixture.role} data-feature-art="room-floor">
                         <rect x={fixture.left} y={fixture.top} width={fixture.span} height="1" fill="transparent" />
@@ -207,7 +204,7 @@ export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({
             terrain is painted or revealed beneath its transparent silhouette. */}
         {breaches.filter(site => inDrawing(site) && site.cells.every(i => known.has(i) || visible.has(i)))
             .map(site => <RiftBreach key={site.roomId} site={site} active={site.cells.some(i => visible.has(i))} />)}
-        {!cave && !vault && <g clipPath={`url(#${id}-known)`}>
+        {!cave && !vault && <g clipPath={`url(#${id}-known-floor)`}>
             {/* A direct tint keeps the Obsidian palette without allocating a
                 filtered surface for the entire offscreen dungeon atlas. */}
             <rect x={drawing.left} y={drawing.top} width={drawing.width} height={drawing.height} fill="#24101a" opacity=".18" />

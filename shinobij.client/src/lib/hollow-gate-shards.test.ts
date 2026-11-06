@@ -34,10 +34,11 @@ test("hollow ward wipes threat and sets ward steps", () => {
     assert.ok(r.ok && r.run.threat === 0 && (r.run.wardSteps ?? 0) > 0);
 });
 
-test("diviner reveals all tiles and is once-per-run", () => {
-    const base = run({ diviner: false, tiles: [{ kind: "chest", revealed: false, resolved: false } as never] });
+test("diviner senses nearby tiles without unmasking them, and is once-per-run", () => {
+    const base = run({ diviner: false, width: 1, height: 1, playerX: 0, playerY: 0, tiles: [{ kind: "trap", terrain: "room_floor", roomId: 0, revealed: false, resolved: false } as never] });
     const r = applyShardConsumable("diviner-eye", base, char());
-    assert.ok(r.ok && r.run.diviner === true && r.run.tiles[0].revealed === true);
+    assert.ok(r.ok && r.run.diviner === true && r.run.tiles[0].seen === true);
+    assert.ok(r.ok && r.run.tiles[0].revealed === false, "a disguised trap stays disguised");
     if (r.ok) assert.equal(shardConsumableAvailable(HOLLOW_SHARD_CONSUMABLES.find(c => c.id === "diviner-eye")!, r.run, r.character), false);
 });
 

@@ -94,6 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 floorManifests: { ...manifests, [String(floor)]: validation.manifest },
                 position: validation.manifest.spawn,
                 visitedTiles: hollowGateMarkVisited(run.visitedTiles, validation.manifest, validation.manifest.spawn),
+                ...(run.divinerUsed ? { divinerVisitedTiles: hollowGateMarkVisited(run.divinerVisitedTiles, validation.manifest, validation.manifest.spawn) } : {}),
             };
             await kv.set(runKey, next);
             return { status: 200, body: { ok: true, manifest: validation.manifest, detour: validation.manifest.detour ?? null, riftSignal: validation.manifest.riftSignal ?? null, position: next.position, pendingAmbush: next.pendingAmbush ?? null, wanderers: hollowGateWanderersForRun(next), floorFeatures: hollowGateFloorFeatures(next) } };
