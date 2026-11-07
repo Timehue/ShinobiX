@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { clearHollowGateTilesMarker } from './_hollow-gate-tiles-marker.js';
+import { captureHollowGateTilesMarker, clearHollowGateTilesMarker } from './_hollow-gate-tiles-marker.js';
 
 /*
  * 2026-11-06, live: a rift card ambush settled, the client never sent its
@@ -13,7 +13,10 @@ import { clearHollowGateTilesMarker } from './_hollow-gate-tiles-marker.js';
  */
 
 function store(initial?: unknown) {
-    const values = new Map<string, unknown>();
+    const values = new Map<string, unknown>([
+        ['save:caius', { character: { hollowGateRun: { runToken: 'old-run' } } }],
+        ['hg-run:caius:old-run', { playerName: 'caius', cardAmbushMatchId: 'old-match' }],
+    ]);
     if (initial !== undefined) values.set('battle-lock:caius', initial);
     return {
         values,
@@ -29,9 +32,43 @@ function store(initial?: unknown) {
 const marker = { kind: 'hollowGateTiles', screen: 'hollowGateTiles', battleId: 'c71c45b77ddf43088a3fa019c5a4b2dc', startedAt: 1 };
 
 describe('clearHollowGateTilesMarker', () => {
+    it('delayed cleanup never reads or deletes the next match marker', async () => {
+        const kv = store(marker);
+        const captured = await captureHollowGateTilesMarker('caius', 'old-run', 'old-match', kv);
+        assert.ok(captured);
+        const newer = { ...marker, battleId: 'next-match-marker' };
+        kv.values.set('battle-lock:caius', newer);
+        kv.values.set('hg-run:caius:old-run', { playerName: 'caius', cardAmbushMatchId: 'next-match' });
+        const cleanup = { ...kv, async get(): Promise<never> { throw new Error('cleanup must not read newer state'); } };
+        assert.equal(await clearHollowGateTilesMarker('caius', captured, cleanup), false);
+        assert.deepEqual(kv.values.get('battle-lock:caius'), newer);
+        assert.equal(await captureHollowGateTilesMarker('caius', 'old-run', 'old-match', kv), null,
+            'an old match replay cannot capture the newer match marker');
+    });
+
+    it('delayed run cleanup preserves a later dive marker, including retained old run rows', async () => {
+        const kv = store(marker);
+        const captured = await captureHollowGateTilesMarker('caius', 'old-run', undefined, kv);
+        assert.ok(captured);
+        const newer = { ...marker, battleId: 'next-run-marker' };
+        kv.values.set('battle-lock:caius', newer);
+        kv.values.set('save:caius', { character: { hollowGateRun: { runToken: 'new-run' } } });
+        assert.equal(await clearHollowGateTilesMarker('caius', captured, kv), false);
+        assert.equal(await captureHollowGateTilesMarker('caius', 'old-run', undefined, kv), null);
+        assert.deepEqual(kv.values.get('battle-lock:caius'), newer);
+    });
+
+    it('unbound, spent and wrong-owner runs cannot authorize marker cleanup', async () => {
+        for (const replacement of [null, { playerName: 'someone-else', cardAmbushMatchId: 'old-match' }]) {
+            const kv = store(marker);
+            kv.values.set('hg-run:caius:old-run', replacement);
+            assert.equal(await captureHollowGateTilesMarker('caius', 'old-run', 'old-match', kv), null);
+            assert.deepEqual(kv.values.get('battle-lock:caius'), marker);
+        }
+    });
     it('removes a rift card marker', async () => {
         const kv = store(marker);
-        assert.equal(await clearHollowGateTilesMarker('Caius', kv), true);
+        assert.equal(await clearHollowGateTilesMarker('Caius', await captureHollowGateTilesMarker('Caius', 'old-run', 'old-match', kv), kv), true);
         assert.equal(kv.values.has('battle-lock:caius'), false);
     });
 
@@ -41,15 +78,15 @@ describe('clearHollowGateTilesMarker', () => {
             { kind: 'storyBoss', screen: 'storyHall', battleId: 'b-1', startedAt: 1 },
         ]) {
             const kv = store(other);
-            assert.equal(await clearHollowGateTilesMarker('caius', kv), false);
+            assert.equal(await clearHollowGateTilesMarker('caius', await captureHollowGateTilesMarker('caius', 'old-run', 'old-match', kv), kv), false);
             assert.deepEqual(kv.values.get('battle-lock:caius'), other);
         }
     });
 
     it('does nothing when no marker exists, and never throws', async () => {
-        assert.equal(await clearHollowGateTilesMarker('caius', store()), false);
+        assert.equal(await clearHollowGateTilesMarker('caius', null, store()), false);
         const broken = { async get(): Promise<never> { throw new Error('kv down'); }, async delIfEqual() { return false; } };
-        assert.equal(await clearHollowGateTilesMarker('caius', broken), false);
+        assert.equal(await clearHollowGateTilesMarker('caius', await captureHollowGateTilesMarker('caius', 'old-run', 'old-match', broken), broken), false);
     });
 
     it('deletes only the exact marker it read', async () => {
@@ -63,13 +100,13 @@ describe('clearHollowGateTilesMarker', () => {
                 return read;
             },
         };
-        assert.equal(await clearHollowGateTilesMarker('caius', racing), false);
+        assert.equal(await clearHollowGateTilesMarker('caius', await captureHollowGateTilesMarker('caius', 'old-run', 'old-match', racing), racing), false);
         assert.equal((kv.values.get('battle-lock:caius') as { battleId: string }).battleId, 'newer');
     });
 
     it('both run-ending routes call it', () => {
         const read = (file: string) => readFileSync(join(process.cwd(), 'api', 'hollow-gate', file), 'utf8');
-        assert.match(read('card-settle.ts'), /if \(result\.status === 200\) await clearHollowGateTilesMarker\(playerName\);/);
-        assert.match(read('settle.ts'), /await clearHollowGateTilesMarker\(playerName\);/);
+        assert.match(read('card-settle.ts'), /if \(result\.status === 200\) await clearHollowGateTilesMarker\(playerName, tilesMarker\);/);
+        assert.match(read('settle.ts'), /await clearHollowGateTilesMarker\(playerName, tilesMarker\);/);
     });
 });

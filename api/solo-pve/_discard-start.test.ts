@@ -12,6 +12,8 @@ import {
     withKvLeaseContext,
 } from '../_kv-lock-context.js';
 import { discardFailedStart } from './_discard-start.js';
+import { noteBattleStarted, publishBattleProjection, resetRecentBattleStartsForTests } from '../_realtime/battle-projection.js';
+import { onlineStore } from '../_realtime/online-store.js';
 
 /*
  * 2026-11-06, live: ai-fight-start wrote a solo-pve session, then a poisoned
@@ -42,6 +44,46 @@ function fencedStore(initial: Record<string, unknown> = {}) {
 const projection = (sessionId: string) => ({ version: 1, kind: 'solo-pve', sessionId, startedAt: 1, expiresAt: 9_999_999_999_999 });
 
 describe('discardFailedStart', () => {
+    for (const boundary of ['read', 'delete-ack'] as const) {
+        it(`preserves a newer fight published at the ${boundary} cleanup boundary`, async () => {
+            resetRecentBattleStartsForTests();
+            const name = 'discard-race';
+            const key = `battle-state:${name}`;
+            const store = fencedStore({ [key]: projection('old') });
+            const ended: string[] = [];
+            onlineStore.upsert({ name, sector: 20, character: null });
+            noteBattleStarted(name, 10);
+            const publishNew = async () => {
+                await publishBattleProjection(store, name, { kind: 'solo-pve', sessionId: 'new', startedAt: 1, expiresAt: 9_999_999_999_999 }, 60);
+                noteBattleStarted(name, 10);
+            };
+            const racing = { ...store,
+                async get<T>(key: string) {
+                    const current = await store.get<T>(key);
+                    if (boundary === 'read') await publishNew();
+                    return current;
+                },
+                async delIfEqual(key: string, value: unknown) {
+                    const removed = await store.delIfEqual(key, value);
+                    if (boundary === 'delete-ack') await publishNew();
+                    return removed;
+                },
+                async del(...keys: string[]) {
+                    const removed = await store.del(...keys);
+                    // Also exercise the original unconditional deletion path.
+                    if (boundary === 'delete-ack' && keys.includes(key)) await publishNew();
+                    return removed;
+                },
+            };
+            try {
+                await discardFailedStart({ playerName: name, sessionId: 'old' }, { store: racing,
+                    noteEnded: who => { ended.push(who); onlineStore.setInBattle(who, false); } });
+                assert.deepEqual(store.values.get(key), projection('new'));
+                assert.deepEqual(ended, []);
+                assert.equal(onlineStore.get(name)?.inBattle, true);
+            } finally { onlineStore.remove(name); resetRecentBattleStartsForTests(); }
+        });
+    }
     it('undoes the whole start even when the start lock context is poisoned', async () => {
         const pointer = { playerName: 'caius', token: 't1', sessionId: 'aifight-new' };
         const store = fencedStore({

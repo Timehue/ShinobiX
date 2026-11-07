@@ -41,6 +41,8 @@ export type BattleProjectionStore = {
     get<T = unknown>(key: string): Promise<T | null>;
     set(key: string, value: unknown, opts?: { ex?: number; nx?: boolean }): Promise<unknown>;
     del?(key: string): Promise<unknown>;
+    delIfEqual?(key: string, expected: unknown): Promise<boolean>;
+    compareSet?(key: string, expected: unknown, value: unknown, opts?: { ex?: number }): Promise<boolean>;
 };
 
 export function battleStateKey(playerName: string): string {
@@ -68,6 +70,8 @@ export async function publishBattleProjection(
     const slug = safeName(playerName);
     if (!slug) return;
     const row: BattleStateProjection = { version: 1, ...projection };
+    // Invalidate an older cleanup before the asynchronous publication begins.
+    recentStarts.set(slug, { at: Date.now(), sessionId: projection.sessionId });
     await store.set(battleStateKey(slug), row, { ex: Math.max(1, Math.floor(retainSeconds)) });
 }
 
@@ -86,9 +90,27 @@ export async function retireBattleProjection(
     const key = battleStateKey(slug);
     const current = await store.get<unknown>(key);
     if (!isBattleStateProjection(current) || current.sessionId !== sessionId) return false;
-    if (store.del) await store.del(key);
-    else await store.set(key, { ...current, expiresAt: 0 }, { ex: 1 });
-    return true;
+    if (store.delIfEqual) return store.delIfEqual(key, current);
+    if (store.compareSet) return store.compareSet(key, current, { ...current, expiresAt: 0 }, { ex: 1 });
+    // A store without atomic comparison cannot safely retire a shared pointer.
+    return false;
+}
+
+/** Retire authority and local presence without clearing a subsequent start. */
+export async function retireBattlePresence(
+    store: BattleProjectionStore,
+    playerName: string,
+    sessionId: string,
+    noteEnded: (playerName: string) => void = noteBattleEnded,
+): Promise<boolean> {
+    const slug = safeName(playerName);
+    const generation = recentStarts.get(slug);
+    const retired = await retireBattleProjection(store, slug, sessionId);
+    // CAS may finish before its promise resumes. A new publication or start in
+    // that gap owns presence, even if it occurs in the same millisecond.
+    if (retired && recentStarts.get(slug) === generation
+        && (!generation?.sessionId || generation.sessionId === sessionId)) noteEnded(slug);
+    return retired;
 }
 
 // ── Presence hooks ──────────────────────────────────────────────────────────
@@ -104,13 +126,13 @@ export async function retireBattleProjection(
 // BATTLE_START_GRACE_MS of a host start unless the stores positively prove the
 // fight is over (a terminal or voided record reports itself as lapsed).
 export const BATTLE_START_GRACE_MS = 15_000;
-const recentStarts = new Map<string, number>();
+const recentStarts = new Map<string, { at: number; sessionId?: string }>();
 
 export function noteBattleStarted(playerName: string, now: number = Date.now()): void {
     const slug = safeName(playerName);
     if (!slug) return;
     invalidateBattleAuthority(slug);
-    recentStarts.set(slug, now);
+    recentStarts.set(slug, { at: now, sessionId: recentStarts.get(slug)?.sessionId });
     onlineStore.setInBattle(slug, true);
 }
 
@@ -124,7 +146,7 @@ export function noteBattleEnded(playerName: string): void {
 
 /** True while a host started a fight for this player less than `windowMs` ago. */
 export function battleStartedWithin(playerName: string, now: number = Date.now(), windowMs: number = BATTLE_START_GRACE_MS): boolean {
-    const at = recentStarts.get(safeName(playerName));
+    const at = recentStarts.get(safeName(playerName))?.at;
     return at !== undefined && now - at < windowMs;
 }
 

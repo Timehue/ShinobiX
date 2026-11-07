@@ -1,6 +1,6 @@
 import { withoutKvLeaseContext } from '../_kv-lock-context.js';
 import { kv as realKv } from '../_storage.js';
-import { noteBattleEnded, retireBattleProjection, type BattleProjectionStore } from '../_realtime/battle-projection.js';
+import { retireBattlePresence, type BattleProjectionStore } from '../_realtime/battle-projection.js';
 import { soloPveSessionKey } from './_store.js';
 
 /*
@@ -52,8 +52,6 @@ export function discardFailedStart(
             if (value !== null && value !== undefined) await store.delIfEqual(key, value).catch(() => false);
         }
         if (!input.sessionId) return;
-        const retired = await retireBattleProjection(store, input.playerName, input.sessionId).catch(() => false);
-        // Only when the projection was this fight's: a newer fight keeps its flag.
-        if (retired) (deps.noteEnded ?? noteBattleEnded)(input.playerName);
+        await retireBattlePresence(store, input.playerName, input.sessionId, deps.noteEnded).catch(() => false);
     });
 }

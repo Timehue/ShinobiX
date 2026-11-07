@@ -1,9 +1,8 @@
 import { safeName } from '../_utils.js';
 import {
-    noteBattleEnded,
     noteBattleStarted,
     publishBattleProjection,
-    retireBattleProjection,
+    retireBattlePresence,
     type BattleProjectionStore,
 } from '../_realtime/battle-projection.js';
 
@@ -36,5 +35,5 @@ export async function publishShowdownPresence(store: BattleProjectionStore, play
 export async function retireShowdownPresence(store: BattleProjectionStore, playerName: string, sessionId: string): Promise<void> {
     const slug = safeName(playerName);
     if (!slug || !sessionId) return;
-    if (await retireBattleProjection(store, slug, sessionId).catch(() => false)) noteBattleEnded(slug);
+    await retireBattlePresence(store, slug, sessionId).catch(() => false);
 }

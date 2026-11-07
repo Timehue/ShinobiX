@@ -9,10 +9,9 @@ import {
 } from './_session.js';
 import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.js';
 import {
-    noteBattleEnded,
     noteBattleStarted,
     publishBattleProjection,
-    retireBattleProjection,
+    retireBattlePresence,
 } from '../_realtime/battle-projection.js';
 import { noteHeldFight } from './_held-fight-index.js';
 
@@ -117,7 +116,7 @@ async function retireSoloPveProjection(store: SoloPveKv, session: SoloPveSession
             if (!fenced.ok && fenced.status !== 404) throw new Error(fenced.error);
         }
     }
-    if (await retireBattleProjection(store, session.ownerSlug, session.sessionId)) noteBattleEnded(session.ownerSlug);
+    await retireBattlePresence(store, session.ownerSlug, session.sessionId);
 }
 
 /** Repair a committed terminal row whose recovery fence or projection retirement failed. */
