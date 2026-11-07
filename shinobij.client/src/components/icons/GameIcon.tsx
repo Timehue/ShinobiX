@@ -1,20 +1,26 @@
 /*
- * GameIcon — a small, cohesive set of inline-SVG game glyphs.
+ * GameIcon — one name per game symbol, drawn one of two ways.
  *
- * These are authored as source (not uploaded through /api/images, which
+ * Most names are listed in ART_BY_ICON below and render the painted
+ * Shinobi Journey art through GameArtIcon: an <img> of a small WebP, which
+ * ignores `color`. The rest (clock, menu, envelope, settings and other tiny
+ * navigation or timing glyphs) render the inline SVG in PATHS, which is
+ * vector and `currentColor`, so it stays crisp at any DPR and inherits text
+ * color or takes one via style/CSS var:
+ *        <GameIcon name="clock" style={{ color: "var(--text-dim)" }} />
+ *
+ * The SVGs are authored as source (not uploaded through /api/images, which
  * rejects SVG for XSS reasons — that gate is for runtime uploads, not trusted
- * committed code). Being vector + `currentColor` means:
- *   • zero bandwidth — they ship in the JS bundle, never as polled image data
- *   • crisp at any DPR / size (mobile-safe)
- *   • themeable — they inherit text color, or set one via style/CSS var:
- *        <GameIcon name="ryo" style={{ color: "var(--gold, #f4c95d)" }} />
+ * committed code).
  *
  * Usage:
- *   <GameIcon name="ryo" />                       // 18px, inherits color
+ *   <GameIcon name="ryo" />                       // 18px
  *   <GameIcon name="shard" size={22} title="Shards" />   // labelled (a11y)
  *
- * Add a new glyph: extend GameIconName + add a PATHS entry (24×24 viewBox).
- * Keep the filled style + `currentColor` so the set stays visually coherent.
+ * Add a new symbol: extend GameIconName and add a PATHS entry (24×24 viewBox,
+ * filled, `currentColor`); PATHS must cover every name, even ones that draw
+ * art. To draw painted art instead, add a GameArtIcon kind and map the name
+ * to it in ART_BY_ICON.
  */
 import React, { type CSSProperties, type ReactElement } from "react";
 import type { GameIconName } from "./icon-names";
@@ -28,6 +34,14 @@ export type { GameIconName } from "./icon-names";
 const PATHS: Record<GameIconName, ReactElement> = {
     pickaxe: <path d="M3 4c7-3 14-1 19 6l-2 2c-3-4-6-6-10-6l3 3-9 13-3-2 10-12-2-2-6 1V4Z" />,
     fish: <><path d="M6 12 1 7v10l5-5Zm0 0c4-7 12-7 17 0-5 7-13 7-17 0Z" /><circle cx="18" cy="11" r="1" fill="var(--bg, #0f172a)" /></>,
+    // Harvest kama: a crescent blade on a short handle. Vector fallback only;
+    // GameIcon draws the painted `harvesting` emblem.
+    kama: (
+        <>
+            <path d="M5.2 3.2c6.9-.9 12.6 3 13.6 8.6-3.2-3.4-7.2-5-11.6-4.9Z" />
+            <path d="m8.6 6.4 2 .9-5.3 13.3-2.1-.9Z" />
+        </>
+    ),
     // Two overlapping mon coins (circle with a square hole) — reads as currency.
     ryo: (
         <>
@@ -260,6 +274,7 @@ const ART_BY_ICON: Partial<Record<GameIconName, GameArtIconKind>> = {
     ryo: "ryo", shard: "fateShard", crystal: "auraStone", sparkle: "elementLightning",
     medal: "crown", sigil: "crown", bone: "boneCharm", chakra: "vitality", hp: "vitality",
     sword: "attack", shield: "guard", scroll: "scroll", map: "map", target: "attack",
+    pickaxe: "mining", fish: "fishing", kama: "harvesting",
     dice: "dice", dumbbell: "training", paw: "petTamer", gift: "reward", person: "roleDefender",
     bag: "supply", flask: "potion", bolt: "elementLightning", leaf: "biomeForest",
     snow: "biomeSnow", moon: "biomeShadow", gate: "gate", tower: "townHall",

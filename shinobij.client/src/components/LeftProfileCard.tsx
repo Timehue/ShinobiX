@@ -202,7 +202,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                         const used = resourceAttemptsToday(character, activity, now);
                         const label = activity === 'mining' ? 'Mining' : activity === 'fishing' ? 'Fishing' : 'Harvesting';
                         return <div key={activity} className="left-caps-cell" style={activity === 'harvesting' ? { gridColumn: "1 / -1" } : undefined} title={`50 ${activity} attempts per UTC day`}>
-                            <span className="left-caps-label"><GameIcon name={activity === 'mining' ? 'pickaxe' : activity === 'fishing' ? 'fish' : 'leaf'} size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />{label}</span>
+                            <span className="left-caps-label"><GameIcon name={activity === 'mining' ? 'pickaxe' : activity === 'fishing' ? 'fish' : 'kama'} size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />{label}</span>
                             <span className="left-caps-value" style={{ color: used >= DAILY_RESOURCE_ATTEMPT_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{used}/{DAILY_RESOURCE_ATTEMPT_LIMIT}</span>
                         </div>;
                     })}

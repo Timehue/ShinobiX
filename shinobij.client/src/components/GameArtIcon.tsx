@@ -45,6 +45,7 @@ export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "missi
     | "townHall" | "bank" | "training" | "upgrades" | "hospital" | "worldMap" | "storyHall"
     | "petHome" | "community" | "blacksmith" | "logbook" | "premiumShop"
     | "auraStone" | "reward" | "potion" | "gate" | "map" | "supply" | "event"
+    | "mining" | "fishing" | "harvesting"
     | "clanMentor" | "clanRoster" | "clanBoss" | "clanBoost" | "clanExchange" | "clanNotices" | "clanChat";
 
 const ART: Record<GameArtIconKind, string> = {
@@ -56,6 +57,11 @@ const ART: Record<GameArtIconKind, string> = {
     ryo: "/ui/clan-missions/clan-mission-donation.webp",
     fateShard: "/item-elemental-shard.webp",
     boneCharm: "/ui/game-icons/bone-charm.webp",
+    // Gathering emblems: painted to match the crossed-kunai hunt emblem
+    // (attack) that they sit beside in the profile card's daily limits.
+    mining: "/ui/game-icons/mining.webp",
+    fishing: "/ui/game-icons/fishing.webp",
+    harvesting: "/ui/game-icons/harvesting.webp",
     roleDefender, roleTracker, roleAssassin, roleSage,
     elementFire, elementWater, elementWind, elementEarth, elementLightning,
     biomeForest, biomeSnow, biomeVolcano, biomeCentral, biomeShadow,
