@@ -1,6 +1,6 @@
 {
-  "candidate": "b9162a1971db4c56238924e53ee0364bcc639006",
-  "recovery": "570de5bf1b151f0e1f37d45c11137bf718eb402f",
+  "candidate": "6b87651ef4a90ffa59e891fc767b4a9a90be184c",
+  "recovery": "b80c4443b1c22d82ed0cfccd2fa744a83e879a78",
   "node": "24.21.0",
   "platform": "linux/amd64",
   "recoveryMeaning": "Current main 3dfdb6f5 generation-safe battle retirement plus all reviewed world-boss repairs; identical complete trees with distinct compatible continuation/recovery identities"
