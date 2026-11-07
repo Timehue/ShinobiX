@@ -172,11 +172,36 @@ export function kamaStalkXAt(field: KamaField, index: number, at: number, y: num
     const u = (base.y - y) / (base.y - tip.y);
     return base.x + (tip.x - base.x) * u;
 }
-/** A guide stroke: level, at the guide's height, across just the chosen stalk. */
-export function kamaGuideStroke(field: KamaField, index: number, at: number): KamaStroke {
+/** The standing stalk a guide stroke on `index` also takes: the nearest one to its
+ * right, else to its left. Three strokes can then reach all five stalks, as a swipe
+ * can. The exception is a press whose pair line would clip a third standing stalk
+ * (a gust lean); that press cuts one stalk (4 of ~141,600 sampled presses). */
+export function kamaGuidePartner(stalks: readonly KamaStalkResult[], index: number): number | undefined {
+    const up = (from: number, step: number): number | undefined => {
+        for (let i = from + step; i >= 0 && i < stalks.length; i += step) if (!stalks[i].cut) return i;
+    };
+    return up(index, 1) ?? up(index, -1);
+}
+/**
+ * A guide stroke: through the chosen stalk at the guide's height, and on to the
+ * partner stalk at the same height relative to its own band, so both cuts share
+ * one timing error. Without a partner (or if the line would clip another
+ * standing stalk) it is a short level cut of the chosen stalk alone.
+ */
+export function kamaGuideStroke(field: KamaField, index: number, at: number, stalks: readonly KamaStalkResult[] = []): KamaStroke {
     const y = Math.round(kamaGuideY(at) * 100) / 100, x = kamaStalkXAt(field, index, at, y);
     const clamp = (value: number) => Math.round(Math.max(0, Math.min(100, value)) * 100) / 100;
-    return { kind: 'stroke', at, x1: clamp(x - 4), y1: y, x2: clamp(x + 4), y2: y };
+    const single: KamaStroke = { kind: 'stroke', at, x1: clamp(x - 4), y1: y, x2: clamp(x + 4), y2: y };
+    const partner = stalks.length ? kamaGuidePartner(stalks, index) : undefined;
+    if (partner === undefined) return single;
+    const { base, tip } = kamaStalkPose(field, index, at), other = kamaStalkPose(field, partner, at);
+    const u = Math.max(.02, Math.min(.98, (base.y - y) / (base.y - tip.y) - field.stalks[index].band + field.stalks[partner].band));
+    const px = other.base.x + (other.tip.x - other.base.x) * u, py = other.base.y + (other.tip.y - other.base.y) * u;
+    // Run 3 height units past each stalk so rounding never lands the cut on an end.
+    const run = Math.hypot((px - x) * KAMA_FIELD_ASPECT, py - y) || 1, ex = (px - x) / run * 3, ey = (py - y) / run * 3;
+    const pair: KamaStroke = { kind: 'stroke', at, x1: clamp(x - ex), y1: clamp(y - ey), x2: clamp(px + ex), y2: clamp(py + ey) };
+    const clips = field.stalks.some((_, i) => i !== index && i !== partner && !stalks[i]?.cut && kamaCrossing(field, i, pair) !== undefined);
+    return clips || kamaCrossing(field, index, pair) === undefined || kamaCrossing(field, partner, pair) === undefined ? single : pair;
 }
 /** The relaxed-mode animation: three clean sweeps that take every stalk. Visual only. */
 export function kamaDemoStrokes(field: KamaField): KamaStroke[] {

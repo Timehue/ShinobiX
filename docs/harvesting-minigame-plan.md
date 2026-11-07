@@ -107,8 +107,9 @@ coordinates:
   high-skill play, the Veinbreaking "one charge, several seams" moment.
 - **Guide line** (keyboard, and the tap fallback): a horizontal guide line glides
   up and down over the band area. `←`/`→` (or tapping a stalk) picks a stalk,
-  and `Space`/`Enter` (or a 44 px **Slash** button) strokes horizontally across
-  that stalk at the guide's current height. The server cannot tell the two input
+  and `Space`/`Enter` (or a 44 px **Slash** button) strokes through that stalk
+  at the guide's current height and on through its nearest standing neighbour
+  (see "Phase 3 as built" for why). The server cannot tell the two input
   styles apart: both produce the same segment, so neither is easier to cheat.
 
 **Scoring** (pure function, `shared/kama-reaping.ts`, run by client preview and server):
@@ -344,8 +345,18 @@ Phase 3 as built (2026-11-06):
 - `KamaReaping.tsx` + `kama-reaping-renderer.ts` + `kama-reaping.css` (lazy, like
   the kunai). The field is CSS-locked to 3:2 so the drawing matches the scorer.
   Input is a swipe, or a tap on a stalk plus **Reap at the line** (and Arrows +
-  Space), which makes a level stroke at the gliding guide line
-  (`kamaGuideStroke` in the shared module, so it is always valid input).
+  Space), which strokes at the gliding guide line (`kamaGuideStroke` in the
+  shared module, so it is always valid input).
+  - 2026-11-07: the guide stroke first cut the chosen stalk ONLY. With three
+    strokes and five stalks, a keyboard or tap player could never reap more than
+    3 of 5 (performance 6 at best, against 10 for a swipe).
+  - It now also takes a partner, the nearest standing stalk (`kamaGuidePartner`:
+    right first, else left). The segment crosses the partner at the same offset
+    from ITS band as the chosen stalk, so one press shares one timing error
+    (clean + clean, or tear + tear).
+  - It falls back to a single level cut only when the segment would clip a third
+    standing stalk. That happened in 4 of ~141,600 sampled presses.
+  - The renderer draws that exact segment, with a marker under both stalks.
   Relaxed mode animates `kamaDemoStrokes`. In Rich/Master forest and shadow
   meadows the middle stalk is drawn as the rare plant (cosmetic only).
 - The public attempt carries `harvest: { family, trace }`: the bloomed plant and
