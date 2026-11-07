@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import { _makeMemoryKv, kv } from '../_storage.js';
 import type { PvpSession } from './session.js';
-import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
+import { grantVanguardRewardsForSession, parseVanguardRewardSettlementMarker, VANGUARD_REWARD_SETTLEMENT_FIELD } from './_vanguard-rewards.js';
 import { pvpPairCounterKey, pvpUtcDay } from './_valid-fight.js';
 
 // The legacy grant (no V2 stamp) reads the shared kv, which picks its backend
@@ -68,6 +68,38 @@ test('a short flee win pays no Vanguard XP', async () => {
     const out = await grant(session('flee', { round: 1, fleed: true, durationMs: 20_000 }));
     assert.equal(out.xp ?? 0, 0);
 });
+
+for (const cause of ['short-flee', 'exhausted-pair', 'exhausted-pair-and-seals'] as const) {
+    test(`a ${cause} zero-XP settlement remains valid and replayable without paying twice`, async () => {
+        const { store, grant, session } = await setup();
+        if (cause !== 'short-flee') {
+            await store.set(pvpPairCounterKey('alice', 'bob', '2026-10-21'), 4);
+        }
+        if (cause === 'exhausted-pair-and-seals') {
+            const saved = (await store.get<Record<string, any>>('save:alice'))!;
+            saved.character.dailyHonorSealsByTarget = { bob: 3 };
+            saved.character.vanguardDailyResetDate = '2026-10-21';
+            await store.set('save:alice', saved);
+        }
+        const battle = session(`replay-${cause}`, cause === 'short-flee'
+            ? { round: 1, fleed: true, durationMs: 20_000 } : {});
+        const first = await grant(battle);
+        assert.deepEqual(first, { granted: true, seals: cause === 'exhausted-pair-and-seals' ? 0 : 1, xp: 0 });
+        const before = await store.get<Record<string, any>>('save:alice');
+        const marker = before!.character[VANGUARD_REWARD_SETTLEMENT_FIELD];
+        assert.ok(parseVanguardRewardSettlementMarker(marker));
+        const receiptKey = `pvp:vanguard-rewarded:${battle.battleId}`;
+        const receipt = await store.get(receiptKey);
+        assert.equal((await grant(battle)).reason, 'already-granted');
+        assert.deepEqual(await store.get('save:alice'), before);
+        assert.deepEqual(await store.get(receiptKey), receipt);
+        for (const xp of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+            assert.equal(parseVanguardRewardSettlementMarker({
+                ...marker, outcome: { ...marker.outcome, xp },
+            }), null, `invalid XP ${xp} must remain rejected`);
+        }
+    });
+}
 
 test('a V2 replay pays the sealed XP even after the pair has been fought out', async () => {
     const { store, session, grant } = await setup();
