@@ -9,7 +9,8 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
-import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
+import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
+import { discardFailedStart } from '../solo-pve/_discard-start.js';
 import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES } from './_run-token.js';
 import {
     createHollowGateCombatBinding,
@@ -205,7 +206,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     createdAt: binding.createdAt,
                 } });
             } catch (error) {
-                await kv.del(hollowGateCombatBindingKey(binding.runId), soloPveSessionKey(binding.runId)).catch(() => undefined);
+                // Outside the lock context, which the error may have poisoned
+                // (see discardFailedStart).
+                await discardFailedStart({ playerName, sessionId: binding.runId, keys: [hollowGateCombatBindingKey(binding.runId)] });
                 throw error;
             }
             const session = combatMode === 'solo-pve' ? await readSoloPveSession(binding.runId) : null;

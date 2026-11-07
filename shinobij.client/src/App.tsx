@@ -5241,6 +5241,11 @@ export default function App() {
                 />
             </Suspense>}
 
+            {/* Compatibility battle lock for the rift card screen. Mounted OUTSIDE
+                the screen-keyed error boundary: in there, ending the card match
+                (flag off + screen change in one render) remounted it, so the
+                lock was never resolved and held the player for an hour. */}
+            {character && <BattleLockKeeper active={hollowGateTileGameActive} kind="hollowGateTiles" screen="hollowGateTiles" playerName={character.name} />}
             <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} onOutcome={commitVersionedCharacter} onFightOpenChange={setStoryFightOpen} />
             {character && <Suspense fallback={null}><StoryDeliveryHost {...storyDeliveryProps} /></Suspense>}
             {character && <PlayGameServicesLoader character={character} commitVersionedCharacter={commitVersionedCharacter} confirm={gameConfirm} toast={gameToast} />}
@@ -5324,17 +5329,6 @@ export default function App() {
                             // never shuttle this credential through storage.
                             navigate(adminLoggedIn ? "adminPanel" : "adminLogin");
                         }}
-                    />
-                )}
-
-                {/* Compatibility battle lock for the rift card screen. The
-                    server run and Chronicle match own recovery after refresh. */}
-                {character && (
-                    <BattleLockKeeper
-                        active={hollowGateTileGameActive}
-                        kind="hollowGateTiles"
-                        screen="hollowGateTiles"
-                        playerName={character.name}
                     />
                 )}
 

@@ -62,7 +62,8 @@ import { MAX_RAID_ATTEMPTS_PER_DAY, type WarPool } from '../_anbu-infiltration.j
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
-import { readSoloPveSession, repairSoloPveSessionPublication, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
+import { readSoloPveSession, repairSoloPveSessionPublication, writeSoloPveSession } from '../solo-pve/_store.js';
+import { discardFailedStart } from '../solo-pve/_discard-start.js';
 import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { isIncapacitated } from '../_elapsed-state.js';
@@ -224,7 +225,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
                     ? { allowed: true, replayed: true, count: 0 }
                     : await reserveInfilStartAttempt(playerName, activeRun.runId, MAX_RAID_ATTEMPTS_PER_DAY, { now: () => activeRun.createdAt });
                 if (!attempt.allowed) {
-                    await kv.del(activeKey, infilRunKey(activeRunId), soloPveSessionKey(activeRunId));
+                    await discardFailedStart({ playerName, sessionId: activeRunId, keys: [infilRunKey(activeRunId)], ifEqual: [{ key: activeKey, value: activeRunId }] });
                     return { status: 429 as const, body: { error: 'Daily infiltration limit reached.' } };
                 }
                 if (activeRun.startState !== 'ready') {
@@ -313,7 +314,9 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
                 ? { allowed: true, replayed: false, count: 0 }
                 : await reserveInfilStartAttempt(playerName, runId, MAX_RAID_ATTEMPTS_PER_DAY, { now: () => run.createdAt });
             if (!attempt.allowed) {
-                await kv.del(activeKey, infilRunKey(runId), soloPveSessionKey(runId));
+                // Also retires the fight's battle-state projection, which a bare
+                // delete left behind (see discardFailedStart).
+                await discardFailedStart({ playerName, sessionId: runId, keys: [infilRunKey(runId)], ifEqual: [{ key: activeKey, value: runId }] });
                 return { status: 429 as const, body: { error: 'Daily infiltration limit reached.' } };
             }
             await writeInfilRun({ ...run, startState: 'ready' });
@@ -353,7 +356,7 @@ async function doRecover(res: VercelResponse, identity: Identity, playerName: st
             const attempt = identity.admin ? { allowed: true } : await reserveInfilStartAttempt(playerName, run.runId,
                 MAX_RAID_ATTEMPTS_PER_DAY, { now: () => run.createdAt });
             if (!attempt.allowed) {
-                await kv.del(activeKey, infilRunKey(run.runId), soloPveSessionKey(run.runId));
+                await discardFailedStart({ playerName, sessionId: run.runId, keys: [infilRunKey(run.runId)], ifEqual: [{ key: activeKey, value: run.runId }] });
                 return { status: 429, body: { error: 'Daily infiltration limit reached.' } };
             }
             await writeInfilRun({ ...run, startState: 'ready' });

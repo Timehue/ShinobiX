@@ -75,6 +75,66 @@ async function points(): Promise<number> {
 }
 
 describe('Hollow Gate card ambushes pay Chronicle Points', { concurrency: false }, () => {
+    it('card settlement retires its captured marker without another client resolve', async () => {
+        const token = 'marker-matching-run';
+        const nodeId = 'floor:1:ambush:threat-v50';
+        const matchId = await terminalMatch(token, nodeId, 'player');
+        await sealedCardAmbush(token, nodeId, matchId);
+        await kv.set('battle-lock:riftplayer', { kind: 'hollowGateTiles', battleId: 'matching-card' });
+        assert.equal((await call(settle, { token, matchId })).status, 200);
+        assert.equal(await kv.get('battle-lock:riftplayer'), null);
+    });
+
+    it('delayed card settlement cleanup preserves the next same-kind marker', async t => {
+        const token = 'marker-racing-card';
+        const nodeId = 'floor:1:ambush:threat-v51';
+        const matchId = await terminalMatch(token, nodeId, 'player');
+        await sealedCardAmbush(token, nodeId, matchId);
+        const markerKey = 'battle-lock:riftplayer';
+        await kv.set(markerKey, { kind: 'hollowGateTiles', battleId: 'settling-card' });
+        const newer = { kind: 'hollowGateTiles', battleId: 'new-card' };
+        const compareSet = kv.compareSet.bind(kv);
+        let replaced = false;
+        t.mock.method(kv, 'compareSet', (async (...args: Parameters<typeof kv.compareSet>) => {
+            const ok = await compareSet(...args);
+            if (ok && args[0] === hollowGateRunKey('riftplayer', token)
+                && (args[2] as HollowGateRunToken)?.cardAmbushMatchId === null) {
+                replaced = true;
+                await kv.set(markerKey, newer);
+            }
+            return ok;
+        }) as typeof kv.compareSet);
+        const result = await call(settle, { token, matchId });
+        assert.equal(result.status, 200, JSON.stringify(result.body));
+        assert.equal(replaced, true, 'the new marker lands after settlement, before cleanup');
+        assert.deepEqual(await kv.get(markerKey), newer);
+        assert.equal(await points(), 40, 'settlement still pays once');
+    });
+
+    it('delayed run settlement cleanup preserves the next same-kind marker', async t => {
+        const token = 'marker-racing-run';
+        const nodeId = 'floor:1:ambush:threat-v52';
+        const matchId = await terminalMatch(token, nodeId, 'player');
+        await sealedCardAmbush(token, nodeId, matchId);
+        const markerKey = 'battle-lock:riftplayer';
+        await kv.set(markerKey, { kind: 'hollowGateTiles', battleId: 'ending-run' });
+        const newer = { kind: 'hollowGateTiles', battleId: 'new-run-card' };
+        const del = kv.del.bind(kv);
+        let replaced = false;
+        t.mock.method(kv, 'del', async (...keys: string[]) => {
+            const count = await del(...keys);
+            if (keys.includes(hollowGateRunKey('riftplayer', token))) {
+                replaced = true;
+                await kv.set(markerKey, newer);
+            }
+            return count;
+        });
+        const result = await call(endRun, { token, action: 'abandon' });
+        assert.equal(result.status, 200, JSON.stringify(result.body));
+        assert.equal(replaced, true, 'the new marker lands after run deletion, before cleanup');
+        assert.deepEqual(await kv.get(markerKey), newer);
+    });
+
     it('a won ambush pays 10 beside its ryo, once, and the replay shows the same reward', async () => {
         const token = 'card-cp-win-token';
         const nodeId = 'floor:1:ambush:threat-v40';

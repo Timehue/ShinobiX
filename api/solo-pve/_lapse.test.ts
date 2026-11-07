@@ -137,6 +137,8 @@ describe('solo-pve lapse — gameplay expiry is a terminal event, not a storage 
         const base = _makeMemoryKv();
         const ttls: Record<string, number | undefined> = {};
         const kv: SoloPveKv = {
+            // Preserve the production adapter's atomic compare-delete capability.
+            ...base,
             get: <T,>(key: string) => base.get<T>(key),
             set: (key: string, value: unknown, opts?: { ex?: number; nx?: boolean }) => { ttls[key] = opts?.ex; return base.set(key, value, opts); },
             del: (key: string) => base.del(key),

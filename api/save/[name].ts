@@ -28,6 +28,7 @@ import { authedPlayerOrAdmin, isAdmin, isFullAdmin, verifyPlayerPasswordBudgeted
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { isKnownEarnedTitle, appendCustomTitleLog } from '../_titles-registry.js';
+import { withoutKvLeaseContext } from '../_kv-lock-context.js';
 import { legacyEnabled } from '../_legacy-track.js';
 import { clientRyoDecreaseAllowed } from '../_release-flags.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, matchesStoredSaveVersion, nextSaveVersion, storedSaveVersion } from './_save-version.js';
@@ -1176,7 +1177,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const exTitle = String(((existing as Record<string, unknown> | null)?.character as Record<string, unknown> | undefined)?.customTitle ?? '');
                         const inTitle = String(((safeIncoming as Record<string, unknown>).character as Record<string, unknown> | undefined)?.customTitle ?? '');
                         if (inTitle && inTitle !== exTitle && !isKnownEarnedTitle(inTitle)) {
-                            void appendCustomTitleLog(identityName, inTitle);
+                            // Outside this save's lock context: the append takes
+                            // its own lock and can outlive this one, which made it
+                            // fail the lease check or poison this save's writes.
+                            void withoutKvLeaseContext(() => appendCustomTitleLog(identityName, inTitle));
                         }
                     }
 
