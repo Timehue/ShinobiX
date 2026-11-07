@@ -22,7 +22,8 @@ test.beforeEach(async ({ page, request, context }, info) => {
     save.character = { ...save.character, name, level: 85, ryo: 100_000, auraDust: 0, boneCharms: 0,
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], itemStacks: [
             { itemId: 'gather-stormglass-shard-fine', count: 8 },
-            { itemId: 'gather-field-herb', count: 10 }, { itemId: 'gather-heartwood-bark', count: 10 },
+            // Five Pet Treats take 15 herbs: harvest goods carry the recipe premium (owner, 2026-11-06).
+            { itemId: 'gather-field-herb', count: 15 }, { itemId: 'gather-heartwood-bark', count: 10 },
             { itemId: 'gather-binding-fiber', count: 10 }, { itemId: 'hunt-beast-meat', count: 30 },
             { itemId: 'hunt-cracked-horn', count: 12 }, { itemId: 'hunt-small-fang', count: 8 },
         ] };
@@ -109,7 +110,7 @@ for (const loseAcknowledgment of [false, true]) {
             expect(payload.recipeId).toBe('pet-treat');
             expect(payload.requestId).toBe(payloads[0].requestId);
             expect(payload.materials).toEqual(expect.arrayContaining([
-                expect.objectContaining({ 'hunt-beast-meat': 30 }), expect.objectContaining({ 'gather-field-herb': 10 }),
+                expect.objectContaining({ 'hunt-beast-meat': 30 }), expect.objectContaining({ 'gather-field-herb': 15 }),
             ]));
         }
         expect(replies[0].character.ryo).toBe(before.character.ryo - 2000);

@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { resourceNode, resourceNodeAtLevel, WORLD_BOSS_CRYSTAL_NODES, type ResourceNodeLevel } from '../../shared/resource-nodes.js';
+import { harvestNodeAt, resourceNode, resourceNodeAtLevel, WORLD_BOSS_CRYSTAL_NODES, type ResourceNodeLevel } from '../../shared/resource-nodes.js';
 import { readResourceGathering, type ResourceReceipt } from '../../shared/resource-gathering.js';
 import { reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx, economyTxKey, type EconomyTxRecord } from '../_economy-tx.js';
 import { kv } from '../_storage.js';
@@ -159,8 +159,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const player = onlineStore.get(identity.name);
             // The seal snapshots this level, so a rotation cannot change a started
             // attempt. A retry must reach its reservation, so it checks the sealed level.
+            // A meadow retry also checks the bloom its first try was sealed in.
             const offered = requestSeal?.nodeId === node.id && requestSeal.rules
-                ? resourceNodeAtLevel(node, requestSeal.rules.difficulty as ResourceNodeLevel) : await sharedResourceOffer(node, now);
+                ? harvestNodeAt(resourceNodeAtLevel(node, requestSeal.rules.difficulty as ResourceNodeLevel), requestSeal.startedAt) : await sharedResourceOffer(node, now);
             const error = resourcePositionError(player, node) || resourceAdmissionError(current, offered, now, true);
             if (error || !player) return { ok: false, status: 409, error: error ?? 'Connect to the world first.' };
             let worldBossEventId: string | undefined;

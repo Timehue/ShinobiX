@@ -1,5 +1,5 @@
 /** Static item identities. Catalog consumers need no gathering simulation code. */
-export type ResourceActivity = 'fishing' | 'mining';
+export type ResourceActivity = 'fishing' | 'mining' | 'harvesting';
 export const RESOURCE_GRADES = ['Common', 'Fine', 'Superior', 'Pristine'] as const;
 export type ResourceGrade = 0 | 1 | 2 | 3;
 export const RESOURCE_FAMILIES = {

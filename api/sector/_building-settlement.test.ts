@@ -7,6 +7,7 @@ import type { CraftMaterialSelection } from '../../shared/crafting-recipes.js';
 import { battleLockKey } from '../_elapsed-state.js';
 import { festivalStallPlan } from '../../shared/sector-festival-work.js';
 import { WORLD_HOUR_MS } from '../../shared/world-clock.js';
+import { BUILDING_REPAIR_INGREDIENTS } from '../../shared/sector-building-content.js';
 
 process.env.SHINOBIX_QA_MEMORY_KV='1';process.env.NODE_ENV='test';
 let kv:typeof import('../_storage.js').kv;
@@ -15,7 +16,9 @@ let reduce:typeof import('./_building-actions.js').reduceBuildingAction;
 let withLock:typeof import('../_lock.js').withKvLock;
 let building:NonNullable<ReturnType<typeof import('../../shared/sector-buildings.js').sectorBuilding>>;
 const NOW=Date.now();
-const materials:CraftMaterialSelection=[{'gather-iron-sand':5},{'hunt-torn-hide':2},{'gather-river-fish':3},{'gather-binding-fiber':4}];
+// One exact-grade pick per repair row, sized from the live row counts so a cost change does not stale the fixture.
+const REPAIR_PICKS=['gather-iron-sand','hunt-torn-hide','gather-river-fish','gather-binding-fiber'];
+const materials:CraftMaterialSelection=BUILDING_REPAIR_INGREDIENTS.map((row,i)=>({[REPAIR_PICKS[i]]:row.count}));
 before(async()=>{
     ({kv}=await import('../_storage.js'));({settleBuildingAction:settle}=await import('./_building-settlement.js'));
     ({reduceBuildingAction:reduce}=await import('./_building-actions.js'));({withKvLock:withLock}=await import('../_lock.js'));

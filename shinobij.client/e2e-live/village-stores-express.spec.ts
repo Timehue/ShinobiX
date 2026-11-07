@@ -141,7 +141,7 @@ async function seedStoresAccount(request: APIRequestContext, testInfo: TestInfo)
         // and the later material-donation legs.
         itemStacks: [
             { itemId: 'hunt-beast-meat', count: 5 },
-            { itemId: 'gather-field-herb', count: 3 },
+            { itemId: 'gather-field-herb', count: 5 },
             { itemId: 'gather-heartwood-bark', count: 5 },
             { itemId: 'hunt-frost-pelt', count: 3 },
             { itemId: 'hunt-ash-scale', count: 30 },
@@ -180,7 +180,7 @@ async function seedStoresAccount(request: APIRequestContext, testInfo: TestInfo)
     // that proved nothing.
     const canonical = await readSave(request, name, token);
     expect(countOwned(canonical, 'hunt-beast-meat')).toBe(5);
-    expect(countOwned(canonical, 'gather-field-herb')).toBe(3);
+    expect(countOwned(canonical, 'gather-field-herb')).toBe(5);
     expect(countOwned(canonical, 'gather-heartwood-bark')).toBe(5);
     expect(countOwned(canonical, 'hunt-ash-scale')).toBe(30);
     expect(Number((canonical.character as Record<string, unknown>).ryo)).toBeGreaterThanOrEqual(50_000);
@@ -310,7 +310,7 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         expect(countOwned(afterCook, 'ration-pack'), 'the server must hold the cooked packs').toBe(cookedTotal);
         expect(countOwned(afterCook, 'hunt-beast-meat')).toBe(0);
         expect(countOwned(afterCook, 'hunt-frost-pelt')).toBe(3, 'pelts remain available for equipment');
-        expect(countOwned(afterCook, 'gather-field-herb'), 'field and campaign rations consume one and two herbs').toBe(0);
+        expect(countOwned(afterCook, 'gather-field-herb'), 'field and campaign rations consume two and three herbs').toBe(0);
         expect(countOwned(afterCook, 'gather-heartwood-bark'), 'field and campaign rations consume two and three fuel').toBe(0);
         expect(Number((afterCook.character as Record<string, unknown>).ryo)).toBe(50_000 - 30 - 80);
 

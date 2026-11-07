@@ -178,7 +178,7 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     assert.match(world, new RegExp(`${DAILY_SECTOR_EXPLORE_LIMIT} explores, ${DAILY_RESOURCE_ATTEMPT_LIMIT} Mining attempts, and ${DAILY_RESOURCE_ATTEMPT_LIMIT} Fishing attempts per UTC day`, "i"));
     assert.match(economy, new RegExp(`success awards ${RESOURCE_SUCCESS_XP} skill XP`, "i"));
     assert.match(economy, new RegExp(`completed failure awards ${RESOURCE_FAILURE_XP} XP`, "i"));
-    assert.match(economy, new RegExp(`Mining and Fishing each have a separate daily allowance of ${DAILY_RESOURCE_ATTEMPT_LIMIT} attempts`, "i"));
+    assert.match(economy, new RegExp(`Mining, Fishing and Harvesting each have a separate daily allowance of ${DAILY_RESOURCE_ATTEMPT_LIMIT} attempts`, "i"));
     assert.match(economy, new RegExp(`in addition to ${DAILY_SECTOR_EXPLORE_LIMIT} explores`, "i"));
     assert.doesNotMatch(`${world} ${economy}`, /share 100(?: total)? actions|100 actions per UTC day across Explore/i);
     assert.match(world, new RegExp(`Road bandits offer Fight or Pay ${BANDIT_TOLL_RYO} ryo`, "i"));

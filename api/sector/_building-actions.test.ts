@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { reduceBuildingAction, buildingActionTarget } from './_building-actions.js';
 import { countOwned } from '../craft/_forge.js';
 import { readBuildingProgress, readSharedBuilding } from '../../shared/sector-building-state.js';
-import { buildingWorkView } from '../../shared/sector-building-content.js';
+import { BUILDING_REPAIR_INGREDIENTS, buildingWorkView } from '../../shared/sector-building-content.js';
 import { buildingFestivalTasks } from '../../shared/sector-building-stories.js';
 import { sectorBuilding } from '../../shared/sector-buildings.js';
 import type { BuildingAction } from '../../shared/sector-building-types.js';
@@ -18,7 +18,11 @@ test('HTTP work requests reject non-order services before they can create an unr
     for(const service of ['reception','register','survey','workshop','unknown',null,{},12])assert.equal(parseBuildingAction({...body,service}),undefined);
     for(const service of ['repair','courier','watch','intelligence','festival','tea'])assert.equal(parseBuildingAction({...body,service})?.service,service);
 });
-const selection:CraftMaterialSelection=[{'gather-iron-sand':5},{'hunt-torn-hide':2},{'gather-river-fish':3},{'gather-binding-fiber':4}];
+// One exact-grade pick per repair row, sized from the live row counts so a cost change does not stale the fixture.
+const REPAIR_PICKS=['gather-iron-sand','hunt-torn-hide','gather-river-fish','gather-binding-fiber'];
+const selection:CraftMaterialSelection=BUILDING_REPAIR_INGREDIENTS.map((row,i)=>({[REPAIR_PICKS[i]]:row.count}));
+/** Exactly enough stock for `repairs` repairs with `selection`, and nothing more. */
+const repairStacks=(repairs:number)=>selection.map(row=>{const[[itemId,count]]=Object.entries(row);return{itemId,count:repairs*count};});
 const base=():Record<string,unknown>=>({name:'builder',level:100,ryo:1000,boneCharms:0,fateShards:0,inventory:[],itemStacks:[
     {itemId:'gather-iron-sand',count:300},{itemId:'hunt-torn-hide',count:200},{itemId:'gather-river-fish',count:200},{itemId:'gather-binding-fiber',count:400},
     {itemId:'gather-iron-sand-pristine',count:3},{itemId:'gather-river-fish-pristine',count:2},
@@ -79,7 +83,7 @@ test('a twenty-first contributor still earns their repair without evicting the l
 });
 test('material-backed repairs continue past six in one day and pay every third and twentieth milestone',()=>{
     let c=base(),shared=readSharedBuilding(null),now=Date.parse('2026-10-19T12:00:00Z');
-    c.itemStacks=[{itemId:'gather-iron-sand',count:210},{itemId:'hunt-torn-hide',count:84},{itemId:'gather-river-fish',count:126},{itemId:'gather-binding-fiber',count:168}];
+    c.itemStacks=repairStacks(42);
     for(let count=1;count<=42;count++){
         c={...c,sectorBuildings:JSON.parse(JSON.stringify(progress(c,now)))};
         const started=act(c,{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},now,shared);assert.ok(started.ok);if(!started.ok)return;
@@ -94,7 +98,7 @@ test('material-backed repairs continue past six in one day and pay every third a
     assert.equal(new Date(now).toISOString().slice(0,10),'2026-10-19','all 42 completions and both shard payouts occur on the same UTC day');
     const before=structuredClone(c),short=act(c,{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},now,shared);
     assert.equal(short.ok,false);assert.deepEqual(c,before,'insufficient materials cannot advance counts or pay rewards');
-    c.itemStacks=[{itemId:'gather-iron-sand',count:5},{itemId:'hunt-torn-hide',count:2},{itemId:'gather-river-fish',count:3},{itemId:'gather-binding-fiber',count:4}];
+    c.itemStacks=repairStacks(1);
     const replenished=act(c,{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},now,shared);
     assert.ok(replenished.ok);if(!replenished.ok)return;
     const next=finish(replenished.character,now,shared);assert.equal(progress(next.character,next.now).repairsToday,43);

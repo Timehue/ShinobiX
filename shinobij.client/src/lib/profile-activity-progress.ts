@@ -5,15 +5,16 @@ import type { Character } from '../types/character';
 
 export function profileActivityProgress(character: Character) {
     const gathering = readResourceGathering(character.resourceGathering);
-    const rows = (['Mining', 'Fishing'] as const).map(label => {
-        const xp = label === 'Mining' ? gathering.miningXp : gathering.fishingXp;
+    const skillRow = (label: 'Mining' | 'Fishing' | 'Harvesting') => {
+        const xp = label === 'Mining' ? gathering.miningXp : label === 'Fishing' ? gathering.fishingXp : gathering.harvestingXp;
         const level = resourceSkillLevel(xp), floor = RESOURCE_SKILL_XP[level - 1], next = RESOURCE_SKILL_XP[level];
         return { label, value: `Lv. ${level}`, detail: next === undefined ? 'MAX · level cap reached' : `${(xp - floor).toLocaleString()}/${(next - floor).toLocaleString()} XP to next level` };
-    });
+    };
+    const rows = [skillRow('Mining'), skillRow('Fishing')];
     const rawRank = Number(character.hunterRank ?? 0);
     const rank = Number.isFinite(rawRank) ? Math.max(0, Math.min(HUNTER_RANK_LABELS.length - 1, Math.floor(rawRank))) : 0;
     const requirement = HUNTER_RANKUP[rank];
     return [...rows, { label: 'Hunting', value: HUNTER_RANK_LABELS[rank], detail: requirement
         ? `${countItem(character, requirement.itemId).toLocaleString()}/${requirement.qty.toLocaleString()} ${HUNT_MATERIAL_NAMES[requirement.itemId]} toward next rank`
-        : 'MAX · highest Hunter Rank' }];
+        : 'MAX · highest Hunter Rank' }, skillRow('Harvesting')];
 }

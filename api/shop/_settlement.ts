@@ -45,7 +45,7 @@ const PACKS: Record<ShopPackId, { count: number; rarities: SettlementCard['rarit
     epic: { count: 1, rarities: ['rare', 'epic'], currency: 'fateShards', pool: 'marketplace' },
     legendary: { count: 1, rarities: ['legendary'], currency: 'fateShards', pool: 'marketplace' },
 };
-const SHOP_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'aura', 'weapon', 'thrown', 'item', 'potion', 'accessory', 'fishingPole', 'pickaxe']);
+const SHOP_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'aura', 'weapon', 'thrown', 'item', 'potion', 'accessory', 'fishingPole', 'pickaxe', 'kama']);
 const RYO_RARITIES = new Set(['common', 'uncommon', 'rare', 'epic']);
 const FATE_RARITIES = new Set(['legendary', 'mythic']);
 const MAX_STACK = 9999;

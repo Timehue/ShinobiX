@@ -36,8 +36,12 @@ before(async () => {
     // handler claims against the next, which has no progress, so the claim
     // would be refused as incomplete. Hold Date (Date.now and new Date alike)
     // at one instant for the file. It is enabled after the imports, so no
-    // module captures the mock clock.
-    mock.timers.enable({ apis: ['Date'], now: Date.UTC(2026, 10, 24) });
+    // module captures the mock clock. The fixtures below need one week's draw to
+    // hold the Alpha and ranked at level 100, the 70-mission fallback at level 10,
+    // and fishing, mining and ranked at level 20. Adding harvesting's missions
+    // (week 150 on) reshuffled the old week 151, so this is week 188, the first
+    // week with harvesting that satisfies them all (and deals harvesting too).
+    mock.timers.enable({ apis: ['Date'], now: Date.UTC(2027, 7, 10) });
     recordKey = `weekly-board:${NAME}:${weekKey(Date.now())}`;
     const { ensurePetRankedSeasonGate } = await import('../pet/_ranked-preparation.js');
     await kv.set(SEASON_KEY, { id: 1 });

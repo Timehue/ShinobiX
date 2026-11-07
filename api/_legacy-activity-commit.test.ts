@@ -147,10 +147,15 @@ test('an older combat writer cannot overwrite a concurrent atomic gathering deed
 
 test('forging real items credits committed output once; refused crafts grant no deed', async () => {
     const player = 'legacyforge';
-    await seed(player, { itemStacks: [{ itemId: 'gather-iron-sand', count: 9 },
-        { itemId: 'gather-heartwood-bark', count: 2 }, { itemId: 'gather-binding-fiber', count: 2 }] });
+    // Exactly one batch of the recipe's lead material in each row (Common Iron
+    // Sand, Heartwood Bark, Binding Fiber), read from the live recipe so a cost
+    // change does not leave the seed short.
+    const { SUPPLY_CRAFT_RECIPES } = await import('../shared/crafting-recipes.js');
+    const rows = SUPPLY_CRAFT_RECIPES['thrown-shuriken'].ingredients;
+    assert.deepEqual(rows.map(row => row.ids[0]), ['gather-iron-sand', 'gather-heartwood-bark', 'gather-binding-fiber']);
+    await seed(player, { itemStacks: rows.map(row => ({ itemId: row.ids[0], count: row.count })) });
     const body = { requestId: 'legacy-forge-0001', kind: 'supply', recipeId: 'thrown-shuriken', quantity: 1,
-        materials: [{ 'gather-iron-sand': 9 }, { 'gather-heartwood-bark': 2 }, { 'gather-binding-fiber': 2 }] };
+        materials: rows.map(row => ({ [row.ids[0]]: row.count })) };
     assert.equal((await post(forge, player, { ...body, materials: [] })).status, 409);
     assert.equal((await stats(player))?.craftsCompleted, undefined);
     const first = await post(forge, player, body); assert.equal(first.status, 200, JSON.stringify(first.body));

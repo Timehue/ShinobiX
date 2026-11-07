@@ -125,8 +125,10 @@ shop,thrown-senbon,ryo,1600,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-serpent-dust,ryo,1600,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-shuriken,ryo,1600,per unit,api/pvp/_item-catalog.ts,common thrown
 shop,tool-basic-fishing-pole,ryo,11250,per unit,api/pvp/_item-catalog.ts,common fishingPole
+shop,tool-basic-harvest-kama,ryo,11250,per unit,api/pvp/_item-catalog.ts,common kama
 shop,tool-basic-pickaxe,ryo,11250,per unit,api/pvp/_item-catalog.ts,common pickaxe
 shop,tool-golden-fishing-pole,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary fishingPole
+shop,tool-golden-harvest-kama,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary kama
 shop,tool-golden-pickaxe,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary pickaxe
 shop,training-katana,ryo,9600,per unit,api/pvp/_item-catalog.ts,common hand
 shop,village-transfer-scroll,fateShards,250,per unit,api/pvp/_item-catalog.ts,legendary item

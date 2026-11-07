@@ -7,6 +7,11 @@ import { namedForgeIngredients } from './named-forge-materials.js';
 import { RESOURCE_ITEMS } from './resource-items.js';
 import { builtinHuntMissions } from '../shinobij.client/src/data/missions.js';
 import { effectiveItemLevelReq } from './item-level-gate.js';
+import { resourceIngredientCount } from './resource-material-cost.js';
+
+// Harvest goods take the recipe premium (owner, 2026-11-06): stocks below quote
+// the authored count through the same helper, so they track the live rule.
+const harvest = (count: number) => resourceIngredientCount(['gather-field-herb'], count);
 
 test('every recipe ingredient exists and has a player-facing name', () => {
     const available = new Set([...Object.keys(ITEM_CATALOG), ...RESOURCE_ITEMS.map(item => item.id)]);
@@ -91,7 +96,7 @@ test('Ember Ore and Ember Scale fuel the forge 1:1 after Heartwood Bark; the Eld
     const shuriken = SUPPLY_CRAFT_RECIPES['thrown-shuriken'].ingredients;
     assert.deepEqual(rowWith(shuriken, 'gather-heartwood-bark')?.ids, [...FUEL_IDS]);
     assert.deepEqual(rowWith(SUPPLY_CRAFT_RECIPES['thrown-senbon'].ingredients, 'gather-heartwood-bark')?.ids, [...FUEL_IDS]);
-    const base = { 'gather-iron-sand': 9, 'gather-binding-fiber': 2 };
+    const base = { 'gather-iron-sand': 9, 'gather-binding-fiber': harvest(2) };
     assert.deepEqual(planCraftIngredients(shuriken, stock({ ...base, 'gather-ember-ore': 2 })), { ...base, 'gather-ember-ore': 2 });
     assert.deepEqual(planCraftIngredients(shuriken, stock({ ...base, 'hunt-ember-scale': 2 })), { ...base, 'hunt-ember-scale': 2 });
     assert.deepEqual(planCraftIngredients(shuriken, stock({ ...base, 'gather-heartwood-bark': 2, 'gather-ember-ore': 5 })), { ...base, 'gather-heartwood-bark': 2 }, 'bark is spent first');
@@ -101,7 +106,7 @@ test('Ember Ore and Ember Scale fuel the forge 1:1 after Heartwood Bark; the Eld
         assert.equal(fuel?.count, 3, id);
     }
     const elder = rowWith(gearCraftIngredients(ITEM_CATALOG['elderbranch-katana']), 'gather-heartwood-bark');
-    assert.deepEqual(elder, { ids: ['gather-heartwood-bark'], count: 4, label: 'Heartwood Bark' });
+    assert.deepEqual(elder, { ids: ['gather-heartwood-bark'], count: harvest(4), label: 'Heartwood Bark' });
     // Bark-only rows that are not fuel (pills, potions, smoke) are unchanged.
     for (const id of ['item-smoke-bomb', 'item-attack-pill', 'potion-rejuvenation', 'consum-smoke-pellet']) {
         assert.deepEqual(rowWith(SUPPLY_CRAFT_RECIPES[id].ingredients, 'gather-heartwood-bark')?.ids, ['gather-heartwood-bark'], id);
@@ -112,19 +117,19 @@ test('every River Fish grade makes Treats, Beast Meat first', () => {
     const row = SUPPLY_CRAFT_RECIPES['pet-treat'].ingredients[0];
     assert.deepEqual(row.ids, ['hunt-beast-meat', 'gather-river-fish', 'gather-river-fish-fine', 'gather-river-fish-superior', 'gather-river-fish-pristine']);
     assert.equal(row.count, 6);
-    assert.deepEqual(planCraftIngredients(SUPPLY_CRAFT_RECIPES['pet-treat'].ingredients, stock({ 'gather-river-fish-pristine': 6, 'gather-field-herb': 2 })),
-        { 'gather-river-fish-pristine': 6, 'gather-field-herb': 2 });
+    assert.deepEqual(planCraftIngredients(SUPPLY_CRAFT_RECIPES['pet-treat'].ingredients, stock({ 'gather-river-fish-pristine': 6, 'gather-field-herb': harvest(2) })),
+        { 'gather-river-fish-pristine': 6, 'gather-field-herb': harvest(2) });
 });
 
 test('Shadow Pelt stands in for Shadow Thread in the seal, totem, charm and serpent dust; the Black Lotus keeps exact thread', () => {
     for (const [id, count] of [['beast-seal-master', 4], ['pve-bloodbond-totem', 2], ['consum-phantom-charm', 1], ['thrown-serpent-dust', 1]] as const) {
         const row = rowWith(SUPPLY_CRAFT_RECIPES[id].ingredients, 'gather-shadow-thread');
         assert.deepEqual(row?.ids, ['gather-shadow-thread', 'hunt-shadow-pelt'], id);
-        assert.equal(row?.count, count, id);
+        assert.equal(row?.count, harvest(count), id);
     }
     const seal = SUPPLY_CRAFT_RECIPES['beast-seal-master'].ingredients;
-    const sealStock = { 'gather-stormglass-shard-fine': 6, 'gather-heartwood-bark': 4, 'gather-binding-fiber': 8 };
-    assert.deepEqual(planCraftIngredients(seal, stock({ ...sealStock, 'hunt-shadow-pelt': 4 })), { ...sealStock, 'hunt-shadow-pelt': 4 },
+    const sealStock = { 'gather-stormglass-shard-fine': 6, 'gather-heartwood-bark': harvest(4), 'gather-binding-fiber': harvest(8) };
+    assert.deepEqual(planCraftIngredients(seal, stock({ ...sealStock, 'hunt-shadow-pelt': harvest(4) })), { ...sealStock, 'hunt-shadow-pelt': harvest(4) },
         'a hunter can bind with pelts alone, so the seal really is "forged from rare hunt materials"');
     const lotus = rowWith(gearCraftIngredients(ITEM_CATALOG['black-lotus-dagger']), 'gather-shadow-thread');
     assert.deepEqual(lotus?.ids, ['gather-shadow-thread']);
@@ -142,10 +147,10 @@ test('Ancient Beast Core, Titan Bone and Legendary Material share one S-rank tro
     }
     // A dragon farmer (bones only) can now build a Sanguine Charm, a chakra-beast farmer an Apex Fang.
     const charm = SUPPLY_CRAFT_RECIPES['pve-sanguine-charm'].ingredients;
-    assert.deepEqual(planCraftIngredients(charm, stock({ 'hunt-small-fang': 10, 'hunt-titan-bone': 2, 'gather-binding-fiber': 6 })),
-        { 'hunt-small-fang': 10, 'hunt-titan-bone': 2, 'gather-binding-fiber': 6 });
+    assert.deepEqual(planCraftIngredients(charm, stock({ 'hunt-small-fang': 10, 'hunt-titan-bone': 2, 'gather-binding-fiber': harvest(6) })),
+        { 'hunt-small-fang': 10, 'hunt-titan-bone': 2, 'gather-binding-fiber': harvest(6) });
     const apex = SUPPLY_CRAFT_RECIPES['pve-apex-predator-fang'].ingredients;
-    const apexStock = { 'hunt-shadow-claw': 8, 'gather-iron-sand-superior': 15, 'gather-binding-fiber': 8 };
+    const apexStock = { 'hunt-shadow-claw': 8, 'gather-iron-sand-superior': 15, 'gather-binding-fiber': harvest(8) };
     assert.deepEqual(planCraftIngredients(apex, stock({ ...apexStock, 'hunt-ancient-beast-core': 3, 'hunt-legendary-material': 1 })),
         { 'hunt-ancient-beast-core': 3, 'hunt-legendary-material': 1, ...apexStock });
 });

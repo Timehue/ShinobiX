@@ -18,7 +18,7 @@ export const BUILDING_REPAIR_INGREDIENTS: readonly CraftIngredient[] = [
     { label:'Ore and mineral fittings', count:resourceIngredientCount(['gather-iron-sand'],3), ids:RESOURCE_ITEMS.filter(item=>item.activity==='mining').sort((a,b)=>a.grade-b.grade).map(item=>item.id) },
     { label:'Hunting materials for shelter lining', count:2, ids:['hunt-torn-hide','hunt-wild-feather','hunt-frost-pelt','hunt-shadow-pelt'] },
     { label:'Fish for the working crew', count:resourceIngredientCount(['gather-river-fish'],2), ids:RESOURCE_ITEMS.filter(item=>item.activity==='fishing').map(item=>item.id) },
-    { label:'Harvested lashings and packing', count:4, ids:['gather-binding-fiber','gather-heartwood-bark','gather-field-herb','gather-shadow-thread'] },
+    { label:'Harvested lashings and packing', count:resourceIngredientCount(['gather-binding-fiber'],4), ids:['gather-binding-fiber','gather-heartwood-bark','gather-field-herb','gather-shadow-thread'] },
 ];
 export const BUILDING_WORKSHOP_RECIPES: Readonly<Record<string, readonly string[]>> = {
     stormveil:['consum-smoke-pellet','pet-treat','village-supply-bundle'], ashenleaf:['pet-treat','consum-cleansing-incense','beast-seal-master'],

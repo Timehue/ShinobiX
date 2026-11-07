@@ -797,15 +797,15 @@
       },
       {
         "id": "fishing-and-mining",
-        "heading": "Stop at fishing and mining sites",
+        "heading": "Stop at fishing, mining, and harvesting sites",
         "blocks": [
           {
             "type": "p",
-            "text": "Look for shoal and mineral markers in the sector. Select one to see its skill requirement and remaining attempts, then use Approach to walk to the shore or rock base. Equip the right tool before starting: a fishing kunai for Fishing or a pickaxe for Mining."
+            "text": "Look for shoal, mineral, and meadow markers in the sector. Select one to see its skill requirement and remaining attempts, then use Approach to walk to the shore, rock base, or meadow. Equip the right tool before starting: a fishing kunai for Fishing, a pickaxe for Mining, or a harvest kama for Harvesting."
           },
           {
             "type": "p",
-            "text": "Each ordinary site gives you three attempts, then replenishes after ten minutes. You can play the minigame for a success bonus or choose the relaxed animation at the baseline chance. Both spend an action, and failed or abandoned attempts still count. The Shinobi Outpost in Central lists known sites, tracks both skills, and lets you manage tools."
+            "text": "Each ordinary site gives you three attempts, then replenishes after ten minutes. Wild meadows also bloom in new places every half hour, so a meadow you passed may be gone and another may have appeared. You can play the minigame for a success bonus or choose the relaxed animation at the baseline chance. Both spend an action, and failed or abandoned attempts still count. The Shinobi Outpost in Central lists known sites, tracks all three skills, and lets you manage tools."
           }
         ]
       },
@@ -1465,7 +1465,7 @@
     "category": "Build Your Shinobi",
     "title": "Professions, Gathering, and Ryo",
     "tagline": "Choose work you enjoy, learn the field skills, and save materials for a purpose.",
-    "blurb": "Profession ranks and Mastery, Fishing and Mining, gathering tools, material use, and everyday money decisions.",
+    "blurb": "Profession ranks and Mastery, Fishing, Mining and Harvesting, gathering tools, material use, and everyday money decisions.",
     "audience": "All shinobi; professions at level 13",
     "readMinutes": 5,
     "reviewedAt": "November 2026",
@@ -1480,6 +1480,7 @@
       "mastery",
       "fishing",
       "mining",
+      "harvesting",
       "tools",
       "ryo",
       "bank",
@@ -1489,7 +1490,7 @@
     ],
     "quickTake": [
       "Professions unlock at level 13. Healer, Vanguard, and Pet Tamer each have a hub with daily work and rank progress.",
-      "Fishing and Mining are separate skills available alongside any profession. Start with a basic tool and a skill-1 site.",
+      "Fishing, Mining and Harvesting are separate skills available alongside any profession. Start with a basic tool and a skill-1 site.",
       "Bank spare ryo, collect interest when it is ready, and check a recipe before refining or donating its ingredients."
     ],
     "relatedGuideIds": [
@@ -1559,15 +1560,15 @@
       },
       {
         "id": "field-skills",
-        "heading": "Start Fishing or Mining",
+        "heading": "Start Fishing, Mining or Harvesting",
         "blocks": [
           {
             "type": "p",
-            "text": "Visit the Shinobi Outpost in Central for the Fishing and Mining tabs. These skills have their own XP and levels, separate from your profession. The Outpost lists sites and their requirements. Begin at a skill-1 site, then move to rich sites at skill 4 and master sites at skill 7."
+            "text": "Visit the Shinobi Outpost in Central for the Fishing, Mining and Harvesting tabs. These skills have their own XP and levels, separate from your profession. The Outpost lists sites and their requirements. Begin at a skill-1 site, then move to rich sites at skill 4 and master sites at skill 7."
           },
           {
             "type": "p",
-            "text": "Buy a Basic Fishing Kunai or Basic Pickaxe from the Ryo Shop and equip it in its gathering slot through Inventory or the Outpost. Each basic tool lasts 125 attempts. Golden tools in the Grand Marketplace never break. Gathering tools do not take a combat equipment slot or add battle stats."
+            "text": "Buy a Basic Fishing Kunai, Basic Pickaxe or Basic Harvest Kama from the Ryo Shop and equip it in its gathering slot through Inventory or the Outpost. Each basic tool lasts 125 attempts. Golden tools in the Grand Marketplace never break. Gathering tools do not take a combat equipment slot or add battle stats."
           },
           {
             "type": "p",
@@ -1575,7 +1576,11 @@
           },
           {
             "type": "p",
-            "text": "A success awards 5 skill XP and a resource. A completed failure awards 1 XP. Each ordinary node shares three attempts among players before a ten-minute refill. Mining and Fishing each have a separate daily allowance of 50 attempts, in addition to 100 explores. All three allowances reset at midnight UTC. Starting gathering spends one attempt and one basic-tool use, even if you fail, cancel, are interrupted, or let it expire. An attempt that does not start spends nothing. Unfinished attempts award no XP. World-event crystal seams use your Mining allowance."
+            "text": "A success awards 5 skill XP and a resource. A completed failure awards 1 XP. Each ordinary node shares three attempts among players before a ten-minute refill. Mining, Fishing and Harvesting each have a separate daily allowance of 50 attempts, in addition to 100 explores. All four allowances reset at midnight UTC. Starting gathering spends one attempt and one basic-tool use, even if you fail, cancel, are interrupted, or let it expire. An attempt that does not start spends nothing. Unfinished attempts award no XP. World-event crystal seams use your Mining allowance."
+          },
+          {
+            "type": "p",
+            "text": "Harvesting happens in wild meadows. Every half hour, meadows spring up in new places across the world as herb patches or fiber reeds, so keep an eye out as you travel. Approach a meadow and play Kama Reaping. Five stalks sway in the wind, and you have three kama strokes. Swipe through each stalk's gold band in the calm between gusts. One stroke can cut several stalks, but a cut below the band tears the roots. A success pays one Field Herb or Binding Fiber, and a perfect row of five clean cuts pays two. Rich and Master meadows in forest and shadow sectors can also yield Heartwood Bark or Shadow Thread."
           }
         ]
       },

@@ -38,7 +38,9 @@ describe('solo-PvE published content compatibility', () => {
         // half point upgrades that only change EP or damage reduction.
         // 313 to 333: four gathering tools, four fish grades and twelve graded minerals.
         // 333 to 334: Hollow Beast Cache is a non-combat reward item.
-        assert.equal(items.length, 334, 'update the compatibility report when the generated catalog changes');
+        // 334 to 336: the basic and golden Harvest Kama, gathering tools that
+        // combatEquipment strips from every fight (no combat fields).
+        assert.equal(items.length, 336, 'update the compatibility report when the generated catalog changes');
     });
 
     it('resolves every catalog AI loadout to compatible server-sealed jutsu', () => {

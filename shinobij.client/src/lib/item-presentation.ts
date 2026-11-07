@@ -20,8 +20,11 @@ export function presentItem(item: GameItem, petFoodXp?: number): ItemPresentatio
         return { category: "Village Transfer Scroll", use: "Choose a new village in the Grand Marketplace", showPlayerSlot: false, effectLabel: "Transfer" };
     }
     const slot = normalizeEquipmentSlot(item.slot);
-    if (slot === 'fishingPole' || slot === 'pickaxe') {
-        return { category: 'Gathering Tool', use: slot === 'pickaxe' ? 'Equip, then mine rock formations on the world map' : 'Equip, then fish at water nodes on the world map', showPlayerSlot: true, effectLabel: 'Gathering Use' };
+    if (slot === 'fishingPole' || slot === 'pickaxe' || slot === 'kama') {
+        const use = slot === 'pickaxe' ? 'Equip, then mine rock formations on the world map'
+            : slot === 'kama' ? 'Equip, then harvest meadow plants on the world map'
+            : 'Equip, then fish at water nodes on the world map';
+        return { category: 'Gathering Tool', use, showPlayerSlot: true, effectLabel: 'Gathering Use' };
     }
     const resource = RESOURCE_ITEMS.find(candidate => candidate.id === item.id);
     if (resource) {

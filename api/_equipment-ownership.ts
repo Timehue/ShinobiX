@@ -4,7 +4,7 @@ export const REFERENCE_EQUIPMENT_SLOTS = new Set(['item', 'item1', 'item2', 'ite
 export const EQUIPMENT_SLOTS = new Set([
     'aura', 'relic', 'hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head',
     ...REFERENCE_EQUIPMENT_SLOTS,
-    'weapon', 'armor', 'accessory', 'fishingPole', 'pickaxe',
+    'weapon', 'armor', 'accessory', 'fishingPole', 'pickaxe', 'kama',
 ]);
 
 export function canonicalEquipmentSlot(slot: string): string {

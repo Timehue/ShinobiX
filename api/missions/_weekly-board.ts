@@ -15,6 +15,7 @@ export type WeeklyCounter =
     | 'totalMissionsCompleted'
     | 'fishingXp'
     | 'miningXp'
+    | 'harvestingXp'
     | 'hollowGateWardenKills';
 
 export const WEEKLY_COUNTERS: WeeklyCounter[] = [
@@ -22,8 +23,11 @@ export const WEEKLY_COUNTERS: WeeklyCounter[] = [
     'totalMissionsCompleted',
     'fishingXp',
     'miningXp',
+    'harvestingXp',
     'hollowGateWardenKills',
 ];
+/** Gathering-skill counters, read from `character.resourceGathering`. */
+const RESOURCE_COUNTERS: ReadonlySet<WeeklyCounter> = new Set(['fishingXp', 'miningXp', 'harvestingXp']);
 
 export type WeeklyReward = { ryo?: number; fateShards?: number; boneCharms?: number };
 
@@ -83,11 +87,23 @@ const ORIGINAL_RESOURCE_WEEKLY_CATALOG: WeeklyMission[] = [
 
 // New XP targets begin on 2026-11-09 at 00:00 UTC; existing boards keep their rules.
 export const RESOURCE_XP_WEEKLY_START_WEEK = 149;
-export const WEEKLY_CATALOG: WeeklyMission[] = ORIGINAL_RESOURCE_WEEKLY_CATALOG.map(mission => {
+const RESOURCE_XP_CATALOG: WeeklyMission[] = ORIGINAL_RESOURCE_WEEKLY_CATALOG.map(mission => {
     if (mission.counter !== 'fishingXp' && mission.counter !== 'miningXp') return mission;
     const target = mission.target / 2;
     return { ...mission, target, desc: mission.desc.replace(String(mission.target), String(target)) };
 });
+
+// Harvesting (Kama Reaping) joins the rotation like fishing and mining, with the
+// same two goals and the same rewards at the rebalanced targets. It begins on
+// 2026-11-16 at 00:00 UTC, a week that has not started, so no board already
+// handed out changes. If this ships after that Monday, move the week forward.
+export const HARVESTING_WEEKLY_START_WEEK = 150;
+export const WEEKLY_CATALOG: WeeklyMission[] = [
+    ...RESOURCE_XP_CATALOG.slice(0, 4),
+    { id: 'wk-harvesting-250', name: 'Meadow Gleaner', desc: 'Earn 250 harvesting skill XP at wild meadows.', counter: 'harvestingXp', target: 250, reward: { ryo: 2500, boneCharms: 1 }, eligibility: safeEligibility },
+    { id: 'wk-harvesting-375', name: 'Keen Kama', desc: 'Earn 375 harvesting skill XP at wild meadows.', counter: 'harvestingXp', target: 375, reward: { ryo: 5500, fateShards: 1 }, eligibility: safeEligibility },
+    ...RESOURCE_XP_CATALOG.slice(4),
+];
 
 export const WEEKLY_FALLBACK_CATALOG: WeeklyMission[] = LEGACY_FALLBACK_CATALOG.map((mission) => ({
     ...mission, ...WEEKLY_REBALANCE[mission.id],
@@ -114,7 +130,8 @@ function catalogForWeek(wkKey: string, includeFallbacks = false): WeeklyMission[
     const expanded = expandedRotation(wkKey);
     const week = /^w(\d+)$/.exec(wkKey);
     const resourceXpRebalanced = !week || Number(week[1]) >= RESOURCE_XP_WEEKLY_START_WEEK;
-    const catalog = expanded ? (resourceXpRebalanced ? WEEKLY_CATALOG : ORIGINAL_RESOURCE_WEEKLY_CATALOG) : LEGACY_WEEKLY_CATALOG;
+    const harvesting = !week || Number(week[1]) >= HARVESTING_WEEKLY_START_WEEK;
+    const catalog = expanded ? (harvesting ? WEEKLY_CATALOG : resourceXpRebalanced ? RESOURCE_XP_CATALOG : ORIGINAL_RESOURCE_WEEKLY_CATALOG) : LEGACY_WEEKLY_CATALOG;
     const fallbacks = expanded ? WEEKLY_FALLBACK_CATALOG : LEGACY_FALLBACK_CATALOG;
     return includeFallbacks ? [...catalog, ...fallbacks] : catalog;
 }
@@ -221,15 +238,14 @@ function n(v: unknown): number {
 export function computeProgress(mission: WeeklyMission, baseline: Record<string, unknown>, current: Record<string, unknown>): number {
     // A board opened before these activities joined the rotation has no
     // baseline for them yet. Never credit a lifetime of XP as weekly progress.
-    if ((mission.counter === 'fishingXp' || mission.counter === 'miningXp')
-        && baseline[mission.counter] === undefined) return 0;
+    if (RESOURCE_COUNTERS.has(mission.counter) && baseline[mission.counter] === undefined) return 0;
     return Math.max(0, snapshotCounters(current)[mission.counter] - n(baseline[mission.counter]));
 }
 
 export function snapshotCounters(char: Record<string, unknown>): Record<WeeklyCounter, number> {
     const snap = {} as Record<WeeklyCounter, number>;
     const resources = (char.resourceGathering ?? {}) as Record<string, unknown>;
-    for (const c of WEEKLY_COUNTERS) snap[c] = n(c === 'fishingXp' || c === 'miningXp' ? resources[c] : char[c]);
+    for (const c of WEEKLY_COUNTERS) snap[c] = n(RESOURCE_COUNTERS.has(c) ? resources[c] : char[c]);
     return snap;
 }
 

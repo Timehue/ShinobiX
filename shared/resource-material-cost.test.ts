@@ -14,7 +14,8 @@ test('ore costs increase exactly once while grades, co-materials and relic requi
         const rows = gearCraftIngredients(item);
         assert.equal(rows[0].count, count);
         assert.equal(rows[1].count, 3, 'mixed mineral fuel row increases once');
-        assert.equal(rows[2].count, (rarity === 'rare' ? 2 : rarity === 'epic' ? 3 : 4) * 2, 'fiber stays unchanged');
+        // Binding Fiber takes the harvest premium too (owner, 2026-11-06): 4/6/8 -> 6/9/12.
+        assert.equal(rows[2].count, Math.ceil((rarity === 'rare' ? 2 : rarity === 'epic' ? 3 : 4) * 2 * 1.5), 'fiber takes the harvest premium once');
         if (rarity === 'legendary') assert.equal(rows.at(-1)!.count, 1, 'relic row is unchanged');
         if (rarity === 'epic') assert.equal(rows.at(-1)!.count, 2, 'mineral/core substitute row increases as a whole');
     }
@@ -26,19 +27,23 @@ test('ore costs increase exactly once while grades, co-materials and relic requi
 });
 
 test('supplies, cooking and repairs share rounded material costs without increasing outputs or unrelated inputs', () => {
+    // Harvest goods (herb, fiber, bark, thread) take the same 1.5x premium as fish
+    // and minerals since Kama Reaping (owner, 2026-11-06); rations stay at 5.
     const bundle = SUPPLY_CRAFT_RECIPES['village-supply-bundle'].ingredients;
-    assert.deepEqual(bundle.map(row => row.count), [5, 3, 3, 5]);
+    assert.deepEqual(bundle.map(row => row.count), [5, 5, 5, 5]);
     assert.equal(GATHER_RECIPE_INGREDIENTS['village-supply-bundle']['gather-iron-sand'], 5);
     assert.equal(GATHER_RECIPE_INGREDIENTS['village-supply-crate']['gather-iron-sand'], 15);
-    assert.deepEqual(SUPPLY_CRAFT_RECIPES['pet-treat'].ingredients.map(row => row.count), [6, 2]);
-    assert.deepEqual(SUPPLY_CRAFT_RECIPES['currency:aura-dust'].ingredients.map(row => row.count), [3, 4, 2]);
+    assert.equal(GATHER_RECIPE_INGREDIENTS['village-supply-crate']['gather-field-herb'], 15);
+    assert.equal(GATHER_RECIPE_INGREDIENTS['village-supply-crate']['ration-pack'], 20, 'rations are not a gathered material');
+    assert.deepEqual(SUPPLY_CRAFT_RECIPES['pet-treat'].ingredients.map(row => row.count), [6, 3]);
+    assert.deepEqual(SUPPLY_CRAFT_RECIPES['currency:aura-dust'].ingredients.map(row => row.count), [3, 6, 3]);
     assert.equal(SUPPLY_CRAFT_RECIPES['currency:aura-dust'].amount, 50);
     assert.equal(SUPPLY_CRAFT_RECIPES['thrown-shuriken'].count, 3);
-    assert.deepEqual(BUILDING_REPAIR_INGREDIENTS.map(row => row.count), [5, 2, 3, 4]);
+    assert.deepEqual(BUILDING_REPAIR_INGREDIENTS.map(row => row.count), [5, 2, 3, 6]);
     for (const [index, recipe] of COOK_RECIPES.filter(row => row.id.startsWith('fish-rations')).entries()) {
         assert.equal(recipe.materialCount, 8);
         assert.equal(recipe.fuel, 2);
-        assert.equal(recipe.herbs, 1);
+        assert.equal(recipe.herbs, 2);
         assert.equal(recipe.ryo, 30);
         assert.equal(recipe.rations, (index + 1) * 5);
     }
