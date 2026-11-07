@@ -1,9 +1,0 @@
-{
-  "id": "legendary-0",
-  "privateOnly": true,
-  "visualApproval": false,
-  "sourceSha256": "a640a2ece20460e01753b856aeccbc954da3324d4b79a48c2877805c5dd8a164",
-  "battleSha256": "d5677ee35f52ab2462325e2f25e4cbce4e43d17e1433f1d7769c0cfedb790a43",
-  "atlasSha256": "db29f68e2fe30a03a95cf5ea2092323165e371d7ed74ed918abd2282a98ae7e8",
-  "independentGroundReferencePoseCount": 1759
-}
