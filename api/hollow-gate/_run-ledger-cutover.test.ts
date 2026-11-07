@@ -95,13 +95,17 @@ test('server step derivation owns ward, darkness pressure, and final-floor boss 
 
 test('every shipped Hollow Gate shard relic uses the idempotent server run path', () => {
     const api = source('api', 'hollow-gate', 'use-consumable.ts');
-    const client = source('shinobij.client', 'src', 'components', 'HollowGateShardBar.tsx');
+    const bar = source('shinobij.client', 'src', 'components', 'HollowGateShardBar.tsx');
+    const client = source('shinobij.client', 'src', 'lib', 'hollow-gate-consumable-confirmation.ts');
     const fetcher = source('shinobij.client', 'src', 'lib', 'hollow-gate-server.ts');
     for (const action of ['reignite', 'skeleton-key', 'hollow-ward', 'diviner-eye', 'sanctify', 'arm-second-wind']) {
         assert.ok(api.includes(`'${action}'`), `missing server consumable ${action}`);
         assert.ok(client.includes(action), `missing client server action ${action}`);
     }
     assert.doesNotMatch(client, /import[^\n]+applyShardConsumable/);
+    assert.doesNotMatch(bar, /import[^\n]+applyShardConsumable/);
+    assert.match(bar, /activateHollowGateConsumable\(id,/);
+    assert.match(client, /await requestHollowGateServerConsumable\(playerName, run\.runToken, action\)/);
     assert.match(api, /recentConsumableIds/);
     assert.match(api, /requestId/);
     assert.match(fetcher, /JSON\.stringify\(\{ playerName, token, action, requestId \}\)/);

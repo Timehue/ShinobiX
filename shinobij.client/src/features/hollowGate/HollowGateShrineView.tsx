@@ -31,6 +31,7 @@ import { riftArrivalRoom, riftBreachSites } from '../../lib/rift-breach-layout';
 import { RiftEnergyOverlay } from '../../components/RiftBreach';
 import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
+import type { HollowGateConsumableScope } from "../../lib/hollow-gate-consumable-confirmation";
 import { GameArtIcon, type GameArtIconKind } from "../../components/GameArtIcon";
 import { HOLLOW_GATE_ICON_KEY, HOLLOW_GATE_ICON_ROLES } from "../../data/hollow-gate-atlas";
 import { hollowGateIntroPagesFor } from "../../data/hollow-gate-flavor";
@@ -273,6 +274,7 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tile, wall, wallF
 
 type HollowGateShrineViewProps = {
     character: Character;
+    currentConsumableScope: () => HollowGateConsumableScope | null;
     hollowGateRun: HollowGateShrineRun;
     hollowGateLog: string[];
     sharedImages: Record<string, string>;
@@ -296,6 +298,7 @@ type HollowGateShrineViewProps = {
 
 export function HollowGateShrineView({
     character,
+    currentConsumableScope,
     hollowGateRun,
     hollowGateLog,
     sharedImages,
@@ -859,7 +862,7 @@ export function HollowGateShrineView({
                             </div>
 
                             <details className="hg-run-tools"><summary>Hollow Shard relics &amp; event log</summary>
-                            <HollowGateShardBar run={run} character={character} setRun={setHollowGateRun} onVersionedCharacter={onVersionedCharacter} pushLog={pushHollowGateLog} />
+                            <HollowGateShardBar run={run} character={character} currentScope={currentConsumableScope} setRun={setHollowGateRun} onVersionedCharacter={onVersionedCharacter} pushLog={pushHollowGateLog} />
 
                             {/* Event log */}
                             <div role="log" aria-live="polite" aria-relevant="additions" style={{ marginTop: 12, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 8, padding: 10, maxHeight: 140, overflowY: "auto", fontSize: 13 }}>

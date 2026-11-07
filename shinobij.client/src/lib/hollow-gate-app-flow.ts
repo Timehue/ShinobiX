@@ -400,24 +400,25 @@ export function useHollowGateAppFlow(params: {
         }
     }
     function onBattleWin(resolved?: { isBoss?: boolean; isAmbush?: boolean; nodeId?: string }) {
-        if (!run) return;
+        const latestRun = runRef.current;
+        if (!run || !latestRun || !isSameHollowGateFloor(latestRun, run)) return;
         const isBoss = Boolean(resolved?.isBoss);
         const isAmbush = Boolean(resolved?.isAmbush);
         if (isBoss) {
             const tiles = markResolvedTile(
-                run.tiles.map((tile) => tile.kind === "boss" ? { ...tile, resolved: true } : tile),
+                latestRun.tiles.map((tile) => tile.kind === "boss" ? { ...tile, resolved: true } : tile),
                 resolved?.nodeId,
             );
-            const isFinalFloor = run.floor >= hollowGateRunMaxFloor(run);
-            setRun({ ...run, activeCombat: undefined, tiles, completed: isFinalFloor, threat: 0 });
-            pushLog(`${hollowGateBossDisplayName(run)} falls on Floor ${run.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
+            const isFinalFloor = latestRun.floor >= hollowGateRunMaxFloor(latestRun);
+            setRun({ ...latestRun, activeCombat: undefined, tiles, completed: isFinalFloor, threat: 0 });
+            pushLog(`${hollowGateBossDisplayName(latestRun)} falls on Floor ${latestRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
             if (isFinalFloor) {
                 setEvent({
-                    title: run.variant?.label ? `${run.variant.label} Cleared` : "Hollow Gate Shrine Cleared",
+                    title: latestRun.variant?.label ? `${latestRun.variant.label} Cleared` : "Hollow Gate Shrine Cleared",
                     eyebrow: "ALPHA SEAL BROKEN · SHRINE RECLAIMED",
                     presentation: "boss-victory",
                     image: hollowGateAlphaCinematicImage(sharedImages),
-                    body: `The Alpha's howl breaks into a thousand violet sparks. For the first time in generations, clean moonlight reaches the shrine floor.\n\nYou did not destroy its old oath. You released it.\n\n${run.variant?.id?.startsWith("rift-") ? "Leave the Rift to close the report and collect its quest reward, including the Veil of the Hollow.\n\n" : ""}RUN SUMMARY\n${buildRunSummary()}`,
+                    body: `The Alpha's howl breaks into a thousand violet sparks. For the first time in generations, clean moonlight reaches the shrine floor.\n\nYou did not destroy its old oath. You released it.\n\n${latestRun.variant?.id?.startsWith("rift-") ? "Leave the Rift to close the report and collect its quest reward, including the Veil of the Hollow.\n\n" : ""}RUN SUMMARY\n${buildRunSummary()}`,
                     kind: "boss",
                     choices: [{
                         label: "Take final rewards + leave",
@@ -440,19 +441,19 @@ export function useHollowGateAppFlow(params: {
             // guarded functional update that drops a stale floor rather than
             // overwriting live state, and a chunk failure is reported with a
             // retry instead of leaving the player on a cleared floor in silence.
-            void descendAfterBoss(run);
+            void descendAfterBoss(latestRun);
             return;
         }
         setRun({
-            ...run,
+            ...latestRun,
             activeCombat: undefined,
-            tiles: markResolvedTile(run.tiles, resolved?.nodeId),
-            wanderers: run.wanderers?.map(n => n.nodeId === resolved?.nodeId ? { ...n, spent: true } : n),
+            tiles: markResolvedTile(latestRun.tiles, resolved?.nodeId),
+            wanderers: latestRun.wanderers?.map(n => n.nodeId === resolved?.nodeId ? { ...n, spent: true } : n),
             threat: 0,
         });
         pushLog(isAmbush
             ? "The ambush ends. Threat fades, but the Torch of Reiki keeps burning down. Find a chest or shrine to rekindle it."
-            : `${run.wanderers?.some(n => n.nodeId === resolved?.nodeId) ? 'Hunter' : 'Hollow Hound'} defeated. Threat fades, but the Torch of Reiki keeps burning down.`);
+            : `${latestRun.wanderers?.some(n => n.nodeId === resolved?.nodeId) ? 'Hunter' : 'Hollow Hound'} defeated. Threat fades, but the Torch of Reiki keeps burning down.`);
     }
 
     function onPetBattleEnd(result: HollowGateCombatSettleResult, gate: HollowGatePetFightRef) {
