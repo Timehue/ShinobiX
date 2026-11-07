@@ -1,0 +1,7 @@
+{
+  "candidate": "4b067809621793aa00f69e2f591c267b64cd1cd7",
+  "recovery": "f60098b059e4babd1f824a6c086fb86a0a09b6a9",
+  "node": "24.21.0",
+  "platform": "linux/amd64",
+  "recoveryMeaning": "Current main 70e756fb harvesting and zero-XP Vanguard replay plus all reviewed world-boss repairs; identical complete trees with distinct compatible continuation/recovery identities"
+}
