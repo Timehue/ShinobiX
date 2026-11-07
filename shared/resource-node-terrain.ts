@@ -1,3 +1,14 @@
+/** Open meadow cells for harvest nodes, checked against each sector painting
+ * on 2026-11-06. A walkable tile alone can be a paved road or plaza, so only
+ * these reviewed grass cells support harvesting. Snow and volcano sectors have
+ * none (ice and ash). One per forest, shadow and central wild sector. */
+export const RESOURCE_MEADOW_TILES: Readonly<Record<number, readonly number[]>> = {
+    1: [94], 2: [90], 3: [91], 4: [106], 5: [46], 6: [80], 7: [91], 8: [75], 9: [106], 10: [88], 11: [91], 12: [105],
+    13: [90], 14: [90], 15: [55], 16: [85], 17: [94], 18: [114], 19: [97], 20: [80], 21: [75], 22: [100], 23: [75],
+    24: [85], 25: [75], 36: [90], 37: [89], 38: [90], 39: [87], 40: [97], 41: [98], 42: [76], 43: [101], 44: [87],
+    45: [89], 46: [88], 47: [89], 48: [88], 49: [78], 50: [126], 51: [90], 52: [78], 53: [85], 55: [102], 56: [91],
+    57: [104], 61: [90], 62: [33], 63: [125], 64: [53],
+};
 /** Natural rock faces checked against each sector painting, 2026-10-19.
  * A blocked navigation tile alone can be a roof, wall or tree. Only these
  * reviewed rock cells support mining; shorelines use authored hydrology. */

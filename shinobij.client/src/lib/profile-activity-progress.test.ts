@@ -18,6 +18,14 @@ test('gathering XP shows progress within the level and maximum status', () => {
     assert.equal(rows[1].value, 'Lv. 10');
     assert.match(rows[1].detail, /MAX/);
 });
+test('Harvesting follows Hunting with its own skill level', () => {
+    const rows = profileActivityProgress(character({ resourceGathering: { harvestingXp: 260 } as Character['resourceGathering'] }));
+    assert.equal(rows.length, 4);
+    assert.equal(rows[3].label, 'Harvesting');
+    assert.equal(rows[3].value, 'Lv. 3');
+    assert.equal(rows[3].detail, '10/200 XP to next level');
+    assert.equal(profileActivityProgress(character())[3].value, 'Lv. 1', 'saves from before harvesting start at level one');
+});
 test('Hunter Rank progress sums inventory and stacks without awarding a rank', () => {
     const requirement = HUNTER_RANKUP[1];
     const row = profileActivityProgress(character({ hunterRank: 1, inventory: [requirement.itemId], itemStacks: [{ itemId: requirement.itemId, count: 6 }] }))[2];

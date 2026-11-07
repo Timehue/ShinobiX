@@ -4528,7 +4528,7 @@ function WorldMapContent({
                         playerName={character.name}
                         gatheringCharacter={character}
                         onGatheringCommit={onVersionedCharacter} onContestResource={handleSelectedSectorPlayerAttack}
-                        worldBossCrystals={{ active: worldBossView?.event?.active ?? false, eventId: worldBossView?.event?.eventId, minedNodeIds: worldBossView?.event?.minedCrystalNodeIds ?? [] }}
+                        worldBossCrystals={{ active: worldBossView?.event?.active ?? false, eventId: worldBossView?.event?.eventId, minedNodeIds: worldBossView?.event?.minedCrystalNodeIds ?? [], bossSector: worldBossSector ?? undefined }}
                         playerAvatarImage={resolveOwnAvatar(character, sharedImages)}
                         isCurrent={sectorIsCurrent}
                         enterDirection={sectorEnterDir}

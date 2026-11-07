@@ -4,6 +4,7 @@ import type { KvCasOp, KvLike } from '../_storage.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
 import type { BuildingAction } from '../../shared/sector-building-types.js';
 import { sectorBuilding } from '../../shared/sector-buildings.js';
+import { SUPPLY_CRAFT_RECIPES } from '../../shared/crafting-recipes.js';
 
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.NODE_ENV = 'test';
@@ -13,9 +14,11 @@ let withLock: typeof import('../_lock.js').withKvLock;
 let countOwned: typeof import('../craft/_forge.js').countOwned;
 const NOW = Date.now();
 const keeper = sectorBuilding('stronghold-28')!;
+// Exact row counts come from the live recipe so a material-cost change does not stale the fixture.
+const [FISH, HERB] = SUPPLY_CRAFT_RECIPES['pet-treat'].ingredients.map(row => row.count);
 const action: BuildingAction = {
     action: 'craft', buildingId: keeper.id, recipeId: 'pet-treat', requestId: 'keeper-craft-request-0001',
-    materials: [{ 'gather-river-fish': 6 }, { 'gather-field-herb': 2 }],
+    materials: [{ 'gather-river-fish': FISH }, { 'gather-field-herb': HERB }],
 };
 type Store = Pick<KvLike, 'get' | 'compareSet'> & Partial<Pick<KvLike, 'compareSetMany'>>;
 before(async () => {
@@ -52,8 +55,8 @@ test('keeper craft commits the 320-ryo fee, exact materials, output and replay r
     const saved = await kv.get<{ _saveVersion: number; character: Record<string, unknown> }>('save:workshopper');
     assert.equal(saved!._saveVersion, 2); assert.equal(saved!.character.ryo, 0);
     assert.equal(countOwned(saved!.character, 'pet-treat'), 1);
-    assert.equal(countOwned(saved!.character, 'gather-river-fish'), 3);
-    assert.equal(countOwned(saved!.character, 'gather-field-herb'), 15);
+    assert.equal(countOwned(saved!.character, 'gather-river-fish'), 9 - FISH);
+    assert.equal(countOwned(saved!.character, 'gather-field-herb'), 17 - HERB);
     assert.equal(countOwned(saved!.character, 'gather-river-fish-pristine'), 2);
     const ledger = await kv.get<{ saveVersion: number; balances: { ryo: number } }>('ledger:currency:workshopper');
     assert.equal(ledger!.balances.ryo, 0); assert.equal(ledger!.saveVersion, saved!._saveVersion);
@@ -111,7 +114,7 @@ test('two different keeper requests cannot both spend the same last 320 ryo', as
     assert.equal(results.filter(result => result.ok).length, 1);
     const saved = await kv.get<{ character: Record<string, unknown> }>('save:workshopper');
     assert.equal(saved!.character.ryo, 0); assert.equal(countOwned(saved!.character, 'pet-treat'), 1);
-    assert.equal(countOwned(saved!.character, 'gather-river-fish'), 3);
+    assert.equal(countOwned(saved!.character, 'gather-river-fish'), 9 - FISH);
 });
 
 test('a keeper craft counts toward the Legacy items-forged trials in the same transaction, once', async () => {

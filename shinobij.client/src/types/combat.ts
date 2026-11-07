@@ -95,7 +95,7 @@ export type EquipmentSlot =
     // equips into so all three can be carried at once (legacy bare "item" is kept
     // for back-compat with saves that stored a single combat item there).
     | "item" | "item1" | "item2" | "item3" | "thrown" | "potion" | "weapon" | "armor" | "accessory"
-    | "fishingPole" | "pickaxe";
+    | "fishingPole" | "pickaxe" | "kama";
 
 export type ArmorQuality = "Standard" | "Reinforced" | "Rare" | "Elite" | "Legendary" | "Mythic";
 

@@ -1397,7 +1397,18 @@ if (budgetedJsCssTotal > TOTAL_JS_CSS_WARN_BYTES) {
 // ~12.3 KB feature growth with the existing margin. The initial graph is
 // 396,681 B gzip against its 399,000 B ceiling.
 const CHRONICLE_JS_CSS_FAIL_BYTES = 9_822_500;
-const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES);
+// 2026-11-06 HARVESTING (Kama Reaping): a third gathering minigame, its meadow
+// blooms and the Outpost Harvesting tab. Trimmed first, at the owner's request:
+// the retired cast-and-reel fishing UI (~20 KB), the duplicate harvest Outpost
+// panel, and a packed meadow table. Even so, merged with main 6ce0a88e4e it
+// measures ~9,828,000 B with the production env. Owner: "do what makes most
+// sense for the game and the players". The rest is the minigame itself: the
+// server re-scoring module, the canvas, and the keyboard/tap mode that makes
+// it playable without a swipe. All of it is lazy, loaded when a meadow opens.
+// Startup is ~397,470 B gzip against the unchanged 399,000 B gate. Revert this
+// line to drop the allowance.
+const HARVESTING_JS_CSS_FAIL_BYTES = 9_832_500;
+const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES);
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);
 }

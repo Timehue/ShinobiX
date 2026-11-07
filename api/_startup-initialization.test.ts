@@ -210,7 +210,7 @@ it('retries a resolved but unfinished weekly pass, and committed rewards replay 
     await kv.set(clanBossProgressKey(ended, progress.clanName), progress);
     await kv.set('save:clan-recoveryclan', { name: progress.clanName, level: 1, xp: 0, members: [{ name: 'recoverymember' }], treasury: { ryo: 100, fateShards: 0, boneCharms: 0 } });
     const resourceGathering: ResourceGatheringState = {
-        fishingXp: 250, miningXp: 100, date: '2026-07-27', attemptsToday: 2, miningAttemptsToday: 0, fishingAttemptsToday: 2,
+        fishingXp: 250, miningXp: 100, harvestingXp: 0, date: '2026-07-27', attemptsToday: 2, miningAttemptsToday: 0, fishingAttemptsToday: 2, harvestingAttemptsToday: 0,
         nodes: { 'pond-2': { attempts: 2, refillAt: NOW + 5000 } }, receipts: [],
         active: { id: 'existing-field-attempt', nodeId: 'pond-2', activity: 'fishing', startedAt: NOW, expiresAt: NOW + 90_000, skillLevel: 3, mode: 'active', template: 2, hookAt: NOW + 1000, movementSequence: 0 },
     };

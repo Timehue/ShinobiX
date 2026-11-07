@@ -8,8 +8,8 @@ const field = COOK_RECIPES.find((r) => r.id === 'field-rations')!;
 const campaign = COOK_RECIPES.find((r) => r.id === 'campaign-rations')!;
 
 test('shared recipes use meat for field and campaign rations', () => {
-    assert.deepEqual(field, { id: 'field-rations', name: 'Field Rations', ryo: 30, materials: ['hunt-beast-meat'], materialCount: 1, rations: 5, herbs: 1, fuel: 2 });
-    assert.deepEqual(campaign, { id: 'campaign-rations', name: 'Campaign Rations', ryo: 80, materials: ['hunt-beast-meat'], materialCount: 4, rations: 20, herbs: 2, fuel: 3 });
+    assert.deepEqual(field, { id: 'field-rations', name: 'Field Rations', ryo: 30, materials: ['hunt-beast-meat'], materialCount: 1, rations: 5, herbs: 2, fuel: 2 });
+    assert.deepEqual(campaign, { id: 'campaign-rations', name: 'Campaign Rations', ryo: 80, materials: ['hunt-beast-meat'], materialCount: 4, rations: 20, herbs: 3, fuel: 3 });
     assert.equal(DAILY_RATION_COOK_CAP, 40);
 });
 
@@ -26,7 +26,7 @@ test('rationsCookedToday reads the UTC-day counter and resets on a new day', () 
 });
 
 test('cookRecipeGate: cap → ryo → material, in the server order', () => {
-    const base = { ryo: 1_000, itemStacks: [{ itemId: 'gather-field-herb', count: 2 }, { itemId: 'hunt-beast-meat', count: 4 }, { itemId: 'hunt-ash-scale', count: 2 }, { itemId: 'gather-heartwood-bark', count: 3 }] };
+    const base = { ryo: 1_000, itemStacks: [{ itemId: 'gather-field-herb', count: 3 }, { itemId: 'hunt-beast-meat', count: 4 }, { itemId: 'hunt-ash-scale', count: 2 }, { itemId: 'gather-heartwood-bark', count: 3 }] };
     assert.deepEqual(cookRecipeGate(base, field, NOW), { ok: true, material: 'hunt-beast-meat' });
     assert.deepEqual(cookRecipeGate(base, campaign, NOW), { ok: true, material: 'hunt-beast-meat' });
     assert.deepEqual(cookRecipeGate({ ...base, rationsCookedDate: TODAY, rationsCookedToday: 36 }, field, NOW), { ok: false, reason: 'Daily limit: 36/40 rations cooked today' });
@@ -39,7 +39,7 @@ test('cookRecipeGate: cap → ryo → material, in the server order', () => {
 });
 
 test('cookRecipeGate counts Ember Ore and Ember Scale as fuel, the same rows applyCookRecipe burns', () => {
-    const noBark = { ryo: 1_000, itemStacks: [{ itemId: 'gather-field-herb', count: 2 }, { itemId: 'hunt-beast-meat', count: 4 }] };
+    const noBark = { ryo: 1_000, itemStacks: [{ itemId: 'gather-field-herb', count: 3 }, { itemId: 'hunt-beast-meat', count: 4 }] };
     assert.deepEqual(cookRecipeGate({ ...noBark, itemStacks: [...noBark.itemStacks, { itemId: 'gather-ember-ore', count: 2 }, { itemId: 'hunt-ember-scale', count: 1 }] }, campaign, NOW), { ok: true, material: 'hunt-beast-meat' });
     assert.deepEqual(cookRecipeGate({ ...noBark, itemStacks: [...noBark.itemStacks, { itemId: 'hunt-ember-scale', count: 1 }] }, campaign, NOW),
         { ok: false, reason: 'Needs 3 Heartwood Bark for cooking fuel (Ember Ore or Ember Scale also burn; have 1)' });
@@ -58,12 +58,12 @@ test('cook materials are named, never raw ids', () => {
 });
 
 test('cookRecipeLine reads as voice and takes every number from the recipe', () => {
-    assert.equal(cookRecipeLine(field), '1 Beast Meat, 1 Field Herb, 2 Heartwood Bark for fuel (or Ember Ore / Ember Scale) and 30 ryo — five days of field rations.');
-    assert.equal(cookRecipeLine(campaign), '4 Beast Meat, 2 Field Herbs, 3 Heartwood Bark for fuel (or Ember Ore / Ember Scale) and 80 ryo — twenty days of siege rations.');
+    assert.equal(cookRecipeLine(field), '1 Beast Meat, 2 Field Herbs, 2 Heartwood Bark for fuel (or Ember Ore / Ember Scale) and 30 ryo — five days of field rations.');
+    assert.equal(cookRecipeLine(campaign), '4 Beast Meat, 3 Field Herbs, 3 Heartwood Bark for fuel (or Ember Ore / Ember Scale) and 80 ryo — twenty days of siege rations.');
     // an unlisted yield still renders, as a numeral rather than a blank
     assert.equal(
         cookRecipeLine({ ...field, ryo: 45, rations: 7 }),
-        '1 Beast Meat, 1 Field Herb, 2 Heartwood Bark for fuel (or Ember Ore / Ember Scale) and 45 ryo — 7 days of field rations.',
+        '1 Beast Meat, 2 Field Herbs, 2 Heartwood Bark for fuel (or Ember Ore / Ember Scale) and 45 ryo — 7 days of field rations.',
     );
 });
 

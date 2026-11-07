@@ -2294,11 +2294,7 @@
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 74
-          },
-          {
-            "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 88
+            "line": 29
           },
           {
             "source": "shinobij.client/src/components/veinbreaking.css",
@@ -2341,6 +2337,10 @@
         "axis": "width",
         "valuePx": 360,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/components/resource-gathering.css",
+            "line": 88
+          },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
             "line": 430
@@ -2467,7 +2467,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 624
+            "line": 631
           },
           {
             "source": "shinobij.client/src/styles/pet-battle-readiness.css",
@@ -2507,6 +2507,10 @@
         "axis": "width",
         "valuePx": 440,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/components/resource-gathering.css",
+            "line": 87
+          },
           {
             "source": "shinobij.client/src/styles/cache-reward-reveal.css",
             "line": 148
@@ -2559,7 +2563,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/resource-gathering.css",
-            "line": 83
+            "line": 85
           }
         ]
       },
@@ -2736,6 +2740,10 @@
         "valuePx": 480,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/kama-reaping.css",
+            "line": 20
+          },
+          {
             "source": "shinobij.client/src/components/kunai-fishing.css",
             "line": 13
           },
@@ -2745,19 +2753,11 @@
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 50
+            "line": 19
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 74
-          },
-          {
-            "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 87
-          },
-          {
-            "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 88
+            "line": 29
           },
           {
             "source": "shinobij.client/src/components/veinbreaking.css",
@@ -2806,16 +2806,16 @@
         "valuePx": 500,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/kama-reaping.css",
+            "line": 20
+          },
+          {
             "source": "shinobij.client/src/components/kunai-fishing.css",
             "line": 13
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 50
-          },
-          {
-            "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 87
+            "line": 19
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
@@ -3337,16 +3337,20 @@
         "valuePx": 600,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/kama-reaping.css",
+            "line": 18
+          },
+          {
             "source": "shinobij.client/src/components/kunai-fishing.css",
             "line": 12
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 45
+            "line": 14
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 47
+            "line": 16
           },
           {
             "source": "shinobij.client/src/components/sector-buildings.css",
@@ -3692,7 +3696,7 @@
           },
           {
             "source": "shinobij.client/src/components/resource-gathering.css",
-            "line": 32
+            "line": 34
           },
           {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
@@ -3828,11 +3832,11 @@
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 46
+            "line": 15
           },
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
-            "line": 47
+            "line": 16
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
@@ -3953,7 +3957,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 563
+            "line": 570
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -5372,7 +5376,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 548
+            "line": 555
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",

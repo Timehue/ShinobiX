@@ -1,11 +1,16 @@
-export type GatheringToolSlot = 'fishingPole' | 'pickaxe';
+export type GatheringToolSlot = 'fishingPole' | 'pickaxe' | 'kama';
+export const GATHERING_TOOL_SLOTS: readonly GatheringToolSlot[] = ['fishingPole', 'pickaxe', 'kama'];
 // `cost` is the authored, pre-scale price. The Shop sells the basic tools at 75x
 // this (shared/shop-pricing.ts raises it when starter-items.ts builds the catalog).
+// The Harvest Kama copies the pickaxe and fishing kunai exactly; it drives Kama
+// Reaping (docs/harvesting-minigame-plan.md). Both shop allowlists list 'kama'.
 export const GATHERING_TOOLS = [
     { id: 'tool-basic-fishing-pole', name: 'Basic Fishing Kunai', slot: 'fishingPole', cost: 150, rarity: 'common', durability: 125 },
     { id: 'tool-basic-pickaxe', name: 'Basic Pickaxe', slot: 'pickaxe', cost: 150, rarity: 'common', durability: 125 },
     { id: 'tool-golden-fishing-pole', name: 'Golden Fishing Kunai', slot: 'fishingPole', cost: 50, rarity: 'legendary', durability: null },
     { id: 'tool-golden-pickaxe', name: 'Golden Pickaxe', slot: 'pickaxe', cost: 50, rarity: 'legendary', durability: null },
+    { id: 'tool-basic-harvest-kama', name: 'Basic Harvest Kama', slot: 'kama', cost: 150, rarity: 'common', durability: 125 },
+    { id: 'tool-golden-harvest-kama', name: 'Golden Harvest Kama', slot: 'kama', cost: 50, rarity: 'legendary', durability: null },
 ] as const;
 export type GatheringTool = typeof GATHERING_TOOLS[number];
 
@@ -13,10 +18,10 @@ export type GatheringTool = typeof GATHERING_TOOLS[number];
 // client's startup graph already carries this file (through the item catalog)
 // and the client's combat payload helpers need them at boot. Importing them from
 // gathering-tools.ts split that module into its own startup chunk.
-export function isGatheringToolSlot(slot: unknown): slot is GatheringToolSlot { return slot === 'fishingPole' || slot === 'pickaxe'; }
+export function isGatheringToolSlot(slot: unknown): slot is GatheringToolSlot { return GATHERING_TOOL_SLOTS.includes(slot as GatheringToolSlot); }
 /**
  * The equipment every combat read uses. Gathering tools sit in the active
- * loadout, but they only drive fishing and mining, so PvP, towers, bosses and
+ * loadout, but they only drive fishing, mining and harvesting, so PvP, towers, bosses and
  * PvE never see them. A tool id stored under any other key is dropped as well.
  * Returns the same object when there is nothing to drop.
  */

@@ -57,7 +57,7 @@ function shopArtworkIcon(item: GameItem): GameIconName {
     }
 }
 
-const SHOP_SLOTS: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "weapon", "thrown", "item", "potion", "accessory", "fishingPole", "pickaxe"];
+const SHOP_SLOTS: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "weapon", "thrown", "item", "potion", "accessory", "fishingPole", "pickaxe", "kama"];
 const ARMOR_SHOP_SLOTS: EquipmentSlot[] = ["body", "head", "waist", "legs", "feet"];
 
 // Combat consumables (the throwable pills + any potion) share one
@@ -79,7 +79,7 @@ function shopHoldCap(item: GameItem): number | null {
 }
 
 const SHOP_SLOT_GROUPS: { label: string; slots: EquipmentSlot[]; consumables?: boolean; beastSeals?: boolean }[] = [
-    { label: "Gathering Tools", slots: ["fishingPole", "pickaxe"] },
+    { label: "Gathering Tools", slots: ["fishingPole", "pickaxe", "kama"] },
     { label: "Head", slots: ["head"] },
     { label: "Chest", slots: ["body", "armor"] },
     { label: "Waist", slots: ["waist"] },

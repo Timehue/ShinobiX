@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     weeklyMissionById, RESOURCE_XP_WEEKLY_START_WEEK, weekIndex, weekKey, weekEndsAt, pickWeeklyBoard, pickWeeklyBoardForPlayer, computeProgress, snapshotCounters, resolveWeeklyBoardForRecord,
-    WEEKLY_CATALOG, WEEKLY_CLAIMABLE_CATALOG, WEEKLY_BOARD_SIZE, WEEK_EPOCH_MS, WEEK_MS, WEEKLY_COUNTERS,
+    WEEKLY_CATALOG, WEEKLY_CLAIMABLE_CATALOG, WEEKLY_BOARD_SIZE, WEEK_EPOCH_MS, WEEK_MS, WEEKLY_COUNTERS, HARVESTING_WEEKLY_START_WEEK,
 } from './_weekly-board.js';
 import { canPlayerReceiveMission } from './_eligibility.js';
 import { RESOURCE_ATTEMPT_MS, RESOURCE_SUCCESS_XP, RESOURCE_FAILURE_XP, resourceSkillLevel, resourceSuccessRate } from '../../shared/resource-gathering.js';
@@ -68,6 +68,32 @@ test('adding resource missions preserves this week and expands the next rotation
     assert.ok(expanded.some((m) => m.counter === 'rankedWins'));
 });
 
+test('harvesting joins the weekly rotation like fishing and mining, from a week no board has started', () => {
+    // Week 150 begins 2026-11-16; week 149 (2026-11-09) keeps its exact catalog.
+    assert.equal(weekKey(Date.parse('2026-11-16T00:00:00Z')), `w${HARVESTING_WEEKLY_START_WEEK}`);
+    for (const week of [148, 149]) {
+        assert.equal(weeklyMissionById(`w${week}`, 'wk-harvesting-250'), undefined, `w${week} keeps its catalog`);
+        for (let w = week; w === week; w++) assert.equal(pickWeeklyBoard(`w${w}`, 50).some(m => m.counter === 'harvestingXp'), false);
+    }
+    const gleaner = weeklyMissionById(`w${HARVESTING_WEEKLY_START_WEEK}`, 'wk-harvesting-250')!;
+    const kama = weeklyMissionById(`w${HARVESTING_WEEKLY_START_WEEK}`, 'wk-harvesting-375')!;
+    const fishing = (target: number) => weeklyMissionById(`w${HARVESTING_WEEKLY_START_WEEK}`, `wk-fishing-${target * 2}`)!;
+    // Same goals and the same rewards as the other two gathering skills.
+    assert.deepEqual([gleaner.target, gleaner.reward, gleaner.eligibility], [fishing(250).target, fishing(250).reward, fishing(250).eligibility]);
+    assert.deepEqual([kama.target, kama.reward, kama.eligibility], [fishing(375).target, fishing(375).reward, fishing(375).eligibility]);
+    assert.ok(WEEKLY_COUNTERS.includes('harvestingXp'));
+    // Progress counts only new harvesting XP, read from resourceGathering.
+    const after = { resourceGathering: { harvestingXp: 3450, fishingXp: 9999 } };
+    assert.equal(snapshotCounters(after).harvestingXp, 3450);
+    assert.equal(computeProgress(gleaner, { harvestingXp: 3200 }, after), 250);
+    assert.equal(computeProgress(gleaner, { fishingXp: 0 }, after), 0, 'a board opened before harvesting joined has no baseline: no lifetime credit');
+    // The rotation actually deals it out.
+    const dealt = new Set<string>();
+    for (let week = HARVESTING_WEEKLY_START_WEEK; week < HARVESTING_WEEKLY_START_WEEK + 40; week++)
+        for (const m of pickWeeklyBoardForPlayer(`w${week}`, { level: 20 })) dealt.add(m.id);
+    assert.ok(dealt.has('wk-harvesting-250') && dealt.has('wk-harvesting-375'));
+});
+
 test('expanded boards keep four eligible slots and favor distinct activities', () => {
     for (let week = 148; week < 348; week++) {
         for (const level of [1, 10, 11, 20, 100]) {
@@ -75,7 +101,9 @@ test('expanded boards keep four eligible slots and favor distinct activities', (
             assert.equal(board.length, 4);
             assert.equal(new Set(board.map((m) => m.id)).size, 4);
             assert.equal(new Set(board.map((m) => `${m.counter}:${m.target}`)).size, 4, 'no identical objectives under different names');
-            assert.equal(new Set(board.map((m) => m.counter)).size, level < RANKED_MIN_LEVEL ? 3 : 4);
+            // Below ranked, the safe activities are missions, fishing and mining,
+            // plus harvesting from its first week: four distinct once it joins.
+            assert.equal(new Set(board.map((m) => m.counter)).size, level < RANKED_MIN_LEVEL && week < HARVESTING_WEEKLY_START_WEEK ? 3 : 4);
         }
     }
 });

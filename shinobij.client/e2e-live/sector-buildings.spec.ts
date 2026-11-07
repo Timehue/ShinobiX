@@ -118,7 +118,7 @@ test('real material repair journey continues past the old daily cap, resumes, re
         await counter.getByLabel('Iron Sand for Ore and mineral fittings',{exact:true}).fill('3');
         await counter.getByLabel('Torn Hide for Hunting materials for shelter lining',{exact:true}).fill('2');
         await counter.getByLabel('River Fish for Fish for the working crew',{exact:true}).fill('2');
-        await counter.getByLabel('Binding Fiber for Harvested lashings and packing',{exact:true}).fill('4');
+        await counter.getByLabel('Binding Fiber for Harvested lashings and packing',{exact:true}).fill('6');
         const reserve=counter.getByRole('button',{name:'Reserve these materials',exact:true});
         await expect(reserve).toBeDisabled();
         await counter.getByLabel('Iron Sand for Ore and mineral fittings',{exact:true}).fill('5');
@@ -152,7 +152,7 @@ test('real material repair journey continues past the old daily cap, resumes, re
     const stock=saved.character.itemStacks as {itemId:string;count:number}[];
     expect(stock.find(i=>i.itemId==='gather-iron-sand')?.count).toBe(10);expect(stock.find(i=>i.itemId==='gather-iron-sand-pristine')?.count).toBe(3);
     expect(stock.find(i=>i.itemId==='hunt-torn-hide')?.count).toBe(12);expect(stock.find(i=>i.itemId==='gather-river-fish')?.count).toBe(8);
-    expect(stock.find(i=>i.itemId==='gather-binding-fiber')?.count).toBe(24);
+    expect(stock.find(i=>i.itemId==='gather-binding-fiber')?.count).toBe(16);
     await expect(page.locator('[data-building-restoration="gorgewatch"]')).toHaveAttribute('data-stage',/^[1-3]$/);
     await page.screenshot({path:info.outputPath('restored-frontage-world.png'),fullPage:true});
     const counter=await openCounter(page,owner.building.id);await counter.getByRole('button',{name:'Repairs',exact:true}).click();await counter.screenshot({path:info.outputPath('restoration-roll-and-rewards.png')});
@@ -324,7 +324,7 @@ test('keeper workshop discloses the Pet Treat fee and refuses short ryo without 
     await expect(card).toContainText('320 ryo fee');await expect(card).toContainText('You need 320 ryo.');
     await expect(card.getByRole('button',{name:'Choose exact materials',exact:true})).toBeDisabled();
     const before=await(await request.get(`/api/save/${owner.name}`,{headers:owner.headers})).json();
-    const refused=await request.post('/api/sector/buildings',{headers:owner.headers,data:{playerName:owner.name,buildingId:owner.building.id,action:'craft',recipeId:'pet-treat',requestId:`short-keeper-craft-${Date.now()}`,materials:[{'gather-river-fish':6},{'gather-field-herb':2}]}});
+    const refused=await request.post('/api/sector/buildings',{headers:owner.headers,data:{playerName:owner.name,buildingId:owner.building.id,action:'craft',recipeId:'pet-treat',requestId:`short-keeper-craft-${Date.now()}`,materials:[{'gather-river-fish':6},{'gather-field-herb':3}]}});
     expect(refused.status(),await refused.text()).toBe(409);
     expect((await refused.json()).error).toContain('fee for this craft is 320 ryo, and you carry 319. Nothing was spent.');
     const after=await(await request.get(`/api/save/${owner.name}`,{headers:owner.headers})).json();

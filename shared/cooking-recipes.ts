@@ -17,4 +17,5 @@ export const COOK_RECIPES: readonly CookRecipe[] = ([
     ...FISH_RECIPES,
     { id: 'field-rations', name: 'Field Rations', ryo: 30, materials: ['hunt-beast-meat'], materialCount: 1, rations: 5, herbs: 1, fuel: 1 },
     { id: 'campaign-rations', name: 'Campaign Rations', ryo: 80, materials: ['hunt-beast-meat'], materialCount: 4, rations: 20, herbs: 2, fuel: 2 },
-] satisfies CookRecipe[]).map(recipe => ({ ...recipe, fuel: resourceIngredientCount(FUEL_IDS, recipe.fuel) }));
+] satisfies CookRecipe[]).map(recipe => ({ ...recipe, fuel: resourceIngredientCount(FUEL_IDS, recipe.fuel),
+    herbs: resourceIngredientCount(['gather-field-herb'], recipe.herbs) }));

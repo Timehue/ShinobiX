@@ -37,7 +37,7 @@ const ARMOR_SLOTS = ['head', 'body', 'waist', 'legs', 'feet', 'armor'];
 export function shopPriceScale({ id, slot, rarity, cost, weaponEp }: ShopPricedItem): number {
     if (!(cost > 0) || rarity === 'legendary' || rarity === 'mythic') return 1;
     // Armor by slot, not armorQuality: the Shinobi Vest is body armor without a quality tier.
-    if (slot === 'fishingPole' || slot === 'pickaxe' || ARMOR_SLOTS.includes(slot)) return 75;
+    if (slot === 'fishingPole' || slot === 'pickaxe' || slot === 'kama' || ARMOR_SLOTS.includes(slot)) return 75;
     if ((slot === 'hand' || slot === 'weapon') && weaponEp != null) return 40; // shop-sold and craft-only alike
     if (id.startsWith('beast-seal-')) return 15; // spent one per bind attempt
     if (id.startsWith('pve-')) return 3; // PvE pet gear, already priced in the thousands

@@ -198,11 +198,11 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                         <span className="left-caps-label"><GameIcon name="scroll" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Missions</span>
                         <span className="left-caps-value" style={{ color: dailyMissionsCompleted(character) >= DAILY_MISSION_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{dailyMissionsCompleted(character)}/{DAILY_MISSION_LIMIT}</span>
                     </div>
-                    {(['mining', 'fishing'] as const).map(activity => {
+                    {(['mining', 'fishing', 'harvesting'] as const).map(activity => {
                         const used = resourceAttemptsToday(character, activity, now);
-                        const label = activity === 'mining' ? 'Mining' : 'Fishing';
+                        const label = activity === 'mining' ? 'Mining' : activity === 'fishing' ? 'Fishing' : 'Harvesting';
                         return <div key={activity} className="left-caps-cell" title={`50 ${activity} attempts per UTC day`}>
-                            <span className="left-caps-label"><GameIcon name={activity === 'mining' ? 'pickaxe' : 'fish'} size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />{label}</span>
+                            <span className="left-caps-label"><GameIcon name={activity === 'mining' ? 'pickaxe' : activity === 'fishing' ? 'fish' : 'leaf'} size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />{label}</span>
                             <span className="left-caps-value" style={{ color: used >= DAILY_RESOURCE_ATTEMPT_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{used}/{DAILY_RESOURCE_ATTEMPT_LIMIT}</span>
                         </div>;
                     })}

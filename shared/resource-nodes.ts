@@ -2,15 +2,21 @@ import { SECTOR_PLACES } from './sector-geo';
 import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts';
 import { WORLD_LAYOUT_VERSION } from './continuous-world-layout';
 import { RESOURCE_REFILL_MS, type ResourceActivity, type ResourceFamily, type ResourceGrade } from './resource-gathering';
-import { RESOURCE_ROCK_TILES } from './resource-node-terrain';
+import { RESOURCE_MEADOW_TILES, RESOURCE_ROCK_TILES } from './resource-node-terrain';
 import { RESOURCE_CRYSTAL_SITES } from './resource-crystal-sites';
+import { harvestTraceFor, type HarvestCommonId, type HarvestTraceId } from './harvesting';
 
 export type ResourceNodeLevel = 1 | 4 | 7;
+/** What a node pays: a graded fishing/mining family, or a plain harvest id. */
+export type GatherFamily = ResourceFamily | HarvestCommonId;
+export type GatherTrace = ResourceFamily | HarvestTraceId;
 export type ResourceNode = {
     id: string; name: string; activity: ResourceActivity; sector: number; approach: number; target: number;
     /** The placement's base level. Live play uses resourceNodeOffer instead. */
-    difficulty: ResourceNodeLevel; ceiling: ResourceGrade; family: ResourceFamily; trace?: ResourceFamily;
+    difficulty: ResourceNodeLevel; ceiling: ResourceGrade; family: GatherFamily; trace?: GatherTrace;
     layoutVersion: string;
+    /** A meadow with nothing growing in this half-hour bloom (harvestNodeAt). */
+    dormant?: true;
     worldBossCrystal?: true;
     markerOffset?: readonly [number,number];
 };
@@ -103,11 +109,20 @@ const placements: readonly [number, ResourceActivity, number, number, 1 | 4 | 7,
 ];
 function levelRewards(sector: number, activity: ResourceActivity, difficulty: ResourceNodeLevel): Pick<ResourceNode, 'ceiling' | 'trace'> {
     const place = SECTOR_PLACES.find(p => p.id === sector)!;
+    // Harvest ids are ungraded: no ceiling, and only forest/shadow carry a trace.
+    if (activity === 'harvesting') return { ceiling: 0, trace: harvestTraceFor(place.biome, difficulty) };
     return { ceiling: (difficulty === 1 ? 1 : difficulty === 4 ? 2 : 3) as ResourceGrade,
         trace: activity !== 'mining' || difficulty === 1 ? undefined : place.biome === 'snow' ? 'gather-rime-crystal'
             : place.biome === 'volcano' ? 'gather-ember-ore' : place.biome === 'central' ? 'gather-stormglass-shard' : undefined };
 }
-const historicalNodes: readonly ResourceNode[] = placements.map(([sector, activity, approach, target, difficulty, name], index) => {
+/** A meadow's name by biome and plant: Glade (forest), Dusk (shadow), Meadow (central). */
+function harvestName(sector: number, family: HarvestCommonId): string {
+    const biome = SECTOR_PLACES.find(place => place.id === sector)?.biome;
+    const herb = family === 'gather-field-herb';
+    return biome === 'shadow' ? herb ? 'Duskmoss herb patch' : 'Duskreed fiber bed'
+        : `${biome === 'forest' ? 'Glade' : 'Meadow'} ${herb ? 'herb patch' : 'fiber reeds'}`;
+}
+const historicalNodes: readonly ResourceNode[] =placements.map(([sector, activity, approach, target, difficulty, name], index) => {
     return { id: `resource-${index + 1}`, name, sector, activity, approach, target, difficulty,
         ...levelRewards(sector, activity, difficulty),
         family: activity === 'fishing' ? 'gather-river-fish' : 'gather-iron-sand',
@@ -118,6 +133,28 @@ const historicalNodes: readonly ResourceNode[] = placements.map(([sector, activi
  * receipts. Do not splice placements: resource IDs are durable save keys. */
 export const RETIRED_RESOURCE_NODE_IDS:readonly string[]=['resource-19','resource-23','resource-24','resource-76','resource-78','resource-85','resource-88'];
 export const RESOURCE_NODES:readonly ResourceNode[]=historicalNodes.filter(node=>!RETIRED_RESOURCE_NODE_IDS.includes(node.id));
+
+/** Kama Reaping meadows (docs/harvesting-minigame-plan.md §5). APPEND ONLY: a
+ * node's id is `harvest-<index + 1>`, a durable save key in its own namespace,
+ * so the `resource-N` table above is never touched. One reviewed grass cell per
+ * forest, shadow and central wild sector (RESOURCE_MEADOW_TILES). Kept out of
+ * RESOURCE_NODES until the client shows harvesting (Phase 3), because the map,
+ * Outpost panel, road cast and marker placement all read that list. */
+// Six characters per meadow, in id order: sector and approach tile as two base-36
+// digits each, then the target tile (a = 12 tiles up, b = 12 down, c = 1 right) and
+// the base level. Packed because the table ships in the world chunk; the shared
+// tests check every decoded cell against RESOURCE_MEADOW_TILES. The authored plant
+// alternates herb and fiber by position and only matters to fixed-level QA
+// fixtures: live play takes each half hour's bloom (harvestNodeAt), and the name
+// follows the plant.
+const HARVEST_PLACEMENTS = '012ya1022ua1032va1043aa1051ma1062ka1072va1081rb1093aa40a2sa40b2va40c39a40d2ua40e2ua40f1va40g2pa40h2ya70i3ia70j31a70k2ka70l2fa70m34a70n22c70o2pa70p2fa7102hc1112ta1122ua1132ra11431a11532a1162ga11735a1182ra1192ta11a2sa11b2ta11c2sa11d2ia11e3ua11f2ua11g2ia11h2pa11j36a71k2va71l38a71p2ua11q19a11r3ta11s1ta7';
+export const HARVEST_NODES: readonly ResourceNode[] = Array.from({ length: HARVEST_PLACEMENTS.length / 6 }, (_, index) => {
+    const row = HARVEST_PLACEMENTS.slice(index * 6, index * 6 + 6), sector = parseInt(row.slice(0, 2), 36), approach = parseInt(row.slice(2, 4), 36);
+    const target = approach + { a: -12, b: 12, c: 1 }[row[4] as 'a' | 'b' | 'c'], difficulty = Number(row[5]) as ResourceNodeLevel;
+    const family: HarvestCommonId = index % 2 ? 'gather-binding-fiber' : 'gather-field-herb';
+    return { id: `harvest-${index + 1}`, name: harvestName(sector, family), sector, activity: 'harvesting', approach, target, difficulty,
+        ...levelRewards(sector, 'harvesting', difficulty), family, layoutVersion: WORLD_LAYOUT_VERSION };
+});
 export const WORLD_BOSS_CRYSTAL_NODES:readonly ResourceNode[]=RESOURCE_CRYSTAL_SITES.map(([sector,slot,approach,target])=>({
     id:slot===1?`world-boss-crystal-${sector}`:`world-boss-crystal-${sector}-${slot}`,
     name:'Hollow Shard Vein',activity:'mining',sector,approach,target,difficulty:4,ceiling:2,
@@ -127,8 +164,54 @@ export const WORLD_BOSS_CRYSTAL_NODES:readonly ResourceNode[]=RESOURCE_CRYSTAL_S
     ...(sector===30&&slot===2?{markerOffset:[.75,.25] as const}:{}),
 }));
 
+/**
+ * Wild blooms (owner request, 2026-11-06). Every half hour each meadow spot
+ * rolls 50/50 whether anything grows there, and 50/50 whether it is a herb patch
+ * or fiber reeds, so players crossing the world come across fresh plants by
+ * luck. The roll is seeded by the spot and the half hour, never per player: the
+ * server and every client see the same meadows. A started attempt keeps the
+ * plant it sealed.
+ */
+export const HARVEST_BLOOM_MS = 30 * 60_000;
+export const HARVEST_BLOOM_CHANCE = 0.5;
+/** FNV-1a of `text`, then mulberry32 steps: the same draw dealLevels uses. */
+function hashText(text: string): number {
+    let seed = 2166136261;
+    for (const char of text) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
+    return seed;
+}
+function mixDraw(seed: number): number {
+    let mixed = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+}
+const seededDraw = (text: string) => mixDraw((hashText(text) + 0x6D2B79F5) | 0);
+export const harvestBloomCycle = (at: number) => Math.floor(at / HARVEST_BLOOM_MS);
+export function harvestBloom(node: Pick<ResourceNode, 'id'>, at: number): { present: boolean; family: HarvestCommonId } {
+    const cycle = harvestBloomCycle(at);
+    return { present: seededDraw(`bloom:${node.id}:${cycle}`) < HARVEST_BLOOM_CHANCE,
+        family: seededDraw(`kind:${node.id}:${cycle}`) < .5 ? 'gather-field-herb' : 'gather-binding-fiber' };
+}
+/** Meadow markers draw this many tiles above their plant, so the pin points into
+ * the painted patch (shinobij.client/src/lib/meadow-patch.ts). Placement tests
+ * measure clearance from the lifted spot, where the marker really is. */
+export const HARVEST_MARKER_LIFT = .55;
+/** A meadow growing `family` (or dormant), named for that plant. The one place a
+ * plant is applied, so the name can never disagree with what grows. */
+export function harvestNodeAs(node: ResourceNode, family: HarvestCommonId, present: boolean): ResourceNode {
+    const { dormant: _dormant, ...rest } = node; void _dormant;
+    return { ...rest, family, name: harvestName(node.sector, family), ...(present ? {} : { dormant: true as const }) };
+}
+/** A meadow as it stands at `at`: this half hour's plant, or dormant. */
+export function harvestNodeAt(node: ResourceNode, at: number): ResourceNode {
+    if (node.activity !== 'harvesting') return node;
+    const bloom = harvestBloom(node, at);
+    return harvestNodeAs(node, bloom.family, bloom.present);
+}
+
 export function resourceNode(id: unknown): ResourceNode | undefined {
-    return historicalNodes.find(node => node.id === id) ?? WORLD_BOSS_CRYSTAL_NODES.find(node => node.id === id);
+    return historicalNodes.find(node => node.id === id) ?? HARVEST_NODES.find(node => node.id === id)
+        ?? WORLD_BOSS_CRYSTAL_NODES.find(node => node.id === id);
 }
 
 /** A cycle deals exactly half of an activity's sites level 1 and splits the rest
@@ -136,15 +219,9 @@ export function resourceNode(id: unknown): ResourceNode | undefined {
  * on a new deal. Untouched sites redeal too: a level 7 site nobody can work would
  * otherwise never empty, and the world would drift away from level 1. */
 function dealLevels(activity: ResourceActivity, cycle: number): ReadonlyMap<string, ResourceNodeLevel> {
-    const sites = RESOURCE_NODES.filter(node => node.activity === activity).map(node => node.id);
-    let seed = 2166136261;
-    for (const char of `${activity}:${cycle}`) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
-    const draw = () => {
-        seed = (seed + 0x6D2B79F5) | 0;
-        let mixed = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-        mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
-        return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
-    };
+    const sites = (activity === 'harvesting' ? HARVEST_NODES : RESOURCE_NODES).filter(node => node.activity === activity).map(node => node.id);
+    let seed = hashText(`${activity}:${cycle}`);
+    const draw = () => mixDraw(seed = (seed + 0x6D2B79F5) | 0);
     for (let i = sites.length - 1; i > 0; i--) {
         const j = Math.floor(draw() * (i + 1));
         [sites[i], sites[j]] = [sites[j], sites[i]];
@@ -162,13 +239,19 @@ export function resourceNodeOffer(node: ResourceNode, at: number): ResourceNode 
     let deal = lastDeal[node.activity];
     if (deal?.cycle !== cycle) deal = lastDeal[node.activity] = { cycle, levels: dealLevels(node.activity, cycle) };
     const level = deal.levels.get(node.id);
-    return level ? resourceNodeAtLevel(node, level) : node;
+    // Meadows also take this half hour's bloom: its plant, or nothing.
+    return harvestNodeAt(level ? resourceNodeAtLevel(node, level) : node, at);
 }
 export function resourceNodePosition(node: ResourceNode) { return { left: ((node.target % 12) + (node.markerOffset?.[0]??.5)) / 12 * 100, top: (Math.floor(node.target / 12) + (node.markerOffset?.[1]??.5)) / 12 * 100 }; }
 export function validResourceNodeTerrain(node: ResourceNode): boolean {
     const place = SECTOR_PLACES.find(p => p.id === node.sector), floor = place && SECTOR_FLOOR_LAYOUTS[place.artKey];
     if (!floor||RETIRED_RESOURCE_NODE_IDS.includes(node.id)) return false;
     const cell = (tile: number) => floor.mask[Math.floor(tile / 12)]?.[tile % 12];
-    return ['.', '='].includes(cell(node.approach)) && (node.activity === 'fishing'
-        ? Boolean(floor.hydrology?.waterTiles.includes(node.target)) : cell(node.target) === '#'&&Boolean(RESOURCE_ROCK_TILES[node.sector]?.includes(node.target)));
+    if (!['.', '='].includes(cell(node.approach))) return false;
+    if (node.activity === 'fishing') return Boolean(floor.hydrology?.waterTiles.includes(node.target));
+    // A meadow plant stands on open ground; the gatherer stands beside it.
+    if (node.activity === 'harvesting') return cell(node.target) === '.' && node.approach !== node.target
+        && !floor.hydrology?.waterTiles.includes(node.target) && !floor.hydrology?.bridgeTiles.includes(node.target)
+        && Boolean(RESOURCE_MEADOW_TILES[node.sector]?.includes(node.target));
+    return cell(node.target) === '#'&&Boolean(RESOURCE_ROCK_TILES[node.sector]?.includes(node.target));
 }

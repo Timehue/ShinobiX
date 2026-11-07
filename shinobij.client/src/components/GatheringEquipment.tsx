@@ -1,9 +1,16 @@
 import { useRef, useState } from 'react';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import { GATHERING_TOOLS, gatheringTool, gatheringToolRemaining } from '../../../shared/gathering-tools';
+import { GATHERING_TOOL_SLOTS } from '../../../shared/gathering-tool-items';
 import { resourceRequest } from '../lib/resource-api';
 import { gatheringToolArtwork } from '../lib/gathering-tool-art';
 import './resource-gathering.css';
+
+const SLOT_COPY = {
+    fishingPole: { title: 'Fishing Kunai', art: 'tool-basic-fishing-pole' },
+    pickaxe: { title: 'Pickaxe', art: 'tool-basic-pickaxe' },
+    kama: { title: 'Harvest Kama', art: 'tool-basic-harvest-kama' },
+} as const;
 
 export function GatheringEquipment({ character, commit }: { character: Character; commit: VersionedCharacterCommit }) {
     const [message, setMessage] = useState(''), [busy, setBusy] = useState(false), inFlight = useRef(false);
@@ -18,15 +25,15 @@ export function GatheringEquipment({ character, commit }: { character: Character
     }
     return <section className="gathering-equipment" aria-label="Gathering equipment">
         <div className="resource-section-heading"><strong>Gathering tools</strong><span>Equipped separately from your battle loadout</span></div>
-        <div className="gathering-tool-grid">{(['fishingPole', 'pickaxe'] as const).map(slot => {
+        <div className="gathering-tool-grid">{GATHERING_TOOL_SLOTS.map(slot => {
             const equipped = gatheringTool(character.equipment[slot]);
             const remaining = equipped ? gatheringToolRemaining(character, equipped.id) : 0;
             const options = GATHERING_TOOLS.filter(tool => tool.slot === slot && character.inventory.includes(tool.id));
             return <article key={slot} className={`gathering-tool-slot${equipped ? ' equipped' : ''}`}>
-                <img src={gatheringToolArtwork(equipped?.id ?? (slot === 'pickaxe' ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole'))} alt="" />
-                <div><h3>{slot === 'pickaxe' ? 'Pickaxe' : 'Fishing Kunai'}</h3><p>{equipped?.name ?? 'Empty slot'}</p>
+                <img src={gatheringToolArtwork(equipped?.id ?? SLOT_COPY[slot].art)} alt="" />
+                <div><h3>{SLOT_COPY[slot].title}</h3><p>{equipped?.name ?? 'Empty slot'}</p>
                     {equipped && <p className={remaining !== null && remaining <= 5 ? 'resource-warning' : ''}>{remaining === null ? 'Permanent · never breaks' : `${remaining} / ${equipped.durability} uses remaining`}</p>}
-                    {equipped && <button type="button" disabled={busy} onClick={() => void equip(equipped.id, true)}>Unequip {slot === 'pickaxe' ? 'pickaxe' : 'fishing kunai'}</button>}
+                    {equipped && <button type="button" disabled={busy} onClick={() => void equip(equipped.id, true)}>Unequip {SLOT_COPY[slot].title.toLowerCase()}</button>}
                     {options.map(tool => <button type="button" key={tool.id} disabled={busy || gatheringToolRemaining(character, tool.id) === 0} onClick={() => void equip(tool.id, false)}>Equip {tool.name}</button>)}
                     {!equipped && options.length === 0 && <small>Available at the Ryo Shop. Permanent gold tools are in the Grand Marketplace.</small>}
                 </div>

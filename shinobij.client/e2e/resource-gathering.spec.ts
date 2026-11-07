@@ -4,7 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { createRequire } from 'node:module';
 import { uiAuditSave } from './helpers/ui-audit-runtime';
 import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing';
-import { resourceNode, RESOURCE_NODES } from '../../shared/resource-nodes';
+import { HARVEST_NODES, resourceNode, RESOURCE_NODES } from '../../shared/resource-nodes';
 import { readResourceGathering } from '../../shared/resource-gathering';
 import { FRACTURE_TEMPLATES } from '../../shared/fracture-chain';
 import type { OnlinePlayer } from '../../api/_realtime/types';
@@ -12,11 +12,11 @@ import type { ResourceSeal } from '../../api/world/_resource-gathering';
 import { expectVisibleTouchTarget } from './helpers/visible-target';
 const { mintResourceSeal, admitResourceAttempt, resolveResourceAttempt, equipGatheringTool } = createRequire(import.meta.url)('../../dist/api/world/_resource-gathering.js') as typeof import('../../api/world/_resource-gathering');
 
-async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 3200, fishingXp = 3200, fixture: { template?: number; successDraw?: number } = {}) {
+async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 3200, fishingXp = 3200, fixture: { template?: number; successDraw?: number; kama?: boolean } = {}) {
     const node = resourceNode(nodeId)!;
     let character: Record<string, unknown> = { ...uiAuditSave().character, name: 'GatherQA',
         inventory: ['tool-basic-pickaxe', 'tool-basic-fishing-pole'],
-        equipment: { pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole' },
+        equipment: { pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole', ...(fixture.kama ? { kama: 'tool-golden-harvest-kama' } : {}) },
         gatheringToolUses: { 'tool-basic-pickaxe': uses, 'tool-basic-fishing-pole': 0 },
         resourceGathering: { ...readResourceGathering(null), miningXp, fishingXp } };
     let version = 1, settlements = 0, loseAck = false, staleAck = false;
@@ -28,9 +28,12 @@ async function install(page: Page, nodeId = 'resource-13', uses = 0, miningXp = 
         const body = route.request().postDataJSON(); let receipt;
         if (body.action === 'nodes') {
             const state = readResourceGathering(character.resourceGathering);
-            const nodes = Object.fromEntries(RESOURCE_NODES.filter(candidate => candidate.sector === node.sector).map(candidate => [candidate.id, {
+            // Meadows report a fixed bloom (the node's own plant, growing) so a
+            // half-hour turn during the run never hides the one under test.
+            const nodes = Object.fromEntries([...RESOURCE_NODES, ...HARVEST_NODES].filter(candidate => candidate.sector === node.sector).map(candidate => [candidate.id, {
                 remaining: Math.max(0, 3 - (state.nodes[candidate.id]?.attempts ?? 0)),
                 refillAt: state.nodes[candidate.id]?.refillAt ?? 0,
+                ...(candidate.activity === 'harvesting' ? { family: candidate.family } : {}),
             }]));
             return route.fulfill({ json: { ok: true, sector: node.sector, nodes } });
         }
@@ -207,6 +210,60 @@ test('Outpost tabs, independent skills and tool slots remain accessible on small
     }
 });
 
+test('a blooming meadow shows its painted patch, plays Kama Reaping and settles once on the server', async ({ page }, info) => {
+    const runtime = await install(page, 'harvest-1', 0, 3200, 3200, { kama: true });
+    await page.goto('/e2e/fixtures/resource-gathering.html?node=harvest-1');
+    const marker = page.getByRole('button', { name: /^Meadow herb patch, harvesting/ });
+    await expect(marker).toBeVisible();
+    await expect(page.locator('.resource-meadow-patch')).toHaveCount(1);
+    await expect.poll(() => page.locator('.resource-meadow-patch').evaluate(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)).toBe(true);
+    // The pin floats above the patch, so the painted plants stay visible below it.
+    const patch = (await page.locator('.resource-meadow-patch').boundingBox())!, pin = (await marker.boundingBox())!;
+    expect(pin.y + pin.height / 2).toBeLessThan(patch.y + patch.height / 2);
+    await page.screenshot({ path: info.outputPath('meadow-on-map.png'), fullPage: true });
+
+    await marker.click();
+    const dialog = page.getByRole('dialog', { name: 'Meadow herb patch', exact: true });
+    await expect(dialog.getByText('Wild meadow · Kama reaping')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Ready kama · 1 attempt' }).click();
+    const field = dialog.getByRole('application', { name: /^Kama reaping field of Field Herb/ });
+    await expect(field).toBeVisible();
+    const box = (await field.boundingBox())!;
+    expect(Math.abs(box.width / box.height - 1.5)).toBeLessThan(.03);
+    await noOverflow(page);
+    const reap = dialog.getByRole('button', { name: 'Reap at the line' });
+    for (let stroke = 0; stroke < 3; stroke++) {
+        await expect(reap).toBeEnabled();
+        await reap.click();
+        await page.waitForTimeout(220);
+    }
+    const report = dialog.getByRole('region', { name: 'Harvesting result' });
+    await expect(report).toBeVisible();
+    expect(runtime.settlements()).toBe(1);
+    const receipt = readResourceGathering(runtime.character().resourceGathering).receipts.at(-1)!;
+    expect(receipt.activity).toBe('harvesting');
+    expect(receipt.harvestCuts).toBeTruthy();
+    await page.screenshot({ path: info.outputPath('meadow-harvest-result.png') });
+});
+
+test('the Outpost Harvesting tab shows the payout, live meadows and the kama slot', async ({ page }, info) => {
+    await install(page);
+    await page.goto('/e2e/fixtures/resource-gathering.html?screen=outpost');
+    await page.getByRole('tab', { name: 'Harvesting', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Harvesting · Level 1' })).toBeVisible();
+    await expect(page.getByRole('progressbar', { name: 'Harvesting skill progress' })).toBeVisible();
+    const appraisal = page.getByRole('region', { name: 'Harvest appraisal' });
+    await expect(appraisal.locator('.outpost-grade')).toHaveCount(4);
+    await expect(appraisal).toContainText('Perfect row');
+    await expect(page.getByRole('region', { name: 'Gathering equipment' }).getByRole('heading', { name: 'Harvest Kama' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Wild meadow directory' })).toContainText(/\d+ of 50 meadows growing/);
+    await noOverflow(page);
+    const audit = await new AxeBuilder({ page }).include('.shinobi-outpost').withTags(['wcag2a', 'wcag2aa']).analyze();
+    expect(audit.violations).toEqual([]);
+    await expect.poll(() => page.locator('.outpost-grade img').evaluateAll(images => images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
+    await page.screenshot({ path: info.outputPath('outpost-harvesting.png') });
+});
+
 test('Outpost appraisal distinguishes locked grades and shows progress within the current level', async ({ page }) => {
     await install(page, 'resource-13', 0, 125);
     await page.goto('/e2e/fixtures/resource-gathering.html?screen=outpost');
@@ -278,7 +335,7 @@ test('Veinbreaking exposes the core and consumes the final basic tool use once',
     expect((await new AxeBuilder({ page }).include('.resource-dialog').withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
     await page.screenshot({ path: info.outputPath('fracture-placed.png'), fullPage: true });
     await page.getByRole('button', { name: 'Release fracture', exact: true }).click();
-    await expect(page.getByText('Your basic tool broke after its 50th use.', { exact: false })).toBeVisible();
+    await expect(page.getByText('Your basic tool broke after its last use.', { exact: false })).toBeVisible();
     expect(runtime.settlements()).toBe(1);
     expect(readResourceGathering(runtime.character().resourceGathering).attemptsToday).toBe(1);
     expect((runtime.character().equipment as Record<string, string>).pickaxe).toBeUndefined();
