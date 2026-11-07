@@ -22,6 +22,12 @@ for (const width of [1366, 390]) {
         await expect(cell('Mining')).toContainText('49/50');
         await expect(cell('Fishing')).toContainText('50/50');
         await expect(cell('Harvesting')).toContainText('12/50');
+        // Every activity row wears a painted emblem from one set (Hunts' crossed
+        // kunai), not a flat vector glyph or a borrowed terrain tile.
+        const emblems = await caps.locator('.left-caps-label').evaluateAll(labels => labels.slice(0, 6).map(label => label.querySelector('img')?.getAttribute('src') ?? null));
+        expect(emblems).toEqual(['/ui/icon-96/map.webp', '/ui/icon-96/scroll.webp', '/ui/icon-96/mining.webp',
+            '/ui/icon-96/fishing.webp', '/ui/icon-96/harvesting.webp', '/ui/icon-96/attack.webp']);
+        await expect.poll(async () => caps.locator('.left-caps-label img').evaluateAll(imgs => imgs.slice(0, 6).every(img => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0))).toBe(true);
         const colors = await caps.locator('.left-caps-value').evaluateAll(elements => elements.map(el => getComputedStyle(el).color));
         expect(colors[0]).toBe(colors[3]);
         expect(colors[2]).not.toBe(colors[3]);
