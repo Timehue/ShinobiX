@@ -1,7 +1,7 @@
 {
-  "candidate": "6ef677cce71f5b4b689c801197452c053b504279",
-  "recovery": "fce6a69af83699f13605afa137d9886b69b2489c",
+  "candidate": "b9162a1971db4c56238924e53ee0364bcc639006",
+  "recovery": "570de5bf1b151f0e1f37d45c11137bf718eb402f",
   "node": "24.21.0",
   "platform": "linux/amd64",
-  "recoveryMeaning": "Current main 6ce0a88e and all reviewed world-boss repairs; identical complete trees with distinct compatible continuation/recovery identities"
+  "recoveryMeaning": "Current main 3dfdb6f5 generation-safe battle retirement plus all reviewed world-boss repairs; identical complete trees with distinct compatible continuation/recovery identities"
 }

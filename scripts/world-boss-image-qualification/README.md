@@ -1,12 +1,14 @@
 Retain and qualify exact world-boss candidate/recovery images using disposable PostgreSQL. This is isolated test tooling, not production publishing. PR #42 stays release-blocked.
 
-`pins.json` fixes candidate 6ef677cce71f5b4b689c801197452c053b504279 and compatible recovery fce6a69af83699f13605afa137d9886b69b2489c. Both integrate main 6ce0a88e4ec391728a7ed3f7da0a46566c013ddb and every reviewed runtime repair. Main now includes the earlier wildlife fixture correction, so their complete trees match; the commit identities remain distinct. Recovery supports compatible continuation and cannot recover from a defect shared by both implementations.
+`pins.json` fixes candidate b9162a1971db4c56238924e53ee0364bcc639006 and compatible recovery 570de5bf1b151f0e1f37d45c11137bf718eb402f. Both integrate main 3dfdb6f5b06e1336796da5cfe99aed6fdec42a6a and every reviewed runtime repair. Main now includes the earlier wildlife fixture correction, so their complete trees match; the commit identities remain distinct. Recovery supports compatible continuation and cannot recover from a defect shared by both implementations.
 
 The current merge preserves main's queue coalescing and lock-free steady-state polling alongside atomic match/queue/pointer publication, duplicate/already-seated ticket repair, and published-session recovery. Added regressions cover coalesced publication faults and fresh stale tickets. Synthetic-age HTTP/PostgreSQL fixtures now account for the real polling window. The qualification driver permits up to eight 250ms waits for a successful status read that has not formed a team; the existing three-retry cap for 503 responses and all eight scenario/identity/retirement/receipt gates remain intact.
 
 The prior main1a21 pair passed workflow41944331072 (eight scenarios/seven retired runtime starts). Those artifacts do not qualify these new source pins or main changes. Fresh current-head CI and exact-pair qualification remain required; no Railway byte identity or production eligibility is claimed.
 
 Current main 6ce0a88e adds43files after f1ef, including shared battle recovery and map/binding updates, with no direct overlap with the world-boss patch. Every main blob is preserved exactly. Reviewed world-boss repair, queue, fixture and qualification-driver source blobs are unchanged; candidate/recovery complete trees remain identical. Fresh current-head CI and exact-pair image qualification are required. The failed f1ef host suite had missing client dependencies and additional failures requiring diagnosis; no full-suite pass is claimed by this integration.
+
+This pair includes main 3dfdb6f5 and its generation-safe retirement repair. All fifteen non-overlapping main file blobs are preserved exactly; the tower lease helper combines the reviewed projection-cleanup retry with generation-safe retirement. The previous green pair excludes that repair and does not qualify this pair. Fresh combined tests, independent review and exact-pair qualification are required. Main release checks take priority before publication starts additional world-boss CI.
 
 Image source modes
 
