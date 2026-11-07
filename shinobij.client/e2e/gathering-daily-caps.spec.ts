@@ -7,8 +7,8 @@ for (const width of [1366, 390]) {
         await page.setViewportSize({ width, height: 900 });
         const day = new Date().toISOString().slice(0, 10), save = uiAuditSave();
         save.character = { ...save.character, serverExploreDate: day, serverExploresToday: 100,
-            resourceGathering: { ...readResourceGathering(null), date: day, attemptsToday: 99,
-                miningAttemptsToday: 49, fishingAttemptsToday: 50 } };
+            resourceGathering: { ...readResourceGathering(null), date: day, attemptsToday: 111,
+                miningAttemptsToday: 49, fishingAttemptsToday: 50, harvestingAttemptsToday: 12 } };
         const runtime = await installUiAuditRuntime(page, save);
         await expectUiAuditBoot(page, runtime, 'profile');
         const you = page.locator('.mobile-bottom-nav').getByRole('button', { name: 'You', exact: true });
@@ -16,11 +16,12 @@ for (const width of [1366, 390]) {
         const host = width < 768 ? page.getByRole('dialog', { name: 'Your shinobi' }) : page.locator('.left-profile-card');
         const caps = host.locator('.left-caps-grid');
         await expect(caps).toBeVisible();
-        await expect(caps.locator('.left-caps-label')).toHaveText(['Explores', 'Missions', 'Mining', 'Fishing', 'Hunts', 'Reset In', 'Sealed Crates']);
+        await expect(caps.locator('.left-caps-label')).toHaveText(['Explores', 'Missions', 'Mining', 'Fishing', 'Harvesting', 'Hunts', 'Reset In', 'Sealed Crates']);
         const cell = (label: string) => caps.locator('.left-caps-cell').filter({ has: page.locator('.left-caps-label', { hasText: new RegExp(`^${label}$`) }) });
         await expect(cell('Explores')).toContainText('100/100');
         await expect(cell('Mining')).toContainText('49/50');
         await expect(cell('Fishing')).toContainText('50/50');
+        await expect(cell('Harvesting')).toContainText('12/50');
         const colors = await caps.locator('.left-caps-value').evaluateAll(elements => elements.map(el => getComputedStyle(el).color));
         expect(colors[0]).toBe(colors[3]);
         expect(colors[2]).not.toBe(colors[3]);

@@ -201,7 +201,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     {(['mining', 'fishing', 'harvesting'] as const).map(activity => {
                         const used = resourceAttemptsToday(character, activity, now);
                         const label = activity === 'mining' ? 'Mining' : activity === 'fishing' ? 'Fishing' : 'Harvesting';
-                        return <div key={activity} className="left-caps-cell" title={`50 ${activity} attempts per UTC day`}>
+                        return <div key={activity} className="left-caps-cell" style={activity === 'harvesting' ? { gridColumn: "1 / -1" } : undefined} title={`50 ${activity} attempts per UTC day`}>
                             <span className="left-caps-label"><GameIcon name={activity === 'mining' ? 'pickaxe' : activity === 'fishing' ? 'fish' : 'leaf'} size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />{label}</span>
                             <span className="left-caps-value" style={{ color: used >= DAILY_RESOURCE_ATTEMPT_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{used}/{DAILY_RESOURCE_ATTEMPT_LIMIT}</span>
                         </div>;
@@ -215,7 +215,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                         <span className="left-caps-value" style={{ color: "var(--text-dim)" }}>{(() => { const date = new Date(now); const ms = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1)).getTime() - now; const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
                     </div>
                     {/* Last and full-width: the name is too long for a half-width
-                        cell in the desktop rail, and it fills the grid's odd slot. */}
+                        cell in the desktop rail. */}
                     <div className="left-caps-cell" style={{ gridColumn: "1 / -1" }} title="Sealed crates bought from the Broker at the Sunscar Festival today">
                         <span className="left-caps-label"><GameIcon name="gift" size={13} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Sealed Crates</span>
                         <span className="left-caps-value" style={{ color: (sealedCrates ?? 0) >= BLACK_MARKET_DAILY_CAP ? "var(--danger)" : "#a5b4fc" }}>{sealedCrates ?? "–"}/{BLACK_MARKET_DAILY_CAP}</span>
