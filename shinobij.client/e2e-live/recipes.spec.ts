@@ -20,8 +20,8 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
         itemStacks: [
             { itemId: 'gather-iron-sand', count: 51 }, { itemId: 'gather-iron-sand-fine', count: 33 },
             { itemId: 'gather-iron-sand-superior', count: 2 }, { itemId: 'gather-iron-sand-pristine', count: 2 },
-            { itemId: 'hunt-torn-hide', count: 8 }, { itemId: 'gather-binding-fiber', count: 18 }, { itemId: 'gather-heartwood-bark', count: 18 },
-            { itemId: 'hunt-beast-meat', count: 8 }, { itemId: 'gather-field-herb', count: 8 },
+            { itemId: 'hunt-torn-hide', count: 8 }, { itemId: 'gather-binding-fiber', count: 27 }, { itemId: 'gather-heartwood-bark', count: 19 },
+            { itemId: 'hunt-beast-meat', count: 8 }, { itemId: 'gather-field-herb', count: 13 },
             { itemId: 'weekly-boss-core', count: 10 }, { itemId: 'hunt-frost-pelt', count: 3 }, { itemId: 'hunt-ash-scale', count: 3 },
         ], wandererCooldowns: quietRoadCooldowns(Array.from({ length: 65 }, (_, i) => i + 1)) };
     const seeded = await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: save });
@@ -74,8 +74,8 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     const ingredient = (card: ReturnType<typeof recipe>, label: string) => card.locator(`.cf-check-row[data-ingredient="${label}"] .cf-check-count`);
     await expect(ingredient(recipe('Shuriken ×3'), 'Iron Sand or better')).toContainText('45/45 +43');
     // Fuel row: Heartwood Bark, Common Ember Ore or Ember Scale (2026-10 item-use pass).
-    await expect(ingredient(recipe('Shuriken ×3'), 'Heartwood Bark or Ember fuel')).toContainText('10/10 +8');
-    await expect(ingredient(recipe('Shuriken ×3'), 'Binding Fiber')).toContainText('10/10 +8');
+    await expect(ingredient(recipe('Shuriken ×3'), 'Heartwood Bark or Ember fuel')).toContainText('10/10 +9');
+    await expect(ingredient(recipe('Shuriken ×3'), 'Binding Fiber')).toContainText('15/15 +12');
     await recipe('Shuriken ×3').scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath('shuriken-three-materials.png'), fullPage: true });
     await recipe('Shuriken ×3').getByRole('button', { name: 'Craft ×5', exact: true }).click();
@@ -146,7 +146,7 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     expect(await owned('gather-iron-sand')).toBe(8); expect(await owned('gather-iron-sand-fine')).toBe(31);
     expect(await owned('gather-iron-sand-superior')).toBe(2); expect(await owned('gather-iron-sand-pristine')).toBe(2);
     expect(await owned('hunt-beast-meat')).toBe(8);
-    expect(await owned('gather-heartwood-bark')).toBe(8); expect(await owned('gather-binding-fiber')).toBe(8);
+    expect(await owned('gather-heartwood-bark')).toBe(9); expect(await owned('gather-binding-fiber')).toBe(12);
     await crafter.locator('.cf-batch').getByRole('button', { name: '×1', exact: true }).click();
     await recipe('Senbon ×1').getByRole('button', { name: 'Craft ×1', exact: true }).click();
     await picker.getByRole('spinbutton', { name: 'Fine Iron Sand quantity', exact: true }).fill('5');
@@ -185,11 +185,11 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     } finally { releaseForge(); }
     await expect.poll(() => owned('item-attack-pill')).toBe(1);
     await page.unroute('**/api/craft/forge');
-    expect(await owned('gather-field-herb')).toBe(4); expect(await owned('hunt-beast-meat')).toBe(6);
+    expect(await owned('gather-field-herb')).toBe(7); expect(await owned('hunt-beast-meat')).toBe(6);
     await crafter.getByRole('button', { name: 'Armor', exact: true }).click();
     const chest = recipe('Rare Chest Plate');
     await expect(ingredient(chest, 'Fine Iron Sand or better')).toContainText('21/21 +9');
-    await expect(ingredient(chest, 'Binding Fiber')).toHaveText(/^6\/6,/);
+    await expect(ingredient(chest, 'Binding Fiber')).toHaveText(/^9\/9,/);
     await chest.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath('armor-ingredient-recipe.png'), fullPage: true });
     const beforeArmorRyo = (await readCharacter()).ryo;
     await chest.getByRole('button', { name: 'Forge', exact: true }).click();
@@ -216,7 +216,7 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
     await expect.poll(() => owned('ration-pack')).toBe(20);
     await kitchen.getByRole('button', { name: /^Field Rations/ }).click();
     await expect.poll(() => owned('ration-pack')).toBe(25);
-    expect(await owned('hunt-beast-meat')).toBe(1); expect(await owned('gather-field-herb')).toBe(1);
+    expect(await owned('hunt-beast-meat')).toBe(1); expect(await owned('gather-field-herb')).toBe(2);
     expect(await owned('gather-heartwood-bark')).toBe(0); expect(await owned('gather-binding-fiber')).toBe(0);
     await expect(kitchen.getByRole('button', { name: /^Field Rations/ })).toBeDisabled();
     await expect(kitchen).toContainText('Needs 2 Heartwood Bark for cooking fuel');

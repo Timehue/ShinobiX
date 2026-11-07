@@ -2,18 +2,31 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { applyForge, countOwned } from './_forge.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
-import { SUPPLY_CRAFT_RECIPES } from '../../shared/crafting-recipes.js';
+import { SUPPLY_CRAFT_RECIPES, gearCraftIngredients } from '../../shared/crafting-recipes.js';
 import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
 import { GEAR_CRAFT_RYO } from '../../shared/craft-fees.js';
 
+/** One craft's count for the recipe row that accepts `materialId`, read from the live recipe. */
+const supplyNeed = (recipeId: string, materialId: string) => {
+    const row = SUPPLY_CRAFT_RECIPES[recipeId]?.ingredients.find(ingredient => ingredient.ids.includes(materialId));
+    assert.ok(row, `${recipeId} has a row accepting ${materialId}`);
+    return row.count;
+};
+const gearNeed = (itemId: string, materialId: string) => {
+    const row = gearCraftIngredients(ITEM_CATALOG[itemId]).find(ingredient => ingredient.ids.includes(materialId));
+    assert.ok(row, `${itemId} has a row accepting ${materialId}`);
+    return row.count;
+};
+
 describe('server Crafter ingredient recipes', () => {
     it('spends only selected ore grades, rejects ineligible ingredients and leaves the original save untouched', () => {
+        const fuel = supplyNeed('thrown-shuriken', 'gather-heartwood-bark'), fiber = supplyNeed('thrown-shuriken', 'gather-binding-fiber');
         const base = { level: 100, ryo: 1_000_000, itemStacks: [
             { itemId: 'gather-iron-sand', count: 20 }, { itemId: 'gather-iron-sand-fine', count: 4 }, { itemId: 'gather-iron-sand-pristine', count: 10 },
-            { itemId: 'gather-heartwood-bark', count: 4 }, { itemId: 'gather-binding-fiber', count: 4 },
+            { itemId: 'gather-heartwood-bark', count: 2 * fuel }, { itemId: 'gather-binding-fiber', count: 2 * fiber },
         ] };
         const before = structuredClone(base);
-        const selected = [{ 'gather-iron-sand': 16, 'gather-iron-sand-fine': 2 }, { 'gather-heartwood-bark': 4 }, { 'gather-binding-fiber': 4 }];
+        const selected = [{ 'gather-iron-sand': 16, 'gather-iron-sand-fine': 2 }, { 'gather-heartwood-bark': 2 * fuel }, { 'gather-binding-fiber': 2 * fiber }];
         const out = applyForge(base, 'supply', 'thrown-shuriken', 2, selected)!;
         assert.ok(out); assert.equal(countOwned(out, 'thrown-shuriken'), 6);
         assert.equal(countOwned(out, 'gather-iron-sand'), 4); assert.equal(countOwned(out, 'gather-iron-sand-fine'), 2);
@@ -25,7 +38,7 @@ describe('server Crafter ingredient recipes', () => {
     });
     it('makes pet food from mixed loose meat and stacked fish, preserving unrelated materials', () => {
         const base = { level: 100, ryo: 1_000_000, inventory: ['hunt-beast-meat', 'hunt-torn-hide'], itemStacks: [
-            { itemId: 'gather-river-fish', count: 7 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'weekly-boss-core', count: 10 },
+            { itemId: 'gather-river-fish', count: 7 }, { itemId: 'gather-field-herb', count: supplyNeed('pet-treat', 'gather-field-herb') }, { itemId: 'weekly-boss-core', count: 10 },
         ] };
         const out = applyForge(base, 'supply', 'pet-treat', 1)!;
         assert.ok(out); assert.equal(countOwned(out, 'pet-treat'), 1);
@@ -35,7 +48,10 @@ describe('server Crafter ingredient recipes', () => {
         assert.equal(applyForge({ level: 100, ryo: 1_000_000, itemStacks: [{ itemId: 'weekly-boss-core', count: 100 }] }, 'supply', 'pet-treat', 1), null);
     });
     it('requires the complete batch before consuming anything', () => {
-        const base = { level: 100, ryo: 1_000_000, itemStacks: [{ itemId: 'gather-iron-sand', count: 10 }, { itemId: 'gather-heartwood-bark', count: 2 }, { itemId: 'gather-binding-fiber', count: 2 }, { itemId: 'hunt-beast-meat', count: 100 }] };
+        // Exactly one batch of fuel and fiber, and one more iron than one batch.
+        const base = { level: 100, ryo: 1_000_000, itemStacks: [{ itemId: 'gather-iron-sand', count: 10 },
+            { itemId: 'gather-heartwood-bark', count: supplyNeed('thrown-shuriken', 'gather-heartwood-bark') },
+            { itemId: 'gather-binding-fiber', count: supplyNeed('thrown-shuriken', 'gather-binding-fiber') }, { itemId: 'hunt-beast-meat', count: 100 }] };
         const before = structuredClone(base);
         assert.equal(applyForge(base, 'supply', 'thrown-shuriken', 2), null); assert.deepEqual(base, before);
         for (const missing of ['gather-heartwood-bark', 'gather-binding-fiber']) {
@@ -50,19 +66,20 @@ describe('server Crafter ingredient recipes', () => {
         assert.equal(countOwned(out, 'hunt-beast-meat'), 100);
     });
     it('gates Master Beast Seals and uses crystals and seal materials available before S-rank hunts', () => {
+        const need = (id: string) => supplyNeed('beast-seal-master', id);
         const materials = { level: 29, ryo: 1_000_000, itemStacks: [
-            { itemId: 'gather-stormglass-shard-fine', count: 12 }, { itemId: 'gather-heartwood-bark', count: 4 },
-            { itemId: 'gather-shadow-thread', count: 4 }, { itemId: 'gather-binding-fiber', count: 8 },
+            { itemId: 'gather-stormglass-shard-fine', count: 12 }, { itemId: 'gather-heartwood-bark', count: need('gather-heartwood-bark') },
+            { itemId: 'gather-shadow-thread', count: need('gather-shadow-thread') }, { itemId: 'gather-binding-fiber', count: need('gather-binding-fiber') },
         ] };
         assert.equal(applyForge(materials, 'supply', 'beast-seal-master', 1), null);
         const out = applyForge({ ...materials, level: 30 }, 'supply', 'beast-seal-master', 1)!;
-        assert.equal(countOwned(out, 'beast-seal-master'), 1); assert.equal(countOwned(out, 'gather-stormglass-shard-fine'), 6);
+        assert.equal(countOwned(out, 'beast-seal-master'), 1); assert.equal(countOwned(out, 'gather-stormglass-shard-fine'), 12 - need('gather-stormglass-shard-fine'));
     });
     it('forges canonical weapons without eating hunt stock or unnecessary Pristine ore', () => {
         const base = { level: 100, ryo: 100_000, itemStacks: [
             { itemId: 'gather-iron-sand-fine', count: 4 }, { itemId: 'gather-iron-sand-superior', count: 11 },
             { itemId: 'gather-iron-sand-pristine', count: 7 }, { itemId: 'gather-heartwood-bark', count: 3 },
-            { itemId: 'gather-binding-fiber', count: 4 }, { itemId: 'hunt-beast-meat', count: 100 }, { itemId: 'hunt-torn-hide', count: 100 },
+            { itemId: 'gather-binding-fiber', count: gearNeed('ashen-leaf-saber', 'gather-binding-fiber') }, { itemId: 'hunt-beast-meat', count: 100 }, { itemId: 'hunt-torn-hide', count: 100 },
         ] };
         assert.equal(applyForge(base, 'weapon', 'forged-client-item', 1), null);
         const out = applyForge(base, 'weapon', 'ashen-leaf-saber', 1)!;
@@ -73,7 +90,9 @@ describe('server Crafter ingredient recipes', () => {
         assert.equal(applyForge({ ...base, itemStacks: base.itemStacks.filter(s => s.itemId !== 'gather-binding-fiber') }, 'weapon', 'ashen-leaf-saber', 1), null);
     });
     it('uses medicinal ingredients for pills and preserves unrelated rank-up stock', () => {
-        const base = { level: 100, ryo: 1_000_000, itemStacks: [{ itemId: 'gather-field-herb', count: 4 }, { itemId: 'hunt-cracked-horn', count: 2 }, { itemId: 'gather-heartwood-bark', count: 1 }, { itemId: 'hunt-beast-meat', count: 5 }] };
+        const need = (id: string) => supplyNeed('item-defense-pill', id);
+        const base = { level: 100, ryo: 1_000_000, itemStacks: [{ itemId: 'gather-field-herb', count: need('gather-field-herb') }, { itemId: 'hunt-cracked-horn', count: need('hunt-cracked-horn') },
+            { itemId: 'gather-heartwood-bark', count: need('gather-heartwood-bark') }, { itemId: 'hunt-beast-meat', count: 5 }] };
         const out = applyForge(base, 'supply', 'item-defense-pill', 1)!;
         assert.equal(countOwned(out, 'item-defense-pill'), 1); assert.equal(countOwned(out, 'hunt-beast-meat'), 5);
         assert.equal(countOwned(out, 'gather-field-herb'), 0); assert.equal(countOwned(out, 'hunt-cracked-horn'), 0);
@@ -86,7 +105,9 @@ describe('server Crafter ingredient recipes', () => {
         const unrelated = { level: 100, ryo: 1_000_000, itemStacks: [{ itemId: 'hunt-beast-meat', count: 10000 }] };
         assert.equal(applyForge(unrelated, 'supply', 'currency:aura-dust', 1), null);
         assert.equal(applyForge(unrelated, 'supply', 'currency:bone-charm', 1), null);
-        const aura = applyForge({ level: 100, ryo: 1_000_000, auraDust: 7, itemStacks: [{ itemId: 'gather-stormglass-shard', count: 4 }, { itemId: 'gather-stormglass-shard-fine', count: 8 }, { itemId: 'gather-field-herb', count: 8 }, { itemId: 'gather-binding-fiber', count: 4 }] }, 'supply', 'currency:aura-dust', 2)!;
+        const need = (id: string) => supplyNeed('currency:aura-dust', id);
+        const aura = applyForge({ level: 100, ryo: 1_000_000, auraDust: 7, itemStacks: [{ itemId: 'gather-stormglass-shard', count: 4 }, { itemId: 'gather-stormglass-shard-fine', count: 8 },
+            { itemId: 'gather-field-herb', count: 2 * need('gather-field-herb') }, { itemId: 'gather-binding-fiber', count: 2 * need('gather-binding-fiber') }] }, 'supply', 'currency:aura-dust', 2)!;
         assert.equal(aura.auraDust, 107); assert.equal(countOwned(aura, 'gather-stormglass-shard'), 0);
         assert.equal(countOwned(aura, 'gather-stormglass-shard-fine'), 6);
     });
@@ -117,8 +138,10 @@ describe('supply recipes open at the level their output can be used', () => {
     });
 
     it('refuses an Attack Pill at Lv29 and crafts it at Lv30', () => {
+        const need = (id: string) => supplyNeed('item-attack-pill', id);
         const save = (level: number) => ({ level, ryo: 1_000_000, itemStacks: [
-            { itemId: 'gather-field-herb', count: 4 }, { itemId: 'hunt-beast-meat', count: 2 }, { itemId: 'gather-heartwood-bark', count: 1 },
+            { itemId: 'gather-field-herb', count: need('gather-field-herb') }, { itemId: 'hunt-beast-meat', count: need('hunt-beast-meat') },
+            { itemId: 'gather-heartwood-bark', count: need('gather-heartwood-bark') },
         ] });
         assert.equal(applyForge(save(29), 'supply', 'item-attack-pill', 1), null);
         assert.equal(countOwned(applyForge(save(30), 'supply', 'item-attack-pill', 1)!, 'item-attack-pill'), 1);

@@ -44,15 +44,18 @@ test('gathering tools equip into their own row of the active loadout', async ({ 
     await expect(fishing).toHaveAccessibleName('Fishing equipment slot, equipped with Basic Fishing Kunai, 3 of 125 uses left');
     await expect(fishing.locator('.equip-slot-durability.low')).toHaveCount(1);
     await expect(mining).toHaveAccessibleName('Mining equipment slot, empty');
+    const harvesting = loadout.getByRole('button', { name: /^Harvesting equipment slot/ });
+    await expect(harvesting).toHaveAccessibleName('Harvesting equipment slot, empty');
 
-    // The new row sits under the feet, inside the figure's box, and overlaps no other slot.
+    // The tool row sits under the feet, inside the figure's box, and overlaps no other slot.
+    // The harvest kama takes the centre of that row, between the kunai and the pickaxe.
     const boxes = await loadout.locator('.character-equip-slot').evaluateAll(slots => slots.map(slot => {
         const rect = slot.getBoundingClientRect();
         return { name: slot.getAttribute('aria-label') ?? '', left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
     }));
     const layout = (await loadout.locator('.inventory-character-layout').boundingBox())!;
     const feet = boxes.find(box => box.name.startsWith('Feet '))!;
-    for (const tool of boxes.filter(box => /^(Fishing|Mining) /.test(box.name))) {
+    for (const tool of boxes.filter(box => /^(Fishing|Mining|Harvesting) /.test(box.name))) {
         expect(tool.top).toBeGreaterThanOrEqual(feet.bottom);
         expect(tool.left).toBeGreaterThanOrEqual(layout.x - 1);
         expect(tool.right).toBeLessThanOrEqual(layout.x + layout.width + 1);
@@ -63,7 +66,7 @@ test('gathering tools equip into their own row of the active loadout', async ({ 
         }
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    await expect(loadout.locator('.inventory-panel-count')).toHaveAttribute('aria-label', '1 of 16 equipment slots filled');
+    await expect(loadout.locator('.inventory-panel-count')).toHaveAttribute('aria-label', '1 of 17 equipment slots filled');
     await loadout.screenshot({ path: info.outputPath('gathering-tool-loadout.png') });
 
     // An empty tool slot filters the backpack to that tool, which then equips into it.

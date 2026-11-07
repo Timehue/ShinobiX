@@ -138,7 +138,7 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], gatheringToolUses: {},
         itemStacks: [{ itemId: 'gather-iron-sand-fine', count: 13 }, { itemId: 'gather-iron-sand-superior', count: 2 },
             { itemId: 'gather-iron-sand-pristine', count: 2 }, { itemId: 'hunt-torn-hide', count: 100 },
-            { itemId: 'gather-heartwood-bark', count: 3 }, { itemId: 'gather-binding-fiber', count: 4 }],
+            { itemId: 'gather-heartwood-bark', count: 3 }, { itemId: 'gather-binding-fiber', count: 6 }],
         resourceGathering: { ...readResourceGathering(null), fishingXp: 3200, miningXp: 3200 },
         wandererCooldowns: quietRoadCooldowns(Array.from({ length: 65 }, (_, i) => i + 1)) };
     const seeded = await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: save });

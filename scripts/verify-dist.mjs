@@ -96,7 +96,15 @@ const forbiddenClientExtensions = new Set([
 // Credit the measured delivery bytes within Chronicle's partition.
 const maxChronicleArtBytes = 144 * 1024 * 1024 + 8_445_908 + 7_021_754;
 const maxPetShapeReviewGrowthBytes = 5695550;
-const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes;
+// 2026-11-06: the harvesting minigame (docs/harvesting-minigame-plan.md) adds
+// public/assets/harvesting (the Kama Reaping backdrop, four plant sprites and
+// four world-map meadow patches) and the two Harvest Kama icons: 407,568 B,
+// already trimmed to their display sizes (from 640,146 B as generated; the fiber
+// and bark sprites were then re-made without baked-in checkerboard). The prior
+// client sat about 120 KB under this ceiling. Credit exactly those bytes, so the
+// headroom left for everything else is unchanged.
+const maxHarvestingArtBytes = 407_568;
+const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes + maxHarvestingArtBytes;
 // The 161 scenic companion portraits ship separately from their unchanged
 // battle/model assets. Keep unrelated runtime growth under the existing cap.
 const maxPetPortraitBytes = 16 * 1024 * 1024;

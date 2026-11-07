@@ -1,0 +1,99 @@
+{
+  "createdAt": "2026-11-06",
+  "generator": "Figma generate_image (gpt-image-2.5-flare)",
+  "figmaFile": "FHz1za66qbhAnzx3ygfTHa",
+  "purpose": "Harvest Kama tool art and harvesting minigame art matching the painted fishing kunai and gathering material icons",
+  "normalization": {
+    "icons": { "width": 320, "height": 320, "format": "webp", "quality": 90, "alphaQuality": 100 },
+    "sprites": { "height": 448, "format": "webp", "quality": 82, "alphaQuality": 90 },
+    "patches": { "width": 256, "height": 256, "format": "webp", "quality": 80, "alphaQuality": 85 },
+    "backdrop": { "width": 1200, "height": 800, "format": "webp", "quality": 80 },
+    "note": "Trimmed to display sizes on 2026-11-06 for the client size ceiling (scripts/verify-dist.mjs maxHarvestingArtBytes)."
+  },
+  "assets": [
+    {
+      "itemId": "tool-basic-harvest-kama",
+      "figmaNode": "1:2",
+      "runtime": "public/items/tool-basic-harvest-kama-v1.webp",
+      "background": "baked checkerboard, keyed; a 67-pixel white wedge inside the satchel cord loop was cleared by hand on 2026-11-06",
+      "prompt": "Final square inventory/shop item icon for a ninja fantasy RPG: the \"Basic Harvest Kama\", a practical shinobi harvesting sickle. Hand-painted high-quality fantasy RPG inventory illustration with dimensional painterly shading, crisp bevel highlights and realistic material texture, readable at 64 pixels.\nSubject: ONE Japanese kama sickle. A short crescent-curved forged steel blade with a sharp inner cutting edge, a faint hamon line and subtle wear, set at a right angle into the top of a straight wooden handle. The handle is wrapped in black cloth cord in a diamond pattern and ends in a small iron ring pommel. Tied to the ring with a short loop of tan braided cord hangs a small woven reed gathering satchel, closed with a toggle, with one green herb sprig peeking out. Restrained common-tier design, no magic glow.\nComposition: the handle runs diagonally from lower left up toward the upper right, the curved blade at the top right curling back over the handle; the small satchel hangs at the lower right, smaller than the blade. Whole object visible, clean outer silhouette, about 6% empty margin, no cropping.\nLighting: soft warm upper-left key light, cool steel reflections, readable contact shading within the object.\nBackground: fully transparent background, isolated object, no ground plane, no cast shadow, no card, no vignette, no border. No text, no lettering, no logos, no watermark, no hands, no people."
+    },
+    {
+      "itemId": "tool-golden-harvest-kama",
+      "figmaNode": "1:3",
+      "runtime": "public/items/tool-golden-harvest-kama-v1.webp",
+      "background": "baked checkerboard, keyed",
+      "prompt": "Final square inventory/shop item icon for a ninja fantasy RPG: the \"Golden Harvest Kama\", the premium permanent gold version of a shinobi harvesting sickle. Hand-painted high-quality fantasy RPG inventory illustration with dimensional painterly shading, crisp bevel highlights and realistic material texture, readable at 64 pixels.\nSubject: ONE Japanese kama sickle. A short crescent-curved blade of rich warm forged gold with bright pale-gold bevel highlights and deeper ochre shadow facets, finely engraved with restrained flowing rice-stalk and leaf motifs along the blade flat, set at a right angle into the top of a straight dark lacquered wooden handle with a gold collar. The handle is wrapped in charcoal-black cloth cord in a diamond pattern and ends in a small gold ring pommel. Tied to the ring with a short loop of tan-gold braided cord hangs a small woven reed gathering satchel with neat gold stitching and a gold toggle, one green herb sprig peeking out. Valuable and carefully made, not neon, no magic glow.\nComposition: the handle runs diagonally from lower left up toward the upper right, the curved blade at the top right curling back over the handle; the small satchel hangs at the lower right, smaller than the blade. Whole object visible, clean outer silhouette, about 6% empty margin, no cropping.\nLighting: soft warm upper-left key light, readable contact shading within the object.\nBackground: fully transparent background, isolated object, no ground plane, no cast shadow, no card, no vignette, no border, no particles. No text, no lettering, no logos, no watermark, no hands, no people."
+    },
+    {
+      "asset": "harvesting-backdrop",
+      "figmaNode": "1:4",
+      "runtime": "public/assets/harvesting/kama-meadow.webp",
+      "prompt": "Hand-painted side-view landscape backdrop for a ninja harvesting minigame in a fantasy RPG. Eye-level view across a quiet terraced herb meadow at the edge of an old Japanese forest in late afternoon. Background: soft misty layered mountains, tall cedar trees and a few maple trees with warm autumn leaves on the left and right edges, a small weathered stone lantern half hidden in the grass at the far right edge. Middle ground: gentle rolling grass terraces with low stone retaining walls. Foreground: a long flat strip of dark rich tilled soil and short trimmed grass running across the whole width of the bottom 30% of the frame, completely clear and open so game plants can be drawn standing on it. The center 70% of the frame above the soil strip is open sky and soft distant scenery with nothing tall in it. Warm golden sidelight, gentle haze, subtle drifting pollen. Painterly, detailed, atmospheric, matches a hand-painted RPG art style. Landscape 3:2 composition. No people, no animals, no tools, no weapons, no tall plants or stalks in the center foreground, no text, no lettering, no logos, no interface, no border."
+    },
+    {
+      "itemId": "gather-field-herb",
+      "figmaNode": "2:3",
+      "runtime": "public/assets/harvesting/plant-field-herb-v1.webp",
+      "background": "flat magenta chroma key, despilled",
+      "supersedes": "1:5 (checkerboard slivers between stems)",
+      "prompt": "Single game sprite for a ninja fantasy RPG harvesting minigame, hand-painted with dimensional painterly shading matching detailed RPG inventory art. Subject: ONE upright wild medicinal herb plant growing straight up, seen from the side: a cluster of slender green stems rising from a small clump of roots at the very bottom, broad serrated bright-green leaves along the stems, and small creamy white five-petal flower clusters at the top. Fully opaque, solidly painted. Tall and narrow, standing vertically and centered, filling about 92% of the frame height, the root clump touching the bottom edge. Soft warm upper-left light. Background: plain solid flat pure magenta (#FF00FF) chroma-key background, completely uniform, no pattern, no gradient, no shadow, no ground, no soil. No text, no logos, no tools, no hands, no people."
+    },
+    {
+      "itemId": "gather-binding-fiber",
+      "figmaNode": "4:2",
+      "runtime": "public/assets/harvesting/plant-binding-fiber-v1.webp",
+      "background": "flat magenta chroma key, despilled",
+      "supersedes": "1:6 (white checkerboard slivers painted between the stalks)",
+      "prompt": "Single game sprite for a ninja fantasy RPG harvesting minigame, hand-painted with dimensional painterly shading matching detailed RPG inventory art. Subject: ONE upright clump of tall wild hemp-like fiber reeds seen from the side: five to seven long straight pale-green and straw-gold stalks rising from a small root clump at the very bottom, spaced so clear background shows between them, with thin green blade leaves and feathery tan seed tassels at the tips. Fibrous stalk texture is visible. Fully opaque and solidly painted; nothing translucent, no white highlights or white gaps between the stalks. Tall and narrow, standing vertically and centered, filling about 92% of the frame height, roots touching the bottom edge. Soft warm upper-left light. Background: plain solid flat pure magenta (#FF00FF) chroma-key background, completely uniform, visible between every stalk, no pattern, no gradient, no shadow, no ground, no soil. No text, no logos, no tools, no hands, no people."
+    },
+    {
+      "itemId": "gather-heartwood-bark",
+      "figmaNode": "4:3",
+      "runtime": "public/assets/harvesting/plant-heartwood-bark-v1.webp",
+      "background": "flat magenta chroma key, despilled",
+      "supersedes": "1:7 (white checkerboard patches painted into the canopy)",
+      "prompt": "Single game sprite for a ninja fantasy RPG harvesting minigame, hand-painted with dimensional painterly shading matching detailed RPG inventory art. Subject: ONE young heartwood sapling seen from the side: a straight slender trunk with thick deeply ridged reddish-brown bark, a few places where the bark is peeling in long strips showing warm amber heartwood beneath, a short open spread of green and autumn-orange leaves at the top with background clearly visible between the leaves, and a small root flare at the very bottom. Fully opaque and solidly painted; nothing translucent, no white highlights or white gaps among the leaves. Tall and narrow, standing vertically and centered, filling about 92% of the frame height, roots touching the bottom edge. Soft warm upper-left light. Background: plain solid flat pure magenta (#FF00FF) chroma-key background, completely uniform, visible between the leaves, no pattern, no gradient, no shadow, no ground, no soil. No text, no logos, no tools, no hands, no people."
+    },
+    {
+      "asset": "meadow-patch-herb",
+      "figmaNode": "3:2",
+      "runtime": "public/assets/harvesting/meadow-patch-herb-v1.webp",
+      "background": "flat magenta chroma key, despilled",
+      "finish": "patch-finish: saturation 0.62, brightness 0.86, ragged feather seed 11, soft dark rim",
+      "prompt": "Top-down orthographic bird's-eye-view decal for a hand-painted top-down fantasy RPG world map, seen from directly above. Subject: ONE small wild medicinal herb patch growing in a meadow: a loose, roughly round cluster of low leafy herb plants with broad serrated bright-green leaves radiating from their centres, many tiny creamy-white five-petal flower clusters dotted across the top, a little dark soil peeking between the plants, and short green grass tufts feathering out irregularly at the edges so it blends into surrounding grass. Soft diffuse daylight from the upper left, gentle soft contact shading under the leaves only. Painterly, finely detailed, natural, matching a detailed hand-painted top-down map. The patch fills about 80% of the square frame with an irregular organic outline and no hard border. Background: plain solid flat pure magenta (#FF00FF) chroma-key background, completely uniform. No perspective, no horizon, no side view, no pots, no fences, no stones, no tools, no people, no text."
+    },
+    {
+      "asset": "meadow-patch-fiber",
+      "figmaNode": "3:3",
+      "runtime": "public/assets/harvesting/meadow-patch-fiber-v1.webp",
+      "background": "flat magenta chroma key, despilled",
+      "finish": "patch-finish: saturation 0.78, brightness 0.9, ragged feather seed 23, soft dark rim",
+      "prompt": "Top-down orthographic bird's-eye-view decal for a hand-painted top-down fantasy RPG world map, seen from directly above. Subject: ONE dense clump of tall wild hemp-like fiber reeds growing in a meadow, viewed straight down so the long straw-gold and pale-green blade leaves and stalks fan outward from the centre like a star, feathery tan seed tassels near the tips, a little dark soil at the base in the middle, and short green grass tufts feathering out irregularly at the edges so it blends into surrounding grass. Soft diffuse daylight from the upper left, gentle soft contact shading under the blades only. Painterly, finely detailed, natural, matching a detailed hand-painted top-down map. The clump fills about 80% of the square frame with an irregular organic outline and no hard border. Background: plain solid flat pure magenta (#FF00FF) chroma-key background, completely uniform. No perspective, no horizon, no side view, no fences, no stones, no tools, no people, no text."
+    },
+    {
+      "asset": "meadow-patch-dusk-herb",
+      "figmaNode": "3:4",
+      "runtime": "public/assets/harvesting/meadow-patch-dusk-herb-v1.webp",
+      "background": "flat white, keyed with no-white",
+      "finish": "patch-finish: saturation 0.9, brightness 0.92, ragged feather seed 37, soft dark rim",
+      "prompt": "Top-down orthographic bird's-eye-view decal for a hand-painted top-down fantasy RPG world map of a twilight forest with muted grey-olive grass, seen from directly above. Subject: ONE small dusk herb patch: a loose, roughly round cluster of low leafy herb plants with muted sage and grey-green serrated leaves radiating from their centres, many small violet and soft lavender flower clusters dotted across the top, a little dark soil peeking between the plants, and short muted grey-olive grass tufts feathering out irregularly at the edges so it blends into surrounding grass. Soft cool diffuse light from the upper left, gentle soft contact shading under the leaves only. Painterly, finely detailed, natural, matching a detailed hand-painted top-down map. The patch fills about 80% of the square frame with an irregular organic outline and no hard border. Nothing white or pale grey in the plants. Background: plain solid flat pure white background, completely uniform. No perspective, no horizon, no side view, no pots, no fences, no stones, no tools, no people, no text."
+    },
+    {
+      "asset": "meadow-patch-dusk-fiber",
+      "figmaNode": "3:5",
+      "runtime": "public/assets/harvesting/meadow-patch-dusk-fiber-v1.webp",
+      "background": "flat magenta chroma key, NOT despilled (despill would turn the violet tassels blue)",
+      "finish": "patch-finish: saturation 0.85, brightness 0.9, ragged feather seed 41, soft dark rim",
+      "prompt": "Top-down orthographic bird's-eye-view decal for a hand-painted top-down fantasy RPG world map of a twilight forest with muted grey-olive grass, seen from directly above. Subject: ONE dense clump of tall dusk reeds, viewed straight down so the long muted grey-green and olive blade leaves and stalks fan outward from the centre like a star, with dark plum and deep violet feathery seed tassels near the tips, a little dark soil at the base in the middle, and short muted grey-olive grass tufts feathering out irregularly at the edges so it blends into surrounding grass. Soft cool diffuse light from the upper left, gentle soft contact shading under the blades only. Painterly, finely detailed, natural, matching a detailed hand-painted top-down map. The clump fills about 80% of the square frame with an irregular organic outline and no hard border. Background: plain solid flat pure magenta (#FF00FF) chroma-key background, completely uniform. No perspective, no horizon, no side view, no fences, no stones, no tools, no people, no text."
+    },
+    {
+      "itemId": "gather-shadow-thread",
+      "figmaNode": "2:2",
+      "runtime": "public/assets/harvesting/plant-shadow-thread-v1.webp",
+      "background": "flat white, keyed with no-white",
+      "supersedes": "1:8 (translucent silk painted over the checkerboard)",
+      "prompt": "Single game sprite for a ninja fantasy RPG harvesting minigame, hand-painted with dimensional painterly shading matching detailed RPG inventory art. Subject: ONE upright shadow-thread vine plant seen from the side: several thick twining dark violet-black stems spiralling up around each other with no stake, small glossy deep purple heart-shaped leaves, and long opaque cords of dark plum-violet fiber peeling from the stems in loose curling strands, with a soft cool silver-violet sheen on the fiber. Everything is fully opaque and solidly painted; nothing translucent, nothing white or pale. A small dark root clump at the very bottom. Tall and narrow, standing vertically and centered, filling about 92% of the frame height, roots touching the bottom edge. Soft cool upper-left light. Background: plain solid flat pure white background, completely uniform, no pattern, no gradient, no shadow, no ground. No text, no logos, no tools, no hands, no people."
+    }
+  ]
+}

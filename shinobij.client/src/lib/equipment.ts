@@ -40,6 +40,7 @@ export const itemSectionOptions: ReadonlyArray<{ value: EquipmentSlot; label: st
     { value: "potion", label: "Potion" },
     { value: "fishingPole", label: "Fishing Kunai" },
     { value: "pickaxe", label: "Pickaxe" },
+    { value: "kama", label: "Harvest Kama" },
 ];
 
 // A hand-slot item whose name marks it as gloves/gauntlets (rather than a

@@ -465,7 +465,7 @@ describe('cafeteria cook (Village Stores)', { concurrency: false }, () => {
         assert.deepEqual({ cooked: a.body?.cooked, dailyCooked: a.body?.dailyCooked, dailyCap: a.body?.dailyCap }, { cooked: 5, dailyCooked: 5, dailyCap: 40 });
         let ch = a.body?.character as Record<string, unknown>;
         assert.equal(ch.ryo, 470);
-        assert.deepEqual(ch.itemStacks, [{ itemId: 'hunt-beast-meat', count: 5 }, { itemId: 'gather-field-herb', count: 7 }, { itemId: 'gather-heartwood-bark', count: 5 }, { itemId: 'ration-pack', count: 5 }]);
+        assert.deepEqual(ch.itemStacks, [{ itemId: 'hunt-beast-meat', count: 5 }, { itemId: 'gather-field-herb', count: 6 }, { itemId: 'gather-heartwood-bark', count: 5 }, { itemId: 'ration-pack', count: 5 }]);
         assert.equal(typeof a.body?._saveVersion, 'number');
 
         const b = await call(cafeteria, { playerName: 'cook', recipeId: 'campaign-rations' });
@@ -475,7 +475,7 @@ describe('cafeteria cook (Village Stores)', { concurrency: false }, () => {
         assert.equal(b.body?.dailyCooked, 25);
         assert.deepEqual(ch.inventory, ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'], 'inedible hunt materials are preserved');
         assert.equal((ch.itemStacks as Array<{ itemId: string; count: number }>).find((s) => s.itemId === 'hunt-beast-meat')?.count, 1);
-        assert.equal((ch.itemStacks as Array<{ itemId: string; count: number }>).find((s) => s.itemId === 'gather-field-herb')?.count, 5);
+        assert.equal((ch.itemStacks as Array<{ itemId: string; count: number }>).find((s) => s.itemId === 'gather-field-herb')?.count, 3, 'herbs take the harvest premium: 2 + 3 of 8');
         assert.deepEqual((ch.itemStacks as Array<{ itemId: string; count: number }>).find((s) => s.itemId === 'ration-pack'), { itemId: 'ration-pack', count: 25 });
 
         // 25 + 20 exceeds the daily cap; one last field batch fits the cap and remaining meat.

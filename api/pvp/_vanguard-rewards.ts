@@ -398,7 +398,7 @@ function validVanguardOutcome(value: unknown): value is VanguardRewardOutcome {
     if (value.granted) {
         return vanguardExactKeys(value, ['granted', 'seals', 'xp'])
             && Number.isSafeInteger(value.seals) && Number(value.seals) >= 0
-            && Number.isSafeInteger(value.xp) && Number(value.xp) > 0;
+            && Number.isSafeInteger(value.xp) && Number(value.xp) >= 0;
     }
     return vanguardExactKeys(value, ['granted', 'reason'])
         && ['not-vanguard', 'not-human-pvp', 'too-quick', 'too-young', 'same-ip', 'same-device', 'level-gap', 'capped']

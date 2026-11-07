@@ -377,6 +377,7 @@ export function Inventory({
         // (shared/gathering-tools.ts combatEquipment).
         { label: "Fishing", equipmentSlot: "fishingPole", accepts: "fishingPole", className: "slot-fishing-pole" },
         { label: "Mining", equipmentSlot: "pickaxe", accepts: "pickaxe", className: "slot-pickaxe" },
+        { label: "Harvesting", equipmentSlot: "kama", accepts: "kama", className: "slot-kama" },
     ];
 
     // Combat consumables (thrown / the three item slots / potion) are spent ON

@@ -284,12 +284,12 @@ test('public attempts hide reward rolls and missing or mismatched journals canno
 test('weapons require their ore grade; high-grade fish uses eight units and respects output cap', () => {
     const weapon = Object.values(ITEM_CATALOG).find(item => item.rarity === 'epic' && item.slot === 'hand' && item.weaponEp != null && !item.id.startsWith('named-') && !item.id.includes('step'))!;
     const c = { ...base(), itemStacks: [{ itemId: 'hunt-torn-hide', count: 2000 }, { itemId: 'gather-iron-sand-fine', count: 100 },
-        { itemId: 'gather-heartwood-bark', count: 3 }, { itemId: 'gather-binding-fiber', count: 6 }, { itemId: 'gather-stormglass-shard-fine', count: 2 }] };
+        { itemId: 'gather-heartwood-bark', count: 3 }, { itemId: 'gather-binding-fiber', count: 9 }, { itemId: 'gather-stormglass-shard-fine', count: 2 }] };
     assert.equal(applyForge(c, 'weapon', weapon.id, 1), null);
     const forged = applyForge({ ...c, itemStacks: [...c.itemStacks, { itemId: 'gather-iron-sand-superior', count: 27 }] }, 'weapon', weapon.id, 1);
     assert.ok(forged); assert.equal(countOwned(forged!, 'gather-iron-sand-superior'), 0);
     const recipe = cookRecipe('fish-rations-pristine')!;
-    const kitchen = { ...base(), itemStacks: [{ itemId: 'gather-river-fish-pristine', count: 16 }, { itemId: 'gather-field-herb', count: 2 }, { itemId: 'gather-heartwood-bark', count: 4 }] };
+    const kitchen = { ...base(), itemStacks: [{ itemId: 'gather-river-fish-pristine', count: 16 }, { itemId: 'gather-field-herb', count: recipe.herbs * 2 }, { itemId: 'gather-heartwood-bark', count: 4 }] };
     const cook = applyCookRecipe(kitchen, recipe, now); assert.ok(cook.ok); if (!cook.ok) return;
     assert.equal(cook.cooked, 20); assert.equal(countOwned(cook.character, 'gather-river-fish-pristine'), 8);
     const twice = applyCookRecipe(cook.character, recipe, now); assert.ok(twice.ok); if (!twice.ok) return;

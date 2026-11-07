@@ -1,6 +1,9 @@
 /** Canonical rules shared by the Outpost, world nodes and authoritative settlement. */
 import type { ResourceActivity, ResourceFamily, ResourceGrade } from './resource-items';
 import type { KunaiCatch } from './kunai-fishing';
+import type { KamaCutTally } from './kama-reaping';
+import type { GatheringToolSlot } from './gathering-tool-items';
+import type { HarvestCommonId, HarvestTraceId } from './harvesting';
 export { RESOURCE_GRADES, RESOURCE_FAMILIES, RESOURCE_ITEMS, resourceItemId } from './resource-items';
 export type { ResourceActivity, ResourceGrade, ResourceFamily } from './resource-items';
 /** Gathers a shared world node allows before it empties and starts its refill
@@ -12,6 +15,16 @@ export const DAILY_RESOURCE_ATTEMPT_LIMIT = 50;
 export const RESOURCE_SUCCESS_XP = 5;
 export const RESOURCE_FAILURE_XP = 1;
 export const RESOURCE_SKILL_XP = [0, 100, 250, 450, 700, 1000, 1400, 1900, 2500, 3200] as const;
+/**
+ * The one place an activity names its tool slot and words. Use this instead of
+ * `activity === 'mining' ? ... : fishing`, which silently treats every other
+ * activity as fishing.
+ */
+export const RESOURCE_ACTIVITY_INFO: Readonly<Record<ResourceActivity, { slot: GatheringToolSlot; skill: string; tool: string }>> = {
+    fishing: { slot: 'fishingPole', skill: 'Fishing', tool: 'fishing kunai' },
+    mining: { slot: 'pickaxe', skill: 'Mining', tool: 'pickaxe' },
+    harvesting: { slot: 'kama', skill: 'Harvesting', tool: 'harvest kama' },
+};
 const whole = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
 export function resourceSkillLevel(xp: unknown): number {
     const value = whole(xp);
@@ -54,25 +67,32 @@ export type ResourcePublicAttempt = {
     fishingShoal?: 'ranked';
     /** The sealed level's mineral. Attempts started before rotation omit it. */
     deposit?: ResourceFamily;
+    /** Harvesting: the plant this attempt bloomed with, and the rare find its level allows.
+     * Both are already public on the map; the reward draws stay sealed. */
+    harvest?: { family: HarvestCommonId; trace?: HarvestTraceId };
 };
 export type ResourceReceipt = {
     id: string; activity: ResourceActivity; outcome: 'success' | 'failed' | 'cancelled' | 'expired';
-    itemId?: string; grade?: ResourceGrade; xp: number; performance: number; toolBroke: boolean;
+    /** Harvesting pays ungraded ids, so its receipts carry no grade and may carry count 2. */
+    itemId?: string; grade?: ResourceGrade; count?: number; xp: number; performance: number; toolBroke: boolean;
     miningFailure?: 'fracture' | 'extraction';
     traceId?: string;
     fishingCatch?: KunaiCatch;
+    harvestCuts?: KamaCutTally;
     worldBossEventId?: string;
     settledAt?: number;
 };
 export type ResourceGatheringState = {
-    fishingXp: number; miningXp: number; date: string; attemptsToday: number;
-    miningAttemptsToday: number; fishingAttemptsToday: number;
+    fishingXp: number; miningXp: number; harvestingXp: number; date: string; attemptsToday: number;
+    miningAttemptsToday: number; fishingAttemptsToday: number; harvestingAttemptsToday: number;
     nodes: Record<string, ResourceNodeState>; active?: ResourcePublicAttempt; receipts: ResourceReceipt[];
 };
 export function readResourceGathering(value: unknown): ResourceGatheringState {
     const raw = (value && typeof value === 'object' ? value : {}) as Partial<ResourceGatheringState>;
-    return { fishingXp: whole(raw.fishingXp), miningXp: whole(raw.miningXp), date: String(raw.date ?? ''),
+    // Saves from before harvesting have neither harvesting field; both read as 0.
+    return { fishingXp: whole(raw.fishingXp), miningXp: whole(raw.miningXp), harvestingXp: whole(raw.harvestingXp), date: String(raw.date ?? ''),
         miningAttemptsToday: whole(raw.miningAttemptsToday), fishingAttemptsToday: whole(raw.fishingAttemptsToday),
+        harvestingAttemptsToday: whole(raw.harvestingAttemptsToday),
         attemptsToday: whole(raw.attemptsToday), nodes: raw.nodes ?? {}, active: raw.active,
         receipts: Array.isArray(raw.receipts) ? raw.receipts.slice(-100) : [] };
 }
