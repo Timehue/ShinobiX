@@ -52,7 +52,9 @@ for (const width of [1024, 1280, 1440, 1920]) {
         const runtime = await installUiAuditRuntime(page, uiAuditSave());
         await expectUiAuditBoot(page, runtime, "settings");
         const cells = page.locator(".left-profile-card .left-caps-label, .left-profile-card .left-caps-value");
-        await expect(cells).toHaveCount(14);
+        // Eight cells (label + value each): Explores, Missions, Mining, Fishing,
+        // Harvesting, Hunts, Reset In, Sealed Crates.
+        await expect(cells).toHaveCount(16);
         const clipped = await cells.evaluateAll(nodes => nodes
             .filter(node => node.scrollWidth > node.clientWidth)
             .map(node => node.textContent));
