@@ -1,0 +1,7 @@
+{
+  "candidate": "6ef677cce71f5b4b689c801197452c053b504279",
+  "recovery": "fce6a69af83699f13605afa137d9886b69b2489c",
+  "node": "24.21.0",
+  "platform": "linux/amd64",
+  "recoveryMeaning": "Current main 6ce0a88e and all reviewed world-boss repairs; identical complete trees with distinct compatible continuation/recovery identities"
+}
