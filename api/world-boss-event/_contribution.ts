@@ -1,8 +1,102 @@
 import type { TowerActor, TowerSession } from '../towers/_tower-session.js';
 import type { WorldBossContribution } from '../../shared/world-boss-event.js';
 import type { WorldBossContributionResult } from './_event.js';
+import type { PvpGroundEffect, PvpStatus } from '../pvp/session.js';
+import { POISON_DEFAULT_PCT } from '../combat-core/formulas.js';
 
 const EMPTY: WorldBossContribution = { actions: 0, damage: 0, healing: 0, shielding: 0, cleanses: 0, objective: 0 };
+type OwnedEffect = { worldBossOwnerSlug?: string | null };
+
+/** These annotations belong to the sealed raid, never to a client command. */
+export function worldBossEffectOwner(effect: PvpStatus | PvpGroundEffect): string | null {
+    return (effect as OwnedEffect).worldBossOwnerSlug ?? null;
+}
+
+export function worldBossActorOwner(session: TowerSession, actor: TowerActor): string | null {
+    const humans = session.actors.filter(entry => entry.side === 'squad' && !entry.ai && entry.ownerSlug);
+    if (actor.side !== 'squad') return null;
+    if (actor.ownerSlug && humans.some(entry => entry.ownerSlug === actor.ownerSlug)) return actor.ownerSlug;
+    // Retained solo pets have one provable owner. A retained co-op pet does not.
+    return actor.character.companion === true && humans.length === 1 ? humans[0]!.ownerSlug : null;
+}
+
+/** Mark retained effects unknown before a resolver copies them, so another
+ * player's next action cannot accidentally become their source. */
+export function prepareWorldBossEffectOrigins(session: TowerSession): Array<PvpStatus | PvpGroundEffect> {
+    const initialized: Array<PvpStatus | PvpGroundEffect> = [];
+    if (!session.worldBossEvent) return initialized;
+    for (const actor of session.actors) for (const effect of actor.statuses) {
+        if (!Object.hasOwn(effect, 'worldBossOwnerSlug')) {
+            (effect as OwnedEffect).worldBossOwnerSlug = null;
+            initialized.push(effect);
+        }
+    }
+    for (const effect of session.groundEffects ?? []) {
+        if (!Object.hasOwn(effect, 'worldBossOwnerSlug')) {
+            (effect as OwnedEffect).worldBossOwnerSlug = null;
+            initialized.push(effect);
+        }
+    }
+    return initialized;
+}
+
+export function stampWorldBossEffectOrigins(session: TowerSession, owner: string | null): void {
+    if (!session.worldBossEvent) return;
+    for (const actor of session.actors) for (const effect of actor.statuses) {
+        if (!Object.hasOwn(effect, 'worldBossOwnerSlug')) (effect as OwnedEffect).worldBossOwnerSlug = owner;
+    }
+    for (const effect of session.groundEffects ?? []) {
+        if (!Object.hasOwn(effect, 'worldBossOwnerSlug')) (effect as OwnedEffect).worldBossOwnerSlug = owner;
+    }
+}
+
+export function stampWorldBossZoneStatuses(session: TowerSession, statuses: PvpStatus[], effect: PvpGroundEffect): void {
+    if (!session.worldBossEvent) return;
+    for (const status of statuses) if (status.source === `ground:${effect.id}`) {
+        (status as OwnedEffect).worldBossOwnerSlug = worldBossEffectOwner(effect);
+    }
+}
+
+function addContribution(session: TowerSession, owner: string, delta: WorldBossContribution): void {
+    const contributions = new Map(Object.entries(session.worldBossContributions ?? {}));
+    const prior = contributions.get(owner) ?? EMPTY;
+    contributions.set(owner, Object.fromEntries(Object.keys(EMPTY).map(key => [key,
+        Math.max(0, Number(prior[key as keyof WorldBossContribution]) || 0) + delta[key as keyof WorldBossContribution],
+    ])) as WorldBossContribution);
+    session.worldBossContributions = Object.fromEntries(contributions);
+}
+
+/** Credit exact, clamped engine damage. Unknown legacy origins still reduce
+ * shared HP, but never fabricate an individual leaderboard owner. */
+export function recordWorldBossSupplementalDamage(session: TowerSession, owner: string | null, damage: number): void {
+    if (!session.worldBossEvent || !(damage > 0)) return;
+    const applied = Math.max(0, Math.floor(damage));
+    if (owner && session.actors.some(actor => actor.side === 'squad' && !actor.ai && actor.ownerSlug === owner)) {
+        addContribution(session, owner, { ...EMPTY, damage: applied });
+    } else {
+        session.worldBossUnattributedDamage = Math.max(0, Number(session.worldBossUnattributedDamage) || 0) + applied;
+    }
+}
+
+/** On-spend Poison combines the winning direct stacks or strongest zone into
+ * one hit. Divide that exact hit proportionally; the last stack takes rounding. */
+export function recordWorldBossPoisonDamage(session: TowerSession, statuses: readonly PvpStatus[], damage: number): void {
+    recordWorldBossStatusDamage(session, statuses, damage, POISON_DEFAULT_PCT);
+}
+
+/** Split one resolver hit between its actual status sources, including a capped
+ * sum of Reflect stacks. Never use the defender as a substitute for the caster. */
+export function recordWorldBossStatusDamage(session: TowerSession, statuses: readonly PvpStatus[], damage: number, defaultPct = 0): void {
+    const weighted = statuses.map(status => ({ status, weight: Math.max(0, status.percent ?? defaultPct) })).filter(entry => entry.weight > 0);
+    const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+    if (!total) return recordWorldBossSupplementalDamage(session, null, damage);
+    let remaining = Math.max(0, Math.floor(damage));
+    for (const [index, entry] of weighted.entries()) {
+        const share = index === weighted.length - 1 ? remaining : Math.min(remaining, Math.floor(damage * entry.weight / total));
+        recordWorldBossSupplementalDamage(session, worldBossEffectOwner(entry.status), share);
+        remaining -= share;
+    }
+}
 type ActorSnapshot = Pick<TowerActor, 'id' | 'side' | 'hp' | 'shield'> & { negativeStatuses: number };
 export type WorldBossContributionSnapshot = { actors: ActorSnapshot[]; objective: string };
 
@@ -28,10 +122,11 @@ function positiveDelta(before: number, after: number): number {
 }
 
 /** Credit is attached to the verified Tower actor that submitted the action. */
-export function recordWorldBossContribution(session: TowerSession, actorId: string, before: WorldBossContributionSnapshot): void {
+export function recordWorldBossContribution(session: TowerSession, actorId: string, before: WorldBossContributionSnapshot, countAction = true): void {
     if (!session.worldBossEvent) return;
     const actor = session.actors.find(entry => entry.id === actorId);
-    if (!actor?.ownerSlug || actor.side !== 'squad') return;
+    if (!actor || actor.side !== 'squad') return;
+    const owner = worldBossActorOwner(session, actor);
     const previous = new Map(before.actors.map(entry => [entry.id, entry]));
     const bossId = session.phaseState.bossId;
     let damage = 0;
@@ -49,17 +144,8 @@ export function recordWorldBossContribution(session: TowerSession, actorId: stri
         }
     }
     const objective = before.objective === JSON.stringify(session.objectiveState ?? {}) ? 0 : 1;
-    const contributions = session.worldBossContributions ?? {};
-    const prior = contributions[actor.ownerSlug] ?? EMPTY;
-    contributions[actor.ownerSlug] = {
-        actions: prior.actions + 1,
-        damage: prior.damage + damage,
-        healing: prior.healing + healing,
-        shielding: prior.shielding + shielding,
-        cleanses: prior.cleanses + cleanses,
-        objective: prior.objective + objective,
-    };
-    session.worldBossContributions = contributions;
+    if (owner) addContribution(session, owner, { actions: countAction ? 1 : 0, damage, healing, shielding, cleanses, objective });
+    else recordWorldBossSupplementalDamage(session, null, damage);
 }
 
 export function scoreWorldBossContribution(raw: Partial<WorldBossContribution> | null | undefined): WorldBossContributionResult {
