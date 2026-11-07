@@ -24,14 +24,28 @@ and a "plain solid flat pure magenta (#FF00FF) chroma-key background".
 3. Edge pixels are un-mixed from the magenta key, residual magenta spill is
    removed, and green is capped on the soft rim (un-mixing leaves a green cast).
 4. The object is cropped and centred on a square canvas so it fills the same
-   98% of the frame as the hunt emblem, then saved at 256 × 256, WebP q90 /
-   alpha 100.
+   98% of the frame as the hunt emblem, then resized (Lanczos) to 96 × 96.
+5. Alpha of 245 or more is snapped to 255. Lanczos ripple otherwise leaves a
+   near-opaque haze (alpha 250–254) over the inside of the art.
+6. Saved as WebP q90 / alpha 100.
+
+## Why 96 px
+
+The sources are 96 px, not the 256 px of the clan-mission emblems. These
+icons are drawn at 13 px (39 device px on a 3× phone), so GameArtIcon always
+serves the `icon-96` copy. A 256 px source would ship for nothing. The first
+cut at 256 px added ~92 KB and pushed the Production Image's `verify:dist`
+runtime-assets total 33,035 B over its ceiling; at 96 px the six files are
+~34 KB. The Linux image measures about 83 KB more runtime assets than a
+Windows build, so read the headroom from CI, not from a local build. Drawn
+above 48 px, these emblems upscale and soften; re-cut them from the Figma
+renders at the size that use needs.
+
+## Checks
 
 The shipped files were checked on dark (4× on the cord loops, rings and rice
-sheaf), and at 2× on light and on magenta. Interior alpha is solid: the few
-non-opaque pixels inside the outline (10, 30 and 115) are real gaps between
-stalks, leaves and cords, not the uniform ~253 that lossy alpha leaves. Two
-edge pixels on the mining emblem's tassel keep a faint purple cast at 70%
-opacity, invisible at any size the game draws. The water droplets around the
-fish are meant to be translucent. The 96 px delivery copies in `public/ui/icon-96/` come from
-`node scripts/gen-game-art-icon-variants.mjs`.
+sheaf), and at 2× on light and on magenta. No magenta-tinted pixel survives.
+Inside the outline every pixel is fully opaque except 19, 30 and 48, which
+are real gaps between stalks, leaves, cords and droplets. The water droplets
+around the fish are meant to be translucent. The `public/ui/icon-96/` copies
+come from `node scripts/gen-game-art-icon-variants.mjs`.
