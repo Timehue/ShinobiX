@@ -24,7 +24,8 @@ import { missionEnemyTemplate, missionEnvironment } from '../_authoritative-pve.
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
-import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
+import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
+import { discardFailedStart } from '../solo-pve/_discard-start.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
@@ -147,7 +148,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.set(missionCombatBindingKey(runId), binding, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
                     await kv.set(activeKey, pointer, { ex: MISSION_COMBAT_SESSION_TTL_SECONDS });
                 } catch (error) {
-                    await kv.del(activeKey, missionCombatBindingKey(runId), soloPveSessionKey(runId)).catch(() => undefined);
+                    // Outside the lock context, which the error may have poisoned:
+                    // a cleanup through it was refused, leaving a live fight with
+                    // no pointer to resume it (see discardFailedStart).
+                    await discardFailedStart({
+                        playerName,
+                        sessionId: runId,
+                        keys: [missionCombatBindingKey(runId)],
+                        ifEqual: [{ key: activeKey, value: pointer }],
+                    });
                     throw error;
                 }
                 return { ok: true as const, runId, session, resumed: false, _saveVersion: fresh._saveVersion };

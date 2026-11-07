@@ -10,6 +10,8 @@ import overviewArt from "../assets/professions/overview.webp";
 import healerArt from "../assets/professions/healer.webp";
 import vanguardArt from "../assets/professions/vanguard.webp";
 import petTamerArt from "../assets/professions/pettamer.webp";
+import { artBackdropStyle } from "../lib/card-art-backdrop";
+import "../styles/art-backdrop.css";
 import "./ProfessionPicker.css";
 
 type Stage = "intro" | "choose" | "confirm";
@@ -216,7 +218,7 @@ export function ProfessionPicker({
                     <p className="pp-kicker">A Crossroad</p>
                     <h2 className="pp-scroll-title">The Elder Summons You</h2>
                     {elderImage && (
-                        <div className="pp-elder-art">
+                        <div className={`pp-elder-art${sharedElder ? " pp-portrait-art art-backdrop" : ""}`} style={artBackdropStyle(sharedElder)}>
                             <img
                                 src={elderImage}
                                 alt={sharedElder ? "Village elder" : ""}
@@ -269,13 +271,14 @@ export function ProfessionPicker({
                     <div className="pp-choices">
                         {PROFESSIONS.map((p, i) => {
                             const portrait = portraitFor(p.id);
+                            const sharedPortrait = sharedImages[`profession:portrait-${p.id}`];
                             return (
                                 <article
                                     key={p.id}
                                     className="pp-card"
                                     style={{ ["--pp-accent" as string]: p.accent, ["--pp-i" as string]: i }}
                                 >
-                                    <div className="pp-card-art">
+                                    <div className={`pp-card-art${sharedPortrait ? " pp-portrait-art art-backdrop" : ""}`} style={artBackdropStyle(sharedPortrait)}>
                                         {portrait && (
                                             <img
                                                 src={portrait}
@@ -331,12 +334,13 @@ export function ProfessionPicker({
     // returns for "intro" and "choose".
     if (!info) return null;
     const confirmArt = portraitFor(info.id);
+    const sharedConfirmArt = sharedImages[`profession:portrait-${info.id}`];
     return createPortal(
         <div className="pp-root" style={backdrop}>
             {scene}
             <div className="pp-confirm" style={{ ["--pp-accent" as string]: info.accent }}>
                 {confirmArt && (
-                    <div className="pp-confirm-art">
+                    <div className={`pp-confirm-art${sharedConfirmArt ? " pp-portrait-art art-backdrop" : ""}`} style={artBackdropStyle(sharedConfirmArt)}>
                         <img
                             src={confirmArt}
                             alt=""

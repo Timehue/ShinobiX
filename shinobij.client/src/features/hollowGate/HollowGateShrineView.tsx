@@ -27,7 +27,7 @@ import { hollowGateWandererArt, hollowGateWandererFriendly, hollowGateWandererNa
 import { UndergroundSectorTerrain } from '../../components/UndergroundSectorTerrain';
 import { undergroundFeatureBlocks } from '../../../../shared/underground-floor-collision';
 import { undergroundCamera, undergroundRenderWindow, undergroundRooms, undergroundTileSize } from '../../lib/underground-sector-camera';
-import { riftBreachSites } from '../../lib/rift-breach-layout';
+import { riftArrivalRoom, riftBreachSites } from '../../lib/rift-breach-layout';
 import { RiftEnergyOverlay } from '../../components/RiftBreach';
 import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
@@ -321,7 +321,11 @@ export function HollowGateShrineView({
     const hp = Math.min(maxHp, Math.max(0, character.hp));
     const isQuestRift = run.variant?.id.startsWith('rift-') === true;
     const chamberBounds = useMemo(() => undergroundRooms(run.tiles, run.width), [run.tiles, run.width]);
-    const breachSites = useMemo(() => isQuestRift ? riftBreachSites(run.tiles, run.width) : [], [isQuestRift, run.tiles, run.width]);
+    // Two signpost breaches: the arrival room and the way down. One list feeds
+    // both the painted stone (terrain) and its energy overlay, so they agree.
+    const cryptFloor = run.roomPrefabs != null;
+    const breachSites = useMemo(() => isQuestRift ? riftBreachSites(run.tiles, run.width, riftArrivalRoom(run.tiles, run.width, cryptFloor)) : [],
+        [isQuestRift, run.tiles, run.width, cryptFloor]);
     // computeHollowGateVisible reads only the board, its size and the position,
     // so a server reply that moves torch, threat or wanderers reuses the set.
     const { tiles: runTiles, width: runWidth, height: runHeight, playerX: runPlayerX, playerY: runPlayerY, diviner: runDiviner } = run;
@@ -636,7 +640,7 @@ export function HollowGateShrineView({
                                              ["--hg-tile" as string]: `${tilePx}px`,
                                         }}
                                     >
-                                    <UndergroundSectorTerrain tiles={terrainTiles} width={w} height={h} known={knownSet} visible={visibleSet} mode="cave" rift={isQuestRift} features={run.floorFeatures}
+                                    <UndergroundSectorTerrain tiles={terrainTiles} width={w} height={h} known={knownSet} visible={visibleSet} mode="cave" breaches={breachSites} features={run.floorFeatures}
                                         roomArt={roomArt} passageArt={passageArt}
                                         renderWindow={terrainWindow} />
                                     {breachSites.filter(site => site.x >= terrainWindow.left && site.x < terrainWindow.left + terrainWindow.width

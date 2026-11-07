@@ -1,5 +1,6 @@
 import { kv as realKv } from './_storage.js';
 import { betaDateKey, recordBetaMetric, type BetaMetricInput } from './_beta-metrics.js';
+import { withoutKvLeaseContext } from './_kv-lock-context.js';
 
 /*
  * Once-per-PLAYER onboarding funnel steps.
@@ -70,11 +71,26 @@ function stepSuffix(step: string | undefined): string {
  * Record a funnel step at most once per player (per step, where one is given).
  * Returns false when already counted, when the name is unusable, or when
  * telemetry storage is unavailable — never throws.
+ *
+ * Runs OUTSIDE the caller's storage lock (see recordSoloPveLifecycle). The
+ * combat call site fires this without awaiting as the last step of a locked
+ * session write, so inside the lock context its gate write ran after the lock
+ * was released, failed the lease check, and could poison an enclosing lock.
+ * Production on 2026-11-06 had the gate for only 37 of the 74 players with a
+ * PvE kill.
  */
-export async function recordBetaFunnelStep(
+export function recordBetaFunnelStep(
     event: BetaFunnelEvent,
     playerName: unknown,
     deps: BetaFunnelDeps = {},
+): Promise<boolean> {
+    return withoutKvLeaseContext(() => recordBetaFunnelStepDetached(event, playerName, deps));
+}
+
+async function recordBetaFunnelStepDetached(
+    event: BetaFunnelEvent,
+    playerName: unknown,
+    deps: BetaFunnelDeps,
 ): Promise<boolean> {
     try {
         const slug = betaFunnelSlug(playerName);

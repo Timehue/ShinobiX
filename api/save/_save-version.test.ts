@@ -79,7 +79,8 @@ describe('matchesStoredSaveVersion', () => {
             '!matchesStoredSaveVersion(baseVersion, storedVersion)',
         );
         const sanitize = handler.indexOf('safeIncoming = sanitizeCharacterSave(', conflictGuard);
-        const titleAudit = handler.indexOf('void appendCustomTitleLog(', conflictGuard);
+        // The call itself, not the import: it runs detached from the save lock.
+        const titleAudit = handler.indexOf('appendCustomTitleLog(identityName, inTitle)', conflictGuard);
         const gainWindow = handler.indexOf('await readGainsWindow(', conflictGuard);
         const successfulSaveRateLimit = handler.indexOf("'save-burst'", conflictGuard);
 

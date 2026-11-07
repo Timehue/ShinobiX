@@ -1,10 +1,9 @@
 import { safeName } from '../_utils.js';
 import { CHRONICLE_AFK_STRIKE_LIMIT, TURN_TIMEOUT_MS } from '../../shared/chronicle-duel.js';
 import {
-    noteBattleEnded,
     noteBattleStarted,
     publishBattleProjection,
-    retireBattleProjection,
+    retireBattlePresence,
     type BattleProjectionStore,
 } from '../_realtime/battle-projection.js';
 
@@ -73,7 +72,7 @@ export async function syncCardDuelPresence(
     for (const slug of duelists) {
         try {
             if (session.status !== 'active') {
-                if (await retireBattleProjection(store, slug, sessionKey)) noteBattleEnded(slug);
+                await retireBattlePresence(store, slug, sessionKey);
             } else {
                 await publishBattleProjection(store, slug, {
                     kind: 'card-clash',

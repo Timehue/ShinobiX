@@ -34,12 +34,18 @@ test("hollow ward wipes threat and sets ward steps", () => {
     assert.ok(r.ok && r.run.threat === 0 && (r.run.wardSteps ?? 0) > 0);
 });
 
-test("diviner senses nearby tiles without unmasking them, and is once-per-run", () => {
-    const base = run({ diviner: false, width: 1, height: 1, playerX: 0, playerY: 0, tiles: [{ kind: "trap", terrain: "room_floor", roomId: 0, revealed: false, resolved: false } as never] });
+test("diviner exposes disguised traps for 25 Hollow Shards and cannot charge twice on a floor", () => {
+    const base = run({ diviner: false, width: 1, height: 1, playerX: 0, playerY: 0, tiles: [{ kind: "trap", terrain: "room_floor", roomId: 0, seen: true, revealed: false, resolved: false } as never] });
     const r = applyShardConsumable("diviner-eye", base, char());
     assert.ok(r.ok && r.run.diviner === true && r.run.tiles[0].seen === true);
-    assert.ok(r.ok && r.run.tiles[0].revealed === false, "a disguised trap stays disguised");
-    if (r.ok) assert.equal(shardConsumableAvailable(HOLLOW_SHARD_CONSUMABLES.find(c => c.id === "diviner-eye")!, r.run, r.character), false);
+    assert.ok(r.ok && r.run.tiles[0].revealed === true, "a disguised trap is exposed");
+    assert.ok(r.ok && r.run.tiles[0].resolved === false, "the trap still needs to be dealt with");
+    if (r.ok) {
+        assert.equal(r.character.hollowShards, 75);
+        assert.equal(shardConsumableAvailable(HOLLOW_SHARD_CONSUMABLES.find(c => c.id === "diviner-eye")!, r.run, r.character), false);
+        assert.equal(applyShardConsumable("diviner-eye", r.run, r.character).ok, false);
+        assert.equal(r.character.hollowShards, 75);
+    }
 });
 
 test("sanctify re-snapshots entry currencies to the current balance", () => {

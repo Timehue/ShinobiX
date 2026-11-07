@@ -1,4 +1,5 @@
 import type { PublicPlayerIndexEntry } from './_public-index.js';
+import { withoutKvLeaseContext } from '../_kv-lock-context.js';
 
 /*
  * Server-side refresh of one player's public registry entry (the shared
@@ -56,7 +57,11 @@ export async function reindexPublicPlayer(
     // Inside the window: keep only the newest entry and flush it once.
     slot.pending = entry;
     if (slot.timer) return;
-    slot.timer = setTimeout(() => {
+    // Created outside the caller's storage lock: a timer inherits the async
+    // context it is created in, and the save lock this is usually called under
+    // is long released when it fires, so its write failed the lease check and
+    // the deferred refresh was always dropped.
+    slot.timer = withoutKvLeaseContext(() => setTimeout(() => {
         slot.timer = null;
         const pending = slot.pending;
         slot.pending = null;
@@ -65,7 +70,7 @@ export async function reindexPublicPlayer(
         void store.hset(registryKey, { [name]: pending }).catch((error) => {
             console.warn('[registry-reindex] deferred leaderboard refresh failed:', (error as Error)?.message ?? error);
         });
-    }, Math.max(1, slot.lastAt + REINDEX_MIN_INTERVAL_MS - now));
+    }, Math.max(1, slot.lastAt + REINDEX_MIN_INTERVAL_MS - now)));
     (slot.timer as { unref?: () => void }).unref?.();
 }
 

@@ -2517,7 +2517,7 @@
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1596
+            "line": 1601
           },
           {
             "source": "shinobij.client/src/styles/keeper-path-entrance.css",
@@ -3157,7 +3157,7 @@
           },
           {
             "source": "shinobij.client/src/screens/ProfessionPicker.css",
-            "line": 740
+            "line": 750
           },
           {
             "source": "shinobij.client/src/styles/central-hub-forge.css",
@@ -3467,7 +3467,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/WildPetBindingCinematic.css",
-            "line": 218
+            "line": 240
           }
         ]
       },
@@ -3890,11 +3890,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/WildPetBinding.css",
-            "line": 83
+            "line": 69
           },
           {
             "source": "shinobij.client/src/components/WildPetBindingCinematic.css",
-            "line": 204
+            "line": 226
           },
           {
             "source": "shinobij.client/src/features/intro-cinematic/intro-cinematic-preview.css",
@@ -4256,7 +4256,7 @@
           },
           {
             "source": "shinobij.client/src/screens/ProfessionPicker.css",
-            "line": 727
+            "line": 737
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
