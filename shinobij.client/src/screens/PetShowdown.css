@@ -1387,7 +1387,6 @@
 
 /* Everything below the verdict sits on one plaque, so the panel reads as a
    single object instead of four floating text runs. */
-.showdown-result-reason,
 .showdown-recap {
     position: relative;
     padding: 10px 14px;

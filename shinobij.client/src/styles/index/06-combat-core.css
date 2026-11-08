@@ -687,7 +687,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .spire-intro, .spire-intro-portrait, .spire-intro-band, .spire-intro-name, .spire-intro-mech,
-    .spire-reward-shard.in, .spire-result-milestone, .spire-rung.next {
+    .spire-rung.next {
         animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
     }
     .spire-intro { animation: none; }

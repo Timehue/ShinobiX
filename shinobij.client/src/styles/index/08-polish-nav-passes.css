@@ -110,7 +110,6 @@ button {
     box-shadow: 0 22px 55px rgba(0,0,0,.48), inset 0 0 0 2px rgba(230, 196, 119, .42), inset 0 0 45px rgba(0,0,0,.28);
 }
 
-.instance-actions,
 .combat-side-hud {
     border-radius: 6px;
     background: linear-gradient(180deg, rgba(255,255,255,.055), transparent 34%), linear-gradient(180deg, #811b22, #360914);

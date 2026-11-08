@@ -7,7 +7,7 @@ import { isWalkableTile, pathInMask, sectorWalkMask } from './sector-walk-mask.j
 import { BUILDING_REPAIR_INGREDIENTS, buildingCourierRoute, buildingWorkView, buildingWorkshopRecipes } from './sector-building-content.js';
 import { SUPPLY_CRAFT_RECIPES } from './crafting-recipes.js';
 import { RESOURCE_ITEMS } from './resource-items.js';
-import { readBuildingProgress, readSharedBuilding } from './sector-building-state.js';
+import { BUILDING_RUIN_IDLE_FADE_MS, BUILDING_RUIN_INTACT_MS, buildingRepairStageName, readBuildingProgress, readSharedBuilding } from './sector-building-state.js';
 import { lifeActorsAt } from './sector-life.js';
 
 test('all existing strongholds, village gates, shrines, painted ruin groups and quest-only places have named counters',()=>{
@@ -81,6 +81,41 @@ test('long-running work counters retain safe integers without relaxing bounded g
     assert.equal(readBuildingProgress({repairs:Infinity},now).repairs,0);
     assert.equal(readBuildingProgress({repairs:-10},now).repairs,0);
     assert.equal(readSharedBuilding({repairs:Number.MAX_VALUE}).repairs,Number.MAX_SAFE_INTEGER);
+});
+
+test('a ruin stands for seven days after its full repair cycle, then returns to its painted ruin',()=>{
+    const day=86_400_000,at=Date.parse('2026-11-01T00:00:00Z');
+    assert.equal(BUILDING_RUIN_INTACT_MS,7*day);
+    const standing=readSharedBuilding({repairs:40,cycleRepairs:24,intactUntil:at+7*day,updatedAt:at},{now:at+6*day});
+    assert.equal(standing.stage,3);assert.equal(standing.intactUntil,at+7*day);assert.equal(standing.cycleRepairs,24);
+    const lapsed=readSharedBuilding({repairs:40,cycleRepairs:24,intactUntil:at+7*day,updatedAt:at},{now:at+7*day});
+    assert.equal(lapsed.stage,0);assert.equal(lapsed.cycleRepairs,0);assert.equal('intactUntil' in lapsed,false);assert.equal(lapsed.repairs,40,'lifetime work is kept');
+    assert.equal(readSharedBuilding({repairs:13,cycleRepairs:13,cycleAt:at},{now:at+13*day}).stage,2,'recent unfinished work keeps its stage');
+    const faded=readSharedBuilding({repairs:13,cycleRepairs:13,cycleAt:at,updatedAt:at+13*day},{now:at+14*day});
+    assert.equal(faded.stage,0,'unfinished work idle for fourteen days fades, even if a watch report touched the row');
+    assert.equal(faded.cycleRepairs,0);assert.equal(faded.repairs,13,'lifetime work is kept');
+    assert.equal(BUILDING_RUIN_IDLE_FADE_MS,14*day);
+    // Rows written before the timer: the full cycle runs from their last write.
+    assert.equal(readSharedBuilding({repairs:30,updatedAt:at},{now:at+6*day}).intactUntil,at+7*day);
+    assert.equal(readSharedBuilding({repairs:30,updatedAt:at},{now:at+8*day}).stage,0);
+    // Strongholds and road places keep lifetime stages.
+    assert.equal(readSharedBuilding({repairs:30,updatedAt:at}).stage,3);
+    assert.deepEqual([0,1,2,3].map(stage=>buildingRepairStageName(stage,'ruin')),['Ruin','Braced frame','Covered frame','Restored']);
+    // Every ruin offers restoration and has painted masonry for the stage art.
+    for(const b of SECTOR_BUILDINGS.filter(b=>b.kind==='ruin')){assert.ok(b.services.includes('repair'),b.id);assert.ok(b.restorationSite,b.id);}
+    assert.equal(buildingRepairStageName(3),'Restored public frontage');
+});
+
+test('counters painted on collapsed houses are ruins that public repairs can restore',()=>{
+    // S52's western, southern and southwestern houses are painted with fallen
+    // roofs. They must not read as intact working buildings.
+    for(const id of ['festival-welcome','festival-lantern-house','festival-steps-house']){
+        const building=sectorBuilding(id)!;
+        assert.equal(building.kind,'ruin',id);
+        assert.ok(building.services.includes('repair'),`${id} offers public repairs`);
+        assert.ok(building.restorationSite,`${id} has painted masonry for the restored shelter`);
+    }
+    assert.equal(sectorBuilding('festival-tea-counter')!.kind,'workplace','the eastern tea counter is painted intact');
 });
 
 test('existing painted tea counters use the same keeper identity as their living resident',()=>{

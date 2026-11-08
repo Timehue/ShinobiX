@@ -73,6 +73,46 @@ test('repair work rejects premature and out-of-order steps, then co-produces its
     assert.equal(progress(done.character).active,undefined);
 });
 
+test('the twenty-fourth repair restores a ruin for seven days; no repairs while it stands, and the next cycle restarts after it falls',()=>{
+    const day=86_400_000;
+    const repairAt=(shared:unknown,now:number)=>{
+        const begun=act(base(),{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},now,shared);assert.ok(begun.ok);if(!begun.ok)throw Error('begin');
+        return finish(begun.character,now,shared);
+    };
+    const restored=repairAt({repairs:50,cycleRepairs:23,updatedAt:NOW},NOW);
+    assert.equal(restored.shared.stage,3);assert.equal(restored.shared.cycleRepairs,24);
+    const until=restored.shared.intactUntil!;assert.ok(until>=NOW+7*day&&until<=restored.now+7*day);
+    assert.match(progress(restored.character,restored.now).receipts.at(-1)!.message,/stands intact for seven days/);
+    // A fully restored ruin takes no new repair orders, and nothing is reserved.
+    const blocked=base(),refused=act(blocked,{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},NOW+2*day,JSON.parse(JSON.stringify(restored.shared)));
+    assert.equal(refused.ok,false);if(!refused.ok)assert.match(refused.error,/fully restored/);
+    for(const row of selection)for(const[id] of Object.entries(row))assert.equal(countOwned(blocked,id),countOwned(base(),id));
+    // An order already under way when another crew finishes still pays, without extending the time.
+    const early=act(base(),{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},NOW,{repairs:50,cycleRepairs:23,updatedAt:NOW});
+    assert.ok(early.ok);if(!early.ok)return;
+    const late=finish(early.character,NOW+2*day,JSON.parse(JSON.stringify(restored.shared)));
+    assert.equal(late.shared.intactUntil,until,'a late order never extends the standing time');assert.equal(late.shared.cycleRepairs,24);
+    assert.equal(late.character.ryo,1180,'the late order is still paid');assert.match(progress(late.character,late.now).receipts.at(-1)!.message,/Another crew finished/);
+    const fallen=repairAt(JSON.parse(JSON.stringify(late.shared)),until+1);
+    assert.equal(fallen.shared.stage,0);assert.equal(fallen.shared.cycleRepairs,1);assert.equal(fallen.shared.intactUntil,undefined);
+    // A stronghold frontage keeps its lifetime stage.
+    const stronghold=act(base(),{action:'begin',buildingId:'stronghold-2',service:'repair',materials:selection},NOW+30*day,{repairs:30,updatedAt:NOW});
+    assert.ok(stronghold.ok);if(stronghold.ok)assert.equal(stronghold.shared.stage,3);
+});
+
+test('a restored ruin pays a quarter more for work accepted there, sealed into the order',()=>{
+    const day=86_400_000,standing={repairs:30,cycleRepairs:24,intactUntil:NOW+3*day,updatedAt:NOW};
+    const begun=act(base(),{action:'begin',buildingId:'gorgewatch',service:'watch'},NOW,standing);assert.ok(begun.ok);if(!begun.ok)return;
+    assert.equal(progress(begun.character).active!.restored,true);
+    assert.equal(readBuildingProgress(JSON.parse(JSON.stringify(begun.character.sectorBuildings)),NOW).active!.restored,true,'the seal survives a reload');
+    // The building falls mid-round (a world fight, or the timer): the accepted round keeps its terms.
+    const done=finish(begun.character,NOW,{repairs:30,cycleRepairs:0,updatedAt:NOW});
+    assert.equal(done.character.ryo,1100,'80 ryo watch round paid at a quarter more');
+    const plain=act(base(),{action:'begin',buildingId:'gorgewatch',service:'watch'},NOW,{repairs:3,cycleRepairs:3,cycleAt:NOW});assert.ok(plain.ok);if(!plain.ok)return;
+    assert.equal(progress(plain.character).active!.restored,undefined);
+    assert.equal(finish(plain.character,NOW).character.ryo,1080,'the ruin pays the ordinary 80 ryo');
+});
+
 test('a twenty-first contributor still earns their repair without evicting the leading public work entries',()=>{
     const contributors=Array.from({length:20},(_,i)=>({name:`Worker ${i}`,repairs:100-i}));
     const started=act(base(),{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection});assert.ok(started.ok);if(!started.ok)return;
@@ -86,7 +126,7 @@ test('material-backed repairs continue past six in one day and pay every third a
     c.itemStacks=repairStacks(42);
     for(let count=1;count<=42;count++){
         c={...c,sectorBuildings:JSON.parse(JSON.stringify(progress(c,now)))};
-        const started=act(c,{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},now,shared);assert.ok(started.ok);if(!started.ok)return;
+        const started=act(c,{action:'begin',buildingId:'stronghold-2',service:'repair',materials:selection},now,shared);assert.ok(started.ok);if(!started.ok)return;
         const done=finish(started.character,now,shared);c=done.character;shared=done.shared;now=done.now;
         assert.equal(c.boneCharms,Math.floor(count/3)*3);assert.equal(c.fateShards,Math.floor(count/20)*5);
         assert.equal(progress(c,now).repairsToday,count);assert.equal(progress(c,now).rewardsToday,count);assert.equal(c.ryo,1000+count*180);
@@ -96,10 +136,10 @@ test('material-backed repairs continue past six in one day and pay every third a
     }
     const p=progress(c,now);assert.equal(p.shardClaims,2);assert.ok(p.titles.includes('Road Restorer'));
     assert.equal(new Date(now).toISOString().slice(0,10),'2026-10-19','all 42 completions and both shard payouts occur on the same UTC day');
-    const before=structuredClone(c),short=act(c,{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},now,shared);
+    const before=structuredClone(c),short=act(c,{action:'begin',buildingId:'stronghold-2',service:'repair',materials:selection},now,shared);
     assert.equal(short.ok,false);assert.deepEqual(c,before,'insufficient materials cannot advance counts or pay rewards');
     c.itemStacks=repairStacks(1);
-    const replenished=act(c,{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},now,shared);
+    const replenished=act(c,{action:'begin',buildingId:'stronghold-2',service:'repair',materials:selection},now,shared);
     assert.ok(replenished.ok);if(!replenished.ok)return;
     const next=finish(replenished.character,now,shared);assert.equal(progress(next.character,next.now).repairsToday,43);
     assert.equal(next.character.boneCharms,42);assert.equal(next.character.fateShards,10);
@@ -107,20 +147,20 @@ test('material-backed repairs continue past six in one day and pay every third a
 test('repairs, shared revisions and repeat milestones advance past one million across reloads',()=>{
     let now=NOW,c=base(),shared=readSharedBuilding({repairs:999_999,revision:999_999,contributors:[{name:'Builder',repairs:999_999}]});
     const state=progress(c,now);state.repairs=999_999;state.repairsToday=999_999;state.shardClaims=49_999;
-    state.standing.gorgewatch={metAt:now,trust:100,visits:1,visitDay:state.day,repairCount:999_999};
+    state.standing['stronghold-2']={metAt:now,trust:100,visits:1,visitDay:state.day,repairCount:999_999};
     c.sectorBuildings=state;
     for(let count=1;count<=21;count++){
         c={...c,sectorBuildings:readBuildingProgress(JSON.parse(JSON.stringify(c.sectorBuildings)),now)};
         shared=readSharedBuilding(JSON.parse(JSON.stringify(shared)));
-        const begun=act(c,{action:'begin',buildingId:'gorgewatch',service:'repair',materials:selection},now,shared);
+        const begun=act(c,{action:'begin',buildingId:'stronghold-2',service:'repair',materials:selection},now,shared);
         assert.ok(begun.ok);if(!begun.ok)return;
         const done=finish(begun.character,now,shared);c=done.character;shared=done.shared;now=done.now;
         const p=progress(c,now),total=999_999+count;
-        assert.equal(p.repairs,total);assert.equal(p.repairsToday,total);assert.equal(p.standing.gorgewatch.repairCount,total);
+        assert.equal(p.repairs,total);assert.equal(p.repairsToday,total);assert.equal(p.standing['stronghold-2'].repairCount,total);
         assert.equal(shared.repairs,total);assert.equal(shared.revision,total);assert.equal(shared.contributors[0].repairs,total);
         const receipt=p.receipts.at(-1)!;
         assert.deepEqual(receipt.reward,{ryo:180,boneCharms:total%3===0?3:0,fateShards:total%20===0?5:0});
-        const replay=act(c,{action:'step',buildingId:'gorgewatch',orderId:'completed-order',step:2,requestId:receipt.requestId},now,shared);
+        const replay=act(c,{action:'step',buildingId:'stronghold-2',orderId:'completed-order',step:2,requestId:receipt.requestId},now,shared);
         assert.ok(replay.ok);if(!replay.ok)return;
         assert.equal(replay.replayed,true);assert.deepEqual(replay.character,c);assert.equal(replay.sharedChanged,false);
     }

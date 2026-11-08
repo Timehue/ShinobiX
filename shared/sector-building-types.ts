@@ -29,6 +29,8 @@ export type BuildingWorkOrder = {
     materials?: Record<string, number>; route?: string[]; observations?: string[];
     protocol?: 'cedar' | 'reed' | 'stone';
     watchStage?: number;
+    /** Sealed when accepted at a ruin standing restored: the work pays a quarter more. */
+    restored?: boolean;
 };
 export type SectorBuildingProgress = {
     version: 1; standing: Record<string, BuildingStanding>; active?: BuildingWorkOrder;
@@ -39,6 +41,15 @@ export type SectorBuildingProgress = {
 };
 export type SharedBuildingState = {
     version: 1; revision: number; repairs: number; stage: number; updatedAt: number;
+    /** Ruins only: repairs in the current restoration cycle (capped at the last stage target). */
+    cycleRepairs?: number;
+    /** Ruins only: while set, the fully repaired ruin stands intact until this time. */
+    intactUntil?: number;
+    /** Ruins only: when the current unfinished cycle last advanced (idle cycles fade). */
+    cycleAt?: number;
+    /** Ruins only: the last world PvP battles counted as damage (each counts once). */
+    damagedBy?: string[];
+    damageDay?: string; damageToday?: number;
     contributors: { name: string; repairs: number }[];
     reports: { name: string; at: number; text: string }[];
 };
