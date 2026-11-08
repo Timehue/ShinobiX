@@ -39,7 +39,8 @@ async function readableImage(image: Locator, expectedPath: string) {
     })).toBe(true);
 }
 
-async function installEncounter(page: Page, kind: 'ordinary' | 'final', rollingLog = false) {
+async function installEncounter(page: Page, kind: 'ordinary' | 'final', rollingLog = false,
+    prepare?: (session: ReturnType<typeof buildSoloPveAiEncounter>) => void) {
     const save = uiAuditSave();
     save.character = {
         ...save.character, level: 100, stats: aiStatsForLevel(100),
@@ -69,6 +70,7 @@ async function installEncounter(page: Page, kind: 'ordinary' | 'final', rollingL
     });
     if (kind === 'ordinary') session.enemy.hp = 1;
     session.enemy.pos = hexNeighbors(session.player.pos)[0];
+    prepare?.(session);
     if (rollingLog) {
         session.round = 10;
         session.log = [...Array<string>(12).fill('80 damage to Enemy.'), ...[7, 8, 9, 10].flatMap(round => [
@@ -160,6 +162,54 @@ test('sealed ordinary identity, level and real portrait survive refresh, victory
     expect(text).toContain('outcome: win');
     await info.attach('exported-battle-log', { body: Buffer.from(text), contentType: 'text/plain' });
     await screenshot(page, info, 'ordinary-victory');
+});
+
+test('final Kage transforms at half health: visual novel cut-scene, alternate art and phase chip, once', async ({ page }, info) => {
+    test.setTimeout(120_000);
+    // One HP above the threshold: the next basic attack crosses it in the real resolver.
+    const encounter = await installEncounter(page, 'final', false, session => {
+        session.enemy.hp = Math.floor(session.enemy.maxHp / 2) + 1;
+    });
+    const plan = encounter.session().bossForms!.plan.phases[0]!;
+    const chip = page.locator('#combat .boss-form-chip');
+    await expect(chip).toContainText('Phase 1/2');
+    await expect(chip).toContainText('Transforms at 50% HP');
+    const actionsTab = page.getByRole('tab', { name: 'Actions', exact: true });
+    if (await actionsTab.isVisible()) await actionsTab.click();
+    await page.getByRole('button', { name: /^Attack\b/ }).click();
+    await page.locator('#combat button.hex-tile.hex-enemy.jutsu-target-tile').click();
+
+    const scene = page.getByRole('dialog', { name: `${plan.formName} visual novel scene` });
+    await expect(scene).toBeVisible({ timeout: 30_000 });
+    await expect(scene.locator('.cvn-speaker')).toHaveText(plan.cutscene.speaker);
+    await expect(scene.locator('.cvn-dialogue-text')).toContainText(plan.cutscene.lines[0]!);
+    // The first line shows the Kage as he was; the battle still draws the old art behind the scene.
+    const sceneBoss = scene.locator('figure img').last();
+    await readableImage(sceneBoss, STORY_KAGE_ENCOUNTERS['Stormveil Village'].portrait);
+    await expect(page.locator(`#combat img[src*="${plan.sprite}"]`)).toHaveCount(0);
+    await screenshot(page, info, 'kage-transformation-cutscene');
+    await scene.getByRole('button', { name: 'Next', exact: true }).click();
+    await readableImage(sceneBoss, plan.portrait!);
+    await screenshot(page, info, 'kage-transformation-cutscene-form');
+    for (let line = 1; line < plan.cutscene.lines.length; line++) await scene.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(scene.locator('.cvn-dialogue-text')).toContainText(plan.mechanic!.name);
+    await scene.getByRole('button', { name: 'Resume battle', exact: true }).click();
+    await expect(scene).toBeHidden();
+
+    expect(encounter.session().bossForms!.phase).toBe(1);
+    await expect(chip).toContainText('Phase 2/2');
+    await expect(chip).toContainText(plan.formName);
+    const dossier = page.getByRole('complementary', { name: `${encounter.name} combat status`, exact: true });
+    await readableImage(dossier.locator('.combat-avatar img'), plan.portrait!);
+    await expect(dossier).toHaveClass(/boss-form-aura--storm/);
+    await expect.poll(() => page.locator(`#combat img[src*="${plan.sprite}"]`).count()).toBeGreaterThan(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await screenshot(page, info, 'kage-transformed');
+
+    // A refresh keeps the form and does not replay the scene.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(chip).toContainText(plan.formName, { timeout: 60_000 });
+    await expect(page.getByRole('dialog', { name: `${plan.formName} visual novel scene` })).toHaveCount(0);
 });
 
 test('rolling battle log shows actual round and visible partial retention counts on desktop and phone', async ({ page }, info) => {

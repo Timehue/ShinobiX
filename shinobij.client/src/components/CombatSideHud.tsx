@@ -150,6 +150,7 @@ export function CombatSideHud({
     level,
     power,
     currentRound,
+    className = "",
 }: {
     name: string;
     avatar: string;
@@ -170,6 +171,8 @@ export function CombatSideHud({
     power?: number;
     /** Authoritative combat round used to separate deferred statuses from live effects. */
     currentRound?: number;
+    /** Extra classes on the dossier (a transformed boss's aura). */
+    className?: string;
 }) {
     const displayedStatuses = partitionCombatDisplayStatuses(statuses, currentRound);
     const hpPct = unlimitedHealth ? 100 : Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
@@ -180,7 +183,7 @@ export function CombatSideHud({
     const hpColor = hpPct > 50 ? "var(--success)" : hpPct > 25 ? "var(--gold-2)" : "var(--danger)";
     return (
         <aside
-            className={`combat-side-hud${isActive ? " combat-side-hud--active" : ""}`}
+            className={`combat-side-hud${isActive ? " combat-side-hud--active" : ""}${className ? ` ${className.trim()}` : ""}`}
             aria-label={`${name} combat status`}
             tabIndex={0}
         >

@@ -104,7 +104,25 @@ test('all four villages deliver the audited level 65/75/85/100 fights through th
             retry.enemy.pos = hexNeighbors(retry.player.pos).find(pos => !retry.environment.blockedTiles.includes(pos))!;
             assert.ok(Number.isFinite(retry.enemy.pos));
             await writeSoloPveSession(retry);
-            const won = await call(action, name, { sessionId: retry.sessionId, expectedVersion: retry.version,
+            let finishing = retry;
+            if (retry.bossForms) {
+                // The final Kage transforms instead of falling to its first lethal blow.
+                // Prove that happens through the real handler and is stored durably,
+                // then land the finishing blow on the transformed Kage.
+                const formed = await call(action, name, { sessionId: retry.sessionId, expectedVersion: retry.version,
+                    moveToken: `late-form-${level}`, type: 'basicAttack' });
+                assert.equal(formed.status, 200, JSON.stringify(formed.body));
+                const formedSession = formed.body.session as SoloPveSession;
+                assert.equal(formedSession.status, 'active', 'the transformation, not a knockout');
+                assert.equal(formedSession.bossForms?.phase, 1);
+                const stored = (await readSoloPveSession(retry.sessionId))!;
+                assert.deepEqual(stored.bossForms, formedSession.bossForms, 'the transformation is stored with the session');
+                stored.enemy.hp = 1;
+                stored.enemy.shield = 0;
+                await writeSoloPveSession(stored);
+                finishing = stored;
+            }
+            const won = await call(action, name, { sessionId: finishing.sessionId, expectedVersion: finishing.version,
                 moveToken: `late-win-${level}`, type: 'basicAttack' });
             assert.equal(won.status, 200, JSON.stringify(won.body));
             assert.equal((won.body.session as SoloPveSession).winner, 'player');

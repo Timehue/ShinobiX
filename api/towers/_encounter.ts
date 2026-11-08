@@ -20,6 +20,7 @@ import { applyPartyScaling, towerNeighbors } from './_engine.js';
 import { startingItemShield } from '../combat-core/shields.js';
 import { requireEnemyTemplate, type EnemyTemplate } from './_enemy-templates.js';
 import { storyTowerEnemy } from './_story-balance.js';
+import { sealTowerBossForms } from './_boss-forms.js';
 import { teachPveGapClosingJutsu, type AiOpponentJutsu } from '../_ai-opponent-loadout.js';
 import { distributePveAiItems, pveAiItemCharges } from '../combat-core/ai-items.js';
 import { hexZone, type TowerFloor, type TowerFeature } from './_floor-catalog.js';
@@ -515,5 +516,10 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     if (!p.ascension && p.clanBossRulesVersion !== 2) applyPartyScaling(session, floor);
     if (publicTactics && useLargeEnvironment) initializeTowerTactics(session);
     if (p.embedFloor) session.encounterFloor = structuredClone(floor);
+    // A milestone boss's transformation plan, frozen with the run (absent → none).
+    sealTowerBossForms(session, floor.boss?.transformation, (aiId) => {
+        const template = requireEnemyTemplate(aiId);
+        return publicTactics && !p.ascension ? storyTowerEnemy(template, floor) : template;
+    });
     return session;
 }

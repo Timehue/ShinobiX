@@ -16,7 +16,10 @@ import { sealCompanionFromSave } from '../combat-core/companion.js';
 import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
-import { createSoloPveSession, type SoloPveEncounter, type SoloPveEnvironment, type SoloPveSession } from './_session.js';
+import { createSoloPveSession, type SoloPveEncounter, type SoloPveEnvironment, type SoloPveJutsu, type SoloPveSession } from './_session.js';
+import { assertSoloPveLoadoutCompatible } from './_compatibility.js';
+import { isBossTransformationPlan, sealSoloPveBossForms } from './_boss-forms.js';
+import { soloPveBossTransformationFor } from './_boss-transformation-registry.js';
 import { CATALOG_CHALLENGE_WEAPON_POLICY, standardPveAiPlannerDisabled, type SoloPveAiPolicy } from './_ai-turn-policy.js';
 import { narrativeEnemyIdentity, narrativeEnemyJutsuIds } from '../../shared/narrative-enemy-identity.js';
 import { attachNarrativeGroupCombat } from './_group-combat.js';
@@ -333,5 +336,27 @@ export function buildSoloPveAiEncounter(params: {
         ...(Number(params.activeTtlSeconds) > 0 ? { activeTtlSeconds: params.activeTtlSeconds } : {}),
     });
     attachNarrativeGroupCombat(session, params.profile.id, params.profile.narrativeGroupId);
+    sealProfileBossForms(session, profile, params.admin);
     return session;
+}
+
+/**
+ * A profile that carries `bossTransformation` transforms mid-fight. The forms'
+ * new techniques are resolved now, with the same cost policy as the boss's
+ * opening kit, so the fight never reads the live catalog again.
+ */
+function sealProfileBossForms(session: SoloPveSession, profile: SoloPveAiProfile, admin: AdminCombatContent | null): void {
+    const plan = profile.bossTransformation ?? soloPveBossTransformationFor(session.encounter.kind, profile.id);
+    if (!isBossTransformationPlan(plan) || session.huntCombat) return;
+    const enemy = session.enemy.character;
+    const level = Number(enemy.level) || 1;
+    const specialty = String(enemy.specialty ?? '');
+    const progressiveMastery = ['weaker', 'standard', 'dangerous', 'elite', 'final-kage'].includes(String(profile.pveDifficulty));
+    const ids = [...new Set(plan.phases.flatMap(phase => phase.moveset?.add ?? []))];
+    const learned = resolveAiProfileJutsu(ids, admin).map(entry => ({
+        ...entry,
+        ...(progressiveMastery && COMBAT_RESOURCES_V2 ? v2JutsuCosts(entry, level, specialty) : {}),
+    })) as SoloPveJutsu[];
+    assertSoloPveLoadoutCompatible({ ...enemy, jutsu: learned });
+    sealSoloPveBossForms(session, plan, learned, pveAiMasteryForEncounter(level, profile.pveDifficulty));
 }
