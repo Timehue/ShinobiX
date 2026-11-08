@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import pg from 'pg';
-import type { KvCasOp } from './_storage.js';
+import type { KvCasOp, KvLike } from './_storage.js';
 
 /*
  * kv.compareSetMany against a REAL Postgres.
@@ -40,7 +40,9 @@ import type { KvCasOp } from './_storage.js';
  * records. Every key the tests write starts with `pgit:` (locks: `lock:pgit:`),
  * except the Era receipt test, which must use the real Era keys: receipts
  * `era:receipt:warBattles:pgit-*` and the `era:contrib-sum:warBattles:*`
- * counter rows. The suite refuses to touch a kv_store that holds any other row.
+ * counter rows. Ruin tests prefix all data rows with `pgit:` while the real
+ * building lock is acquired and released by the production helper. The suite
+ * refuses to touch a kv_store that holds any other row.
  */
 
 const DATABASE_URL = process.env.PG_INTEGRATION_DATABASE_URL?.trim() ?? '';
@@ -64,6 +66,7 @@ const SUITE_ROWS = `(key LIKE 'pgit:%' OR key LIKE 'lock:pgit:%'
 let storage: typeof import('./_storage.js');
 let locks: typeof import('./_lock.js');
 let admin: pg.Client;
+let damageRuins: typeof import('./sector/_ruin-battle-damage.js').damageRuinsForWorldBattle;
 
 function clientConfig(): pg.ClientConfig {
     const url = new URL(DATABASE_URL);
@@ -157,6 +160,16 @@ async function waitForLockWaiters(count: number): Promise<void> {
 
 const many = (ops: KvCasOp[]) => storage.kv.compareSetMany!(ops);
 const critical = { failClosed: true, maxAttempts: 1, baseBackoffMs: 1 };
+const ruinBuildingKey = 'world:building:gorgewatch';
+const ruinNow = Date.parse('2026-11-08T12:00:00Z');
+const ruinWork = (cycleRepairs = 10) => ({ repairs: 30, cycleRepairs, cycleAt: ruinNow, updatedAt: ruinNow });
+// Isolate data without replacing the production lock, CAS adapter, or writer.
+function ruinStore(prefix: string): Pick<KvLike, 'get' | 'compareSetMany'> {
+    return {
+        get: <T>(key: string) => storage.kv.get<T>(prefix + key),
+        compareSetMany: ops => many(ops.map(op => ({ ...op, key: prefix + op.key }))),
+    };
+}
 
 describe('kv.compareSetMany on a real Postgres', () => {
     before(async () => {
@@ -202,6 +215,7 @@ describe('kv.compareSetMany on a real Postgres', () => {
 
         storage = await import('./_storage.js');
         locks = await import('./_lock.js');
+        ({ damageRuinsForWorldBattle: damageRuins } = await import('./sector/_ruin-battle-damage.js'));
     });
 
     beforeEach(async () => {
@@ -250,6 +264,86 @@ describe('kv.compareSetMany on a real Postgres', () => {
         assert.deepEqual(receipt?.value, { state: 'reserved' });
         assert.equal(receipt?.xmin, asserted?.xmin, 'an assert writes no new row version');
         assert.equal(receipt?.updated_at.getTime(), asserted?.updated_at.getTime());
+    });
+
+    pgTest('a bare ruin receipts its no-op permanently and cannot damage later repairs on replay', async () => {
+        const prefix = 'pgit:ruin:bare:', store = ruinStore(prefix), battleId = 'pgit-bare';
+        const receipt = `${prefix}${ruinBuildingKey}:battle:${battleId}`;
+        assert.deepEqual(await damageRuins(store, battleId, 38, ruinNow), []);
+        assert.equal(await row(prefix + ruinBuildingKey), null, 'no-op does not create a building row');
+        assert.deepEqual((await row(receipt))?.value, { battleAt: ruinNow });
+        assert.equal((await row(receipt))?.expires_at, null, 'receipt has no expiry');
+        await seed(prefix + ruinBuildingKey, ruinWork(2));
+        assert.deepEqual(await damageRuins(store, battleId, 38, ruinNow + 3600_000, ruinNow), []);
+        assert.deepEqual((await row(prefix + ruinBuildingKey))?.value, ruinWork(2));
+        assert.deepEqual(await damageRuins(store, 'pgit-fresh', 38, ruinNow + 3600_000), ['gorgewatch']);
+        assert.equal(((await row(prefix + ruinBuildingKey))?.value as { cycleRepairs: number }).cycleRepairs, 0);
+    });
+
+    pgTest('ruin receipt refusal rolls back damage, and a lost committed reply is safe to replay', async () => {
+        const prefix = 'pgit:ruin:rollback:', store = ruinStore(prefix), battleId = 'pgit-rollback';
+        const building = prefix + ruinBuildingKey, receipt = `${building}:battle:${battleId}`;
+        await seed(building, ruinWork());
+        // Returning NULL suppresses only this test receipt's INSERT. The real
+        // adapter must roll back the building CAS that executed before it.
+        await admin.query(`CREATE FUNCTION public.pgit_refuse_ruin_receipt() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN IF NEW.key = '${receipt}' THEN RETURN NULL; END IF; RETURN NEW; END; $$`);
+        await admin.query(`CREATE TRIGGER pgit_refuse_ruin_receipt BEFORE INSERT ON public.kv_store
+            FOR EACH ROW EXECUTE FUNCTION public.pgit_refuse_ruin_receipt()`);
+        const beforeWrites = await dataWrites();
+        try {
+            assert.deepEqual(await damageRuins(store, battleId, 38, ruinNow), []);
+            assert.deepEqual((await row(building))?.value, ruinWork());
+            assert.equal(await row(receipt), null);
+            assert.ok(await dataWrites() >= beforeWrites + 2, 'both the building write and refused receipt executed before rollback');
+        } finally {
+            await admin.query('DROP TRIGGER pgit_refuse_ruin_receipt ON public.kv_store');
+            await admin.query('DROP FUNCTION public.pgit_refuse_ruin_receipt()');
+        }
+        assert.deepEqual(await damageRuins(store, battleId, 38, ruinNow), ['gorgewatch']);
+        const lostReply = { ...store, compareSetMany: async (ops: readonly KvCasOp[]) => {
+            assert.equal(await store.compareSetMany!(ops), true);
+            throw new Error('pg-integration: lost committed ruin reply');
+        } };
+        await damageRuins(lostReply, 'pgit-lost-reply', 38, ruinNow);
+        const committed = await row(building);
+        assert.equal((committed?.value as { cycleRepairs: number }).cycleRepairs, 6);
+        assert.ok(await row(`${building}:battle:pgit-lost-reply`));
+        assert.deepEqual(await damageRuins(store, 'pgit-lost-reply', 38, ruinNow), []);
+        assert.deepEqual((await row(building))?.value, committed?.value);
+    });
+
+    pgTest('a repair racing a ruin no-op leaves no receipt until the new snapshot commits', async () => {
+        const prefix = 'pgit:ruin:repair:', store = ruinStore(prefix), battleId = 'pgit-racing-repair';
+        const building = prefix + ruinBuildingKey, receipt = `${building}:battle:${battleId}`;
+        const racing = { ...store, compareSetMany: async (ops: readonly KvCasOp[]) => {
+            await seed(building, ruinWork(2));
+            return store.compareSetMany!(ops);
+        } };
+        assert.deepEqual(await damageRuins(racing, battleId, 38, ruinNow), []);
+        assert.equal(await row(receipt), null, 'failed absent-row assertion cannot consume the battle');
+        assert.deepEqual((await row(building))?.value, ruinWork(2));
+        assert.deepEqual(await damageRuins(store, battleId, 38, ruinNow), ['gorgewatch']);
+        assert.equal(((await row(building))?.value as { cycleRepairs: number }).cycleRepairs, 0);
+        assert.equal((await row(receipt))?.expires_at, null);
+    });
+
+    pgTest('concurrent ruin settlements count duplicates once and preserve the four-battle cap', async () => {
+        const prefix = 'pgit:ruin:concurrent:', store = ruinStore(prefix), building = prefix + ruinBuildingKey;
+        await seed(building, ruinWork(20));
+        const duplicates = await Promise.all(Array.from({ length: 6 }, (_, i) =>
+            damageRuins(store, `pgit-concurrent-${Math.floor(i / 2)}`, 38, ruinNow)));
+        assert.equal(duplicates.flat().length, 3);
+        const last = await Promise.all(['pgit-fourth', 'pgit-fifth'].map(id => damageRuins(store, id, 38, ruinNow)));
+        assert.equal(last.flat().length, 1);
+        const state = (await row(building))?.value as { cycleRepairs: number; damageToday: number };
+        assert.equal(state.cycleRepairs, 12);
+        assert.equal(state.damageToday, 4);
+        const { rows: [receipts] } = await admin.query<{ n: number; expiring: number }>(
+            `SELECT count(*)::int AS n, count(expires_at)::int AS expiring FROM public.kv_store WHERE key LIKE $1`,
+            [`${building}:battle:%`]);
+        assert.equal(receipts.n, 5, 'the capped fight is also receipted');
+        assert.equal(receipts.expiring, 0);
     });
 
     pgTest('one moved predecessor rolls back statements that already ran, and returns false', async () => {
