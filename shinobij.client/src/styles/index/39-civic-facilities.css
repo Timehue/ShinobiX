@@ -525,7 +525,6 @@
 .facility-access-note { align-items: flex-start; border-color: #34475b; background: #0b1723; color: #839aae; }
 .facility-access-note p { margin: 0; color: #9babb9; font-size: 0.82rem; line-height: 1.5; }
 
-.hospital-roster-panel .healer-injured-list,
 .hospital-roster-panel > :last-child { margin-bottom: 0; }
 
 /* Cafeteria */

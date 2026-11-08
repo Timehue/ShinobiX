@@ -35,7 +35,7 @@
 .pet-technique-signature { border-left: 2px solid var(--tactics-gold); padding: 0 12px; margin: 20px 0; }
 .pet-techniques-advanced { border-top: 1px solid #41434c; padding-top: 14px; margin-top: 18px; }
 .pet-techniques-advanced summary { cursor: pointer; font-size: 12px; }
-.pet-techniques-editor .pta-allocation input, .pet-techniques-editor select { background: #0e131c; color: #f5ebd6; border: 1px solid #515867; border-radius: 5px; padding: 9px; min-height: 44px; max-width: 100%; }
+.pet-techniques-editor select { background: #0e131c; color: #f5ebd6; border: 1px solid #515867; border-radius: 5px; padding: 9px; min-height: 44px; max-width: 100%; }
 .pet-techniques-editor .pet-techniques-validity { color: #a3dcb5; }
 .pet-techniques-editor .pet-techniques-validity.has-issue { color: #ffce9d; }
 .pet-techniques-editor .pet-techniques-save { width: 100%; color: #17130c; background: #e9bd75; border-color: #e9bd75; font-weight: 750; }
