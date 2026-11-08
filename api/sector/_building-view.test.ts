@@ -139,6 +139,29 @@ test('watch reports retain each observed sky and never replace it with an unveri
     assert.ok(result.shared.reports[0].text.includes('Return to the signal window'));
 });
 
+test('ruins offer a seven-day restoration and lapse back to a ruin; strongholds keep permanent frontage repairs',()=>{
+    const ruin=buildingDetailView(sectorBuilding('festival-welcome')!,{},{repairs:24,cycleRepairs:24,intactUntil:NOW+1000,updatedAt:NOW},NOW);
+    const repair=ruin.services.find(service=>service.service==='repair')!;
+    assert.equal(repair.title,'Ruin restoration');assert.match(repair.description,/seven days/);
+    assert.equal(repair.available,false,'a standing ruin takes no repairs');assert.match(repair.reason!,/fully restored/);
+    assert.equal(ruin.shared.stage,3);assert.equal(ruin.shared.intactUntil,NOW+1000);
+    const lapsed=buildingDetailView(sectorBuilding('festival-welcome')!,{},{repairs:24,cycleRepairs:24,intactUntil:NOW+1000,updatedAt:NOW},NOW+1000);
+    assert.equal(lapsed.shared.stage,0);assert.equal(lapsed.shared.cycleRepairs,0);
+    const lantern=sectorBuilding('festival-lantern-house')!;
+    const restoredShop=buildingDetailView(lantern,{},{repairs:24,cycleRepairs:24,intactUntil:NOW+86_400_000,updatedAt:NOW},NOW);
+    const ruinShop=buildingDetailView(lantern,{},{repairs:3,cycleRepairs:3,cycleAt:NOW},NOW);
+    assert.ok(restoredShop.recipes.length,'the lantern house runs a workshop');
+    for(const [index,recipe] of restoredShop.recipes.entries())assert.ok(recipe.ryo<=ruinShop.recipes[index].ryo,`${recipe.id} costs no more while restored`);
+    assert.ok(restoredShop.recipes.some((recipe,index)=>recipe.ryo<ruinShop.recipes[index].ryo),'a restored workshop charges less');
+    assert.match(restoredShop.services.find(s=>s.service==='workshop')!.description,/quarter lower/);
+    assert.match(restoredShop.services.find(s=>s.service==='festival')!.description,/quarter more/);
+    assert.doesNotMatch(ruinShop.services.find(s=>s.service==='festival')!.description,/quarter/);
+    const frontage=buildingDetailView(sectorBuilding('stronghold-2')!,{},{repairs:24,updatedAt:0},NOW+365*86_400_000);
+    assert.equal(frontage.shared.stage,3);
+    const frontageRepair=frontage.services.find(service=>service.service==='repair')!;
+    assert.equal(frontageRepair.title,'Public shelter repairs');assert.doesNotMatch(frontageRepair.description,/seven days/);
+});
+
 test('restored watch descriptions distinguish Gorgewatch’s bridge from the ash-road posts',()=>{
     for(const id of ['gorgewatch','obsidian-waystation','obsidian-north-watch']){
         const building=sectorBuilding(id)!,view=buildingDetailView(building,{}, {repairs:24},NOW);

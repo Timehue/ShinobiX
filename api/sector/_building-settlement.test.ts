@@ -194,6 +194,6 @@ test('the restored watch requires its farther bridge signal point before filing 
     assert.equal((await call(step(1),NOW+12000,building.approach)).ok,false,'the doorway does not prove the extended sightline');
     assert.ok((await call(step(1),NOW+12000,building.restoredWatchPoint!.tile)).ok);
     const done=await call(step(2),NOW+18000,building.approach);assert.ok(done.ok);if(!done.ok)return;
-    assert.equal(done.character.ryo,80);
+    assert.equal(done.character.ryo,100,'a round accepted at the restored post pays a quarter more than 80');
     const shared=await kv.get<{reports:{text:string}[]}>('world:building:gorgewatch');assert.match(shared!.reports.at(-1)!.text,/restored lookout signal/);
 });

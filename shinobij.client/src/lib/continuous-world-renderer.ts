@@ -6,6 +6,7 @@ import { sectorFloorImage } from './sector-floor-layout';
 import { sectorLifePainting,sectorLifePaintingRevision,sectorGroundMarks,sectorGroundRevision } from './sector-life-art';
 import { worldRoadCrossings } from '../../../shared/world-road-crossings';
 import { sectorBannerRevision,tintSectorBanners } from './sector-banner';
+import { drawSectorRestorations,sectorRestorationRevision } from './sector-restoration-art';
 import {recordDisplayedSectorFloor,forgetDisplayedSectorFloor,forgetDisplayedFloors} from './sector-displayed-floor';
 
 const colors: Record<string, string> = { forest: '#495338', central: '#747052', snow: '#b5bdba', shadow: '#55505c', volcano: '#4a3d36' };
@@ -47,7 +48,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     let width = canvas.clientWidth, height = canvas.clientHeight;
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => { width = canvas.clientWidth; height = canvas.clientHeight; });
     resize?.observe(canvas);
-    let revision = 0, lastDraw = '', groundVersion=sectorGroundRevision(),bannerVersion=sectorBannerRevision();
+    let revision = 0, lastDraw = '', groundVersion=sectorGroundRevision(),bannerVersion=sectorBannerRevision(),restorationVersion=sectorRestorationRevision();
     let lastView: { tilePx: number; chunk: WorldChunk; crossings: typeof crossings; x: number; y: number } | undefined;
     // An image counts as arrived once it is DECODED, not merely loaded: drawing a
     // loaded-but-undecoded 1024px webp decodes it synchronously inside a frame,
@@ -111,7 +112,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         if (!result) {
             result = document.createElement('canvas'); result.width = result.height = image.naturalWidth;
             const context = result.getContext('2d')!, size = result.width, feather = size / 12 * .65;
-            context.drawImage(image, 0, 0); tintSectorBanners(context,sector,size); context.globalCompositeOperation = 'destination-in';
+            context.drawImage(image, 0, 0); tintSectorBanners(context,sector,size); drawSectorRestorations(context,sector,size); context.globalCompositeOperation = 'destination-in';
             for (const horizontal of [true, false]) {
                 const fade = context.createLinearGradient(0, 0, horizontal ? size : 0, horizontal ? 0 : size);
                 fade.addColorStop(0, '#fff0'); fade.addColorStop(feather / size, '#fff'); fade.addColorStop(1 - feather / size, '#fff'); fade.addColorStop(1, '#fff0');
@@ -257,6 +258,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     }
     function draw(position: WorldPoint, sector: number) {
         if(bannerVersion!==sectorBannerRevision()){bannerVersion=sectorBannerRevision();for(const surface of paintings.values())shrink(surface);paintings.clear();revision++;}
+        if(restorationVersion!==sectorRestorationRevision()){restorationVersion=sectorRestorationRevision();for(const surface of paintings.values())shrink(surface);paintings.clear();revision++;}
         if(groundVersion!==sectorGroundRevision()){groundVersion=sectorGroundRevision();revision++;}
         if (!resize) { width = canvas.clientWidth; height = canvas.clientHeight; }
         const tilePx = width / 12, dpr = Math.min(devicePixelRatio, 2), scale = tilePx * dpr;

@@ -7,9 +7,12 @@ import { sectorWalkMask } from '../../../shared/sector-walk-mask';
 import { setSectorLifePainting,setSectorGroundMarks,sectorGroundMarks,sectorGroundRevision,sectorTrackerAway,sectorLifePainting } from './sector-life-art';
 import { setSectorBannerOwners } from './sector-banner';
 import {displayedSectorFloor} from './sector-displayed-floor';
+import { clearSectorRestorations,setSectorRestorations } from './sector-restoration-art';
 
 type Fixture = { renderer: ReturnType<typeof createContinuousWorldRenderer>; canvas: { clientWidth: number }; images: { src: string; onload: (() => void) | null; onerror?: (()=>void)|null; complete:boolean;naturalWidth:number }[];
-    counts: { paints: number; tilePaints: number; blits: number; canvases: number; scuffs:number; boots:number } };
+    counts: { paints: number; tilePaints: number; blits: number; canvases: number; scuffs:number; boots:number };
+    /** Image sources drawn onto offscreen (floor and tile) canvases, in order. */
+    drawn: string[] };
 /**
  * A renderer on fake canvases: `paints` counts screen repaints, `tilePaints` cached-tile rasters,
  * `blits` tiles copied to screen, `canvases` every offscreen canvas created. An image whose
@@ -24,10 +27,11 @@ function harness(run: (fixture: Fixture) => void, options: { chunks?: { sector: 
         get src() { return this.#src; }
         set src(value: string) { this.#src = value; if (arrived(value)) { this.complete = true; this.naturalWidth = 1536; } }
     }
-    const counts = { paints: 0, tilePaints: 0, blits: 0, canvases: 0,scuffs:0,boots:0 }, gradient = { addColorStop() {} };
+    const counts = { paints: 0, tilePaints: 0, blits: 0, canvases: 0,scuffs:0,boots:0 }, gradient = { addColorStop() {} }, drawn: string[] = [];
     const fake = (methods: Record<string, () => unknown>) => new Proxy(methods, { get(target, key) { return target[key as string] ?? (() => {}); } });
     const screen = fake({ clearRect() { counts.paints++; }, drawImage() { counts.blits++; }, createRadialGradient() { return gradient; } });
-    const tile = fake({ clearRect() { counts.tilePaints++; }, createRadialGradient() { return gradient; }, createLinearGradient() { return gradient; },quadraticCurveTo(){counts.scuffs++;},ellipse(){counts.boots++;},getImageData(){return {data:new Uint8ClampedArray(4)};} });
+    const tile = fake({ clearRect() { counts.tilePaints++; }, createRadialGradient() { return gradient; }, createLinearGradient() { return gradient; },quadraticCurveTo(){counts.scuffs++;},ellipse(){counts.boots++;},getImageData(){return {data:new Uint8ClampedArray(4)};},
+        drawImage(...args: unknown[]) { const source = (args[0] as { src?: string } | undefined)?.src; if (source) drawn.push(source); } } as Record<string, () => unknown>);
     Object.defineProperty(globalThis, 'Image', { configurable: true, value: FakeImage });
     Object.defineProperty(globalThis, 'devicePixelRatio', { configurable: true, value: 1 });
     Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => { counts.canvases++; return { width: 0, height: 0, getContext: () => tile }; } } });
@@ -35,7 +39,7 @@ function harness(run: (fixture: Fixture) => void, options: { chunks?: { sector: 
     const space = { chunks: options.chunks ?? [{ sector: 9, x: 0, y: 0 }], roads: [] } as unknown as ContinuousWorldSpace;
     try {
         const renderer = createContinuousWorldRenderer(canvas as unknown as HTMLCanvasElement, space);
-        run({ renderer, canvas, images, counts });
+        run({ renderer, canvas, images, counts, drawn });
         renderer.dispose();
     } finally { for (const [key, descriptor] of originals) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); } }
 }
@@ -77,6 +81,24 @@ test('ownership changes refresh current and neighboring painted floors, then idl
         setSectorBannerOwners([],true);const cleared=counts.tilePaints;settle(renderer,point,15);assert(counts.tilePaints>cleared);
         assert(renderer.imageCount<=4,'ownership updates reuse decoded floor sources');
     },{chunks:[{sector:15,x:0,y:0},{sector:31,x:12,y:0}],arrived:()=>true});}finally{setSectorBannerOwners([],true);}
+});
+test('a restored ruin is painted into its floor once decoded, idles without work, and is removed when it lapses',()=>{
+    try{harness(({renderer,counts,images,drawn})=>{
+        const point={x:3,y:3};settle(renderer,point,52);
+        assert(!drawn.some(src=>src.includes('restored-')),'a ruin stays as painted until restored');
+        setSectorRestorations(52,[{id:'festival-welcome',intactUntil:Date.now()+3*86_400_000}]);settle(renderer,point,52);
+        const art=images.find(image=>image.src.includes('restored-festival-welcome'))!;
+        assert.ok(art,'the restoration painting is requested');
+        assert(!drawn.some(src=>src.includes('restored-')),'an undecoded painting is never drawn');
+        art.complete=true;art.naturalWidth=402;art.onload?.();
+        const before=drawn.length;settle(renderer,point,52);
+        assert(drawn.slice(before).some(src=>src.includes('restored-festival-welcome')),'the decoded painting is drawn into the floor');
+        const restored={...counts};for(let i=0;i<60;i++)renderer.draw(point,52);
+        assert.deepEqual(counts,restored,'idle frames do no extra work');
+        setSectorRestorations(52,[]);const lapsed=drawn.length;settle(renderer,point,52);
+        assert(counts.tilePaints>restored.tilePaints,'a lapse repaints the floor');
+        assert(!drawn.slice(lapsed).some(src=>src.includes('restored-')),'the lapsed ruin returns to its painted art');
+    },{chunks:[{sector:52,x:0,y:0}],arrived:source=>!source.includes('restored-')});}finally{clearSectorRestorations(52);}
 });
 test('one authoritative sector snapshot updates its painting and absent tracker together, then clears both',()=>{
     setSectorLifePainting(15,'heartwood-left-lamp-v1','first-tracker');assert(sectorTrackerAway(15,'first-tracker'));assert.match(sectorLifePainting(15)!,/left-lamp/);

@@ -1,5 +1,5 @@
 import { leadershipNameKey } from '../../../shared/village-anbu';
-import { setSectorBannerOwners } from './sector-banner-state';
+import { setRestoredRuinFeed, setSectorBannerOwners } from './sector-banner-state';
 import { elderSeatsForTerm } from "../../../shared/village-elders";
 import { cacheVillageElders, resetVillageElders } from "./village-elder-focus";
 /*
@@ -583,7 +583,7 @@ function nudgeVillageIntel(): void {
         .catch(() => { /* chunk fetch failed; nothing short of a page reload fetches it again */ });
 }
 
-export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[]; standings?: Partial<WarStandingRecord>[]; sectorPools?: unknown; sectorPoolCaps?: unknown }): boolean {
+export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[]; standings?: Partial<WarStandingRecord>[]; sectorPools?: unknown; sectorPoolCaps?: unknown; restoredRuins?: unknown }): boolean {
     // Shared per-sector gathering pool usage rides the same poll (lib/sector-pool).
     const poolsChanged = hydrateSectorPools(data);
     // Village Intel is a SEPARATE authenticated endpoint on a slower cadence.
@@ -597,6 +597,7 @@ export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerr
     });
     sharedSectorTerritoryCache = territories;
     setSectorBannerOwners(Object.values(territories),true);
+    setRestoredRuinFeed(data.restoredRuins);
 
     const wars: Record<string, VillageWar> = {};
     (data.wars ?? []).forEach(war => {

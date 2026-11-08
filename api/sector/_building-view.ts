@@ -1,5 +1,5 @@
 import { countOwned, supplyForgeRyo } from '../craft/_forge.js';
-import { keeperWorkshopCraftRyo } from '../../shared/craft-fees.js';
+import { buildingStandsRestored, workshopFeeFor } from './_restored-perks.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { SUPPLY_CRAFT_RECIPES, craftMaterialName, type CraftIngredient } from '../../shared/crafting-recipes.js';
 import { buildingConditions, buildingGreeting, buildingOnTetsuCircuit, buildingRecipeTrust, buildingRegisterEntries, buildingRelationship, buildingTeaClosure, buildingWorkView, buildingWorkshopRecipes, BUILDING_REPAIR_INGREDIENTS } from '../../shared/sector-building-content.js';
@@ -26,13 +26,15 @@ function rows(character:Record<string,unknown>,ingredients:readonly CraftIngredi
     return ingredients.map(row=>({...row,owned:row.ids.map(id=>({id,name:craftMaterialName(id),count:countOwned(character,id)}))}));
 }
 export function buildingDetailView(building:SectorBuilding,character:Record<string,unknown>,rawShared:unknown,now:number,territory?:Record<string,unknown>|null):BuildingDetailView{
-    const progress=readBuildingProgress(character.sectorBuildings,now),standing=buildingStanding(progress,building.id),shared=readSharedBuilding(rawShared);
+    const progress=readBuildingProgress(character.sectorBuildings,now),standing=buildingStanding(progress,building.id),shared=readSharedBuilding(rawShared,building.kind==='ruin'?{now}:undefined);
     const services:BuildingServiceView[]=building.services.map(service=>{
-        const [title,baseDescription]=serviceCopy[service];let reason:string|undefined;
+        const [title,baseDescription]=service==='repair'&&building.kind==='ruin'?['Ruin restoration',serviceCopy.repair[1]] as const:serviceCopy[service];let reason:string|undefined;
         const description=service==='festival'?`${buildingFestivalTasks(building.id).map(task=>task.label).join(' → ')}. The keeper records one paid participation per premises per UTC day.`:
             service==='watch'?`${baseDescription} ${shared.stage===3?(building.restoredWatchPoint?'Restoration has reopened the long signal sightline: check it from the marked bridge position.':'The restored public window supports the full return-signal round on the marked road approaches.'):shared.stage===2?'The sheltered report board is now in use.':shared.stage===1?'New braces support the doorway watch.':'The unrepaired post works from its doorway and the nearby ground markers.'}`:
+            service==='repair'&&building.kind==='ruin'?`${baseDescription} Twenty-four orders restore this ruin. It then stands intact for seven days before it weathers back into a ruin, and the count starts again. Unfinished work fades after fourteen days without a completed repair, and world fights in this sector damage it.`:
             service==='courier'&&buildingOnTetsuCircuit(building)?`${baseDescription} This counter hands letters along Tetsu’s established harbor–deepwood circuit.`:baseDescription;
-        if(progress.active&&!['register','reception','survey'].includes(service))reason='Finish or cancel your current building work first.';
+        if(service==='repair'&&building.kind==='ruin'&&shared.stage===3)reason='This building stands fully restored. Repairs reopen when it weathers back into a ruin.';
+        else if(progress.active&&!['register','reception','survey'].includes(service))reason='Finish or cancel your current building work first.';
         else if(service==='courier'&&progress.deliveriesToday>=BUILDING_DELIVERY_DAILY_CAP)reason='All three paid deliveries are complete for today.';
         else if(service==='intelligence'&&(standing.suspicionUntil??0)>now)reason='The contact will reopen after the five-minute suspicion period.';
         else if(service==='intelligence'&&standing.intelDay===progress.day)reason='Your handoff is settled for today.';
@@ -40,7 +42,10 @@ export function buildingDetailView(building:SectorBuilding,character:Record<stri
         else if(service==='festival'&&standing.festivalDay===progress.day)reason='Your participation is recorded for today.';
         else if(service==='tea'&&(standing.teaUntil??0)>now)reason='The next kettle round is not ready yet.';
         else if(service==='tea')reason=buildingTeaClosure(building,now,territory??undefined);
-        return{service,title,description,available:!reason,...(reason?{reason}:{})};
+        // While restored, the keeper pays a quarter more for work begun here and the workshop charges a quarter less.
+        const perk=buildingStandsRestored(building,shared)&&['courier','watch','intelligence','festival','survey','workshop'].includes(service)
+            ?(service==='workshop'?' Restored: the keeper’s fee is a quarter lower.':' Restored: work begun here pays a quarter more.'):'';
+        return{service,title,description:description+perk,available:!reason,...(reason?{reason}:{})};
     });
     const survey=standing.survey;
     const investigation=BUILDING_INVESTIGATIONS[building.id];
@@ -54,7 +59,7 @@ export function buildingDetailView(building:SectorBuilding,character:Record<stri
             ...(survey?.recordedAt?{account:investigation.account,...(survey.interpretation==='open-question'?{question:investigation.question}:{})}:{})}}:{}),
         register:building.services.includes('register')?buildingRegisterEntries(building,progress):[],
         recipes:building.services.includes('workshop')?buildingWorkshopRecipes(building).flatMap(id=>{
-            const recipe=SUPPLY_CRAFT_RECIPES[id],trust=buildingRecipeTrust(building,id);return recipe?[{id,name:ITEM_CATALOG[id]?.name??id,ingredients:rows(character,recipe.ingredients),level:recipe.levelReq??1,trust,ryo:supplyForgeRyo(id,1,keeperWorkshopCraftRyo),available:standing.trust>=trust}]:[];
+            const recipe=SUPPLY_CRAFT_RECIPES[id],trust=buildingRecipeTrust(building,id);return recipe?[{id,name:ITEM_CATALOG[id]?.name??id,ingredients:rows(character,recipe.ingredients),level:recipe.levelReq??1,trust,ryo:supplyForgeRyo(id,1,workshopFeeFor(buildingStandsRestored(building,shared))),available:standing.trust>=trust}]:[];
         }):[],
         leads:SECTOR_BUILDINGS.filter(b=>b.id!==building.id&&(b.region===building.region||b.services.includes('courier')))
             .sort((a,b)=>Math.abs(a.sector-building.sector)-Math.abs(b.sector-building.sector)||a.id.localeCompare(b.id)).slice(0,standing.trust>=5?4:2)
