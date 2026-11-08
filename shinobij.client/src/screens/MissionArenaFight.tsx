@@ -16,6 +16,8 @@ import { retryArenaSettlement } from "../lib/arena-settlement-retry";
 import "../styles/mission-arena-fight.css";
 // CombatSideHud's portrait frame (it is node-tested, so it cannot import CSS).
 import "../styles/art-backdrop.css";
+import { BossFormChip, BossFormCutsceneGate } from "../components/BossFormStatus";
+import { bossFormAuraClass, bossFormViewFor } from "../lib/boss-form-view";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting, primeStorySfx } from "../lib/story-sfx";
@@ -1241,7 +1243,9 @@ export function MissionArenaFight({
     const enemyVisual = String(enemy?.character?.visual ?? "");
     const mirrorTrial = enemyVisual === "story-ai-moonshadow-village-50";
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
-    const enemyAvatar = mirrorTrial ? playerAvatar : (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || sharedImages?.[`ai:${canonicalBeastPortraitId(enemyVisual)}`] || beastPortrait(enemyVisual) || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
+    // A transformed boss shows its form's alternate art ahead of any authored override.
+    const bossForm = bossFormViewFor(session.bossForms, session.round, enemy?.hp);
+    const enemyAvatar = mirrorTrial ? playerAvatar : bossForm?.portrait || (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || sharedImages?.[`ai:${canonicalBeastPortraitId(enemyVisual)}`] || beastPortrait(enemyVisual) || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
     const enemyName = enemy?.name ?? "Enemy";
     const enemyBattleSprite = mirrorTrial ? null : battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype });
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
@@ -1403,6 +1407,8 @@ export function MissionArenaFight({
             {/* Story flavor overlays (display-only) — float above the arena board. */}
             {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
             {storyFinalPhase && <div className="story-fight-vignette" aria-hidden="true" />}
+            <BossFormCutsceneGate sessionId={session.sessionId} view={bossForm} bossName={enemyName} bossImage={enemyAvatar}
+                playerName={me} playerImage={playerAvatar} backdrop={storyTheme?.backdropImage} />
             {bark && (
                 <div className={`story-fight-bark${bark.side === "ally" ? " story-fight-bark--ally" : ""}`} role="status">
                     {bark.side === "boss" && isImageAvatar(enemyAvatar) && (
@@ -1441,6 +1447,8 @@ export function MissionArenaFight({
 
                     <CombatEnvironmentStrip className="combat-grid-environment">
                         <div className={`combat-grid-environment-details${gateDirective ? ' hg-arena-rules' : ''}`}>
+                        {/* First, so a phone's narrow strip always shows the boss's phase. */}
+                        <BossFormChip view={bossForm} />
                         {encounter && <EncounterDifficultyBadge encounter={encounter} />}
                         {(encounterNotice || typeof enemy?.character?.tacticalTell === 'string') && <button type="button" id="encounter-details-trigger" aria-haspopup="dialog" aria-controls="encounter-details" aria-expanded={encounterDetailsOpen}
                             onClick={() => setEncounterDetailsOpen(true)} title={encounterNotice}>{encounterNotice ? 'Resumed encounter' : 'Opponent tells'}</button>}
@@ -1546,7 +1554,7 @@ export function MissionArenaFight({
                                     const spriteFacing = enemyBattleSprite
                                         ? battlefieldFacingTowardNearest(enemy, session.actors, w)
                                         : undefined;
-                                    return <BattlefieldActor key="enemy-orb" side="enemy" actorId="enemy" label={enemyName} portrait={enemyAvatar} sprite={enemyBattleSprite} facing={spriteFacing} fallback={enemyName.slice(0, 2).toUpperCase()} className={gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
+                                    return <BattlefieldActor key="enemy-orb" side="enemy" actorId="enemy" label={enemyName} portrait={enemyAvatar} sprite={enemyBattleSprite} facing={spriteFacing} fallback={enemyName.slice(0, 2).toUpperCase()} className={`${gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}${bossFormAuraClass(bossForm)}`.trim()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                         {gateDirective ? <span className="hg-hound-spectral-aura" aria-hidden="true" /> : null}
                                     </BattlefieldActor>;
                                 })()}
@@ -1957,6 +1965,7 @@ export function MissionArenaFight({
                 <CombatSideHud
                     name={enemyName}
                     avatar={enemyAvatar}
+                    className={bossFormAuraClass(bossForm)}
                     unlimitedHealth={enemy?.unlimitedHealth}
                     hp={enemy?.hp ?? 0}
                     maxHp={enemy?.maxHp ?? 1}

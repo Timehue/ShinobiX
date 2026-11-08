@@ -14,6 +14,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import type { MissionArenaFight } from './MissionArenaFight';
 import "../styles/battle-skin.css";
 import "../styles/tower-tactical.css";
+import { BossFormChip, BossFormCutsceneGate } from "../components/BossFormStatus";
+import { bossFormAuraClass, bossFormViewFor } from "../lib/boss-form-view";
 import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
@@ -788,6 +790,8 @@ export function BattleTowerFight({
     // this persistent actor and must not disappear between the player's turns.
     const myActor = session.actors.find(a => a.side === "squad" && ownedByMe(a.ownerSlug)) ?? null;
     const bossId = session.phaseState?.bossId;
+    // A milestone boss's transformation: alternate art, aura, phase chip and cut-scene.
+    const towerBossForm = bossFormViewFor(session.bossForms, session.round, session.actors.find(a => a.id === bossId)?.hp);
     const lockedBossId = session.objectiveState.bossUnlocked === false ? bossId : undefined;
 
     const renderedScale = fittedScale;
@@ -1499,6 +1503,7 @@ export function BattleTowerFight({
             if (portrait) return portrait;
         }
         if (isNarrativeGroup && typeof sealed === "string" && sealed) return sealed;
+        if (a.id === bossId && towerBossForm?.portrait) return towerBossForm.portrait;
         if (a.side === "enemy") {
             return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).src ?? bundledEnemySprite(a);
         }
@@ -1819,6 +1824,11 @@ export function BattleTowerFight({
                     </div>
                 </div>
             )}
+            {towerBossForm && bossActor && (
+                <BossFormCutsceneGate sessionId={session.runId} view={towerBossForm} bossName={bossActor.name}
+                    bossImage={avatarFor(bossActor) ?? fallbackArtFor(bossActor)} playerName={character.name}
+                    playerImage={resolveOwnAvatar(character, sharedImages) ?? ""} />
+            )}
             {/* Endless Spire — phase-change banner (boss crosses an HP gate) */}
             {phaseBanner && (
                 <div key={phaseBanner.key} className="spire-phase-banner tower-phase-banner" role="status" aria-live="polite" aria-atomic="true"
@@ -2087,6 +2097,8 @@ export function BattleTowerFight({
                                 {session.actors.filter(a => a.hp > 0 || downedHold.includes(a.id)).map(a => {
                                     const { left, top } = towerHexPixel(a.pos, w);
                                     const isBoss = a.id === bossId;
+                                    // A transformed boss's aura ring (or its fallback when no alternate art exists).
+                                    const bossRing = isBoss && towerBossForm?.aura ? `boss-form-ring${bossFormAuraClass(towerBossForm)}` : "";
                                     const bossBarrierActive = isBoss && bossDossierBarrierActive;
                                     const size = isBoss ? BOSS_ORB : ORB;
                                     const ox = left + HEX_W / 2 - size / 2;
@@ -2164,6 +2176,7 @@ export function BattleTowerFight({
                                                 }}>
                                                 {isBoss && <GameIcon name="sigil" size={16} style={{ position: "absolute", top: -2, right: -2, color: "var(--tower-hud-gold)", filter: "drop-shadow(0 1px 2px #000)" }} />}
                                                 {bossBarrierActive && <span className="tower-boss-barrier" aria-hidden="true" />}
+                                                {bossRing && <i className={bossRing} aria-hidden />}
                                                 {unknownCombatant && <span className="tower-unknown-combatant-badge" aria-hidden="true">Unknown</span>}
                                             </BattlefieldActor>
                                             {/* name + hp bar */}
@@ -2437,6 +2450,7 @@ export function BattleTowerFight({
                         label={focusedEnemy.id === bossId ? "Enemy commander" : isTeamPvp ? "Rival fighter" : "Enemy fighter"}
                         active={focusedEnemy.id === activeId}
                         onInspect={() => inspectActor(focusedEnemy, `tower-dossier-${focusedEnemy.id}`)} />}
+                    <BossFormChip view={towerBossForm} />
                     <RailHeader icon="sword" label={isTeamPvp ? "Rival Team" : "Enemies"} accent="var(--tower-rail-foe)" />
                     <div className="tower-roster-list">
                         {enemies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} fallbackArt={fallbackArtFor(a)} boss={a.id === bossId} unknown={isUnknownCombatant(a)}

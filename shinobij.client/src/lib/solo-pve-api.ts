@@ -143,6 +143,8 @@ export type SoloPveSession = {
     terminalReason?: SoloPveTerminalReason;
     hollowGateTelegraph?: HollowGateTelegraph;
     hollowGateRoundLimit?: number;
+    /** Sealed multi-stage boss transformation state (shared/boss-transformations.ts). */
+    bossForms?: import('../../../shared/boss-transformations').BossTransformationState;
     huntCombat?: { purpose?: 'story-twins' | 'narrative-group'; groupId?: string; requiredEnemyIds?: string[]; formation: Omit<import('../../../shared/hunt-combat').HuntFormation, 'count'> & { count: number }; battle: import('./towers-api').TowerSession };
     runtime: 'solo-pve';
     schemaVersion: 1;

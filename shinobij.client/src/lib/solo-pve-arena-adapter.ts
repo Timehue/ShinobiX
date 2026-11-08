@@ -173,6 +173,7 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
         sessionId: session.sessionId,
         hollowGateTelegraph: session.hollowGateTelegraph,
         hollowGateRoundLimit: roundLimit,
+        ...(session.bossForms ? { bossForms: session.bossForms } : {}),
         terminalReason: session.terminalReason,
         runtimeVersion: session.version,
         map: { width: 12, height: 10, biome: session.environment.biome, blockedTiles: session.environment.blockedTiles },

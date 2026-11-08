@@ -5,6 +5,7 @@ import { clanBossOutcomeLog } from '../../shared/clan-boss-operation.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { HUNT_AI_POLICY, huntOpeningIsPreparation, pickHuntAiAction } from './_hunt-ai.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
+import { advanceTowerBossForms, towerBossFormAttackMult, towerBossFormRoundEnd, towerBossFormRoundStart, towerBossFormTakenMult } from './_boss-forms.js';
 import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
  * Battle Towers — N-actor combat ENGINE (Phase 1, P1.A2).
@@ -564,7 +565,8 @@ function refreshHazardTelegraph(session: TowerSession): void {
 function attackerEnrageMult(session: TowerSession, attacker: TowerActor): number {
     const cap = Number(session.enrageCap ?? Infinity);
     const e = Math.min(Number(attacker.character.enrage ?? 0), cap);
-    return e > 0 ? 1 + 0.35 * e : 1;
+    // A transformed boss's form power rides on the same outgoing term (×1 when untransformed).
+    return (e > 0 ? 1 + 0.35 * e : 1) * towerBossFormAttackMult(session, attacker);
 }
 /** A 'bulwark' boss takes HALF the damage while any of its guards (other enemies) live. */
 function bulwarkMult(session: TowerSession, target: TowerActor): number {
@@ -578,13 +580,13 @@ function bulwarkMult(session: TowerSession, target: TowerActor): number {
  * nearest legal ring, and a completely saturated arena keeps the sealed actors in a pending wave
  * instead of deleting them. Summoned actors retain the authored template's complete role/jutsu/
  * focus/resources/armor contract; a phase add is the same combatant as a catalog pod add. */
-function summonAdds(session: TowerSession): void {
+function summonAdds(session: TowerSession, override?: { template: EnemyTemplate; count: number }): void {
     const id = session.phaseState.bossId;
     const boss = id ? getActor(session, id) : undefined;
     if (!boss) return;
-    const tpl = boss.character.summonTemplate as EnemyTemplate | undefined;
+    const tpl = override?.template ?? boss.character.summonTemplate as EnemyTemplate | undefined;
     if (!tpl) return;
-    const count = Math.max(1, Number(boss.character.summonCount ?? 2));
+    const count = Math.max(1, Number(override?.count ?? boss.character.summonCount ?? 2));
     const w = session.map.width, h = session.map.height;
     const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
     const forbidden = new Set([...session.map.blockedTiles, ...towerBarrierTiles(session)]);
@@ -1137,7 +1139,7 @@ function placeTowerBarrier(session: TowerSession, caster: TowerActor, target: To
  *  self-cast buff/heal) through the PvP resolver, with the tower env multiplier folded in. */
 function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, jutsu: JutsuLike, wMult: number): void {
     const selfCast = actor.id === target.id;
-    const eventIncomingMult = incomingBossDamageMultiplier(session, actor, target);
+    const eventIncomingMult = incomingBossDamageMultiplier(session, actor, target, jutsu);
     wMult *= eventIncomingMult;
     // Defense in depth for every Tower-only cast path. applyAction rejects an explicit
     // locked-boss intent before spending anything; splash/companions also filter it.
@@ -1309,9 +1311,12 @@ type TowerAoeHitOutput = Readonly<{
  * Tower policy is explicitly atomic: defender reactions may defeat the caster,
  * but every target in the committed cast still resolves in canonical order.
  */
-function incomingBossDamageMultiplier(session: TowerSession, actor: TowerActor, target: TowerActor): number {
+function incomingBossDamageMultiplier(session: TowerSession, actor: TowerActor, target: TowerActor, jutsu?: JutsuLike): number {
     const clan = session.towerId === 'clan-boss' && actor.side === 'squad' && target.side === 'enemy' ? clanBossGuardMultiplier(session.clanBossGuard, session.round, target.id) : 1;
-    return clan * worldBossIncomingDamageMultiplier(session, actor, target);
+    // Applied once per victim on single-target and AOE paths alike: a form's stance, its
+    // weakness and a broken charge's stagger. ×1 for any boss that has not transformed.
+    const form = actor.id === target.id ? 1 : towerBossFormTakenMult(session, target, jutsu);
+    return clan * worldBossIncomingDamageMultiplier(session, actor, target) * form;
 }
 
 function worldBossIncomingDamageMultiplier(session: TowerSession, actor: TowerActor, target: TowerActor): number {
@@ -1377,7 +1382,7 @@ function runAoeJutsu(
     // Reference receipt preserves the exact existing primary-hit log ordering.
     const primaryReference = resolveAoeFighters(
         session, actorToFighter(actor), actorToFighter(primary), jutsu,
-        wMult * incomingBossDamageMultiplier(session, actor, primary), primaryCap,
+        wMult * incomingBossDamageMultiplier(session, actor, primary, jutsu), primaryCap,
     );
     const initialHp = actor.hp;
     const protectedCasterHp = objectiveBossDamageLocked(session, actor) ? actor.hp : undefined;
@@ -1413,7 +1418,7 @@ function runAoeJutsu(
                 split.perHit,
                 // Protection belongs to each victim, not the selected AOE center.
                 wMult / formationDefendMult(session, primary) * formationDefendMult(session, victim)
-                    * incomingBossDamageMultiplier(session, actor, victim),
+                    * incomingBossDamageMultiplier(session, actor, victim, jutsu),
                 cap,
             );
             return {
@@ -2192,6 +2197,17 @@ export function startRound(session: TowerSession): void {
     deployPendingEnemyWaves(session);
     refreshObjectiveProgress(session);
     applyFieldRuleAtRoundStart(session);
+    // A transformed boss releases last round's charge (the squad had a full round to break
+    // it) or begins a new one, before the turn queue is built so a knockout drops out of it.
+    if (session.bossForms) {
+        const charge = towerBossFormRoundStart(session);
+        if (charge.detonated.length) {
+            publishTowerVfx(session, [{ key: 'heavy', anchor: 'area', tiles: charge.detonated }]);
+            recordTowerKnockouts(session);
+        } else if (charge.armed && session.phaseState.bossId) {
+            publishTowerVfx(session, [{ key: 'buff', target: session.phaseState.bossId, anchor: 'caster' }]);
+        }
+    }
     rebuildTurnQueue(session);
     session.activeIndex = 0;
     refreshAp(session);
@@ -2384,6 +2400,15 @@ function tickBossPhases(session: TowerSession): void {
     if (!id) return;
     const boss = getActor(session, id);
     if (!boss || boss.maxHp <= 0) return;
+    // Multi-stage transformation (sealed plans only): break an answered charge and enter
+    // any crossed form exactly once, before the floor's own gates fire their mechanics.
+    if (session.bossForms && advanceTowerBossForms(session, { summon: (template, count) => summonAdds(session, { template, count }) })) {
+        publishTowerVfx(session, [
+            { key: 'buff', target: boss.id, anchor: 'caster' },
+            { key: 'shadow', anchor: 'area', tiles: [boss.pos, ...towerNeighbors(boss.pos, session.map.width, session.map.height)] },
+        ]);
+        refreshObjectiveProgress(session);
+    }
     const pct = clanBossPhasePercent(session, boss);
     while (session.phaseState.pendingPhases.length && pct <= session.phaseState.pendingPhases[0]!) {
         const t = session.phaseState.pendingPhases.shift()!;
@@ -3136,6 +3161,7 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     // Resolve every HP gate before fonts/regen can heal the boss back above a threshold.
     // checkTowerWinner also ticks defensively, but that later call is deliberately after
     // healing and cannot prove that a transient round-end crossing actually occurred.
+    towerBossFormRoundEnd(session); // a released limiter burns the boss (never below 1 HP)
     tickBossPhases(session);
     collectRoundPlates();
     applyRoundFonts(session);   // fonts restore whoever holds them (capped; heal-cut honoured)

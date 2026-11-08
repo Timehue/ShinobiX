@@ -198,6 +198,8 @@ export type TowerSession = {
     /** the boss's currently-primed telegraphed strike: the exact tiles that detonate at the
      *  END of `round` (painted violet, distinct from the crimson spire hazards) */
     bossStrike?: { tiles: number[]; round: number; pct: number; kind: string; label: string };
+    /** Sealed multi-stage boss transformation state (shared/boss-transformations.ts). */
+    bossForms?: import('../../../shared/boss-transformations').BossTransformationState;
     /** Narrow client view of the run-sealed catalog truth used by tactical HUD copy. */
     sealedCatalogFloor?: TowerFloorView;
     /** Exact server-sealed rules for a non-catalog authoritative encounter. */

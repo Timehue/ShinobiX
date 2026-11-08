@@ -179,6 +179,9 @@ export type TowerBoss = {
     /** per-round regen flat cap (Endless Spire regen boss) so 7%-of-maxHp can't outrun squad DPS
      *  at high floors; read by the engine's applyBossRegen. Absent = uncapped (story bosses). */
     regenFlatCap?: number;
+    /** Multi-stage transformation plan id (api/towers/_boss-forms.ts TOWER_BOSS_TRANSFORMATIONS).
+     *  Independent of `phases`: the gates keep their mechanics, the form changes the fight. */
+    transformation?: string;
 };
 
 export type TowerNpc = {
@@ -403,7 +406,7 @@ const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
         // the player's first boss teaches "break the guards, burn the shield, protect your
         // squishy" — strikes debut on floor 7.
         enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
-        boss: { aiId: 'boss-warden', hp: 30000, phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 } },
+        boss: { aiId: 'boss-warden', hp: 30000, phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 }, transformation: 'warden-obsidian-colossus' },
         features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25)],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
         ...CHAPTER_ONE_PRESENTATION,
@@ -415,7 +418,11 @@ const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
                 'Protect the lowest-defense ally from the Warden\'s focus and pulling strike.',
                 'Coordinate burst windows after the Aegis rises at 60% and 30% health.',
             ],
-            warnings: ['Three Bandits open the chamber and two Acolytes enter on round 2.', 'The Warden has no recurring telegraphed strike, but each phase shield must be broken.'],
+            warnings: [
+                'Three Bandits open the chamber and two Acolytes enter on round 2.',
+                'The Warden has no recurring telegraphed strike, but each phase shield must be broken.',
+                'At 50% health the Warden becomes the Obsidian Colossus. It takes less damage, but Water techniques crack its shell.',
+            ],
         },
     },
     {
@@ -523,7 +530,7 @@ const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
         // The chips are flat %-maxHp OUTSIDE wMult, so nothing compounds the uncapped story enrage.
         // NOT a slam: a knockback would un-cluster the party away from the Sovereign's radius nuke,
         // trivializing the final wall. Its threat is the collapsing ring squeezing you IN — a nova fits.
-        boss: { aiId: 'boss-sovereign', hp: 60000, phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2 }, phasePillars: 2 },
+        boss: { aiId: 'boss-sovereign', hp: 60000, phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2 }, phasePillars: 2, transformation: 'sovereign-eclipse-brand' },
         closingRing: { pct: 3, fromRound: 11, minRadius: 3 },
         features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25), hazard(14, 10)],
         firstClearReward: { ryo: 6000, xp: 2500, fateShards: 30, milestone: 'tower-floor-10' },
@@ -536,7 +543,11 @@ const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
                 'Move toward the safe core before the outer ring becomes lethal after round 11.',
                 'Clear Reflect and cleanse Wound or Poison before committing to the final enrage burn.',
             ],
-            warnings: ['At 75%, 50%, and 25% health the Sovereign gains 35% damage and raises two new pillars.', 'Ruin Charge begins on round 2 and repeats every 3 rounds. Bait it into pillars; the 3% closing ring first damages outer tiles on round 12.'],
+            warnings: [
+                'At 75%, 50%, and 25% health the Sovereign gains 35% damage and raises two new pillars.',
+                'Ruin Charge begins on round 2 and repeats every 3 rounds. Bait it into pillars; the 3% closing ring first damages outer tiles on round 12.',
+                'At 50% health the Eclipse Brand unbinds. The Sovereign drops its Reflect guard and hits harder, and the brand burns its own health every round.',
+            ],
         },
     },
     // ─── Chapter 2: The Stormglass Rebellion ───────────────────────────────────────
@@ -675,7 +686,7 @@ const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
             aiId: 'boss-stormglass-regent', phases: [70, 40], mechanic: 'summon',
             summonAiId: 'stormglass-weaver', summonCount: 2, targetMode: 'support',
             strike: { kind: 'slam', pct: 12, radius: 1, everyRounds: 3, firstRound: 2 },
-            phasePillars: 2, aegis: { shieldPct: 10 },
+            phasePillars: 2, aegis: { shieldPct: 10 }, transformation: 'regent-storm-hermit',
         },
         features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25), hazard(14, 10, 12), hazard(14, 10, 12)],
         firstClearReward: { ryo: 9000, xp: 3600, fateShards: 45, boneCharms: 15, milestone: 'tower-floor-15' },
@@ -691,7 +702,11 @@ const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
                 'At each phase gate, eliminate the summoned Weavers before resuming damage.',
                 'Read the Regent\'s slam and avoid being knocked from the safe core into an active vent.',
             ],
-            warnings: ['Living adds make the Regent completely untargetable, including after phase summons.', 'The arena reshapes at 70% and 40% HP, then contracts after round 11.'],
+            warnings: [
+                'Living adds make the Regent completely untargetable, including after phase summons.',
+                'The arena reshapes at 70% and 40% HP, then contracts after round 11.',
+                'At 50% health the Regent attunes to the storm and charges a strike that hits the whole squad. Deal 5% of its health in that round, or stun it, to break the charge. The storm also leaves it exposed and drains its health.',
+            ],
         },
     },
 ];

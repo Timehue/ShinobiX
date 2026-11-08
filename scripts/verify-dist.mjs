@@ -104,7 +104,15 @@ const maxPetShapeReviewGrowthBytes = 5695550;
 // client sat about 120 KB under this ceiling. Credit exactly those bytes, so the
 // headroom left for everything else is unchanged.
 const maxHarvestingArtBytes = 407_568;
-const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes + maxHarvestingArtBytes;
+// 2026-11-07: multi-stage boss transformations (docs/boss-transformations.md)
+// add seven alternate form portraits: four final-Kage forms in
+// public/portraits/cinematic/storywide and three tower boss forms in
+// public/portraits/towers/forms. 202,386 B, already shrunk from ~330 KB as
+// painted (440x676 and 288x288 webp). Main had no room under this ceiling.
+// Owner approved crediting exactly those bytes ("Raise both caps"), so the
+// headroom left for everything else is unchanged. Delete to drop the allowance.
+const maxBossFormArtBytes = 202_386;
+const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes + maxHarvestingArtBytes + maxBossFormArtBytes;
 // The 161 scenic companion portraits ship separately from their unchanged
 // battle/model assets. Keep unrelated runtime growth under the existing cap.
 const maxPetPortraitBytes = 16 * 1024 * 1024;

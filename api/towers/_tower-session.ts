@@ -331,6 +331,16 @@ export type TowerSession = {
      *  strike this round; floors whose boss carries no strike config never set it (byte-identical). */
     bossStrike?: { tiles: number[]; round: number; pct: number; kind: string; label: string; center?: number };
 
+    /** Multi-stage boss transformation sealed at encounter build (api/towers/_boss-forms.ts).
+     *  Records every form entered, so each fires once even across refreshes. Absent on floors
+     *  whose boss has no plan and on runs started before plans existed (byte-identical). */
+    bossForms?: import('../../shared/boss-transformations.js').BossTransformationState;
+    /** What the sealed forms learn or summon, frozen with the run. */
+    bossFormKit?: {
+        jutsu: Record<string, import('./_enemy-templates.js').EnemyJutsu>;
+        summons?: Record<string, { template: import('./_enemy-templates.js').EnemyTemplate; count: number }>;
+    };
+
     /** Server-derived per-actor operation credit. Present only on Clan Boss
      * sessions; ordinary Tower/Spire sessions remain byte-compatible. */
     clanBossContributions?: Record<string, ClanBossContribution>;
