@@ -7,6 +7,7 @@ import { WorldPlayerPosition } from '../lib/world-player-position';
 import { subscribeBuildingCounter, type BuildingCounterRequest } from '../lib/sector-building-counter';
 import { useSectorBuildings } from '../lib/use-sector-buildings';
 import { serverNow } from '../lib/server-clock';
+import { clearSectorRestorations, setSectorRestorations } from '../lib/sector-restoration-art';
 import { Modal } from './ui/Modal';
 import { BuildingMaterialSelection } from './BuildingMaterialSelection';
 import { BuildingWorkHistory } from './BuildingWorkHistory';
@@ -40,6 +41,13 @@ export function SectorBuildings({character,sector,tile,commit,walk,directRoadWal
         const approach=()=>{if(document.querySelector('[aria-modal=true],dialog[open]')){if(++attempts<120)frame=requestAnimationFrame(approach);return;}walkRef.current(destination.sector,destination.tile);setDestination(undefined);};
         frame=requestAnimationFrame(approach);return()=>cancelAnimationFrame(frame);
     },[destination,opened]);
+    // A restored ruin is painted into the floor; report the set once this sector's view has arrived.
+    useEffect(()=>{
+        const here=Object.values(api.details).filter(detail=>detail.building.sector===sector);if(!here.length)return;
+        setSectorRestorations(sector,here.filter(detail=>detail.building.kind==='ruin'&&detail.shared.stage===3&&detail.shared.intactUntil)
+            .map(detail=>({id:detail.building.id,intactUntil:detail.shared.intactUntil!})));
+        return()=>clearSectorRestorations(sector);
+    },[api.details,sector]);
     const savedProgress=api.progress??character.sectorBuildings;
     const progress=savedProgress??{active:undefined,repairs:0,repairsToday:0},order=progress.active,work=api.work;
     const selected=opened?sectorBuilding(opened.buildingId):undefined,detail=selected?api.details[selected.id]:undefined;
@@ -63,7 +71,9 @@ export function SectorBuildings({character,sector,tile,commit,walk,directRoadWal
     const service=detail?.services.find(s=>s.service===tab);
     return<>
         <span ref={anchor} hidden/>
-        {buildingsInSector(sector).map(building=>{const stage=api.details[building.id]?.shared.stage,site=building.restorationSite;return stage&&site?<img key={`restoration:${building.id}`} className="sector-building-restoration-art" data-building-restoration={building.id} data-stage={stage} src={`/sector-buildings/restoration-stage-${stage}-v1.webp`} alt="" style={{left:`${site.left}%`,top:`${site.top}%`,width:`${site.width}%`,height:`${site.height}%`}}/>:null;})}
+        {buildingsInSector(sector).map(building=>{const stage=api.details[building.id]?.shared.stage,site=building.restorationSite;
+            // A ruin's frame and cover mark work in progress; once restored, its painting is part of the floor.
+            return stage&&site&&!(building.kind==='ruin'&&stage>=3)?<img key={`restoration:${building.id}`} className="sector-building-restoration-art" data-building-restoration={building.id} data-stage={stage} src={`/sector-buildings/restoration-stage-${stage}-v1.webp`} alt="" style={{left:`${site.left}%`,top:`${site.top}%`,width:`${site.width}%`,height:`${site.height}%`}}/>:null;})}
         {buildingsInSector(sector).filter(b=>!['stronghold','village','shrine'].includes(b.kind)).map(building=><button type="button" key={building.id}
             className={`sector-building-threshold building-${building.kind}${Math.abs((point.col+.5)/12*100-building.left)<14&&Math.abs((point.row+.5)/12*100-building.top)<6?' is-player-at-label':''}`} data-building-id={building.id} data-footprint={building.footprint.join(' ')}
             style={{left:`${building.left}%`,top:`${building.top}%`,width:`${building.width}%`,height:`${building.height}%`}}
@@ -71,7 +81,7 @@ export function SectorBuildings({character,sector,tile,commit,walk,directRoadWal
             {building.kind==='road-place'&&<img className="sector-building-road-sign" src="/landmarks/trail-sign.webp" alt=""/>}
             {building.kind==='road-place'&&!building.restorationSite&&!!api.details[building.id]?.shared.stage&&<span className={`sector-building-maintenance-seal maintenance-${api.details[building.id].shared.stage}`} aria-hidden="true">{['','I','II','III'][api.details[building.id].shared.stage]}</span>}
             <span className="sector-building-name">{building.name}</span>
-            {api.details[building.id]?.shared.stage? <span className="sector-building-condition">{buildingRepairStageName(api.details[building.id].shared.stage)}</span>:null}
+            {api.details[building.id]?.shared.stage? <span className="sector-building-condition">{buildingRepairStageName(api.details[building.id].shared.stage,building.kind)}</span>:null}
         </button>)}
         {hudHost&&createPortal(<button className="sector-building-work-chip" type="button" onClick={()=>{setOpened({buildingId:order?.buildingId??'road-book'});setTab('work');setMaterials(null);}}>
             <span>Work book</span> {order&&work?`${work.target.label} · S${work.target.sector}`:'Your saved road record'}
@@ -101,9 +111,11 @@ export function SectorBuildings({character,sector,tile,commit,walk,directRoadWal
                         {detail.shared.reports.length>0&&<details><summary>Recent watch reports</summary>{detail.shared.reports.map((report,index)=><p key={`${report.at}:${index}`}>{report.text}<small>{report.name}</small></p>)}</details>}
                     </>}
                     {service&&<><p>{service.description}</p>{service.reason&&<p className="building-hint">{service.reason}</p>}</>}
-                    {tab==='repair'&&<><div className="building-restoration"><strong>{buildingRepairStageName(detail.shared.stage)}</strong><progress value={detail.shared.repairs} max={BUILDING_RESTORATION_TARGETS[2]}/><p>{detail.shared.repairs} completed orders · restoration stages at 4, 12 and 24.</p></div>
+                    {tab==='repair'&&<><div className="building-restoration"><strong>{buildingRepairStageName(detail.shared.stage,selected?.kind)}</strong>{(n=>
+                            // A ruin counts its current restoration cycle; other frontages count lifetime orders.
+                            <><progress value={n} max={BUILDING_RESTORATION_TARGETS[2]}/><p>{n} completed orders · restoration stages at 4, 12 and 24.{detail.shared.intactUntil?` Standing until ${new Date(detail.shared.intactUntil).toLocaleString()}.`:''}</p></>)(selected?.kind==='ruin'?detail.shared.cycleRepairs??0:detail.shared.repairs)}</div>
                         <p>Each completed order pays <b>{BUILDING_REPAIR_REWARDS.ryo} ryo</b>. Every {BUILDING_REPAIR_REWARDS.boneCharms.repairs} personal repairs earn <b>{BUILDING_REPAIR_REWARDS.boneCharms.amount} bone charms</b>. Every {BUILDING_REPAIR_REWARDS.fateShards.repairs} personal repairs earn <b>{BUILDING_REPAIR_REWARDS.fateShards.amount} fate shards</b>. No daily repair cap or weekly shard limit. Keep repairing while you have the required materials.</p>
-                        <p>{progress.repairs} lifetime repairs · {progress.repairsToday} today. {detail.standing.repairCount} of your orders maintain this frontage. After restoration, orders maintain the public shelter.</p>
+                        <p>{progress.repairs} lifetime repairs · {progress.repairsToday} today. {detail.standing.repairCount} of your orders {selected?.kind==='ruin'?'worked on this ruin.':'maintain this frontage. After restoration, orders maintain the public shelter.'}</p>
                         <button type="button" disabled={api.busy||!service?.available} onClick={()=>begin('repair')}>Choose repair materials</button>
                         {detail.shared.contributors.length>0&&<details><summary>The public work roll · leading 20</summary>{detail.shared.contributors.map(c=><p key={c.name}>{c.name} · {c.repairs} orders</p>)}</details>}
                     </>}

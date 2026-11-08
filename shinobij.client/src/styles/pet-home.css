@@ -229,7 +229,7 @@
 @keyframes hatch-apex-beat { 50% { opacity: 1; filter: sepia(.12) saturate(1.5) brightness(1.14) hue-rotate(248deg); transform: scale(1.045); } }
 @keyframes hatch-label-in { from { opacity: 0; transform: translateY(6px); } }
 
-.hatch-overflow-note, .hatch-sanctuary-note { margin: .8rem auto 0; max-width: 520px; color: #bde6da; font-size: .78rem; line-height: 1.5; text-align: center; }
+.hatch-sanctuary-note { margin: .8rem auto 0; max-width: 520px; color: #bde6da; font-size: .78rem; line-height: 1.5; text-align: center; }
 .hatch-sanctuary-note { border: 1px solid rgba(117,217,190,.3); border-radius: var(--r-sm); background: rgba(19,74,65,.35); padding: .55rem .7rem; }
 
 .pet-sanctuary { width: min(1260px, calc(100% - 2rem)); margin: 0 auto; }

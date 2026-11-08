@@ -33,7 +33,8 @@ import { ensurePvpTerminalRecoveryPublication } from './_reward-recovery.js';
 import { releaseBattleChallengeNotices } from './_challenge-inbox-release.js';
 import { settlePvpTerminalVitals } from './_vitals-settlement.js';
 import { settleTerminalWorldRaid, type TerminalWorldSettlement } from './_terminal-world-raid.js';
-import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
+import { pvpWorldBattleSector, settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
+import { damageRuinsForWorldBattle } from '../sector/_ruin-battle-damage.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { cancelUnjoinedClanWarChallenge, settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
 import type { PvpClanWarSettlement } from '../clan/war/_pvp-settlement.js';
@@ -311,6 +312,17 @@ async function runCommittedPvpTerminalEffects(
     // call simply replays whatever landed here.
     const worldSettlement = await settleTerminalWorldRaid(session);
     mark('world-raid');
+
+    // A verified world fight damages the ruins of the sector it was fought in.
+    // Spars, ranked and arena fights have no world authority and never count.
+    // Battle-id idempotent per building; a failure never blocks the settlement.
+    if (session.rewardAuthority === 'world' && pvpSessionMayGrantProgress(session)) {
+        const now = Date.now(), endedAt = Number(session.endedAt);
+        await damageRuinsForWorldBattle(kv, session.battleId, pvpWorldBattleSector(session), now,
+            Number.isSafeInteger(endedAt) && endedAt > 0 && endedAt <= now ? endedAt : now)
+            .catch(error => console.error('[pvp/terminal] ruin damage failed', error));
+    }
+    mark('ruin-damage');
 
     if (isPlayerRankedV2Session(session)) {
         const playerRankedJournal = await confirmPlayerRankedTerminalEffects(kv, session, {

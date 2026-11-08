@@ -121,8 +121,11 @@ const maxPetPortraitBytes = 16 * 1024 * 1024;
 // 1,410,782-byte receipt (shared/sector-building-art.test.ts verifies its hashes).
 // Give these assets their own partition so they cannot consume or relax the
 // existing non-building runtime allowance when merged with newer main assets.
-const sectorBuildingArtCount = 15;
-const maxSectorBuildingArtBytes = 1_410_782;
+// 2026-11-07 (owner approved): ten painted ruin restorations and their last-day
+// weathered paintings (restored-*.webp and weathered-*.webp, 936,968 B;
+// scripts/bake-ruin-restorations.mjs) joined the same exact receipt.
+const sectorBuildingArtCount = 35;
+const maxSectorBuildingArtBytes = 2_347_750;
 // 2026-11-04 (owner approved): the painted Hollow Gate cave set (five chamber
 // floors, the passage floor and three decals; shinobij.client/art-source/hollow-gate-cavern-chambers.json)
 // gets the same exact-byte partition, so it neither consumes nor relaxes the

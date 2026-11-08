@@ -15,15 +15,26 @@
  * back to the old SectorScene vista). All layers pointer-events:none + behind the
  * tiles, so click-to-move and the avatar/markers overlays are untouched.
  */
+import { useEffect, useState } from "react";
 import type { SectorDirection } from "../../../shared/sector-links";
+import { RUIN_RESTORATION_BOUNDS } from "../../../shared/sector-ruin-restoration-bounds";
+import { sectorRestorationPhases } from "../lib/sector-restoration-art";
 
 // isSectorMapEnabled moved to ./sector-map-flag so this file only exports
 // components (keeps react-refresh fast-refresh clean). Importers read it there.
 
-export function SectorMap({ image }: { image?: string; enterDirection?: SectorDirection | null }) {
+/** Restored ruins on a board viewed from afar (the continuous world paints its own floor). */
+function RestoredRuins({ sector }: { sector: number }) {
+    const [, tick] = useState(0);
+    useEffect(() => { const id = setInterval(() => tick(n => n + 1), 5_000); return () => clearInterval(id); }, []);
+    const pct = (n: number) => `${n / 10.24}%`;
+    return <>{sectorRestorationPhases(sector).map(({ id, phase }) => { const b = RUIN_RESTORATION_BOUNDS[id]!;
+        return <img key={id} src={`/sector-buildings/${phase}-${id}-v1.webp`} alt="" style={{ position: "absolute", left: pct(b[0]), top: pct(b[1]), width: pct(b[2]), height: pct(b[3]) }} />; })}</>;
+}
+export function SectorMap({ image, sector }: { image?: string; enterDirection?: SectorDirection | null; sector?: number }) {
     return (
         <>
-            <div className="sector-floor-pan" aria-hidden="true"><div className="sector-map-backdrop" style={{ backgroundImage: image ? `url("${image}")` : undefined }} /></div>
+            <div className="sector-floor-pan" aria-hidden="true"><div className="sector-map-backdrop" style={{ backgroundImage: image ? `url("${image}")` : undefined }} />{sector ? <RestoredRuins sector={sector} /> : null}</div>
             <div className="sector-map-vignette" aria-hidden="true" />
         </>
     );

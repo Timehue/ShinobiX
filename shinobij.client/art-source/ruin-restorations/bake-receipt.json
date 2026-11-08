@@ -1,0 +1,402 @@
+{
+  "recipe": "scripts/bake-ruin-restorations.mjs",
+  "layout": "shared/sector-ruin-restorations.ts",
+  "records": [
+    {
+      "id": "restored-festival-welcome",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-festival-welcome-v1.webp",
+      "bytes": 56870,
+      "sha256": "b266c88a8aeb820831baa79744d96c7ab1db632229a445d7ee4b3edd25082293",
+      "width": 402,
+      "height": 554,
+      "bounds": {
+        "x": 14,
+        "y": 62,
+        "width": 402,
+        "height": 554
+      },
+      "sources": [
+        "festival-welcome",
+        "festival-storage-prop",
+        "festival-long-house",
+        "festival-lantern-rack"
+      ]
+    },
+    {
+      "id": "weathered-festival-welcome",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-festival-welcome-v1.webp",
+      "bytes": 57454,
+      "sha256": "43e4643dbeac47a90a5092efa36eca8b0fe42e3faaedefc4a9eb463ac66bbe94",
+      "width": 402,
+      "height": 554,
+      "bounds": {
+        "x": 14,
+        "y": 62,
+        "width": 402,
+        "height": 554
+      },
+      "sources": [
+        "festival-welcome",
+        "festival-storage-prop",
+        "festival-long-house",
+        "festival-lantern-rack"
+      ]
+    },
+    {
+      "id": "restored-festival-steps-house",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-festival-steps-house-v1.webp",
+      "bytes": 30988,
+      "sha256": "822004830b29c1e81a42fa0300a8f2fab403f41b37330cf825b0f34896e3df99",
+      "width": 429,
+      "height": 277,
+      "bounds": {
+        "x": 14,
+        "y": 624,
+        "width": 429,
+        "height": 277
+      },
+      "sources": [
+        "festival-performers"
+      ]
+    },
+    {
+      "id": "weathered-festival-steps-house",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-festival-steps-house-v1.webp",
+      "bytes": 31968,
+      "sha256": "8e8170e0575da87e0be68fc9353bf1c97aff99d96d1a41d5ebeb92fece269234",
+      "width": 429,
+      "height": 277,
+      "bounds": {
+        "x": 14,
+        "y": 624,
+        "width": 429,
+        "height": 277
+      },
+      "sources": [
+        "festival-performers"
+      ]
+    },
+    {
+      "id": "restored-festival-lantern-house",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-festival-lantern-house-v1.webp",
+      "bytes": 42006,
+      "sha256": "69b870c303db51a77bc83e7b1836393e6f2a8fd027637d06eb044b2913fc6b94",
+      "width": 715,
+      "height": 280,
+      "bounds": {
+        "x": 69,
+        "y": 744,
+        "width": 715,
+        "height": 280
+      },
+      "sources": [
+        "festival-lantern-kiosk",
+        "festival-lantern-rack",
+        "festival-row-houses"
+      ]
+    },
+    {
+      "id": "weathered-festival-lantern-house",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-festival-lantern-house-v1.webp",
+      "bytes": 40184,
+      "sha256": "7aed726ab6cca130aa7884d2911470af5252fc57cf7de4d2e269e75463860235",
+      "width": 715,
+      "height": 280,
+      "bounds": {
+        "x": 69,
+        "y": 744,
+        "width": 715,
+        "height": 280
+      },
+      "sources": [
+        "festival-lantern-kiosk",
+        "festival-lantern-rack",
+        "festival-row-houses"
+      ]
+    },
+    {
+      "id": "restored-gorgewatch",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-gorgewatch-v1.webp",
+      "bytes": 26938,
+      "sha256": "1ebc60a16eb4473111d8d89c4b08d931c1f2df337c33520e27badad2687e3959",
+      "width": 373,
+      "height": 347,
+      "bounds": {
+        "x": 581,
+        "y": 69,
+        "width": 373,
+        "height": 347
+      },
+      "sources": [
+        "gorgewatch-tower"
+      ]
+    },
+    {
+      "id": "weathered-gorgewatch",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-gorgewatch-v1.webp",
+      "bytes": 30980,
+      "sha256": "c011702be841851f00766d51509cef4777f776d0cc2cfc1cbf63de732444ee40",
+      "width": 373,
+      "height": 347,
+      "bounds": {
+        "x": 581,
+        "y": 69,
+        "width": 373,
+        "height": 347
+      },
+      "sources": [
+        "gorgewatch-tower"
+      ]
+    },
+    {
+      "id": "restored-esplanade-record-house",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-esplanade-record-house-v1.webp",
+      "bytes": 44306,
+      "sha256": "63e2d28fae7b4a478f47eb34d8400dc5fdfb8dd37a77d3cd982ae5087d9d24b1",
+      "width": 432,
+      "height": 380,
+      "bounds": {
+        "x": 24,
+        "y": 496,
+        "width": 432,
+        "height": 380
+      },
+      "sources": [
+        "esplanade-record-house",
+        "meadow-hedge-prop"
+      ]
+    },
+    {
+      "id": "weathered-esplanade-record-house",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-esplanade-record-house-v1.webp",
+      "bytes": 47846,
+      "sha256": "fcf8092c482063e38294635aa031a10e3cf336b1fdaa1b6cee02ece22fc4600f",
+      "width": 432,
+      "height": 380,
+      "bounds": {
+        "x": 24,
+        "y": 496,
+        "width": 432,
+        "height": 380
+      },
+      "sources": [
+        "esplanade-record-house",
+        "meadow-hedge-prop"
+      ]
+    },
+    {
+      "id": "restored-esplanade-work-yard",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-esplanade-work-yard-v1.webp",
+      "bytes": 55722,
+      "sha256": "cecd1ffd4fbb4c6d90599f29a19ba7a3cf71f793e0b6ffeea0c85ebae7608e87",
+      "width": 440,
+      "height": 614,
+      "bounds": {
+        "x": 584,
+        "y": 410,
+        "width": 440,
+        "height": 614
+      },
+      "sources": [
+        "esplanade-work-shed",
+        "meadow-hedge-prop",
+        "meadow-hedge-row"
+      ]
+    },
+    {
+      "id": "weathered-esplanade-work-yard",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-esplanade-work-yard-v1.webp",
+      "bytes": 54652,
+      "sha256": "881b785cde96c718d99d7f10731a7e4e1648a6d48b7349deafc946172361df16",
+      "width": 440,
+      "height": 614,
+      "bounds": {
+        "x": 584,
+        "y": 410,
+        "width": 440,
+        "height": 614
+      },
+      "sources": [
+        "esplanade-work-shed",
+        "meadow-hedge-prop",
+        "meadow-hedge-row"
+      ]
+    },
+    {
+      "id": "restored-grey-landing-relay",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-grey-landing-relay-v1.webp",
+      "bytes": 81756,
+      "sha256": "60bff9fe49b48fccd39d5bdb11a0a5ad377e0950921d03e53a65b98bb3f37857",
+      "width": 369,
+      "height": 717,
+      "bounds": {
+        "x": 74,
+        "y": 69,
+        "width": 369,
+        "height": 717
+      },
+      "sources": [
+        "greycliff-relay",
+        "meadow-hedge-prop",
+        "meadow-stone-lantern-prop",
+        "esplanade-work-shed"
+      ]
+    },
+    {
+      "id": "weathered-grey-landing-relay",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-grey-landing-relay-v1.webp",
+      "bytes": 84118,
+      "sha256": "29eb40f737dd31ff04233108965ca2ac23a9a164697328239b14bbe33609828f",
+      "width": 369,
+      "height": 717,
+      "bounds": {
+        "x": 74,
+        "y": 69,
+        "width": 369,
+        "height": 717
+      },
+      "sources": [
+        "greycliff-relay",
+        "meadow-hedge-prop",
+        "meadow-stone-lantern-prop",
+        "esplanade-work-shed"
+      ]
+    },
+    {
+      "id": "restored-grey-landing-memorial",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-grey-landing-memorial-v1.webp",
+      "bytes": 30866,
+      "sha256": "dbd0e5fb841d6c6a3f3a55164830e4286ca181a209e728516a4a132cba7cc9ae",
+      "width": 320,
+      "height": 382,
+      "bounds": {
+        "x": 496,
+        "y": 414,
+        "width": 320,
+        "height": 382
+      },
+      "sources": [
+        "greycliff-memorial",
+        "meadow-stone-lantern-prop"
+      ]
+    },
+    {
+      "id": "weathered-grey-landing-memorial",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-grey-landing-memorial-v1.webp",
+      "bytes": 33218,
+      "sha256": "c4c55d32de07727bb05a22680d8b97bed9782b36f09f3a9ea1558ecbd2e17723",
+      "width": 320,
+      "height": 382,
+      "bounds": {
+        "x": 496,
+        "y": 414,
+        "width": 320,
+        "height": 382
+      },
+      "sources": [
+        "greycliff-memorial",
+        "meadow-stone-lantern-prop"
+      ]
+    },
+    {
+      "id": "restored-obsidian-waystation",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-obsidian-waystation-v1.webp",
+      "bytes": 59400,
+      "sha256": "dbffbcd9372db5237c80a47e06c31d34d6cfb7dca5fa0b935442121f99f4c47b",
+      "width": 530,
+      "height": 545,
+      "bounds": {
+        "x": 84,
+        "y": 410,
+        "width": 530,
+        "height": 545
+      },
+      "sources": [
+        "obsidian-station-hall",
+        "obsidian-wall",
+        "obsidian-round-tower",
+        "obsidian-brazier-prop"
+      ]
+    },
+    {
+      "id": "weathered-obsidian-waystation",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-obsidian-waystation-v1.webp",
+      "bytes": 59938,
+      "sha256": "4047f898e7e51c4f98ac60d6f2a21752fe72309daef0a43fe067dc0353033777",
+      "width": 530,
+      "height": 545,
+      "bounds": {
+        "x": 84,
+        "y": 410,
+        "width": 530,
+        "height": 545
+      },
+      "sources": [
+        "obsidian-station-hall",
+        "obsidian-wall",
+        "obsidian-round-tower",
+        "obsidian-brazier-prop"
+      ]
+    },
+    {
+      "id": "restored-obsidian-north-watch",
+      "variant": "restored",
+      "file": "shinobij.client/public/sector-buildings/restored-obsidian-north-watch-v1.webp",
+      "bytes": 33960,
+      "sha256": "ca1c03a1823e0d747f197dc990070034439fe109e85b94d582cda7c59abdbc3e",
+      "width": 446,
+      "height": 316,
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 446,
+        "height": 316
+      },
+      "sources": [
+        "obsidian-watch-hall",
+        "obsidian-round-tower",
+        "obsidian-brazier-prop",
+        "obsidian-wall"
+      ]
+    },
+    {
+      "id": "weathered-obsidian-north-watch",
+      "variant": "weathered",
+      "file": "shinobij.client/public/sector-buildings/weathered-obsidian-north-watch-v1.webp",
+      "bytes": 33798,
+      "sha256": "bc812e42df334c23c3b0f7695ba66ff5edae0bad6f9736ba666e5c6f34d49cec",
+      "width": 446,
+      "height": 316,
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 446,
+        "height": 316
+      },
+      "sources": [
+        "obsidian-watch-hall",
+        "obsidian-round-tower",
+        "obsidian-brazier-prop",
+        "obsidian-wall"
+      ]
+    }
+  ]
+}

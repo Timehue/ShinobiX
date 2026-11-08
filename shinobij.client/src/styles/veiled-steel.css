@@ -1379,7 +1379,6 @@ html body.ui-scroll-locked {
   margin-bottom: 0;
 }
 
-.wm-zoom-btn,
 .wm-village-chip {
   border-color: rgba(209, 167, 88, 0.42);
   background: rgba(11, 9, 6, 0.74);
@@ -2036,7 +2035,6 @@ body.coach-banner-open .coach-guide-actions .location-button {
     font-size: 10px !important;
   }
 
-  html.wm-zoom .world-map-card,
   html.wm-zoom .app-shell.screen-worldMap .center-game > .card {
     padding: 7px !important;
   }
