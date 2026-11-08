@@ -1410,12 +1410,13 @@ const CHRONICLE_JS_CSS_FAIL_BYTES = 9_822_500;
 const HARVESTING_JS_CSS_FAIL_BYTES = 9_832_500;
 // 2026-11-07 BOSS TRANSFORMATIONS (docs/boss-transformations.md): tower floors
 // 5/10/15 and the four final Kage transform mid-fight, with a phase chip, aura
-// and a visual-novel cut-scene. Main 236af6a26a measured 9,830,297 B; the branch
-// measures 9,838,720 B with the production env (+8.4 KB, its stylesheet already
-// compacted and the cut-scene lazy). Owner approved the raise ("Raise both
-// caps"); this keeps main's ~2.2 KB margin. Startup is 398,397 B gzip against
-// the unchanged 399,000 B gate. Revert this line to drop the allowance.
-const BOSS_FORMS_JS_CSS_FAIL_BYTES = 9_841_000;
+// and a visual-novel cut-scene. Main 8a29d447be measured 9,832,138 B; merged
+// with it the branch measures 9,841,332 B with the production env (+9.2 KB: the
+// form reveal, chip, aura and lazy cut-scene; its stylesheet already compacted).
+// Owner approved the raise ("Raise both caps"); this keeps a ~2.2 KB margin.
+// Startup is 398,490 B gzip against the unchanged 399,000 B gate. Revert this
+// line to drop the allowance.
+const BOSS_FORMS_JS_CSS_FAIL_BYTES = 9_843_500;
 const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES, BOSS_FORMS_JS_CSS_FAIL_BYTES);
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);
