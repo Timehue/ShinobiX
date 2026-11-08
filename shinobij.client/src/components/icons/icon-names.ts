@@ -18,8 +18,9 @@ export type GameIconName =
     | "sword"    // attack / power
     | "shield"   // defense / guard
     | "scroll"   // jutsu / technique
-    | "pickaxe"
-    | "fish"
+    | "pickaxe"  // mining (painted crossed-pickaxe emblem)
+    | "fish"     // fishing (painted kunai-and-fish emblem)
+    | "kama"     // harvesting (painted crossed-kama emblem)
     | "map"      // tiles explored / expedition (folded map)
     | "target"   // hunts (bullseye)
     | "dice"     // roll odds

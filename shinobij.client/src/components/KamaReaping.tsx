@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ResourcePublicAttempt } from '../../../shared/resource-gathering';
-import { KAMA_FIELD_ASPECT, KAMA_LIMIT_MS, KAMA_READY_MS, KAMA_SETTLE_MS, KAMA_STROKE_GAP_MS, KAMA_STROKES, kamaDemoStrokes, kamaField, kamaGuideStroke, kamaGuideY,
+import { KAMA_FIELD_ASPECT, KAMA_LIMIT_MS, KAMA_READY_MS, KAMA_SETTLE_MS, KAMA_STROKE_GAP_MS, KAMA_STROKES, kamaCrossing, kamaDemoStrokes, kamaField, kamaGuidePartner, kamaGuideStroke, kamaGuideY,
     kamaGustStrength, kamaSeed, kamaStalkXAt, scoreKamaReaping, type KamaStroke } from '../../../shared/kama-reaping';
 import { GATHER_NAMES } from '../../../shared/gathering-materials';
 import { createKunaiElapsedClock } from '../lib/kunai-fishing-clock';
@@ -38,7 +38,6 @@ export default function KamaReaping({ attempt, busy, resolve }: {
     const resolveRef = useRef(resolve), submitted = useRef(false);
     useEffect(() => { resolveRef.current = resolve; }, [resolve]);
     useEffect(() => { inputRef.current = strokes; }, [strokes]);
-    useEffect(() => { selectedRef.current = selected; }, [selected]);
     const release = () => { drag.current = null; trail.current = null; };
 
     const shown = relaxed ? demo.filter(stroke => stroke.at <= elapsed) : strokes;
@@ -54,6 +53,9 @@ export default function KamaReaping({ attempt, busy, resolve }: {
     // Keep the chosen stalk on one that still stands.
     const standing = live.stalks.map((stalk, index) => stalk.cut ? -1 : index).filter(index => index >= 0);
     const target = standing.includes(selected) ? selected : standing[0] ?? selected;
+    const partner = kamaGuidePartner(live.stalks, target);
+    // The painted guide follows the stalk the button will actually cut.
+    useEffect(() => { selectedRef.current = target; }, [target]);
 
     useEffect(() => {
         if (done) return;
@@ -85,7 +87,10 @@ export default function KamaReaping({ attempt, busy, resolve }: {
             const at = Math.min(readElapsed(), KAMA_READY_MS + KAMA_LIMIT_MS);
             const current = relaxed ? demo.filter(stroke => stroke.at <= at) : inputRef.current;
             const state = scoreKamaReaping(seed, current, at, true)!;
-            const guide = relaxed || state.finished ? null : { y: kamaGuideY(at), stalk: selectedRef.current };
+            const stalk = selectedRef.current, partner = kamaGuidePartner(state.stalks, stalk);
+            const line = kamaGuideStroke(field, stalk, at, state.stalks);
+            const guide = relaxed || state.finished ? null : { y: kamaGuideY(at), stalk,
+                ...(partner !== undefined && kamaCrossing(field, partner, line) !== undefined ? { partner, line } : {}) };
             if (width && height) drawKamaReaping(ctx!, width, height, art, {
                 field, at, strokes: current, stalks: state.stalks, trail: trail.current, guide, reduced: motion.matches,
                 // Above level 1 in a forest or shadow meadow, the middle stalk shows the rare plant.
@@ -105,7 +110,7 @@ export default function KamaReaping({ attempt, busy, resolve }: {
     function strike(stroke: Omit<KamaStroke, 'kind' | 'at'> | null) {
         const at = Math.floor(readElapsed()), current = inputRef.current;
         if (!canStrike || at < KAMA_READY_MS || at > KAMA_READY_MS + KAMA_LIMIT_MS || at - (current.at(-1)?.at ?? -Infinity) < KAMA_STROKE_GAP_MS) return;
-        const next: KamaStroke = stroke ? { kind: 'stroke', at, ...stroke } : kamaGuideStroke(field, target, at);
+        const next: KamaStroke = stroke ? { kind: 'stroke', at, ...stroke } : kamaGuideStroke(field, target, at, scoreKamaReaping(seed, current, Number.POSITIVE_INFINITY, true)!.stalks);
         const updated = [...current, next];
         if (!scoreKamaReaping(seed, updated, Number.POSITIVE_INFINITY, true)) return;
         inputRef.current = updated; setElapsed(at); setStrokes(updated);
@@ -170,8 +175,8 @@ export default function KamaReaping({ attempt, busy, resolve }: {
         </div>
         <p className="kama-status" role="status">{message}</p>
         <p className="kama-help" id="kama-help">{relaxed ? 'Animation mode uses your skill’s baseline success rate.'
-            : 'Swipe across the stalks · or tap a stalk and press Reap when the dashed line crosses its band · Arrows + Space'}</p>
-        <span className="kama-sr-only" id="kama-stalks">{`Stalk ${standing.indexOf(target) + 1} of ${standing.length} standing is selected.`}</span>
+            : 'Swipe across the stalks · or tap a stalk and press Reap when the dashed line crosses its band. Each Reap also takes the nearest stalk ·Arrows + Space'}</p>
+        <span className="kama-sr-only" id="kama-stalks">{`Stalk ${standing.indexOf(target) + 1} of ${standing.length} standing is selected.${partner === undefined ? '' : ` Reap also cuts stalk ${standing.indexOf(partner) + 1}.`}`}</span>
         {!relaxed && !over && <button type="button" className="resource-primary" disabled={!canStrike || elapsed - lastAt < KAMA_STROKE_GAP_MS} onClick={() => strike(null)}>Reap at the line</button>}
         {done && <button type="button" autoFocus className="resource-primary" disabled={busy} onClick={() => resolve(relaxed ? {} : { events: inputRef.current })}>{busy ? 'Recording result…' : 'Recover result'}</button>}
     </div>;
