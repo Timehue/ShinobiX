@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RUIN_WEATHERING_MS, clearSectorRestorations, sectorRestorationPhases, sectorRestorationRevision, setSectorRestorations } from './sector-restoration-art';
+import { RUIN_WEATHERING_MS, clearSectorRestorations, drawSectorRestorations, sectorRestorationPhases, sectorRestorationRevision, setSectorRestorations, standingStructureArt } from './sector-restoration-art';
 import { setRestoredRuinFeed } from './sector-banner-state';
 
 const day = 86_400_000;
@@ -30,6 +30,26 @@ test('in the current sector, a newer world feed beats an older counter view',()=
         setSectorRestorations(62,[]);
         assert.deepEqual(sectorRestorationPhases(62),[],'a counter view newer than the feed wins again');
     }finally{setRestoredRuinFeed([]);clearSectorRestorations(62);}
+});
+test('a standing road-place building is painted from the client table, with no feed or counter view',()=>{
+    setRestoredRuinFeed([]);
+    const box=[5,8,2,2].map(n=>n*1024/12);
+    assert.deepEqual(standingStructureArt(3),[{sprite:'flower-pickers-shelter-map',box}],'tiles 101, 102, 113 and 114');
+    assert.deepEqual(standingStructureArt(52),[]);
+    const drawn:unknown[][]=[],images:{src:string;onload?:()=>void;naturalWidth:number}[]=[];
+    const previous=(globalThis as {Image?:unknown}).Image;
+    (globalThis as {Image?:unknown}).Image=class{src='';naturalWidth=512;onload?:()=>void;constructor(){images.push(this);}};
+    try{
+        const context={drawImage:(...args:unknown[])=>drawn.push(args)} as unknown as CanvasRenderingContext2D;
+        drawSectorRestorations(context,3,1024);
+        assert.equal(drawn.length,0,'nothing is drawn before the sprite has decoded');
+        const sprite=images.find(image=>image.src==='/sector-buildings/flower-pickers-shelter-map-v1.webp');
+        assert.ok(sprite,'the floor asks for the sprite');
+        const before=sectorRestorationRevision();sprite!.onload!();
+        assert.ok(sectorRestorationRevision()>before,'a decoded sprite repaints the floor');
+        drawSectorRestorations(context,3,1024);
+        assert.deepEqual(drawn.map(args=>args.slice(1)),[box]);
+    }finally{(globalThis as {Image?:unknown}).Image=previous;}
 });
 test('the last day shows the weathered painting and a lapsed restoration disappears',()=>{
     try{

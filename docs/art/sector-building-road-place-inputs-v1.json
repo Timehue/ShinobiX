@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "provider": "derived from reviewed story art",
+  "assets": [
+    {
+      "id": "flower-pickers-shelter",
+      "prompt": "Counter header for the Flower-Pickers' Shelter (S3), resized from the reviewed campaign painting of the same place (docs/art-audit/production.json key stormLowRail), which the Mira story already shows at sv-flower-pickers-shelter. Original brief: Use case illustration-story. Create original16:9 premium VN background matching referenced Stormveil wet coastal ridge, gray dark stone, wood slate roofs and painterly rendering. A low trail flower-pickers' SHELTER, simple timber roof and benches on safe inland side of steep coast path. Central focal point waist-high public storm rail along trail edge, practical joint and rope lashing visible needing tightening but rail still standing. Several wicker picking baskets and bundles sheltered under roof, three distant very small indistinct adult work crews sheltered, no identifiable faces. Kesa's small fitted stone cairn visible uphill as geographic landmark, no packet. Light sideways rain and gray daylight. No high-tech, magical storms, future large anchor web, weapons, UI or lettering. Rail joint/shelter center upper-middle above dialogue, reserved lateral space for NPC portrait.",
+      "source": "shinobij.client/public/scenes/story/cinematic/storywide/stormveil-field-picker-shelter-v1.webp"
+    },
+    {
+      "id": "old-toll-booth",
+      "prompt": "Counter header for the Old Toll Booth (S21), resized from the reviewed campaign painting of the same place (docs/art-audit/production.json key moonBooth), which the Nyx story already shows at ms-old-toll-booth. Original brief: Moonrise canal intake booth with open ledger, purple lamps; ordinary moon.",
+      "source": "shinobij.client/public/scenes/story/cinematic/storywide/moonshadow-registry-booth-v1.webp"
+    },
+    {
+      "id": "south-watch-post",
+      "prompt": "Counter header for the South Watch Post (S27), resized from the Frostfang interlude painting that the Sova story already shows at ff-south-watch-post: a snow-roofed timber watch tower above a snowed-in village under green aurora. That interlude predates the production briefs, so no generation prompt was recorded for it.",
+      "source": "shinobij.client/public/scenes/story/story-interlude-frostfang-village-30.webp"
+    },
+    {
+      "id": "flower-pickers-shelter-map",
+      "transparent": true,
+      "prompt": "Generated 2026-11-07 with Figma gpt-image-2.5-flare (file FHz1za66qbhAnzx3ygfTHa, node 8:18; it replaced the narrow 1x2 render at node 6:2, which read as a plank beside its name), then keyed by shinobij.client/art-source/flower-pickers-shelter/cutout.mjs. Prompt: Production game sprite for Shinobi Journey, an original shinobi fantasy MMORPG. Strict overhead orthographic top-down view, camera looking straight down, matching a hand-painted overhead adventure map with mossy grass, cracked flagstone roads and a dark blue-grey slate-roofed stronghold. One isolated roadside flower-pickers' shelter with a nearly SQUARE footprint that fills most of the frame: a broad hipped roof of weathered dark grey-brown wooden shingles with a few grey slate patches, a clear ridge and four hip lines meeting the corners, deep overhanging eaves, moss along the eaves, rain-darkened. Sturdy weathered cedar corner posts at the four corners. The LEFT side is the open front facing a road: a short waist-high timber storm rail with rope lashings runs along part of the left edge, leaving a gap in the middle as the entrance. Around the RIGHT and BOTTOM edges, partly under the eaves: four or five round wicker picking baskets full of small white and yellow wildflowers, tied herb and lavender bundles, and a low wooden bench. A modest, sturdy, open-sided working shelter, clearly a building, not a temple, not a castle. Muted natural palette: dark grey-brown roof, weathered brown cedar, mossy green, small touches of white, yellow and lavender. Detailed painterly game asset, crisp readable silhouette at small size. Centered with a small uniform empty margin. Background: plain solid flat pure magenta (#FF00FF) chroma-key, completely uniform, no texture. No ground, no grass, no road, no cast shadow outside the object, no people, no animals, no text, no lettering, no UI, no isometric tilt, no perspective, no horizon.",
+      "source": "shinobij.client/art-source/flower-pickers-shelter/shelter-map-cutout.png"
+    }
+  ]
+}

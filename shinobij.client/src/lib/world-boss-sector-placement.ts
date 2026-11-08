@@ -55,6 +55,10 @@ function claimedTiles(sector: number): Set<number> {
         }
         claimed.add(layout.village.approach);
     }
+    // Every painted building (B in the mask), including registry ones such as
+    // the Flower-Pickers' Shelter: a figure rising over its roof takes its taps.
+    // Each mask row is GRID cells wide, so a cell's place in the joined mask is its tile.
+    [...layout.mask.join('')].forEach((cell, tile) => cell === 'B' && claimed.add(tile));
     for (const exit of layout.exits ?? []) claimed.add(exit.tile);
     // A gathering spot's approach is where players tap to walk; the boss's
     // footprint would take that tap and open the queue instead.

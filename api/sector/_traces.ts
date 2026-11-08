@@ -19,6 +19,7 @@
  */
 
 import { isPlayableWildSector } from '../../shared/sector-geo.js';
+import { nearestWalkableTile } from '../../shared/sector-walk-mask.js';
 import { shrineTier } from '../../shared/shrines.js';
 
 export const TRAIL_SIGN_TTL_MS = 72 * 60 * 60 * 1000;
@@ -94,7 +95,19 @@ export function isoWeekKey(now: number = Date.now()): string {
     return `${day.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
-export function parseSigns(value: unknown): TrailSign[] {
+/**
+ * A sign's tile on the sector's walkable ground. A sign stands where its author
+ * stood, so a tile on blocked ground (a forged request, or a sign left before a
+ * building was raised on that spot) moves to the nearest open tile instead of
+ * drawing on a roof or a wall.
+ */
+export function signTile(sector: number, tile: unknown): number {
+    const raw = Math.floor(Number(tile));
+    return nearestWalkableTile(sector, Number.isFinite(raw) && raw >= 0 && raw <= 143 ? raw : 77);
+}
+
+/** Pass the sector to keep every sign on its walkable ground (see signTile). */
+export function parseSigns(value: unknown, sector?: number): TrailSign[] {
     if (!Array.isArray(value)) return [];
     const out: TrailSign[] = [];
     for (const raw of value) {
@@ -107,7 +120,7 @@ export function parseSigns(value: unknown): TrailSign[] {
         out.push({
             id: s.id,
             name: s.name,
-            tile: Number.isFinite(tile) && tile >= 0 && tile <= 143 ? tile : 77,
+            tile: sector === undefined ? (Number.isFinite(tile) && tile >= 0 && tile <= 143 ? tile : 77) : signTile(sector, tile),
             text: s.text,
             at,
             sparks: Math.max(0, Math.floor(Number(s.sparks)) || 0),

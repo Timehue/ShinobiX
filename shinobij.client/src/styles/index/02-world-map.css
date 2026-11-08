@@ -46,13 +46,6 @@
 
 
 
-.world-village,
-.world-central,
-.world-event {
-    border-color: #7c2d12;
-    box-shadow: 0 0 14px rgba(230, 196, 119, .35), inset 0 0 0 2px rgba(255,255,255,.25);
-}
-
 .sector-card {
     display: grid;
     gap: 14px;

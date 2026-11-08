@@ -1,4 +1,5 @@
 import { RUIN_RESTORATION_BOUNDS } from '../../../shared/sector-ruin-restoration-bounds';
+import { STANDING_STRUCTURE_ART } from '../../../shared/sector-standing-structure-art';
 import { nextRestoredRuinStamp, restoredRuinFeed, restoredRuinFeedAt, restoredRuinFeedRevision } from './sector-banner-state';
 import { serverNow } from './server-clock';
 
@@ -46,8 +47,12 @@ export function setSectorRestorations(sector: number, entries: readonly { id: st
 export function clearSectorRestorations(sector: number) { if (local.delete(sector)) localChanged = true; }
 export function sectorRestorationPhases(sector: number): readonly { id: string; phase: Phase }[] { sectorRestorationRevision(); return drawn.get(sector) ?? []; }
 
-function image(id: string, phase: Phase) {
-    const key = `${phase}-${id}`;
+/** Standing road-place buildings, as boxes on the 1024px floor. They are always
+ * drawn: their tiles are solid, so the art must never wait on a request. */
+export const standingStructureArt = (sector: number) => STANDING_STRUCTURE_ART.filter(art => art[0] === sector)
+    .map(([, sprite, tile, span]) => ({ sprite, box: [tile % 12, Math.floor(tile / 12), span, span].map(n => n * 1024 / 12) }));
+
+function image(key: string) {
     let found = images.get(key);
     if (!found && typeof Image !== 'undefined') {
         const created = new Image();
@@ -61,13 +66,18 @@ function image(id: string, phase: Phase) {
     }
     return found;
 }
-/** Paint every standing restoration of a sector onto its floor canvas (`size` px square). */
+/** Paint a sector's standing road-place buildings and every standing restoration
+ * onto its floor canvas (`size` px square). */
 export function drawSectorRestorations(context: CanvasRenderingContext2D, sector: number, size: number) {
     const scale = size / 1024;
     const ready = (art: HTMLImageElement | undefined): art is HTMLImageElement => !!art && decoded.has(art) && art.naturalWidth > 0;
+    for (const { sprite, box } of standingStructureArt(sector)) {
+        const art = image(sprite);
+        if (ready(art)) context.drawImage(art, box[0] * scale, box[1] * scale, box[2] * scale, box[3] * scale);
+    }
     for (const { id, phase } of drawn.get(sector) ?? []) {
         // Until the weathered painting has decoded, keep showing the restored one rather than the ruin.
-        const wanted = image(id, phase), art = ready(wanted) ? wanted : phase === 'weathered' ? image(id, 'restored') : undefined, box = RUIN_RESTORATION_BOUNDS[id];
+        const wanted = image(`${phase}-${id}`), art = ready(wanted) ? wanted : phase === 'weathered' ? image(`restored-${id}`) : undefined, box = RUIN_RESTORATION_BOUNDS[id];
         if (!ready(art) || !box) continue;
         context.drawImage(art, box[0] * scale, box[1] * scale, box[2] * scale, box[3] * scale);
     }

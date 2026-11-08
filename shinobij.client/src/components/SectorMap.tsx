@@ -18,18 +18,18 @@
 import { useEffect, useState } from "react";
 import type { SectorDirection } from "../../../shared/sector-links";
 import { RUIN_RESTORATION_BOUNDS } from "../../../shared/sector-ruin-restoration-bounds";
-import { sectorRestorationPhases } from "../lib/sector-restoration-art";
+import { sectorRestorationPhases, standingStructureArt } from "../lib/sector-restoration-art";
 
 // isSectorMapEnabled moved to ./sector-map-flag so this file only exports
 // components (keeps react-refresh fast-refresh clean). Importers read it there.
 
-/** Restored ruins on a board viewed from afar (the continuous world paints its own floor). */
+/** Standing road-place buildings and restored ruins on a board viewed from afar (the continuous world paints its own floor). */
 function RestoredRuins({ sector }: { sector: number }) {
     const [, tick] = useState(0);
     useEffect(() => { const id = setInterval(() => tick(n => n + 1), 5_000); return () => clearInterval(id); }, []);
     const pct = (n: number) => `${n / 10.24}%`;
-    return <>{sectorRestorationPhases(sector).map(({ id, phase }) => { const b = RUIN_RESTORATION_BOUNDS[id]!;
-        return <img key={id} src={`/sector-buildings/${phase}-${id}-v1.webp`} alt="" style={{ position: "absolute", left: pct(b[0]), top: pct(b[1]), width: pct(b[2]), height: pct(b[3]) }} />; })}</>;
+    const art = [...standingStructureArt(sector), ...sectorRestorationPhases(sector).map(({ id, phase }) => ({ sprite: `${phase}-${id}`, box: RUIN_RESTORATION_BOUNDS[id]! }))];
+    return <>{art.map(({ sprite, box: b }) => <img key={sprite} src={`/sector-buildings/${sprite}-v1.webp`} alt="" style={{ position: "absolute", left: pct(b[0]), top: pct(b[1]), width: pct(b[2]), height: pct(b[3]) }} />)}</>;
 }
 export function SectorMap({ image, sector }: { image?: string; enterDirection?: SectorDirection | null; sector?: number }) {
     return (

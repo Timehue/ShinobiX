@@ -78,7 +78,7 @@ export function SectorBuildings({character,sector,tile,commit,walk,directRoadWal
             className={`sector-building-threshold building-${building.kind}${Math.abs((point.col+.5)/12*100-building.left)<14&&Math.abs((point.row+.5)/12*100-building.top)<6?' is-player-at-label':''}`} data-building-id={building.id} data-footprint={building.footprint.join(' ')}
             style={{left:`${building.left}%`,top:`${building.top}%`,width:`${building.width}%`,height:`${building.height}%`}}
             title={`Visit ${building.name}`} aria-label={`Visit ${building.name}`} onClick={()=>{setOpened({buildingId:building.id});setTab('welcome');setMaterials(null);}}>
-            {building.kind==='road-place'&&<img className="sector-building-road-sign" src="/landmarks/trail-sign.webp" alt=""/>}
+            {building.kind==='road-place'&&!building.structure&&<img className="sector-building-road-sign" src="/landmarks/trail-sign.webp" alt=""/>}
             {building.kind==='road-place'&&!building.restorationSite&&!!api.details[building.id]?.shared.stage&&<span className={`sector-building-maintenance-seal maintenance-${api.details[building.id].shared.stage}`} aria-hidden="true">{['','I','II','III'][api.details[building.id].shared.stage]}</span>}
             <span className="sector-building-name">{building.name}</span>
             {api.details[building.id]?.shared.stage? <span className="sector-building-condition">{buildingRepairStageName(api.details[building.id].shared.stage,building.kind)}</span>:null}

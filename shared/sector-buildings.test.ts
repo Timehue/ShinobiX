@@ -9,6 +9,7 @@ import { SUPPLY_CRAFT_RECIPES } from './crafting-recipes.js';
 import { RESOURCE_ITEMS } from './resource-items.js';
 import { BUILDING_RUIN_IDLE_FADE_MS, BUILDING_RUIN_INTACT_MS, buildingRepairStageName, readBuildingProgress, readSharedBuilding } from './sector-building-state.js';
 import { lifeActorsAt } from './sector-life.js';
+import { sectorArtKey } from './sector-geo.js';
 
 test('all existing strongholds, village gates, shrines, painted ruin groups and quest-only places have named counters',()=>{
     assert.equal(new Set(SECTOR_BUILDINGS.map(b=>b.id)).size,SECTOR_BUILDINGS.length);
@@ -33,6 +34,37 @@ test('every building approach, evidence point and watch point is walkable and co
             assert.ok(isWalkableTile(p.sector,p.tile),`${b.id} ${p.label}`);
             assert.ok(pathInMask(sectorWalkMask(b.sector),b.approach,p.tile),b.id);
         }
+    }
+});
+test('each story road place keeps its story stop on the counter approach',async()=>{
+    const { STORY_FIELD_JOURNEYS } = await import('./story-field-work.js');
+    const points=Object.values(STORY_FIELD_JOURNEYS).flatMap(journey=>Object.entries(journey.points));
+    for(const b of SECTOR_BUILDINGS.filter(b=>b.storyPointId)){
+        const point=points.find(([id])=>id===b.storyPointId)?.[1];
+        assert.ok(point,`${b.id} story stop exists`);
+        assert.deepEqual({sector:point!.sector,tile:point!.tile},{sector:b.sector,tile:b.approach},`${b.id} story marker stands where its counter is approached`);
+    }
+});
+test('standing road-place buildings occupy solid tiles beside their road, clear of every gathering node',async()=>{
+    const { RESOURCE_NODES, HARVEST_NODES, WORLD_BOSS_CRYSTAL_NODES } = await import('./resource-nodes.js');
+    const { STANDING_STRUCTURE_ART } = await import('./sector-standing-structure-art.js');
+    const standing=SECTOR_BUILDINGS.filter(b=>b.structure);
+    assert.deepEqual(standing.map(b=>b.id),['flower-pickers-shelter']);
+    // The client paints each one from its own copy, so the art covers exactly the solid tiles.
+    const painted=STANDING_STRUCTURE_ART.map(([sector,sprite,tile,span])=>({sector,sprite,tiles:Array.from({length:span*span},(_,i)=>tile+Math.floor(i/span)*12+i%span)}));
+    assert.deepEqual(painted,standing.map(b=>({sector:b.sector,sprite:b.structure!.sprite,tiles:[...b.structure!.footprint].sort((x,y)=>x-y)})),'client floor art matches the registry footprints');
+    for(const b of standing){
+        const site=b.structure!, mask=sectorWalkMask(b.sector)!;
+        assert.equal(b.kind,'road-place',b.id);        for(const tile of site.footprint)assert.equal(mask[Math.floor(tile/12)][tile%12],'B',`${b.id} tile ${tile} is solid in the floor mask`);
+        assert.ok(site.footprint.some(tile=>[tile-1,tile+1,tile-12,tile+12].includes(b.approach)),`${b.id} counter is approached from a neighbouring tile`);
+        assert.equal(b.restorationSite,undefined,`${b.id} keeps its own roof; repairs show as seals`);
+        for(const node of [...RESOURCE_NODES,...HARVEST_NODES,...WORLD_BOSS_CRYSTAL_NODES].filter(n=>n.sector===b.sector)){
+            assert.ok(!site.footprint.includes(node.target)&&!site.footprint.includes(node.approach),`${b.id} leaves ${node.id} reachable`);
+            assert.ok(pathInMask(mask,b.approach,node.approach),`${b.id} keeps a road to ${node.id}`);
+        }
+        const exits=SECTOR_FLOOR_LAYOUTS[sectorArtKey(b.sector)]?.exits??[];
+        assert.ok(exits.length,`${b.id} sector has road exits`);
+        for(const exit of exits)assert.ok(pathInMask(mask,b.approach,exit.tile),`${b.id} keeps exit ${exit.tile} connected`);
     }
 });
 test('each relay seals two distinct onward counters on connected roads and work views preserve their approaches',()=>{

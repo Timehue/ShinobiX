@@ -13,6 +13,7 @@ import {
     applySpark,
     isTraceSector,
     parseSigns,
+    signTile,
     trailSignsKey,
     utcDayKey,
     TRAIL_SIGNS_PER_DAY,
@@ -64,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const signId = typeof body.signId === 'string' ? body.signId : '';
             if (!signId) return res.status(400).json({ error: 'Missing signId.' });
             const out = await withKvLock(key, async () => {
-                const result = applySpark(parseSigns(await kv.get(key)), signId, playerName, now);
+                const result = applySpark(parseSigns(await kv.get(key), sector), signId, playerName, now);
                 if (!result.ok) return result;
                 await kv.set(key, result.signs, { ex: SIGNS_KEY_TTL_SEC });
                 return result;
@@ -95,8 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !isCleanText(rawText)) return res.status(400).json({ error: 'Sign contains blocked content.' });
         const text = identity.admin ? rawText.slice(0, TEXT_LIMITS.trailSign) : sanitizeUserText(rawText, TEXT_LIMITS.trailSign);
         if (!text) return res.status(400).json({ error: 'Empty sign after moderation.' });
-        const tileRaw = Math.floor(Number(body.tile));
-        const tile = Number.isFinite(tileRaw) && tileRaw >= 0 && tileRaw <= 143 ? tileRaw : 77;
+        const tile = signTile(sector, body.tile);
 
         if (!identity.admin) {
             const posted = await kv.incr(`trail-sign-day:${playerName}:${utcDayKey(now)}`, { ex: 25 * 60 * 60 });
@@ -115,7 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             sparkedBy: [],
         };
         const signs = await withKvLock(key, async () => {
-            const next = addSign(parseSigns(await kv.get(key)), sign, now);
+            const next = addSign(parseSigns(await kv.get(key), sector), sign, now);
             await kv.set(key, next, { ex: SIGNS_KEY_TTL_SEC });
             return next;
         });

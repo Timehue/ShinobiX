@@ -8,6 +8,10 @@ export type SectorBuilding = {
     left: number; top: number; width: number; height: number; footprint: readonly number[]; approach: number;
     art: string; region: string; village?: string; shrineId?: string; storyPointId?: string;
     restorationSite?: {left:number;top:number;width:number;height:number;footprint:readonly number[]};
+    /** A standing building painted onto the map (a road place that is more than a signpost).
+     * Its footprint is a square block of solid tiles in the walk mask. The client paints the
+     * sprite into the sector floor from shared/sector-standing-structure-art.ts. */
+    structure?: {footprint:readonly number[];sprite:string};
     evidence?: readonly BuildingPoint[]; watchPoints?: readonly BuildingPoint[];
     restoredWatchPoint?: BuildingPoint;
     contactPoints?: readonly BuildingPoint[];

@@ -57,6 +57,34 @@ outcomes remain owned by their existing story systems.
    masonry stages change the map artwork. A restored ruin stands for seven
    days, then weathers back to its painted ruin (see below). Roadside meeting places receive
    maintenance seals on their signposts rather than a roof painted over a road.
+   A road place can instead stand as a real building (`building` in its
+   registry entry): its tiles beside the road become solid (`B`) in the
+   sector's walk mask, its own top-down sprite replaces the signpost, and its
+   seals sit on that roof. The sprite is painted into the sector floor, like a
+   restored ruin, from a small client table
+   (`shared/sector-standing-structure-art.ts`, pinned to the registry by a
+   test). It therefore shows from neighbouring sectors and never waits on the
+   counter request: the tiles are solid either way. The Flower-Pickers’ Shelter (S3,
+   a 2×2 building on tiles 101, 102, 113 and 114, about the size of the
+   stronghold across the road; counter approached from road tile 100) is the
+   first.
+   A story road place’s campaign stop stays on its counter approach, so Mira’s
+   marker stands at the shelter rather than on the old signpost tile.
+   `scripts/validate-sector-layouts.mjs` keeps each painting within its own
+   14–43 blocked tiles and lets placed buildings add at most four more per
+   sector (one stronghold-sized building). Every unsited `B` cell must match a registered building exactly. The
+   occupancy guide (`scripts/sector-layout-guide.mjs`) draws those tiles in
+   their own colour. `scripts/author-sector-world.mjs` does not add them, so a
+   re-authored mask must keep those cells `B` by hand; the validator refuses
+   one that drops them.
+   Other systems read those `B` cells, not the registry. The roaming world
+   boss (`world-boss-sector-placement.ts`) claims every `B` cell, so its tap
+   area never reaches over a building's roof. A trail sign stands on walkable
+   ground only (`signTile` in `api/sector/_traces.ts`). A sign left on a
+   tile that later became a building moves to the nearest open tile when it
+   is next read.
+   Changing a mask also changes the continuous-world `layoutVersion`, which
+   hashes every mask. Saved world cursors then fall back to their sector tile.
 5. **Courier relays.** Carry a sealed pouch through two receiving counters on
    the canonical connected road graph. Both receiving stamps are required.
    The work book retains the itinerary away from the issuing building.
@@ -222,13 +250,21 @@ adjacency check because it intentionally has no connected-road position cursor.
 ## Art and operations
 
 Production WebP assets live in `shinobij.client/public/sector-buildings/`.
-Fifteen illustrations/sprites cover the service families, Frostfang winter
-variants and three transparent restoration stages. Input manifests in
+Thirty-nine illustrations/sprites cover the service families, Frostfang winter
+variants, three transparent restoration stages, the ten restored and ten
+weathered ruin paintings, three road-place headers and the Flower-Pickers’
+Shelter map sprite.
+The road-place headers (Flower-Pickers’ Shelter, South Watch Post, Old Toll
+Booth) are resized from the campaign painting of the same place, so the counter
+shows the place the story shows. Input manifests in
 `docs/art/sector-building-*-inputs-v1.json` retain exact generation prompts and
 source paths. `sector-building-art-v1.json` pins output hashes and sizes;
 `node scripts/package-sector-building-art.mjs` repackages the retained originals.
+Pass asset ids to re-encode only those; the rest keep their receipted bytes.
+The ruin paintings come from `scripts/bake-ruin-restorations.mjs` instead, so
+the packager carries their entries over unchanged.
 Normal builds consume the checked WebP assets and do not call a provider.
-The release verifier gives the fifteen assets a separate, fixed 1,410,782-byte
+The release verifier gives the thirty-nine assets a separate, fixed 2,581,396-byte
 partition and verifies that delivered files match their checked source bytes.
 The existing allowance for all other runtime assets remains unchanged.
 

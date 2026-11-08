@@ -10,6 +10,10 @@ test('every building illustration and restoration sprite is a checked local prod
     const manifest=JSON.parse(await readFile(new URL('../docs/art/sector-building-art-v1.json',import.meta.url),'utf8')) as {assets:{id:string;file:string;sha256:string;bytes:number;prompt:string;transparent?:boolean;kind?:string;width?:number;height?:number}[]};
     const ids=new Set(manifest.assets.map(asset=>asset.id));
     for(const b of SECTOR_BUILDINGS)assert.ok(ids.has(b.art),`${b.id} has a production illustration`);
+    for(const b of SECTOR_BUILDINGS.filter(b=>b.structure)){
+        const sprite=manifest.assets.find(asset=>asset.id===b.structure!.sprite);
+        assert.ok(sprite?.transparent,`${b.id} map sprite is a receipted transparent asset`);
+    }
     for(let stage=1;stage<=3;stage++)assert.ok(ids.has(`restoration-stage-${stage}`));
     // Every ruin has its own painted restoration.
     for(const b of SECTOR_BUILDINGS.filter(b=>b.kind==='ruin')){

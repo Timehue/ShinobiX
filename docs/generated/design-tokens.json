@@ -3386,7 +3386,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
-            "line": 666
+            "line": 664
           },
           {
             "source": "shinobij.client/src/styles/index/15-world-map-territory.css",
@@ -4284,7 +4284,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 285
+            "line": 278
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -4296,7 +4296,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
-            "line": 318
+            "line": 316
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
@@ -4434,7 +4434,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
-            "line": 55
+            "line": 53
           },
           {
             "source": "shinobij.client/src/styles/landing-home.css",
@@ -4619,7 +4619,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 634
+            "line": 627
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
