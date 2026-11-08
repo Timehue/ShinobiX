@@ -17,6 +17,7 @@ import "../styles/mission-arena-fight.css";
 // CombatSideHud's portrait frame (it is node-tested, so it cannot import CSS).
 import "../styles/art-backdrop.css";
 import { BossFormChip, BossFormCutsceneGate } from "../components/BossFormStatus";
+import { useBossFormReveal } from "../lib/boss-form-reveal";
 import { bossFormAuraClass, bossFormViewFor } from "../lib/boss-form-view";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
@@ -1243,11 +1244,13 @@ export function MissionArenaFight({
     const enemyVisual = String(enemy?.character?.visual ?? "");
     const mirrorTrial = enemyVisual === "story-ai-moonshadow-village-50";
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
-    // A transformed boss shows its form's alternate art ahead of any authored override.
-    const bossForm = bossFormViewFor(session.bossForms, session.round, enemy?.hp);
+    // A transformed boss: its cut-scene plays first, then its form's portrait,
+    // sprite, aura and phase replace the old ones (ahead of any authored override).
+    const bossFormReveal = useBossFormReveal(session.sessionId, bossFormViewFor(session.bossForms, session.round, enemy?.hp));
+    const bossForm = bossFormReveal.shown;
     const enemyAvatar = mirrorTrial ? playerAvatar : bossForm?.portrait || (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || sharedImages?.[`ai:${canonicalBeastPortraitId(enemyVisual)}`] || beastPortrait(enemyVisual) || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
     const enemyName = enemy?.name ?? "Enemy";
-    const enemyBattleSprite = mirrorTrial ? null : battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype });
+    const enemyBattleSprite = mirrorTrial ? null : bossForm?.sprite || battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype });
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
     // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
     // Portrait-first — `pet.image` alone misses published and replacement art.
@@ -1407,7 +1410,7 @@ export function MissionArenaFight({
             {/* Story flavor overlays (display-only) — float above the arena board. */}
             {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
             {storyFinalPhase && <div className="story-fight-vignette" aria-hidden="true" />}
-            <BossFormCutsceneGate sessionId={session.sessionId} view={bossForm} bossName={enemyName} bossImage={enemyAvatar}
+            <BossFormCutsceneGate reveal={bossFormReveal} active={session.status === "active"} bossName={enemyName} bossImage={enemyAvatar}
                 playerName={me} playerImage={playerAvatar} backdrop={storyTheme?.backdropImage} />
             {bark && (
                 <div className={`story-fight-bark${bark.side === "ally" ? " story-fight-bark--ally" : ""}`} role="status">

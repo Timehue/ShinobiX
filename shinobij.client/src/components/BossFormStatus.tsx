@@ -1,6 +1,7 @@
 import "../styles/boss-forms.css";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
 import type { BossFormView } from "../../../shared/boss-transformations";
+import type { BossFormReveal } from "../lib/boss-form-reveal";
 
 const BossFormCutscene = lazy(() => import("./BossFormCutscene"));
 
@@ -19,7 +20,7 @@ export function BossFormChip({ view }: { view: BossFormView | undefined }) {
             <span>{view.formName ?? (view.nextAtHpPct !== undefined ? `Transforms at ${view.nextAtHpPct}% HP` : "Base form")}</span>
             {charging && (
                 <span className="boss-form-charge">
-                    Break {charging.name}: {remaining} dmg or stun
+                    Break: {remaining}
                     <i style={{ width: `${breakPct}%` }} aria-hidden="true" />
                 </span>
             )}
@@ -28,48 +29,26 @@ export function BossFormChip({ view }: { view: BossFormView | undefined }) {
     );
 }
 
-function seenKey(sessionId: string): string {
-    return `bossFormSeen.v1:${sessionId}`;
-}
-
-function readSeen(sessionId: string): number {
-    try {
-        return Number(window.sessionStorage.getItem(seenKey(sessionId))) || 0;
-    } catch {
-        return 0;
-    }
-}
-
-/**
- * Plays the transformation cut-scene once per transformation. The server records
- * the transformation itself; this only remembers which scenes this tab has shown,
- * so a refresh does not replay one the player already watched.
- */
+/** Plays the pending transformation's cut-scene: the old art first, then the new form. */
 export function BossFormCutsceneGate({
-    sessionId, view, bossName, bossImage, playerName, playerImage, backdrop,
+    reveal, active, bossName, bossImage, playerName, playerImage, backdrop,
 }: {
-    sessionId: string;
-    view: BossFormView | undefined;
+    reveal: BossFormReveal;
+    /** false once the fight has ended: the result screen owns the stage then */
+    active: boolean;
     bossName: string;
+    /** the art the boss is drawn with before the transformation */
     bossImage: string;
     playerName: string;
     playerImage: string;
     backdrop?: string;
 }) {
-    // Keyed by session, so a new fight re-reads what this tab has already watched.
-    const [seen, setSeen] = useState(() => ({ sessionId, seq: readSeen(sessionId) }));
-    const seenSeq = seen.sessionId === sessionId ? seen.seq : readSeen(sessionId);
-    if (!view || view.seq <= seenSeq || !view.formName) return null;
-    const done = () => {
-        try {
-            window.sessionStorage.setItem(seenKey(sessionId), String(view.seq));
-        } catch { /* private mode: the scene simply may replay */ }
-        setSeen({ sessionId, seq: view.seq });
-    };
+    const view = reveal.pending;
+    if (!view || !active) return null;
     return (
         <Suspense fallback={null}>
-            <BossFormCutscene view={view} bossName={bossName} bossImage={view.portrait ?? bossImage}
-                playerName={playerName} playerImage={playerImage} backdrop={backdrop} onDone={done} />
+            <BossFormCutscene key={view.seq} view={view} bossName={bossName} beforeImage={bossImage} afterImage={view.portrait ?? bossImage}
+                playerName={playerName} playerImage={playerImage} backdrop={backdrop} onDone={reveal.finish} />
         </Suspense>
     );
 }

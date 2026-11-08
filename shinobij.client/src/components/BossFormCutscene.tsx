@@ -7,9 +7,11 @@ import { CinematicVisualNovelStage } from "./CinematicVisualNovelStage";
 
 /**
  * The short visual-novel scene that plays when a boss transforms mid-fight.
- * The boss speaks its authored lines, then one closing line explains what
- * changed. Loaded lazily by BossFormCutsceneGate, so it costs nothing until a
- * boss actually transforms. Reduced Motion is honoured by the stage itself.
+ * The boss speaks its first line as it was; from the second line on it is shown
+ * in its new form, and one closing line explains what changed. Only after the
+ * scene ends does the battle screen switch to the new portrait and sprite
+ * (useBossFormReveal). Loaded lazily, so it costs nothing until a boss actually
+ * transforms. Reduced Motion is honoured by the stage itself.
  */
 const TONE: Record<BossFormAura, VnTone> = {
     storm: "cold", tempest: "cold", flame: "warm", steam: "danger", obsidian: "danger", moon: "hollow", eclipse: "hollow",
@@ -19,11 +21,14 @@ const ATMOSPHERE: Record<BossFormAura, Exclude<VnAtmosphere, "auto">> = {
 };
 
 export default function BossFormCutscene({
-    view, bossName, bossImage, playerName, playerImage, backdrop, onDone,
+    view, bossName, beforeImage, afterImage, playerName, playerImage, backdrop, onDone,
 }: {
     view: BossFormView;
     bossName: string;
-    bossImage: string;
+    /** the boss as it looked before transforming (first line) */
+    beforeImage: string;
+    /** the transformed portrait (every later line) */
+    afterImage: string;
     playerName: string;
     playerImage: string;
     backdrop?: string;
@@ -61,7 +66,7 @@ export default function BossFormCutscene({
             lineIndex={line}
             lineCount={script.length}
             left={{ name: playerName, image: playerImage, initials: initials(playerName), player: true, speaking: false, hidden: !playerImage.startsWith("/") && !playerImage.startsWith("data:") && !playerImage.startsWith("http") }}
-            right={{ name: bossName, image: bossImage, initials: initials(bossName), speaking: current.boss }}
+            right={{ name: bossName, image: line === 0 ? beforeImage : afterImage, initials: initials(bossName), speaking: current.boss }}
             presentation={presentation}
             allowStageAdvance={!last}
             onAdvance={next}

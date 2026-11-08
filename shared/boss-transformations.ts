@@ -65,9 +65,9 @@ export type BossPhaseMechanic =
         everyRounds: number; staggerDamageTakenMult?: number; tell: string;
     }
     /** A defensive stance: the boss takes `damageTakenMult`× damage, except from
-     *  attacks that match `weakness` (an element or a jutsu type), which take
-     *  `weaknessMult`× instead. */
-    | { kind: 'guard-stance'; name: string; weakness: string; weaknessMult: number; tell: string }
+     *  attacks that match `weakness` (an element or jutsu type, or a list of
+     *  them), which take `weaknessMult`× instead. */
+    | { kind: 'guard-stance'; name: string; weakness: string | readonly string[]; weaknessMult: number; tell: string }
     /** A released limiter: the form burns `burnPct`% of the boss's max HP at the
      *  end of each of its turns. It cannot burn itself below 1 HP. */
     | { kind: 'limit-burn'; name: string; burnPct: number; tell: string }
@@ -90,8 +90,10 @@ export type BossPhaseDef = {
     atHpPct: number;
     /** player-facing name of the form, e.g. "Thunder God Shroud" */
     formName: string;
-    /** alternate artwork; when absent the client paints the aura over the base art */
+    /** alternate portrait; when absent the client paints the aura over the base art */
     portrait?: string;
+    /** alternate full-body battle sprite for the board token (384px cut-out) */
+    sprite?: string;
     aura: BossFormAura;
     /** short visual-novel cut-scene: who speaks and what they say (1–3 lines) */
     cutscene: { speaker: string; lines: readonly string[] };
@@ -204,6 +206,7 @@ export function validateBossTransformationPlan(plan: BossTransformationPlan, opt
         if (phase.healPct !== undefined && (phase.healPct < limits.healPct.min || phase.healPct > limits.healPct.max)) errs.push(`${where}: healPct out of range`);
         if (phase.upkeepPct !== undefined && (phase.upkeepPct < limits.upkeepPct.min || phase.upkeepPct > limits.upkeepPct.max)) errs.push(`${where}: upkeepPct out of range`);
         if (phase.portrait !== undefined && !/^\/[\w\-/.]+\.(webp|png)$/.test(phase.portrait)) errs.push(`${where}: portrait must be a /public path`);
+        if (phase.sprite !== undefined && !/^\/[\w\-/.]+\.(webp|png)$/.test(phase.sprite)) errs.push(`${where}: sprite must be a /public path`);
         const m = phase.mechanic;
         if (m) {
             if (!(BOSS_PHASE_MECHANIC_KINDS as readonly string[]).includes(m.kind)) errs.push(`${where}: unknown mechanic`);
@@ -214,7 +217,7 @@ export function validateBossTransformationPlan(plan: BossTransformationPlan, opt
                 if (m.breakPct < limits.chargeBreakPct.min || m.breakPct > limits.chargeBreakPct.max) errs.push(`${where}: charge breakPct out of range`);
                 if (m.everyRounds < limits.chargeEveryRounds.min || m.everyRounds > limits.chargeEveryRounds.max) errs.push(`${where}: charge everyRounds out of range`);
             }
-            if (m.kind === 'guard-stance' && (!m.weakness || m.weaknessMult < 1)) errs.push(`${where}: a stance needs a weakness that hurts it`);
+            if (m.kind === 'guard-stance' && (!(typeof m.weakness === 'string' ? m.weakness.trim() : m.weakness.length) || m.weaknessMult < 1)) errs.push(`${where}: a stance needs a weakness that hurts it`);
             if (m.kind === 'limit-burn' && (m.burnPct < limits.burnPct.min || m.burnPct > limits.burnPct.max)) errs.push(`${where}: burnPct out of range`);
             if (m.kind === 'summon' && (m.count < limits.summonCount.min || m.count > limits.summonCount.max || !m.aiId)) errs.push(`${where}: summon count out of range`);
         }
@@ -361,10 +364,10 @@ export function bossFormDamageMult(state: BossTransformationState | undefined): 
 }
 
 /** Does an attack match a stance weakness? Matches an element or a jutsu type, case-insensitively. */
-export function attackMatchesWeakness(weakness: string, attack?: { element?: unknown; type?: unknown }): boolean {
+export function attackMatchesWeakness(weakness: string | readonly string[], attack?: { element?: unknown; type?: unknown }): boolean {
     if (!attack) return false;
-    const want = weakness.trim().toLowerCase();
-    return [attack.element, attack.type].some(value => typeof value === 'string' && value.trim().toLowerCase() === want);
+    const wants = (typeof weakness === 'string' ? [weakness] : weakness).map(entry => entry.trim().toLowerCase()).filter(Boolean);
+    return [attack.element, attack.type].some(value => typeof value === 'string' && wants.includes(value.trim().toLowerCase()));
 }
 
 /** Incoming damage multiplier for attacks that hit the boss. */
@@ -466,19 +469,35 @@ export function bossLimitBurn(state: BossTransformationState | undefined, boss: 
     return Math.min(boss.hp - 1, Math.max(1, Math.floor((boss.maxHp * pct) / 100)));
 }
 
+/**
+ * The self-damage to apply this turn (see bossLimitBurn), with the active
+ * charge's baseline moved down by the same amount: a boss burning its own
+ * health never counts toward breaking its own charge, only the players' damage.
+ */
+export function bossSelfBurn(state: BossTransformationState | undefined, boss: { hp: number; maxHp: number }): number {
+    const burn = bossLimitBurn(state, boss);
+    if (burn > 0 && state?.charge) state.charge.hpAtArm -= burn;
+    return burn;
+}
+
 /** Name for the per-turn self-damage line in a battle log. */
 export function bossBurnLabel(state: BossTransformationState | undefined): string {
     const form = activeBossForm(state);
     return form?.mechanic?.kind === 'limit-burn' ? form.mechanic.name : `Holding ${form?.formName ?? 'the form'}`;
 }
 
-/** A compact view for clients: what to draw, without the authored plan's later forms. */
+/**
+ * A compact view for clients: what to draw for the current form. The sealed
+ * state (including later forms' lines) also reaches the client with the
+ * session; this view is what the screens actually render.
+ */
 export type BossFormView = {
     seq: number;
     phase: number;
     phaseCount: number;
     formName?: string;
     portrait?: string;
+    sprite?: string;
     aura?: BossFormAura;
     summary?: string;
     mechanic?: { kind: BossPhaseMechanicKind; name: string; tell: string };
@@ -490,6 +509,8 @@ export type BossFormView = {
     staggered?: boolean;
     /** threshold of the next pending form, so the HP bar can mark it */
     nextAtHpPct?: number;
+    /** the form the boss was in before its latest transformation (absent = its base form) */
+    previous?: { phase: number; formName: string; portrait?: string; sprite?: string; aura: BossFormAura };
 };
 
 export function bossFormView(state: BossTransformationState | undefined, round: number, bossHp?: number): BossFormView | undefined {
@@ -499,6 +520,8 @@ export function bossFormView(state: BossTransformationState | undefined, round: 
     const skippedNames = state.last?.skipped
         .map(id => state.plan.phases.find(phase => phase.id === id)?.formName)
         .filter((name): name is string => !!name);
+    const previousPhase = state.phase - 1 - (state.last?.skipped.length ?? 0);
+    const previousForm = previousPhase > 0 ? state.plan.phases[previousPhase - 1] : undefined;
     return {
         seq: state.seq,
         phase: state.phase,
@@ -506,6 +529,7 @@ export function bossFormView(state: BossTransformationState | undefined, round: 
         ...(form ? {
             formName: form.formName,
             ...(form.portrait ? { portrait: form.portrait } : {}),
+            ...(form.sprite ? { sprite: form.sprite } : {}),
             aura: form.aura,
             summary: form.summary,
             cutscene: form.cutscene,
@@ -521,5 +545,12 @@ export function bossFormView(state: BossTransformationState | undefined, round: 
         } } : {}),
         ...(state.staggeredUntilRound !== undefined && round <= state.staggeredUntilRound ? { staggered: true } : {}),
         ...(next ? { nextAtHpPct: next.atHpPct } : {}),
+        ...(previousForm ? { previous: {
+            phase: previousPhase,
+            formName: previousForm.formName,
+            aura: previousForm.aura,
+            ...(previousForm.portrait ? { portrait: previousForm.portrait } : {}),
+            ...(previousForm.sprite ? { sprite: previousForm.sprite } : {}),
+        } } : {}),
     };
 }

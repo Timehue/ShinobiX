@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { STORY_KAGE_ENCOUNTERS } from '../../shared/story-kage.js';
 import { validateBossTransformationPlan } from '../../shared/boss-transformations.js';
+import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import { aiStatsForLevel } from '../_ai-level-curves.js';
 import { maxChakraForLevel, maxStaminaForLevel } from '../_xp-engine.js';
 import { hexNeighbors } from '../combat-core/grid.js';
@@ -80,7 +81,9 @@ test('crossing half health transforms the Kage inside the same battle, once', ()
         const dealt = hpBeforeHit - (after.enemy.hp - Math.floor(after.enemy.maxHp / 4));
         assert.ok(dealt > 0, `${village}: the hit landed before the heal`);
         assert.equal(after.bossForms!.last!.healed, Math.floor(after.enemy.maxHp / 4), `${village}: regains 25% of max HP`);
-        assert.equal(after.enemy.character.avatarImage, form.portrait, 'alternate artwork');
+        assert.equal(after.enemy.character.avatarImage, session.enemy.character.avatarImage, 'the sealed art stays the base form');
+        assert.equal(after.bossForms!.plan.phases[0]!.portrait, form.portrait, 'the client reveals the form portrait');
+        assert.ok(form.sprite, 'and a form battle sprite');
         for (const id of form.moveset!.remove!) assert.ok(!kitIds(after).includes(id), `${village}: drops ${id}`);
         for (const id of form.moveset!.add!) assert.ok(kitIds(after).includes(id), `${village}: learns ${id}`);
         assert.equal(kitIds(after).length, kitIds(session).length, 'a swap, not a bigger kit');
@@ -88,6 +91,9 @@ test('crossing half health transforms the Kage inside the same battle, once', ()
         assert.deepEqual(mastery.map(entry => entry.jutsuId), kitIds(after), 'every technique keeps mastery');
         const rules = after.enemy.character.aiRules as Array<{ jutsuId?: string; action: string }>;
         assert.equal(rules[0]?.jutsuId, form.moveset!.favor![0], 'the favoured signature leads the AI program');
+        const program = validateServerAiRules(after.enemy.character.aiRules, kitIds(after));
+        assert.deepEqual(program.issues, [], `${village}: the engine accepts the program (an invalid one is silently ignored)`);
+        assert.equal(program.rules[0]?.jutsuId, form.moveset!.favor![0]);
         assert.ok(after.log.some(line => line.includes(form.formName)), 'the battle log announces the form');
         // The player's resources and active effects are untouched by the transformation itself.
         assert.equal(after.player.chakra, playerBefore.chakra);
@@ -140,15 +146,26 @@ test('every form hits harder and pays for it: more damage taken or health burned
     }
 });
 
-test('Thunder God Shroud charges a bolt on its turn and releases it next turn unless broken', () => {
+test('Thunder God Shroud turns most attacks aside, but Earth grounds it', async () => {
+    const { soloPveBossFormMultiplier } = await import('../solo-pve/_boss-forms.js');
+    const session = adjacent(encounter('Stormveil Village', 'kage-stance'));
+    session.enemy.hp = Math.floor(session.enemy.maxHp / 2);
+    const formed = applySoloPveAction(session, { type: 'basicAttack' }).session;
+    assert.equal(formed.bossForms!.phase, 1);
+    assert.equal(soloPveBossFormMultiplier(formed, 'player', { element: 'Lightning', type: 'Ninjutsu' }), 0.85);
+    assert.equal(soloPveBossFormMultiplier(formed, 'player', { element: 'Earth', type: 'Ninjutsu' }), 1.4);
+    assert.equal(soloPveBossFormMultiplier(formed, 'player', { element: 'None', type: 'Taijutsu' }), 0.85, 'a basic attack is not grounded');
+});
+
+test('Moon Hermit Attunement charges a requiem on its turn and releases it next turn unless broken', () => {
     const transform = (runId: string) => {
-        const session = adjacent(encounter('Stormveil Village', runId));
+        const session = adjacent(encounter('Moonshadow Village', runId));
         session.enemy.hp = Math.floor(session.enemy.maxHp / 2);
         const formed = applySoloPveAction(session, { type: 'basicAttack' }).session;
         assert.equal(formed.bossForms!.phase, 1);
         return formed;
     };
-    // Unanswered: the Kage waits one round after transforming, arms the bolt on
+    // Unanswered: the Kage waits one round after transforming, arms the requiem on
     // its next turn, and releases it on the turn after that.
     const chargeOf = (s: SoloPveSession) => s.bossForms?.charge;
     const unanswered = transform('kage-charge');
@@ -157,11 +174,11 @@ test('Thunder God Shroud charges a bolt on its turn and releases it next turn un
     state = applySoloPveAction(state, { type: 'wait' }).session;
     const armed = chargeOf(state);
     assert.ok(armed, 'the charge is armed on the boss turn');
-    assert.ok(state.log.some(line => line.includes('begins gathering Heaven-Splitting Bolt')));
+    assert.ok(state.log.some(line => line.includes('begins gathering Moonfall Requiem')));
     const armedRound = armed.armedRound;
     state = applySoloPveAction(state, { type: 'wait' }).session;
     assert.equal(chargeOf(state), undefined);
-    assert.ok(state.log.some(line => line.includes('releases Heaven-Splitting Bolt')), 'it detonates on the next boss turn');
+    assert.ok(state.log.some(line => line.includes('releases Moonfall Requiem')), 'it detonates on the next boss turn');
     assert.ok(state.round > armedRound);
 
     // Answered: deal the break threshold during the player's turn.
@@ -173,7 +190,7 @@ test('Thunder God Shroud charges a bolt on its turn and releases it next turn un
     ready.enemy.shield = 0;
     const broke = applySoloPveAction(ready, { type: 'basicAttack' }).session;
     assert.equal(broke.bossForms!.charge, undefined, 'the charge is broken');
-    assert.ok(broke.log.some(line => line.includes('Heaven-Splitting Bolt is broken')));
+    assert.ok(broke.log.some(line => line.includes('Moonfall Requiem is broken')));
     assert.ok((broke.bossForms!.staggeredUntilRound ?? 0) >= broke.round, 'the Kage is staggered');
 });
 

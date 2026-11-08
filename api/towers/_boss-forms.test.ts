@@ -5,6 +5,7 @@ import { FLOOR_CATALOG, getFloor } from './_floor-catalog.js';
 import { applyAction, checkTowerWinner, startRound } from './_engine.js';
 import { TOWER_BOSS_TRANSFORMATIONS, towerBossTransformationProblems } from './_boss-forms.js';
 import type { TowerActor, TowerSession } from './_tower-session.js';
+import type { BossTransformationPlan } from '../../shared/boss-transformations.js';
 
 const build = (floorId: number): TowerSession => buildTowerEncounter({
     floor: structuredClone(getFloor(floorId)!), partySize: 4, runId: `forms-${floorId}`, seed: 77, now: 0,
@@ -39,6 +40,21 @@ test('authored tower plans are valid and every milestone floor (5, 10, 15) trans
     }
 });
 
+test('every authored form (tower and story) ships its portrait and battle sprite', async () => {
+    const { existsSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { STORY_KAGE_TRANSFORMATIONS } = await import('../story/_kage-transformations.js');
+    const publicDir = resolve(process.cwd(), 'shinobij.client/public'); // tests run from the repo root
+    const plans = [...Object.values(TOWER_BOSS_TRANSFORMATIONS), ...Object.values(STORY_KAGE_TRANSFORMATIONS)];
+    assert.equal(plans.length, 7);
+    for (const plan of plans) for (const phase of plan.phases) {
+        for (const art of [phase.portrait, phase.sprite]) {
+            assert.ok(art, `${plan.id}/${phase.id}: portrait and sprite are authored`);
+            assert.ok(existsSync(resolve(publicDir, `.${art}`)), `${art} exists in shinobij.client/public`);
+        }
+    }
+});
+
 test('the boss transforms at half health inside the same run, exactly once, alongside its HP gates', () => {
     for (const floorId of [5, 10, 15]) {
         const floor = getFloor(floorId)!;
@@ -69,6 +85,42 @@ test('the boss transforms at half health inside the same run, exactly once, alon
         againBoss.hp = Math.floor(againBoss.maxHp * 0.2);
         checkTowerWinner(again, floor);
         assert.equal(again.bossForms!.seq, 1, `F${floorId}: never twice, even after a reload`);
+    }
+});
+
+test('a summon form calls its sealed reinforcements once, near the boss', () => {
+    const plans = TOWER_BOSS_TRANSFORMATIONS as Record<string, BossTransformationPlan>;
+    plans['test-summon'] = {
+        id: 'test-summon', lethalGuard: false,
+        phases: [{
+            id: 'call', atHpPct: 50, formName: 'Calling Form', aura: 'eclipse', summary: 'It calls its guard.',
+            cutscene: { speaker: 'Boss', lines: ['To me.'] },
+            mechanic: { kind: 'summon', name: 'Rally', aiId: 'grunt-bandit', count: 2, tell: 'Two Bandits answer.' },
+        }],
+    };
+    try {
+        const floor = structuredClone(getFloor(10)!);
+        floor.boss!.transformation = 'test-summon';
+        const session = buildTowerEncounter({
+            floor, partySize: 4, runId: 'forms-summon', seed: 77, now: 0,
+            squad: Array.from({ length: 4 }, (_, index) => ({
+                id: `sq-${index}`, name: `Player ${index}`, ownerSlug: `player-${index}`, ai: false,
+                character: { level: 100, maxHp: 10000, maxChakra: 10000, maxStamina: 10000, specialty: 'Taijutsu', stats: { taijutsuOffense: 2000 } },
+            })),
+        });
+        assert.equal(session.bossFormKit?.summons?.call?.count, 2, 'the reinforcement template is sealed with the run');
+        clearAdds(session);
+        const adds = () => [...session.actors, ...(session.pendingEnemyWaves ?? []).flatMap(wave => wave.actors)].filter(actor => actor.id.startsWith('add-'));
+        assert.equal(adds().length, 0);
+        bossOf(session).hp = Math.floor(bossOf(session).maxHp * 0.45);
+        checkTowerWinner(session, floor);
+        assert.equal(session.bossForms!.phase, 1);
+        assert.equal(adds().length, 2, 'two Bandits arrive');
+        assert.ok(adds().every(add => add.name === 'Bandit'));
+        checkTowerWinner(session, floor);
+        assert.equal(adds().length, 2, 'and only once');
+    } finally {
+        delete plans['test-summon'];
     }
 });
 
@@ -125,6 +177,7 @@ test('Storm Hermit charges for a round: unanswered it strikes the squad, answere
         boss.hp = Math.floor(boss.maxHp * 0.45);
         checkTowerWinner(session, floor);
         assert.equal(session.bossForms!.phase, 1);
+        clearAdds(session); // the 70% gate's Weavers would keep it guarded (and unable to charge)
         session.round += 1;
         startRound(session);
         assert.ok(session.bossForms!.charge, 'the charge arms at round start');
@@ -148,6 +201,42 @@ test('Storm Hermit charges for a round: unanswered it strikes the squad, answere
     startRound(answered);
     assert.ok(!answered.log.some(line => line.includes('releases Crown')), 'a broken charge never fires');
     assert.deepEqual(answered.actors.filter(actor => actor.side === 'squad').map(actor => actor.hp).length, squadHp.length);
+});
+
+test('while guards make the Regent untargetable it neither charges nor bleeds through its gates', async () => {
+    const { towerBossFormRoundEnd } = await import('./_boss-forms.js');
+    const floor = getFloor(15)!;
+    const session = build(15);
+    clearAdds(session);
+    const boss = bossOf(session);
+    boss.hp = Math.floor(boss.maxHp * 0.45);
+    checkTowerWinner(session, floor);
+    assert.equal(session.bossForms!.phase, 1);
+    assert.equal(session.objectiveState.bossUnlocked, false, "the 70% gate's Weavers guard it");
+    const weavers = session.actors.filter(actor => actor.side === 'enemy' && actor.id !== boss.id && actor.hp > 0);
+    assert.ok(weavers.length > 0);
+    session.round += 1;
+    startRound(session);
+    assert.equal(session.bossForms!.charge, undefined, 'no charge while guarded');
+    for (const weaver of weavers) weaver.hp = 0;
+    session.round += 1;
+    startRound(session);
+    assert.ok(session.bossForms!.charge, 'armed once the Regent can be hit');
+    // Guards return (as the 40% gate's summons do): the charge fizzles, none re-arms, upkeep pauses.
+    for (const weaver of weavers) weaver.hp = weaver.maxHp;
+    session.round += 1;
+    startRound(session);
+    assert.equal(session.bossForms!.charge, undefined);
+    assert.ok(session.log.some(line => line.includes('fades while its guard holds the line')));
+    assert.ok(!session.log.some(line => line.includes('releases Crown of Ten Thousand Bolts')), 'the squad is not struck by a charge it could not answer');
+    const hp = boss.hp;
+    towerBossFormRoundEnd(session);
+    assert.equal(boss.hp, hp, 'no upkeep while guarded');
+    for (const weaver of weavers) weaver.hp = 0;
+    session.round += 1;
+    startRound(session); // objective progress re-reads the fallen guards
+    towerBossFormRoundEnd(session);
+    assert.equal(hp - boss.hp, Math.floor(boss.maxHp * 4 / 100), 'upkeep resumes once the guards fall');
 });
 
 test('Eclipse Brand burns the Sovereign each round end but never finishes it alone', async () => {

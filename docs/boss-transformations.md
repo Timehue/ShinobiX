@@ -13,8 +13,8 @@ resources, statuses and cooldowns are untouched; only the boss changes.
 | Solo-PvE adapter (story fights) | `api/solo-pve/_boss-forms.ts` |
 | Which solo-PvE bosses transform | `api/solo-pve/_boss-transformation-registry.ts` |
 | Final Kage plans | `api/story/_kage-transformations.ts` |
-| Phase chip, aura, cut-scene | `shinobij.client/src/components/BossFormStatus.tsx`, `BossFormCutscene.tsx`, `src/lib/boss-form-view.ts`, `src/styles/boss-forms.css` |
-| Alternate portraits | `public/portraits/cinematic/storywide/*-{thunder-shroud,ember-cloak,oath-gate,moon-hermit}.webp`, `public/portraits/towers/forms/*.webp` (painted by `scripts/paint-boss-forms.py`) |
+| Phase chip, aura, cut-scene, reveal order | `shinobij.client/src/components/BossFormStatus.tsx`, `BossFormCutscene.tsx`, `src/lib/boss-form-view.ts`, `src/lib/boss-form-reveal.ts`, `src/styles/boss-forms.css` |
+| Form art | portraits: `public/portraits/cinematic/storywide/*-{thunder-shroud,ember-cloak,oath-gate,moon-hermit}.webp`, `public/portraits/towers/forms/*.webp`; battle sprites: `public/combat-actors/forms/*-idle.webp`. All painted over each boss's own art by `scripts/paint-boss-forms.py` |
 
 ## Rules
 
@@ -35,13 +35,22 @@ resources, statuses and cooldowns are untouched; only the boss changes.
   lethal blow wins through the engine's normal victory path. Tower plans set
   `lethalGuard: false`: their bosses have tens of thousands of HP, and a tower
   knockout also clears the turn slot.
+- **Cut-scene first, then the new art.** The server records the transformation at once, but the client keeps drawing the boss as it was (its earlier form, or its base art) until the visual-novel scene has played: the scene's first line shows the old art, the following lines the new form, and only when it ends do the board sprite, portrait, aura and phase chip change (`useBossFormReveal`). The sealed `avatarImage` is never rewritten.
+- **The scene never covers a result.** It does not open once the fight has
+  ended (the result screen owns the stage), and a floor's own phase-gate banner
+  waits while it plays. In a tower party, other players' turn timers keep
+  running during the scene, which is short and skippable.
+- **Favoured techniques are a real AI program.** The form prepends
+  "use when ready" rules for its `favor` list and adds the unconditional
+  fallbacks the rule validator requires; everything else still goes to the
+  boss's sealed turn planner.
 - **Victory and settlement are unchanged.** Story settlement reads only the
   session's winner and binding, never the boss's HP or kit.
 
 ## Form fields
 
-`atHpPct`, `formName`, `portrait` (optional; otherwise the client paints the
-`aura`), `cutscene` (speaker + 1-3 lines), `summary`, `damageMult`,
+`atHpPct`, `formName`, `portrait` and `sprite` (optional; without them the client
+paints the `aura` over the boss's own art), `cutscene` (speaker + 1-3 lines), `summary`, `damageMult`,
 `damageTakenMult`, `healPct`, `upkeepPct`, `moveset` (`add` / `remove` /
 `favor`, where `favor` puts those techniques first in the AI's priorities) and
 one `mechanic`:
@@ -49,11 +58,15 @@ one `mechanic`:
 - `charged-strike`: armed on the boss's turn (the first one waits a round after
   the transformation), released on its next turn for `damagePct`% of each
   target's max HP (shields absorb first). Deal `breakPct`% of the boss's max HP
-  or stun it in between to break it; a broken charge staggers the boss.
+  or stun it in between to break it; a broken charge staggers the boss. Only
+  damage from others counts: a limit-burn or upkeep moves the charge's baseline
+  down by the same amount. In towers, no charge arms while living guards make
+  the boss untargetable, and one already gathering fizzles.
 - `guard-stance`: takes `damageTakenMult`x, except attacks matching `weakness`
-  (element or jutsu type), which take `weaknessMult`x.
+  (an element or jutsu type, or a list of them), which take `weaknessMult`x.
 - `limit-burn`: loses `burnPct`% of max HP at the end of each of its turns,
-  never below 1 HP.
+  never below 1 HP. `upkeepPct` adds the same kind of cost to any form. In
+  towers both pause while guards make the boss untargetable.
 - `summon`: reinforcements on entry (Battle Towers only).
 
 Every value is clamped by `BOSS_FORM_LIMITS`, and `validateBossTransformationPlan`

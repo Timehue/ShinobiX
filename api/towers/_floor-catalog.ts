@@ -705,7 +705,7 @@ const AUTHORED_STORY_FLOORS: readonly TowerFloor[] = [
             warnings: [
                 'Living adds make the Regent completely untargetable, including after phase summons.',
                 'The arena reshapes at 70% and 40% HP, then contracts after round 11.',
-                'At 50% health the Regent attunes to the storm and charges a strike that hits the whole squad. Deal 5% of its health in that round, or stun it, to break the charge. The storm also leaves it exposed and drains its health.',
+                'At 50% health the Regent attunes to the storm and charges a strike that hits the whole squad whenever its guards are down. Deal 5% of its health in that round, or stun it, to break the charge. The storm also leaves it exposed and drains its health.',
             ],
         },
     },

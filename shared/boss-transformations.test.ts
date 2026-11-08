@@ -2,11 +2,13 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     applyMovesetDelta,
+    attackMatchesWeakness,
     bossChargeTurn,
     bossFormDamageMult,
     bossFormDamageTakenMult,
     bossFormView,
     bossLimitBurn,
+    bossSelfBurn,
     checkBossChargeBreak,
     createBossTransformationState,
     enterBossForms,
@@ -95,6 +97,10 @@ describe('boss transformations', () => {
         assert.equal(bossFormDamageTakenMult(state, 1, { element: 'Fire', type: 'Ninjutsu' }), 0.7);
         assert.equal(bossFormDamageTakenMult(state, 1, { element: 'water', type: 'Ninjutsu' }), 1.3);
         assert.equal(bossFormDamageTakenMult(createBossTransformationState(plan), 1, { element: 'Water' }), 1, 'the base form has no stance');
+        assert.equal(attackMatchesWeakness(['Taijutsu', 'Earth'], { type: 'taijutsu', element: 'Fire' }), true, 'a list matches a jutsu type');
+        assert.equal(attackMatchesWeakness(['Taijutsu', 'Earth'], { type: 'Ninjutsu', element: 'Earth' }), true, 'or an element');
+        assert.equal(attackMatchesWeakness(['Taijutsu', 'Earth'], { type: 'Ninjutsu', element: 'Fire' }), false);
+        assert.equal(attackMatchesWeakness([], { type: 'Ninjutsu' }), false);
     });
 
     it('a charge arms, detonates on the next boss turn, and breaks to damage or a stun', () => {
@@ -132,6 +138,18 @@ describe('boss transformations', () => {
         assert.equal(bossLimitBurn(state, { hp: 400, maxHp: 1000 }), 30);
         assert.equal(bossLimitBurn(state, { hp: 10, maxHp: 1000 }), 9);
         assert.equal(bossLimitBurn(state, { hp: 1, maxHp: 1000 }), 0);
+    });
+
+    it("a boss's own burn never counts toward breaking its charge", () => {
+        const state = createBossTransformationState({ ...plan, phases: [{ ...plan.phases[0]!, upkeepPct: 6 }] });
+        enterBossForms(state, { name: 'Boss', hp: 600, maxHp: 1000 }, 1);
+        bossChargeTurn(state, { hp: 600, maxHp: 1000 }, 2);
+        assert.equal(state.charge?.breakAt, 100);
+        const burn = bossSelfBurn(state, { hp: 600, maxHp: 1000 });
+        assert.equal(burn, 60);
+        assert.equal(checkBossChargeBreak(state, { hp: 540 }, 2), undefined, 'the burn alone does not break it');
+        assert.equal(checkBossChargeBreak(state, { hp: 460 }, 2), undefined, '80 dealt by the player is not enough');
+        assert.ok(checkBossChargeBreak(state, { hp: 440 }, 2), '100 dealt by the player breaks it');
     });
 
     it('a form upkeep costs health every turn on top of its mechanic, within the ceiling', () => {

@@ -183,9 +183,15 @@ test('final Kage transforms at half health: visual novel cut-scene, alternate ar
     await expect(scene).toBeVisible({ timeout: 30_000 });
     await expect(scene.locator('.cvn-speaker')).toHaveText(plan.cutscene.speaker);
     await expect(scene.locator('.cvn-dialogue-text')).toContainText(plan.cutscene.lines[0]!);
-    await readableImage(scene.locator('figure img').last(), plan.portrait!);
+    // The first line shows the Kage as he was; the battle still draws the old art behind the scene.
+    const sceneBoss = scene.locator('figure img').last();
+    await readableImage(sceneBoss, STORY_KAGE_ENCOUNTERS['Stormveil Village'].portrait);
+    await expect(page.locator(`#combat img[src*="${plan.sprite}"]`)).toHaveCount(0);
     await screenshot(page, info, 'kage-transformation-cutscene');
-    for (let line = 0; line < plan.cutscene.lines.length; line++) await scene.getByRole('button', { name: 'Next', exact: true }).click();
+    await scene.getByRole('button', { name: 'Next', exact: true }).click();
+    await readableImage(sceneBoss, plan.portrait!);
+    await screenshot(page, info, 'kage-transformation-cutscene-form');
+    for (let line = 1; line < plan.cutscene.lines.length; line++) await scene.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(scene.locator('.cvn-dialogue-text')).toContainText(plan.mechanic!.name);
     await scene.getByRole('button', { name: 'Resume battle', exact: true }).click();
     await expect(scene).toBeHidden();
@@ -196,6 +202,7 @@ test('final Kage transforms at half health: visual novel cut-scene, alternate ar
     const dossier = page.getByRole('complementary', { name: `${encounter.name} combat status`, exact: true });
     await readableImage(dossier.locator('.combat-avatar img'), plan.portrait!);
     await expect(dossier).toHaveClass(/boss-form-aura--storm/);
+    await expect.poll(() => page.locator(`#combat img[src*="${plan.sprite}"]`).count()).toBeGreaterThan(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await screenshot(page, info, 'kage-transformed');
 

@@ -24,7 +24,7 @@ import {
     bossFormDamageMult,
     bossFormDamageTakenMult,
     bossFormFavoredJutsu,
-    bossLimitBurn,
+    bossSelfBurn,
     checkBossChargeBreak,
     createBossTransformationState,
     enterBossForms,
@@ -98,8 +98,9 @@ export function syncSoloPveBossForms(session: SoloPveSession): void {
     }
     const effects = enterBossForms(state, session.enemy, session.round);
     if (!effects) return;
+    // The sealed avatar stays the base art: the client swaps to the form's
+    // portrait and sprite only after its transformation cut-scene has played.
     const character = { ...session.enemy.character };
-    if (effects.landing.portrait) character.avatarImage = effects.landing.portrait;
     const kit = Array.isArray(character.jutsu) ? character.jutsu as SoloPveJutsu[] : [];
     const learnedEntries = session.bossFormKit?.jutsu ?? {};
     const ids = applyMovesetDelta(kit.map(jutsu => jutsu.id), effects.learned, effects.forgotten);
@@ -117,7 +118,17 @@ export function syncSoloPveBossForms(session: SoloPveSession): void {
     const favored = bossFormFavoredJutsu(state).filter(id => ids.includes(id)).map((id): ServerAiRule => ({
         condition: 'cooldown_ready', value: 0, action: 'use_specific_jutsu', jutsuId: id, target: 'opponent',
     }));
-    character.aiRules = [...favored, ...kept.filter(rule => !favored.some(f => f.jutsuId === rule.jutsuId && rule.action === 'use_specific_jutsu'))];
+    const program = [...favored, ...kept.filter(rule => !favored.some(f => f.jutsuId === rule.jutsuId && rule.action === 'use_specific_jutsu'))];
+    // A valid program needs unconditional fallbacks; without them the engine
+    // ignores the whole program. "Best legal jutsu" hands every other choice
+    // back to the boss's sealed turn planner, exactly as having no program did.
+    if (program.length && !program.some(rule => rule.condition === 'always' && rule.action !== 'use_basic_attack')) {
+        program.push({ condition: 'always', value: 0, action: 'use_best_legal_jutsu', target: 'opponent' });
+    }
+    if (program.length && !program.some(rule => rule.condition === 'always' && rule.action === 'use_basic_attack')) {
+        program.push({ condition: 'always', value: 0, action: 'use_basic_attack', target: 'opponent' });
+    }
+    character.aiRules = program;
     // Newly learned techniques start ready; techniques the form dropped forget their timers.
     const cooldowns = { ...session.cooldowns.enemy };
     for (const id of [...effects.learned, ...effects.forgotten]) delete cooldowns[id];
@@ -148,7 +159,7 @@ export function soloPveBossTurnStart(session: SoloPveSession): void {
 export function soloPveBossTurnEnd(session: SoloPveSession): void {
     const state = session.bossForms;
     if (!state || session.status !== 'active') return;
-    const burn = bossLimitBurn(state, session.enemy);
+    const burn = bossSelfBurn(state, session.enemy);
     if (burn <= 0) return;
     session.enemy = { ...session.enemy, hp: session.enemy.hp - burn };
     session.log.push(`${bossBurnLabel(state)} costs ${session.enemy.name} ${burn} HP (${session.enemy.hp}/${session.enemy.maxHp}).`);

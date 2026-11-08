@@ -29,7 +29,7 @@ import {
     bossFormDamageMult,
     bossFormDamageTakenMult,
     bossFormFavoredJutsu,
-    bossLimitBurn,
+    bossSelfBurn,
     checkBossChargeBreak,
     createBossTransformationState,
     enterBossForms,
@@ -68,6 +68,7 @@ export const TOWER_BOSS_TRANSFORMATIONS: Readonly<Record<string, BossTransformat
             atHpPct: 50,
             formName: 'Obsidian Colossus',
             portrait: '/portraits/towers/forms/warden-obsidian-colossus.webp',
+            sprite: '/combat-actors/forms/boss-warden-obsidian-colossus-idle.webp',
             aura: 'obsidian',
             cutscene: {
                 speaker: 'Spire Warden',
@@ -97,6 +98,7 @@ export const TOWER_BOSS_TRANSFORMATIONS: Readonly<Record<string, BossTransformat
             atHpPct: 50,
             formName: 'Eclipse Brand Unbound',
             portrait: '/portraits/towers/forms/sovereign-eclipse-brand.webp',
+            sprite: '/combat-actors/forms/boss-sovereign-eclipse-brand-idle.webp',
             aura: 'eclipse',
             cutscene: {
                 speaker: 'Spire Sovereign',
@@ -112,7 +114,7 @@ export const TOWER_BOSS_TRANSFORMATIONS: Readonly<Record<string, BossTransformat
                 kind: 'limit-burn',
                 name: 'Unbound Brand',
                 burnPct: 1,
-                tell: 'The Sovereign loses 1% of its health at every round end. Survive its burst and the brand finishes the work.',
+                tell: 'The Sovereign loses 1% of its health at every round end. Survive its burst while the brand wears it down.',
             },
         }],
     },
@@ -124,6 +126,7 @@ export const TOWER_BOSS_TRANSFORMATIONS: Readonly<Record<string, BossTransformat
             atHpPct: 50,
             formName: 'Storm Hermit Attunement',
             portrait: '/portraits/towers/forms/regent-storm-hermit.webp',
+            sprite: '/combat-actors/forms/regent-storm-hermit-idle.webp',
             aura: 'tempest',
             cutscene: {
                 speaker: 'Stormglass Regent',
@@ -154,7 +157,7 @@ export function towerBossTransformation(id: string | undefined): BossTransformat
     return id && Object.prototype.hasOwnProperty.call(TOWER_BOSS_TRANSFORMATIONS, id) ? TOWER_BOSS_TRANSFORMATIONS[id] : undefined;
 }
 
-/** Problems with every authored tower plan (empty = valid). Used by the floor validator and tests. */
+/** Problems with every authored tower plan (empty = valid). Pinned empty by _boss-forms.test.ts. */
 export function towerBossTransformationProblems(): string[] {
     const problems: string[] = [];
     for (const plan of Object.values(TOWER_BOSS_TRANSFORMATIONS)) {
@@ -265,6 +268,15 @@ export function towerBossFormRoundStart(session: TowerSession): { detonated: num
     const boss = formBoss(session);
     const none = { detonated: [], armed: false };
     if (!state || !boss || boss.hp <= 0 || session.status !== 'active') return none;
+    // While living guards make the boss untargetable the squad cannot answer a
+    // charge, so none is armed, and one already gathering fizzles.
+    if (bossShieldedByGuards(session)) {
+        if (state.charge) {
+            session.log.push(`${boss.name}'s ${state.charge.name} fades while its guard holds the line.`);
+            delete state.charge;
+        }
+        return none;
+    }
     const turn = bossChargeTurn(state, boss, session.round);
     if (!turn) return none;
     if (turn.kind === 'armed') {
@@ -285,12 +297,21 @@ export function towerBossFormRoundStart(session: TowerSession): { detonated: num
     return { detonated: tiles, armed: false };
 }
 
-/** Round end: a released limiter burns the boss's own health (never below 1 HP). */
+/** True while an adds-first objective keeps the boss untargetable. */
+function bossShieldedByGuards(session: TowerSession): boolean {
+    return session.objectiveState.bossUnlocked === false;
+}
+
+/**
+ * Round end: a released limiter (or the form's upkeep) burns the boss's own
+ * health, never below 1 HP. Paused while its guards make it untargetable, so the
+ * boss cannot bleed through its own HP gates on a floor that locks it.
+ */
 export function towerBossFormRoundEnd(session: TowerSession): void {
     const state = session.bossForms;
     const boss = formBoss(session);
-    if (!state || !boss || boss.hp <= 0) return;
-    const burn = bossLimitBurn(state, boss);
+    if (!state || !boss || boss.hp <= 0 || bossShieldedByGuards(session)) return;
+    const burn = bossSelfBurn(state, boss);
     if (burn <= 0) return;
     boss.hp -= burn;
     session.log.push(`${bossBurnLabel(state)} costs ${boss.name} ${burn} HP (${boss.hp}/${boss.maxHp}).`);

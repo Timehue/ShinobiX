@@ -15,6 +15,7 @@ import type { MissionArenaFight } from './MissionArenaFight';
 import "../styles/battle-skin.css";
 import "../styles/tower-tactical.css";
 import { BossFormChip, BossFormCutsceneGate } from "../components/BossFormStatus";
+import { useBossFormReveal } from "../lib/boss-form-reveal";
 import { bossFormAuraClass, bossFormViewFor } from "../lib/boss-form-view";
 import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
@@ -791,7 +792,9 @@ export function BattleTowerFight({
     const myActor = session.actors.find(a => a.side === "squad" && ownedByMe(a.ownerSlug)) ?? null;
     const bossId = session.phaseState?.bossId;
     // A milestone boss's transformation: alternate art, aura, phase chip and cut-scene.
-    const towerBossForm = bossFormViewFor(session.bossForms, session.round, session.actors.find(a => a.id === bossId)?.hp);
+    // The cut-scene plays first; only then do the new portrait, sprite, aura and phase appear.
+    const towerBossFormReveal = useBossFormReveal(session.runId, bossFormViewFor(session.bossForms, session.round, session.actors.find(a => a.id === bossId)?.hp));
+    const towerBossForm = towerBossFormReveal.shown;
     const lockedBossId = session.objectiveState.bossUnlocked === false ? bossId : undefined;
 
     const renderedScale = fittedScale;
@@ -1824,13 +1827,13 @@ export function BattleTowerFight({
                     </div>
                 </div>
             )}
-            {towerBossForm && bossActor && (
-                <BossFormCutsceneGate sessionId={session.runId} view={towerBossForm} bossName={bossActor.name}
+            {bossActor && (
+                <BossFormCutsceneGate reveal={towerBossFormReveal} active={session.status === "active"} bossName={bossActor.name}
                     bossImage={avatarFor(bossActor) ?? fallbackArtFor(bossActor)} playerName={character.name}
                     playerImage={resolveOwnAvatar(character, sharedImages) ?? ""} />
             )}
             {/* Endless Spire — phase-change banner (boss crosses an HP gate) */}
-            {phaseBanner && (
+            {phaseBanner && !towerBossFormReveal.pending && (
                 <div key={phaseBanner.key} className="spire-phase-banner tower-phase-banner" role="status" aria-live="polite" aria-atomic="true"
                     style={{ ["--boss-accent" as string]: spireMeta?.boss.accent ?? "#f0a15a" }}>
                     <span>
@@ -2121,7 +2124,7 @@ export function BattleTowerFight({
                                     const isActive = a.id === activeId;
                                     const img = avatarFor(a);
                                     const battleSprite = a.side === "enemy" && !isTeamPvp
-                                        ? battlefieldAiSprite(String(a.character?.visual ?? ""), sharedImages)
+                                        ? (isBoss && towerBossForm?.sprite) || battlefieldAiSprite(String(a.character?.visual ?? ""), sharedImages)
                                         : null;
                                     const spriteFacing = battleSprite
                                         ? battlefieldFacingTowardNearest(a, session.actors, w)
