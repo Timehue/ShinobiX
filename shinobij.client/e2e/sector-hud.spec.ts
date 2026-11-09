@@ -541,7 +541,7 @@ test('sleepers retain the existing confirmation and Strike Down endpoint',async(
 
 test('sector info, hunt and depleted exploration preserve their callbacks',async({page})=>{
     await page.goto('/e2e/fixtures/sector-hud.html');
-    await page.getByRole('button',{name:'Explore',exact:true}).click();
+    await page.getByRole('button',{name:'Explore · 0/100 Search this sector',exact:true}).click();
     await page.getByRole('button',{name:'Track Trail Beast'}).click();
     await page.getByRole('button',{name:'Contested · Card Battle'}).click();
     await page.getByRole('button',{name:'Sector info · Claim ready'}).click();
@@ -559,9 +559,9 @@ test('sector info, hunt and depleted exploration preserve their callbacks',async
 test('scouting, blocked actions, image recovery, fullscreen and authoritative completion',async({page})=>{
     await page.setViewportSize({width:390,height:844});
     await page.goto('/e2e/fixtures/sector-hud.html');
-    await expect(page.getByRole('button',{name:'Explore',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'Explore · 0/100 Search this sector',exact:true})).toBeVisible();
     await page.evaluate(()=>window.sectorFixture.configure({present:false,contest:false,hunt:false}));
-    await expect(page.getByRole('button',{name:'Explore',exact:true})).toBeDisabled();
+    await expect(page.getByRole('button',{name:'Explore · 0/100 Search this sector',exact:true})).toBeDisabled();
     await expect(page.locator('.sector-player-row')).toHaveCount(0);
     await page.screenshot({path:`${evidence}/scouting-fixture.png`});
     await page.evaluate(()=>window.sectorFixture.configure({present:true,blocked:true,broken:true}));
@@ -1000,7 +1000,7 @@ test('a sleeper waking during a click never changes Strike Down into Attack',asy
 test('Explore clearly uses the shared fishing and mining allowance at the daily cap', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/e2e/fixtures/sector-hud.html?capped');
-    const explore = page.getByRole('button', { name: 'Explore', exact: true });
+    const explore = page.getByRole('button', { name: 'Explore · 100/100 Daily limit reached', exact: true });
     await expect(explore).toBeDisabled();
     await expect(explore).toContainText('100/100');
     await expect(explore).toHaveAttribute('aria-description', /Explores: 100\/100 daily explores/);
