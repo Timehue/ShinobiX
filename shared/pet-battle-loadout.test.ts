@@ -62,7 +62,11 @@ test('legacy battle snapshots keep their sealed kits; new pets resolve current-f
             resolvePetAbilityProgression({ ...evolved }).abilities.find(move => move.signature)!.baseAbilityId);
     }
     const unknown = pet({ templateId: 'custom-species' });
-    assert.deepEqual([...new Set(petBattleJutsus(unknown).map(move => move.name))], unknown.jutsus.map(move => move.name));
+    // A sparse custom kit reuses its one strike in a later slot under a name of its own.
+    const authoredNames = unknown.jutsus.map(move => move.name);
+    const names = petBattleJutsus(unknown).map(move => move.name);
+    assert.equal(new Set(names).size, names.length);
+    assert.ok(names.every(name => authoredNames.includes(name) || authoredNames.includes(name.replace(/^Greater /, ''))), names.join(', '));
 });
 
 test('saved locked choices yield eligible defaults without changing preferences', () => {
