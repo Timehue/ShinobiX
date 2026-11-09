@@ -144,7 +144,9 @@ function nameSlotsApart<T extends AuthoredPetAbility>(kit: ProgressionPetAbility
             const local = ability.baseAbilityId.slice(ability.baseAbilityId.indexOf(':') + 1);
             const authored = REPEATED_SLOT_NAMES[local + ':' + ability.tier];
             // Unlisted repeats (a sparse legacy kit's advanced strike) get a prefix.
-            name = authored && !used.has(authored) ? authored : 'Greater ' + name;
+            const candidate = authored && !used.has(authored) ? authored : 'Greater ' + name;
+            name = candidate;
+            for (let suffix = 2; used.has(name); suffix++) name = candidate + ' ' + suffix;
         }
         used.add(name);
         return name === ability.name ? ability : { ...ability, name, cooldownKey: ability.name };
