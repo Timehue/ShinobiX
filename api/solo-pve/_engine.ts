@@ -33,6 +33,7 @@ import {
     companionOwnerLifestealPct,
     companionReviveHp,
     pickCompanionMove,
+    companionCooldownKey,
     type CompanionMove,
 } from '../combat-core/companion.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
@@ -706,7 +707,7 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
 function companionCast(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): CombatResolutionFacts | undefined {
     const progression = companion.signatureReadyAfter !== undefined;
     const mastery = petSignatureMastery(move, progression && move?.signature === true);
-    if (move) companion.cooldowns[move.name] = Math.max(1, move.cooldown);
+    if (move) companion.cooldowns[companionCooldownKey(move)] = Math.max(1, move.cooldown);
     const rounds = move?.rounds ?? 2;
     const kind = move?.kind ?? 'damage';
     const label = move ? ` uses ${move.name}` : ' strikes';

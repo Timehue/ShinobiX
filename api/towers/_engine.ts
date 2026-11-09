@@ -53,7 +53,7 @@ import {
 import {
     COMPANION_ACTOR_ID, COMPANION_MAX_DAMAGE_FRAC, COMPANION_RANGE, companionActor, companionConsumableHealPct, companionGearDamageMult,
     companionHealOnSummonPct, companionMoveDamage, companionMoveAp, isCompanionSupportMove, companionObeys, companionOwnerLifestealPct, companionReviveHp,
-    isCompanionActor, pickCompanionMove, type CompanionMove,
+    isCompanionActor, pickCompanionMove, companionCooldownKey, type CompanionMove,
 } from './_companion.js';
 // statusDurationFor: towers used to keep its own copy of the duration table;
 // sharing the PvP one keeps a status lasting the same rounds in every mode.
@@ -4030,7 +4030,7 @@ function companionCast(
     const progression = actor.character.companionSignatureReadyAfter !== undefined;
     const mastery = petSignatureMastery(move, progression && move?.signature === true);
     if (rejectObjectiveLockedBoss(session, actor, target)) return;
-    if (move) actor.cooldowns = { ...(actor.cooldowns ?? {}), [move.name]: Math.max(1, move.cooldown) };
+    if (move) actor.cooldowns = { ...(actor.cooldowns ?? {}), [companionCooldownKey(move)]: Math.max(1, move.cooldown) };
     const rounds = move?.rounds ?? 2;
     const kind = move?.kind ?? 'damage';
     const label = move ? ` uses ${move.name}` : ' strikes';
