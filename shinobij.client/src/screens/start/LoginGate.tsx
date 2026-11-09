@@ -197,10 +197,9 @@ export function LoginGate({
                                 key={name}
                                 type="button"
                                 className="gate-account-chip"
-                                // The visible label is just the name; spell the
-                                // action out for screen readers, since a bare
-                                // name gives no clue what pressing it does.
-                                aria-label={`Continue as ${accountName || name}${guest ? " (guest character)" : ""}`}
+                                // Include the visible name and Guest tag in the
+                                // action label. The initial is decorative.
+                                aria-label={`Continue as ${accountName || name}${guest ? " Guest character" : ""}`}
                                 disabled={Boolean(status)}
                                 onClick={() => { setError(""); void onContinueAs(name); }}
                             >
@@ -209,9 +208,9 @@ export function LoginGate({
                                     a letter distinguishes them using the only
                                     thing this browser actually knows offline —
                                     the saved blob deliberately keeps no portrait. */}
-                                <span className="gate-account-avatar" aria-hidden="true">{(accountName || name).charAt(0).toUpperCase()}</span>
+                                <span className="gate-account-avatar" aria-hidden="true" data-initial={(accountName || name).charAt(0).toUpperCase()} />
                                 <span className="gate-account-name">{accountName || name}</span>
-                                {guest && <span className="gate-account-tag">Guest</span>}
+                                {guest && <span className="gate-account-tag"> Guest</span>}
                                 <span className="gate-account-go" aria-hidden="true">›</span>
                             </button>
                         ))}

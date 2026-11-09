@@ -45,7 +45,16 @@ for(const mode of ['round','weather','cached exit','missing garden','reduced mot
     await page.evaluate(async()=>{const registry=await import('/src/lib/figure-ground-position.ts');registry.observeFigureGroundPositions();window.fieldWorkPoses=()=>Object.fromEntries(Array.from(document.querySelectorAll<HTMLElement>('[data-life-resident]')).map(node=>{
         const p=registry.figureGroundPosition(node);if(!p)throw Error('Native field pose missing');return[node.dataset.lifeResident!,{...p,activity:node.dataset.activity,visible:node.style.visibility!=='hidden'}];
     }));});
-    const read=()=>page.evaluate(()=>window.fieldWorkPoses());await page.clock.runFor(300);
+    const read=async()=>{
+        // Weather refresh can mount a new figure between frozen frames. Wait for
+        // its native position, not an arbitrary wall-time sleep or guessed pose.
+        await expect.poll(async()=>{
+            const ready=await page.evaluate(async()=>{const registry=await import('/src/lib/figure-ground-position.ts');return Array.from(document.querySelectorAll<HTMLElement>('[data-life-resident]')).every(node=>!!registry.figureGroundPosition(node));});
+            if(!ready)await page.clock.runFor(16);
+            return ready;
+        }).toBe(true);
+        return page.evaluate(()=>window.fieldWorkPoses());
+    };await page.clock.runFor(300);
     const floor=()=>page.evaluate(async()=>(await import('/src/lib/sector-displayed-floor.ts')).displayedSectorFloor(42));
     await expect.poll(floor).toContain(mode==='missing garden'?'/midlands-tea-stop-v1.webp':'/midlands-herb-tea-stop-v2.webp');
     await expect(suzu).toHaveAttribute('data-activity',mode==='round'?'Exchanging road news':mode==='missing garden'?'Checking the roadside verge':'Tending the roadside herb rows');

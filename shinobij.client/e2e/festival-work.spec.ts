@@ -43,7 +43,8 @@ for(const mode of ['square steps','opening','packing','rain','cached closure','m
     await page.evaluate(async()=>{const registry=await import('/src/lib/figure-ground-position.ts');registry.observeFigureGroundPositions();window.festivalWorkPoses=()=>Object.fromEntries(Array.from(document.querySelectorAll<HTMLElement>('[data-life-resident]')).map(node=>{const p=registry.figureGroundPosition(node);if(!p)throw Error('Native festival pose missing');return[node.dataset.lifeResident!,{...p,activity:node.dataset.activity,visible:node.style.visibility!=='hidden'}];}));});
     const floor=()=>page.evaluate(async()=>(await import('/src/lib/sector-displayed-floor.ts')).displayedSectorFloor(52));
     await page.clock.runFor(300);
-    await expect.poll(floor).toContain(mode==='missing counter'?'/sector-map/s14.webp':mode==='opening'?FESTIVAL_SITE.packed:FESTIVAL_SITE.open);
+    // Image decode completes on real time; allow its next frozen animation frame to paint.
+    await expect.poll(async()=>{await page.clock.runFor(16);return floor();}).toContain(mode==='missing counter'?'/sector-map/s14.webp':mode==='opening'?FESTIVAL_SITE.packed:FESTIVAL_SITE.open);
     await page.clock.runFor(300);
     const captures:Record<string,Pose>[]=[],read=()=>page.evaluate(()=>window.festivalWorkPoses());
     const check=async()=>{const poses=await read();captures.push(poses);writeFileSync(`${evidence}/${info.project.name}-${mode.replaceAll(' ','-')}-latest.json`,JSON.stringify(poses,null,2));

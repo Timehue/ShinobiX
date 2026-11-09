@@ -71,6 +71,8 @@ for (const transport of ['socket', 'http', 'socket-startup-throttle'] as const) 
     const admitted = await travel;
     expect(admitted.request().postDataJSON().destinationSector).toBe(17);
     expect(admitted.status(), await admitted.text()).toBe(200);
+    // Browser response bodies can be discarded by the later battle reload.
+    const arrival = await admitted.json();
     const board = page.locator('.continuous-world-map'), canvas = board.locator(':scope > canvas');
     await expect(board).toHaveAttribute('aria-busy', 'false', { timeout: 60_000 });
     const arrivalDialog = page.getByRole('dialog', { name: 'Moonshadow Village defenses', exact: true });
@@ -148,5 +150,5 @@ for (const transport of ['socket', 'http', 'socket-startup-throttle'] as const) 
     expect((await (await request.get('/api/player/world-move', { headers })).json()).sector).toBe(17);
     expect(errors).toEqual([]);
     if (transport === 'socket-startup-throttle') expect(startupThrottles).toBe(1);
-    await writeFile(info.outputPath('rival-outskirts.json'), JSON.stringify({ transport, socketConnected, sessionId: fight.sessionId, arrival: await admitted.json(), final: await (await request.get('/api/player/world-move', { headers })).json(), errors }, null, 2));
+    await writeFile(info.outputPath('rival-outskirts.json'), JSON.stringify({ transport, socketConnected, sessionId: fight.sessionId, arrival, final: await (await request.get('/api/player/world-move', { headers })).json(), errors }, null, 2));
 });

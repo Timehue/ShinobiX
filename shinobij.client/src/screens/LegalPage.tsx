@@ -536,7 +536,7 @@ export function LegalPage({ slug }: { slug: LegalPageSlug }) {
     return (
         <div className="legal-page-shell">
             <header className="legal-page-header">
-                <a className="legal-back-link" href="/" aria-label="Back to Shinobi Journey home">← Back to Home</a>
+                <a className="legal-back-link" href="/" aria-label="Back to Home: Shinobi Journey">← Back to Home</a>
                 <p className="legal-page-kicker">Shinobi Journey Policies</p>
                 <h1>{document.title}</h1>
                 <p className="legal-page-summary">{document.summary}</p>

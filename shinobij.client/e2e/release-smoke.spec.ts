@@ -298,7 +298,7 @@ test('the sign-in gate is reachable, complete, and accessible', async ({ page })
 
     // Every door the capability probe reported is present and pressable.
     await expect(page.getByRole('button', { name: 'Continue as kaze' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Continue as wanderer \(guest character\)/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continue as wanderer Guest character' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Play as a guest' })).toBeVisible();
 
     // The recovery route must be reachable, not merely present in the DOM.
@@ -394,7 +394,7 @@ test('footer policy links open public, responsive, accessible pages', async ({ p
     await policyNav.getByRole('link', { name: 'Terms', exact: true }).click();
     await expect(page).toHaveURL(/\/terms$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Back to Shinobi Journey home' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to Home: Shinobi Journey' })).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
     const termsAccessibility = await new AxeBuilder({ page })
