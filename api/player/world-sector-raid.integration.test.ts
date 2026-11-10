@@ -304,6 +304,34 @@ test('a real KO writes both bodies: the winner keeps his damage, the loser is ad
     assert.ok(Number(winner.stamina) < 500, 'the stamina the swing cost is gone too');
 });
 
+test('a world fight in a ruin sector damages its standing restoration once, however often settlement replays', async () => {
+    const raider = 'wsruinraider', quarry = 'wsruinquarry', ruinSector = 52, day = 86_400_000;
+    const { buildingSharedKey } = await import('../../shared/sector-buildings.js');
+    const { BUILDING_RUIN_BATTLE_DAMAGE } = await import('../../shared/sector-building-rules.js');
+    const { replayCommittedPvpTerminalEffects } = await import('../pvp/_committed-terminal-effects.js');
+    const standingUntil = Date.now() + 3 * day, key = buildingSharedKey('festival-welcome');
+    await kv.set(key, { version: 1, repairs: 30, cycleRepairs: 24, intactUntil: standingUntil, updatedAt: Date.now(), contributors: [], reports: [] });
+    await seed(raider, quarry);
+    place(raider, ruinSector); place(quarry, ruinSector);
+    assert.equal((await post(attackHandler, raider, { targetName: quarry, attacker: { name: raider } })).statusCode, 200);
+    const created = await post(sessionHandler, raider, worldRaidBody(nextBattleId(), raider, quarry, ruinSector));
+    assert.equal(created.statusCode, 200, JSON.stringify(created.body));
+    const battleId = String(created.body.battleId);
+    for (const [actor, role] of [[raider, 'p1'], [quarry, 'p2']] as const) {
+        assert.equal((await post(moveHandler, actor, { battleId, role, action: 'join', moveToken: `join-${battleId}-${role}` })).statusCode, 200);
+    }
+    const live = (await kv.get<Record<string, any>>(`pvp:${battleId}`))!;
+    await kv.set(`pvp:${battleId}`, { ...live, activePlayer: 'p1', roundOpener: 'p1', p1: { ...live.p1, pos: 62, hp: 320 }, p2: { ...live.p2, pos: 63, hp: 1 } });
+    const killing = await post(moveHandler, raider, { battleId, role: 'p1', action: 'basicAttack', moveToken: `ko-${battleId}` });
+    assert.equal(killing.body.status, 'done', JSON.stringify(killing.body));
+    const ended = (await kv.get<Record<string, any>>(`pvp:${battleId}`))!;
+    await replayCommittedPvpTerminalEffects(ended as never);
+    await replayCommittedPvpTerminalEffects(ended as never);
+    const ruin = (await kv.get<{ intactUntil: number; damagedBy: string[] }>(key))!;
+    assert.equal(ruin.intactUntil, standingUntil - BUILDING_RUIN_BATTLE_DAMAGE.standingMs, 'one battle takes twelve hours, once');
+    assert.deepEqual(ruin.damagedBy, [battleId]);
+});
+
 test('a spar over the same handlers leaves both saves untouched', async () => {
     const one = 'wsspar1';
     const two = 'wsspar2';

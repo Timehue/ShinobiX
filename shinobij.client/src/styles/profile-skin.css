@@ -661,8 +661,7 @@
 }
 
 /* User Stats section — make the row of group panels span full width and center */
-.profile-page-card section:has(> .stat-group),
-.profile-page-card .stat-allocation-grid {
+.profile-page-card section:has(> .stat-group) {
     width: 100% !important;
     margin-top: 18px;
 }

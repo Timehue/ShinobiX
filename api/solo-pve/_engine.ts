@@ -3,6 +3,7 @@ import { damageCombatHealth } from '../combat-core/health.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { applyHuntCombatAction } from './_hunt-combat.js';
+import { guardBossFormLethal, soloPveBossFormMultiplier, soloPveBossTurnEnd, soloPveBossTurnStart, syncSoloPveBossForms } from './_boss-forms.js';
 import { appendSoloPveCombatEvent } from './_legacy-totals.js';
 import { hollowGateSessionDirective, sealHollowGateTelegraph } from '../../shared/hollow-gate-telegraph.js';
 import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, hollowGateShinobiRoundLimit } from '../../shared/hollow-gate-round-limit.js';
@@ -32,6 +33,7 @@ import {
     companionOwnerLifestealPct,
     companionReviveHp,
     pickCompanionMove,
+    companionCooldownKey,
     type CompanionMove,
 } from '../combat-core/companion.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
@@ -201,7 +203,8 @@ function soloPveDamageMultiplier(session: SoloPveSession, side: SoloPveSide, att
     const relic = side === 'player'
         ? 1 + (pvePct(player, 'pveDamagePct') + pveSpecialistDamagePercent(player.character?.pveSpecialistBonuses, attack)) / 100
         : Math.max(0.25, 1 - pvePct(player, 'pveDamageTakenPct') / 100);
-    return hollowGate * weeklyBoss * relic;
+    // A transformed boss: its form's outgoing power, or its stance/stagger on what it takes.
+    return hollowGate * weeklyBoss * relic * soloPveBossFormMultiplier(session, side, attack);
 }
 
 function fighterEventState(value: PvpFighter) {
@@ -532,6 +535,7 @@ function appendFx(session: SoloPveSession, side: SoloPveSide, events: CombatFxEv
 
 function checkWinner(session: SoloPveSession): void {
     if (session.status === 'done') return;
+    guardBossFormLethal(session);
     if (session.player.hp <= 0 && session.enemy.hp <= 0) {
         session.terminalReason = 'knockout';
         session.status = 'done';
@@ -598,6 +602,14 @@ function startTurn(session: SoloPveSession, side: SoloPveSide): void {
         session.weeklyBossGuard.dealtThisTurn = 0;
     }
     checkWinner(session);
+    if (session.bossForms && session.status === 'active') {
+        // Turn-end damage (DoTs, a limiter burn) can cross a threshold too.
+        syncSoloPveBossForms(session);
+        if (side === 'enemy') {
+            soloPveBossTurnStart(session);
+            checkWinner(session);
+        }
+    }
     if (side === 'player' && session.status === 'active') sealHollowGateTelegraph(session);
 }
 
@@ -695,7 +707,7 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
 function companionCast(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): CombatResolutionFacts | undefined {
     const progression = companion.signatureReadyAfter !== undefined;
     const mastery = petSignatureMastery(move, progression && move?.signature === true);
-    if (move) companion.cooldowns[move.name] = Math.max(1, move.cooldown);
+    if (move) companion.cooldowns[companionCooldownKey(move)] = Math.max(1, move.cooldown);
     const rounds = move?.rounds ?? 2;
     const kind = move?.kind ?? 'damage';
     const label = move ? ` uses ${move.name}` : ' strikes';
@@ -898,6 +910,7 @@ export function endSoloPveTurn(session: SoloPveSession): void {
 
 function resolveSoloPveTurnEnd(session: SoloPveSession): void {
     const current = session.activeSide;
+    if (current === 'enemy') soloPveBossTurnEnd(session);
     // Wound and Drain tick on the fighter whose turn is ending, after they have had
     // the whole turn to Cleanse them (owner ruling 2026-10-05; the same rule as PvP's
     // endTurn in api/pvp/move.ts). They used to tick at the start of the holder's
@@ -1576,6 +1589,9 @@ function directAction(
     if (session.companion) {
         syncCompanionGroundStatuses(session);
     }
+    // Enter a crossed boss form once the action has fully resolved, so the
+    // transformation lands in this action's event and nothing overwrites it.
+    syncSoloPveBossForms(session);
 
     const actionLog = session.log.slice(logStart);
     const vfx = jutsuVfx(

@@ -22,7 +22,8 @@ export const STORY_FIELD_JOURNEYS: Readonly<Record<string, StoryFieldJourney>> =
             } },
             'sv-broken-cable-span': stop(2, 54, 'sv-broken-cable-span-continue', 'sv-signal-cairn'),
             'sv-signal-cairn': stop(4, 43, 'sv-signal-cairn-recover', null),
-            'sv-flower-pickers-shelter': stop(3, 88, 'sv-flower-pickers-shelter-continue', 'sv-rain-split-cairn'),
+            // The road tile in front of the standing shelter (its counter approach).
+            'sv-flower-pickers-shelter': stop(3, 100, 'sv-flower-pickers-shelter-continue', 'sv-rain-split-cairn'),
             'sv-rain-split-cairn': stop(5, 53, 'sv-rain-split-cairn-recover', null),
         },
     },

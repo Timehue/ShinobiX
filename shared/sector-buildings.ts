@@ -50,7 +50,10 @@ for (const place of SECTOR_PLACES) {
     }
 }
 
-type RoadBuilding = Omit<SectorBuilding, 'region' | 'footprint' | 'evidence' | 'watchPoints'> & { bounds?: readonly [number, number, number, number]; survey?: boolean; watch?: boolean };
+type RoadBuilding = Omit<SectorBuilding, 'region' | 'footprint' | 'evidence' | 'watchPoints' | 'structure'> & { bounds?: readonly [number, number, number, number]; survey?: boolean; watch?: boolean;
+    /** Solid tiles (marked `B` in the floor mask, a square block) and the map sprite of a
+     * standing road-place building. The client paints it from STANDING_STRUCTURE_ART. */
+    building?: { tiles: readonly number[]; sprite: string } };
 function roadBuilding(def: RoadBuilding): SectorBuilding {
     const place = sectorPlace(def.sector)!;
     const mask = sectorWalkMask(def.sector)!;
@@ -61,19 +64,20 @@ function roadBuilding(def: RoadBuilding): SectorBuilding {
     });
     const approach = nearestWalkableTile(def.sector, def.approach);
     const solids=candidates.filter(tile=>'#B'.includes(mask[Math.floor(tile/12)][tile%12]));
-    const footprint=solids.length?solids:[approach];
+    const footprint=def.building?[...def.building.tiles]:solids.length?solids:[approach];
     const stops = Array.from({ length: 144 }, (_, tile) => ({ tile, path: pathInMask(mask, approach, tile) }))
         .filter(p => p.path && p.path.length >= 2 && p.path.length <= 5).sort((a,b) => a.path!.length - b.path!.length || a.tile-b.tile);
     const points = (labels: readonly string[]): BuildingPoint[] => labels.map((label, i) => ({ sector: def.sector,
         tile: i === 0 ? approach : stops[(i - 1) * Math.max(1, Math.floor(stops.length / 3))]?.tile ?? approach,
         label, description: `${label} at ${def.name}. Keep to the open approach; the standing masonry is not a walking route.` }));
-    const { bounds: _bounds, survey, watch, ...rest } = def; void _bounds;
+    const { bounds: _bounds, survey, watch, building, ...rest } = def; void _bounds;
     const investigation=BUILDING_INVESTIGATIONS[def.id];
     const evidence=investigation?.evidence.map((entry,index)=>({...points(investigation.evidence.map(e=>e.label))[index],...entry}));
     const watchPoints=points(def.sector===38?['Check the bridge approach','Read the river-bank marker','Return to the signal window']:
         def.sector===27?['Check the snow-road approach','Read the winter route marker','Return to the watch keeper']:['Check the ash-road approach','Read the return marker','Return to the signal window']);
     watchPoints[2]={...watchPoints[2],tile:approach,description:'Return to the public threshold. File only the conditions observed during this round; a watch report does not guarantee the entire route is safe.'};
     return { ...rest, approach, footprint, region: place.region,
+        ...(building ? { structure: { footprint: [...building.tiles], sprite: building.sprite } } : {}),
         ...(survey&&evidence ? { evidence } : {}),
         ...(watch ? { watchPoints } : {}),
         ...(rest.services.includes('intelligence')?{contactPoints:[{...points(['Observe the contact marker'])[0],tile:stops[Math.min(3,stops.length-1)]?.tile??approach},...points(['Read the entrusted seal','Make the agreed handoff']).map(p=>({...p,tile:approach}))]}:{}) };
@@ -89,21 +93,26 @@ const additions: RoadBuilding[] = [
     { id:'obsidian-north-watch',sector:60,name:'Obsidian North Watch',kind:'ruin',keeper:'Watch Clerk Ise',role:'Return-route clerk',description:'The northern tower fragments retain a sheltered speaking window. Watch reports are compared here before anyone is directed farther into the frontier.',services:['watch','repair'],left:23,top:31,width:36,height:30,approach:41,art:'frontier',watch:true },
     { id:'midlands-tea-house',sector:42,name:'Fieldside Tea House',kind:'workplace',keeper:lifeResidentName(42),role:'Tea-table host',description:'A kettle, mats and a Chronicle table make a public stop beside the herb rows. Players and their living companions can rest while the host compares road news.',services:['tea','courier','register'],left:26,top:84,width:26,height:18,approach:110,art:'teahouse' },
     { id:'heartwood-tea-counter',sector:15,name:'Ren’s Heartwood Tea Table',kind:'workplace',keeper:lifeResidentName(15),role:'Tea-table host and letter receiver',description:'The existing kettle table and woven mats stand beside the Heartwood road. Ren receives travelers here, while Tetsu keeps his own resting mat and carries letters onward on the established harbor–deepwood circuit.',services:['tea','courier','reception'],left:75.5,top:74,width:13,height:12,approach:116,art:'teahouse' },
-    { id:'festival-welcome',sector:52,name:'Sunscar Welcome House',kind:'workplace',keeper:'Arrival Host Nao',role:'Festival arrival host',description:'The western red-bannered house receives arriving groups and points them toward the Sunscar entrance at Cactus Flats.',services:['reception','festival','courier'],left:17,top:34,width:26,height:30,approach:40,art:'festival' },
-    { id:'festival-lantern-house',sector:52,name:'Sunscar Lantern House',kind:'workplace',keeper:'Lantern Maker Fumi',role:'Festival lantern maker',description:'The southern frontage stores fiber, frames and bowls for the festival. Public repairs and small preparation commissions keep the premises in use.',services:['repair','workshop','festival'],left:41,top:93,width:31,height:20,approach:113,art:'workshop' },
-    { id:'festival-steps-house',sector:52,name:'Sunscar Performers’ House',kind:'workplace',keeper:'Performer Mina',role:'Festival rehearsal guide',description:'Performers prepare beside the southwestern house, then enter the existing public rehearsal square. Visitors can learn the steps without blocking the road.',services:['festival','reception'],left:18,top:78,width:28,height:25,approach:88,art:'festival' },
+    // The three Sunscar houses are painted collapsed: their keepers work from the
+    // open ground beside the fallen roofs. Public repairs restore them for a time.
+    { id:'festival-welcome',sector:52,name:'Sunscar Welcome House',kind:'ruin',keeper:'Arrival Host Nao',role:'Festival arrival host',description:'The western house has fallen in, but its red banner still marks the arrival point. Nao receives arriving groups at the open threshold and points them toward the Sunscar entrance at Cactus Flats. Public repairs can restore the house for a time.',services:['reception','festival','courier','repair'],left:17,top:34,width:26,height:30,approach:40,art:'festival' },
+    { id:'festival-lantern-house',sector:52,name:'Sunscar Lantern House',kind:'ruin',keeper:'Lantern Maker Fumi',role:'Festival lantern maker',description:'The southern row of houses has collapsed. Fumi keeps fiber, frames and bowls under the roof sections that still stand. Public repairs and small preparation commissions keep the work going.',services:['repair','workshop','festival'],left:41,top:93,width:31,height:20,approach:113,art:'workshop' },
+    { id:'festival-steps-house',sector:52,name:'Sunscar Performers’ House',kind:'ruin',keeper:'Performer Mina',role:'Festival rehearsal guide',description:'The southwestern house has collapsed. Performers prepare on the cleared ground beside it, then enter the existing public rehearsal square. Visitors can learn the steps without blocking the road, and public repairs can restore the house for a time.',services:['festival','reception','repair'],left:18,top:78,width:28,height:25,approach:88,art:'festival' },
     { id:'festival-tea-counter',sector:52,name:`${lifeResidentName(52).split(' ').at(-1)}’s Festival Tea Counter`,kind:'workplace',keeper:lifeResidentName(52),role:'Festival tea seller',description:'The existing eastern counter serves bowls and tea. Its welcome remains available while rain or late hours keep the serving ledge covered.',services:['tea'],left:79,top:74,width:17,height:18,approach:104,art:'teahouse' },
-    { id:'flower-pickers-shelter',sector:3,name:'Flower-Pickers’ Shelter',kind:'road-place',keeper:'Shelter Keeper Ume',role:'Public shelter keeper',description:'The flower pickers keep a roadside meeting point here. Their story with Mira remains their own; ordinary visitors can ask for shelter and help maintain the public rail.',services:['reception','repair'],left:37,top:68,width:11,height:10,approach:88,art:'gatehouse',storyPointId:'sv-flower-pickers-shelter' },
-    { id:'south-watch-post',sector:27,name:'South Watch Post',kind:'road-place',keeper:'Watch Guide Eda',role:'Snow-road watcher',description:'A marked winter watch stop connects the public snow road to Sova’s route. The watcher can still receive ordinary reports outside that personal journey.',services:['watch','reception'],left:54,top:38,width:11,height:10,approach:54,art:'watchtower',storyPointId:'ff-south-watch-post',watch:true },
+    { id:'flower-pickers-shelter',sector:3,name:'Flower-Pickers’ Shelter',kind:'road-place',keeper:'Shelter Keeper Ume',role:'Public shelter keeper',description:'The flower pickers keep a roadside meeting point here. Their story with Mira remains their own; ordinary visitors can ask for shelter and help maintain the public rail.',services:['reception','repair'],left:50,top:83.33,width:16.67,height:16.67,approach:100,art:'flower-pickers-shelter',storyPointId:'sv-flower-pickers-shelter',
+        building:{ tiles:[101,102,113,114], sprite:'flower-pickers-shelter-map' } },
+    { id:'south-watch-post',sector:27,name:'South Watch Post',kind:'road-place',keeper:'Watch Guide Eda',role:'Snow-road watcher',description:'A marked winter watch stop connects the public snow road to Sova’s route. The watcher can still receive ordinary reports outside that personal journey.',services:['watch','reception'],left:54,top:38,width:11,height:10,approach:54,art:'south-watch-post',storyPointId:'ff-south-watch-post',watch:true },
     { id:'lower-road-kitchen',sector:28,name:'Lower-Road Kitchen',kind:'road-place',keeper:'Winter Cook Gen',role:'Winter meal keeper',description:'A public kitchen stop supplies the lower rescue road. Ask for a hot bowl or help the cook prepare the next supply round.',services:['tea','repair'],left:37,top:68,width:11,height:10,approach:88,art:'teahouse',storyPointId:'ff-lower-road-kitchen' },
     { id:'shuttered-boathouse',sector:20,name:'Shuttered Boathouse',kind:'road-place',keeper:'Contact Ren',role:'Trust broker',description:'A discreet road contact tends the boathouse meeting point. Nyx’s recovered ledger is never rewritten by a routine handoff; new errands concern new entrusted messages.',services:['intelligence','reception'],left:62,top:29,width:11,height:10,approach:43,art:'safehouse',storyPointId:'ms-shuttered-boathouse' },
-    { id:'old-toll-booth',sector:21,name:'Old Toll Booth',kind:'road-place',keeper:'Toll Clerk Ise',role:'Road witness broker',description:'The old toll meeting place is still used to compare crossing accounts. The clerk accepts only messages whose handling instructions have been respected.',services:['intelligence','register'],left:54,top:38,width:11,height:10,approach:54,art:'safehouse',storyPointId:'ms-old-toll-booth' },
+    { id:'old-toll-booth',sector:21,name:'Old Toll Booth',kind:'road-place',keeper:'Toll Clerk Ise',role:'Road witness broker',description:'The old toll meeting place is still used to compare crossing accounts. The clerk accepts only messages whose handling instructions have been respected.',services:['intelligence','register'],left:54,top:38,width:11,height:10,approach:54,art:'old-toll-booth',storyPointId:'ms-old-toll-booth' },
 ];
 architecture.push(...additions.map(roadBuilding));
 /** Restoration occupies already-solid masonry, never a road or resource approach.
  * Keeping the silhouette inside the existing mask preserves all travel geometry. */
 function restorationSite(building:SectorBuilding):SectorBuilding['restorationSite']{
-    if(!building.services.includes('repair'))return;
+    // A standing road-place building is already finished; its repairs show as
+    // maintenance seals, never as a scaffold painted over its own roof.
+    if(!building.services.includes('repair')||building.structure)return;
     const mask=sectorWalkMask(building.sector)!;
     // Intact regional strongholds keep their own roofs and banners. Restore a
     // small public awning at the approach edge; ruins can take a larger shelter.
@@ -125,4 +134,8 @@ const byId = new Map(SECTOR_BUILDINGS.map(building => [building.id, building]));
 export const sectorBuilding = (id: unknown): SectorBuilding | undefined => typeof id === 'string' ? byId.get(id) : undefined;
 export const buildingsInSector = (sector: number): readonly SectorBuilding[] => SECTOR_BUILDINGS.filter(building => building.sector === sector);
 export const buildingHasService = (building: SectorBuilding, service: BuildingService) => building.services.includes(service);
+/** Tiles a standing road-place building makes solid (`B`) in a sector's floor mask.
+ * Every other `B` tile in a non-village sector belongs to a painted site. */
+export const standingStructureTiles = (sector: number): number[] =>
+    SECTOR_BUILDINGS.filter(building => building.sector === sector && building.structure).flatMap(building => [...building.structure!.footprint]).sort((a, b) => a - b);
 export const buildingSharedKey = (id: string) => `world:building:${id}`;

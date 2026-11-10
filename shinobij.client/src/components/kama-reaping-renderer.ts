@@ -12,8 +12,9 @@ export type KamaView = {
     field: KamaField; at: number; strokes: readonly KamaStroke[]; stalks: readonly KamaStalkResult[];
     /** The in-progress drag, in field percent. */
     trail?: KamaTrail | null;
-    /** Guide-line mode: the line's height and the stalk it will cut. */
-    guide?: { y: number; stalk: number } | null;
+    /** Guide-line mode: the line's height and the stalk it will cut. With a
+     * partner, `line` is the exact stroke the button makes through both stalks. */
+    guide?: { y: number; stalk: number; partner?: number; line?: KamaTrail } | null;
     reduced: boolean;
     /** Which stalk is drawn with the trace plant (forest/shadow meadows above level 1). */
     traceStalk?: number;
@@ -86,7 +87,7 @@ export function drawKamaReaping(ctx: CanvasRenderingContext2D, width: number, he
                 ctx.restore();
             }
         }
-        if (view.guide?.stalk === index && !result.cut) {
+        if ((view.guide?.stalk === index || view.guide?.partner === index) && !result.cut) {
             ctx.save();
             ctx.fillStyle = '#f2d892';
             const bx = px(stalk.x), by = py(KAMA_BASE_Y) + 10;
@@ -95,7 +96,9 @@ export function drawKamaReaping(ctx: CanvasRenderingContext2D, width: number, he
         }
     });
 
-    if (view.guide) line(ctx, 'rgba(246, 226, 160, .8)', 1.5, px(4), py(view.guide.y), px(96), py(view.guide.y), 1, [7, 6]);
+    const guide = view.guide, cut = guide?.line;
+    if (guide) line(ctx, 'rgba(246, 226, 160, .8)', 1.5, px(4), py(guide.y), px(96), py(guide.y), cut ? .35 : 1, [7, 6]);
+    if (cut) line(ctx, 'rgba(255, 236, 170, .95)', 2, px(cut.x1), py(cut.y1), px(cut.x2), py(cut.y2), 1, [7, 6]);
     // Finished strokes flash as a blade arc; the live drag shows where it will cut.
     for (const stroke of view.strokes) {
         const since = view.at - stroke.at, alpha = view.reduced ? .9 : 1 - since / TRAIL_MS;

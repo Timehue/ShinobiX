@@ -97,6 +97,61 @@ test('sparse starter kits use restrained authored offense and distinct signature
     assert.equal(new Set([basic.abilityId, advanced.abilityId, signature.abilityId]).size, 3);
 });
 
+test('no kit shows the same move name in two slots', () => {
+    for (const id of PET_ABILITY_SPECIES_IDS) {
+        for (const input of [inputFor(id, 100), { templateId: id, level: 100 }]) {
+            const slots = resolvePetAbilityProgression(input).allAbilities.filter(move => !move.upgrade);
+            const names = slots.map(move => move.name);
+            assert.equal(new Set(names).size, names.length, id + ': ' + names.join(', '));
+            // A mastery keeps the name of the slot it upgrades.
+            for (const mastery of resolvePetAbilityProgression(input).allAbilities.filter(move => move.upgrade)) {
+                assert.equal(mastery.name, slots.find(move => move.tier === mastery.tier)!.name, id);
+            }
+        }
+    }
+    // A sparse legacy kit that falls back to its one strike also names it apart.
+    const legacy = resolvePetAbilityProgression({ level: 10, abilities: [{ name: 'Custom Fang', power: 70, kind: 'damage' }] });
+    assert.deepEqual(legacy.abilities.map(move => move.name), ['Custom Fang', 'Greater Custom Fang']);
+});
+
+test('repeated starter slots get their own names but keep identity and numbers', () => {
+    const expected: Record<string, string[]> = {
+        fire: ['Cinder Pounce', 'Searing Wound', 'Blazing Rend', 'Flame Burst'],
+        water: ['Tidal Crash', 'Soothing Current', 'Riptide Slam', 'Tsunami Crash'],
+        wind: ['Talon Rake', 'Hobbling Gust', 'Cyclone Rake', 'Gale Slash'],
+        lightning: ['Jolt Bite', 'Static Mark', 'Arc Crunch', 'Thunder Fang'],
+        earth: ['Shell Bash', 'Stone Guard', 'Granite Ram', 'Boulder Crush'],
+    };
+    for (const [element, names] of Object.entries(expected)) for (const form of ['', '-r', '-l']) {
+        const id = 'starter-' + element + form;
+        const kit = resolvePetAbilityProgression(inputFor(id, 20)).abilities;
+        assert.deepEqual(kit.map(move => move.name), names, id);
+        const [basic, utility, advanced] = kit;
+        const repeated = basic.baseAbilityId === advanced.baseAbilityId ? basic : utility;
+        assert.equal(advanced.baseAbilityId, repeated.baseAbilityId, id);
+        assert.equal(advanced.power, repeated.power, id);
+        assert.equal(advanced.kind, repeated.kind, id);
+        assert.equal(advanced.abilityId, advanced.baseAbilityId + ':advanced', id);
+        // The renamed slot remembers the name it shared, for name-keyed cooldowns.
+        assert.equal(advanced.cooldownKey, repeated.name, id);
+        assert.equal(basic.cooldownKey, undefined, id);
+    }
+    const water = resolvePetAbilityProgression(inputFor('starter-water', 100)).abilities;
+    assert.deepEqual(water.map(move => [move.name, move.cooldownKey]),
+        [['Tidal Crash', undefined], ['Soothing Current', undefined], ['Riptide Slam', 'Tidal Crash'], ['Tsunami Crash', 'Tidal Crash']],
+        'a mastery keeps the renamed slot name and its shared cooldown');
+});
+
+test('a kit fed back in as its own source keeps every slot name in place', () => {
+    for (const id of PET_ABILITY_SPECIES_IDS) for (const level of [20, 100]) {
+        const first = resolvePetAbilityProgression(inputFor(id, level));
+        for (const abilities of [first.abilities, first.allAbilities, [...first.allAbilities].reverse()]) {
+            const again = resolvePetAbilityProgression({ templateId: id, level, abilities });
+            assert.deepEqual(again.abilities.map(move => move.name), first.abilities.map(move => move.name), id + ':' + level);
+        }
+    }
+});
+
 test('explicit stable IDs retain authored identity through display-name edits', () => {
     const canonical = resolvePetAbilityProgression(inputFor('standard-0', 20));
     const original = canonical.abilities.find(move => move.tier === 'basic')!;

@@ -23,6 +23,9 @@ The previously unnamed painted frontages receive distinct identities:
   frontage becomes Esplanade Repair Yard.
 - S52: the western arrival house, southern lantern frontage, southwestern
   performers’ house and eastern tea counter become four separate premises.
+  The first three are painted collapsed, so they are ruins: their keepers work
+  from the open ground beside the fallen roofs, and public repairs restore them
+  for seven days at a time. Only the eastern tea counter is painted intact.
 - S60: the western broken walls become Obsidian Road Station; the northern
   fragments become Obsidian North Watch.
 - S62: the western houses become Greycliff Relay House; the eastern carved-stone
@@ -51,8 +54,37 @@ outcomes remain owned by their existing story systems.
    interpretation and the readable account survive reconnecting.
 4. **Communal repairs.** Choose exact existing material grades, complete three
    timed work steps, and contribute to a shared restoration roll. Completed
-   masonry stages change the map artwork. Roadside meeting places receive
+   masonry stages change the map artwork. A restored ruin stands for seven
+   days, then weathers back to its painted ruin (see below). Roadside meeting places receive
    maintenance seals on their signposts rather than a roof painted over a road.
+   A road place can instead stand as a real building (`building` in its
+   registry entry): its tiles beside the road become solid (`B`) in the
+   sector's walk mask, its own top-down sprite replaces the signpost, and its
+   seals sit on that roof. The sprite is painted into the sector floor, like a
+   restored ruin, from a small client table
+   (`shared/sector-standing-structure-art.ts`, pinned to the registry by a
+   test). It therefore shows from neighbouring sectors and never waits on the
+   counter request: the tiles are solid either way. The Flower-Pickers’ Shelter (S3,
+   a 2×2 building on tiles 101, 102, 113 and 114, about the size of the
+   stronghold across the road; counter approached from road tile 100) is the
+   first.
+   A story road place’s campaign stop stays on its counter approach, so Mira’s
+   marker stands at the shelter rather than on the old signpost tile.
+   `scripts/validate-sector-layouts.mjs` keeps each painting within its own
+   14–43 blocked tiles and lets placed buildings add at most four more per
+   sector (one stronghold-sized building). Every unsited `B` cell must match a registered building exactly. The
+   occupancy guide (`scripts/sector-layout-guide.mjs`) draws those tiles in
+   their own colour. `scripts/author-sector-world.mjs` does not add them, so a
+   re-authored mask must keep those cells `B` by hand; the validator refuses
+   one that drops them.
+   Other systems read those `B` cells, not the registry. The roaming world
+   boss (`world-boss-sector-placement.ts`) claims every `B` cell, so its tap
+   area never reaches over a building's roof. A trail sign stands on walkable
+   ground only (`signTile` in `api/sector/_traces.ts`). A sign left on a
+   tile that later became a building moves to the nearest open tile when it
+   is next read.
+   Changing a mask also changes the continuous-world `layoutVersion`, which
+   hashes every mask. Saved world cursors then fall back to their sector tile.
 5. **Courier relays.** Carry a sealed pouch through two receiving counters on
    the canonical connected road graph. Both receiving stamps are required.
    The work book retains the itinerary away from the issuing building.
@@ -122,9 +154,75 @@ or resetting lifetime milestone progress. The internal daily payment count also
 retains every completion, including more than 20 payments. Lifetime counters,
 paid-batch counts,
 personal contributions and shared revisions retain JavaScript safe integers;
-they do not stop or rewind at one million after reloading. Shared stages are
-permanent at 4, 12 and 24 completed communal orders; subsequent work maintains
-the public shelter.
+they do not stop or rewind at one million after reloading. Stronghold and
+road-place stages are permanent at 4, 12 and 24 completed communal orders;
+subsequent work maintains the public shelter.
+
+**Ruins restore for seven days.** A building whose painted art is a ruin
+(`kind: 'ruin'`) counts its stages from the current restoration cycle
+(`cycleRepairs` on the shared row), not from lifetime repairs. Its stages are
+Ruin, Braced frame, Covered frame and Restored, named for the three
+restoration sprites (timber frame, canvas cover, tiled roof), and the counter
+calls the service Ruin restoration. The 24th order of a cycle
+restores it and sets `intactUntil` to seven days later
+(`BUILDING_RUIN_INTACT_MS`). While it stands the counter takes no new repair
+orders; an order already under way when another crew finishes is still paid,
+but never extends the timer or advances the finished cycle. When the time ends,
+the stage returns to Ruin, the restoration art disappears and the next cycle
+starts from zero. An unfinished cycle with no completed repair for fourteen days
+(`BUILDING_RUIN_IDLE_FADE_MS`, measured from `cycleAt`, not from watch reports)
+also returns to zero. Lifetime `repairs` and the contributor roll are never
+reset. A row written before the timer existed is treated as a full cycle that
+ends seven days after its last write. Gorgewatch’s long sightline follows the
+same stage, so it opens only while the post stands.
+
+**World fights damage ruins.** When a verified world PvP fight (world authority
+with progression, both players present in the sector) ends, the terminal
+settlement (`api/pvp/_committed-terminal-effects.ts` →
+`api/sector/_ruin-battle-damage.ts`) damages every ruin in that sector: a
+standing restoration loses twelve hours and falls at once if less than that was
+left; unfinished work loses two repairs. Spars, ranked and arena fights never
+count. Each battle counts once per building (`damagedBy`, so replayed
+settlement is harmless) and each building takes at most four damaging fights a
+UTC day (`BUILDING_RUIN_BATTLE_DAMAGE`).
+
+**Restored buildings pay better.** While a ruin stands restored, work accepted
+at its counter (courier, watch, contact, festival and a recorded field account)
+pays a quarter more, and its workshop fee is a quarter lower
+(`BUILDING_RESTORED_PERK`, `api/sector/_restored-perks.ts`). The bonus is sealed
+into the order when the work is accepted, so a building falling mid-round keeps
+the accepted terms and a round accepted on the ruin gains nothing. Repairs and
+tea are unchanged.
+
+**What a restored ruin looks like.** Each ruin has its own painted restoration
+(`shinobij.client/public/sector-buildings/restored-<id>-v1.webp`). While it
+stands, the painting is drawn into the sector floor canvas, under players and
+NPCs, by `shinobij.client/src/lib/sector-restoration-art.ts` and the world
+renderer's floor painting. The ruin's plot is cleared to ground sampled from
+the same floor, the intact building stands on the ruin's main solid block, and
+every other solid tile of that ruin gets a tidy intact feature (stacked crates,
+a lantern rack, a hedge bed, a stone lantern, a brazier plinth or a wall
+section), so no tile looks walkable while the walk mask blocks it. Pieces sit
+only on solid tiles, and cleared ground never covers a road or water.
+Stages 1–2 still show the timber frame and canvas cover over the ruin as work
+in progress. In its final day a restoration shows its weathered painting
+(`weathered-<id>-v1.webp`: faded, chipped and mossy roofs, frayed banners,
+still standing) before it falls. Every sector's restored ruins ride the public
+`GET /api/world-state` snapshot (`restoredRuins`, in its ETag), so neighbouring
+sectors paint them before a player walks in; the sector you stand in uses its
+fresher counter view. Two plots are larger than their counters: the Welcome House plot
+includes the collapsed long house between it and the Performers' House, and
+the Lantern House rebuilds the southern row of houses. Neighbouring ruins that
+belong to no counter, such as the sector-edge walls, stay ruined.
+
+The layout lives in `shared/sector-ruin-restorations.ts`, and
+`scripts/bake-ruin-restorations.mjs` builds each painting from the Figma
+renders in `shinobij.client/art-source/ruin-restorations/` (prompts in
+`prompts.json`). The client ships only the draw boxes
+(`shared/sector-ruin-restoration-bounds.ts`); a test pins them to the layout.
+Changing a render or the layout means re-baking, then updating
+`docs/art/sector-building-art-v1.json` and the sector-building receipt in
+`scripts/verify-dist.mjs`.
 The public work roll shows the leading 20 contributors. Personal counts remain
 in the player’s record when a contribution falls outside that displayed roll.
 
@@ -152,13 +250,21 @@ adjacency check because it intentionally has no connected-road position cursor.
 ## Art and operations
 
 Production WebP assets live in `shinobij.client/public/sector-buildings/`.
-Fifteen illustrations/sprites cover the service families, Frostfang winter
-variants and three transparent restoration stages. Input manifests in
+Thirty-nine illustrations/sprites cover the service families, Frostfang winter
+variants, three transparent restoration stages, the ten restored and ten
+weathered ruin paintings, three road-place headers and the Flower-Pickers’
+Shelter map sprite.
+The road-place headers (Flower-Pickers’ Shelter, South Watch Post, Old Toll
+Booth) are resized from the campaign painting of the same place, so the counter
+shows the place the story shows. Input manifests in
 `docs/art/sector-building-*-inputs-v1.json` retain exact generation prompts and
 source paths. `sector-building-art-v1.json` pins output hashes and sizes;
 `node scripts/package-sector-building-art.mjs` repackages the retained originals.
+Pass asset ids to re-encode only those; the rest keep their receipted bytes.
+The ruin paintings come from `scripts/bake-ruin-restorations.mjs` instead, so
+the packager carries their entries over unchanged.
 Normal builds consume the checked WebP assets and do not call a provider.
-The release verifier gives the fifteen assets a separate, fixed 1,410,782-byte
+The release verifier gives the thirty-nine assets a separate, fixed 2,581,396-byte
 partition and verifies that delivered files match their checked source bytes.
 The existing allowance for all other runtime assets remains unchanged.
 
@@ -229,9 +335,9 @@ Positions and future changes belong in the registry above.
 | 50 | Esplanade Record House | Archivist Chise | survey, repair, register |
 | 50 | Esplanade Repair Yard | Carpenter Rin | repair, workshop |
 | 52 | Sunscar Lantern House | Lantern Maker Fumi | repair, workshop, festival |
-| 52 | Sunscar Performers’ House | Performer Mina | festival, reception |
+| 52 | Sunscar Performers’ House | Performer Mina | festival, reception, repair |
 | 52 | Eda’s Festival Tea Counter | Cook Eda | tea |
-| 52 | Sunscar Welcome House | Arrival Host Nao | reception, festival, courier |
+| 52 | Sunscar Welcome House | Arrival Host Nao | reception, festival, courier, repair |
 | 56 | Hollow Gate Shrine | Hollow Gate Keeper | register |
 | 60 | Obsidian North Watch | Watch Clerk Ise | watch, repair |
 | 60 | Obsidian Road Station | Scout En | repair, survey, watch |

@@ -160,10 +160,18 @@ test('finale defeat cannot grant progress; a fresh retry can win once with the o
             { ok: false, reason: 'not-won' });
         assert.equal(storyBossEligibility(saved).ok, true, 'the same milestone remains available after defeat');
 
-        const retry = encounter(village, `retry-${village}`);
+        const opening = encounter(village, `retry-${village}`);
         // Place the real finale at one HP to exercise the engine's terminal
         // victory path without coupling progression tests to a balance result.
+        // The first lethal blow makes the Kage transform (its lethal guard);
+        // the second one, on the transformed Kage, wins the fight.
+        opening.enemy.hp = 1;
+        opening.enemy.pos = hexNeighbors(opening.player.pos)[0];
+        const retry = applySoloPveAction(opening, { type: 'basicAttack' }).session;
+        assert.equal(retry.status, 'active');
+        assert.equal(retry.bossForms?.phase, 1, 'the finale transforms before it can fall');
         retry.enemy.hp = 1;
+        retry.enemy.shield = 0;
         retry.enemy.pos = hexNeighbors(retry.player.pos)[0];
         const win = applySoloPveAction(retry, { type: 'basicAttack' }).session;
         assert.equal(win.status, 'done');

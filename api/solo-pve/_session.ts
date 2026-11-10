@@ -242,6 +242,14 @@ export type SoloPveSession = {
      * sealed before it existed, which keeps the absolute write.
      */
     seededVitals?: { hp?: number; chakra?: number; stamina?: number };
+    /**
+     * Multi-stage boss transformation, sealed when the fight was built
+     * (api/solo-pve/_boss-forms.ts). Records every form entered, so a form
+     * fires once even across refreshes. Absent for every other encounter.
+     */
+    bossForms?: import('../../shared/boss-transformations.js').BossTransformationState;
+    /** The techniques the boss's forms learn, sealed with the kit's own costs. */
+    bossFormKit?: { jutsu: Record<string, SoloPveJutsu>; masteryLevel: number };
 };
 
 export type CreateSoloPveSessionParams = {

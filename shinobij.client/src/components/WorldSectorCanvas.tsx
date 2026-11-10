@@ -127,7 +127,7 @@ export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
                 )}
                 {mapMode ? (
                     <>
-                        <SectorMap image={mapImage} enterDirection={enterDirection} />
+                        <SectorMap image={mapImage} enterDirection={enterDirection} sector={sector} />
                         {/* The world's time of day, washed over the painted floor
                             and under the tile grid, so road exits and peer markers
                             stay readable after dark. It used to live only in the

@@ -13,6 +13,7 @@ import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock, LockContendedError } from './_lock.js';
 import { cachedFor } from './_proc-cache.js';
+import { readRestoredRuins } from './sector/_restored-ruins.js';
 import { collectTerritorySupply, resolveClaimedWarSupply } from './_territory-supply.js';
 import { territoryGuardsAfterSelfUpdate } from './_territory-guard.js';
 import {
@@ -2005,7 +2006,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const standings = standingRows
             .filter(s => s && s.village && (vnum(s.wins) + vnum(s.losses)) > 0)
             .sort((a, b) => (vnum(b.wins) - vnum(b.losses)) - (vnum(a.wins) - vnum(a.losses)));
-        const payload = { territories, wars, standings, sectorPools, sectorPoolCaps: SECTOR_POOL_CAPS };
+        // Restored ruins for every sector, so neighbouring floors paint them too. Rarely
+        // changes, so it joins the ETag hash; a lapse drops it from the list on read.
+        // A failed read OMITS the key (clients keep their last list) rather than
+        // sending an empty list that would flash every restoration back to a ruin.
+        const restoredRuins = await cachedFor('world-state:restored-ruins', 3_000, () => readRestoredRuins(kv, now)).catch(() => undefined);
+        const ruinSlice = restoredRuins ? { restoredRuins } : {};
+        const payload = { territories, wars, standings, sectorPools, sectorPoolCaps: SECTOR_POOL_CAPS, ...ruinSlice };
         // Content-hash ETag → unchanged polls get a 304 (empty body) instead of
         // re-downloading the full territory/war/standings map every 15s. The lazy
         // decay/settle writes above were already dispatched, so the 304 path does
@@ -2025,7 +2032,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // open-chest response carries the server's exact per-viewer pool view,
         // and lib/sector-pool keeps it until a poll's counts have caught up with
         // it, so the on-screen counter never runs backwards.
-        const etag = `W/"${createHash('sha1').update(JSON.stringify({ territories, wars, standings })).digest('base64')}"`;
+        const etag = `W/"${createHash('sha1').update(JSON.stringify({ territories, wars, standings, ...ruinSlice })).digest('base64')}"`;
         // s-maxage lowered 15→12 to offset the 3s proc cache above, keeping the
         // total worst-case staleness at the original ~15s (see api/_proc-cache.ts).
         res.setHeader('Cache-Control', 's-maxage=12, stale-while-revalidate=10');

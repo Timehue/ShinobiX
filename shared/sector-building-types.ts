@@ -8,6 +8,10 @@ export type SectorBuilding = {
     left: number; top: number; width: number; height: number; footprint: readonly number[]; approach: number;
     art: string; region: string; village?: string; shrineId?: string; storyPointId?: string;
     restorationSite?: {left:number;top:number;width:number;height:number;footprint:readonly number[]};
+    /** A standing building painted onto the map (a road place that is more than a signpost).
+     * Its footprint is a square block of solid tiles in the walk mask. The client paints the
+     * sprite into the sector floor from shared/sector-standing-structure-art.ts. */
+    structure?: {footprint:readonly number[];sprite:string};
     evidence?: readonly BuildingPoint[]; watchPoints?: readonly BuildingPoint[];
     restoredWatchPoint?: BuildingPoint;
     contactPoints?: readonly BuildingPoint[];
@@ -29,6 +33,8 @@ export type BuildingWorkOrder = {
     materials?: Record<string, number>; route?: string[]; observations?: string[];
     protocol?: 'cedar' | 'reed' | 'stone';
     watchStage?: number;
+    /** Sealed when accepted at a ruin standing restored: the work pays a quarter more. */
+    restored?: boolean;
 };
 export type SectorBuildingProgress = {
     version: 1; standing: Record<string, BuildingStanding>; active?: BuildingWorkOrder;
@@ -39,6 +45,15 @@ export type SectorBuildingProgress = {
 };
 export type SharedBuildingState = {
     version: 1; revision: number; repairs: number; stage: number; updatedAt: number;
+    /** Ruins only: repairs in the current restoration cycle (capped at the last stage target). */
+    cycleRepairs?: number;
+    /** Ruins only: while set, the fully repaired ruin stands intact until this time. */
+    intactUntil?: number;
+    /** Ruins only: when the current unfinished cycle last advanced (idle cycles fade). */
+    cycleAt?: number;
+    /** Ruins only: the last world PvP battles counted as damage (each counts once). */
+    damagedBy?: string[];
+    damageDay?: string; damageToday?: number;
     contributors: { name: string; repairs: number }[];
     reports: { name: string; at: number; text: string }[];
 };

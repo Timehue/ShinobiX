@@ -19,6 +19,10 @@ export type ProgressionPetAbility<T extends AuthoredPetAbility = AuthoredPetAbil
     upgrade?: PetAbilityUpgrade;
     /** Sparse kits can use a restrained version of an authored finisher. */
     restrained: boolean;
+    /** Set only on a slot renamed by `nameSlotsApart`: the name the slot shared
+     * with an earlier one. Engines that key cooldowns by name use it, so the
+     * renamed slots still share one cooldown, exactly as they did before. */
+    cooldownKey?: string;
 };
 export type PetAbilityProgressionInput<T extends AuthoredPetAbility = AuthoredPetAbility> = {
     templateId?: unknown; id?: unknown; evolutionStage?: unknown; rarity?: unknown;
@@ -117,11 +121,45 @@ function materialize<T extends AuthoredPetAbility>(
     } as ProgressionPetAbility<T>;
 }
 
+/** The starter kits fill two or three slots with one authored move. Each later
+ * slot keeps that move's identity and numbers, but shows a name of its own.
+ * Keyed by the move's local id (after the species prefix) and the slot tier. */
+const REPEATED_SLOT_NAMES: Readonly<Record<string, string>> = Object.freeze({
+    'searing-wound:advanced': 'Blazing Rend',
+    'tidal-crash:advanced': 'Riptide Slam',
+    'tidal-crash:signature': 'Tsunami Crash',
+    'talon-rake:advanced': 'Cyclone Rake',
+    'jolt-bite:advanced': 'Arc Crunch',
+    'shell-bash:advanced': 'Granite Ram',
+});
+
+/** No two slots of one kit share a display name. Only `name` changes (plus the
+ * `cooldownKey` that keeps the old shared cooldown), so ability identities,
+ * power and every combat rule stay exactly as authored. */
+function nameSlotsApart<T extends AuthoredPetAbility>(kit: ProgressionPetAbility<T>[]): ProgressionPetAbility<T>[] {
+    const used = new Set<string>();
+    return kit.map(ability => {
+        let name = ability.name;
+        if (used.has(name)) {
+            const local = ability.baseAbilityId.slice(ability.baseAbilityId.indexOf(':') + 1);
+            const authored = REPEATED_SLOT_NAMES[local + ':' + ability.tier];
+            // Unlisted repeats (a sparse legacy kit's advanced strike) get a prefix.
+            const candidate = authored && !used.has(authored) ? authored : 'Greater ' + name;
+            name = candidate;
+            for (let suffix = 2; used.has(name); suffix++) name = candidate + ' ' + suffix;
+        }
+        used.add(name);
+        return name === ability.name ? ability : { ...ability, name, cooldownKey: ability.name };
+    });
+}
+
 function withMastery<T extends AuthoredPetAbility>(base: ProgressionPetAbility<T>): ProgressionPetAbility<T>[] {
     const mastery = base.tier === 'utility' ? { level: 30, upgrade: 'utility-mastery' as const }
         : base.tier === 'advanced' ? { level: 50, upgrade: 'offense-mastery' as const }
         : base.tier === 'signature' ? { level: 75, upgrade: 'signature-mastery' as const } : null;
-    return mastery ? [base, materialize(base, base.baseAbilityId, base.tier, mastery.level, mastery.upgrade)] : [base];
+    if (!mastery) return [base];
+    const upgraded = materialize(base, base.baseAbilityId, base.tier, mastery.level, mastery.upgrade);
+    return [base, base.cooldownKey === undefined ? upgraded : { ...upgraded, cooldownKey: base.cooldownKey }];
 }
 
 function speciesAbilities<T extends AuthoredPetAbility>(input: PetAbilityProgressionInput<T>, speciesId: string | null): ProgressionPetAbility<T>[] {
@@ -139,11 +177,16 @@ function speciesAbilities<T extends AuthoredPetAbility>(input: PetAbilityProgres
     const slots = useOverride ? override : definition.slots;
     const tiers: readonly PetAbilityTier[] = ['basic', 'utility', 'advanced', 'signature'];
     const levels = [1, 5, 10, 20];
-    return slots.flatMap((id, i) => {
+    return nameSlotsApart(slots.map((id, i) => {
         const canonical = useOverride ? definition.overrideMoves?.[id] ?? definition.moves[id] : definition.moves[id];
         const source = (byId.get(id) ?? byName.get(String(canonical.name)) ?? canonical) as T;
-        return withMastery(materialize(source, id, tiers[i], levels[i]));
-    });
+        const ability = materialize(source, id, tiers[i], levels[i]);
+        // Slots that share one move id all resolve to the same supplied move, so
+        // its name cannot tell them apart; a re-fed kit would hand one slot's
+        // name to every slot. They take the canonical name, renamed below.
+        return slots.indexOf(id) !== slots.lastIndexOf(id) && canonical.name !== undefined
+            ? { ...ability, name: String(canonical.name) } : ability;
+    })).flatMap(withMastery);
 }
 
 /** Unknown legacy/custom species keep a conservative sealed fallback. These
@@ -158,12 +201,12 @@ function legacyAbilities<T extends AuthoredPetAbility>(supplied: readonly T[]): 
         && offensiveKinds.has(String(move.kind)));
     const basic = offense[0] ?? (signature && Number(signature.power) > 0 && offensiveKinds.has(String(signature.kind)) ? signature : undefined);
     const advanced = offense[1] ?? basic;
-    return [
-        ...(basic ? withMastery(materialize(basic, 'legacy:basic', 'basic', 1)) : []),
-        ...(support ? withMastery(materialize(support, 'legacy:utility', 'utility', 5)) : []),
-        ...(advanced ? withMastery(materialize(advanced, 'legacy:advanced', 'advanced', 10)) : []),
-        ...(signature ? withMastery(materialize(signature, 'legacy:signature', 'signature', 20)) : []),
-    ];
+    return nameSlotsApart([
+        ...(basic ? [materialize(basic, 'legacy:basic', 'basic', 1)] : []),
+        ...(support ? [materialize(support, 'legacy:utility', 'utility', 5)] : []),
+        ...(advanced ? [materialize(advanced, 'legacy:advanced', 'advanced', 10)] : []),
+        ...(signature ? [materialize(signature, 'legacy:signature', 'signature', 20)] : []),
+    ]).flatMap(withMastery);
 }
 
 /** The caller supplies the canonical competitive species pool when translating a

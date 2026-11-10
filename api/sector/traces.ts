@@ -51,7 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             kv.get(trailSignsKey(sector)),
             readSectorScars(sector, now),
         ]);
-        const signs = pruneSigns(parseSigns(signsRaw), now);
+        const signs = pruneSigns(parseSigns(signsRaw, sector), now);
 
         const def = shrineForSector(sector);
         let shrine: Record<string, unknown> | undefined;

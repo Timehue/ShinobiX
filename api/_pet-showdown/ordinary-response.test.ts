@@ -56,7 +56,9 @@ test('natural Spark Pup ordinary openings preserve a response without charge, me
             assert.equal(result.move.kind, 'damage');
             assert.ok(result.move.cost <= result.sourceBefore.stamina);
             assert.equal(result.move.cost, advanced ? level >= 50 ? 36 : 32 : 18);
-            assert.equal(result.action.moveName, 'Jolt Bite');
+            // The advanced slot reuses Jolt Bite's identity under its own name.
+            const moveName = advanced ? 'Arc Crunch' : 'Jolt Bite';
+            assert.equal(result.action.moveName, moveName);
             assert.equal(result.action.super, false);
             assert.equal(result.action.overexerted, false);
             assert.ok(result.hit.damage > 0);
@@ -65,13 +67,13 @@ test('natural Spark Pup ordinary openings preserve a response without charge, me
             assert.equal(result.hit.guarded, false);
             assert.equal(result.hit.ko, false);
             assert.deepEqual(result.hit.procs, ['STAB']);
-            assert.equal(result.events.filter(event => event.t === 'action' && event.moveName === 'Jolt Bite').length, 2);
+            assert.equal(result.events.filter(event => event.t === 'action' && event.moveName === moveName).length, 2);
             assert.equal(result.session.finished, false);
         }
     }
 });
 
-test('earned advanced Jolt Bite remains stronger than the affordable native basic', () => {
+test('earned advanced Arc Crunch (Jolt Bite\'s advanced slot) remains stronger than the affordable native basic', () => {
     for (const level of [10, 20, 75, 100]) {
         const basic = opening(level, false), advanced = opening(level, true);
         assert.ok(advanced.hit.damage > basic.hit.damage);

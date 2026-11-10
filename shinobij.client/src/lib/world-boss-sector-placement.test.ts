@@ -76,6 +76,23 @@ test("the boss never covers a gathering spot or story marker, nor takes their ta
     }
 });
 
+test("wherever the boss stops, its tap area never reaches over a painted building", () => {
+    // Sector 3's Flower-Pickers' Shelter (roof 101, 102, 113, 114) is a registry
+    // building, not a floor site: standing just below it at 125, the figure rose
+    // over 113 and 101 and a tap on the roof opened the boss queue.
+    const shelter = worldBossGround(3, candidate => isWalkableTile(3, candidate)).footprint(125);
+    assert.deepEqual(shelter, [125], "the boss below the shelter keeps only its feet");
+    for (const sector of PLAYABLE) {
+        const mask = sectorFloorLayout(sector)?.mask ?? [];
+        const ground = worldBossGround(sector, candidate => isWalkableTile(sector, candidate));
+        for (let tile = 0; tile < 144; tile += 1) {
+            for (const tap of ground.footprint(tile)) {
+                assert.notEqual(mask[Math.floor(tap / 12)]?.[tap % 12], "B", `sector ${sector}: the boss at ${tile} takes the taps for the building on ${tap}`);
+            }
+        }
+    }
+});
+
 test("the boss falls back to the nearest walkable tile when every clear tile is blocked", () => {
     const sector = PLAYABLE[0]!;
     assert.equal(worldBossSectorTile(sector, candidate => candidate === 140), 140);

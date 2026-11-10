@@ -124,6 +124,41 @@ describe('kama input helpers', () => {
         }
     });
 
+    it('lets the Reap button take two stalks per stroke, so a perfect guide run cuts all five', () => {
+        // Before this, a guide stroke cut only the chosen stalk: three strokes, five
+        // stalks, so keyboard and tap players could never reap more than 3 of 5.
+        for (const seed of [SEED, 4242, 987654, 31337, 123]) {
+            const reapField = kamaField(seed);
+            let strokes: KamaStroke[] = [], at = KAMA_READY_MS + 50, target = 2;
+            for (let n = 0; n < 3; n++) {
+                const stalks = scoreKamaReaping(seed, strokes, END, true)!.stalks;
+                // Like the client: start on the middle stalk, then fall to the first one standing.
+                if (n > 0) target = stalks.findIndex(stalk => !stalk.cut);
+                // Press when the guide is closest to the chosen stalk's band (a well-timed player).
+                const band = KAMA_BASE_Y - reapField.stalks[target].height * reapField.stalks[target].band;
+                let best = at + 150;
+                for (let t = at + 150; t < at + 150 + 2400; t++) if (Math.abs(kamaGuideY(t) - band) < Math.abs(kamaGuideY(best) - band)) best = t;
+                const stroke = kamaGuideStroke(reapField, target, best, stalks);
+                assert.ok(readKamaStrokes([...strokes, stroke], END), `seed ${seed}: guide stroke ${n + 1} is valid input`);
+                strokes = [...strokes, stroke]; at = best;
+            }
+            const result = scoreKamaReaping(seed, strokes, END)!;
+            assert.equal(result.stalks.filter(stalk => stalk.cut).length, KAMA_STALKS, `seed ${seed}: all five reaped`);
+            assert.equal(result.tally.clean, KAMA_STALKS, `seed ${seed}: ${JSON.stringify(result.tally)}`);
+            assert.equal(result.performance, 10);
+        }
+    });
+
+    it('never lets a paired guide stroke clip a third standing stalk', () => {
+        for (const seed of [SEED, 4242, 987654]) {
+            const reapField = kamaField(seed), fresh = reapField.stalks.map(() => ({}));
+            for (let index = 0; index < KAMA_STALKS; index++) for (let at = 700; at < END; at += 97) {
+                const cut = scoreKamaReaping(seed, [kamaGuideStroke(reapField, index, at, fresh)], END)!.stalks.filter(stalk => stalk.cut).length;
+                assert.ok(cut >= 1 && cut <= 2, `seed ${seed} stalk ${index} at ${at}: cut ${cut}`);
+            }
+        }
+    });
+
     it('animates relaxed mode as three clean sweeps', () => {
         for (const seed of [SEED, 4242, 987654]) {
             const demo = kamaDemoStrokes(kamaField(seed));

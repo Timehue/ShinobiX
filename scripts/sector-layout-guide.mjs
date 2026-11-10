@@ -2,17 +2,21 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import { sectorRoadRoutes } from './sector-road-routes.mjs';
+import { standingStructureTiles } from '../shared/sector-buildings.ts';
 
 export const GUIDE_COLORS = { '.': '#ccd0bf', '=': '#dbb989', '#': '#454951', T: '#365e42', '~': '#427485', B: '#bd85be' };
+/** A placed road-place building (not painted into the floor) on its solid tiles. */
+export const STRUCTURE_GUIDE_COLOR = '#9a6b45';
 
 /** Build the occupancy reference from the exact layout that will accompany its painting. */
 export function sectorLayoutGuideSvg(layout) {
     const siteColor=(x,y)=>Object.entries(layout.sites).find(([kind,site])=>kind!=='rift'
         && x>=site.footprint[0]&&x<site.footprint[0]+site.footprint[2]
         && y>=site.footprint[1]&&y<site.footprint[1]+site.footprint[2])?.[0];
+    const structures=new Set(standingStructureTiles(layout.sector));
     const rects=layout.mask.flatMap((row,y)=>[...row].map((cell,x)=>{
         const color=cell==='B'&&!layout.village
-            ?({stronghold:'#bd85be',shrine:'#d2af60',cairn:'#b4a7ce'})[siteColor(x,y)]
+            ?({stronghold:'#bd85be',shrine:'#d2af60',cairn:'#b4a7ce'})[siteColor(x,y)]??(structures.has(y*12+x)?STRUCTURE_GUIDE_COLOR:undefined)
             :GUIDE_COLORS[cell==='='&&layout.sector!==99?'.':cell];
         if(!color)throw Error(`Unknown guide material ${layout.sector}:${x},${y}`);
         return `<rect x="${x*100}" y="${y*100}" width="100" height="100" fill="${color}"/>`;

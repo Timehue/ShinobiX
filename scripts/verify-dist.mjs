@@ -104,16 +104,33 @@ const maxPetShapeReviewGrowthBytes = 5695550;
 // client sat about 120 KB under this ceiling. Credit exactly those bytes, so the
 // headroom left for everything else is unchanged.
 const maxHarvestingArtBytes = 407_568;
-const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes + maxHarvestingArtBytes;
+// 2026-11-07: multi-stage boss transformations (docs/boss-transformations.md)
+// add 14 files of form art: seven portraits (four final-Kage forms in
+// public/portraits/cinematic/storywide at 640x983, three tower forms in
+// public/portraits/towers/forms at their native size) and seven 384px battle
+// sprites in public/combat-actors/forms. 664,320 B in all. Main had no room
+// under this ceiling. Owner approved crediting exactly those bytes ("Raise both
+// caps", then "they need new sprites as well"), so the headroom left for
+// everything else is unchanged. Delete to drop the allowance.
+const maxBossFormArtBytes = 664_320;
+const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes + maxHarvestingArtBytes + maxBossFormArtBytes;
 // The 161 scenic companion portraits ship separately from their unchanged
 // battle/model assets. Keep unrelated runtime growth under the existing cap.
 const maxPetPortraitBytes = 16 * 1024 * 1024;
-// Fifteen reviewed building illustrations/restoration sprites have a fixed
-// 1,410,782-byte receipt (shared/sector-building-art.test.ts verifies its hashes).
+// Thirty-nine reviewed building illustrations/sprites have a fixed 2,581,396-byte
+// receipt (shared/sector-building-art.test.ts verifies its hashes).
 // Give these assets their own partition so they cannot consume or relax the
 // existing non-building runtime allowance when merged with newer main assets.
-const sectorBuildingArtCount = 15;
-const maxSectorBuildingArtBytes = 1_410_782;
+// 2026-11-07 (owner approved): ten painted ruin restorations and their last-day
+// weathered paintings (restored-*.webp and weathered-*.webp, 936,968 B;
+// scripts/bake-ruin-restorations.mjs) joined the same exact receipt.
+// 2026-11-07: +147,622 B for three road-place counter headers (Flower-Pickers'
+// Shelter, South Watch Post, Old Toll Booth), resized from each place's own
+// campaign painting instead of borrowing a stronghold, gorge or boathouse scene;
+// +86,024 B for the Flower-Pickers' Shelter map sprite (a 2x2-tile building),
+// which replaces its signpost.
+const sectorBuildingArtCount = 39;
+const maxSectorBuildingArtBytes = 2_581_396;
 // 2026-11-04 (owner approved): the painted Hollow Gate cave set (five chamber
 // floors, the passage floor and three decals; shinobij.client/art-source/hollow-gate-cavern-chambers.json)
 // gets the same exact-byte partition, so it neither consumes nor relaxes the
@@ -178,7 +195,7 @@ const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file)
 const clientRelativeFileSet = new Set(clientRelativeFiles);
 const sectorBuildingFiles = clientRelativeFiles.filter((file) => file.startsWith('sector-buildings/'));
 if (sectorBuildingFiles.length !== sectorBuildingArtCount || sectorBuildingFiles.some((file) => !/^sector-buildings\/[a-z0-9-]+\.webp$/.test(file))) {
-    fail('sector buildings must ship exactly the fifteen reviewed WebP assets');
+    fail(`sector buildings must ship exactly the ${sectorBuildingArtCount} reviewed WebP assets`);
 }
 let sectorBuildingArtBytes = 0;
 for (const file of sectorBuildingFiles) {

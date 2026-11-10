@@ -1,0 +1,20 @@
+/* Boss transformations: phase chip, charge meter, and the aura around a transformed
+   boss (fallback when a form has no alternate art). Reduced Motion drops the pulse. */
+.boss-form-chip{--bf:#f0a15a;display:inline-flex;flex:none;align-items:center;gap:6px;padding:3px 9px;border:1px solid var(--bf);border-radius:999px;background:rgba(6,10,20,.86);color:#f5efe6;font-size:.75rem;white-space:nowrap}
+.boss-form-chip strong{color:var(--bf);text-transform:uppercase}
+.tower-enemy-rail .boss-form-chip{flex-wrap:wrap;white-space:normal;border-radius:10px}
+.boss-form-charge{position:relative;padding-bottom:4px;color:#ffe2a8}
+.boss-form-charge i{position:absolute;left:0;bottom:0;height:3px;background:var(--bf)}
+.boss-form-stagger{color:#9df5b4;font-weight:700}
+.boss-form-chip--storm,.boss-form-aura--storm{--bf:#7cc8ff}
+.boss-form-chip--tempest,.boss-form-aura--tempest{--bf:#8fe8ff}
+.boss-form-chip--flame,.boss-form-aura--flame,.boss-form-chip--obsidian,.boss-form-aura--obsidian{--bf:#ff7a1a}
+.boss-form-chip--steam,.boss-form-aura--steam{--bf:#ff5a46}
+.boss-form-chip--moon,.boss-form-aura--moon{--bf:#d8d2ff}
+.boss-form-chip--eclipse,.boss-form-aura--eclipse{--bf:#b86bff}
+.boss-form-aura .combat-avatar,.boss-form-aura:not(.combat-side-hud){filter:drop-shadow(0 0 8px var(--bf));animation:bf-pulse 1.8s ease-in-out infinite}
+.boss-form-aura--charging{animation-duration:.7s}
+.boss-form-ring{position:absolute;inset:-3px;border-radius:50%;box-shadow:0 0 10px 3px var(--bf),inset 0 0 8px var(--bf);pointer-events:none}
+@keyframes bf-pulse{50%{filter:drop-shadow(0 0 16px var(--bf))}}
+@media (prefers-reduced-motion:reduce){.boss-form-aura .combat-avatar,.boss-form-aura:not(.combat-side-hud){animation:none}}
+html.lite-fx .boss-form-aura .combat-avatar,html.lite-fx .boss-form-aura:not(.combat-side-hud){animation:none}

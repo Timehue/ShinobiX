@@ -114,6 +114,8 @@ export type ServerArenaBeat = {
 export type ServerArenaSession = {
     hollowGateTelegraph?: import('../../../shared/hollow-gate-telegraph').HollowGateTelegraph;
     hollowGateRoundLimit?: number;
+    /** A transforming boss's sealed form state; the screen derives its view from it. */
+    bossForms?: import('../../../shared/boss-transformations').BossTransformationState;
     terminalReason?: import('../../../shared/solo-pve-terminal').SoloPveTerminalReason;
     sessionId: string;
     /** Opaque runtime revision used only by the selected transport. */

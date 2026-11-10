@@ -5,6 +5,11 @@ import { sectorExits } from '../shared/sector-links.ts';
 import { shrineForSector } from '../shared/shrines.ts';
 import { HOME_SECTORS } from '../shinobij.client/src/data/war-map-sectors.ts';
 import { sectorRoadRoutes } from './sector-road-routes.mjs';
+import { standingStructureTiles } from '../shared/sector-buildings.ts';
+
+/** Placed road-place buildings may add this many solid tiles to a sector: one
+ * building the size of a regional stronghold (2x2). */
+const MAX_STRUCTURE_TILES = 4;
 
 /** Validate the geometry that will actually accompany each floor painting. */
 export function validateSectorLayouts(layouts) {
@@ -19,7 +24,21 @@ export function validateSectorLayouts(layouts) {
         assert.equal(l.mask.length, 12);
         l.mask.forEach(row => assert.match(row, /^[.=~#TB]{12}$/));
         const mask = l.mask.join(''), open = [...mask].flatMap((c, n) => '.='.includes(c) ? [n] : []);
-        const blocked = 144 - open.length;
+        // Standing road-place buildings (shared/sector-buildings.ts `building`) are
+        // placed on the painting, not painted into it. The painting keeps its own
+        // 14-43 range; each building's tiles must be exactly its unsited `B` cells.
+        const structures = standingStructureTiles(place.id);
+        assert.ok(structures.length <= MAX_STRUCTURE_TILES, `Sector ${place.id}: ${structures.length} building tiles`);
+        if (l.village) assert.equal(structures.length, 0, `Building placed inside village ${place.id}`);
+        else {
+            const sited = new Set(Object.entries(l.sites).filter(([kind]) => kind !== 'rift').flatMap(([, site]) => {
+                const [x, y, size] = site.footprint;
+                return Array.from({ length: size * size }, (_, k) => (y + Math.floor(k / size)) * 12 + x + k % size);
+            }));
+            const unsited = [...mask].flatMap((c, n) => c === 'B' && !sited.has(n) ? [n] : []);
+            assert.deepEqual(unsited, structures, `Building tiles in ${place.id} must match the registry`);
+        }
+        const blocked = 144 - open.length - structures.length;
         assert.ok(blocked >= 14 && blocked <= 43, `Sector ${place.id}: ${blocked} blocked`);
         assert.ok(!signatures.has(mask), `Duplicated sector ${place.id}`); signatures.add(mask);
         for (const n of open) assert.ok(pathInMask(l.mask, open[0], n), `Disconnected ${place.id}:${n}`);

@@ -1,10 +1,10 @@
 import { addOwned, applyForge, countOwned, removeOwned, supplyForgeRyo } from '../craft/_forge.js';
-import { keeperWorkshopCraftRyo } from '../../shared/craft-fees.js';
+import { buildingStandsRestored, restoredPay, workshopFeeFor } from './_restored-perks.js';
 import { planSelectedCraftIngredients } from '../../shared/crafting-recipes.js';
 import { buildingHasService, sectorBuilding } from '../../shared/sector-buildings.js';
 import { BUILDING_REPAIR_INGREDIENTS, buildingCompanion, buildingCourierRoute, buildingRecipeTrust, buildingRegisterEntries, buildingTeaClosure, buildingWorkshopRecipes, buildingWorkView } from '../../shared/sector-building-content.js';
 import { buildingContactProtocol, buildingFestivalTasks } from '../../shared/sector-building-stories.js';
-import { BUILDING_DELIVERY_DAILY_CAP, BUILDING_RECEIPT_LIMIT, BUILDING_REPAIR_REWARDS, buildingDay, buildingStanding, readBuildingProgress, readSharedBuilding } from '../../shared/sector-building-state.js';
+import { BUILDING_DELIVERY_DAILY_CAP, BUILDING_RECEIPT_LIMIT, BUILDING_REPAIR_REWARDS, BUILDING_RESTORATION_TARGETS, BUILDING_RUIN_INTACT_MS, buildingDay, buildingStanding, readBuildingProgress, readSharedBuilding } from '../../shared/sector-building-state.js';
 import type { BuildingAction, BuildingPoint, BuildingReceipt, BuildingReward, BuildingWorkOrder, SectorBuildingProgress, SharedBuildingState } from '../../shared/sector-building-types.js';
 import { applyCafeteriaMeal, CAFETERIA_MEALS } from '../player/_cafeteria.js';
 import { inventoryGrowthBlock } from '../_inventory-capacity.js';
@@ -27,7 +27,8 @@ export function buildingActionTarget(character:Character,action:BuildingAction,n
 }
 export function reduceBuildingAction(character:Character,action:BuildingAction,rawShared:unknown,ctx:BuildingActionContext):BuildingDecision{
     const building=sectorBuilding(action.buildingId);if(!building)return{ok:false,error:'This building is not in the road register.'};
-    const progress=readBuildingProgress(character.sectorBuildings,ctx.now), shared=readSharedBuilding(rawShared);
+    const ruin=building.kind==='ruin'?{now:ctx.now}:undefined;
+    const progress=readBuildingProgress(character.sectorBuildings,ctx.now), shared=readSharedBuilding(rawShared,ruin);
     const prior=progress.receipts.find(r=>r.requestId===action.requestId);
     if(prior){
         if(prior.buildingId!==building.id||prior.action!==action.action)return{ok:false,error:'This request belongs to a different building action.'};
@@ -56,6 +57,8 @@ export function reduceBuildingAction(character:Character,action:BuildingAction,r
         if(kind==='watch'&&standing.watchDay===state.day)return refuse('Your paid watch round at this post is complete for today.');
         if(kind==='tea'&&(standing.teaUntil??0)>ctx.now)return refuse('The host is still tending your last tea service. Come back after the next kettle round.');
         if(kind==='repair'){
+            // A restored ruin needs no work until it weathers back; nothing is reserved.
+            if(ruin&&shared.stage===3)return refuse('This building stands fully restored. Repairs reopen when it weathers back into a ruin.');
             if(!Array.isArray(action.materials))return refuse('Choose the exact ore, hunting materials, fish and harvested materials for this order.');
             const plan=planSelectedCraftIngredients(BUILDING_REPAIR_INGREDIENTS,id=>countOwned(next,id),1,action.materials);
             if(!plan)return refuse('The selected materials do not cover this work order. Nothing has been spent.');
@@ -67,7 +70,7 @@ export function reduceBuildingAction(character:Character,action:BuildingAction,r
         }
         const route=kind==='courier'?buildingCourierRoute(building):undefined;
         if(kind==='courier'&&route?.length!==2)return refuse('This relay has no verified onward route.');
-        const order:BuildingWorkOrder={id:ctx.orderId,buildingId:building.id,kind,startedAt:ctx.now,stepAt:ctx.now,step:0,day:state.day,...(materials?{materials}:{}),...(route?{route}:{}),...(kind==='intelligence'?{protocol:buildingContactProtocol(building.id,ctx.now)}:{}),...(kind==='watch'?{watchStage:shared.stage}:{}),observations:[]};
+        const order:BuildingWorkOrder={id:ctx.orderId,buildingId:building.id,kind,startedAt:ctx.now,stepAt:ctx.now,step:0,day:state.day,...(materials?{materials}:{}),...(route?{route}:{}),...(kind==='intelligence'?{protocol:buildingContactProtocol(building.id,ctx.now)}:{}),...(kind==='watch'?{watchStage:shared.stage}:{}),...(buildingStandsRestored(building,shared)?{restored:true}:{}),observations:[]};
         state.active=order;
         message=kind==='repair'?'The keeper has set aside your exact materials. Your three work steps can be resumed after reconnecting.'
             :kind==='courier'?'The clerk gives you a sealed pouch and names the two receiving relays. Follow the stamped route.'
@@ -111,21 +114,27 @@ export function reduceBuildingAction(character:Character,action:BuildingAction,r
                     const contributors=shared.contributors.filter(c=>c.name!==ctx.displayName),old=shared.contributors.find(c=>c.name===ctx.displayName);
                     contributors.push({name:ctx.displayName,repairs:Math.max((old?.repairs??0)+1,standing.repairCount)});
                     contributors.sort((a,b)=>b.repairs-a.repairs||a.name.localeCompare(b.name));
-                    communal=readSharedBuilding({...shared,revision:shared.revision+1,repairs:shared.repairs+1,updatedAt:ctx.now,contributors});sharedChanged=true;materials=active.materials;
+                    // A ruin's cycle advances until it stands. An order begun before another crew finished
+                    // still pays, but never extends the standing time or advances a finished cycle.
+                    const full=BUILDING_RESTORATION_TARGETS[2],standingNow=ruin&&shared.stage===3,cycle=standingNow?full:Math.min(full,(shared.cycleRepairs??0)+1);
+                    communal=readSharedBuilding({...shared,revision:shared.revision+1,repairs:shared.repairs+1,updatedAt:ctx.now,contributors,
+                        ...(ruin?{cycleRepairs:cycle,cycleAt:standingNow?shared.cycleAt:ctx.now,intactUntil:shared.intactUntil??(cycle>=full?ctx.now+BUILDING_RUIN_INTACT_MS:0)}:{})},ruin);sharedChanged=true;materials=active.materials;
                     if(state.repairs>=10)title('Road Restorer');
-                    message=communal.stage>shared.stage?'The crew completes the next restoration stage. Your materials and work are recorded in the public roll.':'Your repair order is complete. The crew records the shelter work and your contribution.';
+                    message=standingNow?'Another crew finished the restoration while you worked. Your order is paid and recorded in the public roll. The building weathers back into a ruin when its seven days end.'
+                        :ruin&&communal.stage===3?'The crew completes the restoration. The building stands intact for seven days, then weathers back into a ruin.'
+                        :communal.stage>shared.stage?'The crew completes the next restoration stage. Your materials and work are recorded in the public roll.':'Your repair order is complete. The crew records the shelter work and your contribution.';
                 }else if(active.kind==='courier'){
                     if(state.deliveriesToday>=BUILDING_DELIVERY_DAILY_CAP)return refuse('Today’s paid delivery allowance is complete. The sealed pouch can be delivered tomorrow.');
-                    state.deliveries++;state.deliveriesToday++;standing.trust=Math.min(100,standing.trust+2);reward.ryo=120;
+                    state.deliveries++;state.deliveriesToday++;standing.trust=Math.min(100,standing.trust+2);reward.ryo=restoredPay(120,!!active.restored);
                     if(state.deliveries>=5)title('Trusted Courier');message='Both receiving clerks have stamped the route. The sealed pouch is delivered and the commission is settled.';
                 }else if(active.kind==='watch'){
-                    state.watches++;standing.watchDay=state.day;reward.ryo=80;standing.trust=Math.min(100,standing.trust+1);title('Bridge Watch Volunteer');
+                    state.watches++;standing.watchDay=state.day;reward.ryo=restoredPay(80,!!active.restored);standing.trust=Math.min(100,standing.trust+1);title('Bridge Watch Volunteer');
                     communal={...shared,revision:shared.revision+1,updatedAt:ctx.now,reports:[...shared.reports,{name:ctx.displayName,at:ctx.now,text:[...active.observations??[],observation].join(' ')}].slice(-8)};sharedChanged=true;
                     message='The watch keeper files your crossing report. The next visitor can read the report at this post.';
                 }else if(active.kind==='intelligence'){
-                    standing.intelDay=state.day;standing.trust=Math.min(100,standing.trust+3);reward.ryo=100;message='The seal reaches the speaking window intact. The contact records the kept trust and settles the handoff.';
+                    standing.intelDay=state.day;standing.trust=Math.min(100,standing.trust+3);reward.ryo=restoredPay(100,!!active.restored);message='The seal reaches the speaking window intact. The contact records the kept trust and settles the handoff.';
                 }else if(active.kind==='festival'){
-                    standing.festivalDay=state.day;standing.trust=Math.min(100,standing.trust+2);reward.ryo=60;title('Sunscar Participant');message='The keeper records your completed festival duty. All borrowed practice equipment is returned and the public approach is clear for the next group.';
+                    standing.festivalDay=state.day;standing.trust=Math.min(100,standing.trust+2);reward.ryo=restoredPay(60,!!active.restored);title('Sunscar Participant');message='The keeper records your completed festival duty. All borrowed practice equipment is returned and the public approach is clear for the next group.';
                 }else if(active.kind==='tea'){
                     // The 30-ryo price is already reserved by the admitted tea order.
                     // Reuse the existing small-meal restoration formula without a second charge.
@@ -145,7 +154,7 @@ export function reduceBuildingAction(character:Character,action:BuildingAction,r
     }else if(action.action==='record'){
         const survey=standing.survey;if(!requireService('survey')||!survey||survey.step!==building.evidence?.length||survey.recordedAt)return refuse('Collect the complete evidence before recording this place.');
         if(!['evidence-only','open-question'].includes(action.choice??''))return refuse('Choose whether to record only the evidence or mark an unanswered question.');
-        standing.survey={...survey,recordedAt:ctx.now,interpretation:action.choice};state.surveys++;standing.trust=Math.min(100,standing.trust+2);reward.ryo=90;
+        standing.survey={...survey,recordedAt:ctx.now,interpretation:action.choice};state.surveys++;standing.trust=Math.min(100,standing.trust+2);reward.ryo=restoredPay(90,buildingStandsRestored(building,shared));
         if(state.surveys>=3)title('Chronicle Field Witness');message='The keeper confirms the account against the collected evidence. The Chronicle entry records this place without inventing a witness.';
     }else if(action.action==='register'){
         if(!requireService('register'))return refuse('This counter does not keep a public witness register.');
@@ -156,8 +165,8 @@ export function reduceBuildingAction(character:Character,action:BuildingAction,r
         if(standing.trust<buildingRecipeTrust(building,action.recipeId!))return refuse('Build 5 local trust through visits or public work before using this keeper’s third regional recipe. Its other crafting locations remain available.');
         if(state.active)return refuse('Finish or cancel the work in your hands before using the workshop.');
         if(!Array.isArray(action.materials))return refuse('Choose the exact materials before asking the workshop to craft.');
-        const fee=supplyForgeRyo(action.recipeId!,1,keeperWorkshopCraftRyo);if(positive(next.ryo)<fee)return refuse(`The keeper’s fee for this craft is ${fee.toLocaleString('en-US')} ryo, and you carry ${positive(next.ryo).toLocaleString('en-US')}. Nothing was spent.`);
-        const crafted=applyForge(next,'supply',action.recipeId!,1,action.materials,keeperWorkshopCraftRyo);if(!crafted)return refuse('The keeper cannot begin: check the recipe’s level, selected materials and room for the finished item. Nothing was spent.');
+        const fee=supplyForgeRyo(action.recipeId!,1,workshopFeeFor(buildingStandsRestored(building,shared)));if(positive(next.ryo)<fee)return refuse(`The keeper’s fee for this craft is ${fee.toLocaleString('en-US')} ryo, and you carry ${positive(next.ryo).toLocaleString('en-US')}. Nothing was spent.`);
+        const crafted=applyForge(next,'supply',action.recipeId!,1,action.materials,workshopFeeFor(buildingStandsRestored(building,shared)));if(!crafted)return refuse('The keeper cannot begin: check the recipe’s level, selected materials and room for the finished item. Nothing was spent.');
         const full=inventoryGrowthBlock(next,crafted);if(full)return refuse(full.error);
         next=crafted;message='The keeper checks your selected materials and hands over the finished item.';
     }else return refuse('Choose an action from the building counter.');

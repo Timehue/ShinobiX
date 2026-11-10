@@ -10,12 +10,14 @@ import {
     parseShrineState,
     parseSigns,
     pruneSigns,
+    signTile,
     MAX_SIGNS_PER_SECTOR,
     TRAIL_SIGN_TTL_MS,
     type TrailSign,
 } from './_traces.js';
 import { shrineForSector, shrineById, shrineTier, SHRINE_DEFS, SHRINE_TIERS } from '../../shared/shrines.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
+import { isWalkableTile } from '../../shared/sector-walk-mask.js';
 
 const NOW = 1_752_600_000_000; // 2025-07-15T18:40Z-ish, fixed for determinism
 
@@ -70,6 +72,20 @@ describe('sector traces — trail signs', () => {
         assert.equal(parsed.length, 2);
         assert.deepEqual(parsed[0], good);
         assert.equal(parsed[1].tile, 77, 'out-of-range tile clamps to the board default');
+    });
+
+    it('a sign never stands on blocked ground such as a building roof', () => {
+        // Sector 3's shelter roof (tiles 101, 102, 113, 114) was open road before it was built.
+        for (const roof of [101, 102, 113, 114]) {
+            assert.equal(isWalkableTile(3, roof), false, `tile ${roof} is the shelter's roof`);
+            const moved = signTile(3, roof);
+            assert.equal(isWalkableTile(3, moved), true, `a sign on ${roof} moves to open ground, not ${moved}`);
+        }
+        assert.equal(signTile(3, 100), 100, 'a sign on open ground stays where it was left');
+        assert.equal(isWalkableTile(3, signTile(3, 'junk')), true);
+        const old = parseSigns([sign('aki', NOW, { tile: 113 })], 3);
+        assert.notEqual(old[0].tile, 113, 'a sign left before the shelter was built moves off its roof');
+        assert.equal(parseSigns([sign('aki', NOW, { tile: 113 })])[0].tile, 113, 'without a sector the stored tile is kept');
     });
 });
 

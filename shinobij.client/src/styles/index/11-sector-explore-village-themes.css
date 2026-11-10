@@ -14,7 +14,6 @@
     font-size: 16px !important;
 }
 
-.battle-avatar,
 .combat-layout {
     grid-template-columns: 220px minmax(0, 1fr) 220px !important;
 }
@@ -37,7 +36,6 @@
         object-fit: contain !important;
     }
 
-    .battle-avatar img,
     .combat-avatar img {
         width: 100% !important;
         height: 100% !important;

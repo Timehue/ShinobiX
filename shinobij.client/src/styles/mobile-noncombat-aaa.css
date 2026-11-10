@@ -352,7 +352,6 @@
   }
 
   html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-topbar > .village-back-button,
-  html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-zoom-btn,
   html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-village-chip {
     min-inline-size: 48px !important;
     min-block-size: 48px !important;
