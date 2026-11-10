@@ -176,6 +176,67 @@ describe('Tower account-wide multi-member battle leases', () => {
         assert.equal(await d.kv.get(battleLockKey('bob')), null);
     });
 
+    it('retries projection retirement after a committed lease deletion and transient read failure', async () => {
+        const d = deps();
+        const runId = 'tower-interrupted-release';
+        await claimTowerBattleLeases({ runId, members: ['alice'] }, d);
+        const originalGet = d.kv.get.bind(d.kv);
+        let failProjectionRead = true;
+        const interrupted: TowerKv = {
+            ...d.kv,
+            get: async <T>(key: string) => {
+                if (key === battleStateKey('alice') && failProjectionRead) {
+                    failProjectionRead = false;
+                    throw new Error('Projection read interrupted after lease deletion');
+                }
+                return originalGet<T>(key);
+            },
+        };
+        await releaseTowerBattleLeases(runId, ['alice'], { ...d, kv: interrupted });
+        assert.equal(await d.kv.get(battleLockKey('alice')), null);
+        assert.ok(isBattleStateProjection(await d.kv.get(battleStateKey('alice'))));
+        await releaseTowerBattleLeases(runId, ['alice'], d);
+        assert.equal(await d.kv.get(battleStateKey('alice')), null);
+        await releaseTowerBattleLeases(runId, ['alice'], d);
+        assert.equal(await d.kv.get(battleStateKey('alice')), null);
+    });
+
+    it('preserves newer or other-mode projections when an old lease is already absent', async () => {
+        for (const [kind, sessionId] of [['tower', 'tower-new'], ['pvp', 'tower-old']] as const) {
+            const d = deps();
+            const projection = { version: 1, kind, sessionId, startedAt: 1, expiresAt: 99_999 };
+            await d.kv.set(battleStateKey('alice'), projection);
+            await releaseTowerBattleLeases('tower-old', ['alice'], d);
+            assert.deepEqual(await d.kv.get(battleStateKey('alice')), projection);
+        }
+    });
+
+    it('does not retire an old matching projection behind a conflicting account lease', async () => {
+        const d = deps();
+        await claimTowerBattleLeases({ runId: 'tower-old', members: ['alice'] }, d);
+        const projection = await d.kv.get(battleStateKey('alice'));
+        const newer = { battleId: 'arena-new', kind: 'arena', screen: 'arena', startedAt: 2 };
+        await d.kv.set(battleLockKey('alice'), newer);
+        await releaseTowerBattleLeases('tower-old', ['alice'], d);
+        assert.deepEqual(await d.kv.get(battleStateKey('alice')), projection);
+        assert.deepEqual(await d.kv.get(battleLockKey('alice')), newer);
+    });
+
+    it('fails closed when interrupted-release recovery cannot read the remaining projection', async () => {
+        const d = deps();
+        const originalGet = d.kv.get.bind(d.kv);
+        const unreadable: TowerKv = {
+            ...d.kv,
+            get: async <T>(key: string) => {
+                if (key === battleStateKey('alice')) throw new Error('Projection unavailable');
+                return originalGet<T>(key);
+            },
+        };
+        await assert.rejects(() => releaseTowerBattleLeases('tower-old', ['alice'], {
+            ...d, kv: unreadable,
+        }), /Projection unavailable/);
+    });
+
     it('releases a confirmed-missing crash claim only after publication grace', async () => {
         let now = 10_000;
         const d = { ...deps(), now: () => now };
