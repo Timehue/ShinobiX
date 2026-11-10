@@ -1,0 +1,120 @@
+name: Chronicle WebKit diagnostic
+
+# Temporary draft-PR investigation. This is additional evidence, not a release
+# gate replacement. Both OS variants run the original shard against the same
+# verified main artifact, source, browser versions, assertions and time limits.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/chronicle-webkit-diagnostic.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: chronicle-webkit-diagnostic-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SOURCE_SHA: da9975ba2e45c2d970758e2121ae5c2b810db15e
+  SOURCE_RUN_ID: '42771002616'
+  VITE_SENTRY_DSN: https://public@example.invalid/1
+  VITE_SENTRY_RELEASE: ci
+  VITE_BUILD_COMMIT: da9975ba2e45c2d970758e2121ae5c2b810db15e
+
+jobs:
+  compare:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.head_ref == 'codex/chronicle-webkit-timeout-20261110')
+    name: Chronicle diagnostic / ${{ matrix.os }} / shard 9-of-12
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      # Only one additional hosted runner at a time.
+      max-parallel: 1
+      matrix:
+        os: [ubuntu-26.04, ubuntu-24.04]
+    steps:
+      - name: Check out the unchanged failing source
+        uses: actions/checkout@v7
+        with:
+          ref: da9975ba2e45c2d970758e2121ae5c2b810db15e
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: shinobij.client/package-lock.json
+      - name: Record source and host provenance
+        run: |
+          mkdir -p .ci-evidence/chronicle-webkit-diagnostic
+          {
+            printf 'source_sha=%s\nsource_run_id=%s\ndiagnostic_sha=%s\nos=%s\n' "$SOURCE_SHA" "$SOURCE_RUN_ID" "$GITHUB_SHA" '${{ matrix.os }}'
+            printf 'image_os=%s\nimage_version=%s\nrunner_arch=%s\n' "${ImageOS:-unknown}" "${ImageVersion:-unknown}" "$RUNNER_ARCH"
+            git rev-parse HEAD
+            node --version
+            nproc
+            free -m
+            cat /etc/os-release
+            sha256sum shinobij.client/e2e/chronicle-duel-ux.spec.ts shinobij.client/playwright.config.ts
+          } | tee .ci-evidence/chronicle-webkit-diagnostic/provenance.txt
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Install server runtime and QA dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/chronicle-webkit-diagnostic/root-install.log
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/chronicle-webkit-diagnostic/client-install.log
+      - name: Download the original joined release artifact
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: '13741314446'
+          path: .ci-artifacts/release
+          run-id: 42771002616
+          repository: Timehue/ShinobiX
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify and extract the original release artifact
+        run: |
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$SOURCE_SHA" provenance.txt
+          grep -Fx "run_id=$SOURCE_RUN_ID" provenance.txt
+          grep -Fx 'run_attempt=1' provenance.txt
+          cp provenance.txt ../../.ci-evidence/chronicle-webkit-diagnostic/artifact-provenance.txt
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+          git diff --exit-code HEAD -- shinobij.client/e2e shinobij.client/playwright.config.ts
+      - name: Install normal release browsers
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium firefox webkit
+          log: .ci-evidence/chronicle-webkit-diagnostic/browser-install.log
+      - name: Run unchanged responsive shard 9-of-12
+        timeout-minutes: 31
+        run: |
+          test -z "${PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS:-}"
+          npm run test:e2e --prefix shinobij.client -- --shard=9/12 2>&1 | tee .ci-evidence/chronicle-webkit-diagnostic/playwright.log
+      - name: Retain complete diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: chronicle-diagnostic-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .ci-evidence/chronicle-webkit-diagnostic/
+            shinobij.client/playwright-report/
+            shinobij.client/test-results/
+          if-no-files-found: error
+          retention-days: 14
