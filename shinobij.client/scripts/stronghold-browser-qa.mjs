@@ -122,7 +122,7 @@ try {
             assert(await page.getByRole('button', { name: 'Move right', exact: true }).isDisabled());
             await page.keyboard.press('d'); assert.equal(state.steps, 0);
             await page.getByRole('button', { name: /^Players/ }).click();
-            assert(await page.getByRole('dialog').getByRole('button', { name: 'Inspect' }).isDisabled());
+            assert(await page.getByRole('dialog').getByRole('button', { name: /^Attack / }).isDisabled());
             await page.keyboard.press('Escape');
             assert.equal(await page.locator('body').getAttribute('data-attack-count'), '1');
             await page.evaluate(() => window.releaseStrongholdAttack());
@@ -130,6 +130,29 @@ try {
             await page.getByRole('button', { name: 'Move right', exact: true }).click();
             await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '4');
             checks.push({ engine: engineName, pendingAttackDismissal: dismiss, duplicateAttackBlocked: true });
+            await page.close();
+        }
+        // The roster's Attack button starts the fight with no confirm dialog.
+        // A failed start must surface in the footer (the panel has closed),
+        // offer Reconnect (movement stays held until then, as after a failed
+        // start from the avatar's dialog) and hand the button back.
+        for (const [width, height] of [[390, 844], [1920, 1080]]) {
+            const state = fixture({ onAttack: route => route.fulfill({ status: 503, json: { error: 'down' } }) });
+            const page = await prepare(browser, { width, height }, state, '?host=1&controlledAttack=1');
+            await ready(page);
+            await page.getByRole('button', { name: width < 900 ? /^Players/ : 'Dungeon intel', exact: width >= 900 }).click();
+            const rosterAttack = page.getByRole('dialog').getByRole('button', { name: 'Attack Rival', exact: true });
+            const tap = await rosterAttack.boundingBox();
+            assert(tap.width >= 43.99 && tap.height >= 43.99, `small roster tap target: ${JSON.stringify(tap)}`);
+            await rosterAttack.click();
+            await page.getByRole('alert').filter({ hasText: 'Attack could not be confirmed. Reconnect and try again.' }).waitFor();
+            assert.equal(await page.getByRole('dialog').count(), 0, 'no confirm dialog and no open panel');
+            assert.equal(state.attacks, 1);
+            assert(await page.getByRole('button', { name: 'Reconnect', exact: true }).isEnabled());
+            assert(await page.getByRole('button', { name: 'Move right', exact: true }).isDisabled());
+            await page.getByRole('button', { name: width < 900 ? /^Players/ : 'Dungeon intel', exact: width >= 900 }).click();
+            assert(await rosterAttack.isEnabled(), 'roster attack re-enabled after a failed start');
+            checks.push({ engine: engineName, viewport: `${width}x${height}`, rosterDirectAttack: true, rosterAttackFailureSurfaced: true });
             await page.close();
         }
         {
@@ -172,10 +195,10 @@ try {
             assert(await page.getByText('Ashen Threshold', { exact: true }).first().isVisible());
             await page.screenshot({ path: `${output}/${engineName}-obsidian-${width}x${height}.png` });
             await page.getByRole('button', { name: /^Players/ }).click();
-            await page.locator('.stronghold-roster:visible').last().getByRole('button', { name: 'Inspect' }).first().click();
-            assert(await page.getByText('1.5× normal Ryo and Jutsu XP on a PvP win.', { exact: true }).isVisible());
-            await page.getByRole('button', { name: 'Attack player' }).click();
+            // The roster button attacks directly; no confirm dialog opens.
+            await page.locator('.stronghold-roster:visible').last().getByRole('button', { name: /^Attack / }).first().click();
             await page.getByRole('dialog').waitFor({ state: 'hidden' });
+            await page.waitForFunction(() => document.body.dataset.attack === 'Rival');
             assert.equal(await page.evaluate(() => document.body.dataset.attack), 'Rival');
             await page.getByRole('button', { name: 'Move right', exact: true }).click();
             await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '4');
@@ -206,13 +229,14 @@ try {
             await page.screenshot({ path: `${output}/${engineName}-${width}x${height}.png` });
             if (width < 900) {
                 await page.getByRole('button', { name: /^Players/ }).click();
-                await page.getByRole('dialog').getByRole('button', { name: 'Inspect' }).last().click();
+                await page.getByRole('dialog').getByRole('button', { name: /^Attack / }).last().click();
             } else {
                 await page.getByRole('button', { name: 'Dungeon intel', exact: true }).click();
                 await page.locator('.stronghold-roster-row button').first().click();
             }
-            await page.getByRole('button', { name: 'Attack player' }).click();
-            assert(await page.getByRole('button', { name: 'Connecting…' }).isDisabled());
+            // No confirm dialog: the roster button starts the fight and the footer reports it.
+            await page.getByText('Connecting to battle…', { exact: true }).waitFor();
+            assert.equal(await page.getByRole('dialog').count(), 0);
             await page.evaluate(() => window.releaseStrongholdAttack());
             await page.getByRole('dialog').waitFor({ state: 'hidden' });
             await page.getByRole('button', { name: 'Move right', exact: true }).click();
