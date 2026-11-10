@@ -1,7 +1,7 @@
 {
-  "candidate": "6717a9c513e09d7ec08fa6d43439f1a4339cdf3d",
-  "recovery": "a50581389160d44e3d9282aebea518ff3b10ece8",
+  "candidate": "29abb64ec8c13082de721ae90a420587374a609c",
+  "recovery": "0f5420e9de565da78c09753b90754f268c34f119",
   "node": "24.21.0",
   "platform": "linux/amd64",
-  "recoveryMeaning": "Live main 9f82a88d Hollow Gate run-scoped receipt repair, harvesting and zero-XP Vanguard replay plus all reviewed world-boss repairs; identical complete trees with distinct compatible continuation/recovery identities"
+  "recoveryMeaning": "Main 8f077751 with multi-stage boss forms, permanent ruins receipts, shared pet cooldown aliases and updated server lockfile plus every reviewed world-boss repair; identical candidate/recovery trees and distinct compatible continuation identities"
 }
