@@ -1,4 +1,6 @@
-import { describe, it } from 'node:test';
+import { describe, it, type TestContext } from 'node:test';
+import crypto from 'node:crypto';
+import { syncBuiltinESMExports } from 'node:module';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -8,6 +10,34 @@ import { NAMED_FORGE_CURRENCY_POINTS, namedForgePointTotal } from '../../shared/
 import { WEAPON_EP_CEILING } from '../combat-core/formulas.js';
 import { budgetItemBonuses } from '../_item-budget.js';
 import { NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SLOTS, NAMED_ARMOR_SPECIALS, NAMED_ARMOR_STATS, NAMED_GAUNTLET_OFFENSE, NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_RANGES, NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_WOUND_STRENGTH, namedWeaponTagStrength } from '../../shared/named-forge-roll.js';
+
+// These distribution guards test our range selection and shuffle, not the OS
+// entropy source. Fresh random samples can exceed the bands even when correct.
+// Fixed SHA-256 blocks provide replayable input; rejection avoids modulo bias.
+function deterministicForgeEntropy(t: TestContext, seed: string): () => number {
+    const original = crypto.randomInt;
+    let block = 0, bytes = Buffer.alloc(0), offset = 0, calls = 0;
+    t.after(() => { crypto.randomInt = original; syncBuiltinESMExports(); });
+    crypto.randomInt = ((minOrMax: number, max?: number) => {
+        const min = max === undefined ? 0 : minOrMax;
+        const end = max === undefined ? minOrMax : max;
+        const width = end - min;
+        assert.ok(Number.isSafeInteger(min) && Number.isSafeInteger(end) && width > 0 && width <= 2 ** 32);
+        const limit = Math.floor(2 ** 32 / width) * width;
+        let value: number;
+        do {
+            if (offset === bytes.length) {
+                bytes = crypto.createHash('sha256').update(`${seed}:${block++}`).digest();
+                offset = 0;
+            }
+            value = bytes.readUInt32LE(offset); offset += 4;
+        } while (value >= limit);
+        calls += 1;
+        return min + value % width;
+    }) as typeof original;
+    syncBuiltinESMExports();
+    return () => calls;
+}
 
 describe('named forge authority', () => {
     it('debits exactly 200 Fate Shards and preserves all other currencies', () => {
@@ -120,7 +150,8 @@ describe('named forge tag fairness', () => {
     // `[...WEAPON_TAGS].sort(() => randomInt(3) - 1)`. A random comparator does
     // not produce a uniform permutation, so some of the twelve tags surfaced
     // materially more often than others — silently, and dependent on V8's sort.
-    it('draws every weapon tag with even probability', () => {
+    it('draws every weapon tag with even probability', (t) => {
+        const entropyCalls = deterministicForgeEntropy(t, 'named-forge-weapon-fairness-v1');
         const counts = new Map<string, number>();
         const epCounts = new Map<number, number>();
         const rangeCounts = new Map<number, number>();
@@ -168,9 +199,11 @@ describe('named forge tag fairness', () => {
             assert.equal(table.size, outcomes);
             for (const seen of table.values()) assert.ok(Math.abs(seen - DRAWS / outcomes) < DRAWS / outcomes * 0.15);
         }
+        assert.ok(entropyCalls() > DRAWS, 'the real forge must consume the deterministic input');
     });
 
-    it('matches armor grade, stats, and special odds for every supported slot', () => {
+    it('matches armor grade, stats, and special odds for every supported slot', (t) => {
+        const entropyCalls = deterministicForgeEntropy(t, 'named-forge-armor-fairness-v1');
         const counts = new Map<string, number>();
         const count = (field: string, value: string | number) => {
             const key = `${field}:${value}`;
@@ -206,11 +239,15 @@ describe('named forge tag fairness', () => {
             const expected = total / values.length;
             // 21 gauntlet values over 4,000 draws: ~190 each, so give it a wider band.
             const band = field === 'gauntletOffense' ? 0.3 : 0.15;
-            for (const value of values) assert.ok(Math.abs((counts.get(`${field}:${value}`) ?? 0) - expected) < expected * band, `${field}:${value} should be uniform`);
+            for (const value of values) {
+                const seen = counts.get(`${field}:${value}`) ?? 0;
+                assert.ok(Math.abs(seen - expected) < expected * band, `${field}:${value} drew ${seen} vs ${expected} expected; band ${band}`);
+            }
         }
         const seen = [...counts.keys()].filter(key => key.startsWith('gauntletOffense:')).map(key => Number(key.split(':')[1]));
         assert.equal(Math.min(...seen), NAMED_GAUNTLET_OFFENSE.min);
         assert.equal(Math.max(...seen), NAMED_GAUNTLET_OFFENSE.max);
+        assert.equal(entropyCalls(), draws * 5, 'every real armor roll must use the deterministic input');
     });
 
     it('named gauntlets average the built-in legendary gauntlets\' 75 offense, and the budget keeps the best roll', () => {
