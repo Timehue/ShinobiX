@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { before, beforeEach, test } from 'node:test';
 import type { WorldBossEventRecord, WorldBossMatchRecord, WorldBossQueueRecord } from './_event';
+import type { KvCasOp } from '../_storage';
 
 let kv: typeof import('../_storage.js')['kv'];
+type AtomicKv = typeof kv & { compareSetMany: NonNullable<typeof kv.compareSetMany> };
 let eventStore: typeof import('./_event.js');
 let queue: typeof import('./_queue.js');
 // Typed loosely: TS resolves '../world-boss-event.js' to the sibling directory.
@@ -202,4 +204,66 @@ test('after the window passes, any poll ticks again', async t => {
     await sleep(queue.WORLD_BOSS_TICK_COALESCE_MS + 50);
     assert.equal((await queue.tickWorldBossQueueCoalesced(event.eventId)).ticked, true);
     assert.equal(counter.reads, 2);
+});
+
+test('a coalesced due tick publishes queue, team and pointers in one recoverable transaction', async t => {
+    const { event } = await seedEvent('atomic-due', [], false);
+    await queue.tickWorldBossQueueCoalesced(event.eventId);
+    const queued = { tickets: [ticket('atomic-a'), ticket('atomic-b'), ticket('atomic-c')], activeMatchIds: ['live-atomic-due'], updatedAt: Date.now() };
+    await eventStore.writeWorldBossQueue(event.eventId, queued);
+    const beforeMatches = await kv.keys(`${eventStore.worldBossEventKey(event.eventId)}:match:*`);
+    let publications = 0;
+    assert.ok(kv.compareSetMany);
+    const atomic = kv as AtomicKv;
+    const original = atomic.compareSetMany.bind(atomic);
+    t.mock.method(atomic, 'compareSetMany', async (operations: KvCasOp[]) => {
+        if (operations.some(operation => operation.key.includes(':match:'))) {
+            publications++;
+            assert.ok(operations.some(operation => operation.key === eventStore.worldBossQueueKey(event.eventId)));
+            assert.equal(operations.filter(operation => operation.key.includes(':player:')).length, 3);
+            return false;
+        }
+        return original(operations);
+    });
+    await sleep(300);
+    await assert.rejects(queue.tickWorldBossQueueCoalesced(event.eventId, Date.now(), { allowDueTick: true }), /publication is pending/);
+    assert.equal(publications, 1);
+    assert.deepEqual(await eventStore.readWorldBossQueue(event.eventId), queued);
+    assert.deepEqual(await kv.keys(`${eventStore.worldBossEventKey(event.eventId)}:match:*`), beforeMatches);
+    for (const member of queued.tickets) assert.equal(await eventStore.readWorldBossPlayerPointer(event.eventId, member.slug), null);
+});
+
+test('the optimized formation path excludes duplicate tickets and an already-seated player', async t => {
+    const tickets = [ticket('seated'), ticket('free-a'), ticket('free-a'), ticket('free-b'), ticket('free-c')];
+    const { event, match } = await seedEvent('atomic-unique', tickets);
+    const seatedPointer = { matchId: match.matchId, status: 'active' as const, updatedAt: Date.now() };
+    await eventStore.writeWorldBossPlayerPointer(event.eventId, 'seated', seatedPointer);
+    let members: string[] = [];
+    assert.ok(kv.compareSetMany);
+    const atomic = kv as AtomicKv;
+    const original = atomic.compareSetMany.bind(atomic);
+    t.mock.method(atomic, 'compareSetMany', async (operations: KvCasOp[]) => {
+        const publication = operations.find(operation => operation.key.includes(':match:'));
+        if (publication && publication.op === 'cas') {
+            members = (publication.value as WorldBossMatchRecord).members.map(member => member.slug);
+            assert.ok(!operations.some(operation => operation.key === eventStore.worldBossPlayerKey(event.eventId, 'seated')));
+            return false;
+        }
+        return original(operations);
+    });
+    await assert.rejects(queue.tickWorldBossQueue(event.eventId), /publication is pending/);
+    assert.deepEqual(members, ['free-a', 'free-b', 'free-c']);
+    assert.deepEqual(await eventStore.readWorldBossPlayerPointer(event.eventId, 'seated'), seatedPointer);
+    assert.deepEqual((await eventStore.readWorldBossQueue(event.eventId)).tickets, tickets);
+});
+
+for (const waiting of [false, true]) test(`a fresh seated ticket is repaired before the fast path (${waiting ? 'one other player waiting' : 'alone'})`, async () => {
+    const tickets = [ticket('seated-fast'), ...(waiting ? [ticket('waiting-fast')] : [])];
+    const { event, match } = await seedEvent(`fast-repair-${waiting}`, tickets);
+    const pointer = { matchId: match.matchId, status: 'active' as const, updatedAt: Date.now() };
+    await eventStore.writeWorldBossPlayerPointer(event.eventId, 'seated-fast', pointer);
+    const result = await queue.tickWorldBossQueue(event.eventId);
+    assert.deepEqual(result.tickets.map(member => member.slug), waiting ? ['waiting-fast'] : []);
+    assert.deepEqual(result.activeMatchIds, [match.matchId]);
+    assert.deepEqual(await eventStore.readWorldBossPlayerPointer(event.eventId, 'seated-fast'), pointer);
 });

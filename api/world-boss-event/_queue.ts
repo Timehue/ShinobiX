@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { withKvLock } from '../_lock.js';
 import { readSession } from '../towers/_tower-store.js';
-import { releaseTowerBattleLeases } from '../towers/_battle-lease.js';
+import { ensureTowerBattleLeases, releaseTowerBattleLeases } from '../towers/_battle-lease.js';
+import { kv, type KvCasOp } from '../_storage.js';
+import type { TowerSession } from '../towers/_tower-session.js';
 import { WORLD_BOSS_EVENT_QUEUE_MS, WORLD_BOSS_EVENT_MAX_PARTY, WORLD_BOSS_QUEUE_REJOIN_COOLDOWN_MS, worldBossEventPosition, worldBossEventStatus } from '../../shared/world-boss-event.js';
 import {
     emptyWorldBossQueue,
@@ -14,10 +16,14 @@ import {
     worldBossMatchKey,
     worldBossQueueKey,
     worldBossQueueCooldownKey,
+    worldBossPlayerKey,
+    WORLD_BOSS_EVENT_TTL_SECONDS,
+    WORLD_BOSS_QUEUE_TTL_SECONDS,
     readWorldBossQueueCooldownUntil,
     writeWorldBossEvent,
     writeWorldBossMatch,
     writeWorldBossPlayerPointer,
+    updateWorldBossMatchPointer,
     writeWorldBossQueue,
     writeWorldBossQueueCooldownUntil,
     type WorldBossEventRecord,
@@ -28,6 +34,21 @@ import {
 } from './_event.js';
 import { createWorldBossEncounter } from './_encounter.js';
 import { applyWorldBossRetreatPenalty } from './_retreat.js';
+import { isPublishedWorldBossMatch } from './_publication.js';
+
+async function finishWorldBossMatchPublication(match: WorldBossMatchRecord, session: TowerSession, now: number): Promise<WorldBossMatchRecord> {
+    const leases = await ensureTowerBattleLeases({ runId: match.runId, members: match.members.map(member => member.slug) });
+    if (!leases.ok) throw new Error('Published world boss team recovery is pending.');
+    match.status = 'active';
+    match.startedAt = session.createdAt ?? now;
+    match.matchHp = session.worldBossEvent!.matchHpAtStart;
+    delete match.error;
+    await writeWorldBossMatch(match);
+    await Promise.all(match.members.map(member => updateWorldBossMatchPointer(match.eventId, member.slug, {
+        matchId: match.matchId, status: 'active', updatedAt: now,
+    })));
+    return match;
+}
 
 export type WorldBossQueueView = {
     waitingCount: number;
@@ -125,7 +146,7 @@ async function cancelWorldBossMatch(match: WorldBossMatchRecord, message: string
     match.error = message;
     await writeWorldBossMatch(match);
     await releaseTowerBattleLeases(match.runId, match.members.map(member => member.slug)).catch(() => undefined);
-    await Promise.all(match.members.map(member => writeWorldBossPlayerPointer(match.eventId, member.slug, {
+    await Promise.all(match.members.map(member => updateWorldBossMatchPointer(match.eventId, member.slug, {
         matchId: match.matchId,
         status: 'cancelled',
         updatedAt: Date.now(),
@@ -143,6 +164,9 @@ export async function ensureWorldBossMatchStarted(eventId: string, matchId: stri
         let cancelledMessage: string | null = null;
         try {
             const started = await withKvLock(worldBossEventKey(eventId), async () => {
+                const published = await readSession(match.runId);
+                if (isPublishedWorldBossMatch(published, match)) return finishWorldBossMatchPublication(match, published, now);
+                if (published) throw new Error('World boss run publication has a conflicting team.');
                 const event = await readWorldBossEvent(eventId);
                 if (!event) {
                     cancelledMessage = 'This world event has ended.';
@@ -165,19 +189,15 @@ export async function ensureWorldBossMatchStarted(eventId: string, matchId: stri
                     return null;
                 }
                 const created = await createWorldBossEncounter({ event, match, expectedSector: position.currentSector, now });
-                match.status = 'active';
-                match.startedAt = now;
-                match.matchHp = created.session.worldBossEvent?.matchHpAtStart ?? 0;
-                await writeWorldBossMatch(match);
-                await Promise.all(match.members.map(member => writeWorldBossPlayerPointer(eventId, member.slug, {
-                    matchId,
-                    status: 'active',
-                    updatedAt: now,
-                })));
-                return match;
+                return finishWorldBossMatchPublication(match, created.session, now);
             }, { failClosed: true });
             if (started) return started;
         } catch (error) {
+            // Read back before deciding this was a failed start. A committed
+            // session must remain resumable even if its later receipt failed.
+            const published = await readSession(match.runId);
+            if (isPublishedWorldBossMatch(published, match)) return finishWorldBossMatchPublication(match, published, now);
+            if (published) throw error;
             cancelledMessage = shortError(error);
         }
         if (cancelledMessage) await cancelWorldBossMatch(match, cancelledMessage);
@@ -243,6 +263,19 @@ function sameQueueContent(a: WorldBossQueueRecord, b: WorldBossQueueRecord): boo
         && JSON.stringify(a.activeMatchIds) === JSON.stringify(b.activeMatchIds);
 }
 
+/** A short, unaged queue may still need repair before it can serve a view. */
+async function queuedTicketsNeedRepair(eventId: string, queue: WorldBossQueueRecord, statuses: Map<string, MatchStatus>): Promise<boolean> {
+    if (new Set(queue.tickets.map(ticket => ticket.slug)).size !== queue.tickets.length) return true;
+    const seated = await Promise.all(queue.tickets.map(async ticket => {
+        const pointer = await readWorldBossPlayerPointer(eventId, ticket.slug);
+        if (!pointer?.matchId || (pointer.status !== 'preparing' && pointer.status !== 'active')) return false;
+        const status = statuses.has(pointer.matchId) ? statuses.get(pointer.matchId)
+            : (await readWorldBossMatch(eventId, pointer.matchId))?.status;
+        return status === 'preparing' || status === 'active';
+    }));
+    return seated.some(Boolean);
+}
+
 /** Form full trios immediately, then release one or two waiting players after 30 seconds. */
 export async function tickWorldBossQueue(eventId: string, now = Date.now()): Promise<WorldBossQueueRecord> {
     try {
@@ -284,29 +317,49 @@ async function runWorldBossQueueTick(eventId: string, now: number): Promise<Worl
     let result: WorldBossQueueRecord;
     let preparingIds: string[];
     let formedTeams = 0;
-    if (peekPlan.groups.length === 0 && sameQueueContent(peekQueue, peekPlan.next)) {
+    if (peekPlan.groups.length === 0 && sameQueueContent(peekQueue, peekPlan.next)
+        && !await queuedTicketsNeedRepair(eventId, peekQueue, peekStatuses)) {
         result = peekQueue;
         preparingIds = peekQueue.activeMatchIds.filter(matchId => peekStatuses.get(matchId) === 'preparing');
     } else {
-        const locked = await withKvLock(worldBossQueueKey(eventId), async () => {
-            const queue = await readWorldBossQueue(eventId);
+        const queueKey = worldBossQueueKey(eventId);
+        const locked = await withKvLock(queueKey, async () => {
+            const priorQueue = await kv.get<WorldBossQueueRecord>(queueKey);
+            const queue = structuredClone(priorQueue ?? emptyWorldBossQueue(now));
             const statuses = await readMatchStatuses(eventId, queue.activeMatchIds);
+            const pointers = new Map<string, WorldBossPlayerPointer | null>();
+            const eligible: WorldBossQueueTicket[] = [];
+            for (const ticket of queue.tickets) {
+                if (pointers.has(ticket.slug)) continue;
+                const pointer = await readWorldBossPlayerPointer(eventId, ticket.slug);
+                pointers.set(ticket.slug, pointer);
+                const pointed = pointer?.matchId && (pointer.status === 'preparing' || pointer.status === 'active')
+                    ? await readWorldBossMatch(eventId, pointer.matchId) : null;
+                if (pointed?.status === 'preparing' || pointed?.status === 'active') {
+                    if (!queue.activeMatchIds.includes(pointed.matchId)) queue.activeMatchIds.push(pointed.matchId);
+                    statuses.set(pointed.matchId, pointed.status);
+                } else eligible.push(ticket);
+            }
+            queue.tickets = eligible;
             const { next, groups } = planQueueTick(queue, statuses, now);
             const preparing = next.activeMatchIds.filter(matchId => statuses.get(matchId) === 'preparing');
+            const operations: KvCasOp[] = [];
             for (const group of groups) {
                 const match = makeMatch(event, group, now);
-                await writeWorldBossMatch(match);
-                await Promise.all(match.members.map(member => writeWorldBossPlayerPointer(eventId, member.slug, {
-                    matchId: match.matchId,
-                    status: 'preparing',
-                    updatedAt: now,
-                })));
+                operations.push({ op: 'cas', key: worldBossMatchKey(eventId, match.matchId), expected: null, value: match, ex: WORLD_BOSS_EVENT_TTL_SECONDS });
+                for (const member of match.members) operations.push({
+                    op: 'cas', key: worldBossPlayerKey(eventId, member.slug), expected: pointers.get(member.slug) ?? null,
+                    value: { matchId: match.matchId, status: 'preparing', updatedAt: now }, ex: WORLD_BOSS_EVENT_TTL_SECONDS,
+                });
                 next.activeMatchIds.push(match.matchId);
                 preparing.push(match.matchId);
             }
-            if (!sameQueueContent(queue, next)) {
+            if (!sameQueueContent(priorQueue ?? emptyWorldBossQueue(now), next)) {
                 next.updatedAt = now;
-                await writeWorldBossQueue(eventId, next);
+                if (operations.length) {
+                    operations.push({ op: 'cas', key: queueKey, expected: priorQueue, value: next, ex: WORLD_BOSS_QUEUE_TTL_SECONDS });
+                    if (!kv.compareSetMany || !await kv.compareSetMany(operations)) throw new Error('World boss team publication is pending.');
+                } else await writeWorldBossQueue(eventId, next);
             }
             return { queue: next, preparing, formed: groups.length };
         }, { failClosed: true });
@@ -464,12 +517,12 @@ export async function worldBossQueueView(event: WorldBossEventRecord, playerSlug
                 await releaseTowerBattleLeases(match.runId, match.members.map(member => member.slug));
             }
             if (pointer.status !== match.status) {
-                await writeWorldBossPlayerPointer(event.eventId, playerSlug, {
+                await updateWorldBossMatchPointer(event.eventId, playerSlug, {
                     matchId: match.matchId,
                     status: match.status,
                     updatedAt: now,
                     ...(match.error ? { error: match.error } : {}),
-                });
+                }, pointer);
             }
             const member = match.members.find(entry => entry.slug === playerSlug);
             const session = match.runId ? await readSession(match.runId) : null;
