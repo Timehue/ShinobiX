@@ -200,8 +200,12 @@ describe('settleGarrisonFight shares ONE body with the generic fight-outcome pat
     // wrong reason.
     beforeEach(async () => { await kv.del('pve-outcome:garrison-r1'); });
 
-    it('after the generic path wrote the body, the garrison settle burns the items and leaves HP alone', async () => {
+    it('after the generic path wrote the body, the garrison settle burns the items and leaves HP alone', async (t) => {
         const { settlePveFightOutcome } = await import('./pve/_fight-outcome-settlement.js');
+        // This assertion isolates the once-only fight body from independent
+        // idle recovery. A loaded test process may otherwise cross a regen tick.
+        const at = Date.now();
+        t.mock.method(Date, 'now', () => at);
         await seedSave({ hp: 9000 });
         const session = terminalSession('win'); // ends at 4 321
         const generic = await settlePveFightOutcome(session, 'attacker');

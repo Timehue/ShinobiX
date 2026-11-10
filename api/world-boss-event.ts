@@ -159,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             serverNow: now,
         };
         if (playerSlug) {
-            const participant = event.participants[playerSlug];
+            const participant = Object.hasOwn(event.participants, playerSlug) ? event.participants[playerSlug] : undefined;
             const heldHollowShards = Math.max(0, Math.floor(Number(event.hollowShardsHeldByPlayer?.[playerSlug]) || 0));
             result.personal = participant || heldHollowShards > 0 ? {
                 damage: participant?.damage ?? 0,
