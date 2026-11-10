@@ -1,0 +1,125 @@
+name: Chronicle WebKit protocol capture
+
+# One additional diagnostic, never a release-gate replacement or PR trigger.
+on:
+  push:
+    branches: [codex/chronicle-webkit-protocol-capture-20261110]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: chronicle-webkit-protocol-capture
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SOURCE_SHA: 48b6d32b2099864aa6c8511fbc055babf30cd819
+  SOURCE_RUN_ID: '42840281963'
+  SOURCE_ARTIFACT_ID: '13777075325'
+  VITE_SENTRY_DSN: https://public@example.invalid/1
+  VITE_SENTRY_RELEASE: ci
+  VITE_BUILD_COMMIT: 48b6d32b2099864aa6c8511fbc055babf30cd819
+
+jobs:
+  capture:
+    if: github.event.created == true && github.run_attempt == 1 && github.ref == 'refs/heads/codex/chronicle-webkit-protocol-capture-20261110'
+    name: WebKit protocol / unchanged shard 9-of-12
+    runs-on: ubuntu-26.04
+    timeout-minutes: 35
+    steps:
+      - name: Yield to active main work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate 'repos/Timehue/ShinobiX/actions/runs?branch=main&per_page=100' --jq '.workflow_runs[] | select(.status != "completed") | .id' > "$RUNNER_TEMP/active-main-runs"
+          test ! -s "$RUNNER_TEMP/active-main-runs"
+      - name: Check out unchanged tested source
+        uses: actions/checkout@v7
+        with:
+          ref: 48b6d32b2099864aa6c8511fbc055babf30cd819
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
+      - name: Check out reviewed capture tools separately
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .diagnostic
+          persist-credentials: false
+          sparse-checkout: scripts/diagnostics/webkit-protocol
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: shinobij.client/package-lock.json
+      - name: Record fixed source provenance
+        run: |
+          mkdir -p .ci-evidence/webkit-protocol .ci-artifacts/release
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf 'source_sha=%s\nsource_run_id=%s\nartifact_id=%s\ndiagnostic_sha=%s\n' "$SOURCE_SHA" "$SOURCE_RUN_ID" "$SOURCE_ARTIFACT_ID" "$GITHUB_SHA" > .ci-evidence/webkit-protocol/provenance.txt
+          sha256sum shinobij.client/e2e/chronicle-duel-ux.spec.ts shinobij.client/e2e/helpers/pending-click-diagnostics.ts shinobij.client/playwright.config.ts >> .ci-evidence/webkit-protocol/provenance.txt
+      - name: Install normal root and QA dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/webkit-protocol/root-install.log
+      - name: Install normal client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/webkit-protocol/client-install.log
+      - name: Download and verify immutable original release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/Timehue/ShinobiX/actions/artifacts/$SOURCE_ARTIFACT_ID" --jq 'select(.id == 13777075325 and .expired == false and .name == "release-dist-48b6d32b2099864aa6c8511fbc055babf30cd819-42840281963" and .digest == "sha256:68c92e31f0b4cee0a19d0a797c1fb1a495c97ab3ea54f4168582d1b0fa212615" and .workflow_run.id == 42840281963 and .workflow_run.head_sha == "cd7394dd1bfe948186bd7348073d7cf8a7c23274") | .id' > "$RUNNER_TEMP/artifact-id"
+          test "$(cat "$RUNNER_TEMP/artifact-id")" = "$SOURCE_ARTIFACT_ID"
+          gh api "repos/Timehue/ShinobiX/actions/runs/$SOURCE_RUN_ID" --jq 'select(.status == "completed" and .conclusion == "success" and .run_attempt == 1 and .head_sha == "cd7394dd1bfe948186bd7348073d7cf8a7c23274") | .id' > "$RUNNER_TEMP/source-run-id"
+          test "$(cat "$RUNNER_TEMP/source-run-id")" = "$SOURCE_RUN_ID"
+          gh api "repos/Timehue/ShinobiX/actions/artifacts/$SOURCE_ARTIFACT_ID/zip" > .ci-artifacts/release.zip
+          echo '68c92e31f0b4cee0a19d0a797c1fb1a495c97ab3ea54f4168582d1b0fa212615  .ci-artifacts/release.zip' | sha256sum -c -
+          unzip -q .ci-artifacts/release.zip -d .ci-artifacts/release
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$SOURCE_SHA" provenance.txt
+          grep -Fx "run_id=$SOURCE_RUN_ID" provenance.txt
+          grep -Fx 'run_attempt=1' provenance.txt
+          cp provenance.txt ../../.ci-evidence/webkit-protocol/artifact-provenance.txt
+          cp release-dist.tgz.sha256 ../../.ci-evidence/webkit-protocol/
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+          git diff --exit-code HEAD -- .
+      - name: Install normal release browsers
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium firefox webkit
+          log: .ci-evidence/webkit-protocol/browser-install.log
+      - name: Validate diagnostic projection without running another shard
+        run: node --test .diagnostic/scripts/diagnostics/webkit-protocol/capture.test.mjs
+      - name: Recheck main priority immediately before the shard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate 'repos/Timehue/ShinobiX/actions/runs?branch=main&per_page=100' --jq '.workflow_runs[] | select(.status != "completed") | .id' > "$RUNNER_TEMP/active-main-runs-before-shard"
+          test ! -s "$RUNNER_TEMP/active-main-runs-before-shard"
+      - name: Run original responsive shard once with safe capture
+        timeout-minutes: 31
+        run: |
+          test -z "${PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS:-}"
+          git diff --exit-code HEAD -- .
+          node .diagnostic/scripts/diagnostics/webkit-protocol/run.mjs 2>&1 | tee .ci-evidence/webkit-protocol/playwright.log
+      - name: Retain diagnostics and ordinary original test evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: webkit-protocol-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .ci-evidence/webkit-protocol/
+            shinobij.client/playwright-report/
+            shinobij.client/test-results/
+          if-no-files-found: error
+          retention-days: 14
