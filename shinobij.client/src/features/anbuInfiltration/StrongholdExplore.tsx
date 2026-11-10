@@ -424,7 +424,10 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     }
     const playerList = <div className="stronghold-roster"><h3>Players inside <span>{peers.length + (state ? 1 : 0)}</span></h3>
         {peers.length === 0 && <p>No other shinobi inside yet.</p>}
-        {peers.map(peer => <div className="stronghold-roster-row" key={peer.name}><div><b>{displayPlayerName(peer.name)}</b><span>Lv {peer.level} · {peer.inBattle ? 'In battle' : peer.village}</span></div><button disabled={blocked || !!pending || threat >= 100 || !availablePeers.includes(peer)} onClick={() => { stopWalk(); setPlayersOpen(false); setIntelOpen(false); setSelectedPeer(peer); }}>Inspect</button></div>)}
+        {/* The roster button IS the attack: it skips the confirm dialog that the
+            map avatar opens. The panels close so the footer's "Connecting to
+            battle…" status and any start error stay visible. */}
+        {peers.map(peer => <div className="stronghold-roster-row" key={peer.name}><div><b>{displayPlayerName(peer.name)}</b><span>Lv {peer.level} · {peer.inBattle ? 'In battle' : peer.village}</span></div><button className="stronghold-attack" aria-label={`Attack ${displayPlayerName(peer.name)}`} disabled={blocked || !!pending || threat >= 100 || !availablePeers.includes(peer)} onClick={() => { setPlayersOpen(false); setIntelOpen(false); void attack(peer); }}>Attack</button></div>)}
     </div>;
 
     return <section className={`stronghold-shell underground-world${obsidian ? ' stronghold-obsidian underground-world--obsidian' : ''}`} aria-label={title} data-gamepad-mode="sector">
