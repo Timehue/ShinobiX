@@ -4,11 +4,11 @@ import { uniquePlayerName } from './helpers/player-names';
 import { uiAuditSave } from '../e2e/helpers/ui-audit-runtime';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
-// Run with LIVE_E2E_REALTIME=1. Two real browsers in the same village, real
+// Run with `npm run test:e2e:live:realtime` (CI sets LIVE_E2E_REALTIME=1). Two real browsers in the same village, real
 // Express handlers and Socket.IO: a line one player posts in the tavern shows
 // up for the other within seconds. Nothing but the socket hint can explain
 // that — the tavern's reconcile poll is two minutes (lib/use-chat-push.ts).
-test.skip(process.env.LIVE_E2E_REALTIME !== '1', 'needs the realtime layer (LIVE_E2E_REALTIME=1)');
+test.skip(process.env.LIVE_E2E_REALTIME !== '1', 'needs the realtime layer: npm run test:e2e:live:realtime');
 
 async function account(request: APIRequestContext, side: string) {
     const name = uniquePlayerName(stamp => `tav${side}${stamp}`);

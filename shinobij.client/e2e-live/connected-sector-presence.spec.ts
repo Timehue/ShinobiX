@@ -8,7 +8,7 @@ import { sectorExits } from '../../shared/sector-links';
 import { sectorName } from '../../shared/sector-geo';
 import { quietRoadCooldowns } from './helpers/quiet-road';
 
-// Run with LIVE_E2E_REALTIME=1. Both browsers use the real Express handlers and
+// Run with `npm run test:e2e:live:realtime` (CI sets LIVE_E2E_REALTIME=1). Both browsers use the real Express handlers and
 // Socket.IO transport; no presence, save, movement or travel response is mocked.
 test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
@@ -150,7 +150,7 @@ function distanceToLine(points: readonly { x: number; y: number }[], at: { x: nu
 
 test('two real clients see grounded walking, sector departure and the same road arrival', async ({ browser, context, page, request, baseURL }, info) => {
     test.setTimeout(180_000);
-    expect(process.env.LIVE_E2E_REALTIME).toBe('1');
+    expect(process.env.LIVE_E2E_REALTIME, 'needs the realtime layer: npm run test:e2e:live:realtime').toBe('1');
     const mover = await account(request, 'a'), observer = await account(request, 'b');
     const observerContext = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 },
         isMobile: true, hasTouch: true, reducedMotion: 'no-preference', serviceWorkers: 'block' });
