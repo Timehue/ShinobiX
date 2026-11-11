@@ -8,7 +8,7 @@ import type { WorldPosition } from '../../../shared/world-position';
 import type { WorldPoint } from '../../../shared/continuous-world-space';
 import type { PlayerRecord } from '../types/character';
 import { worldPeerRoster, sameContinuousWorldPeersProps, type ContinuousWorldPeersProps } from '../lib/world-peer-roster';
-import { playerSlug } from '../lib/utils';
+import { sharedAvatarFor } from '../lib/shared-avatar';
 import { GameIcon } from './icons/GameIcon';
 
 // `peer` is the record last reconciled; `element`/`x`/`y` the transform last written.
@@ -54,7 +54,7 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
     const allPeers = worldPeerRoster(sector, selfName, nearby, live, sleepers);
     const peers = allPeers.slice(0, 48);
     const figures = peers.map((peer): PeerFigure => ({ name: peer.name, level: peer.level,
-        src: sharedImages[`avatar:${playerSlug(peer.name)}`] || peer.character?.avatarImage || '', sleeping: peer.sleeping === true }));
+        src: sharedAvatarFor(sharedImages, peer.name) || peer.character?.avatarImage || '', sleeping: peer.sleeping === true }));
     const latest = useRef(peers), elements = useRef(new Map<string, HTMLDivElement>()), root = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => { latest.current = peers; });
     useEffect(() => {
