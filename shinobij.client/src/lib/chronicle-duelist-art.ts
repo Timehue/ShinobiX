@@ -6,6 +6,7 @@
  * "CK" initials tile. It gets bundled art instead, served from `public/chronicle/`
  * alongside the card back and the field environments.
  */
+import { sharedAvatarFor } from "./shared-avatar";
 
 /** Opponent name the server gives every AI showdown. Must match the literal in
  *  `api/card-clash/_ai-engine.ts` (`createAiMatch`). */
@@ -24,9 +25,8 @@ export function chronicleDuelistAvatar(
   name: string | undefined,
   sharedImages: Record<string, string> = {},
 ): string | undefined {
-  const uploaded = name
-    ? sharedImages[`avatar:${name.trim().toLowerCase()}`]
-    : undefined;
-  if (uploaded) return uploaded;
-  return isChronicleKeeper(name) ? CHRONICLE_KEEPER_PORTRAIT : undefined;
+  // The Keeper has no account, so only its exact key counts: a slug match would
+  // let a player who registers "ChronicleKeeper" put their face on the house AI.
+  if (isChronicleKeeper(name)) return sharedImages[`avatar:${CHRONICLE_KEEPER_NAME.toLowerCase()}`] || CHRONICLE_KEEPER_PORTRAIT;
+  return sharedAvatarFor(sharedImages, name) || undefined;
 }

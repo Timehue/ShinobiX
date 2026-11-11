@@ -1,3 +1,4 @@
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { useWorldMapScouts, scoutDotTitle } from "../lib/use-world-map-scouts";
 import { useFullScaleViewport } from "../lib/mobile-ui-scale";
 import { gainXp } from "../lib/character-level-projection";
@@ -4358,7 +4359,7 @@ function WorldMapContent({
                 tile: playerNameTile(p.name),
                 level: p.level,
                 sleeping: true,
-                avatar: sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '',
+                avatar: sharedAvatarFor(sharedImages, p.name) || (p.character.avatarImage as string) || '',
             }))
             : [];
         const activeHuntTrailForSector = isWildSector(selectedSector)
@@ -4542,7 +4543,7 @@ function WorldMapContent({
                             name: player.name,
                             level: player.level,
                             sleeping: Boolean(player.__sleeping),
-                            avatarImage: sharedImages['avatar:' + player.name.toLowerCase()] || (player.character.avatarImage as string) || '',
+                            avatarImage: sharedAvatarFor(sharedImages, player.name) || (player.character.avatarImage as string) || '',
                         }))}
                         sharedImages={sharedImages}
                         sleeperPeers={sleeperPeers}

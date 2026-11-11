@@ -1,3 +1,4 @@
+import { sharedAvatarFor } from "../../lib/shared-avatar";
 import { displayPlayerName } from "../../../../shared/player-name";
 import { useEmbeddedCombat } from '../../lib/use-embedded-combat';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
@@ -468,7 +469,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                     </div>
                     {!overview && [...peerTiles].map(([tile, occupants]) => {
                         const peer = occupants[0];
-                        const avatar = sharedImages[`avatar:${peer.name.toLowerCase()}`] || peer.character?.avatarImage;
+                        const avatar = sharedAvatarFor(sharedImages, peer.name) || peer.character?.avatarImage;
                         return <button key={tile} className="stronghold-peer" data-tile={tile} aria-label={`Inspect ${occupants.length > 1 ? `${occupants.length} shinobi` : displayPlayerName(peer.name)}`} title={`${displayPlayerName(peer.name)} · Lv ${peer.level}${peer.inBattle ? ' · In battle' : ''}`}
                             disabled={blocked || !!pending || overview} onClick={() => { stopWalk(); if (occupants.length > 1) setPlayersOpen(true); else setSelectedPeer(peer); }}
                             style={{ left: (tile % base.width + 0.5 + (tile === playerTile ? .4 : 0)) * tileSize, top: (Math.floor(tile / base.width) + 0.5 - (tile === playerTile ? .28 : 0)) * tileSize, width: Math.max(44, avatarSize), height: Math.max(44, avatarSize) }}>

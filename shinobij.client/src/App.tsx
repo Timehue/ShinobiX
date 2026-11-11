@@ -254,6 +254,7 @@ import { isBattleViewScreen, savedRunScreen, shouldHideBattleChrome } from "./li
 import { usePetHomeReturn, petHomeReturnLabel } from "./lib/pet-home-navigation";
 import { mergePlayerRoster, mergeRosterSnapshot } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
+import { sharedAvatarFor } from "./lib/shared-avatar";
 import { activeCarriedPets, isPresetAvatar } from "./lib/entitlements";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles } from "./lib/combat-ai";
@@ -3588,7 +3589,7 @@ export default function App() {
             if (!n) return false;
             const lower = n.toLowerCase();
             if (lower === (characterRef.current?.name ?? '').toLowerCase()) return false; // self: uses own field
-            return !sharedImages['avatar:' + lower];
+            return !sharedAvatarFor(sharedImages, n);
         });
         if (!missing) return;
         const now = Date.now();

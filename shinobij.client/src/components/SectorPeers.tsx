@@ -1,3 +1,4 @@
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { displayPlayerName } from "../../../shared/player-name";
 import { SectorPortrait } from "./SectorPortrait";
 import { GameIcon } from "./icons/GameIcon";
@@ -224,7 +225,7 @@ export function SectorPeersLive({ selectedSector, selfName, sharedImages, sleepe
             tile: safeSectorTile(selectedSector, typeof p.tile === "number" ? p.tile : playerNameTile(p.name)),
             level: p.level,
             sleeping: false,
-            avatar: sharedImages["avatar:" + p.name.toLowerCase()] || ((p.character?.avatarImage as string) || ""),
+            avatar: sharedAvatarFor(sharedImages, p.name) || ((p.character?.avatarImage as string) || ""),
         }));
     const liveNames = new Set(liveMarkers.map((m) => m.name.toLowerCase()));
     const peers = [...liveMarkers, ...sleepers.filter((s) => !liveNames.has(s.name.toLowerCase())).map(s => ({ ...s, tile: safeSectorTile(selectedSector, s.tile) }))];
