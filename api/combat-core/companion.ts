@@ -49,6 +49,9 @@ export type CompanionMove = {
     signatureMastery?: boolean;
     offenseMastery?: boolean;
     name: string;
+    /** A renamed kit slot keeps the cooldown it shared with the earlier slot
+     * (shared/pet-ability-progression.ts `cooldownKey`). Absent → `name`. */
+    cooldownKey?: string;
     kind: string;
     power: number;
     cooldown: number;
@@ -56,7 +59,12 @@ export type CompanionMove = {
     signature: boolean;
 };
 
-type PetJutsuLike = { name?: string; kind?: string; power?: number; cooldown?: number; rounds?: number; signature?: boolean; upgrade?: string };
+/** The key a companion move's cooldown is stored under. */
+export function companionCooldownKey(move: CompanionMove): string {
+    return move.cooldownKey || move.name;
+}
+
+type PetJutsuLike = { name?: string; cooldownKey?: string; kind?: string; power?: number; cooldown?: number; rounds?: number; signature?: boolean; upgrade?: string };
 type PetLike = {
     id?: string;
     templateId?: unknown;
@@ -133,6 +141,7 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
             ...(jutsu.signature && jutsu.upgrade === 'signature-mastery' ? { signatureMastery: true } : {}),
             ...(!jutsu.signature && jutsu.upgrade === 'offense-mastery' ? { offenseMastery: true } : {}),
             name: String(jutsu.name).slice(0, 40),
+            ...(typeof jutsu.cooldownKey === 'string' && jutsu.cooldownKey ? { cooldownKey: jutsu.cooldownKey.slice(0, 40) } : {}),
             kind: String(jutsu.kind ?? 'damage'),
             power: Math.max(0, Math.floor(Number(jutsu.power ?? 0)) || 0),
             cooldown: Math.max(['heal', 'shield', 'barrier', 'stun', 'freeze', 'movelock'].includes(String(jutsu.kind))
@@ -238,7 +247,7 @@ export function pickCompanionMove(
     needsCleanse = false,
     preparation?: { ordinaryActions: number; requiredActions: number },
 ): CompanionMove | null {
-    const ready = (move: CompanionMove) => Number(cooldowns[move.name] ?? 0) <= 0
+    const ready = (move: CompanionMove) => Number(cooldowns[companionCooldownKey(move)] ?? 0) <= 0
         && (!move.signature || !preparation || preparation.ordinaryActions >= preparation.requiredActions);
     if (needsCleanse) {
         const cleanse = moves.find(move => move.kind === 'cleanse' && ready(move));

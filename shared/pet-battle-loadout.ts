@@ -6,7 +6,7 @@ import { resolvePetAbilityProgression, type AuthoredPetAbility, type Progression
 type BattlePet = { id?: unknown; templateId?: unknown; evolutionStage?: unknown; rarity?: unknown; level?: unknown; rankedBuild?: unknown; battleLoadoutVersion?: unknown; jutsus?: unknown[] };
 export type PetBattleLoadoutOptions = { ruleset?: 'progression' | 'competitive-tactics'; forceProgression?: boolean };
 type ProgressionMove = Omit<TacticsMove, 'kind'> & { kind: string; signature?: boolean; rounds?: number; abilityId?: string; baseAbilityId?: string; unlockLevel?: number;
-    tier?: 'basic' | 'utility' | 'advanced' | 'signature'; upgrade?: 'utility-mastery' | 'offense-mastery' | 'signature-mastery'; restrained?: boolean };
+    tier?: 'basic' | 'utility' | 'advanced' | 'signature'; upgrade?: 'utility-mastery' | 'offense-mastery' | 'signature-mastery'; restrained?: boolean; cooldownKey?: string };
 
 /** Saved choices apply across progression battles. Earned abilities come from
  * the current form; outdated evolved builds use its eligible preset. */
@@ -62,6 +62,7 @@ export function petBattleJutsus<T>(pet: BattlePet & { jutsus?: T[] }, options: P
         ...(move.abilityId ? { abilityId: move.abilityId, baseAbilityId: move.baseAbilityId, unlockLevel: move.unlockLevel,
             tier: move.tier, upgrade: move.upgrade, restrained: move.restrained } : {}),
         name: move.name,
+        ...(move.cooldownKey !== undefined ? { cooldownKey: move.cooldownKey } : {}),
         kind: adventureKind(move.kind),
         power: move.power || 100,
         cooldown: move.cooldown,
@@ -102,7 +103,7 @@ function adventureKind(kind: string): BattleJutsu['kind'] {
 type BattleJutsu = {
     abilityId?: string; baseAbilityId?: string; unlockLevel?: number;
     tier?: 'basic' | 'utility' | 'advanced' | 'signature'; upgrade?: 'utility-mastery' | 'offense-mastery' | 'signature-mastery'; restrained?: boolean;
-    name: string; kind: 'damage' | 'buff' | 'heal' | 'debuff' | 'dot' | 'move' | 'barrier' | 'movelock'
+    name: string; cooldownKey?: string; kind: 'damage' | 'buff' | 'heal' | 'debuff' | 'dot' | 'move' | 'barrier' | 'movelock'
         | 'lifesteal' | 'shield' | 'absorb' | 'burn' | 'freeze' | 'confuse' | 'stun' | 'crush'
         | 'wound' | 'mark' | 'slow' | 'haste' | 'taunt' | 'push' | 'pull' | 'cleanse';
     power: number; cooldown: number; currentCooldown: number; rounds: number; signature?: boolean; aoe?: boolean;
