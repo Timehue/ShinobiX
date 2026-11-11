@@ -3571,7 +3571,7 @@ export default function App() {
     // ── Avatar cache-fill for live players ────────────────────────────────
     // The presence heartbeat no longer ships avatar data URLs (they were the
     // bulk of its egress). Instead the client resolves other players' avatars
-    // from sharedImages['avatar:<name>'], hydrated by loadCategory('avatar')
+    // from sharedImages via sharedAvatarFor, hydrated by loadCategory('avatar')
     // (which fetches the whole avatar bucket from /api/images?cat=avatar in one
     // CDN-cached request). That bucket is loaded at startup, but a player who
     // sets an avatar AFTER we loaded — or who joins mid-session — wouldn't be in
