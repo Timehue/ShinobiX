@@ -20,9 +20,9 @@ describe("sector gathering pool (client mirror)", () => {
     it("mirrors the server's default caps before any poll has landed, but flags them as NOT hydrated", () => {
         // KEEP IN SYNC with api/world/_sector-pool.ts. 1,500 explores = 15 maxed
         // players (100/day each) to drain a non-owner sector, 23 for the owning
-        // village; the 225 chest cap is 1,500 x the authored 0.15 chest rate.
-        assert.deepEqual(sectorPoolViewFor(66, "Leaf", "Sand"), { exploresUsed: 0, exploresCap: 1500, chestsUsed: 0, chestsCap: 225, hydrated: false });
-        assert.deepEqual(sectorPoolViewFor(66, "Leaf", "Leaf"), { exploresUsed: 0, exploresCap: 2250, chestsUsed: 0, chestsCap: 337, hydrated: false });
+        // village; the 250 chest cap is 1,500 x the authored 1/6 chest rate.
+        assert.deepEqual(sectorPoolViewFor(66, "Leaf", "Sand"), { exploresUsed: 0, exploresCap: 1500, chestsUsed: 0, chestsCap: 250, hydrated: false });
+        assert.deepEqual(sectorPoolViewFor(66, "Leaf", "Leaf"), { exploresUsed: 0, exploresCap: 2250, chestsUsed: 0, chestsCap: 375, hydrated: false });
     });
 
     it("counts an EMPTY pools payload as hydration — nobody gathered anywhere today", () => {

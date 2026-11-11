@@ -39,8 +39,8 @@ describe('sector exploration settlement', () => {
             let index = 0;
             return () => values[index++] ?? 0;
         };
-        assert.deepEqual(rollSectorExploreOutcome(sequence(0.149)), { kind: 'chest' });
-        assert.deepEqual(rollSectorExploreOutcome(sequence(0.15, 0.60)), { kind: 'battle' });
+        assert.deepEqual(rollSectorExploreOutcome(sequence(0.166)), { kind: 'chest' });
+        assert.deepEqual(rollSectorExploreOutcome(sequence(0.167, 0.60)), { kind: 'battle' });
         assert.deepEqual(rollSectorExploreOutcome(sequence(0.99, 0.70)), { kind: 'none' });
         assert.deepEqual(
             rollSectorExploreOutcome(sequence(0.01, 0.20), false),
@@ -119,6 +119,6 @@ describe('shared sector pool sizing against the explore ceilings', () => {
         // against a 75 cap, so roughly half of fully farmed sectors stranded
         // chests. The ratio must stay exact.
         assert.equal(SECTOR_EXPLORE_POOL_PER_DAY * SECTOR_EXPLORE_CHEST_CHANCE, SECTOR_CHEST_POOL_PER_DAY);
-        assert.equal(SECTOR_CHEST_POOL_PER_DAY, 225);
+        assert.equal(SECTOR_CHEST_POOL_PER_DAY, 250); // 1,500 × 1/6 since the 2026-11 chest bump
     });
 });

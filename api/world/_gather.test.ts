@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sectorExplorePostChestRates, rollSectorExploreOutcome, applySectorExploreReward } from './_explore.js';
+import { sectorExplorePostChestRates, rollSectorExploreOutcome, applySectorExploreReward, SECTOR_EXPLORE_CHEST_CHANCE } from './_explore.js';
 import { sealGatherFind, applyGatherClaim } from './_gather.js';
 import { BIOME_GATHER_IDS, COMMON_GATHER_IDS, GATHER_RECIPE_INGREDIENTS, gatherYield } from '../../shared/gathering.js';
 import { PLAYABLE_WILD_SECTOR_IDS, sectorBiomeOf } from '../../shared/sector-geo.js';
@@ -21,11 +21,11 @@ for (const level of [1, 49, 50, 100]) for (const chest of [true, false]) test(`e
     close(r.gather*r.d,0.20);
     close(r.battle*r.d,0.8*r.d-0.15);
     close(r.quiet*r.d,0.2*r.d-0.05);
-    close((level>=50 ? 0.02 : 0)+(level>=50 ? 0.98 : 1)*WILD_HIT_CEILING+r.survival*(chest?0.15:0)+r.d,1);
+    close((level>=50 ? 0.02 : 0)+(level>=50 ? 0.98 : 1)*WILD_HIT_CEILING+r.survival*(chest?SECTOR_EXPLORE_CHEST_CHANCE:0)+r.d,1);
     for (const [roll,kind] of [[0,'battle'],[r.battle-1e-10,'battle'],[r.battle,'none'],[r.battle+r.quiet-1e-10,'none'],[r.battle+r.quiet,'gather'],[0.99999,'gather']] as const) {
         const seq=[0.9,roll]; assert.equal(rollSectorExploreOutcome(()=>seq.shift()!,chest,level).kind,kind);
     }
-    for (const [roll,kind] of [[0.15-1e-10,chest?'chest':'battle'],[0.15,'battle']] as const) {
+    for (const [roll,kind] of [[SECTOR_EXPLORE_CHEST_CHANCE-1e-10,chest?'chest':'battle'],[SECTOR_EXPLORE_CHEST_CHANCE,'battle']] as const) {
         const seq=[roll,0]; assert.equal(rollSectorExploreOutcome(()=>seq.shift()!,chest,level).kind,kind);
     }
 });

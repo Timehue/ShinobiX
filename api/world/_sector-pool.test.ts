@@ -63,7 +63,7 @@ async function seedPool(explores: number, chests: number, now = NOW) {
 describe('shared sector gathering pool', () => {
     it('is generous by default and sized above the per-player ceilings', () => {
         assert.equal(pool.SECTOR_EXPLORE_POOL_PER_DAY, 1500);
-        assert.equal(pool.SECTOR_CHEST_POOL_PER_DAY, 225);
+        assert.equal(pool.SECTOR_CHEST_POOL_PER_DAY, 250);
         assert.equal(pool.OWNER_VILLAGE_POOL_BONUS, 0.5);
         assert.equal(pool.sectorPoolKey(SECTOR, NOW), 'world:sector-pool:66:2026-08-22');
     });
@@ -84,13 +84,13 @@ describe('shared sector gathering pool', () => {
         // Chest pool is an independent counter on the same row.
         const chest = await pool.reserveSectorPool(SECTOR, 'chests', 'Leaf', NOW);
         assert.equal(chest.ok, true);
-        assert.equal(chest.cap, 225);
+        assert.equal(chest.cap, 250);
         assert.deepEqual(pool.cleanSectorPoolRow(await kv.get(pool.sectorPoolKey(SECTOR, NOW))), { explores: 1500, chests: 1 });
     });
 
     it('gives the owning village a 50% larger pool, and only that village', async () => {
         await kv.set(`world:territory:${SECTOR}`, { sector: SECTOR, ownerVillage: 'Leaf', ownerClan: 'Roots' });
-        await seedPool(1500, 225);
+        await seedPool(1500, 250);
         const outsider = await pool.reserveSectorPool(SECTOR, 'explores', 'Sand', NOW);
         assert.equal(outsider.ok, false);
         assert.equal(outsider.cap, 1500);
@@ -99,13 +99,13 @@ describe('shared sector gathering pool', () => {
         assert.equal(owner.cap, 2250);
         const ownerChest = await pool.reserveSectorPool(SECTOR, 'chests', 'Leaf', NOW);
         assert.equal(ownerChest.ok, true);
-        assert.equal(ownerChest.cap, 337);
+        assert.equal(ownerChest.cap, 375);
         const view = await pool.readSectorPool(SECTOR, 'Sand', NOW);
-        assert.deepEqual(view, { exploresUsed: 1501, exploresCap: 1500, chestsUsed: 226, chestsCap: 225 });
+        assert.deepEqual(view, { exploresUsed: 1501, exploresCap: 1500, chestsUsed: 251, chestsCap: 250 });
     });
 
     it('rolls over at the UTC day boundary', async () => {
-        await seedPool(1500, 225);
+        await seedPool(1500, 250);
         const refused = await pool.reserveSectorPool(SECTOR, 'explores', undefined, NOW);
         assert.equal(refused.ok, false);
         const tomorrow = await pool.reserveSectorPool(SECTOR, 'explores', undefined, NOW + DAY_MS);
@@ -113,7 +113,7 @@ describe('shared sector gathering pool', () => {
         assert.equal(tomorrow.used, 1);
         const usage = await pool.readAllSectorPoolUsage(NOW + DAY_MS);
         assert.deepEqual(usage, { [SECTOR]: { explores: 1, chests: 0 } });
-        assert.deepEqual(await pool.readAllSectorPoolUsage(NOW), { [SECTOR]: { explores: 1500, chests: 225 } });
+        assert.deepEqual(await pool.readAllSectorPoolUsage(NOW), { [SECTOR]: { explores: 1500, chests: 250 } });
     });
 
     it('serializes concurrent reservations: two racing at cap-1 admit exactly one', async () => {
@@ -144,7 +144,7 @@ describe('shared sector gathering pool', () => {
     });
 
     it('reports no room once a frame snapshot is at the cap', async () => {
-        await seedPool(1500, 225);
+        await seedPool(1500, 250);
         const frame = await pool.loadSectorPoolFrame(SECTOR, NOW);
         assert.equal(pool.sectorPoolHasRoom(frame, 'explores', undefined), false);
         assert.equal(pool.sectorPoolHasRoom(frame, 'chests', undefined), false);
@@ -230,7 +230,7 @@ describe('explore and chest settle against the shared sector pool', () => {
         const sectorPool = paid.body?.sectorPool as Record<string, number>;
         assert.equal(sectorPool.exploresUsed, 1);
         assert.equal(sectorPool.exploresCap, 1500);
-        assert.equal(sectorPool.chestsCap, 225);
+        assert.equal(sectorPool.chestsCap, 250);
         // The payout itself depends on the (random) outcome — a discovered chest
         // defers its loot to open-chest — so prove settlement via the per-player
         // counter, which advances for every admitted tile regardless of outcome.
@@ -276,11 +276,11 @@ describe('explore and chest settle against the shared sector pool', () => {
         });
         // A chest sealed by the new explore path already paid the pool at
         // discovery, so opening must NOT debit it a second time.
-        await kv.set(pool.sectorPoolKey(SECTOR, Date.now()), { explores: 0, chests: 225 });
+        await kv.set(pool.sectorPoolKey(SECTOR, Date.now()), { explores: 0, chests: 250 });
         const opened = await post(openChest, player, { sector: SECTOR, requestId: 'poolchestop00001', worldExploreRequestId: 'poolchestdisc0001' });
         assert.equal(opened.statusCode, 200, 'a pool-reserved chest opens at the cap');
-        assert.equal((opened.body?.sectorPool as Record<string, number>).chestsUsed, 225, 'and takes no second slot');
-        assert.equal((opened.body?.sectorPool as Record<string, number>).chestsCap, 225);
+        assert.equal((opened.body?.sectorPool as Record<string, number>).chestsUsed, 250, 'and takes no second slot');
+        assert.equal((opened.body?.sectorPool as Record<string, number>).chestsCap, 250);
         const ryoAfterFirst = await ryoOf(player);
         assert.ok(ryoAfterFirst > 0);
 
@@ -317,7 +317,7 @@ describe('explore and chest settle against the shared sector pool', () => {
         await seedPlayer(player);
         const token = 'petpooltoken0001';
         await kv.set(`pet-encounter:${player}:${token}`, { playerName: player, token, sector: SECTOR, mintedAt: Date.now(), pet: { id: 'wolf' } });
-        await kv.set(pool.sectorPoolKey(SECTOR, Date.now()), { explores: 1500, chests: 225 });
+        await kv.set(pool.sectorPoolKey(SECTOR, Date.now()), { explores: 1500, chests: 250 });
         const settled = await post(explore, player, {
             sector: SECTOR, requestId: 'poolexternal0001', credit: 'tile',
             externalOutcomeProof: { kind: 'pet', token },
@@ -326,7 +326,7 @@ describe('explore and chest settle against the shared sector pool', () => {
         assert.equal((settled.body?.outcome as Record<string, unknown>)?.kind, 'external');
         assert.deepEqual(
             pool.cleanSectorPoolRow(await kv.get(pool.sectorPoolKey(SECTOR, Date.now()))),
-            { explores: 1500, chests: 225 },
+            { explores: 1500, chests: 250 },
             'and the exempt settle takes no slot rather than over-drawing the pool',
         );
         const save = await kv.get<{ character: Record<string, unknown> }>(`save:${player}`);
@@ -361,14 +361,14 @@ describe('explore and chest settle against the shared sector pool', () => {
         // and never minting a chest the pool cannot back.
         const spent = 'poolplayerspent';
         await seedPlayer(spent);
-        await kv.set(pool.sectorPoolKey(SECTOR, Date.now()), { explores: 0, chests: 225 });
+        await kv.set(pool.sectorPoolKey(SECTOR, Date.now()), { explores: 0, chests: 250 });
         for (let i = 0; i < 40; i++) {
             const out = await post(explore, spent, { sector: SECTOR, requestId: `poolspent000${String(i).padStart(4, '0')}`, credit: 'full' });
             assert.equal(out.statusCode, 200, 'a chest-spent sector still explores');
             assert.notEqual((out.body?.outcome as Record<string, unknown> | undefined)?.kind, 'chest');
         }
         assert.equal(
-            pool.cleanSectorPoolRow(await kv.get(pool.sectorPoolKey(SECTOR, Date.now()))).chests, 225,
+            pool.cleanSectorPoolRow(await kv.get(pool.sectorPoolKey(SECTOR, Date.now()))).chests, 250,
             'and the chest pool never over-draws',
         );
     });
@@ -387,7 +387,7 @@ describe('explore and chest settle against the shared sector pool', () => {
         });
         // A pool that is already at BOTH caps: with the feature on, the explore
         // below would be refused 409 and the legacy chest would over-draw.
-        await seedPool(1500, 225);
+        await seedPool(1500, 250);
         process.env.DISABLE_VILLAGE_STORES = '1';
 
         const explored = await post(explore, player, { sector: SECTOR, requestId: 'pooldisabled00001', credit: 'full' });
@@ -400,7 +400,7 @@ describe('explore and chest settle against the shared sector pool', () => {
 
         assert.deepEqual(
             pool.cleanSectorPoolRow(await kv.get(pool.sectorPoolKey(SECTOR, NOW))),
-            { explores: 1500, chests: 225 },
+            { explores: 1500, chests: 250 },
             'no reservation and no release touched the row',
         );
         const save = await kv.get<{ character: Record<string, unknown> }>(`save:${player}`);

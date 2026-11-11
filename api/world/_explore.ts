@@ -6,12 +6,16 @@ import { WILD_HIT_CEILING } from '../pet/_encounter.js';
 export const DAILY_SECTOR_EXPLORE_LIMIT = 100;
 
 /**
- * Authored chance an admitted tile turns up an Ancient Chest. Exported because
+ * Authored chance an admitted tile turns up an Ancient Chest (of tiles that
+ * survive the pet probe). Owner rebalance 2026-11: 0.15 -> 1/6 so the 1.9
+ * points the wild-pet probe gave up (5.9% -> 4%) land on chests: overall
+ * chest share at level < 50 goes 0.941 × 0.15 = 14.1% -> 0.96 × 1/6 = 16.0%,
+ * and the battle/quiet/gather tail is unchanged (d stays 0.80). Exported because
  * the shared sector pool is sized against it: SECTOR_CHEST_POOL_PER_DAY must be
  * SECTOR_EXPLORE_POOL_PER_DAY × this, or the chest pool becomes the binding
  * constraint and fully-farmed sectors strand chests (api/world/_sector-pool.ts).
  */
-export const SECTOR_EXPLORE_CHEST_CHANCE = 0.15;
+export const SECTOR_EXPLORE_CHEST_CHANCE = 1 / 6;
 
 import type { PendingGatherFind } from '../../shared/gathering.js';
 import type { OrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
@@ -48,8 +52,8 @@ export function rollSectorExploreOutcome(
 }
 
 /** Move exactly 15 and 5 overall percentage points after earlier probes: the
- *  level-50 dungeon probe (2%), then the wild-pet probe (WILD_HIT_CEILING, 5.9%
- *  since the 2026-10 rare-band change). */
+ *  level-50 dungeon probe (2%), then the wild-pet probe (WILD_HIT_CEILING, 4%
+ *  since the 2026-11 rebalance). */
 export function sectorExplorePostChestRates(level: number, chestAvailable: boolean) {
     const petSurvival = 1 - WILD_HIT_CEILING;
     const survival = level >= 50 ? 0.98 * petSurvival : petSurvival;
