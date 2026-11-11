@@ -7,6 +7,7 @@ import {
   type ChronicleActionIntent,
 } from "../../shared/chronicle-duel";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
+import { clickWithPendingDiagnostics } from "./helpers/pending-click-diagnostics";
 import {
   expectUiAuditBoot,
   installUiAuditRuntime,
@@ -365,7 +366,7 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
    duel actually turns on were never measured: the Snare response dock, attack
    targeting with its battle preview, and the result. */
 for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 768 }]) {
-  test(`Snare response, battle preview and result stay usable at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`Snare response, battle preview and result stay usable at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.setViewportSize(viewport);
@@ -446,9 +447,13 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 768 
       expect(box).not.toBeNull();
       expectContained({ ...box!, top: box!.y, left: box!.x, right: box!.x + box!.width, bottom: box!.y + box!.height }, viewport, "Snare response dock");
     }).toPass({ timeout: 10_000 });
-    await dock.getByRole("button", { name: "Pass · Continue" }).click();
+    await clickWithPendingDiagnostics(dock.getByRole("button", { name: "Pass · Continue" }), testInfo, {
+      stage: "snare-pass", locatorDescription: "Snare response: Pass · Continue", moves,
+    });
 
-    await page.getByRole("button", { name: /Choose attacker in your Monster Zone 1/ }).click();
+    await clickWithPendingDiagnostics(page.getByRole("button", { name: /Choose attacker in your Monster Zone 1/ }), testInfo, {
+      stage: "choose-attacker", locatorDescription: "Choose attacker in your Monster Zone 1", moves,
+    });
     const target = page.getByRole("button", { name: /Attack opponent Monster Zone 1: Training Dummy/ });
     await expect(target).toBeVisible();
     const preview = page.locator("#chronicle-target-preview-0");
@@ -459,7 +464,9 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1366, height: 768 
       expect(box).not.toBeNull();
       expectContained({ ...box!, top: box!.y, left: box!.x, right: box!.x + box!.width, bottom: box!.y + box!.height }, viewport, "battle preview");
     }).toPass({ timeout: 10_000 });
-    await target.click();
+    await clickWithPendingDiagnostics(target, testInfo, {
+      stage: "attack-target", locatorDescription: "Attack opponent Monster Zone 1: Training Dummy", moves,
+    });
 
     await expect(page.getByRole("heading", { name: "Victory" })).toBeVisible({ timeout: 15_000 });
     expect(moves).toEqual(["pass-response", "attack"]);
