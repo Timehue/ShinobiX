@@ -23,6 +23,7 @@
  * fallback; the surfaces subscribe. Renderer-only — no network, no saves.
  */
 import { useSyncExternalStore } from "react";
+import { sharedAvatarFor } from "./shared-avatar";
 
 let ownAvatarFallback = "";
 const subscribers = new Set<() => void>();
@@ -62,9 +63,7 @@ export function resolveOwnAvatar(
     character: { name?: string; avatarImage?: string } | null | undefined,
     sharedImages: Record<string, string> | undefined,
 ): string {
-    if (character?.avatarImage) return character.avatarImage;
-    const name = (character?.name ?? "").trim().toLowerCase();
-    return (name && sharedImages?.["avatar:" + name]) || "";
+    return character?.avatarImage || sharedAvatarFor(sharedImages, character?.name);
 }
 
 /** Test seam / non-React readers. */

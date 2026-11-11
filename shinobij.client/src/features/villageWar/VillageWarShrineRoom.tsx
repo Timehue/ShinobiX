@@ -5,6 +5,7 @@ import type { Character, VersionedCharacterCommit } from '../../types/character'
 import { campaignRequest, type CampaignBattle, type CampaignResponse } from '../../lib/village-war-campaign';
 import { visiblePoll } from '../../lib/poll';
 import { resolveOwnAvatar } from '../../lib/own-avatar';
+import { sharedAvatarFor } from '../../lib/shared-avatar';
 import { onShrineFloor, shrineKeyStep, shrineTileToward, useHeldMovementKey } from '../../lib/held-movement-keys';
 import { formatPetTimer } from '../../lib/utils';
 import './war-shrine-room.css';
@@ -122,9 +123,10 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
                 disabled={busy || closed || !me || !onShrineFloor(tile)}
                 onClick={() => void walkTo(tile)} />)}</div>
             {room?.players.map((player, i) => { const tile = player === me ? stepping ?? player.tile : player.tile;
+                const portrait = player === me ? avatar : sharedAvatarFor(sharedImages, player.displayName);
                 return <span key={player.name} className={`war-shrine-player ${player.village === character.village ? 'is-ally' : 'is-enemy'}`}
                 style={{ left: `${((tile % 12 + .5) / 12) * 100}%`, top: `${((Math.floor(tile / 12) + .5) / 12) * 100}%`, transform: `translate(-50%, -50%) translateX(${i * 6}px)` }}>
-                {player === me && avatar ? <img src={avatar} alt='' /> : <b>{player.displayName.slice(0, 2).toUpperCase()}</b>}
+                {portrait ? <img src={portrait} alt='' /> : <b>{player.displayName.slice(0, 2).toUpperCase()}</b>}
                 <small>{player === me ? 'You' : player.displayName}</small></span>; })}
         </div>
         <aside aria-label='Shrine control'><p className='war-shrine-input-hint'>Select a tile, or move with WASD or the arrow keys.</p>

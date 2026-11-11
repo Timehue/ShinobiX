@@ -20,6 +20,7 @@
  * first pass grants the pet and advances to the companion's village arrival;
  * that short second pass advances to "training" and unmounts the overlay.
  */
+import { sharedAvatarFor } from "../../lib/shared-avatar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Character } from "../../App";
@@ -144,7 +145,7 @@ export function IntroCinematic({
     const vowResponseLines = useMemo(() => buildVowResponseLines(vow), [vow]);
     const postLines = useMemo(() => buildPostGiftLines(character.village, vow), [character.village, vow]);
     const playerAvatar = character.avatarImage
-        || sharedImages[`avatar:${character.name.trim().toLowerCase()}`]
+        || sharedAvatarFor(sharedImages, character.name)
         || "";
     const line: CinematicLine | null =
         phase.kind === "dialogue"

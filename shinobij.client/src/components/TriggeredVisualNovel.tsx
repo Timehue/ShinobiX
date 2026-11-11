@@ -7,6 +7,7 @@
  * the App monolith or unrelated screen code into the type graph.
  */
 
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Character, StoryChoiceReceipt, StoryCursor } from "../types/character";
 import type { CreatorEvent } from "../types/vn";
@@ -34,7 +35,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
     // shared image store). Resolve once via the same path the Tavern uses:
     // shared store first, then the character's own field.
     const playerAvatar =
-        (sharedImages?.['avatar:' + character.name.trim().toLowerCase()]) ||
+        sharedAvatarFor(sharedImages, character.name) ||
         character.avatarImage ||
         "";
     // %name / %pet substitution vars, resolved once per render.

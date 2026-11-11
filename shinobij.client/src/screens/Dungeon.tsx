@@ -1,3 +1,4 @@
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import "../styles/pet-battle-theme.css";
 import { useState, useCallback, useRef, useEffect, lazy, Suspense } from "react";
 import type { Character } from "../types/character";
@@ -82,7 +83,7 @@ export function DungeonEncounter({
     const parsedLine = page.lines?.[lineIndex] ?? splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
     const speaker = applyVnTextVars(parsedLine.speaker, textVars);
     const spoken = applyVnTextVars(parsedLine.text, textVars);
-    const playerAvatar = sharedImages['avatar:' + character.name.trim().toLowerCase()] || character.avatarImage || '';
+    const playerAvatar = sharedAvatarFor(sharedImages, character.name) || character.avatarImage || '';
     const speakerKey = speaker.trim().toLowerCase();
     const playerSpeaking = ['player', character.name.trim().toLowerCase()].includes(speakerKey);
     const pageActor = page.rightName?.toLowerCase() === 'player' ? page.leftName : page.rightName;

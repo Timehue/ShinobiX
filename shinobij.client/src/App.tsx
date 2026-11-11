@@ -3608,7 +3608,7 @@ export default function App() {
     // them the same name-keyed fallback every other render site uses — see
     // lib/own-avatar.ts.
     useEffect(() => {
-        setOwnAvatarFallback(sharedImages['avatar:' + (character?.name ?? '').toLowerCase()]);
+        setOwnAvatarFallback(sharedAvatarFor(sharedImages, character?.name));
     }, [character?.name, sharedImages]);
 
     // Keep a fresh reference to ensureAvatarsCached so the presence-store prefetch
@@ -5232,7 +5232,7 @@ export default function App() {
             {character && <Suspense fallback={null}>
                 <IncomingChallengeModal
                     challenges={duelChallenges}
-                    selfName={character.name}
+                    selfName={character.name} sharedImages={sharedImages}
                     processingIds={processingChallengeIds}
                     onAccept={(c) => {
                         if (c.mode === "clanWarPet" || c.mode === "rankedPet") void acceptPetChallengeGlobal(c);

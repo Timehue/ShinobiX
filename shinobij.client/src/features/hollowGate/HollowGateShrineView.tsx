@@ -17,6 +17,7 @@
  * must not cover its continuous rock, passage art and lighting. Assigned
  * content icons remain available in every run.
  */
+import { sharedAvatarFor } from "../../lib/shared-avatar";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "../../styles/index/33-hollow-gate-cinematic.css";
 import "../../styles/index/29-clan-exchange-storefront.css";
@@ -684,7 +685,7 @@ export function HollowGateShrineView({
                                         tileX={run.playerX}
                                         tileY={run.playerY}
                                         tilePx={tilePx}
-                                        avatarImage={character.avatarImage || sharedImages[`avatar:${character.name.toLowerCase()}`] || cellArt.pickRoleIconImage("you", 0)}
+                                        avatarImage={character.avatarImage || sharedAvatarFor(sharedImages, character.name) || cellArt.pickRoleIconImage("you", 0)}
                                         name={character.name}
                                     />
                                     </div>

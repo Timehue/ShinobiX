@@ -1,3 +1,4 @@
+import { useOwnAvatar } from "../lib/own-avatar";
 import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { profileActivityProgress } from "../lib/profile-activity-progress";
@@ -86,6 +87,7 @@ export function Profile({
     onSaveBloodlines: (bloodlines: SavedBloodline[], character?: Character) => Promise<void>;
 }) {
     const legacyAvailable = useLegacyAvailability();
+    const ownAvatar = useOwnAvatar(character);
     const legacyActionsAvailable = useLegacyMutationAvailability();
     const { mutationAvailability } = useLiveCapabilities();
     const [feedingAura, setFeedingAura] = useState(false);
@@ -701,7 +703,7 @@ export function Profile({
             <div className={visibleMobileTab !== 'overview' ? 'profile-tab-hidden' : ''}>
             <ShinobiIdentityCard
                 character={character}
-                avatarSrc={character.avatarImage}
+                avatarSrc={ownAvatar}
                 avatarClassName={auraBonuses.avatarAura ? "aura-sphere-avatar" : ""}
                 bloodlineName={equippedBloodline?.name || character.bloodline}
                 elements={ownedElements}

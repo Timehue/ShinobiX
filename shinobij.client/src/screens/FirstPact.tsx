@@ -1,3 +1,4 @@
+import { resolveOwnAvatar } from '../lib/own-avatar';
 import { FirstPactCrossingPanel } from './first-pact/FirstPactCrossingPanel';
 import { firstPactEpilogue, firstPactReactiveDialogue, mainQuestCopy, questCopy, type FirstPactPostgameChoice } from './first-pact/narrative';
 import {
@@ -4390,6 +4391,7 @@ export function FirstPact({
     const visualQaPreview = window.location.pathname.endsWith("/firstpactpreview.html");
     const criticCapture = visualQaPreview
         && new URLSearchParams(window.location.search).get("capture") === "critic";
+    const ownAvatar = resolveOwnAvatar(character, sharedImages);
     const viewportRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const minimapRef = useRef<HTMLCanvasElement>(null);
@@ -6205,8 +6207,8 @@ export function FirstPact({
                     >
                         <span className="fp-actor-shadow" />
                         <span className="fp-player-body">
-                            {character.avatarImage
-                                ? <img src={character.avatarImage} alt="" />
+                            {ownAvatar
+                                ? <img src={ownAvatar} alt="" />
                                 : <i>{character.name.slice(0, 2).toUpperCase()}</i>}
                         </span>
                         <span className="fp-actor-pin" />
@@ -6277,8 +6279,8 @@ export function FirstPact({
                     >
                         <span className="fp-actor-shadow" />
                         <span className="fp-player-body">
-                            {character.avatarImage
-                                ? <img src={character.avatarImage} alt="" />
+                            {ownAvatar
+                                ? <img src={ownAvatar} alt="" />
                                 : <i>{character.name.slice(0, 2).toUpperCase()}</i>}
                         </span>
                         <span className="fp-actor-pin" />
