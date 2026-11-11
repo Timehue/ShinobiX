@@ -37,6 +37,11 @@ test('status and disabled reasons come from the existing travel and battle evalu
     assert.deepEqual(rows.map(p=>[p.name,p.status,p.actionDisabled]),[['Busy','Fighting',true],['Moving','Traveling',true],['Ready','Ready',false],['Rest','Sleeping',false]]);
     assert.match(rows[0].disabledReason!,/fighting/);
 });
+test('a spaced-name player keeps their portrait under either avatar key spelling',()=>{
+    const rows=roster([player('Kaede Morrow')]);
+    assert.equal(projectSectorPlayers(rows,{...options,images:{'avatar:kaede morrow':'data:name'}})[0].avatarSrc,'data:name');
+    assert.equal(projectSectorPlayers(rows,{...options,images:{'avatar:kaedemorrow':'data:slug'}})[0].avatarSrc,'data:slug');
+});
 test('contest labels and admission belong to the controller; bystanders keep normal attacks',()=>{
     const contest={id:'test-war',sector:22,winCondition:'card' as const,attackerVillage:'Stormveil Village',defenderVillage:'Ashen Leaf Village',endsAt:Date.now()+60_000};
     const rows=projectSectorPlayers(roster([player('Enemy'),player('Bystander',{village:'Frostfang Village'})]),{...options,contest,contestBlockedReason:'Contest unavailable'});

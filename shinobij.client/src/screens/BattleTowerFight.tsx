@@ -89,6 +89,7 @@ import { clanBossAssaultResult, clanBossSettlementError } from "../lib/clan-boss
 import { settleWorldBossEvent } from "../lib/world-boss-event-api";
 import { worldBossDefinition, worldBossDefinitionForVisual } from "../../../shared/world-boss-event";
 import { resolveOwnAvatar } from "../lib/own-avatar";
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { visiblePoll } from "../lib/poll";
 import { isRealtimeConnected, onStatus, onTowerKick } from "../lib/presence-socket";
 import { spireFloorMeta, SPIRE_SHARDS_PER_TIER } from "../lib/spire-catalog";
@@ -1477,8 +1478,10 @@ export function BattleTowerFight({
         }
     }
 
+    /** Another player's portrait: their sealed one, else the shared bucket by name or account. */
     function playerAvatarFor(a: TowerActor): string {
-        return resolveOwnAvatar({ name: a.name, avatarImage: typeof a.character?.avatarImage === "string" ? a.character.avatarImage : undefined }, sharedImages);
+        const sealed = a.character?.avatarImage;
+        return (typeof sealed === "string" && sealed) || sharedAvatarFor(sharedImages, a.name) || sharedAvatarFor(sharedImages, a.ownerSlug);
     }
     /** The board's own art for this enemy, unless that art is only the generic rival. */
     function bundledEnemySprite(a: TowerActor): string | null {

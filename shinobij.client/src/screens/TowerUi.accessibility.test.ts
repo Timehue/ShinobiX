@@ -82,7 +82,8 @@ test("Team Arena ready checks expire safely and transfer focus between timed sta
 
 test("Team PvP presentation keeps live-player art and hides disabled consumable actions", () => {
     assert.match(fight, /if \(isTeamPvp\) \{\s*const portrait = playerAvatarFor\(a\);\s*if \(portrait\) return portrait;/);
-    assert.match(fight, /resolveOwnAvatar\(\{ name: a\.name, avatarImage: typeof a\.character\?\.avatarImage === "string" \? a\.character\.avatarImage : undefined \}, sharedImages\)/);
+    // A live player's sealed portrait first, then the shared bucket by name or account.
+    assert.match(fight, /const sealed = a\.character\?\.avatarImage;\s*return \(typeof sealed === "string" && sealed\) \|\| sharedAvatarFor\(sharedImages, a\.name\) \|\| sharedAvatarFor\(sharedImages, a\.ownerSlug\)/);
     assert.match(fight, /isNarrativeGroup && typeof sealed === "string" && sealed/);
     assert.match(fight, /isTeamPvp && a\.ai === false\) return false/);
     assert.match(fight, /isTeamPvp && a\.ai === false\) return roleDefenderFallback/);

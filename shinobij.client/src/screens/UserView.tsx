@@ -11,6 +11,7 @@
  * Extracted from App.tsx.
  */
 
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { displayPlayerName } from "../../../shared/player-name";
 import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { ReportControl } from "../components/ReportControl";
@@ -139,7 +140,7 @@ export function UserView({
 
     const equippedBloodline = savedBloodlines.find(b => b.id === viewedCharacter.equippedBloodlineId);
     const ownedElements = getCharacterElements(viewedCharacter);
-    const sharedAvatar = sharedImages['avatar:' + viewingName.toLowerCase()];
+    const sharedAvatar = sharedAvatarFor(sharedImages, viewingName);
     const avatar = sharedAvatar || viewedCharacter.avatarImage || "";
 
     const isSelf = lower === viewerCharacter.name.toLowerCase();

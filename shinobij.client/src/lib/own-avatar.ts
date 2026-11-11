@@ -4,8 +4,8 @@
  * Avatars live in the shared image bucket under `avatar:<name>`; the client
  * hydrates that into `character.avatarImage` once loadCategory('avatar') lands.
  * Almost every surface that draws a portrait (world map, tavern, user hub,
- * roster, VN stage, Chronicle board, sector peers) reads
- * `sharedImages['avatar:<name>']` FIRST and only falls back to the character
+ * roster, VN stage, Chronicle board, sector peers) reads the shared bucket
+ * (other players through lib/shared-avatar.ts) FIRST and only falls back to the character
  * field — see the invariant documented in lib/presence-character.ts, which is
  * why the presence heartbeat is allowed to drop the avatar entirely.
  *
@@ -23,6 +23,7 @@
  * fallback; the surfaces subscribe. Renderer-only — no network, no saves.
  */
 import { useSyncExternalStore } from "react";
+import { sharedAvatarFor } from "./shared-avatar";
 
 let ownAvatarFallback = "";
 const subscribers = new Set<() => void>();
@@ -62,9 +63,7 @@ export function resolveOwnAvatar(
     character: { name?: string; avatarImage?: string } | null | undefined,
     sharedImages: Record<string, string> | undefined,
 ): string {
-    if (character?.avatarImage) return character.avatarImage;
-    const name = (character?.name ?? "").trim().toLowerCase();
-    return (name && sharedImages?.["avatar:" + name]) || "";
+    return character?.avatarImage || sharedAvatarFor(sharedImages, character?.name);
 }
 
 /** Test seam / non-React readers. */

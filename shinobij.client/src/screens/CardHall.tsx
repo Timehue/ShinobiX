@@ -1,3 +1,4 @@
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { Collection, DeckBuilder } from "../components/ChronicleCardLibrary";
 import { ChroniclePackGallery } from "../components/ChroniclePackGallery";
 import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
@@ -690,7 +691,7 @@ function CardHallInner({
               cardsById={cardsById}
               playerAvatar={
                 character.avatarImage ||
-                sharedImages[`avatar:${character.name.toLowerCase()}`]
+                sharedAvatarFor(sharedImages, character.name)
               }
               opponentAvatar={chronicleDuelistAvatar(
                 duel[duel.viewerSide === "p1" ? "p2" : "p1"].name,

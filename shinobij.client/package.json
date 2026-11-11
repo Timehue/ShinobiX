@@ -21,6 +21,7 @@
     "build:dojo-qa": "vite build --config scripts/vite.dojo-qa.config.mjs --configLoader runner",
     "test:e2e:dojo-circuit": "playwright test -c playwright.dojo-circuit.config.ts",
     "test:e2e:live": "node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live.config.ts",
+    "test:e2e:live:realtime": "node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.live-realtime.config.ts",
     "test:e2e:combat-layout": "node --import tsx ./node_modules/@playwright/test/cli.js test -c playwright.combat-layout.config.ts",
     "test:e2e:visual": "playwright test -c playwright.visual.config.ts",
     "test:e2e:visual:update": "playwright test -c playwright.visual.config.ts --update-snapshots",

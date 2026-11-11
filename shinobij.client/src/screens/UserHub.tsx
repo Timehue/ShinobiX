@@ -11,6 +11,7 @@
  * monolith and re-enable React Fast Refresh on this screen.
  */
 
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { useState, useEffect, useMemo, useRef, type FormEvent } from "react";
 import "../styles/profile-skin.css";
 import type { PlayerRecord, ServerPlayerSummary } from "../types/character";
@@ -347,7 +348,7 @@ function UserHubRow({ p, sharedImages, timeAgo, onSelect, tab, isFollowed, onTog
     onRemoveFriend: (name: string) => Promise<void>;
     onUnblock: (name: string, value: boolean) => Promise<void>;
 }) {
-    const sharedAvatar = sharedImages['avatar:' + p.name.toLowerCase()];
+    const sharedAvatar = sharedAvatarFor(sharedImages, p.name);
     const avatar = sharedAvatar || p.avatar || "";
     return (
         <div

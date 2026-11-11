@@ -30,6 +30,11 @@ describe("resolveOwnAvatar", () => {
         assert.equal(resolveOwnAvatar({ name: "SLOTH" }, SHARED), REF);
     });
 
+    it("finds a spaced name's portrait under either key spelling", () => {
+        assert.equal(resolveOwnAvatar({ name: "Kaede Morrow" }, { "avatar:kaede morrow": REF }), REF);
+        assert.equal(resolveOwnAvatar({ name: "Kaede Morrow" }, { "avatar:kaedemorrow": REF }), REF);
+    });
+
     it("returns empty (so the caller draws initials) when neither source has one", () => {
         assert.equal(resolveOwnAvatar({ name: "Nobody" }, SHARED), "");
         assert.equal(resolveOwnAvatar({ name: "Sloth" }, undefined), "");

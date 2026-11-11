@@ -1,3 +1,4 @@
+import { sharedAvatarFor } from '../lib/shared-avatar';
 import { WarPreparationPanel } from '../features/villageWar/WarPreparationPanel';
 import { VillageWarMercPanel } from '../components/VillageWarMercPanel';
 import type { ElderCouncil } from '../../../shared/elder-elections';
@@ -157,7 +158,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             return character.avatarImage;
         }
         // Check shared images store (avatars are stored here since base64 is stripped from saves)
-        const sharedAvatar = sharedImages['avatar:' + nameLower];
+        const sharedAvatar = sharedAvatarFor(sharedImages, playerName);
         if (sharedAvatar) return sharedAvatar;
         // Check other players in the roster
         const player = allServerPlayers.find(p => p.name.toLowerCase() === nameLower);

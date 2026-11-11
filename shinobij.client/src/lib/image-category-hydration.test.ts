@@ -19,6 +19,7 @@ const FIGHT_SOURCES = [
     "./tower-art-manifest.ts",
     "./pet-battle-anim.ts",
     "./own-avatar.ts",
+    "./shared-avatar.ts",
 ] as const;
 
 // Bucket prefix -> the image CATEGORY that hydrates it, mirroring
@@ -83,9 +84,12 @@ test("a fight can hydrate every shared-image bucket it renders", () => {
         assert.ok(mission.has(expected), `the scan stopped matching '${expected}:' in MissionArenaFight`);
     }
     const pvp = sharedImageBuckets(read("../screens/PvpBattleScreen.tsx"));
-    for (const expected of ["jutsu", "item", "avatar"]) {
+    for (const expected of ["jutsu", "item"]) {
         assert.ok(pvp.has(expected), `the scan stopped matching single-quoted '${expected}:' in PvpBattleScreen`);
     }
+    // PvpBattleScreen resolves both duelists' portraits through sharedAvatarFor.
+    assert.ok(read("../screens/PvpBattleScreen.tsx").includes("sharedAvatarFor(sharedImages"), "PvP no longer hands sharedImages to sharedAvatarFor; re-check the corpus");
+    assert.ok(sharedImageBuckets(read("./shared-avatar.ts")).has("avatar"), "the scan stopped seeing the avatar bucket in shared-avatar.ts");
     assert.ok(sharedImageBuckets(read("./pet-battle-anim.ts")).has("petbody"), "the scan stopped seeing the pet battle-art slots");
 });
 

@@ -1,3 +1,4 @@
+import { useOwnAvatar } from "../lib/own-avatar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Character } from "../types/character";
@@ -72,6 +73,7 @@ export function CardClashDuel({
 }) {
     const cardsById = useMemo(() => displayCardsById(getAllTileCards(creatorCards)), [creatorCards]);
     const deck = useMemo(() => buildChronicleDeck(character.cardClashDeck ?? [], character.tileCards ?? []), [character.cardClashDeck, character.tileCards]);
+    const ownAvatar = useOwnAvatar(character);
     const [matchId, setMatchId] = useState("");
     const [duel, setDuel] = useState<ChronicleProjection | null>(null);
     const [error, setError] = useState("");
@@ -329,6 +331,6 @@ export function CardClashDuel({
         ) : done ? (
             <section className="chronicle-panel" style={{ marginBottom: 12, textAlign: "center" }}><h2>{won ? "Seal Claimed" : hollowGateCardMatchId ? draw ? "Draw — Ambush Fades" : "Keeper Wins" : draw ? "Draw — Seal Holds" : "Seal Holds"}</h2><p>{won ? `You won the Chronicle Showdown.${sealPoints > 0 ? ` +${sealPoints} Chronicle Points.` : ""}` : hollowGateCardMatchId ? "The ambush fades after 33% max HP recoil, stopping at 1 HP." : draw ? "A draw is not enough to break the seal." : "The Chronicle Keeper won the showdown."}</p><button onClick={() => void resolve()} disabled={busy}>Continue</button></section>
         ) : null}
-        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} onResolutionReadyChange={setResolutionReady} cardsById={cardsById} playerAvatar={character.avatarImage} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={leaveShowdown} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
+        {duel ? <ChronicleDuelBoard key={matchId || "duel"} state={duel} onResolutionReadyChange={setResolutionReady} cardsById={cardsById} playerAvatar={ownAvatar} opponentAvatar={opponentAvatar ?? chronicleDuelistAvatar(foeName)} busy={busy} aiActing={aiActing} error={error} onExit={leaveShowdown} exitLabel="Leave encounter" onAction={(intent) => void act(intent)} /> : null}
     </main>;
 }

@@ -1,3 +1,4 @@
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import "../styles/index/40-village-social-panels.css";
 import {
@@ -183,7 +184,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                 {loading && <p className="tavern-empty">Loading messages…</p>}
                 {!loading && messages.length === 0 && <p className="tavern-empty">The tavern is quiet. Be the first to speak.</p>}
                 {ordered.map((m) => {
-                    const avatar = sharedImages['avatar:' + m.author.toLowerCase()] || (m.author === character.name ? character.avatarImage : '');
+                    const avatar = sharedAvatarFor(sharedImages, m.author) || (m.author === character.name ? character.avatarImage : '');
                     // Live identity — falls back to the message's post-time snapshot.
                     const live = liveByName.get(m.author.toLowerCase());
                     const level = live?.level ?? m.level;

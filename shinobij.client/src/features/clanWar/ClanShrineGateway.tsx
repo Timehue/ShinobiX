@@ -4,6 +4,7 @@ import {createPortal} from 'react-dom';
 import {cwListWars,cwQueueAction,warmClanWarActions,type ClanShrineRoomView,type CwWar,type CwChallenge} from '../../lib/clan-war-api';
 import {visiblePoll} from '../../lib/poll';
 import {resolveOwnAvatar} from '../../lib/own-avatar';
+import {sharedAvatarFor} from '../../lib/shared-avatar';
 import {onShrineFloor,shrineKeyStep,shrineTileToward,useHeldMovementKey} from '../../lib/held-movement-keys';
 import {formatPetTimer} from '../../lib/utils';
 import {clanWarPlayerKey} from '../../../../shared/clan-war-campaign';
@@ -113,9 +114,9 @@ function ClanShrineRoom({character,initialWar,index,sharedImages,onExit,onLaunch
             <div className="clan-shrine-layout"><div><div className="clan-shrine-floor" tabIndex={0} role="group" aria-label="Shrine courtyard"><img src="/ui/village-war/war-shrine-floor-gold-v1.webp" alt="Overhead golden shrine courtyard"/><div className="clan-shrine-tiles">{Array.from({length:144},(_,tile)=><button key={tile} tabIndex={-1} aria-label={`Walk to tile ${tile%12+1}, ${Math.floor(tile/12)+1}`}
                 disabled={!me||closed||active||!onShrineFloor(tile)
                     ||Math.abs(tile%12-own%12)+Math.abs(Math.floor(tile/12)-Math.floor(own/12))>1} onClick={()=>void walk(tile)}/>)}</div>
-                {room?.players.map(player=>{const tile=player===me?own:player.tile;return <span key={player.name} className={`clan-shrine-player ${player.clan===character.clan?'is-ally':'is-rival'}`}
+                {room?.players.map(player=>{const tile=player===me?own:player.tile,portrait=player===me?avatar:sharedAvatarFor(sharedImages,player.displayName);return <span key={player.name} className={`clan-shrine-player ${player.clan===character.clan?'is-ally':'is-rival'}`}
                     style={{left:`${(tile%12+.5)/12*100}%`,top:`${(Math.floor(tile/12)+.5)/12*100}%`}}>
-                    {player===me&&avatar?<img src={avatar} alt=""/>:<b>{player.displayName.slice(0,2).toUpperCase()}</b>}<small>{player===me?'You':`${player.displayName} · ${player.clan===character.clan?'Ally':'Rival'}`}</small></span>;})}</div>
+                    {portrait?<img src={portrait} alt=""/>:<b>{player.displayName.slice(0,2).toUpperCase()}</b>}<small>{player===me?'You':`${player.displayName} · ${player.clan===character.clan?'Ally':'Rival'}`}</small></span>;})}</div>
                 <p className="hint">Select a nearby tile, or move with WASD or the arrow keys. A bonus match can begin once both clans are inside.</p>
                 <details><summary>Players inside · {room?.players.length??0}</summary><ul>{room?.players.map(player=><li key={player.name}>{player.displayName} · {player.clan}{player.inBattle?' · fighting':''}</li>)}</ul></details></div>
                 {room?<ClanWarCampaignPanel war={war} name={character.name} clanName={character.clan??''} scope="shrine" windowIndex={index}

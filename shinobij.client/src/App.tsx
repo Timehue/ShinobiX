@@ -254,6 +254,7 @@ import { isBattleViewScreen, savedRunScreen, shouldHideBattleChrome } from "./li
 import { usePetHomeReturn, petHomeReturnLabel } from "./lib/pet-home-navigation";
 import { mergePlayerRoster, mergeRosterSnapshot } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
+import { sharedAvatarFor } from "./lib/shared-avatar";
 import { activeCarriedPets, isPresetAvatar } from "./lib/entitlements";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles } from "./lib/combat-ai";
@@ -3570,7 +3571,7 @@ export default function App() {
     // ── Avatar cache-fill for live players ────────────────────────────────
     // The presence heartbeat no longer ships avatar data URLs (they were the
     // bulk of its egress). Instead the client resolves other players' avatars
-    // from sharedImages['avatar:<name>'], hydrated by loadCategory('avatar')
+    // from sharedImages via sharedAvatarFor, hydrated by loadCategory('avatar')
     // (which fetches the whole avatar bucket from /api/images?cat=avatar in one
     // CDN-cached request). That bucket is loaded at startup, but a player who
     // sets an avatar AFTER we loaded — or who joins mid-session — wouldn't be in
@@ -3588,7 +3589,7 @@ export default function App() {
             if (!n) return false;
             const lower = n.toLowerCase();
             if (lower === (characterRef.current?.name ?? '').toLowerCase()) return false; // self: uses own field
-            return !sharedImages['avatar:' + lower];
+            return !sharedAvatarFor(sharedImages, n);
         });
         if (!missing) return;
         const now = Date.now();
@@ -3607,7 +3608,7 @@ export default function App() {
     // them the same name-keyed fallback every other render site uses — see
     // lib/own-avatar.ts.
     useEffect(() => {
-        setOwnAvatarFallback(sharedImages['avatar:' + (character?.name ?? '').toLowerCase()]);
+        setOwnAvatarFallback(sharedAvatarFor(sharedImages, character?.name));
     }, [character?.name, sharedImages]);
 
     // Keep a fresh reference to ensureAvatarsCached so the presence-store prefetch
@@ -5231,7 +5232,7 @@ export default function App() {
             {character && <Suspense fallback={null}>
                 <IncomingChallengeModal
                     challenges={duelChallenges}
-                    selfName={character.name}
+                    selfName={character.name} sharedImages={sharedImages}
                     processingIds={processingChallengeIds}
                     onAccept={(c) => {
                         if (c.mode === "clanWarPet" || c.mode === "rankedPet") void acceptPetChallengeGlobal(c);

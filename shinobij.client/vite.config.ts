@@ -1492,6 +1492,12 @@ export default defineConfig({
                         // screen's imports change (2026-10-04: +1 file, +121 B
                         // gzip on a startup graph with ~20 B of headroom).
                         '/src/lib/entitlements.ts',
+                        // Portrait lookups, imported by App and ~20 lazy screens.
+                        // Left alone they split into their own startup file,
+                        // and every importer paid for the extra import
+                        // (2026-11-11: +1 startup file, +1,245 B total).
+                        '/src/lib/shared-avatar.ts',
+                        '/src/lib/own-avatar.ts',
                     ].some((modulePath) => normalizedId.endsWith(modulePath))) {
                         return 'world-authority';
                     }

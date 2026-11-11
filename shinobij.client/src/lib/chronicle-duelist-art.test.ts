@@ -43,6 +43,18 @@ test("an uploaded avatar always wins over the fallback", () => {
   );
 });
 
+test("a spaced-name opponent keeps their portrait whichever name spelling the match holds", () => {
+  const shared = { "avatar:kaede morrow": "/api/img?id=avatar:kaede%20morrow" };
+  assert.equal(chronicleDuelistAvatar("Kaede Morrow", shared), shared["avatar:kaede morrow"]);
+  assert.equal(chronicleDuelistAvatar("kaedemorrow", shared), shared["avatar:kaede morrow"]);
+});
+
+test("a player whose name slugs like the Keeper's never lends the Keeper their face", () => {
+  const shared = { "avatar:chroniclekeeper": "/api/img?id=avatar:chroniclekeeper" };
+  assert.equal(chronicleDuelistAvatar(CHRONICLE_KEEPER_NAME, shared), CHRONICLE_KEEPER_PORTRAIT);
+  assert.equal(chronicleDuelistAvatar("ChronicleKeeper", shared), shared["avatar:chroniclekeeper"]);
+});
+
 test("the Keeper portrait exists and decodes", async () => {
   const file = path.join(clientRoot(), "public", CHRONICLE_KEEPER_PORTRAIT.slice(1));
   assert.equal(existsSync(file), true, CHRONICLE_KEEPER_PORTRAIT);

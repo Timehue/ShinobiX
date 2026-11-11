@@ -1,3 +1,4 @@
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { CombatHotkeyButton } from "../components/CombatHotkeys";
 import { combatJutsuSlotIds, equipmentHotkey, jutsuHotkey } from "../lib/combat-hotkeys";
 import { displayPlayerName } from "../../../shared/player-name";
@@ -2224,8 +2225,8 @@ export function PvpBattleScreen({
             </div>
         );
     };
-    const myAvatar = (me.character?.avatarImage as string) || sharedImages['avatar:' + me.name.toLowerCase()] || "";
-    const oppAvatar = (opp.character?.avatarImage as string) || sharedImages['avatar:' + opp.name.toLowerCase()] || "";
+    const myAvatar = (me.character?.avatarImage as string) || sharedAvatarFor(sharedImages, me.name) || "";
+    const oppAvatar = (opp.character?.avatarImage as string) || sharedAvatarFor(sharedImages, opp.name) || "";
 
 
     return (

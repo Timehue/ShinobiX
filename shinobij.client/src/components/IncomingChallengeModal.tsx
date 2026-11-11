@@ -4,6 +4,7 @@ import { playFightNotificationSfx } from "../lib/match-alert-sfx";
 import type { DuelChallenge } from "../App";
 import { noticeKeyCanDismiss } from "./GameAlert";
 import { GameArtIcon } from "./GameArtIcon";
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import "./IncomingChallengeModal.css";
 
 /**
@@ -30,12 +31,14 @@ function challengeLabel(mode: DuelChallenge["mode"]): string {
 export function IncomingChallengeModal({
     challenges,
     selfName,
+    sharedImages,
     processingIds,
     onAccept,
     onDecline,
 }: {
     challenges: DuelChallenge[];
     selfName: string;
+    sharedImages: Record<string, string>;
     processingIds: string[];
     onAccept: (challenge: DuelChallenge) => void;
     onDecline: (challenge: DuelChallenge) => void;
@@ -103,10 +106,10 @@ export function IncomingChallengeModal({
     const busy = processingIds.includes(c.id);
     const officialKage = !!c.kageChallengeId && !!c.kageVillage;
     const label = officialKage ? "duel for the Kage seat" : challengeLabel(c.mode);
-    const avatar =
-        typeof c.challenger?.avatarImage === "string" && c.challenger.avatarImage.trim()
-            ? c.challenger.avatarImage
-            : "";
+    // api/player/challenge.ts strips an inline (data:) avatar from the
+    // challenger, so most uploaded portraits arrive empty and resolve by name.
+    const sealed = typeof c.challenger?.avatarImage === "string" ? c.challenger.avatarImage.trim() : "";
+    const avatar = sealed || sharedAvatarFor(sharedImages, c.fromName);
     const extra = pending.length - 1;
 
     return createPortal(

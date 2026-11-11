@@ -3,6 +3,7 @@ import type { WorldSectorCommandPlayer } from '../components/WorldSectorCommandP
 import { playerSlug as accountKey } from './utils';
 import { sameSector } from './utils';
 import { peerIsTraveling } from './presence-character';
+import { sharedAvatarFor } from './shared-avatar';
 import { sectorEngagementFor, type SectorWarContestEntryView } from './sector-war-engagement';
 
 export { accountKey as sectorPlayerKey };
@@ -47,7 +48,7 @@ export function projectSectorPlayers(players: readonly SectorPlayer[], options: 
             traveling ? 'This player is traveling.' : fighting ? 'This player is already fighting.'
                 : attackLabel.kind === 'contest' ? options.contestBlockedReason : undefined));
         return { target: player, name: player.name, level: player.level,
-            avatarSrc: options.images['avatar:' + accountKey(player.name)] || player.character?.avatarImage || '',
+            avatarSrc: sharedAvatarFor(options.images, player.name) || player.character?.avatarImage || '',
             sleeping, status: sleeping ? 'Sleeping' : traveling ? 'Traveling' : fighting ? 'Fighting' : 'Ready',
             attackLabel, actionDisabled: Boolean(disabledReason), disabledReason: disabledReason || undefined,
             spectateDisabled: !fighting || sleeping || traveling || Boolean(options.spectateBlockedReason) };

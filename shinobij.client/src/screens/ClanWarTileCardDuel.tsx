@@ -1,3 +1,4 @@
+import { sharedAvatarFor } from "../lib/shared-avatar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useClanWarBattleKey } from "../lib/use-clan-war-battle-key";
 import type { Character } from "../types/character";
@@ -386,7 +387,7 @@ export function CardClashDuelScreen({
   const opponentName = view && opponentSide ? view[opponentSide].name : "";
   const playerAvatar =
     character.avatarImage ||
-    sharedImages[`avatar:${character.name.toLowerCase()}`];
+    sharedAvatarFor(sharedImages, character.name);
   const opponentAvatar = chronicleDuelistAvatar(
     opponentName,
     sharedImages,

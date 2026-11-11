@@ -5,6 +5,7 @@
 // engine, server-authoritative). Progression and Chronicle Points live on
 // SERVER-OWNED character fields, so this screen renders purely from `character`
 // and never needs its own fetch on mount.
+import { resolveOwnAvatar } from "../lib/own-avatar";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Character } from "../types/character";
@@ -550,7 +551,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
             <div className="echoes-vs-panel echoes-vs-panel--challenger" aria-hidden="true">
                 <span
                     className="echoes-vs-portrait"
-                    style={{ backgroundImage: `linear-gradient(color-mix(in srgb, var(--band, #d9c88a) 14%, transparent), transparent 46%), url(${character.avatarImage || "/portraits/echoes-challenger.webp"})` }}
+                    style={{ backgroundImage: `linear-gradient(color-mix(in srgb, var(--band, #d9c88a) 14%, transparent), transparent 46%), url(${resolveOwnAvatar(character, sharedImages) || "/portraits/echoes-challenger.webp"})` }}
                 />
                 <span className="echoes-vs-id">
                     <small>Challenger</small>

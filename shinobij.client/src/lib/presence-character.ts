@@ -16,7 +16,7 @@
  *
  * So we upload only the display fields the roster surfaces. Notable drops:
  *   • avatarImage — every avatar render site falls back to the name-keyed
- *     sharedImages['avatar:<name>'] cache, so the heavy data URL is redundant.
+ *     sharedImages avatar cache (lib/shared-avatar.ts), so the heavy data URL is redundant.
  *   • inventory / jutsu / stats / bloodlines / mission+quest logs / currencies
  *     — never read off the presence row; roster.ts strips them anyway.
  * Pets are kept but projected to the same public fields roster.ts exposes, so
