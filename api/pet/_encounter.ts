@@ -10,13 +10,15 @@ export type WildPetTrait = typeof TRAITS[number];
 export const DAILY_WILD_ENCOUNTER_ATTEMPTS = 150;
 
 /**
- * Cumulative Explore-roll ceilings per rarity. Economy rebalance 2026-10 (#38):
- * the rare band widened 0.3% -> 1.2% to end the inversion (rare was scarcer
- * than legendary). Mythic 0.2%, legendary 0.5% and standard 4.0% are
- * unchanged, so the hit ceiling rises 5% -> 5.9%. Each band is wider than the
- * one above it (0.2 < 0.5 < 1.2 < 4.0), so the table cannot invert again.
+ * Cumulative Explore-roll ceilings per rarity. Owner rebalance 2026-11: the
+ * hit ceiling drops 5.9% -> 4.0% (the 1.9 points go to the Ancient Chest,
+ * api/world/_explore.ts), and mythic/legendary are halved per Explore
+ * (0.2% -> 0.1%, 0.5% -> 0.25%). Rare and standard split the rest in their
+ * old 1.2 : 4.0 ratio (0.85% / 2.8%). Each band is still wider than the one
+ * above it (0.1 < 0.25 < 0.85 < 2.8), so the table cannot invert.
+ * (2026-10 history: rare widened 0.3% -> 1.2%, hit ceiling 5% -> 5.9%.)
  */
-export const WILD_RARITY_CEILINGS = { mythic: 0.002, legendary: 0.007, rare: 0.019, standard: 0.059 } as const;
+export const WILD_RARITY_CEILINGS = { mythic: 0.001, legendary: 0.0035, rare: 0.012, standard: 0.04 } as const;
 
 /** The Explore hit ceiling: a roll above this is a miss. api/world/_explore.ts
  *  sizes the later Explore outcomes against this probe. */
@@ -35,13 +37,17 @@ export function rollWildPetLevel(companionLevel: unknown, random: () => number):
 }
 
 /**
- * `guaranteed` (a Tracker trail's final sector) always yields a pet: the first
- * roll is scaled into the hit band, so the rarity mix is exactly an Explore
- * HIT's (67.8% standard, 20.3% rare, 8.5% legendary, 3.4% mythic since the
- * 2026-10 rare-band change).
+ * `guaranteed` (a Tracker trail's final sector) always yields a pet, but never
+ * a legendary or mythic one (owner ruling 2026-11): the first roll is scaled
+ * into the rare + standard bands only, so a trail is 23.3% rare / 76.7%
+ * standard (the two bands' 0.85 : 2.8 ratio).
  */
 export function rollWildPet(random: () => number, now = Date.now(), condition?: { weather: SectorWeather }, options?: { guaranteed?: boolean }): Record<string, unknown> | null {
-    const roll = options?.guaranteed ? random() * WILD_HIT_CEILING : random();
+    const trailFloor = WILD_RARITY_CEILINGS.legendary;
+    const roll = options?.guaranteed
+        // (1 - random()) is in (0, 1], so the roll lands in (legendary, standard].
+        ? trailFloor + (1 - Math.max(0, Math.min(0.999999999, random()))) * (WILD_HIT_CEILING - trailFloor)
+        : random();
     const rarity = roll <= WILD_RARITY_CEILINGS.mythic ? 'mythic'
         : roll <= WILD_RARITY_CEILINGS.legendary ? 'legendary'
             : roll <= WILD_RARITY_CEILINGS.rare ? 'rare'

@@ -39,8 +39,8 @@ export type SectorPoolCaps = { explores: number; chests: number; ownerBonus: num
 // Mirrors the server defaults (api/world/_sector-pool.ts); replaced by whatever
 // the world-state GET ships. 1,500 explores = 15 maxed players (100/day each)
 // to drain a non-owner sector, 23 for the owning village; 1,500 × the authored
-// 0.15 chest rate = the 225 chest cap exactly, so chests never bind first.
-const DEFAULT_CAPS: SectorPoolCaps = { explores: 1500, chests: 225, ownerBonus: 0.5 };
+// 1/6 chest rate (2026-11; was 0.15) = the 250 chest cap exactly, so chests never bind first.
+const DEFAULT_CAPS: SectorPoolCaps = { explores: 1500, chests: 250, ownerBonus: 0.5 };
 
 let usageCache: Record<number, SectorPoolUsage> = {};
 let capsCache: SectorPoolCaps = DEFAULT_CAPS;
@@ -146,7 +146,7 @@ export const SECTOR_DEPLETED_MESSAGE =
 
 /** The gathering readout on the selected-sector plate. */
 export type SectorGatherLine = {
-    /** "Gathered today · Explores 12 / 1,500 · Chests 3 / 225" — both pairs labelled. */
+    /** "Gathered today · Explores 12 / 1,500 · Chests 3 / 250" — both pairs labelled. */
     text: string;
     /** The actionable next step when the pool is spent; null otherwise. */
     note: string | null;

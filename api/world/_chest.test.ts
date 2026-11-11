@@ -334,10 +334,10 @@ describe('shared sector chest pool sizing', () => {
         // Chests are debited at DISCOVERY now (api/world/explore.ts), so this
         // pool bounds how many chests a sector can YIELD in a day, not how many
         // can be opened — an already-discovered chest is never refused.
-        assert.equal(SECTOR_CHEST_POOL_PER_DAY, 225);
+        assert.equal(SECTOR_CHEST_POOL_PER_DAY, 250);
         assert.ok(SECTOR_CHEST_POOL_PER_DAY / DAILY_ANCIENT_CHEST_LIMIT >= 9,
             'at least ~9 players hitting their own 23/day chest ceiling in one sector');
-        assert.equal(Math.floor(SECTOR_CHEST_POOL_PER_DAY * (1 + OWNER_VILLAGE_POOL_BONUS)), 337,
+        assert.equal(Math.floor(SECTOR_CHEST_POOL_PER_DAY * (1 + OWNER_VILLAGE_POOL_BONUS)), 375,
             'and half again for the owning village');
     });
 });

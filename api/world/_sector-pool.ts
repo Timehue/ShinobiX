@@ -28,8 +28,8 @@ import { withKvLock } from '../_lock.js';
  *     200-player ceiling × 100 = 20,000 explores of demand — 20% utilization,
  *     i.e. 4.95× headroom for clustering (500 left only 9%).
  * The chest pool tracks the explore pool at exactly the authored chest rate
- * (SECTOR_EXPLORE_CHEST_CHANCE, 0.15): 1,500 × 0.15 = 225 expected discoveries
- * against a 225 chest cap, so chests are never the tighter constraint in
+ * (SECTOR_EXPLORE_CHEST_CHANCE, 1/6 since 2026-11; was 0.15): 1,500 × 1/6 =
+ * 250 expected discoveries against a 250 chest cap, so chests are never the tighter constraint in
  * expectation. Chests are also reserved at DISCOVERY (api/world/explore.ts),
  * and a sector whose chest pool is spent simply stops rolling chests — the
  * tile falls through to the battle/quiet branches exactly as it does at the
@@ -45,7 +45,7 @@ import { withKvLock } from '../_lock.js';
  */
 
 export const SECTOR_EXPLORE_POOL_PER_DAY = 1500;
-export const SECTOR_CHEST_POOL_PER_DAY = 225;
+export const SECTOR_CHEST_POOL_PER_DAY = 250;
 export const OWNER_VILLAGE_POOL_BONUS = 0.5;
 /** Pool rows outlive the day they count so a just-past-midnight reader still sees yesterday. */
 export const SECTOR_POOL_TTL_SECONDS = 2 * 24 * 60 * 60;
