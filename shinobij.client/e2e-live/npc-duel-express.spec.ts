@@ -2,11 +2,11 @@ import { expect } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
 import { uniquePlayerName } from './helpers/player-names';
 import { AURA_SPHERE_VN_ID } from '../src/constants/game';
-import { CINDERHOLD_SECTORS, WORLD_GEO_VERSION } from '../../shared/sector-geo';
+import { isWildSector, WORLD_GEO_VERSION } from '../../shared/sector-geo';
 import { quietRoadCooldowns } from './helpers/quiet-road';
 
-// Cinderhold Push 2 on the REAL Express server: the shinobi stand online in
-// Cinderhold's sectors (server presence), a player attacks one through the
+// Cinderhold Push 2 on the REAL Express server: the shinobi stand online on
+// their world routes (server presence), a player attacks one through the
 // ordinary world-attack routes, and the server plays the NPC's seat under the
 // real PvP rules until the duel ends. The player only ever ends their turn.
 
@@ -34,7 +34,7 @@ test('a player attacks a Cinderhold shinobi and the server plays it to the end',
         expect(rosterReply.status(), await rosterReply.text()).toBe(200);
         const roster = await rosterReply.json() as { players?: RosterRow[] };
         const target = roster.players?.find((p) => p.name && p.online
-            && CINDERHOLD_SECTORS.includes(Number(p.currentSector))
+            && isWildSector(Number(p.currentSector))
             && (p.village ?? p.character?.village) === 'Cinderhold Village');
         if (!target) return false;
         const npcName = String(target.name), sector = Number(target.currentSector);
