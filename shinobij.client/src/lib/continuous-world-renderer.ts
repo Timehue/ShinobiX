@@ -157,15 +157,13 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             const replaced = ground.get(biome); if (replaced) shrink(replaced);
             ground.set(biome, field); fieldSources.set(biome, sourceKey);
             // The densest blocked window, unless it is a lava pool (see continuous-world-rock.ts).
-            let sprite: HTMLCanvasElement | undefined;
             for (const cliff of rockWindows(mask).slice(0, 12)) {
-                const candidate = patch(image, cliff, true, 3);
+                const sprite = patch(image, cliff, true, 3);
                 let molten = 0;
-                try { molten = moltenShare(candidate.getContext('2d')!.getImageData(0, 0, candidate.width, candidate.height).data); } catch { /* unreadable: keep it */ }
-                if (molten <= MOLTEN_ROCK_LIMIT) { sprite = candidate; break; }
-                sprite ??= candidate; if (sprite !== candidate) shrink(candidate);
+                try { molten = moltenShare(sprite.getContext('2d')!.getImageData(0, 0, sprite.width, sprite.height).data); } catch { /* unreadable: keep it */ }
+                if (molten > MOLTEN_ROCK_LIMIT) { shrink(sprite); continue; }
+                const old = rock.get(biome); if (old) shrink(old); rock.set(biome, sprite); break;
             }
-            if (sprite) { const old = rock.get(biome); if (old) shrink(old); rock.set(biome, sprite); }
             revision++;
         }
     }

@@ -10,31 +10,23 @@ import { SECTOR_POINTS, type SectorPoint } from "../../../shared/sector-links";
  * (99), a map-travel arena with no roads, moves off the cone into the open
  * hills between Frostfang and Moonshadow.
  */
-const CONE_NUDGES: Readonly<Record<number, { x: number; y: number }>> = {
-    13: { x: 26.5, y: 13 },
-    36: { x: 36, y: 30 },
-    37: { x: 43, y: 30 },
-    58: { x: 42, y: 22 },
-    59: { x: 59.5, y: 31 },
-    60: { x: 60, y: 23 },
-    99: { x: 83, y: 42 },
+const ATLAS_NUDGES: Readonly<Record<number, readonly [x: number, y?: number]>> = {
+    13: [26.5, 13], 36: [36, 30], 37: [43, 30], 58: [42, 22], 59: [59.5, 31], 60: [60, 23], 99: [83, 42],
+    8: [12],
+    // The Hollow Gate crest sits between S55 and S57; the old S55 point
+    // fell inside its large click target at common desktop widths.
+    55: [54, 57],
+    // Leave the central Moonshadow court and its caption open.
+    17: [86, 87], 23: [74.5, 69], 24: [94, 87], 25: [73, 88],
 };
 
 /**
  * Atlas-only projection coordinates. Gameplay geography remains in the shared
  * sector graph; presentation nudges belong here so clearing a landmark cannot
- * silently change travel entry tiles or roaming-boss routes.
+ * silently change travel entry tiles or roaming-boss routes. Roads use this
+ * projection; travel uses the graph.
  */
-export const ATLAS_SECTOR_POINTS: readonly SectorPoint[] = SECTOR_POINTS.map((point) =>
-    CONE_NUDGES[point.id] ? { ...point, ...CONE_NUDGES[point.id] }
-        : point.id === 8 ? { ...point, x: 12 }
-        // The Hollow Gate crest sits between S55 and S57; the old S55 point
-        // fell inside its large click target at common desktop widths.
-        : point.id === 55 ? { ...point, x: 54, y: 57 }
-        // Leave the central Moonshadow court and its caption open. These are
-        // atlas nudges only; roads use this projection, travel uses the graph.
-        : point.id === 17 ? { ...point, x: 86, y: 87 }
-        : point.id === 23 ? { ...point, x: 74.5, y: 69 }
-        : point.id === 24 ? { ...point, x: 94, y: 87 }
-        : point.id === 25 ? { ...point, x: 73, y: 88 } : point,
-);
+export const ATLAS_SECTOR_POINTS: readonly SectorPoint[] = SECTOR_POINTS.map((point) => {
+    const nudge = ATLAS_NUDGES[point.id];
+    return nudge ? { ...point, x: nudge[0], y: nudge[1] ?? point.y } : point;
+});

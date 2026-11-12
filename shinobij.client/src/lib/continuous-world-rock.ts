@@ -10,24 +10,31 @@
  * passed over for the next densest one.
  */
 export function rockWindows(mask: readonly string[]): number[] {
-    const windows: { tile: number; rank: number }[] = [];
-    for (let y = 0; y < 10; y++) for (let x = 0; x < 10; x++) {
-        const rank = [0, 1, 2].flatMap(dy => [0, 1, 2].map(dx => mask[y + dy]?.[x + dx] === '#' ? 1 : 0)).reduce<number>((a, b) => a + b, 0);
-        if (rank > 0) windows.push({ tile: y * 12 + x, rank });
+    // One sortable key per window with any blocked cell: rank first, then the
+    // lower tile (reading order) on a tie. Windows start in columns 0-9, rows 0-9.
+    const keys: number[] = [];
+    for (let tile = 0; tile < 118; tile++) {
+        if (tile % 12 > 9) continue;
+        let rank = 0;
+        for (let k = 0; k < 9; k++) if (mask[(tile / 12 | 0) + (k / 3 | 0)]?.[tile % 12 + k % 3] === '#') rank++;
+        if (rank) keys.push(rank * 1000 + 999 - tile);
     }
-    return windows.sort((a, b) => b.rank - a.rank || a.tile - b.tile).map(w => w.tile);
+    return keys.sort((a, b) => b - a).map(key => 999 - key % 1000);
 }
 
-/** Share of opaque pixels that read as molten lava: bright, strongly saturated orange. */
+/**
+ * Share of opaque pixels that read as molten lava: bright, strongly saturated
+ * orange. Red is the largest channel of any such pixel, so its saturation is
+ * (r - min(g, b)) / r.
+ */
 export function moltenShare(rgba: ArrayLike<number>): number {
     let molten = 0, opaque = 0;
-    for (let i = 0; i + 3 < rgba.length; i += 4) {
-        if (rgba[i + 3]! < 128) continue;
+    for (let i = 3; i < rgba.length; i += 4) if (rgba[i]! > 127) {
         opaque++;
-        const r = rgba[i]!, g = rgba[i + 1]!, b = rgba[i + 2]!, max = Math.max(r, g, b), min = Math.min(r, g, b);
-        if (r > 200 && g > 50 && g < 190 && b < 90 && (max - min) / max > .65) molten++;
+        const r = rgba[i - 3]!, g = rgba[i - 2]!, b = rgba[i - 1]!;
+        if (r > 200 && g > 50 && g < 190 && b < 90 && r - Math.min(g, b) > .65 * r) molten++;
     }
-    return opaque ? molten / opaque : 0;
+    return molten / (opaque || 1);
 }
 
 /** Above this the window touches a lava pool. Measured 2026-11-11 on every floor's

@@ -32,8 +32,9 @@ export function tintSectorBanners(context:CanvasRenderingContext2D,sector:number
             // A strongly saturated dye (Cinderhold's red) asks for more than 255 in
             // one channel on bright cloth. Pull such a pixel toward its own grey
             // just far enough to fit: the luminance stays exact, only chroma gives.
+            // (No channel can go below 0: light >= 0 and every factor is positive.)
             let fit=1;
-            for(const v of dyed)if(v>255)fit=Math.min(fit,(255-light)/(v-light));else if(v<0)fit=Math.min(fit,light/(light-v));
+            for(const v of dyed)if(v>255)fit=Math.min(fit,(255-light)/(v-light));
             for(let c=0;c<3;c++)pixels.data[i+c]=pixels.data[i+c]*(1-amount)+(light+(dyed[c]-light)*fit)*amount;
         }
         context.putImageData(pixels,x,y);
