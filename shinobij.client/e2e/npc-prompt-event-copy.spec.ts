@@ -82,11 +82,11 @@ for (const reducedMotion of ['no-preference','reduce'] as const) {
         const samples = await page.evaluate(() => (window as unknown as { readBanditTravel: () => BanditTravelSample[] }).readBanditTravel());
         const lengths=samples.slice(1).map((b,i)=>{
             const a=samples[i],distance=Math.hypot(b.x-a.x,b.y-a.y)*1080/b.width;
-            return {distance,seconds:(b.motionTime-a.motionTime)/1000};
+            return {distance,seconds:(b.wallTime-a.wallTime)/1000};
         });
         await info.attach('bandit-travel.json',{body:JSON.stringify({samples,lengths}),contentType:'application/json'});
-        // Measure the entire final 120 pixels, including waypoint crossings
-        // and any pauses in the movement logic.
+        // Measure the entire final 120 pixels in real elapsed time, including
+        // delayed callbacks and waypoint crossings. motionTime is diagnostic only.
         let distance=0, seconds=0;
         for (const step of lengths.reverse()) {
             if (distance>=120) break;

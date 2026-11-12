@@ -269,6 +269,8 @@ export function SectorWanderer({
             const { w, h } = sizeRef.current;
             if (!w || !h) {
                 lastTsRef.current = 0;
+                routineDebtMs = 0;
+                setWalking(false);
                 schedule();
                 return;
             }
