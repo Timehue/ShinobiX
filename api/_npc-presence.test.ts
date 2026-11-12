@@ -54,7 +54,7 @@ test('with no ownership answer yet (storage down since boot) the tick waits: no 
     // Start while this NPC is on duty: every NPC logs off for hours each day, and
     // an off-duty NPC rightly has no journey, which is not what this test proves.
     let now = Date.now();
-    while (presence.npcOffDuty(npc.id, now)) now += 60_000;
+    while (presence.npcOffDuty(npc.id, now) || presence.npcOffDuty(npc.id, now + 1)) now += 60_000;
     placeWalker(npc, 58, walk.nearestWalkableTile(58, 60), now);
     ownership.forgetNpcOwnership();
     const mget = kv.mget.bind(kv);
