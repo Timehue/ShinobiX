@@ -147,7 +147,6 @@ export function SectorWanderer({
     const metricsRef = useRef({ padX: PAD, padY: PAD, gapX: GAP, gapY: GAP });
     const rafRef = useRef(0);
     const lastTsRef = useRef(0);
-    const armedAtRef = useRef(0);
 
     // movement brain (refs so the RAF loop never forces a re-render)
     const wpIndexRef = useRef(0);
@@ -257,15 +256,23 @@ export function SectorWanderer({
         let navigate = createSectorNavigator(worldPlayer !== null,clearance);
         const maxDt = reduced ? REDUCED_STEP_MS / 1000 : SMOOTH_MAX_DT;
         let routineDebtMs = 0;
+        let armedAt: number | undefined;
         const schedule = () => {
             if ((routineRef.current||nativeWork) && (document.hidden || isCoveredByCombat())) return;
             if (reduced) stepTimerRef.current = window.setTimeout(() => tick(performance.now()), REDUCED_STEP_MS);
             else rafRef.current = requestAnimationFrame(tick);
         };
-        armedAtRef.current = performance.now() + ARM_DELAY_MS;
         const wps = (wanderer.waypoints.length ? wanderer.waypoints : [wanderer.homeTile]).map(tile => safeSectorTile(sector, tile));
 
         const tick = (ts: number) => {
+            // Wait for the first paintable board before walking or arming an encounter.
+            const { w, h } = sizeRef.current;
+            if (!w || !h) {
+                lastTsRef.current = 0;
+                schedule();
+                return;
+            }
+            armedAt ??= ts + ARM_DELAY_MS;
             const wanderer = wandererRef.current;
             if (!lastTsRef.current) lastTsRef.current = ts;
             const elapsedMs = Math.max(0, ts - lastTsRef.current);
@@ -278,7 +285,7 @@ export function SectorWanderer({
             const pcol = actual?.col ?? colOf(playerRef.current);
             const prow = actual?.row ?? rowOf(playerRef.current);
             const distPlayer = Math.hypot(pcol - p.col, prow - p.row);
-            const armed = ts >= armedAtRef.current;
+            const armed = ts >= armedAt;
             const life = routineRef.current;
             const away=!life&&sectorTrackerAway(sector,wanderer.id);
             if(figRef.current)figRef.current.style.visibility=away?'hidden':'';
