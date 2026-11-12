@@ -31,6 +31,9 @@ import { GameArtIcon } from "../components/GameArtIcon";
 import roleAssassinPortrait from "../assets/roles/role-assassin.webp";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
+import { bundledFighterSprite, generatedFighterModel } from "../lib/battlefield-fighter-art";
+import { battlefieldFacingTowardNearest, battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
+import { useBattlefieldModelSprite } from "../lib/use-battlefield-model-sprite";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattleTabBar } from "../components/BattleTabBar";
 import {
@@ -1745,6 +1748,10 @@ export function PvpBattleScreen({
         : new Set<number>(),
         [pendingJutsuDirect, boardOppPos, jutsuRangeTiles, allTiles]);
 
+    const myAppearance = spectatorOrigin || amSpectatorLive ? session?.[role].character : character;
+    const oppAppearance = session?.[role === "p1" ? "p2" : "p1"].character;
+    const myModelSprite = useBattlefieldModelSprite(generatedFighterModel(myAppearance));
+    const oppModelSprite = useBattlefieldModelSprite(generatedFighterModel(oppAppearance));
     if (!session) return (
         <CombatInstance className={`arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -2230,6 +2237,11 @@ export function PvpBattleScreen({
     };
     const myAvatar = (me.character?.avatarImage as string) || sharedAvatarFor(sharedImages, me.name) || "";
     const oppAvatar = (opp.character?.avatarImage as string) || sharedAvatarFor(sharedImages, opp.name) || "";
+    const mySprite = myModelSprite || bundledFighterSprite(myAppearance, myAvatar);
+    const oppSprite = oppModelSprite || bundledFighterSprite(oppAppearance, oppAvatar);
+    const myBoardActor = { id: role, side: "squad" as const, pos: myPos, hp: me.hp };
+    const oppBoardActor = { id: role === "p1" ? "p2" : "p1", side: "enemy" as const, pos: oppPos, hp: opp.hp };
+    const boardActors = [myBoardActor, oppBoardActor];
 
 
     return (
@@ -2394,6 +2406,8 @@ export function PvpBattleScreen({
                                                 actorId={isOpp ? (role === "p1" ? "p2" : "p1") : role}
                                                 label={altName}
                                                 portrait={imgSrc}
+                                                sprite={isOpp ? oppSprite : mySprite}
+                                                facing={battlefieldFacingTowardNearest(isOpp ? oppBoardActor : myBoardActor, boardActors, gridWidth)}
                                                 fallback={altName.slice(0, 2).toUpperCase()}
                                                 style={{ position: "absolute", left: ox, top: oy, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: ORB_PATH_TRANSITION }}>
                                                 {ward && <span className={`pvp-guard-aura pvp-guard-${ward}`} aria-hidden="true" />}
@@ -2409,11 +2423,12 @@ export function PvpBattleScreen({
                                         const col = pos % gridWidth;
                                         const bx = col * X_STEP + HEX_W / 2 - ORB / 2;
                                         const by = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB - 16;
+                                        const headroom = battlefieldSpriteHeadroom(ORB, isOpp ? oppSprite : mySprite);
                                         return (
                                             <FighterHpBadge
                                                 key={isOpp ? "opp-hp-badge" : "me-hp-badge"}
                                                 left={bx}
-                                                top={by}
+                                                top={by - headroom}
                                                 width={ORB}
                                                 hp={hp}
                                                 maxHp={maxHp}

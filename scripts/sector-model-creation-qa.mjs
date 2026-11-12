@@ -2,10 +2,11 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire, syncBuiltinESMExports } from 'node:module';
 import { basename, join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
+import { gunzipSync } from 'node:zlib';
 import sharp from 'sharp';
 
 assert.equal(process.env.NODE_ENV, 'test');
@@ -38,16 +39,26 @@ assert.match(fixtureAsset, /^[a-f0-9]{32}$/);
 assert.match(version, /^[a-f0-9]{64}$/);
 const art = join(packageRoot, 'sector-models', 'players', fixtureAsset);
 let byteCount = 0;
-const files = await readdir(art);
-for (const file of files) {
-    assert.match(file, /^[a-f0-9]{64}\.(json|gz|264)$/);
+async function readObject(file, extension) {
+    assert.match(file, new RegExp(`^[a-f0-9]{64}\\.${extension}$`));
     const bytes = await readFile(join(art, file));
     assert.equal(sha(bytes), file.split('.')[0]);
     byteCount += bytes.length;
+    return bytes;
 }
-assert.equal(JSON.parse(await readFile(join(art, version + '.json'))).portraitSha256, source);
+const manifest = JSON.parse(await readObject(version + '.json', 'json'));
+assert.equal(manifest.portraitSha256, source);
+const indexes = new Set(Object.values(manifest.styles).flat());
+const pages = new Set();
+for (const file of indexes) {
+    const bank = JSON.parse(gunzipSync(await readObject(file, 'gz')));
+    for (const page of Object.values(bank.pages)) pages.add(page.file);
+}
+for (const file of pages) await readObject(file, '264');
+if (manifest.battleSprite) await readObject(manifest.battleSprite, 'webp');
+const objectCount = 1 + indexes.size + pages.size + Number(Boolean(manifest.battleSprite));
 const master = sha(descriptor);
-const raster = await sharp(portrait, { page: Math.floor((await sharp(portrait).metadata()).pages / 2) })
+const raster = await sharp(portrait, { page: Math.floor(((await sharp(portrait).metadata()).pages ?? 1) / 2) })
     .autoOrient().toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
 const frameHash = createHash('sha256').update(raster.info.width + 'x' + raster.info.height + ':').update(raster.data).digest('hex');
 
@@ -97,7 +108,7 @@ function replyFor(script, request) {
     assert.equal(request.attempt, 1);
     const { stage, assetId } = request;
     const stages = operations.get(assetId) ?? [];
-    const model = { assetId, version, objects: files.length, bytes: byteCount };
+    const model = { assetId, version, objects: objectCount, bytes: byteCount };
     if (stage === 'publish') {
         assert.deepEqual(stages, ['A', 'B', 'C', 'finish', 'recognize']);
         assert.deepEqual(request.model, model);

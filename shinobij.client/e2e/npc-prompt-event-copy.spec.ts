@@ -6,9 +6,11 @@ import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 // A verified roster window containing each service under test. The live
 // six-hour roll can legitimately contain no merchant or medic anywhere.
 const ENCOUNTER_TIME = Date.UTC(2026, 9, 20, 6);
+type BanditTravelSample = { x: number; y: number; wallTime: number; motionTime: number; width: number };
 
 for (const reducedMotion of ['no-preference','reduce'] as const) {
     test(`a bandit runs to the player at the authored pace (${reducedMotion})`, async ({page},info) => {
+        test.setTimeout(90_000);
         await page.emulateMedia({reducedMotion});
         await page.clock.setFixedTime(ENCOUNTER_TIME);
         const sector = 24, tile = 61;
@@ -21,43 +23,76 @@ for (const reducedMotion of ['no-preference','reduce'] as const) {
         save.character={...save.character,wandererCooldowns:cooldowns};
         await installUiAuditRuntime(page,save);
         await page.route('**/api/world/sector-layout',r=>r.fulfill({json:{obstaclesEnabled:true,playerGaitsEnabled:true}}));
-        await page.addInitScript(name=>{
+        await page.addInitScript(({ name, sector, animated }) => {
             localStorage.setItem('legacyRumors.seen.v1:auditninja','[10,20,30,40,45]');
-            const samples:{x:number;y:number;t:number;width:number}[]=[];
-            Object.assign(window,{banditTravel:samples});
-            function record(t:number) {
-                const image=document.querySelector<HTMLImageElement>(`.continuous-world-map img[alt="${name}"]`);
-                const figure=image?.closest<HTMLElement>('.sector-wanderer-figure');
-                const grid=figure?.closest<HTMLElement>('.continuous-world-chunk');
-                const offset=figure?.style.transform.match(/^translate\(([-.\d]+)px,\s*([-.\d]+)px\)/);
-                if (offset && grid) {
-                    const x=Number(offset[1]),y=Number(offset[2]),width=grid.getBoundingClientRect().width;
-                    const last=samples.at(-1);
-                    if (width && (!last || x!==last.x || y!==last.y)) samples.push({x,y,t,width});
-                }
-                requestAnimationFrame(record);
+            const samples: BanditTravelSample[] = [];
+            let frameTime: number | undefined;
+            let motionTime = 0;
+            const requestFrame = window.requestAnimationFrame;
+            if (animated) {
+                window.requestAnimationFrame = callback => requestFrame.call(window, time => {
+                    if (time !== frameTime) {
+                        // A suspension over one second consumes one bounded
+                        // 50 ms step. Ordinary late frames keep their full time.
+                        const elapsed = frameTime === undefined ? 0 : time - frameTime;
+                        motionTime += elapsed > 1_000 ? 50 : elapsed;
+                        frameTime = time;
+                    }
+                    callback(time);
+                });
             }
-            requestAnimationFrame(record);
-        },bandit.name);
+            const chunk = `.continuous-world-chunk[data-world-chunk="${sector}"]`;
+            const recorder = new MutationObserver(records => {
+                const figures = new Set<HTMLElement>();
+                for (const { target } of records) {
+                    if (target instanceof HTMLElement && target.classList.contains('sector-wanderer-figure')
+                        && target.title.startsWith(`${name} · Lv `)) figures.add(target);
+                }
+                for (const figure of figures) {
+                    const grid = figure.closest(chunk);
+                    const offset = figure.style.transform.match(/^translate\(([-.\d]+)px,\s*([-.\d]+)px\)/);
+                    if (!grid || !offset) continue;
+                    const x = Number(offset[1]), y = Number(offset[2]);
+                    const last = samples.at(-1);
+                    if (last && x === last.x && y === last.y) continue;
+                    const width = grid.getBoundingClientRect().width;
+                    if (!width) continue;
+                    const wallTime = frameTime ?? performance.now();
+                    const sample = { x, y, wallTime, motionTime: animated ? motionTime : wallTime, width };
+                    if (last?.motionTime === sample.motionTime) samples[samples.length - 1] = sample;
+                    else samples.push(sample);
+                }
+            });
+            // Capture writes from the moving figure directly. A separate frame
+            // callback can miss the figure when the encounter replaces it.
+            recorder.observe(document, { subtree: true, attributes: true, attributeFilter: ['style'] });
+            Object.assign(window, { readBanditTravel: () => {
+                recorder.disconnect();
+                if (animated) window.requestAnimationFrame = requestFrame;
+                return samples;
+            } });
+        }, { name: bandit.name, sector, animated: reducedMotion === 'no-preference' });
         await page.goto('/#/worldMap');
         const back=page.getByRole('button',{name:/Return to Sector 24/});
-        await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible()).toBe(true);
-        if (await back.isVisible()) await back.click();
-        await expect(page.getByRole('button',{name:'Pay 500 ryo',exact:true})).toBeVisible({timeout:25_000});
-        const samples=await page.evaluate(()=> (window as unknown as {banditTravel:{x:number;y:number;t:number;width:number}[]}).banditTravel);
+        const map=page.locator('.continuous-world-map');
+        await expect.poll(async()=>await map.isVisible()||await back.isVisible(),{timeout:30_000}).toBe(true);
+        if (await back.isVisible()) await back.dispatchEvent('click');
+        const pay=page.getByRole('button',{name:'Pay 500 ryo',exact:true});
+        await expect(pay).toBeVisible({timeout:40_000});
+        const samples = await page.evaluate(() => (window as unknown as { readBanditTravel: () => BanditTravelSample[] }).readBanditTravel());
         const lengths=samples.slice(1).map((b,i)=>{
             const a=samples[i],distance=Math.hypot(b.x-a.x,b.y-a.y)*1080/b.width;
-            return {distance,speed:distance*1000/(b.t-a.t)};
+            return {distance,seconds:(b.motionTime-a.motionTime)/1000};
         });
         await info.attach('bandit-travel.json',{body:JSON.stringify({samples,lengths}),contentType:'application/json'});
-        // Measure the entire final 120 pixels, including delayed callbacks and
-        // waypoint crossings. Filtering individual samples by speed masks stalls.
+        // Measure the entire final 120 pixels, including waypoint crossings
+        // and any pauses in the movement logic.
         let distance=0, seconds=0;
         for (const step of lengths.reverse()) {
             if (distance>=120) break;
             const used=Math.min(120-distance,step.distance);
             distance+=used;
-            seconds+=used/step.speed;
+            seconds+=used/step.distance*step.seconds;
         }
         expect(distance).toBe(120);
         expect(distance/seconds).toBeGreaterThan(104);

@@ -65,7 +65,7 @@ def publish_worker_result(result, asset_id, portrait, client, bucket):
     def write_and_verify(name, data):
         assert_asset_active(client, bucket, asset_id)
         key = f"sector-models/players/{asset_id}/{name}"
-        mime = "application/json" if name.endswith(".json") else "application/octet-stream"
+        mime = {"json": "application/json", "webp": "image/webp"}.get(name.rsplit(".", 1)[-1], "application/octet-stream")
         put_verified_public_object(client, bucket, key, data, mime)
         assert_asset_active(client, bucket, asset_id)
 

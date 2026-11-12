@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 from tempfile import TemporaryDirectory
 
 import modal
@@ -326,17 +327,11 @@ def deliver(asset_id, descriptor, master_sha256, *, styles=None, archive=None, a
         if delivery["assetId"] != asset_id or not re.fullmatch("[0-9a-f]{64}", delivery["version"]):
             raise ValueError("unexpected-game-model")
         folder = content / "players" / asset_id
-        manifest = delivery["version"] + ".json"
-        objects = {}
-        for path in folder.iterdir():
-            if path.name != manifest and not re.fullmatch(r"[0-9a-f]{64}\.(gz|264)", path.name):
-                raise ValueError("unexpected-game-object")
-            data = path.read_bytes()
-            if hashlib.sha256(data).hexdigest() != path.stem:
-                raise ValueError("damaged-game-object")
-            objects[path.name] = data
-        if (manifest not in objects or len(objects) != delivery["objects"] or
-                sum(map(len, objects.values())) != delivery["bytes"]):
+        sys.path.insert(0, str(INSTALL))
+        from browser_motion import browser_motion_objects
+        portrait = json.loads(descriptor)["fit"]["sourceSha256"]
+        objects = browser_motion_objects(folder, delivery["version"], portrait)
+        if len(objects) != delivery["objects"] or sum(map(len, objects.values())) != delivery["bytes"]:
             raise ValueError("incomplete-game-model")
         return {"model": delivery, "objects": objects}
 

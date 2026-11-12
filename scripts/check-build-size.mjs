@@ -1441,10 +1441,13 @@ const DIRECT_STRIKE_JS_CSS_FAIL_BYTES = 9_846_000;
 // Sprite pixels and revision metadata are loaded separately. Startup,
 // per-chunk and on-demand-route limits are unchanged.
 const INTERIOR_AVATAR_JS_CSS_FAIL_BYTES = DIRECT_STRIKE_JS_CSS_FAIL_BYTES + 26_500;
+// The CI build with Sentry enabled emits 9,875,818 B of product JS/CSS.
+// Allow 4 KiB for the equipped-model sprite loader and battle rendering code.
+const COMBAT_SPRITE_JS_CSS_FAIL_BYTES = INTERIOR_AVATAR_JS_CSS_FAIL_BYTES + 4 * 1024;
 const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,
     BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
-    DIRECT_STRIKE_JS_CSS_FAIL_BYTES,
+    DIRECT_STRIKE_JS_CSS_FAIL_BYTES, COMBAT_SPRITE_JS_CSS_FAIL_BYTES,
 );
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);

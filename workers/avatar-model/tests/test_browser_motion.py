@@ -9,9 +9,11 @@ from tempfile import TemporaryDirectory
 from threading import Barrier
 import unittest
 from unittest.mock import patch
+from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from browser_motion import ATLAS_BYTES, DIRECTIONS, INDEX_BYTES, PAGE_BYTES, browser_motion_objects, worker_delivery_objects
+from finish_sprite import add_battle_sprite
 from render_admitted_sprite import recover_delivery
 from publish_sprite import publish_worker_result
 
@@ -35,6 +37,32 @@ class BrowserDeliveryTest(unittest.TestCase):
                      heightFraction=.068, directions=DIRECTIONS, styles={s: [index] * 8 for s in "ABC"})
         manifest = write(json.dumps(model).encode(), ".json")
         return manifest[:-5], (index, page, manifest)
+
+    def test_battle_sprite_is_bound_to_the_revision_and_preserves_the_recognized_frame(self):
+        with TemporaryDirectory() as temp:
+            directory = Path(temp)
+            version, _ = self.package(directory)
+            portrait = "a" * 64
+            objects = browser_motion_objects(directory, version, portrait)
+            model = dict(assetId="1" * 32, version=version, objects=len(objects), bytes=sum(map(len, objects.values())))
+            pose = Image.new("RGBA", (20, 30))
+            pose.paste((110, 45, 220, 255), (2, 0, 18, 30))
+            with patch("recognition_lineup.posed_views", return_value=[(pose, (-10, -30))]) as extract:
+                result = add_battle_sprite(directory, model, objects, portrait, "ffmpeg")
+            extract.assert_called_once_with(dict(model=model, objects=objects), portrait, "ffmpeg", "idle", 0, ("sw",))
+            self.assertNotEqual(result["version"], version)
+            self.assertEqual(browser_motion_objects(directory, version, portrait), objects)
+            package = browser_motion_objects(directory, result["version"], portrait)
+            manifest = result["version"] + ".json"
+            sprite = json.loads(package[manifest])["battleSprite"]
+            self.assertEqual(list(package)[-2:], [sprite, manifest])
+            self.assertEqual(result["objects"], len(package))
+            self.assertEqual(result["bytes"], sum(map(len, package.values())))
+            with Image.open(BytesIO(package[sprite])) as decoded:
+                self.assertEqual(decoded.tobytes(), pose.tobytes())
+            (directory / sprite).write_bytes(b"damaged")
+            with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+                browser_motion_objects(directory, result["version"], portrait)
 
     def test_public_readback_failure_and_retry(self):
         class Bucket:

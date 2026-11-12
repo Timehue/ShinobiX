@@ -2,6 +2,7 @@
 import argparse
 from contextlib import redirect_stdout
 from hashlib import file_digest, sha256
+from io import BytesIO
 import json
 from pathlib import Path
 import re
@@ -48,7 +49,8 @@ def combine_styles(entry, directory, master_digest, archive):
         return file_digest(handle, "sha256").hexdigest()
 
 
-def finish(entry, descriptor, master_digest, archive, archive_digest, asset_id, destination, *, ffmpeg=None):
+def finish(entry, descriptor, master_digest, archive, archive_digest, asset_id, destination, *, ffmpeg=None,
+           expected_version=None):
     raw = descriptor.read_bytes()
     if len(raw) > 64 * 1024 or sha256(raw).hexdigest() != master_digest:
         raise ValueError("fitted-master-descriptor")
@@ -58,11 +60,11 @@ def finish(entry, descriptor, master_digest, archive, archive_digest, asset_id, 
         raise ValueError("movement-master-mismatch")
     return encode_bound_archive(entry, archive, archive_digest, asset_id, destination,
                                 fit["sourceSha256"], fit["sheetSha256"], master["templateSha256"],
-                                ffmpeg=ffmpeg)
+                                ffmpeg=ffmpeg, expected_version=expected_version)
 
 
 def encode_bound_archive(entry, archive, archive_digest, asset_id, destination,
-                         portrait_digest, sheet_digest, template_digest, *, ffmpeg=None):
+                         portrait_digest, sheet_digest, template_digest, *, ffmpeg=None, expected_version=None):
     """Encode movement after its fitting has been independently authenticated."""
     if not re.fullmatch("[0-9a-f]{32}", asset_id):
         raise ValueError("invalid-game-asset")
@@ -85,10 +87,33 @@ def encode_bound_archive(entry, archive, archive_digest, asset_id, destination,
         from imageio_ffmpeg import get_ffmpeg_exe
         ffmpeg = get_ffmpeg_exe()
     result = stage_fitted_player(archive, asset_id, portrait_digest, destination, ffmpeg)
-    objects = browser_motion_objects(destination / "players" / asset_id, result["version"], portrait_digest)
+    folder = destination / "players" / asset_id
+    objects = browser_motion_objects(folder, result["version"], portrait_digest)
     if len(objects) != result["objects"] or sum(map(len, objects.values())) != result["bytes"]:
         raise ValueError("incomplete-browser-delivery")
-    return result
+    # An older job may need its original, motion-only revision reconstructed.
+    if result["version"] == expected_version:
+        return result
+    return add_battle_sprite(folder, result, objects, portrait_digest, ffmpeg)
+
+
+def add_battle_sprite(folder, model, objects, portrait_digest, ffmpeg):
+    from recognition_lineup import posed_views
+
+    # Use the exact delivered southwest idle frame evaluated by recognition.
+    [(sprite, _)] = posed_views(dict(model=model, objects=objects), portrait_digest, ffmpeg, "idle", 0, ("sw",))
+    output = BytesIO()
+    sprite.save(output, format="WEBP", lossless=True)
+    data = output.getvalue()
+    filename = sha256(data).hexdigest() + ".webp"
+    header = json.loads(objects[model["version"] + ".json"])
+    header["battleSprite"] = filename
+    manifest = json.dumps(header, separators=(",", ":"), allow_nan=False).encode()
+    revision = sha256(manifest).hexdigest()
+    (folder / filename).write_bytes(data)
+    (folder / (revision + ".json")).write_bytes(manifest)
+    checked = browser_motion_objects(folder, revision, portrait_digest)
+    return dict(model, version=revision, bytes=sum(map(len, checked.values())), objects=len(checked))
 
 
 if __name__ == "__main__":

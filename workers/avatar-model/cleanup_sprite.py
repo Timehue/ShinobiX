@@ -67,7 +67,7 @@ def public_keys(client,bucket,asset):
             if not isinstance(key,str) or not key.startswith(prefix):
                 raise ValueError("Public cleanup escaped its asset")
             name=key[len(prefix):]
-            if name!="_revoked.json" and not re.fullmatch(r"[a-f0-9]{64}\.(json|gz|264)",name):
+            if name!="_revoked.json" and not re.fullmatch(r"[a-f0-9]{64}\.(json|gz|264|webp)",name):
                 raise ValueError("Unexpected public object")
             if name!="_revoked.json":
                 keys.append(key)

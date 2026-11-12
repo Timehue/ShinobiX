@@ -191,7 +191,7 @@ def collect(output, *, reassembled=False):
             or sum(map(len, objects.values())) != model["bytes"]):
         raise ValueError("invalid-trial-delivery")
     for name, data in objects.items():
-        if not re.fullmatch(r"[a-f0-9]{64}\.(json|gz|264)", name) or sha256(data).hexdigest() != name.split(".")[0]:
+        if not re.fullmatch(r"[a-f0-9]{64}\.(json|gz|264|webp)", name) or sha256(data).hexdigest() != name.split(".")[0]:
             raise ValueError("damaged-trial-object")
     manifest = json.loads(objects[version + ".json"])
     if manifest["portraitSha256"] != receipt["sourceSha256"]:
