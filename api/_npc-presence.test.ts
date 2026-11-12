@@ -50,8 +50,11 @@ const tilesBetween = (sector: number, a: number, b: number) => (walk.walkPath(se
 
 test('with no ownership answer yet (storage down since boot) the tick waits: no journey is dropped, no NPC shown', async (t) => {
     const ownership = await import('./_npc-ownership.js');
-    const npc = roster.NPC_VILLAGE_ROSTER[11]!;
     const now = Date.now();
+    // Ownership recovery must not overlap the independent off-duty cleanup.
+    const npc = roster.NPC_VILLAGE_ROSTER.find((candidate) =>
+        !presence.npcOffDuty(candidate.id, now) && !presence.npcOffDuty(candidate.id, now + 1));
+    assert.ok(npc, 'an on-duty NPC is available for the outage and recovery ticks');
     placeWalker(npc, 58, walk.nearestWalkableTile(58, 60), now);
     ownership.forgetNpcOwnership();
     const mget = kv.mget.bind(kv);
