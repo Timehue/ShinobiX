@@ -153,6 +153,7 @@ async function tapWalkThenRun(page: Page, canvas: Locator, actor: Locator) {
         });
         observer.observe(el,{attributes:true,attributeFilter:['data-frame','data-clip']});
     });
+    await expect(toggle).toBeEnabled({timeout:25_000});
     await toggle.tap();
     await expect(toggle).toHaveAttribute("aria-pressed","true");
     await expect.poll(async()=>JSON.parse(await actor.getAttribute('data-touch-run-frames')??'[]').length,
@@ -456,6 +457,45 @@ test("Profile recovers a refunded request after the player leaves", async ({page
     await expect(dialog.getByText(/Model creation failed.*creation was returned/)).toBeVisible();
     await expect(dialog.getByRole('combobox')).toHaveValue('');
     await expect(dialog.getByRole('button', { name: 'Equip', exact: true })).toBeDisabled();
+});
+
+test("the top-left run button expires and refills automatically", async ({page}, info) => {
+    await page.clock.install();
+    const save = uiAuditSave();
+    save.currentSector = 46;
+    save.currentTile = 66;
+    save.character = {...save.character, starterCardsClaimed:true, wandererCooldowns:quietRoadCooldowns([46])};
+    const runtime = await installUiAuditRuntime(page, save);
+    if (!artBase) await page.route('https://models.test/**', route => route.abort());
+    await page.route('**/api/world/sector-layout', route => route.fulfill({json:{
+        obstaclesEnabled:true, playerGaitsEnabled:true, modelArtBase:artBase || 'https://models.test/sector-models',
+    }}));
+    await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja','[10,20,30,40,45]'));
+    await expectUiAuditBoot(page,runtime,'worldMap');
+    const back = page.getByRole('button',{name:/Return to Sector 46/});
+    const map = page.locator('.continuous-world-map');
+    await expect(back.or(map).first()).toBeVisible();
+    await returnToTerrain(back);
+    const run = map.getByRole('button',{name:'Run',exact:true});
+    await expect(run).toBeEnabled();
+    if (artBase) await expect(map.locator('[data-world-self]')).toHaveClass(/has-sector-model/);
+    const mapBounds = (await map.boundingBox())!, buttonBounds = (await run.boundingBox())!;
+    expect(buttonBounds.x - mapBounds.x).toBeCloseTo(8, 0);
+    expect(buttonBounds.y - mapBounds.y).toBeCloseTo(8, 0);
+    expect(buttonBounds.width).toBeGreaterThanOrEqual(44);
+    expect(buttonBounds.height).toBeGreaterThanOrEqual(44);
+    await run.click();
+    await expect(run).toHaveAttribute('data-run-state','running');
+    await expect(run).toHaveAttribute('aria-pressed','true');
+    await map.screenshot({path:info.outputPath('run-active.png')});
+    await page.clock.fastForward(15_100);
+    await expect(run).toHaveAttribute('data-run-state','refilling');
+    await expect(run).toHaveAttribute('aria-pressed','false');
+    await expect(run).toBeDisabled();
+    await run.screenshot({path:info.outputPath('run-refilling.png')});
+    await page.clock.fastForward(20_100);
+    await expect(run).toHaveAttribute('data-run-state','ready');
+    await expect(run).toBeEnabled();
 });
 
 test("Profile opens Make Model next to Upload avatar and creates one monthly model after confirmation", async ({page}, info) => {

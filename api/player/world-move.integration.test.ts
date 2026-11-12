@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { CONTINUOUS_WORLD_SPACE, WORLD_LAYOUT_VERSION, worldPositionModel } from '../../shared/continuous-world-layout.js';
 import { buildWorldNavigation } from '../../shared/continuous-world-navigation.js';
 import type { WorldPosition } from '../../shared/world-position.js';
+import { WORLD_RUN_MS, WORLD_RUN_REFILL_MS } from '../../shared/world-run.js';
 
 let clock = Date.now(), serial = 0;
 let kv: typeof import('../_storage.js').kv;
@@ -86,6 +87,35 @@ test('HTTP movement requires authentication and returns the same admitted cursor
     assert.deepEqual((await kv.get<Record<string, unknown>>(`save:${name}`))?.worldPosition, destination);
 });
 
+test('a run expires after 15 seconds, survives reconnect, and refills after 20 seconds', async t => {
+    const artBase = process.env.R2_PUBLIC_BASE;
+    process.env.R2_PUBLIC_BASE = 'https://art.example.invalid';
+    t.after(() => { if (artBase === undefined) delete process.env.R2_PUBLIC_BASE; else process.env.R2_PUBLIC_BASE = artBase; });
+    const { name, sequence } = await actor();
+    const start = clock, endsAt = start + WORLD_RUN_MS, readyAt = endsAt + WORLD_RUN_REFILL_MS;
+    assert.equal((await request(name, 'POST', { action: 'start-run' }, false)).status, 401);
+    const started = await request(name, 'POST', { action: 'start-run' });
+    assert.equal(started.status, 200);
+    assert.deepEqual(started.body?.run, { serverTime: start, endsAt, readyAt });
+    assert.equal((await request(name, 'POST', { action: 'start-run' })).status, 409);
+    clock = endsAt - 1;
+    store.remove(name);
+    store.upsert({ name, ...model.location(origin), character: null, restoredWorldPosition: origin });
+    assert.deepEqual((await request(name, 'GET')).body?.run, { serverTime: clock, endsAt, readyAt });
+    clock = endsAt;
+    assert.equal((await request(name, 'POST', { worldPosition: destination, expectedSequence: sequence,
+        gaitPresentation: { gait: 'run', style: 'C' } })).status, 200);
+    assert.deepEqual(store.get(name)?.gaitPresentation, { gait: 'walk', style: 'C' });
+    clock = readyAt - 1;
+    assert.equal((await request(name, 'POST', { action: 'start-run' })).status, 409);
+    clock = readyAt;
+    assert.equal((await request(name, 'POST', { action: 'start-run' })).status, 200);
+    clock += 1_000;
+    const stopped = await request(name, 'POST', { action: 'stop-run' });
+    assert.equal(stopped.status, 200);
+    assert.deepEqual(stopped.body?.run, { serverTime: clock, endsAt: clock, readyAt: clock + WORLD_RUN_REFILL_MS });
+});
+
 test('failed durable admission moves neither the sector nor cursor', async t => {
     const { name, sequence } = await actor(), original = kv.set.bind(kv);
     t.mock.method(kv, 'set', async (key: string, value: unknown, options?: never) => {
@@ -112,6 +142,9 @@ test('a battle acquired during admission prevents publication and clears only th
 });
 
 test('HTTP and an actual authenticated socket share sequence and zone authority', { timeout: 15000 }, async t => {
+    const artBase = process.env.R2_PUBLIC_BASE;
+    process.env.R2_PUBLIC_BASE = 'https://art.example.invalid';
+    t.after(() => { if (artBase === undefined) delete process.env.R2_PUBLIC_BASE; else process.env.R2_PUBLIC_BASE = artBase; });
     const { name, sequence } = await actor(), server = createServer();
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     const sockets = await import('../_realtime/socket.js');
@@ -130,6 +163,7 @@ test('HTTP and an actual authenticated socket share sequence and zone authority'
         await new Promise<void>(resolve => { client.once('disconnect', () => resolve()); client.close(); });
     });
     await new Promise<void>((resolve, reject) => { client.once('connect', resolve); client.once('connect_error', reject); client.connect(); });
+    assert.equal((await request(name, 'POST', { action: 'start-run' })).status, 200);
     const gaitPresentation = { gait: 'run', style: 'C' };
     const result = await new Promise<Record<string, unknown>>(resolve => client.emit('world:move', {
         worldPosition: destination, expectedSequence: sequence, gaitPresentation: { ...gaitPresentation, speed: 999 },

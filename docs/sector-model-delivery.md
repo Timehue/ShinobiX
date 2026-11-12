@@ -114,6 +114,8 @@ When a saved character carries this equipment reference, the world uses its mode
 
 Walk/run selection is available in the continuous world when the server has the public art base. Starter two uses its red-armored figure and starter one uses its blue-armored figure. The save records the selected preset so a later portrait upload or the shared portrait lookup can keep the same world figure. Older saves with a known preset recover that choice. A save with neither a stored choice nor a recognizable preset defaults to starter one. If the image host is unavailable, the portrait remains visible and both controls work.
 
+The run button at the top left of the sector starts a 15-second window and shows the remaining time. Walking resumes automatically, and the button refills in 20 seconds. Clicking while running returns to walking early and starts the refill immediately. The active game server keeps the timer through sector travel and reconnects.
+
 ### Cinderhold release
 
 The Cinderhold catalog binds each server-authored roster ID and portrait path to one verified model revision. The village seed writes that reference into the rebuilt NPC save. Both its guard and journey presence paths supply the same reference, and the tile feed advances the existing world figure at its walking pace. Install the Cinderhold seed and presence changes with the village source before deploying the model view.

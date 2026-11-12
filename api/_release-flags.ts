@@ -13,7 +13,7 @@ export function sectorModelDisplayEnabled(env: NodeJS.ProcessEnv = process.env):
 
 /** The walk and run animations ship with the public world model pack. */
 export function sectorPlayerGaitsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-    return env.ENABLE_PLAYER_GAIT_PILOT !== '0';
+    return env.ENABLE_PLAYER_GAIT_PILOT !== '0' && sectorModelDisplayEnabled(env) && Boolean(env.R2_PUBLIC_BASE?.trim());
 }
 
 export function playerAiImageGenerationEnabled(env: NodeJS.ProcessEnv = process.env): boolean {

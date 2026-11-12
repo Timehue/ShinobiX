@@ -15,5 +15,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         modelArtBase,
         ...(process.env.AVATAR_MODEL_PROFILE_DETAIL_ENABLED === '1' ? {profileDetailUploads:true} : {}),
         ...(modelCreationPolicy().enabled ? { worldModelCreationAvailable: true } : {}),
-        playerGaitsEnabled: modelArtBase !== null && sectorPlayerGaitsEnabled() });
+        playerGaitsEnabled: sectorPlayerGaitsEnabled() });
 }

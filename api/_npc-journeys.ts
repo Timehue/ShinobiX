@@ -57,8 +57,7 @@ import { npcPinned } from './_npc-attack-hold.js';
 import { WORLD_WALK_SPEED } from './_realtime/world-movement.js';
 import { sectorGaitTilesPerSecond } from '../shared/sector-gait-rates.js';
 import type { OnlinePlayer } from './_realtime/types.js';
-import { sectorModelDisplayEnabled, sectorObstaclesEnabled, sectorPlayerGaitsEnabled } from './_release-flags.js';
-import { r2ReadEnabled } from './_r2.js';
+import { sectorObstaclesEnabled, sectorPlayerGaitsEnabled } from './_release-flags.js';
 import type { NpcPersonality, NpcShinobi } from '../shared/npc-village-roster.js';
 import { CASTLE_SECTORS, CINDERHOLD_SECTORS, OUTSKIRTS_SECTORS, sectorArtKey } from '../shared/sector-geo.js';
 import { SECTOR_FLOOR_LAYOUTS } from '../shared/sector-floor-layouts.js';
@@ -569,7 +568,7 @@ function stepOne(j: Journey, now: number, report: NpcWalkReport): void {
     }
     syncNpcJourneyActivity(j.id, row);
     report.walking++;
-    const pace = sectorModelDisplayEnabled() && sectorPlayerGaitsEnabled() && r2ReadEnabled()
+    const pace = sectorPlayerGaitsEnabled()
         ? sectorGaitTilesPerSecond.walk : NPC_WALK_TILES_PER_SECOND;
     const cap = pace * NPC_WALK_MAX_CATCHUP_MS / 1000;
     j.budget = Math.min(cap, j.budget + elapsed / 1000 * pace);

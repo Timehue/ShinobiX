@@ -21,8 +21,11 @@
 .continuous-world-status{position:absolute;left:50%;top:12px;transform:translateX(-50%);max-width:90%;z-index:30;color:#eee9d7;font-size:12px;text-align:center;pointer-events:none;background:#111d25e8;border-radius:5px;padding:5px 9px}
 .continuous-world-status:empty{display:none}.continuous-world-status button{display:block;margin:7px auto 2px;pointer-events:auto}
 .continuous-world-map>canvas:focus-visible{outline:2px solid #e5d39a;outline-offset:-3px}
-.continuous-world-map>.world-run-toggle{position:absolute;right:8px;bottom:8px;z-index:15;min-width:64px;min-height:44px;color:#eee5d6;background:#211c20ed;border:1px solid #8a7472;border-radius:4px;touch-action:manipulation}
-.continuous-world-map>.world-run-toggle[aria-pressed=true]{border-color:#f2d58a;background:#45361ded;color:#fff0bd}
+.continuous-world-map>.world-run-toggle{position:absolute;left:8px;top:8px;z-index:15;display:grid;place-items:center;width:44px;height:44px;padding:0;color:#f4e8d1;background:#171922ef;border:1px solid #9a8665;border-radius:7px;touch-action:manipulation}
+.continuous-world-map>.world-run-toggle[data-run-state=running]{border-color:#f2d58a;background:#45361ded;color:#fff0bd}
+.continuous-world-map>.world-run-toggle[data-run-state=refilling]{color:#e0d7cb;background:#272732f2;opacity:1}
+.world-run-count:not(:empty){position:absolute;right:2px;bottom:1px;padding:0 3px;border-radius:3px;background:#14161de8;font:600 10px/14px var(--font-body);font-variant-numeric:tabular-nums}
+.continuous-world-map>.world-run-toggle:focus-visible{outline:2px solid #f2d58a;outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.continuous-world-map .sector-avatar-body{animation:none}}
 
 /* On slow map views, give the actor the frame budget used by decorative motion

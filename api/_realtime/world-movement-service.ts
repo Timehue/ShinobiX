@@ -11,6 +11,8 @@ import type { OnlinePlayer } from './types.js';
 import { pushWorldMovement } from './notify.js';
 import { toPlayerRecord } from './presence-input.js';
 import { worldDistance } from '../../shared/continuous-world-space.js';
+import { worldRunWindow } from './world-run.js';
+import { sectorPlayerGaitsEnabled } from '../_release-flags.js';
 
 const gate = createWorldMovementGate(), pending = new Set<string>();
 export function worldMovementSnapshot(player: OnlinePlayer) {
@@ -43,7 +45,10 @@ export async function applyWorldMovement(name: string, payload: unknown) {
         const now = Date.now(), sequence = player.movementSeq ?? 0;
         const admitted = gate.admit(player, body.worldPosition, body.expectedSequence, now);
         if (!admitted.ok) return { ...admitted, ...worldMovementSnapshot(player) };
-        const gaitPresentation = readWorldGaitPresentation(body.gaitPresentation);
+        const requestedGait = readWorldGaitPresentation(body.gaitPresentation);
+        const gaitPresentation = requestedGait?.gait === 'run' &&
+            (!sectorPlayerGaitsEnabled() || worldRunWindow(player.name, now).endsAt <= now)
+            ? { ...requestedGait, gait: 'walk' as const } : requestedGait;
         const origin = player.sector;
         let moved: OnlinePlayer | null;
         if (admitted.sector !== origin) {

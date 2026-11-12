@@ -10,11 +10,13 @@ import { createTapIndex } from './world-tap';
 import { createWorldMovePacer } from './world-move-pacing';
 import { sectorGaitTilesPerSecond, type GroundStride } from '../../../shared/sector-model-motion';
 import { createGaitBrake } from './world-gait-brake';
+import type { WorldRunWindow } from '../../../shared/world-run';
 
 type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivElement;
     groundStride?: GroundStride;
     sprintStyle?: () => import('../../../shared/player-model-ref').SprintStyle;
     gait?: () => 'walk' | 'run' | undefined;
+    onRunWindow?: (run: WorldRunWindow) => void;
     onFigure?: (x: number, y: number, width: number, moving: boolean, gait?: 'walk' | 'run') => void;
     onPosition?: (sector: number, col: number, row: number) => void;
     /** A tap on painted ground of the current sector; true when a landmark there took it. */
@@ -33,6 +35,7 @@ export async function mountContinuousWorld(host: Host) {
     if (staleReply(initial, world.space.layoutVersion)) throw new Error(STALE_WORLD_STATUS);
     const initialPosition = world.model.read(initial.worldPosition);
     if (!initial.ok || !initialPosition) throw new Error('World presence is not ready. Try again.');
+    if (initial.run) host.onRunWindow?.(initial.run);
     const walker = createWorldWalker(world.nodes, initialPosition.from);
     walker.restore(initialPosition);
     const renderer = createContinuousWorldRenderer(host.canvas, world.space, world.navigation);
@@ -182,6 +185,7 @@ export async function mountContinuousWorld(host: Host) {
             const reply = await worldMovementRequest(undefined, undefined, host.signal), cursor = world.model.read(reply.worldPosition);
             if (staleReply(reply, world.space.layoutVersion)) { stale = true; resumed = false; host.onStatus(STALE_WORLD_STATUS); }
             else if (reply.ok && cursor && !disposed) {
+                if (reply.run) host.onRunWindow?.(reply.run);
                 walker.restore(cursor); sequence = reply.sequence ?? 0; sector = reply.sector!; tile = reply.tile!; resumed = false;
                 requestedSector = sector; pace.reset(); sentCursor = ''; host.onAuthority(sector, tile); host.onStatus('');
                 const destination = pendingDestination; pendingDestination = null;

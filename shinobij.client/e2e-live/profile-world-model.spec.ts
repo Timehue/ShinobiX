@@ -201,7 +201,10 @@ equipTest('a signed-in player equips a completed monthly model from Profile', as
     }
     // Releasing inside the first step selects a different page from braking at full speed.
     for (const gait of ['walk','run'] as const) {
-        if ((await run.getAttribute('aria-pressed')==='true') !== (gait==='run')) await run.click();
+        if ((await run.getAttribute('aria-pressed')==='true') !== (gait==='run')) {
+            await expect(run).toBeEnabled({timeout:25_000});
+            await run.click();
+        }
         await ownerFigure.evaluate((el,gait)=>{
             const frames=new Set<string>();
             const start='start-'+gait, brake='stop-'+start+'-';

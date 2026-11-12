@@ -3,8 +3,9 @@ import { buildWorldNavigationInSlices, worldGraphVersion } from '../../../shared
 import { createWorldPositionModel, type WorldPosition } from '../../../shared/world-position';
 import type { ContinuousWorldSpace } from '../../../shared/continuous-world-space';
 import type { PlayerRecord } from '../types/character';
+import type { WorldRunAction, WorldRunWindow } from '../../../shared/world-run';
 
-export type WorldMovementReply = { ok: boolean; reason?: string; sector?: number; tile?: number; sequence?: number; worldPosition?: WorldPosition | null; players?: PlayerRecord[] };
+export type WorldMovementReply = { ok: boolean; reason?: string; sector?: number; tile?: number; sequence?: number; worldPosition?: WorldPosition | null; players?: PlayerRecord[]; run?: WorldRunWindow };
 let loaded: Promise<Awaited<ReturnType<typeof readLayout>>> | undefined;
 /** A fresh task: unlike setTimeout(0), a channel message is not clamped to 4 ms once nested. */
 const nextTask = () => new Promise<void>(resolve => {
@@ -36,4 +37,11 @@ export async function worldMovementRequest(position?: WorldPosition, expectedSeq
     const response = await fetch('/api/player/world-move', { method: position ? 'POST' : 'GET', signal,
         ...(position ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : {}) });
     return await response.json() as WorldMovementReply;
+}
+
+export async function worldRunRequest(action: WorldRunAction, signal: AbortSignal): Promise<{ ok: boolean; run?: WorldRunWindow }> {
+    const response = await fetch('/api/player/world-move', {
+        method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }),
+    });
+    return await response.json();
 }
