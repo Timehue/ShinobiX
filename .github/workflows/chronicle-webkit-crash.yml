@@ -1,0 +1,129 @@
+name: Chronicle WebKit crash capture
+
+# One evidence run, never a release check or a substitute for normal CI.
+on:
+  push:
+    branches: [codex/chronicle-webkit-crash-capture-20261112]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: chronicle-webkit-crash-capture-20261112
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SOURCE_SHA: bf186de065949176f957824ca88a0841cb1295cd
+  SOURCE_RUN_ID: '43270566559'
+  SOURCE_ARTIFACT_ID: '13968882058'
+  VITE_SENTRY_DSN: https://public@example.invalid/1
+  VITE_SENTRY_RELEASE: ci
+  VITE_BUILD_COMMIT: bf186de065949176f957824ca88a0841cb1295cd
+
+jobs:
+  capture:
+    if: github.repository == 'Timehue/ShinobiX' && github.event.created == true && github.run_attempt == 1 && github.ref == 'refs/heads/codex/chronicle-webkit-crash-capture-20261112'
+    name: WebKit crash evidence / unchanged shard 4-of-12
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    steps:
+      - name: Yield to active main release work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api repos/Timehue/ShinobiX/branches/main --jq .commit.sha)" = "$SOURCE_SHA"
+          gh api --paginate 'repos/Timehue/ShinobiX/actions/runs?branch=main&per_page=100' --jq '.workflow_runs[] | select(.status != "completed") | .id' > "$RUNNER_TEMP/active-main-runs"
+          test ! -s "$RUNNER_TEMP/active-main-runs"
+      - name: Check out unchanged failed source
+        uses: actions/checkout@v7
+        with:
+          ref: bf186de065949176f957824ca88a0841cb1295cd
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
+      - name: Check out reviewed capture tools separately
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .diagnostic
+          persist-credentials: false
+          sparse-checkout: scripts/diagnostics/webkit-crash
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: shinobij.client/package-lock.json
+      - name: Record fixed source provenance
+        run: |
+          mkdir -p .ci-evidence/webkit-crash .ci-artifacts/release
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf 'source_sha=%s\nsource_run_id=%s\nartifact_id=%s\ndiagnostic_sha=%s\n' "$SOURCE_SHA" "$SOURCE_RUN_ID" "$SOURCE_ARTIFACT_ID" "$GITHUB_SHA" > .ci-evidence/webkit-crash/provenance.txt
+          sha256sum shinobij.client/e2e/chronicle-duel-ux.spec.ts shinobij.client/e2e/helpers/pending-click-diagnostics.ts shinobij.client/playwright.config.ts >> .ci-evidence/webkit-crash/provenance.txt
+      - name: Install normal root and QA dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/webkit-crash/root-install.log
+      - name: Install normal client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/webkit-crash/client-install.log
+      - name: Download and verify immutable failed-run release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/Timehue/ShinobiX/actions/artifacts/$SOURCE_ARTIFACT_ID" --jq 'select(.id == 13968882058 and .expired == false and .name == "release-dist-bf186de065949176f957824ca88a0841cb1295cd-43270566559" and .digest == "sha256:dca895f3003f2d572abab9d79e3103b6ec10808cafe926315578a1957156ecc2" and .workflow_run.id == 43270566559 and .workflow_run.head_sha == "bf186de065949176f957824ca88a0841cb1295cd") | .id' > "$RUNNER_TEMP/artifact-id"
+          test "$(cat "$RUNNER_TEMP/artifact-id")" = "$SOURCE_ARTIFACT_ID"
+          gh api "repos/Timehue/ShinobiX/actions/runs/$SOURCE_RUN_ID" --jq 'select(.status == "completed" and .conclusion == "failure" and .run_attempt == 1 and .event == "push" and .head_branch == "main" and .head_sha == "bf186de065949176f957824ca88a0841cb1295cd") | .id' > "$RUNNER_TEMP/source-run-id"
+          test "$(cat "$RUNNER_TEMP/source-run-id")" = "$SOURCE_RUN_ID"
+          gh api --paginate "repos/Timehue/ShinobiX/actions/runs/$SOURCE_RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name == "CI / release-artifact" and .conclusion == "success") | .id' > "$RUNNER_TEMP/release-job-id"
+          test "$(wc -l < "$RUNNER_TEMP/release-job-id")" -eq 1
+          gh api "repos/Timehue/ShinobiX/actions/artifacts/$SOURCE_ARTIFACT_ID/zip" > .ci-artifacts/release.zip
+          echo 'dca895f3003f2d572abab9d79e3103b6ec10808cafe926315578a1957156ecc2  .ci-artifacts/release.zip' | sha256sum -c -
+          unzip -q .ci-artifacts/release.zip -d .ci-artifacts/release
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$SOURCE_SHA" provenance.txt
+          grep -Fx "run_id=$SOURCE_RUN_ID" provenance.txt
+          grep -Fx 'run_attempt=1' provenance.txt
+          cp provenance.txt ../../.ci-evidence/webkit-crash/artifact-provenance.txt
+          cp release-dist.tgz.sha256 ../../.ci-evidence/webkit-crash/
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+          git diff --exit-code HEAD -- .
+      - name: Install normal release browsers
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium firefox webkit
+          log: .ci-evidence/webkit-crash/browser-install.log
+      - name: Validate bounded capture without another browser run
+        run: node --test .diagnostic/scripts/diagnostics/webkit-crash/*.test.mjs
+      - name: Recheck main priority immediately before the shard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api repos/Timehue/ShinobiX/branches/main --jq .commit.sha)" = "$SOURCE_SHA"
+          gh api --paginate 'repos/Timehue/ShinobiX/actions/runs?branch=main&per_page=100' --jq '.workflow_runs[] | select(.status != "completed") | .id' > "$RUNNER_TEMP/active-main-runs-before-shard"
+          test ! -s "$RUNNER_TEMP/active-main-runs-before-shard"
+      - name: Run original responsive shard once with safe crash capture
+        timeout-minutes: 31
+        run: |
+          test -z "${PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS:-}"
+          git diff --exit-code HEAD -- .
+          node .diagnostic/scripts/diagnostics/webkit-crash/run.mjs 2>&1 | tee .ci-evidence/webkit-crash/playwright.log
+      - name: Retain diagnostics and ordinary test evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: webkit-crash-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .ci-evidence/webkit-crash/
+            shinobij.client/playwright-report/
+            shinobij.client/test-results/
+          if-no-files-found: error
+          retention-days: 14
