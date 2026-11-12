@@ -76,7 +76,7 @@ async function claim(): Promise<Out> {
 describe('the agenda control task counts held WAR sectors only', { concurrency: false }, () => {
     test('a stray stamp on a wilderness sector does not complete it', async (t) => {
         holdUtcDay(t);
-        await kv.set('world:territory:70', { ownerVillage: VILLAGE });
+        await kv.set('world:territory:42', { ownerVillage: VILLAGE }); // the Midlands: never a war sector
         const out = await claim();
         assert.equal(out.status, 403, JSON.stringify(out.body));
         assert.equal((await kv.get<Record<string, any>>(SAVE_KEY))?.character.ryo, 1_000, 'nothing was paid');

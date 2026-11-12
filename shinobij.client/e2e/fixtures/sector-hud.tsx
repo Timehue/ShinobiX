@@ -9,11 +9,15 @@ import { useSectorPlayerAction } from '../../src/lib/use-sector-player-action';
 import type { PlayerRecord } from '../../src/types/character';
 import type { WorldSectorCommandPanelProps } from '../../src/components/WorldSectorCommandPanel.types';
 import { sectorExits as roadExitsForSector } from '../../../shared/sector-links';
+import { isPlayerModel } from '../../../shared/player-model-ref';
 import { sectorBackgroundImage } from '../../src/screens/world-map/sector-art';
 import '../../src/index.css';
 import '../../src/styles/veiled-steel.css';
 import '../../src/styles/layout/adaptive-stages.css';
 
+const fixtureMode = new URLSearchParams(location.search);
+const stagedModel = {assetId:fixtureMode.get('assetId'),version:fixtureMode.get('version')};
+const reportModel = isPlayerModel(stagedModel) ? stagedModel : {assetId:'a'.repeat(32),version:'b'.repeat(64)};
 type Settings = { sector: number; tile: number; peerTile: number; present: boolean; depleted: boolean; suspended: boolean; contest: boolean; blocked: boolean; broken: boolean; pending: boolean; hunt: boolean; vista: boolean; fighting: boolean; awake: boolean };
 const events: string[] = [];
 let finish: () => void = () => {};
@@ -26,7 +30,10 @@ export function Fixture() {
     useLayoutEffect(() => { window.sectorFixture = {configure: next=>setSettings(prev=>({...prev,...next})), events, finish:()=>finish()}; });
     const [endsAt] = useState(() => Date.now()+3_600_000);
     const contest = settings.contest ? {id:'fixture-war',sector:settings.sector,winCondition:'card' as const,attackerVillage:'Stormveil Village',defenderVillage:'Ashen Leaf Village',endsAt,garrisonReady:true}:null;
-    const target = (name: string, sleeping = false) => ({name,level:46,currentSector:settings.sector,inBattle:settings.fighting&&!sleeping,village:'Ashen Leaf Village',specialty:'Ninjutsu',character:{avatarImage:settings.broken?'/fixture-broken.webp':'/portraits/corvo-latch.webp'},__sleeping:sleeping&&!settings.awake} as PlayerRecord & {__sleeping:boolean});
+    const target = (name: string, sleeping = false) => ({name,level:46,currentSector:settings.sector,inBattle:settings.fighting&&!sleeping,village:'Ashen Leaf Village',specialty:'Ninjutsu',character:{
+        avatarImage:settings.broken?'/fixture-broken.webp':'/portraits/corvo-latch.webp',
+        ...(!sleeping && fixtureMode.has('model-report') ? {playerModel:reportModel} : {}),
+    },__sleeping:sleeping&&!settings.awake} as PlayerRecord & {__sleeping:boolean});
     const players = projectSectorPlayers([target('A Very Long Shinobi Name From the Northern Watch'),target('SleepingNinja',true)],{
         sector:settings.sector,village:'Stormveil Village',images:{},contest,blockedReason:settings.blocked?'Progress-changing web actions are temporarily paused.':undefined,
     });
@@ -62,4 +69,8 @@ export function Fixture() {
             hudLayer={<SectorHud {...props} rosterState="current" playerAction={playerAction} onPlayerAction={playerAction.run}/>} />
     </div></div>;
 }
-createRoot(document.getElementById('root')!).render(<Fixture/>);
+const root = createRoot(document.getElementById('root')!);
+if (fixtureMode.has('staff-model-report')) {
+    void import('../../src/screens/ModerationPanel').then(({ ModerationPanel }) =>
+        root.render(<ModerationPanel adminPw="qa-model-review-password" />));
+} else root.render(<Fixture/>);

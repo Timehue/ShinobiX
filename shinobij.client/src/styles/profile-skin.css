@@ -824,6 +824,17 @@
     width: 112px;
     text-align: center;
 }
+.profile-model-controls { display: grid; gap: 12px; }
+.profile-model-controls label { display: grid; gap: 6px; }
+/* Make Model, Create model, Cancel, Load older, Preview walk, Equip and the model picker: 44px touch floor. */
+.profile-model-controls :is(button, select) { min-height: 44px; }
+.profile-model-stage {
+    position: relative; height: 104px; overflow: hidden; border-radius: 5px;
+    background: radial-gradient(ellipse at 50% 82%, #514b40, #24262a 60%);
+}
+.profile-model-actor { position: absolute; left: 50%; top: 88%; }
+.profile-model-loading { position: absolute; inset: 0; display: grid; place-content: center; }
+.profile-model-actor.has-sector-model + .profile-model-loading { display: none; }
 .profile-page-card .profile-avatar-upload small {
     color: var(--text-dim);
     font-size: 11px;

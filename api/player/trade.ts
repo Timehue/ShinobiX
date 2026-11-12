@@ -25,6 +25,7 @@ import {
     tradeTermsFromJournal,
     type TradeTerms,
 } from './_trade-settlement.js';
+import { NPC_TARGET_REFUSAL, isNpcTarget } from '../_npc-guard.js';
 
 /*
  * /api/player/trade — POST (direct player-to-player transfer)
@@ -122,6 +123,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const toSlug = safeName(toRaw);
         if (!toSlug) return res.status(400).json({ error: 'Invalid recipient.' });
         if (toSlug === playerName) return res.status(400).json({ error: "You can't send to yourself." });
+        // A Cinderhold NPC can never send anything back (and is rebuilt daily).
+        if (isNpcTarget(toSlug)) return res.status(409).json({ error: "You can't trade with NPCs." });
 
         const toRec = await kv.get<Record<string, unknown>>(`save:${toSlug}`);
         const toChar = (toRec?.character ?? null) as Record<string, unknown> | null;

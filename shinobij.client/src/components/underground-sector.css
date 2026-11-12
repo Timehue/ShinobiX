@@ -1,61 +1,47 @@
 .underground-world {
-    --under-floor: #445158;
-    --under-rock: #202b36;
     --under-highlight: #afc6cb;
-    --under-glow: #eebb7f;
-    --under-water: #0e2831;
 }
 .underground-world--obsidian {
-    --under-floor: #574c51;
-    --under-rock: #292533;
     --under-highlight: #debda8;
-    --under-glow: #ff985a;
 }
 .underground-world--cave {
-    --under-floor: #354d4f;
-    --under-rock: #1a2930;
     --under-highlight: #9dc7c3;
-    --under-glow: var(--hg-floor-accent, #68d2bf);
-    --under-water: #061f29;
 }
-.underground-world--cave[data-hg-floor="1"] { --under-floor: #584f48; --under-rock: #302b30; --under-highlight: #d0b59c; }
-.underground-world--cave[data-hg-floor="3"] { --under-floor: #35495c; --under-rock: #1b2839; --under-highlight: #a1bcd7; }
-.underground-world--cave[data-hg-floor="4"] { --under-floor: #494359; --under-rock: #282333; --under-highlight: #b8a7d6; }
-.underground-world--cave[data-hg-floor="5"] { --under-floor: #543d51; --under-rock: #2d2034; --under-highlight: #d7a8c3; }
+.underground-world--cave[data-hg-floor="1"] { --under-highlight: #d0b59c; }
+.underground-world--cave[data-hg-floor="3"] { --under-highlight: #a1bcd7; }
+.underground-world--cave[data-hg-floor="4"] { --under-highlight: #b8a7d6; }
+.underground-world--cave[data-hg-floor="5"] { --under-highlight: #d7a8c3; }
 /* Rift identity follows its quest throughout every depth. These palettes use
    the same continuous cavern materials and camera as the main Hollow Gate. */
 .underground-world--cave.underground-world--rift {
     --hg-floor-accent: #b6a0e4;
     --hg-floor-accent-soft: #b6a0e426;
     --hg-floor-fog: #352b4b80;
-    --under-floor: #494457;
-    --under-rock: #252431;
     --under-highlight: #c2b6de;
-    --under-water: #151d30;
 }
 .underground-world--rift[data-hg-rift="rift-hollow-stalker"] {
     --hg-floor-accent: #7fb9a6; --hg-floor-accent-soft: #7fb9a626; --hg-floor-fog: #153c3880;
-    --under-floor: #354b45; --under-rock: #1a2b29; --under-highlight: #a9ccbc; --under-water: #0a2525;
+    --under-highlight: #a9ccbc;
 }
 .underground-world--rift[data-hg-rift="rift-beast-warren"] {
     --hg-floor-accent: #d5a16c; --hg-floor-accent-soft: #d5a16c26; --hg-floor-fog: #49332180;
-    --under-floor: #594c3e; --under-rock: #302925; --under-highlight: #d6bb94; --under-water: #252724;
+    --under-highlight: #d6bb94;
 }
 .underground-world--rift[data-hg-rift="rift-engine-echo"] {
     --hg-floor-accent: #e5a36d; --hg-floor-accent-soft: #e5a36d26; --hg-floor-fog: #3f2e2a80;
-    --under-floor: #4c5053; --under-rock: #252b30; --under-highlight: #bfcbd0; --under-water: #162731;
+    --under-highlight: #bfcbd0;
 }
 .underground-world--rift[data-hg-rift="rift-hollow-name"] {
     --hg-floor-accent: #c995aa; --hg-floor-accent-soft: #c995aa26; --hg-floor-fog: #48293880;
-    --under-floor: #55434e; --under-rock: #2c222c; --under-highlight: #d6b1c2; --under-water: #211d2c;
+    --under-highlight: #d6b1c2;
 }
 .underground-world--rift[data-hg-rift="rift-mirror-shard"] {
     --hg-floor-accent: #9bbfe4; --hg-floor-accent-soft: #9bbfe426; --hg-floor-fog: #253c5580;
-    --under-floor: #3e4f62; --under-rock: #202c3d; --under-highlight: #c0d8ef; --under-water: #112c42;
+    --under-highlight: #c0d8ef;
 }
 .underground-world--rift[data-hg-rift="rift-gate-heir"] {
     --hg-floor-accent: #dcc18b; --hg-floor-accent-soft: #dcc18b26; --hg-floor-fog: #433a2780;
-    --under-floor: #535348; --under-rock: #2c2c29; --under-highlight: #dbd0ad; --under-water: #202a2d;
+    --under-highlight: #dbd0ad;
 }
 .underground-world.underground-world--rift .hg-cave-header .act-label { color: var(--hg-floor-accent) !important; }
 .underground-world--rift .hg-cave-location { border-color: color-mix(in srgb, var(--hg-floor-accent) 40%, transparent); }
@@ -280,6 +266,10 @@
 }
 
 .hg-avatar.hg-wanderer { z-index: 5; pointer-events: auto; cursor: pointer; }
+.hg-avatar.has-sector-model { --hg-avatar-anchor: -100%; }
+.hg-avatar.has-sector-model > .hg-avatar-sprite,
+.hg-avatar.has-sector-model > .hg-avatar-aura { visibility: hidden; }
+.hg-avatar.has-sector-model > .hg-avatar-shadow { top: 100%; bottom: auto; transform: translate(-50%, -50%); }
 .hg-avatar.hg-wanderer .hg-avatar-body { border-color: var(--npc-color); background: #0c1b21; box-shadow: 0 3px 10px #0008, 0 0 8px color-mix(in srgb, var(--npc-color) 20%, transparent); }
 .hg-avatar.hg-wanderer .hg-avatar-pin { border-top-color: var(--npc-color); }
 .hg-avatar.hg-wanderer .hg-avatar-aura { background: radial-gradient(ellipse, color-mix(in srgb, var(--npc-color) 20%, transparent), transparent 70%); }

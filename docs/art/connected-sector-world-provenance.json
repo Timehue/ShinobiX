@@ -2106,599 +2106,6 @@
       "status": "visually-reviewed"
     },
     {
-      "sector": 58,
-      "artKey": 7,
-      "name": "Cinder Foothills",
-      "sha256": "762ea10841fce051b59480e4a4fcb92f90739b4ab0b604d2e5909a2df0765116",
-      "bytes": 222638,
-      "quality": 76,
-      "source": "exec-ff7f01cd-9a94-429d-9440-b91e47faefb2.png",
-      "prompt": "Precise TWO SMALL DETAIL corrections of this WHOLE directly-overhead Cinder Foothills painting. FirstKEEP supplied exposed darkgrey/charcoal BASALT lip at mineral131 x91.667%-100%,y83.333%-91.667%. Its standingcentre x95.833%,y87.5% MUST be clearly fractureddarkrock,not bareloam/ash/gravel. Match adjacentright-rim basalt upperfaces,with organic jagged inward edge and fine matte mineralgrain,natural joined top119/bottom143. No squareblock,insertedrectangle,roundedtoyrock,detachedpile or growth into walking130. Do not enlarge or move any other41 mineralfeatures. Restrained tiny emberfissure may stay amongexistingright-rimrock,butnotgrow/spill.\nSecondKEEP restored quiet neutral GREY/TAUPE/TAN angular flagstone at SOUTH137 x41.667%-50%,y91.667%-100%. Fine matte mineralgrain/subtle diffusewear,thin shallowjoints,modest angular slabs matching adjacent125 and supplied actual37 road. Remove former strongbrown veining,deep outlined/mossyjoint,ruststain or insertedpatch appearance. Keep its supplied stoneoutlines/sizes;do not subdivide,roundstones,add engraving/rings/spirals/rubble,opaque smoothblankstrip or change lane. Blend137 grain/tone naturally into125. Fullmouth remainsonecell8.333% wide andflushtoframe.\nEVERY OTHERpixel/feature remains exactly supplied. All87 walking areas stay clear fine LOW charcoal/greyash,mutedumberloam,microscopicflatgrit,tinyflatcopperneedles. Keep gentle sparse sage/taupeloam southernshoulder transition124/126/136/138 EXACTLY supplied,not a hardgreenband or lawn. All15 exactroadsremain quietangularstone:south137→125→113→101→89→77→78→66→54 then54→55→56→57→58→59 EAST,plusshared59→71 EAST. Bothadjacent eastern mouths/fullsouthernmouths stayflush toframes. No north/westexit,blindtail,unusedspur,pad,plaza,curb,post,endcap or extra road. ALLothermineralrocks/containedembercracks unchanged. Runtime81staysclear. No standingfieldrock/fern/shrub/trunk/tree,woodland,water,lavaflow,permanentstructure,stronghold,shrine,cairn,village,portal,people,animals,text,grid,UI,frame,sky,horizon,tilt,3D,plastic,clay,cartoon,photoreal ordiagram. Wholeuncroppedopaque coherent finehandpainted2Dscene. All othergeometry,texture,light,scale,palette,ground and paving exactly supplied.\n",
-      "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-      "references": {
-        "sector": 58,
-        "artKey": 7,
-        "revision": "6",
-        "tool": "built-in-image-gen",
-        "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-        "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-pass6-prompt.txt",
-        "promptSha256": "416c9cf2ba4f0ed01b896517a17c9c01333f6498fac813f08860419833ecd51a",
-        "inputs": [
-          {
-            "role": "model-input-paint-region-guide",
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-6-guide.png",
-            "sha256": "f3e32717adee0ceb8a953244addd890cf1f38999edad868e3138c50f4d9fe6aa"
-          }
-        ],
-        "neighbors": [],
-        "paintGuideProof": {
-          "sector": 58,
-          "artKey": 7,
-          "revision": 6,
-          "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-job-6-paint-guide.png",
-          "sourceSha256": "94dc944edf5fd4b7dbce1f405b6bdf4907c929e317ff6cf883f3f9f02869dd2e",
-          "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-          "sha256": "f3e32717adee0ceb8a953244addd890cf1f38999edad868e3138c50f4d9fe6aa",
-          "regions": [
-            {
-              "material": "#",
-              "tiles": [
-                131
-              ]
-            },
-            {
-              "material": "=",
-              "tiles": [
-                137
-              ]
-            }
-          ],
-          "mineralSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/moonstone-mineral-reference-source.png",
-          "mineralSourceSha256": "cc56ac03e065d7647668bfdb5daa3df95d7b5a4e5377b8cdf0e0fb224b2473aa",
-          "incomingRoadSource": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-adb322f5-7f6d-47ac-9755-705e33a942df.png",
-          "incomingRoadSourceSha256": "b887a44d2bd738e8446217460ef95d9595a465e656727591458d248b60b07a69",
-          "incomingRoadPainting": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
-          "incomingRoadPaintingSha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2",
-          "incomingRoadCrop": {
-            "left": 427,
-            "top": 0,
-            "width": 85,
-            "height": 86
-          },
-          "incomingRoadReverseTile": 5,
-          "incomingRoadSelfTile": 137,
-          "cropBeforeMirror": true,
-          "parentPhysicalRejection": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-pass5-physical-review-coverage.json",
-          "parentPhysicalRejectionSha256": "34016ea0e6ed6de59e1dcb9a08cd5bffd01e3d84572f802a1b562ad69903c1e0",
-          "purpose": "model-input-only-not-delivered-art",
-          "nativeCompositeNeverDelivered": true
-        },
-        "parentArtwork": {
-          "sector": 58,
-          "artKey": 7,
-          "name": "Cinder Foothills",
-          "source": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-74b9e091-9f82-415f-a785-e0c88226cc2f.png",
-          "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
-          "sha256": "94dc944edf5fd4b7dbce1f405b6bdf4907c929e317ff6cf883f3f9f02869dd2e",
-          "width": 1024,
-          "height": 1024,
-          "bytes": 240426,
-          "quality": 72,
-          "prompt": "A richly detailed painterly fantasy map illustration of one small location, drawn in the exact style of an epic AAA fantasy world map: fine intricate brushwork, dense hand-painted detail across every part of the terrain, a naturalistic weathered colour palette of black and charcoal volcanic rock, grey ash, dusty umber grit and glowing molten orange, with almost no green and no blue water, soft atmospheric haze giving quiet depth, diffuse dramatic daylight with long gentle shadows, and an oil-painted texture over the whole image. CAMERA: seen from DIRECTLY OVERHEAD with the camera pointing straight down at the ground — a true overhead plan view, like a satellite or drone photograph taken straight down. Only the TOPS of things are visible: tree canopies from above, roofs from above, the upper faces of rocks and walls. Vertical surfaces are almost entirely hidden — building fronts, walls and stairs are NOT seen face-on, and every structure is read by its ROOF. The ground plane stays flat and level across the whole picture, and the terrain fills the entire frame from edge to edge and continues past all four edges, exactly like an aerial photograph of a larger landscape — no part of the image is empty background. Cinder Foothills:a dry volcanic shoulder of cool charcoal-grey ash,dusty muted umber loam and fractured dark basalt upperfaces with faint contained ember fissures. One purposeful angular stone route bends through the basalt and joins two adjacent eastern roads;its southern approach gradually reaches the first sparse sage meadow of the Midlands. Fine flat cindergrain and tiny fallen copper needles leave broad clear dry standing areas. The whole place is silent, still and empty. Every building, gate, tower, shrine and temple here is seen from DIRECTLY ABOVE: you see the shape of its roof and the ground around it, never its front wall or its steps face-on. Every cliff, ridge and mountain is seen from above as a mass of rock and snow lying on the ground, never as a peak standing against a sky. All architecture is East-Asian shinobi-fantasy: sweeping tiled pagoda roofs with upturned eaves, dark timber beams and paper screens, torii gates, stone lanterns and tiled courtyard walls. There are NO European buildings — no church spires, no stone manor houses, no castle keeps, no half-timbered cottages. The place is completely deserted: there is not a single person, figure, silhouette or animal anywhere in the image, not even a tiny distant one on a path. The glowing light sources in the scene cast warm light across the ground so the whole terrain stays lit and readable in rich painted detail, never flat black. COMPOSITION: the whole map is densely filled and reads as ONE connected, believable place — winding paths link every area so the eye flows naturally across it, terrain features break up the space, and the points of interest sit naturally along the routes. NO large empty areas and NO empty middle — every part of the map carries painted detail, texture and small features — BUT keep the paths and clearings as clear, open, walkable lanes. Features blend and connect into one another: NO isolated objects floating in empty space, NO evenly-spaced grid of props. ONE consistent painterly illustrated style across the entire image, matching an epic fantasy world map: intricate, atmospheric, naturalistic colour, weathered and lived-in, with rich fine detail everywhere. CAMERA DISCIPLINE: absolutely NO sky, NO clouds, NO moon, NO sun, NO horizon line, NO distant background scenery, NO mountains rising against a sky, NO side view, NO elevation view, NO eye-level or three-quarter perspective, NO camera tilted up toward a horizon, NO building facades or staircases seen face-on, NO vanishing-point perspective — the view looks straight DOWN and shows ground only. Absolutely NO characters, NO people, NO humans, NO text, NO words, NO UI, NO HUD, NO minimap, NO grid lines, NO hex tiles, NO tile outlines, NO markers, NO icons, NO arrows, NO labels, NO frame, NO border, NO vignette, NO watermark. This is a PAINTING, not a render: NOT a 3D render, NOT smooth plastic or clay shading, NOT a toy diorama, NOT simple rounded low-detail shapes, NOT bright candy colour, NOT cel-shaded, NOT outlined cartoon linework, NOT flat vector art, NOT pixel art, NOT photoreal. The artwork fills the entire frame edge to edge.\n\nIMAGE1 is exact whole occupied geometry and private fine-material/slab guide. IMAGE2 is actual southern Crossway Hills brushwork/material reference ONLY. Paint one coherent new matte directly-overhead2D scene following IMAGE1 exactly. ALL87 walking centres 1/2/3/4/5/6/7/8/9/12/13/15/16/17/18/19/21/22/24/25/27/28/29/30/33/34/36/40/41/42/43/44/45/46/47/48/49/51/52/53/60/61/62/64/65/67/68/69/70/72/76/79/80/81/82/83/84/90/91/92/93/94/100/102/103/104/105/106/110/111/112/114/115/116/117/118/121/122/123/124/126/127/128/129/130/136/138 retain clear fine LOW cool charcoal/grey ash,dusty muted umberloam,microscopic FLAT darkgrit and tiny sparse fallen copperneedles. Match supplied fine scale,not chunky pebble/cobble scatter,big whitegrains,oval/ringmotifs,rough heaps or long tangled needles. No standing fieldrock,boulder,pebblepile,burnttrunk,root,log,fern,bush,tallgrass,flowercluster,tree,canopy or glowingpoint in walkingareas. Runtime81 stays clear,no bakedportal.\nALL42 mineralcentres 0/10/11/14/20/23/26/31/32/35/37/38/39/50/63/73/74/75/85/86/87/88/95/96/97/98/99/107/108/109/119/120/131/132/133/134/135/139/140/141/142/143 retain exact supplied joined dark BLACK/CHARCOAL BASALT shapes and clearly exposed fractured upperfaces. Small restrained emberorange fissures stay inside assigned basalt,not lavaflow/openwater/newbasalt. Preserve natural organic jagged inwardedges,compact onecelltips0/20/63 and southern135/139,without squarepanels,grass-only centres,roundedtoyrock,clayboulders or outwardgrowth into walking24/25/27/36/40/48/49/51/60/61/62/64/76/84/100/110/121/136/138. Zero standingwoodland is authored.\nALL15 roadcentres 54/55/56/57/58/59/66/71/77/78/89/101/113/125/137 retain exact supplied modest ANGULAR matte grey/taupe/tan slab outlines/sizes and thin shallow joints. Add quiet natural mineralgrain and restrained wear INSIDE every slab. No blank diagramfill,erased outlines,rubble/mosaic,roundedcobble,raisedbevel,deepgrooves,engravedveins/rings/spirals,brownrustpatch or shiningstone. Exact southern137→125→113→101→89→77→78→66→54 then54→55→56→57→58→59 EAST to60WEST48. Lastcolumn59→71 alsoEAST to59WEST60 is one shared full adjacent approach. Both eastern onecell8.333% mouths must remain independently fullpaved toframes atrow4y33.333%-41.667% androw5y41.667%-50%. True SOUTH137 fullx41.667%-50% joins37NORTH5. No north/westexit,blindtail,unusedspur,pad,plaza,curb,post,endcap,detachedpaving or addedroute.\nKeep supplied southern THREE-cell strip136/137/138 matching actual37 lowfineground/quietstone. Blend sage/olive wisps and taupeloam naturally toward finecharcoal/umbercinder across nexttwoapproachlengths125/113 and adjacent124/126/112/114. The volcaniccore remains almostnogreen. Fine scattered darkdust gradually thins through real southernshoulders;no hardhorizontal biomecut,straightgreenband,squareinsert,brightgreenlawn or grassmound. Keep basalt135/139 entirelydarkrock,nograssreplacement. East59/60 olderbusywarmpaving/coarseground require later coordinatedrepair;nevercopy their defects or narrowlanes.\nZERO permanent structure,stronghold,shrine,cairn,village,woodland,water,moat,pond,lavalake,portal,foundation or reservedpad. Preserve volcanicidentity,exact shapes/routes,overheadcamera,materialscale and diffuse daylight. Richnessfrom fine ground/mineral/slabtexture,not clutter. Wholeuncroppedopaque newlypainted coherentsquare2Dscene,not nativecollage,3D,plastic,clay,cartoon,photoreal ordiagram. Nopeople,animals,text,grid,UI,frame,sky,horizon,tilt.\n",
-          "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-          "budgetBytes": 256000,
-          "references": {
-            "sector": 58,
-            "artKey": 7,
-            "revision": "5",
-            "tool": "built-in-image-gen",
-            "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-            "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-pass5-prompt.txt",
-            "promptSha256": "21683bfcf21f446ce663fab96410488d0e99269acdaa435ff41609d9a41bd4c8",
-            "inputs": [
-              {
-                "role": "model-input-paint-region-guide",
-                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-5-guide.png",
-                "sha256": "121c487b163ccaf552d7f55be548e08618c53649544864044f3ca01fcba443ba"
-              },
-              {
-                "role": "material-and-brushwork-reference",
-                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-5-anchor.png",
-                "sha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2"
-              }
-            ],
-            "neighbors": [
-              {
-                "exit": "58:east:60",
-                "destination": 60,
-                "artKey": 52,
-                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s52-candidate.webp",
-                "reverseExit": "60:west:58",
-                "sha256": "4ed132927cfe6a3378a4e4d032ad824cf37c3340cb6b946de5e637e34045faaa"
-              },
-              {
-                "exit": "58:east:59",
-                "destination": 59,
-                "artKey": 2,
-                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s2-candidate.webp",
-                "reverseExit": "59:west:58",
-                "sha256": "38ee5f800ac302e661317a1316ae18fed81286527d911582455d87e96cbad285"
-              },
-              {
-                "exit": "58:south:37",
-                "destination": 37,
-                "artKey": 45,
-                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
-                "reverseExit": "37:north:58",
-                "sha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2"
-              }
-            ],
-            "edgeReferenceVersion": 2,
-            "paintGuideProof": {
-              "sector": 58,
-              "artKey": 7,
-              "revision": 5,
-              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-job-5-paint-guide.png",
-              "sourceSha256": "732260d65d55135b312f07f1e3eadc90db7f87abbaa19b5f1f7da7b39ce26ca2",
-              "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-              "sha256": "121c487b163ccaf552d7f55be548e08618c53649544864044f3ca01fcba443ba",
-              "regions": [
-                {
-                  "material": ".",
-                  "tiles": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    12,
-                    13,
-                    15,
-                    16,
-                    17,
-                    18,
-                    19,
-                    21,
-                    22,
-                    24,
-                    25,
-                    27,
-                    28,
-                    29,
-                    30,
-                    33,
-                    34,
-                    36,
-                    40,
-                    41,
-                    42,
-                    43,
-                    44,
-                    45,
-                    46,
-                    47,
-                    48,
-                    49,
-                    51,
-                    52,
-                    53,
-                    60,
-                    61,
-                    62,
-                    64,
-                    65,
-                    67,
-                    68,
-                    69,
-                    70,
-                    72,
-                    76,
-                    79,
-                    80,
-                    81,
-                    82,
-                    83,
-                    84,
-                    90,
-                    91,
-                    92,
-                    93,
-                    94,
-                    100,
-                    102,
-                    103,
-                    104,
-                    105,
-                    106,
-                    110,
-                    111,
-                    112,
-                    114,
-                    115,
-                    116,
-                    117,
-                    118,
-                    121,
-                    122,
-                    123,
-                    124,
-                    126,
-                    127,
-                    128,
-                    129,
-                    130,
-                    136,
-                    138
-                  ]
-                },
-                {
-                  "material": "#",
-                  "tiles": [
-                    0,
-                    10,
-                    11,
-                    14,
-                    20,
-                    23,
-                    26,
-                    31,
-                    32,
-                    35,
-                    37,
-                    38,
-                    39,
-                    50,
-                    63,
-                    73,
-                    74,
-                    75,
-                    85,
-                    86,
-                    87,
-                    88,
-                    95,
-                    96,
-                    97,
-                    98,
-                    99,
-                    107,
-                    108,
-                    109,
-                    119,
-                    120,
-                    131,
-                    132,
-                    133,
-                    134,
-                    135,
-                    139,
-                    140,
-                    141,
-                    142,
-                    143
-                  ]
-                },
-                {
-                  "material": "=",
-                  "tiles": [
-                    54,
-                    55,
-                    56,
-                    57,
-                    58,
-                    59,
-                    66,
-                    71,
-                    77,
-                    78,
-                    89,
-                    101,
-                    113,
-                    125,
-                    137
-                  ]
-                }
-              ],
-              "neighbors": [
-                {
-                  "exit": "58:east:60",
-                  "destination": 60,
-                  "artKey": 52,
-                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s52-candidate.webp",
-                  "reverseExit": "60:west:58",
-                  "sha256": "4ed132927cfe6a3378a4e4d032ad824cf37c3340cb6b946de5e637e34045faaa"
-                },
-                {
-                  "exit": "58:east:59",
-                  "destination": 59,
-                  "artKey": 2,
-                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s2-candidate.webp",
-                  "reverseExit": "59:west:58",
-                  "sha256": "38ee5f800ac302e661317a1316ae18fed81286527d911582455d87e96cbad285"
-                },
-                {
-                  "exit": "58:south:37",
-                  "destination": 37,
-                  "artKey": 45,
-                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
-                  "reverseExit": "37:north:58",
-                  "sha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2"
-                }
-              ],
-              "edgeReferenceVersion": 2,
-              "fullNeighborGuide": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-5-seam-input\\s7-neighbor-guide.png",
-              "fullNeighborGuideSha256": "d2a81d1e54eeb18cc34b3c92b7f32e13f85a1708e4c8d73c60ecc28b4b89a913",
-              "groundSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\cinder-fine-ground-generated-source.png",
-              "groundSourceSha256": "f1eb41d483ea15c57929f8ffcc726c2852fcea2ee8c7870fa212377376dcf913",
-              "groundReferenceManifest": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/cinder-fine-ground-output.json",
-              "groundReferenceManifestSha256": "e39dd189541288ea3a25ae45e88ef6612aef7675a31ca9995494a1d71a2d3b66",
-              "transitionGroundSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/harbor-fine-ground-generated-source.png",
-              "transitionGroundSourceSha256": "7c47336bd9b00a38e9a38e482df21c4d62baf3e3844129b068aa41301e32e35c",
-              "transitionGroundReferenceManifest": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/harbor-fine-ground-output.json",
-              "transitionGroundReferenceManifestSha256": "6ace02c8981eff3f330bb0ab48a8a4655c3cf8427d08520ff9993e968db0b72f",
-              "mineralSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-pass4-historical-generated-source.png",
-              "mineralSourceSha256": "146fb3a5da98fe76f3f733941e7d2bf42529098630b2686717e2afc551a40b87",
-              "pavingSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-7-job-16-private-flat-paving-plan.png",
-              "pavingSourceSha256": "d25d16b78d1f12decaf64597816a297a350b5a69f3f0e47da545e3c498e4db2a",
-              "incomingRoadSource": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-adb322f5-7f6d-47ac-9755-705e33a942df.png",
-              "incomingRoadSourceSha256": "b887a44d2bd738e8446217460ef95d9595a465e656727591458d248b60b07a69",
-              "incomingRoadPainting": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
-              "incomingRoadPaintingSha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2",
-              "incomingRoadCrop": {
-                "left": 341,
-                "top": 0,
-                "width": 256,
-                "height": 86
-              },
-              "incomingRoadReverseTile": 5,
-              "incomingRoadSelfTile": 137,
-              "cropBeforeMirror": true,
-              "groundTransform": "whole-fine-cinder-quarter-turn-B.98-S.85-unique-per-coordinate",
-              "southernShoulderTransition": "fine-low-sage-to-cinder-gradual-768..1024-with-actual37-three-tile-mouth-strip",
-              "mineralInset": 8,
-              "parentPhysicalRejection": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-pass4-historical-approval-and-fleet-findings.json",
-              "parentPhysicalRejectionSha256": "e63eda6f47dd93ff6af18bd6fad85867558ed06629e67c63f6f5b681659e30d3",
-              "purpose": "model-input-only-not-delivered-art",
-              "nativeCompositeNeverDelivered": true
-            },
-            "parentArtwork": {
-              "sector": 58,
-              "artKey": 7,
-              "name": "Cinder Foothills",
-              "source": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-280c8c31-2f58-4807-973b-afcd47d9dc53.png",
-              "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
-              "sha256": "732260d65d55135b312f07f1e3eadc90db7f87abbaa19b5f1f7da7b39ce26ca2",
-              "width": 1024,
-              "height": 1024,
-              "bytes": 255506,
-              "quality": 80,
-              "prompt": "Use case: precise-object-edit. Image 1 is the edit target with a single grey repair region. Extend ONLY the adjoining southern-right basalt ridge into the DARK GREY region at x58.333% to66.667%, y91.667% to100%, so the center and most of this blocked cell are clearly rugged dark basalt. Join the existing ridge on its right naturally, matching fractured rock, restrained ember cracks and light. Keep the ridge crown within the marked region and existing connected rocky footprint. Use an irregular craggy ridge tip, never a square slab, isolated pillar or construction pad. Preserve every other pixel of the scene: both eastern full-width stone mouths, the southern paved mouth and road bend, the newly repaired southern-left tip, all other outcrops, clear cinder walking ground, copper needles and pebbles. Remove the grey guide color. No added path, tree, structure, water, label, grid or rock outside the marked region.\n",
-              "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-              "budgetBytes": 256000,
-              "references": {
-                "sector": 58,
-                "artKey": 7,
-                "revision": "4",
-                "tool": "built-in-image-gen",
-                "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-repair-pass4-prompt.txt",
-                "promptSha256": "78d68c97a6588ac3a4199df423db7c7ea4f8d418dfa9dea10ee3e6c787b18ef7",
-                "inputs": [
-                  {
-                    "role": "model-input-paint-region-guide",
-                    "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-4-guide.png",
-                    "sha256": "2f19c2e129789ef714192958a47bfc1acd90450384a0f107e087141be6d78970"
-                  }
-                ],
-                "neighbors": [],
-                "paintGuideProof": {
-                  "sector": 58,
-                  "artKey": 7,
-                  "revision": "4",
-                  "material": "#",
-                  "tiles": [
-                    139
-                  ],
-                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-4-paint-guide.png",
-                  "sourceSha256": "20bd57abe545efbde3c97c63d0ea9a04ea01ff2199e69fada943bfe567c52cd8",
-                  "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                  "sha256": "2f19c2e129789ef714192958a47bfc1acd90450384a0f107e087141be6d78970",
-                  "purpose": "model-input-only-not-delivered-art"
-                },
-                "parentArtwork": {
-                  "sector": 58,
-                  "artKey": 7,
-                  "name": "Cinder Foothills",
-                  "source": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-9103ff14-abc9-4b2b-ae08-0040c84d27b4.png",
-                  "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
-                  "sha256": "20bd57abe545efbde3c97c63d0ea9a04ea01ff2199e69fada943bfe567c52cd8",
-                  "width": 1024,
-                  "height": 1024,
-                  "bytes": 246428,
-                  "quality": 72,
-                  "prompt": "Use case: precise-object-edit. Make ONLY one small correction to the southern-left basalt ridge. The DARK GREY marked region at x25% to33.333%, y91.667% to100% is impassable basalt: extend the existing adjoining ridge slightly into this region so its center and most of its area have visible rugged rock, naturally joining the existing rocks on its left. Match the existing dark fractured basalt, tiny restrained ember cracks, lighting and brushwork. Keep the whole rock crown entirely inside the grey region and existing connected ridge; do not overhang the low ground on its right. Use an irregular natural ridge tip, never a square stone block, pad or isolated pillar. Keep ALL other scenery EXACTLY unchanged: both fully paved eastern mouths and their stone colors/widths, the southern stone mouth and bend, every other basalt outcrop, all clear low cinder ground and fine copper needles. No added route, boulder outside the marked region, tree, structure, water, guide color, text or grid.\n",
-                  "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                  "budgetBytes": 256000,
-                  "references": {
-                    "sector": 58,
-                    "artKey": 7,
-                    "revision": "3",
-                    "tool": "built-in-image-gen",
-                    "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                    "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-repair-pass3-prompt.txt",
-                    "promptSha256": "ec10b5faefce02317f208f3c4c608742f1220eed376fc7309043223aa6cb3df3",
-                    "inputs": [
-                      {
-                        "role": "model-input-paint-region-guide",
-                        "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-3-guide.png",
-                        "sha256": "adf5fe7ef6cc8518419bf5a90ef7c4835cbda90648cbec15696b20ae4b20842c"
-                      }
-                    ],
-                    "neighbors": [],
-                    "paintGuideProof": {
-                      "sector": 58,
-                      "artKey": 7,
-                      "revision": "3",
-                      "material": "#",
-                      "tiles": [
-                        135
-                      ],
-                      "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-3-paint-guide.png",
-                      "sourceSha256": "79d52beae9bbc2b78f20f078d2cbdac69836bbd3d463b1db32e2d7b791369f2d",
-                      "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                      "sha256": "adf5fe7ef6cc8518419bf5a90ef7c4835cbda90648cbec15696b20ae4b20842c",
-                      "purpose": "model-input-only-not-delivered-art"
-                    },
-                    "parentArtwork": {
-                      "sector": 58,
-                      "artKey": 7,
-                      "name": "Cinder Foothills",
-                      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a108f6-a4e0-7920-aa21-ea768df62c27\\exec-1d8fbb91-e9cd-4231-8a63-8e5be60f54c9.png",
-                      "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
-                      "sha256": "79d52beae9bbc2b78f20f078d2cbdac69836bbd3d463b1db32e2d7b791369f2d",
-                      "width": 1024,
-                      "height": 1024,
-                      "bytes": 253342,
-                      "quality": 48,
-                      "prompt": "Use case: precise-object-edit. Repair only the colored regions. Every PALE SAGE region is low walkable volcanic foothill ground: paint intricate fine grey ash, dark cinder grit, tiny FLAT gravel smaller than 0.7 percent of the frame width, fallen copper needles and very short sparse dry grass. Remove all standing rocks, boulders, burnt trunks, tree crowns, tall bushes and glowing sparks from these marked walking areas. Keep the whole ground rich and natural, never smooth, empty or divided into square patches. The single MUTED OCHRE region at the right edge directly below the existing eastern stone mouth is the SECOND eastern road mouth: fill its entire area with the same pale warm-neutral flat slab stone as the adjoining unmarked road immediately above. It is fully paved across its whole width to the right edge, without any grass, soil, glowing lights, narrow bend or end cap. It joins the upper eastern mouth inside the last column as a small shared approach to two real neighboring sectors. Preserve ALL unmarked features exactly: the remaining stone road and southern bend, the southern mouth and its color/width, every blocked basalt mass and its contained ember cracks. The rock silhouettes stay inside their unmarked footprints; trim outcrop tips that intrude into the marked ground. Keep the same overhead painterly style and diffuse daylight. No new tree, road outside the marked footprint, structure, water, pad, guide color, text, grid or symbol.\n",
-                      "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                      "budgetBytes": 256000,
-                      "references": {
-                        "sector": 58,
-                        "artKey": 7,
-                        "revision": "2",
-                        "tool": "built-in-image-gen",
-                        "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                        "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-repair-pass2-prompt.txt",
-                        "promptSha256": "bc622963f522c81ff36f47498f6e7fed78047817f392168d738eccada3cfabb8",
-                        "inputs": [
-                          {
-                            "role": "model-input-paint-region-guide",
-                            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-2-guide.png",
-                            "sha256": "d5cbd9aed474cf52918c2c82fd13ed7f1c8f302f644695512e4335d304097b67"
-                          }
-                        ],
-                        "neighbors": [],
-                        "paintGuideProof": {
-                          "sector": 58,
-                          "artKey": 7,
-                          "revision": "2",
-                          "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-job-2-paint-guide.png",
-                          "sourceSha256": "7778b9bfc87942d2d8e9fba42e4c9de5c5a9d1160d0a56490e1d921202c0ed3b",
-                          "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                          "sha256": "d5cbd9aed474cf52918c2c82fd13ed7f1c8f302f644695512e4335d304097b67",
-                          "purpose": "model-input-only-not-delivered-art"
-                        },
-                        "parentArtwork": {
-                          "sector": 58,
-                          "artKey": 7,
-                          "name": "Cinder Foothills",
-                          "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a108f6-a4e0-7920-aa21-ea768df62c27\\exec-8fbaf5d5-e2b9-44af-abd4-81ba31dbe20d.png",
-                          "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
-                          "sha256": "7778b9bfc87942d2d8e9fba42e4c9de5c5a9d1160d0a56490e1d921202c0ed3b",
-                          "width": 1024,
-                          "height": 1024,
-                          "bytes": 253066,
-                          "quality": 56,
-                          "prompt": "A richly detailed painterly fantasy map illustration of one small location, drawn in the exact style of an epic AAA fantasy world map: fine intricate brushwork, dense hand-painted detail across every part of the terrain, a naturalistic weathered colour palette of black and charcoal volcanic rock, grey ash, dusty umber grit and glowing molten orange, with almost no green and no blue water, soft atmospheric haze giving quiet depth, diffuse dramatic daylight with long gentle shadows, and an oil-painted texture over the whole image. CAMERA: seen from DIRECTLY OVERHEAD with the camera pointing straight down at the ground — a true overhead plan view, like a satellite or drone photograph taken straight down. Only the TOPS of things are visible: tree canopies from above, roofs from above, the upper faces of rocks and walls. Vertical surfaces are almost entirely hidden — building fronts, walls and stairs are NOT seen face-on, and every structure is read by its ROOF. The ground plane stays flat and level across the whole picture, and the terrain fills the entire frame from edge to edge and continues past all four edges, exactly like an aerial photograph of a larger landscape — no part of the image is empty background. Volcanic foothill basalt, gray ash and occasional ember cracks inside the blocked rock masses. The whole place is silent, still and empty. Every building, gate, tower, shrine and temple here is seen from DIRECTLY ABOVE: you see the shape of its roof and the ground around it, never its front wall or its steps face-on. Every cliff, ridge and mountain is seen from above as a mass of rock and snow lying on the ground, never as a peak standing against a sky. All architecture is East-Asian shinobi-fantasy: sweeping tiled pagoda roofs with upturned eaves, dark timber beams and paper screens, torii gates, stone lanterns and tiled courtyard walls. There are NO European buildings — no church spires, no stone manor houses, no castle keeps, no half-timbered cottages. The place is completely deserted: there is not a single person, figure, silhouette or animal anywhere in the image, not even a tiny distant one on a path. The glowing light sources in the scene cast warm light across the ground so the whole terrain stays lit and readable in rich painted detail, never flat black. COMPOSITION: the whole map is densely filled and reads as ONE connected, believable place — winding paths link every area so the eye flows naturally across it, terrain features break up the space, and the points of interest sit naturally along the routes. NO large empty areas and NO empty middle — every part of the map carries painted detail, texture and small features — BUT keep the paths and clearings as clear, open, walkable lanes. Features blend and connect into one another: NO isolated objects floating in empty space, NO evenly-spaced grid of props. ONE consistent painterly illustrated style across the entire image, matching an epic fantasy world map: intricate, atmospheric, naturalistic colour, weathered and lived-in, with rich fine detail everywhere. CAMERA DISCIPLINE: absolutely NO sky, NO clouds, NO moon, NO sun, NO horizon line, NO distant background scenery, NO mountains rising against a sky, NO side view, NO elevation view, NO eye-level or three-quarter perspective, NO camera tilted up toward a horizon, NO building facades or staircases seen face-on, NO vanishing-point perspective — the view looks straight DOWN and shows ground only. Absolutely NO characters, NO people, NO humans, NO text, NO words, NO UI, NO HUD, NO minimap, NO grid lines, NO hex tiles, NO tile outlines, NO markers, NO icons, NO arrows, NO labels, NO frame, NO border, NO vignette, NO watermark. This is a PAINTING, not a render: NOT a 3D render, NOT smooth plastic or clay shading, NOT a toy diorama, NOT simple rounded low-detail shapes, NOT bright candy colour, NOT cel-shaded, NOT outlined cartoon linework, NOT flat vector art, NOT pixel art, NOT photoreal. The artwork fills the entire frame edge to edge.\nCreate the final square floor painting for Cinder Foothills, sector 58, using the attached colored plan as exact spatial geometry. Full-bleed edge-to-edge artwork. Black basalt, grey ash, dusty umber, burnt roots and restrained ember light. Solid volcanic ground dominates. LOCAL IDENTITY: Volcanic foothill basalt, gray ash and occasional ember cracks inside the blocked rock masses. The motif changes surface character and low details, never the exact traversable route or water footprint.\nGEOMETRY: The plan is twelve by twelve but its construction grid is invisible in the finished artwork. Pale sage is low, accessible ground with grass, gravel, snow or soil texture and tiny details. Tan is a continuous worn stone/dirt road of large irregular weathered slabs with softly wandering natural margins. Roads retain their exact plan centerlines and one-cell width, 8.333% of image, at the sector edges. Gate coordinates: east edge, tile 59, center 95.83% x / 37.50% y; east edge, tile 71, center 95.83% x / 45.83% y; south edge, tile 137, center 45.83% x / 95.83% y. Charcoal cells are contiguous regional rock masses. Green cells are contiguous tree canopy masses. Tall rocks and trunks belong strictly inside these blocked footprints; pale/tan cells remain visibly open. Neighboring blocked cells blend into natural shapes without squared internal borders. Every path leads visibly to another sector exit, a village entrance or an actual permanent landmark entrance. No road spur ends in empty grass, no blind hub tail, no unexplained paving stub or arbitrary dead end. No empty rectangular foundation pads, plazas, square clearings, paved squares, bordered platforms or repeated two-by-two stone patches anywhere. Low ground is continuous with its neighbors, and all landmark bases sit naturally in that terrain.\nCOMPLETE SCENE: This sector has no permanent stronghold, shrine or cairn. Paint only its actual natural environment and purposeful through-routes. These are the ONLY permanent landmarks in this sector. Paint them fully integrated into the scene, using matching regional materials, scale, lighting and natural grounded shadows. The colored footprint marks become the actual occupied structures, never empty placeholders or colored ground. Do not add any dormant rift: quest portals appear only at runtime. Every landmark approach must visibly join its entrance, with no gap or disconnected bare stub.\nCONNECTED EDGES: east road to Obsidian Forecourt (sector 60): worn neutral warm-grey stone slabs with muted tan grit, flat and flush with the terrain; carry the same regional ground material continuously to the edge; east road to Northroad Saddle (sector 59): worn neutral warm-grey stone slabs with muted tan grit, flat and flush with the terrain; carry the same regional ground material continuously to the edge; south road to Crossway Hills (sector 37): worn neutral warm-grey stone slabs with muted tan grit, flat and flush with the terrain; blend Black basalt, grey ash, dusty umber, burnt roots and restrained ember light. Solid volcanic ground dominates. with Sage and olive meadows, tan soil, weathered grey stone and tiny wildflowers. into the surrounding ground in the last two tile widths approaching this exit, meeting at an even mixture on the edge. The final one-tile length of every outgoing road stays straight, flat and fully unobstructed, ending flush at the image edge with no arch, gate, fence, lamp, wall or end cap. It continues into the next sector. Keep the lighting, scale and stone slab material consistent on both sides.\nOther regional architecture appears only as sparse low stone details. No invented shrine, fortress or watchpost outside the actual listed footprints.\nHYDROLOGY: There is no open water in this plan. Keep accessible ground solid, including snow and ice where appropriate.\nWater is confined strictly to the blue footprint union; every pale or tan cell stays solid dry ground. Do not introduce any extra water anywhere. The terrain is one believable connected place, with detailed low ground texture across open areas. No isolated square water pits, no repeated basins, no cell-sized dock posts or pool walls. No characters, people or animals. No text, labels, grid, outlines, frame, UI or watermark. Ground only: no sky, horizon or tilted view. Keep the exact gate coordinates and accessible routes. Intricate painterly material detail, subdued palette, East Asian shinobi world, matching the approved combat-board treatment.\nEDGE REFERENCES: Photographic strips in this guide are the real adjacent paintings, mirrored outward from their matching road mouths. Continue their stone material, scale, tone and bordering biome precisely into this board. Preserve the lane and width. The flat-color interior is strict occupancy geometry: accessible pale or tan zones contain only ankle-height material, never tree canopy, tree trunks, roof overhangs or tall rock. Entire roof silhouettes, wall shadows, trunks and tall cliff silhouettes stay inside the colored blocked unions. Remove guide colors from the final painting. Match the existing regional palette; this is an alignment correction, not a palette change.\n\nSECTOR 58 ROAD DISCIPLINE: The east edge has TWO real adjacent mouths, one to sector 60 at y33.333%–41.667%, and one to sector 59 at y41.667%–50%. Both mouths fill the ENTIRE final column x91.667%–100%, with uninterrupted flat road stone at BOTH standing centers. The lower mouth is a full-width lane, never a narrowed corner with grass or bare earth at its center. These adjacent mouths share a compact continuous approach entirely inside the tan footprint; the southern route joins this network through the exact bend in the guide. The southern mouth also fills its whole one-lane width. Every charcoal footprint visibly contains basalt rock at its center, with the complete rock silhouette inside that footprint. All pale sage ground is rich, intricate, low fine ash and cinder grit with tiny flat gravel, never standing shrubs, trees or stray boulders. Pale warm-grey slab roads remain readable and join their real destinations; no extra path or rectangular pavement patch.\n",
-                          "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                          "budgetBytes": 256000,
-                          "references": {
-                            "sector": 58,
-                            "artKey": 7,
-                            "revision": "1",
-                            "tool": "built-in-image-gen",
-                            "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-                            "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-repair-pass1-prompt.txt",
-                            "promptSha256": "cefeaa5ba47a69ab4469dc39a12832ec626d6279770fd28917261cf8e98d51ab",
-                            "inputs": [
-                              {
-                                "role": "geometry-and-real-neighbor-reference",
-                                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-1-guide.png",
-                                "sha256": "de161eca1887cf04b11f5f83f03dac3b4bf79cbcfc1977b52b3cfd095edb7cea"
-                              }
-                            ],
-                            "neighbors": [
-                              {
-                                "exit": "58:east:60",
-                                "destination": 60,
-                                "artKey": 52,
-                                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s52-candidate.webp",
-                                "reverseExit": "60:west:58",
-                                "sha256": "7406cda627ed6c14f2c2c29b4da379b073061b70e6eac5f4cfb7a00ad017f88b"
-                              },
-                              {
-                                "exit": "58:east:59",
-                                "destination": 59,
-                                "artKey": 2,
-                                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s2-candidate.webp",
-                                "reverseExit": "59:west:58",
-                                "sha256": "8dcf4b5dc4b3472328b1e3b15f6a87339210484ea2edbe5c048a1da190d9b49a"
-                              },
-                              {
-                                "exit": "58:south:37",
-                                "destination": 37,
-                                "artKey": 45,
-                                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
-                                "reverseExit": "37:north:58",
-                                "sha256": "48c7961c7b6feaa322f141b9143fbbe6bb09c11a1efcb50d32a5bbeb8d1fd979"
-                              }
-                            ],
-                            "edgeReferenceVersion": 2
-                          },
-                          "sourceSha256": "6316b3282c10393886019a1ecf35bf518a4ade802c5c9cd2697209bbc0ee5e29",
-                          "status": "candidate-awaiting-visual-review"
-                        }
-                      },
-                      "sourceSha256": "f9645656d4c8add7c25d37b124fe37d92d111d1556132a253a71a0583505db05",
-                      "status": "candidate-awaiting-visual-review"
-                    }
-                  },
-                  "sourceSha256": "abe139b58dacc49cfbeb535c239dc957157cbd7b8184ad89a4e18680ec5f7372",
-                  "status": "candidate-awaiting-visual-review"
-                }
-              },
-              "sourceSha256": "146fb3a5da98fe76f3f733941e7d2bf42529098630b2686717e2afc551a40b87",
-              "status": "candidate-awaiting-visual-review"
-            }
-          },
-          "sourceSha256": "dfbf5a75163b3c67561bc4f787224317ce7f1362922721bf4dadd758d8a1bd03",
-          "status": "candidate-awaiting-visual-review"
-        }
-      },
-      "productionTool": "built-in-image-gen",
-      "semanticReview": {
-        "sector": 58,
-        "artKey": 7,
-        "sha256": "762ea10841fce051b59480e4a4fcb92f90739b4ab0b604d2e5909a2df0765116",
-        "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
-        "status": "approved",
-        "findings": [],
-        "reviewImageSha256": "63744229729d70ba1608ea9233506d72e6325af0ea3a4e77734dc37f633deaec",
-        "checks": {
-          "walkableGround": true,
-          "visibleObstacles": true,
-          "landmarkFootprints": true,
-          "purposefulRoutes": true,
-          "coherentHydrology": true,
-          "biomeAndStyle": true
-        },
-        "notes": [
-          "Whole current built-in painting and hatched mask,all eight enlarged sheets covering144,and all three actual unmirrored60/59/37 pairs physically inspected. Sheet1 re-viewed after earlier truncation; all current sheets now physically seen. Six frozen jobs6→5→4→3→2→1 validate,including cinder ground and gradual harbor-ground transition proofs.",
-          "All87 walking standing areas retain low flat charcoal/ash/umber ground with shallow clay fractures,microscopic grit and tiny fallen copper needles. No standing fieldrock,plant,trunk or canopy. Rift81 stays clear. South124/126/136/138 gradually introduce sparse sage/taupe ground; volcanic core remains cinder.",
-          "All42 mineral centres retain adjoining fractured basalt upperfaces and contained narrow orange ember fissures. Mineral131 now exposes an organically joined slate/basalt lip continuing119/143,without a rectangular patch or spill into walking130.135/139 remain blocked basalt rather than grass.",
-          "All15 roads retain quiet angular matte gray/taupe/tan weathered stone with shallow joints: SOUTH137→125→113→101→89→77→78→66→54→55→56→57→58→59 EAST60 and59→71 EAST59. Full adjacent east mouths share their approach.137 no longer has the isolated brown veined/mossy patch. No north/west exit,blindspur,pad,plaza,post,endcap,water,permanent structure,woodland or baked portal.",
-          "Allthree actual current unmirrored59/60/37 pairs physically inspected. Current59 pass14 now repairs the warm rounded/coarse western entrance:58 EAST71→59 WEST60 matches full width with quiet angular stone/fine low cinder. Current60 pass4 matches58 EAST59→60 WEST48 at full width. Current37 southern join retains matching angular paving and gradual cinder-to-sparse-meadow shoulder. Local stone shapes and grain vary naturally.",
-          "Current58 painting,source,mask and all eight enlarged-sheet hashes match immutable original all144 coverage. Original and previous-current coverage stay immutable. Individual58 approval advances only58; this does not approve59/60/35 or waive final wholefleet,architecture,natural contours,hydrology,special99,mobile performance,budget,owner checkpoint and release gates."
-        ]
-      },
-      "status": "visually-reviewed"
-    },
-    {
       "sector": 24,
       "artKey": 8,
       "name": "Crystal Plaza",
@@ -26429,138 +25836,6 @@
       "refresh": "shinobi-landmarks-2026-10-14"
     },
     {
-      "sector": 66,
-      "artKey": 66,
-      "name": "Emberspine Ridge",
-      "sha256": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1",
-      "bytes": 235224,
-      "quality": 76,
-      "source": "s66-composed.png",
-      "prompt": "Owner-authorized native composition: preserve the complete 1024 frame, exact authored mask, roads and landmark membership; execute the frozen sector 66 recipe and retain the physically reviewed whole painting.",
-      "layoutSha256": "e9e8caaebfe14db579aff6697b9fcaec94d0ba4ca7dbd8cdc87dc22d55146b1b",
-      "references": {
-        "sector": 66,
-        "layoutSha256": "e9e8caaebfe14db579aff6697b9fcaec94d0ba4ca7dbd8cdc87dc22d55146b1b",
-        "promptSha256": "b3eda9b5f498eae6da8e679329c71cb5d8027749492cac58ed0ddb9c73a4fa8f",
-        "tool": "owner-authorized-native-composition",
-        "inputs": [
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s66.webp",
-            "sha256": "ff1742ad2f0fee971bc8a1d83fab882418ba7ac262db8c968d245954da7fc275"
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\shinobij.client\\src\\assets\\towers\\battlefield\\central-v1.webp",
-            "sha256": "b779305e96affa8af88bba40661307c37cf9433d7ba17f95d6f54497e4667745"
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s52.webp",
-            "sha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
-            "role": "immutable-actual-neighbor",
-            "exit": "66:west:60",
-            "reverseExit": "60:east:66",
-            "materialReference": {
-              "sector": 60,
-              "file": "output/connected-world/finish-snapshot-20261006/s52.webp",
-              "paintingSha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
-              "usage": "Fixed surface/scale reference only; retain recipient region and mask"
-            }
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s51.webp",
-            "sha256": "f31256d7d06db1b36d5b22b035401f0089f529e4b368178af5c2c2e3f621d398",
-            "role": "immutable-actual-neighbor",
-            "exit": "66:south:33",
-            "reverseExit": "33:north:66",
-            "materialReference": {
-              "sector": 60,
-              "file": "output/connected-world/finish-snapshot-20261006/s52.webp",
-              "paintingSha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
-              "usage": "Fixed surface/scale reference only; retain recipient region and mask"
-            }
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/bake-native-sector-pilots.mjs",
-            "sha256": "685a6fa7e11c9bffa9bed973ea20a59ac1a7ab9727ea9570c4f6dd5983613331"
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/native-composition-geometry.mjs",
-            "sha256": "6da36132b55825c2fb327c36932e11ed7044298cf73f2a34800b50095abb6851"
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/repair-sector-31-terrain.mjs",
-            "sha256": "66210d2b84a1780d0cef9349b650e37eff53f93de875046791d22ead3feee939"
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/grade-sector-boundaries.mjs",
-            "sha256": "273c06bec142b6f91ca8d1b1c879bf67c7f7a5726859f7cefd8f1e04429f5712"
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/compose-native-village.mjs",
-            "sha256": "ed85b1f9a5665f540909bd76dfd11a8ec63ff34a7b95dd3f2ca7e91340e80452"
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/compose-frostborder-terrain.mjs",
-            "sha256": "812da9c8e3e15aebb717d3d7720dd25ef8c996a9ff173b5023e657f0e0ea4d57"
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/finish-snapshot-20261006/layouts.json",
-            "sha256": "e6754d0f930a0d16e1c342ebe351cbc80cbdb503ce41bd05da154dd9d2f5b8c7"
-          },
-          {
-            "file": "output/connected-world/finish-snapshot-20261006/s52.webp",
-            "sha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
-            "role": "actual-60-boundary-material"
-          },
-          {
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-37/s51.webp",
-            "sha256": "2f21b1c1b7952921edce96a0009fb836ee5b8d2714944f7471cca1c10fab89c7",
-            "role": "actual-33-boundary-material"
-          }
-        ],
-        "recipeFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\native-finish\\pass-38\\sector-66-recipe.json",
-        "recipeSha256": "205accd9c349e06c389bf8d2fe2e910b767e7cd911a14f8f26815fe8e00f783c",
-        "ownerAuthorizedNativeComposition": true,
-        "authorizedResponse": "Yes—compose and bake the finished maps (Recommended)",
-        "outputSha256": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1",
-        "edgeReferenceVersion": 2,
-        "neighbors": [
-          {
-            "exit": "66:west:60",
-            "destination": 60,
-            "reverseExit": "60:east:66",
-            "sha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s52.webp"
-          },
-          {
-            "exit": "66:south:33",
-            "destination": 33,
-            "reverseExit": "33:north:66",
-            "sha256": "f31256d7d06db1b36d5b22b035401f0089f529e4b368178af5c2c2e3f621d398",
-            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s51.webp"
-          }
-        ]
-      },
-      "productionTool": "owner-authorized-native-composition",
-      "semanticReview": {
-        "sector": 66,
-        "sha256": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1",
-        "layoutSha256": "e9e8caaebfe14db579aff6697b9fcaec94d0ba4ca7dbd8cdc87dc22d55146b1b",
-        "reviewImageSha256": "6513b69730a92a07379caea1eeb5f59df3bf5a50e9fc41940880728cc833cd27",
-        "status": "approved",
-        "findings": [],
-        "checks": {
-          "walkableGround": true,
-          "visibleObstacles": true,
-          "landmarkFootprints": true,
-          "purposefulRoutes": true,
-          "coherentHydrology": true,
-          "biomeAndStyle": true
-        },
-        "physicalCoverage": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\native-finish\\pass-38\\physical-approval-sector-66.json"
-      },
-      "status": "visually-reviewed"
-    },
-    {
       "sector": 99,
       "artKey": 99,
       "name": "The Lavafront Gate",
@@ -26647,6 +25922,903 @@
         }
       },
       "status": "visually-reviewed"
+    },
+    {
+      "sector": 68,
+      "artKey": 68,
+      "name": "Basalt Steps",
+      "sha256": "84e718aef6bb830ec89b19fe75fd739470ffc999596e5eea75230bca64dac6a7",
+      "bytes": 201184,
+      "layoutSha256": "47a816a4edd5df5cb96162ebddff9e9a88f62bfbed3f8a2d2797be74a17e8da4",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s7.webp",
+        "s2.webp",
+        "s52.webp",
+        "s66.webp",
+        "s99.webp (stronghold compound)"
+      ],
+      "status": "composed-and-checked"
+    },
+    {
+      "sector": 69,
+      "artKey": 69,
+      "name": "Smokevent Terraces",
+      "sha256": "c99d77c595fd0a384a063582b9be52a6a776a842e87a5922d8951f938eaac9bf",
+      "bytes": 207278,
+      "layoutSha256": "840a849d7c53cede0347fbc3564eb553871219be5970c1f1de97601021b8e91c",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s7.webp",
+        "s2.webp",
+        "s52.webp",
+        "s66.webp",
+        "s99.webp (stronghold compound)"
+      ],
+      "status": "composed-and-checked"
+    },
+    {
+      "sector": 70,
+      "artKey": 70,
+      "name": "Magma Cistern",
+      "sha256": "dece54614eefb1344d3886fb48732968fd5af1d9d65a3680f4f31487ca766c12",
+      "bytes": 201064,
+      "layoutSha256": "f983d30a2166d2ae0b0ec2d284dea53ca4cbabfbd25add6ea5c6da3d784c568a",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s7.webp",
+        "s2.webp",
+        "s52.webp",
+        "s66.webp",
+        "s99.webp (stronghold compound)"
+      ],
+      "status": "composed-and-checked"
+    },
+    {
+      "sector": 71,
+      "artKey": 71,
+      "name": "Ashfall Barracks",
+      "sha256": "458636aa7b1850cc846604eda99310a489fa7a3ce3da954912f90a8320a1cb99",
+      "bytes": 204992,
+      "layoutSha256": "72bec6929b65d08648f88c0f71453a6bb488baaa15d782843f83ef8f763c2dcf",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s7.webp",
+        "s2.webp",
+        "s52.webp",
+        "s66.webp",
+        "s99.webp (stronghold compound)"
+      ],
+      "status": "composed-and-checked"
+    },
+    {
+      "sector": 72,
+      "artKey": 72,
+      "name": "Obsidian Drill Yard",
+      "sha256": "a59a98c8b9c7298175b9d577102537f09780900797dd8da0b020f079a55c7008",
+      "bytes": 200208,
+      "layoutSha256": "b40a14316ca1f628593a3a503234539ca2dea959e123f0a877efc75a85bf725c",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s7.webp",
+        "s2.webp",
+        "s52.webp",
+        "s66.webp",
+        "s99.webp (stronghold compound)"
+      ],
+      "status": "composed-and-checked"
+    },
+    {
+      "sector": 73,
+      "artKey": 73,
+      "name": "Caldera Rim",
+      "sha256": "85f23508b4eb46a6862cd7235ae8f85765e1dc4ccfc47e6e3fef645ea45f50a0",
+      "bytes": 203876,
+      "layoutSha256": "2152cb53ad928be5696debaac15471345c148e857e997b77b6f33ddd15b643db",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s7.webp",
+        "s2.webp",
+        "s52.webp",
+        "s66.webp",
+        "s99.webp (stronghold compound)"
+      ],
+      "status": "composed-and-checked"
+    },
+    {
+      "sector": 74,
+      "artKey": 74,
+      "name": "Slagwater Crossing",
+      "sha256": "34064a4d2a4e4c1ca2eb996181eca682f420668674db90097648502fcf4903b3",
+      "bytes": 203150,
+      "layoutSha256": "4dc7d0889d0c229643899c6ef88ab0e08ea489bb429142b65c3fa24d1724cc0d",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s7.webp",
+        "s2.webp",
+        "s52.webp",
+        "s66.webp",
+        "s99.webp (stronghold compound)"
+      ],
+      "status": "composed-and-checked"
+    },
+    {
+      "sector": 58,
+      "artKey": 7,
+      "name": "Cinder Foothills",
+      "sha256": "669a4837c17a1752662959450a9c410354a31d8735707e0fe9cfd6c3cc78c6e2",
+      "bytes": 218896,
+      "layoutSha256": "71b8bbce75e558cf7f5c53a0c87d244ac53990dac72bbaa8153efae8b12a7474",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s7.webp (accepted floor, new climb painted)"
+      ],
+      "status": "composed-and-checked",
+      "previous": {
+        "sector": 58,
+        "artKey": 7,
+        "name": "Cinder Foothills",
+        "sha256": "762ea10841fce051b59480e4a4fcb92f90739b4ab0b604d2e5909a2df0765116",
+        "bytes": 222638,
+        "quality": 76,
+        "source": "exec-ff7f01cd-9a94-429d-9440-b91e47faefb2.png",
+        "prompt": "Precise TWO SMALL DETAIL corrections of this WHOLE directly-overhead Cinder Foothills painting. FirstKEEP supplied exposed darkgrey/charcoal BASALT lip at mineral131 x91.667%-100%,y83.333%-91.667%. Its standingcentre x95.833%,y87.5% MUST be clearly fractureddarkrock,not bareloam/ash/gravel. Match adjacentright-rim basalt upperfaces,with organic jagged inward edge and fine matte mineralgrain,natural joined top119/bottom143. No squareblock,insertedrectangle,roundedtoyrock,detachedpile or growth into walking130. Do not enlarge or move any other41 mineralfeatures. Restrained tiny emberfissure may stay amongexistingright-rimrock,butnotgrow/spill.\nSecondKEEP restored quiet neutral GREY/TAUPE/TAN angular flagstone at SOUTH137 x41.667%-50%,y91.667%-100%. Fine matte mineralgrain/subtle diffusewear,thin shallowjoints,modest angular slabs matching adjacent125 and supplied actual37 road. Remove former strongbrown veining,deep outlined/mossyjoint,ruststain or insertedpatch appearance. Keep its supplied stoneoutlines/sizes;do not subdivide,roundstones,add engraving/rings/spirals/rubble,opaque smoothblankstrip or change lane. Blend137 grain/tone naturally into125. Fullmouth remainsonecell8.333% wide andflushtoframe.\nEVERY OTHERpixel/feature remains exactly supplied. All87 walking areas stay clear fine LOW charcoal/greyash,mutedumberloam,microscopicflatgrit,tinyflatcopperneedles. Keep gentle sparse sage/taupeloam southernshoulder transition124/126/136/138 EXACTLY supplied,not a hardgreenband or lawn. All15 exactroadsremain quietangularstone:south137→125→113→101→89→77→78→66→54 then54→55→56→57→58→59 EAST,plusshared59→71 EAST. Bothadjacent eastern mouths/fullsouthernmouths stayflush toframes. No north/westexit,blindtail,unusedspur,pad,plaza,curb,post,endcap or extra road. ALLothermineralrocks/containedembercracks unchanged. Runtime81staysclear. No standingfieldrock/fern/shrub/trunk/tree,woodland,water,lavaflow,permanentstructure,stronghold,shrine,cairn,village,portal,people,animals,text,grid,UI,frame,sky,horizon,tilt,3D,plastic,clay,cartoon,photoreal ordiagram. Wholeuncroppedopaque coherent finehandpainted2Dscene. All othergeometry,texture,light,scale,palette,ground and paving exactly supplied.\n",
+        "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+        "references": {
+          "sector": 58,
+          "artKey": 7,
+          "revision": "6",
+          "tool": "built-in-image-gen",
+          "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+          "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-pass6-prompt.txt",
+          "promptSha256": "416c9cf2ba4f0ed01b896517a17c9c01333f6498fac813f08860419833ecd51a",
+          "inputs": [
+            {
+              "role": "model-input-paint-region-guide",
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-6-guide.png",
+              "sha256": "f3e32717adee0ceb8a953244addd890cf1f38999edad868e3138c50f4d9fe6aa"
+            }
+          ],
+          "neighbors": [],
+          "paintGuideProof": {
+            "sector": 58,
+            "artKey": 7,
+            "revision": 6,
+            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-job-6-paint-guide.png",
+            "sourceSha256": "94dc944edf5fd4b7dbce1f405b6bdf4907c929e317ff6cf883f3f9f02869dd2e",
+            "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+            "sha256": "f3e32717adee0ceb8a953244addd890cf1f38999edad868e3138c50f4d9fe6aa",
+            "regions": [
+              {
+                "material": "#",
+                "tiles": [
+                  131
+                ]
+              },
+              {
+                "material": "=",
+                "tiles": [
+                  137
+                ]
+              }
+            ],
+            "mineralSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/moonstone-mineral-reference-source.png",
+            "mineralSourceSha256": "cc56ac03e065d7647668bfdb5daa3df95d7b5a4e5377b8cdf0e0fb224b2473aa",
+            "incomingRoadSource": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-adb322f5-7f6d-47ac-9755-705e33a942df.png",
+            "incomingRoadSourceSha256": "b887a44d2bd738e8446217460ef95d9595a465e656727591458d248b60b07a69",
+            "incomingRoadPainting": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
+            "incomingRoadPaintingSha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2",
+            "incomingRoadCrop": {
+              "left": 427,
+              "top": 0,
+              "width": 85,
+              "height": 86
+            },
+            "incomingRoadReverseTile": 5,
+            "incomingRoadSelfTile": 137,
+            "cropBeforeMirror": true,
+            "parentPhysicalRejection": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-pass5-physical-review-coverage.json",
+            "parentPhysicalRejectionSha256": "34016ea0e6ed6de59e1dcb9a08cd5bffd01e3d84572f802a1b562ad69903c1e0",
+            "purpose": "model-input-only-not-delivered-art",
+            "nativeCompositeNeverDelivered": true
+          },
+          "parentArtwork": {
+            "sector": 58,
+            "artKey": 7,
+            "name": "Cinder Foothills",
+            "source": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-74b9e091-9f82-415f-a785-e0c88226cc2f.png",
+            "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
+            "sha256": "94dc944edf5fd4b7dbce1f405b6bdf4907c929e317ff6cf883f3f9f02869dd2e",
+            "width": 1024,
+            "height": 1024,
+            "bytes": 240426,
+            "quality": 72,
+            "prompt": "A richly detailed painterly fantasy map illustration of one small location, drawn in the exact style of an epic AAA fantasy world map: fine intricate brushwork, dense hand-painted detail across every part of the terrain, a naturalistic weathered colour palette of black and charcoal volcanic rock, grey ash, dusty umber grit and glowing molten orange, with almost no green and no blue water, soft atmospheric haze giving quiet depth, diffuse dramatic daylight with long gentle shadows, and an oil-painted texture over the whole image. CAMERA: seen from DIRECTLY OVERHEAD with the camera pointing straight down at the ground — a true overhead plan view, like a satellite or drone photograph taken straight down. Only the TOPS of things are visible: tree canopies from above, roofs from above, the upper faces of rocks and walls. Vertical surfaces are almost entirely hidden — building fronts, walls and stairs are NOT seen face-on, and every structure is read by its ROOF. The ground plane stays flat and level across the whole picture, and the terrain fills the entire frame from edge to edge and continues past all four edges, exactly like an aerial photograph of a larger landscape — no part of the image is empty background. Cinder Foothills:a dry volcanic shoulder of cool charcoal-grey ash,dusty muted umber loam and fractured dark basalt upperfaces with faint contained ember fissures. One purposeful angular stone route bends through the basalt and joins two adjacent eastern roads;its southern approach gradually reaches the first sparse sage meadow of the Midlands. Fine flat cindergrain and tiny fallen copper needles leave broad clear dry standing areas. The whole place is silent, still and empty. Every building, gate, tower, shrine and temple here is seen from DIRECTLY ABOVE: you see the shape of its roof and the ground around it, never its front wall or its steps face-on. Every cliff, ridge and mountain is seen from above as a mass of rock and snow lying on the ground, never as a peak standing against a sky. All architecture is East-Asian shinobi-fantasy: sweeping tiled pagoda roofs with upturned eaves, dark timber beams and paper screens, torii gates, stone lanterns and tiled courtyard walls. There are NO European buildings — no church spires, no stone manor houses, no castle keeps, no half-timbered cottages. The place is completely deserted: there is not a single person, figure, silhouette or animal anywhere in the image, not even a tiny distant one on a path. The glowing light sources in the scene cast warm light across the ground so the whole terrain stays lit and readable in rich painted detail, never flat black. COMPOSITION: the whole map is densely filled and reads as ONE connected, believable place — winding paths link every area so the eye flows naturally across it, terrain features break up the space, and the points of interest sit naturally along the routes. NO large empty areas and NO empty middle — every part of the map carries painted detail, texture and small features — BUT keep the paths and clearings as clear, open, walkable lanes. Features blend and connect into one another: NO isolated objects floating in empty space, NO evenly-spaced grid of props. ONE consistent painterly illustrated style across the entire image, matching an epic fantasy world map: intricate, atmospheric, naturalistic colour, weathered and lived-in, with rich fine detail everywhere. CAMERA DISCIPLINE: absolutely NO sky, NO clouds, NO moon, NO sun, NO horizon line, NO distant background scenery, NO mountains rising against a sky, NO side view, NO elevation view, NO eye-level or three-quarter perspective, NO camera tilted up toward a horizon, NO building facades or staircases seen face-on, NO vanishing-point perspective — the view looks straight DOWN and shows ground only. Absolutely NO characters, NO people, NO humans, NO text, NO words, NO UI, NO HUD, NO minimap, NO grid lines, NO hex tiles, NO tile outlines, NO markers, NO icons, NO arrows, NO labels, NO frame, NO border, NO vignette, NO watermark. This is a PAINTING, not a render: NOT a 3D render, NOT smooth plastic or clay shading, NOT a toy diorama, NOT simple rounded low-detail shapes, NOT bright candy colour, NOT cel-shaded, NOT outlined cartoon linework, NOT flat vector art, NOT pixel art, NOT photoreal. The artwork fills the entire frame edge to edge.\n\nIMAGE1 is exact whole occupied geometry and private fine-material/slab guide. IMAGE2 is actual southern Crossway Hills brushwork/material reference ONLY. Paint one coherent new matte directly-overhead2D scene following IMAGE1 exactly. ALL87 walking centres 1/2/3/4/5/6/7/8/9/12/13/15/16/17/18/19/21/22/24/25/27/28/29/30/33/34/36/40/41/42/43/44/45/46/47/48/49/51/52/53/60/61/62/64/65/67/68/69/70/72/76/79/80/81/82/83/84/90/91/92/93/94/100/102/103/104/105/106/110/111/112/114/115/116/117/118/121/122/123/124/126/127/128/129/130/136/138 retain clear fine LOW cool charcoal/grey ash,dusty muted umberloam,microscopic FLAT darkgrit and tiny sparse fallen copperneedles. Match supplied fine scale,not chunky pebble/cobble scatter,big whitegrains,oval/ringmotifs,rough heaps or long tangled needles. No standing fieldrock,boulder,pebblepile,burnttrunk,root,log,fern,bush,tallgrass,flowercluster,tree,canopy or glowingpoint in walkingareas. Runtime81 stays clear,no bakedportal.\nALL42 mineralcentres 0/10/11/14/20/23/26/31/32/35/37/38/39/50/63/73/74/75/85/86/87/88/95/96/97/98/99/107/108/109/119/120/131/132/133/134/135/139/140/141/142/143 retain exact supplied joined dark BLACK/CHARCOAL BASALT shapes and clearly exposed fractured upperfaces. Small restrained emberorange fissures stay inside assigned basalt,not lavaflow/openwater/newbasalt. Preserve natural organic jagged inwardedges,compact onecelltips0/20/63 and southern135/139,without squarepanels,grass-only centres,roundedtoyrock,clayboulders or outwardgrowth into walking24/25/27/36/40/48/49/51/60/61/62/64/76/84/100/110/121/136/138. Zero standingwoodland is authored.\nALL15 roadcentres 54/55/56/57/58/59/66/71/77/78/89/101/113/125/137 retain exact supplied modest ANGULAR matte grey/taupe/tan slab outlines/sizes and thin shallow joints. Add quiet natural mineralgrain and restrained wear INSIDE every slab. No blank diagramfill,erased outlines,rubble/mosaic,roundedcobble,raisedbevel,deepgrooves,engravedveins/rings/spirals,brownrustpatch or shiningstone. Exact southern137→125→113→101→89→77→78→66→54 then54→55→56→57→58→59 EAST to60WEST48. Lastcolumn59→71 alsoEAST to59WEST60 is one shared full adjacent approach. Both eastern onecell8.333% mouths must remain independently fullpaved toframes atrow4y33.333%-41.667% androw5y41.667%-50%. True SOUTH137 fullx41.667%-50% joins37NORTH5. No north/westexit,blindtail,unusedspur,pad,plaza,curb,post,endcap,detachedpaving or addedroute.\nKeep supplied southern THREE-cell strip136/137/138 matching actual37 lowfineground/quietstone. Blend sage/olive wisps and taupeloam naturally toward finecharcoal/umbercinder across nexttwoapproachlengths125/113 and adjacent124/126/112/114. The volcaniccore remains almostnogreen. Fine scattered darkdust gradually thins through real southernshoulders;no hardhorizontal biomecut,straightgreenband,squareinsert,brightgreenlawn or grassmound. Keep basalt135/139 entirelydarkrock,nograssreplacement. East59/60 olderbusywarmpaving/coarseground require later coordinatedrepair;nevercopy their defects or narrowlanes.\nZERO permanent structure,stronghold,shrine,cairn,village,woodland,water,moat,pond,lavalake,portal,foundation or reservedpad. Preserve volcanicidentity,exact shapes/routes,overheadcamera,materialscale and diffuse daylight. Richnessfrom fine ground/mineral/slabtexture,not clutter. Wholeuncroppedopaque newlypainted coherentsquare2Dscene,not nativecollage,3D,plastic,clay,cartoon,photoreal ordiagram. Nopeople,animals,text,grid,UI,frame,sky,horizon,tilt.\n",
+            "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+            "budgetBytes": 256000,
+            "references": {
+              "sector": 58,
+              "artKey": 7,
+              "revision": "5",
+              "tool": "built-in-image-gen",
+              "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+              "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-pass5-prompt.txt",
+              "promptSha256": "21683bfcf21f446ce663fab96410488d0e99269acdaa435ff41609d9a41bd4c8",
+              "inputs": [
+                {
+                  "role": "model-input-paint-region-guide",
+                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-5-guide.png",
+                  "sha256": "121c487b163ccaf552d7f55be548e08618c53649544864044f3ca01fcba443ba"
+                },
+                {
+                  "role": "material-and-brushwork-reference",
+                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-5-anchor.png",
+                  "sha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2"
+                }
+              ],
+              "neighbors": [
+                {
+                  "exit": "58:east:60",
+                  "destination": 60,
+                  "artKey": 52,
+                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s52-candidate.webp",
+                  "reverseExit": "60:west:58",
+                  "sha256": "4ed132927cfe6a3378a4e4d032ad824cf37c3340cb6b946de5e637e34045faaa"
+                },
+                {
+                  "exit": "58:east:59",
+                  "destination": 59,
+                  "artKey": 2,
+                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s2-candidate.webp",
+                  "reverseExit": "59:west:58",
+                  "sha256": "38ee5f800ac302e661317a1316ae18fed81286527d911582455d87e96cbad285"
+                },
+                {
+                  "exit": "58:south:37",
+                  "destination": 37,
+                  "artKey": 45,
+                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
+                  "reverseExit": "37:north:58",
+                  "sha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2"
+                }
+              ],
+              "edgeReferenceVersion": 2,
+              "paintGuideProof": {
+                "sector": 58,
+                "artKey": 7,
+                "revision": 5,
+                "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-job-5-paint-guide.png",
+                "sourceSha256": "732260d65d55135b312f07f1e3eadc90db7f87abbaa19b5f1f7da7b39ce26ca2",
+                "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                "sha256": "121c487b163ccaf552d7f55be548e08618c53649544864044f3ca01fcba443ba",
+                "regions": [
+                  {
+                    "material": ".",
+                    "tiles": [
+                      1,
+                      2,
+                      3,
+                      4,
+                      5,
+                      6,
+                      7,
+                      8,
+                      9,
+                      12,
+                      13,
+                      15,
+                      16,
+                      17,
+                      18,
+                      19,
+                      21,
+                      22,
+                      24,
+                      25,
+                      27,
+                      28,
+                      29,
+                      30,
+                      33,
+                      34,
+                      36,
+                      40,
+                      41,
+                      42,
+                      43,
+                      44,
+                      45,
+                      46,
+                      47,
+                      48,
+                      49,
+                      51,
+                      52,
+                      53,
+                      60,
+                      61,
+                      62,
+                      64,
+                      65,
+                      67,
+                      68,
+                      69,
+                      70,
+                      72,
+                      76,
+                      79,
+                      80,
+                      81,
+                      82,
+                      83,
+                      84,
+                      90,
+                      91,
+                      92,
+                      93,
+                      94,
+                      100,
+                      102,
+                      103,
+                      104,
+                      105,
+                      106,
+                      110,
+                      111,
+                      112,
+                      114,
+                      115,
+                      116,
+                      117,
+                      118,
+                      121,
+                      122,
+                      123,
+                      124,
+                      126,
+                      127,
+                      128,
+                      129,
+                      130,
+                      136,
+                      138
+                    ]
+                  },
+                  {
+                    "material": "#",
+                    "tiles": [
+                      0,
+                      10,
+                      11,
+                      14,
+                      20,
+                      23,
+                      26,
+                      31,
+                      32,
+                      35,
+                      37,
+                      38,
+                      39,
+                      50,
+                      63,
+                      73,
+                      74,
+                      75,
+                      85,
+                      86,
+                      87,
+                      88,
+                      95,
+                      96,
+                      97,
+                      98,
+                      99,
+                      107,
+                      108,
+                      109,
+                      119,
+                      120,
+                      131,
+                      132,
+                      133,
+                      134,
+                      135,
+                      139,
+                      140,
+                      141,
+                      142,
+                      143
+                    ]
+                  },
+                  {
+                    "material": "=",
+                    "tiles": [
+                      54,
+                      55,
+                      56,
+                      57,
+                      58,
+                      59,
+                      66,
+                      71,
+                      77,
+                      78,
+                      89,
+                      101,
+                      113,
+                      125,
+                      137
+                    ]
+                  }
+                ],
+                "neighbors": [
+                  {
+                    "exit": "58:east:60",
+                    "destination": 60,
+                    "artKey": 52,
+                    "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s52-candidate.webp",
+                    "reverseExit": "60:west:58",
+                    "sha256": "4ed132927cfe6a3378a4e4d032ad824cf37c3340cb6b946de5e637e34045faaa"
+                  },
+                  {
+                    "exit": "58:east:59",
+                    "destination": 59,
+                    "artKey": 2,
+                    "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s2-candidate.webp",
+                    "reverseExit": "59:west:58",
+                    "sha256": "38ee5f800ac302e661317a1316ae18fed81286527d911582455d87e96cbad285"
+                  },
+                  {
+                    "exit": "58:south:37",
+                    "destination": 37,
+                    "artKey": 45,
+                    "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
+                    "reverseExit": "37:north:58",
+                    "sha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2"
+                  }
+                ],
+                "edgeReferenceVersion": 2,
+                "fullNeighborGuide": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-5-seam-input\\s7-neighbor-guide.png",
+                "fullNeighborGuideSha256": "d2a81d1e54eeb18cc34b3c92b7f32e13f85a1708e4c8d73c60ecc28b4b89a913",
+                "groundSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\cinder-fine-ground-generated-source.png",
+                "groundSourceSha256": "f1eb41d483ea15c57929f8ffcc726c2852fcea2ee8c7870fa212377376dcf913",
+                "groundReferenceManifest": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/cinder-fine-ground-output.json",
+                "groundReferenceManifestSha256": "e39dd189541288ea3a25ae45e88ef6612aef7675a31ca9995494a1d71a2d3b66",
+                "transitionGroundSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/harbor-fine-ground-generated-source.png",
+                "transitionGroundSourceSha256": "7c47336bd9b00a38e9a38e482df21c4d62baf3e3844129b068aa41301e32e35c",
+                "transitionGroundReferenceManifest": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/harbor-fine-ground-output.json",
+                "transitionGroundReferenceManifestSha256": "6ace02c8981eff3f330bb0ab48a8a4655c3cf8427d08520ff9993e968db0b72f",
+                "mineralSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-pass4-historical-generated-source.png",
+                "mineralSourceSha256": "146fb3a5da98fe76f3f733941e7d2bf42529098630b2686717e2afc551a40b87",
+                "pavingSource": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-7-job-16-private-flat-paving-plan.png",
+                "pavingSourceSha256": "d25d16b78d1f12decaf64597816a297a350b5a69f3f0e47da545e3c498e4db2a",
+                "incomingRoadSource": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-adb322f5-7f6d-47ac-9755-705e33a942df.png",
+                "incomingRoadSourceSha256": "b887a44d2bd738e8446217460ef95d9595a465e656727591458d248b60b07a69",
+                "incomingRoadPainting": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
+                "incomingRoadPaintingSha256": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2",
+                "incomingRoadCrop": {
+                  "left": 341,
+                  "top": 0,
+                  "width": 256,
+                  "height": 86
+                },
+                "incomingRoadReverseTile": 5,
+                "incomingRoadSelfTile": 137,
+                "cropBeforeMirror": true,
+                "groundTransform": "whole-fine-cinder-quarter-turn-B.98-S.85-unique-per-coordinate",
+                "southernShoulderTransition": "fine-low-sage-to-cinder-gradual-768..1024-with-actual37-three-tile-mouth-strip",
+                "mineralInset": 8,
+                "parentPhysicalRejection": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-pass4-historical-approval-and-fleet-findings.json",
+                "parentPhysicalRejectionSha256": "e63eda6f47dd93ff6af18bd6fad85867558ed06629e67c63f6f5b681659e30d3",
+                "purpose": "model-input-only-not-delivered-art",
+                "nativeCompositeNeverDelivered": true
+              },
+              "parentArtwork": {
+                "sector": 58,
+                "artKey": 7,
+                "name": "Cinder Foothills",
+                "source": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-280c8c31-2f58-4807-973b-afcd47d9dc53.png",
+                "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
+                "sha256": "732260d65d55135b312f07f1e3eadc90db7f87abbaa19b5f1f7da7b39ce26ca2",
+                "width": 1024,
+                "height": 1024,
+                "bytes": 255506,
+                "quality": 80,
+                "prompt": "Use case: precise-object-edit. Image 1 is the edit target with a single grey repair region. Extend ONLY the adjoining southern-right basalt ridge into the DARK GREY region at x58.333% to66.667%, y91.667% to100%, so the center and most of this blocked cell are clearly rugged dark basalt. Join the existing ridge on its right naturally, matching fractured rock, restrained ember cracks and light. Keep the ridge crown within the marked region and existing connected rocky footprint. Use an irregular craggy ridge tip, never a square slab, isolated pillar or construction pad. Preserve every other pixel of the scene: both eastern full-width stone mouths, the southern paved mouth and road bend, the newly repaired southern-left tip, all other outcrops, clear cinder walking ground, copper needles and pebbles. Remove the grey guide color. No added path, tree, structure, water, label, grid or rock outside the marked region.\n",
+                "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                "budgetBytes": 256000,
+                "references": {
+                  "sector": 58,
+                  "artKey": 7,
+                  "revision": "4",
+                  "tool": "built-in-image-gen",
+                  "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                  "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-repair-pass4-prompt.txt",
+                  "promptSha256": "78d68c97a6588ac3a4199df423db7c7ea4f8d418dfa9dea10ee3e6c787b18ef7",
+                  "inputs": [
+                    {
+                      "role": "model-input-paint-region-guide",
+                      "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-4-guide.png",
+                      "sha256": "2f19c2e129789ef714192958a47bfc1acd90450384a0f107e087141be6d78970"
+                    }
+                  ],
+                  "neighbors": [],
+                  "paintGuideProof": {
+                    "sector": 58,
+                    "artKey": 7,
+                    "revision": "4",
+                    "material": "#",
+                    "tiles": [
+                      139
+                    ],
+                    "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-4-paint-guide.png",
+                    "sourceSha256": "20bd57abe545efbde3c97c63d0ea9a04ea01ff2199e69fada943bfe567c52cd8",
+                    "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                    "sha256": "2f19c2e129789ef714192958a47bfc1acd90450384a0f107e087141be6d78970",
+                    "purpose": "model-input-only-not-delivered-art"
+                  },
+                  "parentArtwork": {
+                    "sector": 58,
+                    "artKey": 7,
+                    "name": "Cinder Foothills",
+                    "source": "C:/Users/Tyler R/.codex/generated_images/01a108f6-a4e0-7920-aa21-ea768df62c27/exec-9103ff14-abc9-4b2b-ae08-0040c84d27b4.png",
+                    "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
+                    "sha256": "20bd57abe545efbde3c97c63d0ea9a04ea01ff2199e69fada943bfe567c52cd8",
+                    "width": 1024,
+                    "height": 1024,
+                    "bytes": 246428,
+                    "quality": 72,
+                    "prompt": "Use case: precise-object-edit. Make ONLY one small correction to the southern-left basalt ridge. The DARK GREY marked region at x25% to33.333%, y91.667% to100% is impassable basalt: extend the existing adjoining ridge slightly into this region so its center and most of its area have visible rugged rock, naturally joining the existing rocks on its left. Match the existing dark fractured basalt, tiny restrained ember cracks, lighting and brushwork. Keep the whole rock crown entirely inside the grey region and existing connected ridge; do not overhang the low ground on its right. Use an irregular natural ridge tip, never a square stone block, pad or isolated pillar. Keep ALL other scenery EXACTLY unchanged: both fully paved eastern mouths and their stone colors/widths, the southern stone mouth and bend, every other basalt outcrop, all clear low cinder ground and fine copper needles. No added route, boulder outside the marked region, tree, structure, water, guide color, text or grid.\n",
+                    "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                    "budgetBytes": 256000,
+                    "references": {
+                      "sector": 58,
+                      "artKey": 7,
+                      "revision": "3",
+                      "tool": "built-in-image-gen",
+                      "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                      "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-repair-pass3-prompt.txt",
+                      "promptSha256": "ec10b5faefce02317f208f3c4c608742f1220eed376fc7309043223aa6cb3df3",
+                      "inputs": [
+                        {
+                          "role": "model-input-paint-region-guide",
+                          "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-3-guide.png",
+                          "sha256": "adf5fe7ef6cc8518419bf5a90ef7c4835cbda90648cbec15696b20ae4b20842c"
+                        }
+                      ],
+                      "neighbors": [],
+                      "paintGuideProof": {
+                        "sector": 58,
+                        "artKey": 7,
+                        "revision": "3",
+                        "material": "#",
+                        "tiles": [
+                          135
+                        ],
+                        "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-3-paint-guide.png",
+                        "sourceSha256": "79d52beae9bbc2b78f20f078d2cbdac69836bbd3d463b1db32e2d7b791369f2d",
+                        "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                        "sha256": "adf5fe7ef6cc8518419bf5a90ef7c4835cbda90648cbec15696b20ae4b20842c",
+                        "purpose": "model-input-only-not-delivered-art"
+                      },
+                      "parentArtwork": {
+                        "sector": 58,
+                        "artKey": 7,
+                        "name": "Cinder Foothills",
+                        "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a108f6-a4e0-7920-aa21-ea768df62c27\\exec-1d8fbb91-e9cd-4231-8a63-8e5be60f54c9.png",
+                        "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
+                        "sha256": "79d52beae9bbc2b78f20f078d2cbdac69836bbd3d463b1db32e2d7b791369f2d",
+                        "width": 1024,
+                        "height": 1024,
+                        "bytes": 253342,
+                        "quality": 48,
+                        "prompt": "Use case: precise-object-edit. Repair only the colored regions. Every PALE SAGE region is low walkable volcanic foothill ground: paint intricate fine grey ash, dark cinder grit, tiny FLAT gravel smaller than 0.7 percent of the frame width, fallen copper needles and very short sparse dry grass. Remove all standing rocks, boulders, burnt trunks, tree crowns, tall bushes and glowing sparks from these marked walking areas. Keep the whole ground rich and natural, never smooth, empty or divided into square patches. The single MUTED OCHRE region at the right edge directly below the existing eastern stone mouth is the SECOND eastern road mouth: fill its entire area with the same pale warm-neutral flat slab stone as the adjoining unmarked road immediately above. It is fully paved across its whole width to the right edge, without any grass, soil, glowing lights, narrow bend or end cap. It joins the upper eastern mouth inside the last column as a small shared approach to two real neighboring sectors. Preserve ALL unmarked features exactly: the remaining stone road and southern bend, the southern mouth and its color/width, every blocked basalt mass and its contained ember cracks. The rock silhouettes stay inside their unmarked footprints; trim outcrop tips that intrude into the marked ground. Keep the same overhead painterly style and diffuse daylight. No new tree, road outside the marked footprint, structure, water, pad, guide color, text, grid or symbol.\n",
+                        "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                        "budgetBytes": 256000,
+                        "references": {
+                          "sector": 58,
+                          "artKey": 7,
+                          "revision": "2",
+                          "tool": "built-in-image-gen",
+                          "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                          "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-repair-pass2-prompt.txt",
+                          "promptSha256": "bc622963f522c81ff36f47498f6e7fed78047817f392168d738eccada3cfabb8",
+                          "inputs": [
+                            {
+                              "role": "model-input-paint-region-guide",
+                              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-2-guide.png",
+                              "sha256": "d5cbd9aed474cf52918c2c82fd13ed7f1c8f302f644695512e4335d304097b67"
+                            }
+                          ],
+                          "neighbors": [],
+                          "paintGuideProof": {
+                            "sector": 58,
+                            "artKey": 7,
+                            "revision": "2",
+                            "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/sector-58-job-2-paint-guide.png",
+                            "sourceSha256": "7778b9bfc87942d2d8e9fba42e4c9de5c5a9d1160d0a56490e1d921202c0ed3b",
+                            "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                            "sha256": "d5cbd9aed474cf52918c2c82fd13ed7f1c8f302f644695512e4335d304097b67",
+                            "purpose": "model-input-only-not-delivered-art"
+                          },
+                          "parentArtwork": {
+                            "sector": 58,
+                            "artKey": 7,
+                            "name": "Cinder Foothills",
+                            "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a108f6-a4e0-7920-aa21-ea768df62c27\\exec-8fbaf5d5-e2b9-44af-abd4-81ba31dbe20d.png",
+                            "output": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s7-candidate.webp",
+                            "sha256": "7778b9bfc87942d2d8e9fba42e4c9de5c5a9d1160d0a56490e1d921202c0ed3b",
+                            "width": 1024,
+                            "height": 1024,
+                            "bytes": 253066,
+                            "quality": 56,
+                            "prompt": "A richly detailed painterly fantasy map illustration of one small location, drawn in the exact style of an epic AAA fantasy world map: fine intricate brushwork, dense hand-painted detail across every part of the terrain, a naturalistic weathered colour palette of black and charcoal volcanic rock, grey ash, dusty umber grit and glowing molten orange, with almost no green and no blue water, soft atmospheric haze giving quiet depth, diffuse dramatic daylight with long gentle shadows, and an oil-painted texture over the whole image. CAMERA: seen from DIRECTLY OVERHEAD with the camera pointing straight down at the ground — a true overhead plan view, like a satellite or drone photograph taken straight down. Only the TOPS of things are visible: tree canopies from above, roofs from above, the upper faces of rocks and walls. Vertical surfaces are almost entirely hidden — building fronts, walls and stairs are NOT seen face-on, and every structure is read by its ROOF. The ground plane stays flat and level across the whole picture, and the terrain fills the entire frame from edge to edge and continues past all four edges, exactly like an aerial photograph of a larger landscape — no part of the image is empty background. Volcanic foothill basalt, gray ash and occasional ember cracks inside the blocked rock masses. The whole place is silent, still and empty. Every building, gate, tower, shrine and temple here is seen from DIRECTLY ABOVE: you see the shape of its roof and the ground around it, never its front wall or its steps face-on. Every cliff, ridge and mountain is seen from above as a mass of rock and snow lying on the ground, never as a peak standing against a sky. All architecture is East-Asian shinobi-fantasy: sweeping tiled pagoda roofs with upturned eaves, dark timber beams and paper screens, torii gates, stone lanterns and tiled courtyard walls. There are NO European buildings — no church spires, no stone manor houses, no castle keeps, no half-timbered cottages. The place is completely deserted: there is not a single person, figure, silhouette or animal anywhere in the image, not even a tiny distant one on a path. The glowing light sources in the scene cast warm light across the ground so the whole terrain stays lit and readable in rich painted detail, never flat black. COMPOSITION: the whole map is densely filled and reads as ONE connected, believable place — winding paths link every area so the eye flows naturally across it, terrain features break up the space, and the points of interest sit naturally along the routes. NO large empty areas and NO empty middle — every part of the map carries painted detail, texture and small features — BUT keep the paths and clearings as clear, open, walkable lanes. Features blend and connect into one another: NO isolated objects floating in empty space, NO evenly-spaced grid of props. ONE consistent painterly illustrated style across the entire image, matching an epic fantasy world map: intricate, atmospheric, naturalistic colour, weathered and lived-in, with rich fine detail everywhere. CAMERA DISCIPLINE: absolutely NO sky, NO clouds, NO moon, NO sun, NO horizon line, NO distant background scenery, NO mountains rising against a sky, NO side view, NO elevation view, NO eye-level or three-quarter perspective, NO camera tilted up toward a horizon, NO building facades or staircases seen face-on, NO vanishing-point perspective — the view looks straight DOWN and shows ground only. Absolutely NO characters, NO people, NO humans, NO text, NO words, NO UI, NO HUD, NO minimap, NO grid lines, NO hex tiles, NO tile outlines, NO markers, NO icons, NO arrows, NO labels, NO frame, NO border, NO vignette, NO watermark. This is a PAINTING, not a render: NOT a 3D render, NOT smooth plastic or clay shading, NOT a toy diorama, NOT simple rounded low-detail shapes, NOT bright candy colour, NOT cel-shaded, NOT outlined cartoon linework, NOT flat vector art, NOT pixel art, NOT photoreal. The artwork fills the entire frame edge to edge.\nCreate the final square floor painting for Cinder Foothills, sector 58, using the attached colored plan as exact spatial geometry. Full-bleed edge-to-edge artwork. Black basalt, grey ash, dusty umber, burnt roots and restrained ember light. Solid volcanic ground dominates. LOCAL IDENTITY: Volcanic foothill basalt, gray ash and occasional ember cracks inside the blocked rock masses. The motif changes surface character and low details, never the exact traversable route or water footprint.\nGEOMETRY: The plan is twelve by twelve but its construction grid is invisible in the finished artwork. Pale sage is low, accessible ground with grass, gravel, snow or soil texture and tiny details. Tan is a continuous worn stone/dirt road of large irregular weathered slabs with softly wandering natural margins. Roads retain their exact plan centerlines and one-cell width, 8.333% of image, at the sector edges. Gate coordinates: east edge, tile 59, center 95.83% x / 37.50% y; east edge, tile 71, center 95.83% x / 45.83% y; south edge, tile 137, center 45.83% x / 95.83% y. Charcoal cells are contiguous regional rock masses. Green cells are contiguous tree canopy masses. Tall rocks and trunks belong strictly inside these blocked footprints; pale/tan cells remain visibly open. Neighboring blocked cells blend into natural shapes without squared internal borders. Every path leads visibly to another sector exit, a village entrance or an actual permanent landmark entrance. No road spur ends in empty grass, no blind hub tail, no unexplained paving stub or arbitrary dead end. No empty rectangular foundation pads, plazas, square clearings, paved squares, bordered platforms or repeated two-by-two stone patches anywhere. Low ground is continuous with its neighbors, and all landmark bases sit naturally in that terrain.\nCOMPLETE SCENE: This sector has no permanent stronghold, shrine or cairn. Paint only its actual natural environment and purposeful through-routes. These are the ONLY permanent landmarks in this sector. Paint them fully integrated into the scene, using matching regional materials, scale, lighting and natural grounded shadows. The colored footprint marks become the actual occupied structures, never empty placeholders or colored ground. Do not add any dormant rift: quest portals appear only at runtime. Every landmark approach must visibly join its entrance, with no gap or disconnected bare stub.\nCONNECTED EDGES: east road to Obsidian Forecourt (sector 60): worn neutral warm-grey stone slabs with muted tan grit, flat and flush with the terrain; carry the same regional ground material continuously to the edge; east road to Northroad Saddle (sector 59): worn neutral warm-grey stone slabs with muted tan grit, flat and flush with the terrain; carry the same regional ground material continuously to the edge; south road to Crossway Hills (sector 37): worn neutral warm-grey stone slabs with muted tan grit, flat and flush with the terrain; blend Black basalt, grey ash, dusty umber, burnt roots and restrained ember light. Solid volcanic ground dominates. with Sage and olive meadows, tan soil, weathered grey stone and tiny wildflowers. into the surrounding ground in the last two tile widths approaching this exit, meeting at an even mixture on the edge. The final one-tile length of every outgoing road stays straight, flat and fully unobstructed, ending flush at the image edge with no arch, gate, fence, lamp, wall or end cap. It continues into the next sector. Keep the lighting, scale and stone slab material consistent on both sides.\nOther regional architecture appears only as sparse low stone details. No invented shrine, fortress or watchpost outside the actual listed footprints.\nHYDROLOGY: There is no open water in this plan. Keep accessible ground solid, including snow and ice where appropriate.\nWater is confined strictly to the blue footprint union; every pale or tan cell stays solid dry ground. Do not introduce any extra water anywhere. The terrain is one believable connected place, with detailed low ground texture across open areas. No isolated square water pits, no repeated basins, no cell-sized dock posts or pool walls. No characters, people or animals. No text, labels, grid, outlines, frame, UI or watermark. Ground only: no sky, horizon or tilted view. Keep the exact gate coordinates and accessible routes. Intricate painterly material detail, subdued palette, East Asian shinobi world, matching the approved combat-board treatment.\nEDGE REFERENCES: Photographic strips in this guide are the real adjacent paintings, mirrored outward from their matching road mouths. Continue their stone material, scale, tone and bordering biome precisely into this board. Preserve the lane and width. The flat-color interior is strict occupancy geometry: accessible pale or tan zones contain only ankle-height material, never tree canopy, tree trunks, roof overhangs or tall rock. Entire roof silhouettes, wall shadows, trunks and tall cliff silhouettes stay inside the colored blocked unions. Remove guide colors from the final painting. Match the existing regional palette; this is an alignment correction, not a palette change.\n\nSECTOR 58 ROAD DISCIPLINE: The east edge has TWO real adjacent mouths, one to sector 60 at y33.333%–41.667%, and one to sector 59 at y41.667%–50%. Both mouths fill the ENTIRE final column x91.667%–100%, with uninterrupted flat road stone at BOTH standing centers. The lower mouth is a full-width lane, never a narrowed corner with grass or bare earth at its center. These adjacent mouths share a compact continuous approach entirely inside the tan footprint; the southern route joins this network through the exact bend in the guide. The southern mouth also fills its whole one-lane width. Every charcoal footprint visibly contains basalt rock at its center, with the complete rock silhouette inside that footprint. All pale sage ground is rich, intricate, low fine ash and cinder grit with tiny flat gravel, never standing shrubs, trees or stray boulders. Pale warm-grey slab roads remain readable and join their real destinations; no extra path or rectangular pavement patch.\n",
+                            "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                            "budgetBytes": 256000,
+                            "references": {
+                              "sector": 58,
+                              "artKey": 7,
+                              "revision": "1",
+                              "tool": "built-in-image-gen",
+                              "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+                              "promptFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-repair-pass1-prompt.txt",
+                              "promptSha256": "cefeaa5ba47a69ab4469dc39a12832ec626d6279770fd28917261cf8e98d51ab",
+                              "inputs": [
+                                {
+                                  "role": "geometry-and-real-neighbor-reference",
+                                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\sector-58-job-1-guide.png",
+                                  "sha256": "de161eca1887cf04b11f5f83f03dac3b4bf79cbcfc1977b52b3cfd095edb7cea"
+                                }
+                              ],
+                              "neighbors": [
+                                {
+                                  "exit": "58:east:60",
+                                  "destination": 60,
+                                  "artKey": 52,
+                                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s52-candidate.webp",
+                                  "reverseExit": "60:west:58",
+                                  "sha256": "7406cda627ed6c14f2c2c29b4da379b073061b70e6eac5f4cfb7a00ad017f88b"
+                                },
+                                {
+                                  "exit": "58:east:59",
+                                  "destination": 59,
+                                  "artKey": 2,
+                                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s2-candidate.webp",
+                                  "reverseExit": "59:west:58",
+                                  "sha256": "8dcf4b5dc4b3472328b1e3b15f6a87339210484ea2edbe5c048a1da190d9b49a"
+                                },
+                                {
+                                  "exit": "58:south:37",
+                                  "destination": 37,
+                                  "artKey": 45,
+                                  "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\s45-candidate.webp",
+                                  "reverseExit": "37:north:58",
+                                  "sha256": "48c7961c7b6feaa322f141b9143fbbe6bb09c11a1efcb50d32a5bbeb8d1fd979"
+                                }
+                              ],
+                              "edgeReferenceVersion": 2
+                            },
+                            "sourceSha256": "6316b3282c10393886019a1ecf35bf518a4ade802c5c9cd2697209bbc0ee5e29",
+                            "status": "candidate-awaiting-visual-review"
+                          }
+                        },
+                        "sourceSha256": "f9645656d4c8add7c25d37b124fe37d92d111d1556132a253a71a0583505db05",
+                        "status": "candidate-awaiting-visual-review"
+                      }
+                    },
+                    "sourceSha256": "abe139b58dacc49cfbeb535c239dc957157cbd7b8184ad89a4e18680ec5f7372",
+                    "status": "candidate-awaiting-visual-review"
+                  }
+                },
+                "sourceSha256": "146fb3a5da98fe76f3f733941e7d2bf42529098630b2686717e2afc551a40b87",
+                "status": "candidate-awaiting-visual-review"
+              }
+            },
+            "sourceSha256": "dfbf5a75163b3c67561bc4f787224317ce7f1362922721bf4dadd758d8a1bd03",
+            "status": "candidate-awaiting-visual-review"
+          }
+        },
+        "productionTool": "built-in-image-gen",
+        "semanticReview": {
+          "sector": 58,
+          "artKey": 7,
+          "sha256": "762ea10841fce051b59480e4a4fcb92f90739b4ab0b604d2e5909a2df0765116",
+          "layoutSha256": "776a6fe4b348b05c089c754e31ccb1c3b25d7aba39b8f08c6cde54c6774d2968",
+          "status": "approved",
+          "findings": [],
+          "reviewImageSha256": "63744229729d70ba1608ea9233506d72e6325af0ea3a4e77734dc37f633deaec",
+          "checks": {
+            "walkableGround": true,
+            "visibleObstacles": true,
+            "landmarkFootprints": true,
+            "purposefulRoutes": true,
+            "coherentHydrology": true,
+            "biomeAndStyle": true
+          },
+          "notes": [
+            "Whole current built-in painting and hatched mask,all eight enlarged sheets covering144,and all three actual unmirrored60/59/37 pairs physically inspected. Sheet1 re-viewed after earlier truncation; all current sheets now physically seen. Six frozen jobs6→5→4→3→2→1 validate,including cinder ground and gradual harbor-ground transition proofs.",
+            "All87 walking standing areas retain low flat charcoal/ash/umber ground with shallow clay fractures,microscopic grit and tiny fallen copper needles. No standing fieldrock,plant,trunk or canopy. Rift81 stays clear. South124/126/136/138 gradually introduce sparse sage/taupe ground; volcanic core remains cinder.",
+            "All42 mineral centres retain adjoining fractured basalt upperfaces and contained narrow orange ember fissures. Mineral131 now exposes an organically joined slate/basalt lip continuing119/143,without a rectangular patch or spill into walking130.135/139 remain blocked basalt rather than grass.",
+            "All15 roads retain quiet angular matte gray/taupe/tan weathered stone with shallow joints: SOUTH137→125→113→101→89→77→78→66→54→55→56→57→58→59 EAST60 and59→71 EAST59. Full adjacent east mouths share their approach.137 no longer has the isolated brown veined/mossy patch. No north/west exit,blindspur,pad,plaza,post,endcap,water,permanent structure,woodland or baked portal.",
+            "Allthree actual current unmirrored59/60/37 pairs physically inspected. Current59 pass14 now repairs the warm rounded/coarse western entrance:58 EAST71→59 WEST60 matches full width with quiet angular stone/fine low cinder. Current60 pass4 matches58 EAST59→60 WEST48 at full width. Current37 southern join retains matching angular paving and gradual cinder-to-sparse-meadow shoulder. Local stone shapes and grain vary naturally.",
+            "Current58 painting,source,mask and all eight enlarged-sheet hashes match immutable original all144 coverage. Original and previous-current coverage stay immutable. Individual58 approval advances only58; this does not approve59/60/35 or waive final wholefleet,architecture,natural contours,hydrology,special99,mobile performance,budget,owner checkpoint and release gates."
+          ]
+        },
+        "status": "visually-reviewed"
+      }
+    },
+    {
+      "sector": 66,
+      "artKey": 66,
+      "name": "Emberspine Ridge",
+      "sha256": "83e8ddc9504d4dd32edc1afb0195d802322ddf8b26cfa347ee9d7d17c67d5ad7",
+      "bytes": 229084,
+      "layoutSha256": "cfe4de34868fac66fc67ebc439ea3988ecaf33c5f16c2ce932a6a5aa15f0ba29",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s66.webp (accepted floor, new climb painted)"
+      ],
+      "status": "composed-and-checked",
+      "previous": {
+        "sector": 66,
+        "artKey": 66,
+        "name": "Emberspine Ridge",
+        "sha256": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1",
+        "bytes": 235224,
+        "quality": 76,
+        "source": "s66-composed.png",
+        "prompt": "Owner-authorized native composition: preserve the complete 1024 frame, exact authored mask, roads and landmark membership; execute the frozen sector 66 recipe and retain the physically reviewed whole painting.",
+        "layoutSha256": "e9e8caaebfe14db579aff6697b9fcaec94d0ba4ca7dbd8cdc87dc22d55146b1b",
+        "references": {
+          "sector": 66,
+          "layoutSha256": "e9e8caaebfe14db579aff6697b9fcaec94d0ba4ca7dbd8cdc87dc22d55146b1b",
+          "promptSha256": "b3eda9b5f498eae6da8e679329c71cb5d8027749492cac58ed0ddb9c73a4fa8f",
+          "tool": "owner-authorized-native-composition",
+          "inputs": [
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s66.webp",
+              "sha256": "ff1742ad2f0fee971bc8a1d83fab882418ba7ac262db8c968d245954da7fc275"
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\shinobij.client\\src\\assets\\towers\\battlefield\\central-v1.webp",
+              "sha256": "b779305e96affa8af88bba40661307c37cf9433d7ba17f95d6f54497e4667745"
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s52.webp",
+              "sha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
+              "role": "immutable-actual-neighbor",
+              "exit": "66:west:60",
+              "reverseExit": "60:east:66",
+              "materialReference": {
+                "sector": 60,
+                "file": "output/connected-world/finish-snapshot-20261006/s52.webp",
+                "paintingSha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
+                "usage": "Fixed surface/scale reference only; retain recipient region and mask"
+              }
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s51.webp",
+              "sha256": "f31256d7d06db1b36d5b22b035401f0089f529e4b368178af5c2c2e3f621d398",
+              "role": "immutable-actual-neighbor",
+              "exit": "66:south:33",
+              "reverseExit": "33:north:66",
+              "materialReference": {
+                "sector": 60,
+                "file": "output/connected-world/finish-snapshot-20261006/s52.webp",
+                "paintingSha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
+                "usage": "Fixed surface/scale reference only; retain recipient region and mask"
+              }
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/bake-native-sector-pilots.mjs",
+              "sha256": "685a6fa7e11c9bffa9bed973ea20a59ac1a7ab9727ea9570c4f6dd5983613331"
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/native-composition-geometry.mjs",
+              "sha256": "6da36132b55825c2fb327c36932e11ed7044298cf73f2a34800b50095abb6851"
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/repair-sector-31-terrain.mjs",
+              "sha256": "66210d2b84a1780d0cef9349b650e37eff53f93de875046791d22ead3feee939"
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/grade-sector-boundaries.mjs",
+              "sha256": "273c06bec142b6f91ca8d1b1c879bf67c7f7a5726859f7cefd8f1e04429f5712"
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/compose-native-village.mjs",
+              "sha256": "ed85b1f9a5665f540909bd76dfd11a8ec63ff34a7b95dd3f2ca7e91340e80452"
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-38/compose-frostborder-terrain.mjs",
+              "sha256": "812da9c8e3e15aebb717d3d7720dd25ef8c996a9ff173b5023e657f0e0ea4d57"
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/finish-snapshot-20261006/layouts.json",
+              "sha256": "e6754d0f930a0d16e1c342ebe351cbc80cbdb503ce41bd05da154dd9d2f5b8c7"
+            },
+            {
+              "file": "output/connected-world/finish-snapshot-20261006/s52.webp",
+              "sha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
+              "role": "actual-60-boundary-material"
+            },
+            {
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world/native-finish/pass-37/s51.webp",
+              "sha256": "2f21b1c1b7952921edce96a0009fb836ee5b8d2714944f7471cca1c10fab89c7",
+              "role": "actual-33-boundary-material"
+            }
+          ],
+          "recipeFile": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\native-finish\\pass-38\\sector-66-recipe.json",
+          "recipeSha256": "205accd9c349e06c389bf8d2fe2e910b767e7cd911a14f8f26815fe8e00f783c",
+          "ownerAuthorizedNativeComposition": true,
+          "authorizedResponse": "Yes—compose and bake the finished maps (Recommended)",
+          "outputSha256": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1",
+          "edgeReferenceVersion": 2,
+          "neighbors": [
+            {
+              "exit": "66:west:60",
+              "destination": 60,
+              "reverseExit": "60:east:66",
+              "sha256": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s52.webp"
+            },
+            {
+              "exit": "66:south:33",
+              "destination": 33,
+              "reverseExit": "33:north:66",
+              "sha256": "f31256d7d06db1b36d5b22b035401f0089f529e4b368178af5c2c2e3f621d398",
+              "file": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\finish-snapshot-20261006\\s51.webp"
+            }
+          ]
+        },
+        "productionTool": "owner-authorized-native-composition",
+        "semanticReview": {
+          "sector": 66,
+          "sha256": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1",
+          "layoutSha256": "e9e8caaebfe14db579aff6697b9fcaec94d0ba4ca7dbd8cdc87dc22d55146b1b",
+          "reviewImageSha256": "6513b69730a92a07379caea1eeb5f59df3bf5a50e9fc41940880728cc833cd27",
+          "status": "approved",
+          "findings": [],
+          "checks": {
+            "walkableGround": true,
+            "visibleObstacles": true,
+            "landmarkFootprints": true,
+            "purposefulRoutes": true,
+            "coherentHydrology": true,
+            "biomeAndStyle": true
+          },
+          "physicalCoverage": "C:\\Users\\Tyler R\\.codex\\worktrees\\connected-sector-world\\NinjaK\\output\\connected-world\\native-finish\\pass-38\\physical-approval-sector-66.json"
+        },
+        "status": "visually-reviewed"
+      }
+    },
+    {
+      "sector": 67,
+      "artKey": 67,
+      "name": "Cinderhold Gates",
+      "sha256": "f29053ff8e78f1c144a819e70c71179d9ae976e53647d86afb2d3175c25369bf",
+      "bytes": 209782,
+      "layoutSha256": "379d709c1d190cd5e5ac3b139edea9149628e09953b648399978d7143de9490c",
+      "productionTool": "owner-authorized-native-composition",
+      "recipe": "scripts/compose-cinderhold-floors.py",
+      "sources": [
+        "s7.webp",
+        "s2.webp",
+        "s52.webp",
+        "s66.webp",
+        "art-source/cinderhold-village/compound.webp (walled village, Figma generate_image, owner approved 2026-11-09)"
+      ],
+      "status": "composed-and-checked"
     }
   ],
   "landmarks": {

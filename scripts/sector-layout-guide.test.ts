@@ -5,7 +5,7 @@ import { SECTOR_FLOOR_LAYOUTS } from '../shared/sector-floor-layouts.js';
 import { GUIDE_COLORS, STRUCTURE_GUIDE_COLOR, sectorLayoutGuideSvg } from './sector-layout-guide.mjs';
 import { SECTOR_BUILDINGS } from '../shared/sector-buildings.js';
 
-test('all 66 exact-layout guide tile centers agree with their current movement mask',async()=>{
+test('all 74 exact-layout guide tile centers agree with their current movement mask',async()=>{
     let checked=0,structureCells=0;
     for(const layout of Object.values(SECTOR_FLOOR_LAYOUTS)) {
         const {data,info}=await sharp(Buffer.from(sectorLayoutGuideSvg(layout))).removeAlpha().raw().toBuffer({resolveWithObject:true});
@@ -28,7 +28,7 @@ test('all 66 exact-layout guide tile centers agree with their current movement m
             checked++;
         }
     }
-    assert.equal(checked,9504);
+    assert.equal(checked,74*144);
     // The guide shows every standing road-place building on its solid tiles.
     assert.equal(structureCells,SECTOR_BUILDINGS.reduce((n,b)=>n+(b.structure?.footprint.length??0),0));
 });

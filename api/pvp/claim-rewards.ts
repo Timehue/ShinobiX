@@ -4,6 +4,9 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { noteNpcDefeat } from '../_npc-village-aggression.js';
+import { npcDuelLossSlotGated, npcDuelLossUnpaidReason, npcDuelPays, npcDuelUnpaidReason, settleNpcDuelLoss, settleNpcDuelWin } from '../_npc-duel.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 import { recordSectorDuelScar } from '../_sector-scars.js';
 import { creditRankedOutcome, weightedRankedDelta } from '../_ranked-rating.js';
 import { creditPvpWinBase, applyDerivedLevel } from '../_xp-engine.js';
@@ -81,6 +84,7 @@ import { reservePvpCombatStatBudget } from './_combat-stat-budget.js';
 import { dailyPvpStatBudgetReply } from '../_daily-stat-budget.js';
 import { CLAN_WAR_PVP_SCROLL_DROP_CHANCE } from '../clan/war/_war-points.js';
 import type { CommittedPvpTerminalReplay } from './_committed-terminal-effects.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 export { deductUsedItems } from './_consumable-settlement.js';
 
@@ -382,8 +386,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
+        // A Cinderhold duel the player won: spend (or read back) its daily NPC
+        // pay slot, once per battle, before any gate below asks whether it pays
+        // (api/_npc-duel.ts settleNpcDuelWin; owner ruling 2026-11-11 "Only
+        // player wins"). Retried on a storage failure, like the rest of the claim.
+        try {
+            await settleNpcDuelWin(session);
+        } catch (error) {
+            console.error('[pvp/claim-rewards] npc pay slot pending', error);
+            return res.status(503).json({ error: 'Battle rewards are still being confirmed. Retry this claim.' });
+        }
         const rewardAuthorized = pvpSessionMayReward(session);
         const progressionAuthorized = pvpSessionMayGrantProgress(session);
+        // Why the player's fight with a Cinderhold shinobi paid nothing, for the
+        // result screen: a win `npc-repeat`, `npc-daily-cap` or `npc-campaign`;
+        // a loss `npc-loss-repeat` or `npc-loss-daily-cap` (read after the loss
+        // credit has settled, which is what spends the loss slot).
+        const npcUnpaidWin = outcome === 'win' && !isNpcAccount(playerName) ? npcDuelUnpaidReason(session) : null;
+        const npcPayReply = async () => {
+            const reason = npcUnpaidWin ?? (outcome === 'loss' && !isNpcAccount(playerName) ? await npcDuelLossUnpaidReason(session).catch(() => null) : null);
+            return reason ? { npcPay: reason } : {};
+        };
         const playerRankedV2Claim = exactPlayerRankedV2Terminal
             && (session.winner === 'p1' || session.winner === 'p2');
         let playerRankedJournal: PlayerRankedJournal | undefined;
@@ -533,16 +556,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const sector=session.duelGround?.sector??raidSector;
             if(outcome==='win'&&!already&&Number.isSafeInteger(sector))
                 void recordSectorDuelScar(sector,winnerName,loserName,Date.now(),session.duelGround?.tile,session.duelGround?.witnesses).catch(()=>undefined);
+            // Beating a Cinderhold shinobi raises its village's aggression toward the
+            // winner's village. Runs here, after every save lock is released.
+            // Only a paid win counts, so the aggression meter cannot be farmed with spars or repeat fights.
+            if(outcome==='win'&&!already&&session.npcDuel?.version===1&&npcDuelPays(session)){
+                const winner=session.winner==='p1'?session.p1:session.p2;
+                void noteNpcDefeat(winnerName,String(winner?.character?.village??''),loserName).catch((error)=>console.warn('[pvp/claim-rewards] npc aggression',String(error)));
+            }
         };
         const worldAttacker = sealedWorldRaidAttacker(session);
         if (worldAttacker?.side === session.winner
+            && session.npcDuel?.version !== 1 // an NPC duel is no raid (_terminal-world-raid.ts)
             && worldAttacker.name === safeName(winnerName)
             && rewardAuthorized
             && session.rewardAuthority === 'world'
             && pvpSessionMayGrantProgress(session)
             && Number.isSafeInteger(raidSector)
             && raidSector >= 1
-            && raidSector <= 66) {
+            && raidSector <= MAX_WILD_SECTOR) {
             try {
                 // The terminal barrier just settled this exact proof (same
                 // attacker, proof id, terminal time, sector and evidence) and a
@@ -577,6 +608,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // of this authority boundary.
         const warGroundRewardAt = rewardEventAt;
         const shouldSettleVillageWar = pvpSessionMayGrantProgress(session)
+            && session.npcDuel?.version !== 1
             && session.rewardAuthority !== 'admin'
             && !(session.ranked === true && session.rankedKind === 'pet');
         if (shouldSettleVillageWar) {
@@ -612,7 +644,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 && session.ranked === true
                 && (session.rankedKind === 'player' || session.rankedKind === 'pet')
                 && (session.winner === 'p1' || session.winner === 'p2'));
-        const creditBase = rewardAuthorized && session.baseRewards === true && outcome === 'win';
+        // A Cinderhold NPC's own claim (made by the server's seat driver) only
+        // retires its battle; the NPC is never credited (api/_npc-duel.ts).
+        const npcClaimant = isNpcAccount(playerName);
+        const creditBase = rewardAuthorized && session.baseRewards === true && outcome === 'win' && !npcClaimant;
         // Loss credit (2026-10 rebalance #2 / #23): an engaged loser earns 0.4 of
         // the win purse and, on Lv40-49 rows, loss mastery XP. Each half has its
         // own switch, so turning loss ryo off (purse or loss dial at 0) keeps the
@@ -621,6 +656,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const creditLoss = rewardAuthorized
             && session.baseRewards === true
             && outcome === 'loss'
+            && !npcClaimant
             && !isRankedClaim
             && ((pvpPurseScale() > 0 && pvpLossFrac() > 0) || pvpMastery4049Enabled());
         if (isRankedClaim || creditBase || creditLoss || shouldSettleVillageWar) {
@@ -976,16 +1012,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             terminalAt: rewardEventAt,
                             role: 'loss',
                         });
-                        const lossRyo = pvpCreditRyo(fight, {
+                        let lossRyo = pvpCreditRyo(fight, {
                             role: 'loss',
                             sector: session.rewardSector,
                             stronghold: session.rewardStronghold,
                         });
-                        let finalChar: Record<string, unknown> = lossRyo > 0
-                            ? { ...char, ryo: (Number(char.ryo) || 0) + lossRyo }
-                            : char;
-                        const mastery = creditPvpJutsuMastery(finalChar, session, fight.factor, 'loss');
-                        finalChar = mastery.character;
+                        let mastery = creditPvpJutsuMastery(lossRyo > 0 ? { ...char, ryo: (Number(char.ryo) || 0) + lossRyo } : char, session, fight.factor, 'loss');
+                        // A loss to a Cinderhold shinobi (2026-11-11): the normal
+                        // loss credit above, but only the first loss to each NPC
+                        // a UTC day pays, at most five a day, from its own count
+                        // (never a win slot). Spent only when the normal rules
+                        // would pay something, once per battle (api/_npc-duel.ts).
+                        if (npcDuelLossSlotGated(session) && (lossRyo > 0 || mastery.awarded > 0)
+                            && !(await settleNpcDuelLoss(session))?.pays) {
+                            lossRyo = 0;
+                            mastery = { character: char, awarded: 0 } as typeof mastery;
+                        }
+                        const finalChar: Record<string, unknown> = mastery.character;
                         const summary: BaseOut = {
                             ...totals(finalChar),
                             reward: {
@@ -1154,6 +1197,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(warPoints ? { warPoints } : {}),
                     ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
                     ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
+                    ...(await npcPayReply()),
                     ...(outcome === 'win' ? await dailyPvpStatBudgetReply(kv, playerName) : {}),
                     ...(finalChar ? { character: finalChar } : {}),
                     _saveVersion: Number(finalSave?._saveVersion ?? 0),
@@ -1224,6 +1268,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(worldRaidProgressionForCaller ? { raidProgression: raidProgressionBody(worldRaidProgressionForCaller) } : {}),
                 ...(warPoints ? { warPoints } : {}),
                 ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
+                ...(await npcPayReply()),
                 ...(finalChar ? { character: finalChar } : {}),
                 _saveVersion: Number(finalSave?._saveVersion ?? 0),
             });

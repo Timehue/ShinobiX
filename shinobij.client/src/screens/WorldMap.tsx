@@ -211,6 +211,8 @@ import frostfangLandmarkArt from "../assets/map-landmarks/frostfang.webp";
 import moonshadowLandmarkArt from "../assets/map-landmarks/moonshadow.webp";
 import centralLandmarkArt from "../assets/map-landmarks/central.webp";
 import hollowGateLandmarkArt from "../assets/map-landmarks/hollow-gate.webp";
+import cinderholdLandmarkArt from "../assets/map-landmarks/cinderhold.webp";
+import { NPC_GATE_SECTOR, NPC_VILLAGE, isNpcHomeSector } from "../../../shared/npc-village";
 import {
     type CreatorEvent,
     type DuelChallenge,
@@ -2590,6 +2592,9 @@ function WorldMapContent({
         // (Hollow Temple) sits just beside it and is map-travel-only, so this
         // crest is the way in.
         { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 63, y: 65, art: hollowGateLandmarkArt },
+        // Cinderhold — the NPC village on the volcano cone (2026-11-08). Nobody
+        // can join it; the crest walks you to its gate sector instead.
+        { name: NPC_VILLAGE, type: "npcVillage", biome: "volcano" as Biome, x: 47, y: 8, art: cinderholdLandmarkArt },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const [hollowGateMenu, setHollowGateMenu] = useState(false);   // Enter / Attune choice
@@ -2645,8 +2650,8 @@ function WorldMapContent({
     }
 
     function sectorMarkerStyle(id: number): CSSProperties {
-        if (!warMapOn || id >= 56 || id === 99) return {};
-        const owner = loadSectorTerritory(id).ownerVillage || homeVillageForSector(id);
+        if (!warMapOn || (id >= 56 && !isNpcHomeSector(id)) || id === 99) return {};
+        const owner = loadSectorTerritory(id).ownerVillage || homeVillageForSector(id) || (isNpcHomeSector(id) ? NPC_VILLAGE : undefined);
         if (!owner) return {};
         const accent = villageAccent(owner);
         const mine = character.village === owner;
@@ -2704,6 +2709,10 @@ function WorldMapContent({
         }
         if (location.type === "central") {
             setScreen("centralHub");
+            return;
+        }
+        if (location.type === "npcVillage") {
+            triggerTravelPoint(NPC_GATE_SECTOR);
             return;
         }
         setSelectedLandmark(location);
@@ -4531,6 +4540,8 @@ function WorldMapContent({
                         onGatheringCommit={onVersionedCharacter} onContestResource={handleSelectedSectorPlayerAttack}
                         worldBossCrystals={{ active: worldBossView?.event?.active ?? false, eventId: worldBossView?.event?.eventId, minedNodeIds: worldBossView?.event?.minedCrystalNodeIds ?? [], bossSector: worldBossSector ?? undefined }}
                         playerAvatarImage={resolveOwnAvatar(character, sharedImages)}
+                        starterWorldModel={character.starterWorldModel}
+                        playerModel={character.playerModel}
                         isCurrent={sectorIsCurrent}
                         enterDirection={sectorEnterDir}
                         regionSplash={regionSplash}
@@ -4989,8 +5000,9 @@ function WorldMapContent({
                     { c: "forest", x: 16, y: 74 },
                     { c: "shadow", x: 84, y: 71 },
                     { c: "central", x: 48, y: 40 },
+                    { c: "volcano", x: 47, y: 8 },
                 ].map((g) => (
-                    <div key={g.c} className={"world-biome-glow wbg-" + g.c} style={{ left: g.x + "%", top: g.y + "%" }} aria-hidden="true" />
+                    <div key={`${g.c}-${g.x}-${g.y}`} className={"world-biome-glow wbg-" + g.c} style={{ left: g.x + "%", top: g.y + "%" }} aria-hidden="true" />
                 ))}
                 {/* The road graph + region name plates — the connective tissue
                     that makes the scattered sector markers read as one world. */}
@@ -5139,7 +5151,7 @@ function WorldMapContent({
                     wisp over each village/Central, so the towns read as lived-in.
                     Pointer-events:none + below the z-10 markers, so clicks are
                     untouched. */}
-                {locations.filter((l) => l.type === "village" || l.type === "central").map((l) => (
+                {locations.filter((l) => l.type === "village" || l.type === "central" || l.type === "npcVillage").map((l) => (
                     <div key={"poi-life-" + l.name} className="world-poi-life" style={{ left: l.x + "%", top: l.y + "%" }} aria-hidden="true">
                         <span className="world-poi-glow" />
                         <span className="world-poi-smoke" />

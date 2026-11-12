@@ -243,25 +243,6 @@
 .pet-arena-lobby .pet-challenge-row button,.pet-arena-lobby .pet-arena-selector > div > button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-height: 36px; border: 1px solid rgba(102,224,223,.34); border-radius: 9px; color: #d7fffb; background: rgba(20,87,94,.45); padding: .45rem .65rem; font-size: .64rem; font-weight: 850; }
 .pet-arena-lobby .pet-arena-tips { min-height: 104px; align-content: center; border: 1px solid rgba(173,207,224,.1); border-radius: 12px; color: #8ca1ab; background: rgba(2,8,16,.4); padding: .8rem; font-size: .67rem !important; }
 
-/* ── 2v2 option ───────────────────────────────────────────────────────── */
-.pet-arena-lobby .pet-party-config { width: min(1320px,calc(100% - 2rem)); margin: .8rem auto 0; overflow: hidden; border: 1px solid var(--arena-line) !important; border-left: 1px solid var(--arena-line) !important; border-radius: 16px !important; background: linear-gradient(120deg,rgba(14,29,43,.94),rgba(5,12,23,.94)) !important; padding: .75rem .9rem !important; }
-.pet-party-toggle { display: grid; grid-template-columns: auto auto minmax(0,1fr) auto; align-items: center; gap: .7rem; cursor: pointer; }
-.pet-party-toggle > svg { color: var(--arena-gold); }
-.pet-party-toggle > span:nth-child(3) { display: grid; gap: .15rem; }
-.pet-party-toggle strong { color: #edf5f6; font-size: .74rem; letter-spacing: .035em; text-transform: uppercase; }
-.pet-party-toggle small { color: #8197a2; font-size: .65rem; line-height: 1.4; }
-.pet-party-toggle em { border: 1px solid rgba(173,207,224,.14); border-radius: 999px; color: #78909c; padding: .35rem .6rem; font-size: .54rem; font-style: normal; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
-.pet-party-switch { position: relative; display: block; width: 38px; height: 22px; }
-.pet-party-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.pet-party-switch i { position: absolute; inset: 0; border: 1px solid rgba(173,207,224,.25); border-radius: 999px; background: #0a1724; transition: background .16s ease,border-color .16s ease; }
-.pet-party-switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #647b87; transition: transform .16s ease,background .16s ease; }
-.pet-party-switch input:checked + i { border-color: rgba(102,224,223,.62); background: rgba(25,104,109,.65); }
-.pet-party-switch input:checked + i::after { transform: translateX(16px); background: #9afff5; }
-.pet-party-switch input:focus-visible + i { outline: 2px solid var(--arena-cyan); outline-offset: 3px; }
-.pet-party-reserve { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--arena-line); }
-.pet-party-reserve > label { display: flex; align-items: baseline; gap: .45rem; color: #e7efef; font-size: .68rem; font-weight: 850; text-transform: uppercase; }
-.pet-party-reserve > label small { color: #6f8794; font-size: .56rem; font-weight: 600; text-transform: none; }
-
 /* ── Coliseum contracts ───────────────────────────────────────────────── */
 .pet-arena-destinations { width: min(1320px,calc(100% - 2rem)); margin: 1.35rem auto 0; }
 .pet-arena-section-title { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: .25rem 1rem; margin-bottom: .75rem; }
@@ -340,7 +321,7 @@
 }
 
 @media (max-width: 520px) {
-    .pet-arena-lobby > .pet-home-tabs,.pet-arena-command,.pet-arena-lobby .pet-arena-grid,.pet-arena-lobby .pet-party-config,.pet-arena-destinations,.pet-arena-lobby .pet-arena-log,.pet-arena-lobby .pet-warfront-lobby { width: calc(100% - 1rem); }
+    .pet-arena-lobby > .pet-home-tabs,.pet-arena-command,.pet-arena-lobby .pet-arena-grid,.pet-arena-destinations,.pet-arena-lobby .pet-arena-log,.pet-arena-lobby .pet-warfront-lobby { width: calc(100% - 1rem); }
     .pet-arena-command-topline { top: .7rem; right: .7rem; left: .7rem; }
     .pet-arena-season { display: none; }
     .pet-arena-return { max-width: 100%; }
@@ -368,8 +349,6 @@
     .pet-arena-lobby .pet-arena-selector > .pet-arena-card { min-height: 108px; padding: .65rem !important; }
     .pet-arena-lobby .pet-arena-selector .pet-arena-avatar { width: 72px; height: 72px; }
     .pet-arena-lobby .pet-arena-selector .pet-arena-jutsu-list { display: none; }
-    .pet-party-toggle { grid-template-columns: auto auto minmax(0,1fr); }
-    .pet-party-toggle em { grid-column: 3; justify-self: start; }
     .pet-arena-destination { min-height: 155px; padding: .85rem; }
     .pet-arena-destination-icon { width: 46px; height: 46px; }
     .pet-arena-destination.is-live { padding: 1rem .85rem; background: linear-gradient(180deg,rgba(24,12,20,.86),rgba(24,12,20,.97)),var(--live-art) center/cover no-repeat,#0a0e18; }
@@ -378,7 +357,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .pet-arena-activity-nav button,.pet-arena-destination,.pet-party-switch i,.pet-party-switch i::after { transition: none; }
+    .pet-arena-activity-nav button,.pet-arena-destination { transition: none; }
 }
 .pet-arena-guide-button {
     display: inline-flex;

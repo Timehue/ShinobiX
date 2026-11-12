@@ -1,8 +1,11 @@
 import { kv } from '../_storage.js';
 import { readKvProjection, type KvProjection } from '../_storage-projection.js';
 
-/** The only save fields a cold presence start reads: where the player last stood. */
-export type SavedLocation = { currentSector?: number; currentTile?: number; worldPosition?: unknown };
+import { sectorModelDisplayEnabled } from '../_release-flags.js';
+import { isPlayerModel, readStarterWorldModel, type PlayerModel, type StarterWorldModel } from '../../shared/player-model-ref.js';
+
+/** A cold presence start restores location and the equipped public art reference. */
+export type SavedLocation = { currentSector?: number; currentTile?: number; worldPosition?: unknown; playerModel?: PlayerModel; starterWorldModel?: StarterWorldModel };
 
 const SAVED_LOCATION: KvProjection = {
     currentSector: ['currentSector'],
@@ -23,6 +26,13 @@ const SAVED_LOCATION: KvProjection = {
  * re-normalized here, so the row read is unchanged.
  */
 export async function readSavedLocation(saveName: string): Promise<SavedLocation | null> {
-    const [row] = await readKvProjection(kv, [`save:${saveName}`], SAVED_LOCATION);
-    return (row ?? null) as SavedLocation | null;
+    const fields: KvProjection = sectorModelDisplayEnabled()
+        ? {...SAVED_LOCATION, playerModel:['character','playerModel'], starterWorldModel:['character','starterWorldModel'],
+            avatarImage:['character','avatarImage']} : SAVED_LOCATION;
+    const [row] = await readKvProjection(kv, [`save:${saveName}`], fields);
+    if (!row) return null;
+    const {playerModel, starterWorldModel, avatarImage, ...location} = row;
+    const starter = readStarterWorldModel(starterWorldModel, avatarImage);
+    return {...location, ...(starter ? {starterWorldModel:starter} : {}),
+        ...(isPlayerModel(playerModel) ? {playerModel:{assetId:playerModel.assetId,version:playerModel.version}} : {})};
 }

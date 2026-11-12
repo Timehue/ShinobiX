@@ -121,7 +121,7 @@ async function seedAccount(name) {
     if (!reg.ok) throw new Error(`register ${reg.status} ${await reg.text()}`);
     const { token } = await reg.json();
     const character = {
-        name, village: 'Ember', specialty: 'Ninjutsu', bloodline: 'None', level: 12, rankTitle: 'Genin', xp: 0, ryo: 5000, unspentStats: 0,
+        name, village: 'Stormveil Village', specialty: 'Ninjutsu', bloodline: 'None', level: 12, rankTitle: 'Genin', xp: 0, ryo: 5000, unspentStats: 0,
         stats: { strength: 30, speed: 30, intelligence: 30, willpower: 30, bukijutsuOffense: 30, bukijutsuDefense: 30, taijutsuOffense: 30, taijutsuDefense: 30, genjutsuOffense: 30, genjutsuDefense: 30, ninjutsuOffense: 30, ninjutsuDefense: 30 },
         hp: 400, maxHp: 400, chakra: 400, maxChakra: 400, stamina: 400, maxStamina: 400,
         onboardingStep: 'done', inventory: ['rustfang-kunai', 'shinobi-vest'], itemStacks: [], equipment: {}, pets: [],

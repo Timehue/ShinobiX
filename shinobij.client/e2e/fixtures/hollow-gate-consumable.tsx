@@ -6,10 +6,36 @@ import { generateHollowGateShrineRun } from '../../src/lib/hollow-gate-dungeon';
 import { computeHollowGateSight } from '../../src/lib/hollow-gate-visibility';
 import type { Character, HollowGateShrineRun } from '../../src/types/character';
 import type { HollowGatePetFightRef } from '../../src/components/HollowGatePetFight';
+import { isPlayerModel } from '../../src/lib/player-model';
+import type { HollowGateWandererRole } from '../../../shared/hollow-gate-wanderers';
 import '../../src/index.css';
 
-const initialRun = { ...generateHollowGateShrineRun(1, undefined, 'paid-eye-combat'), runToken: 'paid-eye-run' };
+const query = new URLSearchParams(location.search);
+const initialRun: HollowGateShrineRun = { ...generateHollowGateShrineRun(1, undefined, 'paid-eye-combat'), runToken: 'paid-eye-run' };
 const initialCharacter = { name: 'RelicDiver', hp: 100, maxHp: 100, pets: [], inventory: [], hollowShards: 100 } as unknown as Character;
+const modelNpc = query.get('modelNpc');
+if (modelNpc) {
+    const roles: HollowGateWandererRole[] = ['medic', 'wayfarer', 'bandit', 'night-ninja', 'patrol'];
+    const role = roles.find(value => value === modelNpc);
+    if (!role && modelNpc !== 'keeper' && modelNpc !== 'hound') throw Error('Unknown model fixture NPC');
+    // A small visible room isolates the real shrine renderer and selection path.
+    initialRun.width = initialRun.height = 7;
+    initialRun.playerX = 2; initialRun.playerY = 3;
+    initialRun.tiles = Array.from({ length: 49 }, (_, index) => {
+        const wall = index % 7 === 0 || index % 7 === 6 || index < 7 || index >= 42;
+        return { kind: wall ? 'wall' : 'empty', terrain: wall ? 'wall' : 'room_floor',
+            roomId: wall ? null : 0, revealed: true, resolved: false, seen: true };
+    });
+    initialRun.roomPrefabs = undefined; initialRun.roomThemes = undefined;
+    initialRun.wingThemes = undefined; initialRun.sealedWings = [];
+    initialRun.arenaFissures = undefined; initialRun.floorFeatures = [];
+    initialRun.wanderers = role ? [{ role, origin: 25, tile: 25, nodeId: 'floor:1:tile:25',
+        village: 'Stormveil Village', hunting: !['medic', 'wayfarer'].includes(role) }] : [];
+    if (modelNpc === 'keeper') initialRun.tiles[25].kind = 'npc';
+    if (modelNpc === 'hound') initialRun.tiles[25].kind = 'battle';
+}
+const fitted = { assetId: query.get('assetId'), version: query.get('version') };
+if (isPlayerModel(fitted)) initialCharacter.playerModel = fitted;
 const noop = () => undefined;
 
 // Real shrine and victory flow; the arena result and purchase API are fixtures.
@@ -54,10 +80,15 @@ export function Fixture() {
         <button onClick={() => setRun(prev => prev && { ...prev, runToken: 'replacement-run', diviner: false })}>Replace run fixture</button>
         <button onClick={() => setCharacter({ ...initialCharacter, name: 'OtherDiver' })}>Switch account fixture</button>
         <button onClick={() => setRun(null)}>Close run fixture</button>
+        {modelNpc && <button onClick={() => setRun(previous => previous && { ...previous,
+            wanderers: previous.wanderers?.map(npc => ({ ...npc, previousTile: npc.tile, tile: npc.tile === 25 ? 24 : 25 })),
+        })}>Advance NPC fixture</button>}
         {fight && <section aria-label="Active combat"><p>{fight}</p><button onClick={() => settle.current()}>Win and return</button></section>}
         {!fight && run && <HollowGateShrineView character={character} hollowGateRun={run} hollowGateLog={logs}
             currentConsumableScope={currentScope} sharedImages={{}} hollowGateIntroPage={null} setHollowGateIntroPage={noop}
-            hollowGateEvent={null} hollowGateHiddenChamber={null} moveHollowGatePlayer={noop} onTileClick={noop}
+            hollowGateEvent={null} hollowGateHiddenChamber={null} moveHollowGatePlayer={(dx, dy) =>
+                setRun(prev => prev && { ...prev, playerX: prev.playerX + dx, playerY: prev.playerY + dy })}
+            onTileClick={index => { if (modelNpc) document.body.dataset.npcPicked = String(index); }}
             walkTarget={null} setHollowGateRun={setRun} onVersionedCharacter={commitCharacter} pushHollowGateLog={pushLog}
             petEligible={false} exitPending={false} onEmergencyForfeit={noop} onSearchHiddenChamber={noop}
             onTakeHiddenChamberRelic={noop} onCloseHiddenChamber={noop} />}

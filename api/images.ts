@@ -959,6 +959,11 @@ export async function removeImagesBatch(ids: readonly string[], deps: {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    return sharedImages(req, res);
+}
+
+/** Internal hook for the authenticated Profile uploader, after normal avatar validation and limits. */
+export async function sharedImages(req: VercelRequest, res: VercelResponse, beforeAvatarWrite?: () => Promise<void>) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -1115,6 +1120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (cat === 'avatar') {
                 const avReject = avatarImageReject(image);
                 if (avReject) return res.status(400).json({ error: avReject });
+                if (beforeAvatarWrite) await beforeAvatarWrite();
             }
 
             // "misc" (uncategorized) uploads are admin-only (ownershipReject), so
@@ -1164,6 +1170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 meta: { category: cat, format: imageFormat(image) },
             });
 
+            if (cat === 'avatar' && beforeAvatarWrite) return res.status(200).json({image});
             return res.status(200).end();
         } catch (err) {
             console.error('[images]', err);

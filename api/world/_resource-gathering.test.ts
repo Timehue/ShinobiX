@@ -132,9 +132,9 @@ test('real fishing and mining settlements advance their weekly goals exactly onc
         }
     }
 });
-test('all 84 active nodes have reviewed water/rock targets and walkable adjacent approaches', () => {
-    assert.equal(RESOURCE_NODES.length, 84);
-    assert.equal(new Set(RESOURCE_NODES.map(n => n.id)).size, 84);
+test('all 92 active nodes have reviewed water/rock targets and walkable adjacent approaches', () => {
+    assert.equal(RESOURCE_NODES.length, 92); // + 8 Cinderhold seams (2026-11-08)
+    assert.equal(new Set(RESOURCE_NODES.map(n => n.id)).size, 92);
     assert.equal(RESOURCE_NODES.filter(n => n.activity === 'fishing').length, 36, 'fishing tripled from 12');
     for (const n of RESOURCE_NODES) {
         assert.ok(validResourceNodeTerrain(n), n.id);

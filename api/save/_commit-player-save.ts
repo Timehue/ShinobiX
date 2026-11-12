@@ -110,11 +110,16 @@ export type AtomicSaveProof = {
      * ledger row is below; without it such a refusal is the caller's conflict.
      */
     rebase?: (current: unknown) => unknown;
+} | { key: string; expected: unknown; assertOnly: true; value?: never; ex?: never; rebase?: never };
+
+export type AtomicSaveTransaction = AtomicSaveProof & {
+    /** Related authority rows committed with this save; never other saves or currency ledgers. */
+    additionalOps?: KvCasOp[];
 };
 
 export type PlayerSaveCommitOptions = {
     /** Publish or replace a proof with its save/ledger mutation; defaults to NX. */
-    atomicProof?: AtomicSaveProof;
+    atomicProof?: AtomicSaveTransaction;
     /** Test seam for the fail-closed gate (defaults to CURRENCY_LEDGER_GATE_ENFORCED). */
     gateEnforced?: boolean;
     now?: number;
@@ -148,7 +153,8 @@ export function commitPlayerSaveRecord(
         if (storedValueEquals(current, proof.expected ?? null)) return false;
         return commitInScope(store, commit, {
             ...opts,
-            atomicProof: { key: proof.key, expected: current, value: proof.rebase(current), ex: proof.ex },
+            atomicProof: { key: proof.key, expected: current, value: proof.rebase(current), ex: proof.ex,
+                additionalOps:proof.additionalOps },
         });
     });
 }
@@ -163,7 +169,18 @@ async function commitInScope(
     if (proof && (proof.key.startsWith('save:') || proof.key.startsWith('ledger:') || !store.compareSetMany)) {
         throw new Error('Invalid atomic player-save proof');
     }
-    const proofOps = proof ? [{ op: 'cas' as const, key: proof.key, expected: proof.expected ?? null, value: proof.value, ex: proof.ex }] : [];
+    const proofOps: KvCasOp[] = !proof ? [] : 'assertOnly' in proof
+        ? [{ op: 'assert', key: proof.key, expected: proof.expected }]
+        : [{ op: 'cas', key: proof.key, expected: proof.expected ?? null, value: proof.value, ex: proof.ex }];
+    if (proof?.additionalOps!==undefined) {
+        if (!Array.isArray(proof.additionalOps) || proof.additionalOps.length>64 ||
+            proof.additionalOps.some(op=>!op || !['cas','assert','delete'].includes(op.op) || typeof op.key!=='string' ||
+                !op.key || op.key.startsWith('save:') || op.key.startsWith('ledger:')))
+            throw new Error('Invalid additional player-save authority');
+        proofOps.push(...proof.additionalOps);
+        if (new Set(proofOps.map(op=>op.key)).size!==proofOps.length)
+            throw new Error('Duplicate player-save authority');
+    }
     const after = projectBalances(characterOf(intended));
     const movesCurrency = Object.keys(after).length > 0
         && balancesDiffer(projectBalances(characterOf(expected)), after);

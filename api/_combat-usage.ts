@@ -20,6 +20,8 @@
  * client-supplied). In PvE the enemy is counted as its AI profile.
  */
 import { kv } from './_storage.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
+import { safeName } from './_utils.js';
 import { withTelemetryLock } from './_telemetry-lock.js';
 import { withoutKvLeaseContext } from './_kv-lock-context.js';
 import { runBackgroundWork } from './_background-work.js';
@@ -194,6 +196,8 @@ export function pvpCombatUsage(session: PvpSession): { mode: CombatUsageMode; fi
     const fighters: FighterUsage[] = [];
     for (const side of ['p1', 'p2'] as const) {
         if (session.realFighters && session.realFighters[side] === false) continue;
+        // A Cinderhold NPC's loadout is the server's AI, not a player's choice.
+        if (isNpcAccount(safeName(String(session[side]?.name ?? '')))) continue;
         const character = (session[side]?.character ?? {}) as Record<string, unknown>;
         const outcome: UsageOutcome = session.winner === 'draw' ? 'draw'
             : session.winner === side ? 'win'

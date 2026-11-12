@@ -6,10 +6,12 @@ import {clanLeadershipRole} from '../_leadership.js';
 import {CLAN_WAR_RULES,clanWarCampaignDay,clanWarOwnValue} from '../../../shared/clan-war-campaign.js';
 import {redactClanWarForViewer,type ClanWar} from './_storage.js';
 import {ClanWarQueueRefusal} from './_campaign-queue.js';
+import {isNpcAccount} from '../../../shared/npc-village-roster.js';
 
 /** Provisions are an explicit, once-per-war-day shared treasury transaction. */
 export async function activateClanWarProvisions(warId:string,playerName:string,now=Date.now()):Promise<Record<string,unknown>> {
     const key=`clan-war:${warId}`,name=safeName(playerName);
+    if(isNpcAccount(name))throw new ClanWarQueueRefusal(403,'Cinderhold shinobi cannot run a war by hand.');
     const actor=await kv.get<Record<string,unknown>>(`save:${name}`),actual=String((actor?.character as Record<string,unknown>|undefined)?.clan??'');
     if(!actual)throw new ClanWarQueueRefusal(403,'Clan leadership must authorize the provision expense.');
     const clanKey=clanRecordKey(actual);

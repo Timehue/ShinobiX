@@ -35,6 +35,7 @@ import {
     pickAnbuDefender,
     villageSlug,
 } from './_anbu-infiltration-store.js';
+import { isNpcVillage } from '../shared/npc-village.js';
 
 export interface GarrisonDefender {
     /** safeName slug of the player whose sealed kit defends this sector. */
@@ -50,6 +51,9 @@ function kageKey(village: string): string {
 
 /** The seated Kage of a village, or '' when the seat is empty. */
 export async function seatedKageOf(village: string): Promise<string> {
+    // Cinderhold's seat is held only by a defected story Kage, who has no save
+    // to seal: its garrison is held by its roster ANBU (api/_npc-war-roster.ts).
+    if (isNpcVillage(village)) return '';
     const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
     const name = safeName(st?.seatedKage ?? '');
     const save = name ? await kv.get<{ character?: { village?: string } }>(`save:${name}`) : null;

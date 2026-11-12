@@ -80,6 +80,7 @@ import { setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world
 import { AdminCircuit } from '../features/dojo-circuit/AdminCircuit';
 import { AdminTournaments } from '../features/tournaments/AdminTournaments';
 import { AdminBoostEventPanel } from '../components/AdminBoostEventPanel';
+import { AdminCinderholdPanel } from '../components/AdminCinderholdPanel';
 import { AdminWorldBossControlPanel } from '../components/AdminWorldBossControlPanel';
 import type { EditableVnPage, VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
@@ -2753,6 +2754,7 @@ export function AdminPanel({
                     </div>
                     <AdminWorldBossControlPanel adminPw={adminPw} />
                     <AdminBoostEventPanel credential={adminPw} />
+                    <AdminCinderholdPanel credential={adminPw} />
                     <AdminTournaments credential={adminPw} />
                     <AdminCircuit credential={adminPw} character={character} />
                 </div>

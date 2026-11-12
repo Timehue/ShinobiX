@@ -2,7 +2,7 @@
 
 **Status:** Internal operational policy. Not user-facing legal advice.
 **Owner:** Tyler Rill — Operator, Shinobi Journey · support@shinobijourney.com; see [Security Program](SECURITY_PROGRAM.md).
-**Version:** 1.2 · **Last reviewed:** 2026-10-15 · **Review cadence:** at least annually and after any material change to what is collected.
+**Version:** 1.3 · **Last reviewed:** 2026-11-10 · **Review cadence:** at least annually and after any material change to what is collected.
 
 This policy satisfies the written data-retention-policy requirement of the amended
 US COPPA Rule (in full effect 22 Apr 2026) and supports GDPR/UK-GDPR storage-limitation
@@ -21,8 +21,8 @@ is the operational retention schedule and deletion process behind it.
 
 One Supabase Postgres table (`kv_store`, key→JSONB) is the system of record, reached only
 by the server (`api/_storage.ts`). Hosted on Railway (compute) behind Cloudflare (TLS/CDN/WAF).
-Sub-processors: Supabase, Railway, Cloudflare, and — only when explicitly enabled — OpenAI
-(optional image generation) and Sentry (optional error reporting). See the
+Sub-processors: Supabase, Railway, Cloudflare, and, when their features are enabled, OpenAI
+(image generation and Make Model), Modal (Make Model compute) and Sentry (error reporting). See the
 [Security Program](SECURITY_PROGRAM.md) §7 for the sub-processor list.
 
 ## 3. Retention schedule
@@ -51,6 +51,8 @@ and is removed by the deletion process in §5.
 | Rate-limit counters (`ratelimit:*`) | Abuse/DoS prevention | ~2× the window (minutes), self-expiring (`api/_ratelimit.ts`) |
 | Follows list (`friends:*`) | Social follow | **365-day** TTL, refreshed on use |
 | Uploaded / AI-generated images (`shared:img:*`, `shared:imgfields:*`) | Display player/creator content | While referenced by a save/record; first-writer-wins ownership |
+| Make Model private portrait copies, fitted descriptors and sheets | Screen, render and maintain an opted-in world model | The initial screening request expires after 15 minutes, and a sealed fit expires 10 minutes after it is issued if unused. After verified publication, cleanup releases the generation portrait copy and superseded fits and keeps the final fitted descriptor and sheet for maintenance. Revocation or account deletion releases those final inputs. Cleanup protects shared references and retries failed erasure (`api/avatar-model/read.ts`, `api/avatar-model/_private-cleanup.ts`). The profile portrait follows its own avatar lifecycle. |
+| Make Model public sprite files and publication records | Deliver equipped models and reconcile provider work | Revocation or account deletion queues public file erasure and CDN purge. After the account is deleted, its files are confirmed erased and all provider costs are settled, the scheduled sweep removes ownership links and linked publication and model removal records. It retains a minimal erasure receipt and fields needed for billing reconciliation and aggregate operations metrics. The hosted erasure path and final record-retention schedule require release verification. |
 | IP address + device fingerprint (security context) | Anti-sock-puppet, abuse investigation, rate-limit fairness | Treated as **security data**. Moderation linkage: **90 days** after last seen (see `mod:*` row). Per-player recent-IP stamps: **7-day** TTL (`api/_player-ips.ts`) |
 | Client error diagnostics (Sentry, only if enabled) | Reliability | Per Sentry project retention (default ~90 days); `sendDefaultPii: false` is set (`shinobij.client/src/lib/sentry.ts`) |
 

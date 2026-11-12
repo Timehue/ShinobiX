@@ -8,9 +8,11 @@ import { settlePvpVillageWarContinuation } from '../world-state.js';
 import {
     pvpSessionMayGrantProgress,
     pvpSessionMayReward,
+    pvpSessionMayScoreWar,
     sealedWorldRaidAttacker,
     type PvpSession,
 } from './session.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 /*
  * World-raid progression and village-war continuation, settled from the
@@ -61,6 +63,23 @@ export async function settleTerminalWorldRaid(
     if (session.winner !== 'p1' && session.winner !== 'p2') return out;
     const winnerSlug = safeName((session.winner === 'p1' ? session.p1.name : session.p2.name) ?? '');
     if (!winnerSlug) return out;
+    // A Cinderhold NPC duel is never a raid: Cinderhold land cannot be raided
+    // and the purse is the whole reward (owner ruling 2026-11-09). It scores a
+    // live five-day village-war campaign like any duel between the two sides
+    // (Push 4b); the settler applies it to a campaign war only.
+    if (session.npcDuel?.version === 1) {
+        if (!pvpSessionMayScoreWar(session)) return out;
+        const settledAt = Number(session.endedAt);
+        if (!Number.isSafeInteger(settledAt) || settledAt <= 0 || settledAt < Number(session.createdAt) || settledAt > now + 60_000) return out;
+        try {
+            const settlement = await settleVillageWar(session.battleId, winnerSlug, session);
+            if (settlement.status === 200) out.villageWar = settlement;
+            else console.error('[pvp/terminal] npc village-war continuation deferred', settlement.status, settlement.body?.error);
+        } catch (error) {
+            console.error('[pvp/terminal] npc village-war continuation deferred', error);
+        }
+        return out;
+    }
 
     // The same terminal-time window the claim validates before settling. A
     // malformed stamp cannot produce a valid proof and no retry can repair it.
@@ -81,7 +100,7 @@ export async function settleTerminalWorldRaid(
         && pvpSessionMayGrantProgress(session)
         && Number.isSafeInteger(raidSector)
         && raidSector >= 1
-        && raidSector <= 66) {
+        && raidSector <= MAX_WILD_SECTOR) {
         try {
             out.raid = await settleRaid({
                 playerName: worldAttacker.name,

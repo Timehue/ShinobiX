@@ -19,6 +19,12 @@
 import './api/_force-ipv4.js';
 
 import { startGameLoop, stopGameLoop } from './api/_realtime/game-loop.js';
+import { startNpcPresence } from './api/_npc-presence.js';
+import { startNpcDuelDriver } from './api/_npc-duel-driver.js';
+import { startNpcVillageCampaign } from './api/_npc-village-campaign.js';
+import { startNpcCardDuelDriver } from './api/_npc-card-duel-driver.js';
+import { startNpcClanWarCampaign } from './api/_npc-clan-war-campaign.js';
+import { startNpcHunts } from './api/_npc-hunt.js';
 import { attachSocketServer, closeSocketServer, getIo } from './api/_realtime/socket.js';
 import { onlineStore } from './api/_realtime/online-store.js';
 import { runtimeMetricsSampler } from './api/_runtime-metrics.js';
@@ -1205,6 +1211,22 @@ server.listen(PORT, () => {
     // The always-on server runs the daily save-snapshot backup itself.
     // No-op if DISABLE_SNAPSHOT_CRON=1.
     startSnapshotCron();
+    // Cinderhold (Push 2): its shinobi stand in the world and the server plays
+    // their seat in any duel a player starts. Live gameplay, not a scheduled
+    // job, so only DISABLE_NPC_VILLAGE=1 turns it off.
+    startNpcPresence();
+    startNpcDuelDriver();
+    startNpcCardDuelDriver();
+    // Push 4b: Cinderhold's side of a five-day village war (its stronghold
+    // defenders, shrine holders, strikes, field orders and peace answers).
+    startNpcVillageCampaign();
+    // Cinderhold's three clans in a clan war (queue answers, shrine holders,
+    // pet and card seats); api/_npc-clan-war-campaign.ts.
+    startNpcClanWarCampaign();
+    // A Cinderhold shinobi a player beat may come looking for them (limited:
+    // once per player a day, within 10 levels, never in their home block);
+    // api/_npc-hunt.ts.
+    startNpcHunts();
     _stopTournamentClock = startTournamentClock();
     // War-map territory self-seed. Every deploy (and the coming account wipe)
     // must not depend on an operator remembering an admin seed call: the seeder

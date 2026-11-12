@@ -5,7 +5,7 @@ import { campaignSupportTiers } from './_war-preparations.js';
 import { kv } from './_storage.js';
 import { onlineStore, subscribeBeforeOnlinePresenceMutation } from './_realtime/online-store.js';
 import { toPlayerRecord } from './_realtime/presence-input.js';
-import { HOME_SECTORS, WAR_VILLAGES, isWarVillage } from './_war-map-sectors.js';
+import { SECTOR_WAR_VILLAGES, homeSectorsForVillage, isSectorWarVillage } from './_war-map-sectors.js';
 import { getSectorOwnerVillage } from './_sector-war-store.js';
 import { strongholdLocation, touchStrongholdPresence, leaveStrongholdPresence, subscribeStrongholdEntryChange } from './_stronghold-presence.js';
 import { campaignWarPlayable, mutateCampaignWar, awardCampaignBattle, type CampaignWarRow } from './_village-war-campaign.js';
@@ -14,7 +14,11 @@ import { reserveCampaignOperation, WAR_OPERATIONS, type CampaignFieldMission, ty
 type Hold = { player: string; since: number; seenAt: number; sector: number; tile?: number; epoch: number; movement: number; connectedAt: number; pickup: boolean };
 const holds = new Map<string, Hold>();
 const HOLD_LEASE_MS = 10_000;
-const allSectors = WAR_VILLAGES.flatMap(v => [...HOME_SECTORS[v]]);
+// Cinderhold's block counts too (Push 4b): players run orders on its land, and
+// its gate (67) is its supply station, as every village's gate is.
+const allSectors = SECTOR_WAR_VILLAGES.flatMap(v => [...homeSectorsForVillage(v)]);
+/** A village's gate: its supply station, never a stronghold or a guard post. */
+export const villageGateSector = (village: string): number | undefined => isSectorWarVillage(village) ? homeSectorsForVillage(village)[0] : undefined;
 subscribeBeforeOnlinePresenceMutation(() => { for (const [id, hold] of holds) if (!holdValid(hold.player, hold, Date.now())) holds.delete(id); });
 subscribeStrongholdEntryChange(player => { for (const [id, hold] of holds) if (hold.player === player) holds.delete(id); });
 function fail(message: string): never { throw new Error(message); }
@@ -78,8 +82,8 @@ export async function fieldOperationAction(warId: string, generation: number, pl
             if (!kind) fail('Choose Supply, Sabotage or Espionage.');
             const enemy = war.villages.find(v => v !== village)!;
             const candidates = await owned(kind === 'supply' ? village : enemy);
-            if (!isWarVillage(village)) fail('Your village has no supply station.');
-            const gate = HOME_SECTORS[village][0], enemyGate = isWarVillage(enemy) ? HOME_SECTORS[enemy][0] : undefined;
+            const gate = villageGateSector(village), enemyGate = villageGateSector(enemy);
+            if (gate === undefined) fail('Your village has no supply station.');
             const eligible = kind === 'supply' ? candidates.filter(s => s !== gate)
                 : kind === 'espionage' ? candidates.filter(s => s !== enemyGate && !war.campaign!.strongholds.some(o => o.sector === s)) : candidates;
             if (eligible.length < (kind === 'sabotage' ? 3 : 1)) fail('There are not enough controlled sectors for this order.');
@@ -144,6 +148,57 @@ export async function fieldOperationAction(warId: string, generation: number, pl
         return { row: war, value: { mission: view, peers } };
     });
 }
+/**
+ * A Cinderhold shinobi accepts a field order (Push 4b). The order is the
+ * player's own: the same eligible sectors, the same personal daily allowance
+ * (reserveCampaignOperation / WAR_OPERATION_CAPS) charged at admission, and the
+ * same award on completion. Only the walk differs: an NPC has no browser to
+ * hold the 20-second posts, so it travels to the order's first sector and
+ * stays there for a walk-and-fight length of time (api/_npc-village-campaign.ts),
+ * and the order fails if it is beaten in between. Returns null when the order
+ * cannot be taken (allowance spent, too few sectors, the war is over).
+ */
+export async function startNpcFieldOperation(warId: string, generation: number, npc: string, village: string, kind: (typeof WAR_OPERATIONS)[number], now = Date.now()): Promise<CampaignFieldMission | null> {
+    return mutateCampaignWar<CampaignFieldMission | null>(warId, async war => {
+        if (war.declarationGeneration !== generation || !war.villages.includes(village) || !campaignWarPlayable(war, now)) return { row: war, value: null };
+        const current = fieldMissionFor(war, npc);
+        if (current?.status === 'active') return { row: war, value: null };
+        const enemy = war.villages.find(v => v !== village)!;
+        const gate = villageGateSector(village), enemyGate = villageGateSector(enemy);
+        if (gate === undefined) return { row: war, value: null };
+        const candidates = await owned(kind === 'supply' ? village : enemy);
+        const eligible = kind === 'supply' ? candidates.filter(s => s !== gate)
+            : kind === 'espionage' ? candidates.filter(s => s !== enemyGate && !war.campaign!.strongholds.some(o => o.sector === s)) : candidates;
+        if (eligible.length < (kind === 'sabotage' ? 3 : 1)) return { row: war, value: null };
+        if (!reserveCampaignOperation(war.campaign!, village, npc, kind, now)) return { row: war, value: null };
+        const id = `vwm${randomUUID().replace(/-/g, '')}`;
+        const mission: CampaignFieldMission = { id, kind, village, enemy, createdAt: now, sectors: kind === 'sabotage' ? eligible : [eligible[randomInt(eligible.length)]],
+            ...(kind === 'supply' ? { pickupSector: gate, pickedUp: false } : {}), completedSectors: [], status: 'active' };
+        war.campaign!.admissions[id] = { player: npc, operation: kind, createdAt: now, npc: true, field: mission,
+            supportTiers: await campaignSupportTiers(war, village, now) };
+        war.updatedAt = now;
+        return { row: war, value: mission };
+    });
+}
+/** Ends an NPC's field order: `succeeded` awards it exactly as a player's completion; otherwise it fails. Returns the points scored. */
+export async function finishNpcFieldOperation(warId: string, generation: number, npc: string, missionId: string, succeeded: boolean, now = Date.now()): Promise<number> {
+    return mutateCampaignWar<number>(warId, async war => {
+        const admission = war.campaign!.admissions[missionId];
+        const mission = admission?.field;
+        if (war.declarationGeneration !== generation || !mission || admission.player !== npc || mission.status !== 'active') {
+            return { row: war, value: war.campaign!.receipts[`field:${missionId}`]?.points ?? 0 };
+        }
+        if (!succeeded || !campaignWarPlayable(war, now)) {
+            mission.status = 'failed'; mission.finishedAt = now; admission.finished = true;
+            war.updatedAt = now;
+            return { row: war, value: 0 };
+        }
+        if (mission.kind === 'supply') mission.pickedUp = true;
+        mission.completedSectors = mission.sectors.slice(0, mission.kind === 'sabotage' ? 3 : 1);
+        const next = completeFieldMission(war, npc, mission, now);
+        return { row: next, value: next.campaign!.receipts[`field:${missionId}`]?.points ?? 0 };
+    });
+}
 export type EspionageBattleEvidence = { warId: string; generation: number; missionId: string; player: string; village: string; sector: number };
 /** War guard duty is an interior admission, not a low-level infiltration or reward route. */
 export async function guardStrongholdAction(warId: string, generation: number, player: string, village: string,
@@ -162,7 +217,7 @@ export async function guardStrongholdAction(warId: string, generation: number, p
             return { row: war, value: { guard: { sector: target, inside: false }, peers: [] } };
         }
         if (!campaignWarPlayable(war, now) || await getSectorOwnerVillage(target) !== village
-            || (isWarVillage(village) && target === HOME_SECTORS[village][0])
+            || target === villageGateSector(village)
             || war.campaign!.strongholds.some(o => o.sector === target)) {
             if (ownsVisit && !p?.inBattle) leaveStrongholdPresence(player);
             fail('Guard duty requires an ordinary allied stronghold during an active war.');

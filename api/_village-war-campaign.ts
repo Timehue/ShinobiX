@@ -4,7 +4,7 @@ import { kv } from './_storage.js';
 import { readKvProjection, type KvProjection } from './_storage-projection.js';
 import { withKvLock } from './_lock.js';
 import { commitWarBattleSettlement } from './_war-battle-settlement.js';
-import { HOME_SECTORS, isWarVillage } from './_war-map-sectors.js';
+import { homeSectorsForVillage, isSectorWarVillage } from './_war-map-sectors.js';
 import { applyShrineClosingControl } from './_village-war-shrine-closing.js';
 import {
     advanceCampaign, campaignScore, scoreCampaignBattle, rotatingShrineWindows, WAR_MODES,
@@ -21,7 +21,9 @@ export function createVillageCampaign(villages: readonly string[], startsAt: num
     ownedSectors?: Record<string, number[]>): VillageCampaign {
     const endsAt = startsAt + VILLAGE_CAMPAIGN_DURATION_MS;
     const strongholds = villages.flatMap((village, side) => {
-        const candidates = [...new Set(ownedSectors?.[village] ?? (isWarVillage(village) ? HOME_SECTORS[village].slice(1) : []))];
+        // A village's home block minus its gate: Cinderhold's 68-74 (never its
+        // gate, 67) exactly as a great village's (Push 4b).
+        const candidates = [...new Set(ownedSectors?.[village] ?? (isSectorWarVillage(village) ? homeSectorsForVillage(village).slice(1) : []))];
         if (candidates.length < 3) throw new Error('Each village needs three eligible strongholds.');
         for (let i = candidates.length - 1; i > 0; i--) { const j = randomInt(i + 1); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
         return WAR_MODES.map((mode, i) => ({ id: `stronghold-${side}-${i}`, sector: candidates[i], village, mode,

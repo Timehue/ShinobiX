@@ -11,6 +11,19 @@ async function moduleFrom(source) {
     return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }
 
+test('roads retain the ordered encounter weights, NPC names, colors and dialogue after packing', async () => {
+    const source = readFileSync(new URL('../../shared/wanderer-roster.ts', import.meta.url), 'utf8');
+    const original = staticCatalogValue(source, 'WANDERER_ARCHETYPES');
+    const { code } = progressionCatalogDelivery().transform(source, '/shared/wanderer-roster.ts');
+    const parsed = ts.createSourceFile('roster.ts', code, ts.ScriptTarget.Latest, true);
+    const declaration = parsed.statements.flatMap(statement =>
+        ts.isVariableStatement(statement) ? [...statement.declarationList.declarations] : []
+    ).find(binding => binding.name.getText(parsed) === 'WANDERER_ARCHETYPES');
+    const delivered = await moduleFrom(PACKED_DATA_IMPORT + '\nexport const roster = ' + declaration.initializer.getText(parsed));
+    assert.deepEqual(Object.keys(delivered.roster), Object.keys(original));
+    assert.deepEqual(delivered.roster, original);
+});
+
 test('packed progression retains every species, unlock boundary, mastery and authored override', async () => {
     const source = readFileSync(new URL('../../shared/pet-ability-progression.ts', import.meta.url), 'utf8');
     const packed = progressionCatalogDelivery().transform(source, '/shared/pet-ability-progression.ts').code;

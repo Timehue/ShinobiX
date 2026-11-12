@@ -59,7 +59,8 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, optio
 
     const character = {
         name,
-        village: 'Ember',
+        // One of the four great villages: a first save names nothing else (api/save/[name].ts).
+        village: 'Stormveil Village',
         specialty: 'Ninjutsu',
         bloodline: 'None',
         level: 1,
@@ -146,7 +147,7 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, optio
     expect(Number(exactSnapshot.character.hp)).toBeLessThanOrEqual(Number(exactSnapshot.character.maxHp));
     const heartbeat = await request.post('/api/player/heartbeat', {
         headers: { 'x-player-name': name, 'x-player-token': token },
-        data: { name, sector: 40, character: { name, level: 1, village: 'Ember' } },
+        data: { name, sector: 40, character: { name, level: 1, village: 'Stormveil Village' } },
     });
     expect(heartbeat.status()).toBe(200);
     expect((await heartbeat.json()).forceReload).not.toBe(true);

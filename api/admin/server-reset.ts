@@ -9,9 +9,14 @@ import { copyImageToR2, forgetImageLists, legacyHashWriteEnabled, perImageKey } 
 import { deletePlayerFirstPactState } from '../_delete-player-account.js';
 import { readKvProjection } from '../_storage-projection.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { detachDoomedModelAccounts, withModelReset } from '../avatar-model/_reset.js';
+import { modelResetKey, type ModelReset } from '../avatar-model/_owner.js';
 import { clanBossEnabled, villageWarMapEnabled } from '../_release-flags.js';
 import { seedHomeSectorOwnership } from '../world-state.js';
 import { runClanBossWeekly } from '../cron/_clan-boss-weekly.js';
+import { seedNpcVillage } from '../_npc-village-seed.js';
+import { ensureNpcPetScaling } from '../_npc-village-scaling.js';
+import { isNpcPossessed } from '../_npc-possession.js';
 import {
     cancelOrParkSubscription,
     isSubscriptionCancelConfigured,
@@ -113,6 +118,11 @@ export const PRESERVE_PATTERNS: readonly string[] = [
     //    is already gone.
     'auth-session:*',
 
+    // Avatar files and provider bills outlive the saves. Detach doomed owners
+    // before the sweep and retain the queues and evidence needed for erasure.
+    'avatar-model:*',
+    'cron:lease:avatar-model-*',
+
     // ── Moderation and safety. Bans, ban indexes, the player report queue and
     //    the custom-title review log are the admin's work and must outlive any
     //    world. Same for the IP/fingerprint trail that ban-evasion detection
@@ -183,6 +193,8 @@ export function isProtectedAccountKey(key: string): boolean {
 /** True when `key` survives a full reset. */
 export function isPreservedKey(key: string): boolean {
     const lower = key.toLowerCase();
+    // In-flight avatar erasure and publication retain their existing leases.
+    if (lower.startsWith('lock:avatar-model:')) return true;
     if (EPHEMERAL_PREFIXES.some((prefix) => lower.startsWith(prefix))) return false;
     if (PRESERVE_PATTERNS.some((pattern) => matchesPattern(lower, pattern))) return true;
     return isProtectedAccountKey(lower);
@@ -515,6 +527,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const dryRun = body.dryRun === true;
 
     try {
+        const resetEpoch = dryRun ? null : await kv.get<ModelReset>(modelResetKey);
         // One scan of the whole store, partitioned by the preserve list. This
         // is what makes a new namespace reset by default.
         const scans = await Promise.all(SCAN_PATTERNS.map((pattern) => kv.keys(pattern)));
@@ -544,18 +557,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        // Stop the billing while each save, the only copy of its reference,
-        // still exists.
-        const subscriptionReport = await cancelDoomedSubscriptions(subscriptions);
-
-        // Revoke every affected account token before the first destructive
-        // write. The rotated epoch deliberately survives the reset (see
-        // `auth-session:*` in PRESERVE_PATTERNS).
         const authNames = authNamesRequiringRevocation(doomed);
-        await Promise.all(authNames.map((name) => rotatePlayerSessionEpoch(name)));
-
-        // First Pact rows under their story lock, then everything in batches.
-        await deleteDoomedKeys(doomed);
+        const subscriptionReport = await withModelReset(resetEpoch, async () => {
+            await detachDoomedModelAccounts(doomed);
+            const report = await cancelDoomedSubscriptions(subscriptions);
+            // The rotated epochs survive deletion of the accounts.
+            await Promise.all(authNames.map((name) => rotatePlayerSessionEpoch(name)));
+            await deleteDoomedKeys(doomed);
+            return report;
+        });
 
         // The protected accounts keep their saves but leave every clan and
         // leadership seat behind, BEFORE the registry re-seed below reads them.
@@ -614,6 +624,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 console.error('[admin/server-reset] clan boss week re-seed failed:', err);
             }
         }
+        // Cinderhold's 30 NPC accounts are not on the preserve list: they are
+        // rebuilt from shared/npc-village-roster.ts, here at once rather than at
+        // the next boot or 03:00 UTC pass, so the village is never empty.
+        let npcVillageSeeded = 0;
+        if (process.env.DISABLE_NPC_VILLAGE !== '1') {
+            try {
+                await ensureNpcPetScaling();
+                const seeded = await seedNpcVillage(Date.now(), (slug) => isNpcPossessed(slug));
+                npcVillageSeeded = seeded.seeded.length + seeded.rescaled.length;
+                if (seeded.failures.length) console.error('[admin/server-reset] npc village re-seed failures:', seeded.failures.join('; '));
+            } catch (err) {
+                console.error('[admin/server-reset] npc village re-seed failed:', err);
+            }
+        }
 
         return res.status(200).json({
             ok: true,
@@ -628,6 +652,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             leadershipPortraitsReseeded: leaderReseed,
             homeSectorsSeeded,
             clanBossWeekSpawned,
+            npcVillageSeeded,
             protectedStandingStripped: standingStripped,
             deleted: doomed.slice(0, DELETED_SAMPLE_CAP),
             deletedTruncated: doomed.length > DELETED_SAMPLE_CAP,

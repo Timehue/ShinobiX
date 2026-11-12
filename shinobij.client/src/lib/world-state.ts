@@ -642,11 +642,20 @@ export function applyAuthoritativeVillageWar(war: unknown): VillageWar | null {
     return normalized;
 }
 
+// Every live war this village is in, whoever the enemy: one of the great
+// villages or Cinderhold (which is not in `villages`, the player-joinable list).
+// Read from the server-hydrated cache, one row per pair, in the great villages'
+// order with any other enemy after them.
 export function activeVillageWarsFor(village: string) {
-    return villages
-        .filter(otherVillage => otherVillage !== village)
-        .map(otherVillage => loadVillageWar(village, otherVillage))
-        .filter((war): war is VillageWar => Boolean(war && !war.endedAt && war.villages.includes(village)));
+    const rank = (war: VillageWar) => {
+        const index = villages.indexOf(war.villages.find(candidate => candidate !== village) ?? "");
+        return index < 0 ? villages.length : index;
+    };
+    return Object.keys(sharedVillageWarCache)
+        .map(id => normalizeVillageWar(sharedVillageWarCache[id]))
+        .filter(war => !war.endedAt && war.villages.includes(village) && war.villages.some(candidate => candidate !== village)
+            && war.id === villageWarId(war.villages[0], war.villages[1]))
+        .sort((a, b) => rank(a) - rank(b));
 }
 
 // Every active (un-ended) village war in the world, regardless of the player's

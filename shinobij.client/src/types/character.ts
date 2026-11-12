@@ -313,6 +313,7 @@ export type StoryEpilogueReceipt = {
 // ── Character ─────────────────────────────────────────────────────────────
 
 export type Character = {
+    playerModel?: import('../lib/player-model').PlayerModel;
     sectorBuildings?: import('../../../shared/sector-building-types').SectorBuildingProgress;
     resourceGathering?: import('../../../shared/resource-gathering').ResourceGatheringState;
     gatheringToolUses?: Record<string, number>;
@@ -329,6 +330,7 @@ export type Character = {
     specialty: JutsuType;
     bloodline: string;
     avatarImage?: string;
+    starterWorldModel?: import('../../../shared/player-model-ref').StarterWorldModel;
     level: number;
     xp: number;
     ryo: number;
@@ -954,6 +956,7 @@ export type Character = {
 export type PlayerRecord = {
     worldPosition?: import('../../../shared/world-position').WorldPosition;
     movementSequence?: number;
+    gaitPresentation?: import("../../../shared/player-model-ref").WorldGaitPresentation;
     name: string;
     level: number;
     village: string;
@@ -969,6 +972,7 @@ export type PlayerRecord = {
     stronghold?: { sector: number; tile: number };
     tile?: number; // within-sector tile (0..143) for live peer rendering; display-only
     sleeping?: boolean; // explicit server-managed offline camp entity
+    activity?: 'mining' | 'fishing' | 'harvesting'; // server-owned, cosmetic: a shinobi seen gathering
 };
 
 export type ServerPlayerSummary = {

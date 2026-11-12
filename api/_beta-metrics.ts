@@ -3,6 +3,7 @@ import { withTelemetryLock } from './_telemetry-lock.js';
 import { captureProductEventFromBetaMetric } from './_product-analytics.js';
 import { ACADEMY_PATH_STEPS } from '../shared/academy-path.js';
 import { withoutKvLeaseContext } from './_kv-lock-context.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
 
 export type BetaMetricEvent =
     | 'account.registered'
@@ -333,6 +334,9 @@ export function flushBetaMetrics(): Promise<void> {
 }
 
 export function recordBetaMetric(input: BetaMetricInput, opts: { kv?: BetaKv } = {}): Promise<void> {
+    // A Cinderhold NPC (even under admin control) is not a player: no telemetry.
+    const who = (input as { playerName?: unknown }).playerName;
+    if (typeof who === 'string' && isNpcAccount(who)) return Promise.resolve();
     // Queued analytics take their own telemetry lock. They must neither inherit
     // a completed request's lease nor poison the request's authority on failure.
     return withoutKvLeaseContext(() => recordBetaMetricDetached(input, opts));

@@ -14,13 +14,16 @@
  * <WorldMap>'s Stand & Fight prompt (lib/weekly-boss-launch.ts), so nothing
  * here touches combat.
  */
-import { type CSSProperties, useContext, useEffect, useLayoutEffect, useRef } from "react";
+import { type CSSProperties, useCallback, useContext, useEffect, useLayoutEffect, useRef } from "react";
 import { WorldPlayerPosition } from '../lib/world-player-position';
 import { GameArtIcon } from "./GameArtIcon";
 import type { Biome } from "../types/core";
-import { safeSectorTile } from "../lib/sector-obstacles";
+import { safeSectorTile, useSectorModelArtBase } from "../lib/sector-obstacles";
 import { createSectorNavigator } from "../lib/sector-path-waypoint";
 import { SECTOR_BOSS_SCALE, SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
+import { wandererAvatar } from "../lib/wanderer-art";
+import { useSectorModelPins } from "../lib/sector-model-pins";
+import { SectorModelFigure, type SectorModelHandle } from "./SectorModelFigure";
 
 const GRID_W = 12;
 const GRID_H = 12;
@@ -73,6 +76,16 @@ export function SectorWeeklyBossActor({
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const figRef = useRef<HTMLDivElement | null>(null);
     const spriteRef = useRef<HTMLSpanElement | null>(null);
+    const modelRef = useRef<SectorModelHandle>(null);
+    const modelMoving = useRef(false);
+    const reducedMotion = useRef(prefersReducedMotion());
+    const modelArtBase = useSectorModelArtBase();
+    const { portraitModels } = useSectorModelPins();
+    // The public fallback contains the same artwork as this canonical portrait.
+    // Unrelated administrator portraits must not acquire a different character's body.
+    const modelPortrait = !portrait || portrait === "/portraits/hollow-warden.webp"
+        ? wandererAvatar("hollow-warden") : portrait;
+    const modelKind = modelArtBase && portraitModels.get(modelPortrait);
 
     const home = sector === undefined ? HOME_TILE : safeSectorTile(sector, HOME_TILE);
     const posRef = useRef({ col: colOf(home), row: rowOf(home) });
@@ -96,7 +109,7 @@ export function SectorWeeklyBossActor({
         const { padX, gapX } = metricsRef.current;
         return (sizeRef.current.w - 2 * padX - (GRID_W - 1) * gapX) / GRID_W;
     }
-    function paint() {
+    const paint = useCallback(() => {
         const fig = figRef.current;
         const { w, h } = sizeRef.current;
         if (!fig || !w || !h) return;
@@ -104,8 +117,14 @@ export function SectorWeeklyBossActor({
         const cx = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
         const cy = cellCentre(h, GRID_H, posRef.current.row, padY, gapY);
         fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -${BASE_ANCHOR}%)`;
+        modelRef.current?.place(cx, cy, w * SECTOR_BOSS_SCALE, modelMoving.current && !reducedMotion.current);
+    }, []);
+    useLayoutEffect(() => { paint(); }, [paint, modelKind]);
+    function setWalking(on: boolean) {
+        figRef.current?.classList.toggle("is-walking", on);
+        modelMoving.current = on;
+        if (!on) modelRef.current?.stop();
     }
-    function setWalking(on: boolean) { figRef.current?.classList.toggle("is-walking", on); }
     function applyFacing() { spriteRef.current?.style.setProperty("--face", String(facingRef.current)); }
 
     // Measure the parent .pixel-map grid (same approach as SectorAvatar/SectorWanderer).
@@ -132,11 +151,12 @@ export function SectorWeeklyBossActor({
         });
         ro.observe(grid);
         return () => ro.disconnect();
-    }, []);
+    }, [paint]);
 
     // The stalk loop — always hunts the player.
     useEffect(() => {
         const reduced = prefersReducedMotion();
+        reducedMotion.current = reduced;
         const maxDt = reduced ? REDUCED_STEP_MS / 1000 : SMOOTH_MAX_DT;
         const schedule = () => {
             if (reduced) stepTimerRef.current = window.setTimeout(() => tick(performance.now()), REDUCED_STEP_MS);
@@ -165,6 +185,7 @@ export function SectorWeeklyBossActor({
             if (armed) {
                 if (distPlayer <= ENGAGE_TILES) {
                     setWalking(false);
+                    paint();
                     if (!greetedRef.current) greetedRef.current = onEngageRef.current() !== false; // refused = retry next tick
                     schedule(); // hold adjacent
                     return;
@@ -181,13 +202,13 @@ export function SectorWeeklyBossActor({
             const dx = tCol - p.col, dy = tRow - p.row;
             const dist = Math.hypot(dx, dy);
             const step = WALK_TILES_PER_SEC * dt;
+            setWalking(dist > 0.02);
             if (Math.abs(dx) > 0.02) { facingRef.current = dx < 0 ? -1 : 1; applyFacing(); }
 
             if (dist <= step || dist < 0.02) {
                 posRef.current = { col: tCol, row: tRow };
             } else {
                 posRef.current = { col: p.col + (dx / dist) * step, row: p.row + (dy / dist) * step };
-                setWalking(true);
             }
             paint();
             schedule();
@@ -201,7 +222,7 @@ export function SectorWeeklyBossActor({
             cancelAnimationFrame(rafRef.current);
             window.clearTimeout(stepTimerRef.current);
         };
-    }, [sector, worldPlayer]);
+    }, [sector, worldPlayer, paint]);
 
     return (
         <div className="sector-wanderer-overlay" ref={wrapRef} aria-hidden="true">
@@ -212,8 +233,9 @@ export function SectorWeeklyBossActor({
                 tabIndex={-1}
                 title={`${name} — the Weekly Boss is bearing down on you`}
                 onClick={() => onEngageRef.current()}
-                style={{ filter: "drop-shadow(0 0 10px rgba(236,91,56,.85))", ["--marker-ring"]: SECTOR_RING_AI } as CSSProperties}
+                style={{ filter: "drop-shadow(0 0 10px rgba(236,91,56,.85))", ["--marker-ring"]: SECTOR_RING_AI, ["--sector-model-tell"]: "#ec5b38" } as CSSProperties}
             >
+                {modelKind && modelArtBase && <SectorModelFigure key={modelKind} ref={modelRef} kind={modelKind} artBase={modelArtBase} />}
                 <span className="sector-avatar-shadow" />
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />
                 <span className="sector-avatar-sprite" ref={spriteRef}>

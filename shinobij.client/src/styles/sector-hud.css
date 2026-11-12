@@ -89,6 +89,7 @@
 .sector-roster-status.is-traveling, .sector-roster-status.is-sleeping { color: #e4ca8c; }
 .map-instance .sector-hud .sector-roster-action { border-color: #a67477; background: #4b2736; color: #f8d3cc; padding: 7px 9px; max-width: 110px; }
 .map-instance .sector-hud .sector-roster-action.is-spectate { background: #302636; border-color: #9d879c; color: #e5d5eb; }
+.sector-roster-actions { display: flex; align-items: center; gap: 4px; }
 .sector-nearby-scroll:focus-visible { outline: 2px solid #ecd6ae; outline-offset: -3px; }
 .sector-hud-scroll-cue { margin: 0; padding: 7px 12px; color: #dec49e; font-size: 11px; text-align: center; border-bottom: 1px solid #684b55; }
 .sector-hud-inline-info { padding: 0 12px 12px; border-top: 1px solid #684b55; }

@@ -34,7 +34,7 @@ beforeEach(async () => {
     await kv.set('save:alice', { character: { name: 'Alice', clan: 'Storm Clan', village: 'Stormveil Village' } });
 });
 
-async function capture(requestId: string) {
+async function capture(requestId: string, sector = SECTOR) {
     const out: { statusCode: number; body?: Record<string, any> } = { statusCode: 200 };
     const res = {
         setHeader: () => res,
@@ -47,7 +47,7 @@ async function capture(requestId: string) {
         body: {
             playerName: 'alice',
             clan: 'Storm Clan',
-            sector: SECTOR,
+            sector,
             count: 75,
             weather: 'clear',
             terrainBuffStat: 'ninjutsuOffense',
@@ -123,5 +123,17 @@ describe('clan territory capture with lost replies', { concurrency: false }, () 
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
         assert.equal(await scrollsLeft(), 0, 'the retry charges the capture it completes');
         assert.equal((await kv.get<Record<string, unknown>>(TERRITORY_KEY))?.ownerClan, 'Storm Clan');
+    });
+});
+
+describe('Cinderhold land is never captured (2026-11-09)', () => {
+    it('refuses every Cinderhold sector, gate included, and spends no scrolls', async () => {
+        for (const sector of [67, 68, 71, 74]) {
+            const out = await capture(`capture-cinderhold-${sector}`, sector);
+            assert.equal(out.statusCode, 400, `${sector}: ${JSON.stringify(out.body)}`);
+            assert.equal(out.body?.error, 'Village sectors cannot be captured.');
+            assert.equal(await kv.get(`world:territory:${sector}`), null);
+        }
+        assert.equal(await scrollsLeft(), 75);
     });
 });

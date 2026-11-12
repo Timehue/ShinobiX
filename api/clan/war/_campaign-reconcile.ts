@@ -17,6 +17,9 @@ import { reconcileClanWarCardDuel } from './tilecards.js';
 import { awardCampaignMatch, awardCampaignEnd } from './_campaign-rewards.js';
 import { releaseEndedClanWarReservations } from './_declaration-reservations.js';
 import {clanWarPvp2v2Disabled} from './_challenge-admission.js';
+import { clanRecordKey } from '../../_utils.js';
+import { npcVillageClosed } from '../../_npc-village-switch.js';
+import { isNpcClanName, isNpcClanRecord } from '../../../shared/npc-clans.js';
 
 async function writeWar(key: string, current: ClanWar, next: ClanWar): Promise<void> {
     if (isDeepStrictEqual(current,next)) return;
@@ -96,10 +99,26 @@ export async function reconcileClanWarBattleResults(war:ClanWar,now=Date.now()):
     if(!war.campaign||war.endedAt)return;
     for(const match of Object.values(war.campaign.matches))if(match.status==='active')await reconcileActive(war,match,now);
 }
+/**
+ * A clan war with one of Cinderhold's clans while Cinderhold is closed (the
+ * kill switch, or no session tokens so no NPC can act): it FREEZES, as
+ * Cinderhold's sector and village wars do (api/_npc-war-roster.ts
+ * npcVillageWarFrozen). Its timeout close and its war-end rewards wait;
+ * once Cinderhold is back the next reconcile closes it at its own sealed end
+ * time, exactly as it would have. Matches already fought still settle.
+ */
+export async function npcClanWarFrozen(war: Pick<ClanWar, 'clans'>): Promise<boolean> {
+    if (!npcVillageClosed()) return false;
+    const named = (war.clans ?? []).filter((clan) => isNpcClanName(clan));
+    if (!named.length) return false;
+    const records = await kv.mget<Array<Record<string, unknown> | null>>(...named.map((clan) => clanRecordKey(clan)));
+    return records.some((record) => isNpcClanRecord(record));
+}
 export async function reconcileClanWarCampaign(warId: string, now = Date.now()): Promise<ClanWar | null> {
     const key = `clan-war:${warId}`;
     let war = await kv.get<ClanWar>(key);
     if (!war?.campaign) return war;
+    const frozen = await npcClanWarFrozen(war);
     if (!war.endedAt) {
         // Battle stores own their locks. Never invert their session -> war order.
         await reconcileClanWarBattleResults(war,now);
@@ -107,7 +126,7 @@ export async function reconcileClanWarCampaign(warId: string, now = Date.now()):
             const current = await kv.get<ClanWar>(key);
             if (!current?.campaign || current.endedAt) return current;
             let next: ClanWar = {...current,campaign:pruneClanWarQueue(current.campaign,now)};
-            if (now >= current.campaign.endsAt) next = finalizeClanWarEnd(next,{endedAt:current.campaign.endsAt,reason:'timeout'});
+            if (now >= current.campaign.endsAt && !frozen) next = finalizeClanWarEnd(next,{endedAt:current.campaign.endsAt,reason:'timeout'});
             await writeWar(key,current,next);
             return next;
         },{failClosed:true});
@@ -118,7 +137,8 @@ export async function reconcileClanWarCampaign(warId: string, now = Date.now()):
         const remaining = Math.min(CLAN_WAR_REMATCH_COOLDOWN_SEC,Math.max(0,Math.ceil((war.endedAt+CLAN_WAR_REMATCH_COOLDOWN_SEC*1000-now)/1000)));
         if (remaining&&war.campaign.closeReason!=='service') await kv.set(clanWarCooldownKey(...war.clans),war.endedAt,{ex:remaining});
         await releaseEndedClanWarReservations(war);
-        await awardCampaignEnd(war);
+        // Frozen: the war's end settlement waits for Cinderhold (an ending a player clan chose, a surrender, included).
+        if (!frozen) await awardCampaignEnd(war);
     }
     return kv.get<ClanWar>(key);
 }

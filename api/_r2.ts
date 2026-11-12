@@ -105,27 +105,30 @@ export async function deleteImage(id: string, opts?: { timeoutMs?: number }): Pr
     return mutateImage('DELETE', id, { mime: 'application/octet-stream', buf: Buffer.alloc(0) }, opts);
 }
 
-async function mutateImage(
-    method: 'PUT' | 'DELETE', id: string,
-    body: { mime: string; buf: Buffer }, opts?: { timeoutMs?: number },
-): Promise<boolean> {
-    const cfg = writeConfig();
-    if (!cfg) return false;
-
+export function signR2ObjectRequest(
+    cfg: { accountId: string; accessKeyId: string; secretAccessKey: string; bucket: string },
+    method: 'GET' | 'PUT' | 'DELETE', objectKey: string, body: { mime: string; buf: Buffer },
+    conditions: {ifMatch?:string;ifNoneMatch?:'*';deleted?:true} = {},
+) {
     const host = `${cfg.accountId}.r2.cloudflarestorage.com`;
-    const canonicalUri = '/' + s3UriEncode(cfg.bucket, false) + '/' + s3UriEncode(objectKeyForId(id), false);
+    const canonicalUri = '/' + s3UriEncode(cfg.bucket, false) + '/' + s3UriEncode(objectKey, false);
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, ''); // YYYYMMDDTHHMMSSZ
     const dateStamp = amzDate.slice(0, 8);
     const payloadHash = sha256Hex(body.buf);
     const contentType = body.mime || 'application/octet-stream';
 
-    const canonicalHeaders =
-        `content-type:${contentType}\n` +
-        `host:${host}\n` +
-        `x-amz-content-sha256:${payloadHash}\n` +
-        `x-amz-date:${amzDate}\n`;
-    const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+    if(conditions.ifMatch && (!/^"[a-fA-F0-9-]{1,128}"$/.test(conditions.ifMatch) || conditions.ifNoneMatch))
+        throw new Error('Invalid object precondition');
+    const extraHeaders:Record<string,string>={
+        ...(conditions.ifMatch ? {'if-match':conditions.ifMatch} : {}),
+        ...(conditions.ifNoneMatch ? {'if-none-match':conditions.ifNoneMatch} : {}),
+        ...(conditions.deleted ? {'x-amz-meta-avatar-model-deleted':'1'} : {}),
+    };
+    const headerMap={'content-type':contentType,host,'x-amz-content-sha256':payloadHash,'x-amz-date':amzDate,...extraHeaders};
+    const names=Object.keys(headerMap).sort();
+    const canonicalHeaders=names.map(name=>`${name}:${headerMap[name as keyof typeof headerMap]}\n`).join('');
+    const signedHeaders = names.join(';');
     const canonicalRequest = [method, canonicalUri, '', canonicalHeaders, signedHeaders, payloadHash].join('\n');
 
     const scope = `${dateStamp}/${REGION}/${SERVICE}/aws4_request`;
@@ -141,6 +144,20 @@ async function mutateImage(
         `AWS4-HMAC-SHA256 Credential=${cfg.accessKeyId}/${scope}, ` +
         `SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
+    return {url:`https://${host}${canonicalUri}`,headers:{
+        'Authorization':authorization, 'Content-Type':contentType,
+        'x-amz-content-sha256':payloadHash, 'x-amz-date':amzDate,
+        ...extraHeaders,
+    }};
+}
+
+async function mutateImage(
+    method: 'PUT' | 'DELETE', id: string,
+    body: { mime: string; buf: Buffer }, opts?: { timeoutMs?: number },
+): Promise<boolean> {
+    const cfg = writeConfig();
+    if (!cfg) return false;
+    const signed = signR2ObjectRequest(cfg, method, objectKeyForId(id), body);
     // Blob wrapper over a fresh ArrayBuffer: the fetch typings in this toolchain
     // exclude ArrayBufferView from BodyInit, and Buffer's backing store is typed
     // ArrayBufferLike (possibly SharedArrayBuffer). A plain ArrayBuffer copy is an
@@ -148,15 +165,10 @@ async function mutateImage(
     const ab = new ArrayBuffer(body.buf.byteLength);
     new Uint8Array(ab).set(body.buf);
     try {
-        const res = await fetch(`https://${host}${canonicalUri}`, {
+        const res = await fetch(signed.url, {
             method,
-            headers: {
-                'Authorization': authorization,
-                'Content-Type': contentType,
-                'x-amz-content-sha256': payloadHash,
-                'x-amz-date': amzDate,
-            },
-            body: method === 'PUT' ? new Blob([ab], { type: contentType }) : undefined,
+            headers: signed.headers,
+            body: method === 'PUT' ? new Blob([ab], { type: signed.headers['Content-Type'] }) : undefined,
             signal: AbortSignal.timeout(opts?.timeoutMs ?? 15_000),
         });
         if (res.ok || (method === 'DELETE' && res.status === 404)) {

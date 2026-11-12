@@ -40,7 +40,7 @@
 
 import { kv } from './_storage.js';
 import { setSafeRecordValue } from './_utils.js';
-import { WAR_VILLAGES, homeSectorsForVillage, isWarSector } from './_war-map-sectors.js';
+import { SECTOR_WAR_VILLAGES, WAR_VILLAGES, homeSectorsForVillage, isWarSector } from './_war-map-sectors.js';
 import { territoryRewardsSuspended } from './_territory-lifecycle.js';
 
 const TERRITORY_KEY_PREFIX = 'world:territory:';
@@ -200,13 +200,15 @@ export function heldSectorListsOf(
     unseeded: boolean,
 ): HeldSectorLists {
     const held: Record<string, Set<number>> = {};
-    for (const v of WAR_VILLAGES) setSafeRecordValue(held, v, new Set<number>());
+    // Cinderhold is listed too (the War Map shows what it holds, so a player
+    // Kage can declare on it); it holds no WR faucet or tax (WAR_VILLAGES only).
+    for (const v of SECTOR_WAR_VILLAGES) setSafeRecordValue(held, v, new Set<number>());
     for (const row of territories) {
         const owner = heldWarSectorOwner(row, now, { includeSuspended: true });
         if (owner && Object.prototype.hasOwnProperty.call(held, owner)) held[owner].add(Number(row!.sector));
     }
     const lists: HeldSectorLists = {};
-    for (const v of WAR_VILLAGES) {
+    for (const v of SECTOR_WAR_VILLAGES) {
         const home = homeSectorsForVillage(v);
         if (unseeded) {
             setSafeRecordValue(lists, v, [...home]);

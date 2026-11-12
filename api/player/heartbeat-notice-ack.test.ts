@@ -4,6 +4,7 @@ process.env.ADMIN_PASSWORD = 'heartbeat-ack-test-admin';
 
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 /*
  * F18 — the heartbeat's offline notices and heal signal were consumed BEFORE
@@ -135,5 +136,31 @@ describe('heartbeat notice acknowledgement', { concurrency: false }, () => {
         assert.equal((await inbox()).length, 2);
         assert.ok(await kv.get(healKey));
         assert.deepEqual(withNoticeIds(await inbox()).map((n) => n.id), ids, 'ids are derived from the notice identity');
+    });
+
+    it('a removal notice waits for a supported client on the original account', async () => {
+        const modelAccountId = randomUUID();
+        const removal = { kind: 'world-model-removed' as const, by: 'moderation', sector: 0, at: NOW + 4, modelAccountId };
+        const key = 'save:' + PLAYER;
+        const save = (id: string) => ({ character: { name: PLAYER, level: 20, playerModelOwnerId: id } });
+        await kv.set(key, save(modelAccountId));
+        await notices.pushOfflineNotice(PLAYER, removal);
+        const delivered = async (body: Json) => {
+            const result = await post(body);
+            assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+            return ((result.body?.pendingNotices ?? []) as Json[]).find(notice => notice.kind === removal.kind);
+        };
+        assert.equal(await delivered({}), undefined);
+        assert.equal(await delivered({ noticeAck: true }), undefined);
+        const supported = { noticeAck: true, worldModelNotices: true };
+        const first = await delivered(supported);
+        assert.deepEqual(first, { kind: removal.kind, by: removal.by, sector: 0, at: removal.at, id: withNoticeIds([removal])[0].id });
+        assert.deepEqual(await delivered(supported), first);
+        await kv.set(key, save(randomUUID()));
+        assert.equal(await delivered({ ...supported, ackNotices: [first?.id] }), undefined);
+        assert.ok((await inbox()).some(notice => notice.kind === removal.kind), 'another account cannot acknowledge it');
+        await kv.set(key, save(modelAccountId));
+        assert.equal(await delivered({ ...supported, ackNotices: [first?.id] }), undefined);
+        assert.ok(!(await inbox()).some(notice => notice.kind === removal.kind));
     });
 });

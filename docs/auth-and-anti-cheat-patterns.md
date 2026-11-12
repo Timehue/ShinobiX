@@ -115,6 +115,26 @@ Load-bearing consequences:
 - **`delete` accepts the session token** as proof of ownership, or a Google or
   guest player could never remove their own character.
 
+**Cinderhold NPC accounts are a third passwordless kind** (`api/_npc-village-seed.ts`,
+`shared/npc-village-roster.ts` `isNpcAccount`). Thirty server-run shinobi own real
+`save:`/`auth:` rows with no hash, so password login fails closed through the same
+`verifyAgainst` guard. They have no player door at all: the only session ever minted
+for one is an admin takeover (`api/admin/npc-possess.ts`, full admins only, 2 h, never
+slid, epoch-rotated, audited) or a short token the server mints to act as the NPC
+in-process (`asNpc` in `api/_npc-duel-driver.ts`): playing its duel and card seats
+(`api/_npc-duel-driver.ts`, `api/_npc-card-duel-driver.ts`, `api/_npc-campaign-card-seat.ts`),
+opening its war strikes and rival hunts (`api/_npc-war-strike.ts`, `api/_npc-hunt.ts`)
+and carrying out its village-war and clan-war orders (`api/_npc-village-campaign.ts`,
+`api/_npc-clan-war-campaign.ts`). With `SESSION_SECRET` unset no NPC account is
+created and `npcVillageClosed()` (`api/_npc-village-switch.ts`) is true: presence,
+duels, strikes, the war party and takeover are off, and the endings of wars
+involving Cinderhold are frozen. `player-auth` refuses every credential action for
+them (`change`, recovery, `delete`, Google link), and `api/_npc-guard.ts` keeps them
+out of every value transfer, ranked queue, tournament, player-run party and account
+change. Players reach them only by the open-world attack and inside wars (war
+engages, campaign objectives, clan-war matches); every challenge, invite, trade or
+message aimed at one is refused (`isNpcTarget`).
+
 **Google flow** (`api/_google-auth.ts`, `api/auth/google/*`) is a server-side
 authorization-code flow. (It was originally modelled on `api/patreon/`, which
 was removed on 2026-08-28 when the storefront moved to Play Billing — this is

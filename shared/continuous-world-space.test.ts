@@ -5,7 +5,8 @@ import { SECTOR_ROAD_PAIRS,sectorExits } from './sector-links';
 const space=buildContinuousWorldSpace(),chunks=new Map(space.chunks.map(c=>[c.sector,c]));
 
 test('the entire existing road graph has fixed, non-overlapping world chunks',()=>{
-    assert.equal(space.chunks.length,65);assert.equal(space.roads.length,93);
+    // 65 + Cinderhold's 8 (2026-11-08); 93 + its 12 roads.
+    assert.equal(space.chunks.length,73);assert.equal(space.roads.length,105);
     assert.deepEqual(space.roads.map(r=>[r.a.sector,r.b.sector]),SECTOR_ROAD_PAIRS);
     for(const a of space.chunks)for(const b of space.chunks){
         if(a.sector>=b.sector)continue;

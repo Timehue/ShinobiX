@@ -23,11 +23,14 @@ import { loiterPositionAt } from "../lib/wanderer-loiter";
 import { serverNow } from "../lib/server-clock";
 import { createSectorNavigator } from "../lib/sector-path-waypoint";
 import { advanceAuthoredGroundMotion } from "../lib/authored-ground-motion";
-import { safeSectorTile, sectorObstaclesOn } from "../lib/sector-obstacles";
+import { safeSectorTile, sectorObstaclesOn, useSectorModelArtBase, usePlayerGaits } from "../lib/sector-obstacles";
+import { sectorGaitTilesPerSecond, type SectorGait } from "../../../shared/sector-model-motion";
 import { isWalkableTile } from "../../../shared/sector-walk-mask";
 import { SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
 import type { LifeActor } from '../../../shared/sector-life';
 import { lifeActorPosition,lifeActivityAt,lifeActivityAtPosition } from '../../../shared/sector-life-motion';
+import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
+import { useSectorModelPins } from '../lib/sector-model-pins';
 import { sectorTrackerAway } from '../lib/sector-life-art';
 import { isCoveredByCombat, subscribeCombatCover } from '../lib/combat-cover';
 import {useSectorServiceRoutine} from '../lib/sector-service-routine';
@@ -176,6 +179,16 @@ export function SectorWanderer({
         bubbleTimer.current = window.setTimeout(() => setBubble(null), 3600);
     }
 
+    const modelRef = useRef<SectorModelHandle>(null);
+    const {portraitModels} = useSectorModelPins();
+    const modelArtBase = useSectorModelArtBase();
+    const playerGaits = usePlayerGaits();
+    const fittedTravel = useRef(false);
+    useLayoutEffect(() => { fittedTravel.current = worldPlayer !== null && playerGaits; }, [worldPlayer,playerGaits]);
+    const img = wanderer.avatarImage || wandererAvatar(wanderer.avatarKey);
+    const modelKind = modelArtBase && portraitModels.get(img);
+    const modelWalking = useRef(false);
+    const travelGait = useRef<SectorGait | undefined>(undefined);
     function tileSizePx(): number {
         const { padX, gapX } = metricsRef.current;
         return (sizeRef.current.w - 2 * padX - (GRID_W - 1) * gapX) / GRID_W;
@@ -195,13 +208,19 @@ export function SectorWanderer({
         const cy = cellCentre(h, GRID_H, posRef.current.row, padY, gapY);
         fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -${BASE_ANCHOR}%)`;
         publishFigureGroundPosition(fig,posRef.current);
+        modelRef.current?.place(cx,cy,w,modelWalking.current && !reducedTool.current,travelGait.current);
         layoutWandererLabels(fig);
         if(workToolRef.current)paintGroundWorkTool(workToolRef.current,!!presentation&&'working' in presentation&&presentation.working===true,cx/w*1200,cy/h*1200,now,reducedTool.current);
         const fishing=routineRef.current?.fishing;
         if(tackleRef.current)tackleRef.current.style.visibility=fishing&&now>=fishing.startsAt&&now<fishing.until&&Math.hypot(posRef.current.col-fishing.bank%12,posRef.current.row-Math.floor(fishing.bank/12))<.18?'visible':'hidden';
     },[nativeWork]);
-    useLayoutEffect(()=>{paint();},[paint,routine]);
-    function setWalking(on: boolean) { figRef.current?.classList.toggle("is-walking", on); }
+    useLayoutEffect(()=>{paint();},[paint,routine,modelKind]);
+    function setWalking(on: boolean, modelMoving = on, gait?: SectorGait) {
+        figRef.current?.classList.toggle("is-walking", on);
+        modelWalking.current = modelMoving;
+        travelGait.current = gait;
+        if (!modelMoving) modelRef.current?.stop();
+    }
     function applyFacing() { spriteRef.current?.style.setProperty("--face", String(facingRef.current)); }
 
     // Measure the parent .pixel-map grid (same approach as SectorAvatar).
@@ -277,9 +296,10 @@ export function SectorWanderer({
                     navigate: (position, target) => navigate(sector, position, target),
                 });
                 routineDebtMs = motion.unconsumedMs;
+                const traveled = Math.hypot(motion.position.col-p.col, motion.position.row-p.row);
                 posRef.current = motion.position;
                 if (Math.abs(motion.facingDelta) > .005) facingRef.current = motion.facingDelta < 0 ? -1 : 1;
-                applyFacing(); setWalking(motion.remainingDistance > .02 && !reduced); paint();
+                applyFacing(); setWalking(motion.remainingDistance > .02 && !reduced, traveled > .00001 && !reduced); paint();
                 if(indoors(life,posRef.current,now)){if(figRef.current)figRef.current.style.visibility='hidden';schedule();return;}
                 const near = Math.hypot(pcol - posRef.current.col, prow - posRef.current.row) <= 1.8;
                 if (!near) greetedRef.current = false;
@@ -360,19 +380,18 @@ export function SectorWanderer({
                 tCol = colOf(next); tRow = rowOf(next);
             }
 
-            const nextStep = navigate(sector, p, { col: tCol, row: tRow });
-            tCol = nextStep.col; tRow = nextStep.row;
-            const dx = tCol - p.col, dy = tRow - p.row;
-            const dist = Math.hypot(dx, dy);
-            const step = WALK_TILES_PER_SEC * dt;
-            if (Math.abs(dx) > 0.02) { facingRef.current = dx < 0 ? -1 : 1; applyFacing(); }
-
-            if (dist <= step || dist < 0.02) {
-                posRef.current = { col: tCol, row: tRow };
-            } else {
-                posRef.current = { col: p.col + (dx / dist) * step, row: p.row + (dy / dist) * step };
-                setWalking(true);
-            }
+            const gait = fittedTravel.current ? (armed && isHunter && closing ? 'run' : 'walk') : undefined;
+            const target = {col:tCol,row:tRow};
+            const motion = advanceAuthoredGroundMotion({
+                position:p, elapsedMs:gait ? elapsedMs : dt*1000, now:ts,
+                maxStepMs:(gait ? SMOOTH_MAX_DT : maxDt)*1000,
+                speed:gait ? sectorGaitTilesPerSecond[gait] : WALK_TILES_PER_SEC,
+                targetAt:()=>target, navigate:(position,goal)=>navigate(sector,position,goal),
+            });
+            posRef.current = motion.position;
+            if (Math.abs(motion.facingDelta) > .02) { facingRef.current = motion.facingDelta < 0 ? -1 : 1; applyFacing(); }
+            const moving = !reduced && Math.hypot(motion.position.col-p.col,motion.position.row-p.row) > .00001;
+            setWalking(moving,moving,gait);
             paint();
             schedule();
         };
@@ -407,7 +426,6 @@ export function SectorWanderer({
         onEngageRef.current(nativeWork&&current?{...wanderer,greeting:current.line}:wanderer,current);
     }
 
-    const img = wanderer.avatarImage || wandererAvatar(wanderer.avatarKey);
     const initials = wanderer.name.slice(0, 2).toUpperCase();
     const presentation=routine?lifeActivityAt(routine,serverNow()):undefined,tackle=routine?.fishing;
     // Name pills used to be one fixed height above every figure, so two
@@ -441,10 +459,12 @@ export function SectorWanderer({
                 onKeyDown={routine ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleClick(); } } : undefined}
                 title={routine?`${routine.name} · ${presentation!.activity}`:`${wanderer.name} · Lv ${wanderer.level} · ${wanderer.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"}`}
                 onClick={handleClick}
-                style={{ ["--marker-ring"]: SECTOR_RING_AI,visibility:nativeWork&&service===null?'hidden':undefined } as CSSProperties}
+                style={{ ["--marker-ring"]: SECTOR_RING_AI, ["--sector-model-tell"]: wanderer.tellTint,
+                    visibility:nativeWork&&service===null?'hidden':undefined } as CSSProperties}
             >
                 {bubble && <span className="sector-wanderer-bubble">{bubble}</span>}
                 <span className="sector-avatar-shadow" />
+                {modelKind && modelArtBase && <SectorModelFigure key={modelKind} ref={modelRef} kind={modelKind} artBase={modelArtBase} />}
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />
                 <span className="sector-avatar-sprite" ref={spriteRef}>
                     <span className="sector-avatar-body">

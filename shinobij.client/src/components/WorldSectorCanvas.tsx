@@ -43,6 +43,8 @@ export type WorldSectorCanvasProps = {
     playerTile: number;
     playerName: string;
     playerAvatarImage: string;
+    starterWorldModel?: import('../../../shared/player-model-ref').StarterWorldModel;
+    playerModel?: import('../lib/player-model').PlayerModel;
     /** A fullscreen interior covers this scene. The tile scene releases its renderers; the continuous world stays mounted, paused and hidden, so leaving costs no reconnect. The host slots stay mounted either way. */
     suspended?: boolean;
     /** A modal room covers this scene: stop drawing the world, but keep its HUD and peers mounted. */
@@ -70,12 +72,7 @@ export type WorldSectorCanvasProps = {
     encounterLayer: ReactNode;
 };
 
-/**
- * Presentational projection of the selected sector's walkable stage.
- *
- * WorldMap retains every controller, portal, and authority decision. The two
- * render slots preserve their original stacking order around the foreground.
- */
+/** WorldMap owns sector authority and supplies the foreground overlay slots. */
 export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
     sector,
     obstacles = true,

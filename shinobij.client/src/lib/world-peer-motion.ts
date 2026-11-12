@@ -22,15 +22,33 @@ export function peerWorldPath(nodes: ReadonlyMap<string, WorldNode>, from: World
     return best;
 }
 
-export function advancePeerPath(points: WorldPoint[], distance: number): WorldPoint | null {
+/** The destination records the speed at which the owner travelled the incoming edge. */
+export type PeerWaypoint = WorldPoint & { rate?: number };
+
+/** Hold a planted pose across a short packet gap without advancing its ground position. */
+export function peerPoseInMotion(lastMovementAt: number | undefined, now: number): boolean {
+    return lastMovementAt !== undefined && now >= lastMovementAt && now - lastMovementAt < 200;
+}
+
+export function advanceTimedPeerPath(points: PeerWaypoint[], seconds: number, fixedRate?: number): PeerWaypoint | null {
     while (points.length > 1) {
         const a = points[0]!, b = points[1]!, length = worldDistance(a, b);
-        if (length > distance) {
-            const t = distance / length;
-            points[0] = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+        const rate = fixedRate ?? b.rate ?? 1;
+        const duration = length / rate;
+        if (duration > seconds) {
+            if (seconds <= 0) break;
+            const t = seconds / duration;
+            const point: PeerWaypoint = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+            if (b.rate !== undefined) point.rate = b.rate;
+            points[0] = point;
             break;
         }
-        distance -= length; points.shift();
+        seconds -= duration;
+        points.shift();
     }
     return points[0] ?? null;
+}
+
+export function advancePeerPath(points: WorldPoint[], distance: number): WorldPoint | null {
+    return advanceTimedPeerPath(points, distance, 1);
 }

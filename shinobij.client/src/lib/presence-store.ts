@@ -87,9 +87,10 @@ const recentConfirms = new Map<string, number>();
 const recentWorldMoves = new Map<string, number>();
 function retainNewerWorldPosition(player: PlayerRecord): PlayerRecord {
     const key = playerKey(player.name), previous = liveArr.find(p => playerKey(p.name) === key);
-    if (previous?.worldPosition && Date.now() - (recentWorldMoves.get(key) ?? 0) < ROSTER_RACE_MS
+    if (previous && Date.now() - (recentWorldMoves.get(key) ?? 0) < ROSTER_RACE_MS
         && (previous.movementSequence ?? 0) > (player.movementSequence ?? -1))
-        return { ...player, tile: previous.tile, worldPosition: previous.worldPosition, movementSequence: previous.movementSequence };
+        return { ...player, tile: previous.tile, worldPosition: previous.worldPosition, movementSequence: previous.movementSequence,
+            gaitPresentation: previous.gaitPresentation };
     return player;
 }
 // The newest complete roster adopted for the current sector, from either
@@ -233,7 +234,7 @@ const SEEN_BUCKET_MS = 30_000;
 export function presenceSignature(list: PlayerRecord[]): string {
     return list
         .map((p) =>
-            `${p.name.toLowerCase()}:${p.level ?? ""}:${p.currentSector ?? ""}:${p.village ?? ""}:${p.clan ?? ""}:${p.inBattle ? 1 : 0}:${p.stronghold?.sector ?? ""}:${peerIsTraveling(p) ? 1 : 0}:${p.travelingUntil ?? 0}:${p.character?.avatarImage ?? ""}:${Math.floor((p.lastSeenAt ?? 0) / SEEN_BUCKET_MS)}`,
+            `${p.name.toLowerCase()}:${p.level ?? ""}:${p.currentSector ?? ""}:${p.village ?? ""}:${p.clan ?? ""}:${p.inBattle ? 1 : 0}:${p.activity ?? ""}:${p.stronghold?.sector ?? ""}:${peerIsTraveling(p) ? 1 : 0}:${p.travelingUntil ?? 0}:${p.character?.avatarImage ?? ""}:${p.character?.starterWorldModel ?? ""}:${p.character?.playerModel?.assetId ?? ""}:${p.character?.playerModel?.version ?? ""}:${Math.floor((p.lastSeenAt ?? 0) / SEEN_BUCKET_MS)}`,
         )
         .sort()
         .join("|");
@@ -242,7 +243,7 @@ export function presenceSignature(list: PlayerRecord[]): string {
 // Full live signature = membership signature + per-name tile, so the overlay
 // re-renders when a peer walks. Keep push/remove in sync via this one helper.
 function liveSignature(list: PlayerRecord[], memberSig: string): string {
-    return memberSig + "||" + list.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}:${p.stronghold?.tile ?? ""}:${JSON.stringify(p.worldPosition ?? '')}`).sort().join(",");
+    return memberSig + "||" + list.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}:${p.stronghold?.tile ?? ""}:${JSON.stringify(p.worldPosition ?? '')}:${p.movementSequence ?? ""}:${p.gaitPresentation?.gait ?? ""}:${p.gaitPresentation?.style ?? ""}`).sort().join(",");
 }
 
 /** The live signature, rebuilt here (not per socket move) when a move left it stale. */
@@ -354,13 +355,17 @@ export function upsertLiveSectorPlayer(player: PlayerRecord, sector: number): vo
 }
 
 /** Apply a high-frequency tile delta while keeping the roster snapshot stable. */
-export function moveLiveSectorPlayer(name: string, tile: number, sector: number): void {
+export function moveLiveSectorPlayer(name: string, tile: number, sector: number, sequence?: number): void {
     const snapshotSector = normalizedSector(sector);
     if (snapshotSector == null || (liveSector != null && liveSector !== snapshotSector)) return;
     const key = playerKey(name);
     const index = liveArr.findIndex((p) => playerKey(p.name) === key);
-    if (index < 0 || liveArr[index].tile === tile) return;
-    liveArr = liveArr.map((p, i) => i === index ? { ...p, tile } : p);
+    if (index < 0) return;
+    const sequenced = sequence !== undefined && Number.isSafeInteger(sequence) && sequence > 0;
+    if (sequenced ? liveArr[index].worldPosition || sequence <= (liveArr[index].movementSequence ?? 0)
+        : liveArr[index].tile === tile) return;
+    liveArr = liveArr.map((p, i) => i === index ? { ...p, tile, ...(sequenced ? {movementSequence:sequence} : {}) } : p);
+    if (sequenced) recentWorldMoves.set(key, Date.now());
     liveSigStale = true;
     // rosterArr intentionally remains unchanged: tile movement should only
     // re-render the peer overlay, not WorldMap's membership/status panels.
@@ -368,11 +373,12 @@ export function moveLiveSectorPlayer(name: string, tile: number, sector: number)
 }
 
 /** Existing same-sector presence, now placed on its accepted world edge. */
-export function moveLiveWorldPlayer(name: string, sector: number, position: PlayerRecord['worldPosition'], sequence: number): void {
+export function moveLiveWorldPlayer(name: string, sector: number, position: PlayerRecord['worldPosition'], sequence: number,
+    gaitPresentation?: PlayerRecord['gaitPresentation']): void {
     if (normalizedSector(sector) !== liveSector || !position || !Number.isSafeInteger(sequence)) return;
     const index = liveArr.findIndex(p => playerKey(p.name) === playerKey(name));
     if (index < 0 || sequence <= (liveArr[index].movementSequence ?? -1)) return;
-    liveArr = liveArr.map((p, i) => i === index ? { ...p, worldPosition: position, movementSequence: sequence } : p);
+    liveArr = liveArr.map((p, i) => i === index ? { ...p, worldPosition: position, movementSequence: sequence, gaitPresentation } : p);
     recentWorldMoves.set(playerKey(name), Date.now());
     liveSigStale = true;
     notifyWorldMoves();

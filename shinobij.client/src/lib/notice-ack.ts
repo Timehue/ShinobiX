@@ -32,8 +32,9 @@ export function noticeIdsOf(notices: unknown): string[] {
 }
 
 /** The fields every heartbeat body carries to declare and perform acknowledgement. */
-export function heartbeatNoticeAckFields(): { noticeAck: true; exchangeSaleNotices: true; ackNotices: string[]; ackHeal?: number } {
-    return { noticeAck: true, exchangeSaleNotices: true, ackNotices: deliveredIds.slice(0, 32), ...(healId > 0 ? { ackHeal: healId } : {}) };
+export function heartbeatNoticeAckFields(): { noticeAck: true; exchangeSaleNotices: true; worldModelNotices: true; ackNotices: string[]; ackHeal?: number } {
+    return { noticeAck: true, exchangeSaleNotices: true, worldModelNotices: true,
+        ackNotices: deliveredIds.slice(0, 32), ...(healId > 0 ? { ackHeal: healId } : {}) };
 }
 
 /**

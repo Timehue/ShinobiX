@@ -14,17 +14,23 @@
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { HOLLOW_GATE_STEP_MS } from "./use-hollow-gate-walk";
+import { SectorModelFigure, type SectorModelHandle } from "../../components/SectorModelFigure";
+import type { PlayerModel, SprintStyle } from "../../lib/player-model";
 
 // Base glide speed — slightly faster than the walk-logic cadence so the
 // sprite arrives at each tile before the next step lands.
 const TILES_PER_SEC = 1150 / HOLLOW_GATE_STEP_MS;
+// A glide completes just before the next scheduled tile. Allow two display
+// frames for its React update before starting a planted stop.
+const STEP_GAP_MS = HOLLOW_GATE_STEP_MS - 1000 / TILES_PER_SEC + 1000 / 30;
 
 function prefersReducedMotion(): boolean {
     return typeof window !== "undefined"
         && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSelect, disposition, label }: {
+export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSelect, disposition, label,
+    artBase, modelKind, equipped, sprintStyle }: {
     tileX: number;
     tileY: number;
     tilePx: number;
@@ -33,9 +39,14 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
     onSelect?: () => void;
     disposition?: 'friendly' | 'hostile';
     label?: string;
+    artBase?: string | null;
+    modelKind?: string;
+    equipped?: PlayerModel;
+    sprintStyle?: SprintStyle;
 }) {
     const figRef = useRef<HTMLDivElement | null>(null);
     const spriteRef = useRef<HTMLSpanElement | null>(null);
+    const model = useRef<SectorModelHandle>(null);
     const posRef = useRef({ x: tileX, y: tileY });
     const waypointsRef = useRef<Array<{ x: number; y: number }>>([]);
     const facingRef = useRef(1);
@@ -45,20 +56,20 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
     // Layout effects run in declaration order, so the tile-size mirror lands
     // before the first paint below (a ref write during render trips the
     // hooks purity rule).
-    useLayoutEffect(() => { tileRef.current = tilePx; paint(); }, [tilePx]);
+    useLayoutEffect(() => { tileRef.current = tilePx; paint(false, true); }, [tilePx, artBase, modelKind, equipped?.assetId, equipped?.version, sprintStyle]);
 
-    function paint() {
+    function paint(moving = false, snap = false) {
         const fig = figRef.current;
         if (!fig) return;
         const cx = (posRef.current.x + 0.5) * tileRef.current;
         const cy = (posRef.current.y + 0.5) * tileRef.current;
         // Anchor the figure's BASE on the tile centre (the feet, not the head).
-        fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -88%)`;
+        fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, var(--hg-avatar-anchor, -88%))`;
         spriteRef.current?.style.setProperty("--face", String(facingRef.current));
+        const width = tileRef.current * 12;
+        if (snap) model.current?.snap(cx, cy, width);
+        else model.current?.place(cx, cy, width, moving, undefined, moving);
     }
-
-    // First paint before the browser paints — no flash at the board origin.
-    useLayoutEffect(() => { paint(); }, []);
 
     function stopGlide() {
         cancelAnimationFrame(rafRef.current);
@@ -72,7 +83,7 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
         if (document.hidden || prefersReducedMotion()) {
             stopGlide();
             posRef.current = { x: tileX, y: tileY };
-            paint();
+            paint(false, true);
             return;
         }
         // Enqueue the new logical tile as a waypoint (skip exact duplicates).
@@ -86,19 +97,26 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
             if (!rafRef.current) figRef.current?.classList.remove("is-walking");
             return;
         }
-        if (rafRef.current) return;                 // glide loop already running
+        figRef.current?.classList.add("is-walking");
+        if (rafRef.current) return;                 // glide or braking loop already running
 
         lastTsRef.current = 0;
-        figRef.current?.classList.add("is-walking");
+        let lastTravel = 0;
         const tick = (ts: number) => {
             if (!lastTsRef.current) lastTsRef.current = ts;
-            const dt = Math.min(0.05, (ts - lastTsRef.current) / 1000);
+            // A slow display can present a whole step in one frame. The single
+            // queue head below still prevents crossing a corner in that frame.
+            const dt = Math.min(HOLLOW_GATE_STEP_MS, ts - lastTsRef.current) / 1000;
             lastTsRef.current = ts;
             const queue = waypointsRef.current;
             const head = queue[0];
             if (!head) {
-                rafRef.current = 0;
+                if (model.current && ts - lastTravel < STEP_GAP_MS) {
+                    rafRef.current = requestAnimationFrame(tick);
+                    return;
+                }
                 figRef.current?.classList.remove("is-walking");
+                rafRef.current = model.current?.stop() ? requestAnimationFrame(tick) : 0;
                 return;
             }
             const p = posRef.current;
@@ -115,7 +133,8 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
             } else {
                 posRef.current = { x: p.x + (dx / dist) * step, y: p.y + (dy / dist) * step };
             }
-            paint();
+            paint(true);
+            lastTravel = ts;
             rafRef.current = requestAnimationFrame(tick);
         };
         rafRef.current = requestAnimationFrame(tick);
@@ -130,7 +149,7 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
             const q = waypointsRef.current;
             if (q.length > 0) posRef.current = q[q.length - 1];
             stopGlide();
-            paint();
+            paint(false, true);
         };
         const onVis = () => { if (document.hidden) snap(); };
         const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -155,6 +174,8 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
             role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined} aria-label={onSelect ? `${name}, ${label}` : undefined}
             onClick={onSelect} onKeyDown={onSelect ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onSelect(); } } : undefined}>
             <span className="hg-avatar-shadow" />
+            {artBase && modelKind && <SectorModelFigure key={modelKind} ref={model} kind={modelKind}
+                equipped={equipped} style={sprintStyle} artBase={artBase} />}
             <span className="hg-avatar-aura" />
             <span className="hg-avatar-sprite" ref={spriteRef}>
                 <span className="hg-avatar-body">

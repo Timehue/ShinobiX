@@ -4,6 +4,7 @@ import {storedValueEquals} from '../../_stored-value.js';
 import {clanRecordKey} from '../../_utils.js';
 import {clanCampaignSeasonKey,type ClanCampaignRecord,type ClanCampaignPrestige} from '../../../shared/clan-campaign-history.js';
 import {computeMvpByClan,type ClanWar} from './_storage.js';
+import {isNpcClanRecord} from '../../../shared/npc-clans.js';
 
 /** Results survive pair-row rematches and cannot be rewritten by generic clan saves. */
 export async function recordClanCampaignHistory(war:ClanWar):Promise<void> {
@@ -29,7 +30,9 @@ export async function recordClanCampaignHistory(war:ClanWar):Promise<void> {
                 points:war.campaign!.scores[clan]??0,enemyPoints:war.campaign!.scores[enemy]??0,normalPoints,shrinePoints,
                 played:matches.length,mvp:mvp[clan],modes,...(result==='Won'?{warCrateId:war.warCrateId}:{})};
             let prestige=(record.campaignPrestige as ClanCampaignPrestige|undefined)??{wins:0,losses:0,draws:0,participations:0,seasons:{},earnedBanners:[]};
-            if(competitive){
+            // A Cinderhold clan keeps the history for display but earns no
+            // prestige: it never ranks (owner ruling 2026-11-10).
+            if(competitive&&!isNpcClanRecord(record)){
                 const prior=prestige.seasons[season]??{wins:0,losses:0,draws:0,points:0};
                 const scores={wins:prior.wins+Number(result==='Won'),losses:prior.losses+Number(result==='Lost'),draws:prior.draws+Number(result==='Draw'),points:prior.points+(result==='Won'?3:result==='Draw'?1:0)};
                 const seasons=Object.fromEntries(Object.entries({...prestige.seasons,[season]:scores}).sort(([a],[b])=>b.localeCompare(a)).slice(0,8));

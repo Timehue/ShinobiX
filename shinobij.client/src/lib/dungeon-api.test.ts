@@ -157,7 +157,7 @@ test('incomplete dungeon replies are retried instead of becoming authoritative m
     for (const incomplete of [
         { ...complete, requestId: undefined },
         { ...complete, sector: undefined },
-        { ...complete, sector: 67 },
+        { ...complete, sector: 75 }, // one past MAX_WILD_SECTOR (74, Cinderhold)
         { ...complete, found: undefined },
         { ...complete, found: true, token: '' },
         { ...complete, worldExploreRequestId: 'bad' },

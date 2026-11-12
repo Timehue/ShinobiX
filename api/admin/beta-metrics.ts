@@ -9,6 +9,7 @@ import {
     buildDailyBetaReport,
     formatDailyBetaReport,
 } from '../_beta-report.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 
 // Admin-only beta readiness telemetry reader.
 //
@@ -31,7 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         || body?.includePopulation === true;
     let population;
     if (includePopulation) {
-        const keys = await kv.keys('save:*');
+        // Cinderhold NPC accounts are not players: keep them out of the census.
+        const keys = (await kv.keys('save:*')).filter((key) => !isNpcAccount(key.slice('save:'.length)));
         const records: unknown[] = [];
         for (let i = 0; i < keys.length; i += 200) {
             records.push(...await kv.mget(...keys.slice(i, i + 200)));

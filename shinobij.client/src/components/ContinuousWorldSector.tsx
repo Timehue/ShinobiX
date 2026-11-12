@@ -12,11 +12,24 @@ import { ContinuousWorldTiles } from './ContinuousWorldTiles';
 import { ResourceWorld } from './ResourceWorld';
 import { SectorLife } from './SectorLife';
 import { SectorBuildings } from './SectorBuildings';
+import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
+import { usePlayerGaits, useSectorModelArtBase } from '../lib/sector-obstacles';
+import { useSprintStyle, isPlayerModel, starterModel } from '../lib/player-model';
 
 /** Current normal-world view. Existing HUD/encounter components retain their owners. */
 export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     const canvas = useRef<HTMLCanvasElement>(null), chunk = useRef<HTMLDivElement>(null), marker = useRef<HTMLDivElement>(null);
     const latest = useRef(props), engine = useRef<Awaited<ReturnType<typeof mountContinuousWorld>> | null>(null);
+    const model = useRef<SectorModelHandle>(null);
+    const modelArtBase = useSectorModelArtBase(), gaits = usePlayerGaits();
+    const [running, setRunning] = useState(false);
+    const equipped = isPlayerModel(props.playerModel) ? props.playerModel : undefined;
+    const sprintStyle = useSprintStyle();
+    const peerStyle = useRef(sprintStyle);
+    useLayoutEffect(() => { peerStyle.current = sprintStyle; }, [sprintStyle]);
+    const gait = useRef<'walk' | 'run' | undefined>(undefined);
+    useLayoutEffect(() => { gait.current = gaits ? (running ? 'run' : 'walk') : undefined; }, [gaits, running]);
+    const starter = starterModel(props.playerAvatarImage, props.starterWorldModel);
     const [status, setStatus] = useState('Connecting to world…'), [retry, setRetry] = useState(0), [ready, setReady] = useState(false);
     const name = props.playerName;
     const position = useRef<{ sector: number; col: number; row: number } | null>(null);
@@ -25,7 +38,11 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     useLayoutEffect(() => { latest.current = props; });
     useEffect(() => {
         const abort = new AbortController(); let alive = true;
+        const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
         void mountContinuousWorld({ canvas: canvas.current!, chunk: chunk.current!, marker: marker.current!, signal: abort.signal,
+            gait: () => gait.current, sprintStyle: () => peerStyle.current,
+            groundStride: (...args) => motion.matches ? undefined : model.current?.ground(...args),
+            onFigure: (x, y, width, moving, gait) => model.current?.place(x, y, width, moving && !motion.matches, gait),
             paused: () => Boolean(latest.current.suspended || latest.current.paused),
             blocked: () => Boolean(latest.current.suspended || latest.current.worldMovementBlocked?.()
                 || document.querySelector('[aria-modal=true],dialog[open]')),
@@ -49,7 +66,8 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     return <main className="tile-scene sector-stage-panel">
         {!props.suspended && props.hudLayer}
         <div className="pixel-map walkable-sector-map sector-image-map continuous-world-map" data-ground-floor="true" aria-busy={!ready} data-suspended={props.suspended || undefined}>
-            <canvas ref={canvas} tabIndex={0} aria-label="World terrain. Hold WASD or arrows to walk; tap a destination or drag to steer." />
+            <canvas ref={canvas} className={props.suspended ? undefined : "world-terrain-visible"} tabIndex={0}
+                aria-label="World terrain. Hold WASD or arrows to walk; tap a destination or drag to steer." />
             <DayNightSky className="on-floor" />
             {!props.suspended && !props.paused && <SceneAmbience biome={props.ambienceBiome} weather={props.weather} weatherSector={props.sector} weatherBiome={props.biome} />}
             {props.regionSplash && <RegionSplash {...props.regionSplash} onDone={props.onRegionSplashDone} />}
@@ -65,11 +83,16 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                 {!props.suspended && props.gatheringCharacter && props.onGatheringCommit && <ResourceWorld character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} walk={(sector, tile) => { engine.current?.go(sector, tile); }} worldBossCrystals={props.worldBossCrystals} onContest={props.onContestResource} />}
             </div>
             <div ref={marker} className="sector-avatar-figure continuous-world-self" aria-hidden="true" data-world-self="true">
+                {gaits && modelArtBase && <SectorModelFigure ref={model} kind={starter} equipped={equipped}
+                    style={sprintStyle} artBase={modelArtBase} />}
                 <span className="sector-avatar-shadow" /><span className="sector-avatar-sprite"><span className="sector-avatar-body">
                     <SectorPortrait key={props.playerAvatarImage} src={props.playerAvatarImage} name={props.playerName} /><span className="sector-avatar-pin" />
                 </span></span>
+                {gaits && modelArtBase && <span className="sector-peer-label sector-self-label">{name}</span>}
             </div>
             {props.mapHudLayer}
+            {gaits && ready && !props.suspended && <button type="button" className="world-run-toggle" aria-pressed={running}
+                onClick={() => setRunning(value => !value)}>Run</button>}
             <div className="continuous-world-status" role="status" aria-live="polite">{status}
                 {status === STALE_WORLD_STATUS ? <button type="button" onClick={() => window.location.reload()}>Reload</button>
                     : !ready && status !== 'Connecting to world…' && <button type="button" onClick={() => { setStatus('Connecting to world…'); setRetry(value => value + 1); }}>Retry</button>}

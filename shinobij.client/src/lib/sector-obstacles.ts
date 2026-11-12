@@ -9,14 +9,28 @@ import { visiblePoll } from "./poll";
 const OBSTACLE_FLAG_POLL_MS = 5 * 60_000;
 
 let enabled = true;
+let modelArtBase: string | null = null;
+let playerGaits = false;
+let profileDetailUploads = false;
+let worldModelCreationAvailable = false;
 const listeners = new Set<() => void>();
 let stopPoll: (() => void) | undefined;
 let pending: Promise<void> | undefined;
 async function refresh() {
     if (pending) return pending;
     pending = fetch("/api/world/sector-layout", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(value => {
-        if (typeof value?.obstaclesEnabled !== "boolean" || value.obstaclesEnabled === enabled) return;
+        if (typeof value?.obstaclesEnabled !== "boolean") return;
+        const base = typeof value.modelArtBase === "string" ? value.modelArtBase : null;
+        const gaits = value.playerGaitsEnabled === true;
+        const detail = value.profileDetailUploads === true;
+        const creationAvailable = value.worldModelCreationAvailable === true;
+        if (value.obstaclesEnabled === enabled && base === modelArtBase && playerGaits === gaits &&
+            detail === profileDetailUploads && creationAvailable === worldModelCreationAvailable) return;
+        profileDetailUploads = detail;
+        worldModelCreationAvailable = creationAvailable;
+        playerGaits = gaits;
         enabled = value.obstaclesEnabled;
+        modelArtBase = base;
         listeners.forEach(listener => listener());
     }).catch(() => {}).finally(() => { pending = undefined; });
     return pending;
@@ -27,7 +41,14 @@ const subscribe = (listener: () => void) => {
     return () => { listeners.delete(listener); if (!listeners.size && stopPoll) { stopPoll(); stopPoll = undefined; } };
 };
 export const sectorObstaclesOn = () => enabled;
+export async function supportsProfileDetailUpload() {
+    await refresh();
+    return profileDetailUploads;
+}
 export const useSectorObstacles = () => useSyncExternalStore(subscribe, sectorObstaclesOn, () => true);
+export const useSectorModelArtBase = () => useSyncExternalStore(subscribe, () => modelArtBase, () => null);
+export const usePlayerGaits = () => useSyncExternalStore(subscribe, () => playerGaits, () => false);
+export const useWorldModelCreationAvailable = () => useSyncExternalStore(subscribe, () => worldModelCreationAvailable, () => false);
 export const safeSectorTile = (sector: number, tile: number) => nearestWalkableTile(sector, tile, enabled);
 export function useSectorTileGrounding(sector: number | null, tile: number, setTile: Dispatch<SetStateAction<number>>) {
     const obstacles = useSectorObstacles();

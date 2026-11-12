@@ -86,10 +86,10 @@ describe('World AI fight authority', () => {
         assert.equal(cleanWorldAiFightRequest({ kind: 'questbook-boss', sourceId: 'qb-bell', sector: 1, stage: 1, chainId: 'abcdefgh' }), null);
         assert.equal(cleanWorldAiFightRequest({ kind: 'wanderer-ambush', sourceId: 'wanderer-ambush', sector: 1, stage: 0, chainId: 'abcdefgh' }), null);
         assert.equal(cleanWorldAiFightRequest({ kind: 'hunt-pack', sourceId: 'hunt-wild-boar', sector: 25, stage: 0 }), null);
-        for (const sector of [60, 61, 66]) {
+        for (const sector of [60, 61, 66, 67, 74]) {
             assert.ok(cleanWorldAiFightRequest({ kind: 'wanderer', sourceId: 'w-1-1-0', sector }), `sector ${sector} should be a normal World sector`);
         }
-        for (const sector of [67, 99]) {
+        for (const sector of [75, 99]) {
             assert.equal(cleanWorldAiFightRequest({ kind: 'wanderer', sourceId: 'w-1-1-0', sector }), null, `sector ${sector} must not be a normal World encounter sector`);
         }
         assert.deepEqual(cleanWorldAiFightRequest({ kind: 'world-crisis', sourceId: 'fourfold-breach-v1:stormveil', sector: 0 }), {

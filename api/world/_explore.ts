@@ -1,6 +1,6 @@
 import { gainXp } from '../_xp-engine.js';
 import { recordFirstContractActivity } from '../../shared/first-contract.js';
-import { isPlayableWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { isPlayableWildSector, sectorBiomeOf, sectorRewardTier } from '../../shared/sector-geo.js';
 import { WILD_HIT_CEILING } from '../pet/_encounter.js';
 
 export const DAILY_SECTOR_EXPLORE_LIMIT = 100;
@@ -72,7 +72,9 @@ export function sectorExploreReward(sectorRaw: unknown): { sector: number; xp: n
     // unlimited-ish repeat channel, so the old xp line (20 + sector/5) folds
     // into ryo instead — the discovery/loot layer stays the draw. `xp` stays in
     // the shape as 0 for old clients.
-    return { sector, xp: 0, ryo: 10 + Math.floor(sector / 4) + 10 + Math.floor(sector / 10) };
+    // sectorRewardTier: Cinderhold (67-74) pays as sector 66, never more.
+    const tier = sectorRewardTier(sector);
+    return { sector, xp: 0, ryo: 10 + Math.floor(tier / 4) + 10 + Math.floor(tier / 10) };
 }
 
 /**

@@ -9,7 +9,7 @@ const nodes = buildWorldNavigation(CONTINUOUS_WORLD_SPACE).nodes;
 const crossings = worldRoadCrossings(CONTINUOUS_WORLD_SPACE.roads);
 
 test('a tap on any bridge deck chooses the upper road, never the road beneath', () => {
-    assert.equal(crossings.length, 13);
+    assert.equal(crossings.length, 15); // + two raised crossings inside Cinderhold (2026-11-08)
     for (const crossing of crossings) for (const offset of [-1.2, 0, 1.2]) {
         const point = crossing.horizontal ? { x: crossing.x + offset, y: crossing.y + .2 } : { x: crossing.x + .2, y: crossing.y + offset };
         const candidates = tapCandidates(nodes, point, crossings);

@@ -106,6 +106,16 @@ const placements: readonly [number, ResourceActivity, number, number, 1 | 4 | 7,
     [66, 'mining', 80, 92, 7, 'Magma heart'],
     [7, 'fishing', 72, 84, 4, 'Reedbank shoal'],
     [35, 'fishing', 121, 122, 7, 'Glacier-fed depths'],
+    // Cinderhold (67-74), 2026-11-08 — one ash-rock seam per sector (67's moved
+    // north of the walled village on 2026-11-09).
+    [67, 'mining', 32, 33, 4, 'Ember seam'],
+    [68, 'mining', 102, 103, 4, 'Ember seam'],
+    [69, 'mining', 16, 15, 7, 'Magma heart'],
+    [70, 'mining', 28, 29, 7, 'Magma heart'],
+    [71, 'mining', 88, 100, 4, 'Ember seam'],
+    [72, 'mining', 4, 16, 7, 'Magma heart'],
+    [73, 'mining', 25, 26, 7, 'Magma heart'],
+    [74, 'mining', 82, 81, 4, 'Ember seam'],
 ];
 function levelRewards(sector: number, activity: ResourceActivity, difficulty: ResourceNodeLevel): Pick<ResourceNode, 'ceiling' | 'trace'> {
     const place = SECTOR_PLACES.find(p => p.id === sector)!;

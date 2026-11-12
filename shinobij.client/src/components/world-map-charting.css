@@ -144,7 +144,10 @@
    inline left/top the component sets, so they need !important. If you re-tune a
    desktop anchor in WorldRoadsOverlay, this block does NOT follow it. */
 @media (max-width: 980px) {
-    .wpk-deathsgate { left: 39% !important; top: 9% !important; }
+    /* 2026-11-08: Cinderhold took the cone; Death's Gate dropped to the lower
+       lava tongue, so its small-board plate moved down with it. */
+    .wpk-cinderhold { left: 47% !important; top: 14% !important; }
+    .wpk-deathsgate { left: 52% !important; top: 25.2% !important; }
     .wpk-ashenleaf  { left: 14% !important; top: 38% !important; }
     .wpk-frostfang  { left: 79% !important; top: 36% !important; }
     .wpk-gates      { left: 53% !important; top: 66% !important; }

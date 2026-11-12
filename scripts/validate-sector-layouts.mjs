@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { pathInMask, tileNeighbors } from '../shared/sector-walk-mask.ts';
-import { SECTOR_PLACES } from '../shared/sector-geo.ts';
+import { SECTOR_PLACES, CINDERHOLD_SECTORS } from '../shared/sector-geo.ts';
 import { sectorExits } from '../shared/sector-links.ts';
 import { shrineForSector } from '../shared/shrines.ts';
 import { HOME_SECTORS } from '../shinobij.client/src/data/war-map-sectors.ts';
@@ -56,7 +56,10 @@ export function validateSectorLayouts(layouts) {
                 assert.ok(kind === 'rift' ? '.='.includes(mask[(y + dy) * 12 + x + dx]) : mask[(y + dy) * 12 + x + dx] === 'B', `Invalid ${kind} footprint in ${place.id}`);
             assert.ok(open.includes(site.approach), `Closed ${kind} approach ${place.id}`);
         }
-        assert.equal(!!l.sites.stronghold, !l.village && Object.values(HOME_SECTORS).some(ids => ids.includes(place.id)), `Invented or missing stronghold ${place.id}`);
+        // Every village (Cinderhold, the NPC village, included) holds a
+        // stronghold in each home sector but its gate, where the village stands.
+        const garrisoned = !l.village && (Object.values(HOME_SECTORS).some(ids => ids.includes(place.id)) || CINDERHOLD_SECTORS.includes(place.id));
+        assert.equal(!!l.sites.stronghold, garrisoned, `Invented or missing stronghold ${place.id}`);
         assert.equal(!!l.sites.shrine, !!shrineForSector(place.id), `Invented or missing shrine ${place.id}`);
         const roadEnds = new Set([...exits.map(e => e.tile),
             ...Object.entries(l.sites).filter(([kind]) => kind !== 'rift').map(([, s]) => s.approach),

@@ -12,6 +12,7 @@ import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { villageCampaignStrongholdLookup } from '../_village-war-campaign.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { isWarSector } from '../_war-map-sectors.js';
+import { isNpcHomeSector } from '../../shared/npc-village.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { builtinAiProfile } from '../_ai-profile-catalog.js';
@@ -74,7 +75,8 @@ export async function strongholdVaultReady(playerName: string, sector: number): 
 /** Called only after the infiltration route authenticates the player and checks its feature flag. */
 export async function handleStrongholdAction(playerName: string, action: string, body: Record<string, unknown>): Promise<Result> {
     const sector = Number(body.sector);
-    if (!Number.isInteger(sector) || (!isWarSector(sector) && !isDeathsGateStronghold(sector))) return fail('That sector has no stronghold.', 400);
+    // Cinderhold's block has no stronghold (its NPCs keep no vault; Push 4), whoever holds it.
+    if (!Number.isInteger(sector) || isNpcHomeSector(sector) || (!isWarSector(sector) && !isDeathsGateStronghold(sector))) return fail('That sector has no stronghold.', 400);
     const key = strongholdVisitKey(playerName, sector);
     if (action === 'stronghold-leave') {
         return withKvLock(key, async () => {

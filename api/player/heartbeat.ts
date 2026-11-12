@@ -33,6 +33,7 @@ import { towerPartyInviteKey } from '../towers/_party.js';
 /** Stable identity of one inbox entry (the inbox has no ids of its own). */
 function noticeStamp(n: OfflineNotice): string {
     if (n.kind === 'exchange-sale' && n.sale) return `exchange-sale|${n.sale.seller}|${n.sale.listingId}`;
+    if (n.kind === 'world-model-removed') return `world-model-removed|${n.modelAccountId}|${n.at}`;
     return `${n.kind}|${n.by}|${n.sector}|${n.at}|${n.amount ?? ''}|${n.total ?? ''}`;
 }
 
@@ -75,10 +76,10 @@ export function noticeId(n: OfflineNotice): string {
     return createHash('sha1').update(noticeStamp(n)).digest('base64url').slice(0, 12);
 }
 
-export type DeliveredOfflineNotice = OfflineNotice & { id: string };
+export type DeliveredOfflineNotice = Omit<OfflineNotice, 'modelAccountId'> & { id: string };
 
 export function withNoticeIds(list: readonly OfflineNotice[]): DeliveredOfflineNotice[] {
-    return list.map((n) => ({ ...n, id: noticeId(n) }));
+    return list.map(({ modelAccountId, ...notice }) => ({ ...notice, id: noticeId({ ...notice, modelAccountId }) }));
 }
 
 const NOTICE_ACK_ID = /^[A-Za-z0-9_-]{4,32}$/;
@@ -100,13 +101,15 @@ export function parseNoticeAcks(raw: unknown): string[] {
  * ids on a later beat. A notice pushed concurrently never matches an acked id
  * and always survives. Best-effort under contention, like the legacy clear.
  */
-export async function consumeAcknowledgedNotices(key: string, ids: readonly string[], exchangeSaleNotices = true): Promise<void> {
+export async function consumeAcknowledgedNotices(key: string, ids: readonly string[], exchangeSaleNotices = true,
+    modelAccountId?: string): Promise<void> {
     if (ids.length === 0) return;
     const acked = new Set(ids);
     try {
         await withKvLock(key, async () => {
             const current = parseOfflineNotices(await kv.get(key));
-            const remaining = current.filter((n) => (n.kind === 'exchange-sale' && !exchangeSaleNotices) || !acked.has(noticeId(n)));
+            const remaining = current.filter((n) => (n.kind === 'exchange-sale' && !exchangeSaleNotices) ||
+                (n.kind === 'world-model-removed' && n.modelAccountId !== modelAccountId) || !acked.has(noticeId(n)));
             if (remaining.length === current.length) return;
             if (remaining.length === 0) await kv.del(key);
             else await kv.set(key, remaining, { ex: OFFLINE_NOTICES_TTL_SEC });
@@ -142,7 +145,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
-        const { name, sector, character, travelingUntil, inBattle, tile, noticeAck, exchangeSaleNotices, ackNotices, ackHeal, socketLive } = body as {
+        const { name, sector, character, travelingUntil, inBattle, tile, noticeAck, exchangeSaleNotices, worldModelNotices,
+            ackNotices, ackHeal, socketLive } = body as {
             name?: string;
             sector?: number;
             character?: unknown;
@@ -153,6 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             noticeAck?: boolean;
             /** This client can display and reconcile Exchange sale receipts. */
             exchangeSaleNotices?: boolean;
+            worldModelNotices?: boolean;
             /** Ids (from an earlier beat's `pendingNotices[].id`) the client has shown. */
             ackNotices?: unknown;
             /** The `pendingHeal.id` the client has shown. */
@@ -229,9 +234,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const resetSignal = signals[1];
         const healSignal = signals[2] as { by?: string; at?: number } | null;
         const rawNotices = signals[3];
-        // Old open tabs must not silently acknowledge an unfamiliar notice kind.
-        // Keep sale receipts queued until an updated client can show them.
-        const inboxNotices = parseOfflineNotices(rawNotices).filter((n) => n.kind !== 'exchange-sale' || supportsExchangeSales);
+        // Keep notices queued until the client declares it can show them.
+        const queuedNotices = parseOfflineNotices(rawNotices);
+        let modelAccountId: string | undefined;
+        if (ackProtocol && worldModelNotices === true && queuedNotices.some(n => n.kind === 'world-model-removed')) {
+            const save = await kv.get<{character?: {playerModelOwnerId?: string}}>('save:' + safeName(name)).catch(() => null);
+            modelAccountId = save?.character?.playerModelOwnerId;
+        }
+        const inboxNotices = queuedNotices.filter((n) => (n.kind !== 'exchange-sale' || supportsExchangeSales) &&
+            (n.kind !== 'world-model-removed' || n.modelAccountId === modelAccountId));
         // Under the ack protocol the inbox is delivered WITH ids, minus what
         // this very beat acknowledges (those are removed below, in parallel).
         const ackedSet = new Set(ackedNoticeIds);
@@ -318,6 +329,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : normalizeTile(persistedTravel && now >= persistedTravel.arrivalAt
                     ? persistedTravel.arrivalTile : resumeTileFor(walkedTile, entrySector, savedLocation?.currentTile)),
             tileSector: existing && !superseded ? normalizeSector(sector, existing.sector) : presenceSector,
+            restoredPlayerModel: !existing ? savedLocation?.playerModel : undefined,
+            restoredStarterWorldModel: savedLocation?.starterWorldModel,
             restoredWorldPosition: !existing && body.continuousWorld === true
                 ? persistedTravel && now >= persistedTravel.arrivalAt ? persistedTravel.worldPosition
                     : resumeWorldPositionFor(walkedTile, entrySector, savedLocation?.worldPosition) : undefined,
@@ -381,7 +394,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // branch is unchanged for bodies that do not declare the protocol.
         await Promise.all([
             healSignal && (healConsumeOnDelivery || healAcknowledged) ? kv.del(healSignalKey) : Promise.resolve(),
-            ackProtocol ? consumeAcknowledgedNotices(noticesKey, ackedNoticeIds, supportsExchangeSales) : consumeDeliveredNotices(noticesKey, pendingNotices),
+            ackProtocol ? consumeAcknowledgedNotices(noticesKey, ackedNoticeIds, supportsExchangeSales, modelAccountId)
+                : consumeDeliveredNotices(noticesKey, inboxNotices),
             stampPlayerIp(req, name),
         ]);
 

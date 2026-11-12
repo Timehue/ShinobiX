@@ -24,7 +24,10 @@ export default defineConfig({
         serviceWorkers: 'block',
     },
     webServer: {
-        command: 'node ../dist/server.js',
+        command: process.env.SECTOR_MODEL_CREATION_QA ? 'node ../scripts/sector-model-creation-qa.mjs'
+            : process.env.SECTOR_MODEL_DETAIL_QA ? 'node ../scripts/sector-model-detail-qa.mjs' : process.env.SECTOR_MODEL_LIVE_RECEIPT
+            ? 'node ../scripts/sector-model-account-qa.mjs'
+            : 'node ../dist/server.js',
         url: `${baseURL}/health`,
         reuseExistingServer: false,
         timeout: 120_000,
@@ -56,5 +59,10 @@ export default defineConfig({
     ] : [
         { name: 'chromium-desktop-live', use: { browserName: 'chromium', viewport: { width: 1366, height: 768 } } },
         { name: 'chromium-mobile-live', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+        ...(process.env.SECTOR_MODEL_TEST_PORTRAITS || process.env.SECTOR_MODEL_CREATION_QA ? [{
+            name: 'webkit-mobile-portrait-live',
+            testMatch: 'profile-world-model.spec.ts',
+            use: { browserName: 'webkit' as const, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+        }] : []),
     ],
 });

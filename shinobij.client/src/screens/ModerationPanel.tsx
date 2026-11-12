@@ -1,6 +1,9 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useCallback, useEffect } from "react";
 import { villages } from "../data/sectors";
+import { isPlayerModel, type PlayerModel } from "../lib/player-model";
+import { ModerationModelReport } from "../components/ModerationModelReport";
+import { AvatarModelOperations } from "../components/AvatarModelOperations";
 
 // ─── Admin Moderation Panel ───────────────────────────────────────────────────
 // Player search → IP history + linked accounts. Ban / silence (1d / 3d / 7d /
@@ -37,6 +40,7 @@ type ModReport = {
     id: string; createdAt: number; reporter: string;
     targetType: string; category: string;
     targetName: string | null; targetId: string | null;
+    targetVersion?: string;
     context: string | null; note: string | null; status: string;
     /** Server copy of a reported sector chat line (those fade within the hour). */
     evidence?: { name: string; text: string; ts: number };
@@ -47,6 +51,7 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
     const [silences, setSilences] = useState<Array<{ name: string; record: ModSilenceRecord }>>([]);
     const [audit, setAudit] = useState<ModAuditEntry[]>([]);
     const [reports, setReports] = useState<ModReport[]>([]);
+    const [modelReview, setModelReview] = useState<{ owner: string; model: PlayerModel } | null>(null);
     const [searchName, setSearchName] = useState("");
     const [searchSignal, setSearchSignal] = useState("");
     const [signalKind, setSignalKind] = useState<"ip" | "fp">("ip");
@@ -95,6 +100,11 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
             });
         } catch { /* ignore — refresh reflects the true state */ }
         finally { setLoading(false); await refresh(); }
+    }
+
+    function reviewModel(report: ModReport) {
+        const model = { assetId: report.targetId, version: report.targetVersion };
+        if (report.targetName && isPlayerModel(model)) setModelReview({ owner: report.targetName, model });
     }
 
     async function modAction(kind: string, body: Record<string, unknown>) {
@@ -188,6 +198,7 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
 
     return (
         <div style={{ display: "grid", gap: "1rem" }}>
+            <AvatarModelOperations key={adminPw} adminPw={adminPw} />
             <section className="summary-box">
                 <h3>🛡 Player Lookup</h3>
                 <p className="hint">Search by name to inspect a single account, or paste an IP / fingerprint hash to find every account using it.</p>
@@ -417,6 +428,8 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
 
             <section className="summary-box">
                 <h3>🚩 Player Reports ({reports.length})</h3>
+                {modelReview && <ModerationModelReport adminPw={adminPw} owner={modelReview.owner}
+                    model={modelReview.model} onClose={() => setModelReview(null)} />}
                 {reports.length === 0
                     ? <p className="hint">No open reports.</p>
                     : (
@@ -429,7 +442,10 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
                                             <span style={{ color: "#94a3b8" }}> · {rep.targetType}</span>
                                             {rep.targetName && <>{" · "}<button onClick={() => pivotTo(rep.targetName!)} style={{ background: "transparent", border: 0, color: "#fca5a5", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{rep.targetName}</button></>}
                                         </span>
-                                        <button onClick={() => void resolveReport(rep.id)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.8rem", padding: "0.2rem 0.6rem" }}>Resolve</button>
+                                        <span style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                            {rep.targetType === "player-model" && <button type="button" onClick={() => reviewModel(rep)}>Review model</button>}
+                                            <button onClick={() => void resolveReport(rep.id)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.8rem", padding: "0.2rem 0.6rem" }}>Resolve</button>
+                                        </span>
                                     </div>
                                     <div style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: 2 }}>
                                         by {rep.reporter} · {new Date(rep.createdAt).toLocaleString()}{rep.context ? ` · ${rep.context}` : ""}{rep.targetId ? ` · id ${rep.targetId}` : ""}

@@ -9,6 +9,9 @@ import { sectorName } from '../../shared/sector-geo';
 import { writeFile } from 'node:fs/promises';
 
 test.use({ contextOptions: { reducedMotion: 'no-preference' }, video: 'on' });
+if (process.env.SECTOR_TEST_TLS_PIN) test.use({launchOptions:{args:[
+    '--ignore-certificate-errors-spki-list='+process.env.SECTOR_TEST_TLS_PIN
+]}});
 for (const transport of ['socket', 'http'] as const) test(`continuous camera crosses a real road and restores accepted position (${transport})`, async ({ page, request, context }, info) => {
     test.setTimeout(180_000);
     if (transport === 'http') await context.route('**/socket.io/**', route => route.abort());
@@ -46,6 +49,12 @@ for (const transport of ['socket', 'http'] as const) test(`continuous camera cro
     await openWorld();
     const canvas = page.locator('.continuous-world-map > canvas');
     await expect(canvas).toHaveAttribute('data-world-sector', '9');
+    const pilot = process.env.ENABLE_PLAYER_GAIT_PILOT === '1' && process.env.ENABLE_SECTOR_MODEL_DISPLAY === '1';
+    const model = page.locator('[data-world-self] .sector-model-figure');
+    if (pilot) {
+        await expect(model).toBeVisible();
+        await page.getByRole('button', {name:'Run',exact:true}).click();
+    }
     await page.screenshot({ path: info.outputPath('continuous-start.png'), fullPage: true });
     await canvas.evaluate(element => {
         const frames: { x: number; y: number; sector: string; at: number }[] = [];
@@ -56,6 +65,7 @@ for (const transport of ['socket', 'http'] as const) test(`continuous camera cro
     const exit = sectorExits(9).find(e => e.destinationSector === 15)!;
     const button = page.getByRole('button', { name: `Cross to ${sectorName(exit.destinationSector)}`, exact: true });
     await button.focus(); await button.press('Enter');
+    if (pilot) await expect(model).toHaveAttribute('data-gait','run');
     await expect.poll(async () => (await (await request.get('/api/player/world-move', { headers })).json()).worldPosition?.from.startsWith('road:'), { timeout: 60_000 }).toBe(true);
     await page.screenshot({ path: info.outputPath('continuous-corridor.png'), fullPage: true });
     await expect(canvas).toHaveAttribute('data-world-sector', '15', { timeout: 90_000 });
@@ -72,6 +82,7 @@ for (const transport of ['socket', 'http'] as const) test(`continuous camera cro
     expect(Number(await canvas.getAttribute('data-decoded-maps'))).toBeLessThanOrEqual(8);
     await page.screenshot({ path: info.outputPath('continuous-boundary.png'), fullPage: true });
     await openWorld(); await expect(canvas).toHaveAttribute('data-world-sector', '15');
+    if (pilot) await expect(model).toBeVisible();
     expect((await (await request.get('/api/player/world-move', { headers })).json()).worldPosition).toEqual(accepted.worldPosition);
     expect(errors).toEqual([]);
     await writeFile(info.outputPath('continuous-world.json'), JSON.stringify({ accepted, frames, maximumStep: Math.max(...steps), errors }, null, 2));

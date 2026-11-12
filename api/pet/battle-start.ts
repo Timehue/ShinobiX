@@ -42,6 +42,7 @@ import {
 } from './_dungeon-battle.js';
 import { loadPvpPetDuel, pvpPetDuelOutcomeFor, pvpSettlementSnapshot, resolvePvpPetDuel } from './_pvp-duel.js';
 import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
+import { NPC_TARGET_REFUSAL, isNpcTarget } from '../_npc-guard.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -100,6 +101,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
         const opponentName = typeof body.opponentName === 'string' ? safeName(body.opponentName) : '';
+        // Pet battles against Cinderhold arrive with Push 3; until then refuse cleanly.
+        if (isNpcTarget(opponentName)) return res.status(409).json({ error: NPC_TARGET_REFUSAL });
         // A player-challenge duel takes its shape from the fight sealed when the
         // responder accepted, never from the caller: format, teams, seed and
         // verdict were all fixed there, for both participants at once.

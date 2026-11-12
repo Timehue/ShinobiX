@@ -33,6 +33,7 @@ import {
     type TowerPartyBinding,
     type TowerPartyMutationResult,
 } from './_party.js';
+import { isNpcTarget } from '../_npc-guard.js';
 
 const VERSION_REQUIRED_ACTIONS = new Set(['accept', 'decline', 'leave', 'ready', 'unready', 'invite', 'kick', 'revoke-invite', 'add-ai', 'remove-ai']);
 
@@ -225,6 +226,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         } else if (action === 'invite') {
             const target = safeName(String(body.target ?? ''));
+            if (isNpcTarget(target)) return res.status(400).json({ error: "You can't invite NPCs to a party.", errorCode: 'invalid-target' });
             if (!target || target === playerName || !(await kv.get(`save:${target}`))) {
                 return res.status(400).json({ error: 'Choose another current player.', errorCode: 'invalid-target' });
             }

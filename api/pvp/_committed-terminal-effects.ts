@@ -24,7 +24,8 @@ import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
 import {
     isPlayerRankedV2Session,
     pvpSessionMayGrantProgress,
-    pvpSessionMayReward,
+    pvpSessionMayScoreClanWar,
+    pvpSessionMayScoreWar,
     type PvpSession,
 } from './session.js';
 import type { PlayerRankedJournal } from './_player-ranked-journal.js';
@@ -39,6 +40,7 @@ import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { cancelUnjoinedClanWarChallenge, settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
 import type { PvpClanWarSettlement } from '../clan/war/_pvp-settlement.js';
 import { settlePvpLegacyProgress } from '../_legacy-pvp-settlement.js';
+import { settleNpcDuelWin } from '../_npc-duel.js';
 
 export type CommittedPvpTerminalReplay = {
     playerRankedJournal?: PlayerRankedJournal;
@@ -221,12 +223,18 @@ async function runCommittedPvpTerminalEffects(
     mark('notices');
     // A clan-war duel nobody fully joined (cancelled, or a 90 s no-show)
     // releases its accepted challenge and settles nothing for the war.
-    if (session.rewardAuthority === 'clan-war' && !pvpSessionMayReward(session)) {
+    if (session.rewardAuthority === 'clan-war' && !pvpSessionMayScoreClanWar(session)) {
         await cancelUnjoinedClanWarChallenge(session);
         mark('clan-war');
         return {};
     }
     if (isCancelledUnstartedPvpDuel(session)) return {};
+    // A Cinderhold duel the player WON spends their daily NPC pay slot here, at
+    // its settlement, once per battle (api/_npc-duel.ts, owner ruling
+    // 2026-11-11 "Only player wins"), before any reward gate below reads it.
+    // A loss or a draw spends nothing. A storage failure propagates and the
+    // next terminal reader retries it.
+    await settleNpcDuelWin(session);
 
     // A terminal retry is also the final action's durable replay path. The
     // capsule lives in the exact committed session, so no uncommitted move can
@@ -290,7 +298,7 @@ async function runCommittedPvpTerminalEffects(
     // This runs for either participant's retry (and terminal move replay) before
     // reward completion can ACK-clear the recovery pointer. Ordinary world PvP
     // durably records a canonical no-op when no contest binding exists.
-    const sectorWarSettlement = session.rewardAuthority === 'world' && pvpSessionMayGrantProgress(session)
+    const sectorWarSettlement = session.rewardAuthority === 'world' && pvpSessionMayScoreWar(session)
         ? await settlePvpSectorWarContinuation(session)
         : undefined;
     mark('sector-war');
@@ -316,7 +324,8 @@ async function runCommittedPvpTerminalEffects(
     // A verified world fight damages the ruins of the sector it was fought in.
     // Spars, ranked and arena fights have no world authority and never count.
     // Battle-id idempotent per building; a failure never blocks the settlement.
-    if (session.rewardAuthority === 'world' && pvpSessionMayGrantProgress(session)) {
+    // A Cinderhold NPC duel leaves the sector's ruins alone: no raid (above).
+    if (session.rewardAuthority === 'world' && pvpSessionMayGrantProgress(session) && session.npcDuel?.version !== 1) {
         const now = Date.now(), endedAt = Number(session.endedAt);
         await damageRuinsForWorldBattle(kv, session.battleId, pvpWorldBattleSector(session), now,
             Number.isSafeInteger(endedAt) && endedAt > 0 && endedAt <= now ? endedAt : now)

@@ -792,6 +792,25 @@ test("the Android shell's User-Agent token alone keeps the web checkout out of t
     expect(pageErrors, "the shell surface threw").toEqual([]);
 });
 
+test("the Premium Shop advertises Make Model only when creation is available", async ({ page }) => {
+    const runtime = await installUiAuditRuntime(page, uiAuditSave());
+    let available = false;
+    await page.route("**/api/world/sector-layout", route => route.fulfill({ json: {
+        obstaclesEnabled: true, ...(available ? { worldModelCreationAvailable: true } : {}),
+    } }));
+    const worldModelPerk = page.getByText(/Create one custom world model per UTC month/);
+    await expectUiAuditBoot(page, runtime, "premiumShop");
+    await expect(page.getByRole("heading", { name: "Shinobi Supporter" })).toBeVisible();
+    await expect(worldModelPerk).toHaveCount(0);
+    available = true;
+    await page.reload();
+    await expect(worldModelPerk).toBeVisible();
+    available = false;
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Shinobi Supporter" })).toBeVisible();
+    await expect(worldModelPerk).toHaveCount(0);
+});
+
 test("Inventory and Jutsu tabs keep selection, focus, and panels in sync", async ({ page }) => {
     const initialSave = uiAuditSave();
     initialSave.character = {

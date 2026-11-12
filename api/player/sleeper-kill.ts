@@ -28,6 +28,7 @@ import type { OnlinePlayer } from '../_realtime/types.js';
 import { pushOfflineNotice } from './_offline-notices.js';
 import { announce } from '../_announce.js';
 import { settleBountyForSessionlessKill } from '../pvp/_bounty-settle.js';
+import { NPC_TARGET_REFUSAL, isNpcTarget } from '../_npc-guard.js';
 
 // "Sleeping target" KO. When a player logs out / closes the tab while standing
 // in a WILD sector (currentSector >= 1) they don't vanish — they remain a
@@ -294,6 +295,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const targetSlug = safeName(String(targetName));
         if (!attackerSlug || !targetSlug) return res.status(400).json({ error: 'Invalid player name.' });
         if (attackerSlug === targetSlug) return res.status(400).json({ error: 'You cannot attack yourself.' });
+        // Cinderhold NPCs never sleep in the field: they are fought in a duel the
+        // server plays, under the duel's own pay caps (api/_npc-duel.ts).
+        if (isNpcTarget(targetSlug)) return res.status(409).json({ error: NPC_TARGET_REFUSAL });
 
         // Sleepers are OFFLINE by definition. A live (fresh-presence) player must
         // be fought through the normal interactive PvP attack flow.

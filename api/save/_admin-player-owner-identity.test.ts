@@ -436,3 +436,21 @@ test('a deletion generation rejects versionless and non-finite admin resurrectio
         assert.equal(await kv.get(RESET_SIGNAL_B_KEY), null);
     }
 });
+
+test('a Cinderhold NPC session cannot delete the NPC save (2026-11-09)', async () => {
+    const { NPC_VILLAGE_ROSTER } = await import('../../shared/npc-village-roster.js');
+    const { issuePlayerToken } = await import('../_auth.js');
+    const npc = NPC_VILLAGE_ROSTER[0]!.id;
+    await kv.set(`auth:${npc}`, { createdAt: 1, npcVillage: true });
+    await kv.set(`save:${npc}`, { character: { name: NPC_VILLAGE_ROSTER[0]!.name } });
+    const { out, res } = response();
+    await handler({
+        method: 'DELETE',
+        query: { name: npc },
+        headers: { 'x-player-token': issuePlayerToken(npc)! },
+        socket: { remoteAddress: '127.0.0.84' },
+    } as never, res);
+    assert.equal(out.statusCode, 403, JSON.stringify(out.body));
+    assert.equal(out.body?.error, 'This save cannot be deleted.');
+    assert.ok(await kv.get(`save:${npc}`));
+});

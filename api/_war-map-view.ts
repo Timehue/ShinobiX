@@ -32,8 +32,7 @@ import {
     homeSectorsForVillage,
     sectorAlias,
     VILLAGE_BIOME,
-    isWarVillage,
-    type WarVillage,
+    isSectorWarVillage,
 } from './_war-map-sectors.js';
 
 export interface SectorConfigView {
@@ -111,7 +110,7 @@ export function villageWarMapView(args: {
     const { village, record } = args;
     const treasurySeals = Math.max(0, Math.floor(Number(args.treasurySeals) || 0));
     const sectorsHeld = Math.max(0, Math.floor(Number(args.sectorsHeld) || 0));
-    const biome = isWarVillage(village) ? VILLAGE_BIOME[village as WarVillage] : 'central';
+    const biome = isSectorWarVillage(village) ? VILLAGE_BIOME[village] : 'central';
     const home = homeSectorsForVillage(village);
 
     const sectors: SectorConfigView[] = (args.heldSectors ?? home).map((s) => {

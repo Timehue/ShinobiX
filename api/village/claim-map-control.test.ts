@@ -216,10 +216,10 @@ describe('the personal Map Control reward is paid once per day', { concurrency: 
 describe('map control counts held WAR sectors only', { concurrency: false }, () => {
     test('a wilderness sector stamped with the village does not count', async (t) => {
         holdUtcDay(t);
-        await kv.set('world:territory:70', { ownerVillage: VILLAGE });
+        await kv.set('world:territory:42', { ownerVillage: VILLAGE }); // the Midlands: never a war sector
         const out = await claim();
         assert.equal(out.status, 200, JSON.stringify(out.body));
-        assert.equal(out.body?.sectors, 3, 'sector 70 is not a war sector');
+        assert.equal(out.body?.sectors, 3, 'sector 42 is not a war sector');
         assert.deepEqual(out.body?.granted, computeMapControlReward(3, false));
     });
 

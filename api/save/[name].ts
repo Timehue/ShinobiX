@@ -51,6 +51,7 @@ import { captureServerProductEvent } from '../_product-analytics.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
 import { readWalkedTile, resumeTileFor, resumeWorldPositionFor } from '../_realtime/walked-tile.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
+import { readStarterWorldModel } from '../../shared/player-model-ref.js';
 import { readVillageUpgrades } from '../village/_upgrade.js';
 import { readPendingWorldRewards } from '../world/_pending-rewards.js';
 import { maxLoadout, isPatreonSubscriber, isPresetAvatar, isOwnAvatarReference } from '../_entitlements.js';
@@ -59,6 +60,30 @@ import { slimPlayerSaveRecord, slimPlayerSavesEnabled } from './_slim-player-sav
 import { firstSlimKeepsEveryFight, isFirstSlim } from './_slim-parity.js';
 import { saveDocumentContract, saveCharacterContract, playerSaveRequestContract, saveWriteResponseContract, saveErrorContract } from '../../shared/save-contract.js';
 import { contractResponse } from '../_contract-response.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
+import { isNpcVillage } from '../../shared/npc-village.js';
+import { isWarVillage } from '../_war-map-sectors.js';
+import { isNpcClanName, isNpcClanRecord } from '../../shared/npc-clans.js';
+
+/**
+ * A clan write may keep members it already has, but may not ADD a Cinderhold
+ * NPC to `members` or `joinRequests` (exported for tests).
+ */
+export function withoutNewNpcMembers(existing: Record<string, unknown> | null, incoming: Record<string, unknown>): Record<string, unknown> {
+    let out = incoming;
+    for (const field of ['members', 'joinRequests'] as const) {
+        const list = incoming[field];
+        if (!Array.isArray(list)) continue;
+        const prior = Array.isArray(existing?.[field]) ? existing![field] as Array<{ name?: unknown }> : [];
+        const had = new Set(prior.map((row) => safeName(String(row?.name ?? ''))));
+        const kept = list.filter((row) => {
+            const slug = safeName(String((row as { name?: unknown } | null)?.name ?? ''));
+            return !(slug && isNpcAccount(slug) && !had.has(slug));
+        });
+        if (kept.length !== list.length) out = { ...out, [field]: kept };
+    }
+    return out;
+}
 
 // Clan dissolution scans global territory/war indexes and detaches every
 // member. The ordinary five-second save lease is intentionally too short for
@@ -375,6 +400,11 @@ export function sanitizeCharacterSave(
         }
     }
 
+    const starter = readStarterWorldModel(isFirstSave ? undefined : exChar.starterWorldModel,
+        isFirstSave ? finalChar.avatarImage : exChar.avatarImage)
+        ?? readStarterWorldModel(undefined, finalChar.avatarImage);
+    if (starter) finalChar.starterWorldModel = starter;
+    else delete finalChar.starterWorldModel;
     const out: Record<string, unknown> = { ...incoming, character: finalChar };
     // Stat training is server-created and server-cleared. A generic autosave
     // cannot forge, replace, or replay the top-level session descriptor — the
@@ -482,6 +512,15 @@ async function recordMissingSaveVersion(playerName: string): Promise<void> {
 }
 
 const villageStateSlug = (v: unknown) => String(v ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** An NPC save keeps its stored clan and founder flag, whatever the incoming copy says (exported for tests). */
+export function keepStoredNpcClan(safeIncoming: Record<string, unknown>, existing: Record<string, unknown> | null): Record<string, unknown> {
+    const inChar = safeIncoming.character as Record<string, unknown> | undefined;
+    if (!inChar) return safeIncoming;
+    const exChar = (existing?.character as Record<string, unknown> | undefined) ?? {};
+    const clan = String(exChar.clan ?? '').trim();
+    return { ...safeIncoming, character: { ...inChar, clan: clan || undefined, clanFounder: !!clan && !!exChar.clanFounder } };
+}
 
 type MinimalClanRec = { name?: string; founderName?: string; members?: Array<{ name?: string }>; upgrades?: Record<string, unknown>; doctrine?: unknown };
 
@@ -850,6 +889,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!identity.admin && !isClanSave && identity.name !== name) {
                     return reply(403, { error: 'Cannot save another player.' });
                 }
+                if (!identity.admin && isClanSave && isNpcClanName(name.replace(/^clan-/, ''))) {
+                    // Cinderhold's clans (shared/npc-clans.ts) are written by the
+                    // server alone: nobody joins, requests to join, renames,
+                    // edits or re-founds one. A player clan that already held
+                    // the name before they were seeded stays writable.
+                    const npcClanRecord = await kv.get<Record<string, unknown>>(key).catch(() => undefined);
+                    if (npcClanRecord === undefined || !npcClanRecord || isNpcClanRecord(npcClanRecord)) {
+                        return reply(403, { error: 'This clan is not accepting new members.' });
+                    }
+                }
                 if (!identity.admin && isClanSave) {
                     // Verify the actor belongs to this clan before letting them
                     // mutate the shared clan record. The clan slug here is
@@ -1082,9 +1131,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // baseline so a fresh registration can't submit absurd values.
                     let safeIncoming: unknown;
                     if (isClanSave) {
-                        const { next, suppressed } = validateClanSaveWrite(
+                        // Cinderhold NPC accounts never join or run a player clan,
+                        // even under admin control, and nobody can enlist one.
+                        if (identityName && isNpcAccount(identityName)) {
+                            return reply(403, { error: 'Cinderhold shinobi cannot join or run a player clan.' });
+                        }
+                        const clanIncoming = withoutNewNpcMembers(
                             (existing as Record<string, unknown> | null) ?? null,
                             incoming as Record<string, unknown>,
+                        );
+                        const { next, suppressed } = validateClanSaveWrite(
+                            (existing as Record<string, unknown> | null) ?? null,
+                            clanIncoming,
                             {
                                 callerName: identityName ?? '',
                                 isAdmin: identityName === null,
@@ -1117,6 +1175,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 (existing as Record<string, unknown> | null) ?? null,
                                 identityName,
                             );
+                        }
+                        // A Cinderhold shinobi's clan is the server's (api/_npc-village-seed.ts
+                        // writes it directly, never through this route): no save POST, an
+                        // admin-controlled NPC's own included, may leave, switch or found one.
+                        if (isNpcAccount(safeName(name))) {
+                            safeIncoming = keepStoredNpcClan(
+                                safeIncoming as Record<string, unknown>,
+                                (existing as Record<string, unknown> | null) ?? null,
+                            );
+                        }
+                        // A player's starting village is one of the four great villages,
+                        // nothing else (owner ruling 2026-11-10): Cinderhold is the
+                        // server's, and no human player may ever be in it. A stored village
+                        // is already kept above, so this is the one door left: the save
+                        // that sets a village for the first time (a new character, or a
+                        // save that had none). Refused for every non-NPC save, an admin's
+                        // write included; a stored legacy value is never re-judged.
+                        if (!isClanSave && !isNpcAccount(safeName(name))) {
+                            const storedVillage = String(((existing as { character?: { village?: unknown } } | null)?.character?.village) ?? '').trim();
+                            const village = String(((safeIncoming as { character?: { village?: unknown } }).character?.village) ?? '').trim();
+                            if (!storedVillage && village && (isNpcVillage(village) || !isWarVillage(village))) {
+                                return reply(403, { error: isNpcVillage(village)
+                                    ? 'Cinderhold Village is not open to players.'
+                                    : 'Choose one of the four great villages.' });
+                            }
                         }
                         // Older open clients do not inspect the bloodline receipt.
                         // If the sanitizer rejected a maker write's bloodline, or
@@ -1616,6 +1699,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // there is nothing to protect, so we no-op rather than 403.
                     const clanRec = await kv.get<{ founderName?: string }>(key);
                     const founder = safeName(String(clanRec?.founderName ?? ''));
+                    // A Cinderhold clan is permanent: not even its (admin-played) founder dissolves it.
+                    if (isNpcClanRecord(clanRec)) return reply(403, { error: 'This clan cannot be dissolved.' });
                     if (clanRec && founder !== identity.name) {
                         return reply(403, { error: 'Only the clan founder can delete this clan.' });
                     }
@@ -1635,6 +1720,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return reply(403, { error: 'Cannot delete another player\'s save.' });
                     }
                 } else if (!identity.admin) {
+                    // A Cinderhold NPC's save belongs to the village, not to
+                    // whoever holds its takeover token.
+                    if (isNpcAccount(name)) return reply(403, { error: 'This save cannot be deleted.' });
                     // Deleting your OWN save: a password account confirms with its
                     // password (the client asks for it), not the session token
                     // alone. Google-only and guest accounts have none to give.

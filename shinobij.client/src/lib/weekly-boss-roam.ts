@@ -26,7 +26,7 @@
  */
 
 import { SECTOR_POINTS } from "../../../shared/sector-links";
-import { isPlayableWildSector } from "../../../shared/sector-geo";
+import { CINDERHOLD_SECTORS, isPlayableWildSector } from "../../../shared/sector-geo";
 
 // The whole roaming layer — world-map marker, in-sector encounter, and the
 // tracker reskin — is live for everyone: the weekly boss is fought by HUNTING it
@@ -65,9 +65,11 @@ export const WEEKLY_BOSS_TRAIL_LEN = 4;
 const ROAM_NEIGHBOR_K = 5;
 
 // The boss roams playable world boards. Sunscar (54) and Death's Gate (99)
-// are excluded because neither has a standard field encounter board.
+// are excluded because neither has a standard field encounter board, and
+// Cinderhold's land (67-74) because it is the NPC village's home.
+const roams = (id: number) => isPlayableWildSector(id) && !CINDERHOLD_SECTORS.includes(id);
 const ROAM_SECTOR_IDS: readonly number[] = SECTOR_POINTS
-    .filter((p) => isPlayableWildSector(p.id))
+    .filter((p) => roams(p.id))
     .map((p) => p.id);
 
 export type WeeklyBossRoamInput = {
@@ -127,7 +129,7 @@ function hopRand(seed: number, hop: number): number {
 // precomputed once. Distance ties break by lower id so the graph is fully
 // deterministic (identical on every client).
 const NEIGHBORS: ReadonlyMap<number, readonly number[]> = (() => {
-    const pts = SECTOR_POINTS.filter((p) => isPlayableWildSector(p.id));
+    const pts = SECTOR_POINTS.filter((p) => roams(p.id));
     const map = new Map<number, number[]>();
     for (const a of pts) {
         const near = pts

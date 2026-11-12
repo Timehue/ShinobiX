@@ -2313,7 +2313,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 160
+            "line": 161
           }
         ]
       },
@@ -2328,7 +2328,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1181
+            "line": 1192
           }
         ]
       },
@@ -2548,11 +2548,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 124
+            "line": 125
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 189
+            "line": 190
           }
         ]
       },
@@ -2574,7 +2574,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 178
           }
         ]
       },
@@ -2585,7 +2585,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3343
+            "line": 3354
           }
         ]
       },
@@ -2710,7 +2710,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1955
+            "line": 1966
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
@@ -2843,11 +2843,11 @@
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 104
+            "line": 112
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 128
+            "line": 136
           },
           {
             "source": "shinobij.client/src/features/sunscar/rally-render.css",
@@ -3119,7 +3119,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 178
           }
         ]
       },
@@ -3225,7 +3225,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2091
+            "line": 2102
           },
           {
             "source": "shinobij.client/src/styles/sunscar-modes.css",
@@ -3260,11 +3260,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 124
+            "line": 125
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 189
+            "line": 190
           }
         ]
       },
@@ -3517,15 +3517,15 @@
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 103
+            "line": 111
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 113
+            "line": 121
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 139
+            "line": 147
           },
           {
             "source": "shinobij.client/src/pet-portrait-preview.css",
@@ -3790,7 +3790,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3288
+            "line": 3299
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -3918,11 +3918,11 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1145
+            "line": 1156
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1765
+            "line": 1776
           },
           {
             "source": "shinobij.client/src/styles/world-boss-event.css",
@@ -4368,11 +4368,11 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1195
+            "line": 1206
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3183
+            "line": 3194
           },
           {
             "source": "shinobij.client/src/styles/start-skin.css",
@@ -4542,7 +4542,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3265
+            "line": 3276
           }
         ]
       },
@@ -4587,7 +4587,7 @@
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 105
+            "line": 113
           },
           {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
@@ -4847,19 +4847,19 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 980
+            "line": 991
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 168
+            "line": 169
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 178
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 189
+            "line": 190
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4989,11 +4989,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 124
+            "line": 125
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 132
+            "line": 133
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -5244,7 +5244,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3251
+            "line": 3262
           }
         ]
       },
@@ -5380,7 +5380,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1135
+            "line": 1146
           }
         ]
       },

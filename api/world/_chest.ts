@@ -1,6 +1,6 @@
 import { RELIC_ROSTER, RELICS_BY_ID, DUPLICATE_RELIC_SHARDS, ownsRelic } from '../../shared/relics.js';
 import { gainXp } from '../_xp-engine.js';
-import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { isWildSector, sectorBiomeOf, sectorRewardTier } from '../../shared/sector-geo.js';
 import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
 import { WILD_BINDING_CHEST_DROP_CHANCE } from '../../shared/wild-binding.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
@@ -113,7 +113,7 @@ export function rollAncientChestLoot(sectorRaw: unknown, random: () => number): 
     // Character XP is retired (leveling-without-xp map): the old xp line
     // (50 + sector·2) folds into a guaranteed ryo floor; the roll table below
     // is unchanged. `xp` stays in the shape as 0 for old clients.
-    const loot: AncientChestLoot = { xp: 0, ryo: 40 + sector * 2 };
+    const loot: AncientChestLoot = { xp: 0, ryo: 40 + sectorRewardTier(sector) * 2 };
     if (unit() < 0.5) loot.ryo = (loot.ryo ?? 0) + 100 + Math.floor(unit() * 401);
     const roll = unit();
     // The relic band is carved off the BOTTOM of the treats band, the most

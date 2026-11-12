@@ -402,11 +402,11 @@
       "biome": "volcano",
       "name": "Cinder Foothills",
       "mask": [
-        "#.........##",
-        "..#.....#..#",
-        "..#....##..#",
-        ".###........",
-        "..#...======",
+        "#....=....##",
+        "..#..=..#..#",
+        "..#..=.##..#",
+        ".###.=......",
+        "..#..=======",
         "...#..=....=",
         ".###.==.....",
         ".####=.....#",
@@ -430,6 +430,11 @@
       },
       "bakedLandmarks": true,
       "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 67
+        },
         {
           "tile": 59,
           "direction": "east",
@@ -3988,10 +3993,10 @@
       "biome": "volcano",
       "name": "Emberspine Ridge",
       "mask": [
-        "####.......#",
-        "#...#.......",
-        "#.###.......",
-        "..####......",
+        "####.=.....#",
+        "#...#=......",
+        "#.###==.....",
+        "..####=.....",
         "=======.....",
         "...#..=#....",
         "#..#.==#....",
@@ -4017,6 +4022,11 @@
       "bakedLandmarks": true,
       "exits": [
         {
+          "tile": 5,
+          "direction": "north",
+          "destination": 72
+        },
+        {
           "tile": 48,
           "direction": "west",
           "destination": 60
@@ -4025,6 +4035,496 @@
           "tile": 137,
           "direction": "south",
           "destination": 33
+        }
+      ]
+    },
+    "67": {
+      "sector": 67,
+      "artKey": 67,
+      "region": "cinderhold",
+      "biome": "volcano",
+      "name": "Cinderhold Gates",
+      "mask": [
+        "###..=..####",
+        "#....=......",
+        ".....=...#..",
+        "...===....##",
+        "====BBBB....",
+        "=..=BBBB....",
+        "...=BBBB....",
+        "...=BBBB...#",
+        "#..====....#",
+        "##...=......",
+        "#....=......",
+        "####.=..####"
+      ],
+      "sites": {
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 66.66666666666666,
+          "width": 8.333333333333334,
+          "approach": 93,
+          "footprint": [
+            9,
+            7,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 73
+        },
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 74
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 68
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 58
+        }
+      ],
+      "village": {
+        "name": "Cinderhold Village",
+        "left": 50,
+        "top": 50,
+        "width": 33.333333333333336,
+        "approach": 102
+      }
+    },
+    "68": {
+      "sector": 68,
+      "artKey": 68,
+      "region": "cinderhold",
+      "biome": "volcano",
+      "name": "Basalt Steps",
+      "mask": [
+        "####.=.#####",
+        "#BB##==....#",
+        "#BB###=....#",
+        "#.=====.....",
+        "#..##.=.....",
+        "#..###======",
+        "#...#==.....",
+        "#....=.#....",
+        "#....=.#....",
+        ".....=###...",
+        ".....=.#....",
+        "#....=.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 16.666666666666664,
+          "top": 25,
+          "width": 16.666666666666664,
+          "approach": 38,
+          "footprint": [
+            1,
+            1,
+            2
+          ]
+        },
+        "rift": {
+          "left": 20.833333333333336,
+          "top": 50,
+          "width": 8.333333333333334,
+          "approach": 62,
+          "footprint": [
+            2,
+            5,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 69
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 67
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 74
+        }
+      ]
+    },
+    "69": {
+      "sector": 69,
+      "artKey": 69,
+      "region": "cinderhold",
+      "biome": "volcano",
+      "name": "Smokevent Terraces",
+      "mask": [
+        "############",
+        "#.##.......#",
+        "..###BB....#",
+        "...#.BB....#",
+        "..#...=.....",
+        "..####======",
+        ".####==.....",
+        "..#.#=.....#",
+        ".....=.....#",
+        ".....=.....#",
+        ".....=......",
+        "#....=.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 50,
+          "top": 33.33333333333333,
+          "width": 16.666666666666664,
+          "approach": 54,
+          "footprint": [
+            5,
+            2,
+            2
+          ]
+        },
+        "rift": {
+          "left": 12.5,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 25,
+          "footprint": [
+            1,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 73
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 68
+        }
+      ]
+    },
+    "70": {
+      "sector": 70,
+      "artKey": 70,
+      "region": "cinderhold",
+      "biome": "volcano",
+      "name": "Magma Cistern",
+      "mask": [
+        "#.....######",
+        "...#.#.....#",
+        "...#.#.....#",
+        "..#####....#",
+        "...#.#......",
+        "============",
+        ".....=.=....",
+        ".....=#=BB.#",
+        ".....=#=BB.#",
+        ".....=#===.#",
+        ".....=###..#",
+        "#..#.=.#####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 75,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 117,
+          "footprint": [
+            8,
+            7,
+            2
+          ]
+        },
+        "rift": {
+          "left": 37.5,
+          "top": 66.66666666666666,
+          "width": 8.333333333333334,
+          "approach": 88,
+          "footprint": [
+            4,
+            7,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 73
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 72
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 71
+        }
+      ]
+    },
+    "71": {
+      "sector": 71,
+      "artKey": 71,
+      "region": "cinderhold",
+      "biome": "volcano",
+      "name": "Ashfall Barracks",
+      "mask": [
+        "#....=.....#",
+        ".....==.....",
+        "...#.#=....#",
+        "...###=.....",
+        "..####======",
+        "...#.#=.....",
+        "......==...#",
+        ".....##=...#",
+        "....###=BB.#",
+        "......#=BB.#",
+        "#......===.#",
+        "############"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 75,
+          "top": 83.33333333333334,
+          "width": 16.666666666666664,
+          "approach": 129,
+          "footprint": [
+            8,
+            8,
+            2
+          ]
+        },
+        "rift": {
+          "left": 12.5,
+          "top": 41.66666666666667,
+          "width": 8.333333333333334,
+          "approach": 49,
+          "footprint": [
+            1,
+            4,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 70
+        },
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 72
+        }
+      ]
+    },
+    "72": {
+      "sector": 72,
+      "artKey": 72,
+      "region": "cinderhold",
+      "biome": "volcano",
+      "name": "Obsidian Drill Yard",
+      "mask": [
+        "###........#",
+        "#.####BB....",
+        "#...#.BB....",
+        "......==....",
+        "=======##...",
+        "=....=###...",
+        ".....=.#....",
+        "#....=..#...",
+        "#....=..#...",
+        "#....=.###.#",
+        "#....=..#..#",
+        "####.=.#####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 58.333333333333336,
+          "top": 25,
+          "width": 16.666666666666664,
+          "approach": 43,
+          "footprint": [
+            6,
+            1,
+            2
+          ]
+        },
+        "rift": {
+          "left": 54.166666666666664,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 114,
+          "footprint": [
+            6,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 71
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 70
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 66
+        }
+      ]
+    },
+    "73": {
+      "sector": 73,
+      "artKey": 73,
+      "region": "cinderhold",
+      "biome": "volcano",
+      "name": "Caldera Rim",
+      "mask": [
+        "########...#",
+        "#####.......",
+        "#.####BB....",
+        "#.###.BB....",
+        "......==....",
+        "============",
+        ".....=.###..",
+        "#....=###...",
+        "#....=......",
+        "#....=......",
+        "#....=......",
+        "####.=.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 58.333333333333336,
+          "top": 33.33333333333333,
+          "width": 16.666666666666664,
+          "approach": 55,
+          "footprint": [
+            6,
+            2,
+            2
+          ]
+        },
+        "rift": {
+          "left": 29.166666666666668,
+          "top": 58.333333333333336,
+          "width": 8.333333333333334,
+          "approach": 75,
+          "footprint": [
+            3,
+            6,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 69
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 70
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 67
+        }
+      ]
+    },
+    "74": {
+      "sector": 74,
+      "artKey": 74,
+      "region": "cinderhold",
+      "biome": "volcano",
+      "name": "Slagwater Crossing",
+      "mask": [
+        "####.=.#####",
+        "#...#==.....",
+        "#...#.=.....",
+        "#..###=.....",
+        "#...#.======",
+        "#....#=..#..",
+        "#....#=.##..",
+        "#...##=BB##.",
+        "#....#=BB#..",
+        "#.....===...",
+        "#...........",
+        "#..........#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 66.66666666666666,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 116,
+          "footprint": [
+            7,
+            7,
+            2
+          ]
+        },
+        "rift": {
+          "left": 20.833333333333336,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 38,
+          "footprint": [
+            2,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 68
+        },
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 67
         }
       ]
     },
@@ -4072,7 +4572,7 @@
     "4": "5d1c20ea78355c0e26f5041e4897be6b92ddf63a67878bba7a66b3c6c11ba73b",
     "5": "271d9e9c3dcf75b0d6ac12e9e4a20000ed155422d14baf3715bce03b9d42ca39",
     "6": "7ce293a8a79b3c3d67391cd6255e72af88f8c60cb07ee639f375e27b33dc375a",
-    "7": "762ea10841fce051b59480e4a4fcb92f90739b4ab0b604d2e5909a2df0765116",
+    "7": "669a4837c17a1752662959450a9c410354a31d8735707e0fe9cfd6c3cc78c6e2",
     "8": "c67c91a53ad933922d666b1ccbbc3bd082088c5eaaf7e187f644de24232c46be",
     "9": "207ab4bcefda58025770bb7cabd4ede3afec16237e3f64757bb38eaa258a9463",
     "10": "6706e1b023774c664023481d0ef5c15cf73b13e5e0ab4dd8c68b930d368839f2",
@@ -4130,7 +4630,15 @@
     "63": "188db965485a5d7c3604967511b00e678196a08303c5238f1c987f66deb3e3ed",
     "64": "c482f114438b608f9528a8a19559b8192e2542133d2bc490b16faf49910c2108",
     "65": "fd050bdd72cbda18f2e9ea76a56c42f2bc92cf1048d1d015c15b7dcb379c47d9",
-    "66": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1",
+    "66": "83e8ddc9504d4dd32edc1afb0195d802322ddf8b26cfa347ee9d7d17c67d5ad7",
+    "67": "f29053ff8e78f1c144a819e70c71179d9ae976e53647d86afb2d3175c25369bf",
+    "68": "84e718aef6bb830ec89b19fe75fd739470ffc999596e5eea75230bca64dac6a7",
+    "69": "c99d77c595fd0a384a063582b9be52a6a776a842e87a5922d8951f938eaac9bf",
+    "70": "dece54614eefb1344d3886fb48732968fd5af1d9d65a3680f4f31487ca766c12",
+    "71": "458636aa7b1850cc846604eda99310a489fa7a3ce3da954912f90a8320a1cb99",
+    "72": "a59a98c8b9c7298175b9d577102537f09780900797dd8da0b020f079a55c7008",
+    "73": "85f23508b4eb46a6862cd7235ae8f85765e1dc4ccfc47e6e3fef645ea45f50a0",
+    "74": "34064a4d2a4e4c1ca2eb996181eca682f420668674db90097648502fcf4903b3",
     "99": "f3c950ba27b79677bf9301bcfea3cd743fb445d9823113439db2b84d549404b1"
   },
   "landmarks": {

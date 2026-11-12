@@ -12,7 +12,7 @@
  * Where he stands is a per-player presence gate, keyed by (player, sector,
  * window), so the client shows him where the server will fight him.
  */
-import { isPlayableWildSector } from "./sector-geo.js";
+import { CINDERHOLD_SECTORS, isPlayableWildSector } from "./sector-geo.js";
 import { WANDERER_BUCKET_MS, wandererDayBucketFromMs, wandererPresenceGate } from "./wanderer-roster.js";
 
 export const ROAD_NEMESIS_NAME = "Kagero";
@@ -59,7 +59,7 @@ function bucketPresence(playerName: string, sector: number, dayBucket: number): 
 
 /** True when Kagero is waiting for this player in `sector` in this window. */
 export function roadNemesisPresentIn(playerName: string, sector: number, dayBucket: number): boolean {
-    return !!playerName.trim() && isPlayableWildSector(sector) && Number.isSafeInteger(dayBucket)
+    return !!playerName.trim() && isPlayableWildSector(sector) && !CINDERHOLD_SECTORS.includes(sector) && Number.isSafeInteger(dayBucket)
         && bucketPresence(playerName, sector, dayBucket);
 }
 

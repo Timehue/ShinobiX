@@ -12,6 +12,7 @@
  * implements the SAME interface and consumers don't change.
  */
 
+import type { PlayerModel, StarterWorldModel, WorldGaitPresentation } from '../../shared/player-model-ref.js';
 import type { WorldPosition } from '../../shared/world-position.js';
 
 export type OnlinePlayer = {
@@ -22,6 +23,8 @@ export type OnlinePlayer = {
     sector: number;
     /** Slimmed presence character (display fields only), or null. */
     character: Record<string, unknown> | null;
+    playerModel?: PlayerModel;
+    starterWorldModel?: StarterWorldModel;
     /** ms epoch of the last heartbeat / WS ping. */
     lastSeenAt: number;
     /** ms epoch the player first appeared in this server process. */
@@ -51,11 +54,18 @@ export type OnlinePlayer = {
     worldPosition?: WorldPosition;
     /** Monotonic server sequence for within-sector movement deltas. */
     movementSeq?: number;
+    gaitPresentation?: WorldGaitPresentation;
     /** Invalidates gathering even if a battle ends or a traveler returns before Resolve. */
     resourceEpoch?: number;
     /** Boot snapshots may render a roster, but cannot authorize gameplay until
      * the first ingress rehydrates position from the durable save/lease. */
     locationUnverified?: boolean;
+    /**
+     * SERVER-OWNED, cosmetic: what a Cinderhold shinobi is seen doing at its
+     * post (api/_npc-presence.ts). Never taken from a beat, never a claim on a
+     * node. Cleared when the row travels or changes sector.
+     */
+    activity?: 'mining' | 'fishing' | 'harvesting';
 };
 
 /** Fields a heartbeat / ping supplies to refresh presence. */
@@ -71,6 +81,10 @@ export type PresenceUpsert = {
     tileSector?: number;
     /** Hydrated from durable server state only; never copied from an ingress body. */
     restoredWorldPosition?: WorldPosition;
+    restoredPlayerModel?: PlayerModel;
+    restoredStarterWorldModel?: StarterWorldModel;
+    /** Explicit appearance supplied only by a server-owned NPC producer. */
+    serverPlayerModel?: PlayerModel | null;
 };
 
 /**
@@ -106,8 +120,11 @@ export interface OnlineStateStore {
     clearPendingAttacker(name: string): void;
     /** Set/clear the server-owned inBattle flag (fight start/terminal, heartbeat corroboration). */
     setInBattle(name: string, inBattle: boolean): void;
+    setActivity(name: string, activity: OnlinePlayer['activity'] | undefined): void;
+    setPlayerModel(name: string, model: PlayerModel | null): void;
     /** Start a server-owned travel lease. Returns null if the player cannot travel. */
-    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number, worldPosition?: WorldPosition): OnlinePlayer | null;
+    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number, worldPosition?: WorldPosition,
+        gaitPresentation?: WorldGaitPresentation): OnlinePlayer | null;
     /** Restore a server-persisted lease after a process restart. */
     restoreTravel(name: string, destinationSector: number, arrivalAt: number, originSector: number, arrivalTile?: number, worldPosition?: WorldPosition): OnlinePlayer | null;
     /** Roll back a lease that could not be persisted. */
@@ -120,8 +137,10 @@ export interface OnlineStateStore {
     retryTravelSettlement(name: string): void;
     /** Apply a within-sector movement intent and return the refreshed record. */
     moveToTile(name: string, tile: number): OnlinePlayer | null;
+    /** The store's own clock (travel leases are timed on it). */
+    clockNow(): number;
     /** Commit a pre-admitted world move in its server-owned sector. */
-    commitWorldPosition(name: string, position: WorldPosition, expectedSequence: number): OnlinePlayer | null;
+    commitWorldPosition(name: string, position: WorldPosition, expectedSequence: number, gaitPresentation?: WorldGaitPresentation): OnlinePlayer | null;
     /** Drop entries past the offline window. Returns the removed records. */
     sweepStale(): OnlinePlayer[];
     /** Number of tracked entries (including not-yet-swept stale ones). */

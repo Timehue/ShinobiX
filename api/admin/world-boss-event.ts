@@ -5,8 +5,8 @@ import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
-import { WORLD_BOSS_DEFINITIONS, WORLD_BOSS_EVENT_DURATION_MS, WORLD_BOSS_EVENT_ROAM_MS, worldBossDefinition, worldBossEventPosition, worldBossEventStatus, worldBossRoute } from '../../shared/world-boss-event.js';
-import { isPlayableWildSector, VILLAGE_OUTSKIRTS } from '../../shared/sector-geo.js';
+import { WORLD_BOSS_DEFINITIONS, WORLD_BOSS_EVENT_DURATION_MS, WORLD_BOSS_EVENT_ROAM_MS, worldBossDefinition, worldBossEventPosition, worldBossEventStatus, worldBossRoute, isWorldBossRoamSector } from '../../shared/world-boss-event.js';
+import { VILLAGE_OUTSKIRTS } from '../../shared/sector-geo.js';
 import {
     WORLD_BOSS_ACTIVE_KEY,
     WORLD_BOSS_EVENT_TTL_SECONDS,
@@ -73,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const boss = WORLD_BOSS_DEFINITIONS.find(entry => entry.id === String(body.bossId ?? 'hollow-beast'));
             if (!boss) return res.status(400).json({ error: 'Choose a supported world boss.' });
             const spawnSector = Number(body.spawnSector);
-            if (!Number.isInteger(spawnSector) || !isPlayableWildSector(spawnSector)) {
+            if (!Number.isInteger(spawnSector) || !isWorldBossRoamSector(spawnSector)) {
                 return res.status(400).json({ error: 'Choose a playable wilderness sector for the boss spawn.' });
             }
             const targetVillage = String(body.targetVillage ?? '');

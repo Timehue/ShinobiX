@@ -2,10 +2,11 @@ import { sectorFloorLayout } from './sector-floor-layout';
 import { sectorBannerColor } from './sector-banner-state';
 export { sectorBannerRevision,setSectorBannerOwners } from './sector-banner-state';
 /** Authored cloth bounds in a 1024px floor, relative to its existing gatehouse.
- * No additional pole/flag geometry. Castle 99 has its own imperial heraldry. */
+ * No additional pole/flag geometry. Castle 99 has its own imperial heraldry, and
+ * so do Cinderhold's garrisons (the same red-lantern compound). */
 export function sectorBannerRegions(sector:number) {
     const layout=sectorFloorLayout(sector),site=layout?.sites.stronghold;
-    if(!site||sector===99)return [];
+    if(!site||sector===99||layout.region==='cinderhold')return [];
     const boxes=layout.region==='ashenleaf'?[[6,98,33,38],[140,98,33,38]]
         :layout.artKey===22||layout.artKey===27?[[9,123,29,39],[134,123,29,39]]
         :layout.artKey===24?[[14,124,25,39],[133,124,25,39]]

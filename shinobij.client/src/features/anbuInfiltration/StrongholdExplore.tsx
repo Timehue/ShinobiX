@@ -11,6 +11,10 @@ import { MOVEMENT_KEYS, useHeldMovementKey } from '../../lib/held-movement-keys'
 import { buildVaultInterior } from './vault-interior';
 import { strongholdRequest, type StrongholdResponse } from './stronghold-api';
 import { StrongholdDialog } from './StrongholdDialog';
+import { StrongholdDefender } from './StrongholdDefender';
+import { StrongholdAvatar } from './StrongholdAvatar';
+import { isPlayerModel, useSprintStyle } from '../../lib/player-model';
+import { usePlayerGaits, useSectorModelArtBase } from '../../lib/sector-obstacles';
 import { resolveOwnAvatar } from '../../lib/own-avatar';
 import { UndergroundSectorTerrain } from '../../components/UndergroundSectorTerrain';
 import { HollowGateFissureArt } from '../../components/HollowGateFissureArt';
@@ -69,7 +73,8 @@ const StrongholdTileCell = memo(function StrongholdTileCell({ idx, width, tileSi
         {known && fissure && <HollowGateFissureArt state={fissure} />}
         {known && bloodAltar && <span className="underground-marker" aria-hidden="true">⚔</span>}
         {known && intelMarker && <span className="underground-marker" aria-hidden="true">▤</span>}
-        {known && boss && <span className="stronghold-anbu-station" style={{ width: avatarSize, height: avatarSize * 1.28 }}><i aria-hidden="true" />{anbuAvatar ? <img className="stronghold-anbu" src={anbuAvatar} alt={anbuName} /> : <span className="stronghold-anbu-fallback" aria-hidden="true">◆</span>}{!overview && <b>{anbuName}<small>{anbuCaption}</small></b>}</span>}
+        {known && boss && <StrongholdDefender portrait={anbuAvatar} name={anbuName} caption={anbuCaption}
+            size={avatarSize} tileSize={tileSize} overview={overview} />}
     </div>;
 });
 
@@ -131,6 +136,10 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     const rooms = strongholdRooms(sector);
     const title = strongholdTitle(sector);
     const ownAvatar = resolveOwnAvatar(character, sharedImages);
+    const modelArtBase = useSectorModelArtBase();
+    const playerGaits = usePlayerGaits();
+    const sprintStyle = useSprintStyle();
+    const equipped = isPlayerModel(character.playerModel) ? character.playerModel : undefined;
     const base = useMemo(() => buildVaultInterior(sector), [sector]);
     const chamberBounds = useMemo(() => undergroundRooms(base.tiles, base.width), [base]);
     const shownVisit = predicted ?? state?.visit;
@@ -464,20 +473,22 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                             fissure={fissures.has(idx) ? hollowGateFissureState(fissures.get(idx)!, arenaNow) : undefined} onClick={onTileClick} onKeyDown={onTileKeyDown} />;
                     })}
                     {rooms.filter(room => seen.has((room.y + 2) * base.width + room.x + 3)).map(room => <span key={room.id} className="stronghold-room-label" style={{ left: (room.x + 3.5) * tileSize, top: (room.y + 0.3) * tileSize, fontSize: overview ? 9 : 12 }}>{room.name}</span>)}
-                    <div className="stronghold-player stronghold-avatar" style={{ left: (run.playerX + 0.5) * tileSize, top: (run.playerY + 0.5) * tileSize, width: avatarSize, height: avatarSize }}>
-                        {ownAvatar ? <img src={ownAvatar} alt="Your position" /> : <b>{character.name.slice(0, 2)}</b>}
-                    </div>
+                    <StrongholdAvatar tileX={run.playerX} tileY={run.playerY} tileSize={tileSize} size={avatarSize}
+                        stepMs={STEP_MS} name={displayPlayerName(character.name)} portrait={ownAvatar} overview={overview}
+                        artBase={modelArtBase} playerGaits={playerGaits} playerModel={equipped} sprintStyle={sprintStyle} />
                     {!overview && [...peerTiles].map(([tile, occupants]) => {
                         const peer = occupants[0];
                         const avatar = sharedAvatarFor(sharedImages, peer.name) || peer.character?.avatarImage;
-                        return <button key={tile} className="stronghold-peer" data-tile={tile} aria-label={`Inspect ${occupants.length > 1 ? `${occupants.length} shinobi` : displayPlayerName(peer.name)}`} title={`${displayPlayerName(peer.name)} · Lv ${peer.level}${peer.inBattle ? ' · In battle' : ''}`}
-                            disabled={blocked || !!pending || overview} onClick={() => { stopWalk(); if (occupants.length > 1) setPlayersOpen(true); else setSelectedPeer(peer); }}
-                            style={{ left: (tile % base.width + 0.5 + (tile === playerTile ? .4 : 0)) * tileSize, top: (Math.floor(tile / base.width) + 0.5 - (tile === playerTile ? .28 : 0)) * tileSize, width: Math.max(44, avatarSize), height: Math.max(44, avatarSize) }}>
-                            <span className="stronghold-avatar stronghold-peer-avatar" style={{ width: avatarSize, height: avatarSize }}>
-                                {occupants.length > 1 ? <b>{occupants.length}</b> : avatar ? <img src={avatar} alt="" /> : <b>{peer.name.slice(0, 2)}</b>}
-                            </span>
-                            <span className="stronghold-peer-label">{occupants.length > 1 ? `${occupants.length} shinobi` : peer.name}</span>
-                        </button>;
+                        return <StrongholdAvatar key={peer.name} tile={tile}
+                            tileX={tile % base.width + (tile === playerTile ? .4 : 0)}
+                            tileY={Math.floor(tile / base.width) - (tile === playerTile ? .28 : 0)}
+                            tileSize={tileSize} size={avatarSize} stepMs={STEP_MS}
+                            name={displayPlayerName(peer.name)} portrait={avatar} count={occupants.length}
+                            artBase={modelArtBase} playerGaits={playerGaits} playerModel={peer.character?.playerModel}
+                            sprintStyle={peer.gaitPresentation?.style}
+                            title={`${displayPlayerName(peer.name)} · Lv ${peer.level}${peer.inBattle ? ' · In battle' : ''}`}
+                            disabled={blocked || !!pending || overview}
+                            onSelect={() => { stopWalk(); if (occupants.length > 1) setPlayersOpen(true); else setSelectedPeer(peer); }} />;
                     })}
                 </div>
                 {!state && <div className="stronghold-loading" role="status">{error || 'Entering the stronghold…'}{error && <button disabled={!!pending || admissionPending} onClick={reconnectPresence}>Reconnect</button>}</div>}

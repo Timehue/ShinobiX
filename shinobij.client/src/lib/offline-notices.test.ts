@@ -30,6 +30,13 @@ test('parseOfflineNotices drops non-arrays and malformed entries', () => {
     assert.equal(parseOfflineNotices([{ kind: 'sleeper-kill', by: 'Raiden', sector: 17, at: 1 }]).length, 1);
 });
 
+test('a model removal explains the default sprite without showing private moderation details', () => {
+    const notices = parseOfflineNotices([{ kind: 'world-model-removed', by: 'moderation', sector: 0, at: NOW }]);
+    const digest = buildOfflineNoticeDigest(notices, NOW);
+    assert.equal(digest.entries.length, 1);
+    assert.equal(digest.entries[0].text, 'Your custom player model was removed by a moderator. Your character is back to the default.');
+});
+
 test('offlineNoticeMessage names the attacker and the sector', () => {
     assert.equal(
         offlineNoticeMessage({ kind: 'sleeper-kill', by: 'Raiden', sector: 17, at: 1 }),

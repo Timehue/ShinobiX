@@ -1,5 +1,86 @@
 import { test, expect, type Page } from '@playwright/test';
 import { visiblePageSize } from './helpers/visible-page-size';
+import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { isPlayerModel } from '../../shared/player-model-ref';
+import { HOLLOW_GATE_STEP_MS } from '../src/features/hollowGate/use-hollow-gate-walk';
+
+test('a default shrine starter loads the selected sprint style without an equipped model', async ({ page }, info) => {
+    const pin = JSON.parse(await readFile(resolve('src/data/sector-models/starter-one.json'), 'utf8'));
+    const content = resolve(process.env.SECTOR_MODEL_TEST_CONTENT ?? '../.ci-evidence/sector-models', 'starter-one');
+    const manifestFile = resolve(content, pin.manifestSha256 + '.json');
+    test.skip(!existsSync(manifestFile), 'Mount the local starter art package');
+    const manifest = JSON.parse(await readFile(manifestFile, 'utf8'));
+    expect(manifest.styles.C[0]).not.toBe(manifest.styles.A[0]);
+    const received = new Set<string>();
+    page.on('response', response => { if (response.ok()) received.add(new URL(response.url()).pathname); });
+    await page.addInitScript(() => localStorage.setItem('worldSprintStyle.v1', 'C'));
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.route('**/api/world/sector-layout', route => route.fulfill({ json: {
+        obstaclesEnabled: true, playerGaitsEnabled: true, modelArtBase: '/fixture-art',
+    } }));
+    await page.route('**/fixture-art/**', async route => {
+        const path = new URL(route.request().url()).pathname;
+        const file = path.slice('/fixture-art/starter-one/'.length);
+        if (!path.startsWith('/fixture-art/starter-one/') || !/^[a-f0-9]{64}\.(json|gz|264|webp)$/.test(file))
+            return route.abort();
+        return route.fulfill({ body: await readFile(resolve(content, file)) });
+    });
+    await page.goto('/e2e/fixtures/hollow-gate-consumable.html');
+    const avatar = page.locator('.hg-avatar:not(.hg-wanderer)');
+    await expect(avatar).toHaveClass(/has-sector-model/);
+    await expect(avatar.locator('.sector-model-figure')).toHaveAttribute('data-clip', 'idle');
+    await expect.poll(() => received.has('/fixture-art/starter-one/' + manifest.styles.C[0])).toBe(true);
+    expect([...received].some(path => path.startsWith('/fixture-art/players/'))).toBe(false);
+    await page.screenshot({ path: info.outputPath('shrine-default-style-c.png') });
+});
+
+test('an equipped shrine sprite holds its stride through successive tiles and plants when input ends', async ({page}) => {
+    const receipt = process.env.SECTOR_MODEL_TEST_ROSTER;
+    test.skip(!receipt, 'Mount a fitted player art package and its receipt');
+    const model = JSON.parse(await readFile(receipt!, 'utf8')).Zayah;
+    if (!isPlayerModel(model)) throw new Error('Expected a fitted Zayah in the mounted roster');
+    const content = resolve(process.env.SECTOR_MODEL_TEST_CONTENT ?? '../.ci-evidence/sector-models', 'players', model.assetId);
+    await page.route('**/api/world/sector-layout', route => route.fulfill({json:{
+        obstaclesEnabled:true, playerGaitsEnabled:true, modelArtBase:'/fixture-art',
+    }}));
+    await page.route('**/fixture-art/**', async route => {
+        const parts = new URL(route.request().url()).pathname.split('/');
+        const file = parts.pop()!;
+        if (parts.join('/') !== '/fixture-art/players/' + model.assetId || !/^[a-f0-9]{64}\.(json|gz|264|webp)$/.test(file))
+            return route.abort();
+        return route.fulfill({body:await readFile(resolve(content,file))});
+    });
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.goto('/e2e/fixtures/hollow-gate-consumable.html?' + new URLSearchParams(model));
+    const sprite = page.locator('.hg-avatar:not(.hg-wanderer) .sector-model-figure');
+    await expect(sprite).toHaveAttribute('data-clip', 'idle');
+    const direction = page.getByRole('button',{name:'Move right',exact:true});
+    const reverse = page.getByRole('button',{name:'Move left',exact:true});
+    await page.clock.install({time:new Date('2030-01-01T00:00:00Z')});
+    await page.clock.pauseAt(new Date('2030-01-01T00:00:02Z'));
+    for (const button of [direction, reverse]) {
+        await button.evaluate(el=>el.click());
+        await page.clock.runFor(HOLLOW_GATE_STEP_MS);
+        await expect(sprite).toHaveAttribute('data-facing',button===direction?'2':'6');
+        await page.clock.runFor(1000);
+    }
+    await sprite.evaluate(el=>{
+        const clips = new Set<string>();
+        new MutationObserver(()=>{ clips.add((el as HTMLElement).dataset.clip!); el.setAttribute('data-observed',Array.from(clips).join(',')); })
+            .observe(el,{attributeFilter:['data-clip']});
+    });
+    for(let step=0;step<16;step++) {
+        await (step%2===0?direction:reverse).evaluate(el=>el.click());
+        await page.clock.runFor(HOLLOW_GATE_STEP_MS);
+    }
+    await expect(sprite).toHaveAttribute('data-observed',/(^|,)run(,|$)/);
+    await expect(sprite).not.toHaveAttribute('data-observed',/stop-/);
+    await page.clock.runFor(1300);
+    await expect(sprite).toHaveAttribute('data-clip','idle');
+    await expect(sprite).toHaveAttribute('data-observed',/stop-/);
+});
 
 test('a successful fresh entry publishes its counter and intro once, then resumes without another entry', async ({ page }) => {
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [];

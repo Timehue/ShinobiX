@@ -941,6 +941,57 @@ function chooseBattleAction(
   return { action: "enter-main-2" };
 }
 
+/**
+ * The AI's next move for seat p2, then the fallbacks to try in order if the
+ * engine refuses it; null when it is not p2's move. Pure: it only reads `state`
+ * (the same view advanceAi always used), so a server seat outside an AI match
+ * (a Cinderhold NPC in a war card duel, api/_npc-card-duel-driver.ts) can ask
+ * the same question and send the answer through the real duel route.
+ */
+export function chooseAiIntents(
+  state: ChronicleMatch,
+  difficulty: AiMatchSession["difficulty"],
+): ChronicleActionIntent[] | null {
+  if (state.status !== "active") return null;
+  if (state.responseWindow) {
+    if (state.responseWindow.responder !== "p2") return null;
+    const zoneIndex = state.responseWindow.eligibleZoneIndexes
+      .slice()
+      .sort(
+        (a, b) =>
+          trapResponsePriority(state, "p2", b) -
+          trapResponsePriority(state, "p2", a),
+      )
+      .find((index) => trapResponsePriority(state, "p2", index) > 0);
+    return zoneIndex === undefined
+      ? [{ action: "pass-response" }]
+      : [{ action: "activate-trap", zoneIndex }, { action: "pass-response" }];
+  }
+  if (state.activePlayer !== "p2") return null;
+  const intent: ChronicleActionIntent =
+    state.phase === "draw" || state.phase === "standby"
+      ? { action: "advance-phase" }
+      : state.phase === "battle"
+        ? chooseBattleAction(state, difficulty)
+        : state.phase === "end"
+          ? { action: "end-turn" }
+          : chooseMainAction(state, difficulty);
+  // A refused Main Phase 1 choice used to end the turn outright and throw
+  // the Battle Phase away with it; try to fight first. A refused attack
+  // likewise tries the other attacks before the Battle Phase ends.
+  const fallbacks: ChronicleActionIntent[] =
+    state.phase === "draw" || state.phase === "standby"
+      ? [{ action: "advance-phase" }]
+      : state.phase === "battle"
+        ? battleFallbacks(state, intent)
+        : state.phase === "end"
+          ? [{ action: "end-turn" }]
+          : state.phase === "main1"
+            ? [{ action: "start-battle" }, { action: "enter-end-phase" }]
+            : [{ action: "enter-end-phase" }];
+  return [intent, ...fallbacks];
+}
+
 /** Continue server AI decisions until the human must act or answer a response. */
 export function advanceAi(
   session: AiMatchSession,
@@ -950,66 +1001,15 @@ export function advanceAi(
   let safety = 0;
   while (session.state.status === "active" && safety++ < 100) {
     const state = session.state;
-    if (state.responseWindow) {
-      if (state.responseWindow.responder !== "p2") break;
-      const zoneIndex = state.responseWindow.eligibleZoneIndexes
-        .slice()
-        .sort(
-          (a, b) =>
-            trapResponsePriority(state, "p2", b) -
-            trapResponsePriority(state, "p2", a),
-        )
-        .find((index) => trapResponsePriority(state, "p2", index) > 0);
-      const intent: ChronicleActionIntent =
-        zoneIndex === undefined
-          ? { action: "pass-response" }
-          : { action: "activate-trap", zoneIndex };
-      const out = applyAction(state, "p2", intent, now);
-      if (!out.ok) {
-        const passed = applyAction(
-          state,
-          "p2",
-          { action: "pass-response" },
-          now,
-        );
-        if (!passed.ok) break;
-        session.state = passed.state;
-      } else session.state = out.state;
-      onAiStep?.(session.state);
-      continue;
+    const candidates = chooseAiIntents(state, session.difficulty);
+    if (!candidates) break;
+    let applied: ReturnType<typeof applyAction> | undefined;
+    for (const candidate of candidates) {
+      applied = applyAction(state, "p2", candidate, now);
+      if (applied.ok) break;
     }
-    if (state.activePlayer !== "p2") break;
-    const intent: ChronicleActionIntent =
-      state.phase === "draw" || state.phase === "standby"
-        ? { action: "advance-phase" }
-        : state.phase === "battle"
-          ? chooseBattleAction(state, session.difficulty)
-          : state.phase === "end"
-            ? { action: "end-turn" }
-            : chooseMainAction(state, session.difficulty);
-    const out = applyAction(state, "p2", intent, now);
-    if (!out.ok) {
-      // A refused Main Phase 1 choice used to end the turn outright and throw
-      // the Battle Phase away with it; try to fight first. A refused attack
-      // likewise tries the other attacks before the Battle Phase ends.
-      const fallbacks: ChronicleActionIntent[] =
-        state.phase === "draw" || state.phase === "standby"
-          ? [{ action: "advance-phase" }]
-          : state.phase === "battle"
-            ? battleFallbacks(state, intent)
-            : state.phase === "end"
-              ? [{ action: "end-turn" }]
-              : state.phase === "main1"
-                ? [{ action: "start-battle" }, { action: "enter-end-phase" }]
-                : [{ action: "enter-end-phase" }];
-      let recovered: ReturnType<typeof applyAction> | undefined;
-      for (const fallback of fallbacks) {
-        recovered = applyAction(state, "p2", fallback, now);
-        if (recovered.ok) break;
-      }
-      if (!recovered?.ok) break;
-      session.state = recovered.state;
-    } else session.state = out.state;
+    if (!applied?.ok) break;
+    session.state = applied.state;
     onAiStep?.(session.state);
   }
   syncTerminal(session);

@@ -31,9 +31,11 @@ import { villageWarMapEnabled } from '../_release-flags.js';
 import { logWarEvent } from '../_war-event-log.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import {
-    pvpSessionMayGrantProgress,
+    pvpSessionMayScoreWar,
     type PvpSession,
 } from './session.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
+import { npcDuelPays, settleNpcDuelWin } from '../_npc-duel.js';
 
 function safeTerminalClock(session: PvpSession): { createdAt: number; endedAt: number } | null {
     const createdAt = Number(session.createdAt);
@@ -106,6 +108,10 @@ async function helpAppliedSectorWarEffects(
     attackerWon: boolean,
 ): Promise<void> {
     if (!legacyEnabled()) return;
+    // A Cinderhold fight scores the war but credits nobody's Legacy: never the
+    // NPC, and never the player in a fight that paid nothing (an
+    // admin-controlled NPC, or one past today's paid duels).
+    if (isNpcAccount(winnerName) || (session.npcDuel?.version === 1 && !npcDuelPays(session))) return;
     const battleId = session.battleId;
     const receiptId = `sector-pvp:${battleId}`;
     const winner = session.winner === 'p1' ? session.p1 : session.p2;
@@ -235,9 +241,12 @@ export async function settlePvpSectorWarContinuation(
     if (session.status !== 'done' || !session.winner || !clock) {
         throw new Error('sector-war-terminal-session-invalid');
     }
-    if (session.rewardAuthority !== 'world' || !pvpSessionMayGrantProgress(session)) {
+    if (session.rewardAuthority !== 'world' || !pvpSessionMayScoreWar(session)) {
         throw new Error('sector-war-session-authority-invalid');
     }
+    // A won Cinderhold duel's pay slot is settled before its purse eligibility
+    // and Legacy credit read it (idempotent: the terminal replay settled it first).
+    await settleNpcDuelWin(session);
     const battleId = session.battleId;
     const p1Name = safeName(session.p1?.name ?? '');
     const p2Name = safeName(session.p2?.name ?? '');
@@ -415,6 +424,8 @@ export async function settlePvpSectorWarContinuation(
                 endedAt: clock.endedAt,
                 winnerLevel: session[winnerSide].character.level,
                 loserLevel: session[loserSide].character.level,
+                // A Cinderhold duel pays only a player win with a pay slot (api/_npc-duel.ts npcDuelPays).
+                npcDuelPaid: session.npcDuel?.version === 1 && npcDuelPays(session),
             });
             return { kind: 'score', outcome, attackerWon, by: winnerName, at: clock.endedAt, purseEligible };
         },

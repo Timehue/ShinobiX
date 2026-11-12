@@ -321,6 +321,13 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
     });
 
     return {
+        placeOnWorldTile: (sector: number, tile: number) => {
+            const position = worldModel.fallback(sector, tile);
+            if (!position || position.from !== sector+":"+tile) throw Error("Unwalkable review tile");
+            worldCursor = position;
+            worldSequence++;
+            save = { ...save, currentSector: sector, currentTile: tile };
+        },
         serverSave: () => structuredClone(save),
         currentVersion: () => saveVersion,
         acknowledgedVersion: () => acknowledgedVersion,

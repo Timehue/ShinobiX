@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 import { cors, safeName } from '../_utils.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -47,6 +48,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only settle your own event match.' });
         const playerSlug = identity.admin ? playerName : identity.name;
+        // A Cinderhold shinobi never contributes to or earns from a boss event.
+        if (isNpcAccount(playerSlug)) return res.status(403).json({ error: 'Cinderhold shinobi do not fight the world boss.' });
         if (!enforceRateLimit(req, res, 'world-boss-event-settle', 12, 60_000, playerSlug)) return;
 
         const session = await readSession(runId);

@@ -1514,7 +1514,7 @@ jobs:
         if: ${{ matrix.shard == 3 }}
         env:
           LIVE_E2E_REALTIME: '1'
-        run: npm run test:e2e:live --prefix shinobij.client -- pvp-lifecycle-express.spec.ts ranked-queue-express.spec.ts kage-challenge-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/pvp-lifecycle-ci 2>&1 | tee .ci-evidence/e2e-village-stores/pvp-lifecycle.log
+        run: npm run test:e2e:live --prefix shinobij.client -- pvp-lifecycle-express.spec.ts ranked-queue-express.spec.ts kage-challenge-express.spec.ts npc-duel-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/pvp-lifecycle-ci 2>&1 | tee .ci-evidence/e2e-village-stores/pvp-lifecycle.log
       # Wild pet binding rides on this server: the step registers 12 of the 25
       # accounts per IP that registration allows in 15 minutes.
       - name: Live Express gathering, recipes, crafting settlement and wild pet binding
@@ -1668,6 +1668,48 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  avatar_recognition:
+    name: CI / avatar-recognition
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /workers/avatar-model/
+            /scripts/sector-model-release.py
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: workers/avatar-model/.python-version
+      - name: Install the recognition subset of the pinned worker dependencies
+        run: |
+          mkdir -p .ci-evidence/avatar-recognition
+          python -c "from pathlib import Path; rows=Path('workers/avatar-model/requirements-linux-paint.txt').read_text().splitlines(); Path('.ci-evidence/avatar-recognition/requirements.txt').write_text('\n'.join(row for row in rows if row.startswith(('numpy==','pillow=='))) + '\n')"
+          python -m pip install --only-binary=:all: -r .ci-evidence/avatar-recognition/requirements.txt -r workers/avatar-model/requirements-dispatch.txt
+          python -m pip check
+      - name: Verify blind recognition challenges without provider calls
+        env:
+          OPENAI_API_KEY: ''
+        run: python -m unittest discover -s workers/avatar-model/tests -p 'test_recognition_*.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/tests.log
+      - name: Verify sprite erasure and publication revocation without hosted calls
+        env:
+          OPENAI_API_KEY: ''
+        run: |
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_cleanup_*.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/cleanup-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_browser_motion.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/delivery-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_dispatch_result.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/recovery-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_roster_release.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/roster-release-tests.log
+      - name: Retain recognition test results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: avatar-recognition-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          path: .ci-evidence/avatar-recognition/
+          retention-days: 14
+
   test_build:
     name: CI / test-build
     if: ${{ always() }}
@@ -1675,6 +1717,7 @@ jobs:
       - server_contracts
       - server_build_security
       - pg_integration
+      - avatar_recognition
       - changes
       - pet_review_evidence
       - client_build
@@ -1695,6 +1738,7 @@ jobs:
           SERVER_CONTRACTS: ${{ needs.server_contracts.result }}
           SERVER_BUILD_SECURITY: ${{ needs.server_build_security.result }}
           PG_INTEGRATION: ${{ needs.pg_integration.result }}
+          AVATAR_RECOGNITION: ${{ needs.avatar_recognition.result }}
           CHANGES: ${{ needs.changes.result }}
           EVIDENCE_NEEDED: ${{ needs.changes.outputs.evidence }}
           PET_REVIEW_EVIDENCE: ${{ needs.pet_review_evidence.result }}
@@ -1715,6 +1759,7 @@ jobs:
             "server-contracts=$SERVER_CONTRACTS" \
             "server-build-security=$SERVER_BUILD_SECURITY" \
             "pg-integration=$PG_INTEGRATION" \
+            "avatar-recognition=$AVATAR_RECOGNITION" \
             "changes=$CHANGES" \
             "pet-review-evidence-needed=$EVIDENCE_NEEDED" \
             "pet-review-evidence=$PET_REVIEW_EVIDENCE" \
@@ -1732,6 +1777,7 @@ jobs:
           test "$SERVER_CONTRACTS" = success
           test "$SERVER_BUILD_SECURITY" = success
           test "$PG_INTEGRATION" = success
+          test "$AVATAR_RECOGNITION" = success
           test "$CHANGES" = success
           # The screenshot re-hash is skipped only when `changes` proved nothing
           # relevant moved; when it was needed it must have succeeded.

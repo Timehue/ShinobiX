@@ -33,6 +33,8 @@ export type PvpRewardClaimConfirmed = {
     rewardAuthorized: boolean;
     /** Stronger server proof that this match may feed generic progression. */
     progressionAuthorized: boolean;
+    /** Why a fight with a Cinderhold shinobi paid nothing, when it didn't. */
+    npcPay?: string;
     rating?: PvpRewardRating;
     /** Ranked V2: the purse the ranked journal paid this side, why it paid none, and its credit view. */
     rankedPurse?: { ryo: number; reason?: "too-young"; credit?: PvpRewardCredit };
@@ -488,6 +490,7 @@ export async function postPvpRewardClaim(
             ...(warPoints ? { warPoints } : {}),
             ...(warGroundReward ? { warGroundReward } : {}),
             ...(clanWarScrollDrop ? { clanWarScrollDrop } : {}),
+            ...(typeof payload.npcPay === "string" ? { npcPay: payload.npcPay } : {}),
         };
     } catch {
         return {

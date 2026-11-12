@@ -27,6 +27,7 @@
 
 /** Character-scope fields a generic save cannot durably change. */
 export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
+    'playerModel', 'playerModelOwnerId', 'starterWorldModel',
     'resourceGathering', 'gatheringToolUses', 'sectorBuildings',
     'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan', 'brokerCertificates', 'brokerCrateLedger',
     'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen', 'gearTierUnlocks', 'equippedNamedGear',

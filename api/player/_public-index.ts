@@ -8,6 +8,7 @@
 import { safeName } from '../_utils.js';
 import { earnedStatPoints } from '../_xp-engine.js';
 import { isCombatDiscipline } from '../../shared/bloodline-discipline.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 
 export const REGISTRY_KEY = 'player:registry';
 // v2: the `xp` slot changed MEANING with the XP removal — it now carries the
@@ -307,7 +308,8 @@ export function buildPublicLeaderboards(
 ): PublicLeaderboardBoard[] {
     const rowLimit = Math.max(1, Math.min(Math.floor(limit) || 25, 100));
     const onlineKeys = new Set([...onlineNames].map(publicIndexKey).filter(Boolean));
-    const publicEntries = [...entries].filter((entry) => isPublicPlayerIndexKey(entry.name));
+    // Cinderhold's NPC shinobi never rank: a board of real players only.
+    const publicEntries = [...entries].filter((entry) => isPublicPlayerIndexKey(entry.name) && !isNpcAccount(entry.name));
     const online = (entry: PublicPlayerIndexEntry) => onlineKeys.has(publicIndexKey(entry.name));
 
     return [

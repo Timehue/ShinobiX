@@ -92,6 +92,52 @@ test('authority proofs publish with free or paid save changes and refuse the who
     }
 });
 
+test('related authority rows commit atomically with save and ledger, including a failed subordinate guard',async()=>{
+    for(const charged of [false,true]) {
+        const before=saveRecord(charged?3:1),next=saveRecord(charged?4:2,{ryo:charged?500:1000});
+        await store.set(SAVE,before);
+        await store.set('avatar-model:revision:coinkeeper',0);
+        const proof={key:'avatar-model:asset:fixture-'+charged,expected:null,value:{status:'revoked'},additionalOps:[
+            {op:'cas' as const,key:'avatar-model:revision:coinkeeper',expected:1,value:2},
+            {op:'cas' as const,key:'avatar-model:removal:fixture-'+charged,expected:null,value:{reason:'test'}}]};
+        assert.equal(await commit(store,before,next,{atomicProof:proof}),false);
+        assert.deepEqual(await store.get(SAVE),before);
+        assert.equal(await store.get(proof.key),null);
+        assert.equal(await store.get(proof.additionalOps[1].key),null);
+        proof.additionalOps[0].expected=0;
+        assert.equal(await commit(store,before,next,{atomicProof:proof}),true);
+        assert.deepEqual(await store.get(SAVE),next);
+        assert.equal(await store.get('avatar-model:revision:coinkeeper'),2);
+        if(charged) assert.equal((await store.get<{balances:{ryo:number}}>(LEDGER))?.balances.ryo,500);
+    }
+});
+
+test('additional authority cannot write another save, a currency ledger or a duplicate proof row',async()=>{
+    const before=saveRecord(1),next=saveRecord(2);
+    await store.set(SAVE,before);
+    for(const key of ['save:somebody','ledger:currency:coinkeeper','authority:proof']) {
+        await assert.rejects(commit(store,before,next,{atomicProof:{key:'authority:proof',expected:null,value:'one',
+            additionalOps:[{op:'cas',key,expected:null,value:'two'}]}}),/Invalid additional|Duplicate player-save/);
+        assert.deepEqual(await store.get(SAVE),before);
+        assert.equal(await store.get('authority:proof'),null);
+    }
+});
+
+test('rebasing one authority row never drops the other transaction guards',async()=>{
+    const before=saveRecord(1),next=saveRecord(2);
+    await store.set(SAVE,before);
+    await store.set('authority:primary',{n:1});await store.set('authority:revision',2);
+    const proof={key:'authority:primary',expected:{n:0},value:{n:1},
+        rebase:(current:unknown)=>({n:Number((current as {n:number}).n)+1}),
+        additionalOps:[{op:'assert' as const,key:'authority:revision',expected:1}]};
+    assert.equal(await commit(store,before,next,{atomicProof:proof}),false);
+    assert.deepEqual(await store.get(SAVE),before);
+    assert.deepEqual(await store.get(proof.key),{n:1});
+    await store.set('authority:revision',1);
+    assert.equal(await commit(store,before,next,{atomicProof:proof}),true);
+    assert.deepEqual(await store.get(proof.key),{n:2});
+});
+
 describe('fast path — currency did not move', () => {
     test('an existing claim record changes atomically with the save and currency ledger', async () => {
         const before = saveRecord(1);

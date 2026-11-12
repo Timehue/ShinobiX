@@ -26,6 +26,8 @@
  */
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
+import { eraseProfileDetail } from './avatar-model/_profile-detail.js';
+import { detachModelAccount } from './avatar-model/_delete-account.js';
 import { withKvLock } from './_lock.js';
 import { rotatePlayerSessionEpoch } from './_auth.js';
 import { authKey, googleIdentityKey, releaseGoogleIdentityForAccount, type AuthRecord } from './player-auth.js';
@@ -213,6 +215,8 @@ const IMAGE_CLAIM_READ_CHUNK = 200;
  * compare-and-delete, so a claim another player took meanwhile survives.
  */
 async function releasePlayerImages(slug: string, save: unknown, result: DeletePlayerAccountResult): Promise<void> {
+    try { await eraseProfileDetail(slug); }
+    catch { result.failures.push('Private profile portrait removal pending'); }
     // The client publishes `avatar:<display name, lowercased>`, which can differ
     // from the slug (a name with a space); the server accepts both forms.
     const avatarIds = new Set([`avatar:${slug}`]);
@@ -394,6 +398,10 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
     } catch (err) {
         result.failures.push(`save:${slug} read: ${(err as Error).message}`);
     }
+
+    // Fence model producers and retain cleanup/billing evidence before the name becomes reusable.
+    try { await detachModelAccount(slug); }
+    catch(err) {result.failures.push(`avatar model teardown: ${(err as Error).message}`);return result;}
 
     // Cancel the billing relationship while the save still exists — it holds
     // the only copy of the subscription reference, and every deletion path runs

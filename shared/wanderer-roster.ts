@@ -24,7 +24,7 @@
  * but WHO it is comes from a separate per-night roll, and it exists only while
  * the world is dark. The daytime cast is untouched by it.
  */
-import { MAX_WILD_SECTOR, isPlayableWildSector } from "./sector-geo.js";
+import { CINDERHOLD_SECTORS, MAX_WILD_SECTOR, isPlayableWildSector, sectorRewardTier } from "./sector-geo.js";
 import { nearestWalkableTile } from "./sector-walk-mask.js";
 import { isWorldNight } from "./world-phase.js";
 import { WORLD_DAY_MS, WORLD_HOUR_MS } from "./world-clock.js";
@@ -453,7 +453,7 @@ export function nearbyTile(tile: number, rng: () => number): number {
 
 /** Banded to the sector so an attacker scales to where the player is. */
 export function wandererLevelFor(sector: number, rng: () => number): number {
-    const base = 6 + sector * 1.4;
+    const base = 6 + sectorRewardTier(sector) * 1.4;
     const jitter = Math.floor(rng() * 7) - 3; // ±3
     return Math.max(3, Math.min(95, Math.round(base + jitter)));
 }
@@ -486,9 +486,14 @@ function rollRawWanderers(sector: number, dayBucket: number): Wanderer[] {
     const count = wandererCount(rng());
     const used = new Set<number>();
     const out: Wanderer[] = [];
+    // Cinderhold's land (67-74) holds no bandits, traders or travellers: only the
+    // volcano's beasts roam it (owner plan, 2026-11-08). The draw is still made so
+    // the rest of the roll stays identical in shape.
+    const beastsOnly = CINDERHOLD_SECTORS.includes(sector);
 
     for (let i = 0; i < count; i++) {
-        const archetype = pickWeightedArchetype(rng());
+        const drawn = pickWeightedArchetype(rng());
+        const archetype: WandererArchetypeId = beastsOnly ? 'beast' : drawn;
         const meta = WANDERER_ARCHETYPES[archetype];
         const movement = naturalWandererMovement(archetype);
 
@@ -566,7 +571,8 @@ export function placeWanderer(w: Wanderer, sector: number): Wanderer {
 }
 
 function rollRawNightWanderer(sector: number, nightIndex: number, dayBucket: number): Wanderer | null {
-    if (!isPlayableWildSector(sector) || !Number.isSafeInteger(nightIndex)) return null;
+    // No night ninja hunts Cinderhold's land either.
+    if (!isPlayableWildSector(sector) || CINDERHOLD_SECTORS.includes(sector) || !Number.isSafeInteger(nightIndex)) return null;
     const rng = mulberry32(wandererHash32(`night:${sector}:${nightIndex}:${dayBucket}`));
     if (rng() >= NIGHT_WANDERER_CHANCE) return null;
     const meta = WANDERER_ARCHETYPES.nightblade;

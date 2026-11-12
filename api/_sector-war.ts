@@ -28,7 +28,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { TERRAINS, WIN_CONDITIONS, type Terrain, type WinCondition } from './_war-state.js';
 import { GARRISON_POINTS_CAP_FED, unfedStructureMultiplier, utcDay } from './_village-stores.js';
 import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
-import { homeVillageForSector, isWarVillage, isWarSector, isProtectedWarSector } from './_war-map-sectors.js';
+import { homeVillageForSector, isSectorWarVillage, isWarSector, isProtectedWarSector } from './_war-map-sectors.js';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
 import { PVP_TERMINAL_REPLAY_TTL, SESSION_TTL } from './combat-core/constants.js';
 import {
@@ -1332,7 +1332,9 @@ export function canDeclareSectorWar(c: SectorWarDeclareCheck): SectorWarDeclareR
     const attacker = String(c.attackerVillage);
     const defender = String(c.defenderVillage);
     if (!attacker || !defender || attacker === defender) return { ok: false, error: 'self' };
-    if (!isWarVillage(attacker) || !isWarVillage(defender)) return { ok: false, error: 'not-war-village' };
+    // Cinderhold holds and fights sector wars (Push 4), so the sector-war set,
+    // not the four player villages, decides who may be on either side.
+    if (!isSectorWarVillage(attacker) || !isSectorWarVillage(defender)) return { ok: false, error: 'not-war-village' };
     if (!isWarSector(c.sector)) return { ok: false, error: 'not-war-sector' };
     if (isProtectedWarSector(c.sector) && homeVillageForSector(c.sector) !== attacker) {
         return { ok: false, error: 'protected-core' };

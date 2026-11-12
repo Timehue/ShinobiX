@@ -43,7 +43,7 @@ export const SECONDARY_ARTWORK_CORRECTIONS: Readonly<Record<string, Readonly<Rec
         'What to Write': `${side}road-empty-notice-square-v1.webp`,
     },
     'story-road-four-seals-one-gate': {
-        "Someone Else's Client": `${side}road-moon-founding-stone-v1.webp`,
+        "Someone Else's Client": `${side}road-moon-founding-stone-v1.avif`,
         'One Lattice': `${side}road-four-keys-firelit-detail-v1.webp`,
         'What Keys Are For': `${side}road-four-keys-firelit-detail-v1.webp`,
     },

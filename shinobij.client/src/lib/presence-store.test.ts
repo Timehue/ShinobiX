@@ -34,6 +34,17 @@ beforeEach(() => {
     resetLiveSectorPlayers();
 });
 
+test('a late poll cannot put a model-equipped NPC back on its previous tile', () => {
+    const original = player('Kuroto', 9, { tile: 10, movementSequence: 1 });
+    setLiveSectorContext(9);
+    pushLiveSectorPlayers([original], 9);
+    moveLiveSectorPlayer('Kuroto', 11, 9, 2);
+    pushLiveSectorPlayers([original], 9);
+    moveLiveSectorPlayer('Kuroto', 12, 9, 1);
+    assert.equal(getLiveSectorPlayers()[0]?.tile, 11);
+    assert.equal(getLiveSectorPlayers()[0]?.movementSequence, 2);
+});
+
 test('an older full roster cannot undo an accepted same-sector world delta', () => {
     const position = { layoutVersion: 'test', from: 'road:9-15:1', to: 'road:9-15:2', progress: .6 };
     setLiveSectorContext(9); pushLiveSectorPlayers([player('rill', 9, { movementSequence: 1 })], 9);
@@ -166,6 +177,19 @@ test("a comparison after socket moves sees exactly the moved state", () => {
     assert.deepEqual(getLiveSectorPlayers().map((p) => [p.name, p.tile]), [["Aya", 10], ["Ren", 21]]);
 });
 
+test("a delayed roster keeps the run style of the accepted socket move", () => {
+    const position = { layoutVersion: "test", from: "9:10", to: "9:11", progress: .7 };
+    const gaitPresentation = { gait: "run", style: "C" } as const;
+    const before = player("Aya", 9, { tile: 10, movementSequence: 1 });
+    setLiveSectorContext(9);
+    pushLiveSectorPlayers([before], 9);
+    moveLiveWorldPlayer("Aya", 9, position, 2, gaitPresentation);
+    pushLiveSectorPlayers([before], 9);
+    assert.deepEqual(getLiveSectorPlayers()[0]?.gaitPresentation, gaitPresentation);
+    moveLiveWorldPlayer("Aya", 9, { ...position, progress: .9 }, 3);
+    assert.equal(getLiveSectorPlayers()[0]?.gaitPresentation, undefined);
+});
+
 const names = () => getLiveSectorPlayers().map((p) => p.name).sort();
 
 test("a leave names the account slug; a player with a spaced display name still goes", () => {
@@ -277,6 +301,20 @@ test('avatar changes and travel lease extensions invalidate the display roster',
     const original = player('Aya', 9, { travelingUntil: Date.now() + 60_000 });
     assert.notEqual(presenceSignature([original]), presenceSignature([{...original, travelingUntil: original.travelingUntil! + 60_000}]));
     assert.notEqual(presenceSignature([original]), presenceSignature([{...original, character:{...original.character,avatarImage:'/new-portrait.webp'}}]));
+});
+
+test('a stationary peer changes model revision and restores their starter within one heartbeat', () => {
+    const starter = player('Aya', 9);
+    const model = {assetId:'a'.repeat(32), version:'b'.repeat(64)};
+    const equipped = {...starter, character:{...starter.character, playerModel:model}};
+    pushLiveSectorPlayers([starter], 9);
+    upsertLiveSectorPlayer(equipped, 9);
+    assert.deepEqual(getLiveSectorPlayers()[0].character.playerModel, model);
+    const revised = {...model, version:'c'.repeat(64)};
+    pushLiveSectorPlayers([{...equipped, character:{...equipped.character, playerModel:revised}}], 9);
+    assert.deepEqual(getLiveSectorPlayers()[0].character.playerModel, revised);
+    upsertLiveSectorPlayer(starter, 9);
+    assert.equal(getLiveSectorPlayers()[0].character.playerModel, undefined);
 });
 test('an empty confirmed snapshot differs from loading, and a failed old-sector request cannot mark the new sector unavailable', async () => {
     const store = await import('./presence-store');

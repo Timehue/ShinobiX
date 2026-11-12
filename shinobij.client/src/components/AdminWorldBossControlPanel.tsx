@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { WORLD_BOSS_DEFINITIONS, type WorldBossEventStatus, type WorldBossId } from '../../../shared/world-boss-event';
-import { PLAYABLE_WILD_SECTOR_IDS, sectorName, VILLAGE_OUTSKIRTS } from '../../../shared/sector-geo';
+import { CINDERHOLD_SECTORS, PLAYABLE_WILD_SECTOR_IDS, sectorName, VILLAGE_OUTSKIRTS } from '../../../shared/sector-geo';
 import { gameConfirm } from './GameAlert';
 import './AdminWorldBossControlPanel.css';
 
@@ -148,7 +148,7 @@ export function AdminWorldBossControlPanel({ adminPw }: { adminPw: string }) {
             <label className="admin-world-boss-setting">
                 Spawn sector
                 <select value={spawnSector} onChange={input => setSpawnSector(input.target.value)} disabled={busy || active}>
-                    {PLAYABLE_WILD_SECTOR_IDS.map(sector => <option key={sector} value={sector}>Sector {sector} · {sectorName(sector) ?? 'Wilderness'}</option>)}
+                    {PLAYABLE_WILD_SECTOR_IDS.filter(sector => !CINDERHOLD_SECTORS.includes(sector)).map(sector => <option key={sector} value={sector}>Sector {sector} · {sectorName(sector) ?? 'Wilderness'}</option>)}
                 </select>
                 <small>The event begins at this sector and follows connected roads.</small>
             </label>

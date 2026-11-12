@@ -1,5 +1,6 @@
 import { creditElderWins } from '../../shared/elder-elections.js';
 import { safeLogValue } from '../_safe-log.js';
+import { recordStoryKageDefection } from '../_npc-village-leaders.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -240,6 +241,14 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
                 return partial('Story reward committed; Legacy record delivery is pending. Retry to reconcile.');
             }
             if (delivery.legacyRecord !== 'not-applicable') delivery.legacyRecord = 'confirmed';
+        }
+        // Owner, 2026-11-08: the first time any player beats their village's
+        // story Kage, that Kage defects to Cinderhold and takes a seat there.
+        // Best-effort and idempotent; it never changes this player's reward.
+        if (!isSpar && result.value.finale === true && binding?.village) {
+            await recordStoryKageDefection(binding.village, playerName)
+                .then((seat) => { if (seat) console.log(`[story/settle] ${seat.name} defected to Cinderhold as ${seat.seat}.`); })
+                .catch((err) => console.error('[story/settle] Cinderhold defection', safeLogValue(err)));
         }
         return { ...result, value: { ...result.value, delivery } };
     }, { failClosed: true });

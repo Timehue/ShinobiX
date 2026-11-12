@@ -103,3 +103,13 @@ test('toPlayerRecord: null character → safe defaults', () => {
     assert.equal(r.inBattle, false);
     assert.equal(r.travelingUntil, 0);
 });
+
+test('peer equipment comes only from the saved model, never a heartbeat claim', () => {
+    const model={assetId:'a'.repeat(32),version:'b'.repeat(64)};
+    const claim=slimPresenceCharacter({playerModel:model});
+    assert.equal(claim?.playerModel,undefined);
+    const player: OnlinePlayer={name:'scout',displayName:'Scout',sector:46,character:claim ?? null,
+        lastSeenAt:1,connectedAt:1,pendingAttacker:null};
+    assert.deepEqual(toPlayerRecord(player).character,{avatarImage:''});
+    assert.deepEqual(toPlayerRecord({...player,playerModel:model}).character,{avatarImage:'',playerModel:model});
+});

@@ -1,4 +1,5 @@
 import { kv } from "../_storage.js";
+import { isNpcAccount, npcCanonicalSlug } from '../../shared/npc-village-roster.js';
 import { withKvLock } from "../_lock.js";
 import { bumpLegacyStats, legacyEnabled } from "../_legacy-track.js";
 import type { ChronicleActionIntent, ChronicleMatch, ChronicleSideKey } from "../../shared/chronicle-duel.js";
@@ -150,6 +151,13 @@ export async function repairFreePlayLegacyCredit(session: CreditSession): Promis
   if (!credit || credit.status !== "pending") return false;
   if (!legacyEnabled()) {
     credit.status = "done";
+    return true;
+  }
+  // A Cinderhold NPC's card win is not a player's: no Legacy standing (and no
+  // Dojo Circuit seal, which reads this outbox). A player's win over one counts.
+  if (isNpcAccount(npcCanonicalSlug(credit.winnerName))) {
+    credit.status = "skipped";
+    credit.reason = "reciprocal";
     return true;
   }
   const eligible = await reserveFreePlayPairDecision(credit, session.updatedAt);

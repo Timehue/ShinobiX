@@ -36,6 +36,8 @@
  * retry, a lost reply or a second duelist's poll can never pay twice.
  */
 import { createHash } from 'node:crypto';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
+import { spendNpcDuelPay } from '../_npc-duel.js';
 import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import { economyDial } from '../_economy-dials.js';
@@ -236,6 +238,8 @@ export type CardCpCredit = {
     /** The winner was not yet established, so the loss share is 0 (shown to the loser). */
     lossBlocked?: 'too-young';
     paid?: Partial<Record<CardCpRole, true>>;
+    /** A Cinderhold NPC's seat was played by an admin: the duel pays nobody. */
+    npcControlled?: true;
     /** The player's authoritative save was handed back once after their share committed. */
     delivered?: Partial<Record<CardCpRole, true>>;
 };
@@ -248,6 +252,8 @@ export type CardPvpCpSession = {
     participation?: FreePlayParticipation;
     updatedAt: number;
     cpCredit?: CardCpCredit;
+    /** Set by the host when an admin played a Cinderhold NPC's seat (api/admin/npc-possess.ts). */
+    npcControlled?: boolean;
 };
 
 const pairSide = (name: string) => safeName(name);
@@ -285,6 +291,7 @@ export function prepareCardPvpCpCredit(
         endedAt,
         status: qualified ? 'pending' : 'skipped',
         ...(qualified ? {} : { reason: 'participation' as const }),
+        ...(session.npcControlled ? { npcControlled: true as const } : {}),
     };
 }
 
@@ -369,6 +376,38 @@ export async function settleCardCpCredit(credit: CardCpCredit | undefined): Prom
             }
             winnerEstablished = pvpAccountOldEnough(winnerChar.createdAt, credit.endedAt, winnerChar.level);
         }
+        const npcRole: CardCpRole | null = credit.kind !== 'pvp' ? null
+            : isNpcAccount(safeName(credit.winnerName)) ? 'winner' : isNpcAccount(safeName(credit.targetName)) ? 'loser' : null;
+        // A clan-war Chronicle Showdown against a Cinderhold clan is scored and
+        // paid exactly like one between two player clans (owner ruling
+        // 2026-11-10): it takes the normal PvP path below (reciprocal check,
+        // pair weight) and spends no NPC daily slot. Under admin control it
+        // still pays nobody, through the NPC branch.
+        const clanWarDuel = credit.receiptId.startsWith('card-pvp:cw:');
+        if (!credit.amounts && npcRole && (!clanWarDuel || credit.npcControlled)) {
+            // A duel with a Cinderhold NPC (owner ruling 2026-11-09 "normal PvP,
+            // capped", and 2026-11-11): the player's normal 20-point win share
+            // for the first card duel WON against a given NPC each UTC day, at
+            // most five a day, and the normal 8-point loss share for the first
+            // card duel LOST to a given NPC each day, at most five a day. Wins
+            // and losses each spend only their own count. A loss share needs
+            // the existing established-winner gate first, so a loss that would
+            // pay nothing spends no slot. The NPC is never paid. The cap
+            // replaces the reciprocal check (an NPC cannot trade wins), and a
+            // duel an admin played pays nobody.
+            const humanWon = npcRole === 'loser';
+            const human = humanWon ? credit.winnerName : credit.targetName;
+            const npc = safeName(npcRole === 'winner' ? credit.winnerName : credit.targetName);
+            const eligible = !credit.npcControlled && (humanWon || winnerEstablished);
+            const pays = eligible && await spendNpcDuelPay(human, npc, credit.receiptId, credit.endedAt, 'cards', humanWon ? 'win' : 'loss');
+            credit.pairOrdinal = pays ? 1 : 0;
+            credit.pairWeight = pays ? 1 : 0;
+            credit.amounts = {
+                winner: pays && humanWon ? whole(cardPvpWinCp()) : 0,
+                loser: pays && !humanWon ? whole(cardPvpLossCp()) : 0,
+            };
+            changed = true;
+        }
         if (!credit.amounts) {
             // A free-play duel reads the free-play Legacy decision under the same
             // receipt, so it can never earn Legacy and not points (or the reverse).
@@ -399,6 +438,8 @@ export async function settleCardCpCredit(credit: CardCpCredit | undefined): Prom
         for (const role of ['winner', 'loser'] as const) {
             const amount = credit.amounts[role];
             if (amount <= 0 || credit.paid?.[role]) continue;
+            // A Cinderhold NPC is never paid, in any card mode (owner ruling 2026-11-09).
+            if (isNpcAccount(safeName(nameOf(credit, role)))) { credit.paid = { ...(credit.paid ?? {}), [role]: true }; changed = true; continue; }
             const paid = await payChroniclePointsOnce({
                 player: nameOf(credit, role),
                 receiptId: `${credit.receiptId}:${role}`,

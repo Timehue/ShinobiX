@@ -5,7 +5,7 @@ import {
     isRiftQuestId, riftQuestRyo, riftBossKilled, riftTargetSector,
     parseRiftQuestSeal, parseRiftQuestBossReceipt, reconcileRiftRunBinding, riftBossReceiptMatches,
 } from './_rift-quest.js';
-import { CASTLE_SECTORS, FESTIVAL_SECTOR, OLD_TO_NEW_SECTOR, OUTSKIRTS_SECTORS, WORLD_GEO_VERSION, MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
+import { CASTLE_SECTORS, CINDERHOLD_GATE_SECTOR, FESTIVAL_SECTOR, OLD_TO_NEW_SECTOR, OUTSKIRTS_SECTORS, WORLD_GEO_VERSION, MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 type ClientChoice = { text: string; conclusion?: string; accept?: boolean; descend?: boolean };
 type ClientPage = { title: string; scene: string; speaker: string; dialogue: string[]; choices?: ClientChoice[] };
@@ -50,7 +50,7 @@ test('riftBossKilled needs one foe-kill past the sealed baseline', () => {
 });
 
 test('riftTargetSector is deterministic, wilderness-ranged, and skips safe hubs', () => {
-    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
+    const skip = new Set([...OUTSKIRTS_SECTORS, CINDERHOLD_GATE_SECTOR, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
     for (const player of ['Aki', 'Rill', 'ZZZ', 'a', 'player-two']) {
         const s = riftTargetSector(player, 'rift-hollow-stalker');
         assert.equal(s, riftTargetSector(player, 'rift-hollow-stalker'), 'stable per call');
@@ -63,7 +63,7 @@ test('rifts can open in EVERY eligible sector, including ones added after launch
     // The draw spans MAX_WILD_SECTOR. Sweep enough players to show the range is
     // genuinely reachable — otherwise a stale `% 60` would pass unnoticed as long
     // as the handful of sampled names happened to draw low.
-    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
+    const skip = new Set([...OUTSKIRTS_SECTORS, CINDERHOLD_GATE_SECTOR, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
     const hit = new Set<number>();
     for (let i = 0; i < 4000; i += 1) hit.add(riftTargetSector(`sweep-${i}`, 'rift-hollow-stalker'));
     for (const s of hit) {

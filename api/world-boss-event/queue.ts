@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 import { cors, safeName } from '../_utils.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
@@ -50,6 +51,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only change your own queue ticket.' });
         const playerSlug = identity.admin ? playerName : identity.name;
+        // A Cinderhold shinobi may stand near the boss, never fight it: no
+        // queue, no party slot (also refused at registration, api/_npc-guard.ts,
+        // and here for an in-process call or an admin acting for one).
+        if (isNpcAccount(playerSlug)) return res.status(403).json({ error: 'Cinderhold shinobi do not fight the world boss.' });
         if (!enforceRateLimit(req, res, 'world-boss-event-queue', 20, 60_000, playerSlug)) return;
 
         const event = await readActiveWorldBossEvent();

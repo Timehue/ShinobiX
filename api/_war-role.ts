@@ -2,6 +2,9 @@ import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
 import { readVillageElders } from './village/_elders.js';
 import { readVillageAnbu } from './village/_anbu.js';
+import { isNpcVillage } from '../shared/npc-village.js';
+import { npcBySlug } from '../shared/npc-village-roster.js';
+import { isNpcWarDefenderRank } from './_npc-war-roster.js';
 
 /*
  * Sector-war role weights (§17.6 — role-scaled Control HP). A fighter's VILLAGE
@@ -101,6 +104,16 @@ export async function sectorWarRoleOf(playerName: string, expectedVillage?: stri
         const sealedVillage = expectedVillage === undefined ? undefined : String(expectedVillage).trim();
         if (sealedVillage !== undefined && village.toLowerCase() !== sealedVillage.toLowerCase()) {
             return ROLE_VILLAGER;
+        }
+        // A Cinderhold shinobi's rank comes from the roster, never a seat: its
+        // Commanders at Elder weight, its other war defenders as ANBU
+        // (api/_npc-war-roster.ts). Its Genin and Chunin, who fight its wars
+        // from level 15 (owner ruling 2026-11-11), are its villagers.
+        if (isNpcVillage(village)) {
+            const npc = npcBySlug(name);
+            if (!npc) return ROLE_VILLAGER;
+            if (npc.rank === 'commander') return ROLE_ELDER;
+            return isNpcWarDefenderRank(npc.rank) ? ROLE_ANBU : ROLE_VILLAGER;
         }
         // The seat comes from the AUTHORITATIVE `village:kage:` row; ANBU appointees
         // only exist on the village-state, so that is still read for them.

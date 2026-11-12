@@ -10,6 +10,7 @@ import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { guardReachableFrom } from '../village-guard/_reachable.js';
 import { homeVillageForSector } from '../_war-map-sectors.js';
+import { isNpcVillage } from '../../shared/npc-village.js';
 import { loadPublishedContent } from '../_content-store.js';
 import { loadAiFightProfile } from './_ai-fight-encounter.js';
 import { acceptedRaidFetchMissions } from './_field-raid-progress.js';
@@ -195,6 +196,9 @@ async function fieldRaidAuthority(params: {
     const playerClan = String(params.character.clan ?? '').trim();
     const ownerVillage = String(territory?.ownerVillage ?? homeVillageForSector(params.sector) ?? '').trim();
     const ownerClan = String(territory?.ownerClan ?? '').trim();
+    // Cinderhold land is fought over only through its shinobi and its sector
+    // wars (Push 4): there is no village guard to raid and nothing to take.
+    if (isNpcVillage(ownerVillage)) return null;
     const hostileTerritory = (!!ownerVillage && ownerVillage !== playerVillage)
         || (!!ownerClan && ownerClan !== playerClan);
     const acceptedFieldContract = acceptedRaidFetchMissions(params.save)

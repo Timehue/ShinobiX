@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { NPC_TARGET_REFUSAL, isNpcTarget } from '../_npc-guard.js';
 import { repairRankedArenaAdmission } from '../_pet-tactics/ranked.js';
 import { randomUUID, randomInt } from 'crypto';
 import { kv } from '../_storage.js';
@@ -91,6 +92,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const petId = typeof body.petId === 'string' ? body.petId.slice(0, 64) : '';
         if (!opponent) return res.status(400).json({ error: 'Missing opponentName.' });
         if (opponent === me) return res.status(400).json({ error: 'You cannot start a ranked match against yourself.' });
+        // Cinderhold shinobi are fought only in the open world (owner ruling 2026-11-09).
+        if (isNpcTarget(opponent)) return res.status(409).json({ error: NPC_TARGET_REFUSAL });
 
         const result = await withKvLock(PET_RANKED_QUEUE_KEY, async () => {
             await withKvLock('pet:tactics:admission', () => repairRankedArenaAdmission(kv), { failClosed: true });

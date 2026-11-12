@@ -1381,3 +1381,33 @@ describe('player auth hardening', () => {
         });
     });
 });
+
+describe('Cinderhold NPC accounts never gain a credential (2026-11-09)', () => {
+    it('refuses a first password, a recovery code, deletion and admin resets, even with the takeover token', async () => {
+        const { NPC_VILLAGE_ROSTER } = await import('../shared/npc-village-roster.js');
+        const { issuePlayerToken } = await import('./_auth.js');
+        const npc = NPC_VILLAGE_ROSTER[0]!.id;
+        const record = { createdAt: 1, sessionEpoch: 0, npcVillage: true };
+        store.set(`auth:${npc}`, record);
+        const token = issuePlayerToken(npc)!;
+        const headers = { 'x-player-token': token };
+        for (const body of [
+            { action: 'change', name: npc, newPassword: 'BrandNew1' },
+            { action: 'recovery-issue', name: npc },
+            { action: 'delete', name: npc },
+            { action: 'google-unlink', name: npc, password: 'BrandNew1' },
+        ]) assert.equal((await post(body, headers)).statusCode, 403, body.action);
+        const admin = { 'x-admin-password': 'full-admin-test-password' };
+        assert.equal((await post({ action: 'adminreset', name: npc, newPassword: 'BrandNew1' }, admin)).statusCode, 403);
+        assert.equal((await post({ action: 'admin-recovery', name: npc }, admin)).statusCode, 403);
+        assert.deepEqual(store.get(`auth:${npc}`), record, 'the NPC still has no password, code or link');
+        assert.equal(await verifyPlayerPassword(npc, 'BrandNew1'), false);
+    });
+
+    it('an ordinary password-less account can still set its first password', async () => {
+        const { issuePlayerToken } = await import('./_auth.js');
+        store.set('auth:guestling', { createdAt: 1, sessionEpoch: 0, guest: true });
+        const out = await post({ action: 'change', name: 'guestling', newPassword: 'BrandNew1' }, { 'x-player-token': issuePlayerToken('guestling')! });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+    });
+});

@@ -5,6 +5,15 @@
  */
 import saveHandler       from './api/save/[name].js';
 import heartbeatHandler  from './api/player/heartbeat.js';
+import equipPlayerModelHandler from './api/avatar-model/equip.js';
+import removePlayerModelHandler from './api/admin/avatar-model/remove.js';
+import modelOperationsHandler from './api/admin/avatar-model/operations.js';
+import ownedPlayerModelsHandler from './api/avatar-model/models.js';
+import playerModelJobHandler from './api/avatar-model/jobs/[id].js';
+import admitPlayerModelHandler from './api/avatar-model/jobs.js';
+import readPlayerPortrait from './api/avatar-model/read.js';
+import uploadModelProfilePortrait from './api/avatar-model/profile-portrait.js';
+import cancelModelJob from './api/avatar-model/jobs/cancel.js';
 import travelHandler     from './api/player/travel.js';
 import worldMoveHandler from './api/player/world-move.js';
 import challengeHandler  from './api/player/challenge.js';
@@ -339,6 +348,9 @@ import moderationHandler from './api/admin/moderation.js';
 // Admin: durable battle-receipt lookup (support / reward-dispute debugging)
 import adminBattleReceiptsHandler from './api/admin/battle-receipts.js';
 import adminBoostEventHandler from './api/admin/boost-event.js';
+import adminNpcPossessHandler from './api/admin/npc-possess.js';
+import npcVillageHandler from './api/npc-village.js';
+import { NPC_ALLOWED_ACTIONS, NPC_BLOCKED_ROUTES, refuseNpcAccounts } from './api/_npc-guard.js';
 import adminWorldBossEventHandler from './api/admin/world-boss-event.js';
 import adminCombatUsageHandler from './api/admin/combat-usage.js';
 // Admin: asset-registry report + per-domain audit-log reader (diagnostics)
@@ -363,7 +375,11 @@ export { seedHomeSectorOwnership, villageWarMapEnabled, googleRedirectUriProblem
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyHandler = (...args: any[]) => any;
 
-export function registerApiRoutes(route: (path: string, handler: AnyHandler) => void): void {
+export function registerApiRoutes(registerRoute: (path: string, handler: AnyHandler) => void): void {
+    // Value-moving and account-changing routes refuse Cinderhold NPC accounts
+    // (an admin may be playing one; see api/_npc-guard.ts).
+    const route = (path: string, handler: AnyHandler) =>
+        registerRoute(path, NPC_BLOCKED_ROUTES.includes(path) ? refuseNpcAccounts(handler, NPC_ALLOWED_ACTIONS[path]) : handler);
 
     // ─── API routes ───────────────────────────────────────────────────────────────
 
@@ -372,6 +388,15 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
 
     // Player
     route('/player/heartbeat',    heartbeatHandler);
+    route('/avatar-model/equip', equipPlayerModelHandler);
+    route('/admin/avatar-model/remove', removePlayerModelHandler);
+    route('/admin/avatar-model/operations', modelOperationsHandler);
+    route('/avatar-model/models', ownedPlayerModelsHandler);
+    route('/avatar-model/jobs/:id', playerModelJobHandler);
+    route('/avatar-model/jobs/:id/cancel', cancelModelJob);
+    route('/avatar-model/jobs', admitPlayerModelHandler);
+    route('/avatar-model/read', readPlayerPortrait);
+    route('/avatar-model/profile-portrait', uploadModelProfilePortrait);
     route('/player/travel',       travelHandler);
     route('/player/world-move', worldMoveHandler);
     route('/player/challenge',    challengeHandler);
@@ -852,6 +877,8 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // ─── Admin: durable battle-receipt lookup (support / reward-dispute triage) ─────
     route('/admin/battle-receipts', adminBattleReceiptsHandler);
     route('/admin/boost-event', adminBoostEventHandler);
+    route('/admin/npc-possess', adminNpcPossessHandler);
+    route('/npc-village', npcVillageHandler);
     route('/admin/world-boss-event', adminWorldBossEventHandler);
     route('/admin/combat-usage', adminCombatUsageHandler);
 

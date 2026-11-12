@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FESTIVAL_SECTOR, PLAYABLE_WILD_SECTOR_IDS, WILD_SECTOR_IDS } from "./sector-geo.js";
+import { FESTIVAL_SECTOR, PLAYABLE_WILD_SECTOR_IDS, WILD_SECTOR_IDS, sectorRewardTier } from "./sector-geo.js";
 import { WORLD_DAY_MS, WORLD_HOUR_MS } from "./world-clock.js";
 import {
     CONTRACT_RYO_BASE, CONTRACT_RYO_PER_SECTOR, CONTRACT_TARGET_MIN, CONTRACT_TARGET_SPREAD,
@@ -50,7 +50,7 @@ test("targets and payouts stay inside their authored bands", () => {
             const contract = sectorContractFor(sector, day)!;
             assert.ok(contract.target >= CONTRACT_TARGET_MIN, `${day}/${sector} target too low`);
             assert.ok(contract.target < CONTRACT_TARGET_MIN + CONTRACT_TARGET_SPREAD, `${day}/${sector} target too high`);
-            assert.equal(contract.ryo, CONTRACT_RYO_BASE + sector * CONTRACT_RYO_PER_SECTOR);
+            assert.equal(contract.ryo, CONTRACT_RYO_BASE + sectorRewardTier(sector) * CONTRACT_RYO_PER_SECTOR);
         }
     }
 });
@@ -139,7 +139,7 @@ test("night work pays no premium — the condition buys direction, not income", 
     for (const day of DAYS) {
         for (const sector of contractSectorsForDay(day)) {
             const contract = sectorContractFor(sector, day)!;
-            assert.equal(contract.ryo, CONTRACT_RYO_BASE + sector * CONTRACT_RYO_PER_SECTOR);
+            assert.equal(contract.ryo, CONTRACT_RYO_BASE + sectorRewardTier(sector) * CONTRACT_RYO_PER_SECTOR);
         }
     }
 });

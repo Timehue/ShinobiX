@@ -17,6 +17,7 @@ import {
     villageWarPeaceView,
     villageWarRow,
     warAcceptPeaceConfirmText,
+    warAgreementFloorNote,
     warCrateDeclineMessage,
     warDeclareBlockReason,
     warDeclareConfirmText,
@@ -28,6 +29,8 @@ import {
 } from "../lib/village-war-hall";
 import { gameConfirm } from "../components/GameAlert";
 import { GameArtIcon } from "../components/GameArtIcon";
+import { NPC_VILLAGE } from "../../../shared/npc-village";
+import { NPC_PEACE_MIN_LEAD } from "../../../shared/village-war-campaign";
 
 // "4,620 / 5,075": a village's war HP against its own max (Ramparts raise it).
 function warHpText(war: VillageWarRecord, village: string): string {
@@ -121,7 +124,12 @@ export function VillageWarScreen({
     const myVillage = (character.village ?? "").trim();
     const activeWar = wars.find(w => !w.endedAt && Array.isArray(w.villages) && w.villages.includes(myVillage));
     const enemyVillage = activeWar?.villages?.find((v: string) => v !== myVillage) ?? "";
-    const villages = Array.from(new Set(playerRoster.map(p => p.village).filter(Boolean))).filter(v => v !== myVillage);
+    // Cinderhold's peace rule (shared npcAcceptsPeace): it never offers, and it
+    // takes a standing offer only when far behind.
+    const npcPeaceRule = `once ${myVillage} has at least double Cinderhold's score and leads by ${NPC_PEACE_MIN_LEAD} or more`;
+    // Cinderhold has no players, so the roster never names it; it is a real
+    // target all the same (Push 4b: a Kage may declare a village war on it).
+    const villages = Array.from(new Set([...playerRoster.map(p => p.village).filter(Boolean), NPC_VILLAGE])).filter(v => v !== myVillage);
 
     // The declare panel is the Kage's alone, and only while no war runs, so the
     // price is read only then. With the war system on (the default) the village's
@@ -180,6 +188,13 @@ export function VillageWarScreen({
             const confirmed = await gameConfirm(warAcceptPeaceConfirmText(enemyVillage), {
                 title: "Accept peace?",
                 confirmLabel: "Accept peace",
+                cancelLabel: "Keep fighting",
+            });
+            if (!confirmed) return;
+        } else if (command === "propose-peace" && enemyVillage === NPC_VILLAGE) {
+            const confirmed = await gameConfirm(`Offer peace to Cinderhold? It accepts ${npcPeaceRule}. Peace ends the war with no winner. ${warAgreementFloorNote()}`, {
+                title: "Offer peace?",
+                confirmLabel: "Offer peace",
                 cancelLabel: "Keep fighting",
             });
             if (!confirmed) return;
@@ -302,7 +317,9 @@ export function VillageWarScreen({
                                     )}
                                     {peace.ourOfferAt && (
                                         <p style={{ margin: "0 0 0.4rem", color: "#93c5fd" }}>
-                                            <strong>Our Kage has offered peace.</strong> If {enemyVillage}'s Kage accepts, the war ends with no winner.
+                                            <strong>Our Kage has offered peace.</strong> {enemyVillage === NPC_VILLAGE
+                                                ? `Cinderhold accepts it ${npcPeaceRule}.`
+                                                : `If ${enemyVillage}'s Kage accepts, the war ends with no winner.`}
                                         </p>
                                     )}
                                     {isKage && (
@@ -327,7 +344,9 @@ export function VillageWarScreen({
                                     )}
                                     {isKage && (
                                         <p style={{ margin: "0.4rem 0 0", fontSize: "0.75rem", color: "#94a3b8" }}>
-                                            Peace needs both Kages and ends the war with no winner. Surrendering ends it as a loss: {enemyVillage} wins.
+                                            {enemyVillage === NPC_VILLAGE
+                                                ? `Cinderhold never offers peace. It accepts a standing offer ${npcPeaceRule}, and peace ends the war with no winner.`
+                                                : "Peace needs both Kages and ends the war with no winner."} Surrendering ends it as a loss: {enemyVillage} wins.
                                         </p>
                                     )}
                                 </div>

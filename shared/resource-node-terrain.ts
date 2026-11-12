@@ -71,4 +71,7 @@ export const RESOURCE_ROCK_TILES: Readonly<Record<number, readonly number[]>> = 
     63: [83],
     64: [102],
     66: [92],
+    // Cinderhold's composed floors (2026-11-08): one ash-rock outcrop cell each,
+    // checked against the admitted painting's hatched mask overlay.
+    67: [33], 68: [103], 69: [15], 70: [29], 71: [100], 72: [16], 73: [26], 74: [81],
 };

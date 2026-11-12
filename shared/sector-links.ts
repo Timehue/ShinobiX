@@ -72,9 +72,13 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     // The Hollow Road (55-57) — the lantern road past the obelisk. 57 sits
     // beside the shrine so the Hollow Gate landmark crest can own it visually.
     { id: 55, x: 59, y: 60 }, { id: 56, x: 57, y: 72 }, { id: 57, x: 67, y: 61 },
-    // The Lavafront (58-60) + Death's Gate (99) — the northern ash and the cone
-    { id: 58, x: 43, y: 21 }, { id: 59, x: 57, y: 26 }, { id: 60, x: 53, y: 14 },
-    { id: 99, x: 47, y: 8 },
+    // The Lavafront (58-60) + Death's Gate (99) — the lower ash below the cone.
+    // 2026-11-08: Cinderhold Village took the volcano cone, so Death's Gate
+    // dropped onto the lower lava tongue and 60/66 moved down with it. Every
+    // derived exit direction and lane is unchanged (pinned by
+    // api/_world-sector-exit-stability.test.ts).
+    { id: 58, x: 42, y: 21 }, { id: 59, x: 60, y: 29 }, { id: 60, x: 60, y: 19 },
+    { id: 99, x: 52, y: 21 },
     // The 2026-07-29 expansion (61-66) — sited on the emptiest LAND on the
     // keyart (verified against the art's own pixels, so none of them sits in
     // the sea) and kept clear of the existing pins and the POI plaques.
@@ -83,7 +87,22 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     { id: 63, x: 67, y: 92 },   // Tallgrass Bend     — south of the outpost
     { id: 64, x: 65, y: 75 },   // Lantern Vigil      — off the lantern road
     { id: 65, x: 92, y: 44 },   // Eastwind Cirque    — the far eastern snows
-    { id: 66, x: 62, y: 8 },    // Emberspine Ridge   — deep in the ash
+    { id: 66, x: 66, y: 15 },   // Emberspine Ridge   — deep in the ash
+    // Cinderhold (67-74) — the NPC village's home block on the volcano cone.
+    // 67 is the village gate. Chunks sit >= 12 world units apart (3% x/y) so the
+    // continuous-world paintings never overlap.
+    // Nothing sits above y 8: a pin nearer the top edge has no full 44px touch
+    // target in any phone camera (lib/world-map-regions.test.ts).
+    // The Cinderhold and Death's Gate name plates (WorldRoadsOverlay) sit in the
+    // gaps these leave at 1366px.
+    { id: 67, x: 37, y: 15 },   // Cinderhold Gates
+    { id: 68, x: 33, y: 14 },   // Basalt Steps
+    { id: 69, x: 33, y: 8 },    // Smokevent Terraces
+    { id: 70, x: 54, y: 8 },    // Magma Cistern
+    { id: 71, x: 58, y: 13 },   // Ashfall Barracks
+    { id: 72, x: 62, y: 9 },    // Obsidian Drill Yard
+    { id: 73, x: 38, y: 8 },    // Caldera Rim
+    { id: 74, x: 32, y: 20 },   // Slagwater Crossing
 ];
 
 // Frozen geographic roads — the original 82 place-to-place roads remapped
@@ -115,6 +134,12 @@ export const SECTOR_ROAD_PAIRS: readonly SectorRoadPair[] = [
     [56, 64], [23, 64],   // Lantern Vigil     — the lantern road and Moongrotto
     [27, 65], [31, 65],   // Eastwind Cirque   — the glacier shelves
     [60, 66], [33, 66],   // Emberspine Ridge  — the forecourt and Cinderfrost
+    // Cinderhold (67-74), 2026-11-08. Every road touching an older sector
+    // (58, 66) sorts AFTER that sector's existing roads in canonicalRoads(), so
+    // no existing lane is re-assigned and no accepted painting's road moves.
+    [67, 68], [67, 73], [67, 74], [68, 69], [68, 74], [69, 73],
+    [70, 71], [70, 72], [70, 73], [71, 72],
+    [58, 67], [66, 72],   // the Cinder Foothills climb and the Emberspine pass
 ];
 
 /**

@@ -85,10 +85,15 @@ const REGION_LABEL_POINTS: ReadonlyArray<{ key: SectorRegionKey; x: number; y: n
 // data/guides.ts; it is hidden on narrow screens (see world-map-charting.css)
 // so phones get a clean name-only plate.
 const POI_PLATES: ReadonlyArray<{ key: string; name: string; tag: string; x: number; y: number; tone?: string }> = [
-    // icon (47, 8) — sector 99's skull, which renders at 36px rather than the
-    // usual 28px, so this sits a little lower than the rest. Pin 60 was moved
-    // right to open the column.
-    { key: "deathsgate", name: "Death’s Gate", tag: "Endless ash beyond the last patrol cairn", x: 47, y: 12.5, tone: "ember" },
+    // icon (47, 8) — Cinderhold's crest on the volcano cone (2026-11-08). Pins
+    // 67 and 71 sit just outside the plate's ends.
+    { key: "cinderhold", name: "Cinderhold Village", tag: "No player can join its ranks", x: 47, y: 14, tone: "ember" },
+    // icon (52, 21) — sector 99's skull, which renders at 36px rather than the
+    // usual 28px, so this sits a little lower than the rest. Death's Gate moved
+    // down onto the lower lava tongue when Cinderhold took the cone; 58, 59 and
+    // 60 were spread to clear this plate, and its tag was trimmed to fit
+    // between pins 37 and 59.
+    { key: "deathsgate", name: "Death’s Gate", tag: "Endless ash past the last patrol cairn", x: 52, y: 25.2, tone: "ember" },
     // icon (16, 20) — pin 9 was moved out from under this crest
     { key: "ashenleaf", name: "Ashen Leaf Village", tag: "The Living Branch: old vows, new growth", x: 16, y: 26, tone: "leaf" },
     // icon (76, 20) — pin 26 was moved down off this plate

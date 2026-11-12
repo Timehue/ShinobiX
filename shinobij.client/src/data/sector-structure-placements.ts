@@ -135,6 +135,15 @@ export const RIFT_BY_ART: Readonly<Record<number, BoardPoint>> = {
     64: { left: 86, top: 64 }, // s64 Lantern Vigil
     65: { left: 30, top: 54 }, // s65 Eastwind Cirque
     66: { left: 84, top: 54 }, // s66 Emberspine Ridge
+    // Cinderhold (2026-11-08): the authored rift anchors. The gate (67) has none:
+    // rift quests skip every village gate.
+    68: { left: 20.83, top: 50 }, // s68 Basalt Steps
+    69: { left: 12.5, top: 25 }, // s69 Smokevent Terraces
+    70: { left: 37.5, top: 66.67 }, // s70 Magma Cistern
+    71: { left: 12.5, top: 41.67 }, // s71 Ashfall Barracks
+    72: { left: 54.17, top: 83.33 }, // s72 Obsidian Drill Yard
+    73: { left: 29.17, top: 58.33 }, // s73 Caldera Rim
+    74: { left: 20.83, top: 33.33 }, // s74 Slagwater Crossing
 };
 
 // Only reachable for a sector outside both domains above, which the tests forbid for

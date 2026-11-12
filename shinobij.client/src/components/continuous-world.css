@@ -21,4 +21,19 @@
 .continuous-world-status{position:absolute;left:50%;top:12px;transform:translateX(-50%);max-width:90%;z-index:30;color:#eee9d7;font-size:12px;text-align:center;pointer-events:none;background:#111d25e8;border-radius:5px;padding:5px 9px}
 .continuous-world-status:empty{display:none}.continuous-world-status button{display:block;margin:7px auto 2px;pointer-events:auto}
 .continuous-world-map>canvas:focus-visible{outline:2px solid #e5d39a;outline-offset:-3px}
+.continuous-world-map>.world-run-toggle{position:absolute;right:8px;bottom:8px;z-index:15;min-width:64px;min-height:44px;color:#eee5d6;background:#211c20ed;border:1px solid #8a7472;border-radius:4px;touch-action:manipulation}
+.continuous-world-map>.world-run-toggle[aria-pressed=true]{border-color:#f2d58a;background:#45361ded;color:#fff0bd}
 @media(prefers-reduced-motion:reduce){.continuous-world-map .sector-avatar-body{animation:none}}
+
+/* On slow map views, give the actor the frame budget used by decorative motion
+   and full-window colour filters. The painted scene and weather still render. */
+.continuous-world-map.world-light-effects .scene-ambience-rays { animation: none; opacity: .22; }
+.continuous-world-map.world-light-effects .sector-avatar-body { animation: none; }
+.app-shell:has(.world-light-effects > .world-terrain-visible)::after {
+    background: linear-gradient(90deg,rgba(8,11,15,.76),transparent 22%,transparent 78%,rgba(8,11,15,.74));
+}
+.app-shell:has(.world-light-effects > .world-terrain-visible) > .app-background {
+    filter: none;
+    background-color: rgba(0,0,0,.34);
+    background-blend-mode: multiply;
+}

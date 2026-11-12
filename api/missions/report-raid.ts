@@ -13,6 +13,7 @@ import {
     type RaidProgressionSettlement,
 } from './_raid-progression.js';
 import type { SealedRaidTerritoryEvidence } from './_raid-territory.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -124,6 +125,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!pvpSessionMayGrantProgress(session) || session.rewardAuthority !== 'world') {
                 return res.status(409).json({ error: 'This battle is not an authorized world raid.' });
             }
+            // An NPC duel is no raid (claim-rewards.ts and _terminal-world-raid.ts skip
+            // it too). Every world attack reports itself here as a raid, so answer
+            // with the empty acknowledgement that lets the client's outbox retire it.
+            if (session.npcDuel?.version === 1) {
+                return res.status(200).json({
+                    ok: true, reason: 'npc-duel-not-raid', fetchMissionsCredited: [], missionsCompleted: [],
+                    territoryDamage: 0, sector: Number(session.rewardSector) || null,
+                });
+            }
             const sessionAge = Date.now() - Number(session.createdAt ?? 0);
             if (sessionAge < 0 || sessionAge > SESSION_REPLAY_WINDOW_MS) {
                 return res.status(409).json({ error: 'Battle session is too old to report.' });
@@ -143,11 +153,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         if (!Number.isSafeInteger(proofAt) || proofAt <= 0
-            || !Number.isSafeInteger(sector) || sector < 1 || (sector > 66 && !(battleId && sector === 99))) {
+            || !Number.isSafeInteger(sector) || sector < 1 || (sector > MAX_WILD_SECTOR && !(battleId && sector === 99))) {
             return res.status(409).json({ error: 'The sealed raid proof has no valid world sector.' });
         }
         // Death's Gate is a valid PvP location, but sector 99 is outside
-        // field-raid progression (1–66). Acknowledge this sealed win with
+        // field-raid progression (1 to MAX_WILD_SECTOR). Acknowledge this sealed win with
         // an exact empty projection so older client outboxes can retire it.
         if (battleId && sector === 99) {
             return res.status(200).json({

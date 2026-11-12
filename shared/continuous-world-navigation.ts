@@ -113,6 +113,15 @@ export function createWorldWalker(nodes: ReadonlyMap<string, WorldNode>, start: 
         get position() { return { x: position.x, y: position.y }; },
         get node() { return nodes.get(id)!; },
         get moving() { return route.length > 0; },
+        nextSegment() {
+            for (const next of route) {
+                const point = nodes.get(next)!;
+                const dx = point.x-position.x, dy = point.y-position.y;
+                const distance = Math.hypot(dx,dy);
+                if (distance > 1e-9) return {dx:dx/distance,dy:dy/distance,distance};
+            }
+            return null;
+        },
         get travelled() { return travelled; },
         cursor(layoutVersion: string): WorldPosition {
             const to = segmentTarget ?? id, a = nodes.get(id)!, b = nodes.get(to)!, length = worldDistance(a, b);
@@ -136,6 +145,25 @@ export function createWorldWalker(nodes: ReadonlyMap<string, WorldNode>, start: 
             route = worldDistance(position, nodes.get(anchor)!) > 1e-8 ? [anchor, ...path.slice(1)] : path.slice(1);
             return true;
         },
+        step(direction: WorldPoint, allowReverse: boolean) {
+            const node = nodes.get(id)!;
+            if (segmentTarget && allowReverse) {
+                const next = nodes.get(segmentTarget)!;
+                if ((next.x - node.x) * direction.x + (next.y - node.y) * direction.y < -1e-8) {
+                    segmentTarget = id;
+                    id = next.id;
+                }
+                route = [segmentTarget];
+                return;
+            }
+            let best = '', score = .35;
+            for (const neighbor of node.neighbors) {
+                const next = nodes.get(neighbor)!;
+                const rank = ((next.x - node.x) * direction.x + (next.y - node.y) * direction.y) / worldDistance(node, next);
+                if (rank > score) { score = rank; best = neighbor; }
+            }
+            if (best) this.go(best);
+        },
         stop() { route = []; },
         pause(value: boolean) { paused = value; },
         tick(seconds: number) {
@@ -145,7 +173,7 @@ export function createWorldWalker(nodes: ReadonlyMap<string, WorldNode>, start: 
             while (route.length && remaining > 0) {
                 const target = nodes.get(route[0]!)!, distance = worldDistance(position, target);
                 segmentTarget = target.id;
-                if (distance > remaining) {
+                if (distance > remaining + 1e-9) {
                     travelled += remaining;
                     const t = remaining / distance;
                     position = { x: position.x + (target.x - position.x) * t, y: position.y + (target.y - position.y) * t };

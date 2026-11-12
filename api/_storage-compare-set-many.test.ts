@@ -310,6 +310,15 @@ describe('pgKv.compareSetMany', () => {
         assert.deepEqual(valueOf('save:beta'), { v: 1 });
     });
 
+    test('model receipts reflect another worker changing the underlying rows between reads', async () => {
+        for (const key of ['avatar-model:slot:owner:2026-11', 'avatar-model:job:sample', 'avatar-model:asset:sample']) {
+            seed(key, { revision: 1 });
+            assert.deepEqual(await storage.kv.get(key), { revision: 1 });
+            seed(key, { revision: 2 });
+            assert.deepEqual(await storage.kv.get(key), { revision: 2 });
+        }
+    });
+
     test('a committed batch is readable at once and a refused one leaves no cached value', async () => {
         seed('game:cacheable', { v: 1 });
         assert.deepEqual(await storage.kv.get('game:cacheable'), { v: 1 });

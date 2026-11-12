@@ -1,5 +1,5 @@
 import { SECTOR_POINTS, SECTOR_ROAD_PAIRS } from './sector-links.js';
-import { isPlayableWildSector, VILLAGE_OUTSKIRTS } from './sector-geo.js';
+import { CINDERHOLD_SECTORS, isPlayableWildSector, VILLAGE_OUTSKIRTS } from './sector-geo.js';
 
 export const WORLD_BOSS_EVENT_DURATION_MS = 72 * 60 * 60 * 1000;
 export const WORLD_BOSS_EVENT_ROAM_MS = 48 * 60 * 60 * 1000;
@@ -133,10 +133,15 @@ export type WorldBossRoamInput = {
     targetVillage?: string;
 };
 
+/** Where the boss may spawn and walk: playable wild land outside Cinderhold, the NPC village's home. */
+export function isWorldBossRoamSector(sector: number): boolean {
+    return isPlayableWildSector(sector) && !CINDERHOLD_SECTORS.includes(sector);
+}
+
 const ROAD_NEIGHBORS = (() => {
     const neighbors = new Map<number, number[]>();
     for (const [a, b] of SECTOR_ROAD_PAIRS) {
-        if (!isPlayableWildSector(a) || !isPlayableWildSector(b)) continue;
+        if (!isWorldBossRoamSector(a) || !isWorldBossRoamSector(b)) continue;
         neighbors.set(a, [...(neighbors.get(a) ?? []), b]);
         neighbors.set(b, [...(neighbors.get(b) ?? []), a]);
     }
@@ -145,7 +150,7 @@ const ROAD_NEIGHBORS = (() => {
 })();
 
 function shortestRoadRoute(spawnSector: number, targetSector: number): number[] | null {
-    if (!isPlayableWildSector(spawnSector) || !isPlayableWildSector(targetSector)) return null;
+    if (!isWorldBossRoamSector(spawnSector) || !isWorldBossRoamSector(targetSector)) return null;
 
     const queue = [spawnSector];
     const previous = new Map<number, number | null>([[spawnSector, null]]);
@@ -323,9 +328,9 @@ export function worldBossEventRoute(
     return route;
 }
 
-const ROAM_SECTORS = SECTOR_POINTS.filter(point => isPlayableWildSector(point.id)).map(point => point.id);
+const ROAM_SECTORS = SECTOR_POINTS.filter(point => isWorldBossRoamSector(point.id)).map(point => point.id);
 const NEIGHBORS = (() => {
-    const points = SECTOR_POINTS.filter(point => isPlayableWildSector(point.id));
+    const points = SECTOR_POINTS.filter(point => isWorldBossRoamSector(point.id));
     return new Map(points.map(point => [
         point.id,
         points

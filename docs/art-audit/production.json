@@ -2870,7 +2870,7 @@
     },
     {
       "key": "roadMoonFoundingStone",
-      "asset": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.webp",
+      "asset": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.avif",
       "references": [
         "C:/Users/Tyler R/source/repos/NinjaK/shinobij.client/public/scenes/story/cinematic/side-stories/story-road-four-seals-one-gate.webp",
         "C:/Users/Tyler R/source/repos/NinjaK/shinobij.client/public/scenes/story/cinematic/storywide/moonshadow-threshold.webp"
@@ -2894,7 +2894,7 @@
     },
     {
       "key": "roadStormFoundingStone",
-      "asset": "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.webp",
+      "asset": "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.avif",
       "references": [
         "C:/Users/Tyler R/.codex/generated_images/01a0b04b-98ef-7f50-aee6-eaead7a505e0/exec-5cdda54e-6415-4c87-9127-4f74c6646701.png"
       ],
@@ -2917,7 +2917,7 @@
     },
     {
       "key": "roadThreeFoundingStones",
-      "asset": "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.webp",
+      "asset": "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.avif",
       "references": [
         "C:/Users/Tyler R/.codex/generated_images/01a0b04b-98ef-7f50-aee6-eaead7a505e0/exec-5cdda54e-6415-4c87-9127-4f74c6646701.png"
       ],
@@ -3300,7 +3300,7 @@
       "key": "moonFoundingStoneClosed",
       "asset": "/scenes/story/cinematic/storywide/moonshadow-founding-stone-closed-v1.webp",
       "references": [
-        "C:/Users/Tyler R/source/repos/NinjaK/shinobij.client/public/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.webp"
+        "C:/Users/Tyler R/source/repos/NinjaK/shinobij.client/public/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.avif"
       ],
       "prompt": "Create an earlier-state view of EXACT SAME Moonshadow founding stone, canal houses, lanterns, dusk color, stone texture and moss from reference. KEEP the large CLOSED-EYE emblem, same position and shape. The lower hidden socket has NOT been found. REMOVE the small hooked-cross glyph, the key, and the rectangular socket; that lower area is uninterrupted aged stone covered with natural moss, no visible panel edge. This is the founding stone at moonrise before any key or underlying marking is revealed. Add subtle just-rising moon behind roofline if naturally visible, no new objects. Preserve centered monolith, wide16:9 painterly composition, no humans, no file in image as player holds it, no words/interface.",
       "source": "C:/Users/Tyler R/.codex/generated_images/01a0b04b-98ef-7f50-aee6-eaead7a505e0/exec-c90b2c71-eabd-4f76-981e-192726169e46.png",

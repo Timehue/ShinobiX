@@ -28,6 +28,7 @@ const landmarks: Point[] = [
     { id: "Moonshadow Village", x: 84, y: 71 },
     { id: "Central", x: 48, y: 40 },
     { id: "Hollow Gate", x: 63, y: 65 },
+    { id: "Cinderhold Village", x: 47, y: 8 },
 ];
 
 function cameras(size: Size) {
@@ -91,8 +92,8 @@ test("six cameras cover every part of the source painting across mobile map size
     }
 });
 
-test("all 67 sectors and interactive landmarks fit a full 44px touch target in at least one region", () => {
-    assert.equal(ATLAS_SECTOR_POINTS.length, 67);
+test("all 75 sectors and interactive landmarks fit a full 44px touch target in at least one region", () => {
+    assert.equal(ATLAS_SECTOR_POINTS.length, 75);
     const missing: string[] = [];
     for (const size of mapSizes) {
         const views = cameras(size);

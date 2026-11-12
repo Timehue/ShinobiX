@@ -5,6 +5,8 @@
  * this so a village's sectors VISIBLY read as that village's, without depending on
  * the server war feature being enabled (captures override via the territory cache).
  */
+import { NPC_GATE_SECTOR, NPC_VILLAGE, isNpcHomeSector } from "../../../shared/npc-village";
+
 // 2026-07 region-block numbering: each village's block starts at its own gate.
 export const HOME_SECTORS: Record<string, readonly number[]> = {
     "Moonshadow Village": [17, 18, 19, 20, 21, 22, 23, 24],
@@ -13,10 +15,13 @@ export const HOME_SECTORS: Record<string, readonly number[]> = {
     "Frostfang Village": [26, 27, 28, 29, 30, 33, 31, 32],
 };
 
-/** Permanent village gates: visible on the war map, but never conquerable. */
-export const PROTECTED_HOME_SECTORS = new Set(
-    Object.values(HOME_SECTORS).map((sectors) => sectors[0]),
-);
+/** Permanent village gates: visible on the war map, but never conquerable.
+ *  Cinderhold's gate (67) is one too: it fights sector wars (Push 4) but is
+ *  kept out of HOME_SECTORS, whose readers draw the four player villages. */
+export const PROTECTED_HOME_SECTORS = new Set([
+    ...Object.values(HOME_SECTORS).map((sectors) => sectors[0]),
+    NPC_GATE_SECTOR,
+]);
 
 export function isProtectedHomeSector(sector: number): boolean {
     return PROTECTED_HOME_SECTORS.has(sector);
@@ -29,6 +34,11 @@ const SECTOR_TO_VILLAGE: Record<number, string> = (() => {
     }
     return m;
 })();
+
+/** Home village including Cinderhold, for war rules (a gate's right of reclaim). */
+export function warHomeVillageForSector(sector: number): string | undefined {
+    return SECTOR_TO_VILLAGE[sector] ?? (isNpcHomeSector(sector) ? NPC_VILLAGE : undefined);
+}
 
 /** The village that owns `sector` by default (undefined for neutral / central /
  *  special sectors). A captured sector's live owner comes from the territory cache. */

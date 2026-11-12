@@ -25,13 +25,15 @@ export function loadContinuousWorld() {
     loaded ??= readLayout().catch(error => { loaded = undefined; throw error; });
     return loaded;
 }
-export async function worldMovementRequest(position?: WorldPosition, expectedSequence?: number, signal?: AbortSignal): Promise<WorldMovementReply> {
+export async function worldMovementRequest(position?: WorldPosition, expectedSequence?: number, signal?: AbortSignal,
+    gaitPresentation?: PlayerRecord['gaitPresentation']): Promise<WorldMovementReply> {
+    const payload = { worldPosition: position, expectedSequence, gaitPresentation };
     if (position) {
         const socket = await import('./presence-socket');
-        const request = socket.requestRealtime('world:move', { worldPosition: position, expectedSequence });
+        const request = socket.requestRealtime('world:move', payload);
         if (request) { try { return await request as WorldMovementReply; } catch { /* Reconcile through HTTP if the acknowledgement was lost. */ } }
     }
     const response = await fetch('/api/player/world-move', { method: position ? 'POST' : 'GET', signal,
-        ...(position ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ worldPosition: position, expectedSequence }) } : {}) });
+        ...(position ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : {}) });
     return await response.json() as WorldMovementReply;
 }

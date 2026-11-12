@@ -38,8 +38,9 @@ type LegalDocument = {
 // 1.11: the purchases page states the Google Play pre-registration reward
 // terms (the URL Play Console requires for the 1st Shinobi Reward Box is
 // /purchases-and-refunds#preregistration-reward).
-const LAST_UPDATED = "October 16, 2026";
-const VERSION = "1.11";
+// 1.12: Make Model processing, visibility and monthly Supporter eligibility.
+const LAST_UPDATED = "November 10, 2026";
+const VERSION = "1.12";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -149,6 +150,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 title: "Service providers",
                 content: <>
                     <p>Hosting and database providers process game data to run the service. Error reporting may be sent to Sentry when that feature is configured. When optional AI image generation is enabled and used, the submitted prompt is sent to OpenAI to generate the requested image.</p>
+                    <p>When you use Make Model, OpenAI screens an image from your saved portrait, and Modal runs the portrait and sprite processing. OpenAI may also process portrait and model images to produce or review the result. The game stores working files privately. Finished sprite files are published through our asset service, and other players can see your world model when you equip it. You can play with a default character without using Make Model.</p>
                     <p>If you choose to sign in with Google, that sign-in happens on Google's own pages and is governed by Google's privacy policy. We receive only your email address and a Google account identifier, and we send Google nothing about your character or play. Choosing another sign-in method means no data is exchanged with Google at all.</p>
                     <p>These providers process information for their service roles. Shinobi Journey does not sell personal information and does not share it for behavioral advertising.</p>
                     <p>Payments are handled by <strong>Tebex</strong>, who act as the merchant of record for the store. Card and billing details are entered on Tebex's own checkout and go to Tebex and their payment processors — they are never sent to, seen by, or stored by Shinobi Journey.</p>
@@ -243,6 +245,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                     <>
                         <p>The Premium Shop sells <strong>Fate Shards</strong>, a virtual currency spent in game, and <strong>Shinobi Supporter</strong>, a monthly subscription. Prices are shown before you pay, and the exact amount in your own currency — including any tax — is confirmed by the checkout before the payment is taken.</p>
                         <p>Everything Fate Shards buy can also be earned by playing. Shinobi Supporter grants convenience and cosmetic benefits — a larger jutsu loadout, an extra pet and bloodline slot, bloodline switching from your Profile, and a custom avatar — and grants no combat advantage.</p>
+                        <p>Where Make Model is available, an active Shinobi Supporter subscription includes one world model creation per calendar month in UTC from a supported portrait. Confirming a request uses the slot. A system failure returns it, and a cancellation keeps it used. The supported portraits and availability of Make Model may vary.</p>
                     </>
                 ),
             },
@@ -497,7 +500,10 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
             {
                 id: "ai-content",
                 title: "AI-generated content",
-                content: <p>Some artwork may be generated with AI image tools from text prompts. Where player-facing generation is enabled, prompts are filtered for family-friendly, non-infringing content and remain subject to the provider's own safety systems. Where the law requires AI-generated media to be labeled as such, we will label it. Report any generated content that looks harmful or infringing using the in-game report control or the contact email above.</p>,
+                content: <>
+                    <p>Some artwork may be generated with AI image tools from text prompts. Where player-facing generation is enabled, prompts are filtered for family-friendly, non-infringing content and remain subject to the provider's own safety systems. Where the law requires AI-generated media to be labeled as such, we will label it. Report any generated content that looks harmful or infringing using the in-game report control or the contact email above.</p>
+                    <p>Make Model uses your saved portrait to create an animated interpretation for the game world. Use a portrait you have the right to submit. You can preview the result before equipping it.</p>
+                </>,
             },
             {
                 id: "security",

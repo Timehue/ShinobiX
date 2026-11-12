@@ -9,6 +9,7 @@ export function progressionCatalogDelivery() {
         enforce: 'pre',
         transform(source, id) {
             const file = id.split('?')[0].replace(/\\/g, '/');
+            if (file.endsWith('/shared/wanderer-roster.ts')) return { code: packStaticCatalogLiteral(source, 'WANDERER_ARCHETYPES'), map: null };
             if (file.endsWith('/shared/pet-ability-progression.ts')) return { code: packStaticCatalogLiteral(source, 'SPECIES_ABILITIES'), map: null };
             if (file.endsWith('/shared/pet-tactics-catalog.ts')) return { code: packStaticCatalogLiteral(source, 'PET_TACTICS_IDENTITIES'), map: null };
             if (file.endsWith('/shared/chronicle-painted-art.ts')) return { code: packStaticCatalogLiteral(packStaticCatalogLiteral(source, 'CHRONICLE_PAINTED_ART'), 'CHRONICLE_PAINTED_FIGURES'), map: null };

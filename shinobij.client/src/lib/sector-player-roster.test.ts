@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sectorPlayerRoster, projectSectorPlayers, sectorPlayerKey } from './sector-player-roster';
 import type { PlayerRecord } from '../types/character';
+import { NPC_VILLAGE_ROSTER } from '../../../shared/npc-village-roster';
 
 const player = (name: string, extra: Partial<PlayerRecord> = {}): PlayerRecord => ({ name, level: 40,
     village: 'Ashen Leaf Village', currentSector: 22, character: {} as PlayerRecord['character'], specialty: 'Ninjutsu', ...extra });
@@ -41,6 +42,22 @@ test('a spaced-name player keeps their portrait under either avatar key spelling
     const rows=roster([player('Kaede Morrow')]);
     assert.equal(projectSectorPlayers(rows,{...options,images:{'avatar:kaede morrow':'data:name'}})[0].avatarSrc,'data:name');
     assert.equal(projectSectorPlayers(rows,{...options,images:{'avatar:kaedemorrow':'data:slug'}})[0].avatarSrc,'data:slug');
+});
+
+test('a shinobi seen gathering reads Ready, as a gathering player always does, and can be attacked; fighting and travel still win',()=>{
+    // Only a Cinderhold shinobi's row carries `activity` (a player's gathering
+    // shows on the node as "occupied by", never in the roster), so a Gathering
+    // status here could only ever mean an NPC.
+    const rows=projectSectorPlayers(roster([player('Miner',{activity:'mining'}),player('Brawler',{activity:'fishing',inBattle:true}),player('Walker',{activity:'harvesting',travelingUntil:Date.now()+60_000})]),options);
+    assert.deepEqual(rows.map(p=>[p.name,p.status,p.actionDisabled]),[['Brawler','Fighting',true],['Miner','Ready',false],['Walker','Traveling',true]]);
+});
+test('a Cinderhold shinobi is a row like any player: its portrait, level, status and the same Attack or Spectate',()=>{
+    const npc=NPC_VILLAGE_ROSTER[0]!;
+    const images={['avatar:'+npc.id]:'/api/img?id=avatar%3A'+npc.id};
+    const idle=projectSectorPlayers(roster([player(npc.name,{village:'Cinderhold Village',level:57})]),{...options,images})[0]!;
+    assert.deepEqual([idle.status,idle.level,idle.actionDisabled,idle.attackLabel.kind,idle.avatarSrc],['Ready',57,false,'combat',images['avatar:'+npc.id]]);
+    const fighting=projectSectorPlayers(roster([player(npc.name,{village:'Cinderhold Village',inBattle:true})]),options)[0]!;
+    assert.deepEqual([fighting.status,fighting.spectateDisabled],['Fighting',false]);
 });
 test('contest labels and admission belong to the controller; bystanders keep normal attacks',()=>{
     const contest={id:'test-war',sector:22,winCondition:'card' as const,attackerVillage:'Stormveil Village',defenderVillage:'Ashen Leaf Village',endsAt:Date.now()+60_000};

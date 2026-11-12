@@ -1,4 +1,6 @@
 import { runKageChallengeClocks } from '../village/_kage-clock.js';
+import { tickSpriteDispatch } from '../avatar-model/_dispatch.js';
+import { tickModelCleanup } from '../avatar-model/_cleanup.js';
 import { kv } from '../_storage.js';
 import { backgroundWorkStopped, runBackgroundWork } from '../_background-work.js';
 import { runElderElections } from '../village/_elder-council.js';
@@ -35,6 +37,13 @@ import { recoverPendingMentorSettlements } from '../clan/_mentor-settlement.js';
 import { recoverPendingPlayerTrades } from '../player/_trade-settlement.js';
 import { withScheduledJobLease } from './_job-lease.js';
 import { runGuestSweep } from './_guest-sweep.js';
+import { readNpcVillageScaling, refreshNpcVillageScaling } from '../_npc-village-scaling.js';
+import { decayNpcAggression } from '../_npc-village-aggression.js';
+import { seedNpcVillage } from '../_npc-village-seed.js';
+import { proposeNpcWar, seedNpcVillageTerritory } from '../_npc-village-war.js';
+import { runNpcWarParty } from '../_npc-war-party.js';
+import { isNpcPossessed } from '../_npc-possession.js';
+import { NPC_ACCOUNT_SLUGS } from '../../shared/npc-village-roster.js';
 import { runClanWarCampaignSweep } from '../clan/war/_campaign-sweep.js';
 import { runKageInactivityPass } from '../village/_kage-inactivity.js';
 import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
@@ -103,6 +112,9 @@ const LEASE_TTL = {
     guestSweep: 20 * 60 * 60,
     clanWarCampaignSweep: 20 * 60 * 60,
     kageInactivity: 20 * 60 * 60,
+    npcVillage: 20 * 60 * 60,
+    npcVillageSeed: 10 * 60,
+    npcWarParty: 9 * 60,
 } as const;
 
 let _timeout: ReturnType<typeof setTimeout> | null = null;
@@ -110,6 +122,8 @@ let _kageClockInterval: ReturnType<typeof setInterval> | null = null;
 let _kageClockRunning = false;
 let _interval: ReturnType<typeof setInterval> | null = null;
 let _mercInterval: ReturnType<typeof setInterval> | null = null;
+let spriteDispatchInterval: ReturnType<typeof setInterval> | null = null;
+let spriteCleanupInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementInterval: ReturnType<typeof setInterval> | null = null;
 let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
 let _territoryLifecycleInterval: ReturnType<typeof setInterval> | null = null;
@@ -618,6 +632,29 @@ async function fireCore(): Promise<void> {
     } catch (err) {
         console.error('[cron-scheduler] era pass threw:', (err as Error).message);
     }
+    // Cinderhold (the NPC village): follow the top players' level and cool the
+    // aggression meter. Pays nothing; DISABLE_NPC_VILLAGE=1 stops it.
+    if (process.env.DISABLE_NPC_VILLAGE !== '1') {
+        try {
+            const n = await dailyJob('npc-village-daily', LEASE_TTL.npcVillage, async () => {
+                const scaling = await refreshNpcVillageScaling();
+                await decayNpcAggression();
+                const seed = await seedNpcVillage(Date.now(), (slug) => isNpcPossessed(slug));
+                // A War-Ready village gets a war PROPOSAL; nothing starts until
+                // an admin approves it (api/_npc-village-war.ts).
+                const war = await proposeNpcWar().catch((err) => ({ skipped: `error: ${(err as Error).message}` }));
+                // Its clans never start a clan war (owner ruling 2026-11-10);
+                // player clans declare on them through the normal declare.
+                return { scaling, seed, war };
+            }, (r) => r.seed.failures.length === 0);
+            if (n) console.log(`[cron-scheduler] Cinderhold base level ${n.scaling.baseLevel} (target ${n.scaling.target}, ${n.scaling.sample} players sampled); ${n.seed.seeded.length} seeded, ${n.seed.rescaled.length} rescaled, ${n.seed.skipped.length} under admin control.`);
+            if (n && 'proposal' in n.war) console.log(`[cron-scheduler] Cinderhold proposes a sector war on Sector ${n.war.proposal.sector} (${n.war.proposal.village}); awaiting admin approval.`);
+            if (n?.seed.failures.length) console.warn(`[cron-scheduler] Cinderhold seed failures: ${n.seed.failures.slice(0, 5).join('; ')}`);
+            if (n?.seed.warnings.length) console.warn(`[cron-scheduler] Cinderhold seed warnings: ${n.seed.warnings.slice(0, 5).join('; ')}`);
+        } catch (err) {
+            console.error('[cron-scheduler] Cinderhold daily pass threw:', (err as Error).message);
+        }
+    }
     if (completed) {
         await kv.set(dailyPassMarkerKey(startedAt), { startedAt, completedAt: Date.now() }, { ex: DAILY_PASS_MARKER_TTL_SEC })
             .catch((err) => console.error('[cron-scheduler] daily pass marker write failed:', (err as Error).message));
@@ -633,6 +670,19 @@ export function startSnapshotCron(): void {
     if (scheduledJobsDisabled()) {
         console.log('[cron-scheduler] all scheduled jobs disabled via DISABLE_SCHEDULED_JOBS=1');
         return;
+    }
+    if (!spriteDispatchInterval && process.env.AVATAR_MODEL_DISPATCH_ENABLED==='1') {
+        const tick = () => void tickSpriteDispatch().catch(() => console.warn('[avatar-model] Queue check unavailable'));
+        spriteDispatchInterval=setInterval(tick,60_000);
+        spriteDispatchInterval.unref();
+        tick();
+    }
+    if(!spriteCleanupInterval && process.env.AVATAR_MODEL_CLEANUP_ENABLED==='1') {
+        const tick=()=>void runBackgroundWork(tickModelCleanup)
+            .catch(()=>console.warn('[avatar-model] Private cleanup check unavailable'));
+        spriteCleanupInterval=setInterval(tick,60_000);
+        spriteCleanupInterval.unref();
+        tick();
     }
     if (!_kageClockInterval) {
         const tick = async () => {
@@ -743,12 +793,37 @@ export function startSnapshotCron(): void {
     // The durable marker proves freshness and the distributed 20h job lease
     // keeps restarts or a second scheduler from creating duplicate daily copies.
     if (!snapshotDisabled) void runBootSnapshotCatchUp();
+    // Cinderhold: on a fresh server (or after a reset) the 30 NPC accounts do not
+    // exist yet. Seed once at boot when any is missing; the daily pass rescales.
+    if (process.env.DISABLE_NPC_VILLAGE !== '1') {
+        // Its eight sectors belong to it on the war map (idempotent: a sector
+        // someone captured keeps its owner).
+        void seedNpcVillageTerritory()
+            .then((r) => { if (r.seeded) console.log(`[cron-scheduler] Cinderhold territory: ${r.seeded} sector${r.seeded === 1 ? '' : 's'} seeded.`); })
+            .catch((err) => console.error('[cron-scheduler] Cinderhold territory seed threw:', (err as Error).message));
+        void (async () => {
+            const missing = await Promise.all(NPC_ACCOUNT_SLUGS.map(async (slug) => !(await kv.get(`auth:${slug}`))));
+            if (!missing.some(Boolean)) return;
+            const r = await runLeasedJob('npc-village-seed', LEASE_TTL.npcVillageSeed, async () => {
+                // Follow the live players from the first boot, not the floor level.
+                if (!await readNpcVillageScaling()) await refreshNpcVillageScaling();
+                return seedNpcVillage(Date.now(), (slug) => isNpcPossessed(slug));
+            });
+            if (r) console.log(`[cron-scheduler] Cinderhold boot seed: ${r.seeded.length} seeded${r.failures.length ? `, ${r.failures.length} failures` : ''}.`);
+        })().catch((err) => console.error('[cron-scheduler] Cinderhold boot seed threw:', (err as Error).message));
+    }
     // Village War mercenary auto-snipe — a frequent tick so active merc bands hunt
     // low-HP enemy defenders on their own. The Sector Map kill switch makes it a no-op.
     _mercInterval = setInterval(() => {
         void runLeasedJob('merc-auto', LEASE_TTL.mercAuto, () => runMercAutoDeploy())
             .then((r) => { if (r && r.enabled && r.deployed > 0) console.log(`[cron-scheduler] merc auto-snipe: ${r.deployed} deployed.`); })
             .catch((err) => console.error('[cron-scheduler] merc auto-snipe threw:', (err as Error).message));
+        // Cinderhold's war party presses its sector wars on the same beat
+        // (api/_npc-war-party.ts). A no-op with no Cinderhold war, or with
+        // DISABLE_NPC_VILLAGE / the Sector Map switch off.
+        void runLeasedJob('npc-war-party', LEASE_TTL.npcWarParty, () => runNpcWarParty())
+            .then((r) => { if (r && r.length) console.log(`[cron-scheduler] Cinderhold war party: ${r.length} strike${r.length === 1 ? '' : 's'}.`); })
+            .catch((err) => console.error('[cron-scheduler] Cinderhold war party threw:', (err as Error).message));
     }, MERC_TICK_MS);
     _mercInterval.unref?.();
     // Kick the clan-boss weekly pass once on boot so the current week's boss is live
@@ -766,6 +841,8 @@ export function startSnapshotCron(): void {
 
 /** Stop the scheduler (tests / graceful shutdown). */
 export function stopSnapshotCron(): void {
+    if (spriteDispatchInterval) { clearInterval(spriteDispatchInterval); spriteDispatchInterval=null; }
+    if (spriteCleanupInterval) { clearInterval(spriteCleanupInterval); spriteCleanupInterval=null; }
     if (_kageClockInterval) { clearInterval(_kageClockInterval); _kageClockInterval = null; }
     if (_timeout) { clearTimeout(_timeout); _timeout = null; }
     if (_interval) { clearInterval(_interval); _interval = null; }

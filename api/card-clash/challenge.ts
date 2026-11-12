@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from "../_ratelimit.js";
 import { withKvLock, LockContendedError } from "../_lock.js";
 import { resolvePlayerReference } from "../_account-name.js";
 import { chronicleUnlocked, CHRONICLE_LOCKED_ERROR } from "./_starter-cards.js";
+import { NPC_TARGET_REFUSAL, isNpcTarget } from '../_npc-guard.js';
 
 type ChallengeStatus = "pending" | "accepted" | "declined" | "expired";
 type SparChallenge = {
@@ -74,6 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!targetInput || targetInput.length > 40) return res.status(400).json({ error: "Enter the shinobi name you want to challenge." });
       const targetSlug = safeName(await resolvePlayerReference(targetInput));
       if (!targetSlug) return res.status(404).json({ error: "No shinobi was found by that name." });
+      if (isNpcTarget(targetSlug)) return res.status(409).json({ error: NPC_TARGET_REFUSAL });
       if (actor === targetSlug) return res.status(400).json({ error: "Choose another shinobi to spar with." });
       const [{ character: fromCharacter }, { character: toCharacter }] = await Promise.all([
         playerSave(actor), playerSave(targetSlug),

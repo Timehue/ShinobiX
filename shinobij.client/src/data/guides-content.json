@@ -746,7 +746,7 @@
       "sunscar"
     ],
     "quickTake": [
-      "The map has 66 ordinary sectors plus special destinations. Follow connected roads and learn the places you use most.",
+      "The map has 74 ordinary sectors plus special destinations. Follow connected roads and learn the places you use most.",
       "Separate daily allowances give you 100 explores, 50 Mining attempts, and 50 Fishing attempts per UTC day. A sector's shared exploration pool is a separate limit.",
       "The world completes a day every two real hours. Night work follows that clock, while daily allowances reset at midnight UTC."
     ],
@@ -919,7 +919,8 @@
       "materials",
       "clan boss",
       "territory",
-      "kage"
+      "kage",
+      "cinderhold"
     ],
     "quickTake": [
       "Clan War has 24 hours of preparation followed by 72 hours of scoring. Village War has one hour of preparation followed by five days.",
@@ -1031,6 +1032,20 @@
           {
             "type": "p",
             "text": "The village with the most accumulated uncontested time inside receives the 100-point window bonus. Empty or contested time does not count, and a tie awards no bonus. Staying inside with allies can help hold control, but adding more players does not make the clock run faster."
+          }
+        ]
+      },
+      {
+        "id": "cinderhold",
+        "heading": "Know Cinderhold, the NPC village",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Cinderhold is a fifth village run by NPC shinobi. Players can't join it. You meet its shinobi in the field and fight them with the normal Attack, just like players. Only your first win against each Cinderhold shinobi pays each UTC day, up to five paid wins a day. Your first loss to each one also pays the normal loss credit, up to five a day. A shinobi you beat may come looking for you later."
+          },
+          {
+            "type": "p",
+            "text": "Your village can declare sector wars and village wars on Cinderhold, and Cinderhold can declare them on your village too. Its three clans take part in clan wars when a player clan declares on them. Cinderhold never offers peace or surrenders. It accepts your Kage's standing peace offer once your village has at least double its score and leads by 100 or more. Peace ends the war with no winner."
           }
         ]
       },

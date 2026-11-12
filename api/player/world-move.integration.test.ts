@@ -130,9 +130,22 @@ test('HTTP and an actual authenticated socket share sequence and zone authority'
         await new Promise<void>(resolve => { client.once('disconnect', () => resolve()); client.close(); });
     });
     await new Promise<void>((resolve, reject) => { client.once('connect', resolve); client.once('connect_error', reject); client.connect(); });
-    const result = await new Promise<Record<string, unknown>>(resolve => client.emit('world:move', { worldPosition: destination, expectedSequence: sequence }, resolve));
+    const gaitPresentation = { gait: 'run', style: 'C' };
+    const result = await new Promise<Record<string, unknown>>(resolve => client.emit('world:move', {
+        worldPosition: destination, expectedSequence: sequence, gaitPresentation: { ...gaitPresentation, speed: 999 },
+    }, resolve));
     assert.equal(result.ok, true); assert.equal(result.sector, b.sector); assert.equal(result.sequence, sequence + 1);
     const stale = await request(name, 'POST', { worldPosition: origin, expectedSequence: sequence });
     assert.equal(stale.status, 409); assert.equal(stale.body?.reason, 'sequence');
     assert.deepEqual(stale.body?.worldPosition, destination);
+    const viewer = await actor();
+    const peer = () => service.nearbyWorldPlayers(store.get(viewer.name)!).find(p => p.name === name);
+    assert.deepEqual(peer()?.gaitPresentation, gaitPresentation);
+    store.upsert({ name, sector: b.sector, character: null });
+    assert.deepEqual(peer()?.gaitPresentation, gaitPresentation);
+    clock += 500;
+    const legacy = await request(name, 'POST', { worldPosition: { ...destination, progress: .7 },
+        expectedSequence: sequence + 1, gaitPresentation: { gait: 'warp', style: '../private' } });
+    assert.equal(legacy.status, 200);
+    assert.equal(peer()?.gaitPresentation, undefined);
 });

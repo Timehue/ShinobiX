@@ -1,4 +1,4 @@
-import { isWildSector } from '../../shared/sector-geo.js';
+import { isWildSector, MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 // Matches the durable hit/miss request receipt. A cross-device recovery must
 // never return a token after its active pointer has expired underneath it.
@@ -115,7 +115,7 @@ export function cleanPetEncounterPointer(raw: unknown): PetEncounterPointer | nu
     const sector = Math.floor(Number(value.sector));
     const mintedAt = Math.floor(Number(value.mintedAt));
     if (typeof value.playerName !== 'string' || !requestId || !outcome
-        || !Number.isSafeInteger(sector) || sector < 1 || sector > 66
+        || !Number.isSafeInteger(sector) || sector < 1 || sector > MAX_WILD_SECTOR
         || !Number.isSafeInteger(mintedAt) || mintedAt <= 0) return null;
     return {
         playerName: value.playerName,

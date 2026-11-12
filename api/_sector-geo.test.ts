@@ -34,6 +34,10 @@ const ADDED_ROADS_OLD: ReadonlyArray<readonly [number, number]> = [[22, 27]];
 const EXPANSION_ROADS_NEW: ReadonlyArray<readonly [number, number]> = [
     [16, 61], [40, 61], [61, 62], [2, 62], [52, 63], [25, 63],
     [56, 64], [23, 64], [27, 65], [31, 65], [60, 66], [33, 66],
+    // Cinderhold (67-74), 2026-11-08: its internal ring plus two climbs from
+    // the Lavafront (58 and 66).
+    [67, 68], [67, 73], [67, 74], [68, 69], [68, 74], [69, 73],
+    [70, 71], [70, 72], [70, 73], [71, 72], [58, 67], [66, 72],
 ];
 // Sunscar's former sector 35 is now a dedicated festival entrance, not a
 // walkable board. Its two old roads (to 20 and 13) no longer lead to exits.
@@ -236,6 +240,7 @@ test('every sector sits in one of its region blocks, biomes stay in the 5-biome 
         stormveil: [[1, 8]], ashenleaf: [[9, 16]], moonshadow: [[17, 25]], frostfang: [[26, 33], [65, 65]],
         frostborder: [[34, 35]], midlands: [[36, 45], [61, 62]], castle: [[46, 51]], festival: [[52, 54], [63, 63]],
         hollowroad: [[55, 57], [64, 64]], lavafront: [[58, 60], [66, 66]],
+        cinderhold: [[67, 74]],
     };
     for (const p of SECTOR_PLACES) {
         if (p.id === 99) { assert.equal(p.region, 'deathsgate'); continue; }

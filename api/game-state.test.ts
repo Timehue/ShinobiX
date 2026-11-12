@@ -51,7 +51,9 @@ describe('heartbeat — contention and the offline-notice inbox', () => {
             false,
             'the unlocked unconditional delete destroyed any notice pushed between the mget and the del',
         );
-        assert.match(src, /consumeDeliveredNotices\(noticesKey, pendingNotices\)/);
+        assert.match(src, /ackProtocol\s*\? consumeAcknowledgedNotices\(noticesKey, ackedNoticeIds, supportsExchangeSales, modelAccountId\)\s*:\s*consumeDeliveredNotices\(noticesKey, inboxNotices\)/);
+        assert.match(src, /const pendingNotices = ackProtocol[\s\S]*?: inboxNotices;/,
+            'the legacy consumer clears only the same filtered inbox entries it delivered');
         assert.match(src, /withKvLock\(key, async \(\) => \{[\s\S]*?seen\.has\(noticeStamp\(n\)\)/, 'the clear compares against exactly what was read, under the key lock');
     });
 

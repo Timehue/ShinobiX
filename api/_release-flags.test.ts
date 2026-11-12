@@ -5,10 +5,16 @@ import {
     clanBossEnabled,
     clanBossPartiesEnabled,
     playerAiImageGenerationEnabled,
+    sectorModelDisplayEnabled,
     villageWarMapEnabled,
 } from './_release-flags.js';
 
 describe('_release-flags', () => {
+    it('enables fitted overworld figures only for the explicit display setting', () => {
+        assert.equal(sectorModelDisplayEnabled({}), false);
+        assert.equal(sectorModelDisplayEnabled({ ENABLE_SECTOR_MODEL_DISPLAY: '0' }), false);
+        assert.equal(sectorModelDisplayEnabled({ ENABLE_SECTOR_MODEL_DISPLAY: '1' }), true);
+    });
     it('keeps player AI image generation admin-only unless explicitly enabled', () => {
         assert.equal(playerAiImageGenerationEnabled({}), false);
         assert.equal(playerAiImageGenerationEnabled({ ENABLE_PLAYER_AI_IMAGE_GENERATION: '0' }), false);

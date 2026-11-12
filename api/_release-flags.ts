@@ -6,6 +6,11 @@ export function sectorObstaclesEnabled(env: NodeJS.ProcessEnv = process.env): bo
     return env.DISABLE_SECTOR_OBSTACLES !== '1';
 }
 
+/** Enable fitted overworld figures independently of character creation. */
+export function sectorModelDisplayEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.ENABLE_SECTOR_MODEL_DISPLAY === '1';
+}
+
 export function playerAiImageGenerationEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.ENABLE_PLAYER_AI_IMAGE_GENERATION === '1';
 }

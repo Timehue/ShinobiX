@@ -26,6 +26,8 @@ import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { clanBossEnabled } from '../_release-flags.js';
 import { safeLogValue } from '../_safe-log.js';
 import { recordEconomyTxn } from '../_economy.js';
+import { clanRecordKey } from '../_utils.js';
+import { isNpcClanName, isNpcClanRecord } from '../../shared/npc-clans.js';
 
 const ARCHIVE_TTL_SEC = 400 * 24 * 60 * 60;
 
@@ -99,8 +101,14 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
         if (!fresh || fresh.settled) return false;
 
         const progressKeys = await kv.keys(`clan-boss:progress:${week.weekId}:*`);
-        const progressList = (progressKeys.length ? await kv.mget<ClanBossProgress[]>(...progressKeys) : [])
+        const allProgress = (progressKeys.length ? await kv.mget<ClanBossProgress[]>(...progressKeys) : [])
             .filter(Boolean) as ClanBossProgress[];
+        // Cinderhold's clans never stand on the boss board or take its payouts
+        // (their members cannot fight it; this is the backstop).
+        const npcNamed = allProgress.filter((p) => isNpcClanName(p.clanName));
+        const npcRecords = npcNamed.length ? await kv.mget<Array<Record<string, unknown> | null>>(...npcNamed.map((p) => clanRecordKey(p.clanName))) : [];
+        const npcClans = new Set(npcNamed.filter((_, i) => isNpcClanRecord(npcRecords[i])).map((p) => p.clanName));
+        const progressList = allProgress.filter((p) => !npcClans.has(p.clanName));
         const ranked = rankClanBoss(progressList);
         // Per-clan damage, so clans that chipped the boss but finished off the
         // podium still earn XP-only "engaged" progress toward hall growth.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { CASTLE_SECTORS, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, PLAYABLE_WILD_SECTOR_IDS, playableFieldObjectiveSector, remapLegacySector, sectorArtKey } from "../../../shared/sector-geo";
+import { CASTLE_SECTORS, CINDERHOLD_GATE_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, PLAYABLE_WILD_SECTOR_IDS, playableFieldObjectiveSector, remapLegacySector, sectorArtKey } from "../../../shared/sector-geo";
 import { SECTOR_EXITS, sectorExits } from "../../../shared/sector-links";
 import { SHRINE_DEFS } from "../../../shared/shrines";
 import { riftTargetSector } from "../lib/hollow-rifts";
@@ -21,9 +21,9 @@ import {
 // ownership only exists on the 32 home war sectors (captures change WHO owns one).
 const STRONGHOLD_SECTORS = Object.values(HOME_SECTORS).flat();
 // Rift, today: riftTargetSector's range — every wild sector except the outskirts
-// gates and the castle.
+// gates (Cinderhold's included) and the castle.
 const CURRENT_RIFT_SECTORS = PLAYABLE_WILD_SECTOR_IDS
-    .filter((sector) => !OUTSKIRTS_SECTORS.includes(sector) && !CASTLE_SECTORS.includes(sector));
+    .filter((sector) => !OUTSKIRTS_SECTORS.includes(sector) && sector !== CINDERHOLD_GATE_SECTOR && !CASTLE_SECTORS.includes(sector));
 // Rift, from an old save: before the 2026-07-29 renumbering riftTargetSector drew
 // from 1..55 by range alone — it did NOT skip the outskirts. A quest accepted then is
 // remapped when read (api/sector/_rift-quest.ts → remapLegacySector), which can land

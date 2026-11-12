@@ -38,7 +38,8 @@ export type SectorBiome = 'shadow' | 'forest' | 'volcano' | 'snow' | 'central';
 
 export type SectorRegionKey =
     | 'stormveil' | 'ashenleaf' | 'moonshadow' | 'frostfang' | 'frostborder'
-    | 'midlands' | 'castle' | 'festival' | 'hollowroad' | 'lavafront' | 'deathsgate';
+    | 'midlands' | 'castle' | 'festival' | 'hollowroad' | 'lavafront' | 'deathsgate'
+    | 'cinderhold';
 
 export type SectorPlace = {
     /** Current (post-reorg) sector number. */
@@ -64,6 +65,7 @@ export const SECTOR_REGION_LABELS: Readonly<Record<SectorRegionKey, string>> = {
     hollowroad: 'the Hollow Road',
     lavafront: 'the Lavafront',
     deathsgate: 'Death’s Gate',
+    cinderhold: 'Cinderhold',
 };
 
 export const SECTOR_PLACES: readonly SectorPlace[] = [
@@ -165,6 +167,21 @@ export const SECTOR_PLACES: readonly SectorPlace[] = [
     { id: 65, name: 'Eastwind Cirque', region: 'frostfang', biome: 'snow', artKey: 65 },
     { id: 66, name: 'Emberspine Ridge', region: 'lavafront', biome: 'volcano', artKey: 66 },
 
+    // ── Cinderhold (67-74), 2026-11-08 ── the NPC village's home block on the
+    // volcano cone. Appended for the same reason as 61-66 (no renumbering, no
+    // migration); each carries its own composed floor, so artKey is the id.
+    // Reward scaling that keys off the sector NUMBER uses sectorRewardTier(),
+    // which pins this block to the Lavafront's top tier (66) rather than letting
+    // 67-74 become the richest ground on the map.
+    { id: 67, name: 'Cinderhold Gates', region: 'cinderhold', biome: 'volcano', artKey: 67 },
+    { id: 68, name: 'Basalt Steps', region: 'cinderhold', biome: 'volcano', artKey: 68 },
+    { id: 69, name: 'Smokevent Terraces', region: 'cinderhold', biome: 'volcano', artKey: 69 },
+    { id: 70, name: 'Magma Cistern', region: 'cinderhold', biome: 'volcano', artKey: 70 },
+    { id: 71, name: 'Ashfall Barracks', region: 'cinderhold', biome: 'volcano', artKey: 71 },
+    { id: 72, name: 'Obsidian Drill Yard', region: 'cinderhold', biome: 'volcano', artKey: 72 },
+    { id: 73, name: 'Caldera Rim', region: 'cinderhold', biome: 'volcano', artKey: 73 },
+    { id: 74, name: 'Slagwater Crossing', region: 'cinderhold', biome: 'volcano', artKey: 74 },
+
     // ── Death's Gate (99) ── the lava arena; number unchanged, map-travel-only
     { id: 99, name: 'The Lavafront Gate', region: 'deathsgate', biome: 'volcano', artKey: 99 },
 ];
@@ -175,7 +192,24 @@ export const SECTOR_PLACES: readonly SectorPlace[] = [
  * before it existed, `<= 60` was hardcoded in a dozen validators and adding a
  * sector silently broke travel/traces/territory in the new ground.
  */
-export const MAX_WILD_SECTOR = 66;
+export const MAX_WILD_SECTOR = 74;
+
+/** Cinderhold's home block (the NPC village). 67 is its gate. */
+export const CINDERHOLD_SECTORS: readonly number[] = [67, 68, 69, 70, 71, 72, 73, 74];
+export const CINDERHOLD_GATE_SECTOR = 67;
+
+/** Highest sector number whose reward scaling existed before Cinderhold. */
+const MAX_REWARD_TIER_SECTOR = 66;
+
+/**
+ * The sector number to feed into any reward/level formula that scales with the
+ * sector id (chest ryo, contract ryo, encounter and wanderer level). Identity for
+ * 1-66, so no existing payout moves; Cinderhold's block reads as tier 66.
+ */
+export function sectorRewardTier(sector: number): number {
+    const s = Math.floor(sector);
+    return s > MAX_REWARD_TIER_SECTOR && s <= MAX_WILD_SECTOR ? MAX_REWARD_TIER_SECTOR : s;
+}
 
 /** Every normal sector id, ascending (1..MAX_WILD_SECTOR). Excludes 0 and 99. */
 export const WILD_SECTOR_IDS: readonly number[] =

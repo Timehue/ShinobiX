@@ -1,4 +1,4 @@
-import { kv } from '../_storage.js';
+import { kv, type KvCasOp } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { isExchangeSaleReceipt, type ExchangeSaleReceipt } from '../../shared/sunscar-exchange.js';
@@ -15,7 +15,7 @@ import { isExchangeSaleReceipt, type ExchangeSaleReceipt } from '../../shared/su
 // 14-day TTL (refreshed on every push). Appends run under the key's own lock so
 // two raids landing in the same tick can't drop each other's entry.
 
-export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'duel-no-show' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'exchange-sale' | 'village-war-card-defense' | 'tavern-mention';
+export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'duel-no-show' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'exchange-sale' | 'village-war-card-defense' | 'tavern-mention' | 'world-model-removed';
 
 export type OfflineNotice = {
     kind: OfflineNoticeKind;
@@ -41,9 +41,11 @@ export type OfflineNotice = {
     campaignRunId?: string;
     /** tavern-mention: a short, already-moderated snippet of the line. */
     text?: string;
+    /** Private binding for a removal notice. Never sent to the client. */
+    modelAccountId?: string;
 };
 
-const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'duel-no-show', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'exchange-sale', 'village-war-card-defense', 'tavern-mention']);
+const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'duel-no-show', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'exchange-sale', 'village-war-card-defense', 'tavern-mention', 'world-model-removed']);
 
 export const OFFLINE_NOTICES_CAP = 10;
 /** Sales have their own allowance so a busy stall cannot bury other reports. */
@@ -64,7 +66,25 @@ function isNotice(v: unknown): v is OfflineNotice {
         && typeof n.by === 'string'
         && typeof n.sector === 'number'
         && typeof n.at === 'number'
-        && (n.kind !== 'exchange-sale' || isExchangeSaleReceipt(n.sale));
+        && (n.kind !== 'exchange-sale' || isExchangeSaleReceipt(n.sale))
+        && (n.kind !== 'world-model-removed' || typeof n.modelAccountId === 'string' && /^[a-f0-9-]{36}$/.test(n.modelAccountId));
+}
+
+function appendNotice(current: OfflineNotice[], notice: OfflineNotice): OfflineNotice[] {
+    const combined = [...current, notice];
+    const retained = new Set([
+        ...combined.filter(n => n.kind !== 'exchange-sale' && n.kind !== 'tavern-mention').slice(-OFFLINE_NOTICES_CAP),
+        ...combined.filter(n => n.kind === 'exchange-sale').slice(-EXCHANGE_SALE_NOTICES_CAP),
+        ...combined.filter(n => n.kind === 'tavern-mention').slice(-TAVERN_MENTION_NOTICES_CAP),
+    ]);
+    return combined.filter(n => retained.has(n));
+}
+
+/** Caller holds the inbox lock through the transaction that writes this operation. */
+export async function prepareOfflineNoticeWrite(key: string, notice: OfflineNotice): Promise<KvCasOp> {
+    const current = await kv.get(key);
+    return { op: 'cas', key, expected: current, value: appendNotice(parseOfflineNotices(current), notice),
+        ex: OFFLINE_NOTICES_TTL_SEC };
 }
 
 /** Append a report, keeping up to 10 general reports and 100 sale receipts. */
@@ -76,14 +96,7 @@ export async function pushOfflineNotice(targetSlug: string, notice: OfflineNotic
         // An uncertain inbox write can be retried by Exchange reconciliation.
         if (notice.kind === 'exchange-sale' && current.some(n => n.kind === 'exchange-sale' && n.sale?.listingId === notice.sale?.listingId)) return;
         if (notice.kind === 'village-war-card-defense' && current.some(n => n.kind === notice.kind && n.campaignRunId === notice.campaignRunId)) return;
-        const combined = [...current, notice];
-        const retained = new Set([
-            ...combined.filter(n => n.kind !== 'exchange-sale' && n.kind !== 'tavern-mention').slice(-OFFLINE_NOTICES_CAP),
-            ...combined.filter(n => n.kind === 'exchange-sale').slice(-EXCHANGE_SALE_NOTICES_CAP),
-            ...combined.filter(n => n.kind === 'tavern-mention').slice(-TAVERN_MENTION_NOTICES_CAP),
-        ]);
-        const next = combined.filter(n => retained.has(n));
-        await kv.set(key, next, { ex: OFFLINE_NOTICES_TTL_SEC });
+        await kv.set(key, appendNotice(current, notice), { ex: OFFLINE_NOTICES_TTL_SEC });
     }, { failClosed: notice.kind === 'exchange-sale' || notice.kind === 'village-war-card-defense' });
 }
 

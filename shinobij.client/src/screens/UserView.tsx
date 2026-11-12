@@ -13,6 +13,7 @@
 
 import { sharedAvatarFor } from "../lib/shared-avatar";
 import { displayPlayerName } from "../../../shared/player-name";
+import { isNpcVillage } from "../../../shared/npc-village";
 import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { ReportControl } from "../components/ReportControl";
 import "../styles/index/25-mobile-profile-tabs.css";
@@ -212,6 +213,9 @@ export function UserView({
 
                 {!isSelf && (
                     <div className="profile-actions">
+                        {/* Cinderhold shinobi are met only in the field: no message, challenge, follow or report (owner 2026-11-10: say so plainly). */}
+                        {isNpcVillage(viewedCharacter.village) && <p role="note" style={{ margin: 0, alignSelf: "center" }}>You can't challenge or follow NPCs.</p>}
+                        {!isNpcVillage(viewedCharacter.village) && <>
                         <button className="profile-action-btn" onClick={onMessage}><GameArtIcon kind="scroll" size={16} /> Message</button>
                         <button className="profile-action-btn" disabled={challengeBusy} onClick={() => void sendChallenge()}>
                             {challengeBusy ? "Sending…" : <><GameArtIcon kind="attack" size={16} /> Challenge</>}
@@ -222,6 +226,7 @@ export function UserView({
                             onClick={() => void toggleFollow()}
                         >{isFollowed ? "★ Following" : "☆ Follow"}</button>
                         <ReportControl targetType="player" targetName={viewingName} context="profile" style={{ alignSelf: "center", marginLeft: 2 }} />
+                        </>}
                     </div>
                 )}
 

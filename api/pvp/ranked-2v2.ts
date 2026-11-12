@@ -17,6 +17,7 @@ import {
     unqueueRanked2v2,
 } from './_ranked-2v2.js';
 import { settleRanked2v2Match } from './_ranked-2v2-settlement.js';
+import { isNpcTarget } from '../_npc-guard.js';
 
 /*
  * POST /api/pvp/ranked-2v2 — the duo-queue half of ranked 2v2.
@@ -91,6 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (action === 'invite') {
             const target = safeName(String(body.target ?? ''));
+            if (isNpcTarget(target)) return res.status(409).json({ error: "You can't team up with NPCs.", errorCode: 'invalid-target' });
             const invited = await inviteRanked2v2Partner({ actor: slug, target });
             if (!invited.ok) return res.status(invited.status).json({ error: invited.error, errorCode: invited.code });
             return respond();

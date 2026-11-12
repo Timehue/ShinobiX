@@ -22,13 +22,13 @@ import {
 } from './_war-economy.js';
 import { parseStoresLedger, type StoresLedgerEntry } from './_village-stores.js';
 import {
-    HOME_SECTORS,
     VILLAGE_BIOME,
+    homeSectorsForVillage,
     homeVillageForSector,
+    isSectorWarVillage,
     isWarSector,
-    isWarVillage,
-    type WarVillage,
 } from './_war-map-sectors.js';
+import { isNpcVillage } from '../shared/npc-village.js';
 
 export type WinCondition = 'combat' | 'card' | 'pet';
 export const WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card', 'pet'];
@@ -222,13 +222,16 @@ function asTerrain(v: unknown, fallback: Terrain): Terrain {
  *  Card remains a Kage-selectable option but is not a default. The max-7
  *  per-type diversity rule holds from the start. */
 export function defaultVillageWarRecord(village: string): VillageWarRecord {
-    const biome: Terrain = isWarVillage(village) ? VILLAGE_BIOME[village as WarVillage] : 'central';
+    const biome: Terrain = isSectorWarVillage(village) ? VILLAGE_BIOME[village] : 'central';
     const structures = Object.fromEntries(STRUCTURE_KEYS.map((k) => [k, 0])) as Record<StructureKey, number>;
     const sectors: Record<string, SectorWarState> = {};
-    const home = HOME_SECTORS[village as WarVillage] ?? [];
+    const home = homeSectorsForVillage(village);
+    // Cinderhold (no Kage to change them) holds every sector in Combat: its war
+    // party presses Combat wars only (api/_npc-war-party.ts).
+    const npc = isNpcVillage(village);
     home.forEach((s, i) => {
         sectors[String(s)] = {
-            winCondition: i % 2 === 0 ? 'combat' : 'pet',
+            winCondition: npc || i % 2 === 0 ? 'combat' : 'pet',
             terrain: biome,
         };
     });

@@ -16,9 +16,20 @@ type Props = {
     onViewBattleLog: () => void;
     returnLabel: string;
     onReturnToBattlefield: () => void;
+    /** Why a fight with a Cinderhold shinobi paid nothing (the claim reply's `npcPay`). */
+    npcPayReason?: string;
 };
 
+/** The one line that says why a win over a Cinderhold shinobi paid nothing. */
+function npcPayNotice(reason: string | undefined): string {
+    return reason === "npc-campaign" ? "Village war objective fights score for the war and pay no purse."
+        : reason === "npc-repeat" || reason === "npc-daily-cap" ? "Only your first win against each Cinderhold shinobi pays each day, up to 5 a day."
+            : reason === "npc-loss-repeat" || reason === "npc-loss-daily-cap" ? "Only your first loss to each Cinderhold shinobi pays each day, up to 5 a day."
+                : "";
+}
+
 export function PvpBattleResultPanel(p: Props) {
+    const npcLine = npcPayNotice(p.npcPayReason);
     const cancelled = p.outcome === "cancelled";
     const title = cancelled ? "Duel Cancelled" : p.outcome === "victory" ? "Victory"
         : p.outcome === "defeat" ? "Defeat"
@@ -42,9 +53,10 @@ export function PvpBattleResultPanel(p: Props) {
                 {cancelled ? <p>No rewards or penalties.</p> : <section className="pvp-result-rewards" aria-label="Battle rewards">
                     <header><b>Battle Rewards</b><small>{confirmed ? "Server verified" : "Not verified yet"}</small></header>
                     <p>{p.isSpectator ? "Spectators receive no rewards."
-                        : confirmed ? p.settlementNotice || "No personal payout for this result."
+                        : confirmed ? p.settlementNotice || npcLine || "No personal payout for this result."
                             : failed ? "Reward details will appear after your result is recorded."
                                 : "Calculating official rewards…"}</p>
+                    {confirmed && !p.isSpectator && p.settlementNotice && npcLine ? <p>{npcLine}</p> : null}
                 </section>}
 
                 {confirmed && !cancelled && !p.isSpectator && p.impactLines.length > 0 ? (

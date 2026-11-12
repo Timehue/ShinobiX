@@ -8,7 +8,9 @@ export const WORLD_MAP_MOBILE_QUERY = `(max-width: ${VIEWPORT_BREAKPOINTS.md - 1
 
 export const WORLD_MAP_REGIONS = [
     { id: "ashen", label: "Ashen Leaf", position: "Top left", column: 0, row: 0 },
-    { id: "gate", label: "Death's Gate", position: "Top center", column: 1, row: 0 },
+    // id stays "gate" (a stored camera preset); the top centre is Cinderhold's
+    // cone now, with Death's Gate just below it.
+    { id: "gate", label: "Cinderhold", position: "Top center", column: 1, row: 0 },
     { id: "frost", label: "Frostfang", position: "Top right", column: 2, row: 0 },
     { id: "storm", label: "Stormveil", position: "Bottom left", column: 0, row: 1 },
     { id: "central", label: "Central", position: "Bottom center", column: 1, row: 1 },

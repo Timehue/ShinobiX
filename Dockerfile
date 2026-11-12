@@ -14,13 +14,11 @@
 # not current production.
 #
 # TWO-STAGE build: the `builder` stage installs ALL deps (incl. the build-only
-# vite/three/sharp/typescript ≈ 0.5 GB) and builds server + client; the `runtime`
+# vite/three/typescript ≈ 0.5 GB) and builds server + client; the `runtime`
 # stage ships ONLY production deps + the built output. This keeps the FINAL image
 # small so Railway's image-EXPORT phase doesn't blow past its heartbeat/idle
 # timeout (the old single-stage image's export ran ~18 min and intermittently
-# failed). Runtime needs are exactly: dist/ + shinobij.client/dist/ + production
-# node_modules + package.json — verified: no runtime reads of source files (the
-# .git/HEAD read in server.ts is already gracefully optional; .git is dockerignored).
+# failed). The runtime also carries the small game-side sprite dispatcher.
 # ─────────────────────────────────────────────────────────────────────────────
 # Node 24 (Krypton) is the Active LTS line, supported to 2028-04-30. Node 22
 # went to maintenance-only in 2025-10 and reaches end of life 2027-04-30.
@@ -120,19 +118,28 @@ WORKDIR /app
 # accepts either source and reports the full immutable revision.
 ARG BUILD_COMMIT=""
 ENV NODE_ENV=production \
-    BUILD_COMMIT=$BUILD_COMMIT
+    BUILD_COMMIT=$BUILD_COMMIT \
+    AVATAR_MODEL_MODAL_PYTHON=/opt/avatar-dispatch/bin/python
 
 # Production dependencies only (NODE_ENV=production + --omit=dev drops the build
-# toolchain — vite/three/sharp/typescript/tsx). The server (dist/server.js +
+# toolchain — vite/three/typescript/tsx). The server (dist/server.js +
 # dist/api/**) needs only these runtime packages: express, @supabase/supabase-js,
-# pg, compression, dotenv, @sentry/node, socket.io, undici — all declared under
+# pg, compression, dotenv, @sentry/node, socket.io, undici and sharp — declared under
 # "dependencies" (not "devDependencies").
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --prefer-offline --no-audit --no-fund
 
+# Only the control client runs here. Rendering and portrait analysis run on Modal.
+COPY workers/avatar-model/requirements-dispatch.txt /tmp/avatar-dispatch.txt
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv \
+    && python3 -m venv /opt/avatar-dispatch \
+    && /opt/avatar-dispatch/bin/pip install --no-cache-dir --no-compile -r /tmp/avatar-dispatch.txt \
+    && /opt/avatar-dispatch/bin/pip check \
+    && rm -rf /var/lib/apt/lists/* /tmp/avatar-dispatch.txt
+COPY workers/avatar-model/dispatch_read.py workers/avatar-model/dispatch_stage.py workers/avatar-model/dispatch_result.py workers/avatar-model/browser_motion.py workers/avatar-model/publish_sprite.py workers/avatar-model/recognition_worker.py workers/avatar-model/cleanup_sprite.py ./workers/avatar-model/
+
 # The built server + API (dist/) and the React SPA static bundle, which
 # express.static serves from join(__dirname,'..','shinobij.client','dist').
-# Nothing else from source is read at runtime.
 COPY --from=builder /app/dist ./dist
 
 # Each copy is an independently exportable layer. Together they restore
@@ -155,6 +162,10 @@ EXPOSE 3000
 # retired), and it binds the platform's PORT (>1024), so it needs no privilege.
 # A compromise of the process can no longer rewrite the code it is serving.
 USER node
+
+# Exercise both native image decoding and the dispatcher's imports as the service user.
+RUN node -e "require('sharp')({create:{width:1,height:1,channels:4,background:'#000'}}).png().toBuffer().then(p=>require('sharp')(p).raw().toBuffer())" \
+    && cd workers/avatar-model && "$AVATAR_MODEL_MODAL_PYTHON" -B -c "import boto3, modal, dispatch_read, dispatch_stage, browser_motion, publish_sprite, recognition_worker, cleanup_sprite; from dispatch_result import terminal_result_errors; terminal_result_errors()"
 
 # Run the compiled Express server directly (bypassing the cPanel-only app.js).
 CMD ["node", "dist/server.js"]

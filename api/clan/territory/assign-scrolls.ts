@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { MAX_WILD_SECTOR, OUTSKIRTS_SECTORS } from '../../../shared/sector-geo.js';
+import { CINDERHOLD_SECTORS, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS } from '../../../shared/sector-geo.js';
 import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
@@ -129,7 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const requestId = typeof body.requestId === 'string' ? body.requestId.trim() : '';
         if (!playerName || !clan) return res.status(400).json({ error: 'Missing playerName or clan.' });
         if (!Number.isSafeInteger(sector) || sector < 1 || sector > MAX_WILD_SECTOR) return res.status(400).json({ error: 'Invalid sector.' });
-        if (OUTSKIRTS_SECTORS.includes(sector)) return res.status(400).json({ error: 'Village sectors cannot be captured.' });
+        // Cinderhold's eight sectors are the NPC village's home, held by no clan.
+        if (OUTSKIRTS_SECTORS.includes(sector) || CINDERHOLD_SECTORS.includes(sector)) return res.status(400).json({ error: 'Village sectors cannot be captured.' });
         if (count !== 1 && count !== 5 && count !== TERRITORY_CAPTURE_SCROLLS) {
             return res.status(400).json({ error: `Scroll count must be 1, 5, or ${TERRITORY_CAPTURE_SCROLLS}.` });
         }

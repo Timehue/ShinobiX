@@ -2442,19 +2442,19 @@ Retained after visual/source review; legacy compatibility preserved. 1000 × 153
 - `legacy-sage-offer/page:1/The Paths Before You`
 - `legacy-sage-offer/page:2/The Weight of the Choice`
 
-## /scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.webp
+## /scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.avif
 
 Generated, integrated, runtime verified in representative desktop and phone captures. 1672 × 941; 471,744 bytes.
 
 - `story-road-four-seals-one-gate/page:1/Four Stones, One Hand`
 
-## /scenes/story/cinematic/side-stories/road-three-founding-stones-v1.webp
+## /scenes/story/cinematic/side-stories/road-three-founding-stones-v1.avif
 
 Generated, integrated, runtime verified in representative desktop and phone captures. 1672 × 941; 542,636 bytes.
 
 - `story-road-four-seals-one-gate/page:1/Four Stones, One Hand`
 
-## /scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.webp
+## /scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.avif
 
 Generated, integrated, runtime verified in representative desktop and phone captures. 1672 × 941; 316,648 bytes.
 

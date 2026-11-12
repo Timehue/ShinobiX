@@ -35,6 +35,7 @@ import {
     saveChallengeRecord,
     type AuthoritativeChallengeRecord,
 } from '../pvp/_challenge-authorization.js';
+import { NPC_TARGET_REFUSAL, isNpcTarget } from '../_npc-guard.js';
 
 export const PET_RANKED_LEGACY_CHALLENGE_RETIRED_REASON =
     'New legacy ranked pet challenges are unavailable; retained notices and already-minted proofs remain recoverable.';
@@ -524,6 +525,20 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
         const targetName = boundedString(body.targetName, 64);
         const shaped = validateChallengeShape(body.challenge);
         if (!targetName) return res.status(400).json({ error: 'Missing targetName.' });
+        if (isNpcTarget(targetName)) {
+            // The world attack's "you were attacked" notice (lib/sector-attack.ts)
+            // has nobody to reach on an NPC: the server already plays its seat, so
+            // it is answered as delivered. Every real challenge is refused
+            // (owner ruling 2026-11-09: NPCs are fought only in the open world).
+            const notice = shaped.ok && shaped.value.sectorAttack === true && typeof shaped.value.battleId === 'string';
+            return notice ? res.status(200).json({ ok: true }) : res.status(409).json({ error: NPC_TARGET_REFUSAL });
+        }
+        // Nor do NPCs send challenges (an admin controlling one fights in the
+        // field). The one notice an NPC sends is a world attack's "you were
+        // attacked" (a Cinderhold war strike, api/_npc-war-strike.ts), and it is
+        // held to the same check as a player's: the battle must be theirs.
+        const npcAttackNotice = shaped.ok && shaped.value.sectorAttack === true && typeof shaped.value.battleId === 'string';
+        if (!identity.admin && isNpcTarget(identity.name) && !npcAttackNotice) return res.status(403).json({ error: NPC_TARGET_REFUSAL });
         if (!shaped.ok) return res.status(400).json({ error: shaped.error });
         const rawChallenge = shaped.value;
         const accepted = rawChallenge.accepted === true;

@@ -1,4 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
+import { readNpcWound, woundActive, woundShieldUntil } from '../_npc-wounds.js';
+import { NPC_ATTACK_HOLD_MS, npcAttackRefusal, pinNpc } from '../_npc-attack-hold.js';
 import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
@@ -118,7 +121,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (isIncapacitated(targetChar, now)) {
                     return res.status(409).json({ error: 'Target has already been defeated.' });
                 }
-                const shieldedUntil = Math.floor(Number(targetChar.pvpShieldUntil ?? 0)) || 0;
+                // A Cinderhold NPC's vitals are never written back; its defeat
+                // lives in its wound row (api/_npc-wounds.ts), read here so it
+                // answers exactly as a beaten player's save would.
+                const npcWound = isNpcAccount(safeName(String(targetName))) ? await readNpcWound(safeName(String(targetName))) : null;
+                if (npcWound && woundActive(npcWound, now)) {
+                    return res.status(409).json({ error: 'Target has already been defeated.' });
+                }
+                const shieldedUntil = Math.max(Math.floor(Number(targetChar.pvpShieldUntil ?? 0)) || 0, woundShieldUntil(npcWound, now));
                 if (shieldedUntil > now) {
                     return res.status(409).json({
                         error: 'Target is recovering from a recent defeat.',
@@ -130,14 +140,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // PvP admission is serialized against world-boss queue joins for both participants.
         if (!identity.admin) endOwnFieldRecoveryShield(identity.name);
         const protectedPlayers = identity.admin ? [safeName(String(targetName))] : [identity.name, safeName(String(targetName))];
+        // A Cinderhold NPC has no client to wake and is reserved by the duel's own
+        // seal (api/_npc-duel.ts), so it gets no attack flag: one would only let
+        // repeated attacks with no duel behind them hold it out of reach.
+        const npcTarget = isNpcAccount(safeName(String(targetName)));
+        // Instead it is pinned where it stands for a few seconds (api/_npc-attack-hold.ts),
+        // and a second attacker meanwhile is refused as a pending attacker refuses one.
+        const npcSlug = safeName(String(targetName));
+        if (npcTarget && !identity.admin) {
+            const refusal = npcAttackRefusal(npcSlug, identity.name);
+            if (refusal) return res.status(409).json({ error: refusal });
+        }
         const admission = await withWorldBossPvpLock(protectedPlayers, () =>
-            onlineStore.setPendingAttacker(targetName, attacker ?? null));
+            npcTarget ? !!onlineStore.get(targetName) : onlineStore.setPendingAttacker(targetName, attacker ?? null));
         if (!admission.ok) return res.status(admission.block.status).json({ error: admission.block.error });
         if (!identity.admin && !admission.value) return res.status(404).json({ error: 'Target is no longer online.' });
+        if (npcTarget && !identity.admin) pinNpc(npcSlug, `attack:${identity.name}`, Date.now() + NPC_ATTACK_HOLD_MS);
         // Instant delivery: nudge the target to run an immediate heartbeat (which
         // is the authoritative path that reads + clears pendingAttacker). No-op if
         // the target has no socket / realtime is off — the poll still delivers it.
-        kickPlayer(targetName, 'attack');
+        if (!npcTarget) kickPlayer(targetName, 'attack');
         if (!identity.admin && attacker && war) {
             // Only an admitted world attack between this contest's two sides.
             const now = Date.now();

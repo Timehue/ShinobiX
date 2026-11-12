@@ -1,6 +1,7 @@
 import type { CampaignFieldMissionView, CampaignView } from '../../../../shared/village-war-campaign';
 import { isDeathsGateStronghold, strongholdLevelEligible } from '../../../../shared/sector-stronghold';
 import { homeVillageForSector } from '../../data/war-map-sectors';
+import { isNpcHomeSector } from '../../../../shared/npc-village';
 
 export function warStrongholdEntryText(campaign: CampaignView | undefined, sector: number, village: string, mission?: CampaignFieldMissionView | null): string | undefined {
     if (!campaign || Date.now() < campaign.startsAt || Date.now() >= campaign.endsAt) return;
@@ -25,7 +26,8 @@ export function sectorVaultMarker({ campaign, mission, sector, village, level, a
     if (active && objective && level >= 15) return { village: objective.village!, onOpen: () => onOpen({ sector, village: objective.village!, warEntry: true }) };
     if (isDeathsGateStronghold(sector)) return strongholdLevelEligible(level) ? { village: 'Death’s Gate', obsidian: true, onOpen: () => onOpen({ sector, village: 'Death’s Gate' }) } : null;
     const owner = ownerVillage || homeVillageForSector(sector);
-    if (!owner) return null;
+    // Cinderhold's block keeps no stronghold, whoever holds it (api/village/_stronghold.ts).
+    if (!owner || isNpcHomeSector(sector)) return null;
     if (active && owner === village) {
         if (level < 15 || campaign.strongholds.some(o => o.sector === sector)) return null;
         return { village: owner, defending: true, onOpen: () => onOpen({ sector, village: owner, warEntry: true }) };

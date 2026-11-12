@@ -33,6 +33,7 @@ import {
     snapshotForPlayer,
 } from './_party.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
+import { isNpcTarget } from '../_npc-guard.js';
 
 const REQUEST_ID = /^[A-Za-z0-9_-]{8,96}$/;
 const PARTY_ID = /^cbp-[a-f0-9]{32}$/i;
@@ -169,8 +170,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (action === 'leave') return removePartyMember(party, player.slug, now);
                 if (action === 'invite') {
                     if (!leader) return { ok: false, status: 403, code: 'leader-required', error: 'Only the party leader can invite members.', party };
+                    if (isNpcTarget(body.target)) return { ok: false, status: 400, code: 'invalid-clanmate', error: "You can't invite NPCs to a party.", party };
                     const target = await loadPartyPlayerContext(String(body.target ?? ''));
-                    if (!target || target.clanName !== party.clanName) return { ok: false, status: 400, code: 'invalid-clanmate', error: 'Choose a current clan member.', party };
+                    if (!target || isNpcTarget(target.slug) || target.clanName !== party.clanName) return { ok: false, status: 400, code: 'invalid-clanmate', error: 'Choose a current clan member.', party };
                     if (party.members.length >= CLAN_BOSS_PARTY_MAX) return { ok: false, status: 409, code: 'party-full', error: 'The party is full.', party };
                     if (party.members.some((entry) => entry.slug === target.slug) || party.invitedSlugs.includes(target.slug)) return { ok: true, party, replayed: true };
                     return genericMutation(party, { invitedSlugs: [...party.invitedSlugs, target.slug].slice(-12) });
