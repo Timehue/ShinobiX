@@ -1,6 +1,8 @@
 import React, { useState, type CSSProperties, type ReactNode } from "react";
 import { isImageAvatar } from "../lib/avatar";
 import { PetSummonEntrance } from './PetSummonEntrance';
+import { useBattlefieldModelSprite } from '../lib/use-battlefield-model-sprite';
+import type { PlayerModel } from '../../../shared/player-model-ref';
 import {
     inferSpriteKind,
     inferSpriteNativeFacing,
@@ -16,6 +18,7 @@ type BattlefieldActorProps = {
     label: string;
     portrait?: string | null;
     sprite?: string | null;
+    model?: PlayerModel;
     spriteKind?: BattlefieldSpriteKind;
     facing?: BattlefieldSpriteFacing;
     nativeFacing?: BattlefieldSpriteFacing;
@@ -44,6 +47,7 @@ export function BattlefieldActor({
     label,
     portrait,
     sprite,
+    model,
     spriteKind,
     facing,
     nativeFacing,
@@ -54,8 +58,11 @@ export function BattlefieldActor({
     summon = false,
 }: BattlefieldActorProps) {
     const [failedSprite, setFailedSprite] = useState<string | null>(null);
+    const [failedModelSprite, setFailedModelSprite] = useState<string | null>(null);
     const [failedPortrait, setFailedPortrait] = useState<string | null>(null);
-    const spriteSrc = isImageAvatar(sprite) && failedSprite !== sprite ? sprite : "";
+    const modelSprite = useBattlefieldModelSprite(model);
+    const modelSrc = modelSprite && modelSprite !== failedModelSprite ? modelSprite : "";
+    const spriteSrc = modelSrc || (isImageAvatar(sprite) && failedSprite !== sprite ? sprite : "");
     const portraitSrc = isImageAvatar(portrait) && failedPortrait !== portrait ? portrait : "";
     const initials = fallback ?? label.trim().slice(0, 2).toUpperCase();
     const resolvedSpriteKind = spriteSrc ? spriteKind ?? inferSpriteKind(spriteSrc) : undefined;
@@ -64,7 +71,7 @@ export function BattlefieldActor({
     const mirrored = spriteSrc ? resolvedFacing !== resolvedNativeFacing : undefined;
 
     const art = spriteSrc ? (
-        <img className="battlefield-actor-sprite" src={spriteSrc} alt="" draggable={false} onError={() => setFailedSprite(spriteSrc)} />
+        <img className="battlefield-actor-sprite" src={spriteSrc} alt="" draggable={false} onError={() => (modelSrc ? setFailedModelSprite : setFailedSprite)(spriteSrc)} />
     ) : (
         <span className="battlefield-actor-marker">
             <span className="battlefield-actor-pin" />

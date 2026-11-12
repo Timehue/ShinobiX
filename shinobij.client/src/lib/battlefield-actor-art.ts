@@ -9,8 +9,10 @@ import shadowWeaverSprite from "../assets/combat-actors/builtin-ai-shadow-weaver
 import centralChampionSprite from "../assets/combat-actors/builtin-ai-central-champion-idle.webp";
 import rivalFallbackSprite from "../assets/combat-actors/ai-rival-fallback-idle.webp";
 import pveBruiserSprite from '../assets/combat-actors/pve/bandit-bruiser-idle.webp';
+import roadBanditSprite from '../assets/combat-actors/pve/bandit-idle.webp';
 import pveSkirmisherSprite from '../assets/combat-actors/pve/bandit-skirmisher-idle.webp';
 import pveAssassinSprite from '../assets/combat-actors/pve/rogue-assassin-idle.webp';
+import roadNightbladeSprite from '../assets/combat-actors/pve/nightblade-idle.webp';
 import pveElementalistSprite from '../assets/combat-actors/pve/elemental-specialist-idle.webp';
 import pveDefenderSprite from '../assets/combat-actors/pve/defensive-specialist-idle.webp';
 import rivalMinerSprite from '../assets/combat-actors/pve/rival-miner-idle.webp';
@@ -47,17 +49,34 @@ import clanOniSprite from "../assets/combat-actors/bosses/clan-boss-oni-idle.web
 import clanLeviathanSprite from "../assets/combat-actors/bosses/clan-boss-leviathan-idle.webp";
 import clanGolemSprite from "../assets/combat-actors/bosses/clan-boss-golem-idle.webp";
 import { worldBossDefinitionForVisual, worldBossDefinitionForGuardVisual } from "../../../shared/world-boss-event";
-import { STORY_KAGE_PORTRAITS } from '../../../shared/story-kage-art';
 import { STORY_COMBAT_IDENTITIES } from '../../../shared/story-combat-identity';
 import { narrativeEnemyIdentity } from '../../../shared/narrative-enemy-identity';
 import { parseWandererId, WANDERER_RIFT_INDEX } from '../../../shared/wanderer-roster';
 
 const HOLLOW_HOUND_SPRITE = "/hollow-gate/hollow-hound-idle.webp";
-const STORY_KAGE_SPRITES: Record<string, string> = { ...STORY_KAGE_PORTRAITS, 'story-ai-ashen-leaf-village-100': hoshinaHollowSprite };
+const STORY_KAGE_SPRITES: Record<string, string> = {
+    'story-ai-stormveil-village-100': '/combat-actors/named/kage-raiko-veyr-hollow-idle.webp',
+    'story-ai-ashen-leaf-village-100': hoshinaHollowSprite,
+    'story-ai-frostfang-village-100': '/combat-actors/named/kage-kael-whitefang-hollow-idle.webp',
+    'story-ai-moonshadow-village-100': '/combat-actors/named/kage-sable-nocturne-hollow-idle.webp',
+};
+const NAMED_COMBAT_PORTRAITS = new Set([
+    'tempest-guard-captain', 'mira-volt', 'veiled-hand-collector', 'masked-auction-enforcer',
+    'veiled-hand-executioner', 'veiled-hand-grandmaster', 'instructor-havek', 'captain-hela-dray',
+    'anji-vesk', 'foreman-dray', 'warden-sesk', 'redactor-sella', 'meter-warden-kree', 'counterfeit-broker',
+    'quest-bosses/ashbound-raider', 'quest-bosses/bell-wraith', 'quest-bosses/bandit-captain-goro',
+    'quest-bosses/puppeteer-itoguchi', 'quest-bosses/hunter-shirakawa', 'quest-bosses/house-kuroban',
+    'quest-bosses/ashbound-cinder', 'quest-bosses/ashbound-slag', 'quest-bosses/kazan-ashbound',
+]);
+
+function namedPortraitSprite(portrait: string): string | undefined {
+    const key = /^\/portraits\/(.+)\.webp$/.exec(portrait)?.[1];
+    return key && NAMED_COMBAT_PORTRAITS.has(key) ? `/combat-actors/named/${key}-idle.webp` : undefined;
+}
 const ORDINARY_PVE_SPRITES: Record<string, string> = {
     bruiser: pveBruiserSprite, skirmisher: pveSkirmisherSprite, assassin: pveAssassinSprite,
     elementalist: pveElementalistSprite, defender: pveDefenderSprite,
-    bandit: pveBruiserSprite, nightblade: pveAssassinSprite, rivalMiner: rivalMinerSprite,
+    bandit: roadBanditSprite, nightblade: roadNightbladeSprite, rivalMiner: rivalMinerSprite, tsukika: tsukikaSprite,
     nemesis: kageroSprite, 'world-wanderer-nemesis': kageroSprite,
 };
 
@@ -127,15 +146,6 @@ const BUNDLED_AI_BATTLE_SPRITES: Record<string, string> = {
     "builtin-ai-rogue-ninja": rogueNinjaSprite,
     "builtin-ai-shadow-weaver": shadowWeaverSprite,
     "builtin-ai-central-champion": centralChampionSprite,
-    "road-ai-brask": examProctorSprite,
-    "road-ai-magpie": examProctorSprite,
-    "road-ai-havek": examProctorSprite,
-    "road-ai-hela-dray": frostSealerSprite,
-    "road-ai-black-bridge": shadowWeaverSprite,
-    "road-ai-anji-vesk": shadowWeaverSprite,
-    "road-ai-forty-first": centralChampionSprite,
-    "road-ai-foreman-dray": centralChampionSprite,
-    "road-ai-anchor-warden": centralChampionSprite,
     ...HUNT_BATTLE_SPRITES,
     ...APEX_BATTLE_SPRITES,
     ...RIFT_BOSS_SPRITES,
@@ -148,27 +158,6 @@ const BUNDLED_AI_BATTLE_SPRITES: Record<string, string> = {
     "frostfang-warlord": towerArmoredBossSprite,
     "moonshadow-oni": clanOniSprite,
     "stormveil-beast": apexAncientChakraBeastSprite,
-};
-
-const QUEST_BOSS_SPRITES: Record<string, string> = {
-    "ashbound-raider": rivalFallbackSprite,
-    "bell-wraith": towerSpectralBossSprite,
-    "bandit-captain-goro": towerHeavySprite,
-    "puppeteer-itoguchi": towerCasterSprite,
-    "hunter-shirakawa": rivalFallbackSprite,
-    "raiju-storm-hound": HOLLOW_HOUND_SPRITE,
-    "house-kuroban": towerArmoredBossSprite,
-    "ashbound-cinder": towerCasterSprite,
-    "ashbound-slag": clanGolemSprite,
-    "kazan-ashbound": towerRavagerSprite,
-};
-
-const STORY_RECKONING_SPRITES: Record<string, string> = {
-    "story-reckoning-vanta-ninth": towerArmoredBossSprite,
-    "story-reckoning-mori-working-copy": riftHollowLegacySprite,
-    "story-reckoning-yura-exemption": towerCasterSprite,
-    "story-reckoning-iro-sealed-shelf": rivalFallbackSprite,
-    "story-reckoning-harrow-unbought": rivalFallbackSprite,
 };
 
 const HUNT_MISSION_TO_PROFILE = Object.keys(HUNT_BATTLE_SPRITES).map((profileId) => [
@@ -186,16 +175,7 @@ function runtimeSprite(id: string): string | null {
             return HUNT_BATTLE_SPRITES[profileId] ?? null;
         }
     }
-    if (id.startsWith("world-questbook-")) {
-        for (const [bossId, sprite] of Object.entries(QUEST_BOSS_SPRITES)) {
-            if (id.endsWith(`-${bossId}`)) return sprite;
-        }
-    }
-    if (id.startsWith("world-story-")) {
-        for (const [sourceId, sprite] of Object.entries(STORY_RECKONING_SPRITES)) {
-            if (id === `world-story-${sourceId}`) return sprite;
-        }
-    }
+    if (id === "raiju-storm-hound" || (id.startsWith("world-questbook-") && id.endsWith("-raiju-storm-hound"))) return HOLLOW_HOUND_SPRITE;
     if (id.startsWith("dungeon-warden-")) return towerArmoredBossSprite;
     if (id.startsWith("world-bounty-") || id.startsWith("world-ambush-")) return towerHeavySprite;
     // The rift-touched creature keeps its slot id, not a human roster role.
@@ -215,7 +195,7 @@ function runtimeSprite(id: string): string | null {
 export function battlefieldAiSprite(
     rawId: string | null | undefined,
     sharedImages?: Record<string, string>,
-    identity?: { name?: string; archetype?: string },
+    identity?: { name?: string; archetype?: string; portrait?: string | null },
 ): string | null {
     const suppliedId = String(rawId ?? "");
     if (!suppliedId) return null;
@@ -226,7 +206,9 @@ export function battlefieldAiSprite(
     const twin = storyTwinArt(id);
     if (twin) return twin;
     const authored = STORY_COMBAT_IDENTITIES[id] ?? narrativeEnemyIdentity(id);
-    if (authored) return authored.body || (authored.sprite && (BUNDLED_AI_BATTLE_SPRITES[authored.sprite] || ORDINARY_PVE_SPRITES[authored.sprite])) || authored.portrait;
+    if (authored) return namedPortraitSprite(authored.portrait) || authored.body || (authored.sprite && (ORDINARY_PVE_SPRITES[authored.sprite] || BUNDLED_AI_BATTLE_SPRITES[authored.sprite])) || authored.portrait;
+    const portraitKey = /^\/portraits\/pve\/([a-z]+)\.webp(?:[?#]|$)/i.exec(identity?.portrait ?? '')?.[1];
+    if (portraitKey && Object.hasOwn(ORDINARY_PVE_SPRITES, portraitKey)) return ORDINARY_PVE_SPRITES[portraitKey];
     if (/^Tsukika\b/i.test(identity?.name ?? '') && (id === 'nightblade' || identity?.archetype === 'assassin')) return tsukikaSprite;
     if (/^Kagero\b/i.test(identity?.name ?? '')) return kageroSprite;
     return worldBossDefinitionForVisual(id)?.battleSprite
@@ -235,7 +217,6 @@ export function battlefieldAiSprite(
         || STORY_KAGE_SPRITES[id]
         || ORDINARY_PVE_SPRITES[id]
         || ORDINARY_PVE_SPRITES[identity?.archetype ?? '']
-        || QUEST_BOSS_SPRITES[id]
         || runtimeSprite(id)
         || rivalFallbackSprite;
 }

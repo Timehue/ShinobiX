@@ -275,6 +275,8 @@ test('a player submits a world model, closes the tab, then equips the finished s
     const portrait = resolve(process.env.SECTOR_MODEL_CREATION_PORTRAIT!);
     const evidence = resolve(process.env.SECTOR_MODEL_CREATION_EVIDENCE!);
     const { gameModel } = JSON.parse(await readFile(resolve(packageRoot, 'result.json'), 'utf8'));
+    const modelFolder = resolve(packageRoot, 'sector-models', 'players', gameModel.assetId);
+    const { battleSprite } = JSON.parse(await readFile(resolve(modelFolder, gameModel.version + '.json'), 'utf8'));
     const name = 'modelqueueqa' + info.config.projects.findIndex(project => project.name === info.project.name);
     const { url, sector } = await loginModelAccount(request, context, name, true, 78);
     await page.goto('/#/profile');
@@ -331,8 +333,8 @@ test('a player submits a world model, closes the tab, then equips the finished s
         await returning.route('https://art.example.invalid/sector-models/players/' + ref.assetId + '/**', async route => {
             const path = new URL(route.request().url()).pathname.split('/');
             const file = path.at(-1) ?? '';
-            expect(file).toMatch(/^[a-f0-9]{64}\.(json|gz|264)$/);
-            await route.fulfill({ path: resolve(packageRoot, 'sector-models', 'players', gameModel.assetId, file),
+            expect(file).toMatch(/^[a-f0-9]{64}\.(json|gz|264|webp)$/);
+            await route.fulfill({ path: resolve(modelFolder, file),
                 headers: { 'Access-Control-Allow-Origin': '*' } });
         });
         const next = await returning.newPage();
@@ -363,6 +365,21 @@ test('a player submits a world model, closes the tab, then equips the finished s
         }
         await expect(next.locator('[data-world-self] .sector-model-figure')).toHaveCSS('background-image', /blob:/);
         await next.locator('.continuous-world-map').screenshot({ path: info.outputPath('created-model-in-sector.png') });
+        if (battleSprite) {
+            await next.goto('/#/missions');
+            await next.reload();
+            await next.getByRole('tab', { name: 'Combat', exact: true }).click({ timeout: 30_000 });
+            const mission = next.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
+            const [sprite] = await Promise.all([
+                next.waitForResponse(response => response.url().endsWith(`/players/${ref.assetId}/${battleSprite}`) && response.ok(), { timeout: 30_000 }),
+                mission.getByRole('button', { name: /Begin mission/ }).click({ timeout: 20_000 }),
+            ]);
+            expect(await sprite.body()).toEqual(await readFile(resolve(modelFolder, battleSprite)));
+            const body = next.locator('.mission-arena-fight [data-battlefield-actor="player"] .battlefield-actor-sprite');
+            await expect(body).toHaveAttribute('src', /^blob:/);
+            await expect.poll(() => body.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+            await next.locator('.mission-arena-fight').screenshot({ path: info.outputPath('created-model-in-combat.png') });
+        }
     } finally {
         await returning.close();
     }

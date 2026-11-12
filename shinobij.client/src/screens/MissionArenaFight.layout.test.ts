@@ -177,31 +177,18 @@ test("mission fight reserves desktop feedback space and removes the mobile hint 
     );
 });
 
-// The player is a map-pin marker that fits inside its orb anchor, so a flat -16
-// lift puts its HP bar just above the token. The AI is full-body sprite art that
-// overflows the SAME anchor upward, so that same -16 landed the bar on the
-// enemy's face. The badge has to clear whatever art the actor actually renders.
-test("the enemy HP badge clears the AI's full-body sprite instead of its face", () => {
-    const enemyBadge = missionSource.match(/key="enemy-hp"[\s\S]*?\/>/);
-    assert.ok(enemyBadge, "mission combat must still render an on-board enemy HP badge");
-    assert.match(
-        enemyBadge![0],
-        /top=\{top \+ HEX_H \* 0\.85 - ORB - 16 - headroom\}/,
-        "the enemy badge must lift by the sprite's headroom on top of the marker offset",
-    );
-    assert.match(
-        missionSource,
-        /const headroom = battlefieldSpriteHeadroom\(ORB, enemyBattleSprite\)/,
-        "the clearance must be derived from the sprite the actor is actually given",
-    );
-
-    // The player/pet badges are marker-anchored and must NOT be lifted, or their
-    // bars float away from tokens that never overflowed in the first place.
-    for (const key of ["player-hp", "pet-hp"]) {
-        const badge = missionSource.match(new RegExp(`key="${key}"[\\s\\S]*?/>`));
-        assert.ok(badge, `mission combat must still render the ${key} badge`);
-        assert.doesNotMatch(badge![0], /headroom/, `${key} renders a marker, so it needs no sprite clearance`);
+// The marker fits inside its orb anchor. Full-body art can extend above
+// the anchor, so its HP badge needs additional headroom.
+test("fighter HP badges clear their full-body sprites", () => {
+    for (const side of ["player", "enemy"]) {
+        const badge = missionSource.match(new RegExp(`key="${side}-hp"[\\s\\S]*?/>`));
+        assert.ok(badge, `mission combat must render the ${side} HP badge`);
+        assert.match(badge[0], /top=\{top \+ HEX_H \* 0\.85 - ORB - 16 - headroom\}/);
+        assert.match(missionSource, new RegExp(`battlefieldSpriteHeadroom\\(ORB, ${side}BattleSprite\\)`));
     }
+    const petBadge = missionSource.match(/key="pet-hp"[\s\S]*?\/>/);
+    assert.ok(petBadge);
+    assert.doesNotMatch(petBadge[0], /headroom/);
 });
 
 test("the mission summon command contains its icon and long lock copy", () => {

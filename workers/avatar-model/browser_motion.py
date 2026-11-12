@@ -9,6 +9,7 @@ import re
 PACKAGE_BYTES = 8 * 1024**2
 INDEX_BYTES = 128 * 1024
 PAGE_BYTES = 512 * 1024
+BATTLE_SPRITE_BYTES = 256 * 1024
 ATLAS_BYTES = 12 * 1024**2
 DIRECTIONS = ["s", "se", "e", "ne", "n", "nw", "w", "sw"]
 
@@ -74,7 +75,7 @@ def checked_browser_objects(read_bytes, revision, portrait):
 
     def read(name, extension, limit):
         nonlocal total
-        if not re.fullmatch(r"[a-f0-9]{64}\." + extension, name):
+        if not isinstance(name, str) or not re.fullmatch(r"[a-f0-9]{64}\." + extension, name):
             raise ValueError("Invalid fitted object name")
         data = read_bytes(name, min(limit, PACKAGE_BYTES - total))
         if len(data) > limit or total + len(data) > PACKAGE_BYTES:
@@ -97,5 +98,8 @@ def checked_browser_objects(read_bytes, revision, portrait):
         pages.update(check_facing(json.loads(decompress(objects[name]))))
     for name in sorted(pages):
         objects[name] = read(name, "264", PAGE_BYTES)
+    if "battleSprite" in model:
+        name = model["battleSprite"]
+        objects[name] = read(name, "webp", BATTLE_SPRITE_BYTES)
     objects[root] = header  # Publish the revision after its pose pages are available.
     return objects

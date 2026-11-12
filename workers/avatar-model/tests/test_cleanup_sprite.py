@@ -57,8 +57,9 @@ class CleanupTest(unittest.TestCase):
     def setUp(self):
         self.store=Store();self.asset="a"*32;self.other="b"*32
         self.prefix=f"sector-models/players/{self.asset}/"
-        for i in range(4):
+        for i in range(3):
             self.store.objects["public",self.prefix+str(i)*64+".264"]=b"private-looking sprite bytes"
+        self.store.objects["public",self.prefix+"3"*64+".webp"]=b"combat sprite bytes"
         self.other_key=f"sector-models/players/{self.other}/"+"e"*64+".json"
         self.store.objects["public",self.other_key]=b"another player's sprite"
         self.claims=PrivateRecognitionClaims(self.store,"private")

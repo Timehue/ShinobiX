@@ -88,6 +88,11 @@ must cover every paid stage and retry, with separate provider billing cycles.
 Display, creation and dispatch are independent flags. Missing configuration must
 be handled without preventing login, travel or NPC display.
 
+Roll out the game server before updating the Modal worker. The updated dispatcher
+can publish both existing motion-only revisions and new revisions with a combat
+WebP. Use the existing dispatch pause if you need to hold new finishes between
+the two deployments.
+
 ### Standalone online portrait trial
 
 Run the standalone trial in `shinobix-avatar-staging` to exercise portrait intake, the image provider, all three movement styles and final game packaging in Modal. It uses the same worker functions and requires the `shinobix-avatar-costume-paint` secret described above. It returns an audited game package privately through Modal. The game server, moderation, recognition, R2 publication and equip belong to the full staging test below.
@@ -119,12 +124,13 @@ python workers/avatar-model/modal_portrait_trial.py collect /path/to/trial-direc
    submission and stop any local render workers for the unattended portion.
 3. Reopen the account from a second browser. Verify the original job reaches
    the library and that the model can be equipped, seen by a nearby player and
-   moved through all three run styles. Record elapsed time, recognition outcome,
-   the equipped manifest hash and delivery checks on desktop and mobile.
+   moved through all three run styles. Start a fight and verify the battle board
+   loads the WebP named by the equipped manifest. Record elapsed time, recognition
+   outcome, the equipped manifest hash and delivery checks on desktop and mobile.
 4. Settle the provider statements against that job. Revoke the staging model
    after priming its public URLs, confirm the starter returns, and verify the
-   public files, CDN variants and retained private fit have been erased. Keep
-   the receipts and stage timings with the release evidence.
+   public files, including the combat WebP, CDN variants and retained private fit
+   have been erased. Keep the receipts and stage timings with the release evidence.
 
 ## Job execution and recovery
 

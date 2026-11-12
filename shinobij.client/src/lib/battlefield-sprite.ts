@@ -19,6 +19,11 @@ import { towerHexPixel } from "./tower-grid";
 export type BattlefieldSpriteKind = "humanoid" | "quadruped" | "flying" | "serpentine" | "boss" | "construct";
 export type BattlefieldSpriteFacing = "left" | "right";
 
+const CINDERHOLD_RIGHT_FACING = new Set([
+    "alisia", "ayame", "daigo", "isamu", "kairo", "kat", "kohaku", "raku",
+    "roy", "seiran", "shion", "sly", "suiren", "tavi", "vesper", "veyl",
+]);
+
 type BattlefieldFacingActor = {
     id: string;
     side: "squad" | "enemy" | "npc";
@@ -52,7 +57,10 @@ export function inferSpriteKind(src: string): BattlefieldSpriteKind {
 
 /** Authored direction of body art; the existing facing system mirrors from it. */
 export function inferSpriteNativeFacing(src: string): BattlefieldSpriteFacing {
-    const filename = src.split(/[?#]/, 1)[0].split("/").pop() ?? "";
+    const path = src.split(/[?#]/, 1)[0];
+    const cinderhold = /\/combat-actors\/cinderhold\/([a-z]+)-idle\.webp$/.exec(path)?.[1];
+    if (cinderhold && CINDERHOLD_RIGHT_FACING.has(cinderhold)) return "right";
+    const filename = path.split("/").pop() ?? "";
     // Murogane, Donkaku and the Hollow Hound are drawn with their heads leading
     // to the right.
     if (/^(hollow-gate-bull|donkaku)-battle-v1\.webp$/i.test(filename) || /^hollow-hound-idle\.webp$/i.test(filename)) return "right";

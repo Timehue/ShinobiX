@@ -67,11 +67,11 @@ test('all chapter enemies seal their own portrait, role, element and actual tech
 test('Mira, the wooden guardian and the snow beast cannot fall back to a generic ninja', () => {
     assert.equal(battlefieldAiSprite('academy-spar-dummy'), '/combat-actors/narrative/academy-training-dummy.webp');
     assert.match(battlefieldAiSprite('builtin-ai-academy-sparring')!, /builtin-ai-academy-sparring-idle/, 'the human mission trainer keeps his own body');
-    assert.equal(battlefieldAiSprite('story-ai-stormveil-village-75'), '/portraits/cinematic/storywide/mira-volt-neutral.webp');
+    assert.equal(battlefieldAiSprite('story-ai-stormveil-village-75'), '/combat-actors/named/mira-volt-idle.webp');
     assert.equal(battlefieldAiSprite('story-ai-ashen-leaf-village-4'), '/combat-actors/narrative/wooden-root-guardian.webp');
     assert.match(battlefieldAiSprite('story-ai-frostfang-village-4')!, /hunt-ai-frost-wolf-idle/);
     assert.match(battlefieldAiSprite('story-ai-ashen-leaf-village-75')!, /hunt-ai-ember-drake-idle/);
-    assert.equal(battlefieldAiSprite('world-questbook-qb-ashes-ashbound-slag'), '/portraits/quest-bosses/ashbound-slag.webp', 'Slag is the rock-armored man in his portrait, not the clan stone golem');
+    assert.equal(battlefieldAiSprite('world-questbook-qb-ashes-ashbound-slag'), '/combat-actors/named/quest-bosses/ashbound-slag-idle.webp');
     assert.equal(battlefieldAiSprite('story-ai-ashen-leaf-village-35'), '/combat-actors/narrative/first-flame-sentinel.webp', 'the armored Sentinel is separate from the First Flame Avatar');
     assert.equal(battlefieldAiSprite('story-ai-frostfang-village-25'), '/combat-actors/narrative/frost-seal-guardian.webp', 'the ice Guardian is separate from the Echo controlling it');
     assert.equal(battlefieldAiSprite('story-ai-moonshadow-village-35'), '/combat-actors/narrative/contract-bound-shadow.webp', 'the contract guard is separate from Hollow Moon');

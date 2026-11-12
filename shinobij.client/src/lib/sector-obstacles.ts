@@ -46,7 +46,8 @@ export async function supportsProfileDetailUpload() {
     return profileDetailUploads;
 }
 export const useSectorObstacles = () => useSyncExternalStore(subscribe, sectorObstaclesOn, () => true);
-export const useSectorModelArtBase = () => useSyncExternalStore(subscribe, () => modelArtBase, () => null);
+const noSubscription = () => () => {};
+export const useSectorModelArtBase = (enabled = true) => useSyncExternalStore(enabled ? subscribe : noSubscription, () => enabled ? modelArtBase : null, () => null);
 export const usePlayerGaits = () => useSyncExternalStore(subscribe, () => playerGaits, () => false);
 export const useWorldModelCreationAvailable = () => useSyncExternalStore(subscribe, () => worldModelCreationAvailable, () => false);
 export const safeSectorTile = (sector: number, tile: number) => nearestWalkableTile(sector, tile, enabled);
