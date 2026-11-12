@@ -821,8 +821,11 @@
     display: grid;
     justify-items: center;
     gap: 6px;
-    width: 112px;
+    width: min(112px, 100%);
     text-align: center;
+}
+@media (pointer: coarse) {
+    .profile-avatar-upload button[aria-haspopup="dialog"] { min-height: 44px; }
 }
 .profile-model-controls { display: grid; gap: 12px; }
 .profile-model-controls label { display: grid; gap: 6px; }

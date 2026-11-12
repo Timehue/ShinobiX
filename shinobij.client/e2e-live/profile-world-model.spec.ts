@@ -284,9 +284,12 @@ test('a player submits a world model, closes the tab, then equips the finished s
     expect(await saved.body()).toEqual(await readFile(portrait));
 
     const open = (view: Page) => view.getByRole('button', { name: 'World model', exact: true }).click();
-    await open(page);
-    const creation = page.getByRole('dialog', { name: 'World model' });
-    await creation.getByRole('button', { name: 'Make Model', exact: true }).click();
+    const avatarActions = page.locator('.profile-avatar-upload');
+    await expect(avatarActions.getByRole('button', { name: 'Upload avatar', exact: true })).toBeVisible();
+    await avatarActions.getByRole('button', { name: 'Make Model', exact: true }).click();
+    const creation = page.getByRole('dialog', { name: 'Make Model' });
+    await expect(creation.getByText(/sends your saved portrait to OpenAI and Modal/)).toBeVisible();
+    await creation.getByRole('button', { name: 'Check portrait', exact: true }).click();
     await expect(creation.getByText('Upright raccoon in a feathered coat')).toBeVisible();
     const submitted = page.waitForResponse(response => new URL(response.url()).pathname === '/api/avatar-model/jobs' &&
         response.request().method() === 'POST');
@@ -408,10 +411,10 @@ if (process.env.SECTOR_MODEL_TEST_PORTRAITS) {
         }
         if (process.env.SECTOR_MODEL_DETAIL_QA) {
             await page.reload();
-            await page.getByRole('button',{name:'World model',exact:true}).click();
-            const dialog=page.getByRole('dialog',{name:'World model'});
+            await page.locator('.profile-avatar-upload').getByRole('button',{name:'Make Model',exact:true}).click();
+            const dialog=page.getByRole('dialog',{name:'Make Model'});
             const checked=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/avatar-model/read');
-            await dialog.getByRole('button',{name:'Make Model',exact:true}).click();
+            await dialog.getByRole('button',{name:'Check portrait',exact:true}).click();
             expect(await (await checked).json()).toEqual({state:'declined'});
             await expect(dialog.getByText(/Your monthly creation is still available/)).toBeVisible();
         }

@@ -73,7 +73,7 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
             Make Model sends your saved portrait to OpenAI and Modal for AI screening and processing.
             Checking the portrait leaves your monthly creation available.
         </p>}
-        <button type="button" disabled={busy} onClick={() => void submit()}>{read ? 'Create model' : 'Make Model'}</button>
+        <button type="button" disabled={busy} onClick={() => void submit()}>{read ? 'Create model' : 'Check portrait'}</button>
         {message && <small role="status">{message}</small>}
     </div>;
 }

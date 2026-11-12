@@ -3,7 +3,7 @@ import { isPlayerModel, type PlayerModel } from '../lib/player-model';
 import { readPlayerSaveSnapshot } from '../lib/save-api';
 import { visiblePoll } from '../lib/poll';
 import { recentModelRequest, rememberModelRequest, modelRequestOutcome } from '../lib/model-request-receipt';
-import { useSectorModelArtBase } from '../lib/sector-obstacles';
+import { useSectorModelArtBase, useWorldModelCreationAvailable } from '../lib/sector-obstacles';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import { Modal } from './ui/Modal';
 import { ProfileModelPreview } from './ProfileModelPreview';
@@ -17,12 +17,14 @@ function monthLabel(month: string) {
     return new Date(month + '-01T00:00:00Z').toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
-export function ProfileWorldModel({ character, onVersionedCharacter }: {
-    character: Character; onVersionedCharacter: VersionedCharacterCommit;
+export function ProfileWorldModel({ character, canUploadAvatar, onVersionedCharacter }: {
+    character: Character; canUploadAvatar: boolean; onVersionedCharacter: VersionedCharacterCommit;
 }) {
     const enabled = useSectorModelArtBase();
+    const creationEnabled = useWorldModelCreationAvailable();
     const equipped = isPlayerModel(character.playerModel) ? character.playerModel.assetId : '';
-    const [open, setOpen] = useState(false);
+    const [view, setView] = useState<'create' | 'library' | null>(null);
+    const open = view !== null;
     const [models, setModels] = useState<Owned[]>([]);
     const [pending, setPending] = useState<PendingModelJob | null>(null);
     const [ended, setEnded] = useState<EndedModelJob | null>(null);
@@ -139,24 +141,43 @@ export function ProfileWorldModel({ character, onVersionedCharacter }: {
             if (!controller.signal.aborted) setBusy(false);
         }
     }
+    function openPanel(next: 'create' | 'library', button: HTMLButtonElement) {
+        opener.current = button;
+        setView(next);
+        if (request.current) return;
+        select(equipped);
+        setModels([]);
+        setBefore(null);
+        setPending(null);
+        setEnded(null);
+        setCreationAvailable(false);
+        void change('list');
+    }
+
     return <>
-        <button ref={opener} type="button" className="sic-avatar-upload-button" aria-haspopup="dialog" onClick={() => {
-            setOpen(true);
-            if (!request.current) { select(equipped); setModels([]); setBefore(null); setPending(null); setEnded(null); setCreationAvailable(false); void change('list'); }
-        }}>World model</button>
-        <Modal open={open} size="sm" title="World model" onClose={() => setOpen(false)} returnFocusRef={opener}>
+        {enabled && creationEnabled && canUploadAvatar &&
+            <button type="button" className="sic-avatar-upload-button" aria-haspopup="dialog"
+                onClick={event => openPanel('create', event.currentTarget)}>Make Model</button>}
+        <button type="button" className="sic-avatar-upload-button" aria-haspopup="dialog"
+            onClick={event => openPanel('library', event.currentTarget)}>World model</button>
+        <Modal open={open} size="sm" title={view === 'create' ? 'Make Model' : 'World model'}
+            onClose={() => setView(null)} returnFocusRef={opener}>
           {open && <div className="profile-model-controls">
             {pending && <small role="status">{monthLabel(pending.month)} model · {modelJobStages[pending.state]}</small>}
             {pending && <button type="button" disabled={busy} onClick={() => {
                 if (window.confirm('Cancel this model? This month’s creation will stay used.')) void change('cancel');
             }}>Cancel model request</button>}
             {ended && <small role="status">{modelRequestOutcome(ended)}</small>}
-            {creationAvailable && !pending && <ProfileModelCreation name={character.name} onCreated={id => {
+            {view === 'create' && creationAvailable && !pending && <ProfileModelCreation name={character.name} onCreated={id => {
                 rememberModelRequest(character.name, id);
                 setCreationAvailable(false);
                 setEnded(null);
+                setView('library');
                 void change('list');
             }} />}
+            {view === 'create' && !creationAvailable && !pending && !busy && !message &&
+                <p>Model creation is currently unavailable for this account.</p>}
+            {view === 'library' && <>
             <label>World character
                 <select value={selected} disabled={busy} onChange={event => select(event.target.value)}>
                     <option value="">Default character</option>
@@ -170,6 +191,7 @@ export function ProfileWorldModel({ character, onVersionedCharacter }: {
                     selected ? models.find(m => m.assetId === selected) ?? character.playerModel : undefined
                 } />}
             <button type="button" disabled={busy || selected === equipped} onClick={() => void change('equip')}>Equip</button>
+            </>}
             {(busy || message) && <small role="status">{busy ? 'Updating…' : message}</small>}
           </div>}
         </Modal>

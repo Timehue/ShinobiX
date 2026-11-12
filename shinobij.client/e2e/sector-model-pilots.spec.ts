@@ -458,12 +458,16 @@ test("Profile recovers a refunded request after the player leaves", async ({page
     await expect(dialog.getByRole('button', { name: 'Equip', exact: true })).toBeDisabled();
 });
 
-test("Profile checks the saved portrait and creates one monthly model after confirmation", async ({page}) => {
-    const runtime = await installUiAuditRuntime(page, uiAuditSave());
+test("Profile opens Make Model next to Upload avatar and creates one monthly model after confirmation", async ({page}, info) => {
+    const save = uiAuditSave();
+    save.character = {...save.character, patreon:{active:true,tier:'shinobi-supporter'}};
+    const runtime = await installUiAuditRuntime(page, save);
     const token = 'f0d4ad57-c199-4a75-bf80-1cd8ace412f0';
     const job = {id:'profile-create',month:'2026-11',state:'queued'};
     let checks = 0, submissions = 0;
-    await page.route("**/api/world/sector-layout", route => route.fulfill({json:{obstaclesEnabled:true,modelArtBase:'https://models.test/sector-models'}}));
+    await page.route("**/api/world/sector-layout", route => route.fulfill({json:{
+        obstaclesEnabled:true,modelArtBase:'https://models.test/sector-models',worldModelCreationAvailable:true,
+    }}));
     await page.route(/\/api\/avatar-model\/models(?:\?.*)?$/, route => route.fulfill({json:{models:[],before:null,
         ...(submissions ? {pending:job} : {creationAvailable:true})}}));
     await page.route("**/api/avatar-model/read", route => {
@@ -478,20 +482,30 @@ test("Profile checks the saved portrait and creates one monthly model after conf
     });
     await page.route("**/api/avatar-model/jobs/profile-create", route => route.fulfill({json:job}));
     await expectUiAuditBoot(page,runtime,"profile");
-    const opener = page.getByRole("button",{name:"World model",exact:true});
+    const avatarActions = page.locator('.profile-avatar-upload');
+    const opener = avatarActions.getByRole("button",{name:"Make Model",exact:true});
+    await expect(avatarActions.getByRole("button",{name:"Upload avatar",exact:true})).toBeVisible();
+    await expect(opener).toBeVisible();
+    const avatarStack = page.locator('.sic-avatar-stack').filter({ has: avatarActions });
+    const stackBox = (await avatarStack.boundingBox())!;
+    const buttonBox = (await opener.boundingBox())!;
+    expect(buttonBox.x).toBeGreaterThanOrEqual(stackBox.x);
+    expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(stackBox.x + stackBox.width);
+    await avatarStack.screenshot({path: info.outputPath('profile-model-placement.png')});
     await opener.click();
-    const dialog = page.getByRole("dialog",{name:"World model"});
+    const dialog = page.getByRole("dialog",{name:"Make Model"});
     await expect(dialog.getByText(/sends your saved portrait to OpenAI and Modal/)).toBeVisible();
     expect(checks).toBe(0);
-    await dialog.getByRole("button",{name:"Make Model",exact:true}).click();
+    await dialog.getByRole("button",{name:"Check portrait",exact:true}).click();
     await expect(dialog.getByText('Checking your portrait…')).toBeVisible();
     await expect(dialog.getByText('Warrior in a hooded jacket')).toBeVisible({timeout:15000});
     expect(submissions).toBe(0);
     await dialog.getByRole("button",{name:"Create model",exact:true}).click();
-    await expect(dialog.getByText(/Queued for creation/)).toBeVisible();
+    const library = page.getByRole("dialog",{name:"World model"});
+    await expect(library.getByText(/Queued for creation/)).toBeVisible();
     await page.reload();
-    await opener.click();
-    await expect(dialog.getByText(/Queued for creation/)).toBeVisible();
+    await avatarActions.getByRole("button",{name:"World model",exact:true}).click();
+    await expect(library.getByText(/Queued for creation/)).toBeVisible();
     expect(checks).toBe(2);
     expect(submissions).toBe(1);
 });

@@ -740,7 +740,8 @@ export function Profile({
                                 if (canCustomAvatar(character)) avatarInputRef.current?.click();
                             }}
                         >Upload avatar</button>
-                        <ProfileWorldModel key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} />
+                        <ProfileWorldModel key={character.name} character={character} canUploadAvatar={customAvatarAllowed}
+                            onVersionedCharacter={onVersionedCharacter} />
                         {customAvatarAllowed ? (
                             <input ref={avatarInputRef} type="file" accept="image/*" aria-label="Custom avatar image" hidden onChange={uploadAvatar} />
                         ) : (
