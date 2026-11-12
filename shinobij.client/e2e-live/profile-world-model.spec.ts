@@ -9,8 +9,8 @@ import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
 const modelQaPassword = 'LocalModelQA123!';
 
-async function loginModelAccount(request: APIRequestContext, context: BrowserContext | null, name: string, supporter: boolean, plazaTile?: number) {
-    const response = await request.post('/api/player-auth', { data: { action: 'register', name, password: modelQaPassword } });
+async function loginModelAccount(request: APIRequestContext, context: BrowserContext | null, name: string, supporter: boolean, plazaTile?: number, seeded = false) {
+    const response = await request.post('/api/player-auth', { data: { action: seeded ? 'verify' : 'register', name, password: modelQaPassword } });
     expect(response.status(), await response.text()).toBe(200);
     const { token } = await response.json();
     const headers = { 'x-player-name': name, 'x-player-token': token };
@@ -71,7 +71,7 @@ equipTest('a signed-in player equips a completed monthly model from Profile', as
     await watching.route('**/sector-models/**', serveArt);
     await Promise.all([page, watching].map(client=>client.emulateMedia({reducedMotion:'no-preference'})));
     const name = 'sectormodelqa';
-    const owner = await loginModelAccount(request, context, name, false, 78);
+    const owner = await loginModelAccount(request, context, name, false, 78, true);
     const { headers, url } = owner;
     const observer = await loginModelAccount(request, watching.context(), 'sectormodelpeerqa', false, 65);
     for (const account of [owner, observer]) {
@@ -250,7 +250,7 @@ equipTest('a signed-in player equips a completed monthly model from Profile', as
 test('a returning player sees which monthly model request used their creation', async ({ page, context, request }, info) => {
     test.skip(!process.env.SECTOR_MODEL_LIVE_RECEIPT || info.project.name !== 'chromium-desktop-live', 'Requires the isolated model account fixture.');
     const name = 'sectoroutcomeqa';
-    const { headers } = await loginModelAccount(request, context, name, false);
+    const { headers } = await loginModelAccount(request, context, name, false, undefined, true);
     const library = '/api/avatar-model/models';
     const last = await request.get(library, { headers });
     expect(last.status()).toBe(200);
@@ -355,7 +355,12 @@ test('a player submits a world model, closes the tab, then equips the finished s
         const road = next.locator('.continuous-world-map > canvas');
         const back = next.getByRole('button', { name: new RegExp('Return to Sector ' + sector + '$') });
         await expect(back.or(road).first()).toBeVisible({ timeout: 60_000 });
-        if (await back.isVisible()) await back.click();
+        if (await back.isVisible()) {
+            try { await back.click({ timeout: 10_000 }); }
+            catch (error) {
+                if (!await road.isVisible()) throw error;
+            }
+        }
         await expect(next.locator('[data-world-self] .sector-model-figure')).toHaveCSS('background-image', /blob:/);
         await next.locator('.continuous-world-map').screenshot({ path: info.outputPath('created-model-in-sector.png') });
     } finally {

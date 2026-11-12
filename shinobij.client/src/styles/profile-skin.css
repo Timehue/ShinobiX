@@ -309,8 +309,7 @@
     text-transform: uppercase;
     color: rgba(196,162,90,0.85) !important;
 }
-.stat-card-values,
-.stat-row {
+.stat-card-values {
     color: #f4e6c4 !important;
     font: 600 16px var(--font-display) !important;
     font-variant-numeric: tabular-nums;
@@ -718,8 +717,6 @@
 }
 
 /* Points-available chip */
-.profile-page-card .points-available,
-.profile-page-card .stat-points-chip,
 .profile-page-card span[class*="points"] {
     display: inline-block !important;
     background: rgba(224,68,68,0.15) !important;

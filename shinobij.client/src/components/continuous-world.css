@@ -12,7 +12,7 @@
 .pixel-map.continuous-world-map>.day-night-sky{z-index:2;pointer-events:none}
 .pixel-map.continuous-world-chunk{position:absolute;left:0;top:0;display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:repeat(12,1fr);padding:0;gap:0;border:0;border-radius:0;background:none;box-shadow:none;overflow:visible;pointer-events:none;z-index:5;aspect-ratio:1;will-change:transform}
 .continuous-world-tile{border:0;padding:0;background:none;box-shadow:none;pointer-events:none;min-width:0;min-height:0}
-.continuous-world-chunk button:not(.continuous-world-tile):not(.is-dormant),.continuous-world-chunk [role=button]{pointer-events:auto}
+.continuous-world-chunk button:not(.continuous-world-tile),.continuous-world-chunk [role=button]{pointer-events:auto}
 .continuous-world-tile:focus-visible{outline:2px solid #e5d39a;outline-offset:-3px;background:#ffeeb51a}
 .continuous-world-peers{position:absolute;inset:0;pointer-events:none;overflow:visible}
 .continuous-world-peer{position:absolute;left:0;top:0;width:calc(var(--world-tile-px,30px)*.72);height:calc(var(--world-tile-px,30px)*.936);--marker-ring:#7dd3fc;pointer-events:none}
@@ -24,7 +24,7 @@
 .continuous-world-map>.world-run-toggle{position:absolute;left:8px;top:8px;z-index:15;display:grid;place-items:center;width:44px;height:44px;padding:0;color:#f4e8d1;background:#171922ef;border:1px solid #9a8665;border-radius:7px;touch-action:manipulation}
 .continuous-world-map>.world-run-toggle[data-run-state=running]{border-color:#f2d58a;background:#45361ded;color:#fff0bd}
 .continuous-world-map>.world-run-toggle[data-run-state=refilling]{color:#e0d7cb;background:#272732f2;opacity:1}
-.world-run-count:not(:empty){position:absolute;right:2px;bottom:1px;padding:0 3px;border-radius:3px;background:#14161de8;font:600 10px/14px var(--font-body);font-variant-numeric:tabular-nums}
+.world-run-count{position:absolute;right:2px;bottom:1px;padding:0 3px;border-radius:3px;background:#14161de8;font:600 10px/14px var(--font-body);font-variant-numeric:tabular-nums}
 .continuous-world-map>.world-run-toggle:focus-visible{outline:2px solid #f2d58a;outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.continuous-world-map .sector-avatar-body{animation:none}}
 

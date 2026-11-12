@@ -27,7 +27,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     const [timers, setTimers] = useState<WorldRunTimers>({ endsAt: 0, readyAt: 0 });
     const runningUntil = useRef(0), lastRunResponse = useRef(0);
     const onRunWindow = useCallback(({ endsAt, readyAt, serverTime }: WorldRunWindow) => {
-        if (![endsAt, readyAt, serverTime].every(Number.isFinite) || serverTime < lastRunResponse.current) return;
+        if (serverTime < lastRunResponse.current) return;
         lastRunResponse.current = serverTime;
         const now = performance.now();
         runningUntil.current = endsAt > serverTime ? now + endsAt - serverTime : 0;
