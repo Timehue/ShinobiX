@@ -829,6 +829,9 @@
 }
 .profile-model-controls { display: grid; gap: 12px; }
 .profile-model-controls label { display: grid; gap: 6px; }
+.profile-equip-model { margin-top: 6px; min-height: 44px; }
+.profile-model-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.profile-model-slots button[aria-pressed="true"] { border-color: var(--sj-gold-bright); }
 /* Make Model, Create model, Cancel, Load older, Preview walk, Equip and the model picker: 44px touch floor. */
 .profile-model-controls :is(button, select) { min-height: 44px; }
 .profile-model-stage {

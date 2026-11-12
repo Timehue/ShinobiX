@@ -1,4 +1,15 @@
 export type PlayerModel = { assetId: string; version: string };
+export type PlayerModelSlots = [PlayerModel | null, PlayerModel | null];
+
+export function isModelAssetId(value: unknown): value is string {
+    return typeof value === "string" && /^[a-f0-9]{32}$/.test(value);
+}
+
+export function readPlayerModelSlots(value: unknown, equipped?: unknown): PlayerModelSlots {
+    if (!Array.isArray(value)) return [isPlayerModel(equipped) ? equipped : null, null];
+    const first = isPlayerModel(value[0]) ? value[0] : null;
+    return [first, isPlayerModel(value[1]) && value[1].assetId !== first?.assetId ? value[1] : null];
+}
 export type StarterWorldModel = "starter-one" | "starter-two";
 
 export function readStarterWorldModel(choice: unknown, portrait?: unknown): StarterWorldModel | undefined {
@@ -24,6 +35,6 @@ export function readWorldGaitPresentation(value: unknown): WorldGaitPresentation
 export function isPlayerModel(value: unknown): value is PlayerModel {
     if (!value || typeof value !== "object") return false;
     const ref = value as Partial<PlayerModel>;
-    return typeof ref.assetId === "string" && /^[a-f0-9]{32}$/.test(ref.assetId)
+    return isModelAssetId(ref.assetId)
         && typeof ref.version === "string" && /^[a-f0-9]{64}$/.test(ref.version);
 }

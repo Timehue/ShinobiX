@@ -124,7 +124,7 @@ equipTest('a signed-in player equips a completed monthly model from Profile', as
     const progress = await request.get('/api/avatar-model/jobs/local-pending-qa', { headers });
     expect(progress.status()).toBe(200);
     expect(await progress.json()).toEqual({ id: 'local-pending-qa', month: '2026-11', state: 'render' });
-    const opener = page.getByRole('button', { name: 'World model', exact: true });
+    const opener = page.getByRole('button', { name: 'Equip Model', exact: true });
     const dialog = page.getByRole('dialog', { name: 'World model' });
     const select = dialog.getByRole('combobox', { name: 'World character' });
     await page.goto('/#/profile');
@@ -253,7 +253,7 @@ test('a returning player sees which monthly model request used their creation', 
     expect(last.status()).toBe(200);
     expect((await last.json()).ended).toEqual({ id: 'retained-outcome-qa', month: '2026-10', state: 'cancelled', slot: 'used' });
     await page.goto('/#/profile');
-    const opener = page.getByRole('button', { name: 'World model', exact: true });
+    const opener = page.getByRole('button', { name: 'Equip Model', exact: true });
     const dialog = page.getByRole('dialog', { name: 'World model' });
     await opener.click();
     await expect(dialog.getByText(/Model creation was cancelled.*creation was used/)).toBeVisible();
@@ -283,7 +283,7 @@ test('a player submits a world model, closes the tab, then equips the finished s
     expect(saved.status()).toBe(200);
     expect(await saved.body()).toEqual(await readFile(portrait));
 
-    const open = (view: Page) => view.getByRole('button', { name: 'World model', exact: true }).click();
+    const open = (view: Page) => view.getByRole('button', { name: 'Equip Model', exact: true }).click();
     const avatarActions = page.locator('.profile-avatar-upload');
     await expect(avatarActions.getByRole('button', { name: 'Upload avatar', exact: true })).toBeVisible();
     await avatarActions.getByRole('button', { name: 'Make Model', exact: true }).click();

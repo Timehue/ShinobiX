@@ -5,7 +5,7 @@ import { safeName } from '../_utils.js';
 import { mutatePlayerSaveLocked } from '../save/_mutate-player-save.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { pushSaveVersion } from '../_realtime/notify.js';
-import { isPlayerModel } from '../../shared/player-model-ref.js';
+import { isPlayerModel, readPlayerModelSlots } from '../../shared/player-model-ref.js';
 import { validModelOwnerId } from './_owner.js';
 import { offlineNoticesKey, prepareOfflineNoticeWrite } from '../player/_offline-notices.js';
 
@@ -94,7 +94,10 @@ export async function removePlayerModel(input:RemovalInput, actor:'admin:full') 
                     cancelledJobId:active??null,createdAt:now,attempt:0,state:'pending',
                     nextAttemptAt:job?.publishingAt ? now+15*60_000 : now}},
                 {op:'cas',key:queueKey,expected:queue,value:[...(queue??[]),input.assetId]});
-            return {ok:true,character:{...character,playerModel:undefined},
+            const slots = readPlayerModelSlots(character.playerModelSlots, current);
+            if (slots[0]?.assetId === input.assetId) slots[0] = null;
+            if (slots[1]?.assetId === input.assetId) slots[1] = null;
+            return {ok:true,character:{...character,playerModel:undefined,playerModelSlots:slots.some(Boolean)?slots:undefined},
                 value:{assetId:input.assetId,cleanupPending:true,replayed:false},
                 atomicProof:{key:assetKey,expected:asset,value:{...asset,status:'revoked',revokedAt:now,
                     removalReceipt:receiptKey},additionalOps:ops},

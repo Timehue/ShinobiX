@@ -54,13 +54,19 @@ test('only verified full admins can revoke a current owned model with a reason',
 
 test('revocation clears self and peer presence, cancels the job, keeps the slot and audits once',async()=>{
     const f=await fixture('atomic');
+    const key='save:'+f.owner;
+    const saved=(await f.kv.get<{character:Record<string,unknown>}>(key))!;
+    const second={assetId:'6'.repeat(32),version:'7'.repeat(64)};
+    await f.kv.set(key,{...saved,character:{...saved.character,playerModelSlots:[f.ref,second]}});
     const {onlineStore}=await import('../../_realtime/online-store.js');
     const {offlineNoticesKey,parseOfflineNotices}=await import('../../player/_offline-notices.js');
     onlineStore.upsert({name:f.owner,sector:1,character:null,restoredPlayerModel:f.ref});
     const replies=await Promise.all([f.remove(),f.remove()]);
     assert.deepEqual(replies.map(r=>r.status),[200,200]);
     assert.deepEqual(replies.map(r=>r.json.replayed).sort(),[false,true]);
-    assert.equal((await f.kv.get<{character:{playerModel:unknown;ryo:number}}> ('save:'+f.owner))?.character.playerModel,undefined);
+    const updated=(await f.kv.get<{character:Record<string,unknown>}>(key))!.character;
+    assert.equal(updated.playerModel,undefined);
+    assert.deepEqual(updated.playerModelSlots,[null,second]);
     assert.equal((await f.kv.get<{character:{ryo:number}}>('save:'+f.owner))?.character.ryo,100);
     assert.equal(onlineStore.get(f.owner)?.playerModel,undefined);
     assert.equal((await f.kv.get<{status:string}>(f.prefix+'asset:'+f.id))?.status,'revoked');

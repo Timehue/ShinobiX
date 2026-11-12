@@ -68,4 +68,22 @@ test('owned ready models equip atomically and propagate to sector presence', asy
     const saved = await kv.get<{ character: { playerModel: unknown } }>(saveKey);
     assert.equal(saved!.character.playerModel, undefined);
     assert.equal(Object.hasOwn(JSON.parse(JSON.stringify(saved!.character)), 'playerModel'), false);
+
+    process.env.ENABLE_SECTOR_MODEL_DISPLAY = '1';
+    const second = 'e'.repeat(32);
+    const secondRef = { ...ref, assetId: second };
+    await kv.set('avatar-model:asset:' + second, ready);
+    assert.equal((await post({ assetId: second, slot: 2 })).code, 403);
+    assert.equal((await post({ assetId: second, slot: 3 })).code, 400);
+    await kv.set(saveKey, { ...saved, character: { ...saved!.character, patreon: { active: true, tier: 'shinobi-supporter' } } });
+    assert.equal((await post({ assetId: second, slot: 2 })).code, 200);
+    const readSlots = async () => (await kv.get<{ character: { playerModelSlots: unknown } }>(saveKey))!.character.playerModelSlots;
+    assert.deepEqual(await readSlots(), [ref, secondRef]);
+    assert.equal(onlineStore.get(owner)?.playerModel?.assetId, second);
+    assert.equal((await post({ assetId: id, slot: 1 })).code, 200);
+    assert.deepEqual(await readSlots(), [ref, secondRef]);
+    assert.equal(onlineStore.get(owner)?.playerModel?.assetId, id);
+    assert.equal((await post({ assetId: null })).code, 200);
+    assert.deepEqual(await readSlots(), [ref, secondRef]);
+    assert.equal(onlineStore.get(owner)?.playerModel, undefined);
 });

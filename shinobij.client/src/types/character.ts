@@ -314,6 +314,7 @@ export type StoryEpilogueReceipt = {
 
 export type Character = {
     playerModel?: import('../lib/player-model').PlayerModel;
+    playerModelSlots?: import('../../../shared/player-model-ref').PlayerModelSlots;
     sectorBuildings?: import('../../../shared/sector-building-types').SectorBuildingProgress;
     resourceGathering?: import('../../../shared/resource-gathering').ResourceGatheringState;
     gatheringToolUses?: Record<string, number>;

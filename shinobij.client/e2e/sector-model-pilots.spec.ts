@@ -418,7 +418,7 @@ test("Profile confirms cancellation and explains the used monthly creation", asy
         return route.fulfill({json:{state:'cancelled'}});
     });
     await expectUiAuditBoot(page,runtime,"profile");
-    await page.getByRole("button",{name:"World model",exact:true}).click();
+    await page.getByRole("button",{name:"Equip Model",exact:true}).click();
     const dialog=page.getByRole("dialog",{name:"World model"});
     const cancel=dialog.getByRole('button',{name:'Cancel model request'});
     page.once('dialog', prompt => prompt.dismiss());
@@ -446,7 +446,7 @@ test("Profile recovers a refunded request after the player leaves", async ({page
         return route.fulfill({ json: { models: [], before: null, ...outcome } });
     });
     await expectUiAuditBoot(page, runtime, "profile");
-    const opener = page.getByRole('button', { name: 'World model', exact: true });
+    const opener = page.getByRole('button', { name: 'Equip Model', exact: true });
     const dialog = page.getByRole('dialog', { name: 'World model' });
     await opener.click();
     await expect(dialog.getByText(/Rendering sprites/)).toBeVisible();
@@ -491,7 +491,10 @@ test("Profile opens Make Model next to Upload avatar and creates one monthly mod
     const buttonBox = (await opener.boundingBox())!;
     expect(buttonBox.x).toBeGreaterThanOrEqual(stackBox.x);
     expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(stackBox.x + stackBox.width);
-    await avatarStack.screenshot({path: info.outputPath('profile-model-placement.png')});
+    const equip = page.locator('.sic-stat-grid').getByRole('button', {name:'Equip Model', exact:true});
+    await expect(equip).toBeVisible();
+    await page.locator('.shinobi-identity-card').filter({has: avatarActions})
+        .screenshot({path: info.outputPath('profile-model-placement.png')});
     await opener.click();
     const dialog = page.getByRole("dialog",{name:"Make Model"});
     await expect(dialog.getByText(/sends your saved portrait to OpenAI and Modal/)).toBeVisible();
@@ -504,10 +507,43 @@ test("Profile opens Make Model next to Upload avatar and creates one monthly mod
     const library = page.getByRole("dialog",{name:"World model"});
     await expect(library.getByText(/Queued for creation/)).toBeVisible();
     await page.reload();
-    await avatarActions.getByRole("button",{name:"World model",exact:true}).click();
+    await equip.click();
     await expect(library.getByText(/Queued for creation/)).toBeVisible();
     expect(checks).toBe(2);
     expect(submissions).toBe(1);
+});
+
+test("Profile switches between both saved Supporter slots", async ({page}) => {
+    const first = {assetId:'a'.repeat(32), version:'b'.repeat(64)};
+    const second = {assetId:'c'.repeat(32), version:'d'.repeat(64)};
+    const save = uiAuditSave();
+    save.character = {...save.character, playerModel:first, playerModelSlots:[first,second],
+        patreon:{active:true,tier:'shinobi-supporter'}};
+    const runtime = await installUiAuditRuntime(page, save);
+    const origin = 'https://models.test/sector-models';
+    await page.route(origin + '/**', route => route.abort());
+    await page.route('**/api/world/sector-layout', route => route.fulfill({json:{modelArtBase:origin}}));
+    await page.route(/\/api\/avatar-model\/models(?:\?.*)?$/, route => route.fulfill({json:{models:[],before:null}}));
+    await page.route('**/api/avatar-model/equip?snapshot=1', route => {
+        expect(route.request().postDataJSON()).toEqual({assetId:second.assetId,slot:2});
+        const character = {...save.character,playerModel:second};
+        runtime.commitServerSave({character},100);
+        return route.fulfill({json:{character,_saveVersion:100,playerModel:second}});
+    });
+    await expectUiAuditBoot(page,runtime,'profile');
+    await expect(page.locator('.sic-stat-grid').getByText('2/2 slots saved')).toBeVisible();
+    const opener = page.getByRole('button',{name:'Equip Model',exact:true});
+    const dialog = page.getByRole('dialog',{name:'World model'});
+    await opener.click();
+    const slot = dialog.getByRole('button',{name:'Slot 2 · saved',exact:true});
+    await slot.click();
+    await expect(dialog.getByRole('combobox')).toHaveValue(second.assetId);
+    await dialog.getByRole('button',{name:'Equip',exact:true}).click();
+    await expect(dialog.getByRole('status')).toHaveText('World model equipped.');
+    await page.reload();
+    await opener.click();
+    await expect(slot).toHaveAttribute('aria-pressed','true');
+    await expect(dialog.getByRole('combobox')).toHaveValue(second.assetId);
 });
 
 test("Profile previews an owned model, equips it after a lapse and restores the default", async ({page}) => {
@@ -535,7 +571,7 @@ test("Profile previews an owned model, equips it after a lapse and restores the 
         await route.fulfill({ json: { character: char, _saveVersion: version, playerModel: id ? ref : null } });
     });
     await expectUiAuditBoot(page,runtime,"profile");
-    const opener = page.getByRole("button", {name:"World model",exact:true});
+    const opener = page.getByRole("button", {name:"Equip Model",exact:true});
     const dialog = page.getByRole("dialog",{name:"World model"});
     const select = dialog.getByRole("combobox",{name:"World character"});
     await opener.click();

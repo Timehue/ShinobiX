@@ -7,8 +7,9 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
-import { isPlayerModel, type PlayerModel } from '../../shared/player-model-ref.js';
+import { isModelAssetId, isPlayerModel, readPlayerModelSlots, type PlayerModel } from '../../shared/player-model-ref.js';
 import { modelOwnerProof } from './_owner.js';
+import { isPatreonSubscriber } from '../_entitlements.js';
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
     cors(res, req);
@@ -20,13 +21,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         if (!owner) return res.status(401).json({ error: 'Authentication required.' });
         if (!(await enforceRateLimitKv(req, res, 'avatar-model-equip', 30, 60_000, owner))) return;
         const body = req.body;
-        if (body !== null && (!body || typeof body !== 'object' || Object.keys(body).length !== 1 || !Object.hasOwn(body, 'assetId')))
+        if (body !== null && (!body || typeof body !== 'object' || !Object.hasOwn(body, 'assetId') ||
+            Object.keys(body).some(key => key !== 'assetId' && key !== 'slot')))
             return res.status(400).json({ error: 'Supply the model to equip.' });
         const id: unknown = body === null ? null : body.assetId;
-        if (id !== null && (typeof id !== 'string' || !/^[a-f0-9]{32}$/.test(id)))
+        const slot: unknown = body && Object.hasOwn(body, 'slot') ? body.slot : 1;
+        if (id !== null && !isModelAssetId(id))
             return res.status(400).json({ error: 'Invalid model.' });
+        if (slot !== 1 && slot !== 2) return res.status(400).json({ error: 'Invalid model slot.' });
         if (id !== null && !sectorModelDisplayEnabled()) return res.status(403).json({ error: 'Model display is disabled.' });
         const result = await mutatePlayerSave<PlayerModel | null>(owner, async ({ character }) => {
+            if (slot === 2 && !isPatreonSubscriber(character))
+                return { ok: false, status: 403, error: 'The second model slot requires Shinobi Supporter.' };
             const key = 'avatar-model:asset:' + id;
             const asset = id === null ? null : await kv.get<Record<string,unknown>>(key);
             const ref = id === null ? null : { assetId: id, version: asset?.version };
@@ -37,13 +43,20 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             const model: PlayerModel | null = isPlayerModel(ref) ? ref : null;
             const current = character.playerModel;
             const publish = () => onlineStore.setPlayerModel(owner, model);
-            if (model ? isPlayerModel(current) && current.assetId === model.assetId && current.version === model.version
-                      : current == null) {
+            const slots = readPlayerModelSlots(character.playerModelSlots, current);
+            const alreadySaved = !model || slots[slot - 1]?.assetId === model.assetId && slots[slot - 1]?.version === model.version;
+            if (alreadySaved && (model ? isPlayerModel(current) && current.assetId === model.assetId && current.version === model.version
+                      : current == null)) {
                 publish();
                 return { ok: true, character, value: model, write: false };
             }
+            if (model) {
+                slots[slot - 1] = model;
+                if (slots[2 - slot]?.assetId === model.assetId) slots[2 - slot] = null;
+            }
             // Override the old field during the partial-save merge. JSON storage omits undefined.
-            const next = { ...character, playerModel: model ?? undefined };
+            const next = { ...character, playerModel: model ?? undefined,
+                playerModelSlots: slots.some(Boolean) ? slots : undefined };
             return { ok: true, character: next, value: model, afterCommit: publish,
                 atomicProof: model ? { key, expected: asset, assertOnly: true,
                     additionalOps:ownership!.filter(op=>op.key!=='save:'+owner) } : undefined };

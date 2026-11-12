@@ -717,7 +717,9 @@ export function Profile({
 
             {/* ── Overview tab ─────────────────────────── */}
             <div className={visibleMobileTab !== 'overview' ? 'profile-tab-hidden' : ''}>
-            <ShinobiIdentityCard
+            <ProfileWorldModel key={character.name} character={character} canUploadAvatar={customAvatarAllowed}
+                onVersionedCharacter={onVersionedCharacter}>
+            {(makeModel, equipModel) => <ShinobiIdentityCard
                 character={character}
                 avatarSrc={ownAvatar}
                 avatarClassName={auraBonuses.avatarAura ? "aura-sphere-avatar" : ""}
@@ -729,6 +731,7 @@ export function Profile({
                 metricIds={["ranked", "pvp", "bounty", "war", "tower", "pets", "clan"]}
                 showTitleBadges={false}
                 showRivalry={Boolean(character.wandererNemesis)}
+                metricAction={equipModel}
                 avatarAction={(
                     <div className="profile-avatar-upload">
                         <button
@@ -740,8 +743,7 @@ export function Profile({
                                 if (canCustomAvatar(character)) avatarInputRef.current?.click();
                             }}
                         >Upload avatar</button>
-                        <ProfileWorldModel key={character.name} character={character} canUploadAvatar={customAvatarAllowed}
-                            onVersionedCharacter={onVersionedCharacter} />
+                        {makeModel}
                         {customAvatarAllowed ? (
                             <input ref={avatarInputRef} type="file" accept="image/*" aria-label="Custom avatar image" hidden onChange={uploadAvatar} />
                         ) : (
@@ -749,7 +751,8 @@ export function Profile({
                         )}
                     </div>
                 )}
-            />
+            />}
+            </ProfileWorldModel>
 
             {character.academyFieldSeal && (
                 <section className="profile-field-seal" aria-labelledby="profile-field-seal-title">

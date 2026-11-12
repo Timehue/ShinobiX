@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { isPlayerModel, type PlayerModel } from '../lib/player-model';
 import { readPlayerSaveSnapshot } from '../lib/save-api';
 import { visiblePoll } from '../lib/poll';
@@ -10,6 +10,7 @@ import { ProfileModelPreview } from './ProfileModelPreview';
 import { ProfileModelCreation } from './ProfileModelCreation';
 import { isPendingModelJob, isEndedModelJob, modelJobStages, modelMonthPattern as monthPattern,
     type PendingModelJob, type EndedModelJob } from '../../../shared/avatar-model-job';
+import { readPlayerModelSlots } from '../../../shared/player-model-ref';
 
 type Owned = PlayerModel & { month: string };
 const retryMessage = 'Could not check model progress. Retrying…';
@@ -17,8 +18,9 @@ function monthLabel(month: string) {
     return new Date(month + '-01T00:00:00Z').toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
-export function ProfileWorldModel({ character, canUploadAvatar, onVersionedCharacter }: {
+export function ProfileWorldModel({ character, canUploadAvatar, onVersionedCharacter, children }: {
     character: Character; canUploadAvatar: boolean; onVersionedCharacter: VersionedCharacterCommit;
+    children: (makeModel: ReactNode, equipModel: ReactNode) => ReactNode;
 }) {
     const enabled = useSectorModelArtBase();
     const creationEnabled = useWorldModelCreationAvailable();
@@ -30,6 +32,12 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
     const [ended, setEnded] = useState<EndedModelJob | null>(null);
     const [before, setBefore] = useState<string | null>(null);
     const [selected, select] = useState(equipped);
+    const slots = readPlayerModelSlots(character.playerModelSlots, character.playerModel);
+    const [selectedSlot, setSlot] = useState<1 | 2>(1);
+    const slot = canUploadAvatar ? selectedSlot : 1;
+    const accessibleSlots = canUploadAvatar ? slots : slots.slice(0, 1);
+    const selectedModel = models.find(m => m.assetId === selected) ??
+        accessibleSlots.find(m => m?.assetId === selected) ?? (selected === equipped ? character.playerModel : undefined);
     const [busy, setBusy] = useState(false);
     const [creationAvailable, setCreationAvailable] = useState(false);
     const [message, setMessage] = useState('');
@@ -82,8 +90,6 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
             controller.abort();
         };
     }, [open, jobId, jobMonth, character.name]);
-    if (!enabled && !equipped) return null;
-
     async function change(action: 'list' | 'older' | 'equip' | 'cancel') {
         if (request.current) return;
         const controller = new AbortController();
@@ -102,7 +108,8 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
             }
             if (action === 'equip') {
                 const res = await fetch('/api/avatar-model/equip?snapshot=1', {
-                    ...options, method: 'POST', body: JSON.stringify({ assetId: selected || null }),
+                    ...options, method: 'POST', body: JSON.stringify({ assetId: selected || null,
+                        ...(selected && slot === 2 ? { slot } : {}) }),
                 });
                 if (!res.ok) throw new Error(res.status === 404 ? 'That model is unavailable. Reopen the list to refresh it.' : 'Could not confirm the change. You can retry.');
                 const save = await readPlayerSaveSnapshot<{ character: Character }>(await res.json(), character.name);
@@ -145,7 +152,8 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
         opener.current = button;
         setView(next);
         if (request.current) return;
-        select(equipped);
+        setSlot(canUploadAvatar && equipped && slots[1]?.assetId === equipped ? 2 : 1);
+        select(equipped || slots[0]?.assetId || '');
         setModels([]);
         setBefore(null);
         setPending(null);
@@ -154,12 +162,19 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
         void change('list');
     }
 
-    return <>
-        {enabled && creationEnabled && canUploadAvatar &&
-            <button type="button" className="sic-avatar-upload-button" aria-haspopup="dialog"
-                onClick={event => openPanel('create', event.currentTarget)}>Make Model</button>}
+    const makeModel = enabled && creationEnabled && canUploadAvatar &&
         <button type="button" className="sic-avatar-upload-button" aria-haspopup="dialog"
-            onClick={event => openPanel('library', event.currentTarget)}>World model</button>
+            onClick={event => openPanel('create', event.currentTarget)}>Make Model</button>;
+    const slotCount = canUploadAvatar ? 2 : 1;
+    const equipModel = (enabled || equipped) &&
+        <div className="sic-stat">
+            <span>World model</span>
+            <strong>{slots.slice(0, slotCount).filter(Boolean).length}/{slotCount} slots saved</strong>
+            <button type="button" className="profile-equip-model" aria-haspopup="dialog"
+                onClick={event => openPanel('library', event.currentTarget)}>Equip Model</button>
+        </div>;
+    return <>
+        {children(makeModel, equipModel)}
         <Modal open={open} size="sm" title={view === 'create' ? 'Make Model' : 'World model'}
             onClose={() => setView(null)} returnFocusRef={opener}>
           {open && <div className="profile-model-controls">
@@ -178,19 +193,28 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
             {view === 'create' && !creationAvailable && !pending && !busy && !message &&
                 <p>Model creation is currently unavailable for this account.</p>}
             {view === 'library' && <>
+            {canUploadAvatar && <div className="profile-model-slots" role="group" aria-label="Saved model slots">
+                {([1, 2] as const).map(number => <button key={number} type="button" aria-pressed={slot === number}
+                    disabled={busy} onClick={() => { setSlot(number); select(slots[number - 1]?.assetId ?? ''); }}>
+                    Slot {number}{slots[number - 1] ? ' · saved' : ''}
+                </button>)}
+            </div>}
             <label>World character
                 <select value={selected} disabled={busy} onChange={event => select(event.target.value)}>
                     <option value="">Default character</option>
-                    {equipped && !models.some(m => m.assetId === equipped) && <option value={equipped}>Current custom model</option>}
+                    {equipped && !models.some(m => m.assetId === equipped) && !accessibleSlots.some(m => m?.assetId === equipped) &&
+                        <option value={equipped}>Current custom model</option>}
+                    {accessibleSlots.map((model, index) => model && !models.some(m => m.assetId === model.assetId) &&
+                        <option key={model.assetId} value={model.assetId}>Saved in Slot {index + 1}</option>)}
                     {models.map(m => <option key={m.assetId} value={m.assetId}>{monthLabel(m.month)}</option>)}
                 </select>
             </label>
             {before && <button type="button" disabled={busy} onClick={() => void change('older')}>Load older models</button>}
-            {enabled && (!selected || models.some(m => m.assetId === selected) || selected === equipped) &&
-                <ProfileModelPreview key={selected} artBase={enabled} avatar={character.avatarImage || ''} starterWorldModel={character.starterWorldModel} model={
-                    selected ? models.find(m => m.assetId === selected) ?? character.playerModel : undefined
-                } />}
-            <button type="button" disabled={busy || selected === equipped} onClick={() => void change('equip')}>Equip</button>
+            {enabled && (!selected || selectedModel) &&
+                <ProfileModelPreview key={selected} artBase={enabled} avatar={character.avatarImage || ''}
+                    starterWorldModel={character.starterWorldModel} model={selected ? selectedModel : undefined} />}
+            <button type="button" disabled={busy || selected === equipped && (!selected || slots[slot - 1]?.assetId === selected)}
+                onClick={() => void change('equip')}>Equip</button>
             </>}
             {(busy || message) && <small role="status">{busy ? 'Updating…' : message}</small>}
           </div>}
