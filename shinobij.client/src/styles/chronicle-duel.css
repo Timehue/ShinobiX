@@ -6319,3 +6319,114 @@ button.chronicle-card {
     min-height: calc(250px + var(--chron-figure-row-clearance));
   }
 }
+
+/* Direct attack: with no Monster to land on, the attacker lunges at the
+   defending duelist and a painted strike crosses the table to land on them
+   (lib/chronicle-direct-strike.ts sizes and aims it). The two plates are
+   painted art, keyed from black; only transform and opacity animate. */
+.chronicle-direct-strike {
+  position: absolute;
+  z-index: 60;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.chronicle-direct-strike i,
+.chronicle-direct-strike b {
+  position: absolute;
+  background: center / 100% 100% no-repeat;
+  opacity: 0;
+}
+/* The plate's crescent head sits on its right edge, on the midline, so it
+   leads the flight and the plate turns about it. */
+.chronicle-direct-strike i {
+  top: calc(var(--strike-length) / -8);
+  left: calc(var(--strike-length) * -1);
+  width: var(--strike-length);
+  height: calc(var(--strike-length) / 4);
+  background-image: url("/chronicle/fx/direct-strike-v1.webp");
+  transform-origin: 100% 50%;
+  animation: chronicle-direct-strike 0.42s ease-in forwards;
+}
+.chronicle-direct-strike b {
+  top: calc(var(--strike-burst) / -2);
+  left: calc(var(--strike-burst) / -2);
+  width: var(--strike-burst);
+  height: var(--strike-burst);
+  background-image: url("/chronicle/fx/direct-impact-v1.webp");
+  animation: chronicle-direct-impact 0.52s 0.29s cubic-bezier(0.15, 0.8, 0.3, 1) forwards;
+}
+@keyframes chronicle-direct-strike {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--strike-angle)) scaleX(0.3);
+  }
+  14% {
+    opacity: 1;
+  }
+  71% {
+    opacity: 1;
+    transform: translate(var(--strike-dx), var(--strike-dy)) rotate(var(--strike-angle));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--strike-dx), var(--strike-dy)) rotate(var(--strike-angle)) scaleX(0.2);
+  }
+}
+@keyframes chronicle-direct-impact {
+  0% {
+    opacity: 1;
+    transform: translate(var(--strike-dx), var(--strike-dy)) scale(0.3) rotate(-14deg);
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--strike-dx), var(--strike-dy)) scale(1.12);
+  }
+}
+.chronicle-playmat .chronicle-zone.fx-direct-lunge {
+  z-index: 8;
+  animation: chronicle-direct-lunge 0.46s ease-out;
+}
+@keyframes chronicle-direct-lunge {
+  0%,
+  100% {
+    transform: none;
+  }
+  30% {
+    transform: translate(var(--lunge-x), var(--lunge-y)) scale(1.1);
+  }
+  52% {
+    transform: translate(calc(var(--lunge-x) * -0.12), calc(var(--lunge-y) * -0.12));
+  }
+}
+.chronicle-combatant.fx-direct-hit {
+  animation: chronicle-impact-shake 0.5s ease-out;
+}
+.chronicle-combatant.fx-direct-hit .chronicle-duelist-avatar {
+  border-color: #ff9f93;
+  box-shadow: 0 0 22px #ff5a46bf;
+}
+
+/* A Monster offered for a Tribute Summon says so on the board, so an offer
+   the board made for the player is never a surprise. */
+.chronicle-tribute-mark {
+  position: absolute;
+  z-index: 5;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 190, 150, 0.8);
+  border-radius: 999px;
+  background: rgba(96, 24, 20, 0.94);
+  color: #ffd9c2;
+  padding: 2px 7px;
+  font-size: 0.5rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  pointer-events: none;
+}

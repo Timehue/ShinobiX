@@ -13,7 +13,11 @@ import {
   normalSummon,
   setTrap,
 } from "../../../shared/chronicle-duel";
-import { chronicleLegalPlacements } from "./chronicle-placements";
+import {
+  chronicleAutoTributes,
+  chronicleLegalPlacements,
+  chronicleSummonZone,
+} from "./chronicle-placements";
 
 test("picking a card in hand lights exactly the zones the server accepts", () => {
   const cardsById = Object.fromEntries(
@@ -108,6 +112,62 @@ test("picking a card in hand lights exactly the zones the server accepts", () =>
       tributeZoneIndexes: bigPlacements.tributeZones.slice(0, 1),
     }).ok,
   );
+
+  // Two Monsters could pay a one-Tribute cost, so the choice stays with the
+  // player. Once one is offered, the Summon lands in its zone with no
+  // placement step, and the server takes exactly that move.
+  assert.deepEqual(chronicleAutoTributes(bigPlacements, 1), []);
+  assert.equal(chronicleSummonZone(bigPlacements, [], 1, null), null);
+  assert.equal(chronicleSummonZone(bigPlacements, [3], 1, null), 3);
+  assert.ok(
+    normalSummon(bigState, "p1", {
+      action: "normal-summon",
+      handIndex: 0,
+      zoneIndex: chronicleSummonZone(bigPlacements, [3], 1, null)!,
+      tributeZoneIndexes: [3],
+    }).ok,
+  );
+  // An open zone the player picked wins; a zone that stopped being legal
+  // (its Tribute was withdrawn) falls back instead of reaching the server.
+  assert.equal(chronicleSummonZone(bigPlacements, [3], 1, 0), 0);
+  assert.equal(chronicleSummonZone(bigPlacements, [3], 1, 1), 3);
+  assert.equal(chronicleSummonZone(bigPlacements, [], 1, 1), null);
+  assert.equal(
+    normalSummon(bigState, "p1", {
+      action: "normal-summon",
+      handIndex: 0,
+      zoneIndex: 1,
+      tributeZoneIndexes: [3],
+    }).ok,
+    false,
+    "the fallback exists because the server refuses an occupied zone",
+  );
+  // A no-Tribute Monster is never placed for the player.
+  assert.equal(chronicleSummonZone(lowPlacements, [], 0, null), null);
+  assert.equal(chronicleSummonZone(lowPlacements, [], 0, 2), 2);
+
+  // With exactly as many Monsters as the Level demands there is nothing to
+  // choose: they are offered as the card is picked up, ready to play.
+  const twoTribute = CHRONICLE_CARD_CATALOG.find(
+    (card) => card.cardClass === "monster" && card.level >= 7 && card.monsterEffect?.kind !== "callSummonOnly",
+  )!;
+  const twoState = build(twoTribute.id);
+  const twoPlacements = chronicleLegalPlacements(
+    projectMatchForViewer(twoState, "p1"),
+    cardsById[twoTribute.id],
+  );
+  const offered = chronicleAutoTributes(twoPlacements, 2);
+  assert.deepEqual(offered, [1, 3]);
+  assert.equal(chronicleSummonZone(twoPlacements, offered, 2, null), 1);
+  assert.ok(
+    normalSummon(twoState, "p1", {
+      action: "normal-summon",
+      handIndex: 0,
+      zoneIndex: chronicleSummonZone(twoPlacements, offered, 2, null)!,
+      tributeZoneIndexes: offered,
+    }).ok,
+  );
+  assert.deepEqual(chronicleAutoTributes(lowPlacements, 0), []);
 
   // Snares light the open half of the back row, and only the open half.
   const trapState = build(trap.id);
