@@ -30,14 +30,14 @@ import { towerPartyInviteKey } from '../towers/_party.js';
 // slim/cap/shape helpers live in ../_realtime/presence-input.ts so the WS
 // presence path (api/_realtime/socket.ts) uses byte-for-byte the same logic.
 
-/** Stable identity of one inbox entry (the inbox has no ids of its own). */
-function noticeStamp(n: OfflineNotice): string {
+function legacyNoticeStamp(n: OfflineNotice): string {
     if (n.kind === 'exchange-sale' && n.sale) return `exchange-sale|${n.sale.seller}|${n.sale.listingId}`;
     return `${n.kind}|${n.by}|${n.sector}|${n.at}|${n.amount ?? ''}|${n.total ?? ''}`;
 }
 
-function deliveryStamp(n: OfflineNotice): string {
-    return n.kind === 'world-model-removed' ? modelRemovalNoticeStamp(n.modelAccountId, n.at) : noticeStamp(n);
+/** Stable identity of one inbox entry (the inbox has no ids of its own). */
+function noticeStamp(n: OfflineNotice): string {
+    return n.kind === 'world-model-removed' ? modelRemovalNoticeStamp(n.modelAccountId, n.at) : legacyNoticeStamp(n);
 }
 
 /**
@@ -56,11 +56,11 @@ function deliveryStamp(n: OfflineNotice): string {
  */
 export async function consumeDeliveredNotices(key: string, delivered: readonly OfflineNotice[]): Promise<void> {
     if (delivered.length === 0) return;
-    const seen = new Set(delivered.map(deliveryStamp));
+    const seen = new Set(delivered.map(noticeStamp));
     try {
         await withKvLock(key, async () => {
             const current = parseOfflineNotices(await kv.get(key));
-            const remaining = current.filter((n) => !seen.has(deliveryStamp(n)));
+            const remaining = current.filter((n) => !seen.has(noticeStamp(n)));
             if (remaining.length === current.length) return;
             if (remaining.length === 0) await kv.del(key);
             else await kv.set(key, remaining, { ex: OFFLINE_NOTICES_TTL_SEC });
@@ -82,7 +82,7 @@ function modelRemovalNoticeStamp(accountId: string | undefined, at: number): str
 export function noticeId(n: OfflineNotice): string {
     if (n.kind === 'world-model-removed') return modelRemovalNoticeStamp(n.modelAccountId, n.at).slice(0, 22);
     // Keep the existing acknowledgement IDs for notices already sent to open tabs.
-    return createHash('sha1').update(noticeStamp(n)).digest('base64url').slice(0, 12);
+    return createHash('sha1').update(legacyNoticeStamp(n)).digest('base64url').slice(0, 12);
 }
 
 export type DeliveredOfflineNotice = Omit<OfflineNotice, 'modelAccountId'> & { id: string };

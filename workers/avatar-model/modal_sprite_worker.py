@@ -14,6 +14,7 @@ HERE = Path(__file__).resolve().parent
 INSTALL = Path("/opt/sprite")
 MAX_UPLOAD = 20 * 1024 * 1024
 app = modal.App("shinobix-avatar-sprites")
+openai_secret_name = os.environ.get("SPRITE_OPENAI_SECRET", "").strip()
 
 
 def worker_image():
@@ -165,7 +166,8 @@ def read_portrait(raw: bytes, expected_sha256: str, frame_hash: str, operation: 
 
 if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
     @app.function(image=gpu_image, gpu="L4", max_containers=1, min_containers=0, retries=0, timeout=1800,
-                  secrets=[modal.Secret.from_name("shinobix-avatar-costume-paint", required_keys=["OPENAI_API_KEY"])])
+                  secrets=[modal.Secret.from_name(openai_secret_name or "shinobix-avatar-costume-paint",
+                                                  required_keys=["OPENAI_API_KEY"])])
     def paint_costume(asset: str, descriptor: bytes, master: str, portrait: bytes, source: str):
         import sys
         sys.path.insert(0, str(INSTALL))
@@ -220,11 +222,19 @@ def acknowledge_reserved_call(key, kind):
         raise ValueError(f"{kind}-operation-already-started")
 
 
+recognition_keys = [
+    "AVATAR_MODEL_R2_ACCOUNT_ID", "AVATAR_MODEL_R2_PRIVATE_BUCKET", "AVATAR_MODEL_R2_ACCESS_KEY_ID",
+    "AVATAR_MODEL_R2_SECRET_ACCESS_KEY", "AVATAR_MODEL_R2_PUBLIC_BUCKET",
+]
+if not openai_secret_name:
+    recognition_keys.append("OPENAI_API_KEY")
+recognition_secrets = [modal.Secret.from_name("shinobix-avatar-recognition", required_keys=recognition_keys)]
+if openai_secret_name:
+    recognition_secrets.append(modal.Secret.from_name(openai_secret_name, required_keys=["OPENAI_API_KEY"]))
+
+
 @app.function(image=recognition_image, cpu=1, memory=2048, max_containers=1, min_containers=0,
-              timeout=600, retries=0,
-              secrets=[modal.Secret.from_name("shinobix-avatar-recognition", required_keys=["OPENAI_API_KEY",
-                  "AVATAR_MODEL_R2_ACCOUNT_ID", "AVATAR_MODEL_R2_PRIVATE_BUCKET", "AVATAR_MODEL_R2_ACCESS_KEY_ID",
-                  "AVATAR_MODEL_R2_SECRET_ACCESS_KEY", "AVATAR_MODEL_R2_PUBLIC_BUCKET"])])
+              timeout=600, retries=0, secrets=recognition_secrets)
 def recognize_sprite(asset, descriptor, master, portrait, source, finished_call, model, operation, attempt):
     import sys
     sys.path.insert(0, str(INSTALL))

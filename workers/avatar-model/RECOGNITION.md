@@ -85,11 +85,14 @@ three-failures-per-source hold still applies.
 Worker deployment needs `SPRITE_RECOGNITION_POOL_ZIP`, its exact
 `SPRITE_RECOGNITION_POOL_SHA256`, and `SPRITE_RECOGNITION_MODEL` (an explicit pinned
 vision model). The dedicated Modal secret `shinobix-avatar-recognition` supplies
-`OPENAI_API_KEY` and the existing private R2 credentials (`AVATAR_MODEL_R2_ACCOUNT_ID`,
+the private R2 credentials (`AVATAR_MODEL_R2_ACCOUNT_ID`,
 `AVATAR_MODEL_R2_PRIVATE_BUCKET`, `AVATAR_MODEL_R2_ACCESS_KEY_ID`,
 `AVATAR_MODEL_R2_SECRET_ACCESS_KEY`). Include the `AVATAR_MODEL_R2_PUBLIC_BUCKET`
 name so the worker can reject a journal destination equal to the public sprite
-bucket; the worker needs no public-bucket credentials. Verify public access is
+bucket. By default the recognition secret also supplies `OPENAI_API_KEY`.
+Set `SPRITE_OPENAI_SECRET` at deployment to load that key from an existing
+Modal secret in the same environment, for example `openai-secret`.
+Verify public access is
 disabled on the private bucket. The server's `AVATAR_MODEL_RESERVATIONS_JSON.recognition` must
 match the deployed pool hash and model. Deploy the worker before enabling
 dispatch. Missing configuration fails closed.

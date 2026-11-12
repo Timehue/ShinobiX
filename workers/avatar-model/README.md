@@ -63,10 +63,12 @@ and `portable-motion-worker/browser-motion.zip`. Use the two inputs from the
 same release.
 
 For painted costumes, the dedicated secret `shinobix-avatar-costume-paint`
-contains that feature's OpenAI key as `OPENAI_API_KEY`. For recognition, follow
+contains that feature's OpenAI key as `OPENAI_API_KEY` by default.
+Set `SPRITE_OPENAI_SECRET` at deployment to reuse an existing Modal secret
+for painting and recognition. For recognition, follow
 [RECOGNITION.md](RECOGNITION.md): deploy the owner-approved pool ZIP, its complete
 hash and a pinned vision model. The separate `shinobix-avatar-recognition`
-secret supplies the feature key and scoped private R2 credentials. No session,
+secret supplies the scoped private R2 credentials. No session,
 admin or database credentials belong in the worker. No production decoy pool is
 approved yet.
 
