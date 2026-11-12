@@ -24,7 +24,7 @@ function mount({ reduced = false, width = 0, height = width, near = false, routi
     const classes = new Set<string>();
     const style: Record<string, unknown> = { setProperty() {} };
     const figure = { style, dataset: {} as Record<string, string>, title: '', setAttribute() {},
-        classList: { toggle(name: string, on: boolean) { on ? classes.add(name) : classes.delete(name); } } };
+        classList: { toggle(name: string, on: boolean) { if (on) classes.add(name); else classes.delete(name); } } };
     const grid = { getBoundingClientRect() { reads++; return rect; } };
     const schedule = (fn: (at: number) => void) => { const id = ++nextId; queue.set(id, fn); return id; };
     const life = routine ? { id: 'resident', name: 'Resident', restTile: 64, activity: 'rest' } : undefined;
