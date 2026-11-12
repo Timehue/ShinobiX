@@ -398,8 +398,12 @@ const leakedSourceFile = clientRelativeFiles.find((file) => {
 if (leakedSourceFile) fail(`client dist contains an authoring source file: ${leakedSourceFile}`);
 
 const clientArtifactBytes = clientFiles.reduce((total, file) => total + statSync(file).size, 0);
+// chronicle/fx holds the duel board's painted effect plates (the direct-attack
+// strike and impact, art-source/chronicle-direct-strike). They are Chronicle
+// duel art, so they count against Chronicle's partition and its unchanged
+// ceiling, not the general runtime-asset one.
 const chronicleArtBytes = clientFiles
-    .filter((file) => /^chronicle\/(?:cards|figures)\//.test(relative(clientDist, file).replace(/\\/g, '/')))
+    .filter((file) => /^chronicle\/(?:cards|figures|fx)\//.test(relative(clientDist, file).replace(/\\/g, '/')))
     .reduce((total, file) => total + statSync(file).size, 0);
 if (chronicleArtBytes > maxChronicleArtBytes) {
     fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${(maxChronicleArtBytes / 1024 / 1024).toFixed(1)} MiB`);

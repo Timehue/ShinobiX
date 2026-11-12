@@ -1423,14 +1423,29 @@ const BOSS_FORMS_JS_CSS_FAIL_BYTES = 9_843_500;
 // hashed JSON asset (currently 673 B), rather than growing executable code.
 // Startup, per-chunk and on-demand-route ceilings remain independently enforced.
 const NPC_ROSTER_JS_CSS_FAIL_BYTES = HARVESTING_JS_CSS_FAIL_BYTES + 2048;
+// 2026-11-11 CHRONICLE DIRECT STRIKE: the card duel's painted direct-attack
+// animation (lunge, strike and impact plates) and the shorter Tribute Summon
+// (auto-offered Tributes, the summon taking the Tribute's zone, a TRIBUTE
+// badge). Trimmed first: ~3.5 KB of dead CSS (tower score dossier, pet arena
+// takeover, profession respec panel, spire result title, caravan objective).
+// Even so it measures 9,845,265 B with the production env; the Docker image
+// read ~93 B more than a local build on 2026-11-09.
+// All of it is lazy, loaded with the duel board; startup is 398,270 B gzip
+// against the unchanged 399,000 B gate. Owner approved this raise. Revert this
+// line to drop the allowance.
+const DIRECT_STRIKE_JS_CSS_FAIL_BYTES = 9_846_000;
 // 2026-11-10 INTERIOR AVATARS: fitted player movement in Strongholds, the
-// Hollow Gate default-style path and the weekly actor add renderer code to the
-// fresh-main build. It measures 9,850,050 B with all 53 external model pins.
-// Retain roughly 20 KB for production instrumentation/build variance. Sprite
-// pixels and revision metadata stay in separately loaded immutable objects.
-// Startup, per-chunk and on-demand-route limits remain unchanged.
-const INTERIOR_AVATAR_JS_CSS_FAIL_BYTES = BOSS_FORMS_JS_CSS_FAIL_BYTES + 26_500;
-const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES, BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES);
+// Hollow Gate default-style path and the weekly actor add renderer code.
+// Keep the 26.5 KB avatar allowance relative to main's approved product limit
+// so joining the two releases retains both independently measured allowances.
+// Sprite pixels and revision metadata are loaded separately. Startup,
+// per-chunk and on-demand-route limits are unchanged.
+const INTERIOR_AVATAR_JS_CSS_FAIL_BYTES = DIRECT_STRIKE_JS_CSS_FAIL_BYTES + 26_500;
+const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
+    TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,
+    BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
+    DIRECT_STRIKE_JS_CSS_FAIL_BYTES,
+);
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);
 }
