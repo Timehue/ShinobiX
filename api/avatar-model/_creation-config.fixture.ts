@@ -1,5 +1,4 @@
 export const modelCreationFixture = {
-    ENABLE_SECTOR_MODEL_DISPLAY: '1',
     DISABLE_SCHEDULED_JOBS: '0',
     AVATAR_MODEL_CREATION_ENABLED: '1',
     AVATAR_MODEL_KILL_SWITCH: '0',

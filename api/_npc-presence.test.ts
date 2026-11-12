@@ -645,13 +645,13 @@ test('without session tokens, or with the kill switch, no NPC is shown and the w
     assert.ok(presence.runNpcWalkerStep(Date.now() + 6_000), 'on again, it walks');
 });
 
-test('model-enabled NPCs retain their authored identity and use the sprite walking pace', async (t) => {
+test('NPCs retain their authored identity and use the sprite walking pace with no enable flags', async (t) => {
     const env = ['ENABLE_SECTOR_MODEL_DISPLAY', 'ENABLE_PLAYER_GAIT_PILOT', 'R2_PUBLIC_BASE'] as const;
     const previous = env.map(key => process.env[key]);
     t.after(() => env.forEach((key, i) => previous[i] === undefined
         ? delete process.env[key] : process.env[key] = previous[i]));
-    process.env.ENABLE_SECTOR_MODEL_DISPLAY = '1';
-    process.env.ENABLE_PLAYER_GAIT_PILOT = '1';
+    delete process.env.ENABLE_SECTOR_MODEL_DISPLAY;
+    delete process.env.ENABLE_PLAYER_GAIT_PILOT;
     process.env.R2_PUBLIC_BASE = 'https://art.example.invalid';
     const { cinderholdWorldModel } = await import('../shared/cinderhold-world-models.js');
     const { buildNpcSave } = await import('./_npc-village-seed.js');

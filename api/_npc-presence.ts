@@ -24,6 +24,7 @@
  * that outlives it with no duel behind it, should one ever be set.
  */
 import { cinderholdWorldModel } from '../shared/cinderhold-world-models.js';
+import { sectorModelDisplayEnabled } from './_release-flags.js';
 import { kv } from './_storage.js';
 import { playerSessionsEnabled } from './_auth.js';
 import { onlineStore } from './_realtime/online-store.js';
@@ -319,7 +320,7 @@ export async function refreshNpcPresence(now = Date.now()): Promise<number> {
         // only between duels, so a world attack never loses its target.
         const pinned = !!before && (engaged || before.pendingAttacker != null);
         const character = slimPresenceCharacter(save.character);
-        const modelAppearance = { serverPlayerModel: process.env.ENABLE_SECTOR_MODEL_DISPLAY === '1'
+        const modelAppearance = { serverPlayerModel: sectorModelDisplayEnabled()
             ? cinderholdWorldModel(npc.id, npc.avatar) ?? null : null };
         if (duty) {
             // War duty: the walker stands down while the order or front holds it.

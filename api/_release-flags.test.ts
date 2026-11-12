@@ -6,14 +6,18 @@ import {
     clanBossPartiesEnabled,
     playerAiImageGenerationEnabled,
     sectorModelDisplayEnabled,
+    sectorPlayerGaitsEnabled,
     villageWarMapEnabled,
 } from './_release-flags.js';
 
 describe('_release-flags', () => {
-    it('enables fitted overworld figures only for the explicit display setting', () => {
-        assert.equal(sectorModelDisplayEnabled({}), false);
+    it('ships fitted overworld figures and gait controls without enable flags', () => {
+        assert.equal(sectorModelDisplayEnabled({}), true);
         assert.equal(sectorModelDisplayEnabled({ ENABLE_SECTOR_MODEL_DISPLAY: '0' }), false);
         assert.equal(sectorModelDisplayEnabled({ ENABLE_SECTOR_MODEL_DISPLAY: '1' }), true);
+        assert.equal(sectorPlayerGaitsEnabled({}), true);
+        assert.equal(sectorPlayerGaitsEnabled({ ENABLE_PLAYER_GAIT_PILOT: '0' }), false);
+        assert.equal(sectorPlayerGaitsEnabled({ ENABLE_PLAYER_GAIT_PILOT: '1' }), true);
     });
     it('keeps player AI image generation admin-only unless explicitly enabled', () => {
         assert.equal(playerAiImageGenerationEnabled({}), false);

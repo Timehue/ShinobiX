@@ -20,6 +20,7 @@ test('public world layout advertises Make Model only while the static intake con
     const available = await get();
     assert.equal(available.worldModelCreationAvailable, true);
     assert.equal(typeof available.modelArtBase, 'string');
+    assert.equal(available.playerGaitsEnabled, true);
     const publicKeys = new Set(['obstaclesEnabled', 'modelArtBase', 'profileDetailUploads',
         'playerGaitsEnabled', 'worldModelCreationAvailable']);
     assert.ok(Object.keys(available).every(key => publicKeys.has(key)));
@@ -32,4 +33,14 @@ test('public world layout advertises Make Model only while the static intake con
     const paused = await get();
     assert.equal(paused.worldModelCreationAvailable, undefined);
     assert.equal(paused.modelArtBase, available.modelArtBase);
+    assert.equal(paused.playerGaitsEnabled, true);
+    process.env.ENABLE_SECTOR_MODEL_DISPLAY = '0';
+    const hidden = await get();
+    assert.equal(hidden.modelArtBase, null);
+    assert.equal(hidden.playerGaitsEnabled, false);
+    delete process.env.ENABLE_SECTOR_MODEL_DISPLAY;
+    delete process.env.R2_PUBLIC_BASE;
+    const withoutArtHost = await get();
+    assert.equal(withoutArtHost.modelArtBase, null);
+    assert.equal(withoutArtHost.playerGaitsEnabled, false);
 });

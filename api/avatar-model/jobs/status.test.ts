@@ -49,6 +49,6 @@ test('job progress exposes only the signed-in owner’s stage and verified ready
     } });
     await kv.set('save:'+owner,{character:{playerModelOwnerId:'d0c44ac2-cc8f-42d1-bfd7-c4b63607cd9b'}});
     assert.equal((await get(owner)).status,404,'A reused name cannot inspect old jobs');
-    delete process.env.ENABLE_SECTOR_MODEL_DISPLAY;
+    process.env.ENABLE_SECTOR_MODEL_DISPLAY = '0';
     assert.equal((await get(owner)).status, 404);
 });

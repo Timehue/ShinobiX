@@ -94,6 +94,6 @@ test('the monthly library exposes only completed jobs and ready assets bound to 
     assert.deepEqual(await get(owner, '2027-01'), { status: 200, data: { models: [{ assetId: id, version, month }], before: null } });
     await kv.set('save:'+owner,{character:{playerModelOwnerId:'d4ea59af-8e61-47b0-b563-cf8965d601d6'}});
     assert.deepEqual(await get(owner),empty,'A reused name cannot inherit the old library or refunds');
-    delete process.env.ENABLE_SECTOR_MODEL_DISPLAY;
+    process.env.ENABLE_SECTOR_MODEL_DISPLAY = '0';
     assert.deepEqual(await get(owner), empty);
 });

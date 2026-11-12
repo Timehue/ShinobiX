@@ -18,7 +18,6 @@ for (const provider of reservations.providers) provider.limitMicros *= 3;
 Object.assign(process.env, settings, {
     AVATAR_MODEL_PROFILE_DETAIL_ENABLED: '0',
     AVATAR_MODEL_PAINTED_COSTUMES_ENABLED: '0',
-    ENABLE_PLAYER_GAIT_PILOT: '1',
     AVATAR_MODEL_RESERVATIONS_JSON: JSON.stringify(reservations),
 });
 

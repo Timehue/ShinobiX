@@ -49,7 +49,8 @@ for (const transport of ['socket', 'http'] as const) test(`continuous camera cro
     await openWorld();
     const canvas = page.locator('.continuous-world-map > canvas');
     await expect(canvas).toHaveAttribute('data-world-sector', '9');
-    const pilot = process.env.ENABLE_PLAYER_GAIT_PILOT === '1' && process.env.ENABLE_SECTOR_MODEL_DISPLAY === '1';
+    const layout = await (await request.get('/api/world/sector-layout')).json();
+    const pilot = layout.playerGaitsEnabled === true && Boolean(layout.modelArtBase);
     const model = page.locator('[data-world-self] .sector-model-figure');
     if (pilot) {
         await expect(model).toBeVisible();
