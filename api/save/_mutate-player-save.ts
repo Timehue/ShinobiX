@@ -615,7 +615,7 @@ export async function mutatePlayerSaves<T>(
     const lockOrder = [...names].sort();
 
     const settle = async (): Promise<PlayerSavesResult<T>> => {
-        const loaded: Record<string, LoadedSave> = {};
+        const loaded: Record<string, LoadedSave> = Object.create(null);
         for (const name of names) {
             const save = await loadSettledSave(name, `save:${name}`);
             if (!('ctx' in save)) return { ...save, playerName: name };
@@ -624,10 +624,10 @@ export async function mutatePlayerSaves<T>(
         const decision = await decide(Object.fromEntries(names.map((name) => [name, loaded[name]!.ctx])));
         if (!decision.ok) return decision;
         for (const name of names) {
-            if (!decision.sides[name]) throw new Error(`mutatePlayerSaves: the decision has no side for ${name}.`);
+            if (!Object.hasOwn(decision.sides, name) || !decision.sides[name]) throw new Error(`mutatePlayerSaves: the decision has no side for ${name}.`);
         }
 
-        const saves: Record<string, CommittedSave & { written: boolean }> = {};
+        const saves: Record<string, CommittedSave & { written: boolean }> = Object.create(null);
         const committed: string[] = [];
         for (const [index, name] of names.entries()) {
             const side = decision.sides[name]!;

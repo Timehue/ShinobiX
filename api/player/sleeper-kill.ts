@@ -456,10 +456,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         target: String((tChar.name as string) ?? targetName),
                     },
                 },
-                sides: {
-                    [targetSlug]: { character: ko.character, recordPatch: ko.recordPatch, afterCommit: () => clearSleeperCamp(targetSlug) },
-                    [attackerSlug]: attackerSide,
-                },
+                sides: Object.fromEntries([
+                    [targetSlug, { character: ko.character, recordPatch: ko.recordPatch, afterCommit: () => clearSleeperCamp(targetSlug) }],
+                    [attackerSlug, attackerSide],
+                ]),
             };
         });
 

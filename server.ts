@@ -582,11 +582,11 @@ async function getDbHealthProbe(): Promise<{ result: DbHealthResult; source: Dee
 
 async function sendDeepHealth(req: Request, res: Response): Promise<void> {
     res.setHeader('Cache-Control', 'private, no-store');
+    if (!enforceRateLimit(req, res, 'deep-health', 30, 60_000)) return;
     if (!deepHealthAuthorized(req)) {
         res.status(401).json({ ok: false, error: 'Deep health token required.', ..._BUILD_INFO });
         return;
     }
-    if (!enforceRateLimit(req, res, 'deep-health', 30, 60_000)) return;
     const { result, source } = await getDbHealthProbe();
     res.setHeader('X-Health-Probe', source);
     res.status(result.ok ? 200 : 503).json({
@@ -701,11 +701,11 @@ app.get(['/health/db', '/api/health/db'], async (req, res) => {
 const _runtimeSampler = runtimeMetricsSampler();
 app.get(['/health/runtime', '/api/health/runtime'], (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store');
+    if (!enforceRateLimit(req, res, 'runtime-health', 60, 60_000)) return;
     if (!deepHealthAuthorized(req)) {
         res.status(401).json({ ok: false, error: 'Deep health token required.' });
         return;
     }
-    if (!enforceRateLimit(req, res, 'runtime-health', 60, 60_000)) return;
     res.json({
         ok: true,
         runtime: _runtimeSampler.snapshot({
@@ -1063,29 +1063,16 @@ app.all(/^\/api(?:\/|$)/, (_req, res) => {
     res.status(404).json({ error: 'API route not found.' });
 });
 
-// The SPA fallback is the hottest static path (every deep link / client-route
-// navigation lands here), so serve index.html from memory instead of a
-// stat+open per request. The file only changes on deploy, and a deploy always
-// restarts the process on both hosts (Railway container swap; cPanel
-// auto-deploy restarts Passenger), so a boot-time-frozen copy can never go
-// stale. Lazily read on first hit — staticDir is env-dependent — and falls
-// back to sendFile if the read ever fails so a missing file still surfaces
-// through the normal error path.
-let _indexHtmlCache: Buffer | null = null;
+// The deployed SPA is immutable for the lifetime of the process. Read it at
+// boot so a missing file cannot trigger repeated disk reads on public routes.
+const indexHtml = (() => {
+    try { return readFileSync(join(staticDir, 'index.html')); }
+    catch { return null; }
+})();
 app.get(/(.*)/, (_req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
-    if (_indexHtmlCache) {
-        res.type('html').send(_indexHtmlCache);
-        return;
-    }
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const fs = require('node:fs') as typeof import('node:fs');
-        _indexHtmlCache = fs.readFileSync(join(staticDir, 'index.html'));
-        res.type('html').send(_indexHtmlCache);
-    } catch {
-        res.sendFile(join(staticDir, 'index.html'));
-    }
+    if (indexHtml) res.type('html').send(indexHtml);
+    else res.status(404).type('text/plain').send('Game client build unavailable');
 });
 
 // ─── Error handler ────────────────────────────────────────────────────────────

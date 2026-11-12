@@ -33,8 +33,11 @@ import { towerPartyInviteKey } from '../towers/_party.js';
 /** Stable identity of one inbox entry (the inbox has no ids of its own). */
 function noticeStamp(n: OfflineNotice): string {
     if (n.kind === 'exchange-sale' && n.sale) return `exchange-sale|${n.sale.seller}|${n.sale.listingId}`;
-    if (n.kind === 'world-model-removed') return `world-model-removed|${n.modelAccountId}|${n.at}`;
     return `${n.kind}|${n.by}|${n.sector}|${n.at}|${n.amount ?? ''}|${n.total ?? ''}`;
+}
+
+function deliveryStamp(n: OfflineNotice): string {
+    return n.kind === 'world-model-removed' ? modelRemovalNoticeStamp(n.modelAccountId, n.at) : noticeStamp(n);
 }
 
 /**
@@ -53,11 +56,11 @@ function noticeStamp(n: OfflineNotice): string {
  */
 export async function consumeDeliveredNotices(key: string, delivered: readonly OfflineNotice[]): Promise<void> {
     if (delivered.length === 0) return;
-    const seen = new Set(delivered.map(noticeStamp));
+    const seen = new Set(delivered.map(deliveryStamp));
     try {
         await withKvLock(key, async () => {
             const current = parseOfflineNotices(await kv.get(key));
-            const remaining = current.filter((n) => !seen.has(noticeStamp(n)));
+            const remaining = current.filter((n) => !seen.has(deliveryStamp(n)));
             if (remaining.length === current.length) return;
             if (remaining.length === 0) await kv.del(key);
             else await kv.set(key, remaining, { ex: OFFLINE_NOTICES_TTL_SEC });
@@ -72,7 +75,13 @@ export async function consumeDeliveredNotices(key: string, delivered: readonly O
  * identity stamp, so the same notice gets the same id on every beat it is
  * (re)delivered on, and a client can dedupe and acknowledge it exactly.
  */
+function modelRemovalNoticeStamp(accountId: string | undefined, at: number): string {
+    return createHash('sha256').update(`world-model-removed|${accountId}|${at}`).digest('base64url');
+}
+
 export function noticeId(n: OfflineNotice): string {
+    if (n.kind === 'world-model-removed') return modelRemovalNoticeStamp(n.modelAccountId, n.at).slice(0, 22);
+    // Keep the existing acknowledgement IDs for notices already sent to open tabs.
     return createHash('sha1').update(noticeStamp(n)).digest('base64url').slice(0, 12);
 }
 

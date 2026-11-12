@@ -1261,7 +1261,10 @@ test.describe("equipped player upload", () => {
             else await expect(figure).toHaveCSS("background-image", fitted ? /blob:/ : new RegExp("/players/"+id+"/"));
             await expect(page.locator("[data-world-self]")).toHaveClass(/has-sector-model/);
             const run = page.getByRole("button", {name:"Run", exact:true});
+            // Reloading Settings preserves the server's current run and refill.
+            await expect(run).toHaveAttribute("data-run-state", "ready", {timeout: 40_000});
             await run.click();
+            await expect(run).toHaveAttribute("data-run-state", "running");
             await canvas.focus();
             await page.keyboard.down("ArrowRight");
             try {

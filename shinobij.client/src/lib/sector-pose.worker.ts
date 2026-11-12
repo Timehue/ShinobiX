@@ -38,9 +38,11 @@ function paint(picture: Picture, pixels: Uint8ClampedArray, width: number, cols:
     }
 }
 
-self.onmessage = async ({data}) => {
+self.onmessage = async event => {
+    // Dedicated-worker messages can have an empty origin.
+    if (event.origin && event.origin !== self.location.origin) return;
     try {
-        const {cols,frames,cell:[w,h],bytes,encodePng} = data;
+        const {cols,frames,cell:[w,h],bytes,encodePng} = event.data;
         const width = cols*w, height = Math.ceil(frames/cols)*h;
         if (![w,h,cols,frames].every(n=>Number.isSafeInteger(n)&&n>0) || width*height*4>12*1024**2)
             throw Error('Invalid atlas dimensions');

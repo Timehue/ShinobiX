@@ -124,7 +124,8 @@ export function reserveCampaignOperation(c: VillageCampaign, village: string, pl
     if (personal.total >= WAR_OPERATION_CAPS.player || (personal.categories[kind] ?? 0) >= typeCaps.player) return false;
     usage.total++; usage.categories[kind] = (usage.categories[kind] ?? 0) + 1;
     personal.total++; personal.categories[kind] = (personal.categories[kind] ?? 0) + 1;
-    usage.players = { ...usage.players, [player]: personal }; c.usage[key] = usage;
+    usage.players = Object.fromEntries([...Object.entries(usage.players), [player, personal]]);
+    c.usage = Object.fromEntries([...Object.entries(c.usage), [key, usage]]);
     return true;
 }
 export function scoreCampaignBattle(c: VillageCampaign, args: {

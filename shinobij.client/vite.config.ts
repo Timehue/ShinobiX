@@ -18,7 +18,7 @@ import { CHRONICLE_LEGACY_SOURCES } from '../shared/legacy-card-sources.ts';
 import { hollowRifts } from './src/data/hollow-rifts.ts';
 import { fileURLToPath, URL } from 'node:url';
 
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import plugin from '@vitejs/plugin-react';
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
 import fs from 'fs';
@@ -1261,6 +1261,7 @@ export default defineConfig({
         {
             name: 'api-generate-image',
             configureServer(server) {
+                const apiKey = loadEnv(server.config.mode, server.config.envDir, 'OPENAI_API_KEY').OPENAI_API_KEY;
                 server.middlewares.use('/api/generate-image', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
 
@@ -1278,16 +1279,6 @@ export default defineConfig({
                             return;
                         }
 
-                        const dotenvPath = path.resolve(process.cwd(), '.env');
-                        let apiKey = env.OPENAI_API_KEY ?? '';
-                        if (!apiKey && fs.existsSync(dotenvPath)) {
-                            const lines = fs.readFileSync(dotenvPath, 'utf8').split('\n');
-                            for (const line of lines) {
-                                const m = line.match(/^OPENAI_API_KEY\s*=\s*(.+)$/);
-                                if (m) { apiKey = m[1].trim(); break; }
-                            }
-                        }
-
                         if (!apiKey) {
                             sendJson(res, 500, { error: 'OPENAI_API_KEY is not set. Add it to shinobij.client/.env' });
                             return;
@@ -1295,8 +1286,6 @@ export default defineConfig({
 
                         const finalPrompt = `Create a polished 2D anime shinobi RPG game asset.\n\nUser request:\n${prompt}\n\nAsset label:\n${label ?? ''}\n\nStyle rules:\n- original shinobi RPG fantasy style\n- clean game asset composition\n- dramatic lighting\n- no text\n- no logos\n- no UI\n- no watermarks\n- high detail\n- suitable for a browser RPG`;
 
-                        // Dev-only image generation intentionally sends the configured API credential to OpenAI.
-                        // codeql[js/file-access-to-http]
                         const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
                             method: 'POST',
                             headers: {
