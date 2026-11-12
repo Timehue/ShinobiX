@@ -85,17 +85,6 @@ button.atlas-landmark[data-landmark-art="true"][title*="Moonshadow"] .atlas-land
     display: none;
 }
 
-/* The optional fallback also fits the whole painting to the screen. Override
-   generic mobile button minimums on this ring so its pins stay compact. */
-html:not(.wm-zoom) .app-shell.screen-worldMap .generated-world-map .atlas-sector-shadow {
-    width: 28px !important;
-    height: 28px !important;
-    min-width: 28px !important;
-    min-height: 28px !important;
-    min-inline-size: 28px !important;
-    min-block-size: 28px !important;
-    font-size: 12px !important;
-}
 @container world-atlas (max-width: 600px) {
     html:not(.wm-zoom) .wpk-moonshadow { display: none; }
 }

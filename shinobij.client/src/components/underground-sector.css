@@ -146,7 +146,6 @@
 .underground-world .hg-icon, .underground-world .hg-icon-img { padding: 4px; border-radius: 50%; background-color: #0d1526da; box-shadow: 0 2px 8px #0009, 0 0 0 1px #cbd5e13b; }
 .underground-world .hg-icon-img { object-fit: contain; }
 .underground-world .hg-icon-img { max-width: 56px; max-height: 64px; }
-.hg-world-prop { width: 64px; height: 72px; object-fit: contain; pointer-events: none; filter: drop-shadow(0 3px 6px #0009); }
 .underground-world .hg-cell.hg-detour-cache, .underground-world .hg-cell.hg-rift-signal { box-shadow: none; }
 .underground-world .hg-dest::after { animation: none; }
 .underground-world .hg-clickable:focus-visible { outline: none; }

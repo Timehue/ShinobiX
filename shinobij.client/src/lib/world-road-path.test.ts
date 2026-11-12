@@ -2,9 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SECTOR_ROAD_PAIRS, sectorExits } from '../../../shared/sector-links';
 import { ATLAS_SECTOR_POINTS } from '../data/sector-points';
-import { MAP_ASPECT, PIN_CLEARANCE, worldMapRoads, worldRoadPath, worldRoadSamples, type MapPoint, type RoadSide } from './world-road-path';
+import { ROAD_BOWS, worldMapRoads, worldRoadControls, worldRoadPath, type MapPoint, type RoadSide } from './world-road-path';
 
+const MAP_ASPECT = { x: 16, y: 9 };
+/** On-screen distance (16:9 units) within which a line reads as running under a pin: ~15px on the 1366 board. */
+const PIN_CLEARANCE = 30;
 const pin = new Map(ATLAS_SECTOR_POINTS.map((p) => [p.id, p]));
+function worldRoadSamples(a: MapPoint, b: MapPoint, c1: MapPoint, c2: MapPoint, steps = 100): MapPoint[] {
+    return Array.from({ length: steps + 1 }, (_, i) => {
+        const t = i / steps, u = 1 - t;
+        return { x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x,
+            y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y };
+    });
+}
+const underAPin = (a: MapPoint, b: MapPoint, c1: MapPoint, c2: MapPoint, ends: readonly number[]) =>
+    ATLAS_SECTOR_POINTS.filter((p) => !ends.includes(p.id) && worldRoadSamples(a, b, c1, c2)
+        .some((s) => Math.hypot((s.x - p.x) * MAP_ASPECT.x, (s.y - p.y) * MAP_ASPECT.y) < PIN_CLEARANCE)).map((p) => p.id);
 const painted = (from: number, to: number) => sectorExits(from).find((exit) => exit.destinationSector === to)?.direction;
 /** Which side of `from` a handle at `to` sits on, in on-screen proportions. */
 const side = (from: MapPoint, to: MapPoint): RoadSide => {
@@ -40,14 +53,26 @@ test('no road line runs under a third sector pin, so none reads as passing throu
     const under: string[] = [];
     for (const road of worldMapRoads(ATLAS_SECTOR_POINTS)) {
         const n = /^M (\S+) (\S+) C (\S+) (\S+) (\S+) (\S+) (\S+) (\S+)$/.exec(road.d)!.slice(1).map(Number);
-        const line = worldRoadSamples({ x: n[0]!, y: n[1]! }, { x: n[6]!, y: n[7]! }, { x: n[2]!, y: n[3]! }, { x: n[4]!, y: n[5]! });
-        for (const p of ATLAS_SECTOR_POINTS) {
-            if (p.id === road.a || p.id === road.b) continue;
-            const gap = Math.min(...line.map((s) => Math.hypot((s.x - p.x) * MAP_ASPECT.x, (s.y - p.y) * MAP_ASPECT.y)));
-            if (gap < PIN_CLEARANCE) under.push(`${road.id} under pin ${p.id}`);
-        }
+        for (const id of underAPin({ x: n[0]!, y: n[1]! }, { x: n[6]!, y: n[7]! }, { x: n[2]!, y: n[3]! }, { x: n[4]!, y: n[5]! }, [road.a, road.b]))
+            under.push(`${road.id} under pin ${id}`);
     }
     assert.deepEqual(under, []);
+});
+
+test('the shipped bow table is exactly the smallest clearing bow each road needs', () => {
+    // The search the bundle no longer carries: no bow if the plain curve clears
+    // every pin, else the first of +-8, +-16, ... that does (smaller way first).
+    const derived: Record<string, number> = {};
+    for (const [a, b] of SECTOR_ROAD_PAIRS) {
+        const pa = pin.get(a)!, pb = pin.get(b)!, la = painted(a, b)!, lb = painted(b, a)!;
+        const clear = (bow: number) => { const [c1, c2] = worldRoadControls(pa, pb, la, lb, bow); return underAPin(pa, pb, c1, c2, [a, b]).length === 0; };
+        if (clear(0)) continue;
+        let found = 0;
+        for (let step = 8; step <= 160 && !found; step += 8) found = clear(step) ? step : clear(-step) ? -step : 0;
+        assert.notEqual(found, 0, `${a}-${b}: no bow up to 160 clears its pins`);
+        derived[`${a}-${b}`] = found;
+    }
+    assert.deepEqual(ROAD_BOWS, derived);
 });
 
 test('a road between two pins on one line stays a straight line', () => {
