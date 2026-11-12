@@ -1,12 +1,15 @@
 // Run from shinobij.client: node scripts/stronghold-browser-qa.mjs
 // Real host, Arena and production styles; deterministic local API fixtures.
-import { build } from 'esbuild';
 import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { resolve, extname } from 'node:path';
 import assert from 'node:assert/strict';
+import react from '@vitejs/plugin-react';
 import { chromium, webkit, expect } from '@playwright/test';
+import { build } from 'vite';
+import { jutsuFxFrames } from './jutsu-fx-frames.ts';
+import { sectorModelPins } from './sector-model-pins.ts';
 import { createBrowserNetworkDiagnostics } from './lib/browser-network-diagnostics.mjs';
 const tmp = resolve('.tmp/stronghold-audit');
 const outputArg = process.argv.find(value => value.startsWith('--output='));
@@ -14,17 +17,41 @@ const output = resolve(outputArg ? outputArg.slice('--output='.length) : '../doc
 await mkdir(tmp, { recursive: true }); await mkdir(output, { recursive: true });
 await new Promise((ok, fail) => { const p = spawn(process.execPath, ['--import', 'tsx', 'scripts/fixtures/stronghold-session.ts'], { stdio: 'inherit' }); p.on('exit', code => code === 0 ? ok() : fail(new Error(`Fixture failed: ${code}`))); });
 const session = JSON.parse(await readFile(tmp + '/session.json', 'utf8'));
-await build({ entryPoints: ['scripts/fixtures/stronghold-qa.tsx'], bundle: true, jsx: 'automatic', outfile: tmp + '/preview.js',
-    plugins: [{ name: 'public-assets', setup(build) { build.onResolve({ filter: /^\// }, args => ({ path: args.path, external: true })); } }],
-    loader: { '.css': 'css', '.webp': 'file', '.png': 'file', '.svg': 'file', '.woff2': 'file', '.woff': 'file', '.jpg': 'file', '.mp3': 'file' },
-    define: { 'import.meta.env.PROD': 'false', 'import.meta.env.DEV': 'true', 'import.meta.env.MODE': '"test"' }, logLevel: 'error' });
+const root = process.cwd();
+await build({
+    root,
+    configFile: false,
+    envFile: false,
+    mode: 'test',
+    logLevel: 'error',
+    plugins: [react(), jutsuFxFrames(root), sectorModelPins(root)],
+    define: { 'import.meta.env.PROD': 'false', 'import.meta.env.DEV': 'true' },
+    build: {
+        outDir: tmp,
+        emptyOutDir: false,
+        copyPublicDir: false,
+        cssCodeSplit: false,
+        rolldownOptions: {
+            input: resolve(root, 'scripts/fixtures/stronghold-qa.tsx'),
+            output: {
+                entryFileNames: 'preview.js',
+                assetFileNames: asset => asset.names.some(name => name.endsWith('.css'))
+                    ? 'preview.css'
+                    : 'assets/[name]-[hash][extname]',
+            },
+        },
+    },
+});
 const server = createServer(async (req, res) => {
     try {
         const path = new URL(req.url, 'http://localhost').pathname;
-        if (path === '/') { res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="/preview.css"></head><body><div id="root"></div><script src="/preview.js"></script></body></html>'); return; }
-        const file = resolve(path.startsWith('/preview.') ? tmp : 'public', '.' + path);
-        res.setHeader('Content-Type', ({ '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.svg': 'image/svg+xml' })[extname(path)] || 'application/octet-stream');
-        res.end(await readFile(file));
+        if (path === '/') { res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><link rel="stylesheet" href="/preview.css"></head><body><div id="root"></div><script type="module" src="/preview.js"></script></body></html>'); return; }
+        res.setHeader('Content-Type', ({ '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml' })[extname(path)] || 'application/octet-stream');
+        const publicFile = resolve('public', '.' + path);
+        const file = path === '/preview.js' || path === '/preview.css' || path.startsWith('/assets/')
+            ? await readFile(resolve(tmp, '.' + path)).catch(() => readFile(publicFile))
+            : await readFile(publicFile);
+        res.end(file);
     } catch { res.statusCode = 404; res.end(); }
 });
 await new Promise(ok => server.listen(0, '127.0.0.1', ok));

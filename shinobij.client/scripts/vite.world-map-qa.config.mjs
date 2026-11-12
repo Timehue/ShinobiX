@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { resolve, sep } from "node:path";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { sectorModelPins } from "./sector-model-pins.ts";
+import { jutsuFxFrames } from "./jutsu-fx-frames.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const publicRoot = resolve(root, "public");
@@ -13,7 +14,7 @@ const publicRoot = resolve(root, "public");
 export default defineConfig({
     root,
     publicDir: false,
-    plugins: [react(), sectorModelPins(root), {
+    plugins: [react(), sectorModelPins(root), jutsuFxFrames(root), {
         name: "world-map-qa-public-assets",
         configureServer(server) {
             server.middlewares.use((request, response, next) => {
