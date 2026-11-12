@@ -53,6 +53,12 @@ const LegalPage = lazy(() => import('./screens/LegalPage.tsx').then((m) => ({ de
 const StorageNotice = lazy(() => import('./components/StorageNotice.tsx').then((m) => ({ default: m.StorageNotice })))
 // Explicitly allow production-like QA bundles to retain the isolated preview
 // routes without exposing them in ordinary production builds.
+// Admin "play as a Cinderhold NPC" bar: only fetched while a takeover is active.
+// The key is lib/npc-possession.ts STASH_KEY; read inline to keep that module
+// off the startup bundle.
+try {
+    if (localStorage.getItem('shinobix:npcPossession')) void import('./lib/npc-possession.ts').then((m) => m.mountNpcPossessionBar()).catch(() => {})
+} catch { /* storage blocked: no takeover is possible either */ }
 const qaPreviewsEnabled = import.meta.env.DEV || import.meta.env.VITE_ENABLE_QA_PREVIEWS === '1'
 const IntroCinematicPreview = qaPreviewsEnabled
     ? lazy(() => import('./features/intro-cinematic/IntroCinematicPreview.tsx').then((m) => ({ default: m.IntroCinematicPreview })))

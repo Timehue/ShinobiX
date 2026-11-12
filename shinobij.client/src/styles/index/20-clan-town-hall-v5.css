@@ -54,8 +54,7 @@
 
 
 
-.clan-buff-banner,
-.edict-active-card {
+.clan-buff-banner {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -97,7 +96,6 @@
 
 .treasury-grid,
 .village-buff-list,
-.edict-grid,
 .elder-seat-grid,
 .contrib-rank-grid,
 .clan-upgrade-grid,
@@ -127,14 +125,12 @@
 
 .clan-upgrade-grid,
 .clan-mission-grid,
-.edict-grid,
 .war-record-grid {
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .clan-upgrade-card,
 .clan-mission-card,
-.edict-card,
 .war-record-card {
     min-height: 160px;
 }
@@ -171,8 +167,7 @@
 
 
 
-.war-record-card,
-.edict-card {
+.war-record-card {
     display: grid;
     gap: 6px;
     padding: 12px;
@@ -181,8 +176,7 @@
     background: rgba(2, 6, 23, .48);
 }
 
-    .war-record-card strong,
-    .edict-card h3 {
+    .war-record-card strong {
         color: var(--gold);
         margin: 0;
     }
@@ -192,8 +186,7 @@
         font-weight: 900;
     }
 
-    .war-record-card small,
-    .edict-card p {
+    .war-record-card small {
         color: var(--text-dim);
     }
 

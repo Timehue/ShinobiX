@@ -1,4 +1,7 @@
 import { alertSectorPreparation, preparationLevels, sectorPreparationInstance } from '../_war-preparations.js';
+import { isNpcPossessed } from '../_npc-possession.js';
+import { npcEngaged } from '../_npc-duel.js';
+import { isNpcAccount, npcDisplayName } from '../../shared/npc-village-roster.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -344,6 +347,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sectorWarId = String(body?.sectorWarId ?? '').trim();
         if (!sectorWarId) return res.status(400).json({ error: 'Missing sectorWarId.' });
         const me = identity.admin ? safeName(String(body?.playerName ?? '')) : identity.name;
+        // A Cinderhold NPC's team answers an engage server-side; it fights a war
+        // pet battle itself only under an admin's control, and then it counts
+        // like anyone's (owner ruling 2026-11-09).
+        if (isNpcAccount(me) && !identity.admin && action !== 'state' && action !== 'watch' && !(await isNpcPossessed(me))) {
+            return res.status(403).json({ error: 'Cinderhold shinobi answer war battles in the field.' });
+        }
 
         const wantsGarrison = body?.garrison === true;
         const engageId = cleanEngageId(body?.engageId);
@@ -393,6 +402,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const pet = await sealPlayerPet(me, String(body?.petId ?? ''));
             if (!pet) return res.status(400).json({ error: 'You have no pet able to fight right now.' });
             const myTeam = (await sealWarTeam(me, [String(pet.id)])) ?? [pet];
+            if (isNpcAccount(gate.target)) {
+                // A Cinderhold NPC's team answers for it, but only when the village
+                // is running and the NPC is not already in a fight the server plays.
+                if (process.env.DISABLE_NPC_VILLAGE === '1') return res.status(503).json({ error: 'Cinderhold shinobi cannot fight on this server right now.' });
+                if (await npcEngaged(gate.target, now)) return res.status(409).json({ error: `${npcDisplayName(gate.target)} is already in a fight.` });
+            }
             const theirTeam = await sealWarTeam(gate.target);
             if (!theirTeam?.length) return res.status(409).json({ error: `${gate.target} has no pet able to fight right now.` });
             // Read everything the battle needs before holding anyone, so a read

@@ -15,7 +15,7 @@ import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
 import { shieldExpiryForGrant } from '../combat-core/shields.js';
 import { isCancelledUnstartedPvpDuel, PVP_OPPONENT_UNAVAILABLE, pvpJoinWindowLapsed } from '../../shared/pvp-cancellation.js';
 import { cors, safeName } from '../_utils.js';
-import { authedPlayerOrAdmin } from '../_auth.js';
+import { authedPlayerOrAdmin, playerSessionsEnabled } from '../_auth.js';
 import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { strongholdLocation } from '../_stronghold-presence.js';
@@ -110,6 +110,8 @@ import {
 } from '../_war-role.js';
 import { pvpSessionHp } from './_low-level-hp.js';
 import { worldBossPvpProtectionBlock, withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
+import { npcDuelPays, npcSeatOf as npcSeatOfSession, sealNpcDuel, type NpcDuelStamp } from '../_npc-duel.js';
 
 // combatResourcesV2: seal each jutsu's concrete one-bar cost (chakra XOR stamina)
 // from the fighter's level + specialty, so move.ts's existing per-bar deduction
@@ -326,6 +328,8 @@ export type PvpSession = {
     // names) must never cause a deduction from that player's save. Absent on
     // legacy in-flight sessions → claim-rewards falls back to claimer-only.
     realFighters?: { p1: boolean; p2: boolean };
+    /** A Cinderhold NPC duel the server plays (api/_npc-duel.ts). Sealed at create. */
+    npcDuel?: NpcDuelStamp;
     // Environment snapshot captured at create time. /api/pvp/move reads
     // these from the session instead of trusting the request body — stops
     // clients from changing biome / weather between rounds.
@@ -628,7 +632,18 @@ async function rollbackExactUnownedPvpSession(
     throw new Error('pvp-session-publication-rollback-busy');
 }
 
-export function pvpSessionMayReward(session: Pick<PvpSession, 'rewardAuthority' | 'joined'>): boolean {
+export function pvpSessionMayReward(session: Pick<PvpSession, 'rewardAuthority' | 'joined'> & Partial<Pick<PvpSession, 'p1' | 'p2' | 'npcDuel' | 'battleId' | 'status' | 'winner' | 'endedAt'>>): boolean {
+    // A fight with a Cinderhold NPC pays only when it is an AI duel the server
+    // sealed as payable AND (owner ruling 2026-11-11, "Only player wins") the
+    // player WON it with a pay slot to spend: the first win over that NPC
+    // today, within the daily cap (api/_npc-duel.ts npcDuelPays; every paying
+    // path settles that slot first, settleNpcDuelWin). A loss pays nothing.
+    // Under admin control it never pays: losing on purpose must not feed a
+    // friend purses, raid progress or standing. The NPC's own claim is never
+    // credited (claim-rewards).
+    if (isNpcAccount(String(session.p1?.name ?? '')) || isNpcAccount(String(session.p2?.name ?? ''))) {
+        if (session.npcDuel?.version !== 1 || !npcDuelPays(session)) return false;
+    }
     return !!session.rewardAuthority && session.joined?.p1 === true && session.joined?.p2 === true;
 }
 
@@ -656,6 +671,44 @@ export function sealedWorldRaidAttacker(
  * Zero-base-reward spars and Kage duels may settle their own dedicated result,
  * but cannot be reused as bounty, mission, Legacy, or generic reward receipts.
  */
+/**
+ * Whether a finished world fight may SCORE a sector war. The same as
+ * pvpSessionMayGrantProgress, except EVERY Cinderhold duel scores (Push 4):
+ * one past the day's paid duels, and one an admin was playing (owner ruling
+ * 2026-11-09: an admin-controlled NPC gives war points). A war is won by
+ * fighting, and capping the fights would cap the war. What a duel PAYS is
+ * unchanged: every reward, purse and Legacy path still reads
+ * pvpSessionMayReward and the paid stamp.
+ */
+export function pvpSessionMayScoreWar(
+    session: Parameters<typeof pvpSessionMayGrantProgress>[0] & Partial<Pick<PvpSession, 'p1' | 'p2' | 'npcDuel' | 'villageWarObjective'>>,
+): boolean {
+    if (pvpSessionMayGrantProgress(session)) return true;
+    if (session.npcDuel?.version !== 1) return false;
+    if (session.joined?.p1 !== true || session.joined?.p2 !== true) return false;
+    // A village-war objective battle with a Cinderhold defender (Push 4b): the
+    // campaign dispatcher's server challenge record sealed it, so it scores the
+    // campaign exactly as the same battle between two players would.
+    if (session.rewardAuthority === 'challenge' && session.villageWarObjective) return session.progressionAuthorityVersion === 1;
+    return session.rewardAuthority === 'world'
+        && (session.progressionAuthorityVersion === 1 || session.baseRewards === true);
+}
+
+/**
+ * Whether a finished clan-war duel may SETTLE its campaign match. The same as
+ * pvpSessionMayReward between two players. A duel with a Cinderhold clan's
+ * shinobi (sealed by api/_npc-duel.ts, never paid) settles too once both seats
+ * joined: it scores the war exactly as the same duel between two players would,
+ * while every purse and progression path still reads pvpSessionMayReward.
+ */
+export function pvpSessionMayScoreClanWar(
+    session: Pick<PvpSession, 'rewardAuthority' | 'joined'> & Partial<Pick<PvpSession, 'p1' | 'p2' | 'npcDuel'>>,
+): boolean {
+    if (session.rewardAuthority !== 'clan-war') return false;
+    if (pvpSessionMayReward(session)) return true;
+    return session.npcDuel?.version === 1 && session.joined?.p1 === true && session.joined?.p2 === true;
+}
+
 export function pvpSessionMayGrantProgress(
     session: Pick<
         PvpSession,
@@ -3185,6 +3238,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
+            // A Cinderhold NPC in either seat (Push 2): seal whether the server
+            // plays it and whether this fight pays, as the last step before the
+            // row is visible, so every refusal above costs the player nothing.
+            // Sealing spends a paid slot and registers the duel for the driver
+            // (api/_npc-duel.ts); a retry of this battle gets the same answer.
+            let npcDuel: NpcDuelStamp | null = null;
+            try {
+                npcDuel = await sealNpcDuel(session, { sessionsEnabled: playerSessionsEnabled() });
+            } catch (error) {
+                // Refused before the row exists: release what this create holds,
+                // as the refusals above do, so the player can attack again.
+                if (creatorPointerCreated && creatorPointer) {
+                    await clearPvpPendingSessionPointer(kv, creatorPointer.playerName, creatorPointer.battleId,
+                        creatorPointer.createdAt, creatorPointer.role).catch(() => undefined);
+                }
+                if (challengeReservation) {
+                    await releaseChallengePvpReservation(challengeReservation.id, battleId).catch(() => undefined);
+                }
+                if (clanWarReservation) await releaseClanWarPvpReservation(clanWarReservation).catch(() => undefined);
+                if ((error as Error)?.message === 'npc-duel-open-world-only') {
+                    return res.status(409).json({ error: "You can't challenge or follow NPCs.", errorCode: PVP_OPPONENT_UNAVAILABLE });
+                }
+                if ((error as Error)?.message === 'npc-duel-busy') {
+                    return res.status(409).json({ error: `${String((npcSeatOfSession(session) === 'p1' ? session.p1 : session.p2).name)} is already in a fight.`, errorCode: PVP_OPPONENT_UNAVAILABLE });
+                }
+                return res.status(503).json({ error: 'Cinderhold shinobi cannot fight on this server right now.' });
+            }
+            if (npcDuel) session.npcDuel = npcDuel;
+
             let publishedSession = session;
             // Fence the battle id on rollback for every publication EXCEPT the
             // player-ranked branch below. There the admission gate owns the id:
@@ -3409,6 +3491,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // endpoint returns (and GET is unauthenticated for spectator-by-id
             // / EventSource compat), so no new exposure here — POST itself is
             // already gated to a fighter or admin via authedPlayerOrAdmin.
+            if (publishedSession.npcDuel?.version === 1) {
+                // The duel exists now, so a paid one spends its daily slot here
+                // (a create refused earlier cost the player nothing). Then the
+                // server takes the NPC's seat: remember the duel, then join and
+                // play it through the real move route (api/_npc-duel-driver.ts).
+                void import('../_npc-duel-driver.js').then((driver) => driver.kickNpcDuel(battleId))
+                    .catch((error) => console.error('[pvp/session] npc duel driver', String(error)));
+            }
             return res.status(200).json({
                 battleId,
                 session: publishedSession,

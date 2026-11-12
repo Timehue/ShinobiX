@@ -3,6 +3,7 @@ import { PUBLIC_CAPABILITY_IDS } from "../../../shared/public-capabilities";
 import { worldPositionModel } from "../../../shared/continuous-world-layout";
 import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES } from "../../../shared/resource-nodes";
 import { RESOURCE_NODE_ATTEMPTS } from "../../../shared/resource-gathering";
+import { WORLD_RUN_MS, WORLD_RUN_REFILL_MS } from "../../../shared/world-run";
 
 export type UiAuditSave = {
     character?: Record<string, unknown>;
@@ -124,6 +125,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
     let acknowledgedVersion = 0;
     let saveConflictCount = 0;
     let lastCommit: SaveCommit | null = null;
+    let runEndsAt = 0, runReadyAt = 0;
 
     await page.addInitScript(({ showBriefing, accountName }) => {
         localStorage.setItem("ninjav-admin-build-v1", JSON.stringify({ currentAccountName: accountName }));
@@ -167,15 +169,26 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             if (body.resumeWorldFight || body.resumeAiFight) return route.fulfill({ status: 204 });
         }
         if (path === "/api/player/world-move") {
+            const serverTime = Date.now();
             if (request.method() === 'POST') {
-                const body = request.postDataJSON(), cursor = worldModel.read(body.worldPosition);
+                const body = request.postDataJSON();
+                if (body.action === 'start-run' || body.action === 'stop-run') {
+                    const ok = body.action === 'start-run' ? serverTime >= runReadyAt : serverTime < runEndsAt;
+                    if (ok) {
+                        runEndsAt = serverTime + (body.action === 'start-run' ? WORLD_RUN_MS : 0);
+                        runReadyAt = runEndsAt + WORLD_RUN_REFILL_MS;
+                    }
+                    return json(route, { ok, run: { serverTime, endsAt: runEndsAt, readyAt: runReadyAt } }, ok ? 200 : 409);
+                }
+                const cursor = worldModel.read(body.worldPosition);
                 if (!cursor || body.expectedSequence !== worldSequence) return json(route, { ok: false, reason: 'sequence', sequence: worldSequence, worldPosition: worldCursor,
                     sector: Number(save.currentSector), tile: Number(save.currentTile ?? 78) }, 409);
                 worldCursor = cursor; worldSequence++;
                 const location = worldModel.location(cursor); save.currentSector = location.sector; save.currentTile = location.tile;
             }
             if (!worldCursor || worldModel.location(worldCursor).sector !== Number(save.currentSector)) worldCursor = worldModel.fallback(Number(save.currentSector), Number(save.currentTile ?? 78));
-            return json(route, { ok: true, sector: Number(save.currentSector), tile: Number(save.currentTile ?? 78), sequence: worldSequence, worldPosition: worldCursor, players: [] });
+            return json(route, { ok: true, sector: Number(save.currentSector), tile: Number(save.currentTile ?? 78), sequence: worldSequence,
+                worldPosition: worldCursor, players: [], run: { serverTime, endsAt: runEndsAt, readyAt: runReadyAt } });
         }
         if (normalizedPath === `/api/save/${accountName.toLowerCase()}`) {
             if (request.method() === "GET") return json(route, { ...save, _saveVersion: saveVersion });
@@ -321,6 +334,13 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
     });
 
     return {
+        placeOnWorldTile: (sector: number, tile: number) => {
+            const position = worldModel.fallback(sector, tile);
+            if (!position || position.from !== sector+":"+tile) throw Error("Unwalkable review tile");
+            worldCursor = position;
+            worldSequence++;
+            save = { ...save, currentSector: sector, currentTile: tile };
+        },
         serverSave: () => structuredClone(save),
         currentVersion: () => saveVersion,
         acknowledgedVersion: () => acknowledgedVersion,

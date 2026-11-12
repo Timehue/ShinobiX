@@ -132,7 +132,7 @@ const STARTER_STATS = {
 
 function character(name) {
     return {
-        name, village: 'Ember', specialty: 'Ninjutsu', bloodline: 'None',
+        name, village: 'Stormveil Village', specialty: 'Ninjutsu', bloodline: 'None',
         level: 1, ryo: 100, stats: { ...STARTER_STATS }, unspentStats: 20,
         hp: 100, maxHp: 100, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
         inventory: ['rustfang-kunai'], itemStacks: [], equipment: {},

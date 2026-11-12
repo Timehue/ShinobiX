@@ -13,16 +13,19 @@ import {
     worldBossRoute,
 } from './world-boss-event';
 import { isPlayableWildSector, PLAYABLE_WILD_SECTOR_IDS, VILLAGE_OUTSKIRTS } from './sector-geo';
+import { isWorldBossRoamSector } from './world-boss-event';
+// Cinderhold (67-74) is the NPC village's home: the boss neither spawns nor walks there.
+const BOSS_SECTORS = PLAYABLE_WILD_SECTOR_IDS.filter(isWorldBossRoamSector);
 import { SECTOR_ROAD_PAIRS } from './sector-links';
 
 test('every playable sector has a connected road route to every village gate', () => {
-    for (const sector of PLAYABLE_WILD_SECTOR_IDS) {
+    for (const sector of BOSS_SECTORS) {
         for (const [village, gate] of Object.entries(VILLAGE_OUTSKIRTS)) {
             const route = worldBossRoute(sector, village);
             assert(route, `missing route from ${sector} to ${village}`);
             assert.equal(route[0], sector);
             assert.equal(route.at(-1), gate);
-            assert(route.every(isPlayableWildSector), `route enters a non-playable sector: ${route.join(' → ')}`);
+            assert(route.every(isWorldBossRoamSector), `route enters a non-roam sector: ${route.join(' → ')}`);
             for (let index = 1; index < route.length; index += 1) {
                 assert(SECTOR_ROAD_PAIRS.some(([a, b]) => (a === route[index - 1] && b === route[index])
                     || (b === route[index - 1] && a === route[index])), `route leaves the road graph: ${route.join(' → ')}`);
@@ -85,7 +88,7 @@ test('selected event itinerary roams the road network and reaches the chosen vil
 
 test('every admin-selectable spawn has a deterministic exact-length road itinerary to every village gate', () => {
     const hops = Math.floor(WORLD_BOSS_EVENT_ROAM_MS / WORLD_BOSS_EVENT_HOP_MS);
-    for (const spawn of PLAYABLE_WILD_SECTOR_IDS) {
+    for (const spawn of BOSS_SECTORS) {
         for (const village of Object.keys(VILLAGE_OUTSKIRTS)) {
             const route = worldBossEventRoute(spawn, village, `${spawn}-${village}`, hops);
             assert(route, `missing paced route from ${spawn} to ${village}`);

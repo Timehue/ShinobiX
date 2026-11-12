@@ -8,6 +8,7 @@ import { worldRoadCrossings } from '../../../shared/world-road-crossings';
 import { sectorBannerRevision,tintSectorBanners } from './sector-banner';
 import { drawSectorRestorations,sectorRestorationRevision } from './sector-restoration-art';
 import {recordDisplayedSectorFloor,forgetDisplayedSectorFloor,forgetDisplayedFloors} from './sector-displayed-floor';
+import { MOLTEN_ROCK_LIMIT, moltenShare, rockWindows } from './continuous-world-rock';
 
 const colors: Record<string, string> = { forest: '#495338', central: '#747052', snow: '#b5bdba', shadow: '#55505c', volcano: '#4a3d36' };
 const hash = (x: number, y: number) => Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
@@ -155,12 +156,14 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             fieldContext.fillStyle = fade; fieldContext.fillRect(0, 0, 768, 768);
             const replaced = ground.get(biome); if (replaced) shrink(replaced);
             ground.set(biome, field); fieldSources.set(biome, sourceKey);
-            let cliff = 0, score = -1;
-            for (let y = 0; y < 10; y++) for (let x = 0; x < 10; x++) {
-                const rank = [0, 1, 2].flatMap(dy => [0, 1, 2].map(dx => mask[y + dy]?.[x + dx] === '#' ? 1 : 0)).reduce<number>((a, b) => a + b, 0);
-                if (rank > score) { score = rank; cliff = y * 12 + x; }
+            // The densest blocked window, unless it is a lava pool (see continuous-world-rock.ts).
+            for (const cliff of rockWindows(mask).slice(0, 12)) {
+                const sprite = patch(image, cliff, true, 3);
+                let molten = 0;
+                try { molten = moltenShare(sprite.getContext('2d')!.getImageData(0, 0, sprite.width, sprite.height).data); } catch { /* unreadable: keep it */ }
+                if (molten > MOLTEN_ROCK_LIMIT) { shrink(sprite); continue; }
+                const old = rock.get(biome); if (old) shrink(old); rock.set(biome, sprite); break;
             }
-            if (score > 0) { const old = rock.get(biome); if (old) shrink(old); rock.set(biome, patch(image, cliff, true, 3)); }
             revision++;
         }
     }

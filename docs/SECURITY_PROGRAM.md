@@ -1,7 +1,7 @@
 # Information Security Program — Shinobi Journey
 
 **Status:** Internal operational document. Not user-facing legal advice.
-**Version:** 1.0 · **Last reviewed:** 2026-07-20 · **Review cadence:** at least annually and after any major architecture or vendor change.
+**Version:** 1.1 · **Last reviewed:** 2026-11-10 · **Review cadence:** at least annually and after any major architecture or vendor change.
 
 This is the written information-security program required by the amended US COPPA Rule
 (in full effect 22 Apr 2026) and supports GDPR/UK-GDPR Art. 32 (security of processing).
@@ -106,11 +106,13 @@ Each processor must have a signed DPA and be reviewed at least annually:
 | --- | --- | --- |
 | Supabase | Postgres database + managed backups | All stored data |
 | Railway | Application compute / hosting | Data in transit through the app |
-| Cloudflare | TLS, CDN, WAF, DDoS | Request metadata, IPs |
-| OpenAI | Optional AI image generation | Only the submitted prompt, when enabled |
+| Cloudflare | TLS, CDN, WAF, DDoS and Make Model object storage | Request metadata, IPs, private generation files and public sprite objects when Make Model is enabled |
+| OpenAI | Optional image generation and Make Model screening, image editing and result review | Submitted prompts and images used for those requests. [Data Processing Addendum](https://openai.com/policies/data-processing-addendum/) |
+| Modal | Make Model screening and rendering workers | Portrait and derived model files supplied to the worker when enabled. [Data Processing Addendum](https://modal.com/legal/dpa) |
 | Sentry | Optional error reporting | Error context (PII scrubbing on) |
 
 > **Action:** confirm a signed Data Processing Agreement is on file for each of the above.
+> Before enabling Make Model with player portraits, confirm the terms applicable to the configured OpenAI and Modal accounts and record the project's data controls.
 
 ## 8. Review
 Reviewed at least annually and after any major change (new sub-processor, new PII category,

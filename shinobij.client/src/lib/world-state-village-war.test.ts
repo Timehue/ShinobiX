@@ -100,6 +100,34 @@ describe("village-war rows keep the server's Ramparts max, peace offers and pre-
     });
 });
 
+describe("a village war against Cinderhold is a live war on the client", () => {
+    const CINDER = "Cinderhold Village";
+    const cinderWar = () => liveWar({ id: "cinderholdvillage-vs-moonshadowvillage", villages: [CINDER, MOON],
+        hp: { [CINDER]: 5_000, [MOON]: 5_000 }, warCrateId: "war-crate-cinderholdvillage-vs-moonshadowvillage-g2" });
+
+    it("is listed for the player village, beside a great-village war, in the great villages' order", () => {
+        hydrateSharedWorldState({ wars: [cinderWar(), liveWar()] });
+        const wars = activeVillageWarsFor(MOON);
+        assert.deepEqual(wars.map((war) => war.villages.find((v) => v !== MOON)), [STORM, CINDER]);
+        assert.deepEqual(activeVillageWarsFor(STORM).map((war) => war.id), ["moonshadowvillage-vs-stormveilvillage"]);
+        assert.deepEqual(activeVillageWarsFor(CINDER).map((war) => war.id), ["cinderholdvillage-vs-moonshadowvillage"]);
+    });
+
+    it("drops out once it ends, like any war", () => {
+        hydrateSharedWorldState({ wars: [{ ...cinderWar(), endedAt: Date.now() }] });
+        assert.equal(activeVillageWarsFor(MOON).length, 0);
+    });
+
+    it("takes war-mission damage like a war between great villages", async () => {
+        hydrateSharedWorldState({ wars: [cinderWar()] });
+        const sent = recordFetch(() => respondWith(200, { war: { ...cinderWar(), hp: { [CINDER]: 4_970, [MOON]: 5_000 }, updatedAt: Date.now() } }));
+        const result = await applyVillageWarMissionDamage(kaya, "mission-token-cinder");
+        assert.equal(sent.length, 1, "the mission reaches the server instead of 'not in an active war'");
+        assert.deepEqual((sent[0].body.war as { villages: string[] }).villages, [CINDER, MOON]);
+        assert.equal(result.ok, true);
+    });
+});
+
 describe("war mission damage is a server command the client waits for", () => {
     it("posts the token with the cached row, never a winner, end time or capture, and adopts the server's row", async () => {
         // A stale capture flag on the cached row must not reach the server as a

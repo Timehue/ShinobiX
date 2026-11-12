@@ -48,7 +48,7 @@ async function bootWorldMap(page: Page, initialSave?: UiAuditSave, setup?: () =>
         await returnToWorldAtlas(page);
     }
     await expect(page.locator(".generated-world-map")).toBeVisible();
-    await expect(page.locator(".atlas-sector")).toHaveCount(67);
+    await expect(page.locator(".atlas-sector")).toHaveCount(75);
     return runtimeErrors;
 }
 
@@ -441,7 +441,7 @@ test("Central landmark opens the hub directly", async ({ page }, testInfo) => {
 async function chooseRegion(page: Page, region: typeof regions[number]) {
     const button = page.locator(`.wm-village-chip[data-region="${region}"]`);
     await expect(button).toHaveAccessibleName({
-        ashen: "Ashen Leaf", gate: "Death's Gate", frost: "Frostfang",
+        ashen: "Ashen Leaf", gate: "Cinderhold", frost: "Frostfang",
         storm: "Stormveil", central: "Central", moon: "Moonshadow",
     }[region]);
     // Keep mobile region selection in the same input mode as map gestures.
@@ -759,8 +759,8 @@ test("six spatial region views fit the screen and cover every sector and map edg
     writeFileSync(coveragePath, JSON.stringify({ views, visible: [...visible], reachable: [...reachable], blocked }, null, 2));
     await testInfo.attach("camera-coverage", { path: coveragePath, contentType: "application/json" });
     expect(uncoveredMapCells(views), "six presets leave no uncovered artwork").toEqual([]);
-    expect(visible.size, "all 67 sector buttons fit fully inside at least one preset").toBe(67);
-    expect(reachable.size, "all 67 sectors expose a real touch target in at least one preset").toBe(67);
+    expect(visible.size, "all 75 sector buttons fit fully inside at least one preset").toBe(75);
+    expect(reachable.size, "all 75 sectors expose a real touch target in at least one preset").toBe(75);
     await chooseRegion(page, "frost");
     await page.screenshot({ path: testInfo.outputPath("world-map.png") });
     expect(errors).toEqual([]);

@@ -75997,7 +75997,7 @@
       "uses": [
         {
           "role": "background",
-          "resolvedImage": "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.webp",
+          "resolvedImage": "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.avif",
           "lineIndices": [
             0
           ],
@@ -76014,11 +76014,11 @@
             "tmp/vn-art-audit/roads-seventh/roadStormFoundingStone-390.png",
             "tmp/vn-art-audit/roads-seventh/roadStormFoundingStone-1440.png"
           ],
-          "consumersIndex": "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.webp"
+          "consumersIndex": "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.avif"
         },
         {
           "role": "background",
-          "resolvedImage": "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.webp",
+          "resolvedImage": "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.avif",
           "lineIndices": [
             1,
             2
@@ -76036,11 +76036,11 @@
             "tmp/vn-art-audit/roads-seventh/roadThreeFoundingStones-390.png",
             "tmp/vn-art-audit/roads-seventh/roadThreeFoundingStones-1440.png"
           ],
-          "consumersIndex": "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.webp"
+          "consumersIndex": "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.avif"
         },
         {
           "role": "background",
-          "resolvedImage": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.webp",
+          "resolvedImage": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.avif",
           "lineIndices": [
             3
           ],
@@ -76057,7 +76057,7 @@
             "tmp/vn-art-audit/roads-seventh/roadMoonFoundingStone-390.png",
             "tmp/vn-art-audit/roads-seventh/roadMoonFoundingStone-1440.png"
           ],
-          "consumersIndex": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.webp"
+          "consumersIndex": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.avif"
         }
       ]
     },
@@ -76123,7 +76123,7 @@
       "uses": [
         {
           "role": "background",
-          "resolvedImage": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.webp",
+          "resolvedImage": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.avif",
           "lineIndices": [
             0,
             1,
@@ -76144,7 +76144,7 @@
             "tmp/vn-art-audit/roads-seventh/roadMoonFoundingStone-390.png",
             "tmp/vn-art-audit/roads-seventh/roadMoonFoundingStone-1440.png"
           ],
-          "consumersIndex": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.webp"
+          "consumersIndex": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.avif"
         },
         {
           "role": "actor",
@@ -135540,7 +135540,7 @@
       ],
       "decision": "Retained after visual/source review; legacy compatibility preserved"
     },
-    "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.webp": {
+    "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.avif": {
       "bytes": 471744,
       "width": 1672,
       "height": 941,
@@ -135552,7 +135552,7 @@
       "decision": "Generated, integrated, runtime verified in representative desktop and phone captures",
       "evidence": {
         "key": "roadStormFoundingStone",
-        "asset": "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.webp",
+        "asset": "/scenes/story/cinematic/side-stories/road-storm-founding-stone-v1.avif",
         "desktop": "tmp/vn-art-audit/roads-seventh/roadStormFoundingStone-1440.png",
         "phone": "tmp/vn-art-audit/roads-seventh/roadStormFoundingStone-390.png",
         "runtimeErrors": [],
@@ -135564,7 +135564,7 @@
         ]
       }
     },
-    "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.webp": {
+    "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.avif": {
       "bytes": 542636,
       "width": 1672,
       "height": 941,
@@ -135576,7 +135576,7 @@
       "decision": "Generated, integrated, runtime verified in representative desktop and phone captures",
       "evidence": {
         "key": "roadThreeFoundingStones",
-        "asset": "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.webp",
+        "asset": "/scenes/story/cinematic/side-stories/road-three-founding-stones-v1.avif",
         "desktop": "tmp/vn-art-audit/roads-seventh/roadThreeFoundingStones-1440.png",
         "phone": "tmp/vn-art-audit/roads-seventh/roadThreeFoundingStones-390.png",
         "runtimeErrors": [],
@@ -135588,7 +135588,7 @@
         ]
       }
     },
-    "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.webp": {
+    "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.avif": {
       "bytes": 316648,
       "width": 1672,
       "height": 941,
@@ -135601,7 +135601,7 @@
       "decision": "Generated, integrated, runtime verified in representative desktop and phone captures",
       "evidence": {
         "key": "roadMoonFoundingStone",
-        "asset": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.webp",
+        "asset": "/scenes/story/cinematic/side-stories/road-moon-founding-stone-v1.avif",
         "desktop": "tmp/vn-art-audit/roads-seventh/roadMoonFoundingStone-1440.png",
         "phone": "tmp/vn-art-audit/roads-seventh/roadMoonFoundingStone-390.png",
         "runtimeErrors": [],

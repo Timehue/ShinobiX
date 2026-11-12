@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { isNpcTarget } from '../_npc-guard.js';
 import { rankFromLevel } from '../_xp-engine.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -135,6 +136,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const amount = Math.floor(num(body.amount));
             if (!target) return res.status(400).json({ error: 'Missing target.' });
             const targetSlug = safeName(target);
+            // Cinderhold shinobi are fought only in the open world, and a price on
+            // an NPC's head would let a friend collect it from a capped NPC win.
+            if (isNpcTarget(targetSlug)) return res.status(409).json({ error: "You can't place a bounty on an NPC." });
             const requestId = parseSettlementRequestId(body.requestId);
             if (body.requestId !== undefined && body.requestId !== null && !requestId) {
                 return res.status(400).json({ error: 'Invalid requestId.' });

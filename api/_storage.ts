@@ -50,6 +50,10 @@ const _CACHE_MAX_ENTRIES = 5000;
 
 // These prefixes change too rapidly to benefit from caching.
 const _noCachePrefixes = [
+    // Model lifecycle and deletion run on separate workers. Ownership and
+    // erasure proofs must reflect the same shared state as their jobs.
+    'avatar-model:slot:', 'avatar-model:job:', 'avatar-model:asset:',
+    'avatar-model:owner:', 'avatar-model:private-ref:', 'avatar-model:cleanup:',
     // Save blobs are optimistic-concurrency and RMW authority shared across
     // processes. A process-local cached v5 can survive another process's v6
     // commit, pass an exact `_baseSaveVersion:5` guard under the distributed

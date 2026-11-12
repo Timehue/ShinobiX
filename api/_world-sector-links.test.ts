@@ -6,8 +6,9 @@ import { nearestWalkableTile } from '../shared/sector-walk-mask.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
     // 82 pre-reorg roads remapped + the approved Upper Terraces ↔ Canal Heart
-    // link + the 12 expansion roads, minus the two roads into Sunscar.
-    assert.equal(SECTOR_ROAD_PAIRS.length, 93);
+    // link + the 12 expansion roads, minus the two roads into Sunscar, plus
+    // Cinderhold's 12 (2026-11-08).
+    assert.equal(SECTOR_ROAD_PAIRS.length, 105);
     assert.equal(SECTOR_EXITS.length, SECTOR_ROAD_PAIRS.length * 2);
 
     for (const sector of WILD_SECTOR_IDS) {

@@ -16,7 +16,7 @@
  * (shinobij.client/src/data/hollow-rifts.ts) must stay in sync (colocated test).
  */
 
-import { CASTLE_SECTORS, FESTIVAL_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, playableFieldObjectiveSector, remapLegacySector, WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
+import { CASTLE_SECTORS, CINDERHOLD_GATE_SECTOR, FESTIVAL_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, playableFieldObjectiveSector, remapLegacySector, WORLD_GEO_VERSION } from '../../shared/sector-geo.js';
 
 export const RIFT_DAILY_CAP = 3;                       // paid rift clears per UTC day
 export const RIFT_COOLDOWN_MS = 6 * 60 * 60 * 1000;    // roaming giver stays quiet 6h after a clear
@@ -215,7 +215,7 @@ export function riftTargetSector(playerName: string, riftId: string): number {
     let h = 2166136261;
     const s = `${playerName}|${riftId}`;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    const skip = new Set([...OUTSKIRTS_SECTORS, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
+    const skip = new Set([...OUTSKIRTS_SECTORS, CINDERHOLD_GATE_SECTOR, ...CASTLE_SECTORS, FESTIVAL_SECTOR]);
     let sec = (Math.abs(h) % MAX_WILD_SECTOR) + 1;
     for (let guard = 0; guard < MAX_WILD_SECTOR && skip.has(sec); guard++) sec = (sec % MAX_WILD_SECTOR) + 1;
     return sec;

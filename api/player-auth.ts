@@ -33,6 +33,12 @@ import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, cl
 import { recordBetaMetric } from './_beta-metrics.js';
 import { newRegistrationsDisabled } from './_launch-controls.js';
 import { hasStaffImpersonationName, isCleanPlayerName, TEXT_LIMITS } from './_text-moderation.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
+
+/** Credential and account actions a Cinderhold NPC account is refused (see the handler). */
+const NPC_REFUSED_AUTH_ACTIONS: ReadonlySet<string> = new Set([
+    'change', 'recovery-issue', 'recover', 'delete', 'admin-recovery', 'adminreset', 'google-unlink',
+]);
 import crypto from 'crypto';
 import { accountDeletionStatus } from './_account-deletion-wait.js';
 
@@ -475,6 +481,12 @@ export function newAccountNameError(req: VercelRequest, name: string): AuthFailu
         return { status: 400, body: { ok: false, error: 'Names that look like staff or village leaders are not allowed. Pick a different name.' } };
     }
 
+    // The 30 Cinderhold NPC shinobi are real accounts seeded by the server
+    // (api/_npc-village-seed.ts); their names are taken, like any other player's.
+    if (isNpcAccount(name)) {
+        return { status: 409, body: { ok: false, error: 'That username is already taken. Pick a different name.' } };
+    }
+
     // Reserved-username defense: the protected admin account can only be
     // claimed once, and only by someone holding the admin password. This
     // prevents random players from grabbing the privileged username after
@@ -726,6 +738,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
     }
     const key = authKey(name);
+
+    // Cinderhold NPC accounts have no credentials and must never gain one: the
+    // only way in is the 2 h admin takeover token (api/admin/npc-possess.ts).
+    // A password-less account may otherwise set a first password, mint a
+    // recovery code or delete itself with just a session token, which would turn
+    // a bounded takeover into a permanent door. Name gates (register) answer 409
+    // for these names on their own; login fails closed on the missing hash.
+    if (isNpcAccount(name) && NPC_REFUSED_AUTH_ACTIONS.has(String(action))) {
+        return res.status(403).json({ ok: false, error: 'This account cannot be changed.' });
+    }
 
     if (action === 'register') {
         // Keep this check inside the handler as well as the Railway/Express

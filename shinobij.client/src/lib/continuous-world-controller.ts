@@ -1,5 +1,5 @@
 import { createWorldWalker } from '../../../shared/continuous-world-navigation';
-import { worldDistance, type WorldPoint } from '../../../shared/continuous-world-space';
+import type { WorldPoint } from '../../../shared/continuous-world-space';
 import { nearestWalkableTile } from '../../../shared/sector-walk-mask';
 import { createContinuousWorldRenderer } from './continuous-world-renderer';
 import { loadContinuousWorld, worldMovementRequest, type WorldMovementReply } from './continuous-world-client';
@@ -8,8 +8,16 @@ import { isRealtimePresenceLive } from './use-presence-socket';
 import { worldRoadCrossings } from '../../../shared/world-road-crossings';
 import { createTapIndex } from './world-tap';
 import { createWorldMovePacer } from './world-move-pacing';
+import { sectorGaitTilesPerSecond, type GroundStride } from '../../../shared/sector-model-motion';
+import { createGaitBrake } from './world-gait-brake';
+import type { WorldRunWindow } from '../../../shared/world-run';
 
 type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivElement;
+    groundStride?: GroundStride;
+    sprintStyle?: () => import('../../../shared/player-model-ref').SprintStyle;
+    gait?: () => 'walk' | 'run' | undefined;
+    onRunWindow?: (run: WorldRunWindow) => void;
+    onFigure?: (x: number, y: number, width: number, moving: boolean, gait?: 'walk' | 'run') => void;
     onPosition?: (sector: number, col: number, row: number) => void;
     /** A tap on painted ground of the current sector; true when a landmark there took it. */
     onTapTile?: (tile: number) => boolean;
@@ -27,6 +35,7 @@ export async function mountContinuousWorld(host: Host) {
     if (staleReply(initial, world.space.layoutVersion)) throw new Error(STALE_WORLD_STATUS);
     const initialPosition = world.model.read(initial.worldPosition);
     if (!initial.ok || !initialPosition) throw new Error('World presence is not ready. Try again.');
+    if (initial.run) host.onRunWindow?.(initial.run);
     const walker = createWorldWalker(world.nodes, initialPosition.from);
     walker.restore(initialPosition);
     const renderer = createContinuousWorldRenderer(host.canvas, world.space, world.navigation);
@@ -35,6 +44,12 @@ export async function mountContinuousWorld(host: Host) {
     let tapIndex: ReturnType<typeof createTapIndex> | null = null;
     let sequence = initial.sequence ?? 0, sector = initial.sector!, tile = initial.tile!;
     let held: WorldPoint | null = null, frame = 0, last = 0, lastSend = 0;
+    const scene = host.canvas.parentElement;
+    let slowFrames = 0;
+    let releaseDirection: WorldPoint | null = null, fittedActive = false;
+    let fittedHeading: WorldPoint | null = null;
+    let heldKey = '', lastSpeed = 0;
+    let brake: ReturnType<typeof createGaitBrake> | null = null;
     let inFlight = false, disposed = false, stale = false, sentCursor = '', resyncing = false, drag: { x: number; y: number; moved: boolean } | null = null;
     let requestedSector = sector, retryAfter = 0, refusedInRow = 0, resumed = false;
     let pendingDestination: string | null = null;
@@ -58,13 +73,14 @@ export async function mountContinuousWorld(host: Host) {
         }
         host.onAuthority(sector, tile); return true;
     }
-    async function send(force = false) {
+    async function send(force = false, gait = host.gait?.()) {
         if (inFlight || resyncing || disposed || stale || host.signal.aborted) return false;
         const cursor = walker.cursor(world.space.layoutVersion);
         if (!force && !pace.retrying && JSON.stringify(cursor) === sentCursor) return true;
         inFlight = true; const update = pace.next(cursor, performance.now() / 1000), signature = JSON.stringify(update.cursor), sentSector = sector;
         try {
-            const reply = await worldMovementRequest(update.cursor, sequence, host.signal);
+            const presentation = gait ? { gait, style: host.sprintStyle?.() ?? 'A' } : undefined;
+            const reply = await worldMovementRequest(update.cursor, sequence, host.signal, presentation);
             if (disposed || host.signal.aborted) return false;
             startupThrottled = reply.reason === 'throttled';
             if (accept(reply)) { if (reply.ok) pace.accepted(update, performance.now() / 1000); if (requestedSector === sentSector) requestedSector = sector; sentCursor = reply.ok ? signature : ''; host.onStatus(reply.ok || resumable(reply) ? '' : 'Movement paused. Choose a new destination.'); return true; }
@@ -89,7 +105,7 @@ export async function mountContinuousWorld(host: Host) {
     if (host.signal.aborted) { renderer.dispose(); throw new DOMException('Aborted', 'AbortError'); }
     const chooseDestination = (destination: string) => {
         if (host.blocked()) return;
-        held = null;
+        held = null; brake = null;
         // Closing a modal refreshes authority. Keep an input received during
         // that refresh instead of letting it discard the chosen route.
         if (resumed || resyncing || requestedSector !== sector) { pendingDestination = destination; return; }
@@ -97,24 +113,47 @@ export async function mountContinuousWorld(host: Host) {
     };
     const go = (targetSector: number, targetTile: number) => chooseDestination(`${targetSector}:${nearestWalkableTile(targetSector, targetTile)}`);
     const unbind = bindContinuousWorldControl(destination => go(destination.sector, destination.tile));
+    function steer(direction: WorldPoint, replace: boolean) {
+        const gait=host.gait?.();
+        if (fittedHeading && gait && !brake &&
+            fittedHeading.x*direction.x+fittedHeading.y*direction.y<.38) {
+            releaseDirection=fittedHeading;
+            brake=createGaitBrake(lastSpeed,gait);
+        } else if (!fittedActive || !brake) {
+            brake=null;
+            if (replace) walker.stop();
+        }
+        held=direction; pendingDestination=null;
+    }
     function keydown(event: KeyboardEvent) {
         const target = event.target as HTMLElement, key = event.key.toLowerCase();
         if (host.blocked() || target.closest('input,textarea,select,[contenteditable],[data-sector-hud],[role=dialog]')) return;
         if (key.startsWith('arrow') && target.closest('button,a,[role=button],[tabindex]:not(canvas):not([tabindex="-1"])')) return;
-        if (key === 'e' || key === 'escape') { held = null; pendingDestination = null; walker.stop(); return; }
+        if (key === 'e' || key === 'escape') { held = null; brake = null; pendingDestination = null; walker.stop(); return; }
         const direction = directions[key]; if (!direction) return;
         event.preventDefault(); event.stopImmediatePropagation();
-        held = direction; pendingDestination = null; if (!event.repeat) walker.stop();
+        heldKey = key;
+        if (!event.repeat || !held) steer(direction,true);
     }
-    const keyup = (event: KeyboardEvent) => { if (directions[event.key.toLowerCase()]) held = null; };
-    const blur = () => { held = null; pendingDestination = null; walker.stop(); };
+    function releaseHeld() {
+        if (!held) return;
+        const gait = host.gait?.();
+        if (!brake && gait && (walker.moving || fittedActive)) {
+            releaseDirection = held;
+            brake = createGaitBrake(lastSpeed, gait);
+        }
+        held = null; heldKey = '';
+    }
+    const keyup = (event: KeyboardEvent) => { if (heldKey === event.key.toLowerCase()) releaseHeld(); };
+    const blur = () => { held = null; brake = null; pendingDestination = null; walker.stop(); };
     const pointerdown = (event: PointerEvent) => { drag = { x: event.clientX, y: event.clientY, moved: false }; host.canvas.setPointerCapture(event.pointerId); };
     const pointermove = (event: PointerEvent) => {
         if (!drag || host.blocked()) return;
         const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
         if (Math.hypot(dx, dy) < 10) return;
-        if (!drag.moved) { pendingDestination = null; walker.stop(); } drag.moved = true;
-        held = Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+        const direction = Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+        if (!drag.moved || held?.x!==direction.x || held?.y!==direction.y) steer(direction,!drag.moved);
+        heldKey=''; drag.moved=true;
     };
     const pointerup = (event: PointerEvent) => {
         if (!drag) return;
@@ -130,9 +169,10 @@ export async function mountContinuousWorld(host: Host) {
                 { layoutVersion: cursor.layoutVersion, from: node.id, to: node.id, progress: 0 }, 32) !== null);
             if (closest) chooseDestination(closest.node.id);
         }
-        drag = null; held = null;
+        if (drag.moved) releaseHeld();
+        drag = null;
     };
-    const pointercancel = () => { drag = null; held = null; };
+    const pointercancel = () => { if (drag?.moved) releaseHeld(); drag = null; };
     window.addEventListener('keydown', keydown, true); window.addEventListener('keyup', keyup); window.addEventListener('blur', blur);
     host.canvas.addEventListener('pointerdown', pointerdown); host.canvas.addEventListener('pointermove', pointermove);
     host.canvas.addEventListener('pointerup', pointerup); host.canvas.addEventListener('pointercancel', pointercancel);
@@ -145,6 +185,7 @@ export async function mountContinuousWorld(host: Host) {
             const reply = await worldMovementRequest(undefined, undefined, host.signal), cursor = world.model.read(reply.worldPosition);
             if (staleReply(reply, world.space.layoutVersion)) { stale = true; resumed = false; host.onStatus(STALE_WORLD_STATUS); }
             else if (reply.ok && cursor && !disposed) {
+                if (reply.run) host.onRunWindow?.(reply.run);
                 walker.restore(cursor); sequence = reply.sequence ?? 0; sector = reply.sector!; tile = reply.tile!; resumed = false;
                 requestedSector = sector; pace.reset(); sentCursor = ''; host.onAuthority(sector, tile); host.onStatus('');
                 const destination = pendingDestination; pendingDestination = null;
@@ -158,7 +199,17 @@ export async function mountContinuousWorld(host: Host) {
         // the renderer and its decoded maps, so leaving costs one position read
         // (the forced resync below), not a reconnect and a rebuilt renderer.
         if (host.paused?.()) { last = 0; resumed = true; frame = requestAnimationFrame(tick); return; }
-        const dt = Math.min(.05, (now - (last || now)) / 1000); last = now;
+        const gait = host.gait?.();
+        // Measure this view on the player's device. A single image decode or a
+        // background-tab pause shouldn't change the presentation for the visit.
+        if (slowFrames < 5) {
+            const intervalMs = now-last;
+            slowFrames = last && !document.hidden && intervalMs > 80 && intervalMs < 750 ? slowFrames+1 : 0;
+            if (slowFrames === 5) scene?.classList.add('world-light-effects');
+        }
+        // A lower travel rate can safely integrate a longer phone frame. The walker
+        // still bounds distance per update and discards long background pauses.
+        const dt = Math.min(gait ? .5 : .05, (now - (last || now)) / 1000); last = now;
         if ((resumed || requestedSector !== sector) && now >= retryAfter) void resync(resumed);
         // Each update must cover less ground than WORLD_UPDATE_TILES, or walking
         // waits between replies even on a fast connection (125 ms = 0.8 tile). The
@@ -171,21 +222,42 @@ export async function mountContinuousWorld(host: Host) {
         const due = now - lastSend > interval;
         const blocked = stale || document.hidden || requestedSector !== sector
             || ((held !== null || walker.moving || due) && host.blocked());
-        if (blocked) { held = null; walker.stop(); }
-        if (held && !walker.moving && !blocked) {
-            let best = '', score = .35;
-            for (const id of walker.node.neighbors) {
-                const n = world.nodes.get(id)!, distance = worldDistance(walker.node, n);
-                const rank = ((n.x - walker.node.x) * held.x + (n.y - walker.node.y) * held.y) / distance;
-                if (rank > score) { score = rank; best = id; }
-            }
-            if (best) walker.go(best);
-        }
+        if (blocked) { held = null; brake = null; walker.stop(); }
         walker.pause(blocked || resyncing);
-        const before = walker.travelled; walker.tick(Math.min(dt * pace.rate(interval / 1000), pace.room));
-        pace.advance((walker.travelled - before) / 6.5);
-        if (!blocked && due) { lastSend = now; void send(); }
+        // The fitted sheets are authored at 1080 pixels for a 12-tile sector.
+        // Express their ground speed in walker seconds before applying the network allowance.
+        const strideRate = gait ? sectorGaitTilesPerSecond[gait] / 6.5 : 1;
+        const before = walker.travelled;
+        const figureGait = brake?.gait ?? gait;
+        // A slow foreground frame can span several foot contacts or graph segments.
+        // Advance in walker-sized steps against one network allowance and paint once.
+        const steps = Math.max(1,Math.ceil(dt/.05));
+        const slice = dt/steps;
+        for (let step=0; step<steps; step++) {
+            const direction = brake && fittedActive ? releaseDirection : held;
+            if (direction && !walker.moving && !blocked && !resyncing) walker.step(direction,!!gait);
+            const budget = Math.max(0, Math.min(slice * pace.rate(interval / 1000), pace.room));
+            const segment = gait && !resyncing && !blocked ? walker.nextSegment() : null;
+            const fitted = gait && host.groundStride?.(segment, segment && !brake ? gait : null, slice,
+                Math.min((segment?.distance ?? 0)*90,budget*585),
+                brake && held ? {dx:held.x,dy:held.y} : undefined);
+            fittedActive = Boolean(fitted && !fitted.idle);
+            const travelTime = fitted ? fitted.distance/585 : brake ? brake.advance(slice)/585 : slice*strideRate;
+            const start = walker.travelled;
+            walker.tick(Math.min(travelTime,budget));
+            // The next segment can be empty between road nodes, and a network
+            // allowance can hold the actor still for a frame mid-stride.
+            if (!fittedActive) fittedHeading=null;
+            else if (segment && walker.travelled>start) fittedHeading={x:segment.dx,y:segment.dy};
+            pace.advance((walker.travelled-start)/6.5);
+            if (brake && (fitted ? fitted.idle : brake.done)) {
+                brake = null; walker.stop(); break;
+            }
+        }
+        lastSpeed = dt > 0 ? (walker.travelled - before) * 90 / dt : 0;
+        if (!blocked && due) { lastSend = now; void send(false, figureGait); }
         const view = renderer.draw(walker.position, sector), size = view.tilePx * 12;
+        host.onFigure?.(walker.position.x * view.tilePx, walker.position.y * view.tilePx, size, walker.travelled > before, figureGait);
         host.onPosition?.(sector, walker.position.x - view.chunk.x - .5, walker.position.y - view.chunk.y - .5);
         host.chunk.style.width = host.chunk.style.height = `${size}px`;
         host.chunk.style.setProperty('--world-tile-px', `${view.tilePx}px`);
@@ -201,6 +273,7 @@ export async function mountContinuousWorld(host: Host) {
     frame = requestAnimationFrame(tick);
     return { go, externalSector(nextSector: number) { requestedSector = nextSector; pendingDestination = null; void resync(); }, dispose() {
         disposed = true; walker.stop(); cancelAnimationFrame(frame); unbind(); renderer.dispose();
+        scene?.classList.remove('world-light-effects');
         window.removeEventListener('keydown', keydown, true); window.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur);
         host.canvas.removeEventListener('pointerdown', pointerdown); host.canvas.removeEventListener('pointermove', pointermove);
         host.canvas.removeEventListener('pointerup', pointerup); host.canvas.removeEventListener('pointercancel', pointercancel);

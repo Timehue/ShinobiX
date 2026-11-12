@@ -128,13 +128,22 @@ export const RIFT_BY_ART: Readonly<Record<number, BoardPoint>> = {
     18: { left: 86, top: 82 }, // s57 Hollow Temple
      7: { left: 14, top: 58 }, // s58 Cinder Foothills
      2: { left: 86, top: 74 }, // s59 Northroad Saddle
-    52: { left: 66, top: 66 }, // s60 Obsidian Forecourt
+    52: { left: 66, top: 66 }, // s60 Ashbrook Hills
     61: { left: 76, top: 68 }, // s61 Westfurrow Fields
     62: { left: 84, top: 68 }, // s62 Greycliff Landing
     63: { left: 72, top: 62 }, // s63 Tallgrass Bend
     64: { left: 86, top: 64 }, // s64 Lantern Vigil
     65: { left: 30, top: 54 }, // s65 Eastwind Cirque
     66: { left: 84, top: 54 }, // s66 Emberspine Ridge
+    // Cinderhold (2026-11-08, re-authored 2026-11-11): the authored rift
+    // anchors. The gate (67) has none: rift quests skip every village gate.
+    68: { left: 79.17, top: 33.33 }, // s68 Basalt Steps
+    69: { left: 12.5, top: 75 }, // s69 Smokevent Terraces
+    70: { left: 20.83, top: 75 }, // s70 Magma Cistern
+    71: { left: 29.17, top: 16.67 }, // s71 Ashfall Barracks
+    72: { left: 20.83, top: 83.33 }, // s72 Obsidian Drill Yard
+    73: { left: 79.17, top: 83.33 }, // s73 Caldera Rim
+    74: { left: 29.17, top: 83.33 }, // s74 Slagwater Crossing
 };
 
 // Only reachable for a sector outside both domains above, which the tests forbid for

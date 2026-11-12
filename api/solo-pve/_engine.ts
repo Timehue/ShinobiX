@@ -1654,7 +1654,7 @@ function aiTileForJutsu(session: SoloPveSession, jutsu: SoloPveJutsu): number | 
         // A partial turn must not turn an authored ranged role into melee.
         // The approach preview still requires a payable follow-up before moving.
         const preserveSignatureReach = session.encounter.kind === 'mission' && session.enemy.character.missionTactics === true
-            && !pveEasyBandHoldsBurst(Math.max(1, Number(session.enemy.character.level) || 1), session.round);
+            && !pveEasyBandHoldsBurst(aiBandLevel(session.enemy.character), session.round);
         const kit = jutsuList(session.enemy).filter(j => (session.cooldowns.enemy[j.id] ?? 0) <= 0
             && (!sealed || !['Earth','Wind','Water','Lightning','Fire'].includes(String(j.element)))
             && (preserveSignatureReach || actionCost(session,'enemy',Number(j.ap ?? 40)) <= remaining)
@@ -1781,7 +1781,7 @@ function aiJutsuScore(session: SoloPveSession, jutsu: SoloPveJutsu, tile: number
 function aiJutsuCandidates(session: SoloPveSession): AiJutsuCandidate[] {
     const enemy = session.enemy;
     const distance = hexDistance(enemy.pos, session.player.pos);
-    const level = Math.max(1, Number(enemy.character.level) || 1);
+    const level = aiBandLevel(enemy.character);
     const competence = pveAiCompetence(level, enemy.character.masterAi === true);
     return jutsuList(enemy)
         .filter((jutsu) => (session.cooldowns.enemy[jutsu.id] ?? 0) <= 0)
@@ -1860,7 +1860,7 @@ function distantGapClosingAction(session: SoloPveSession): SoloPveAction | null 
 }
 
 function aiTacticalAction(session: SoloPveSession, recoveryFirst = false): SoloPveAction | null {
-    const level = Math.max(1, Number(session.enemy.character.level) || 1);
+    const level = aiBandLevel(session.enemy.character);
     const competence = pveAiCompetence(level, session.enemy.character.masterAi === true);
     const healThreshold = competence.band === 'easy' ? 0.3 : competence.band === 'medium' ? 0.42 : 0.55;
     const heal: SoloPveAction | null = session.enemy.hp / Math.max(1, session.enemy.maxHp) <= healThreshold
@@ -2008,7 +2008,7 @@ function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule, candi
 
     // Reactive counterplay remains competence-gated. Authored rules can decide
     // WHEN a capable AI counters, but cannot make easy-band opponents omniscient.
-    const level = Math.max(1, Number(session.enemy.character.level) || 1);
+    const level = aiBandLevel(session.enemy.character);
     const competence = pveAiCompetence(level, session.enemy.character.masterAi === true);
     if (competence.band === 'easy') return null;
     if (rule.action === 'clear_player_buffs') {
@@ -2250,6 +2250,18 @@ function enemyFillerAction(session: SoloPveSession): SoloPveAction | null {
     return null;
 }
 
+/**
+ * The level an AI's competence band reads (easy holds bursts and never clears
+ * or cleanses; peer plays like a real maxed player). A Cinderhold shinobi in a
+ * PvP seat (api/_npc-ai-seat.ts) is projected with `pvpPeerAi`: it is another
+ * player, not a teaching opponent, so it always plays as a peer. Search depth
+ * and every combat number still come from its own level and policy.
+ */
+function aiBandLevel(character: { level?: unknown; pvpPeerAi?: unknown }): number {
+    if (character.pvpPeerAi === true) return 100;
+    return Math.max(1, Number(character.level) || 1);
+}
+
 /** The existing scorer's ranking, restricted to casts the resolver accepts. */
 function legalJutsuCandidates(session: SoloPveSession): AiJutsuCandidate[] {
     return aiJutsuCandidates(session).filter((candidate) => enemyActionLegal(session, jutsuCandidateAction(candidate)));
@@ -2262,7 +2274,7 @@ function legalJutsuCandidates(session: SoloPveSession): AiJutsuCandidate[] {
  * step toward the player, the only repositioning the AI already made.
  */
 function plannerEnemyActions(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction[] {
-    const competence = pveAiCompetence(Math.max(1, Number(session.enemy.character.level) || 1), session.enemy.character.masterAi === true);
+    const competence = pveAiCompetence(aiBandLevel(session.enemy.character), session.enemy.character.masterAi === true);
     const actions: SoloPveAction[] = [];
     const push = (action: SoloPveAction | null) => {
         if (action?.type === 'move' && prefersAiGapClosingMovement(jutsuList(session.enemy),
@@ -2272,7 +2284,7 @@ function plannerEnemyActions(session: SoloPveSession, policy: EnemyTurnPolicy): 
     // The real resolver scores these below; do not resolve every jutsu twice
     // with the old power/count scorer at every node in a search tree.
     for (const jutsu of jutsuList(session.enemy)) {
-        if (pveEasyBandHoldsBurst(Number(session.enemy.character.level) || 1, session.round) && Number(jutsu.ap ?? 40) >= 60
+        if (pveEasyBandHoldsBurst(aiBandLevel(session.enemy.character), session.round) && Number(jutsu.ap ?? 40) >= 60
             && !isDistantAiGapCloser(jutsu, hexDistance(session.enemy.pos, session.player.pos))
             && !aiJustFlickered(jutsuList(session.enemy), session.cooldowns.enemy, session.actionsThisTurn)) continue;
         const tile = aiTileForJutsu(session, jutsu);
@@ -2293,6 +2305,18 @@ function plannerEnemyActions(session: SoloPveSession, policy: EnemyTurnPolicy): 
     }
     const weapon = enemyHandWeapon(session);
     if (weapon?.id) push({ type: 'weapon', itemId: weapon.id });
+    // A PvP seat (api/_npc-ai-seat.ts) uses its pouch the way a player does: a
+    // pill, a smoke bomb, a throw or a potion competes with every other action
+    // in the search at any AP, not only as leftover-AP filler. Legality and
+    // charges are still the resolver's; PvE enemies are unchanged.
+    if (session.enemy.character.pvpPeerAi === true) {
+        const equipment = (session.enemy.character.equipment ?? {}) as Record<string, unknown>;
+        for (const slot of ['thrown', 'item1', 'item2', 'item3', 'item', 'potion']) {
+            const itemId = equipment[slot];
+            if (typeof itemId !== 'string' || !itemId) continue;
+            push(slot === 'thrown' ? { type: 'weapon', itemId } : { type: 'item', itemId });
+        }
+    }
     push({ type: 'basicAttack' });
     if (session.enemy.hp < session.enemy.maxHp) push({ type: 'basicHeal' });
     if (enemyClearHasBenefit(session, competence.clearBuffThreshold)) push({ type: 'clear' });
@@ -2340,7 +2364,7 @@ function enemyTurnSnapshot(session: SoloPveSession, policy: EnemyTurnPolicy): En
     const damagingReach = jutsuList(session.enemy)
         .filter((jutsu) => Number(jutsu.effectPower ?? 0) > 0 && !isZeroDamageFortyApJutsu(jutsu) && !hasMoveTag(jutsu)
             && jutsu.target !== 'SELF'
-            && (!pveEasyBandHoldsBurst(Number(session.enemy.character.level) || 1, session.round) || Number(jutsu.ap ?? 40) < 60))
+            && (!pveEasyBandHoldsBurst(aiBandLevel(session.enemy.character), session.round) || Number(jutsu.ap ?? 40) < 60))
         .filter((jutsu) => {
             // Range can be solved by moving; a prohibited cast cannot. Reuse
             // the authoritative eligibility rules, including Elemental Seal,
@@ -2476,7 +2500,7 @@ function bestJutsuForPolicy(session: SoloPveSession, policy: EnemyTurnPolicy): S
  * the resolver would accept it; a rule asking for "the best jutsu" and the
  * generic fallback are decided by the bracket policy.
  */
-function chooseStandardPveEnemyAction(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction | null {
+export function chooseStandardPveEnemyAction(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction | null {
     const filler = enemyFillerAction(session);
     if (filler) return filler;
     const tactic = policy.tier === 'novice' ? aiTacticalAction(session) : null;

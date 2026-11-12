@@ -1,0 +1,212 @@
+[
+  {
+    "id": "kuroto",
+    "avatar": "/npc-portraits/kuroto.avif",
+    "portraitSha256": "ec12421241fba77a9158604ec27556fbfeef888c82b97ee3d964ca8c0e12f924",
+    "assetId": "7bfa5b2885d87b57f35954cd6f0fa2dc",
+    "version": "fe52530f18cf2e982181ac99f499c555e00064e3d5684e4b9df6bd2fb9e2cfb9"
+  },
+  {
+    "id": "renji",
+    "avatar": "/npc-portraits/renji.avif",
+    "portraitSha256": "b216d8c1c19c577b32c24516b55701b7b4d95bd2380c8791fa9d345a7059d040",
+    "assetId": "1e83d66f0b019610e3952116f854f76b",
+    "version": "4d43894e87ec0d0573ae285da56548fc396166b2cacd80823e81410ac111d175"
+  },
+  {
+    "id": "virath",
+    "avatar": "/npc-portraits/virath.avif",
+    "portraitSha256": "ba174b67a2d85636fc6228f07c706b7d81ba2db1c5750c8f923a79d45267dd60",
+    "assetId": "888202c13e5da1e2e3ce9628d1c0406a",
+    "version": "eb0ca78a8ff87792b9b2107d90c774f240d3e76e6f77113f56c836f61f4d7c02"
+  },
+  {
+    "id": "kat",
+    "avatar": "/npc-portraits/kat.avif",
+    "portraitSha256": "e5f7433b627c8f2e171f6d4ace31f3e42a0621c9db72b66e8fba8a43854d55cb",
+    "assetId": "4cb8979f7e4c5fe79205da1479e44da0",
+    "version": "f10954ccbb972d331ca73f429ce89981ceb791ee43fffa96128c84acecf59860"
+  },
+  {
+    "id": "raku",
+    "avatar": "/npc-portraits/raku.avif",
+    "portraitSha256": "796abe879c7aa5d9e7218d70f112a1f3fb03d0743642e83c7ae2fc0af8e33c69",
+    "assetId": "cd4b46dd0e050323c17825ed0a03227b",
+    "version": "ffdf3f15a1b2feda6ceb3c0240d342c058301ef42945a11ae8bb26cdc9c84055"
+  },
+  {
+    "id": "nozomi",
+    "avatar": "/npc-portraits/nozomi.avif",
+    "portraitSha256": "d2da065c6c0da34df2d5fca445d930d2e74be8bc69189311df8bbf10dd5f26a2",
+    "assetId": "53737e9007083924c6fb2c61835dd6b3",
+    "version": "c6d966d4be6d03bcc0d5a5e147fd351567ee2f9de78790a530008b015f1c926c"
+  },
+  {
+    "id": "nyra",
+    "avatar": "/npc-portraits/nyra.avif",
+    "portraitSha256": "2eefed017e55241af3cdf01431de2e06ea5f1fd87f6109bb6f3669d6bcab5fa3",
+    "assetId": "e0ca59954012e24feb973543d5b530a9",
+    "version": "26d66e2fe0b0ffd4df822e7fd7c9443b4c575da506427a14df686e5aa7fe7cd0"
+  },
+  {
+    "id": "roy",
+    "avatar": "/npc-portraits/roy.avif",
+    "portraitSha256": "86777f2b4aa04b9d4c11d816e965655fce3a25defc63ab19dfad01cc6500a953",
+    "assetId": "7861e81d7959e7e15058f624fc1e0752",
+    "version": "978c6877ab3265727280c36021e05c75f45327ee3146501b04103807ea05e6a5"
+  },
+  {
+    "id": "mizuki",
+    "avatar": "/npc-portraits/mizuki.avif",
+    "portraitSha256": "c134609644901036fd67d66961dcfc42c419eba38977dff25780844c413414bf",
+    "assetId": "2c81f74ea914614e8797e4fae3ce10c4",
+    "version": "f1d3e4721b3f914375c1d5a10be5a329d4fd86ab571690968b3b70bfc042f50f"
+  },
+  {
+    "id": "sly",
+    "avatar": "/npc-portraits/sly.avif",
+    "portraitSha256": "618c045bb30bd37b0ea4a4d1c2e50b1f2ae8f6de1b343dbd53ccbaa7bd81cb12",
+    "assetId": "85d7b2d816bc919920e2f31f2fd0287d",
+    "version": "40469874d48d628432e09f6981b0acafdef79fe2782ba8836be66c50573d16a7"
+  },
+  {
+    "id": "seiran",
+    "avatar": "/npc-portraits/seiran.avif",
+    "portraitSha256": "197958801ec20f28bec6c6a29fac522279bf2f1e159e959d61c8d5f1fbd00b28",
+    "assetId": "d576c1ef9d0f5c92047750abd7f53db1",
+    "version": "9a6a56f613b039958751287cee4b36e95f14765920bf377b2a26bfd57f553e31"
+  },
+  {
+    "id": "akari",
+    "avatar": "/npc-portraits/akari.avif",
+    "portraitSha256": "4e6709b1c09f744c01c2541a84022c065494be848dea3a6a66d5b1bac50cebed",
+    "assetId": "c1688acff54d39f48a2cb6ca92e6a371",
+    "version": "a922c756e31e39d74aac4169a91f0ee4397e9c9ebd3c88659093570d603cc1a0"
+  },
+  {
+    "id": "kaien",
+    "avatar": "/npc-portraits/kaien.avif",
+    "portraitSha256": "87f19fe3919a427446e30a0514104cfc5c2f1fa6edf17c46cf954903f332f702",
+    "assetId": "918a5980ea85c45f12cc232f8709dec0",
+    "version": "8fea03a7e49e5ded0b5b01e28ec49a1803e88b8f09b1969673121e9493baf8e1"
+  },
+  {
+    "id": "kairo",
+    "avatar": "/npc-portraits/kairo.avif",
+    "portraitSha256": "5c7ec0ec62ec27c189c22972811bfafdf34cc7faac517fbd4ae2219f40b64a91",
+    "assetId": "4540e63c98953a71c4513bb1fd429143",
+    "version": "c203690827c7bdb1f2895ae013c90cbd715408a25782f8e150cc48bb22a94d63"
+  },
+  {
+    "id": "suiren",
+    "avatar": "/npc-portraits/suiren.avif",
+    "portraitSha256": "6cb703b19a70c9dbefe0a1f56da2f3a9484660de8bae9e23c3d235624a5f4708",
+    "assetId": "716fa498429cfaa300d3341227e57d3f",
+    "version": "6f99e28b0b3ff43587d9ecc4fd0ba73c54aa836a2cfb1e9fbacc6efa1972dff0"
+  },
+  {
+    "id": "tavi",
+    "avatar": "/npc-portraits/tavi.avif",
+    "portraitSha256": "ce8900359b3c90e2098d0c8390ddb7bda3c081f00fdbd860dc7184331c784437",
+    "assetId": "98672f4a3ccd051bcd2005dace10c153",
+    "version": "af0ef970735559f23a581dd2ccadda8f6ad84428864df237e08a89fff66e12ce"
+  },
+  {
+    "id": "sayo",
+    "avatar": "/npc-portraits/sayo.avif",
+    "portraitSha256": "0a5be906e4242443cf6635a9ade48f2ef2118badf15e1ed8fcf89b3566ecb8a2",
+    "assetId": "81b89845d377a7201bca6cf73c191ee0",
+    "version": "9014173643b49fc2b31125b636fe470cb09d4016f741ef3739ee96772638ae5a"
+  },
+  {
+    "id": "hayate",
+    "avatar": "/npc-portraits/hayate.avif",
+    "portraitSha256": "8ff6698eb38d3cd1ebe31cc4d578dcd3677b4c92e668bd009c0477e911e4d736",
+    "assetId": "889f335116fcce06a2e28c0ce147750f",
+    "version": "6e954b495c4bd64fe327c825059e4563908410a0c7a65dc1075dc7da4e647bf4"
+  },
+  {
+    "id": "kohaku",
+    "avatar": "/npc-portraits/kohaku.avif",
+    "portraitSha256": "feecb014d556a2579a978cac6add611c056c75a257b3afc6f098bdfd39ae6e16",
+    "assetId": "a8665687be95ff71f43afca6152eb17d",
+    "version": "366cf68c3420353c91f6bf0a773c509ff2fe12d0a76ecb360010e470d91cb95c"
+  },
+  {
+    "id": "alisia",
+    "avatar": "/npc-portraits/alisia.avif",
+    "portraitSha256": "a10c58c4f77e13819025f084ddede5ac732c6e2e47f047991791d96d6e1f3342",
+    "assetId": "9a56a7d0418375b8a711b8bd881ae1c3",
+    "version": "436f5bb1524a34c4cbc0c0af0d8480239708821a5e8edf91e31afd87f72d45b0"
+  },
+  {
+    "id": "ayame",
+    "avatar": "/npc-portraits/ayame.avif",
+    "portraitSha256": "bb63218a24e8181941018bf58346dd4202ef2ca05950e46aa540896429855e20",
+    "assetId": "d4b226b9babc68544df420d77d56b1b0",
+    "version": "8b027b01e427b00bc07a58ee888d60dee590b3291f056a31d763ee456686b888"
+  },
+  {
+    "id": "shion",
+    "avatar": "/npc-portraits/shion.avif",
+    "portraitSha256": "d57be8b9d75d8de1dbda3fa4a16b16f2a9765f3f21e78c759fc4ff20fd1e7182",
+    "assetId": "0a73241bc3480933e8ea7b240ccf4880",
+    "version": "554e4d2a9ce72213fdbc439e0dfcb91a90633ba0f0b3565fad44c1c9b5f7b7d8"
+  },
+  {
+    "id": "veyl",
+    "avatar": "/npc-portraits/veyl.avif",
+    "portraitSha256": "9ce9382c6572b5fc28ec73f9f03c83df14cba09c8489025d2cf3d97cd72d4c00",
+    "assetId": "9b1cc4b1878583ef979789904000f27e",
+    "version": "62a102509932520e22ae1350c12dc801f6cf9f6e221ced7afbd54b76b3a54a30"
+  },
+  {
+    "id": "riven",
+    "avatar": "/npc-portraits/riven.avif",
+    "portraitSha256": "c0fbb75460d53d5fb87285667e0728327f44bb3c00447beb4aa10bda561e743e",
+    "assetId": "108fe37507d54f86d689c65b787dd36c",
+    "version": "92bbae1486f626af70e8bc9598809193d89d1803a936481f66c8eff19316f7da"
+  },
+  {
+    "id": "vesper",
+    "avatar": "/npc-portraits/vesper.avif",
+    "portraitSha256": "6608b0d07cb8e8f791d5bdd5c9be48e3e80550ca2e3d1c4ff3d3907cd678aaba",
+    "assetId": "5553472e2d74116a1b02f6f82a5ed423",
+    "version": "9fa8898de3eea8eb69d589804dcbdcef77b8f365877aae7c8d4627ec784dec82"
+  },
+  {
+    "id": "reika",
+    "avatar": "/npc-portraits/reika.avif",
+    "portraitSha256": "8057d4f8f4607629586f745669fb05cb77ca9fb9270ca234baface32cb86e1c3",
+    "assetId": "96bb0614ac9167e6b391f4ed7004350a",
+    "version": "5de48f0e55fa8e8bb54ec368d972b664caaa696389c089d88ebf809cf931b608"
+  },
+  {
+    "id": "jiro",
+    "avatar": "/npc-portraits/jiro.avif",
+    "portraitSha256": "e43471e190d068b242ccd755434c0c61372892a48ac3a66548d94a43f8127a6f",
+    "assetId": "a735c585298136114ffb35763bcbaf1c",
+    "version": "c113610e09d811490ffbc2e7ec306e0a0dcfab820d895f25d8010ee83d789663"
+  },
+  {
+    "id": "daigo",
+    "avatar": "/npc-portraits/daigo.avif",
+    "portraitSha256": "a52c5ea51f0a5c325f31574cac037929440e900a0ad62cecd89d957618eaead5",
+    "assetId": "b93bff239acb0b01e77530104a260ec7",
+    "version": "ae01fbc811f4d1c9304c8438dfdc065fe6cbcaeb84314d100867ee1429d7040a"
+  },
+  {
+    "id": "isamu",
+    "avatar": "/npc-portraits/isamu.avif",
+    "portraitSha256": "6a6c0f0d23f71d5be733892d9e507945d3ad52232b2c07707df851d7d08864c2",
+    "assetId": "b69da0fb5fea04d5cd7ffe48ebf7598e",
+    "version": "b4d54caebf7c1048d6f2a5f3af1f73bb9c154cac70611d0bafa9bd9788706fa7"
+  },
+  {
+    "id": "lumen",
+    "avatar": "/npc-portraits/lumen.avif",
+    "portraitSha256": "1abe15c88d7b81c100f006de48b1a036b5ba753874e21a397c1287fccba87ae6",
+    "assetId": "25a5dde739cf9d210ebf364095653b72",
+    "version": "75ee379679c7e22c7c9e60ebbff2adb6662e2cef85bfea41dccc88409e7b9574"
+  }
+]

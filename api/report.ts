@@ -1,18 +1,20 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+import { cors, safeName } from './_utils.js';
 import { authedPlayer, isAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { randomUUID } from 'crypto';
 import { sectorChatKey } from './sector/_chat.js';
 import { isSectorChatSector, type SectorChatMessage } from '../shared/sector-chat.js';
+import { isPlayerModel } from '../shared/player-model-ref.js';
+import { modelOwnerProof } from './avatar-model/_owner.js';
 
 /**
  * Player-submitted abuse/content reports (EU DSA notice-and-action + UK Online
  * Safety Act in-service reporting). A signed-in player flags a player, message,
  * profile, or chat line; the report is queued server-side for staff review.
  *
- *   POST   { targetType, category, targetName?, targetId?, context?, note? }
+ *   POST   { targetType, category, targetName?, targetId?, targetVersion?, context?, note? }
  *          player-authed → queues a report → { ok: true }
  *   GET                              admin-authed → { reports: Report[] }  (newest first)
  *   DELETE { id }                    admin-authed → resolves/removes one   → { ok: true }
@@ -37,7 +39,7 @@ const CATEGORIES = new Set([
     'harassment', 'hate', 'sexual', 'threats',
     'spam', 'scam', 'cheating', 'impersonation', 'other',
 ]);
-const TARGET_TYPES = new Set(['player', 'message', 'profile', 'clan-chat', 'other']);
+const TARGET_TYPES = new Set(['player', 'message', 'profile', 'clan-chat', 'player-model', 'other']);
 
 const NOTE_MAX = 1000;
 const SHORT_MAX = 80;
@@ -51,6 +53,7 @@ interface StoredReport {
     category: string;
     targetName: string | null;
     targetId: string | null;
+    targetVersion?: string;
     context: string | null;
     note: string | null;
     /** A server-side copy of a reported line that will not outlive review. */
@@ -113,6 +116,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const id = randomUUID();
         const targetId = clip(body.targetId, ID_MAX) || null;
         const context = clip(body.context, SHORT_MAX) || null;
+        let targetName = clip(body.targetName, SHORT_MAX) || null;
+        let targetVersion: string | undefined;
+        if (targetType === 'player-model') {
+            const ref = { assetId: body.targetId, version: body.targetVersion };
+            if (!isPlayerModel(ref)) return res.status(400).json({ error: 'Invalid world model.' });
+            const asset = await kv.get<{owner?: string; accountId?: string; version?: string; status?: string}>(
+                'avatar-model:asset:' + ref.assetId);
+            const owner = asset?.owner;
+            if (!owner || owner !== safeName(owner) || owner === reporter || !asset.accountId ||
+                asset.status !== 'ready' || asset.version !== ref.version || !await modelOwnerProof(owner, asset.accountId))
+                return res.status(404).json({ error: 'This world model is no longer available to report.' });
+            targetName = owner;
+            targetVersion = ref.version;
+        }
         const evidence = await sectorChatEvidence(targetType, context, targetId);
         const record: StoredReport = {
             id,
@@ -120,8 +137,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reporter,
             targetType,
             category,
-            targetName: clip(body.targetName, SHORT_MAX) || null,
+            targetName,
             targetId,
+            ...(targetVersion ? { targetVersion } : {}),
             context,
             note: clip(body.note, NOTE_MAX) || null,
             ...(evidence ? { evidence } : {}),

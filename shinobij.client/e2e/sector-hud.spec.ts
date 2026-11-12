@@ -1,6 +1,9 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
+import { isPlayerModel } from '../../shared/player-model-ref';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 
@@ -9,6 +12,120 @@ mkdirSync(evidence, { recursive: true });
 
 const sectorInfo = (page: Page) => page.locator('.sector-hud-inline-info, .sector-hud-panel[aria-labelledby$="-info-title"]');
 const infoTrigger = (page: Page) => page.getByRole('button', {name:/^Sector info(?: · Claim ready)?$/});
+
+test('players report an exact world model and staff can review and remove it', async ({ page }, info) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const rosterPath = process.env.SECTOR_MODEL_TEST_ROSTER;
+    const content = process.env.SECTOR_MODEL_TEST_CONTENT;
+    const model = rosterPath && content ? JSON.parse(await readFile(rosterPath, 'utf8')).Zayah : null;
+    if (rosterPath && content) expect(isPlayerModel(model), 'A staged fitted review asset is required').toBe(true);
+    const {assetId, version} = model ?? {assetId:'a'.repeat(32),version:'b'.repeat(64)};
+    const base = model ? '/fixture-art' : null;
+    if (model && content) {
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+        await page.route('**/fixture-art/players/' + assetId + '/*', async route => {
+            const file = new URL(route.request().url()).pathname.split('/').at(-1)!;
+            if (!/^[a-f0-9]{64}\.(?:json|gz|264|webp)$/.test(file)) return route.abort();
+            return route.fulfill({body:await readFile(resolve(content,'players',assetId,file))});
+        });
+    }
+    const owner = 'modelreportowner';
+    const requests: Array<Record<string, string>> = [];
+    const removals: Array<Record<string, string>> = [];
+    await page.route('**/api/report', route => {
+        if (route.request().method() === 'POST') {
+            requests.push(route.request().postDataJSON());
+            return route.fulfill({ json: { ok: true } });
+        }
+        return route.fulfill({ json: { reports: [{ id: 'model-report-fixture', createdAt: 1,
+            reporter: 'fixtureviewer', targetType: 'player-model', targetName: owner,
+            targetId: assetId, targetVersion: version, category: 'other', status: 'open' }] } });
+    });
+    await page.route('**/api/admin/moderation', route => route.fulfill({ json: {} }));
+    await page.route('**/api/world/sector-layout', route => route.fulfill({ json: { obstaclesEnabled: true, modelArtBase: base } }));
+    await page.route('**/api/admin/avatar-model/remove', route => {
+        removals.push(route.request().postDataJSON());
+        return removals.length === 1
+            ? route.fulfill({ status: 503, json: { error: 'Unable to confirm removal.' } })
+            : route.fulfill({ json: { assetId, cleanupPending: true } });
+    });
+    await page.goto('/e2e/fixtures/sector-hud.html?' + new URLSearchParams({'model-report':'',assetId,version}));
+    const report = page.getByRole('button', { name: /Report .*world model/ });
+    await expect(report).toHaveCount(1);
+    await report.click();
+    const reportDialog = page.getByRole('dialog', { name: 'Report' });
+    await reportDialog.getByLabel('Reason').selectOption('other');
+    await reportDialog.getByRole('button', { name: 'Submit report' }).click();
+    await expect(reportDialog.getByText(/our moderation team will review this/)).toBeVisible();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ targetType: 'player-model', targetId: assetId, targetVersion: version });
+
+    await page.goto('/e2e/fixtures/sector-hud.html?staff-model-report');
+    await page.getByRole('button', { name: 'Review model' }).click();
+    const staffDialog = page.getByRole('dialog', { name: `World model for ${owner}` });
+    await expect(staffDialog.getByText(`Revision ${version}`, { exact: false })).toBeVisible();
+    if (model) {
+        const figure = staffDialog.locator('.sector-model-figure');
+        await expect(figure).toHaveAttribute('data-clip','idle');
+        await staffDialog.getByRole('button', {name:'Preview walk'}).click();
+        await expect(figure).toHaveAttribute('data-gait','walk');
+        const frame = await figure.getAttribute('data-frame');
+        await expect.poll(() => figure.getAttribute('data-frame')).not.toBe(frame);
+        await info.attach('model-review-preview', {body:await staffDialog.screenshot(),contentType:'image/png'});
+    }
+    const remove = staffDialog.getByRole('button', { name: `Remove ${owner}'s world model` });
+    await expect(remove).toBeDisabled();
+    await staffDialog.getByLabel('Reason for removal').fill('The outfit breaks the content rules.');
+    await remove.click();
+    await expect(staffDialog.getByRole('status')).toHaveText('Unable to confirm removal.');
+    await remove.click();
+    await expect(staffDialog.getByRole('status')).toHaveText('Removed. File cleanup is pending.');
+    await expect(staffDialog.locator('.sector-model-figure')).toHaveCount(0);
+    expect(removals).toHaveLength(2);
+    expect(removals[0]).toMatchObject({ slug: owner, assetId, expectedVersion: version,
+        reason: 'The outfit breaks the content rules.' });
+    expect(removals[0].idempotencyKey).toMatch(/^[a-f0-9-]{36}$/);
+    expect(removals[1]).toEqual(removals[0]);
+    await info.attach('model-removal-confirmation', { body: await staffDialog.screenshot(), contentType: 'image/png' });
+});
+
+test('staff can recover world model activity and distinguish unreported worker time from zero cost', async ({ page }, info) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route('**/api/admin/moderation', route => route.fulfill({ json: {} }));
+    await page.route('**/api/report', route => route.fulfill({ json: { reports: [] } }));
+    let requests = 0;
+    const empty = { admitted: 0, ready: 0, failed: 0, cancelled: 0 };
+    await page.route('**/api/admin/avatar-model/operations', route => {
+        requests++;
+        if (requests === 1) return route.fulfill({ status: 503, json: {} });
+        return route.fulfill({ json: {
+            windowDays: 30, creationConfigured: true,
+            paths: { A: { ...empty, admitted: 3, ready: 2 }, B: empty, unknown: empty },
+            queue: { dispatch: 1, publication: 0, oldestSeconds: 5410 },
+            retries: { 'expired-style': 1, 'worker-failure': 0, unknown: 0 },
+            failures: {},
+            billing: { settledReady: 2, averageReadyMicros: 0, timedJobs: 0, workerMilliseconds: null },
+            versions: [{ pipeline: 'pipeline-fixture', kit: 'f'.repeat(64), count: 3 }],
+        } });
+    });
+    await page.goto('/e2e/fixtures/sector-hud.html?staff-model-report');
+    const panel = page.getByRole('region', { name: 'World model activity' });
+    const load = panel.getByRole('button', { name: 'Load world model activity' });
+    await expect(load).toBeVisible();
+    expect(requests).toBe(0);
+    await load.click();
+    await expect(panel.getByRole('alert')).toHaveText('Could not load world model activity. Try again.');
+    await load.click();
+    await expect(panel.getByRole('table', { name: 'Jobs admitted in the last 30 days' })).toBeVisible();
+    await expect(panel.getByText('Oldest queued submission · 1h 30m')).toBeVisible();
+    await expect(panel.getByText('Average cost per ready model · $0.00 (2 fully settled)')).toBeVisible();
+    await expect(panel.getByText('Recorded Modal worker time · Unavailable (0 jobs with duration)')).toBeVisible();
+    await panel.getByText('Retries, failures and versions').click();
+    await expect(panel.getByText('Expired style · 1')).toBeVisible();
+    await expect(panel.getByText(/pipeline-fixture/)).toBeVisible();
+    expect(await panel.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+    await panel.screenshot({ path: info.outputPath('world-model-activity.png') });
+});
 
 test('optional map notices reopen for new content, sector changes and visible re-entry', async ({ page }) => {
     await page.goto('/e2e/fixtures/map-notification.html');

@@ -1417,6 +1417,12 @@ const HARVESTING_JS_CSS_FAIL_BYTES = 9_832_500;
 // Startup is 398,490 B gzip against the unchanged 399,000 B gate. Revert this
 // line to drop the allowance.
 const BOSS_FORMS_JS_CSS_FAIL_BYTES = 9_843_500;
+// 2026-11-09 NPC ROSTER: the shared, retrying registry loader and eight local
+// model pins measure 9,833,269 B, 769 B above the previous total-code ceiling.
+// Allow 2 KiB for this lazy map feature. Per-NPC revisions live in a separate
+// hashed JSON asset (currently 673 B), rather than growing executable code.
+// Startup, per-chunk and on-demand-route ceilings remain independently enforced.
+const NPC_ROSTER_JS_CSS_FAIL_BYTES = HARVESTING_JS_CSS_FAIL_BYTES + 2048;
 // 2026-11-11 CHRONICLE DIRECT STRIKE: the card duel's painted direct-attack
 // animation (lunge, strike and impact plates) and the shorter Tribute Summon
 // (auto-offered Tributes, the summon taking the Tribute's zone, a TRIBUTE
@@ -1428,7 +1434,18 @@ const BOSS_FORMS_JS_CSS_FAIL_BYTES = 9_843_500;
 // against the unchanged 399,000 B gate. Owner approved this raise. Revert this
 // line to drop the allowance.
 const DIRECT_STRIKE_JS_CSS_FAIL_BYTES = 9_846_000;
-const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES, BOSS_FORMS_JS_CSS_FAIL_BYTES, DIRECT_STRIKE_JS_CSS_FAIL_BYTES);
+// 2026-11-10 INTERIOR AVATARS: fitted player movement in Strongholds, the
+// Hollow Gate default-style path and the weekly actor add renderer code.
+// Keep the 26.5 KB avatar allowance relative to main's approved product limit
+// so joining the two releases retains both independently measured allowances.
+// Sprite pixels and revision metadata are loaded separately. Startup,
+// per-chunk and on-demand-route limits are unchanged.
+const INTERIOR_AVATAR_JS_CSS_FAIL_BYTES = DIRECT_STRIKE_JS_CSS_FAIL_BYTES + 26_500;
+const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
+    TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,
+    BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
+    DIRECT_STRIKE_JS_CSS_FAIL_BYTES,
+);
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);
 }

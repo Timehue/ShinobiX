@@ -106,9 +106,26 @@ const placements: readonly [number, ResourceActivity, number, number, 1 | 4 | 7,
     [66, 'mining', 80, 92, 7, 'Magma heart'],
     [7, 'fishing', 72, 84, 4, 'Reedbank shoal'],
     [35, 'fishing', 121, 122, 7, 'Glacier-fed depths'],
+    // Cinderhold (67-74), 2026-11-08 — one ash-rock seam per sector (67's moved
+    // north of the walled village on 2026-11-09).
+    // Moved again 2026-11-11 with the hand-authored floors (Cinderhold is not
+    // live yet, so no saved attempt points at the old cells).
+    [67, 'mining', 14, 2, 4, 'Ember seam'],
+    [68, 'mining', 97, 96, 4, 'Ember seam'],
+    [69, 'mining', 38, 26, 7, 'Magma heart'],
+    [70, 'mining', 13, 12, 7, 'Magma heart'],
+    [71, 'mining', 38, 50, 4, 'Ember seam'],
+    [72, 'mining', 85, 84, 7, 'Magma heart'],
+    [73, 'mining', 109, 108, 7, 'Magma heart'],
+    [74, 'mining', 85, 86, 4, 'Ember seam'],
 ];
+/** A seam or shoal id is a durable save key with a fixed reward rule. When a
+ * sector changes biome (59 and 60 became Midlands ground on 2026-11-11), its
+ * historical resource ids keep the trace of the biome they were placed in. */
+const PLACED_BIOME: Readonly<Record<number, 'volcano'>> = { 59: 'volcano', 60: 'volcano' };
 function levelRewards(sector: number, activity: ResourceActivity, difficulty: ResourceNodeLevel): Pick<ResourceNode, 'ceiling' | 'trace'> {
-    const place = SECTOR_PLACES.find(p => p.id === sector)!;
+    const live = SECTOR_PLACES.find(p => p.id === sector)!;
+    const place = activity === 'harvesting' ? live : { ...live, biome: PLACED_BIOME[sector] ?? live.biome };
     // Harvest ids are ungraded: no ceiling, and only forest/shadow carry a trace.
     if (activity === 'harvesting') return { ceiling: 0, trace: harvestTraceFor(place.biome, difficulty) };
     return { ceiling: (difficulty === 1 ? 1 : difficulty === 4 ? 2 : 3) as ResourceGrade,
@@ -147,7 +164,10 @@ export const RESOURCE_NODES:readonly ResourceNode[]=historicalNodes.filter(node=
 // alternates herb and fiber by position and only matters to fixed-level QA
 // fixtures: live play takes each half hour's bloom (harvestNodeAt), and the name
 // follows the plant.
-const HARVEST_PLACEMENTS = '012ya1022ua1032va1043aa1051ma1062ka1072va1081rb1093aa40a2sa40b2va40c39a40d2ua40e2ua40f1va40g2pa40h2ya70i3ia70j31a70k2ka70l2fa70m34a70n22c70o2pa70p2fa7102hc1112ta1122ua1132ra11431a11532a1162ga11735a1182ra1192ta11a2sa11b2ta11c2sa11d2ia11e3ua11f2ua11g2ia11h2pa11j36a71k2va71l38a71p2ua11q19a11r3ta11s1ta7';
+// harvest-51/52 (2026-11-11): Northroad Saddle (59) and Ashbrook Hills (60)
+// became Midlands ground, so each gained the central meadow every Midlands
+// sector has.
+const HARVEST_PLACEMENTS = '012ya1022ua1032va1043aa1051ma1062ka1072va1081rb1093aa40a2sa40b2va40c39a40d2ua40e2ua40f1va40g2pa40h2ya70i3ia70j31a70k2ka70l2fa70m34a70n22c70o2pa70p2fa7102hc1112ta1122ua1132ra11431a11532a1162ga11735a1182ra1192ta11a2sa11b2ta11c2sa11d2ia11e3ua11f2ua11g2ia11h2pa11j36a71k2va71l38a71p2ua11q19a11r3ta11s1ta71n18a11o2xa1';
 export const HARVEST_NODES: readonly ResourceNode[] = Array.from({ length: HARVEST_PLACEMENTS.length / 6 }, (_, index) => {
     const row = HARVEST_PLACEMENTS.slice(index * 6, index * 6 + 6), sector = parseInt(row.slice(0, 2), 36), approach = parseInt(row.slice(2, 4), 36);
     const target = approach + { a: -12, b: 12, c: 1 }[row[4] as 'a' | 'b' | 'c'], difficulty = Number(row[5]) as ResourceNodeLevel;

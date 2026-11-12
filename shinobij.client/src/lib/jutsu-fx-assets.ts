@@ -1,45 +1,4 @@
-/*
- * Bundled jutsu-FX frame sequences — the CC0 "Pixel Magic Effects" (Foozle)
- * frames extracted into src/assets/fx/<element>/NNN.png. Loaded at build time
- * via Vite's import.meta.glob so they ship in the bundle (served by the
- * Express static serve like any other built asset).
- *
- * CLIENT-ONLY: this module uses import.meta.glob (a Vite feature) and therefore
- * is NOT node-testable — keep it out of the test runner. The pure element →
- * palette/burst logic lives in jutsu-vfx.ts instead.
- *
- * Bundled today: the element folders fire/water/earth/wind/lava/none (Foozle) +
- * lightning/ice (Ninja Adventure), the pet-kind folders buff/heal/shield/slash
- * (Ninja Adventure), and the intent/discipline folders blood/shadow/poison/burn/
- * impact/spark/bighit/kaboom/explosion/magma/charge/aura/eshield/vortex/power
- * (CodeManu — see CREDITS.txt + lib/jutsu-vfx.ts). A key with no folder (the
- * pet-only "chakra" tint) returns null and the renderer falls back to the
- * procedural particle burst. Adding fx/<key>/ frames is all it takes to give one
- * a sprite — no code change.
- */
-
-// eager: resolve URLs at build time; import the default (the asset URL string).
-const modules = import.meta.glob("./*/*.png", {
-    base: "../assets/fx",
-    eager: true,
-    import: "default",
-}) as Record<string, string>;
-
-// Group frame URLs by their folder (= element key), ordered by source filename
-// (001.png, 002.png, …) so playback runs in sequence regardless of build hashing.
-const framesByElement: Record<string, string[]> = (() => {
-    const byKey: Record<string, Array<{ path: string; url: string }>> = {};
-    for (const [path, url] of Object.entries(modules)) {
-        const m = /^\.\/([^/]+)\/[^/]+\.png$/.exec(path);
-        if (!m) continue;
-        (byKey[m[1]] ||= []).push({ path, url });
-    }
-    const out: Record<string, string[]> = {};
-    for (const [key, list] of Object.entries(byKey)) {
-        out[key] = list.sort((a, b) => a.path.localeCompare(b.path)).map((e) => e.url);
-    }
-    return out;
-})();
+import framesByElement from 'virtual:jutsu-fx-frames';
 
 /**
  * The ordered frame URLs for a jutsu element's bundled sprite effect, or null

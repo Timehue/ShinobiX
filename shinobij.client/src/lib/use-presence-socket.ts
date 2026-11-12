@@ -94,11 +94,11 @@ export function usePresenceSocket({
             const offUpdate = api.onUpdate((sector, player) => {
                 if (sector === currentSectorRef.current) upsertLiveSectorPlayer(player, sector);
             });
-            const offMove = api.onMove((sector, name, tile) => {
-                if (sector === currentSectorRef.current) moveLiveSectorPlayer(name, tile, sector);
+            const offMove = api.onMove((sector, name, tile, sequence) => {
+                if (sector === currentSectorRef.current) moveLiveSectorPlayer(name, tile, sector, sequence);
             });
             const offWorld = api.onWorldMove(data => {
-                if (data.sector === currentSectorRef.current) moveLiveWorldPlayer(data.name, data.sector, data.worldPosition, data.sequence);
+                if (data.sector === currentSectorRef.current) moveLiveWorldPlayer(data.name, data.sector, data.worldPosition, data.sequence, data.gaitPresentation);
             });
             const offGone = api.onGone((names, sector) => {
                 removeLiveSectorPlayers(names, sector);

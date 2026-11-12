@@ -289,6 +289,18 @@ describe('google sign-in', () => {
             assert.equal(out.statusCode, 401);
         });
 
+        it('never links Google to a Cinderhold NPC, even with its takeover token', async () => {
+            const { NPC_VILLAGE_ROSTER } = await import('../../../shared/npc-village-roster.js');
+            const npc = NPC_VILLAGE_ROSTER[0]!.id;
+            store.set(`auth:${npc}`, { createdAt: 1, sessionEpoch: 0, npcVillage: true });
+            const out = await call(startHandler, 'POST', {
+                body: { nonce: NONCE, mode: 'link' },
+                headers: { 'x-player-token': issuePlayerToken(npc)! },
+            });
+            assert.equal(out.statusCode, 403, JSON.stringify(out.body));
+            assert.equal(out.body?.url, undefined);
+        });
+
         it('binds an authenticated link start to the current credential generation', async () => {
             store.set('auth:kaze', { hash: hashPw('KazePass1', 's'), salt: 's', sessionEpoch: 3 });
             store.set('auth-session:kaze', 3);

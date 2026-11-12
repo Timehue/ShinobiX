@@ -60,57 +60,8 @@ html[data-vp="xl"] .location-button small {
 /* ── Battle HUD portal: player HUD overlays left sidebar on xl ── */
 
 /* By default, the portaled sidebar HUD is hidden; the in-grid one shows */
-.battle-hud-sidebar {
-    display: none;
-}
 
 /* On xl (1080p): show the portaled sidebar, hide the in-grid player hud */
-html[data-vp="xl"] .battle-hud-sidebar,
-html[data-vp="lg"] .battle-hud-sidebar {
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: var(--side-rail-w, 220px);
-    height: 100vh;
-    height: 100dvh;
-    z-index: 10001;
-    overflow: hidden;
-    background: linear-gradient(180deg, rgba(120,53,15,.72), rgba(15,23,42,.96) 18%, rgba(15,23,42,.96) 82%, rgba(120,53,15,.72));
-    border: 4px solid #7c3f11;
-    border-image: linear-gradient(var(--gold-2), #7c2d12) 1;
-    border-left: none;
-    box-shadow: inset 0 0 0 2px rgba(230, 196, 119, .4), 4px 0 16px rgba(0,0,0,.5);
-    padding: 60px 18px 16px 14px;
-    box-sizing: border-box;
-}
-
-html[data-vp="xl"] .battle-hud-sidebar .combat-side-hud,
-html[data-vp="lg"] .battle-hud-sidebar .combat-side-hud {
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    font-size: 0.82rem !important;
-}
-
-html[data-vp="xl"] .battle-hud-sidebar .combat-avatar,
-html[data-vp="lg"] .battle-hud-sidebar .combat-avatar {
-    max-width: 80px !important;
-    max-height: 80px !important;
-    margin: 0 auto 6px !important;
-}
-
-html[data-vp="xl"] .battle-hud-sidebar .combat-avatar img,
-html[data-vp="lg"] .battle-hud-sidebar .combat-avatar img {
-    max-width: 80px !important;
-    max-height: 80px !important;
-}
 
 /* Narrow the sector banner (ornate frame) on xl to match the battle HUD sidebar */
 /* Hide the first (player) combat-side-hud in the grid on xl — it's portaled to the sidebar */

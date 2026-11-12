@@ -17,6 +17,7 @@ export const LIFE_REGIONS: Record<SectorRegionKey, LifeRegion> = {
     hollowroad: { resident: 'Road Keeper Fumi', role: 'caretaker', work: 'Walking the temple road', greeting: "I check this stretch before people go on to the temple. Stay where you can see your footing.", night: "I'm staying on this part of the road tonight. I want to be able to find my way back.", shelter: "I'll wait here until I can see the road clearly.", wildlife: ['raven'], event: 'lanterns', prop: 'lantern' },
     lavafront: { resident: 'Scout En', role: 'courier', work: 'Watching the ash road', greeting: "I'm watching this stretch for loose rock. The ash makes it harder to see.", night: "I'm stopping here tonight. I can't see enough to check the next stretch safely.", shelter: "I'll wait for a clearer view before I go back out.", wildlife: ['raven'], event: 'signal', prop: 'brazier' },
     deathsgate: { resident: 'Watcher Seki', role: 'caretaker', work: 'Watching the approach', greeting: "I'm checking the way back before I go any closer.", night: "I'll wait here until I can see the approach again.", shelter: "I'm staying here until I can see clearly again.", wildlife: ['raven'], event: 'signal', prop: 'lantern' },
+    cinderhold: { resident: 'Ash Runner Kaito', role: 'courier', work: 'Carrying garrison orders', greeting: "These roads belong to Cinderhold. Keep to the flagstones and nobody will stop you.", night: "The garrisons close their gates after dark. I'm waiting here until the lanterns change.", shelter: "I'm staying under the overhang until the ash stops falling.", wildlife: ['raven'], event: 'signal', prop: 'brazier' },
 };
 
 export const LIFE_EVENTS: Record<LifeEventKind, { title: string; intro: string; tasks: readonly [string, string, string]; actions: readonly [string, string, string]; replies: readonly [string, string, string]; aftermath: string; unattended: string; art: LifeArt }> = {
@@ -45,7 +46,12 @@ export const LIFE_STOP_REGIONS: Readonly<Record<number,LifeRegion>> = {
     31:{...LIFE_REGIONS.frostfang,resident:'Quartermaster Ise',role:'cook',work:'Checking winter stores',greeting:"I'm checking the blankets and parcel on this sled. Keep the gap by the brazier clear.",night:"You can stop beside the brazier. Leave the path to the sled clear.",shelter:"I'm waiting by the windbreak until the weather eases."},
     42:teaStop,
 };
-export function lifeRegionFor(sector: number) { return LIFE_STOP_REGIONS[sector]??LIFE_REGIONS[sectorRegionKey(sector)??'midlands']; }
+/** Sectors whose ground changed region but whose authored life did not.
+ * 2026-11-11: 60 (Ashbrook Hills) became Midlands ground, but its frontier road
+ * stop, the Obsidian Road Station and its gear painting were authored for the
+ * ash road's scout. It keeps that scout, the signal errand and that errand's pay. */
+export const LIFE_REGION_PINS: Readonly<Record<number,LifeRegion>> = { 60: LIFE_REGIONS.lavafront };
+export function lifeRegionFor(sector: number) { return LIFE_STOP_REGIONS[sector]??LIFE_REGION_PINS[sector]??LIFE_REGIONS[sectorRegionKey(sector)??'midlands']; }
 /** Keep a painted workplace's counter and its existing resident in agreement. */
 export function lifeResidentName(sector:number):string{
     const names=['Aki','Ume','Ren','Eda','Jun','Mako','Ise','Hatsu','Fumi','En','Seki','Kiyo'];

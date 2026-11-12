@@ -29,6 +29,7 @@ import type { OfflineNoticeDigest } from "../lib/offline-notices";
 import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
 
 const OFFLINE_NOTICE_ART: Record<OfflineNoticeDigest["entries"][number]["kind"], GameArtIconKind> = {
+    "world-model-removed": "guard",
     "village-war-card-defense": "attack",
     "village-unfed": "rations", "kage-seat-lost": "crown", "kage-challenge-refunded": "crown",
     "bounty-placed": "ryo", "bounty-claimed": "ryo", "merc-raid": "attack", "duel-no-show": "attack", "sleeper-kill": "attack",

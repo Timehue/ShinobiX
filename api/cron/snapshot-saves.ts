@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 import { jsonValueEqual, kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { isFullAdmin, safeEqual } from '../_auth.js';
@@ -189,7 +190,8 @@ export function isPlayerSnapshotSaveKey(key: string): boolean {
     if (!name) return false;
     // Admin/content records and shared clan blobs are backed up separately and
     // must never be enough to refresh the player-backup health marker.
-    return !name.startsWith('health-probe-') && !name.startsWith('admin') && !name.startsWith('clan-');
+    // Cinderhold NPC saves are rebuilt from roster data every day: not player backups.
+    return !name.startsWith('health-probe-') && !name.startsWith('admin') && !name.startsWith('clan-') && !isNpcAccount(name);
 }
 
 /**

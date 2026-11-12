@@ -16,7 +16,7 @@ import { withKvLock } from './_lock.js';
 // (changed fields only) — never whole entities — so the list stays small and
 // never leaks base64 image blobs into the log.
 
-export type AuditDomain = 'content' | 'reward' | 'sector' | 'combat' | 'legacy';
+export type AuditDomain = 'content' | 'reward' | 'sector' | 'combat' | 'legacy' | 'npc';
 
 export interface AuditEntry {
     ts: number;

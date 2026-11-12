@@ -7,6 +7,7 @@ import { reconcileClanWarCampaign } from './_campaign-reconcile.js';
 import { kv } from '../../_storage.js';
 import { campaignMember } from '../../../shared/clan-war-campaign.js';
 import type { ClanWar } from './_storage.js';
+import { isNpcAccount } from '../../../shared/npc-village-roster.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -25,6 +26,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({war,serverNow:Date.now()});
         }
         if(identity.admin)return res.status(403).json({error:'Sign in as your own shinobi to join a war queue.'});
+        // A Cinderhold clan never surrenders, withdraws or spends its treasury
+        // (owner ruling 2026-11-10). A controlled NPC may still queue and fight.
+        if(isNpcAccount(identity.name)&&['withdraw','surrender','provisions'].includes(String(body.action??'')))
+            return res.status(403).json({error:'Cinderhold shinobi cannot run a war by hand.'});
         if(/^[a-z0-9-]{3,100}$/.test(warId)&&body.action==='provisions'){
             await reconcileClanWarCampaign(warId);
             const {activateClanWarProvisions}=await import('./_campaign-provisions.js');

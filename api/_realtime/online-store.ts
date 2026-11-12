@@ -26,6 +26,7 @@ import { safeName } from '../_utils.js';
 import { serverWalkableTile, serverWalkTile } from '../_sector-obstacles.js';
 import { worldPositionModel } from '../../shared/continuous-world-layout.js';
 import type { WorldPosition } from '../../shared/world-position.js';
+import type { PlayerModel } from '../../shared/player-model-ref.js';
 
 /** One persisted presence row — identity and position only, no character blob. */
 export type PresenceSnapshotRow = {
@@ -81,6 +82,7 @@ export function subscribeAfterOnlinePresenceMutation(listener: () => void): () =
 }
 
 export class MemoryOnlineStateStore implements OnlineStateStore {
+    private coldModelChanges = new Map<string, { model: PlayerModel | null; expiry: NodeJS.Timeout }>();
     private players = new Map<string, OnlinePlayer>();
     private sectors = new Map<number, Set<string>>();
     private settledTravelKeys = new Set<string>();
@@ -92,6 +94,11 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     constructor(opts?: { offlineAfterMs?: number; now?: () => number }) {
         this.offlineAfterMs = opts?.offlineAfterMs ?? OFFLINE_AFTER_MS;
         this.now = opts?.now ?? Date.now;
+    }
+
+    /** The store's own clock, for a server-side mover (api/_npc-presence.ts) timing a travel lease on it. */
+    clockNow(): number {
+        return this.now();
     }
 
     setObserver(observer: ((event: PresenceStoreEvent) => void) | null): void {
@@ -156,9 +163,14 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         originSector?: number,
         arrivalTile?: number,
         worldPosition?: WorldPosition,
+        gaitPresentation?: OnlinePlayer['gaitPresentation'],
     ): OnlinePlayer {
         if (this === onlineStore) checkpointOnlinePresence();
         player.resourceEpoch = (player.resourceEpoch ?? 0) + 1;
+        delete player.activity;
+        // Tile-only NPC journeys keep the server's walking presentation across
+        // borders. Continuous player travel takes the accepted gait for its cursor.
+        if (gaitPresentation || player.worldPosition || worldPosition) player.gaitPresentation = gaitPresentation;
         if (originSector !== undefined && originSector !== player.sector) {
             const previousSector = player.sector;
             this.removeFromSector(key, previousSector);
@@ -184,6 +196,11 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         const key = canon(entry.name);
         const now = this.now();
         const prev = this.players.get(key);
+        const coldChange = this.coldModelChanges.get(key);
+        if (coldChange) {
+            clearTimeout(coldChange.expiry);
+            this.coldModelChanges.delete(key);
+        }
         const preSettleSector = prev?.sector;
         if (prev) this.settleMaturedTravel(key, prev, now);
         // True when THIS beat is the one whose matured lease just advanced the
@@ -249,6 +266,10 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             sector,
             // Fall back to the previously-stored slim character if this beat sent none.
             character: entry.character ?? prev?.character ?? null,
+            playerModel: entry.serverPlayerModel !== undefined ? entry.serverPlayerModel ?? undefined :
+                coldChange ? coldChange.model ?? undefined :
+                prev && !prev.locationUnverified && this.isFresh(prev, now) ? prev.playerModel : entry.restoredPlayerModel,
+            starterWorldModel: entry.restoredStarterWorldModel ?? prev?.starterWorldModel,
             lastSeenAt: now,
             connectedAt: prev?.connectedAt ?? now,
             // pendingAttacker survives a refresh — only attack/clear-attack touch it.
@@ -267,10 +288,15 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             tile: serverWalkTile(sector, prev?.worldPosition && sector === prev.sector ? prev.tile : (entry.tileSector ?? entry.sector) === sector && !(travelingUntil !== undefined && travelingUntil > now)
                 ? entry.tile ?? prev?.tile : prev?.tile),
             movementSeq: prev?.movementSeq ?? 0,
+            gaitPresentation: entry.serverPlayerModel === undefined ? prev?.gaitPresentation
+                : entry.serverPlayerModel === null ? undefined : { gait: 'walk', style: 'A' },
             // Battle/travel interruptions remain authoritative across heartbeats
             // and reconnects. A client presence refresh cannot clear this epoch.
             resourceEpoch: prev?.resourceEpoch ?? 0,
             ...(prev?.worldPosition && sector === prev.sector ? { worldPosition: prev.worldPosition } : {}),
+            // SERVER-OWNED and cosmetic (setActivity): never read from `entry`,
+            // and dropped once the row leaves the sector it was set in.
+            ...(prev?.activity && sector === prev.sector ? { activity: prev.activity } : {}),
         };
         if (!prev && entry.restoredWorldPosition) {
             const restored = worldPositionModel().read(entry.restoredWorldPosition);
@@ -395,6 +421,23 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (p) p.pendingAttacker = null;
     }
 
+    setPlayerModel(name: string, model: PlayerModel | null): void {
+        const key = canon(name);
+        const player = this.get(key);
+        if (!player) {
+            // The first heartbeat may already be restoring the previous save.
+            // Preserve this later commit until that heartbeat arrives.
+            clearTimeout(this.coldModelChanges.get(key)?.expiry);
+            const expiry = setTimeout(() => this.coldModelChanges.delete(key), this.offlineAfterMs);
+            expiry.unref();
+            this.coldModelChanges.set(key, { model, expiry });
+            return;
+        }
+        if (player.playerModel?.assetId === model?.assetId && player.playerModel?.version === model?.version) return;
+        player.playerModel = model ?? undefined;
+        if (this.isFresh(player, this.now())) this.emit({ type: 'changed', name: key, sector: player.sector });
+    }
+
     setInBattle(name: string, inBattle: boolean): void {
         if (this === onlineStore) checkpointOnlinePresence();
         const key = canon(name);
@@ -409,11 +452,19 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (this === onlineStore) refreshOnlinePresence();
     }
 
-    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number, worldPosition?: WorldPosition): OnlinePlayer | null {
+    setActivity(name: string, activity: OnlinePlayer['activity'] | undefined): void {
+        const player = this.players.get(canon(name));
+        if (!player) return;
+        if (activity === 'mining' || activity === 'fishing' || activity === 'harvesting') player.activity = activity;
+        else delete player.activity;
+    }
+
+    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number, worldPosition?: WorldPosition,
+        gaitPresentation?: OnlinePlayer['gaitPresentation']): OnlinePlayer | null {
         const key = canon(name);
         const p = this.get(name);
         if (!p || p.inBattle || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
-        return this.applyTravel(key, p, destinationSector, arrivalAt, originSector, arrivalTile, worldPosition);
+        return this.applyTravel(key, p, destinationSector, arrivalAt, originSector, arrivalTile, worldPosition, gaitPresentation);
     }
 
     restoreTravel(name: string, destinationSector: number, arrivalAt: number, originSector: number, arrivalTile?: number, worldPosition?: WorldPosition): OnlinePlayer | null {
@@ -468,7 +519,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         return p;
     }
 
-    commitWorldPosition(name: string, rawPosition: WorldPosition, expectedSequence: number): OnlinePlayer | null {
+    commitWorldPosition(name: string, rawPosition: WorldPosition, expectedSequence: number, gaitPresentation?: OnlinePlayer['gaitPresentation']): OnlinePlayer | null {
         if (this === onlineStore) checkpointOnlinePresence();
         const p = this.get(name), model = worldPositionModel(), position = model.read(rawPosition);
         if (!p || !position || p.inBattle || (p.movementSeq ?? 0) !== expectedSequence
@@ -486,7 +537,10 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         const stationary = distance !== null && distance <= 1e-9;
         p.worldPosition = stationary ? previous! : position;
         p.tile = stationary ? model.location(previous!).tile : location.tile;
-        if (!stationary) p.movementSeq = (p.movementSeq ?? 0) + 1;
+        if (!stationary) {
+            p.movementSeq = (p.movementSeq ?? 0) + 1;
+            p.gaitPresentation = gaitPresentation;
+        }
         p.lastSeenAt = this.now();
         if (this === onlineStore) refreshOnlinePresence();
         return p;

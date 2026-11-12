@@ -1538,7 +1538,7 @@
     },
     {
       "file": "shinobij.client/public/sector-map/s2.webp",
-      "sha256": "d0ab225b593ee77da6dc22a04ebcfeec9c9a56522c746ceec11f0c47b40797e9"
+      "sha256": "ca16352c7f6208c872f62c7956a5234835b72f3af62dbadd9f03997c9b4fb8cf"
     },
     {
       "file": "shinobij.client/public/sector-map/s20.webp",
@@ -1678,7 +1678,7 @@
     },
     {
       "file": "shinobij.client/public/sector-map/s52.webp",
-      "sha256": "d5986abb091be6b109e1a4c891f3baf355ea4cd43e711eaa4c45ebd24132d936"
+      "sha256": "73ad73f1b9a3786d5a87f79cc816e74160fa37ae9b5326d33318243b990f637f"
     },
     {
       "file": "shinobij.client/public/sector-map/s53.webp",
@@ -1738,11 +1738,11 @@
     },
     {
       "file": "shinobij.client/public/sector-map/s66.webp",
-      "sha256": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1"
+      "sha256": "2770073b366edaa580fff43c12f7f5e26baa7e9ad9a733cc0af8a8fecfbdd0e0"
     },
     {
       "file": "shinobij.client/public/sector-map/s7.webp",
-      "sha256": "762ea10841fce051b59480e4a4fcb92f90739b4ab0b604d2e5909a2df0765116"
+      "sha256": "18b494f245d276a3913a8a834a4704e95b259be97c3c62cbbaaa9b64d1f34c4f"
     },
     {
       "file": "shinobij.client/public/sector-map/s8.webp",
@@ -1806,7 +1806,7 @@
     },
     {
       "file": "shinobij.client/public/sector-life/lavafront-road-gear-v1.webp",
-      "sha256": "ec1a77321a553e51922216c6e0cd499a323b5a49fad22a0a1a9fe0ff3031301e"
+      "sha256": "498a880be023a38c2711f6a9576cbe72279caad210978648fda11473ab5342c0"
     }
   ]
 }

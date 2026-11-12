@@ -6,6 +6,7 @@ import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 import type { KvLike } from '../_storage.js';
 import type { PvpFighter, PvpSession } from './session.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 
 /*
  * The physical consequence of a world PvP duel.
@@ -279,6 +280,9 @@ export async function settlePvpTerminalVitals(
     if (session.status !== 'done') return;
     if (!pvpSessionCarriesVitals(session)) return;
     const now = deps.now ?? Date.now();
-    await settleFighterVitals(store, session, 'p1', now);
-    await settleFighterVitals(store, session, 'p2', now);
+    // A Cinderhold NPC's save is rebuilt whole from its roster: a fight never
+    // leaves it wounded or in the Hospital, so the next challenger meets it fresh.
+    for (const side of ['p1', 'p2'] as const) {
+        if (!isNpcAccount(String(session[side]?.name ?? ''))) await settleFighterVitals(store, session, side, now);
+    }
 }

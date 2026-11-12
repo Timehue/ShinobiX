@@ -52,6 +52,8 @@ import { legacyEnabled, bumpLegacyStats } from './_legacy-track.js';
 import { announce } from './_announce.js';
 import { zeroSectorIntel } from './_village-intel.js';
 import { recordSectorWarPurseLedger, sweepSectorWarPurseLedgers } from './war/_sector-purse.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
+import { npcVillageWarFrozen } from './_npc-war-roster.js';
 
 /** The purse-ledger sweep runs at most this often per process (the 5-minute
  *  settlement tick drives it; lazy endpoint calls in between skip it). */
@@ -137,6 +139,12 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
     }
     const settled: SectorWarSettlement[] = [];
     for (const war of due) {
+        // Cinderhold switched off mid-war: hold the verdict until it is back
+        // (api/_npc-war-roster.ts npcVillageWarFrozen).
+        if (npcVillageWarFrozen(war)) {
+            logWarEvent('settlement-deferred', { contestId: war.id, sector: war.sector, reason: 'npc-village-closed' }, 'warn');
+            continue;
+        }
         let verdictDurable = false;
         try {
             // Every battle receipt must outlive this row: a defended war's
@@ -170,7 +178,9 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                         // made a player's SECOND capture of that sector look
                         // already-delivered and silently dropped the credit.
                         const instance = sectorWarInstanceTag(verdict.session);
-                        for (const name of captureContributors(verdict.session)) {
+                        // A Cinderhold shinobi who won fights for the capture
+                        // is never credited: NPCs earn nothing (Push 4).
+                        for (const name of captureContributors(verdict.session).filter((n) => !isNpcAccount(n))) {
                             const delivered = await bumpLegacyStats(name, { sectorCaptures: 1 }, {
                                 receiptId: `sector-capture:${war.id}:${instance}:${name.toLowerCase()}`,
                             });

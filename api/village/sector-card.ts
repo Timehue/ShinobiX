@@ -1,4 +1,9 @@
 import { alertSectorPreparation, preparationLevels, sectorPreparationInstance } from '../_war-preparations.js';
+import { isNpcAccount, npcDisplayName } from '../../shared/npc-village-roster.js';
+import { withoutKvLeaseContext } from '../_kv-lock-context.js';
+import { runBackgroundWork } from '../_background-work.js';
+import { npcEngaged } from '../_npc-duel.js';
+import { isNpcPossessed, npcPossessKey } from '../_npc-possession.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -60,7 +65,9 @@ type Session={rulesVersion:typeof CHRONICLE_RULES_VERSION;sectorWarId:string;sec
     /** Who played the duel out, by the free-play rules (api/card-clash/_freeplay-legacy.ts). */
     participation?:FreePlayParticipation;
     /** Chronicle Point outbox for the two duelists (api/card-clash/_card-cp.ts). */
-    cpCredit?:CardCpCredit};
+    cpCredit?:CardCpCredit;
+    /** An admin played the Cinderhold NPC's seat at some point: the duel pays nobody. */
+    npcControlled?:boolean};
 function warResultFrom(commit:SectorWarBattleCommit):WarResult{return commit.status==='applied'?{scored:true,points:commit.receipt.points}:{scored:false,reason:commit.status==='skipped'?commit.reason:'missing'}}
 function warResultOf(session:{warResult?:WarResult}):{warResult?:WarResult}{return session.warResult?{warResult:session.warResult}:{}}
 /** When the duel ended: the session's last change, stamped by the move (or the
@@ -81,7 +88,7 @@ function versionEcho(resolution:ChronicleDeckResolution):Record<string,number>{r
 const openKey=(engageId:string)=>`sector-card-open:${engageId}`;
 function cleanEngageId(raw:unknown):string{const id=String(raw??'').trim();return /^[a-f0-9]{24}$/.test(id)?id:''}
 function keyOf(session:Session):string{return session.open?openKey(session.open.engageId):sessionKey(session.sectorWarId)}
-async function saveSession(session:Session){const key=keyOf(session);await kv.set(key,session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,key,session,SESSION_TTL_SEC)}
+async function saveSession(session:Session){/* An NPC at the war table can only be an admin playing it (the server seats NPCs only in open duels): it scores, but pays no Chronicle Points. */if(!session.open&&!session.npcControlled&&(isNpcAccount(safeName(session.p1Name))||isNpcAccount(safeName(session.p2Name??''))))session.npcControlled=true;const key=keyOf(session);await kv.set(key,session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,key,session,SESSION_TTL_SEC)}
 async function applyOutcome(session:Session){if(!session.state?.winner||session.appliedToContest)return;const winner=session.state.winner;const winnerName=winner==='p1'?session.p1Name:winner==='p2'?(session.p2Name??''):'';const loserName=winner==='p1'?(session.p2Name??''):winner==='p2'?session.p1Name:'';const[winnerRole,loserRole]=await Promise.all([sectorWarRoleOf(winnerName),sectorWarRoleOf(loserName)]);const endedAt=battleEndedAt(session);/* One CAS commits the receipt with the tally (deduped past the in-row ledger). A settled war is no longer written, a duel opened before this contest instance belongs to an earlier war on the sector, and a duel that ENDED after the war stopped being live is past the whistle: it is skipped, never scored as a 0-point receipt (which still logged `battle-scored` and still put its winner on the capture credit). */const commit=await commitSectorWarBattle({contestId:session.sectorWarId,battleId:session.open?`card-open:${session.sectorWarId}:${session.open.engageId}`:`card:${session.sectorWarId}:${session.createdAt}`,decide:async(contest):Promise<SectorWarBattleDecision>=>{if(contest.flipped||contest.expiredAt)return{kind:'skip',reason:'terminal'};if(session.createdAt<contest.startedAt)return{kind:'skip',reason:'superseded'};if(!isSectorWarActive(contest,endedAt))return{kind:'skip',reason:'superseded'};const[atkRaw,defRaw]=await Promise.all([kv.get<Record<string,unknown>>(villageWarKey(session.attackerVillage)),kv.get<Record<string,unknown>>(villageWarKey(session.defenderVillage))]);const outcome=applyContestBattleByWinner(contest,winner,{now:endedAt,roleSwing:sectorControlSwing(winnerRole,loserRole),attackerMult:sectorWarDamageMultiplier(normalizeVillageWarRecord(session.attackerVillage,atkRaw??undefined)),defenderMult:defenderPointsMultiplier(normalizeVillageWarRecord(session.defenderVillage,defRaw??undefined)),by:winnerName});if(!outcome)return{kind:'skip',reason:'draw'};/* sectors never flip mid-war — settlement compares the tallies at 72h */return{kind:'score',outcome,attackerWon:winner==='p1',by:winnerName,at:endedAt,purseEligible:await sectorWarPurseEligible({winnerName,loserName,endedAt})}}});session.appliedToContest=true;session.warResult=warResultFrom(commit)}
 async function persist(session:Session):Promise<CardCpCommitted>{if(session.status==='done'){const first=!session.appliedToContest;await applyOutcome(session);if(first&&session.open)await protectOpenDuelLoser(session)}await saveSession(session);return settlePoints(session)}
 /** One duel per table row (a finished table is replaced by a new row) and per open duel. */
@@ -480,6 +487,10 @@ async function runTable(me: string, admin: boolean, sectorWarId: string, action:
         if (session && session.status !== 'done' && session.status !== 'void' && viewer) {
             return { status: 200, body: { session: seatedProjection(session, viewer) } };
         }
+        // The server plays an NPC's seat only in open duels (api/_npc-card-duel-driver.ts),
+        // so at the table an NPC sits only under an admin's control (owner
+        // ruling 2026-11-09: an admin-played NPC fights, and scores, for real).
+        if (isNpcAccount(me) && !admin && !(await isNpcPossessed(me))) return { status: 403, body: { error: 'Cinderhold shinobi answer war duels in the field.' } };
         const contest = await loadSectorWar(sectorWarId);
         // An ENDED war opens and answers no tables. A defended or abandoned
         // row lingers for a day after its verdict; a table on it used to play
@@ -579,7 +590,36 @@ async function runEngage(me: string, sectorWarId: string, body: Record<string, u
         open: { engageId, initiator: me, target: gate.target, joinBy: now + OPEN_CARD_JOIN_WINDOW_MS },
         createdAt: now, updatedAt: now,
     };
+    // A Cinderhold NPC answers in person: the server takes its seat
+    // (api/_npc-card-duel-driver.ts). Under admin control the admin plays it:
+    // the duel scores for the war like any other (owner ruling 2026-11-09), but
+    // pays no Chronicle Points. An admin-controlled NPC may also start one.
+    const npcTarget = isNpcAccount(gate.target);
+    const npc = npcTarget ? gate.target : isNpcAccount(me) ? me : '';
     try {
+        if (npc) {
+            // Under the NPC's possession lock (the one an admin takeover holds),
+            // read its control and register the seat before the duel exists, so
+            // a takeover can never slip in between (api/admin/npc-possess.ts),
+            // and the server takes the seat back if the admin lets go mid-duel.
+            const driver = await import('../_npc-card-duel-driver.js');
+            const refusal = await withKvLock(npcPossessKey(npc), async () => {
+                if (process.env.DISABLE_NPC_VILLAGE === '1') return { status: 409 as const, error: 'Cinderhold shinobi cannot fight on this server right now.' };
+                // One fight at a time, as for a player: not while it is in a
+                // shinobi duel or another war duel the server is playing.
+                if (await npcEngaged(npc, now)) return { status: 409 as const, error: `${npcDisplayName(npc)} is already in a fight.` };
+                if (await isNpcPossessed(npc)) session.npcControlled = true;
+                // Registered whatever its seat, so every busy check sees it. The
+                // server can only PLAY the defending seat (Cinderhold declares no
+                // wars yet); on the attacking side it only runs the clock.
+                await driver.registerNpcCardDuel(engageId, { npc, sectorWarId, at: now });
+                return null;
+            }, { failClosed: true });
+            if (refusal) {
+                await claim.release();
+                return { status: refusal.status, body: { error: refusal.error } };
+            }
+        }
         await saveSession(session);
     } catch (err) {
         await claim.release();
@@ -590,6 +630,10 @@ async function runEngage(me: string, sectorWarId: string, body: Record<string, u
     endOwnFieldRecoveryShield(me);
     await endOwnOpenBattleProtection(sectorWarId, me);
     await noticeOpenSectorBattle({ kind: 'card', from: me, fromCharacter: gate.myCharacter, to: gate.target, sectorWarId, engageId, now });
+    if (npcTarget) {
+        void import('../_npc-card-duel-driver.js').then((driver) => driver.kickNpcCardDuel(engageId))
+            .catch((error) => console.error('[village/sector-card] npc duel driver', String(error)));
+    }
     return { status: 200, body: { ...versionEcho(resolution), engageId, session: openWaiting(session, mySide) } };
 }
 
@@ -603,6 +647,12 @@ async function runOpenDuel(me: string, admin: boolean, sectorWarId: string, enga
         : session.p2Name && safeName(session.p2Name) === safeName(me) ? 'p2' : null;
     const seat = named ?? (admin ? (body.side === 'p2' ? 'p2' : 'p1') : null);
     if (!seat) return { status: 403, body: { error: 'Only the two duelists can see this battle.' } };
+    // A Cinderhold NPC's seat played by an admin (its control token, or the
+    // admin password): the duel still scores for the war, but pays no
+    // Chronicle Points (owner rulings 2026-11-09).
+    const seatName = safeName(String(seat === 'p1' ? session.p1Name : session.p2Name ?? ''));
+    if (!session.npcControlled && isNpcAccount(seatName) && action !== 'state'
+        && (admin || (named && await isNpcPossessed(me)))) session.npcControlled = true;
 
     if (session.status === 'awaiting-target') {
         const expired = now > session.open.joinBy;
@@ -665,6 +715,14 @@ async function runOpenDuel(me: string, admin: boolean, sectorWarId: string, enga
     session.updatedAt = now;
     noteMove(session, seat, requested.action, now);
     const moved = await persist(session);
+    // The player moved against a Cinderhold NPC: prompt its seat now rather
+    // than at the next sweep (a response window lasts only 15 s). Not awaited,
+    // so it runs once this request has released the duel's lock.
+    if (!isNpcAccount(me) && isNpcAccount(safeName(session.p2Name ?? '')) && session.status === 'active') {
+        void withoutKvLeaseContext(() => runBackgroundWork(async () => {
+            await (await import('../_npc-card-duel-driver.js')).kickNpcCardDuel(engageId);
+        })).catch(() => undefined);
+    }
     const points = await pointsReply(session, me, admin, moved);
     return { status: 200, body: { ...points, session: projectMatchForViewer(session.state, seat), ...warResultOf(session) } };
 }
@@ -684,6 +742,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sectorWarId = String(body.sectorWarId ?? '').trim();
         if (!sectorWarId) return res.status(400).json({ error: 'Missing sectorWarId.' });
         const me = identity.admin ? safeName(String(body.playerName ?? '')) : identity.name;
+        // A Cinderhold NPC acts only inside an open war duel it was challenged
+        // to, where the server plays its seat; it never opens a duel, sits at
+        // the table or assaults a garrison (that could only be an admin).
+        // A Cinderhold NPC's own token opens nothing but the open duels the
+        // server plays for it, unless an admin controls it: then it fights like
+        // any shinobi, and scores (owner ruling 2026-11-09).
+        if (!identity.admin && isNpcAccount(me) && !cleanEngageId(body.engageId) && !(await isNpcPossessed(me))) {
+            return res.status(403).json({ error: 'Cinderhold shinobi answer war duels in the field.' });
+        }
         if (action === 'engage') {
             if (identity.admin) return res.status(403).json({ error: 'Open-world battles are fought by players.' });
             if (!(await enforceRateLimitKv(req, res, 'sector-card-engage', 6, 60_000, identity.name))) return;

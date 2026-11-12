@@ -433,10 +433,12 @@ test('frontier scenery uses the original requester and only the authenticated co
     clock=Math.floor(clock/WORLD_DAY_MS)*WORLD_DAY_MS+8*WORLD_HOUR_MS;
     for(const where of [55,60]){
         const key=lifeStorageKey(where),helper=actor(78,where),visitor=actor(78,where),state={window:lifeWindowAt(clock),step:3,updatedAt:clock-1000,contributors:[helper.toUpperCase()]};
+        // Clear skies: 60 is Midlands ground now, and its scheduled rain could send the scout to shelter.
+        await kv.set(`world:territory:${where}`,{ownerClan:'TestClan',weather:'clear',hp:100});
         await kv.set(key,state);const saved={_saveVersion:17,character:{ryo:1300}};await kv.set(`save:${visitor}`,saved);
         const helped=await request(helper,{sector:where},true,'GET'),other=await request(visitor,{sector:where,viewer:helper,contributors:[visitor],painting:'invented-floor',inspection:99},true,'GET');
         for(const response of [helped,other]){assert.equal(response.status,200);assert.equal(response.body.view.painting,FRONTIER_SITES[where].painting);assert.equal(response.body.view.campTile,78);assert.equal(response.body.view.actors[0].name,where===55?'Road Keeper Ise':'Scout Kiyo');assert(response.body.view.actors.length<=5);}
         assert.equal(helped.body.view.actors[0].line,FRONTIER_LINES.helperThanks);assert.equal(other.body.view.actors[0].line,FRONTIER_LINES.rest);
-        assert.deepEqual(await kv.get(key),state);assert.deepEqual(await kv.get(`save:${visitor}`),saved);await kv.del(key);
+        assert.deepEqual(await kv.get(key),state);assert.deepEqual(await kv.get(`save:${visitor}`),saved);await kv.del(key);await kv.del(`world:territory:${where}`);
     }
 });

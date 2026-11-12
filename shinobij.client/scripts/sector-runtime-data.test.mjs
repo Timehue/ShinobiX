@@ -8,7 +8,7 @@ test('browser delivery preserves every runtime sector value and leaves its canon
     const file = join(import.meta.dirname, '../../shared/sector-floor-layout-data.json');
     const source = readFileSync(file, 'utf8'), original = JSON.parse(source);
     const delivered = JSON.parse(sectorRuntimeData(source));
-    assert.equal(Object.keys(delivered.layouts).length, 66);
+    assert.equal(Object.keys(delivered.layouts).length, 74);
     assert.deepEqual(delivered.floors, original.floors, 'cache hashes remain complete');
     assert.deepEqual(delivered.landmarks, original.landmarks);
     for (const [key, layout] of Object.entries(original.layouts)) {

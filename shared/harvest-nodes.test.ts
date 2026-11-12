@@ -47,7 +47,7 @@ function ownedTiles(sector: number): Map<number, string> {
 
 describe('harvest meadows', () => {
     it('stand one per forest, shadow and central wild sector, none on ice or ash', () => {
-        assert.equal(HARVEST_NODES.length, 50);
+        assert.equal(HARVEST_NODES.length, 52);
         assert.deepEqual(HARVEST_NODES.map(node => node.id), HARVEST_NODES.map((_, index) => `harvest-${index + 1}`));
         for (const place of SECTOR_PLACES) {
             if (!isPlayableWildSector(place.id)) continue;
@@ -109,14 +109,14 @@ describe('harvest meadows', () => {
             assert.equal(node.trace, trace, node.id);
         }
         const herbs = HARVEST_NODES.filter(node => node.family === 'gather-field-herb').length;
-        assert.equal(herbs, 25, 'herb and fiber alternate');
+        assert.equal(herbs, 26, 'herb and fiber alternate');
     });
 
     it('resolve by id for the server but stay off the visible map until Phase 3', () => {
         for (const node of HARVEST_NODES) assert.equal(resourceNode(node.id), node);
         assert.equal(RESOURCE_NODES.some(node => node.activity === 'harvesting'), false);
         assert.equal(resourceNode('harvest-0'), undefined);
-        assert.equal(resourceNode('harvest-51'), undefined);
+        assert.equal(resourceNode('harvest-53'), undefined);
     });
 
     it('bloom on the half hour: about half the spots grow, as herb or fiber, the same for everyone', () => {
@@ -134,8 +134,8 @@ describe('harvest meadows', () => {
                 assert.deepEqual(harvestBloom(node, cycle * HARVEST_BLOOM_MS), harvestBloom(node, (cycle + 1) * HARVEST_BLOOM_MS - 1));
         }
         const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
-        assert.ok(Math.abs(mean(presentShare) - 25) < 1.5, `mean present ${mean(presentShare)}`);
-        assert.ok(Math.abs(mean(herbShare) - 25) < 1.5, `mean herb ${mean(herbShare)}`);
+        assert.ok(Math.abs(mean(presentShare) - 26) < 1.5, `mean present ${mean(presentShare)}`);
+        assert.ok(Math.abs(mean(herbShare) - 26) < 1.5, `mean herb ${mean(herbShare)}`);
         assert.ok(Math.min(...presentShare) >= 10 && Math.max(...presentShare) <= 40, 'no half hour empties or fills the world');
         for (const [id, count] of perNode) assert.ok(count > CYCLES * .38 && count < CYCLES * .62, `${id} grew ${count}/${CYCLES}`);
         const flips = HARVEST_NODES.filter(node => harvestBloom(node, 0).present !== harvestBloom(node, HARVEST_BLOOM_MS).present).length;
@@ -173,8 +173,8 @@ describe('harvest meadows', () => {
         for (let cycle = 0; cycle < 30; cycle++) {
             const at = cycle * RESOURCE_REFILL_MS;
             const offers = HARVEST_NODES.map(node => resourceNodeOffer(node, at));
-            assert.equal(offers.filter(node => node.difficulty === 1).length, 25, `cycle ${cycle}`);
-            assert.equal(offers.filter(node => node.difficulty === 4).length + offers.filter(node => node.difficulty === 7).length, 25);
+            assert.equal(offers.filter(node => node.difficulty === 1).length, 26, `cycle ${cycle}`);
+            assert.equal(offers.filter(node => node.difficulty === 4).length + offers.filter(node => node.difficulty === 7).length, 26);
             for (const offer of offers) {
                 const biome = SECTOR_PLACES.find(place => place.id === offer.sector)!.biome;
                 const expected = offer.difficulty === 1 ? undefined

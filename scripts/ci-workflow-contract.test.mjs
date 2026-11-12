@@ -91,6 +91,24 @@ test('split CI preserves every release gate and builds each artifact once', () =
     assert.ok(workflow.includes('node-version-file: .nvmrc'), 'CI must take its Node version from .nvmrc');
 });
 
+test('blind sprite recognition tests run without provider access and gate the final CI aggregate', () => {
+    const job = workflow.split('  avatar_recognition:\n')[1]?.split('\n  test_build:\n')[0];
+    assert.ok(job, 'the Python recognition tests must not be invisible to CI');
+    assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_recognition_\*\.py' -v/);
+    assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_cleanup_\*\.py' -v/);
+    assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_browser_motion\.py' -v/);
+    assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_dispatch_result\.py' -v/);
+    assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_roster_release\.py' -v/);
+    assert.match(job, /^\s+\/scripts\/sector-model-release\.py$/m);
+    assert.match(job, /OPENAI_API_KEY: ''/);
+    assert.match(job, /requirements-linux-paint\.txt/);
+    assert.match(job, /python-version-file: workers\/avatar-model\/\.python-version/);
+    const aggregate = workflow.split('  test_build:\n')[1];
+    assert.match(aggregate, /      - avatar_recognition\n/);
+    assert.match(aggregate, /AVATAR_RECOGNITION: \$\{\{ needs\.avatar_recognition\.result \}\}/);
+    assert.match(aggregate, /test "\$AVATAR_RECOGNITION" = success/);
+});
+
 test('the pet asset chain still fails the run, while the client build starts without waiting for it', () => {
     const quality = workflow.split('  client_quality:\n')[1]?.split('\n  release_artifact:\n')[0];
     assert.ok(quality, 'client quality job must exist');

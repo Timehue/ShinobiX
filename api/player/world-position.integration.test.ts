@@ -468,3 +468,24 @@ test('a real socket reconnect discards delayed hydration superseded by HTTP pres
     assert.equal((await published).sector, 13);
     assert.equal(presence.onlineStore.get(PLAYER)?.tile, 44);
 });
+
+test('cold presence hydrates the equipped public revision and rejects a different heartbeat claim', async () => {
+    const old=process.env.ENABLE_SECTOR_MODEL_DISPLAY;
+    process.env.ENABLE_SECTOR_MODEL_DISPLAY='1';
+    try {
+        const model={assetId:'1'.repeat(32),version:'a'.repeat(64)};
+        const save=(await kv.get<Json>(SAVE))!;
+        await kv.set(SAVE,{...save,character:{...save.character as Json,playerModel:{...model,privateNote:'hidden'}}});
+        const claim={name:PLAYER,sector:12,character:{playerModel:{...model,assetId:'2'.repeat(32)}}};
+        const {toPlayerRecord}=await import('../_realtime/presence-input.js');
+        for(let i=0;i<2;i++) {
+            const reply=await request(heartbeat,'POST',claim);
+            assert.equal(reply.status,200);
+            assert.deepEqual(toPlayerRecord(presence.onlineStore.get(PLAYER)!).character,{avatarImage:'',playerModel:model});
+            if(i===0) (await import('../_ratelimit.js')).__resetRateLimitsForTest();
+        }
+    } finally {
+        if(old===undefined) delete process.env.ENABLE_SECTOR_MODEL_DISPLAY;
+        else process.env.ENABLE_SECTOR_MODEL_DISPLAY=old;
+    }
+});

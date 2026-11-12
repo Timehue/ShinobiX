@@ -57,6 +57,7 @@ import { pushOfflineNotice } from './player/_offline-notices.js';
 import { LockContendedError } from './_lock.js';
 import { listVillageWarInstances, sectorContestContext, villageWarActing, villageWarContext } from './_merc-context.js';
 import { sweepRetiredWarMercenaryHires } from './_war-mercenary-hire.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
 
 export interface MercDeployResult {
     winner: 'merc' | 'player' | 'stall';
@@ -618,8 +619,9 @@ export async function runMercAutoDeploy(deps: AutoDeps = {}): Promise<MercAutoRe
     if (!villageWarMapEnabled()) return { enabled: false, deployed: 0, raided: 0 };
     const listContests = deps.listContests ?? (() => listActiveSectorWars(now));
     const listVillageWars = deps.listVillageWars ?? (() => actingVillageWars(now));
-    const onlineNames = deps.onlineNames ?? ((sector: number) => onlineStore.list().filter((p) => p.sector === sector).map((p) => p.name));
-    const onlineAll = deps.onlineAll ?? (() => onlineStore.list().map((p) => p.name));
+    // Cinderhold NPC presences are never war-mercenary targets.
+    const onlineNames = deps.onlineNames ?? ((sector: number) => onlineStore.list().filter((p) => p.sector === sector && !isNpcAccount(p.name)).map((p) => p.name));
+    const onlineAll = deps.onlineAll ?? (() => onlineStore.list().filter((p) => !isNpcAccount(p.name)).map((p) => p.name));
     const listSleepers = deps.listSleepers ?? (async () => [...(await listSleeperCamps()).values()]);
     const bandOf = deps.bandOf ?? activeBand;
     const targetsOf = deps.targetsOf ?? liveMercTargets;

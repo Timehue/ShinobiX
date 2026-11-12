@@ -24,9 +24,10 @@ import { withKvLock } from '../_lock.js';
  * GLOBAL, not per-sector, so one maxed player can spend all 100 on one tile.
  *   • 1,500 / 100 = 15 maxed players to drain a non-owner sector (was 3⅓).
  *   • 2,250 / 100 = 22.5, so 23 maxed players to drain an owner sector.
- *   • World capacity 66 wild sectors × 1,500 = 99,000 explore slots against a
- *     200-player ceiling × 100 = 20,000 explores of demand — 20% utilization,
- *     i.e. 4.95× headroom for clustering (500 left only 9%).
+ *   • World capacity 74 wild sectors × 1,500 = 111,000 explore slots (99,000
+ *     before Cinderhold's 67-74) against a 200-player ceiling × 100 = 20,000
+ *     explores of demand — 18% utilization, i.e. 5.55× headroom for
+ *     clustering (500 left only 9%).
  * The chest pool tracks the explore pool at exactly the authored chest rate
  * (SECTOR_EXPLORE_CHEST_CHANCE, 1/6 since 2026-11; was 0.15): 1,500 × 1/6 =
  * 250 expected discoveries against a 250 chest cap, so chests are never the tighter constraint in

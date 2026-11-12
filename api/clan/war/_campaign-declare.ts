@@ -3,11 +3,13 @@ import { kv } from '../../_storage.js';
 import { withKvLock } from '../../_lock.js';
 import { clanBareSlug, clanRecordKey, safeName } from '../../_utils.js';
 import { REGISTRY_KEY } from '../../player/_public-index.js';
+import { playerSessionsEnabled } from '../../_auth.js';
+import { isNpcClanRecord } from '../../../shared/npc-clans.js';
 import { clanLeadershipRole } from '../_leadership.js';
 import { economyTxKey, type EconomyTxRecord } from '../../_economy-tx.js';
 import { runSaveDebitSaga, saveDebitTransactionId, SaveDebitRefusal } from '../../_save-debit-saga.js';
 import { CLAN_WAR_DECLARE_SAGA, type ClanWarDeclarePlan } from '../../_save-debit-kinds.js';
-import { PLAYABLE_WILD_SECTOR_IDS, OUTSKIRTS_SECTORS } from '../../../shared/sector-geo.js';
+import { CINDERHOLD_SECTORS, PLAYABLE_WILD_SECTOR_IDS, OUTSKIRTS_SECTORS } from '../../../shared/sector-geo.js';
 import {
     CLAN_WAR_RULES, createClanWarCampaign, type ClanWarCampaignRoster, type ClanWarShrineMode,
 } from '../../../shared/clan-war-campaign.js';
@@ -84,6 +86,7 @@ export function createDeclaredClanWar(input: {
     // Ordinary traversable field sectors only. Town gates and special realms
     // are excluded before a location is sealed, never substituted at entry.
     const fields = PLAYABLE_WILD_SECTOR_IDS.filter(sector => !OUTSKIRTS_SECTORS.includes(sector)
+        && !CINDERHOLD_SECTORS.includes(sector) // the NPC village's own land
         && ![46, 51, 54, 60, 99].includes(sector));
     if (!fields.length) throw new Error('No valid clan shrine sectors are configured.');
     const campaign = createClanWarCampaign({ ...input,
@@ -137,6 +140,11 @@ export async function declareClanWarCampaign(input: { playerName: string; toClan
         if (!from || !to || to.toLowerCase() !== input.toClan.toLowerCase()) throw new SaveDebitRefusal(409, 'The rival clan name does not match its canonical record.');
         if (clanBareSlug(from) === clanBareSlug(to)) throw new SaveDebitRefusal(400, 'Choose a different clan.');
         if (!clanLeadershipRole(fromRecord, player)) throw new SaveDebitRefusal(403, 'Only clan leadership can declare war.');
+        // A Cinderhold clan fights only while the server can play its members
+        // (api/_npc-clan-war-campaign.ts): never charge for a war nobody would answer.
+        if ((isNpcClanRecord(fromRecord) || isNpcClanRecord(toRecord)) && (process.env.DISABLE_NPC_VILLAGE === '1' || !playerSessionsEnabled())) {
+            throw new SaveDebitRefusal(409, `${to} cannot be challenged right now. Nothing was spent.`);
+        }
         const now = Date.now();
         for (const record of [fromRecord, toRecord]) if (now - clanWarEstablishedAt(record, now) < CLAN_WAR_RULES.minimumClanAgeMs) {
             throw new SaveDebitRefusal(409, `${String(record.name)} must be seven days old before entering a clan war.`);

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MemoryOnlineStateStore } from './online-store.js';
+import { toPlayerRecord } from './presence-input.js';
 
 // Deterministic fake clock so staleness is testable without sleeps.
 function makeStore(offlineAfterMs = 60_000) {
@@ -8,6 +9,21 @@ function makeStore(offlineAfterMs = 60_000) {
     const store = new MemoryOnlineStateStore({ offlineAfterMs, now: () => t });
     return { store, advance: (ms: number) => { t += ms; }, at: () => t };
 }
+
+test('a restart or expired presence restores equipment from the save; a newer equip wins a racing cold read', () => {
+    const { store, advance } = makeStore(1000);
+    const model = { assetId: 'b'.repeat(32), version: 'c'.repeat(64) };
+    const beat = { name: 'traveler', sector: 40, character: null };
+    store.upsert(beat);
+    const restored = makeStore().store;
+    restored.restore(store.snapshot());
+    assert.deepEqual(restored.upsert({ ...beat, restoredPlayerModel: model }).playerModel, model);
+    advance(1001);
+    assert.deepEqual(store.upsert({ ...beat, restoredPlayerModel: model }).playerModel, model);
+    advance(1001);
+    store.setPlayerModel(beat.name, null);
+    assert.equal(store.upsert({ ...beat, restoredPlayerModel: model }).playerModel, undefined);
+});
 
 test('upsert is case-insensitive; get/list reflect it', () => {
     const { store } = makeStore();
@@ -19,6 +35,31 @@ test('upsert is case-insensitive; get/list reflect it', () => {
     assert.equal(p!.sector, 40);
     assert.equal(store.list().length, 1);
     assert.equal(store.size(), 1);
+});
+
+test('a server NPC keeps its art and walking gait across sector borders', () => {
+    const { store, at } = makeStore();
+    const npc = { name: 'Kuroto', sector: 46, character: null };
+    const ref = { assetId: 'a'.repeat(32), version: 'b'.repeat(64) };
+    store.upsert(npc);
+    const restored = store.upsert({ ...npc, serverPlayerModel: ref });
+    assert.deepEqual(toPlayerRecord(restored).character.playerModel, ref);
+    assert.deepEqual(restored.gaitPresentation, { gait: 'walk', style: 'A' });
+    const crossed = store.startTravel(npc.name, 47, at(), npc.sector, 78);
+    assert.ok(crossed);
+    assert.equal(crossed.sector, 47);
+    assert.deepEqual(toPlayerRecord(crossed).character.playerModel, ref);
+    assert.deepEqual(toPlayerRecord(crossed).gaitPresentation, { gait: 'walk', style: 'A' });
+    const disabled = store.upsert({ ...npc, sector: 47, serverPlayerModel: null });
+    assert.equal(disabled.playerModel, undefined);
+    assert.equal(disabled.gaitPresentation, undefined);
+});
+
+test('cold player presence carries the saved starter across refreshes', () => {
+    const { store } = makeStore();
+    const player = { name: 'Player', sector: 46, character: null };
+    store.upsert({ ...player, restoredStarterWorldModel: 'starter-two' });
+    assert.equal(toPlayerRecord(store.upsert(player)).character.starterWorldModel, 'starter-two');
 });
 
 test('upsert preserves pendingAttacker and connectedAt and rejects an unleased teleport', () => {

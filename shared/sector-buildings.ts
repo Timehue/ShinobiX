@@ -6,12 +6,15 @@ import type { BuildingPoint, BuildingService, SectorBuilding } from './sector-bu
 import { BUILDING_INVESTIGATIONS } from './sector-building-stories.js';
 import { lifeResidentName } from './sector-life-content.js';
 
-const owners: Readonly<Record<string, string>> = { stormveil: 'Stormveil Village', ashenleaf: 'Ashen Leaf Village', moonshadow: 'Moonshadow Village', frostfang: 'Frostfang Village' };
+const owners: Readonly<Record<string, string>> = { stormveil: 'Stormveil Village', ashenleaf: 'Ashen Leaf Village', moonshadow: 'Moonshadow Village', frostfang: 'Frostfang Village', cinderhold: 'Cinderhold Village' };
 const staff: Readonly<Record<string, readonly [string, string]>> = {
     stormveil: ['Quartermaster Ume', 'Harbor duty clerk'], ashenleaf: ['Warden Aki', 'Deepwood quartermaster'],
     moonshadow: ['Clerk Ren', 'Road trust registrar'], frostfang: ['Warden Eda', 'Winter supply clerk'], deathsgate: ['Watcher Seki', 'Obsidian gate watcher'],
+    cinderhold: ['Gate Sentry Hokuto', 'Cinderhold garrison sentry'],
 };
-const keeperNames:Readonly<Record<string,readonly string[]>>={stormveil:['Hina','Isao','Kiri','Nori','Riku','Sae','Toki','Yuna'],ashenleaf:['Aya','Bun','Chika','Dai','Eri','Fusa','Goro','Hana'],moonshadow:['Itsu','Jin','Kana','Maki','Rena','Sora','Tae','Yori'],frostfang:['Anri','Eiko','Haku','Kota','Mei','Natsu','Oto','Ryo']};
+const keeperNames:Readonly<Record<string,readonly string[]>>={stormveil:['Hina','Isao','Kiri','Nori','Riku','Sae','Toki','Yuna'],ashenleaf:['Aya','Bun','Chika','Dai','Eri','Fusa','Goro','Hana'],moonshadow:['Itsu','Jin','Kana','Maki','Rena','Sora','Tae','Yori'],frostfang:['Anri','Eiko','Haku','Kota','Mei','Natsu','Oto','Ryo'],cinderhold:['Akane','Bunta','Enji','Hibana','Kaen','Rokuro','Sumi','Tetsuya']};
+/** Cinderhold's garrisons are the NPC village's own houses, not public duty houses. */
+const isCinderhold = (region: string) => region === 'cinderhold';
 function keeperAt(sector:number,region:string){const names=keeperNames[region];return names?`${staff[region]![1]} ${names[SECTOR_PLACES.filter(p=>p.region===region).findIndex(p=>p.id===sector)%names.length]}`:(staff[region]?.[0]??'Duty Warden');}
 const architecture: SectorBuilding[] = [];
 for (const place of SECTOR_PLACES) {
@@ -21,23 +24,32 @@ for (const place of SECTOR_PLACES) {
     if (site) {
         const [x, y, size] = site.footprint;
         const keeper=keeperAt(place.id,place.region),role=staff[place.region]?.[1]??'Road warden';
-        architecture.push({ id: `stronghold-${place.id}`, sector: place.id, name: place.id === 99 ? 'Obsidian Stronghold' : `${place.name} Stronghold`,
+        architecture.push({ id: `stronghold-${place.id}`, sector: place.id,
+            name: place.id === 99 ? 'Obsidian Stronghold' : isCinderhold(place.region) ? `${place.name} Garrison` : `${place.name} Stronghold`,
             kind: 'stronghold', keeper, role, region: place.region, village: owners[place.region],
             description: place.id === 99 ? 'A watch house above the ash road. Its outer threshold is a place to ask about the return route; the chambers beyond remain dangerous.'
+                : isCinderhold(place.region) ? 'A walled Cinderhold garrison with red lanterns over the gate. Its sentries watch every traveller who climbs the ash roads, and they answer questions only at the threshold.'
                 : `The ${sectorRegionLabel(place.id)} duty house keeps a road register, a supply counter and the guarded approach to the stronghold below.`,
-            services: ['reception', 'repair', 'workshop', ...([2, 8, 14, 16, 18, 24, 27, 31].includes(place.id) ? ['courier' as const] : [])],
+            services: isCinderhold(place.region) ? ['reception']
+                : ['reception', 'repair', 'workshop', ...([2, 8, 14, 16, 18, 24, 27, 31].includes(place.id) ? ['courier' as const] : [])],
             left: site.left, top: site.top, width: site.width, height: site.width,
             footprint: Array.from({ length: size * size }, (_, k) => (y + Math.floor(k / size)) * 12 + x + k % size), approach: site.approach,
-            art: place.id===99?'frontier':place.region==='frostfang'?'gatehouse-winter':'gatehouse',
+            art: place.id===99||isCinderhold(place.region)?'frontier':place.region==='frostfang'?'gatehouse-winter':'gatehouse',
         });
     }
     if (layout.village) {
         const entry = layout.village, keeper=keeperAt(place.id,place.region);
+        // Cinderhold admits no outsiders: its gate officer speaks at the threshold
+        // only, with no courier window (no player belongs there to receive mail).
+        const closed = isCinderhold(place.region);
         architecture.push({ id: `village-${place.id}`, sector: place.id, name: `${entry.name.replace(' Village', '')} Gatehouse`, kind: 'village',
-            keeper, role: 'Village gate officer', description: 'A public speaking window stands outside the village gate. Travelers can ask for directions or leave a sealed letter with the officer.',
-            services: ['reception', 'courier'], region: place.region, village: entry.name,
+            keeper, role: closed ? 'Cinderhold gate sentry' : 'Village gate officer',
+            description: closed ? 'The gate of Cinderhold stays barred to every outsider. Ember lanterns burn above the doors, and a sentry answers travelers through a grille at the threshold.'
+                : 'A public speaking window stands outside the village gate. Travelers can ask for directions or leave a sealed letter with the officer.',
+            services: closed ? ['reception'] : ['reception', 'courier'], region: place.region, village: entry.name,
             left: entry.left, top: entry.top + entry.width / 2, width: entry.width, height: entry.width,
-            footprint: Array.from({ length: 16 }, (_, k) => (4 + Math.floor(k / 4)) * 12 + 4 + k % 4), approach: entry.approach, art: place.region==='frostfang'?'gatehouse-winter':'gatehouse' });
+            footprint: Array.from({ length: 16 }, (_, k) => (4 + Math.floor(k / 4)) * 12 + 4 + k % 4), approach: entry.approach,
+            art: closed ? 'frontier' : place.region==='frostfang'?'gatehouse-winter':'gatehouse' });
     }
     const shrine = SHRINE_DEFS.find(s => s.sector === place.id), shrineSite = layout.sites.shrine;
     if (shrine && shrineSite) {

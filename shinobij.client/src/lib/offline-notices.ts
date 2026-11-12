@@ -19,7 +19,7 @@ import { relativeAgo } from './village-stores';
 import { takeUnseenNotices } from './notice-ack';
 import { displayPlayerName } from '../../../shared/player-name';
 
-export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'duel-no-show' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'village-war-card-defense';
+export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'duel-no-show' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'village-war-card-defense' | 'world-model-removed';
 
 export type OfflineNotice = {
     kind: OfflineNoticeKind;
@@ -36,7 +36,7 @@ export type OfflineNotice = {
     tenureMs?: number;
 };
 
-const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'duel-no-show', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'village-war-card-defense']);
+const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'duel-no-show', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'village-war-card-defense', 'world-model-removed']);
 
 function isNotice(v: unknown): v is OfflineNotice {
     if (!v || typeof v !== 'object') return false;
@@ -53,6 +53,7 @@ export function parseOfflineNotices(notices: unknown): OfflineNotice[] {
 // ── Game-art vocabulary ─────────────────────────────────────────────────────
 // One semantic art key per family, shared with the digest's painted icon map.
 const NOTICE_ICON: Record<OfflineNoticeKind, string> = {
+    'world-model-removed': 'guard',
     'village-war-card-defense': 'attack',
     'village-unfed': 'rations',
     'kage-seat-lost': 'crown',
@@ -70,6 +71,7 @@ const ACTIONABLE_KINDS: ReadonlySet<OfflineNoticeKind> = new Set<OfflineNoticeKi
 export type OfflineNoticeTone = 'action' | 'grave' | 'info';
 
 const NOTICE_TONE: Record<OfflineNoticeKind, OfflineNoticeTone> = {
+    'world-model-removed': 'info',
     'village-war-card-defense': 'action',
     'village-unfed': 'action',
     'kage-seat-lost': 'grave',
@@ -96,6 +98,7 @@ function formatTenure(ms: number): string {
 
 /** The notice body, with no icon and no timestamp — those are added around it. */
 export function offlineNoticeBody(n: OfflineNotice): string {
+    if (n.kind === 'world-model-removed') return 'Your custom player model was removed by a moderator. Your character is back to the default.';
     // `by` is a player's name except on NPC raids ("Frostfang mercenaries") and
     // the unfed-siege notice (a village); only a player's name is capitalized.
     const who = (n.kind === 'merc-raid' || n.kind === 'village-unfed' ? n.by.trim() : displayPlayerName(n.by)) || 'someone';

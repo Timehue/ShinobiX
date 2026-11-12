@@ -28,6 +28,7 @@ const REGION_TINT: Readonly<Record<SectorRegionKey, string>> = {
     hollowroad: "#9a76c9",
     lavafront: "#d9603b",
     deathsgate: "#d9603b",
+    cinderhold: "#dc2626",
 };
 
 export function regionTintForSector(sector: number): string {

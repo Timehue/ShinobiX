@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../../_storage.js';
 import { withKvLock } from '../../_lock.js';
 import { safeName } from '../../_utils.js';
-import { pvpSessionMayReward, type PvpSession } from '../../pvp/session.js';
+import { pvpSessionMayScoreClanWar, type PvpSession } from '../../pvp/session.js';
 import {
     applyFinalResult,
     CLAN_WAR_KEY_PREFIX,
@@ -171,7 +171,7 @@ async function ensureCooldown(war: ClanWar): Promise<void> {
  * threw because a payout needs both fighters joined.
  */
 export async function cancelUnjoinedClanWarChallenge(session: PvpSession): Promise<boolean> {
-    if (session.rewardAuthority !== 'clan-war' || session.status !== 'done' || pvpSessionMayReward(session)) return false;
+    if (session.rewardAuthority !== 'clan-war' || session.status !== 'done' || pvpSessionMayScoreClanWar(session)) return false;
     if (!session.clanWarId || !session.clanWarChallengeId) return false;
     const warKey = `${CLAN_WAR_KEY_PREFIX}${session.clanWarId}`;
     return withKvLock(warKey, async () => {
@@ -199,7 +199,7 @@ export async function settlePvpClanWarContinuation(
     session: PvpSession,
 ): Promise<PvpClanWarSettlement | null> {
     if (session.rewardAuthority !== 'clan-war') return null;
-    if (!pvpSessionMayReward(session)
+    if (!pvpSessionMayScoreClanWar(session)
         || session.status !== 'done'
         || (session.winner !== 'p1' && session.winner !== 'p2' && session.winner !== 'draw')
         || !session.clanWarId

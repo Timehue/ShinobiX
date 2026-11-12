@@ -91,6 +91,14 @@ function mercActor(level: number): TowerActor {
     };
 }
 
+/** The merc's seat filled by a real sealed character (a copy: the gap-closing
+ *  jutsu taught below must never reach the caller's object). */
+function sealedMercActor(name: string, sealedChar: Record<string, unknown>): TowerActor {
+    const character = structuredClone(sealedChar);
+    const actor = playerActorFromSealed(name, '', character);
+    return { ...actor, id: 'merc-0', side: 'enemy', ownerSlug: null, pos: 60 };
+}
+
 function playerActorFromSealed(name: string, ownerSlug: string, sealedChar: Record<string, unknown>): TowerActor {
     const maxHp = Math.max(1, Number(sealedChar.maxHp) || 1000);
     const maxChakra = Math.max(0, Number(sealedChar.maxChakra) || 50);
@@ -132,8 +140,11 @@ export function resolveMercBattle(args: {
     seed: number;
     now: number;
     gapClosingJutsu?: readonly AiOpponentJutsu[];
+    /** A Cinderhold shinobi's own sealed kit fights in the merc's place
+     *  (api/_npc-war-party.ts). Omitted: the generic peak merc of `mercLevel`. */
+    mercSealed?: { name: string; character: Record<string, unknown> };
 }): MercBattleResult {
-    const merc = mercActor(args.mercLevel);
+    const merc = args.mercSealed ? sealedMercActor(args.mercSealed.name, args.mercSealed.character) : mercActor(args.mercLevel);
     teachPveGapClosingJutsu(merc.character, args.gapClosingJutsu ?? []);
     merc.itemCharges = pveAiItemCharges(merc.character);
     const player = playerActorFromSealed(args.playerName, args.playerSlug, args.playerSealedChar);

@@ -13,10 +13,11 @@ const worldMap = readFileSync(join(root, "screens", "WorldMap.tsx"), "utf8");
 const css = readFileSync(join(root, "styles", "index", "28-desktop-scaling.css"), "utf8");
 
 test("every world-map biome glow the map renders has a painted colour rule", () => {
-    const block = worldMap.match(/\{\[\s*([\s\S]*?)\]\.map\(\(g\) => \(\s*<div key=\{g\.c\} className=\{"world-biome-glow wbg-" \+ g\.c\}/);
+    const block = worldMap.match(/\{\[\s*([\s\S]*?)\]\.map\(\(g\) => \(\s*<div key=\{`\$\{g\.c\}-\$\{g\.x\}-\$\{g\.y\}`\} className=\{"world-biome-glow wbg-" \+ g\.c\}/);
     assert.ok(block, "WorldMap no longer renders the biome glows the way this test expects");
     const biomes = [...block[1].matchAll(/c:\s*"([a-z]+)"/g)].map((match) => match[1]);
-    assert.deepEqual(biomes.sort(), ["central", "forest", "shadow", "snow", "volcano"]);
+    // The fifth glow is Cinderhold's volcano cone (2026-11-08).
+    assert.deepEqual(biomes.sort(), ["central", "forest", "shadow", "snow", "volcano", "volcano"]);
     for (const biome of biomes) {
         assert.match(css, new RegExp(`\\.wbg-${biome}\\s*\\{\\s*background:\\s*radial-gradient\\(`), `.wbg-${biome} lost its colour`);
     }

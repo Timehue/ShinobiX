@@ -4,8 +4,9 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 import pg from 'pg';
 import type { KvCasOp, KvLike } from './_storage.js';
 import { fork } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
+import { modelCreationFixture } from './avatar-model/_creation-config.fixture.js';
 
 /*
  * kv.compareSetMany against a REAL Postgres.
@@ -360,6 +361,163 @@ test('world boss lifecycle and pointer races across two real Postgres workers', 
         await control.end();
     }
 });
+
+test('model admissions and removal notices commit once across two API workers on real Postgres',
+    { skip: SKIP, timeout: 180_000 }, async () => {
+        const url = new URL(DATABASE_URL);
+        assert.ok(['127.0.0.1', 'localhost'].includes(url.hostname), 'requires a disposable local cluster');
+        const name = `pgit_model_admission_${randomBytes(8).toString('hex')}`;
+        const owner = `pgmodel${randomBytes(8).toString('hex')}`;
+        const control = await openClient();
+        const children: ReturnType<typeof fork>[] = [];
+        let database: pg.Client | undefined;
+        let created = false;
+        try {
+            await control.query(`CREATE DATABASE ${name}`); created = true;
+            database = new pg.Client({ ...clientConfig(), database: name });
+            await database.connect();
+            const db = database;
+            const schema = readFileSync('supabase-schema.sql', 'utf8').replaceAll('\r\n', '\n');
+            await db.query(schemaStatement(schema, 'create table if not exists public.kv_store (', '\n);'));
+            for (const fn of ['kv_set_nx', 'kv_compare_set', 'kv_incr', 'kv_hset', 'kv_hdel']) {
+                await db.query(schemaStatement(schema, `create or replace function public.${fn}(`, '\n$$;'));
+            }
+            const get = async (key: string): Promise<any> => (await db.query('SELECT value FROM public.kv_store WHERE key=$1', [key])).rows[0]?.value;
+            const put = async (key: string, value: unknown) => {
+                await db.query('INSERT INTO public.kv_store(key,value) VALUES($1,$2::jsonb)', [key, JSON.stringify(value)]);
+            };
+            const portrait = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l4kAAAAASUVORK5CYII=', 'base64');
+            const source = createHash('sha256').update(portrait).digest('hex');
+            const { perImageKey } = await import('./images.js');
+            await put(`save:${owner}`, { character: { name: owner, patreon: { active: true, source: 'promo', tier: 'supporter' } } });
+            await put(perImageKey('avatar:' + owner), 'data:image/png;base64,' + portrait.toString('base64'));
+            url.pathname = '/' + name;
+            const policy = { dailyLimit: 10, recognition:{model:'local-vision-fixture',poolSha256:'9'.repeat(64)}, providers: ['modal','openai'].map(provider=>({ provider, cycle: 'pg-race', perAttemptMicros: 100, limitMicros: 300 })) };
+            const workers = await Promise.all([0, 1].map(async () => {
+                const env: NodeJS.ProcessEnv = { ...process.env, ...modelCreationFixture, DATABASE_URL: url.href, PG_SSL: 'disable', NODE_ENV: 'test',
+                    SHINOBIX_QA_DISPOSABLE_PG: '1', SESSION_SECRET: 'model-admission-disposable-pg-test-secret',
+                    AVATAR_MODEL_RESERVATIONS_JSON: JSON.stringify(policy) };
+                for (const key of ['SHINOBIX_QA_MEMORY_KV', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_POSTGRES_URL', 'AVATAR_MODEL_KILL_SWITCH']) delete env[key];
+                const options: import('node:child_process').ForkOptions & { windowsHide: boolean } = {
+                    execArgv: ['--import', 'tsx'], env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+                };
+                const child = fork(resolve('scripts/avatar-model-postgres-worker.mjs'), [], options);
+                children.push(child);
+                let sequence = 0;
+                const waiting = new Map<number, { resolve(value: any): void; reject(error: Error): void }>();
+                const port = await new Promise<number>((done, reject) => {
+                    const timer = setTimeout(() => reject(new Error('Model fixture worker startup timed out')), 90_000);
+                    child.once('error', error => { clearTimeout(timer); reject(error); });
+                    child.once('exit', code => { clearTimeout(timer); reject(new Error('Model fixture worker exited ' + code)); });
+                    child.on('message', (message: any) => {
+                        if (message.ready) { clearTimeout(timer); done(message.port); return; }
+                        const request = waiting.get(message.id);
+                        if (request) { waiting.delete(message.id); if (message.error) request.reject(new Error(message.error)); else request.resolve(message.value); }
+                    });
+                });
+                child.on('exit', () => { for (const request of waiting.values()) request.reject(new Error('Model fixture worker exited')); waiting.clear(); });
+                const rpc = (command: string, input: unknown): Promise<any> => new Promise((done, reject) => {
+                    const id = ++sequence;
+                    const timer = setTimeout(() => { waiting.delete(id); reject(new Error('Model fixture request timed out')); }, 30_000);
+                    waiting.set(id, { resolve: value => { clearTimeout(timer); done(value); }, reject: error => { clearTimeout(timer); reject(error); } });
+                    child.send({ id, command, input });
+                });
+                return { port, rpc };
+            }));
+            const token = await workers[0].rpc('token', { slug: owner });
+            const readToken = await workers[0].rpc('read', { slug: owner, source });
+            const replies = await Promise.all(Array.from({ length: 20 }, async (_, index) => {
+                const response = await fetch(`http://127.0.0.1:${workers[index % 2].port}/api/avatar-model/jobs`, {
+                    method: 'POST', headers: { 'content-type': 'application/json', 'x-player-name': owner, 'x-player-token': token },
+                    body: JSON.stringify({ readToken, idempotencyKey: 'pg-model-race-' + index }), signal: AbortSignal.timeout(45_000),
+                });
+                return { status: response.status, body: await response.json() };
+            }));
+            assert.ok(replies.every(reply => [202, 409, 429, 503].includes(reply.status)), JSON.stringify(replies));
+            const accepted = replies.filter(reply => reply.status === 202);
+            assert.equal(accepted.length, 1, JSON.stringify(replies));
+            const jobId = accepted[0].body.jobId;
+            assert.ok(jobId);
+            const job = await get('avatar-model:job:' + jobId);
+            assert.equal(job.slug, owner); assert.equal(job.state, 'queued'); assert.equal(job.sourceSha256, source);
+            assert.equal(job.monthKey, new Date(job.createdAt).toISOString().slice(0, 7));
+            assert.equal(await get('avatar-model:active:' + owner), jobId);
+            assert.deepEqual(await get('avatar-model:dispatch'), [jobId]);
+            assert.equal((await get(`avatar-model:slot:${owner}:${job.monthKey}`)).jobId, jobId);
+            assert.deepEqual(await get('avatar-model:budget:modal:pg-race'), { reservedMicros: 300, spentMicros: 0 });
+            assert.deepEqual(await get('avatar-model:budget:openai:pg-race'), { reservedMicros: 300, spentMicros: 0 });
+            assert.equal(job.recognition.poolSha256,'9'.repeat(64));
+            assert.match(job.recognition.nonce,/^[a-f0-9]{64}$/);
+            assert.equal(await get('avatar-model:read:' + createHash('sha256').update(readToken).digest('hex')), undefined);
+            for (const prefix of ['avatar-model:job:', 'avatar-model:slot:', 'avatar-model:idem:']) {
+                assert.equal(Number((await db.query('SELECT count(*) AS n FROM public.kv_store WHERE key LIKE $1', [prefix + '%'])).rows[0].n), 1);
+            }
+            const days = (await db.query("SELECT value FROM public.kv_store WHERE key LIKE 'avatar-model:daily:%'")).rows;
+            assert.deepEqual(days.map(item => item.value), [1]);
+            console.log('[model-admission-pg] 20 authenticated requests / 2 workers / 1 job, slot, dispatch and reservation; statuses=' + replies.map(reply => reply.status).join(','));
+            const assetId = randomBytes(16).toString('hex'), version = 'a'.repeat(64);
+            const equipped = { assetId, version };
+            await put('avatar-model:asset:' + assetId, {
+                ...equipped, accountId: job.accountId, owner, status: 'ready',
+                sourceSha256: source, masterSha256: 'd'.repeat(64), jobId: 'pg-fixture-finished-model',
+            });
+            await db.query("UPDATE public.kv_store SET value=jsonb_set(value,'{character,playerModel}',$2::jsonb) WHERE key=$1",
+                ['save:' + owner, JSON.stringify(equipped)]);
+            const remove = { slug: owner, assetId, expectedVersion: version, reason: 'Fixture moderation review.',
+                idempotencyKey: 'pg-model-removal-fixture' };
+            const [first, retry] = await Promise.all([
+                workers[0].rpc('remove', remove), workers[1].rpc('remove', remove), workers[1].rpc('notice', { slug: owner }),
+            ]);
+            assert.ok(first.ok && retry.ok, JSON.stringify([first, retry]));
+            assert.deepEqual([first.value.replayed, retry.value.replayed].sort(), [false, true]);
+            assert.equal((await get('avatar-model:asset:' + assetId)).status, 'revoked');
+            assert.equal((await get('save:' + owner)).character.playerModel, undefined);
+            assert.equal((await get('avatar-model:job:' + jobId)).state, 'cancelled');
+            const inbox = await get('offline-notices:' + owner);
+            assert.deepEqual(inbox.map((n: { kind: string }) => n.kind).sort(), ['bounty-placed', 'world-model-removed']);
+            assert.equal(inbox.find((n: { kind: string }) => n.kind === 'world-model-removed').modelAccountId, job.accountId);
+            assert.equal(JSON.stringify(inbox).includes(remove.reason), false);
+
+            const finishedJobKey = 'avatar-model:job:pg-fixture-finished-model';
+            await put(finishedJobKey, {
+                state: 'ready', attempt: 1, assetId, accountId: job.accountId, slug: owner,
+                sourceSha256: source, reserved: [], settledCosts: {modal: {spentMicros: 15}},
+            });
+            const ownerKey = 'avatar-model:owner:' + job.accountId;
+            const cleanupKey = 'avatar-model:cleanup:' + assetId;
+            const completedAt = Date.now();
+            await db.query("UPDATE public.kv_store SET value=value || '{\"state\":\"deleting\"}'::jsonb WHERE key=$1", [ownerKey]);
+            await db.query('DELETE FROM public.kv_store WHERE key=$1', [job.privateRefKey]);
+            const replacementId = randomUUID();
+            const replacementSave = {character: {name: owner, playerModelOwnerId: replacementId}};
+            await db.query('UPDATE public.kv_store SET value=$2::jsonb WHERE key=$1',
+                ['save:' + owner, JSON.stringify(replacementSave)]);
+            assert.equal(await workers[0].rpc('erase', {slug: owner}), 0, 'pending public erasure must retain ownership proof');
+            await db.query('UPDATE public.kv_store SET value=value || $2::jsonb WHERE key=$1',
+                [cleanupKey, JSON.stringify({state: 'complete', completedAt})]);
+            const removals = await Promise.all(workers.map(worker => worker.rpc('erase', {slug: owner})));
+            assert.deepEqual(removals.sort(), [0, 1], 'two workers erase the account links exactly once');
+            assert.equal(await get(ownerKey), undefined);
+            assert.equal(await get('avatar-model:asset:' + assetId), undefined);
+            assert.deepEqual(await get(cleanupKey), {assetId, state: 'complete', completedAt});
+            assert.deepEqual(await get('save:' + owner), replacementSave);
+            const anonymous = await get(finishedJobKey);
+            assert.equal(anonymous.slug, undefined);
+            assert.equal(anonymous.accountId, undefined);
+            assert.equal(anonymous.sourceSha256, undefined);
+            assert.deepEqual(anonymous.settledCosts, {modal: {spentMicros: 15}});
+        } finally {
+            for (const child of children) if (child.connected) child.disconnect();
+            await Promise.all(children.map(child => new Promise<void>(done => {
+                if (child.exitCode !== null || child.signalCode !== null) return done();
+                const timer = setTimeout(() => { child.kill(); done(); }, 10_000);
+                child.once('exit', () => { clearTimeout(timer); done(); });
+            })));
+            await database?.end();
+            if (created) await control.query(`DROP DATABASE ${name} WITH (FORCE)`);
+            await control.end();
+        }
+    });
 
 describe('kv.compareSetMany on a real Postgres', () => {
     before(async () => {

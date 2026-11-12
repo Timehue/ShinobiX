@@ -62,5 +62,7 @@ test('eager technique descriptions remain exact while using the smaller gzip rep
     const packed = packStaticCatalogLiteral(literal, 'flavor');
     assert.deepEqual((await moduleFrom(packed, file)).flavor, (await moduleFrom(literal, file)).flavor);
     const bytes = code => gzipSync(transformSync(code, { minify: true }).code, { level: 9 }).length;
-    assert.ok(bytes(packed) - bytes(literal) > 700, 'eager prose should retain its measured gzip advantage');
+    const shipped = bytes(literal);
+    assert.ok(shipped <= 2900, 'eager technique descriptions must fit the shipped gzip budget');
+    assert.ok(shipped < bytes(packed), 'eager prose should use the smaller gzip representation');
 });

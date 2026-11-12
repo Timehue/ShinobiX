@@ -14,6 +14,8 @@ import { awardFinalizedWarPoints } from './_war-points.js';
 import { resolveChronicleDeckWithSave, type ChronicleDeckResolution } from '../../card-clash/_deck.js';
 import { recordFreePlayParticipation, type FreePlayParticipation } from '../../card-clash/_freeplay-legacy.js';
 import { cardCpReply, ensureCardPvpCpCredit, settleCardCpCredit, type CardCpCommitted, type CardCpCredit } from '../../card-clash/_card-cp.js';
+import { isNpcAccount } from '../../../shared/npc-village-roster.js';
+import { isNpcPossessed } from '../../_npc-possession.js';
 import {
     CHRONICLE_RULES_VERSION, advanceExpiredChronicleTurn, applyAction, createMatch,
     projectMatchForViewer,
@@ -30,6 +32,8 @@ type Session = {
     participation?: FreePlayParticipation;
     /** Chronicle Point outbox for the two duelists (api/card-clash/_card-cp.ts). */
     cpCredit?: CardCpCredit;
+    /** An admin played a Cinderhold clan shinobi's seat: the duel's Chronicle Points pay nobody. */
+    npcControlled?: boolean;
 };
 const sessionKey = (id: string) => `cw-tilecards:${id}`;
 /** One duel per session row: a challenge whose row expired and was re-dealt is a new duel. */
@@ -123,7 +127,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const action = String(body.action ?? '').toLowerCase(); const warId = String(body.warId ?? '').trim(); const challengeId = String(body.challengeId ?? '').trim();
         if (!warId || !challengeId) return res.status(400).json({ error: 'Missing warId or challengeId.' });
-        const context = await loadClanContext(identity.admin ? '' : identity.name); const me = identity.admin ? safeName(String(body.playerName ?? '')) : (context.name || identity.name);
+        // `me` names this duelist everywhere below: its seat, its deck, and the save its
+        // Chronicle Points pay into. The display name is kept for the board only when it
+        // reduces to the authenticated account; otherwise the account slug is used, so a
+        // display name that differs from its account can never point at another save.
+        const context = await loadClanContext(identity.admin ? '' : identity.name);
+        const me = identity.admin ? safeName(String(body.playerName ?? ''))
+            : context.name && safeName(context.name) === safeName(identity.name) ? context.name : identity.name;
         const result = await withKvLock(sessionKey(challengeId), async () => {
             let session = await kv.get<Session>(sessionKey(challengeId)); const now = Date.now();
             if (session && session.rulesVersion !== CHRONICLE_RULES_VERSION) return { status:409 as const,body:{error:'This duel used retired rules; start a new duel.'} };
@@ -142,16 +152,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const error = await campaignBattleAdmissionError(war, challenge, now);
                     if (error) return { status:409 as const,body:{error} };
                 }
-                const lower=me.toLowerCase(); const from=(challenge.fromPlayer??'').toLowerCase()===lower||(challenge.fromPlayer2??'').toLowerCase()===lower; const to=(challenge.acceptedPlayer??'').toLowerCase()===lower||(challenge.acceptedPlayer2??'').toLowerCase()===lower;
+                // Campaign matches seat ACCOUNT slugs, and `me` may be the display name
+                // ("Kaede Morrow" lowercased was never "kaedemorrow", so spaced names
+                // were refused). Compare slugs; `me` always reduces to the account.
+                const lower=safeName(me); const from=safeName(challenge.fromPlayer??'')===lower||safeName(challenge.fromPlayer2??'')===lower; const to=safeName(challenge.acceptedPlayer??'')===lower||safeName(challenge.acceptedPlayer2??'')===lower;
                 if (!identity.admin && !from && !to) return {status:403 as const,body:{error:'Only an accepted participant can join.'}};
                 const clan=from?challenge.fromClan:(war.clans.find((item)=>item!==challenge.fromClan)??''); const resolution=await resolveDeck(me,submittedIds(body.deck??body.defaultDeck),identity.admin); if(!resolution)return{status:400 as const,body:{error:'No legal 40-card Chronicle deck is available.'}}; const deck=resolution.deck; const version=versionEcho(resolution);
-                if(!session){session={rulesVersion:CHRONICLE_RULES_VERSION,warId,challengeId,p1Name:me,p1Clan:clan,p1Deck:deck,status:'awaiting-p2',createdAt:now,updatedAt:now};await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,sessionKey(challengeId),session,SESSION_TTL_SEC);return{status:200 as const,body:{...version,session:{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:'p1'}}};}
+                // A Cinderhold clan shinobi an admin is playing: as in every NPC card duel, the duel pays nobody Chronicle Points.
+                const controlled=isNpcAccount(me)&&await isNpcPossessed(me,now);
+                if(!session){session={rulesVersion:CHRONICLE_RULES_VERSION,warId,challengeId,p1Name:me,p1Clan:clan,p1Deck:deck,status:'awaiting-p2',createdAt:now,updatedAt:now,...(controlled?{npcControlled:true}:{})};await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,sessionKey(challengeId),session,SESSION_TTL_SEC);return{status:200 as const,body:{...version,session:{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:'p1'}}};}
                 if(safeName(session.p1Name)===safeName(me)||session.p2Name&&safeName(session.p2Name)===safeName(me)){const side=safeName(session.p1Name)===safeName(me)?'p1':'p2';return{status:200 as const,body:{...version,session:session.state?projectMatchForViewer(session.state,side):{rulesVersion:CHRONICLE_RULES_VERSION,status:session.status,viewerSide:side}}};}
                 if(session.status!=='awaiting-p2'||session.p1Clan===clan)return{status:403 as const,body:{error:'The opposing seat is unavailable.'}};
+                if(controlled)session.npcControlled=true;
                 session.p2Name=me;session.p2Clan=clan;session.p2Deck=deck;session.state=createMatch(session.p1Name,session.p1Deck,me,deck,Math.random,now);session.status='active';session.participation={startedAt:now,p1Actions:0,p2Actions:0};session.updatedAt=now;await kv.set(sessionKey(challengeId),session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,sessionKey(challengeId),session,SESSION_TTL_SEC);return{status:200 as const,body:{...version,session:projectMatchForViewer(session.state,'p2')}};
             }
             if(!session||!session.state)return{status:404 as const,body:{error:'No active duel session.'}}; const side=viewer??(identity.admin?(body.side==='p2'?'p2':'p1'):null); if(!side)return{status:403 as const,body:{error:'Only the two duelists can act.'}};
             if(!ACTIONS.has(action))return{status:400 as const,body:{error:`Unknown action: ${action}`}}; const requested=actionIntent(body,action); const applied=applyAction(session.state,side,requested,now);if(!applied.ok)return{status:400 as const,body:{error:applied.error}};
+            // An admin (its password, or the NPC's control token) moving a Cinderhold clan shinobi's seat at any
+            // point of the duel, not only at its join: from then on the duel pays nobody (api/card-clash/_card-cp.ts).
+            const seatName=safeName(String(side==='p1'?session.p1Name:session.p2Name??''));
+            if(!session.npcControlled&&isNpcAccount(seatName)&&(identity.admin||(viewer&&await isNpcPossessed(seatName,now))))session.npcControlled=true;
             session.state=applied.state;session.status=applied.state.status==='complete'?'done':'active';session.updatedAt=now;
             session.participation=recordFreePlayParticipation(session.participation??{startedAt:now,p1Actions:0,p2Actions:0},side,requested.action,session.status==='done');
             const committed=await persistAndFinalize(session);const points=await pointsReply(session,me,identity.admin,committed);return{status:200 as const,body:{...points,session:projectMatchForViewer(session.state,side)}};

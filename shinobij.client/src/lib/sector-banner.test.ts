@@ -44,7 +44,7 @@ function pixelContext(data:Buffer,width:number) {
     }} as CanvasRenderingContext2D;
 }
 const paintedRoot=new URL('../../public/sector-life/',import.meta.url);
-const floors=[...Object.values(SECTOR_FLOOR_LAYOUTS).filter(l=>l.sites.stronghold&&l.sector!==99).map(layout=>({layout,path:`sector-map/s${layout.artKey}.webp`})),
+const floors=[...Object.values(SECTOR_FLOOR_LAYOUTS).filter(l=>l.sites.stronghold&&l.sector!==99&&l.region!=='cinderhold').map(layout=>({layout,path:`sector-map/s${layout.artKey}.webp`})),
     ...readdirSync(paintedRoot).filter(name=>name.endsWith('.json')).flatMap(name=>{
         const receipt=JSON.parse(readFileSync(new URL(name,paintedRoot),'utf8')),layout=SECTOR_FLOOR_LAYOUTS[receipt.artKey];
         return layout&&sectorBannerRegions(layout.sector).length?[{layout,path:`sector-life/${name.replace('.json','.webp')}`}]:[];
@@ -72,8 +72,9 @@ for(const {layout,path} of floors)test(`${path}: both existing cloths change, pr
         assert(changed.every(n=>n>100),`both cloths must visibly change: ${changed}`);
         outputs.add(createHash('sha256').update(data).digest('hex'));
     }
-    assert.equal(outputs.size,5,'four village dyes and neutral are distinct');
+    assert.equal(outputs.size,Object.keys(VILLAGE_ACCENT).length+1,'every village dye and neutral are distinct');
 });
-test('unfortified sectors and the imperial castle do not gain invented village flags',()=>{
+test('unfortified sectors, the imperial castle and Cinderhold do not gain invented village flags',()=>{
     assert.deepEqual(sectorBannerRegions(42),[]);assert.deepEqual(sectorBannerRegions(99),[]);
+    for(const sector of [67,68,69,70,71,72,73,74])assert.deepEqual(sectorBannerRegions(sector),[]);
 });

@@ -1,7 +1,7 @@
 import { readVillageAnbu } from './village/_anbu.js';
 import { advanceCampaignWar, awardCampaignBattle, createVillageCampaign } from './_village-war-campaign.js';
 import { applyEspionageBattleEvidence } from './_village-war-field-operations.js';
-import { campaignScore, type VillageCampaign } from '../shared/village-war-campaign.js';
+import { campaignScore, npcAcceptsPeace, type VillageCampaign } from '../shared/village-war-campaign.js';
 import { createHash, randomInt } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
@@ -55,8 +55,12 @@ import {
     villageWarReservationFromRow,
     type VillageWarReservationPlan,
 } from './_war-village-reservation.js';
-import { CENTRAL_SECTORS, homeSectorsForVillage, isWarVillage, NON_WAR_SPECIAL_SECTORS, WAR_VILLAGES } from './_war-map-sectors.js';
+import { CENTRAL_SECTORS, homeSectorsForVillage, isWarVillage, NON_WAR_SPECIAL_SECTORS, SECTOR_WAR_VILLAGES, WAR_VILLAGES } from './_war-map-sectors.js';
 import { territoryVillageOwnershipError } from './_territory-ownership.js';
+import { NPC_VILLAGE, isNpcVillage } from '../shared/npc-village.js';
+import { npcVillageClosed } from './_npc-village-switch.js';
+import { npcVillageWarFrozen } from './_npc-war-roster.js';
+import { hasNpcVillageWarDeclaration } from './_npc-war-authority.js';
 import { settlementMoralePatch } from './_war-morale.js';
 import { villageWarEndedByAgreement, villageWarEndedEarlyByAgreement, villageWarLiveFrom, warMinDurationMs } from './war/_early-end.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
@@ -88,6 +92,7 @@ import {
 import { sealedSectorWarRoleOf, sectorControlSwing } from './_war-role.js';
 import {
     pvpSessionMayGrantProgress,
+    pvpSessionMayScoreWar,
     sealedWorldRaidAttacker,
     type PvpSession,
 } from './pvp/session.js';
@@ -290,8 +295,14 @@ function publicVillageWar(war: VillageWar): VillageWar {
  * that holds the war lock runs this before acting, so whichever request comes
  * first after a deadline settles it and nothing acts on a stale row. Pure.
  */
-function bringVillageWarCurrent(war: VillageWar, now: number): { war: VillageWar; changed: boolean } {
+export function bringVillageWarCurrent(war: VillageWar, now: number): { war: VillageWar; changed: boolean } {
     if (!warIsMutableGameplayActive(war) || war.endedAt) return { war, changed: false };
+    // Cinderhold closed (the kill switch, or no session tokens so no NPC can
+    // act): its war FREEZES, as its sector wars do (api/_npc-war-roster.ts).
+    // No ending is stamped and nothing settles; once it is back the next
+    // reader brings the war current, and a campaign past its end is stamped
+    // ended at its own sealed end time with the tally as it stands.
+    if (npcVillageWarFrozen(war)) return { war, changed: false };
     if (war.campaign) {
         let next = advanceCampaignWar(war, now);
         if (next.endedAt) next = stampVillageWarEnding(next, { endedAt: next.endedAt, winnerVillage: next.winnerVillage });
@@ -931,9 +942,14 @@ export async function captureSectorForVillage(
  * everything else) so the war map starts from a defined ownership state. A sector
  * already owned by anyone is left untouched. Admin-triggered via the gated endpoint.
  */
-export async function seedHomeSectorOwnership(now: number = Date.now()): Promise<{ seeded: number; sectors: number[] }> {
+export async function seedHomeSectorOwnership(
+    now: number = Date.now(),
+    // Cinderhold's block is seeded too (Push 4): it holds and defends sectors.
+    // api/_npc-village-war.ts passes just Cinderhold from the boot seed.
+    villages: readonly string[] = SECTOR_WAR_VILLAGES,
+): Promise<{ seeded: number; sectors: number[] }> {
     const seeded: number[] = [];
-    for (const village of WAR_VILLAGES) {
+    for (const village of villages) {
         for (const sector of homeSectorsForVillage(village)) {
             const key = `${TERRITORY_KEY_PREFIX}${sector}`;
             const changed = await withKvLock(key, async () => {
@@ -1244,6 +1260,31 @@ async function settleVillageWarSpoils(war: VillageWar, now: number): Promise<boo
     // rotating early surrenders kept a village on +10% training and pet XP
     // almost permanently.
     const morale = !villageWarEndedEarlyByAgreement(war, warMinDurationMs());
+    // A war with Cinderhold (Push 4b, owner ruling) moves NO treasury value in
+    // either direction and touches no Cinderhold morale: the player village
+    // keeps its war-standing record, and the marker still closes the war.
+    if (isNpcVillage(winner) || isNpcVillage(loser)) {
+        const playerSide = isNpcVillage(winner) ? loser : winner;
+        await withKvLock<void>(villageStateKey(playerSide), async () => {
+            if (await kv.get<Record<string, unknown>>(markerKey)) return;
+            const playerKey = villageStateKey(playerSide);
+            const state = (await kv.get<Record<string, unknown>>(playerKey)) ?? {};
+            const receipts = warSpoilsReceiptsOf(state);
+            const side = playerSide === winner ? 'winner' as const : 'loser' as const;
+            if (morale && !receipts[token]) {
+                await kv.set(playerKey, {
+                    ...state,
+                    ...settlementMoralePatch(side, now),
+                    [WAR_SPOILS_RECEIPTS_FIELD]: withWarSpoilsReceipt(receipts, token, { side, spoils: { ryo: 0, honorSeals: 0, fateShards: 0 }, at: now }),
+                });
+            }
+            await bumpVillageStanding(playerSide, side === 'winner' ? 'win' : 'loss', now, token);
+            const spoils = { ryo: 0, honorSeals: 0, fateShards: 0 };
+            await kv.set(markerKey, { status: 'done', ts: now, winner, loser, spoils, npcVillage: true }, { ex: 90 * 24 * 60 * 60 });
+            await kv.set(`audit:village-war-settle:${token}`, { ts: now, winner, loser, spoils, npcVillage: true }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
+        }, { failClosed: true });
+        return true;
+    }
     await withKvLock<void>(k1, async () => withKvLock<void>(k2, async () => {
         // The marker is written only after every part below has landed. (A
         // marker from the old code, which wrote it first, stays final too: it
@@ -1285,6 +1326,12 @@ async function settleVillageWarSpoils(war: VillageWar, now: number): Promise<boo
 
 async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
     if (!warIsMutableGameplayActive(war) || !war.endedAt || !war.winnerVillage) return;
+    // Frozen with Cinderhold closed (bringVillageWarCurrent): a war that ended
+    // anyway (a player's surrender) settles once Cinderhold is back.
+    if (npcVillageWarFrozen(war)) {
+        console.warn('[world-state] village-war settlement deferred: Cinderhold is closed', war.id);
+        return;
+    }
     try {
         if (!(await settleVillageWarSpoils(war, now))) return;
         // The war IS settled now. Stamp the war record so the polled GET skips it
@@ -1306,6 +1353,86 @@ async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
         // the next poll tries again.
         console.warn('[world-state] village-war settlement deferred', (err as Error)?.message ?? err);
     }
+}
+
+/** Whether `npcSide` is Cinderhold and its far-behind rule takes a standing player offer of peace. */
+function npcVillageTakesPeace(war: VillageWar, npcSide: string): boolean {
+    // Switched off (or no session tokens), Cinderhold answers nothing: the offer simply stands.
+    if (npcVillageClosed()) return false;
+    if (npcSide !== NPC_VILLAGE || !war.campaign || war.endedAt) return false;
+    const enemy = war.villages.find((village) => village !== npcSide);
+    return !!enemy && !!war.peaceProposals?.[enemy] && npcAcceptsPeace(war.campaign, npcSide, enemy);
+}
+
+/**
+ * Cinderhold accepting a standing offer: its own offer is recorded beside the
+ * player's, exactly as a second Kage's would be, so the ending reads as an
+ * agreement everywhere one is judged (villageWarEndedByAgreement: the early-end
+ * reward strip and pay fraction, the agreement eco event, the client mirror).
+ */
+function acceptNpcVillagePeace(war: VillageWar, now: number): VillageWar {
+    const proposals: Record<string, number> = { ...(war.peaceProposals ?? {}) };
+    setSafeRecordValue(proposals, NPC_VILLAGE, now);
+    return stampVillageWarEnding({ ...war, peaceProposals: proposals }, { endedAt: now });
+}
+
+/**
+ * Cinderhold re-reads every player offer of peace it left standing (called on
+ * each war-party tick, api/_npc-village-campaign.ts): once its far-behind rule
+ * holds, the war ends with no winner, exactly as the second Kage's offer would
+ * end it. Returns the ids of wars it ended. Never offers peace itself.
+ *
+ * `warIds`: the wars to re-read (the campaign tick passes the ones its
+ * projected scan found with a standing offer), so the tick never scans every
+ * war row twice. Without it every war row is scanned, as before.
+ */
+export async function reconsiderNpcVillagePeace(now = Date.now(), warIds?: readonly string[]): Promise<string[]> {
+    const ended: string[] = [];
+    let warKeys: string[];
+    if (warIds) {
+        warKeys = warIds.map((id) => `${VILLAGE_WAR_KEY_PREFIX}${id}`);
+    } else {
+        warKeys = [];
+        for (const candidate of await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX)) {
+            if (!candidate?.villages?.includes(NPC_VILLAGE) || candidate.endedAt || !candidate.campaign) continue;
+            const enemy = candidate.villages.find((village) => village !== NPC_VILLAGE)!;
+            if (!candidate.peaceProposals?.[enemy]) continue;
+            warKeys.push(`${VILLAGE_WAR_KEY_PREFIX}${villageWarId(candidate.villages[0], candidate.villages[1])}`);
+        }
+    }
+    for (const warKey of warKeys) {
+        try {
+            await withKvLock(warKey, async () => {
+                const stored = await kv.get<VillageWar>(warKey);
+                if (!stored || !warIsGameplayActive(stored) || warHasMercenaryFundingField(stored)) return;
+                // A named id is re-checked here: only a Cinderhold war answers.
+                if (!Array.isArray(stored.villages) || !stored.villages.includes(NPC_VILLAGE)) return;
+                const brought = bringVillageWarCurrent(stored, now);
+                const war = brought.war;
+                if (war.endedAt) {
+                    if (brought.changed) await commitWarBattleSettlement(kv, warKey, stored, war);
+                    return;
+                }
+                if (!npcVillageTakesPeace(war, NPC_VILLAGE)) {
+                    if (brought.changed) await commitWarBattleSettlement(kv, warKey, stored, war);
+                    return;
+                }
+                const next = acceptNpcVillagePeace({ ...war, updatedAt: Math.max(Math.floor(Number(war.updatedAt) || 0), now) }, now);
+                const publication = await commitWarBattleSettlement(kv, warKey, stored, next);
+                if (publication.status === 'conflict') return;
+                if (publication.row.endedAt) {
+                    await ensureWarRematchCooldown(publication.row);
+                    ended.push(publication.row.id);
+                    await kv.set(`audit:village-war-command:${normalizeVillageKey(NPC_VILLAGE)}:${now}`, {
+                        ts: now, command: 'accept-peace', actor: 'cinderhold', village: NPC_VILLAGE, warId: war.id,
+                    }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+                }
+            }, { failClosed: true });
+        } catch (err) {
+            if (!(err instanceof LockContendedError)) console.warn('[world-state] npc peace check deferred', (err as Error)?.message ?? err);
+        }
+    }
+    return ended;
 }
 
 // Throws on KV failure so the GET handler can distinguish "genuinely empty"
@@ -1519,7 +1646,10 @@ export async function settlePvpVillageWarContinuation(
     if (!actor || winnerName !== actor) {
         return { status: 403, body: { error: 'Only the recorded winner may settle village-war progress.' } };
     }
-    if (!pvpSessionMayGrantProgress(session)
+    // A Cinderhold duel scores (never pays) a campaign war: pvpSessionMayScoreWar
+    // is its authority, and below it reaches the campaign branch only.
+    const npcDuel = session.npcDuel?.version === 1;
+    if (!(npcDuel ? pvpSessionMayScoreWar(session) : pvpSessionMayGrantProgress(session))
         || session.rewardAuthority === 'admin'
         || (session.ranked === true && session.rankedKind === 'pet')) {
         return { status: 403, body: { error: 'This battle has no server progression authority.' } };
@@ -1687,6 +1817,8 @@ export async function settlePvpVillageWarContinuation(
                 return { status: 503, body: { error: 'A mercenary strike is settling; retry village-war rewards.' } };
             }
             if (!warIsGameplayActive(raw)) return writeNoop();
+            // An NPC duel never touches a legacy HP war (no raid, no capture).
+            if (npcDuel && !raw.campaign) return writeNoop();
             if (raw.campaign) {
                 if (session.ranked === true || session.playerRankedAuthorityVersion || session.rewardAuthority === 'ranked') return writeNoop();
                 const recorded = raw.campaign.receipts[`combat:${battleId}`];
@@ -2393,6 +2525,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (command === 'propose-peace' && proposals[enemy]) {
                             // Both Kages offered peace: the war ends with no winner.
                             next = stampVillageWarEnding(next, { endedAt: now });
+                        } else if (command === 'propose-peace' && npcVillageTakesPeace(next, enemy)) {
+                            // Cinderhold's side never answers an offer of peace
+                            // except by its far-behind rule (even when a defected
+                            // story Kage holds its seat, api/_npc-village-leaders.ts):
+                            // it accepts at once when it trails far behind, else the
+                            // offer stands and the war party re-reads it each tick.
+                            next = acceptNpcVillagePeace(next, now);
                         }
                     }
                     const publication = await commitWarBattleSettlement(kv, warKey, war, next);
@@ -2599,11 +2738,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 // Kage could declare on a village that does not
                                 // exist — which can never fight back, decays to a
                                 // "win" and paid out crates for every member.
-                                if (!war.villages.every((village) => isWarVillage(village))) {
-                                    return { status: 400 as const, body: { error: 'Village wars are fought between the four great villages.' } };
+                                // Cinderhold (Push 4b) is the one exception: a
+                                // pair of exactly one great village and Cinderhold
+                                // (spelled exactly, so the pair id is canonical).
+                                const npcSides = war.villages.filter((village) => village === NPC_VILLAGE).length;
+                                const pairValid = npcSides === 0
+                                    ? war.villages.every((village) => isWarVillage(village))
+                                    : npcSides === 1 && war.villages.some((village) => isWarVillage(village));
+                                if (!pairValid) {
+                                    return { status: 400 as const, body: { error: 'Village wars are fought between the four great villages and Cinderhold.' } };
+                                }
+                                if (npcSides && npcVillageClosed()) {
+                                    return { status: 409 as const, body: { error: 'Cinderhold is closed on this server, so no war can be declared with it.' } };
                                 }
                                 // 1. Only Kage of a warring village may declare war.
-                                const kage = await isSeatedKageOf(identity.name, actorVillage);
+                                // Cinderhold has no seat a player can hold: its
+                                // declaration is the admin-approved proposal, run
+                                // in-process with a server-only mark that cannot
+                                // arrive over HTTP (api/_npc-war-authority.ts).
+                                const kage = actorVillage === NPC_VILLAGE
+                                    ? hasNpcVillageWarDeclaration(req)
+                                    : await isSeatedKageOf(identity.name, actorVillage);
                                 if (!kage) {
                                     return { status: 403 as const, body: { error: 'Only the seated Kage of a warring village can declare a war.' } };
                                 }

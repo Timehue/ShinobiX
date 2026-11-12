@@ -10,6 +10,7 @@ import { ordinaryAiProfile } from './_ordinary-ai-encounter.js';
 import { computeAiFightBaseReward } from './_ai-fight-token.js';
 import { WORLD_EXPLORE_RECEIPT_TTL_SECONDS } from '../world/_explore-authority.js';
 import { MAX_LEVEL } from '../_xp-engine.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 export type GenericAiFightBattleKind = 'practice' | 'explore' | 'raidAi' | 'dungeon';
 
@@ -234,7 +235,7 @@ export async function resolveGenericAiFightAuthority(params: {
     if (battleKind === 'explore') {
         const sector = Math.floor(Number(params.body.sector));
         const receiptId = cleanOpaqueId(params.body.worldExploreRequestId);
-        if (!Number.isSafeInteger(sector) || sector < 1 || sector > 66 || !receiptId) {
+        if (!Number.isSafeInteger(sector) || sector < 1 || sector > MAX_WILD_SECTOR || !receiptId) {
             throw new Error('A sealed exploration receipt is required for this encounter.');
         }
         const receipt = await exploreReceipt(params.store, params.playerName, params.character, receiptId, sector);
@@ -282,7 +283,7 @@ export async function resolveGenericAiFightAuthority(params: {
         }
         const sector = Math.floor(Number(params.body.sector));
         const raidToken = cleanOpaqueId(params.body.raidToken);
-        if (!Number.isSafeInteger(sector) || sector < 1 || sector > 66 || !raidToken) {
+        if (!Number.isSafeInteger(sector) || sector < 1 || sector > MAX_WILD_SECTOR || !raidToken) {
             throw new Error('A sealed AI-raid token is required for this encounter.');
         }
         const key = `raid-token:${params.playerName}:${raidToken}`;

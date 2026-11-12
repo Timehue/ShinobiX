@@ -107,7 +107,7 @@ describe('shared sector pool sizing against the explore ceilings', () => {
         // pool must not be a de-facto global cap on exploring.
         const worldCapacity = MAX_WILD_SECTOR * SECTOR_EXPLORE_POOL_PER_DAY;
         const worldDemand = 200 * DAILY_SECTOR_EXPLORE_LIMIT;
-        assert.equal(worldCapacity, 99_000);
+        assert.equal(worldCapacity, 111_000); // 74 sectors x 1500 since Cinderhold (2026-11-08)
         assert.equal(worldDemand, 20_000);
         assert.ok(worldCapacity >= worldDemand * 3,
             `world explore capacity ${worldCapacity} must leave 3x headroom over ${worldDemand} of demand`);

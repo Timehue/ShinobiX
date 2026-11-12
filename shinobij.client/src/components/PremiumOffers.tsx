@@ -27,6 +27,7 @@ import {
     type ShardTier,
 } from "../lib/shard-store";
 import { SUBSCRIPTION_ID } from "../../../shared/shard-packages";
+import { useWorldModelCreationAvailable } from "../lib/sector-obstacles";
 import '../styles/premium-offers.css';
 
 /*
@@ -55,6 +56,7 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
     const [status, setStatus] = useState<string>("");
     const [awaitingPurchase, setAwaitingPurchase] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const worldModelCreationAvailable = useWorldModelCreationAvailable();
     const rail = shardRail();
     // `character.patreon` keeps its original storage key — it is live save data
     // and provider-agnostic; only the rail that writes it changed.
@@ -219,6 +221,7 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
             <h2 style={{ marginTop: "1.4rem" }}>Shinobi Supporter</h2>
             <p style={{ color: "#aaa", marginBottom: "0.8rem" }}>
                 A monthly subscription: a larger jutsu loadout, an extra pet and bloodline slot, bloodline switching from your Profile, and a custom avatar.
+                {worldModelCreationAvailable && " Create one custom world model per UTC month from a supported portrait."}
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: "minmax(150px, 232px)", gap: 12 }}>

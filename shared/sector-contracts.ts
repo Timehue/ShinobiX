@@ -18,7 +18,7 @@
  * The payout is recomputed here at claim time from the sealed day and sector —
  * never read from the request body.
  */
-import { PLAYABLE_WILD_SECTOR_IDS, isPlayableWildSector } from "./sector-geo.js";
+import { PLAYABLE_WILD_SECTOR_IDS, isPlayableWildSector, sectorRewardTier } from "./sector-geo.js";
 import { isWorldNight, worldNightWindowLabel } from "./world-phase.js";
 
 /** How many sectors carry a contract on any given day. */
@@ -139,7 +139,7 @@ export function sectorContractFor(
         sector: id,
         day,
         target: CONTRACT_TARGET_MIN + (seed % CONTRACT_TARGET_SPREAD),
-        ryo: CONTRACT_RYO_BASE + id * CONTRACT_RYO_PER_SECTOR,
+        ryo: CONTRACT_RYO_BASE + sectorRewardTier(id) * CONTRACT_RYO_PER_SECTOR,
         // Its own hash, not a slice of `seed`: the target already consumes the
         // low bits, and reusing them would tie night work to specific targets.
         nightOnly: hash(`${day}:night:${id}`) % CONTRACT_NIGHT_SHARE === 0,

@@ -7,6 +7,8 @@ import { LockContendedError, withKvLock } from '../../_lock.js';
 import { parseSettlementRequestId } from '../../_settlement-receipts.js';
 import { SaveDebitRefusal } from '../../_save-debit-saga.js';
 import { declareClanWarCampaign } from './_campaign-declare.js';
+import { isNpcAccount } from '../../../shared/npc-village-roster.js';
+import { isNpcClanRecord } from '../../../shared/npc-clans.js';
 import {
     CLAN_WAR_HP_MAX,
     clanInActiveWar,
@@ -71,6 +73,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Every real-player declaration uses the new campaign rules.
         // Existing administrative HP fixtures remain available for legacy QA.
         if (!identity.admin) {
+            // A Cinderhold clan never declares a clan war (owner ruling
+            // 2026-11-10): an NPC account is refused here however the request
+            // arrives, over HTTP or in-process. Player clans still declare on it.
+            if (isNpcAccount(identity.name)) {
+                return res.status(403).json({ error: 'Cinderhold shinobi cannot run a war by hand.' });
+            }
             if(body?.funding!==undefined&&!['personal','pool'].includes(body.funding))return res.status(400).json({error:'Choose personal Seals or the clan Seal Pool.'});
             const outcome = await declareClanWarCampaign({ playerName: identity.name, toClan: requestedToClan,
                 requestId: parseSettlementRequestId(body?.requestId) ?? '',funding:body?.funding??'personal' });
@@ -121,6 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // record for its upgrades (cheap — declare is a rare action).
         const fromClanSlug = `clan-${fromClan.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
         const fromClanRecord = await kv.get<{ upgrades?: Record<string, number>; doctrine?: string }>(`save:${fromClanSlug}`);
+        // Not even an admin declares FOR a Cinderhold clan; declaring on one stays open.
+        if (isNpcClanRecord(fromClanRecord)) return res.status(403).json({ error: 'A Cinderhold clan never declares a clan war.' });
         const fromStartHp = CLAN_WAR_HP_MAX + warRoomBonusHp(fromClanRecord) + doctrineWarHp(fromClanRecord);
         const toStartHp = CLAN_WAR_HP_MAX + warRoomBonusHp(toClanRecord) + doctrineWarHp(toClanRecord);
 

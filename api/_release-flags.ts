@@ -6,6 +6,16 @@ export function sectorObstaclesEnabled(env: NodeJS.ProcessEnv = process.env): bo
     return env.DISABLE_SECTOR_OBSTACLES !== '1';
 }
 
+/** Fitted overworld figures ship on independently of character creation. */
+export function sectorModelDisplayEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.ENABLE_SECTOR_MODEL_DISPLAY !== '0';
+}
+
+/** The walk and run animations ship with the public world model pack. */
+export function sectorPlayerGaitsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.ENABLE_PLAYER_GAIT_PILOT !== '0' && sectorModelDisplayEnabled(env) && Boolean(env.R2_PUBLIC_BASE?.trim());
+}
+
 export function playerAiImageGenerationEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.ENABLE_PLAYER_AI_IMAGE_GENERATION === '1';
 }

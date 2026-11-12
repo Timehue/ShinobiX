@@ -1,6 +1,7 @@
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { safeName } from './_utils.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
 import { hasRecentIpOrFpOverlap } from './_player-ips.js';
 import { legacyEnabled, bumpLegacyStats, legacyBootstrapBeforeCounterIncrement, LEGACY_PVP_RECEIPT_TTL_SECONDS } from './_legacy-track.js';
 import { extractPvpLegacyDeltas, guardDefenseDeltas } from './_legacy-pvp.js';
@@ -24,6 +25,8 @@ export async function settlePvpLegacyProgress(session: PvpSession): Promise<void
         const winnerName = safeName(winner.name);
         const loserName = safeName(loser.name);
         if (!winnerName || !loserName || winnerName === loserName) return;
+        // A Cinderhold NPC earns no Legacy standing (its wins are not a player's).
+        if (isNpcAccount(winnerName)) return;
         const [record, opponentRecord] = await Promise.all([
             kv.get<Record<string, unknown>>(`save:${winnerName}`), kv.get<Record<string, unknown>>(`save:${loserName}`),
         ]);

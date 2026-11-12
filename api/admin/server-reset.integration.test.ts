@@ -29,6 +29,7 @@ before(async () => {
 });
 
 test('a full reset leaves the start state: no players, no clans, NPC leaders, Rill kept without any role', async () => {
+    const { ensureModelOwner, modelOwnerKey, modelOwnerProof, modelResetKey } = await import('../avatar-model/_owner.js');
     const rillCharacter = {
         name: 'Rill', level: 99, village: 'Stormveil Village', ryo: 12345,
         clan: 'Storm Lords', clanFounder: true, clanUpgradeLevels: { hall: 3 }, guardQueued: true,
@@ -49,9 +50,30 @@ test('a full reset leaves the start state: no players, no clans, NPC leaders, Ri
     await kv.set('game:village-leadership-images', { images: {} });
     await kv.set('save:admin1', { creatorItems: [] });
 
+    const protectedOwner = await ensureModelOwner('rill');
+    const removedOwner = await ensureModelOwner('dopey');
+    assert.ok(protectedOwner.ok && removedOwner.ok);
+    const oldProof = await modelOwnerProof('rill', protectedOwner.value.id);
+    assert.ok(oldProof);
+    const assetId = 'a'.repeat(32), version = 'b'.repeat(64);
+    const jobKey = 'avatar-model:job:reset-ready';
+    const privateRefKey = 'avatar-model:private-ref:' + removedOwner.value.id;
+    await kv.set(jobKey, {
+        slug: 'dopey', accountId: removedOwner.value.id, assetId, state: 'ready', attempt: 1,
+        privateRefKey, masterSha256: 'c'.repeat(64), providerCalls: { 'A/1': 'fc-resetfixture' },
+    });
+    await kv.set(privateRefKey, { owner: 'dopey', accountId: removedOwner.value.id });
+    await kv.set('avatar-model:asset:' + assetId, {
+        owner: 'dopey', accountId: removedOwner.value.id, assetId, version, status: 'ready', jobId: 'reset-ready',
+    });
+    await kv.set('avatar-model:slot:dopey:' + month, { jobId: 'reset-ready' });
+    await kv.set('lock:avatar-model:in-flight', 'existing-lock');
+    await kv.set('cron:lease:avatar-model-public-cleanup', 'existing-lease');
+
     const preview = await reset(true);
     assert.equal(preview.status, 200, JSON.stringify(preview.body));
     assert.ok(await kv.get('save:dopey'), 'the preview deletes nothing');
+    assert.equal(await kv.get(modelResetKey), null, 'preview does not fence generation');
 
     const done = await reset(false);
     assert.equal(done.status, 200, JSON.stringify(done.body));
@@ -82,4 +104,29 @@ test('a full reset leaves the start state: no players, no clans, NPC leaders, Ri
     assert.equal(rill.clanBattleContrib, 0);
     assert.ok(await kv.get('auth:rill'), 'Rill can still sign in');
     assert.deepEqual(done.body.protectedStandingStripped, ['rill']);
+    assert.equal((await kv.get<{state:string}>(modelOwnerKey(removedOwner.value.id)))?.state, 'deleting');
+    assert.equal((await kv.get<{status:string}>('avatar-model:asset:' + assetId))?.status, 'revoked');
+    assert.ok((await kv.get<string[]>('avatar-model:cleanup'))?.includes(assetId));
+    assert.ok(await kv.get(privateRefKey));
+    assert.deepEqual((await kv.get<{providerCalls:unknown}>(jobKey))?.providerCalls, { 'A/1': 'fc-resetfixture' });
+    assert.equal(await kv.get('avatar-model:slot:dopey:' + month), null);
+    assert.equal(await kv.get('lock:avatar-model:in-flight'), 'existing-lock');
+    assert.equal(await kv.get('cron:lease:avatar-model-public-cleanup'), 'existing-lease');
+    assert.ok(await modelOwnerProof('rill', protectedOwner.value.id), 'protected owner remains active');
+    assert.equal(await kv.compareSetMany?.([...oldProof.filter(op => op.key === modelResetKey),
+        { op:'cas', key:'avatar-model:stale-reset-fixture', expected:null, value:true }]), false);
+});
+
+test('an invalid avatar owner aborts before deleting saves and a retry releases the fence', async () => {
+    const { modelResetKey, ensureModelOwner } = await import('../avatar-model/_owner.js');
+    await kv.set('save:resetretry', { character: { name: 'resetretry', playerModelOwnerId: 'invalid' } });
+    assert.equal((await reset()).status, 500);
+    assert.ok(await kv.get('save:resetretry'));
+    assert.equal((await kv.get<{active:boolean}>(modelResetKey))?.active, true);
+    assert.equal((await ensureModelOwner('rill')).ok, false);
+    await kv.set('save:resetretry', { character: { name: 'resetretry' } });
+    assert.equal((await reset()).status, 200);
+    assert.equal(await kv.get('save:resetretry'), null);
+    assert.equal((await kv.get<{active:boolean}>(modelResetKey))?.active, false);
+    assert.equal((await ensureModelOwner('rill')).ok, true);
 });

@@ -17,6 +17,7 @@ type ShinobiIdentityCardProps = {
     summary?: string;
     extraChips?: ReputationBadge[];
     avatarAction?: ReactNode;
+    metricAction?: ReactNode;
     showIdentityChips?: boolean;
     metricIds?: string[];
     showMetrics?: boolean;
@@ -35,6 +36,7 @@ export function ShinobiIdentityCard({
     summary,
     extraChips = [],
     avatarAction,
+    metricAction,
     showIdentityChips = true,
     metricIds,
     showMetrics = true,
@@ -105,6 +107,7 @@ export function ShinobiIdentityCard({
                         {metric.detail ? <small>{metric.detail}</small> : null}
                     </div>
                 ))}
+                {metricAction}
             </div>
             ) : null}
 

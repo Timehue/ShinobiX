@@ -11,6 +11,7 @@ import { clanWarPvpTerritoryScrollDrop, grantClanWarPvpWinScrolls, type WarPoint
 import { awardPvpWarEndClanXp } from './_war-xp.js';
 import type { ClanWar } from './_storage.js';
 import {recordClanCampaignHistory} from './_campaign-history.js';
+import { isNpcAccount } from '../../../shared/npc-village-roster.js';
 
 const REWARD_RETENTION_MS = 60 * 86_400_000;
 type Receipt = { fingerprint: string; paidAt: number };
@@ -103,6 +104,9 @@ export async function awardCampaignMatch(war: ClanWar, match: ClanWarCampaignMat
     for (const [clan, side, won] of [[match.fromClan, match.fromPlayers, match.result === 'from-wins'],
         [match.toClan, match.toPlayers, match.result === 'to-wins']] as const) {
         for (const name of side) {
+            // A Cinderhold shinobi is never paid (owner ruling 2026-11-10); its
+            // opponent's own credit below is untouched.
+            if (isNpcAccount(name)) continue;
             const events: Array<{source: ClanPointSource;amount:number}> = [{ source: 'clanWarParticipation', amount: CLAN_WAR_RULES.participationPoints }];
             if (won) events.push({ source: 'clanWarWin', amount: CLAN_WAR_RULES.matchWinPoints });
             if(match.provisionedClans?.includes(clan))events.push({source:'clanWarParticipation',amount:Math.floor(
@@ -119,7 +123,7 @@ export async function awardCampaignEnd(war: ClanWar): Promise<void> {
         || Date.now() > war.campaign.endsAt + REWARD_RETENTION_MS) return;
     const participants = Object.values(war.campaign.contributions).filter(entry=>entry.played>0);
     if (participants.length && !['service','withdrawal'].includes(war.campaign.closeReason??'')) {
-        for (const member of participants) if (member.clan === war.winnerClan) {
+        for (const member of participants) if (member.clan === war.winnerClan && !isNpcAccount(member.name)) {
             await creditPlayer(war,member.name,member.clan,'victory',[{source:'clanWarWin',amount:CLAN_WAR_RULES.victoryPoints}]);
         }
         await awardPvpWarEndClanXp(war,`campaign:${war.campaign.instanceId}`,war.endedAt);

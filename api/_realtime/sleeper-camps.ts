@@ -4,6 +4,7 @@ import type { OnlinePlayer } from './types.js';
 import { onlineStore } from './online-store.js';
 import { getTravelLease, settleTravelLease, sleeperSectorForTravelLease } from './travel-lease.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from './battle-authority.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 
 export const SLEEPER_CAMPS_KEY = 'world:sleeper-camps';
 
@@ -70,6 +71,8 @@ function forgetBeatCleared(names: readonly string[]): void {
 }
 
 export async function setSleeperCamp(camp: SleeperCamp): Promise<void> {
+    // Never a Cinderhold NPC: it is off the map while away, not sleeping in the field.
+    if (isNpcAccount(safeName(camp.name))) return;
     const name = safeName(camp.name);
     if (!name || camp.sector < 1) return;
     forgetBeatCleared([name]);
@@ -149,6 +152,9 @@ export async function materializeSleeperCamps(players: OnlinePlayer[]): Promise<
     const now = Date.now();
     for (let player of players) {
         if (onlineStore.get(player.name)) continue;
+        // A Cinderhold NPC is never a sleeper (its presence comes and goes with
+        // its posts and admin control); it is fought only in a played duel.
+        if (isNpcAccount(safeName(player.name))) { uncamped.push(player.name); continue; }
         const lease = await getTravelLease(player.name);
         if (lease) {
             const sector = sleeperSectorForTravelLease(lease, now);

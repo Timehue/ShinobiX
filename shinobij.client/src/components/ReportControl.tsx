@@ -14,7 +14,7 @@ import { Modal } from "./ui/Modal";
  * identifies the reporter from their session — never from the body.
  */
 
-export type ReportTargetType = "player" | "message" | "profile" | "clan-chat" | "other";
+export type ReportTargetType = "player" | "message" | "profile" | "clan-chat" | "player-model" | "other";
 
 // value MUST match the server's CATEGORIES allowlist in api/report.ts.
 const CATEGORIES: ReadonlyArray<{ value: string; label: string }> = [
@@ -71,12 +71,14 @@ export function ReportControl({
     targetType,
     targetName,
     targetId,
+    targetVersion,
     context,
     style,
 }: {
     targetType: ReportTargetType;
     targetName?: string;
     targetId?: string;
+    targetVersion?: string;
     context?: string;
     /** Merged onto the default muted-icon trigger style (e.g. marginLeft:"auto"). */
     style?: CSSProperties;
@@ -87,7 +89,9 @@ export function ReportControl({
     const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
     const [errorMsg, setErrorMsg] = useState("");
 
-    const label = targetName ? `"${targetName}"` : "this content";
+    const model = targetType === "player-model";
+    const label = targetName ? (model ? `${targetName}'s world model` : `"${targetName}"`) : "this content";
+    const triggerLabel = `Report ${model ? label : targetName ?? "content"}`;
 
     function close() {
         setOpen(false);
@@ -101,12 +105,13 @@ export function ReportControl({
             const r = await fetch("/api/report", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ targetType, targetName, targetId, context, category, note }),
+                body: JSON.stringify({ targetType, targetName, targetId, targetVersion, context, category, note }),
             });
             if (r.ok) { setStatus("done"); return; }
             setStatus("error");
             if (r.status === 429) setErrorMsg("You've filed several reports recently. Please try again later.");
             else if (r.status === 401) setErrorMsg("Please sign in to submit a report.");
+            else if (model && r.status === 404) setErrorMsg("This world model is no longer available to report.");
             else setErrorMsg("Could not submit your report. Please try again.");
         } catch {
             setStatus("error"); setErrorMsg("Network error. Please try again.");
@@ -118,8 +123,8 @@ export function ReportControl({
             <button
                 type="button"
                 onClick={() => setOpen(true)}
-                title={`Report ${targetName ?? "content"}`}
-                aria-label={`Report ${targetName ?? "content"}`}
+                title={triggerLabel}
+                aria-label={triggerLabel}
                 style={{ ...triggerBase, ...style }}
             >
                 ⚑

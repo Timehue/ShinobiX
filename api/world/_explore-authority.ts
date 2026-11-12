@@ -1,3 +1,5 @@
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
+
 export const WORLD_EXPLORE_RECEIPT_TTL_SECONDS = 32 * 24 * 60 * 60;
 
 export type WorldExploreAuthorityReceipt = {
@@ -24,7 +26,7 @@ export function cleanWorldExploreAuthorityReceipt(raw: unknown): WorldExploreAut
     const at = Math.floor(Number(value.at));
     if (value.version !== 1 || typeof value.playerName !== 'string'
         || !/^[A-Za-z0-9_-]{8,96}$/.test(requestId)
-        || !Number.isSafeInteger(sector) || sector < 1 || sector > 66
+        || !Number.isSafeInteger(sector) || sector < 1 || sector > MAX_WILD_SECTOR
         || !Number.isSafeInteger(at) || at <= 0
         || !value.reward || typeof value.reward !== 'object' || Array.isArray(value.reward)) return null;
     const outcome = value.outcome && typeof value.outcome === 'object' && !Array.isArray(value.outcome)

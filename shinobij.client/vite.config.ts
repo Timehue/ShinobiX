@@ -1,14 +1,24 @@
 import { minifyRuntimeSource } from './scripts/runtime-asset-minifier.mjs';
 import { compactGlbDelivery } from './scripts/compact-glb-delivery.mjs';
 import { sectorRuntimeData } from './scripts/sector-runtime-data.mjs';
+import { sectorModelPins } from './scripts/sector-model-pins.ts';
+import { jutsuFxFrames } from './scripts/jutsu-fx-frames.ts';
 import { packedWorldData } from './scripts/packed-world-data.mjs';
-import { packStaticCatalog } from './scripts/pack-static-catalog.mjs';
+import { packStaticCatalog, packStaticCatalogLiteral } from './scripts/pack-static-catalog.mjs';
+import { packedPoseDecoder } from './scripts/packed-pose-decoder.mjs';
+
+/** Pure-literal tables shipped packed (values unchanged; see pack-static-catalog.mjs).
+ *  Lazy chunks only: packed data gzips worse, so startup modules stay literal. */
+const STATIC_LITERAL_TABLES: ReadonlyArray<readonly [string, readonly string[]]> = [
+    ['/shared/resource-nodes.ts', ['placements']],
+    ['/src/data/sector-structure-placements.ts', ['STRONGHOLD_BY_ART', 'RIFT_BY_ART']],
+];
 import { progressionCatalogDelivery } from './scripts/progression-catalog-delivery.mjs';
 import { CHRONICLE_LEGACY_SOURCES } from '../shared/legacy-card-sources.ts';
 import { hollowRifts } from './src/data/hollow-rifts.ts';
 import { fileURLToPath, URL } from 'node:url';
 
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import plugin from '@vitejs/plugin-react';
 import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
 import fs from 'fs';
@@ -21,6 +31,7 @@ import { playerPasswordPolicyError } from './src/lib/player-auth-policy.ts';
 import { normalizeRecoveryCode, formatRecoveryCode } from './src/lib/recovery-code.ts';
 import { sectorExitById } from '../shared/sector-links.ts';
 import { SHRINE_DEFS } from '../shared/shrines.ts';
+import { MAX_WILD_SECTOR } from '../shared/sector-geo.ts';
 import { sectorContractFor, utcDayOf } from '../shared/sector-contracts.ts';
 import { freshSectorChat, isSectorChatSector, sectorChatSince, SECTOR_CHAT_KEEP, SECTOR_CHAT_MAX_CHARS, type SectorChatMessage } from '../shared/sector-chat.ts';
 import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth.ts';
@@ -458,6 +469,8 @@ setInterval(() => {
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [
+        sectorModelPins(CLIENT_ROOT),
+        jutsuFxFrames(CLIENT_ROOT),
         {
             name: 'sector-runtime-data',
             enforce: 'pre',
@@ -479,6 +492,9 @@ export default defineConfig({
                 const file = id.split('?')[0].replace(/\\/g, '/');
                 if (file.endsWith('/shared/legacy-card-sources.ts')) return { code: packStaticCatalog(source, 'CHRONICLE_LEGACY_SOURCES', CHRONICLE_LEGACY_SOURCES), map: null };
                 if (file.endsWith('/src/data/hollow-rifts.ts')) return { code: packStaticCatalog(source, 'hollowRifts', hollowRifts), map: null };
+                // Literal geography tables grew with Cinderhold (2026-11-08); ship them packed.
+                const literalTables = STATIC_LITERAL_TABLES.find(([suffix]) => file.endsWith(suffix));
+                if (literalTables) return { code: literalTables[1].reduce((code, name) => packStaticCatalogLiteral(code, name), source), map: null };
             },
         },
         progressionCatalogDelivery(),
@@ -607,7 +623,7 @@ export default defineConfig({
                         if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
                         const body = parsed.body as { destinationSector?: number; mode?: string; originSector?: number; originTile?: number; exitId?: string };
                         const destinationSector = sectorFrom(body.destinationSector, -1);
-                        if (destinationSector < 1 || (destinationSector > 60 && destinationSector !== 99)) {
+                        if (destinationSector < 1 || (destinationSector > MAX_WILD_SECTOR && destinationSector !== 99)) {
                             sendJson(res, 400, { error: 'Invalid travel destination.' }); return;
                         }
                         const player = playerPresence.get(playerId);
@@ -664,7 +680,7 @@ export default defineConfig({
                     if (req.method !== 'GET') { next(); return; }
                     const url = new URL(req.url ?? '/', 'http://vite.local');
                     const sector = sectorFrom(url.searchParams.get('sector'), 0);
-                    if (sector < 1 || sector > 60) { sendJson(res, 400, { error: 'Invalid sector.' }); return; }
+                    if (sector < 1 || sector > MAX_WILD_SECTOR) { sendJson(res, 400, { error: 'Invalid sector.' }); return; }
                     const player = safeName(url.searchParams.get('player') ?? '');
                     const signs = devSigns.get(sector) ?? [];
                     const shrine = shrineView(sector);
@@ -690,7 +706,7 @@ export default defineConfig({
                     if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
                     const body = parsed.body as { sector?: number; tile?: number; text?: string; action?: string; signId?: string };
                     const sector = sectorFrom(body.sector, 0);
-                    if (sector < 1 || sector > 60) { sendJson(res, 400, { error: 'Invalid sector.' }); return; }
+                    if (sector < 1 || sector > MAX_WILD_SECTOR) { sendJson(res, 400, { error: 'Invalid sector.' }); return; }
                     const signs = devSigns.get(sector) ?? [];
                     if (body.action === 'spark') {
                         const sign = signs.find(s => s.id === body.signId);
@@ -1245,6 +1261,7 @@ export default defineConfig({
         {
             name: 'api-generate-image',
             configureServer(server) {
+                const apiKey = loadEnv(server.config.mode, server.config.envDir, 'OPENAI_API_KEY').OPENAI_API_KEY;
                 server.middlewares.use('/api/generate-image', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
 
@@ -1262,16 +1279,6 @@ export default defineConfig({
                             return;
                         }
 
-                        const dotenvPath = path.resolve(process.cwd(), '.env');
-                        let apiKey = env.OPENAI_API_KEY ?? '';
-                        if (!apiKey && fs.existsSync(dotenvPath)) {
-                            const lines = fs.readFileSync(dotenvPath, 'utf8').split('\n');
-                            for (const line of lines) {
-                                const m = line.match(/^OPENAI_API_KEY\s*=\s*(.+)$/);
-                                if (m) { apiKey = m[1].trim(); break; }
-                            }
-                        }
-
                         if (!apiKey) {
                             sendJson(res, 500, { error: 'OPENAI_API_KEY is not set. Add it to shinobij.client/.env' });
                             return;
@@ -1279,8 +1286,6 @@ export default defineConfig({
 
                         const finalPrompt = `Create a polished 2D anime shinobi RPG game asset.\n\nUser request:\n${prompt}\n\nAsset label:\n${label ?? ''}\n\nStyle rules:\n- original shinobi RPG fantasy style\n- clean game asset composition\n- dramatic lighting\n- no text\n- no logos\n- no UI\n- no watermarks\n- high detail\n- suitable for a browser RPG`;
 
-                        // Dev-only image generation intentionally sends the configured API credential to OpenAI.
-                        // codeql[js/file-access-to-http]
                         const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
                             method: 'POST',
                             headers: {
@@ -1323,7 +1328,7 @@ export default defineConfig({
         }
     },
     worker: {
-        plugins: () => [progressionCatalogDelivery()],
+        plugins: () => [progressionCatalogDelivery(), packedPoseDecoder()],
     },
     build: {
         // 2026-09-02 Railway parity drain: production-length public build args
@@ -1406,6 +1411,9 @@ export default defineConfig({
                         return /\.(?:png|webp|jpe?g|avif|svg|gif)$/i.test(source) && (
                             (/\/assets\/(?:combat-actors|fx)\//.test(source) && !/(?:^|\/)builtin-ai-/.test(source))
                             || /\/assets\/first-pact\/.*(?:atlas|key-art|architecture)/.test(source)
+                            // These scenery and facility URLs are resolved by imports at build time.
+                            || /\/assets\/(?:facilities|village-upgrades|towers\/thumbs|first-pact\/[^/]+-v\d+)\//.test(source)
+                            || /\/assets\/coliseum\/arena-mode-/.test(source)
                         );
                     })
                         ? 'assets/i-[hash][extname]'

@@ -15,16 +15,24 @@ import type { Character, PlayerRecord } from '../../src/types/character';
 import { PUBLIC_CAPABILITY_IDS } from '../../../shared/public-capabilities';
 import { useViewportContract } from '../../src/lib/use-viewport-contract';
 import { WorldSectorCanvas } from '../../src/components/WorldSectorCanvas';
+import { isPlayerModel } from '../../src/lib/player-model';
+import { anbuAvatarForVillage, anbuDisplayName } from '../../src/lib/anbu-infiltration-api';
 const params = new URLSearchParams(location.search);
+const defenderVillages = ['Moonshadow Village', 'Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village'];
+const requestedDefender = params.get('defender');
+const defenderVillage = requestedDefender && defenderVillages.includes(requestedDefender) ? requestedDefender : 'Moonshadow Village';
+const model = { assetId: params.get('assetId'), version: params.get('version') };
 const capabilities = Object.fromEntries(PUBLIC_CAPABILITY_IDS.map(id => [id, { state: 'available', reason: 'available' }]));
 const store = new LiveCapabilitiesStore(async () => ({ ok: true, status: 200, json: async () => ({ ok: true, capabilities }) }));
 void store.refresh();
 export function Fixture() {
     useViewportContract();
-    const [character, setCharacter] = useState<Character>({ name: 'scout', level: 100, village: 'Frostfang Village', avatarImage: params.has('cachedAvatar') ? '' : '/anbu/frostfang.webp',
+    const [character, setCharacter] = useState<Character>({ name: 'scout', level: 100, village: 'Frostfang Village',
+        avatarImage: params.has('starter') ? `/starter-avatar-${params.get('starter') === 'two' ? 'two' : 'one'}.webp` : params.has('cachedAvatar') ? '' : '/anbu/frostfang.webp',
+        ...(isPlayerModel(model) ? { playerModel: model } : {}),
         hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000, stamina: 1000, maxStamina: 1000, stats: {}, equipment: {}, jutsu: [], inventory: [], itemStacks: [], jutsuMastery: [] } as Character);
     const [exited, setExited] = useState(params.has('lifecycle'));
-    const props = { character, sector: Number(params.get('sector') ?? 12), targetVillage: 'Moonshadow Village',
+    const props = { character, sector: Number(params.get('sector') ?? 12), targetVillage: defenderVillage,
         sharedImages: params.has('cachedAvatar') ? { 'avatar:scout': '/anbu/frostfang.webp', 'avatar:rival': '/anbu/moonshadow.webp' } : {}, onExit: () => setExited(true),
         onAttackPlayer: async (peer: PlayerRecord) => {
             document.body.dataset.attack = peer.name;
@@ -44,7 +52,8 @@ export function Fixture() {
     return present(<LiveCapabilitiesContext.Provider value={store}>
         {params.has('lifecycle') && createPortal(<div hidden={params.has('resourceAudit')} style={{ position: 'fixed', zIndex: 2147483647, left: 0, bottom: 0 }}><button data-testid="stronghold-qa-unmount" onClick={() => setExited(true)}>Unmount preview</button><button onClick={() => setCharacter(previous => ({ ...previous, name: previous.name === 'scout' ? 'other' : 'scout' }))}>Switch account</button></div>, document.body)}
         {params.get('host') ? createPortal(<div className="stronghold-overlay"><AnbuVaultRaid key={`${character.name}:${props.sector}`} {...props} onVersionedCharacter={next => { if (params.get('rejectSave')) return false; setCharacter(next); return true; }} /></div>, document.body)
-            : <StrongholdExplore key={`${character.name}:${props.sector}`} {...props} blocked={false} anbuAvatar="/anbu/moonshadow.webp" anbuName="The Moonshadow Anbu"
+            : <StrongholdExplore key={`${character.name}:${props.sector}`} {...props} blocked={false}
+                anbuAvatar={requestedDefender ? anbuAvatarForVillage(defenderVillage) : '/anbu/moonshadow.webp'} anbuName={anbuDisplayName(defenderVillage)}
                 onChallenge={() => { document.body.dataset.challenge = 'true'; }} onPatrol={session => { document.body.dataset.patrol = session.sessionId; }} />}
     </LiveCapabilitiesContext.Provider>);
 }

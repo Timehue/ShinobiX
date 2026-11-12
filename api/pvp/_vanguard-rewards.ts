@@ -5,6 +5,7 @@ import type { KvLike } from '../_storage.js';
 import { storedValueEquals } from '../_stored-value.js';
 import { withKvLock } from '../_lock.js';
 import { ownCountValue, safeName, setSafeRecordValue } from '../_utils.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
@@ -992,6 +993,9 @@ export async function grantVanguardRewardsForSession(
     session: PvpSession,
     options: VanguardRewardOptions = {},
 ): Promise<GrantResult> {
+    // A Cinderhold NPC is never credited, whatever its save says.
+    const victor = session.winner === 'p1' ? session.p1 : session.winner === 'p2' ? session.p2 : null;
+    if (victor && isNpcAccount(safeName(String(victor.name ?? '')))) return { granted: false };
     // Stage-1 rolling compatibility: legacy terminal callers stay on the
     // d76a receipt/save shape. The marker saga is activated only by an exact
     // V2 terminal journal after the documented worker drain.

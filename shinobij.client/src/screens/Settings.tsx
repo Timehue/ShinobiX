@@ -13,6 +13,8 @@ import { BRIGHTNESS_DEFAULT, BRIGHTNESS_MAX, BRIGHTNESS_MIN, getDisplayBrightnes
 import { IphoneInstallGuide } from '../components/IphoneInstallGuide';
 import '../styles/settings.css';
 import { CombatHotkeySettings } from '../components/CombatHotkeySettings';
+import { useSprintStyle, saveSprintStyle, type SprintStyle } from '../lib/player-model';
+import { usePlayerGaits } from '../lib/sector-obstacles';
 import '../styles/combat-hotkeys.css';
 
 export function Settings({ character, onVersionedCharacter, onDelete }: {
@@ -22,6 +24,8 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
     const [muted, setMuted] = useState(isAudioMuted);
     const [volume, setVolume] = useState(getAudioVolume);
     const [brightness, setBrightness] = useState(getDisplayBrightness);
+    const gaits = usePlayerGaits();
+    const style = useSprintStyle();
     const changeBrightness = (level: number) => { setBrightness(level); setDisplayBrightness(level); };
     useEffect(() => subscribeAudioMute(() => { setMuted(isAudioMuted()); setVolume(getAudioVolume()); }), []);
     return <div className="settings-page card">
@@ -42,6 +46,16 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
             <label className="settings-check"><input type="checkbox" checked={muted} onChange={e => { setAudioMuted(e.target.checked); if (!e.target.checked) primeGameAudio(); }} />Mute all audio</label>
             <p className="hint">Controls music, story ambience, and sound effects. Reader and audio preferences are saved on this device.</p>
         </section>
+        {gaits && <section className="settings-section" aria-labelledby="movement-heading">
+            <h2 id="movement-heading">World movement</h2>
+            <label htmlFor="settings-sprint">Running style</label>
+            <select id="settings-sprint" data-gamepad-horizontal-select="true" value={style}
+                onChange={event => saveSprintStyle(event.target.value as SprintStyle)}>
+                <option value="A">A · Athletic sprint</option>
+                <option value="B">B · Original</option>
+                <option value="C">C · Ninja</option>
+            </select>
+        </section>}
         <section className="settings-section" aria-labelledby="display-heading">
             <h2 id="display-heading">Display</h2>
             <div className="settings-range-label"><label htmlFor="settings-brightness">Brightness</label><output htmlFor="settings-brightness">{brightness}%</output></div>

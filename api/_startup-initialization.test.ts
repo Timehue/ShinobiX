@@ -116,9 +116,10 @@ it('replays partially committed territory seeding from a fresh lease context wit
     assert.deepEqual(await kv.get(conqueredKey), conquered);
     assert.equal((await kv.get<Record<string, unknown>>(firstKey))?.warSupply, 9);
     assert.deepEqual((await kv.get<Record<string, unknown>>(firstKey))?.guards, ['home-guard']);
-    assert.equal((await kv.keys('world:territory:*')).length, 32);
+    // 32 player-village sectors plus Cinderhold's 8 (it holds sector-war land, Push 4).
+    assert.equal((await kv.keys('world:territory:*')).length, 40);
     await initializeTerritory();
-    assert.equal(writes.size, 31, 'repeated initialization commits no additional territory');
+    assert.equal(writes.size, 39, 'repeated initialization commits no additional territory');
 });
 
 it('a committed boss spawn survives a lost acknowledgement, without creating or announcing a second boss', async t => {
@@ -192,7 +193,7 @@ it('two startup controllers sharing storage converge without duplicate boss anno
     while (a.timers.length) await a.tick();
     while (b.timers.length) await b.tick();
     assert.deepEqual(await Promise.all(promises), ['complete', 'complete', 'complete', 'complete']);
-    assert.equal(commits, 32);
+    assert.equal(commits, 40);
     assert.equal((await kv.keys('clan-boss:week:*')).length, 1);
     assert.equal(((await kv.get<Announcement[]>(ANNOUNCEMENTS_KEY)) ?? []).filter(a => a.type === 'clan-boss-spawn').length, 1);
 });

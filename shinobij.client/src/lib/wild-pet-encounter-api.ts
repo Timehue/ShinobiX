@@ -1,6 +1,7 @@
 import type { Character } from '../types/character';
 import type { Pet } from '../types/pet';
 import { runSingleFlight } from './single-flight';
+import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 
 /**
  * World-map wild-pet encounters, settled server-side.
@@ -97,7 +98,7 @@ async function requestWildPetEncounter(playerName: string, sector: number, reque
                 ? "daily-limit" : undefined);
             const pendingDungeon = reason === "pending-dungeon-discovery"
                 && typeof data?.requestId === "string" && /^[A-Za-z0-9_-]{8,96}$/.test(data.requestId)
-                && Number.isSafeInteger(data.sector) && data.sector! >= 1 && data.sector! <= 66
+                && Number.isSafeInteger(data.sector) && data.sector! >= 1 && data.sector! <= MAX_WILD_SECTOR
                 ? { requestId: data.requestId, sector: data.sector! } : undefined;
             return {
                 kind: "blocked",

@@ -7,6 +7,64 @@ import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 // six-hour roll can legitimately contain no merchant or medic anywhere.
 const ENCOUNTER_TIME = Date.UTC(2026, 9, 20, 6);
 
+for (const reducedMotion of ['no-preference','reduce'] as const) {
+    test(`a bandit runs to the player at the authored pace (${reducedMotion})`, async ({page},info) => {
+        await page.emulateMedia({reducedMotion});
+        await page.clock.setFixedTime(ENCOUNTER_TIME);
+        const sector = 24, tile = 61;
+        const bandit = rollWanderers(sector,wandererDayBucketFromMs(ENCOUNTER_TIME)).find(w=>w.archetype==='bandit')!;
+        expect(bandit.homeTile).toBe(64);
+        const save = uiAuditSave();
+        save.currentSector=sector; save.currentTile=tile; save.worldGeoV=2;
+        const cooldowns=quietRoadCooldowns(Array.from({length:66},(_,i)=>i+1),ENCOUNTER_TIME);
+        delete cooldowns[bandit.id];
+        save.character={...save.character,wandererCooldowns:cooldowns};
+        await installUiAuditRuntime(page,save);
+        await page.route('**/api/world/sector-layout',r=>r.fulfill({json:{obstaclesEnabled:true,playerGaitsEnabled:true}}));
+        await page.addInitScript(name=>{
+            localStorage.setItem('legacyRumors.seen.v1:auditninja','[10,20,30,40,45]');
+            const samples:{x:number;y:number;t:number;width:number}[]=[];
+            Object.assign(window,{banditTravel:samples});
+            function record(t:number) {
+                const image=document.querySelector<HTMLImageElement>(`.continuous-world-map img[alt="${name}"]`);
+                const figure=image?.closest<HTMLElement>('.sector-wanderer-figure');
+                const grid=figure?.closest<HTMLElement>('.continuous-world-chunk');
+                const offset=figure?.style.transform.match(/^translate\(([-.\d]+)px,\s*([-.\d]+)px\)/);
+                if (offset && grid) {
+                    const x=Number(offset[1]),y=Number(offset[2]),width=grid.getBoundingClientRect().width;
+                    const last=samples.at(-1);
+                    if (width && (!last || x!==last.x || y!==last.y)) samples.push({x,y,t,width});
+                }
+                requestAnimationFrame(record);
+            }
+            requestAnimationFrame(record);
+        },bandit.name);
+        await page.goto('/#/worldMap');
+        const back=page.getByRole('button',{name:/Return to Sector 24/});
+        await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible()).toBe(true);
+        if (await back.isVisible()) await back.click();
+        await expect(page.getByRole('button',{name:'Pay 500 ryo',exact:true})).toBeVisible({timeout:25_000});
+        const samples=await page.evaluate(()=> (window as unknown as {banditTravel:{x:number;y:number;t:number;width:number}[]}).banditTravel);
+        const lengths=samples.slice(1).map((b,i)=>{
+            const a=samples[i],distance=Math.hypot(b.x-a.x,b.y-a.y)*1080/b.width;
+            return {distance,speed:distance*1000/(b.t-a.t)};
+        });
+        await info.attach('bandit-travel.json',{body:JSON.stringify({samples,lengths}),contentType:'application/json'});
+        // Measure the entire final 120 pixels, including delayed callbacks and
+        // waypoint crossings. Filtering individual samples by speed masks stalls.
+        let distance=0, seconds=0;
+        for (const step of lengths.reverse()) {
+            if (distance>=120) break;
+            const used=Math.min(120-distance,step.distance);
+            distance+=used;
+            seconds+=used/step.speed;
+        }
+        expect(distance).toBe(120);
+        expect(distance/seconds).toBeGreaterThan(104);
+        expect(distance/seconds).toBeLessThan(136);
+    });
+}
+
 for (const enoughRyo of [true, false]) test(`road bandit replaces Flee with a 500 ryo toll (${enoughRyo ? 'paid' : 'insufficient funds'})`, async ({ page }, info) => {
     const now = ENCOUNTER_TIME;
     await page.clock.setFixedTime(now);

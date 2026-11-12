@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { findCollapsedPrefixes } from './lib/css-prefix-collapse.mjs';
 import { assertNoRetiredPetUi } from './lib/retired-pet-ui.mjs';
 import { compactGlbDelivery } from '../shinobij.client/scripts/compact-glb-delivery.mjs';
+import { measureSectorSpriteDelivery, SECTOR_SPRITE_DELIVERY_LIMIT } from './lib/sector-sprite-delivery-budget.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const serverJs = join(root, 'dist', 'server.js');
@@ -113,7 +114,18 @@ const maxHarvestingArtBytes = 407_568;
 // caps", then "they need new sprites as well"), so the headroom left for
 // everything else is unchanged. Delete to drop the allowance.
 const maxBossFormArtBytes = 664_320;
-const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes + maxHarvestingArtBytes + maxBossFormArtBytes;
+// 2026-11-08: Cinderhold (the NPC fifth village) adds eight composed sector
+// floors (public/sector-map/s67-s74.webp, each under 205 KB), their eight card
+// thumbnails, the map crest (src/assets/map-landmarks/cinderhold.webp), and new
+// road climbs painted into s7 and s66 (both re-encoded no larger than before).
+// Net 1,764,766 B, measured against the pre-Cinderhold tree. Owner approved
+// crediting exactly those bytes (2026-11-08), so the headroom left for
+// everything else is unchanged. Delete to drop the allowance.
+// 2026-11-09: the walled village painted into Cinderhold Gates (s67) grows that
+// floor by 12,644 B and shrinks its thumbnail by 232 B: +12,412 B, credited the
+// same way after the owner asked for the village ("Yes, paint it").
+const maxCinderholdArtBytes = 1_764_766 + 12_412;
+const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes + maxHarvestingArtBytes + maxBossFormArtBytes + maxCinderholdArtBytes;
 // The 161 scenic companion portraits ship separately from their unchanged
 // battle/model assets. Keep unrelated runtime growth under the existing cap.
 const maxPetPortraitBytes = 16 * 1024 * 1024;
@@ -129,8 +141,10 @@ const maxPetPortraitBytes = 16 * 1024 * 1024;
 // campaign painting instead of borrowing a stronghold, gorge or boathouse scene;
 // +86,024 B for the Flower-Pickers' Shelter map sprite (a 2x2-tile building),
 // which replaces its signpost.
+// 2026-11-11: -7,560 B. Ashbrook Hills (60) became Midlands ground, so its two
+// ruins' restorations were re-baked to clear their plots to its new grass.
 const sectorBuildingArtCount = 39;
-const maxSectorBuildingArtBytes = 2_581_396;
+const maxSectorBuildingArtBytes = 2_573_836;
 // 2026-11-04 (owner approved): the painted Hollow Gate cave set (five chamber
 // floors, the passage floor and three decals; shinobij.client/art-source/hollow-gate-cavern-chambers.json)
 // gets the same exact-byte partition, so it neither consumes nor relaxes the
@@ -138,7 +152,9 @@ const maxSectorBuildingArtBytes = 2_581_396;
 const CAVERN_ART_FILES = JSON.parse(readFileSync(join(root, 'shinobij.client', 'art-source', 'hollow-gate-cavern-chambers.json'), 'utf8'))
     .records.map((record) => record.output.replace('shinobij.client/public/', ''));
 const maxCavernArtBytes = 8839476;
-const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes + maxPetPortraitBytes + maxSectorBuildingArtBytes + maxCavernArtBytes;
+// The independently capped bootstrap is 75,463 B with the complete roster.
+// Sprite pages remain on the art host, outside this browser bootstrap.
+const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes + maxPetPortraitBytes + maxSectorBuildingArtBytes + maxCavernArtBytes + SECTOR_SPRITE_DELIVERY_LIMIT;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
@@ -193,6 +209,13 @@ try {
 console.log('[verify:dist] Retired pet battle UI is absent from executable client assets.');
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
 const clientRelativeFileSet = new Set(clientRelativeFiles);
+let sectorSpriteDelivery;
+try {
+    sectorSpriteDelivery = measureSectorSpriteDelivery(clientRelativeFiles, file => statSync(join(clientDist, file)).size);
+} catch (error) {
+    fail(String(error));
+}
+console.log(`[verify:dist] Sprite bootstrap: ${sectorSpriteDelivery.files.length} objects / ${sectorSpriteDelivery.bytes} B (${SECTOR_SPRITE_DELIVERY_LIMIT} B ceiling).`);
 const sectorBuildingFiles = clientRelativeFiles.filter((file) => file.startsWith('sector-buildings/'));
 if (sectorBuildingFiles.length !== sectorBuildingArtCount || sectorBuildingFiles.some((file) => !/^sector-buildings\/[a-z0-9-]+\.webp$/.test(file))) {
     fail(`sector buildings must ship exactly the ${sectorBuildingArtCount} reviewed WebP assets`);
@@ -387,7 +410,7 @@ const chronicleArtBytes = clientFiles
 if (chronicleArtBytes > maxChronicleArtBytes) {
     fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${(maxChronicleArtBytes / 1024 / 1024).toFixed(1)} MiB`);
 }
-const otherClientBytes = clientArtifactBytes - chronicleArtBytes - petPortraitBytes - sectorBuildingArtBytes - cavernArtBytes;
+const otherClientBytes = clientArtifactBytes - chronicleArtBytes - petPortraitBytes - sectorBuildingArtBytes - cavernArtBytes - sectorSpriteDelivery.bytes;
 if (otherClientBytes > maxOtherClientBytes) {
     fail(`client excluding Chronicle art and scenic companions is ${otherClientBytes} B (${(otherClientBytes / 1024 / 1024).toFixed(3)} MiB); ceiling is ${maxOtherClientBytes} B; over by ${otherClientBytes - maxOtherClientBytes} B`);
 }

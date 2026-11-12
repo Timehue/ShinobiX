@@ -24,7 +24,9 @@ export const RUIN_PAINT_MARGIN = 16;
 
 const festivalGround = [430, 430, 760, 850] as const;
 const meadowGround50 = [100, 180, 420, 410] as const, meadowGround62 = [700, 170, 900, 420] as const;
-const ashGround = [600, 500, 940, 840] as const, gorgeGround = [700, 600, 900, 850] as const;
+// s52 (Ashbrook Hills) has been Midlands grass since 2026-11-11; the same open
+// patch now supplies grass, and the ruins themselves were kept in place.
+const hillGround = [600, 500, 940, 840] as const, gorgeGround = [700, 600, 900, 850] as const;
 const hedge = 'meadow-hedge-prop', lantern = 'meadow-stone-lantern-prop', wall = 'obsidian-wall', brazier = 'obsidian-brazier-prop';
 
 export const RUIN_RESTORATIONS: readonly RuinRestoration[] = [
@@ -55,11 +57,11 @@ export const RUIN_RESTORATIONS: readonly RuinRestoration[] = [
             { source: hedge, tile: [2, 8, 1, 1] }, { source: hedge, tile: [4, 8, 1, 1] }] },
     { buildingId: 'grey-landing-memorial', artKey: 62, ground: meadowGround62, clear: [[598, 430, 800, 598], [515, 598, 800, 780]],
         pieces: [{ source: 'greycliff-memorial', tile: [6, 7, 2, 2] }, { source: lantern, tile: [7, 6, 1, 1] }, { source: lantern, tile: [8, 7, 1, 1] }] },
-    { buildingId: 'obsidian-waystation', artKey: 52, ground: ashGround, clear: [[100, 427, 560, 900]],
+    { buildingId: 'obsidian-waystation', artKey: 52, ground: hillGround, clear: [[100, 427, 560, 900]],
         pieces: [{ source: 'obsidian-station-hall', tile: [3, 5, 2, 2] }, { source: wall, tile: [2, 5, 1, 1] }, { source: wall, tile: [5, 5, 1, 1] },
             { source: 'obsidian-round-tower', tile: [5, 7, 1, 2] }, { source: brazier, tile: [3, 8, 1, 1] },
             { source: wall, tile: [2, 9, 5, 1] }, { source: brazier, tile: [5, 10, 1, 1] }] },
-    { buildingId: 'obsidian-north-watch', artKey: 52, ground: ashGround, clear: [[0, 0, 430, 300]],
+    { buildingId: 'obsidian-north-watch', artKey: 52, ground: hillGround, clear: [[0, 0, 430, 300]],
         pieces: [{ source: 'obsidian-watch-hall', tile: [2, 1, 2, 2] }, { source: 'obsidian-round-tower', tile: [0, 0, 1, 2] },
             { source: brazier, tile: [1, 0, 1, 1] }, { source: wall, tile: [1, 1, 1, 1] }, { source: wall, tile: [4, 1, 1, 1] }, { source: brazier, tile: [0, 2, 1, 1] }] },
 ];

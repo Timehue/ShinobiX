@@ -23,6 +23,10 @@ import "../../styles/index/33-hollow-gate-cinematic.css";
 import "../../styles/index/29-clan-exchange-storefront.css";
 import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
+import { HollowHoundFigure } from "./HollowHoundFigure";
+import { useSectorModelPins } from "../../lib/sector-model-pins";
+import { isPlayerModel, starterModel, useSprintStyle } from "../../lib/player-model";
+import { usePlayerGaits, useSectorModelArtBase } from "../../lib/sector-obstacles";
 import { HollowGateEventDialog } from './HollowGateEventDialog';
 import { hollowGateWandererArt, hollowGateWandererFriendly, hollowGateWandererName, hollowGateWandererOrigin } from '../../../../shared/hollow-gate-wanderers';
 import { UndergroundSectorTerrain } from '../../components/UndergroundSectorTerrain';
@@ -55,6 +59,8 @@ import { hollowGateBossDisplayName, hollowGateRunMaxFloor } from "../../lib/holl
 import { hollowGateClawBackPreview } from "../../lib/hollow-gate-run";
 import {
     HOLLOW_GATE_ALPHA_CINEMATIC,
+    HOLLOW_GATE_HOUND_COMBAT,
+    hollowGateHoundCombatImage,
     hollowGateAlphaCinematicImage,
     hollowGateLegacyRoomPrefabs,
     hollowGatePassageArt,
@@ -83,10 +89,6 @@ const HOLLOW_GATE_TILE_ART: Partial<Record<HollowGateTileKind, GameArtIconKind>>
     pet_event: "petTamer", pet_battle: "petTamer", tile_game: "dice", shard_vein: "fateShard",
     shrine: "gate", story: "scroll", boss: "attack", exit: "worldMap", locked: "key",
     npc: "healer", descend: "worldMap",
-};
-const HOLLOW_GATE_WORLD_PROP: Partial<Record<HollowGateTileKind, string>> = {
-    chest: 'fortress-supplies', shard_vein: 'cavern-crystals', shrine: 'cavern-offering',
-    locked: 'cavern-arch', descend: 'cavern-arch', exit: 'cavern-arch', story: 'cavern-broken-pillar',
 };
 
 type HiddenChamberState = { searched: boolean; relicTaken: boolean } | null;
@@ -172,6 +174,7 @@ function iconSlotIdFor(k: HollowGateTileKind): string | null {
 }
 
 type HollowGateCellProps = {
+    houndArtBase: string | null;
     i: number; x: number; y: number; tile: HollowGateTile;
     wall: boolean; wallFace: boolean;
     visible: boolean; known: boolean; isPlayer: boolean; isDest: boolean; clickable: boolean;
@@ -191,7 +194,7 @@ type HollowGateCellProps = {
  * floor, and a reply that only moves torch or threat re-renders none.
  */
 const HollowGateCell = memo(function HollowGateCell({ i, x, y, tile, wall, wallFace,
-    visible, known, isPlayer, isDest, clickable, isDetourChest, isRiftSignal, roamerOrigin, secret = false, fissure, playerName, detourExtraSteps, riftLabel, art, onPick }: HollowGateCellProps) {
+    visible, known, isPlayer, isDest, clickable, isDetourChest, isRiftSignal, roamerOrigin, secret = false, fissure, playerName, detourExtraSteps, riftLabel, art, onPick, houndArtBase }: HollowGateCellProps) {
     const revealed = tile.revealed;
     const terrainKind: HollowGateTerrain =
         tile.terrain ?? (tile.kind === "wall" ? "wall" : "room_floor");
@@ -222,8 +225,10 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tile, wall, wallF
     const spentTrap = known && revealed && tile.kind === 'trap' && tile.resolved;
     const iconSlotId = showIcon ? iconSlotIdFor(tile.kind) : null;
     const iconImage = iconSlotId ? art.pickRoleIconImage(iconSlotId, i) : undefined;
-    const worldProp = showIcon ? HOLLOW_GATE_WORLD_PROP[tile.kind] : undefined;
     const iconArtKind = tile.terrain === "door" ? "gate" : HOLLOW_GATE_TILE_ART[tile.kind] ?? "warning";
+    const showHound = showIcon && visible && !isPlayer && !secret && !tile.resolved && !iconImage
+        && (tile.kind === 'boss' || (revealed && ['battle','elite','pet_battle','tile_game'].includes(tile.kind)));
+    const fallbackIcon = showIcon && <span className="hg-icon" aria-hidden="true"><GameArtIcon kind={iconArtKind} size={22} /></span>;
 
     const tileLabel = isPlayer
         ? `${playerName}, current location${spentTrap ? ', spent trap, safe to cross' : ''}, row ${y + 1}, column ${x + 1}`
@@ -267,8 +272,8 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tile, wall, wallF
                      aria-hidden="true"
                      className="hg-icon-img"
                  />
-             ) : worldProp ? <img className="hg-world-prop" src={`/underground/${worldProp}-v1.webp`} alt="" aria-hidden="true" />
-             : showIcon ? <span className="hg-icon" aria-hidden="true"><GameArtIcon kind={iconArtKind} size={22} /></span> : null}
+             ) : houndArtBase && showHound ? <HollowHoundFigure key={houndArtBase} artBase={houndArtBase}>{fallbackIcon}</HollowHoundFigure>
+             : fallbackIcon}
         </div>
     );
 });
@@ -320,6 +325,7 @@ export function HollowGateShrineView({
     onTakeHiddenChamberRelic,
     onCloseHiddenChamber,
 }: HollowGateShrineViewProps) {
+    const {portraitModels} = useSectorModelPins();
     const run = hollowGateRun;
     const maxHp = Math.max(1, character.maxHp);
     const hp = Math.min(maxHp, Math.max(0, character.hp));
@@ -364,6 +370,11 @@ export function HollowGateShrineView({
         ? runTiles.map((t) => (hollowGateSecretSealed(t) ? { ...t, terrain: "wall" as const } : t))
         : runTiles, [runTiles]);
     const cellArt = useMemo(() => hollowGateCellArt(sharedImages), [sharedImages]);
+    const modelArtBase = useSectorModelArtBase();
+    const playerGaits = usePlayerGaits();
+    const sprintStyle = useSprintStyle();
+    const equipped = isPlayerModel(character.playerModel) ? character.playerModel : undefined;
+    const playerPortrait = character.avatarImage || sharedAvatarFor(sharedImages, character.name) || cellArt.pickRoleIconImage("you", 0);
     const floorFeatures = run.floorFeatures;
     const blockedCells = useMemo(() => {
         const blocked = new Set<number>();
@@ -413,6 +424,8 @@ export function HollowGateShrineView({
     const ryoAtRisk = lootAtRisk.ryo ?? 0, shardsAtRisk = lootAtRisk.hollowShards ?? 0;
     const isFinalFloor = run.floor >= maxFloor;
     const isHoundBoss = bossName.toLowerCase().includes("hound");
+    const houndArtBase = !isQuestRift && hollowGateHoundCombatImage(sharedImages) === HOLLOW_GATE_HOUND_COMBAT
+        && !sharedImages['hollow-gate:hound:combat'] ? modelArtBase : null;
     const bossIntroKey = `${run.runToken || run.serverSeed || character.name || "local"}:${run.floor}`;
     const [dismissedBossIntroKey, setDismissedBossIntroKey] = useState<string | null>(null);
     const showBossIntro = hollowGateIntroPage === null
@@ -663,6 +676,7 @@ export function HollowGateShrineView({
                                         const wall = isWallAt(x, y);
                                         const secret = hollowGateSecretSealed(tile);
                                         return <HollowGateCell key={i} i={i} x={x} y={y} tile={tile}
+                                            houndArtBase={tile.kind === 'boss' && !isHoundBoss ? null : houndArtBase}
                                             wall={wall} wallFace={wall && !isWallAt(x, y + 1)} visible={visible} known={known} isPlayer={isPlayer} isDest={walkTarget === i}
                                             secret={secret}
                                             fissure={fissures.has(i) ? hollowGateFissureState(fissures.get(i)!, arenaNow) : undefined}
@@ -674,18 +688,22 @@ export function HollowGateShrineView({
                                     {run.tiles.map((tile, index) => tile.kind === 'npc' && !tile.resolved && visibleSet.has(index)
                                         ? <HollowGateAvatar key={`keeper-${index}`} tileX={index % w} tileY={Math.floor(index / w)} tilePx={tilePx}
                                             avatarImage="/underground/wanderer-medic-v1.webp" name="Shrine Keeper" disposition="friendly"
+                                            artBase={modelArtBase} modelKind={portraitModels.get('/underground/wanderer-medic-v1.webp')}
                                             label="Friendly · One blessing" onSelect={() => onTileClick(index)} /> : null)}
                                     {run.wanderers?.filter(npc => !npc.spent && visibleSet.has(npc.tile)).map(npc => {
                                         const friendly = hollowGateWandererFriendly(npc), name = hollowGateWandererName(npc);
+                                        const portrait = hollowGateWandererArt(npc);
                                         return <HollowGateAvatar key={npc.nodeId} tileX={npc.tile % w} tileY={Math.floor(npc.tile / w)} tilePx={tilePx}
-                                            avatarImage={hollowGateWandererArt(npc)} name={name} disposition={friendly ? 'friendly' : 'hostile'}
+                                            avatarImage={portrait} name={name} disposition={friendly ? 'friendly' : 'hostile'}
+                                            artBase={modelArtBase} modelKind={portraitModels.get(portrait)}
                                             label={friendly ? 'Friendly · Talk' : npc.hunting ? 'Hostile · Hunting you' : 'Hostile patrol'} onSelect={() => onTileClick(npc.tile)} />;
                                     })}
                                     <HollowGateAvatar
                                         tileX={run.playerX}
                                         tileY={run.playerY}
                                         tilePx={tilePx}
-                                        avatarImage={character.avatarImage || sharedAvatarFor(sharedImages, character.name) || cellArt.pickRoleIconImage("you", 0)}
+                                        avatarImage={playerPortrait} artBase={playerGaits ? modelArtBase : null}
+                                        modelKind={starterModel(playerPortrait || '')} equipped={equipped} sprintStyle={sprintStyle}
                                         name={character.name}
                                     />
                                     </div>
@@ -766,36 +784,15 @@ export function HollowGateShrineView({
                                             "wall" slot uses the room-floor/wall atlas tile instead since
                                             walls render as terrain, not an icon. */}
                                         {(() => {
-                                            // Map slot id → themed fallback art. Keeps the legend self-contained.
-                                            const fallbackArt: Record<string, GameArtIconKind> = {
-                                                you: "roleDefender", battle: "attack", elite: "roleAssassin", boss: "attack", trap: "warning",
-                                                chest: "reward", shrine: "gate", story: "scroll", pet: "petTamer", petbattle: "petTamer",
-                                                tilegame: "dice", npc: "healer", descend: "worldMap", exit: "worldMap", locked: "key", wall: "biomeCentral",
-                                            };
-                                            // Walls use the atlas wall tile (terrain), not an icon slot.
-                                            const wallTileImg: string | undefined = undefined; // walls are part of the painted floor
-                                            // Legend picks any-variant: shrine:icon-<role>-1 first, then
-                                            // shrine:icon-<role>-2..N, then the legacy un-suffixed key.
-                                            // This way the legend reflects "an assignment exists" without
-                                            // caring which specific variant the admin filled.
-                                            const anyAssignedVariant = (role: string): string | undefined => {
-                                                const cfg = HOLLOW_GATE_ICON_ROLES[role];
-                                                if (cfg && cfg.count > 1) {
-                                                    for (let i = 1; i <= cfg.count; i += 1) {
-                                                        const v = sharedImages[HOLLOW_GATE_ICON_KEY(`${role}-${i}`)];
-                                                        if (v) return v;
-                                                    }
-                                                }
-                                                return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
-                                            };
-                                            const legendCell = (slotId: string, label: string) => {
-                                                const img = slotId === "wall" ? wallTileImg : anyAssignedVariant(slotId);
+                                            const legendCell = (kind: HollowGateTileKind | "you", label: string) => {
+                                                const img = cellArt.pickRoleIconImage(kind, 0);
+                                                const icon = kind === "you" ? "roleDefender" : HOLLOW_GATE_TILE_ART[kind] ?? "warning";
                                                 return (
                                                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                         {img ? (
                                                             <img src={img} alt="" style={{ width: 18, height: 18, objectFit: "contain", imageRendering: "pixelated" }} />
                                                         ) : (
-                                                            <GameArtIcon kind={fallbackArt[slotId] ?? "warning"} size={18} />
+                                                            <GameArtIcon kind={icon} size={18} />
                                                         )}
                                                         <span>{label}</span>
                                                     </span>
@@ -806,7 +803,7 @@ export function HollowGateShrineView({
                                             const surprise = new Set(["trap", "battle", "elite", "pet_event", "pet_battle"]);
                                             const found = new Set<string>();
                                             run.tiles.forEach((t, i) => { if (knownSet.has(i) && (!surprise.has(t.kind) || t.revealed)) found.add(t.kind); });
-                                            const entries: Array<[string, string]> = [
+                                            const entries: Array<[HollowGateTileKind, string]> = [
                                                 ["battle", isQuestRift ? "Encounter" : "Hollow Hound"], ["elite", isQuestRift ? "Elite" : "Elite Hound"],
                                                 ["boss", isQuestRift ? bossName : "Alpha Hound"], ["trap", "Trap"], ["chest", "Chest"], ["shrine", "Shrine"],
                                                 ["story", "Story"], ["npc", "Keeper"], ["descend", "Descend"], ["exit", "Leave"], ["locked", "Locked Door"],

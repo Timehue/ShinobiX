@@ -4,19 +4,27 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { applyWorldMovement, worldMovementSnapshot, nearbyWorldPlayers } from '../_realtime/world-movement-service.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { changeWorldRun, worldRunWindow } from '../_realtime/world-run.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
+    res.setHeader('Cache-Control', 'no-store');
     const identity = await authedPlayerOrAdmin(req);
     if (!identity || identity.admin) return res.status(401).json({ error: 'Player authentication required.' });
     if (!enforceRateLimit(req, res, 'world-movement', 600, 60_000, identity.name)) return;
     const player = onlineStore.get(identity.name);
     if (!player) return res.status(409).json({ ok: false, reason: 'offline' });
-    if (req.method === 'GET') return res.status(200).json({ ok: true, ...worldMovementSnapshot(player), players: nearbyWorldPlayers(player) });
+    if (req.method === 'GET') return res.status(200).json({ ok: true, ...worldMovementSnapshot(player),
+        players: nearbyWorldPlayers(player), run: worldRunWindow(player.name) });
     const parsed = parseJsonBody(req.body);
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+    const action = (parsed.body as { action?: unknown } | null)?.action;
+    if (action === 'start-run' || action === 'stop-run') {
+        const result = changeWorldRun(player, action);
+        return res.status(result.ok ? 200 : 409).json(result);
+    }
     const result = await applyWorldMovement(identity.name, parsed.body);
     return res.status(result.ok ? 200 : 409).json(result);
 }

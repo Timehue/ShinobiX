@@ -338,7 +338,7 @@
     white-space: nowrap;
   }
 
-  .app-shell[data-ui-mode="noncombat"] .center-game :where(.clan-request-card, .clan-guard-row, .notice-post-head, .town-panel-head, .town-section-heading, .user-hub-header, .user-hub-section-header) {
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(.clan-request-card, .clan-guard-row, .notice-post-head, .town-section-heading, .user-hub-header, .user-hub-section-header) {
     align-items: flex-start;
     flex-wrap: wrap;
     gap: 8px 12px;

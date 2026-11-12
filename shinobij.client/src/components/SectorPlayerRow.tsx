@@ -3,6 +3,8 @@ import type { WorldSectorCommandPlayer } from './WorldSectorCommandPanel.types';
 import { sectorContestLabel } from '../lib/sector-war-engagement';
 import { sectorPlayerKey } from '../lib/sector-player-roster';
 import type { SectorPlayerIntent } from '../lib/use-sector-player-action';
+import { isPlayerModel } from '../../../shared/player-model-ref';
+import { ReportControl } from './ReportControl';
 
 function Portrait({ src, name }: { src: string; name: string }) {
     const [failed, setFailed] = useState(false);
@@ -24,21 +26,26 @@ export const SectorPlayerRow = memo(function SectorPlayerRow({ player, pending, 
     const label = spectating ? 'Spectate' : player.sleeping ? 'Strike down' : player.attackLabel.kind === 'contest'
         ? sectorContestLabel(player.attackLabel.winCondition) : 'Attack';
     const gestureKey = `${key}:${label}`;
+    const model = player.target.character?.playerModel;
     return <li className="sector-player-row" data-player-key={key}>
         <Portrait key={player.avatarSrc} src={player.avatarSrc} name={player.name} />
         <div className="sector-roster-person">
             <strong title={player.name}>{player.name}</strong>
             <span>Lv {player.level} <span className={`sector-roster-status is-${player.status.toLowerCase()}`}>{player.status}</span></span>
         </div>
-        <button type="button" className={`sector-roster-action${spectating ? ' is-spectate' : ''}`} disabled={busy || (spectating ? player.spectateDisabled : player.actionDisabled)}
-            aria-label={`${label} ${player.name}`} aria-busy={pending}
-            onPointerDown={() => { pointerAccount.current = gestureKey; }}
-            onPointerCancel={() => { pointerAccount.current = null; }}
-            onClick={event => {
-                if (event.detail > 0 && pointerAccount.current !== gestureKey) return;
-                pointerAccount.current = null;
-                onAction(key, intent);
-            }}>{pending ? (spectating ? 'Opening…' : 'Starting…') : label}</button>
+        <div className="sector-roster-actions">
+            <button type="button" className={`sector-roster-action${spectating ? ' is-spectate' : ''}`} disabled={busy || (spectating ? player.spectateDisabled : player.actionDisabled)}
+                aria-label={`${label} ${player.name}`} aria-busy={pending}
+                onPointerDown={() => { pointerAccount.current = gestureKey; }}
+                onPointerCancel={() => { pointerAccount.current = null; }}
+                onClick={event => {
+                    if (event.detail > 0 && pointerAccount.current !== gestureKey) return;
+                    pointerAccount.current = null;
+                    onAction(key, intent);
+                }}>{pending ? (spectating ? 'Opening…' : 'Starting…') : label}</button>
+            {isPlayerModel(model) && <ReportControl key={model.assetId + model.version} targetType="player-model"
+                targetName={player.name} targetId={model.assetId} targetVersion={model.version} />}
+        </div>
         {(error || (player.disabledReason && player.status !== 'Traveling' && player.status !== 'Fighting')) && <p className="sector-row-feedback" role={error ? 'status' : undefined}>
             {error || player.disabledReason}
         </p>}

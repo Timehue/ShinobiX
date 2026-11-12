@@ -7,8 +7,11 @@ import {closeClanWarCampaign,clanWarCampaignPhase} from '../../../shared/clan-wa
 import {finalizeClanWarEnd,redactClanWarForViewer,type ClanWar} from './_storage.js';
 import {reconcileClanWarCampaign} from './_campaign-reconcile.js';
 import {ClanWarQueueRefusal} from './_campaign-queue.js';
+import {isNpcAccount} from '../../../shared/npc-village-roster.js';
 
 export async function manageClanWarCampaign(warId:string,playerName:string,action:'withdraw'|'surrender',now=Date.now()):Promise<Record<string,unknown>> {
+    // A Cinderhold clan never surrenders or withdraws (owner ruling 2026-11-10).
+    if(isNpcAccount(playerName))throw new ClanWarQueueRefusal(403,'Cinderhold shinobi cannot run a war by hand.');
     await reconcileClanWarCampaign(warId,now);
     const key=`clan-war:${warId}`,name=safeName(playerName);
     const closed=await withKvLock(key,async()=>{

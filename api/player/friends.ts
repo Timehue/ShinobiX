@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { NPC_TARGET_REFUSAL, isNpcTarget } from '../_npc-guard.js';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -83,6 +84,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const listLabel = listKind === 'friends' ? 'friends list' : 'following list';
         if (!targetSlug) return res.status(400).json({ error: 'Invalid target name.' });
         if (targetSlug === playerName) return res.status(400).json({ error: `You can't add yourself to your ${listLabel}.` });
+        // Removing an NPC from a list stays possible; adding one is not.
+        if (req.method === 'POST' && isNpcTarget(targetSlug)) return res.status(409).json({ error: NPC_TARGET_REFUSAL });
 
         if (req.method === 'POST') {
             // Only store real accounts so either list cannot be filled with

@@ -113,7 +113,7 @@ describe('dungeon run authority', () => {
         assert.equal((hit.character.activeDungeonRun as Record<string, unknown>).sector, 61);
     });
     it('rejects invalid World sectors and key-entry recovery as a free probe', () => {
-        for (const sector of [0, -1, 67, 99]) {
+        for (const sector of [0, -1, 75, 99]) { // 75: one past MAX_WILD_SECTOR (Cinderhold ends at 74)
             const out = mutateDungeonRun({ level: 50 }, 'probe-free', '', 'token12345', 1000, 0, sector, `probeinvalid${Math.abs(sector)}`);
             assert.equal(out.ok, false, `sector ${sector}`);
         }

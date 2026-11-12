@@ -83,6 +83,17 @@ export function campaignScore(c: VillageCampaign, village: string) {
     const pve = Math.min(rawPve, Math.floor(pvp / 4));
     return { pvp, pve, rawPve, total: pvp + pve };
 }
+/**
+ * Cinderhold's answer to a player village's peace offer (Push 4b, owner
+ * ruling): it accepts only when it trails by a wide margin, its campaign total
+ * at most half the enemy's AND at least NPC_PEACE_MIN_LEAD points behind. It
+ * never offers peace or surrenders itself.
+ */
+export const NPC_PEACE_MIN_LEAD = 100;
+export function npcAcceptsPeace(c: VillageCampaign, npcVillage: string, enemy: string): boolean {
+    const npc = campaignScore(c, npcVillage).total, them = campaignScore(c, enemy).total;
+    return npc * 2 <= them && them - npc >= NPC_PEACE_MIN_LEAD;
+}
 export function emptyCampaignUsage(): CampaignUsage { return { total: 0, categories: {}, players: {} }; }
 export function campaignView(c: VillageCampaign, villages: readonly string[], viewerVillage: string, now: number): CampaignView {
     const revealed = WAR_INTEL_THRESHOLDS.filter(threshold => (c.intel[viewerVillage] ?? 0) >= threshold).length;
@@ -113,7 +124,8 @@ export function reserveCampaignOperation(c: VillageCampaign, village: string, pl
     if (personal.total >= WAR_OPERATION_CAPS.player || (personal.categories[kind] ?? 0) >= typeCaps.player) return false;
     usage.total++; usage.categories[kind] = (usage.categories[kind] ?? 0) + 1;
     personal.total++; personal.categories[kind] = (personal.categories[kind] ?? 0) + 1;
-    usage.players = { ...usage.players, [player]: personal }; c.usage[key] = usage;
+    usage.players = Object.fromEntries([...Object.entries(usage.players), [player, personal]]);
+    c.usage = Object.fromEntries([...Object.entries(c.usage), [key, usage]]);
     return true;
 }
 export function scoreCampaignBattle(c: VillageCampaign, args: {

@@ -1,0 +1,11 @@
+/* The 144 px cell spans 1.6 tiles. The floor origin is 69% down the image. */
+.hg-hound-figure {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 160%;
+    transform: translate(-50%, -69%);
+    pointer-events: none;
+    z-index: 1;
+}
+.hg-hound-figure img { display: block; width: 100%; }

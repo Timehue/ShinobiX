@@ -494,7 +494,7 @@ try {
                     const lore = await page.locator('.hg-floor-notes summary').boundingBox();
                     if (viewport.width < 620) assert(lore && lore.height >= 44, 'mobile lore remains a full touch target');
                 }
-                checks.push({ engine: engineName, floor, viewport, playfield, palette: await page.locator('.underground-world').evaluate(el => getComputedStyle(el).getPropertyValue('--under-floor')) });
+                checks.push({ engine: engineName, floor, viewport, playfield, palette: await page.locator('.underground-world').evaluate(el => getComputedStyle(el).getPropertyValue('--under-highlight')) });
                 await page.close();
             }
         } finally { await browser.close(); }

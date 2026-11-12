@@ -11,6 +11,7 @@ import { cwChallengeAction, cwDeclareWar, cwListWars, type CwChallenge, type CwC
 import { gameConfirm } from "../components/GameAlert";
 import { fetchClanData } from "../lib/clan-api";
 import {ClanWarCampaignPanel} from '../components/ClanWarCampaignPanel';
+import { NPC_CLAN_NAMES } from "../../../shared/npc-clan-names";
 
 // A bare status ("HTTP 500"), "Failed." or a browser network error tells the
 // player nothing, so show one plain sentence. Real server sentences are kept.
@@ -104,6 +105,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
             if (clansInWar.has(clan)) continue;
             set.add(clan);
         }
+        // Cinderhold's clans have no members on the player roster; offer them too.
+        for (const name of NPC_CLAN_NAMES) if (name !== myClan && !clansInWar.has(name)) set.add(name);
         return [...set].sort((a: string, b: string) => a.localeCompare(b));
     }, [playerRoster, myClan, clansInWar]);
 

@@ -82,9 +82,16 @@ export function disconnectPlayerSockets(name: string | undefined | null): void {
 }
 
 /** Accepted world movement is a compact delta, not a full character/roster. */
-export function pushWorldMovement(sector: number, name: string, tile: number | undefined, sequence: number, worldPosition: WorldPosition): void {
-    try { _emit?.(`sector:${sector}`, 'presence:world', { sector, name, tile, sequence, worldPosition }); }
+export function pushWorldMovement(sector: number, name: string, tile: number | undefined, sequence: number, worldPosition: WorldPosition,
+    gaitPresentation?: import('../../shared/player-model-ref.js').WorldGaitPresentation): void {
+    try { _emit?.(`sector:${sector}`, 'presence:world', { sector, name, tile, sequence, worldPosition, gaitPresentation }); }
     catch { /* Presence delivery is best-effort; HTTP always carries authority. */ }
+}
+
+/** Publish a server NPC's accepted within-sector tile step. */
+export function pushTileMovement(sector: number, name: string, tile: number, sequence: number): void {
+    try { _emit?.(`sector:${sector}`, 'presence:move', { sector, name, tile, sequence }); }
+    catch { /* The roster carries the tile too. */ }
 }
 
 // Same safeName slug used for the socket's `user:<slug>` room join, so a kick

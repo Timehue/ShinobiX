@@ -4,7 +4,9 @@
  * owned war-sector gets the holder's banner standee rising above its marker plus
  * an accent claim-ring at the base, and sectors with an active siege pulse so the
  * front line reads at a glance. Central (>= 56) and Death's Gate (99) are neutral,
- * unclaimable landmarks and never get a banner.
+ * unclaimable landmarks and never get a banner. Cinderhold's block (67-74) sits
+ * past 56 but is village land: a sector of it a player village captures flies
+ * that village's banner, and a sector Cinderhold captures flies Cinderhold's.
  *
  * Flag-gated by the CALLER (isVillageWarMapEnabled) — inert otherwise, and the
  * prior atlas war-overlay was removed for clutter, so this only paints when the
@@ -29,13 +31,18 @@ import ashenBanner from "../assets/village-war/owned-sector-ashenleaf.webp";
 import frostBanner from "../assets/village-war/owned-sector-frostfang.webp";
 import moonBanner from "../assets/village-war/owned-sector-moonshadow.webp";
 import stormBanner from "../assets/village-war/owned-sector-stormveil.webp";
+import cinderBanner from "../assets/village-war/owned-sector-cinderhold.webp";
+import { NPC_HOME_SECTORS, NPC_VILLAGE, isNpcHomeSector } from "../../../shared/npc-village";
 
-// village display name -> planted-banner asset (the four §13 markers).
+// village display name -> planted-banner asset (the four §13 markers, and
+// Cinderhold's: both sides capture land in its wars, so a sector it takes
+// flies its banner).
 const BANNER_BY_VILLAGE: Record<string, string> = {
     "Ashen Leaf Village": ashenBanner,
     "Frostfang Village": frostBanner,
     "Moonshadow Village": moonBanner,
     "Stormveil Village": stormBanner,
+    [NPC_VILLAGE]: cinderBanner,
 };
 
 type SectorPoint = { id: number; x: number; y: number };
@@ -51,6 +58,13 @@ function readOwners(): Map<number, string> {
     for (const s of [...owners.keys()]) {
         const owner = loadSectorTerritory(s).ownerVillage;
         if (owner) owners.set(s, owner);
+    }
+    // Cinderhold's own block flies a banner only once a player village has
+    // taken a sector of it: its eight pins sit too close together on the volcano
+    // for a standee on each (they cover each other's numbers).
+    for (const s of NPC_HOME_SECTORS) {
+        const owner = loadSectorTerritory(s).ownerVillage;
+        if (owner && owner !== NPC_VILLAGE) owners.set(s, owner);
     }
     return owners;
 }
@@ -95,8 +109,10 @@ export function SectorOwnershipOverlay({ sectorPoints, counterScalePins = false 
         <div className="vw-owner-overlay" aria-hidden="true">
             {[...ownerBySector.entries()].map(([sector, village]) => {
                 const p = pointById.get(sector);
-                // Skip the neutral central keep (>= 56) and Death's Gate (99).
-                if (!p || sector >= 56 || sector === 99) return null;
+                // Skip the neutral central keep (>= 56) and Death's Gate (99);
+                // Cinderhold's block (67-74) sits past 56 but is village land
+                // (listed in readOwners only when a player village holds it).
+                if (!p || (sector >= 56 && !isNpcHomeSector(sector)) || sector === 99) return null;
                 const banner = BANNER_BY_VILLAGE[village];
                 if (!banner) return null;
                 // A siege is information, so `lite` (weak phones and Reduce Motion)

@@ -1,9 +1,10 @@
 import {clanCampaignSeasonKey,type ClanCampaignPrestige} from './clan-campaign-history.js';
+import {isNpcClanRecord} from './npc-clans.js';
 export interface ClanStanding {name:string;wins:number;losses:number;draws:number;points:number;rank:number}
-/** Competitive standings use earned campaign prestige, never roster size or Hall power. */
-export function clanCampaignStandings(clans:Array<{name:string;campaignPrestige?:ClanCampaignPrestige}>,period:'season'|'lifetime',now:number):ClanStanding[] {
+/** Competitive standings use earned campaign prestige, never roster size or Hall power. Cinderhold's clans never rank. */
+export function clanCampaignStandings(clans:Array<{name:string;founderName?:string;campaignPrestige?:ClanCampaignPrestige}>,period:'season'|'lifetime',now:number):ClanStanding[] {
     const season=clanCampaignSeasonKey(now),count=(value:unknown)=>Number.isSafeInteger(value)&&Number(value)>=0?Number(value):0;
-    const rows=clans.map(clan=>{
+    const rows=clans.filter(clan=>!isNpcClanRecord(clan)).map(clan=>{
         const result=period==='season'?clan.campaignPrestige?.seasons?.[season]:clan.campaignPrestige;
         const wins=count(result?.wins),losses=count(result?.losses),draws=count(result?.draws);
         return {name:clan.name,wins,losses,draws,points:wins*3+draws,rank:0};

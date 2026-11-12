@@ -22,6 +22,7 @@ import { JutsuLoadoutPanel } from "../components/JutsuLoadoutPanel";
 import { NindoEditor } from "../components/NindoEditor";
 import { ProgressionPanel } from "../components/ProgressionPanel";
 import { ShinobiIdentityCard } from "../components/ShinobiIdentityCard";
+import { ProfileWorldModel } from "../components/ProfileWorldModel";
 import { LegacyPanel } from "./LegacyPanel";
 import { BattleLogHistoryPanel } from "../components/BattleLogHistoryPanel";
 import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, useLegacyAvailability, useLegacyMutationAvailability } from "../lib/legacy";
@@ -35,6 +36,7 @@ import { profileBloodlinePickerChoices } from "../lib/profile-bloodline-picker";
 import { bloodlineNamesByJutsuId } from "../lib/bloodline-marker";
 import { STAT_KEYS, allocatedStatPoints, capStat, earnedForLevel, earnedStatPoints, normalizeStats } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
+import { supportsProfileDetailUpload } from "../lib/sector-obstacles";
 import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
@@ -187,7 +189,7 @@ export function Profile({
                 return alert(`Animated avatars must be under ${ANIMATED_MAX_MB} MB so animation is preserved (compressing would flatten it). Yours is ${(file.size / 1024 / 1024).toFixed(1)} MB.`);
             }
             const reader = new FileReader();
-            reader.onload = () => {
+            reader.onload = async () => {
                 // Publish to shared storage FIRST and only adopt the avatar
                 // locally if the server accepted it. Otherwise the character
                 // would carry an avatarImage no other player can load — and a
@@ -207,6 +209,20 @@ export function Profile({
                     // Skip canvas compression — it would strip every frame
                     // after the first and turn the avatar back into a still.
                     void apply(dataUrl);
+                } else if (await supportsProfileDetailUpload()) {
+                    try {
+                        const detail = await compressDataUrl(dataUrl, 1024, .90);
+                        const response = await fetch('/api/avatar-model/profile-portrait', {
+                            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({image:detail}),
+                        });
+                        if (!response.ok) throw new Error('Profile upload failed');
+                        const {image} = await response.json();
+                        if (typeof image !== 'string' || !image.startsWith('data:image/webp;base64,')) throw new Error('Missing portrait');
+                        try { sessionStorage.removeItem('imgcat:avatar'); } catch { /* optional browser cache */ }
+                        updateCharacter(prev => prev ? {...prev,avatarImage:image} : prev);
+                    } catch {
+                        alert("Your portrait upload could not be confirmed. Please try uploading the image again.");
+                    }
                 } else {
                     // Compress to 256px — avatars are displayed at ≤84px so 512 is wasteful
                     void compressDataUrl(dataUrl, 256, 0.80).then(apply);
@@ -701,7 +717,9 @@ export function Profile({
 
             {/* ── Overview tab ─────────────────────────── */}
             <div className={visibleMobileTab !== 'overview' ? 'profile-tab-hidden' : ''}>
-            <ShinobiIdentityCard
+            <ProfileWorldModel key={character.name} character={character} canUploadAvatar={customAvatarAllowed}
+                onVersionedCharacter={onVersionedCharacter}>
+            {(makeModel, equipModel) => <ShinobiIdentityCard
                 character={character}
                 avatarSrc={ownAvatar}
                 avatarClassName={auraBonuses.avatarAura ? "aura-sphere-avatar" : ""}
@@ -713,6 +731,7 @@ export function Profile({
                 metricIds={["ranked", "pvp", "bounty", "war", "tower", "pets", "clan"]}
                 showTitleBadges={false}
                 showRivalry={Boolean(character.wandererNemesis)}
+                metricAction={equipModel}
                 avatarAction={(
                     <div className="profile-avatar-upload">
                         <button
@@ -724,6 +743,7 @@ export function Profile({
                                 if (canCustomAvatar(character)) avatarInputRef.current?.click();
                             }}
                         >Upload avatar</button>
+                        {makeModel}
                         {customAvatarAllowed ? (
                             <input ref={avatarInputRef} type="file" accept="image/*" aria-label="Custom avatar image" hidden onChange={uploadAvatar} />
                         ) : (
@@ -731,7 +751,8 @@ export function Profile({
                         )}
                     </div>
                 )}
-            />
+            />}
+            </ProfileWorldModel>
 
             {character.academyFieldSeal && (
                 <section className="profile-field-seal" aria-labelledby="profile-field-seal-title">

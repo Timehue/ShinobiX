@@ -306,6 +306,8 @@ function wireRealtime(io: IOServer): void {
                     : normalizeTile(persistedTravel && now >= persistedTravel.arrivalAt
                         ? persistedTravel.arrivalTile : resumeTileFor(walkedTile, requestedSector, saved?.currentTile)),
                 tileSector: previous && !superseded ? normalizeSector(p.sector, previous.sector) : requestedSector,
+                restoredPlayerModel: !previous ? saved?.playerModel : undefined,
+                restoredStarterWorldModel: saved?.starterWorldModel,
                 restoredWorldPosition: !previous && p.continuousWorld === true
                     ? persistedTravel && now >= persistedTravel.arrivalAt ? persistedTravel.worldPosition
                         : resumeWorldPositionFor(walkedTile, requestedSector, saved?.worldPosition) : undefined,

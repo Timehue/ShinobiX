@@ -4,6 +4,7 @@ import { dungeonCardWasWon, dungeonPetWasWon } from './_encounter-proof.js';
 import { dungeonPresentationId } from '../../shared/dungeon-presentation.js';
 import { DAILY_SECTOR_EXPLORE_LIMIT } from '../world/_explore.js';
 import { activeCarriedPets } from '../_entitlements.js';
+import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
 export const DUNGEON_KEY_ID = 'dungeon-key';
 export const DUNGEON_RELIC_ID = 'dungeon-legendary-relic';
@@ -40,7 +41,7 @@ function probeReceipts(character: Record<string, unknown>): FreeDungeonProbeRece
             && typeof value.day === 'string'
             && Number.isSafeInteger(value.sector)
             && Number(value.sector) >= 1
-            && Number(value.sector) <= 66
+            && Number(value.sector) <= MAX_WILD_SECTOR
             && typeof value.found === 'boolean'
             && typeof value.token === 'string'
             && Number.isFinite(value.at);
@@ -160,7 +161,7 @@ export function mutateDungeonRun(
             };
         }
         const requestedSector = Math.floor(Number(sectorRaw));
-        if (!Number.isSafeInteger(requestedSector) || requestedSector < 1 || requestedSector > 66) {
+        if (!Number.isSafeInteger(requestedSector) || requestedSector < 1 || requestedSector > MAX_WILD_SECTOR) {
             return { ok: false as const, reason: 'invalid-dungeon-sector' as const };
         }
         const today = new Date(now).toISOString().slice(0, 10);

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
+import { isNpcTarget } from './_npc-guard.js';
 import { kv } from './_storage.js';
 import { cors, safeName } from './_utils.js';
 import { resolvePlayerReference } from './_account-name.js';
@@ -170,6 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const from = identity.name;
             const recipient = norm(await resolvePlayerReference(to));
             if (recipient === from) return res.status(400).json({ error: 'Cannot message yourself.' });
+            if (isNpcTarget(recipient)) return res.status(409).json({ error: "You can't message NPCs." });
 
             // Unclaimed guests can read the mail they receive but cannot send —
             // only GET is left open, so an existing thread stays legible.

@@ -52,6 +52,10 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
+        'playerModel', // Overworld equipment is omitted from combat projections.
+        'playerModelOwnerId',
+        'playerModelSlots',
+        'starterWorldModel',
         'sectorBuildings', // Private building work, material escrow and payout receipts.
         'petShowdownAdmission',
         'brokerCertificates', 'brokerCrateLedger',
@@ -209,6 +213,10 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'playerModel', // A normal save cannot change the equipped model.
+        'playerModelOwnerId',
+        'playerModelSlots',
+        'starterWorldModel',
         'sectorBuildings', // Only authoritative counter actions advance this state.
         'resourceGathering', 'gatheringToolUses',
         'professionChosenAt', // Scroll retry fencing must survive all generic saves.

@@ -15,6 +15,7 @@ import { clanRecordKey, clanBareSlug } from '../../_utils.js';
 import { addClanXpServer, scaledClanXp } from '../_mission-catalog.js';
 import type { ClanWar } from './_storage.js';
 import { clanWarRoomXpBonus } from '../../../shared/clan-war-campaign.js';
+import { isNpcClanRecord } from '../../../shared/npc-clans.js';
 
 const WAR_WIN_CLAN_XP = 1_200;
 const WAR_LOSS_CLAN_XP = 400; // also the draw payout for both sides.
@@ -33,7 +34,7 @@ async function creditWarClanXp(clanName: string, warId: string, amount: number):
         const claimed = await kv.set(receiptKey, '1', { nx: true, ex: WAR_XP_RECEIPT_TTL });
         if (claimed !== 'OK') return; // already credited for this war
         const rec = await kv.get<Record<string, unknown>>(clanKey);
-        if (!rec) return;
+        if (!rec || isNpcClanRecord(rec)) return; // a Cinderhold clan earns no XP
         const memberCount = Array.isArray(rec.members) ? (rec.members as unknown[]).length : 0;
         const leveled = addClanXpServer(Number(rec.xp ?? 0) || 0, Number(rec.level ?? 1) || 1, scaledClanXp(amount, memberCount));
         await kv.set(clanKey, { ...rec, xp: leveled.xp, level: leveled.level });
@@ -103,6 +104,8 @@ export async function awardPvpWarEndClanXp(
                     if (war.campaign) return; // A dissolved clan has no remaining growth record.
                     throw new Error(`pvp-clan-war-xp-row-missing:${slug}`);
                 }
+                // A Cinderhold clan earns no XP (owner ruling 2026-11-10); its rival's credit is unchanged.
+                if (isNpcClanRecord(current)) return;
                 const receipts = pvpWarXpReceipts(current);
                 const prior = receipts[receiptId];
                 if (prior) {

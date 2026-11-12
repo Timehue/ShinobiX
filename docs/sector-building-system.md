@@ -27,7 +27,8 @@ The previously unnamed painted frontages receive distinct identities:
   from the open ground beside the fallen roofs, and public repairs restore them
   for seven days at a time. Only the eastern tea counter is painted intact.
 - S60: the western broken walls become Obsidian Road Station; the northern
-  fragments become Obsidian North Watch.
+  fragments become Obsidian North Watch. (Since 2026-11-11 S60 is Ashbrook
+  Hills, Midlands ground; both ruins were kept in place on the repaint.)
 - S62: the western houses become Greycliff Relay House; the eastern carved-stone
   enclosure becomes Greycliff Witness Enclosure.
 
@@ -264,7 +265,7 @@ Pass asset ids to re-encode only those; the rest keep their receipted bytes.
 The ruin paintings come from `scripts/bake-ruin-restorations.mjs` instead, so
 the packager carries their entries over unchanged.
 Normal builds consume the checked WebP assets and do not call a provider.
-The release verifier gives the thirty-nine assets a separate, fixed 2,581,396-byte
+The release verifier gives the thirty-nine assets a separate, fixed 2,573,836-byte
 partition and verifies that delivered files match their checked source bytes.
 The existing allowance for all other runtime assets remains unchanged.
 

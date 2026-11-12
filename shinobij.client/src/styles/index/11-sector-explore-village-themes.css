@@ -34,12 +34,6 @@
         width: 100% !important;
         height: 100% !important;
         object-fit: contain !important;
-    }
-
-    .combat-avatar img {
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: contain !important;
         display: block !important;
     }
 

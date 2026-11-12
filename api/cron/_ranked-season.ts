@@ -66,6 +66,7 @@ import {
     boundExactPvpSession,
     fencePlayerRankedSessionForClose,
 } from '../pvp/_session-mutation.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 
 const SAVE_PREFIX = 'save:';
 export const SEASON_CURRENT_KEY = 'ranked:season:current';
@@ -101,7 +102,9 @@ export function isRankedSeasonPlayerSaveKey(key: string): boolean {
         && name !== 'Rill'
         // Save keys are lowercase slugs, so the capitalised exclusion above
         // never matched the real admin saves and both entered every ladder.
-        && !RESERVED_USERNAMES.has(name.toLowerCase());
+        && !RESERVED_USERNAMES.has(name.toLowerCase())
+        // Cinderhold NPC accounts hold no standing and take no podium.
+        && !isNpcAccount(name);
 }
 
 // Reward table. Champion (#1) of each ladder gets the relic; the whole podium

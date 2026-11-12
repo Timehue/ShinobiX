@@ -42,7 +42,7 @@ function ownedTiles(sector: number): Map<number, string> {
 }
 
 test("the added gathering nodes never stand on a structure, gate, road exit or story marker", () => {
-    assert.equal(ADDED.length, 63);
+    assert.equal(ADDED.length, 71); // + one seam per Cinderhold sector (2026-11-08)
     for (const node of ADDED) {
         const owned = ownedTiles(node.sector);
         for (const [label, tile] of [["target", node.target], ["approach", node.approach]] as const) {

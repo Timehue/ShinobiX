@@ -7,7 +7,7 @@ import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { visiblePoll } from "../lib/poll";
 import { useSharedNow } from "../lib/use-shared-now";
-import { homeVillageForSector, isProtectedHomeSector } from "../data/war-map-sectors";
+import { isProtectedHomeSector, warHomeVillageForSector } from "../data/war-map-sectors";
 import {
     fetchWarMap,
     declareSectorWar,
@@ -202,7 +202,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
             protectedCore: isProtectedHomeSector(sec.sector),
             // Each card lists the sectors its village HOLDS, so a gate's right of
             // reclaim follows the sector's home village, not the card it sits on.
-            canDeclare: isKage && owner !== myVillage && !contest && (!isProtectedHomeSector(sec.sector) || homeVillageForSector(sec.sector) === myVillage),
+            canDeclare: isKage && owner !== myVillage && !contest && (!isProtectedHomeSector(sec.sector) || warHomeVillageForSector(sec.sector) === myVillage),
             pct: contest ? (totalPts > 0 ? Math.round((contest.attackerPoints / totalPts) * 100) : 50) : 0,
             intelTier,
             // Affordability against the LIVE pool, matching the merc tiers: a Kage

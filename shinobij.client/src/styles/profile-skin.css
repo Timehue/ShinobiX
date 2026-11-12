@@ -309,8 +309,7 @@
     text-transform: uppercase;
     color: rgba(196,162,90,0.85) !important;
 }
-.stat-card-values,
-.stat-row {
+.stat-card-values {
     color: #f4e6c4 !important;
     font: 600 16px var(--font-display) !important;
     font-variant-numeric: tabular-nums;
@@ -718,8 +717,6 @@
 }
 
 /* Points-available chip */
-.profile-page-card .points-available,
-.profile-page-card .stat-points-chip,
 .profile-page-card span[class*="points"] {
     display: inline-block !important;
     background: rgba(224,68,68,0.15) !important;
@@ -821,9 +818,26 @@
     display: grid;
     justify-items: center;
     gap: 6px;
-    width: 112px;
+    width: min(112px, 100%);
     text-align: center;
 }
+@media (pointer: coarse) {
+    .profile-avatar-upload button[aria-haspopup="dialog"] { min-height: 44px; }
+}
+.profile-model-controls { display: grid; gap: 12px; }
+.profile-model-controls label { display: grid; gap: 6px; }
+.profile-equip-model { margin-top: 6px; min-height: 44px; }
+.profile-model-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.profile-model-slots button[aria-pressed="true"] { border-color: var(--sj-gold-bright); }
+/* Make Model, Create model, Cancel, Load older, Preview walk, Equip and the model picker: 44px touch floor. */
+.profile-model-controls :is(button, select) { min-height: 44px; }
+.profile-model-stage {
+    position: relative; height: 104px; overflow: hidden; border-radius: 5px;
+    background: radial-gradient(ellipse at 50% 82%, #514b40, #24262a 60%);
+}
+.profile-model-actor { position: absolute; left: 50%; top: 88%; }
+.profile-model-loading { position: absolute; inset: 0; display: grid; place-content: center; }
+.profile-model-actor.has-sector-model + .profile-model-loading { display: none; }
 .profile-page-card .profile-avatar-upload small {
     color: var(--text-dim);
     font-size: 11px;

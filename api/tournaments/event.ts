@@ -13,6 +13,7 @@ import { projectTowerPvpMatchForViewer } from '../towers/_pvp-session.js';
 import { settleTowerPvpMatch } from '../towers/_pvp-lifecycle.js';
 import { settleTowerPvpPurse, towerPvpPurseReply } from '../towers/_pvp-purse.js';
 import { PvpCreditSlotPendingError } from '../pvp/_valid-fight.js';
+import { NPC_TARGET_REFUSAL, isNpcTarget } from '../_npc-guard.js';
 import type { StoredTowerPvpMatch } from '../towers/_pvp-session.js';
 import { sealChallengedPets } from '../pet/_pvp-duel.js';
 import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
@@ -123,6 +124,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             let partnerName = '';
                             if (current.mode === '2v2') {
                                 if (!partnerId || partnerId === playerId || entryForPlayer(current, partnerId)) fail(409, 'Choose a partner who is not already entered or invited.');
+                                // Cinderhold's shinobi are met only in the open world and in wars.
+                                if (isNpcTarget(partnerId)) fail(409, NPC_TARGET_REFUSAL);
                                 const partner = await character(partnerId);
                                 if (!rankedLevelEligible(partner.level)) fail(409, 'Your partner must be eligible for Ranked Format battles.');
                                 partnerName = String(partner.name ?? partnerId).slice(0, 40);

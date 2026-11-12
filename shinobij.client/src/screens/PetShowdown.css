@@ -284,7 +284,6 @@
     /* Two easings and one overshoot. Everything that arrives uses --e-out,
        everything that leaves uses --e-in, and exits run ~2/3 of entries. */
     --e-out: cubic-bezier(0.2, 0.8, 0.3, 1);
-    --e-in: cubic-bezier(0.4, 0, 0.9, 0.4);
     --e-pop: cubic-bezier(0.2, 1.4, 0.4, 1);
 
     position: absolute;

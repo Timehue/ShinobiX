@@ -2,6 +2,7 @@ import { kv } from './_storage.js';
 import { withTelemetryLock } from './_telemetry-lock.js';
 import { withoutKvLeaseContext } from './_kv-lock-context.js';
 import { runBackgroundWork } from './_background-work.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
 import { BLACK_MARKET_COST } from './festival/_black-market.js';
 import { BLACK_MARKET_DIAL_DAYS, BLACK_MARKET_DIAL_LOOP_THRESHOLD, blackMarketLoopProduct } from './_black-market-loop.js';
 
@@ -169,6 +170,9 @@ function playerKeyPart(player: string): string {
 
 /** The stored form of a txn, or null for a zero delta or an unknown currency. */
 function normalizeTxn(txn: EconTxnInput): EconTxn | null {
+    // Cinderhold NPC accounts keep no economy (the daily rebuild zeroes it), so
+    // anything one moves under admin control is not player economy data.
+    if (isNpcAccount(String(txn.player ?? ''))) return null;
     const delta = Math.round(Number(txn.delta));
     if (!Number.isFinite(delta) || delta === 0) return null;
     if (!isEconCurrency(txn.currency)) return null;

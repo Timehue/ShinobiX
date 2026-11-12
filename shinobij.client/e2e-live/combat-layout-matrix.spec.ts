@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { expect, type APIRequestContext, type Locator, type Page, type Request as BrowserRequest, type TestInfo } from '@playwright/test';
 import { AURA_SPHERE_ITEM_ID, AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
+import { storyInterludesByVillage } from '../src/data/story-interludes';
 import { v2JutsuResourceCost } from '../src/lib/jutsu-scaling';
 import { accountKey } from '../src/lib/player-accounts';
 import { TOWER_TURN_AFK_MS } from '../src/lib/towers-api';
@@ -122,7 +123,11 @@ function serverPlayerSlug(name: string): string {
 function character(name: string) {
     return {
         name,
-        village: 'Ember',
+        // One of the four great villages: a first save names nothing else (api/save/[name].ts).
+        village: 'Stormveil Village',
+        // A real village has a story; finished, so no story scene covers the fight.
+        storyVillage: 'Stormveil Village',
+        storyProgress: 99,
         specialty: 'Ninjutsu',
         bloodline: 'None',
         level: 1,
@@ -165,9 +170,14 @@ async function seedSave(
     } = {},
 ) {
     const { characterPatch = {}, triggeredEvents = [] } = options;
+    // The seed's village story is done (storyProgress 99); mark its road interludes seen too.
+    const interludesSeen = (storyInterludesByVillage['Stormveil Village'] ?? []).map((entry) => entry.id);
     const seeded = await request.post(`/api/save/${name}?signal=1`, {
         headers: { 'x-admin-password': 'live-express-e2e-admin' },
-        data: { character: { ...character(name), ...characterPatch }, currentSector: 40, acceptedMissionIds: [], missionProgress: {}, triggeredEvents },
+        data: {
+            character: { ...character(name), ...characterPatch }, currentSector: 40, acceptedMissionIds: [], missionProgress: {},
+            triggeredEvents: [...triggeredEvents, ...interludesSeen],
+        },
     });
     expect(seeded.status()).toBe(200);
 }

@@ -1,0 +1,69 @@
+"""Confirm an armored raccoon by matching features on the same face."""
+import json
+from pathlib import Path
+import sys
+
+
+PROMPTS = (
+    "a raccoon face. an animal muzzle. a pair of eyes. a raccoon nose.",
+    "a samurai helmet. an armored chest. shoulder armor. a helmet.",
+    "a raccoon head. a furry muzzle. eyes. metal armor. a helmet.",
+)
+
+
+def face_and_muzzle(read):
+    from closeup_portrait import overlap
+
+    faces = [row["box"] for row in read.get("animalRegions", ())
+             if "a raccoon face" in row["label"] and row["score"] >= .33]
+    if not faces or any(overlap(faces[0], face) < .65 for face in faces[1:]):
+        return None
+    l, t, r, b = face = faces[0]
+    width, height = read["size"]
+    if not (.24 <= (r-l)/width <= .70 and .15 <= (b-t)/height <= .50 and
+            .22*width <= (l+r)/2 <= .78*width and 0 <= t < b < .75*height):
+        return None
+    for row in read["animalRegions"]:
+        x, y, u, v = muzzle = row["box"]
+        if (row["label"] == "a snout" and row["score"] >= .36 and
+                l < x < u < r and (t+b)/2 < (y+v)/2 < b):
+            return face, muzzle
+    return None
+
+
+def confirms_armor(face, muzzle, rows):
+    from closeup_portrait import overlap
+
+    def find(label, minimum, check):
+        return any(row["label"] == label and row["score"] >= minimum and check(row["box"]) for row in rows)
+
+    l, t, r, b = face
+    x, y, u, v = muzzle
+    if not find("a raccoon face", .22, lambda box: overlap(face, box) >= .68):
+        return False
+    if not find("a furry muzzle", .33, lambda box: overlap(muzzle, box) >= .70):
+        return False
+    if not find("a raccoon nose", .46, lambda p: x < p[0] < p[2] < u and y < p[1] < p[3] < v):
+        return False
+    if any(row["label"] == "a raccoon nose" and row["score"] >= .46 and
+           not (x < row["box"][0] < row["box"][2] < u and y < row["box"][1] < row["box"][3] < v)
+           for row in rows):
+        return False
+    if not find("a pair", .40, lambda p: l < p[0] < p[2] < r and
+                t < p[1] < y < p[3] < v and p[2]-p[0] >= .5*(r-l)):
+        return False
+    return (find("a samurai helmet", .23, lambda p: p[0] <= l and p[1] < t and p[2] >= r and p[3] >= (t+b)/2)
+            and find("an armored chest", .44, lambda p: p[0] < r and p[2] > l and p[3] > b+.3*(b-t))
+            and find("metal armor", .44, lambda p: p[0] < r and p[2] > l and p[3] > b+.3*(b-t)))
+
+
+if __name__ == "__main__":
+    entry, portrait, output = (Path(value) for value in sys.argv[1:4])
+    sys.path.insert(0, str(entry.parent))
+    import read_masked_kit as reader
+
+    weights = reader.verified_weights(reader.DEST.parent / "portrait-detector")
+    processor = reader.AutoProcessor.from_pretrained(weights, local_files_only=True)
+    model = reader.AutoModelForZeroShotObjectDetection.from_pretrained(
+        weights, local_files_only=True, use_safetensors=True).eval().to("cuda:0")
+    output.write_text(json.dumps(reader.read(portrait, processor, model, PROMPTS)))

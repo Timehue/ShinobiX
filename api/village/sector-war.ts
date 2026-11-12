@@ -9,7 +9,11 @@ import { clanRecordKey, cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { isWarVillage } from '../_war-map-sectors.js';
+import { isSectorWarVillage } from '../_war-map-sectors.js';
+import { isNpcVillage } from '../../shared/npc-village.js';
+import { npcVillageWarFrozen } from '../_npc-war-roster.js';
+import { npcVillageClosed } from '../_npc-village-switch.js';
+import { npcReclaimsHomeSector } from '../../shared/npc-village.js';
 import { heldSectorsForVillage } from '../_war-held-sectors.js';
 import {
     normalizeVillageWarRecord,
@@ -107,7 +111,7 @@ import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { logWarEvent } from '../_war-event-log.js';
 import { recordAudit } from '../_audit.js';
 import { announce, postVillageHerald } from '../_announce.js';
-import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
+import { pvpSessionMayScoreWar, type PvpSession } from '../pvp/session.js';
 import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
 import { pvpSessionPublicationTombstoneFor } from '../pvp/_session-publication-tombstone.js';
 import { SESSION_TTL } from '../combat-core/constants.js';
@@ -646,7 +650,10 @@ async function notifyTerritoryClanOfSectorWar(session: SectorWarSession): Promis
 async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
     const village = typeof body.village === 'string' ? body.village.trim() : ''; // attacker
     const sector = Math.floor(Number(body.sector) || 0);
-    if (!isWarVillage(village)) return res.status(400).json({ error: 'Not a war village.' });
+    // Cinderhold (NPC) declares only through the admin-approved proposal
+    // (api/_npc-village-war.ts), which arrives here as an admin; nobody holds
+    // its Kage seat, so the seated-Kage check below refuses everyone else.
+    if (!isSectorWarVillage(village)) return res.status(400).json({ error: 'Not a war village.' });
     if (!identity.admin && !(await enforceRateLimitKv(req, res, 'sector-war-declare', 20, 60_000, identity.name))) return;
 
     // Settle anything whose 72 hours just closed BEFORE reading ownership: a due
@@ -656,6 +663,12 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
 
     const defender = await getSectorOwnerVillage(sector);
     if (!defender) return res.status(409).json({ error: 'That sector has no current owner — it must be seeded first.' });
+    // With Cinderhold switched off (or no session tokens, so no NPC can act)
+    // its shinobi are gone from the world, so no new war may be opened with it
+    // on either side.
+    if (npcVillageClosed() && (isNpcVillage(village) || isNpcVillage(defender))) {
+        return res.status(409).json({ error: 'Cinderhold is closed on this server, so no war can be declared with it.' });
+    }
 
     // Hidden funding rows are keyed by their SEALED defender. Discover them by
     // sector+attacker, not by the current owner-derived contest id: ownership may
@@ -727,10 +740,12 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     const atkKey = villageWarKey(village);
     const [attackerInWar, defenderInWar, existing, atkRecord, defRaw, mySieges] = await Promise.all([
         villageHasActiveWar(village),
-        isWarVillage(defender) ? villageHasActiveWar(defender) : Promise.resolve(false),
+        // Cinderhold too (Push 4b): it fights village wars now, so a sector war
+        // on its land waits out its village war like any village's.
+        isSectorWarVillage(defender) ? villageHasActiveWar(defender) : Promise.resolve(false),
         activeContestOnSector(sector, Date.now(), { strict: true }),
         kv.get<Record<string, unknown>>(atkKey),
-        isWarVillage(defender) ? kv.get<Record<string, unknown>>(villageWarKey(defender)) : Promise.resolve(null),
+        isSectorWarVillage(defender) ? kv.get<Record<string, unknown>>(villageWarKey(defender)) : Promise.resolve(null),
         activeSectorWarsForVillage(village, Date.now(), { strict: true })
             .then((all) => all.filter((c) => c.attackerVillage === village).length),
     ]);
@@ -738,12 +753,17 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     // attacker+sector is the re-siege cooldown — its TTL is the clock.
     const priorFailedSiegeActive = !!storedSession && !storedSession.flipped && !!storedSession.expiredAt;
     const attackerRecord = normalizeVillageWarRecord(village, atkRecord ?? undefined);
-    const defenderRecord = isWarVillage(defender) ? normalizeVillageWarRecord(defender, defRaw ?? undefined) : null;
+    const defenderRecord = isSectorWarVillage(defender) ? normalizeVillageWarRecord(defender, defRaw ?? undefined) : null;
     // The HOLDER's rules for the sector decide the war, home sector or captured
     // (owner ruling 2026-10-08), and both are sealed into the contest now: a
     // mid-war change of win-condition or terrain moves nothing for this war.
     const sectorRules = sectorConfigFor(defenderRecord ?? normalizeVillageWarRecord(defender, undefined), sector);
-    const winCondition: WinCondition = sectorRules.winCondition;
+    // One exception (owner ruling 2026-11-11, "Cinderhold retakes it"):
+    // Cinderhold taking back one of its own home sectors (68-74) fights it in
+    // Combat whatever the holder set, because its shinobi win wars by duelling
+    // and striking (api/_npc-war-party.ts presses Combat wars). Every other
+    // war, a player's anywhere included, keeps the holder's rule.
+    const winCondition: WinCondition = npcReclaimsHomeSector(village, sector) ? 'combat' : sectorRules.winCondition;
 
     const check = canDeclareSectorWar({
         attackerVillage: village,
@@ -971,7 +991,7 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
     if (!battle || battle.status !== 'done' || !battle.winner || !clock) {
         return res.status(409).json({ error: 'Battle is not a valid finished PvP session.' });
     }
-    if (battle.rewardAuthority !== 'world' || !pvpSessionMayGrantProgress(battle)) {
+    if (battle.rewardAuthority !== 'world' || !pvpSessionMayScoreWar(battle)) {
         return res.status(409).json({ error: 'The battle was not authorized for world progression.' });
     }
     const battleP1 = safeName(battle.p1?.name ?? '');
@@ -1026,6 +1046,9 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
         if (!contest) return { status: 409 as const, body: { error: 'No active sector war on that sector.' } };
         if (contest.winCondition !== 'combat') {
             return { status: 409 as const, body: { error: 'Only a Combat sector has a garrison to assault.' } };
+        }
+        if (npcVillageWarFrozen(contest)) {
+            return { status: 409 as const, body: { error: 'Cinderhold is closed on this server, so this war is on hold.' } };
         }
         // Must be an attacker; the defence has no garrison to assault on its own sector.
         if (!identity.admin && (await villageOf(playerName)) !== contest.attackerVillage) {

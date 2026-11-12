@@ -84,7 +84,7 @@ The [floor layouts](../shared/sector-floor-layouts.ts) include water and bridge 
 
 Choose an approach reachable through the [walk graph](../shared/continuous-world-navigation.ts). The accepted [server world cursor](../shared/world-position.ts) must reach that approach before Start is enabled. Straight line distance to the resource sprite is insufficient because it could allow gathering across cliffs or walls. Avoid building footprints, road mouths, quest markers, and raised crossing routes.
 
-The initial catalog contains 24 nodes across ten eligible sectors: North Docks, Eastern Stilts, Canal Heart, Jade River Bridge, Moonlit Cove Cliffs, Great Bridge Gorge, Far Glacier Shelf, Highpass Peaks, Cinder Foothills and Obsidian Forecourt. It includes twelve water targets and twelve rock targets, each with an adjacent walkable approach. Placement is checked against the painted map as well as the terrain mask. Stable definitions live in `shared/resource-nodes.ts`.
+The initial catalog contains 24 nodes across ten eligible sectors: North Docks, Eastern Stilts, Canal Heart, Jade River Bridge, Moonlit Cove Cliffs, Great Bridge Gorge, Far Glacier Shelf, Highpass Peaks, Cinder Foothills and Obsidian Forecourt (renamed Ashbrook Hills on 2026-11-11). It includes twelve water targets and twelve rock targets, each with an adjacent walkable approach. Placement is checked against the painted map as well as the terrain mask. Stable definitions live in `shared/resource-nodes.ts`.
 
 Launch nodes inside authored sector paintings. Defer extended connecting terrain until it has explicit placement metadata. Festival interiors and special sector 99 remain outside the initial catalog.
 

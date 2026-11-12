@@ -4,6 +4,7 @@ import { cors, safeName } from '../_utils.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { REGISTRY_KEY, isPublicPlayerIndexKey, publicIndexKey, publicIndexToLeaderboardRosterEntry } from './_public-index.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
 import { readPublicPlayerIndex } from './_public-index-store.js';
 import { clearSleeperCamp, listSleeperCamps, setSleeperCamp, type SleeperCamp } from '../_realtime/sleeper-camps.js';
 import { parseTravelLease, settleTravelLeases, sleeperSectorForTravelLease, travelLeaseKey } from '../_realtime/travel-lease.js';
@@ -33,6 +34,8 @@ const FULL_ROSTER_CACHE_TTL_MS = 60_000;
 // (jutsu, equipment, stats) OR an economic target (currencies, inventory)
 // belongs here.
 const ROSTER_STRIP_CHAR_FIELDS = new Set<string>([
+    'playerModelOwnerId',
+    'playerModelSlots',
     // Currencies
     'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'boneCharms',
     'auraStones', 'mythicSeals', 'auraDust',
@@ -170,7 +173,8 @@ function normalizeSector(value: unknown, fallback = 40) {
 async function compactLeaderboardRoster(onlineNames: Set<string>) {
     const { entries } = await readPublicPlayerIndex({ backfill: true, logContext: 'roster' });
     return [...entries.entries()]
-        .filter(([key, entry]) => isPublicPlayerIndexKey(key) && isPublicPlayerIndexKey(entry.name))
+        // Leaderboards rank players; Cinderhold NPC accounts never appear in them.
+        .filter(([key, entry]) => isPublicPlayerIndexKey(key) && isPublicPlayerIndexKey(entry.name) && !isNpcAccount(entry.name))
         .map(([, entry]) => (
             publicIndexToLeaderboardRosterEntry(entry, onlineNames.has(publicIndexKey(entry.name)))
         ));
@@ -260,7 +264,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : null;
                 const livePresence = livePresenceByName.get(safeName(String(entry.name ?? key)));
                 const slug = safeName(String(entry.name ?? key));
-                let sleeperCamp = livePresence ? undefined : sleeperCamps.get(slug);
+                // A Cinderhold NPC off the map is away, never a sleeper in the field.
+                const npcRow = isNpcAccount(slug);
+                let sleeperCamp = livePresence || npcRow ? undefined : sleeperCamps.get(slug);
                 const persistedTravel = parseTravelLease(rawTravelLeases[i]);
                 const travelSleeperSector = persistedTravel
                     ? sleeperSectorForTravelLease(persistedTravel, now)
@@ -304,6 +310,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 if (
                     !livePresence
+                    && !npcRow
                     && persistedTravel
                     && travelSleeperSector !== null
                     && fullCharacter
@@ -323,7 +330,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 // One-time compatibility bridge for players who were already
                 // sleeping before explicit camp records shipped.
-                if (!livePresence && !sleeperCamp && !persistedTravel && savedSector >= 1 && fullCharacter && fullCharacter.hospitalized !== true && battleLocks.get(key) !== true) {
+                if (!livePresence && !npcRow && !sleeperCamp && !persistedTravel && savedSector >= 1 && fullCharacter && fullCharacter.hospitalized !== true && battleLocks.get(key) !== true) {
                     sleeperCamp = {
                         name: slug,
                         displayName: String(entry.name ?? slug),

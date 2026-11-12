@@ -393,7 +393,8 @@ export function resolveVnArtworkBackground(input: {
     if (event.id === 'rift-descend-beast-warren' && page.title === 'The Warren' && lineIndex >= 2) return scene("side-stories/rift-nara-controlled-warren-v1");
     if (event.id === 'story-road-four-seals-one-gate' && page.title === 'Four Stones, One Hand') {
         const scene = lineIndex === 0 ? 'storm-founding-stone' : lineIndex < 3 ? 'three-founding-stones' : 'moon-founding-stone';
-        return `${cinematic}side-stories/road-${scene}-v1.webp`;
+        // AVIF (2026-11-11): the same paintings at about 60% of the WebP bytes.
+        return `${cinematic}side-stories/road-${scene}-v1.avif`;
     }
     if (event.id === 'story-reckoning-harrow-unbought-return' && page.title === 'Nailed to the Board' && lineIndex >= 2) return scene("side-stories/harrow-waystation-evidence-v1");
     // The breakdown is learned during this page; retain the pre-failure art

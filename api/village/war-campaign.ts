@@ -18,11 +18,11 @@ import { sealWarTeam } from '../_pet-showdown/war-team.js';
 import { resolveWarDuel, type WarDuelInput } from '../_pet-showdown/war-duel.js';
 import { replayFromOpposingSide } from '../_pet-showdown/_viewer-replay.js';
 import { resolveChronicleDeckMutation, resolveChronicleDeckWithSave } from '../card-clash/_deck.js';
-import { createAiMatch, applyPlayerAction, projectAiMatch, type AiMatchSession } from '../card-clash/_ai-engine.js';
+import { createAiMatch, applyPlayerAction, projectAiMatch, advanceAi, type AiMatchSession } from '../card-clash/_ai-engine.js';
 import { recordFreePlayParticipation, type FreePlayParticipation } from '../card-clash/_freeplay-legacy.js';
 import { cardCpReply, prepareCardGarrisonCpCredit, prepareCardPvpCpCredit, settleCardCpCredit,
     type CardCpCommitted, type CardCpCredit } from '../card-clash/_card-cp.js';
-import { createMatch, applyAction, advanceExpiredChronicleTurn, projectMatchForViewer,
+import { createMatch, applyAction, advanceExpiredChronicleTurn, projectMatchForViewer, TURN_TIMEOUT_MS,
     type ChronicleMatch, type ChronicleActionIntent } from '../../shared/chronicle-duel.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
@@ -45,11 +45,15 @@ import { isIncapacitated } from '../_elapsed-state.js';
 import { readSavePresenceFacts, type SavePresenceFacts } from '../_save-presence-facts.js';
 import { strongholdLocation, touchStrongholdPresence, leaveStrongholdPresence } from '../_stronghold-presence.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
-import { VILLAGE_BIOME, isWarVillage } from '../_war-map-sectors.js';
+import { VILLAGE_BIOME, isSectorWarVillage } from '../_war-map-sectors.js';
 import { shrineRoomLocation, touchShrineRoom, leaveShrineRoom, shrineRoomPlayers, renewShrineCombatPresence, confirmShrineRoomVillage } from '../_village-war-shrine-presence.js';
 import { applyShrineClosingControl, scheduleShrineClosing } from '../_village-war-shrine-closing.js';
 import { fieldOperationAction, fieldMissionFor, projectFieldMission, guardStrongholdAction } from '../_village-war-field-operations.js';
 import { getSectorOwnerVillage } from '../_sector-war-store.js';
+import { isNpcAccount } from '../../shared/npc-village-roster.js';
+import { woundNpc } from '../_npc-wounds.js';
+import { isNpcPossessed } from '../_npc-possession.js';
+import type { NpcGarrisonAssault } from '../_village-war-npc-assault.js';
 
 const RETAIN = 14 * 86_400;
 const SHRINE_ROOM_ACTIONS = new Set(['shrine-enter', 'shrine-state', 'shrine-step', 'shrine-leave']);
@@ -66,6 +70,13 @@ interface CampaignRun {
     participation?: FreePlayParticipation;
     /** Card mode: the Chronicle Point outbox (api/card-clash/_card-cp.ts). */
     cpCredit?: CardCpCredit;
+    /**
+     * Combat against the AI copy, by a Cinderhold shinobi the server plays: it
+     * has no browser for the solo PvE seat a player plays, so both sealed
+     * builds fought on the server when the run was prepared
+     * (api/_village-war-npc-assault.ts), and the run scores as it is admitted.
+     */
+    merc?: NpcGarrisonAssault;
 }
 interface Defense { player: string; village: string; objectiveId: string; seenAt: number; }
 const runKey = (id: string) => `village-campaign-run:${id}`;
@@ -161,6 +172,7 @@ async function shrineOpponent(war: CampaignWarRow, objectiveId: string, enemy: s
     for (const player of await shrineRoster(war, objective.sector)) {
         if (player.village !== enemy || player.inBattle || (target && player.name !== safeName(target))) continue;
         if (await loadPvpPendingSessionPointer(kv, player.name)) continue;
+        if (isNpcAccount(player.name) && !(await (await import('../_npc-village-campaign.js')).npcCampaignFighterFree(player.name, { allowPossessed: true }))) continue;
         const active = await kv.get<string>(activeKey(war, player.name));
         const run = await refreshCombatRun(active ? await kv.get<CampaignRun>(runKey(active)) : null);
         if (run && run.status !== 'done') continue;
@@ -193,6 +205,42 @@ async function refreshCombatRun(run: CampaignRun | null): Promise<CampaignRun | 
         return current ? syncCompletedCombat(current) : null;
     }, { failClosed: true });
 }
+/**
+ * The turn clock of a card defense a queued Cinderhold shinobi plays (run.aiCard
+ * with run.npc false). Against a player defender the clock runs on every poll
+ * and the defender's own polls end a walked-out attacker's duel; the server-
+ * played seat never polls, so the attacker's expired turns are passed here,
+ * each at its own deadline with the seat answering at once, and the AFK rule
+ * forfeits a duel the attacker left. Returns whether anything changed.
+ */
+function lapseNpcCardDefense(run: CampaignRun, now: number): boolean {
+    const session = run.aiCard;
+    if (!session || run.npc || session.state.status !== 'active') return false;
+    let changed = false;
+    for (let pass = 0; pass < 8 && session.state.status === 'active'; pass++) {
+        const state = session.state;
+        const due = state.responseWindow ? state.responseWindow.expiresAt : state.turnStartedAt + TURN_TIMEOUT_MS;
+        if (due > now) break;
+        const passed = advanceExpiredChronicleTurn(state, due);
+        if (passed === state) break;
+        session.state = passed;
+        changed = true;
+        advanceAi(session, due);
+    }
+    if (changed && session.state.status === 'complete') run.endedAt ??= now;
+    return changed;
+}
+/** Under the run lock: an NPC-defended card run whose attacker walked out ends by its clock (and scores). */
+async function refreshNpcCardDefense(run: CampaignRun | null): Promise<CampaignRun | null> {
+    if (!run?.aiCard || run.npc || run.status === 'done') return run;
+    return withKvLock(runKey(run.id), async () => {
+        const current = await kv.get<CampaignRun>(runKey(run.id));
+        if (!current || !lapseNpcCardDefense(current, Date.now())) return current;
+        await kv.set(runKey(current.id), current, { ex: RETAIN });
+        if (current.aiCard!.state.status === 'complete') await scoreRun(current, current.aiCard!.state.winner ?? 'draw', current.endedAt!);
+        return current;
+    }, { failClosed: true });
+}
 async function chooseDefense(war: CampaignWarRow, objectiveId: string, enemy: string, mode: WarBattleMode): Promise<Defense | null> {
     const keys = await kv.keys(`${defensePrefix(war)}*`);
     const rows = keys.length ? await kv.mget<Defense[]>(...keys) : [];
@@ -203,15 +251,18 @@ async function chooseDefense(war: CampaignWarRow, objectiveId: string, enemy: st
         if (!presence || !save?.character || save.character.village !== enemy || !(Number(save.character.level) >= 15) || isIncapacitated(save.character)
             || presence?.inBattle || (presence?.travelingUntil ?? 0) > Date.now()) continue;
         if (await loadPvpPendingSessionPointer(kv, row.player)) continue;
+        // A queued Cinderhold defender (Push 4b) must still be free to fight:
+        // not wounded, logged off, admin-played or already in a server-played fight.
+        if (isNpcAccount(row.player) && !(await (await import('../_npc-village-campaign.js')).npcCampaignFighterFree(row.player, { allowPossessed: true }))) continue;
         if (mode === 'pet' && !(await sealWarTeam(row.player))?.length) continue;
         if (mode === 'card' && !(await legalDeck(row.player))) continue;
         const active = await kv.get<string>(activeKey(war, row.player));
-        const attacking = await refreshCombatRun(active ? await kv.get<CampaignRun>(runKey(active)) : null);
+        const attacking = await refreshCombatRun(await refreshNpcCardDefense(active ? await kv.get<CampaignRun>(runKey(active)) : null));
         if (attacking && attacking.status !== 'done') continue;
         // One assignment per defender, across all modes/objectives.
         const assignment = await kv.get<string>(`village-campaign-assigned:${row.player}`);
         if (assignment) {
-            const prior = await refreshCombatRun(await kv.get<CampaignRun>(runKey(assignment)));
+            const prior = await refreshCombatRun(await refreshNpcCardDefense(await kv.get<CampaignRun>(runKey(assignment))));
             if (prior && prior.warId === war.id && prior.generation === war.declarationGeneration && prior.status !== 'done') continue;
             await kv.delIfEqual(`village-campaign-assigned:${row.player}`, assignment);
         }
@@ -248,7 +299,7 @@ async function projectRun(run: CampaignRun, me: string, points?: { committed?: C
     let session: unknown;
     if (run.card) session = projectMatchForViewer(run.card, side);
     if (run.aiCard) session = projectAiMatch(run.aiCard);
-    if (run.mode === 'combat' && run.npc) session = await readSoloPveSession(run.id);
+    if (run.mode === 'combat' && run.npc) session = run.merc ? { status: run.status, winner: run.merc.winner, rounds: run.merc.rounds } : await readSoloPveSession(run.id);
     if (run.pet) session = { status: run.status, winner: run.petWinner === 'from' ? 'p1' : 'p2',
         p1: { name: run.attacker, pet: run.pet.fromPets[0] }, p2: { name: run.pet.toName, pet: run.pet.toPets[0] }, seed: run.pet.seed };
     const reply = run.cpCredit ? await cardCpReply(run.cpCredit, me, { committed: points?.committed, deliver: !!points?.deliver }) : { body: {}, changed: false };
@@ -266,20 +317,35 @@ async function scoreRun(run: CampaignRun, winner: 'p1' | 'p2' | 'draw', at: numb
             field.status = winner === 'p1' && at < war.campaign!.endsAt && !war.endedAt ? 'complete' : 'failed'; field.finishedAt = at;
             war.campaign!.admissions[field.id].finished = true;
         }
-        if (war.campaign!.receipts[receipt]) return { row: war, value: war.campaign!.receipts[receipt].points };
+        if (war.campaign!.receipts[receipt]) return { row: war, value: { points: war.campaign!.receipts[receipt].points, fresh: false } };
         if (winner === 'draw' || (run.npc && winner !== 'p1')) {
             war.campaign!.receipts[receipt] = { points: 0, village: run.attackerVillage, player: run.attacker, at };
-            return { row: war, value: 0 };
+            return { row: war, value: { points: 0, fresh: true } };
         }
         const village = winner === 'p1' ? run.attackerVillage : run.defenderVillage;
         const player = winner === 'p1' ? run.attacker : run.defender;
         const awarded = awardCampaignBattle(war, { receipt, village, player, createdAt: run.createdAt, at,
             objectiveId: run.objectiveId, pve: run.npc, operation: run.operation }, player);
-        return { row: awarded.row, value: awarded.points };
+        return { row: awarded.row, value: { points: awarded.points, fresh: true } };
     });
-    run.status = 'done'; run.result = { scored: result > 0, points: result };
+    run.status = 'done'; run.result = { scored: result.points > 0, points: result.points };
     await kv.set(runKey(run.id), run, { ex: RETAIN });
     if (!run.npc) await kv.delIfEqual(`village-campaign-assigned:${run.defender}`, run.id);
+    // A queued Cinderhold defender beaten in a pet or card defense is wounded
+    // off the map like any war loss (a combat defense wounds through its PvP
+    // claim, api/_npc-duel-driver.ts). Its AI copy losing (run.npc) is not it.
+    // Once, when this battle's receipt is written: a complete card run is
+    // re-scored on every poll, and a later wound must never be rewritten.
+    if (result.fresh && !run.npc && winner === 'p1' && run.mode !== 'combat' && isNpcAccount(run.defender)) {
+        await woundNpc(safeName(run.defender), at, run.attacker).catch(() => undefined);
+    }
+    // A Cinderhold raider beaten at a player stronghold (owner ruling
+    // 2026-11-10) is wounded the same way: by the defender in a pet or card
+    // duel, or by the defending village's AI copy. A beaten raider in a combat
+    // duel against a defending player is wounded through its PvP claim.
+    if (result.fresh && winner === 'p2' && (run.npc || run.mode !== 'combat') && isNpcAccount(run.attacker)) {
+        await woundNpc(safeName(run.attacker), at, run.npc ? undefined : run.defender).catch(() => undefined);
+    }
 }
 export async function settleTerminalCampaignSession(session: SoloPveSession): Promise<void> {
     if (session.status !== 'done' || !session.encounter.kind.startsWith('village-war-')) return;
@@ -308,6 +374,8 @@ async function finishPreparedRun(war: CampaignWarRow, run: CampaignRun, solo: So
         if (run.pet && run.status !== 'done') {
             run.petWinner = resolveWarDuel(run.pet).outcome;
             await scoreRun(run, run.petWinner === 'from' ? 'p1' : 'p2', run.createdAt);
+        } else if (run.merc && run.status !== 'done') {
+            await scoreRun(run, run.merc.winner, run.createdAt);
         } else if (run.status !== 'done' && (run.card || run.aiCard || solo)) run.status = 'active';
         await kv.set(runKey(run.id), run, { ex: RETAIN });
         if (run.mode === 'combat' && !run.npc && run.status !== 'done') await resumeCombat(run, req, war);
@@ -553,14 +621,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const freshChar = fresh?.character as Record<string, unknown> | undefined;
                     if (!fresh || !freshChar || isIncapacitated(freshChar)) refuse('Recover before starting a war operation.');
                     const admin = await loadAdminCombatContent();
-                    if (objective) {
+                    // A Cinderhold raider the server plays (not an admin playing it
+                    // by hand) has no browser for the solo PvE seat below.
+                    const serverSeat = !!objective && isNpcAccount(me) && !identity.admin && !(await isNpcPossessed(me));
+                    if (objective && serverSeat) {
+                        const fielded = await fieldCampaignAnbu(enemy, sealCampaignAnbuCombat);
+                        if (!fielded.ok) refuse('The enemy village has no ANBU or Kage able to defend this stronghold.');
+                        run.defender = fielded.fielded.slug;
+                        const { resolveNpcGarrisonAssault } = await import('../_village-war-npc-assault.js');
+                        run.merc = await resolveNpcGarrisonAssault({ npcName: String(freshChar.name ?? me), save: fresh, character: freshChar, admin,
+                            copy: { slug: fielded.fielded.slug, name: maskedGarrisonDefenderName(enemy, fielded.defender, fielded.appointees), character: fielded.fielded.character }, now });
+                    } else if (objective) {
                         const fielded = await fieldCampaignAnbu(enemy, sealCampaignAnbuCombat);
                         if (!fielded.ok) refuse('The enemy village has no ANBU or Kage able to defend this stronghold.');
                         run.defender = fielded.fielded.slug;
                         solo = buildGarrisonEncounter({ runId: id, now, attacker: { slug: me, name: me,
                             character: hydrateCharacterFromSave(freshChar, {}, fresh, admin), itemCharges: sealItemCharges(freshChar, freshChar) },
                             anbu: { ...fielded.fielded, name: maskedGarrisonDefenderName(enemy, fielded.defender, fielded.appointees),
-                                character: { ...fielded.fielded.character, avatarImage: campaignAnbuAvatar(enemy) } }, terrain: isWarVillage(enemy) ? VILLAGE_BIOME[enemy] : 'central', sector: objective.sector,
+                                character: { ...fielded.fielded.character, avatarImage: campaignAnbuAvatar(enemy, fielded.fielded.character.avatarImage) } }, terrain: isSectorWarVillage(enemy) ? VILLAGE_BIOME[enemy] : 'central', sector: objective.sector,
                             contestId: warId, attackerVillage: village, defenderVillage: enemy });
                         solo.encounter.kind = 'village-war-garrison';
                         delete solo.enemy.character.boss;
@@ -575,9 +653,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             scaling: { level: Math.max(15, Math.min(100, Number(freshChar.level))) }, difficultyMode: 'MISSION', now, admin,
                             continuousVitals: true, encounter: { kind: 'village-war-operation', id: 'espionage', bindingId: id } });
                     }
-                    solo.encounter.bindingId = id;
-                    solo.encounter.metadata = { ...solo.encounter.metadata, warId, generation: run.generation, objectiveId: run.objectiveId ?? null, operation: run.operation ?? null,
-                        ...(spy ? { fieldMissionId: spy.id, sector: spy.sectors[0] } : {}) };
+                    if (solo) {
+                        solo.encounter.bindingId = id;
+                        solo.encounter.metadata = { ...solo.encounter.metadata, warId, generation: run.generation, objectiveId: run.objectiveId ?? null, operation: run.operation ?? null,
+                            ...(spy ? { fieldMissionId: spy.id, sector: spy.sectors[0] } : {}) };
+                    }
                 }
                 if (mode === 'pet') {
                     const team = await sealWarTeam(me);
@@ -593,13 +673,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     if (!theirTeam?.length) refuse('The defender cannot field pets right now.');
                     run.pet = { rulesetVersion: 'progression-v3', sessionId: id, seed: randomInt(0x1_0000_0000), fromName: me, toName: defenderName,
-                        fromPets: team, toPets: theirTeam, terrain: isWarVillage(enemy) ? VILLAGE_BIOME[enemy] : 'central' };
+                        fromPets: team, toPets: theirTeam, terrain: isSectorWarVillage(enemy) ? VILLAGE_BIOME[enemy] : 'central' };
                 }
                 if (mode === 'card') {
                     const mine = await resolveChronicleDeckWithSave(me, [], identity.admin);
                     if (!mine) refuse('Save a legal Chronicle deck before attacking.');
                     run.saveVersion = mine.saveVersion;
-                    if (defense) {
+                    if (defense && isNpcAccount(defense.player)) {
+                        // A queued Cinderhold defender has no browser: the server
+                        // plays its own legal deck at hard (the fielded-deck AI),
+                        // scored as the PvP defense it is, not as PvE (run.npc).
+                        const theirs = await legalDeck(defense.player);
+                        if (!theirs) refuse('The defender has no legal deck.');
+                        const npcSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${defense.player}`);
+                        run.aiCard = createAiMatch(id, me, mine.deck, 'hard', now, Math.random, 'external', undefined,
+                            { name: String(npcSave?.character?.name ?? defense.player), deck: theirs });
+                    } else if (defense) {
                         const theirs = await legalDeck(defense.player);
                         if (!theirs) refuse('The defender has no legal deck.');
                         run.card = createMatch(me, mine.deck, defense.player, theirs, Math.random, now);
@@ -650,6 +739,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (run.card || run.aiCard) {
                 if (run.card) run.card = advanceExpiredChronicleTurn(run.card, Date.now());
+                lapseNpcCardDefense(run, Date.now());
                 if (action !== 'state' && action !== 'join' && action !== 'resolve') {
                     const intent = { ...body, action } as ChronicleActionIntent;
                     if (run.card) {

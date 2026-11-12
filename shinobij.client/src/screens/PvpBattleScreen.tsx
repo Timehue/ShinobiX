@@ -477,6 +477,7 @@ export function PvpBattleScreen({
     const [pvpRewardClaimState, setPvpRewardClaimState] = useState<"idle" | "claiming" | "failed" | "confirmed">("idle");
     const [pvpRewardClaimError, setPvpRewardClaimError] = useState("");
     const [pvpRewardNotice, setPvpRewardNotice] = useState("");
+    const [pvpNpcPayReason, setPvpNpcPayReason] = useState("");
     const [pvpImpactLines, setPvpImpactLines] = useState<string[]>([]);
     const [showResultPanel, setShowResultPanel] = useState(true);
     const [sessionLoadFailure, setSessionLoadFailure] = useState("");
@@ -1198,6 +1199,8 @@ export function PvpBattleScreen({
             return;
         }
 
+        // Why a fight with a Cinderhold shinobi paid nothing, when it didn't.
+        setPvpNpcPayReason(result.npcPay ?? "");
         setPvpRewardNotice(pvpRewardSettlementNotice(result, {
             draw: isDrawNow,
             spar: effectiveIsSpar,
@@ -2546,6 +2549,7 @@ export function PvpBattleScreen({
                             isSpectator={amSpectator}
                             settlementState={pvpRewardClaimState}
                             settlementNotice={pvpRewardNotice}
+                            npcPayReason={pvpNpcPayReason}
                             impactLines={pvpImpactLines}
                             settlementError={pvpRewardClaimError}
                             onRetrySettlement={() => { void claimResolvedPvpReward(); }}

@@ -1,5 +1,6 @@
 import { kv, type KvLike } from './_storage.js';
 import { safeName } from './_utils.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
 import { evaluateCreditedPvpFight } from './pvp/_valid-fight.js';
 
 export class SectorWarPurseEvidenceUnavailableError extends Error {
@@ -20,9 +21,18 @@ export async function sectorWarPurseEligible(args: {
     endedAt: number;
     winnerLevel?: unknown;
     loserLevel?: unknown;
+    /** A Cinderhold duel the server sealed as paid (api/_npc-duel.ts). */
+    npcDuelPaid?: boolean;
 }, store: Pick<KvLike, 'get'> = kv): Promise<boolean> {
     const winner = safeName(args.winnerName), loser = safeName(args.loserName);
     if (!winner || !loser || winner === loser) return false;
+    // A Cinderhold NPC is never paid, so its own wins never feed the purse.
+    // A player's win over one counts only when it was one of that day's PAID
+    // duels (the first per NPC, at most five a day): an NPC is always there to
+    // be fought, so an uncapped count would be an uncapped purse. Owner ruling
+    // 2026-11-10: beating Cinderhold pays the normal war rewards.
+    if (isNpcAccount(winner)) return false;
+    if (isNpcAccount(loser) && args.npcDuelPaid !== true) return false;
     if (!Number.isSafeInteger(args.endedAt) || args.endedAt <= 0) throw new Error('sector-purse-battle-clock-invalid');
     const [winnerSave, loserSave] = await Promise.all([
         store.get<{ character?: Record<string, unknown> }>(`save:${winner}`),

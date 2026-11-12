@@ -202,6 +202,8 @@ const COPY_WINS_FIELDS = dedupeByField([
     // the mirror copy (string sentinels would go NaN through the clamp).
     ...SERVER_MIRRORED_CHARACTER_FIELDS.map((field) => (field in LIFETIME_COUNTERS
         ? { field, stored: 777, tampered: 999_999 }
+        : field === 'starterWorldModel'
+            ? { field, stored: 'starter-two', tampered: 'starter-one' }
         : { field, stored: `stored-${field}`, tampered: `tampered-${field}` })),
     ...PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS.map((field) => field === 'storyFieldRecords'
         // This field is schema-normalized after the copy. Probe with valid,

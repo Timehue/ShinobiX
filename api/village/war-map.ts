@@ -4,7 +4,7 @@ import { readKvProjection } from '../_storage-projection.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
-import { WAR_VILLAGES } from '../_war-map-sectors.js';
+import { SECTOR_WAR_VILLAGES } from '../_war-map-sectors.js';
 import { loadHeldSectors } from '../_war-held-sectors.js';
 import { isVillageKageSeated } from '../_war-tax-apply.js';
 import { publicVillageWarMapView, villageWarMapView, type VillageWarMapPublicView, type VillageWarMapView } from '../_war-map-view.js';
@@ -60,15 +60,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // is listed under its holder, with the holder's settings (owner ruling
         // 2026-10-08).
         const [warRaws, stateRaws, contests, { counts: heldCount, lists: heldLists }, kageSeats, resolvedViewerVillage] = await Promise.all([
-            Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(villageWarKey(v)))),
+            Promise.all(SECTOR_WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(villageWarKey(v)))),
             // Only each village's treasury is read below, so fetch that projection
             // rather than the whole village-state rows (logs, orders, upgrades).
-            readKvProjection(kv, WAR_VILLAGES.map((v) => `${VILLAGE_STATE_PREFIX}${villageWarSlug(v)}`), { treasury: ['treasury'] }),
+            readKvProjection(kv, SECTOR_WAR_VILLAGES.map((v) => `${VILLAGE_STATE_PREFIX}${villageWarSlug(v)}`), { treasury: ['treasury'] }),
             listActiveSectorWars(),
             loadHeldSectors(),
             // The seat drives the tax rate (no Kage → 0%), so it has to be read here
             // too or the displayed rate would diverge from the charged one.
-            Promise.all(WAR_VILLAGES.map((v) => isVillageKageSeated(v))),
+            Promise.all(SECTOR_WAR_VILLAGES.map((v) => isVillageKageSeated(v))),
             // The viewer's village decides which village's internals this
             // response carries, and the contest projection's compatibility
             // `garrisonFed*` mirror (their OWN per-village feed entry only).
@@ -85,7 +85,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // preparation's next-tier quote below uses it, and the client builds its
         // copy from it, so a dial change never shows a stale price.
         const perWr = ryoPerWr();
-        const villages = await Promise.all(WAR_VILLAGES.map(async (v, i) => {
+        // Cinderhold is listed (public view only: no player is ever its member),
+        // so a player Kage can see what it holds and declare on it.
+        const villages = await Promise.all(SECTOR_WAR_VILLAGES.map(async (v, i) => {
             const record = normalizeVillageWarRecord(v, warRaws[i] ?? undefined);
             const own = identity.admin || v === viewerVillage;
             const contexts = own ? await listWarPreparationContexts(v) : [];

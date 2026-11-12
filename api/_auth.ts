@@ -20,6 +20,7 @@ import { kv } from './_storage.js';
 import { allow, hasBudget } from './_ratelimit.js';
 import { clientIp } from './_client-ip.js';
 import { disconnectPlayerSockets } from './_realtime/notify.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
 
 type ReqLike = { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } };
 
@@ -346,6 +347,9 @@ export async function maybeRefreshPlayerToken(token: string): Promise<string | n
     // identity). This is the sole gate on issuing the replacement.
     const canonical = await verifyPlayerToken(token);
     if (!canonical) return null;
+    // A Cinderhold NPC token is an admin possession lease (api/admin/npc-possess.ts)
+    // that must end when the lease does. Never slide it into a 24h session.
+    if (isNpcAccount(canonical)) return null;
     // verifyPlayerToken already proved the stored epoch equals the token's, so
     // reuse the parsed value rather than paying for a second storage read.
     return issuePlayerToken(canonical, undefined, claims.sessionEpoch);

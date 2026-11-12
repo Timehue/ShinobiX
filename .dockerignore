@@ -61,6 +61,17 @@ Dockerfile
 **/playwright-report
 **/.tmp
 .ci-evidence
+# The game server uses the SDK control client. Rendering code, tests, template
+# art and worker deployment sources stay out of its build context.
+workers/avatar-model/*
+!workers/avatar-model/requirements-dispatch.txt
+!workers/avatar-model/dispatch_read.py
+!workers/avatar-model/dispatch_stage.py
+!workers/avatar-model/dispatch_result.py
+!workers/avatar-model/browser_motion.py
+!workers/avatar-model/publish_sprite.py
+!workers/avatar-model/recognition_worker.py
+!workers/avatar-model/cleanup_sprite.py
 .ci-artifacts
 *.log
 npm-debug.log*

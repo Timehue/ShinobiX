@@ -24,11 +24,19 @@ TARGET="${2:-railway-deploy}"
 
 # Mirrors .dockerignore: none of these end up in the image.
 DROP=(docs release-audit mobile android shinobij.client/art-source shinobij.client/art-references .ci-evidence
-  output outputs shinobij.client/dist-perf 'shinobij.client/.playwright-dist-*')
+  output outputs shinobij.client/dist-perf 'shinobij.client/.playwright-dist-*' workers/avatar-model)
 # verify:dist checks delivered art against these review records, so they ship
 # (each mirrors a `!` exception in .dockerignore).
 KEEP=(-e 'shinobij.client/art-source/pet-portrait-refresh/production.json'
-  -e 'shinobij.client/art-source/hollow-gate-cavern-chambers.json')
+  -e 'shinobij.client/art-source/hollow-gate-cavern-chambers.json'
+  -e 'workers/avatar-model/requirements-dispatch.txt'
+  -e 'workers/avatar-model/dispatch_read.py'
+  -e 'workers/avatar-model/dispatch_stage.py'
+  -e 'workers/avatar-model/dispatch_result.py'
+  -e 'workers/avatar-model/browser_motion.py'
+  -e 'workers/avatar-model/publish_sprite.py'
+  -e 'workers/avatar-model/recognition_worker.py'
+  -e 'workers/avatar-model/cleanup_sprite.py')
 
 INDEX_FILE="$(mktemp -u)"
 PATH_LIST="$(mktemp)"

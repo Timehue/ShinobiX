@@ -6,9 +6,17 @@ import { buildWarTeam } from './_pet-showdown/war-team.js';
 import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 import { loadAdminCombatContent } from './_admin-content.js';
 import { hydrateCharacterFromSave } from './pvp/session.js';
+import { isNpcVillage } from '../shared/npc-village.js';
 
-/** Existing village ANBU artwork, including its published cache revision. */
-export const campaignAnbuAvatar = (village: string) => `/anbu/${villageSlug(village).replace(/village$/, '')}.webp?v=2`;
+/**
+ * Existing village ANBU artwork, including its published cache revision.
+ * Cinderhold has no ANBU art (its ANBU are named NPCs, Push 4b): its defender
+ * shows the NPC's own preset portrait (every NPC save has one) instead of a
+ * missing /anbu/cinderhold.webp.
+ */
+export const campaignAnbuAvatar = (village: string, ownAvatar?: unknown) => isNpcVillage(village)
+    ? (typeof ownAvatar === 'string' ? ownAvatar : '')
+    : `/anbu/${villageSlug(village).replace(/village$/, '')}.webp?v=2`;
 
 /** Seal the current player build for this assault, independently of daily vault copies. */
 export async function sealCampaignAnbuCombat(slug: string): Promise<AnbuSnapshot | null> {
@@ -24,8 +32,13 @@ export async function fieldCampaignAnbu<T>(village: string, field: (slug: string
     pickIndex: (length: number) => number = randomInt): Promise<FieldedGarrison<T>> {
     const appointees = await loadAnbuAppointees(village);
     const candidates = [...appointees];
+    // Cinderhold's ANBU are its war NPCs (api/_npc-war-roster.ts): one that is
+    // wounded, logged off, admin-played or already fighting cannot be copied
+    // into a defense, as a player away from the village still can (Push 4b).
+    const npcFree = isNpcVillage(village) ? (await import('./_npc-village-campaign.js')).npcCampaignFighterFree : null;
     while (candidates.length) {
         const [slug] = candidates.splice(pickIndex(candidates.length), 1);
+        if (npcFree && !(await npcFree(slug, { forCopy: true }))) continue;
         const fielded = await field(slug);
         if (fielded != null) return { ok: true, defender: { slug, byKage: false }, fielded, appointees };
     }

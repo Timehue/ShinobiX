@@ -51,7 +51,8 @@ export type PresenceFrame = {
 type SectorHandler = (sector: number, players: PlayerRecord[]) => void;
 type PlayerHandler = (sector: number, player: PlayerRecord) => void;
 type MoveHandler = (sector: number, name: string, tile: number, sequence: number) => void;
-type WorldMoveHandler = (data: { sector: number; name: string; sequence: number; worldPosition: WorldPosition }) => void;
+type WorldMoveHandler = (data: { sector: number; name: string; sequence: number; worldPosition: WorldPosition;
+    gaitPresentation?: PlayerRecord['gaitPresentation'] }) => void;
 /** `sector` is the sector they left, when the server says (every leave does). */
 type GoneHandler = (names: string[], sector?: number) => void;
 type KickHandler = (reason: string) => void;

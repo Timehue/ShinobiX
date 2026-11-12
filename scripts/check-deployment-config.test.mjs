@@ -194,3 +194,23 @@ test('production image checkout omits only review evidence excluded from Docker'
   assert.doesNotMatch(dockerignore, /^!\/?docs(?:\/|\r?$)/m);
   assert.match(workflow, /uses: actions\/checkout@v7\s+with:\s+(?:#[^\n]*\n\s*)*sparse-checkout-cone-mode: false\s+sparse-checkout: \|\s+\/\*\s+!\/docs\/screenshots\/\s+!\/docs\/evidence\/\s+!\/docs\/audits\//);
 });
+
+test('the game image and lean deployment retain only the sprite control client', async () => {
+  const [docker, ignored, lean] = await Promise.all(['Dockerfile', '.dockerignore',
+    'scripts/refresh-railway-deploy-branch.sh'].map(path => readFile(path, 'utf8')));
+  const control = [...new Set([...docker.matchAll(/workers\/avatar-model\/([a-z_-]+\.(?:txt|py))/g)]
+    .map(match => match[1]))].sort();
+  assert.equal(control.length, 8);
+  assert.match(ignored, /^workers\/avatar-model\/\*\r?$/m);
+  const included = ignored.split(/\r?\n/).filter(line => line.startsWith('!workers/avatar-model/'))
+    .map(line => line.slice('!workers/avatar-model/'.length)).sort();
+  assert.deepEqual(included, control);
+  assert.match(lean, /DROP=\([^)]*workers\/avatar-model\)/);
+  const retained = [...lean.matchAll(/-e 'workers\/avatar-model\/([^']+)'/g)].map(match => match[1]).sort();
+  assert.deepEqual(retained, control);
+  for (const name of control) {
+    const source = await readFile('workers/avatar-model/' + name, 'utf8');
+    assert.doesNotMatch(source, /^(?:from|import) (?:bpy|torch|cv2|numpy|PIL|modal_sprite_worker)\b/m,
+      name + ' must import only control-plane dependencies');
+  }
+});

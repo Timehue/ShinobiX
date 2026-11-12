@@ -1,5 +1,6 @@
 import type { Character } from '../types/character';
 import { runSingleFlight } from './single-flight';
+import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 
 export class DungeonProbeError extends Error {
     readonly retryable: boolean;
@@ -114,7 +115,7 @@ async function requestFreeDungeonProbe(playerName: string, sector: number, reque
         ? data.character.activeDungeonRun as Record<string, unknown>
         : null;
     const sealedSector = data.sector ?? active?.sector;
-    if (typeof sealedSector !== 'number' || !Number.isSafeInteger(sealedSector) || sealedSector < 1 || sealedSector > 66) {
+    if (typeof sealedSector !== 'number' || !Number.isSafeInteger(sealedSector) || sealedSector < 1 || sealedSector > MAX_WILD_SECTOR) {
         throw dungeonProbeFailure('The Dungeon location could not be loaded.');
     }
     if (typeof data.found !== 'boolean' || (data.found && (typeof data.token !== 'string' || !data.token))) {

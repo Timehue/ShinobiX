@@ -16,6 +16,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent } from "react";
 import "../styles/profile-skin.css";
 import type { PlayerRecord, ServerPlayerSummary } from "../types/character";
 import { addFriend, follow, removeFriend, subscribeFollowing, subscribeFriends, unfollow } from "../lib/friends";
+import { isNpcVillage } from "../../../shared/npc-village";
 
 type UserHubTab = 'all' | 'following' | 'friends' | 'blocked';
 type HubPlayer = {
@@ -395,7 +396,8 @@ function UserHubRow({ p, sharedImages, timeAgo, onSelect, tab, isFollowed, onTog
                     disabled={listBusy}
                     onClick={(event) => { event.stopPropagation(); void onUnblock(p.name, false); }}
                 >Unblock</button>
-            ) : (
+            ) : isNpcVillage(p.village) && !isFollowed ? null : (
+                // Cinderhold shinobi cannot be followed (UserView says so); no star to press.
                 <button
                     type="button"
                     className={`user-hub-follow-star${isFollowed ? " following" : ""}`}

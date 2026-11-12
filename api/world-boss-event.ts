@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { authedPlayerOrAdmin } from './_auth.js';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
 import { cors, parseJsonBody, safeName } from './_utils.js';
 import { enforceRateLimit } from './_ratelimit.js';
 import { readActiveWorldBossEvent, readWorldBossEvent, publicWorldBossEvent, worldBossEventKey } from './world-boss-event/_event.js';
@@ -85,6 +86,7 @@ async function depositHollowShards(req: VercelRequest, res: VercelResponse) {
     const identity = await authedPlayerOrAdmin(req, playerName);
     if (!identity || identity.admin) return res.status(401).json({ error: 'Player authentication required.' });
     if (identity.name !== playerName) return res.status(403).json({ error: 'Can only turn in your own Hollow Shards.' });
+    if (isNpcAccount(identity.name)) return res.status(403).json({ error: 'Cinderhold shinobi do not fight the world boss.' });
     if (!enforceRateLimit(req, res, 'world-boss-event-deposit', 10, 60_000, identity.name)) return;
     const result = await depositWorldBossHollowShards(eventId, {
         slug: identity.name,
@@ -111,6 +113,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
             if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only read your own event status.' });
             playerSlug = identity.admin ? playerName : identity.name;
+            // The personal view also delivers top-cache rewards: never to a Cinderhold shinobi.
+            if (isNpcAccount(playerSlug)) return res.status(403).json({ error: 'Cinderhold shinobi do not fight the world boss.' });
             if (!enforceRateLimit(req, res, 'world-boss-event-view', 240, 60_000, playerSlug)) return;
         }
 

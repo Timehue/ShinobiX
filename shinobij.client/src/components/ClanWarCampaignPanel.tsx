@@ -6,6 +6,7 @@ import {GameArtIcon,type GameArtIconKind} from './GameArtIcon';
 import '../styles/clan-war-campaign.css';
 import {gameConfirm} from './GameAlert';
 import {setSectorReopen} from '../lib/sector-return';
+import {isNpcClanName} from '../../../shared/npc-clan-names';
 
 const MODES:Record<ClanWarQueueMode,{label:string;icon:GameArtIconKind;detail:string}>={
     pvp1v1:{label:'Shinobi Duel',icon:'attack',detail:'1v1 combat · 100 points per win'},
@@ -54,7 +55,7 @@ export function ClanWarCampaignPanel({war:initial,name,clanName,onRefresh,onLaun
         return()=>window.clearInterval(timer);
     },[queueId,queueMode,queueScope,queueWindow,act]);
     if(!view)return null;
-    const enemy=war.clans.find(clan=>clan!==clanName)??'',ready=view.matches.find(match=>match.status==='ready'&&match.readyUntil>now);
+    const enemy=war.clans.find(clan=>clan!==clanName)??'',rivalFieldsNoTeams=isNpcClanName(enemy),ready=view.matches.find(match=>match.status==='ready'&&match.readyUntil>now);
     const active=view.matches.find(match=>match.status==='active'),challenge=active?war.pendingChallenges.find(entry=>entry.id===active.id):undefined;
     const shrine=scope==='shrine'?view.shrines.find(entry=>entry.index===windowIndex):view.shrines.find(entry=>entry.closesAt>now);
     const preparing=view.phase==='preparing',ended=view.phase==='ended';
@@ -77,8 +78,10 @@ export function ClanWarCampaignPanel({war:initial,name,clanName,onRefresh,onLaun
         {!ended&&<div className="clan-campaign-modes">{CLAN_WAR_QUEUE_MODES.filter(mode=>scope==='normal'||mode===shrine?.mode).map(mode=>{
             const details=MODES[mode],partners=view.queue.filter(entry=>entry.mode==='pvp2v2'&&entry.players.length===1&&!entry.players.includes(me));
             const selected=ownQueue?.mode===mode&&ownQueue.scope===scope;
-            const exhausted=scope==='normal'?(memberLeft<1||clanLeft<(mode==='pvp2v2'?2:1)):!shrine||shrine.usedMatches>=shrine.matchLimit||shrine.memberUsed>=shrine.memberLimit;
-            return <article key={mode} className={`clan-campaign-mode${selected?' is-queued':''}`}><GameArtIcon kind={details.icon} size={36}/><div><h4>{details.label}</h4><p>{scope==='shrine'?'100 bonus points per victory':details.detail}</p><small>{(scope==='shrine'?view.enemyShrineQueueCounts?.[String(windowIndex)]?.[mode]:view.enemyQueueCounts[mode])??0} rival players waiting</small></div>
+            // Cinderhold's clans field no 2v2 teams, so that queue would never pair.
+            const noRivalTeams=mode==='pvp2v2'&&rivalFieldsNoTeams;
+            const exhausted=noRivalTeams||(scope==='normal'?(memberLeft<1||clanLeft<(mode==='pvp2v2'?2:1)):!shrine||shrine.usedMatches>=shrine.matchLimit||shrine.memberUsed>=shrine.memberLimit);
+            return <article key={mode} className={`clan-campaign-mode${selected?' is-queued':''}`}><GameArtIcon kind={details.icon} size={36}/><div><h4>{details.label}</h4><p>{scope==='shrine'?'100 bonus points per victory':details.detail}</p><small>{noRivalTeams?`${enemy} fields no 2v2 teams, so this queue has no opponents.`:`${(scope==='shrine'?view.enemyShrineQueueCounts?.[String(windowIndex)]?.[mode]:view.enemyQueueCounts[mode])??0} rival players waiting`}</small></div>
                 <div className="clan-campaign-mode-actions"><button disabled={busy||(!selected&&(locked||!!ownQueue||exhausted))} onClick={()=>void act(selected?'leave':'join',{mode})}>{selected?'Leave queue':mode==='pvp2v2'?'Open partner slot':'Join queue'}</button>
                     {mode==='pvp2v2'&&!ownQueue&&partners.map(partner=><button key={partner.id} disabled={locked||exhausted} onClick={()=>void act('join',{mode,partnerEntryId:partner.id})}>Team with {partner.players[0]}</button>)}
                     {selected&&<span role="status">{mode==='pvp2v2'&&ownQueue.players.length===1?'Waiting for a clanmate':'Finding an opposing clan match…'}</span>}</div></article>;

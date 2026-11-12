@@ -3,9 +3,14 @@ import { safeName } from '../_utils.js';
 import { readPublicPlayerIndex } from '../player/_public-index-store.js';
 import { earnedAnbuCandidates, normalizeAnbuSeats, leadershipVillageKey, type AnbuCandidate } from '../../shared/village-anbu.js';
 import { elderVillageKey } from './_elders.js';
+import { isNpcVillage } from '../../shared/npc-village.js';
+import { npcVillageAnbu } from '../_npc-war-roster.js';
 
 type Store = Pick<KvLike, 'get'>;
 export async function readVillageAnbu(village: string, snapshot?: Record<string, unknown>, store: Store = kv, indexedCandidates?: AnbuCandidate[]): Promise<{ appointed: [string, string, string]; earned: string[]; members: string[] }> {
+    // Cinderhold appoints nobody: its ANBU are its roster Commanders, Elites
+    // and Jonin (api/_npc-war-roster.ts), so its garrisons always have defenders.
+    if (isNpcVillage(village)) return npcVillageAnbu();
     const state = snapshot ?? await store.get<Record<string, unknown>>(elderVillageKey(village));
     const validMember = async (name: string) => {
         if (!name) return '';

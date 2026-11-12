@@ -63,6 +63,8 @@ const PRESENCE_CHAR_KEEP = new Set<string>([
     'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
     'clan', 'clanFounder', 'hp', 'maxHp',
 ]);
+/** Character fields that server-owned producers may project before slimming. */
+export const PRESENCE_CHARACTER_FIELDS: readonly string[] = Object.freeze([...PRESENCE_CHAR_KEEP, 'pets']);
 // pet `image` is intentionally dropped (mirrors the client's PRESENCE_PET_FIELDS
 // in App.tsx): every pet render site resolves the sprite from the viewer's own
 // sharedImages['pet:<id>'|'pet:<base>'] cache, so the data URL on the presence
@@ -156,6 +158,9 @@ export function presenceBroadcastSignature(p: OnlinePlayer | null | undefined): 
         ch?.village ?? '',
         ch?.clan ?? '',
         ch?.specialty ?? 'Ninjutsu',
+        p.activity ?? '',
+        ...(p.starterWorldModel ? [p.starterWorldModel] : []),
+        ...(p.playerModel ? [p.playerModel.assetId,p.playerModel.version] : []),
     ]);
 }
 
@@ -164,7 +169,8 @@ export function toPlayerRecord(p: OnlinePlayer) {
     return {
         name: p.displayName,
         sector: p.sector,
-        character: { avatarImage: '' },
+        character: { avatarImage: '', ...(p.playerModel ? {playerModel:p.playerModel} : {}),
+            ...(p.starterWorldModel ? {starterWorldModel:p.starterWorldModel} : {}) },
         level: ch?.level ?? 1,
         village: ch?.village ?? '',
         // clan is kept in the slim presence character (PRESENCE_CHAR_KEEP); surfaced
@@ -179,7 +185,10 @@ export function toPlayerRecord(p: OnlinePlayer) {
         // Within-sector tile for live peer rendering (omitted → viewer falls back
         // to a deterministic per-name tile). Display-only.
         tile: p.tile,
-        ...(p.worldPosition ? { worldPosition: p.worldPosition, movementSequence: p.movementSeq ?? 0 } : {}),
+        ...(p.gaitPresentation ? { gaitPresentation: p.gaitPresentation } : {}),
+        ...(p.worldPosition ? { worldPosition: p.worldPosition } : {}),
+        ...(p.worldPosition || p.movementSeq ? { movementSequence: p.movementSeq ?? 0 } : {}),
+        ...(p.activity ? { activity:p.activity } : {}),
         stronghold: strongholdLocation(p.name, p.sector),
     };
 }

@@ -71,3 +71,35 @@ test('a cursor restores the exact intermediate position after a reload', () => {
     assert(restored.restore(cursor)); assert.deepEqual(restored.position, walker.position);
     assert.equal(restored.restore({ ...cursor, to: '99:78' }), false);
 });
+
+test('manual movement can turn back along a partly travelled edge without changing position', () => {
+    const a = nodes.get('46:66')!;
+    const b = a.neighbors.map(id => nodes.get(id)!).find(n => n.x > a.x && Math.abs(n.y-a.y) < .001)!;
+    const walker = createWorldWalker(nodes, a.id);
+    walker.step({x:1,y:0}, true);
+    walker.tick(.025);
+    walker.stop();
+    const before = walker.cursor('test');
+    assert.equal(before.to, b.id);
+    const at = walker.position;
+    walker.step({x:-1,y:0}, true);
+    const reversed = walker.cursor('test');
+    assert.deepEqual(walker.position, at);
+    assert.equal(reversed.from, b.id);
+    assert.equal(reversed.to, a.id);
+    assert.ok(Math.abs(before.progress + reversed.progress - 1) < 1e-8);
+    walker.tick(.01);
+    assert.ok(walker.position.x < at.x);
+});
+
+test('fitted motion settles at a road node despite subpixel roundoff', () => {
+    const walker = createWorldWalker(nodes,'46:66');
+    walker.step({x:1,y:0},true);
+    const edge = walker.nextSegment()!;
+    for (let remaining=edge.distance; remaining>0; remaining-=.25)
+        walker.tick((Math.min(.25,remaining)-1e-12)/6.5);
+    assert.equal(walker.nextSegment(),null);
+    assert.equal(walker.moving,false);
+    walker.step({x:1,y:0},true);
+    assert(walker.nextSegment());
+});

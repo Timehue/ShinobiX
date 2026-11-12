@@ -36,6 +36,7 @@ import { BANDIT_TOLL_RYO } from "../../../shared/road-toll";
 import { CARD_CHRONICLE_POINTS_DEFAULTS } from "../../../shared/card-chronicle-points";
 import { DAILY_SECTOR_EXPLORE_LIMIT } from "../../../api/world/_explore";
 import { DAILY_RESOURCE_ATTEMPT_LIMIT, RESOURCE_SUCCESS_XP, RESOURCE_FAILURE_XP } from "../../../shared/resource-gathering";
+import { NPC_PEACE_MIN_LEAD } from "../../../shared/village-war-campaign";
 
 function textForGuide(id: string): string {
     const guide = GUIDES.find((candidate) => candidate.id === id);
@@ -224,6 +225,10 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     assert.match(endgame, new RegExp(`Stronghold exploration opens at character level ${STRONGHOLD_MIN_LEVEL}`, "i"));
     assert.match(endgame, new RegExp(`ANBU treasury raids are a separate level-${ANBU_RAID_MIN_LEVEL} activity`, "i"));
     assert.match(endgame, new RegExp(`The First Pact opens at character level ${FIRST_PACT_MIN_LEVEL}`, "i"));
+});
+
+test("the Cinderhold section quotes its peace rule (shared npcAcceptsPeace)", () => {
+    assert.match(textForGuide("clans-and-war"), new RegExp(`at least double its score and leads by ${NPC_PEACE_MIN_LEAD} or more`));
 });
 
 test("economy guidance distinguishes catalogs, currency transfers, and claimable bank interest", () => {

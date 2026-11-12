@@ -6,7 +6,7 @@ import {
     WEEKLY_BOSS_HOP_INTERVAL_MS,
     WEEKLY_BOSS_TRAIL_LEN,
 } from "./weekly-boss-roam";
-import { FESTIVAL_SECTOR, MAX_WILD_SECTOR } from "../../../shared/sector-geo";
+import { CINDERHOLD_SECTORS, FESTIVAL_SECTOR, MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 
 const T0 = 1_783_124_683_778; // a fixed spawn time (Ashen Dragon, 2026-W27)
 const boss = (over: Partial<{ weekKey: string; startedAt: number; expiresAt: number }> = {}) => ({
@@ -93,12 +93,17 @@ test("neighbours are real, distinct sectors and never self", () => {
             assert.deepEqual(ns, [], "Sunscar has no roaming encounters");
             continue;
         }
+        if (CINDERHOLD_SECTORS.includes(id)) {
+            assert.deepEqual(ns, [], "the boss never roams Cinderhold, the NPC village's home");
+            continue;
+        }
         assert.ok(ns.length > 0, `sector ${id} has no neighbours`);
         assert.ok(!ns.includes(id), `sector ${id} lists itself`);
         assert.equal(new Set(ns).size, ns.length, `sector ${id} has duplicate neighbours`);
         for (const n of ns) {
             assert.ok(n >= 1 && n <= MAX_WILD_SECTOR, `sector ${id} neighbour ${n} out of range`);
             assert.notEqual(n, FESTIVAL_SECTOR);
+            assert.ok(!CINDERHOLD_SECTORS.includes(n), `sector ${id} roams into Cinderhold (${n})`);
         }
     }
 });

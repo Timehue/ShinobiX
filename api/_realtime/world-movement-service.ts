@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { readWorldGaitPresentation } from '../../shared/player-model-ref.js';
 import { worldPositionModel } from '../../shared/continuous-world-layout.js';
 import { sectorExits } from '../../shared/sector-links.js';
 import { onlineStore } from './online-store.js';
@@ -10,6 +11,8 @@ import type { OnlinePlayer } from './types.js';
 import { pushWorldMovement } from './notify.js';
 import { toPlayerRecord } from './presence-input.js';
 import { worldDistance } from '../../shared/continuous-world-space.js';
+import { worldRunWindow } from './world-run.js';
+import { sectorPlayerGaitsEnabled } from '../_release-flags.js';
 
 const gate = createWorldMovementGate(), pending = new Set<string>();
 export function worldMovementSnapshot(player: OnlinePlayer) {
@@ -42,6 +45,10 @@ export async function applyWorldMovement(name: string, payload: unknown) {
         const now = Date.now(), sequence = player.movementSeq ?? 0;
         const admitted = gate.admit(player, body.worldPosition, body.expectedSequence, now);
         if (!admitted.ok) return { ...admitted, ...worldMovementSnapshot(player) };
+        const requestedGait = readWorldGaitPresentation(body.gaitPresentation);
+        const gaitPresentation = requestedGait?.gait === 'run' &&
+            (!sectorPlayerGaitsEnabled() || worldRunWindow(player.name, now).endsAt <= now)
+            ? { ...requestedGait, gait: 'walk' as const } : requestedGait;
         const origin = player.sector;
         let moved: OnlinePlayer | null;
         if (admitted.sector !== origin) {
@@ -55,18 +62,18 @@ export async function applyWorldMovement(name: string, payload: unknown) {
                 await clearTravelLeaseIfSame(name, lease);
                 return { ok: false as const, reason: 'superseded', ...(current ? worldMovementSnapshot(current) : {}) };
             }
-            const crossed = onlineStore.startTravel(name, admitted.sector, now, origin, admitted.tile, admitted.position);
+            const crossed = onlineStore.startTravel(name, admitted.sector, now, origin, admitted.tile, admitted.position, gaitPresentation);
             if (!crossed) {
                 await clearTravelLeaseIfSame(name, lease);
                 return { ok: false as const, reason: 'locked', ...worldMovementSnapshot(current) };
             }
             moved = crossed;
         } else {
-            moved = onlineStore.commitWorldPosition(name, admitted.position, sequence);
+            moved = onlineStore.commitWorldPosition(name, admitted.position, sequence, gaitPresentation);
         }
         if (!moved) return { ok: false as const, reason: 'superseded', ...worldMovementSnapshot(onlineStore.get(name) ?? player) };
         void noteWalkedTile(kv, name, moved.sector, moved.tile, now, moved.worldPosition);
-        pushWorldMovement(moved.sector, moved.displayName, moved.tile, moved.movementSeq ?? 0, admitted.position);
+        pushWorldMovement(moved.sector, moved.displayName, moved.tile, moved.movementSeq ?? 0, admitted.position, moved.gaitPresentation);
         return { ok: true as const, ...worldMovementSnapshot(moved), originSector: origin };
     } catch {
         return { ok: false as const, reason: 'unavailable', ...worldMovementSnapshot(onlineStore.get(name) ?? player) };

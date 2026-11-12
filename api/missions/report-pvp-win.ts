@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { reportMissionEvent } from './_progress.js';
 import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
+import { settleNpcDuelWin } from '../_npc-duel.js';
 import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
 import { hasRecentIpOverlap } from '../_player-ips.js';
 import { settlePvpLegacyProgress } from '../_legacy-pvp-settlement.js';
@@ -75,6 +76,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (session.status !== 'done' || !session.winner) {
             return res.status(409).json({ error: 'Battle not yet decided.' });
         }
+        // A won Cinderhold duel counts only when its NPC pay slot paid (api/_npc-duel.ts).
+        await settleNpcDuelWin(session);
         if (!pvpSessionMayGrantProgress(session)) {
             return res.status(409).json({ error: 'This battle is not an authorized progression match.' });
         }

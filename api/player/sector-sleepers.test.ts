@@ -61,7 +61,7 @@ test('sector roster bypasses the all-player cache, validates sectors and disable
         assert.equal(cache, 'no-store');
         assert.deepEqual(body, { sector: Number(sector), sleepers: [] });
     }
-    for (const sector of ['0', '-1', '22.5', 'NaN', '67', ['22']]) {
+    for (const sector of ['0', '-1', '22.5', 'NaN', '75', ['22']]) {
         await handler({ method: 'GET', query: { sector }, headers: {} } as never, res as never);
         assert.equal(code, 400);
     }

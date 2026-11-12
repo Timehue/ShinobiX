@@ -36,6 +36,6 @@ test('the client table of resident standing tiles matches the live sector-life c
 test('sectors without residents reserve nothing',()=>{
     assert.deepEqual(lifeStandingTiles(0),[]);
     assert.deepEqual(lifeStandingTiles(54),[]);
-    assert.deepEqual(lifeStandingTiles(67),[]);
+    assert.deepEqual(lifeStandingTiles(75),[]);
     assert.ok(lifeStandingTiles(55).includes(70),"Gen's road stop in sector 55");
 });

@@ -23,6 +23,7 @@
  * players who are not standing in the same sector.
  */
 import { randomUUID } from 'node:crypto';
+import { isNpcAccount } from '../shared/npc-village-roster.js';
 import { alertSectorPreparation } from './_war-preparations.js';
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
@@ -311,8 +312,14 @@ export async function noticeOpenSectorBattle(args: {
     now: number;
 }): Promise<void> {
     try {
-        onlineStore.setPendingAttacker(args.to, { name: args.from });
-        await enqueueChallenge(args.to, {
+        // An NPC has no client to wake (the server takes its seat), so it gets
+        // no attack flag: an NPC's only clears on its presence tick, which would
+        // leave it reading "already engaged" for half a minute after each battle.
+        const npcTarget = isNpcAccount(safeName(args.to));
+        if (!npcTarget) onlineStore.setPendingAttacker(args.to, { name: args.from });
+        // Nor an inbox anyone reads: a notice there would only route an admin who
+        // later takes the NPC over into a battle that is long over.
+        if (!npcTarget) await enqueueChallenge(args.to, {
             id: `sector-${args.kind}-${args.engageId}`,
             fromName: args.from,
             toName: args.to,
@@ -321,7 +328,7 @@ export async function noticeOpenSectorBattle(args: {
             sectorAttack: true,
             sectorContest: { kind: args.kind, sectorWarId: args.sectorWarId, engageId: args.engageId },
         });
-        kickPlayer(args.to, 'attack');
+        if (!npcTarget) kickPlayer(args.to, 'attack');
         const contest = await loadSectorWar(args.sectorWarId);
         const target = await characterOf(args.to);
         if (contest && target) await alertSectorPreparation(contest, args.engageId, args.kind, args.now, String(target.village ?? ''));

@@ -105,6 +105,10 @@ const f = (
  * derived lists inherit table order, which is not behavior (see header).
  */
 export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
+    f('starterWorldModel', 'character', 'server-owned', 'avatar-model', ['server-mirror-char', 'combat-strip-char'], 'Starter appearance is derived from the saved preset and survives a portrait change.'),
+    f('playerModel', 'character', 'server-owned', 'avatar-model', ['server-mirror-char', 'combat-strip-char'], 'Equipped overworld asset and version are owned by model equip and moderation.'),
+    f('playerModelSlots', 'character', 'server-owned', 'avatar-model', ['server-mirror-char', 'combat-strip-char'], 'Saved model slots are managed by model equip and moderation.'),
+    f('playerModelOwnerId', 'character', 'server-owned', 'avatar-model', ['server-mirror-char', 'combat-strip-char'], 'Private model ownership survives credential changes and never transfers with a reused player name.'),
     f('sectorBuildings', 'character', 'server-owned', 'sector-buildings', ['server-mirror-char', 'combat-strip-char'], 'Building work escrow, witnessed records, daily caps and reward receipts are committed only by sector/buildings.'),
     f('brokerCertificates', 'character', 'server-owned', 'sunscar-broker', ['server-mirror-char', 'combat-strip-char'], 'Verified Rally and Caravan rewards grant certificates; Broker redemption spends one with its crate payout.'),
     f('brokerCrateLedger', 'character', 'server-owned', 'sunscar-broker', ['server-mirror-char', 'combat-strip-char'], 'Daily pull count and retry receipts commit with the stake/certificate debit and payout.'),
