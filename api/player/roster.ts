@@ -34,6 +34,7 @@ const FULL_ROSTER_CACHE_TTL_MS = 60_000;
 // (jutsu, equipment, stats) OR an economic target (currencies, inventory)
 // belongs here.
 const ROSTER_STRIP_CHAR_FIELDS = new Set<string>([
+    'playerModelOwnerId',
     'playerModelSlots',
     // Currencies
     'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'boneCharms',

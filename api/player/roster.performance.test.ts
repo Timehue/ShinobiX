@@ -14,11 +14,14 @@ test('roster projection preserves settled vitals, travel, public profile and pet
     t.after(__clearProcCache);
     const now = Date.now();
     t.mock.method(Date, 'now', () => now);
+    const model = { assetId: 'a'.repeat(32), version: 'b'.repeat(64) };
     const character = {
         name: 'Projection Ninja', level: 20, village: 'Stormveil Village', specialty: 'Ninjutsu',
         hp: 5, maxHp: 100, chakra: 4, maxChakra: 100, stamina: 3, maxStamina: 100,
         ryo: 999, stats: {}, inventory: ['private-item'], pets: [],
         nindo: 'Stay true.', nindoBg: 'moon',
+        playerModel: model, playerModelOwnerId: '40b5ed43-540d-4c9b-9e38-36a34b29ee7c',
+        playerModelSlots: [model, { assetId: 'c'.repeat(32), version: 'd'.repeat(64) }],
         examsPassed: ['genin', 'chunin'],
         unlockedAchievements: ['exam-genin', 'unknown-private-sentinel'],
         achievementUnlockedAt: { 'exam-genin': 1234, 'unknown-private-sentinel': 5678 },
@@ -61,6 +64,8 @@ test('roster projection preserves settled vitals, travel, public profile and pet
     assert.ok(!('claimedAchievementRewards' in publicChar));
     assert.ok(Number(publicChar.hp) >= 15);
     assert.ok(!('ryo' in publicChar) && !('inventory' in publicChar));
+    assert.deepEqual(publicChar.playerModel, model);
+    assert.ok(!('playerModelOwnerId' in publicChar) && !('playerModelSlots' in publicChar));
     assert.ok(!('elderWinDays' in publicChar) && !('elderRankedWinReceipts' in publicChar));
     assert.equal(player.currentSector, 39, 'a legacy client mask is not travel authority');
     assert.equal(player.sleeping, true);
