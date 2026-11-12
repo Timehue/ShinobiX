@@ -2,7 +2,6 @@
     --home-panel: color-mix(in srgb, var(--sj-surface-low) 94%, transparent);
     --home-line: var(--sj-border-soft);
     --home-gold: var(--sj-gold-bright);
-    --home-mint: var(--sj-spirit-bright);
 }
 
 .pet-home-screen {
@@ -134,12 +133,6 @@
 .pet-collection-card.rarity-rare { border-color: rgba(104, 197, 225, .48); }
 .pet-collection-card.rarity-legendary { border-color: rgba(230, 189, 112, .62); }
 .pet-collection-card.rarity-mythic { border-color: rgba(200, 121, 255, .62); }
-.pet-collection-portrait { position: relative; isolation: isolate; display: grid; place-items: center; height: 176px; overflow: hidden; border-radius: var(--r-sm); background: radial-gradient(circle, rgba(112, 193, 181, .2), rgba(3, 8, 18, .7) 70%); }
-.pet-collection-portrait img { display: block; width: 100%; max-width: 100%; height: 100%; max-height: 100%; object-fit: contain; object-position: center; }
-.pet-collection-portrait > span { font: 400 2rem var(--font-display); color: #7993a2; }
-.pet-collection-portrait em { position: absolute; right: .5rem; bottom: .45rem; border: 1px solid var(--home-line); border-radius: 999px; background: rgba(3, 8, 18, .8); padding: .22rem .55rem; color: #bcd2db; font-size: .68rem; font-style: normal; }
-.pet-collection-copy h3 { margin: .7rem 0 .15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pet-collection-copy p { margin: 0; color: #8fa7b5; font-size: .76rem; text-transform: capitalize; }
 .pet-collection-card dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; margin: .75rem 0; }
 .pet-collection-card dl div { min-width: 0; border-radius: 8px; background: rgba(255,255,255,.035); padding: .45rem; text-align: center; }
 .pet-collection-card dt { color: #a0b6c0; font-size: .65rem; text-transform: uppercase; }
@@ -182,10 +175,6 @@
 .egg-stage img { width: min(100%, 250px); aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 0 24px rgba(117,217,190,.28)); animation: egg-breathe 3s ease-in-out infinite; }
 .egg-stage span { display: inline-flex; align-items: center; gap: .35rem; color: var(--home-gold); font-weight: 800; }
 @keyframes egg-breathe { 50% { transform: translateY(-6px) scale(1.02); filter: drop-shadow(0 0 34px rgba(117,217,190,.45)); } }
-.hatch-requirements { display: grid; gap: .6rem; }
-.hatch-requirements h3 { margin: 0; font: 400 1.4rem var(--font-display); }
-.hatch-requirements > div { display: grid; grid-template-columns: 1fr 130px 42px; gap: .7rem; align-items: center; padding: .6rem; border-radius: var(--r-sm); background: rgba(255,255,255,.04); font-size: .78rem; }
-.hatch-requirements progress { width: 100%; accent-color: var(--home-mint); }
 .pet-home-message { width: fit-content; margin: .5rem auto; border: 1px solid rgba(240,143,115,.35); border-radius: var(--r-sm); color: #ffd2c4; background: rgba(93,37,31,.55); padding: .6rem .8rem; }
 .pet-yard-screen .pet-trait-tag--apex { border-color: rgba(246,211,123,.72); color: #fff1b7; background: linear-gradient(120deg,rgba(77,37,116,.92),rgba(142,70,118,.92)); box-shadow: 0 0 14px rgba(209,135,255,.25); }
 .pet-yard-screen .pet-trait-display--apex { border-color: rgba(246,211,123,.5); background: linear-gradient(145deg,rgba(68,31,91,.32),rgba(14,22,36,.88)); box-shadow: inset 0 0 28px rgba(209,135,255,.08); }
@@ -275,14 +264,6 @@
 .pet-sanctuary-card.rarity-rare { border-color: rgba(104,197,225,.45); }
 .pet-sanctuary-card.rarity-legendary { border-color: rgba(230,189,112,.58); }
 .pet-sanctuary-card.rarity-mythic { border-color: rgba(200,121,255,.58); }
-.pet-sanctuary-portrait { position: relative; display: grid; place-items: center; height: 190px; overflow: hidden; border-radius: var(--r-sm); background: radial-gradient(circle at 50% 40%,rgba(117,217,190,.2),rgba(3,8,18,.72) 70%); }
-.pet-sanctuary-portrait::after { content: ""; position: absolute; inset: auto 12% 10px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.32); filter: blur(8px); }
-.pet-sanctuary-portrait img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; transition: transform .25s ease; }
-@media (hover: hover) {
-    .pet-sanctuary-card:hover .pet-sanctuary-portrait img { transform: scale(1.035); }
-}
-.pet-sanctuary-portrait > span { color: #8ca4b0; font: 400 2.2rem var(--font-display); }
-.pet-sanctuary-portrait em { position: absolute; z-index: 2; right: .55rem; bottom: .5rem; border: 1px solid var(--home-line); border-radius: 999px; color: #d7e5e8; background: rgba(3,8,18,.82); padding: .24rem .58rem; font-size: .67rem; font-style: normal; }
 .pet-sanctuary-card > .chromatic-ribbon { position: absolute; z-index: 3; top: 1rem; left: 1rem; color: #111a26; }
 .pet-sanctuary-card > .apex-trait-ribbon { position: absolute; z-index: 3; top: 1rem; right: 1rem; }
 .pet-sanctuary-copy { padding: .7rem .15rem .1rem; }
@@ -348,9 +329,6 @@
     .pet-collection, .breeding-barn { width: min(100% - 1rem, 1260px); }
     .pet-collection-grid { grid-template-columns: 1fr; gap: .75rem; }
     .pet-collection-card { display: grid; grid-template-columns: 112px minmax(0,1fr); align-items: start; gap: .65rem .8rem; padding: .8rem; }
-    .pet-collection-portrait { grid-column: 1; height: 128px; }
-    .pet-collection-copy { grid-column: 2; align-self: center; min-width: 0; }
-    .pet-collection-copy h3 { margin-top: 0; white-space: normal; overflow-wrap: anywhere; }
     .pet-collection-card dl { grid-column: 1 / -1; margin: 0; }
     .pet-collection-card .pet-eligibility { grid-column: 1 / -1; }
     .pet-collection-card > .chromatic-ribbon, .pet-sanctuary-card > .chromatic-ribbon { top: .5rem; left: .5rem; max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .56rem; }
@@ -358,8 +336,6 @@
     .breeding-parent-grid { grid-template-columns: 1fr; }
     .breeding-link { text-align: center; }
     .breeding-odds { grid-template-columns: 1fr 1fr; }
-    .hatch-requirements > div { grid-template-columns: 1fr 55px; }
-    .hatch-requirements progress { grid-row: 2; grid-column: 1 / -1; }
     .hatch-reveal { min-height: min(560px, calc(100vh - 2rem)); }
     .hatch-pet-stage { width: 210px; height: 210px; }
     .hatch-pet { width: 205px; height: 205px; }
@@ -371,7 +347,6 @@
     .pet-sanctuary-toolbar { grid-template-columns: 1fr 1fr; }
     .pet-sanctuary-grid { grid-template-columns: 1fr; gap: .75rem; }
     .pet-sanctuary-card { display: grid; grid-template-columns: 112px minmax(0,1fr); align-items: start; gap: .65rem .8rem; padding: .8rem; }
-    .pet-sanctuary-portrait { grid-column: 1; height: 132px; }
     .pet-sanctuary-copy { grid-column: 2; align-self: center; min-width: 0; padding: 0; }
     .pet-sanctuary-copy h3 { white-space: normal; overflow-wrap: anywhere; }
     .pet-sanctuary-copy p { min-height: 0; }
@@ -392,7 +367,7 @@
     .hatch-reveal.pet-visual--chromatic .hatch-aura, .hatch-reveal.pet-visual--chromatic .chromatic-ribbon,
     .hatch-reveal--apex .hatch-aura, .hatch-reveal--apex .apex-trait-ribbon,
     .pet-sanctuary-loading span { animation: none; }
-    .pet-sanctuary-card, .pet-sanctuary-portrait img { transition: none; }
+    .pet-sanctuary-card { transition: none; }
 }
 
 /* Server settlement receipt — portaled so it remains visible above the 3D
