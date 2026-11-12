@@ -81,6 +81,7 @@ import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 import { towerFeatureTerrain, towerFeatureProp, towerObstacleProp } from "../lib/tower-terrain";
 import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
 import { battlefieldAiSprite, defaultAiRivalSprite } from "../lib/battlefield-actor-art";
+import { bundledFighterSprite, generatedFighterModel } from "../lib/battlefield-fighter-art";
 import { worldBossRaidResult, type WorldBossRaidReceipt } from "../lib/world-boss-raid-result";
 import { aiFightHistoryOutcome } from "../lib/ai-fight-result";
 import { petScenicPortraitImage as petPortraitImage } from "../lib/pet-scenic-portrait";
@@ -2126,10 +2127,12 @@ export function BattleTowerFight({
                                     const inspected = a.id === actorInspection?.id;
                                     const isActive = a.id === activeId;
                                     const img = avatarFor(a);
-                                    const battleSprite = a.side === "enemy" && !isTeamPvp
-                                        ? (isBoss && towerBossForm?.sprite) || battlefieldAiSprite(String(a.character?.visual ?? ""), sharedImages)
-                                        : null;
-                                    const spriteFacing = battleSprite
+                                    const appearance = ownedByMe(a.ownerSlug) ? character : a.character;
+                                    const fighterSprite = bundledFighterSprite(appearance, img);
+                                    const battleSprite = (isBoss && towerBossForm?.sprite) || fighterSprite
+                                        || (a.side === "enemy" && !isTeamPvp ? battlefieldAiSprite(String(a.character?.visual ?? ""), sharedImages, { name: a.name, portrait: img }) : null);
+                                    const model = generatedFighterModel(appearance);
+                                    const spriteFacing = battleSprite || model
                                         ? battlefieldFacingTowardNearest(a, session.actors, w)
                                         : undefined;
                                     const unknownCombatant = isUnknownCombatant(a);
@@ -2148,6 +2151,7 @@ export function BattleTowerFight({
                                                     label={a.name}
                                                     portrait={img}
                                                     sprite={battleSprite}
+                                                    model={model}
                                                     facing={spriteFacing}
                                                     fallback={<img src={fallbackArtFor(a)} alt="" />}
                                                     style={{ width: size, height: size }}
@@ -2174,6 +2178,7 @@ export function BattleTowerFight({
                                                 summon={a.side !== "enemy" && (a.character as Record<string, unknown> | undefined)?.companion === true}
                                                 portrait={img}
                                                 sprite={battleSprite}
+                                                model={model}
                                                 facing={spriteFacing}
                                                 fallback={<img src={fallbackArtFor(a)} alt="" />}
                                                 className={isActive ? "tower-actor-highlight--active" : targetable ? "tower-actor-highlight--target" : selfTargetable ? "tower-actor-highlight--self" : inspected ? "tower-actor-highlight--inspected" : ""}

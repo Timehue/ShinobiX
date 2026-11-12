@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { stripNonCombatFields } from '../pvp/session.js';
+import { cinderholdWorldModel } from '../../shared/cinderhold-world-models.js';
 
 // P0.4 leak guard: Battle Towers progress fields must NOT ride into the
 // unauthenticated PvP session GET / SSE spectator feed (stripNonCombatFields is
@@ -42,5 +43,27 @@ describe('Battle Towers data-model leak guard', () => {
         assert.ok('jutsu' in out, 'jutsu survive');
         assert.equal(out.name, 'Tester');
         assert.equal(out.level, 50);
+    });
+
+    it('projects only the equipped appearance into public fighter snapshots', () => {
+        const ref = { assetId: 'a'.repeat(32), version: 'b'.repeat(64) };
+        assert.deepEqual(stripNonCombatFields({
+            playerModel: { ...ref, owner: 'private' },
+            playerModelOwnerId: 'private',
+            playerModelSlots: [ref, null],
+            starterWorldModel: 'starter-two',
+        }), { playerModel: ref, starterWorldModel: 'starter-two' });
+        assert.deepEqual(stripNonCombatFields({ playerModel: { assetId: 'bad' }, starterWorldModel: 'bad' }), {});
+    });
+
+    it('keeps a Cinderhold fighter bound to its portrait after a shared-image save', () => {
+        const avatar = '/npc-portraits/akari.avif';
+        const playerModel = cinderholdWorldModel('akari', avatar)!;
+        assert.ok(playerModel);
+        assert.equal(stripNonCombatFields({ playerModel, avatarImage: '/api/img?id=avatar:akari' }).avatarImage, avatar);
+        assert.equal(stripNonCombatFields({ playerModel, avatarImage: '/portraits/custom.webp' }).avatarImage, '/portraits/custom.webp');
+        assert.equal(stripNonCombatFields({
+            playerModel: { ...playerModel, version: 'a'.repeat(64) }, avatarImage: '/api/img?id=avatar:akari',
+        }).avatarImage, '/api/img?id=avatar:akari');
     });
 });

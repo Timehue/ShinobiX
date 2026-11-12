@@ -58,7 +58,7 @@ def idle_views(result, portrait, ffmpeg):
     return posed_views(result, portrait, ffmpeg, "idle", 0)
 
 
-def posed_views(result, portrait, ffmpeg, gait, phase):
+def posed_views(result, portrait, ffmpeg, gait, phase, directions=DIRECTIONS):
     """Sample a delivered steady gait at its original registration and scale."""
     if gait not in ("idle", "walk", "run") or not 0 <= phase < 1:
         raise ValueError("invalid-preview-pose")
@@ -66,7 +66,8 @@ def posed_views(result, portrait, ffmpeg, gait, phase):
     objects = worker_delivery_objects(result, model["assetId"], portrait)
     root = json.loads(objects[model["version"] + ".json"])
     views = []
-    for index in root["styles"]["A"]:
+    for direction in directions:
+        index = root["styles"]["A"][DIRECTIONS.index(direction)]
         bank = json.loads(decompress(objects[index]))
         clip = bank["clips"][gait]
         page = bank["pages"][clip["file"]]

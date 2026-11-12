@@ -4,6 +4,9 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
+import { battlefieldAiSprite, defaultAiRivalSprite } from "./battlefield-actor-art";
+import { NARRATIVE_ENEMY_IDENTITIES } from "../../../shared/narrative-enemy-identity";
+import { PERSONAL_HUNT_PORTRAITS } from "../../../shared/story-combat-identity";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const clientRoot = join(here, "..", "..");
@@ -28,13 +31,18 @@ function objectKeys(objectName: string): string[] {
 
 test("all bundled battlefield sprites are optimized transparent WebP cutouts", async () => {
     const paths = webpFiles(assetDir);
-    assert.equal(paths.length, 47, "the complete standard, ordinary PvE, named rival, Kage, hunt, apex, rift, and tower sprite set drifted");
+    assert.equal(paths.length, 49, "the imported combat sprite set drifted");
+    for (const [folder, count] of [["starters", 2], ["cinderhold", 30], ["named", 26]] as const) {
+        const authored = webpFiles(join(clientRoot, "public", "combat-actors", folder));
+        assert.equal(authored.length, count, folder);
+        paths.push(...authored);
+    }
     for (const path of paths) {
         assert.ok(existsSync(path));
         assert.ok(statSync(path).size <= 128 * 1024, `${path} exceeds the battlefield asset budget`);
         const metadata = await sharp(path).metadata();
-        assert.equal(metadata.width, 384, `${path} width drifted`);
-        assert.equal(metadata.height, 384, `${path} height drifted`);
+        assert.equal(metadata.format, "webp", path);
+        assert.ok([160, 192, 384].includes(Math.max(metadata.width, metadata.height)), `${path} has unexpected sprite dimensions`);
         assert.equal(metadata.hasAlpha, true, `${path} must retain transparency`);
 
         const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -72,8 +80,18 @@ test("authoritative creature and boss catalogs have exhaustive sprite policies",
     assert.equal(objectKeys("APEX_BATTLE_SPRITES").length, 4);
     assert.equal(objectKeys("RIFT_BOSS_SPRITES").length, 7);
     assert.equal(objectKeys("TOWER_BATTLE_SPRITES").length, 24);
-    assert.equal(objectKeys("QUEST_BOSS_SPRITES").length, 10);
-    assert.equal(objectKeys("STORY_RECKONING_SPRITES").length, 5);
+    const questBosses = Object.entries(NARRATIVE_ENEMY_IDENTITIES)
+        .filter(([, identity]) => identity.portrait.startsWith("/portraits/quest-bosses/"));
+    assert.equal(questBosses.length, 9);
+    for (const [id] of questBosses) {
+        assert.equal(battlefieldAiSprite(`world-questbook-test-${id}`), `/combat-actors/named/quest-bosses/${id}-idle.webp`);
+    }
+    assert.equal(battlefieldAiSprite("world-questbook-test-raiju-storm-hound"), "/hollow-gate/hollow-hound-idle.webp");
+    assert.equal(Object.keys(PERSONAL_HUNT_PORTRAITS).length, 5);
+    for (const [id, portrait] of Object.entries(PERSONAL_HUNT_PORTRAITS)) {
+        const name = portrait.split("/").pop()!.replace(".webp", "");
+        assert.equal(battlefieldAiSprite(`world-story-${id}`), `/combat-actors/named/${name}-idle.webp`);
+    }
 
     const catalog = readFileSync(join(repoRoot, "api", "_ai-profile-catalog.ts"), "utf8");
     const ids = [...catalog.matchAll(/^\s+"([^"]+)": \{"id":/gm)].map((match) => match[1]);
@@ -83,7 +101,7 @@ test("authoritative creature and boss catalogs have exhaustive sprite policies",
     assert.equal(ids.filter((id) => id.startsWith("apex-ai-")).length, 4);
     assert.equal(ids.filter((id) => id.startsWith("rift-boss-")).length, 7);
     for (const id of ids.filter((candidate) => /^(hunt-ai-|apex-ai-|rift-boss-|road-ai-)/.test(candidate))) {
-        assert.match(resolverSource, new RegExp(`"${id}"`), `${id} has no explicit sprite entry`);
+        assert.ok(battlefieldAiSprite(id) && battlefieldAiSprite(id) !== defaultAiRivalSprite(), `${id} must resolve to a dedicated sprite`);
     }
 });
 
@@ -92,7 +110,7 @@ test("runtime IDs, published overrides, and future AI keep a presentation-only s
     assert.match(resolverSource, /ai:\$\{id\}:body/);
     assert.match(resolverSource, /world-hunt-pack-/);
     assert.match(resolverSource, /world-questbook-/);
-    assert.match(resolverSource, /world-story-/);
+    assert.match(battlefieldAiSprite("world-story-story-reckoning-vanta-ninth")!, /warden-sesk-idle\.webp$/);
     assert.match(resolverSource, /world-wanderer-/);
     assert.match(resolverSource, /world-patrol-/);
     assert.match(resolverSource, /world-bounty-/);

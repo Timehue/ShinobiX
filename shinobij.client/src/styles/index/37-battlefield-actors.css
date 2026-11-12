@@ -3,8 +3,7 @@
 /* Grounded combat actors ---------------------------------------------------
    The battle engines still position a fixed `.avatar-orb` anchor and keep all
    hit testing on the existing hex or actor buttons. This late presentation
-   layer changes only what is painted inside that anchor: player portraits
-   become map-pin standees, while AI body art becomes a compact full-body sprite. */
+   layer paints compact full-body sprites or portrait markers inside that anchor. */
 
 .arena-fullscreen .battlefield-actor {
     border-radius: 0 !important;
@@ -106,6 +105,10 @@
     z-index: 2;
     pointer-events: none;
     user-select: none;
+}
+
+.arena-fullscreen .battlefield-actor--player .battlefield-actor-sprite {
+    filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.82)) drop-shadow(0 0 4px rgba(56, 189, 248, 0.58));
 }
 
 /* Bundled battlefield art is authored facing left. Mirror only the painted

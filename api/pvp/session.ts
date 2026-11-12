@@ -111,6 +111,8 @@ import {
 import { pvpSessionHp } from './_low-level-hp.js';
 import { worldBossPvpProtectionBlock, withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
 import { isNpcAccount } from '../../shared/npc-village-roster.js';
+import { cinderholdPortraitForModel } from '../../shared/cinderhold-world-models.js';
+import { isPlayerModel, readStarterWorldModel } from '../../shared/player-model-ref.js';
 import { npcDuelPays, npcSeatOf as npcSeatOfSession, sealNpcDuel, type NpcDuelStamp } from '../_npc-duel.js';
 
 // combatResourcesV2: seal each jutsu's concrete one-bar cost (chakra XOR stamina)
@@ -1076,6 +1078,8 @@ function sanitizeMastery(raw: unknown): Array<{ jutsuId: string; level: number }
 // / mythicSeals / auraStones / auraDust, inventory, daily ledgers,
 // mission journals, achievement state, creator content.
 const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
+    // Public battles only need the equipped appearance, projected below.
+    'playerModel', 'starterWorldModel', 'playerModelOwnerId', 'playerModelSlots',
     // Currencies
     'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'boneCharms',
     'auraStones', 'mythicSeals', 'auraDust',
@@ -1129,6 +1133,18 @@ export function stripNonCombatFields(character: Record<string, unknown>): Record
         // Gathering tools ride in the loadout for fishing and mining only.
         out[k] = k === 'equipment' ? combatEquipment(v) : v;
     }
+    if (isPlayerModel(character.playerModel)) {
+        const { assetId, version } = character.playerModel;
+        out.playerModel = { assetId, version };
+        // A possessed Cinderhold account can save its portrait as a shared
+        // image pointer. The authored model pin binds it to the bundled portrait.
+        if (!out.avatarImage || (typeof out.avatarImage === 'string' && out.avatarImage.startsWith('/api/img?'))) {
+            const portrait = cinderholdPortraitForModel({ assetId, version });
+            if (portrait) out.avatarImage = portrait;
+        }
+    }
+    const starter = readStarterWorldModel(character.starterWorldModel);
+    if (starter) out.starterWorldModel = starter;
     return out;
 }
 
@@ -1692,6 +1708,8 @@ function clampStatsObject(raw: unknown): Record<string, number> {
 function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = { ...clientCharacter };
     delete out.rankedFormatCombat;
+    delete out.playerModel;
+    delete out.starterWorldModel;
     out.elderWarDefensePct = 0;
     out.bloodlineMult = clampNumber(out.bloodlineMult, 1.0, 3.0, 1.0);
     out.armorFactor = clampNumber(out.armorFactor, 0.25, 1.0, 1.0);

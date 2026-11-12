@@ -68,7 +68,7 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
     return <div>
         {read ? <>
             <p>{read.summary}</p>
-            <p>You can create one world model per calendar month in UTC. Automatic retries are included. A system failure returns the slot. Cancelling uses it.</p>
+            <p>Equipping your model shows its combat sprite to other players. You can create one per calendar month in UTC. Automatic retries are included. A system failure returns the slot. Cancelling uses it.</p>
         </> : <p>
             Make Model sends your saved portrait to OpenAI and Modal for AI screening and processing.
             Checking the portrait leaves your monthly creation available.

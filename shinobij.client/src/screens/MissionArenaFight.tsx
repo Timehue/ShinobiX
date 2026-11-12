@@ -97,6 +97,9 @@ import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { isImageAvatar } from "../lib/avatar";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
+import { academySparringPartnerImg } from "../lib/academy-ai-art";
+import { bundledFighterSprite, generatedFighterModel } from "../lib/battlefield-fighter-art";
+import { useBattlefieldModelSprite } from "../lib/use-battlefield-model-sprite";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { petScenicPortraitImage as petPortraitImage } from "../lib/pet-scenic-portrait";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
@@ -1241,6 +1244,8 @@ export function MissionArenaFight({
 
     // The Mirror trial copies the player's appearance, but keeps its sealed kit.
     const playerAvatar = resolveOwnAvatar(character, sharedImages) || me.slice(0, 2).toUpperCase();
+    const playerModelSprite = useBattlefieldModelSprite(generatedFighterModel(character));
+    const playerBattleSprite = playerModelSprite || bundledFighterSprite(character, playerAvatar);
     const enemyVisual = String(enemy?.character?.visual ?? "");
     const mirrorTrial = enemyVisual === "story-ai-moonshadow-village-50";
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
@@ -1248,9 +1253,11 @@ export function MissionArenaFight({
     // sprite, aura and phase replace the old ones (ahead of any authored override).
     const bossFormReveal = useBossFormReveal(session.sessionId, bossFormViewFor(session.bossForms, session.round, enemy?.hp));
     const bossForm = bossFormReveal.shown;
-    const enemyAvatar = mirrorTrial ? playerAvatar : bossForm?.portrait || (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || sharedImages?.[`ai:${canonicalBeastPortraitId(enemyVisual)}`] || beastPortrait(enemyVisual) || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
+    const enemyAvatar = mirrorTrial ? playerAvatar : bossForm?.portrait || (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || sharedImages?.[`ai:${canonicalBeastPortraitId(enemyVisual)}`] || beastPortrait(enemyVisual) || (enemyVisual === "builtin-ai-academy-sparring" ? academySparringPartnerImg : enemy?.name?.slice(0, 2).toUpperCase() || "EN");
     const enemyName = enemy?.name ?? "Enemy";
-    const enemyBattleSprite = mirrorTrial ? null : bossForm?.sprite || battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype });
+    const enemyBattleSprite = mirrorTrial ? playerBattleSprite : bossForm?.sprite
+        || bundledFighterSprite(enemy?.character, enemyAvatar)
+        || battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype, portrait: enemyAvatar });
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
     // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
     // Portrait-first — `pet.image` alone misses published and replacement art.
@@ -1536,11 +1543,13 @@ export function MissionArenaFight({
                                 {/* Actor orbs + HP bars (overlay above the tiles) */}
                                 {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
-                                    return <BattlefieldActor key="player-orb" side="player" actorId="player" label={me} portrait={playerAvatar} fallback={me.slice(0, 2).toUpperCase()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }} />;
+                                    const facing = battlefieldFacingTowardNearest(myActor, session.actors, w);
+                                    return <BattlefieldActor key="player-orb" side="player" actorId="player" label={me} portrait={playerAvatar} sprite={playerBattleSprite} facing={facing} fallback={me.slice(0, 2).toUpperCase()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }} />;
                                 })()}
                                 {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
-                                    return <FighterHpBadge key="player-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16} width={ORB} hp={myActor.hp} maxHp={myActor.maxHp} side="player" />;
+                                    const headroom = battlefieldSpriteHeadroom(ORB, playerBattleSprite);
+                                    return <FighterHpBadge key="player-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16 - headroom} width={ORB} hp={myActor.hp} maxHp={myActor.maxHp} side="player" />;
                                 })()}
                                 {companion && isImageAvatar(companionImage) && (() => {
                                     const { left, top } = towerHexPixel(companion.pos, w);

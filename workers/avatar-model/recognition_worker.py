@@ -166,7 +166,7 @@ def approved_decoys(archive, expected, template, target, ffmpeg):
         entries = source.infolist()
         names = {entry.filename for entry in entries}
         if (len(names) != len(entries) or len(names) > 40000 or sum(e.file_size for e in entries) > 512 * 1024**2
-                or any(not re.fullmatch(r"(?:pool.json|[a-f0-9]{32}/[a-f0-9]{64}/[a-f0-9]{64}\.(?:json|gz|264))", e.filename)
+                or any(not re.fullmatch(r"(?:pool.json|[a-f0-9]{32}/[a-f0-9]{64}/[a-f0-9]{64}\.(?:json|gz|264|webp))", e.filename)
                        for e in entries) or source.getinfo("pool.json").file_size > 128 * 1024):
             raise ValueError("recognition-pool-shape")
         pool = json.loads(source.read("pool.json"))

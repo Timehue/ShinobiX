@@ -42,7 +42,8 @@ def recover_delivery(entry, result, destination, atomic_write):
             staging = Path(scratch)
             encoded = finish(entry, destination / 'fitted-master.json', result['fittedMasterSha256'],
                              destination / 'steady-gaits.zip', result['archiveSha256'], asset_id, staging,
-                             ffmpeg=os.environ.get('SHINOBIX_FFMPEG') or shutil.which('ffmpeg'))
+                             ffmpeg=os.environ.get('SHINOBIX_FFMPEG') or shutil.which('ffmpeg'),
+                             expected_version=version)
             if encoded['version'] != version:
                 raise ValueError('Recover this delivery with its original encoder')
             objects = browser_motion_objects(staging / 'players' / asset_id, version, portrait)

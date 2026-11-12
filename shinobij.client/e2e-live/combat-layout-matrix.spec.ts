@@ -165,7 +165,7 @@ async function seedSave(
     request: APIRequestContext,
     name: string,
     options: {
-        characterPatch?: Partial<ReturnType<typeof character>>;
+        characterPatch?: Partial<ReturnType<typeof character>> & { avatarImage?: string };
         triggeredEvents?: string[];
     } = {},
 ) {
@@ -192,7 +192,7 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode:
     await seedSave(request, name, mode !== 'solo' ? {
         characterPatch: { level: mode === 'tower' ? 30 : 20, rankTitle: 'Genin' },
         triggeredEvents: [AURA_SPHERE_VN_ID],
-    } : {});
+    } : { characterPatch: { avatarImage: '/starter-avatar-one.webp' } });
     if (mode !== 'solo') {
         // Established combat fixtures must clear real one-time progression
         // gates or their overlays can hide a layout shift in the battle UI.
@@ -1904,19 +1904,21 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
 async function assertBattlefieldActorPresentation(
     page: Page,
     rootSelector: string,
-    expected: { playerMarkers: number; enemyMarkers: number; minimumEnemySprites: number },
+    expected: { playerMarkers: number; enemyMarkers: number; minimumEnemySprites: number; playerSprites?: number },
 ): Promise<void> {
     const root = page.locator(rootSelector);
     const actors = root.locator('[data-battlefield-actor]');
     const playerMarkers = root.locator('[data-battlefield-actor="player"][data-battlefield-presentation="marker"]');
+    const playerSprites = root.locator('[data-battlefield-actor="player"][data-battlefield-presentation="sprite"]');
     const enemyMarkers = root.locator('[data-battlefield-actor="enemy"][data-battlefield-presentation="marker"]');
     const enemySprites = root.locator('[data-battlefield-actor="enemy"][data-battlefield-presentation="sprite"]');
     await expect(playerMarkers, 'player portrait markers').toHaveCount(expected.playerMarkers);
+    await expect(playerSprites, 'player body sprites').toHaveCount(expected.playerSprites ?? 0);
     await expect(enemyMarkers, 'enemy portrait markers').toHaveCount(expected.enemyMarkers);
     const enemySpriteCount = await enemySprites.count();
     expect(enemySpriteCount, 'enemy body sprite count').toBeGreaterThanOrEqual(expected.minimumEnemySprites);
     await expect(actors, 'every fighter must use the shared marker-or-sprite presentation').toHaveCount(
-        expected.playerMarkers + expected.enemyMarkers + enemySpriteCount,
+        expected.playerMarkers + (expected.playerSprites ?? 0) + expected.enemyMarkers + enemySpriteCount,
     );
 
     expect(await actors.evaluateAll((nodes) => nodes.every((node) => {
@@ -1926,12 +1928,12 @@ async function assertBattlefieldActorPresentation(
             && Number.parseFloat(style.height) >= 40;
     })), 'actor art must stay inside a non-interactive combat anchor').toBe(true);
 
-    if (expected.minimumEnemySprites > 0) {
-        await expect.poll(() => enemySprites.locator('.battlefield-actor-sprite').evaluateAll((images) =>
+    if (expected.minimumEnemySprites > 0 || expected.playerSprites) {
+        await expect.poll(() => actors.locator('.battlefield-actor-sprite').evaluateAll((images) =>
             images.length > 0 && images.every((image) => {
                 const sprite = image as HTMLImageElement;
                 return sprite.complete && sprite.naturalWidth > 0 && sprite.naturalHeight > 0;
-            })), { message: 'enemy body sprites must load successfully' }).toBe(true);
+            })), { message: 'body sprites must load successfully' }).toBe(true);
     }
 }
 
@@ -2198,7 +2200,8 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
     await expect(page.locator('.mission-arena-fight .combat-action-notice')).toBeVisible();
     await assertBattlefieldActorPresentation(page, '.mission-arena-fight', {
-        playerMarkers: 1,
+        playerMarkers: 0,
+        playerSprites: 1,
         enemyMarkers: 0,
         minimumEnemySprites: 1,
     });
