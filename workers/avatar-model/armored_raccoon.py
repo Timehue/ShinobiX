@@ -11,12 +11,22 @@ PROMPTS = (
 )
 
 
+def nested(a, b):
+    """Share of the smaller box that lies inside the larger one."""
+    left, top, right, bottom = a
+    x, y, end_x, end_y = b
+    area = max(0, min(right, end_x) - max(left, x)) * max(0, min(bottom, end_y) - max(top, y))
+    return area / min((right - left) * (bottom - top), (end_x - x) * (end_y - y))
+
+
 def face_and_muzzle(read):
     from closeup_portrait import overlap
 
     faces = [row["box"] for row in read.get("animalRegions", ())
              if "a raccoon face" in row["label"] and row["score"] >= .33]
-    if not faces or any(overlap(faces[0], face) < .65 for face in faces[1:]):
+    # The detector often boxes the whole head (ears included) and the inner face
+    # separately; a face box nested inside the first is the same face, not a second one.
+    if not faces or any(overlap(faces[0], face) < .65 and nested(faces[0], face) < .9 for face in faces[1:]):
         return None
     l, t, r, b = face = faces[0]
     width, height = read["size"]
