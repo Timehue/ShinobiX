@@ -1,12 +1,31 @@
 /**
- * Authoring only (2026-11-08): the walk geometry for Cinderhold's home block
- * (sectors 67-74) and the two road stubs that join it to the Lavafront (58, 66).
+ * Authoring only: the walk geometry for Cinderhold's home block (sectors 67-74),
+ * the road stubs that join it to the Lavafront (58, 66), and the landmark cells
+ * every repainted floor bakes in (58, 59, 60, 66 and 67-74).
  *
- * It follows scripts/author-sector-world.mjs exactly for terrain, routes and
- * obstacles, with two Cinderhold rules: every sector but the gate (67, where the
- * walled village stands) holds a garrison stronghold, and obstacles are ash-rock (`#`)
- * because the block has no water or forest. One reviewed mining seam is chosen
- * per sector on a rock cell beside open ground.
+ * 2026-11-11 rebuild: Cinderhold's pins became a tidy ring around the crest, so
+ * every road leaves its floor on the side the map draws it. The eight walk masks
+ * are now authored by hand around their landmarks instead of rolled from a seed,
+ * so each sector has its own character:
+ *
+ *   67 Cinderhold Gates     walled village, beacon pillars flanking the north
+ *                           road, a lava pool and a ruined outwork in the corners
+ *   68 Basalt Steps         a fire shrine (beacon tower) and stepped basalt
+ *   69 Smokevent Terraces   rock terraces with four steam vents
+ *   70 Magma Cistern        a stone-walled lava cistern
+ *   71 Ashfall Barracks     a ruined barracks hall and a broken wall line
+ *   72 Obsidian Drill Yard  obsidian outcrops and old drill-yard machinery
+ *   73 Caldera Rim          the caldera's lava lake along the north rim
+ *   74 Slagwater Crossing   a slag (lava) channel the road bridges
+ *
+ * Mask letters (authoring only; every one but `r`/`m` is a blocked `#` cell in
+ * the admitted layout): L lava lake, C lava cistern, S slag channel, V steam vent,
+ * U ruin, F beacon/fire shrine, K basalt formation, O obsidian outcrop,
+ * M mining seam target, m its gatherer's standing cell, r the rift tile.
+ *
+ * The Lavafront floors keep every live exit, road mouth and arrival tile. Their
+ * masks are the accepted ones; only the new Cinderhold roads are added, and their
+ * landmarks are painted on cells that were already blocked.
  *
  *   node --import tsx scripts/author-cinderhold-sectors.mts <out-dir>
  *
@@ -17,7 +36,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { SECTOR_PLACES, CINDERHOLD_SECTORS } from '../shared/sector-geo.ts';
 import { sectorExits } from '../shared/sector-links.ts';
-import { pathInMask, tileNeighbors } from '../shared/sector-walk-mask.ts';
+import { tileNeighbors } from '../shared/sector-walk-mask.ts';
 import { SECTOR_FLOOR_LAYOUTS } from '../shared/sector-floor-layouts.ts';
 import { sectorRoadRoutes } from './sector-road-routes.mjs';
 
@@ -28,195 +47,285 @@ type Layout = {
     exits: { tile: number; direction: string; destination: number }[];
     village?: { name: string; left: number; top: number; width: number; approach: number };
 };
+type Landmark = { kind: string; tiles: number[]; fall?: number[] };
 
 const out = path.resolve(process.argv[2] ?? 'output/cinderhold');
 await fs.mkdir(out, { recursive: true });
 const tile = (x: number, y: number) => y * 12 + x;
+
+const KINDS: Record<string, string> = {
+    L: 'lava-lake', C: 'lava-cistern', S: 'slag-channel', V: 'steam-vent', U: 'ruin', F: 'beacon', K: 'basalt', O: 'obsidian',
+};
+
+const AUTHORED: Record<number, string[]> = {
+    67: [
+        '##M#==..KKK#',
+        '#.m..=.....#',
+        '....F=F.....',
+        '.....====...',
+        '....BBBB=...',
+        '....BBBB====',
+        '....BBBB=...',
+        '....BBBB=r..',
+        '......===...',
+        'L...........',
+        'LLL.......UU',
+        'LLLL....UUUU',
+    ],
+    68: [
+        '#####=.=####',
+        '.....=.=.FF#',
+        '.....=.=.FF#',
+        '#....===.r.#',
+        '#....=......',
+        '.....=......',
+        '..BB.=......',
+        '..BB.=..KK.#',
+        'Mm.===...KK#',
+        '#....=....K#',
+        '#....=.....#',
+        '##...=...###',
+    ],
+    69: [
+        '############',
+        '#..........#',
+        '#.MKK..BB..#',
+        '..mV...BB.##',
+        '#V......=..#',
+        '.....=======',
+        '..K..=..KK..',
+        '....V=......',
+        '#r...=.....#',
+        '.KK..=...KK.',
+        '.....=..V...',
+        '#....=.....#',
+    ],
+    70: [
+        '###......###',
+        'Mm.........#',
+        '.......BB..#',
+        '...#...BB...',
+        '..#.....=...',
+        '============',
+        '............',
+        '....CCC..#..',
+        '.#r.CCC.....',
+        '#...CCC....#',
+        '#.........##',
+        '####....####',
+    ],
+    71: [
+        '###.....####',
+        '#..r.......#',
+        '#.......BB.#',
+        '..m.....BB..',
+        '..M#.....=..',
+        '============',
+        '.....=.....#',
+        '.UUU.=..U...',
+        '.UUU.=..U...',
+        '#....=..U...',
+        '#....=.....#',
+        '###..=..####',
+    ],
+    72: [
+        '##......####',
+        '#.......O..#',
+        '....BB..OO.#',
+        '....BB..OO..',
+        '.....=......',
+        '======......',
+        '.....=......',
+        'Mm...=..OO..',
+        '#....=..OO.#',
+        '..r..=.....#',
+        '#....=..UU.#',
+        '####.=..####',
+    ],
+    73: [
+        '###LLLLLL###',
+        '#..LLLLLL..#',
+        '#....LLL...#',
+        '............',
+        '#...........',
+        '============',
+        '.#....=BB...',
+        '......=BB..#',
+        '#.....===...',
+        'Mm....=..r.#',
+        '....====....',
+        '##..=..=.###',
+    ],
+    74: [
+        '####.=...S##',
+        '#....=...S.#',
+        '#..BB=..SS.#',
+        '...BB=..S...',
+        '....==..S...',
+        '.....=======',
+        '........S...',
+        '.mM#....S...',
+        '#.......SS.#',
+        '#..r.....S.#',
+        '##.......S.#',
+        '###......S##',
+    ],
+};
+
+function components(cells: number[]): number[][] {
+    const left = new Set(cells), groups: number[][] = [];
+    for (const start of cells) {
+        if (!left.has(start)) continue;
+        const group = [start]; left.delete(start);
+        for (let i = 0; i < group.length; i++) for (const n of tileNeighbors(group[i]!)) if (left.has(n)) { left.delete(n); group.push(n); }
+        groups.push(group.sort((a, b) => a - b));
+    }
+    return groups;
+}
+
 const layouts: Record<number, Layout> = {};
 const mining: Record<number, { approach: number; target: number }> = {};
+const landmarks: Record<number, Landmark[]> = {};
 
 for (const place of SECTOR_PLACES.filter(p => CINDERHOLD_SECTORS.includes(p.id))) {
+    const authored = AUTHORED[place.id]!;
+    if (authored.length !== 12 || authored.some(r => r.length !== 12)) throw new Error('Bad authored mask ' + place.id);
+    const flat = authored.join('');
+    const at = (c: string) => [...flat].flatMap((v, n) => v === c ? [n] : []);
+    const mask = authored.map(r => r.replace(/[LCSVUFKOM]/g, '#').replace(/[rm]/g, '.'));
     const exits = sectorExits(place.id);
-    const cells = Array.from({ length: 12 }, () => Array<string>(12).fill('.'));
-    const get = (n: number) => cells[Math.floor(n / 12)]![n % 12]!;
-    const put = (n: number, v: string) => { cells[Math.floor(n / 12)]![n % 12] = v; };
-    const maskNow = () => cells.map(r => r.join(''));
-    const boundary = Array.from({ length: 144 }, (_, n) => n).filter(n => n < 12 || n >= 132 || n % 12 === 0 || n % 12 === 11);
-    const gateTiles = new Set(exits.flatMap(e => [e.tile, ...tileNeighbors(e.tile)]));
-    const ring = [...Array.from({ length: 12 }, (_, x) => x), ...Array.from({ length: 11 }, (_, y) => (y + 1) * 12 + 11),
-        ...Array.from({ length: 11 }, (_, x) => 142 - x), ...Array.from({ length: 10 }, (_, y) => 120 - y * 12)];
-    const rotation = place.id * 7 % ring.length;
-    const borderBlocks = [...ring.slice(rotation), ...ring.slice(0, rotation)].filter(n => !gateTiles.has(n) && ![0, 11, 132, 143].includes(n));
-    for (const n of [0, 11, 132, 143, ...borderBlocks.slice(0, Math.ceil((boundary.length - exits.length) / 2) - 4)]) put(n, '#');
-    const arrivals = SECTOR_PLACES.flatMap(p => sectorExits(p.id)).filter(e => e.destinationSector === place.id).map(e => e.destinationTile);
-    const hub = 78;
-    put(hub, '=');
-    for (const exit of exits) {
-        put(exit.tile, '=');
-        const routeMask = cells.map(r => r.slice());
-        for (const n of boundary) if (!exits.some(e => e.tile === n)) routeMask[Math.floor(n / 12)]![n % 12] = '#';
-        const route = pathInMask(routeMask.map(r => r.join('')), exit.tile, hub);
-        if (!route) throw new Error('Unreachable gate ' + exit.id);
-        for (const n of route) put(n, '=');
-    }
+    for (const e of exits) if (mask[Math.floor(e.tile / 12)]![e.tile % 12] !== '=') throw new Error(`Exit ${e.id} is not on the road`);
     const sites: Record<string, Site> = {};
-    for (let n = 0; n < 144; n++) if ('.='.includes(get(n)) && !pathInMask(maskNow(), hub, n)) put(n, '#');
-    const candidates: number[] = [];
-    for (let y = 1; y <= 9; y++) for (let x = 1; x <= 9; x++) candidates.push(tile(x, y));
-    candidates.sort((a, b) => ((a * 73 + place.id * 19) % 149) - ((b * 73 + place.id * 19) % 149));
-    // Every Cinderhold sector keeps a garrison stronghold (2x2, free approach below).
-    {
-        const size = 2;
-        const chosen = candidates.find(n => {
-            const x = n % 12, y = Math.floor(n / 12);
-            if (x + size > 10 || y + size > 10) return false;
-            const footprint: number[] = [];
-            for (let dy = 0; dy < size; dy++) for (let dx = 0; dx < size; dx++) footprint.push(tile(x + dx, y + dy));
-            if (footprint.some(t => arrivals.includes(t) || get(t) !== '.' || tileNeighbors(t).some(adj => arrivals.includes(adj) || exits.some(e => e.tile === adj)))) return false;
-            const approach = tile(x + Math.floor(size / 2), y + size);
-            if (get(approach) !== '.') return false;
-            const proposal = cells.map(r => r.slice());
-            footprint.forEach(t => { proposal[Math.floor(t / 12)]![t % 12] = 'B'; });
-            const mask = proposal.map(r => r.join(''));
-            const open = Array.from({ length: 144 }, (_, t) => t).filter(t => '.='.includes(mask[Math.floor(t / 12)]![t % 12]!));
-            return !open.some(t => !pathInMask(mask, hub, t));
-        });
-        if (chosen === undefined) throw new Error('No stronghold site in ' + place.id);
-        const x = chosen % 12, y = Math.floor(chosen / 12);
-        for (let dy = 0; dy < size; dy++) for (let dx = 0; dx < size; dx++) put(tile(x + dx, y + dy), 'B');
-        const approach = tile(x + Math.floor(size / 2), y + size);
-        put(approach, '=');
-        pathInMask(maskNow(), hub, approach)!.forEach(n => put(n, '='));
-        sites.stronghold = { left: (x + size / 2) / 12 * 100, top: (y + size) / 12 * 100, width: size / 12 * 100, approach, footprint: [x, y, size] };
+    const strong = at('B');
+    let village: Layout['village'];
+    if (place.id === 67) {
+        village = { name: 'Cinderhold Village', left: 50, top: 50, width: 100 / 3, approach: 102 };
+    } else {
+        if (strong.length !== 4) throw new Error('Stronghold must be 2x2 in ' + place.id);
+        const x = Math.min(...strong.map(n => n % 12)), y = Math.min(...strong.map(n => Math.floor(n / 12)));
+        if (strong.join() !== [tile(x, y), tile(x + 1, y), tile(x, y + 1), tile(x + 1, y + 1)].join()) throw new Error('Stronghold not square in ' + place.id);
+        sites.stronghold = { left: (x + 1) / 12 * 100, top: (y + 2) / 12 * 100, width: 2 / 12 * 100, approach: tile(x + 1, y + 2), footprint: [x, y, 2] };
     }
-    const routes = sectorRoadRoutes({ sector: place.id, mask: maskNow(), sites, exits });
-    const paintedRoad = new Set(routes.flat());
-    for (let n = 0; n < 144; n++) if (get(n) === '=' && !paintedRoad.has(n)) put(n, '.');
-    const protectedTiles = new Set([...arrivals, ...exits.map(e => e.tile), hub, ...Object.values(sites).map(s => s.approach)]);
-    for (const seed of candidates) {
-        if (cells.flat().filter(c => !'.='.includes(c)).length >= 42) break;
-        const queue = [seed], visited = new Set<number>(); let added = 0;
-        for (let i = 0; i < queue.length && added < 6; i++) {
-            const n = queue[i]!;
-            if (visited.has(n)) continue; visited.add(n);
-            if (n % 12 < 1 || n % 12 > 10 || n < 12 || n >= 132 || get(n) !== '.' || protectedTiles.has(n)) continue;
-            if (cells.flat().filter(c => !'.='.includes(c)).length >= 42) break;
-            put(n, '#');
-            const mask = maskNow();
-            if (Array.from({ length: 144 }, (_, t) => t).some(t => '.='.includes(get(t)) && !pathInMask(mask, hub, t))) { put(n, '.'); continue; }
-            added++; queue.push(...tileNeighbors(n));
-        }
-    }
-    for (const n of arrivals) if (!'.='.includes(get(n))) throw new Error('Blocked reciprocal arrival in ' + place.id + ': ' + n);
-    const riftTile = candidates.find(n => get(n) === '.' && !protectedTiles.has(n)
-        && tileNeighbors(n).every(t => !arrivals.includes(t) && !exits.some(e => e.tile === t)));
-    if (riftTile !== undefined) sites.rift = { left: (riftTile % 12 + .5) / 12 * 100, top: (Math.floor(riftTile / 12) + 1) / 12 * 100,
-        width: 100 / 12, approach: riftTile, footprint: [riftTile % 12, Math.floor(riftTile / 12), 1] };
-    const roadDestinations = new Set([...exits.map(e => e.tile), sites.stronghold!.approach]);
-    let trimmed;
-    do {
-        trimmed = false;
-        for (let n = 0; n < 144; n++) if (get(n) === '=' && !roadDestinations.has(n)
-            && tileNeighbors(n).filter(t => get(t) === '=').length <= 1) { put(n, '.'); trimmed = true; }
-    } while (trimmed);
-    // Mining seam: an interior rock cell beside open, non-road ground that is not
-    // a protected approach. The gatherer stands on the open cell.
-    const seamTarget = candidates.find(n => get(n) === '#' && tileNeighbors(n).some(t => get(t) === '.' && !protectedTiles.has(t) && t !== riftTile));
-    if (seamTarget === undefined) throw new Error('No mining seam in ' + place.id);
-    const seamApproach = tileNeighbors(seamTarget).find(t => get(t) === '.' && !protectedTiles.has(t) && t !== riftTile)!;
-    mining[place.id] = { approach: seamApproach, target: seamTarget };
+    const [rift] = at('r');
+    if (rift === undefined) throw new Error('No rift in ' + place.id);
+    sites.rift = { left: (rift % 12 + .5) / 12 * 100, top: (Math.floor(rift / 12) + 1) / 12 * 100, width: 100 / 12, approach: rift, footprint: [rift % 12, Math.floor(rift / 12), 1] };
+    const [target] = at('M'), [approach] = at('m');
+    if (target === undefined || approach === undefined || !tileNeighbors(target).includes(approach)) throw new Error('Bad mining seam in ' + place.id);
+    mining[place.id] = { approach, target };
+    landmarks[place.artKey] = Object.entries(KINDS).flatMap(([letter, kind]) => components(at(letter)).map(tiles => ({ kind, tiles })));
     const layout: Layout = { sector: place.id, artKey: place.artKey, region: place.region, biome: place.biome, name: place.name,
-        mask: maskNow(), sites, bakedLandmarks: true,
-        exits: exits.map(e => ({ tile: e.tile, direction: e.direction, destination: e.destinationSector })) };
-    // Same rule validateSectorLayouts enforces: painted road == routes between
-    // real destinations. Drop any road cell no route uses, then re-trim leaves.
-    for (let pass = 0; pass < 4; pass++) {
-        const routed = new Set(sectorRoadRoutes(layout).flat());
-        const stray = [...layout.mask.join('')].flatMap((c, n) => c === '=' && !routed.has(n) ? [n] : []);
-        if (!stray.length) break;
-        stray.forEach(n => put(n, '.'));
-        layout.mask = maskNow();
-    }
+        mask, sites, bakedLandmarks: true,
+        exits: exits.map(e => ({ tile: e.tile, direction: e.direction, destination: e.destinationSector })),
+        ...(village ? { village } : {}) };
+    // Same rule validateSectorLayouts enforces: painted road == the routes
+    // between real destinations, so a stray authored road cell fails here.
+    const routed = new Set(sectorRoadRoutes(layout).flat());
+    const roads = [...mask.join('')].flatMap((c, n) => c === '=' ? [n] : []);
+    if (roads.length !== routed.size || roads.some(n => !routed.has(n))) throw new Error('Purposeless road in ' + place.id);
     layouts[place.artKey] = layout;
 }
 
 /**
- * Cinderhold Gates (67) is the village's gate sector, laid out by hand like the
- * four player villages' gates (2026-11-09): the walled village fills the 4x4
- * centre (tiles 52-91), its gate faces the approach on tile 102, and the road is
- * a tree from every exit to that gate. Exit tiles are the ones sectorExits(67)
- * already uses, so travel and the neighbours' road mouths are unchanged.
+ * The Lavafront floors. `accepted` is the mask the accepted (pre-Cinderhold)
+ * painting was reviewed against; `final` adds only the Cinderhold roads (58
+ * also gives one ash-rock cell, 63, to its new west road). Landmarks sit on cells
+ * that are blocked in both, never on a mining seam's cells.
  */
-{
-    const gate = SECTOR_PLACES.find(p => p.id === 67)!;
-    const mask = [
-        '###..=..####',
-        '#....=......',
-        '.....=...#..',
-        '...===....##',
-        '====BBBB....',
-        '=..=BBBB....',
-        '...=BBBB....',
-        '...=BBBB...#',
-        '#..====....#',
-        '##...=......',
-        '#....=......',
-        '####.=..####',
-    ];
-    const riftTile = 93;
-    layouts[gate.artKey] = {
-        sector: gate.id, artKey: gate.artKey, region: gate.region, biome: gate.biome, name: gate.name, mask,
-        sites: { rift: { left: (riftTile % 12 + .5) / 12 * 100, top: (Math.floor(riftTile / 12) + 1) / 12 * 100,
-            width: 100 / 12, approach: riftTile, footprint: [riftTile % 12, Math.floor(riftTile / 12), 1] } },
-        bakedLandmarks: true,
-        exits: sectorExits(gate.id).map(e => ({ tile: e.tile, direction: e.direction, destination: e.destinationSector })),
-        village: { name: 'Cinderhold Village', left: 50, top: 50, width: 100 / 3, approach: 102 },
-    };
-    mining[gate.id] = { approach: 32, target: 33 };
-}
+const LAVAFRONT: Record<number, { sector: number; accepted: string[]; final: string[]; landmarks: Landmark[] }> = {
+    7: {
+        sector: 58,
+        accepted: [
+            '#.........##', '..#.....#..#', '..#....##..#', '.###........', '..#...======', '...#..=....=',
+            '.###.==.....', '.####=.....#', '####.=.....#', '##...=.....#', '#....=.....#', '####.=.#####'],
+        // The west road to Cinderhold Gates runs in along row 5 and drops one
+        // row into the existing junction at 77; ash-rock cell 63 gives way.
+        final: [
+            '#.........##', '..#.....#..#', '..#....##..#', '.###........', '..#...======', '=====.=....=',
+            '.###===.....', '.####=.....#', '####.=.....#', '##...=.....#', '#....=.....#', '####.=.#####'],
+        landmarks: [
+            { kind: 'lava-fall', tiles: [95, 107, 119, 131, 143, 142, 141, 140, 139] },
+            { kind: 'ruin', tiles: [96, 97, 98, 99] },
+            { kind: 'cairn', tiles: [20] },
+        ],
+    },
+    66: {
+        sector: 66,
+        accepted: [
+            '####.......#', '#...#.......', '#.###.......', '..####......', '=======.....', '...#..=#....',
+            '#..#.==#....', '#####=###...', '#..#.=.#....', '#....=......', '#....=......', '####.=.#####'],
+        final: [
+            '####.=.....#', '#...#=......', '#.###==.....', '..####=.....', '=======.....', '=..#..=#....',
+            '#..#.==#....', '#####=###...', '#..#.=.#....', '#....=......', '#....=......', '####.=.#####'],
+        landmarks: [
+            { kind: 'lava-fissure', tiles: [67, 79, 91] },
+            { kind: 'ruin', tiles: [84, 85, 86, 87, 88] },
+            { kind: 'lava-fall', tiles: [143, 142, 141, 140, 139] },
+            { kind: 'cairn', tiles: [63] },
+        ],
+    },
+    // 59 and 60 are Midlands now (the map shows them on green and dry hills):
+    // repainted from Midlands floors, masks unchanged.
+    2: {
+        sector: 59,
+        accepted: [
+            '#..........#', '..T.........', '..T.T.......', '.TTTT.......', '.TTTTT......', '============',
+            '.....T......', '...T.T.....#', '#.TTTTT....#', '#....T.....#', '#..........#', '############'],
+        final: [],
+        landmarks: [
+            // The fall comes down the east cliff into a pool in the corner; the
+            // seam at 138 stays dry rock.
+            { kind: 'waterfall', tiles: [95, 107, 119, 131, 143, 142, 141, 140], fall: [95, 107, 119, 131] },
+            { kind: 'standing-stones', tiles: [96, 108, 120] },
+        ],
+    },
+    52: {
+        sector: 60,
+        accepted: [
+            '##.........#', '#####.......', '#.##........', '............', '============', '..####.....=',
+            '#..##.......', '#....#......', '#..#.#......', '#.#####.....', '#....#......', '##########.#'],
+        final: [],
+        landmarks: [
+            // The two reviewed ruins (shared/sector-buildings.ts: Obsidian North
+            // Watch and Obsidian Road Station, with their restoration paintings
+            // and the frontier gear) keep their exact pixels from the accepted
+            // floor: the old ash-road station now stands on the hills.
+            { kind: 'ruin-in-place', tiles: [0, 1, 12, 13, 14, 15, 16, 24, 26, 27] },
+            { kind: 'ruin-in-place', tiles: [62, 63, 64, 65, 75, 76] },
+            { kind: 'ruin-in-place', tiles: [89, 99, 101, 110, 111, 112, 113, 114, 125] },
+            // the ash brook: it runs down the west edge into a pool
+            { kind: 'brook', tiles: [72, 84, 96, 108, 120, 132, 133, 134], fall: [72, 84, 96, 108, 120] },
+            { kind: 'shrine-stone', tiles: [11] },
+            { kind: 'standing-stones', tiles: [137, 139] },
+        ],
+    },
+};
 
-/** Carve the new climb into an existing (accepted) floor: the shortest open-ground
- * path from the new exit to the existing road network, touching that network at
- * exactly one tile so the road stays a tree (sectorRoadRoutes needs that). */
-const patched: Record<number, { layout: Layout; carved: number[] }> = {};
-for (const sector of [58, 66]) {
-    const place = SECTOR_PLACES.find(p => p.id === sector)!;
-    const original = SECTOR_FLOOR_LAYOUTS[place.artKey] as unknown as Layout;
-    const mask = original.mask.map(r => r.split(''));
-    const get = (n: number) => mask[Math.floor(n / 12)]![n % 12]!;
-    const painted = new Set(original.exits.map(e => e.tile));
-    const fresh = sectorExits(sector).filter(e => !painted.has(e.tile));
-    if (fresh.length === 0) continue; // already carved and admitted (a re-run)
-    if (fresh.length !== 1) throw new Error(`Expected one new exit on ${sector}, got ${fresh.length}`);
-    const exit = fresh[0]!;
-    if (get(exit.tile) !== '.') throw new Error(`New exit tile ${exit.tile} on ${sector} is not open ground`);
-    // BFS over '.' tiles only, stopping on the first tile adjacent to a road.
-    // Inward steps are tried first so the climb leaves the board edge straight
-    // instead of running along the border.
-    const inward = { north: 12, south: -12, west: 1, east: -1 }[exit.direction];
-    const ordered = (t: number) => tileNeighbors(t).sort((a, b) => Number(b - t === inward) - Number(a - t === inward));
-    const previous = new Map<number, number | null>([[exit.tile, null]]), queue = [exit.tile];
-    let join: number | null = null;
-    for (let i = 0; i < queue.length && join === null; i++) {
-        const t = queue[i]!;
-        if (tileNeighbors(t).some(n => get(n) === '=')) { join = t; break; }
-        for (const n of ordered(t)) if (get(n) === '.' && !previous.has(n)) { previous.set(n, t); queue.push(n); }
-    }
-    if (join === null) throw new Error('No open path from the new exit on ' + sector);
+const MINING_KEEP: Record<number, number[]> = { 7: [26, 31], 66: [92], 2: [138], 52: [] };
+const repaints: Record<number, { layout: Layout; accepted: string[]; carved: number[]; landmarks: Landmark[]; mode: 'lavafront' | 'midlands' }> = {};
+for (const [art, spec] of Object.entries(LAVAFRONT)) {
+    const place = SECTOR_PLACES.find(p => p.id === spec.sector)!;
+    const current = SECTOR_FLOOR_LAYOUTS[Number(art)] as unknown as Layout;
+    const final = spec.final.length ? spec.final : spec.accepted;
     const carved: number[] = [];
-    for (let t: number | null = join; t !== null; t = previous.get(t) ?? null) carved.push(t);
-    const roadNeighbours = carved.flatMap(t => tileNeighbors(t).filter(n => get(n) === '='));
-    if (new Set(roadNeighbours).size !== 1) throw new Error(`Climb into ${sector} would loop the road network: ${roadNeighbours}`);
-    carved.forEach(t => { mask[Math.floor(t / 12)]![t % 12] = '='; });
-    const layout: Layout = { ...original, mask: mask.map(r => r.join('')),
-        exits: sectorExits(sector).map(e => ({ tile: e.tile, direction: e.direction, destination: e.destinationSector })) };
-    // The road network must still be exactly the routes between real destinations.
+    for (let n = 0; n < 144; n++) {
+        const was = spec.accepted[Math.floor(n / 12)]![n % 12]!, now = final[Math.floor(n / 12)]![n % 12]!;
+        if (was === now) continue;
+        if (now !== '=' || !(was === '.' || (art === '7' && n === 63))) throw new Error(`Unexpected mask change ${art}:${n} ${was}->${now}`);
+        carved.push(n);
+    }
+    const layout: Layout = { ...current, region: place.region, biome: place.biome, name: place.name, mask: final.slice(),
+        exits: sectorExits(spec.sector).map(e => ({ tile: e.tile, direction: e.direction, destination: e.destinationSector })) };
+    for (const e of layout.exits) if (final[Math.floor(e.tile / 12)]![e.tile % 12] !== '=') throw new Error(`Exit ${spec.sector}@${e.tile} is not on the road`);
     const routed = new Set(sectorRoadRoutes(layout).flat());
-    const roads = [...layout.mask.join('')].flatMap((c, n) => c === '=' ? [n] : []);
-    if (roads.length !== routed.size || roads.some(n => !routed.has(n))) throw new Error('Purposeless road after carving ' + sector);
-    patched[place.artKey] = { layout, carved: carved.reverse() };
+    const roads = [...final.join('')].flatMap((c, n) => c === '=' ? [n] : []);
+    if (roads.length !== routed.size || roads.some(n => !routed.has(n))) throw new Error('Purposeless road on ' + spec.sector);
+    for (const l of spec.landmarks) for (const t of l.tiles) {
+        if (!'#T'.includes(final.join('')[t]!)) throw new Error(`Landmark on open ground ${art}:${t}`);
+        if (MINING_KEEP[Number(art)]!.includes(t)) throw new Error(`Landmark on a mining seam ${art}:${t}`);
+    }
+    repaints[Number(art)] = { layout, accepted: spec.accepted, carved, landmarks: spec.landmarks, mode: place.region === 'midlands' ? 'midlands' : 'lavafront' };
 }
 
-await fs.writeFile(path.join(out, 'cinderhold-layouts.json'), JSON.stringify({ layouts, mining, patched }, null, 2) + '\n');
-for (const l of Object.values(layouts)) console.log(`\n${l.sector} ${l.name}  exits ${l.exits.map(e => `${e.direction}->${e.destination}@${e.tile}`).join(' ')}\n${l.mask.join('\n')}`);
-for (const [art, p] of Object.entries(patched)) console.log(`\nart ${art} (sector ${p.layout.sector}) carved ${p.carved.join(',')}\n${p.layout.mask.join('\n')}`);
+await fs.writeFile(path.join(out, 'cinderhold-layouts.json'), JSON.stringify({ layouts, mining, landmarks, repaints }, null, 2) + '\n');
+for (const l of Object.values(layouts)) console.log(`\n${l.sector} ${l.name}  exits ${l.exits.map(e => `${e.direction}->${e.destination}@${e.tile}`).join(' ')}  mining ${JSON.stringify(mining[l.sector])}\n${AUTHORED[l.sector]!.join('\n')}`);
+for (const [art, p] of Object.entries(repaints)) console.log(`\nart ${art} (sector ${p.layout.sector}, ${p.mode}) carved ${p.carved.join(',') || '-'}\n${p.layout.mask.join('\n')}`);

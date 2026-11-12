@@ -6,9 +6,10 @@ import { buildWorldNavigation } from './continuous-world-navigation';
 
 test('every proper road intersection has one deliberate overpass and no invented junction', () => {
     const crossings = worldRoadCrossings(CONTINUOUS_WORLD_SPACE.roads);
-    // 13 + two raised crossings inside Cinderhold, where 67 and 72 each send two
-    // roads out of the same west edge (67-74 over 67-68, 71-72 over 70-72; 2026-11-08).
-    assert.equal(crossings.length, 15);
+    // 13 + three raised crossings on the Cinderhold ring (2026-11-11): 67 sends two
+    // roads out of its north edge (67-73 over 67-68) that 68-73 then crosses
+    // (68-73 over 67-73), and 66 sends two out of its west edge (66-74 over 60-66).
+    assert.equal(crossings.length, 16);
     assert.equal(new Set(crossings.map(c => `${c.x}:${c.y}:${c.over}:${c.under}`)).size, crossings.length);
     const nodes = new Map(buildWorldNavigation(CONTINUOUS_WORLD_SPACE).nodes.map(n => [n.id, n]));
     for (const crossing of crossings) {

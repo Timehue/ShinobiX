@@ -6,6 +6,7 @@ import { buildAuthorizeUrl, googleAuthEnabled, signState } from '../../_google-a
 import { withKvLock } from '../../_lock.js';
 import { kv } from '../../_storage.js';
 import { authKey, isPasswordlessRecord, type AuthRecord } from '../../player-auth.js';
+import { isNpcAccount } from '../../../shared/npc-village-roster.js';
 
 /*
  * POST /api/auth/google/start  { nonce, mode?: 'login' | 'link', client?: 'android-app' }
@@ -59,6 +60,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const player = await authedPlayer(req);
         if (!player) return res.status(401).json({ ok: false, error: 'Sign in before linking Google.' });
         const name = safeName(player);
+        // A Cinderhold NPC is entered only by the 2 h admin takeover; a linked
+        // Google account would be a permanent door into it.
+        if (isNpcAccount(name)) return res.status(403).json({ ok: false, error: 'This account cannot link Google.' });
         // A Google link is a door that survives every password change and admin
         // reset, so a PASSWORD account must type its password to open one — a
         // token lifted from a shared computer must not be enough to plant the

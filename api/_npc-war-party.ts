@@ -302,3 +302,4 @@ function logSkip(scope: string, err: unknown): void {
     if (err instanceof LockContendedError) return;
     console.error(`[npc-war-party] ${scope} skipped this tick:`, (err as Error)?.message ?? err);
 }
+

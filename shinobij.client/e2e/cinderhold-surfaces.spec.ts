@@ -93,6 +93,34 @@ test('the clan war 2v2 queue says an NPC clan fields no teams', async ({ page })
     await expect(panel.getByRole('button', { name: 'Join queue', exact: true }).first()).toBeEnabled();
 });
 
+test('a sector Cinderhold captures flies its banner, a Cinderhold sector a player village takes flies theirs, and its own land stays clear', async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors: string[] = []; page.on('pageerror', (error) => errors.push(error.message));
+    await installUiAuditRuntime(page, uiAuditSave());
+    await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
+    // Cinderhold holds Moonshadow's sector 22; Moonshadow holds Cinderhold's 68.
+    await page.route(url => url.pathname === '/api/world-state', route => route.fulfill({ json: {
+        territories: [{ sector: 22, ownerVillage: NPC_VILLAGE }, { sector: 68, ownerVillage: 'Moonshadow Village' }], wars: [], standings: [],
+    } }));
+    await page.goto('/#/worldMap', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap', { timeout: 60_000 });
+    await expect(page.locator('.generated-world-map')).toBeVisible({ timeout: 60_000 });
+    const cinderhold = page.locator('.vw-sector-claim img[src*="owned-sector-cinderhold"]');
+    // The overlay re-reads owners from the territory cache every 30 s.
+    await expect(cinderhold).toHaveCount(1, { timeout: 60_000 });
+    const claims = page.locator('.vw-sector-claim');
+    // The four villages' 32 home sectors, plus 68: Cinderhold's other seven stay clear (their pins sit too close for standees).
+    await expect(claims).toHaveCount(33);
+    const banners = await claims.evaluateAll((els) => els.map((el) => ({
+        src: el.querySelector('img')?.getAttribute('src') ?? '', at: `${(el as HTMLElement).style.left},${(el as HTMLElement).style.top}`,
+    })));
+    const atOf = (src: string) => banners.filter((b) => b.src.includes(src)).map((b) => b.at);
+    expect(atOf('owned-sector-cinderhold')).toHaveLength(1);
+    // Moonshadow keeps seven of its own eight, and flies an eighth banner on Cinderhold's 68.
+    expect(atOf('owned-sector-moonshadow')).toHaveLength(8);
+    expect(errors).toEqual([]);
+});
+
 test('the sector roster shows a Cinderhold shinobi at a node as Ready, as a gathering player reads, and attackable', async ({ page }) => {
     test.setTimeout(90_000);
     const save = uiAuditSave();

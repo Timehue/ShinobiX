@@ -39,17 +39,23 @@
         "height": 140
       },
       "inspection": 78,
-      "baseSha256": "d5986abb091be6b109e1a4c891f3baf355ea4cd43e711eaa4c45ebd24132d936",
+      "baseSha256": "73ad73f1b9a3786d5a87f79cc816e74160fa37ae9b5326d33318243b990f637f",
       "sourceSha256": "9a27015b74999fe6973f8656ee8967eabbaa2984a9f0a146bfbe7f0ae7f3427a",
       "file": "shinobij.client/public/sector-life/lavafront-road-gear-v1.webp",
-      "sha256": "ec1a77321a553e51922216c6e0cd499a323b5a49fad22a0a1a9fe0ff3031301e",
-      "bytes": 261050,
+      "sha256": "498a880be023a38c2711f6a9576cbe72279caad210978648fda11473ab5342c0",
+      "bytes": 246376,
       "changedOutside": 0,
       "key": "lavafront-road-gear-v1",
       "baseFile": "shinobij.client/public/sector-map/s52.webp",
       "sourceFile": "output/living-world/frontier/lava-damaged-frame-provider-v1.png",
       "width": 1024,
-      "height": 1024
+      "height": 1024,
+      "previous": {
+        "baseSha256": "d5986abb091be6b109e1a4c891f3baf355ea4cd43e711eaa4c45ebd24132d936",
+        "sha256": "ec1a77321a553e51922216c6e0cd499a323b5a49fad22a0a1a9fe0ff3031301e",
+        "bytes": 261050
+      },
+      "rebaked": "2026-11-11: Ashbrook Hills (60) became Midlands ground and its floor was repainted. scripts/compose-cinderhold-floors.py lifts the reviewed carrying frame off the previous painting (its pixel difference from the accepted s52, inside the reviewed area only) and leans it on the same ruin cells of the repaint; terrain outside the area is the delivered floor exactly. The provider source and the inspection, stop and clearance tiles are unchanged."
     }
   ],
   "nativeEvidence": [

@@ -358,8 +358,8 @@
       "prompt": "Painted restoration of obsidian-waystation for the seven days it stands repaired: the plot is cleared to ground sampled from the same floor and the intact pieces stand on the ruin's solid tiles. Pieces: obsidian-station-hall, obsidian-wall, obsidian-round-tower, obsidian-brazier-prop. Composited by scripts/bake-ruin-restorations.mjs from the Figma renders whose prompts are in shinobij.client/art-source/ruin-restorations/prompts.json.",
       "source": "shinobij.client/art-source/ruin-restorations",
       "file": "shinobij.client/public/sector-buildings/restored-obsidian-waystation-v1.webp",
-      "sha256": "dbffbcd9372db5237c80a47e06c31d34d6cfb7dca5fa0b935442121f99f4c47b",
-      "bytes": 59400
+      "sha256": "bce48e8876be6e1db4464b69234fcbbc87e2eb8d1d1fe7bc92f57d853a2fc453",
+      "bytes": 56278
     },
     {
       "id": "weathered-obsidian-waystation",
@@ -371,8 +371,8 @@
       "prompt": "Weathered last-day painting of obsidian-waystation: the same restored plot aging in its final day before it falls back to the ruin (faded, chipped and mossy roofs, frayed banners, still standing). Pieces: obsidian-station-hall, obsidian-wall, obsidian-round-tower, obsidian-brazier-prop. Composited by scripts/bake-ruin-restorations.mjs from the Figma renders whose prompts are in shinobij.client/art-source/ruin-restorations/prompts.json.",
       "source": "shinobij.client/art-source/ruin-restorations",
       "file": "shinobij.client/public/sector-buildings/weathered-obsidian-waystation-v1.webp",
-      "sha256": "4047f898e7e51c4f98ac60d6f2a21752fe72309daef0a43fe067dc0353033777",
-      "bytes": 59938
+      "sha256": "c6f3507899014543fee7272b67415a14bcf8090833ce50555e898e4d92e02221",
+      "bytes": 57526
     },
     {
       "id": "restored-obsidian-north-watch",
@@ -384,8 +384,8 @@
       "prompt": "Painted restoration of obsidian-north-watch for the seven days it stands repaired: the plot is cleared to ground sampled from the same floor and the intact pieces stand on the ruin's solid tiles. Pieces: obsidian-watch-hall, obsidian-round-tower, obsidian-brazier-prop, obsidian-wall. Composited by scripts/bake-ruin-restorations.mjs from the Figma renders whose prompts are in shinobij.client/art-source/ruin-restorations/prompts.json.",
       "source": "shinobij.client/art-source/ruin-restorations",
       "file": "shinobij.client/public/sector-buildings/restored-obsidian-north-watch-v1.webp",
-      "sha256": "ca1c03a1823e0d747f197dc990070034439fe109e85b94d582cda7c59abdbc3e",
-      "bytes": 33960
+      "sha256": "6566fcde212b60dda380bc7f0a925267985cc7a8770d4ecb5386e952c50ffc87",
+      "bytes": 33020
     },
     {
       "id": "weathered-obsidian-north-watch",
@@ -397,8 +397,8 @@
       "prompt": "Weathered last-day painting of obsidian-north-watch: the same restored plot aging in its final day before it falls back to the ruin (faded, chipped and mossy roofs, frayed banners, still standing). Pieces: obsidian-watch-hall, obsidian-round-tower, obsidian-brazier-prop, obsidian-wall. Composited by scripts/bake-ruin-restorations.mjs from the Figma renders whose prompts are in shinobij.client/art-source/ruin-restorations/prompts.json.",
       "source": "shinobij.client/art-source/ruin-restorations",
       "file": "shinobij.client/public/sector-buildings/weathered-obsidian-north-watch-v1.webp",
-      "sha256": "bc812e42df334c23c3b0f7695ba66ff5edae0bad6f9736ba666e5c6f34d49cec",
-      "bytes": 33798
+      "sha256": "07fbf488485c31d07aac8094024d873bf68a30f05369b5552cce58f280dffdff",
+      "bytes": 32712
     },
     {
       "id": "flower-pickers-shelter",

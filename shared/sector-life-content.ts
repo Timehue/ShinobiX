@@ -46,7 +46,12 @@ export const LIFE_STOP_REGIONS: Readonly<Record<number,LifeRegion>> = {
     31:{...LIFE_REGIONS.frostfang,resident:'Quartermaster Ise',role:'cook',work:'Checking winter stores',greeting:"I'm checking the blankets and parcel on this sled. Keep the gap by the brazier clear.",night:"You can stop beside the brazier. Leave the path to the sled clear.",shelter:"I'm waiting by the windbreak until the weather eases."},
     42:teaStop,
 };
-export function lifeRegionFor(sector: number) { return LIFE_STOP_REGIONS[sector]??LIFE_REGIONS[sectorRegionKey(sector)??'midlands']; }
+/** Sectors whose ground changed region but whose authored life did not.
+ * 2026-11-11: 60 (Ashbrook Hills) became Midlands ground, but its frontier road
+ * stop, the Obsidian Road Station and its gear painting were authored for the
+ * ash road's scout. It keeps that scout, the signal errand and that errand's pay. */
+export const LIFE_REGION_PINS: Readonly<Record<number,LifeRegion>> = { 60: LIFE_REGIONS.lavafront };
+export function lifeRegionFor(sector: number) { return LIFE_STOP_REGIONS[sector]??LIFE_REGION_PINS[sector]??LIFE_REGIONS[sectorRegionKey(sector)??'midlands']; }
 /** Keep a painted workplace's counter and its existing resident in agreement. */
 export function lifeResidentName(sector:number):string{
     const names=['Aki','Ume','Ren','Eda','Jun','Mako','Ise','Hatsu','Fumi','En','Seki','Kiyo'];

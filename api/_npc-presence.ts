@@ -31,7 +31,7 @@ import { onlineStore } from './_realtime/online-store.js';
 import { queuePresenceUpdate } from './_realtime/presence-broadcast.js';
 import { PRESENCE_CHARACTER_FIELDS, presenceBroadcastSignature, slimPresenceCharacter } from './_realtime/presence-input.js';
 import { readKvProjection, type KvProjection } from './_storage-projection.js';
-import { npcOwnedIds } from './_npc-ownership.js';
+import { npcOwnedIds, npcOwnershipKnown } from './_npc-ownership.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from './_realtime/battle-authority.js';
 import { battleStartedWithin } from './_realtime/battle-projection.js';
 import { npcPossessKey, type NpcPossession } from './_npc-possession.js';
@@ -114,9 +114,14 @@ export function npcMoveDelayMs(id: string): number {
  * moment has come, the previous window's post until then (undefined: no duty,
  * it is on a journey).
  */
-export function npcPostFor<P extends { sector: number; tile: number }>(id: string, now: number, current: ReadonlyMap<string, P>, previous: ReadonlyMap<string, P>): P | undefined {
+export function npcPostFor<P extends { sector: number; tile: number; duty?: string }>(id: string, now: number, current: ReadonlyMap<string, P>, previous: ReadonlyMap<string, P>): P | undefined {
     const late = now - Math.floor(now / NPC_POST_WINDOW_MS) * NPC_POST_WINDOW_MS < npcMoveDelayMs(id);
-    return (late ? previous.get(id) : undefined) ?? current.get(id);
+    // A front guard keeps its old post until its move moment (no front left
+    // unmanned at the turn of the window). Watching the boss is no post to hold:
+    // carried over, the old watchers and the new ones would both go (up to twice
+    // NPC_BOSS_WATCHERS at the boss).
+    const held = late ? previous.get(id) : undefined;
+    return (held && held.duty !== 'boss' ? held : undefined) ?? current.get(id);
 }
 
 /** A walkable tile within NPC_WANDER_RADIUS of the post, or null if this tick the NPC stands still. */
@@ -148,7 +153,7 @@ export type NpcPost = { sector: number; tile: number; duty: 'front' | 'boss' };
  * NPC_BOSS_WATCHERS others are sent to watch it (`duty: 'boss'`: a journey
  * with that purpose, presence only).
  */
-export function npcPosts(now: number, roster: readonly NpcShinobi[] = NPC_VILLAGE_ROSTER, fronts: readonly number[] = [], wounded: ReadonlySet<string> = new Set(), opts: { bossSector?: number | null; warParticipants?: ReadonlySet<string> } = {}): Map<string, NpcPost> {
+export function npcPosts(now: number, roster: readonly NpcShinobi[] = NPC_VILLAGE_ROSTER, fronts: readonly number[] = [], wounded: ReadonlySet<string> = new Set(), opts: { bossSector?: number | null; warParticipants?: ReadonlySet<string>; notWatching?: ReadonlySet<string> } = {}): Map<string, NpcPost> {
     const window = Math.floor(now / NPC_POST_WINDOW_MS);
     // A wounded guard is recovering (api/_npc-wounds.ts): it has no post, and a
     // reserve fills the front in its place while one is left.
@@ -167,7 +172,7 @@ export function npcPosts(now: number, roster: readonly NpcShinobi[] = NPC_VILLAG
     }
     const boss = opts.bossSector ?? null;
     if (boss !== null && isNpcRoamSector(boss) && !fronts.includes(boss)) {
-        for (const npc of order.filter((n) => !posts.has(n.id)).slice(0, NPC_BOSS_WATCHERS)) place(npc, boss, 'boss');
+        for (const npc of order.filter((n) => !posts.has(n.id) && !opts.notWatching?.has(n.id)).slice(0, NPC_BOSS_WATCHERS)) place(npc, boss, 'boss');
     }
     return posts;
 }
@@ -201,8 +206,10 @@ export async function npcPresencePlan(now: number, fronts: readonly number[]) {
     const warParticipants = fronts.length
         ? new Set((await npcWarParticipants(now).catch(() => [])).map((npc) => npc.id))
         : undefined;
-    const posts = npcPosts(now, NPC_VILLAGE_ROSTER, fronts, absent, { bossSector, warParticipants });
-    const previousPosts = npcPosts(now - NPC_POST_WINDOW_MS, NPC_VILLAGE_ROSTER, fronts, absent, { bossSector, warParticipants });
+    // A hunter never watches the boss (its errand is its rival), so it is not counted among the watchers.
+    const hunting = new Set(npcHuntRegistry().keys());
+    const posts = npcPosts(now, NPC_VILLAGE_ROSTER, fronts, absent, { bossSector, warParticipants, notWatching: hunting });
+    const previousPosts = npcPosts(now - NPC_POST_WINDOW_MS, NPC_VILLAGE_ROSTER, fronts, absent, { bossSector, warParticipants, notWatching: hunting });
     return { absent, wounded, offline, unowned, bossSector, posts, previousPosts };
 }
 
@@ -222,6 +229,9 @@ export async function refreshNpcPresence(now = Date.now()): Promise<number> {
     if (!playerSessionsEnabled()) return 0;
     const fronts = await npcWarFronts(now);
     const { absent, wounded, unowned, bossSector, posts, previousPosts } = await npcPresencePlan(now, fronts);
+    // No ownership read has succeeded yet (storage down since boot): "unowned"
+    // would mean all thirty, so wait for a real answer rather than drop them all.
+    if (!npcOwnershipKnown()) return 0;
     // The walker's view of the world until the next tick: fronts to keep out
     // of, the boss's sector (only its watchers go there).
     setNpcJourneyWorld(fronts, bossSector);

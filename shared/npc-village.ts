@@ -15,8 +15,8 @@ export const NPC_VILLAGE_SHORT = 'Cinderhold';
 /** The village's home block on the volcano cone; 67 is its gate. */
 export const NPC_HOME_SECTORS: readonly number[] = CINDERHOLD_SECTORS;
 export const NPC_GATE_SECTOR = CINDERHOLD_GATE_SECTOR;
-/** Map accent: ember red, distinct from the four player villages. */
-export const NPC_VILLAGE_ACCENT = '#f97316';
+/** Map accent: red, distinct from the four player villages and from the ordinary sector pins. */
+export const NPC_VILLAGE_ACCENT = '#dc2626';
 
 /** The four player villages Cinderhold tracks aggression toward. */
 export const PLAYER_VILLAGES = ['Frostfang Village', 'Stormveil Village', 'Ashen Leaf Village', 'Moonshadow Village'] as const;

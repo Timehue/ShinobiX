@@ -84,7 +84,7 @@
 .sector-roster-person { display: grid; gap: 3px; min-width: 0; }
 .sector-roster-person > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #f2eeeb; }
 .sector-roster-person > span { display: flex; flex-wrap: wrap; gap: 2px 7px; font-size: 12px; color: #cdbfc8; }
-.sector-roster-status.is-ready { color: #b8d5c5; }
+.sector-roster-status.is-ready, .sector-roster-status.is-gathering { color: #b8d5c5; }
 .sector-roster-status.is-fighting { color: #efb2b0; }
 .sector-roster-status.is-traveling, .sector-roster-status.is-sleeping { color: #e4ca8c; }
 .map-instance .sector-hud .sector-roster-action { border-color: #a67477; background: #4b2736; color: #f8d3cc; padding: 7px 9px; max-width: 110px; }

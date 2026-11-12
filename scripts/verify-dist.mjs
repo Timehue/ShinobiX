@@ -141,8 +141,10 @@ const maxPetPortraitBytes = 16 * 1024 * 1024;
 // campaign painting instead of borrowing a stronghold, gorge or boathouse scene;
 // +86,024 B for the Flower-Pickers' Shelter map sprite (a 2x2-tile building),
 // which replaces its signpost.
+// 2026-11-11: -7,560 B. Ashbrook Hills (60) became Midlands ground, so its two
+// ruins' restorations were re-baked to clear their plots to its new grass.
 const sectorBuildingArtCount = 39;
-const maxSectorBuildingArtBytes = 2_581_396;
+const maxSectorBuildingArtBytes = 2_573_836;
 // 2026-11-04 (owner approved): the painted Hollow Gate cave set (five chamber
 // floors, the passage floor and three decals; shinobij.client/art-source/hollow-gate-cavern-chambers.json)
 // gets the same exact-byte partition, so it neither consumes nor relaxes the

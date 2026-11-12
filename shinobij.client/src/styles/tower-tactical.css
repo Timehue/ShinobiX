@@ -1137,7 +1137,6 @@
 @media (min-width: 1024px) {
     .tower-squad-rail > .tower-roster-list { flex: 0 0 auto; max-height: 42%; }
 }
-#combat.tower-tactical-combat #tower-own-effects-toggle { min-width: 52px; font-size: .64rem; white-space: nowrap; }
 
 .tower-roster-actor-button {
     appearance: none;

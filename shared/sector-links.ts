@@ -89,20 +89,22 @@ export const SECTOR_POINTS: readonly SectorPoint[] = [
     { id: 65, x: 92, y: 44 },   // Eastwind Cirque    — the far eastern snows
     { id: 66, x: 66, y: 15 },   // Emberspine Ridge   — deep in the ash
     // Cinderhold (67-74) — the NPC village's home block on the volcano cone.
-    // 67 is the village gate. Chunks sit >= 12 world units apart (3% x/y) so the
-    // continuous-world paintings never overlap.
+    // 2026-11-11 (owner: "organize these better"): its sectors ring the crest
+    // (47, 8) and its name plate, four down the west side with the gate (67)
+    // beside the road up from 58, four on the east with 72 on the road out to
+    // 66. Every Cinderhold road runs clearly horizontal or vertical, so each
+    // floor paints its exits on the side the atlas draws the road. Chunks sit
+    // >= 3.5% apart on x or y, so the continuous-world paintings never overlap.
     // Nothing sits above y 8: a pin nearer the top edge has no full 44px touch
     // target in any phone camera (lib/world-map-regions.test.ts).
-    // The Cinderhold and Death's Gate name plates (WorldRoadsOverlay) sit in the
-    // gaps these leave at 1366px.
-    { id: 67, x: 37, y: 15 },   // Cinderhold Gates
-    { id: 68, x: 33, y: 14 },   // Basalt Steps
-    { id: 69, x: 33, y: 8 },    // Smokevent Terraces
-    { id: 70, x: 54, y: 8 },    // Magma Cistern
-    { id: 71, x: 58, y: 13 },   // Ashfall Barracks
-    { id: 72, x: 62, y: 9 },    // Obsidian Drill Yard
-    { id: 73, x: 38, y: 8 },    // Caldera Rim
-    { id: 74, x: 32, y: 20 },   // Slagwater Crossing
+    { id: 67, x: 37.5, y: 22.5 }, // Cinderhold Gates
+    { id: 68, x: 34.5, y: 15.5 }, // Basalt Steps
+    { id: 69, x: 31, y: 8 },      // Smokevent Terraces
+    { id: 70, x: 53.5, y: 8 },    // Magma Cistern
+    { id: 71, x: 59.5, y: 8 },    // Ashfall Barracks
+    { id: 72, x: 64, y: 8 },      // Obsidian Drill Yard
+    { id: 73, x: 36.5, y: 8 },    // Caldera Rim
+    { id: 74, x: 58.5, y: 15.5 }, // Slagwater Crossing
 ];
 
 // Frozen geographic roads — the original 82 place-to-place roads remapped
@@ -137,9 +139,14 @@ export const SECTOR_ROAD_PAIRS: readonly SectorRoadPair[] = [
     // Cinderhold (67-74), 2026-11-08. Every road touching an older sector
     // (58, 66) sorts AFTER that sector's existing roads in canonicalRoads(), so
     // no existing lane is re-assigned and no accepted painting's road moves.
-    [67, 68], [67, 73], [67, 74], [68, 69], [68, 74], [69, 73],
-    [70, 71], [70, 72], [70, 73], [71, 72],
-    [58, 67], [66, 72],   // the Cinder Foothills climb and the Emberspine pass
+    // 2026-11-11 re-layout: the west four (67, 68, 69, 73) and the east four
+    // (70, 71, 72, 74) join across the cone's top behind the crest (70-73).
+    // Every one runs clearly horizontal or vertical on the map.
+    [67, 68], [67, 73], [68, 69], [68, 73], [69, 73],
+    [70, 71], [70, 73], [71, 72], [71, 74],
+    // The Cinder Foothills climb, the Emberspine pass, and the Slagwater ford
+    // (each sorts after the older sector's existing roads, so no lane moves).
+    [58, 67], [66, 72], [66, 74],
 ];
 
 /**

@@ -261,12 +261,15 @@ function takenByOther(id: string, sector: number, tile: number): boolean {
     const holder = standing.get(standKey(sector, tile));
     return holder !== undefined && holder !== id;
 }
-/** `tile`, or the nearest walkable tile within two steps that no other NPC stands on (and no gatherer's spot). */
+/** `tile`, or the nearest walkable tile within five steps that no other NPC
+ * stands on (and no gatherer's spot). Two steps was too few at a busy village
+ * gate: a gate tile walled in by the compound has only four tiles within two
+ * steps, and a fifth visitor stood on top of the first (2026-11-11). */
 function freeTile(id: string, sector: number, tile: number, avoid: ReadonlySet<number> = new Set()): number {
     if (!takenByOther(id, sector, tile) && !avoid.has(tile)) return tile;
     const seen = new Set([tile]);
     let ring = [tile];
-    for (let depth = 0; depth < 2; depth++) {
+    for (let depth = 0; depth < 5; depth++) {
         const next: number[] = [];
         for (const at of ring) for (const t of tileNeighbors(at)) {
             if (seen.has(t)) continue;
@@ -347,7 +350,7 @@ function homeSpot(id: string, seed: number): NpcJourneySpot {
 function newJourney(npc: Pick<NpcShinobi, 'id' | 'name' | 'personality'>, now: number): Journey {
     return {
         id: npc.id, name: npc.name, personality: npc.personality, seed: Math.floor(now / HOUR_MS), leg: 0,
-        goal: { purpose: 'home', sector: CINDERHOLD_SECTORS[0]!, tile: 78, reason: NPC_JOURNEY_REASONS.home, dwellMs: 0 },
+        goal: { purpose: 'home', sector: CINDERHOLD_SECTORS[0]!, tile: nearestWalkableTile(CINDERHOLD_SECTORS[0]!, 78), reason: NPC_JOURNEY_REASONS.home, dwellMs: 0 },
         phase: 'walking', dwellUntil: 0, path: [], pathSector: -1, hop: null, planned: false,
         lastStepAt: now, budget: 0, held: null, freshLeg: true, recent: [], standKey: null, lookTiles: [], lookIndex: 0, lookAt: 0,
     };

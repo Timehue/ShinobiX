@@ -74,7 +74,7 @@ export const VILLAGE_BIOME: Record<SectorWarVillage, 'shadow' | 'forest' | 'volc
 export const CENTRAL_SECTORS: readonly number[] = [46, 47, 48, 49, 50];
 
 // Special sectors that are never war sectors (Hollow-Gate shrine sectors —
-// East Ring Road 51, Obsidian Forecourt 60, North Gate Plaza 46 — the Sunscar
+// East Ring Road 51, Ashbrook Hills 60, North Gate Plaza 46 — the Sunscar
 // Festival at 54, Death's Gate). The festival is a neutral POI, not a territory.
 export const NON_WAR_SPECIAL_SECTORS: readonly number[] = [46, 51, 54, 60, 99];
 

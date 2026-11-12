@@ -20,6 +20,11 @@
  *   58-60  The Lavafront         (volcanic frontier)
  *      99  Death's Gate          (unchanged, map-travel-only)
  *
+ * 2026-11-11: when Cinderhold took the cone, 59 and 60 ended up on the green
+ * and dry hills below the lava's edge, so they are Midlands ground now (region
+ * `midlands`, biome `central`; 60 renamed Ashbrook Hills). Their ids stay in the
+ * 58-60 block, which the region-block test lets a region own more than once.
+ *
  * Numbers rise with danger/reward tier (chest scaling uses the sector number).
  *
  * `artKey` is the sector's ORIGINAL number — public/sector-map/s<artKey>.webp,
@@ -144,10 +149,12 @@ export const SECTOR_PLACES: readonly SectorPlace[] = [
     { id: 56, name: 'Lantern Approach', region: 'hollowroad', biome: 'shadow', artKey: 13 },
     { id: 57, name: 'Hollow Temple', region: 'hollowroad', biome: 'shadow', artKey: 18 },
 
-    // ── The Lavafront (58-60) ── the volcanic frontier below Death's Gate
+    // ── The Lavafront (58-60) ── the volcanic frontier below Cinderhold. 59
+    // and 60 sit on the hills past the lava's edge (2026-11-11) and are
+    // Midlands ground; 58 and 66 stay on the ash.
     { id: 58, name: 'Cinder Foothills', region: 'lavafront', biome: 'volcano', artKey: 7 },
-    { id: 59, name: 'Northroad Saddle', region: 'lavafront', biome: 'volcano', artKey: 2 },
-    { id: 60, name: 'Obsidian Forecourt', region: 'lavafront', biome: 'volcano', artKey: 52 },
+    { id: 59, name: 'Northroad Saddle', region: 'midlands', biome: 'central', artKey: 2 },
+    { id: 60, name: 'Ashbrook Hills', region: 'midlands', biome: 'central', artKey: 52 },
 
     // ── The 2026-07-29 expansion (61-66) ─────────────────────────────────────
     // Six sectors filling the emptiest land on the new keyart. They are APPENDED

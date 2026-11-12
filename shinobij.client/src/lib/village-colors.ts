@@ -4,5 +4,6 @@ export const VILLAGE_ACCENT: Record<string, string> = {
     'Stormveil Village': '#3b82f6',
     'Ashen Leaf Village': '#4ade80',
     'Frostfang Village': '#93c5fd',
-    'Cinderhold Village': '#f97316',
+    // Red, not orange: an orange pin read as an ordinary (unowned) sector.
+    'Cinderhold Village': '#dc2626',
 };

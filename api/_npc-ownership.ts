@@ -52,6 +52,14 @@ export async function npcOwnedIds(now = Date.now()): Promise<ReadonlySet<string>
     }
 }
 
+/**
+ * Whether any ownership read has ever succeeded. Until one does (a storage
+ * error on the first read after boot), npcOwnedIds answers "none", which is
+ * safe for every gate but would read as "every NPC is a player's" to the
+ * presence tick, so the tick waits instead of dropping all thirty journeys.
+ */
+export function npcOwnershipKnown(): boolean { return cache !== null; }
+
 /** Whether this NPC id is an NPC's own account (cached). */
 export async function npcOwnsSlug(slug: string, now = Date.now()): Promise<boolean> {
     return (await npcOwnedIds(now)).has(slug);

@@ -793,8 +793,7 @@
     .cc-actions {
         justify-content: stretch;
     }
-    .cc-actions button,
-    .cc-primary--wide {
+    .cc-actions button {
         width: 100%;
     }
 }

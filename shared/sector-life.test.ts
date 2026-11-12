@@ -171,3 +171,11 @@ test('dialogue describes literal actions and every event has a distinct instruct
     for (const text of strings) { assert(text.length<=190,text); assert(!/[—–]/.test(text),text); assert(!/\b(soul|bloodline|chosen one|destiny)\b/i.test(text),text); }
     for (const event of Object.values(LIFE_EVENTS)) assert.equal(new Set(event.tasks).size,3);
 });
+
+test('Ashbrook Hills turned Midlands, but its road stop keeps the ash-road scout, the signal errand and its pay', () => {
+    const stop = lifeRegionFor(60);
+    assert.equal(stop, LIFE_REGIONS.lavafront);
+    assert.equal(stop.event, 'signal');
+    const kinds = new Set(Array.from({ length: 24 }, (_, round) => { const at = now + round * LIFE_WINDOW_MS; return lifeEventView(60, parseLifeState(null, at), at).kind; }));
+    assert.deepEqual([...kinds].sort(), ['courier', 'signal'], 'the road stop rotates its own errands, never the unpaid animal trail');
+});

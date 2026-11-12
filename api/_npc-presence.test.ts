@@ -48,6 +48,43 @@ function placeWalker(npc: (typeof roster.NPC_VILLAGE_ROSTER)[number], sector: nu
 /** Road hops of a walkable path between two tiles of one sector. */
 const tilesBetween = (sector: number, a: number, b: number) => (walk.walkPath(sector, a, b)?.length ?? Infinity) - 1;
 
+test('with no ownership answer yet (storage down since boot) the tick waits: no journey is dropped, no NPC shown', async (t) => {
+    const ownership = await import('./_npc-ownership.js');
+    const npc = roster.NPC_VILLAGE_ROSTER[11]!;
+    const now = Date.now();
+    placeWalker(npc, 58, walk.nearestWalkableTile(58, 60), now);
+    ownership.forgetNpcOwnership();
+    const mget = kv.mget.bind(kv);
+    t.after(() => { (kv as { mget: typeof kv.mget }).mget = mget; ownership.forgetNpcOwnership(); });
+    (kv as { mget: typeof kv.mget }).mget = (async (...keys: string[]) => {
+        if (keys.length && keys.every((k) => k.startsWith('auth:'))) throw new Error('storage down');
+        return mget(...keys);
+    }) as typeof kv.mget;
+    assert.equal(await presence.refreshNpcPresence(now), 0, 'nothing shown while ownership is unknown');
+    assert.equal(ownership.npcOwnershipKnown(), false);
+    assert.ok(journeys.npcJourneyOf(npc.id), 'its journey is kept, not dropped as "a player\'s account"');
+    assert.ok(online.get(npc.name), 'its row is left alone');
+    (kv as { mget: typeof kv.mget }).mget = mget;
+    await presence.refreshNpcPresence(now + 1);
+    assert.equal(ownership.npcOwnershipKnown(), true);
+    assert.ok(journeys.npcJourneyOf(npc.id), 'and once storage answers it simply carries on');
+});
+
+test('a live world boss never has more than three Cinderhold watchers, at any moment of a window, and a hunter is never one', () => {
+    const boss = roam.NPC_ROAM_SECTORS.find((s) => !geo.CINDERHOLD_SECTORS.includes(s))!;
+    const start = Date.UTC(2026, 10, 9, 12);
+    const hunter = roster.NPC_VILLAGE_ROSTER[0]!.id;
+    for (let minute = 0; minute < 30; minute += 1) {
+        const now = start + minute * 60_000;
+        const opts = { bossSector: boss, notWatching: new Set([hunter]) };
+        const posts = presence.npcPosts(now, undefined, [], new Set(), opts);
+        const previous = presence.npcPosts(now - presence.NPC_POST_WINDOW_MS, undefined, [], new Set(), opts);
+        const watching = roster.NPC_VILLAGE_ROSTER.filter((npc) => presence.npcPostFor(npc.id, now, posts, previous)?.duty === 'boss').map((npc) => npc.id);
+        assert.equal(watching.length, roam.NPC_BOSS_WATCHERS, `minute ${minute}: ${watching.length} watchers`);
+        assert.ok(!watching.includes(hunter), 'a hunter keeps to its rival');
+    }
+});
+
 test('war duty only: each front takes its squad, a live boss its three watchers, and nobody else has a post', async () => {
     const { NPC_WAR_DEFENDER_RANKS } = await import('./_npc-war-roster.js');
     const now = Date.UTC(2026, 10, 9, 12);
@@ -675,3 +712,4 @@ test('NPCs retain their authored identity and use the sprite walking pace with n
     }
     assert.ok(distance >= 1);
 });
+

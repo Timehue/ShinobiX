@@ -321,7 +321,6 @@ button {
 .location-grid,
 .stat-grid,
 .jutsu-list,
-.tag-grid,
 .jutsu-combat-grid {
     display: grid;
     gap: 12px;
@@ -787,7 +786,6 @@ button {
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 
-.tag-grid,
 .inline-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));

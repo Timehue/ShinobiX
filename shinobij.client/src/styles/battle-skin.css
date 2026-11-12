@@ -1301,9 +1301,6 @@ body > .combat-detail-backdrop .combat-jutsu-detail-popover .combat-jutsu-detail
        The old `.arena-fullscreen.pvp-battle-layout .battle-hud-sidebar`
        selector could never match it and lg/xl showed the player HUD twice —
        once in the rail, once as the in-grid dossier. */
-    html:has(.arena-fullscreen.pvp-battle-layout) .battle-hud-sidebar {
-        display: none !important;
-    }
 
     html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child,
     html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child,
