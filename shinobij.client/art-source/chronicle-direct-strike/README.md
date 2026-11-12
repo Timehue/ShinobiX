@@ -14,6 +14,9 @@ one, and its exact prompt, are recorded in `art-v1-provenance.json`.
 
 Together they are 79,536 B. `src/lib/chronicle-direct-strike.ts` plays them and
 `src/styles/chronicle-duel.css` (`.chronicle-direct-strike`) animates them.
+`scripts/verify-dist.mjs` counts `chronicle/fx/` in the Chronicle art
+partition (`maxChronicleArtBytes`), so new plates there spend Chronicle's
+headroom, not the general runtime-asset ceiling.
 
 The strike plate is turned about its head to face along the line from the
 attacking Monster to the defending duelist, so a re-made plate must keep the
