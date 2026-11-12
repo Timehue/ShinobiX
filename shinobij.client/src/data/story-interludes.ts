@@ -1040,9 +1040,9 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "You don't have to accept the new mark. We can look at the records first, if you'd like."),
                 choices: [
                     { text: "You stood in the Count to guard others. Ask what the vault holds of yours.", nextPage: 2, requireTrait: "ff4-count-protector" },
-                    { text: "Ask what the plate found under your answer, the strongest back in the pack.", nextPage: 3, requireTrait: "ff4-count-strongest" },
+                    { text: "Ask what the plate found under your intake answer, that you came to be the strongest back in the pack.", nextPage: 3, requireTrait: "ff4-count-strongest" },
                     { text: "You came repaying a rescue. Ask who paid for yours.", nextPage: 4, requireTrait: "ff4-count-repayer" },
-                    { text: "You came looking for someone who left. Ask whose struck name the plate just showed.", nextPage: 5, requireTrait: "ff4-count-seeker" },
+                    { text: "Ask whose struck name the plate just showed, and whether it belongs to the person you came to find.", nextPage: 5, requireTrait: "ff4-count-seeker" },
                     { text: "You left your reason blank at intake. Ask what the plate found.", nextPage: 6, requireTrait: "ff4-count-unknown" },
                     { text: "Take your wrist off the plate and ask Vess for the ledger line.", nextPage: 7 }
                 ] },
@@ -1258,7 +1258,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Yura walks the line, retensions a loose stake, then turns around at the final lantern and starts the inspection again.",
                 "The wardens' report is already moving down the mountain. Yura reaches the final stake, turns back toward the still-burning line, and leaves her own report blank."),
         ], [
-            ch("Wake the wall watch and let the whole village see the lantern relay burning from the gates.", "good", "ff88-woke-the-rows", "By daylight the wall watch has gathered on the ridge. Essen calls the return route himself. Hundreds answer the chant and see the bare wrist he raises at the final stake. When a sentry asks who ordered the relay, Yura looks down the line and says, 'Everyone who came.'"),
+            ch("Wake the wall watch, and let the whole village see the lantern relay from the gates.", "good", "ff88-woke-the-rows", "By daylight the wall watch has gathered on the ridge. Essen calls the return route himself. Hundreds answer the chant and see the bare wrist he raises at the final stake. When a sentry asks who ordered the relay, Yura looks down the line and says, 'Everyone who came.'"),
             ch("File the drill log properly: witnessed, countersigned by Sova, entered.", "neutral", "ff88-logged-the-drill", "You and Yura write it up plainly: times, lamp spacing, no power drawn from the vault, and a man found by people who chose to search. Sova crosses out 'anomaly', writes 'voluntary relay', and countersigns. The entry reaches the records room before the wardens' account, in a format Kael's own clerks must preserve."),
             ch("Let the wardens' report run ahead, unchallenged, straight to Kael.", "bad", "ff88-baited-the-wardens", "You add nothing to the wardens' account. Their seals, their times, and their report of Essen standing unmarked reach Kael before Yura files a word. She watches the packet leave and says that using the Count's chain still means trusting where it ends."),
         ]),

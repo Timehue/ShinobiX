@@ -1023,7 +1023,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Manifest Under the Ash", "Off the road, a folded paper under the second crate's false bottom", "Toma Reed", [
                 "This was under the false bottom. It's a shipping manifest.",
-                "It lists graft-slats, the cut futures, from late season. The destination is 'Fifth Anchor escrow,' whatever that means. The buyer's mark is a circle cut in four.",
+                "It lists late-season graft-slats, the futures cut from people here. The destination is written as 'Fifth Anchor escrow.' The buyer's mark is a circle cut in four.",
                 "At the bottom: 'Deliver surplus below Rootfire intake.'",
                 "There's something under the fire. Whatever the village doesn't use is being sent there."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
@@ -1689,7 +1689,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Each of the forty-three, you learn by asking, filed a grievance, missed a check, or asked the wrong question at roll call. The rows are alphabetical."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp" },
             { ...storyPage("What Harrow Sells", "The icehouse, Harrow with her collar up and her ledger out", "Kite Harrow", [
-                "I compared the dates those forty-three were frozen with Sova's meter, the gauge that tracks what the vault takes in. Each freezing made the lower draw jump, the channel that carries power out of the vault. And every one of them was frozen after a refusal or a grievance.",
+                "I compared the dates those forty-three were frozen with Sova's meter, the gauge that tracks what the vault takes in. Each freezing made the lower draw jump. That's the channel that carries power out of the vault. And every one of them was frozen after a refusal or a grievance.",
                 "The meter rises more sharply for each new prisoner than it does for an already sealed soldier. That's what the readings show; I don't yet know why.",
                 "Kael is keeping them frozen as a fresh supply of fuel to cover some payment. I don't know when it is due."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp", choices: [
@@ -1757,14 +1757,14 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Man Fused to the Door", "The vault floor: a wall of ancient ice, a meter running backward, Kael before it", "Kage Kael Whitefang", [
                 "You're on time.",
-                "That's the vault. The meter shows how much it has left to pay with, and it reaches zero tonight.",
+                "That's the vault. Its meter has been running down, and it reaches zero tonight.",
                 "The script has moved past my shoulder. I knew the vault was changing other people. I didn't realize it was changing me too.",
                 "The Count worked when I inherited it. Somewhere along the way, rescue became a quota. I knew, and I kept using it because no one froze. There's something else you need to see."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Look where he is looking.", nextPage: 5 }
             ] },
             { ...storyPage("The Gate Tax", "The vault's blue-white flame steady above, and beneath the grate a darker pull downward", "Kage Kael Whitefang", [
-                "Look under the flame, through the grate. That second channel is the lower draw. It carries power down and out of the vault, and it's marked with a quartered circle.",
+                "Look under the flame, through the grate. That channel is the lower draw. It carries power down and out of the vault, and it's marked with a quartered circle.",
                 "It leads to a place called Hollow Gate. Thirty years ago I signed the order that opened that channel to it, and I renewed it every year after.",
                 "The other villages pay Hollow Gate too. Frostfang pays with the choices people give up to obey the Count.",
                 "Every order Dren swallowed while he served fed the vault and the Gate. When he finally refused, neither of them got anything. I hid that when I called him a deserter.",
@@ -2136,11 +2136,11 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The order arrives the way the worst ones do here. Someone repeats it to you thirdhand, so it is easy to deny. There is no seal and nothing on paper. This is what the small errands were preparing you for.",
                 "The order says a shrine witness on the eastern canal has been copying names, and the witness dies tonight. You, the Jonin of the Hidden Knife, are to handle it personally. Officially, the tower never asked.",
                 "There is nothing you can show a witness to prove who gave the order. If the killing is exposed, the blame will fall on you.",
-                "The shrine on the eastern canal keeps its lamps low, the way someone copying secret names would want it."
+                "The shrine on the eastern canal keeps its lamps low. Witnesses who copy names in secret usually do."
             ]), image: "/scenes/story/story-moonshadow-village-65-5.webp" },
             { ...storyPage("The Copied Names", "The canal shrine, an old keeper laying pages flat with shaking hands", "Shrine Witness", [
                 "You're the one they sent. Sit down and read before you decide what to do with me.",
-                "There are three hundred eleven names here, going back forty years. The booth records list them as sold down the line, and nothing after that. They may still be alive.",
+                "There are three hundred eleven names here, going back forty years. The booth records mark each of them as sold, and then the records stop. They may still be alive.",
                 "Their families think they left. I made copies so the original records couldn't be erased without a trace.",
                 "Read the third page. I think that's why the tower sent you instead of someone it trusts."
             ]), image: "/scenes/story/story-moonshadow-village-65-5.webp", choices: [
@@ -2265,7 +2265,7 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Moonshadow Village", 100, "The Moon Belongs to No One", "Kage Sable Nocturne, Hollow Moon Sovereign", "🌙", [
             { ...storyPage("The Black Moon", "The tower summit stair, the moon overhead gone black as the Mirror", "Narrator", [
-                "The moon goes black at dusk, and nobody in the market needs it explained. The buyer's collection date has arrived, and its payment is already waiting. Tonight the buyer either takes Moonshadow's records or loses them.",
+                "The moon goes black at dusk, and nobody in the market needs it explained. The buyer's collection date has arrived, and its payment is already waiting. Tonight the buyer either collects everything Moonshadow owes or goes without.",
                 "The village does not follow you up the tower. People stay home with every lamp lit and place their returned files in the windows, where Sable can see them.",
                 "The shrine keeper and a moneylender climb with you, carrying their records. Nyx is waiting on the summit landing.",
                 "At the summit landing, a warm cup of canal tea waits on the last step. Nyx's note reads: 'For your throat. You'll need it. N.'",

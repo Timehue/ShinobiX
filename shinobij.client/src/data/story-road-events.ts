@@ -184,7 +184,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Whatever you do, do it where I can see. Somebody should be able to say what happened here.",
             "I'll be in the shade, eating. Don't read anything into that."),
     ], [
-        ch("Refuse tonight's meal and wait at the seam", "good", "rd34-kept-my-no", "At dusk the seam opens on a slate of names, each beside the one thing its owner refused to give up. You read it until dark. As the seam closes, a glyph rises beside your hand: the cut that marks old refusals. Serel checks it against her staff. 'Same cut. Somebody saw you say no.'", undefined),
+        ch("Refuse tonight's meal and wait at the seam", "good", "rd34-kept-my-no", "At dusk the seam opens on a slate of names, each beside the one thing its owner refused to give up. As the seam closes, a glyph rises beside your hand: the cut that marks old refusals, not a Bloodline sign. Serel checks it against her staff. 'Same cut. Somebody saw you say no.'", undefined),
         ch("Measure the stone, copy its rule, touch nothing", "neutral", "rd34-copied-the-rule", "You sketch the ring, the seam, the cold sun side, and write the rule beneath: opens for a refusal, witnessed. Serel corrects your moss line by a handspan and walks you back to the road.", undefined),
         ch("Drive a chisel into the seam and pry", "bad", "rd34-pried-the-seam", "By the third strike the seam is gone and the stone is one smooth piece. You cairn the spot for a return with better tools, and Serel shoulders her pack without a word.", undefined),
     ]),
@@ -285,7 +285,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Bellis will promise you two hundred for reporting me. I wouldn't trust him to pay.",
             "Whatever is in the crate, I think the real cost was taken from someone who doesn't know about it."),
     ], [
-        ch("Break the seal with her and witness what is inside", "good", "rd48-split-the-penalty", "Clay tallies inside are stamped with names and RECEIVED IN FULL. An older slab lists each family as COMPLIANT, UNSTABLE, or LINEAGE UNCONFIRMED, beside a trait the Court meant to extract, like strongest. 'It's an intake list, not a Legacy registry,' Harrow says. 'Someone priced people.' She nails the manifest to the waystation board.", undefined),
+        ch("Break the seal with her and witness what is inside", "good", "rd48-split-the-penalty", "Clay tallies are stamped with living names and RECEIVED IN FULL. An older slab lists each family as COMPLIANT, UNSTABLE, or LINEAGE UNCONFIRMED, beside the trait the Court meant to take: strongest, cruelest, most loyal. 'It's an intake list, not a Legacy registry,' Harrow says. She copies the names and nails it to the board.", undefined),
         ch("Trade your silence for a favor in her ledger", "neutral", "rd48-favor-on-the-books", "She writes one line: favor owed, no expiry, your name spelled right, and shows you before closing the book. The crate rolls on, and the mules still won't walk ahead of it.", undefined),
         ch("Report her to Bellis", "bad", "rd48-collected-the-fee", "Bellis records your report and voids Harrow's contract on the spot. When you ask about the fee, he says it needs approval. You leave without payment. Harrow watches you sign, then opens her ledger and writes something short.", undefined),
     ]),
@@ -390,7 +390,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
         pg("The Court Below", "First gallery, below the winch", "Narrator",
             "At the lintel, the lamp's beam bends left even when you turn the lantern the other way.",
             "Above the arch, in an old script that still turns up in ledgers, someone carved: the court below keeps its own accounts.",
-            "Under the words are columns of tallies, each headed by a small carved face, eyes closed. Down one wall, the names stop. The same marks appear beside names centuries apart, in unrelated families: a shield, an open hand, a severed chain. Nobody inherited them. They keep turning up, on past the lamp.",
+            "Under the words are columns of tallies, each headed by a small carved face, eyes closed. Down one wall, the names stop. The same marks appear beside names centuries apart, in unrelated families: a shield, an open hand, a severed chain. Nobody inherited them, yet they keep turning up past the lamplight.",
             "Beyond the lamplight, a steady sound comes up the wide stair. At first it sounds like dripping water. Then you hear pauses that make it sound like someone counting.",
             "The third rung flexes on the way back up."),
         pg("Sold as Seen", "Winch platform, lamps guttering", "Corvo Latch",

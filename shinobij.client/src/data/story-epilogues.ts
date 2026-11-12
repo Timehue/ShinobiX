@@ -248,7 +248,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows the vault is dark. It has returned forty years of stored refusals and doubts to the people it took them from. Many suddenly remember that they once wanted to leave, object, or choose differently.",
                         "It is quiet, and it is not calm. People keep touching their own wrists like a healed break. Two soldiers resigned at first bell. One asked to re-enlist an hour later, and Sova entered him with a note: BY CHOICE, and underlined it.",
                         "The hearths burn wood now. Supplies are short, and losing the Vault's heat has put families at risk. Crews begin gathering fuel for the next storm.",
-                        "Far below the dark Vault, the deep pipe that fed Hollow Gate goes quiet. People called it the lower draw. No bound choices remain for the Gate to take.",
+                        "Far below the dark Vault, the deep pipe that fed Hollow Gate goes quiet. No bound choices remain for the Gate to take.",
                     ],
                 },
                 {
