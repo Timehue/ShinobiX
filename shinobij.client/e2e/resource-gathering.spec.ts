@@ -256,7 +256,7 @@ test('the Outpost Harvesting tab shows the payout, live meadows and the kama slo
     await expect(appraisal.locator('.outpost-grade')).toHaveCount(4);
     await expect(appraisal).toContainText('Perfect row');
     await expect(page.getByRole('region', { name: 'Gathering equipment' }).getByRole('heading', { name: 'Harvest Kama' })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Wild meadow directory' })).toContainText(/\d+ of 50 meadows growing/);
+    await expect(page.getByRole('region', { name: 'Wild meadow directory' })).toContainText(/\d+ of 52 meadows growing/); // 59 and 60 gained meadows when they became Midlands (2026-11-11)
     await noOverflow(page);
     const audit = await new AxeBuilder({ page }).include('.shinobi-outpost').withTags(['wcag2a', 'wcag2aa']).analyze();
     expect(audit.violations).toEqual([]);

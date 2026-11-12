@@ -482,8 +482,10 @@ test("the top-left run button expires and refills automatically", async ({page},
     const mapBounds = (await map.boundingBox())!, buttonBounds = (await run.boundingBox())!;
     expect(buttonBounds.x - mapBounds.x).toBeCloseTo(8, 0);
     expect(buttonBounds.y - mapBounds.y).toBeCloseTo(8, 0);
-    expect(buttonBounds.width).toBeGreaterThanOrEqual(44);
-    expect(buttonBounds.height).toBeGreaterThanOrEqual(44);
+    // Firefox reports this exact 44px button as 43.99999809px inside the scaled
+    // map board; round like the other 44px touch-target checks (android-qa-report).
+    expect(Math.round(buttonBounds.width)).toBeGreaterThanOrEqual(44);
+    expect(Math.round(buttonBounds.height)).toBeGreaterThanOrEqual(44);
     await run.click();
     await expect(run).toHaveAttribute('data-run-state','running');
     await expect(run).toHaveAttribute('aria-pressed','true');
