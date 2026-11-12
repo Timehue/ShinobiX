@@ -47,7 +47,7 @@ import {
 } from "./wanderers";
 import { serverNow } from "./server-clock";
 import { ordinaryWandererEncounter } from '../../../shared/wanderer-roster';
-import { ordinaryPvePortrait } from './ordinary-pve-presentation';
+import { ordinaryPvePortraitOverride } from './ordinary-pve-presentation';
 import { activeVillageWarsFor, loadSectorTerritory } from "./world-state";
 
 export { roadNemesisActorId, roadNemesisTier, roadNemesisTitle };
@@ -55,7 +55,11 @@ export { roadNemesisActorId, roadNemesisTier, roadNemesisTitle };
 export function withOrdinaryPvePreview(wanderer: Wanderer, playerLevel: number, sector: number | null | undefined): Wanderer {
     if (wanderer.archetype === "riftspawn") return { ...wanderer, level: riftSpawnCombatLevel(playerLevel) };
     const encounter = sector != null ? ordinaryWandererEncounter(wanderer, playerLevel, sector) : null;
-    return encounter ? { ...wanderer, level: encounter.level, avatarImage: ordinaryPvePortrait(encounter) } : wanderer;
+    if (!encounter) return wanderer;
+    // Keep the roster portrait used by the fitted model unless this actor has
+    // its own authored face. The dialog resolves its combat portrait on engage.
+    const avatarImage = ordinaryPvePortraitOverride(encounter);
+    return { ...wanderer, level: encounter.level, ...(avatarImage ? { avatarImage } : {}) };
 }
 
 type CastCharacter = {

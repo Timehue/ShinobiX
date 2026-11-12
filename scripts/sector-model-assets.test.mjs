@@ -46,7 +46,9 @@ async function verifyPackedNpc(model, slug) {
 
 test("the client pins each fitted model to the original portrait and published revision", async () => {
     const files = (await readdir(manifests)).filter(name => name.endsWith(".json"));
-    for (const required of ["patrol.json", "medic.json", "starter-one.json", "starter-two.json"]) assert.ok(files.includes(required));
+    for (const required of ["patrol.json", "medic.json", "tsukika.json", "starter-one.json", "starter-two.json"]) {
+        assert.ok(files.includes(required), `Missing model pin ${required}`);
+    }
     for (const file of files) {
         const model = JSON.parse(await readFile(new URL(file, manifests), "utf8"));
         assert.match(model.portrait, /^(src\/assets|public)\/[\w./-]+\.webp$/);
@@ -55,6 +57,7 @@ test("the client pins each fitted model to the original portrait and published r
         if (file.startsWith("starter-")) {
             assert.equal(model.portrait, "public/starter-avatar-" + file.slice("starter-".length, -5) + ".webp");
         }
+        if (file === "tsukika.json") assert.equal(model.portrait, "public/portraits/pve/tsukika.webp");
         assert.match(model.manifestSha256, /^[a-f0-9]{64}$/);
     }
 });
