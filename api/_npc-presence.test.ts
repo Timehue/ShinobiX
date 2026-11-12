@@ -51,7 +51,10 @@ const tilesBetween = (sector: number, a: number, b: number) => (walk.walkPath(se
 test('with no ownership answer yet (storage down since boot) the tick waits: no journey is dropped, no NPC shown', async (t) => {
     const ownership = await import('./_npc-ownership.js');
     const npc = roster.NPC_VILLAGE_ROSTER[11]!;
-    const now = Date.now();
+    // Start while this NPC is on duty: every NPC logs off for hours each day, and
+    // an off-duty NPC rightly has no journey, which is not what this test proves.
+    let now = Date.now();
+    while (presence.npcOffDuty(npc.id, now)) now += 60_000;
     placeWalker(npc, 58, walk.nearestWalkableTile(58, 60), now);
     ownership.forgetNpcOwnership();
     const mget = kv.mget.bind(kv);
