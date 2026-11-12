@@ -30,19 +30,19 @@ function objectKeys(objectName: string): string[] {
 }
 
 test("all bundled battlefield sprites are optimized transparent WebP cutouts", async () => {
-    const paths = webpFiles(assetDir);
+    const paths = webpFiles(assetDir).map(path => ({ path, sizes: [160, 192, 384] }));
     assert.equal(paths.length, 49, "the imported combat sprite set drifted");
-    for (const [folder, count] of [["starters", 2], ["cinderhold", 30], ["named", 26]] as const) {
+    for (const [folder, count, size] of [["starters", 2, 192], ["cinderhold", 30, 148], ["named", 26, 148]] as const) {
         const authored = webpFiles(join(clientRoot, "public", "combat-actors", folder));
         assert.equal(authored.length, count, folder);
-        paths.push(...authored);
+        paths.push(...authored.map(path => ({ path, sizes: [size] })));
     }
-    for (const path of paths) {
+    for (const { path, sizes } of paths) {
         assert.ok(existsSync(path));
         assert.ok(statSync(path).size <= 128 * 1024, `${path} exceeds the battlefield asset budget`);
         const metadata = await sharp(path).metadata();
         assert.equal(metadata.format, "webp", path);
-        assert.ok([160, 192, 384].includes(Math.max(metadata.width, metadata.height)), `${path} has unexpected sprite dimensions`);
+        assert.ok(sizes.includes(Math.max(metadata.width, metadata.height)), `${path} has unexpected sprite dimensions`);
         assert.equal(metadata.hasAlpha, true, `${path} must retain transparency`);
 
         const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
