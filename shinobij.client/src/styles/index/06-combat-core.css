@@ -669,14 +669,6 @@
     100% { opacity: 0; transform: scale(0.96); }
 }
 
-.spire-result {
-    position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px;
-    background: radial-gradient(70% 60% at 50% 40%, rgba(6,10,20,0.72), rgba(2,4,10,0.92));
-    animation: spireIntroRise 0.35s ease;
-}
-.spire-result-title { font-family: var(--font-display, inherit); font-size: 1.7rem; margin: 4px 0 2px; line-height: 1.05; }
-.spire-result-title.win { color: var(--gold-300); text-shadow: 0 2px 16px rgba(230, 196, 119, 0.5); }
-.spire-result-title.loss { color: var(--red-400); }
 .spire-result-sub { color: #c9bdad; font-size: 0.9rem; margin: 4px 0 0; line-height: 1.45; }
 .spire-result-sub b { color: var(--boss-accent, #f0a15a); }
 .spire-result-btn {

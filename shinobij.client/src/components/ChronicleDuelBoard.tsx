@@ -22,7 +22,8 @@ import {
   primeChronicleSfx,
   type ChronicleSfx,
 } from "../lib/chronicle-sfx";
-import { chronicleLegalPlacements } from "../lib/chronicle-placements";
+import { chronicleAutoTributes, chronicleLegalPlacements, chronicleSummonZone } from "../lib/chronicle-placements";
+import { playChronicleDirectStrike, primeChronicleDirectStrike } from "../lib/chronicle-direct-strike";
 import { isImageAvatar } from "../lib/avatar";
 import { ChronicleCardView } from "./ChronicleCardView";
 import { ELEMENT } from "../lib/chronicle-card-art";
@@ -31,7 +32,7 @@ import { chronicleFigureSources } from "../lib/chronicle-figure-art";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { ChronicleCardInspector } from "./ChronicleCardInspector";
 import { Modal } from "./ui/Modal";
-import { chronicleBeats, chronicleEventCopy } from "../lib/chronicle-presentation";
+import { chronicleBeats, chronicleDirectStrike, chronicleEventCopy } from "../lib/chronicle-presentation";
 import { ChronicleResolutionDirector } from "./ChronicleResolutionDirector";
 import { displayPlayerName } from "../../../shared/player-name";
 
@@ -300,6 +301,7 @@ export function ChronicleDuelBoard({
   useFullScaleViewport();
   useEffect(() => {
     primeChronicleSfx();
+    primeChronicleDirectStrike();
   }, []);
   const meKey = state.viewerSide;
   const foeKey: SideKey = meKey === "p1" ? "p2" : "p1";
@@ -422,6 +424,9 @@ export function ChronicleDuelBoard({
   // could legally enter, so the board answers "where does this go?" before a
   // slot is committed.
   const placements = chronicleLegalPlacements(state, selected);
+  // Where the picked Monster lands. A finished Tribute hands over its own zone,
+  // so a Tribute Summon needs no placement step unless the player wants one.
+  const summonZone = chronicleSummonZone(placements, tributes, requiredTributes, destination);
   // The server's own summon rules, read here so the dock explains a refusal
   // before the player commits rather than after the server turns it away.
   const callOnlyBlock = selected ? callOnlySummonBlocker(selected) : null;
@@ -738,6 +743,15 @@ export function ChronicleDuelBoard({
     if (state.turnNumber < prev.turnNumber) return; // different duel
     const seenEvents = new Set(prev.events?.map(event => event.id));
     const newEvents = state.events?.filter(event => !seenEvents.has(event.id)) ?? [];
+    // A direct attack has no Monster to land on: the blow crosses the table to
+    // the defending duelist, and the damage number waits for it to arrive.
+    const strike = chronicleDirectStrike(state.events ?? [], newEvents);
+    const strikeDelay = strike
+      ? playChronicleDirectStrike(
+          zoneEls.current.get(`${strike.attacker === meKey ? "me" : "foe"}-monster-${strike.zoneIndex}`),
+          (strike.defender === meKey ? meFloatRef : foeFloatRef).current?.closest(".chronicle-combatant"),
+        )
+      : 0;
     const sides = [
       { sideKey: meKey, prefix: "me", floatAnchor: meFloatRef.current },
       { sideKey: foeKey, prefix: "foe", floatAnchor: foeFloatRef.current },
@@ -790,7 +804,10 @@ export function ChronicleDuelBoard({
           if (!activated) pulseFx(el, "fx-destroyed", 580);
         }
       });
-      spawnLifeFloat(floatAnchor, now.lifePoints - before.lifePoints);
+      const lifeDelta = now.lifePoints - before.lifePoints;
+      if (strikeDelay && strike?.defender === sideKey)
+        window.setTimeout(() => spawnLifeFloat(floatAnchor, lifeDelta), strikeDelay);
+      else spawnLifeFloat(floatAnchor, lifeDelta);
     }
     // The Keeper's strikes name no attacker zone in the log, so its whole
     // Monster row presses toward the player for the beat instead. One action
@@ -857,7 +874,14 @@ export function ChronicleDuelBoard({
     setHandIndex(index);
     setDestination(null);
     setTarget(null);
-    setTributes([]);
+    // With no choice to make, the Tribute is offered as the card is picked up.
+    const pickedId = me.hand?.[index];
+    const picked = pickedId ? (cardsById[pickedId] ?? getChronicleCard(pickedId)) : undefined;
+    setTributes(
+      picked?.cardClass === "monster"
+        ? chronicleAutoTributes(chronicleLegalPlacements(state, picked), tributeCountForLevel(picked.level))
+        : [],
+    );
     setAttacker(null);
     setFieldMonster(null);
     setGraveyardIndex(null);
@@ -915,7 +939,7 @@ export function ChronicleDuelBoard({
     : !myTurn ? "Waiting for your opponent"
     : placingMonster ? (state.normalSummonUsed ? "Normal Summon already used"
       : tributes.length < requiredTributes ? `Select ${requiredTributes - tributes.length} Tribute${requiredTributes - tributes.length === 1 ? "" : "s"}`
-      : destination === null ? "Choose an open Monster Zone" : `Zone ${destination + 1} · Choose Attack or Defense`)
+      : summonZone === null ? "Choose an open Monster Zone" : `Zone ${summonZone + 1} · Choose Attack or Defense`)
     : placingTrap ? (destination === null ? "Choose a Jutsu/Snare Zone" : `Zone ${destination + 1} · Set your Snare`)
     : selected?.cardClass === "magic" ? (selectedMagicTargetReady ? "Ready to activate Jutsu" : targetsGraveyard ? "Choose a card from your Graveyard" : targetsOwnedMonster ? "Choose one of your Monsters" : "Choose an enemy target")
     : state.phase === "battle" ? (attacker === null ? "Choose a Monster to attack" : foe.monsterZones.some(Boolean) ? "Choose an enemy Monster to strike" : "Ready for a direct attack")
@@ -1343,10 +1367,10 @@ export function ChronicleDuelBoard({
                 <button
                   type="button"
                   ref={zoneRef(zoneKey)}
-                  className={`chronicle-zone monster-zone ${monster?.position === "defense" ? "defense-position" : "attack-position"} ${placementTarget || tributeTarget || (targetsOwnedMonster && legalMagicTarget) || attackCandidate ? "legal-target" : ""} ${attackCandidate ? "attack-candidate" : ""} ${placementTarget ? "placement-open" : ""} ${(placingMonster && destination === index) || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget) ? "selected" : ""} ${(!myTurn || blockedByMagicSelection) && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
+                  className={`chronicle-zone monster-zone ${monster?.position === "defense" ? "defense-position" : "attack-position"} ${placementTarget || tributeTarget || (targetsOwnedMonster && legalMagicTarget) || attackCandidate ? "legal-target" : ""} ${attackCandidate ? "attack-candidate" : ""} ${placementTarget ? "placement-open" : ""} ${(placingMonster && summonZone === index) || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget) ? "selected" : ""} ${(!myTurn || blockedByMagicSelection) && canInspect ? "inspectable" : ""} ${inspect?.zoneKey === zoneKey ? "inspected" : ""}`}
                   key={index}
                   aria-label={`${tributeTarget ? "Choose Tribute in" : placementTarget ? "Place in" : attackCandidate ? "Choose attacker in" : "Select"} your Monster Zone ${index + 1}${monster?.cardId ? `: ${cardsById[monster.cardId]?.name ?? monster.cardId}` : ": empty"}`}
-                  aria-pressed={(placingMonster && destination === index) || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget)}
+                  aria-pressed={(placingMonster && summonZone === index) || attacker === index || fieldMonster === index || tributes.includes(index) || (target === index && legalMagicTarget)}
                   onClick={() => {
                     const interactive = myTurn && !blockedByMagicSelection;
                     if (tributeTarget) {
@@ -1398,6 +1422,7 @@ export function ChronicleDuelBoard({
                           back
                         />
                       ) : null}
+                      {tributes.includes(index) ? <em className="chronicle-tribute-mark">TRIBUTE</em> : null}
                       <small>
                         {monster.position === "attack"
                           ? `ATK ${monster.attack}`
@@ -1648,32 +1673,40 @@ export function ChronicleDuelBoard({
                     ? `Level ${selected.level} needs ${requiredTributes} Tribute${requiredTributes === 1 ? "" : "s"}, and only ${placements.tributeZones.length} of your Monsters can be Tributed now.${freshDoublesWaiting ? " Shadow Doubles can be Tributed starting next turn." : ""}`
                   : requiredTributes > 0 && tributes.length < requiredTributes
                     ? `Level ${selected.level} needs ${requiredTributes} Tribute${requiredTributes === 1 ? "" : "s"} — click your own Monsters to offer them (${tributes.length}/${requiredTributes}).`
-                    : destination === null
+                    : summonZone === null
                       ? "Click a glowing Monster Zone to place this Monster."
-                      : `Monster Zone ${destination + 1} chosen — play it face-up in Attack Position or face-down in Defense Position.`}
+                      : requiredTributes > 0
+                        ? `Tribute ready — ${selected.name} takes Monster Zone ${summonZone + 1}. Play it face-up in Attack Position or face-down in Defense Position, or click another glowing zone to place it there.`
+                        : `Monster Zone ${summonZone + 1} chosen — play it face-up in Attack Position or face-down in Defense Position.`}
               </span>
-              {tributes.map((zoneIndex) => (
-                <button
-                  key={`destination-${zoneIndex}`}
-                  disabled={busy}
-                  onClick={() => setDestination(zoneIndex)}
-                >
-                  Place in Tribute Zone {zoneIndex + 1}
-                </button>
-              ))}
+              {/* The first Tribute's zone is taken automatically; a second one
+                  stays one click away. */}
+              {tributes.length === requiredTributes
+                ? tributes
+                    .filter((zoneIndex) => zoneIndex !== summonZone)
+                    .map((zoneIndex) => (
+                      <button
+                        key={`destination-${zoneIndex}`}
+                        disabled={busy}
+                        onClick={() => setDestination(zoneIndex)}
+                      >
+                        Place in Tribute Zone {zoneIndex + 1}
+                      </button>
+                    ))
+                : null}
               <button
                 className="summon-attack primary"
                 disabled={
                   busy ||
                   state.normalSummonUsed ||
-                  destination === null ||
+                  summonZone === null ||
                   tributes.length !== requiredTributes
                 }
                 onClick={() =>
                   act({
                     action: "normal-summon",
                     handIndex: handIndex!,
-                    zoneIndex: destination!,
+                    zoneIndex: summonZone!,
                     tributeZoneIndexes: tributes,
                   })
                 }
@@ -1685,14 +1718,14 @@ export function ChronicleDuelBoard({
                 disabled={
                   busy ||
                   state.normalSummonUsed ||
-                  destination === null ||
+                  summonZone === null ||
                   tributes.length !== requiredTributes
                 }
                 onClick={() =>
                   act({
                     action: "set-monster",
                     handIndex: handIndex!,
-                    zoneIndex: destination!,
+                    zoneIndex: summonZone!,
                     tributeZoneIndexes: tributes,
                   })
                 }
@@ -1846,18 +1879,15 @@ export function ChronicleDuelBoard({
                 disabled={
                   busy || attacker === null || foe.monsterZones.some(Boolean)
                 }
-                onClick={() => {
-                  pulseFx(
-                    zoneEls.current.get(`me-monster-${attacker!}`),
-                    "fx-strike-up",
-                    420,
-                  );
+                // The lunge and the strike play when the blow is released
+                // (see the card motion layer), which a Snare can hold back.
+                onClick={() =>
                   act({
                     action: "attack",
                     attackerZoneIndex: attacker!,
                     targetZoneIndex: null,
-                  });
-                }}
+                  })
+                }
               >
                 {directAttackPower === null
                   ? "Direct attack"

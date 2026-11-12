@@ -70,8 +70,6 @@
 .caravan-mode .caravan-departure > button,
 .caravan-mode .caravan-next-stop .sunscar-button-row > button:first-child,
 .caravan-mode .caravan-encounter > button:not(.sunscar-secondary) { background: #97463b; border-color: #d18871; color: #fff0d6; }
-.caravan-objective { border-top-color: #aa715766; color: #e4c9a8; }
-.caravan-objective > small { color: #bfc7c8; }
 .caravan-tools-inventory > span { background: #202c33; border-color: #738b8b55; color: #e2d6bd; }
 .caravan-mode .caravan-chart { border-color: #a5967c; border-radius: 5px; }
 .caravan-map-tools, .caravan-map-key { background: #202d33; color: #dfd7c2; }

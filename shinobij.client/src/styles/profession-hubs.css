@@ -162,8 +162,6 @@
 .app-shell.screen-professions .ph-hub .profession-mastery-node-copy > div:first-child { color: #dedbcf; font-size: 12px; font-weight: 500 !important; }
 .app-shell.screen-professions .ph-hub .profession-mastery-node button { flex: 0 0 auto; min-height: 44px; border: 1px solid #d6b77b44; border-radius: 3px; background: #d6b77b0c; color: var(--ph-gold); font-size: 11px; box-shadow: none; }
 .app-shell.screen-professions .ph-hub .profession-mastery-node button:disabled { opacity: .5; }
-.profession-screen:has(.ph-hub) > .profession-respec-panel { border: 1px solid #d6b77b22 !important; background: #0c1115 !important; box-shadow: none; }
-.profession-screen:has(.ph-hub) > .profession-respec-panel h3 { color: #bfb9a9; font: 400 20px var(--font-display); }
 @container profession (max-width: 620px) {
     .app-shell.screen-professions .ph-hub .ph-hero { min-height: 330px; }
     .ph-hero-nav { left: 22px; right: 22px; top: 22px; }

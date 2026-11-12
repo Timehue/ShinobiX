@@ -1,0 +1,27 @@
+{
+  "createdAt": "2026-11-11",
+  "generator": "Figma generate_image (gpt-image-2.5-flare)",
+  "figmaFile": "FHz1za66qbhAnzx3ygfTHa",
+  "purpose": "Painted strike and impact plates for the Chronicle card duel's direct attack, in the additive style of the PvP plates in public/combat-vfx",
+  "normalization": {
+    "strike": { "width": 448, "height": 112, "format": "webp", "quality": 80, "alphaQuality": 90 },
+    "impact": { "width": 320, "height": 320, "format": "webp", "quality": 60, "alphaQuality": 70 },
+    "note": "Keyed from flat black: alpha is the brightest channel (floor 10, gamma 0.8), colour unpremultiplied."
+  },
+  "assets": [
+    {
+      "asset": "direct-strike",
+      "figmaNode": "13:2",
+      "runtime": "public/chronicle/fx/direct-strike-v1.webp",
+      "background": "flat black, keyed by brightness",
+      "prompt": "Hand-painted 2.5D combat VFX plate for a ninja fantasy card-duel game: ONE shinobi strike in flight, travelling from left to right. At the far right is the leading edge: a sharp, blazing white-gold crescent blade of chakra energy, like the arc of a sword cut, bright and crisp. Behind it streams a long tapering comet tail made of bold sumi ink brush strokes, flowing golden energy ribbons and scattered ember sparks, thinning away to nothing toward the far left. Painterly dimensional shading, hot white core, warm gold and amber glow, a few flecks of crimson ember, dry-brush texture on the trailing strokes. Composition: the strike is perfectly horizontal and vertically centered, the bright crescent head sits about 8% in from the right edge, the tail fades out completely before the left edge, generous empty margin above and below, nothing cropped. Background: pure solid flat black (#000000) everywhere, completely uniform, for additive blending. No character, no creature, no weapon handle, no hands, no ground, no smoke clouds filling the frame, no text, no lettering, no logos, no border, no vignette."
+    },
+    {
+      "asset": "direct-impact",
+      "figmaNode": "13:3",
+      "runtime": "public/chronicle/fx/direct-impact-v1.webp",
+      "background": "flat black, keyed by brightness",
+      "prompt": "Hand-painted 2.5D combat VFX plate for a ninja fantasy card-duel game: ONE direct-hit impact burst seen head-on, as if a strike has just landed on the viewer's target. Two crossed crescent slash marks form a bold X-shaped cut in hot white-gold at the center, surrounded by a broken circular shockwave ring, radiating speed streaks, splashes of black sumi ink edged with gold, flying ember sparks and a few small stone chips thrown outward. Bright white core at the very center, warm gold and amber energy, crimson ember accents, painterly dimensional shading with dry-brush texture. Composition: perfectly centered and roughly circular, filling about 84% of the frame, every streak and spark ends inside the frame with empty margin on all four sides, nothing cropped. Background: pure solid flat black (#000000) everywhere, completely uniform, for additive blending. No character, no creature, no weapon, no hands, no ground plane, no text, no lettering, no logos, no border, no vignette."
+    }
+  ]
+}

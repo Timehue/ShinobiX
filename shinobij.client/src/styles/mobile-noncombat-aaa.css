@@ -957,8 +957,7 @@
   }
 
   .app-shell[data-ui-mode="noncombat"].screen-professions .profession-hub,
-  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-overview,
-  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-respec-panel {
+  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-overview {
     box-sizing: border-box;
     inline-size: 100%;
     min-inline-size: 0;
@@ -966,19 +965,6 @@
   }
 
   /* Profession headquarters own their responsive styling in profession-hubs.css. */
-
-  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-respec-panel {
-    margin: 0 !important;
-    padding: 14px !important;
-    border-color: rgba(148, 163, 184, 0.22) !important;
-    background: rgba(5, 10, 17, 0.82) !important;
-  }
-
-  .app-shell[data-ui-mode="noncombat"].screen-professions .profession-respec-panel > h3 {
-    margin-block-start: 0;
-    color: var(--sj-text-secondary);
-    font-size: 0.95rem !important;
-  }
 
   .app-shell[data-ui-mode="noncombat"].screen-professions .profession-overview {
     padding: 12px !important;

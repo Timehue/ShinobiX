@@ -41,6 +41,33 @@ export function chronicleReplayDelay(previous: ChronicleProjection | null, next:
   return duration ? duration + 120 : 350;
 }
 
+export type ChronicleDirectStrike = { attacker: Side; zoneIndex: number; defender: Side; amount: number };
+
+/** The direct attack whose damage landed in `fresh`, if one did. With nothing
+ * to respond with, the declaration and its damage are one action. When a Snare
+ * window opens between them, the damage arrives with the action that closes
+ * it: a pass, or a Snare that answers without stopping the attack (one that
+ * only weakens the attacker). The declaration is then read back out of the
+ * history. A Snare can also turn a declared direct attack onto a Monster
+ * (Long Watch), so after a Snare only the server's own Damage Step line proves
+ * the blow reached the duelist. A Snare that stopped or reflected the attack
+ * is not a direct hit. */
+export function chronicleDirectStrike(events: readonly ChroniclePresentationEvent[], fresh: readonly ChroniclePresentationEvent[]): ChronicleDirectStrike | null {
+  for (const hit of fresh) {
+    if (hit.kind !== "damage" || !hit.side || !hit.amount) continue;
+    const lead = fresh.find(event => (event.actionId ?? event.id) === (hit.actionId ?? hit.id));
+    const released = lead?.kind === "response-passed"
+      || (lead?.kind === "trap-activated" && Boolean(lead.details?.some(line => /attacks directly for/.test(line))));
+    const declared = released
+      ? events.slice(0, events.indexOf(lead)).findLast(event => event.kind !== "response-opened")
+      : lead;
+    if (declared?.kind === "attack-declared" && declared.targetZoneIndex == null && declared.actor
+      && declared.actor !== hit.side && declared.sourceZoneIndex != null)
+      return { attacker: declared.actor, zoneIndex: declared.sourceZoneIndex, defender: hit.side, amount: hit.amount };
+  }
+  return null;
+}
+
 export type ChronicleEffectTarget = {
   side: Side;
   row: "monster" | "backrow" | "health";

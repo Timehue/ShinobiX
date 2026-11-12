@@ -17,6 +17,37 @@ export interface ChroniclePlacements {
   trapZones: number[];
 }
 
+/** The Tributes a card starts with when it is picked up. When exactly as many
+ *  Monsters can be offered as its Level demands there is nothing to choose, so
+ *  they are offered up front and the player goes straight to playing it. */
+export function chronicleAutoTributes(
+  placements: ChroniclePlacements,
+  required: number,
+): number[] {
+  return required > 0 && placements.tributeZones.length === required
+    ? placements.tributeZones.slice()
+    : [];
+}
+
+/** The Monster Zone a Summon lands in. A zone the player picked wins while it
+ *  is still legal: open, or being vacated by an offered Tribute. Otherwise a
+ *  complete Tribute hands over its first zone, so the new Monster takes the
+ *  place of the one it replaced with no separate placement step. */
+export function chronicleSummonZone(
+  placements: ChroniclePlacements,
+  tributes: readonly number[],
+  required: number,
+  chosen: number | null,
+): number | null {
+  if (placements.mode !== "monster") return null;
+  if (
+    chosen !== null &&
+    (placements.monsterZones.includes(chosen) || tributes.includes(chosen))
+  )
+    return chosen;
+  return required > 0 && tributes.length === required ? tributes[0] : null;
+}
+
 /** Every zone the card picked up from hand can legally enter, mirroring the
  *  server's own summon/set validation. The duel board glows exactly these
  *  zones, so a lit zone is never a move the server will turn away. */
