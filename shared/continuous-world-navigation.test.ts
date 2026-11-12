@@ -103,3 +103,57 @@ test('fitted motion settles at a road node despite subpixel roundoff', () => {
     walker.step({x:1,y:0},true);
     assert(walker.nextSegment());
 });
+
+test('a turn early on an edge steps back to the node just left and turns there', () => {
+    const a = nodes.get('46:66')!;
+    const east = a.neighbors.map(id => nodes.get(id)!).find(n => n.x > a.x && Math.abs(n.y - a.y) < .001)!;
+    const north = a.neighbors.map(id => nodes.get(id)!).find(n => n.y < a.y && Math.abs(n.x - a.x) < .001)!;
+    assert(east && north, 'tile 66 needs east and north neighbours for this test');
+    const walker = createWorldWalker(nodes, a.id);
+    walker.step({ x: 1, y: 0 }, true);
+    walker.tick(.3 / 6.5); // 0.3 of a tile east
+    walker.stop();
+    walker.step({ x: 0, y: -1 }, true);
+    assert.deepEqual(walker.pivot, { x: 0, y: -1 }, 'the pivot carries the heading it turns to');
+    assert.equal(walker.cursor('test').to, a.id, 'it walks back toward the node it left');
+    for (let i = 0; i < 20 && walker.moving; i++) walker.tick(.05);
+    assert.equal(walker.node.id, a.id);
+    assert.equal(walker.pivot, null, 'arriving ends the pivot');
+    walker.step({ x: 0, y: -1 }, true);
+    walker.tick(.01);
+    assert.equal(walker.cursor('test').to, north.id, 'and then takes the new road from there');
+});
+
+test('a turn late on an edge, or with no road from the near node, finishes the edge', () => {
+    const a = nodes.get('46:66')!;
+    const east = a.neighbors.map(id => nodes.get(id)!).find(n => n.x > a.x && Math.abs(n.y - a.y) < .001)!;
+    const late = createWorldWalker(nodes, a.id);
+    late.step({ x: 1, y: 0 }, true);
+    for (let left = .7; left > 1e-9; left -= .25) late.tick(Math.min(.25, left) / 6.5); // ticks are capped at 0.05 s
+    late.stop();
+    late.step({ x: 0, y: -1 }, true);
+    assert.equal(late.pivot, null);
+    assert.equal(late.cursor('test').to, east.id, 'past halfway it carries on to the far node');
+    // A node with no neighbour in the turn's heading never pivots back to it.
+    const deadEnd = [...nodes.values()].find(n => n.sector === 46 && n.tile !== undefined
+        && !n.neighbors.some(id => nodes.get(id)!.y < n.y - .5)
+        && n.neighbors.some(id => { const m = nodes.get(id)!; return m.x > n.x + .5 && Math.abs(m.y - n.y) < .001; }));
+    assert(deadEnd, 'sector 46 needs a tile with an east road and none north');
+    const blocked = createWorldWalker(nodes, deadEnd.id);
+    blocked.step({ x: 1, y: 0 }, true);
+    blocked.tick(.2 / 6.5);
+    blocked.stop();
+    blocked.step({ x: 0, y: -1 }, true);
+    assert.equal(blocked.pivot, null);
+    assert.notEqual(blocked.cursor('test').to, deadEnd.id);
+});
+
+test('a reversal is still a plain turn-around, not a pivot', () => {
+    const walker = createWorldWalker(nodes, '46:66');
+    walker.step({ x: 1, y: 0 }, true);
+    walker.tick(.2 / 6.5);
+    walker.stop();
+    walker.step({ x: -1, y: 0 }, true);
+    assert.equal(walker.pivot, null);
+    assert.equal(walker.cursor('test').to, '46:66');
+});

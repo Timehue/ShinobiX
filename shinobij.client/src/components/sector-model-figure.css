@@ -25,6 +25,12 @@
     pointer-events: none;
 }
 
+/* The portrait's fixed 0.42 s walk bob and shadow pulse do not follow a model's
+   stride (and the bobbing portrait is hidden under it anyway). Four classes so this
+   outranks the is-walking rules in the sector theme sheet whatever the load order. */
+.sector-avatar-figure.has-sector-model.is-walking .sector-avatar-shadow,
+.sector-avatar-figure.has-sector-model.is-walking .sector-avatar-body { animation: none; }
+
 .continuous-world-self > .sector-self-label { display: none; }
 .has-sector-model > :is(.sector-peer-label, .sector-self-label) {
     max-width: min(9em, 23vw);

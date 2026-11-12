@@ -19,3 +19,15 @@ test('a full-speed release uses the authored ground distance at phone and deskto
         assert.ok(Math.abs(createGaitBrake(speed/2, gait).advance(1) - distance/2) < 1e-8);
     }
 });
+
+test('a paced player brake covers the authored distance in a fraction of the time', () => {
+    for (const [gait, speed, distance] of [['walk',31,3.224],['run',120,8.034]] as const) {
+        const pace = 3, slow = createGaitBrake(speed, gait), fast = createGaitBrake(speed*pace, gait, pace);
+        let seconds = 0, total = 0;
+        while (!fast.done) { total += fast.advance(1/120); seconds += 1/120; }
+        let slowSeconds = 0;
+        while (!slow.done) { slow.advance(1/120); slowSeconds += 1/120; }
+        assert.ok(Math.abs(total-distance) < 1e-8);
+        assert.ok(seconds < slowSeconds/pace + 1/60);
+    }
+});

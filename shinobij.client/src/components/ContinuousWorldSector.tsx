@@ -54,7 +54,11 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
         void mountContinuousWorld({ canvas: canvas.current!, chunk: chunk.current!, marker: marker.current!, signal: abort.signal,
             gait: () => gaitEnabled.current ? performance.now() < runningUntil.current ? 'run' : 'walk' : undefined,
             onRunWindow, sprintStyle: () => peerStyle.current,
-            groundStride: (...args) => motion.matches ? undefined : model.current?.ground(...args),
+            groundStride: (...args) => {
+                if (!motion.matches) return model.current?.ground(...args);
+                model.current?.unground();
+                return undefined;
+            },
             onFigure: (x, y, width, moving, gait) => model.current?.place(x, y, width, moving && !motion.matches, gait),
             paused: () => Boolean(latest.current.suspended || latest.current.paused),
             blocked: () => Boolean(latest.current.suspended || latest.current.worldMovementBlocked?.()

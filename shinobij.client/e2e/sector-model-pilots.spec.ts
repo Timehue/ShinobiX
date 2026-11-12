@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { createServer, type Server } from "node:http";
+import { playerGaitPace } from "../../shared/sector-gait-rates";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
@@ -973,16 +974,21 @@ test.describe("equipped player upload", () => {
         }}));
         const world=worldPositionModel(), here=world.fallback(46,66);
         const manifest=JSON.parse(await readFile(resolve(content,"players",assetId!,version+".json"),"utf8"));
-        let equipped=true, tile=65, atSprintUpdate: number | undefined, walkIssuedAt: number | undefined;
+        // The peer walks east from FROM to WALK_TO, then the sprint packet sends it running
+        // on to RUN_TO, all along row 5. Peers are polled every 2 s and replayed at the
+        // player walk pace, so the walk leg must outlast a poll for the sprint packet to
+        // land mid-walk: 4 tiles is ~3.9 s at 1.03 tiles/s.
+        const FROM=63, WALK_TO=67, RUN_TO=70;
+        let equipped=true, tile=FROM, atSprintUpdate: number | undefined, walkIssuedAt: number | undefined;
         const peer=page.locator(".continuous-world-peer").filter({hasText:"Test Scout"});
         const markerX=()=>peer.evaluate(el=>new DOMMatrixReadOnly(getComputedStyle(el).transform).m41);
         await page.route("**/api/player/world-move**",async route=>{
             if(route.request().method()!=="GET") return route.fallback();
-            if (tile===67 && walkIssuedAt===undefined) walkIssuedAt=await page.evaluate(()=>performance.now());
-            if (tile===70 && atSprintUpdate===undefined) atSprintUpdate=await markerX();
+            if (tile===WALK_TO && walkIssuedAt===undefined) walkIssuedAt=await page.evaluate(()=>performance.now());
+            if (tile===RUN_TO && atSprintUpdate===undefined) atSprintUpdate=await markerX();
             return route.fulfill({json:{ok:true,sector:46,tile:66,sequence:0,worldPosition:here,players:[{
                 name:"Test Scout",level:5,currentSector:46,tile,worldPosition:world.fallback(46,tile),
-                movementSequence:tile,gaitPresentation:{gait:tile===70?"run":"walk",style:"C"},
+                movementSequence:tile,gaitPresentation:{gait:tile===RUN_TO?"run":"walk",style:"C"},
                 character:{avatarImage:"/starter-avatar-two.webp?v=2",...(equipped?{playerModel:{assetId,version}}:{})},
             }]}});
         });
@@ -1012,9 +1018,9 @@ test.describe("equipped player upload", () => {
             firstRun.observe(el,{attributes:true,attributeFilter:["data-gait","data-clip"]});
         });
         const ninjaFacing=page.waitForRequest(request=>request.url().endsWith(manifest.styles.C[2]));
-        tile=67;
+        tile=WALK_TO;
         await ninjaFacing;
-        tile=70;
+        tile=RUN_TO;
         await expect(sprite).toHaveAttribute("data-facing","2",{timeout:10000});
         await expect(sprite).toHaveAttribute("data-observed-run","true",{timeout:20000});
         const firstRunX=Number(await sprite.getAttribute("data-first-run-x"));
@@ -1025,9 +1031,12 @@ test.describe("equipped player upload", () => {
         const observationPath=info.outputPath("peer-gait.json");
         await writeFile(observationPath,observation);
         await info.attach("observed-peer-gait",{path:observationPath,contentType:"application/json"});
-        expect(receivedAt).toBeLessThan(1.8);
-        expect(ranAt).toBeGreaterThanOrEqual(1.98);
-        expect(ranAt).toBeLessThanOrEqual(5.01);
+        // The sprint arrived before the walk leg ended, the run began only at its corner,
+        // and it began before the run leg ended (same margins as the 2-tile original).
+        const walkLeg=WALK_TO-FROM, wholeRoute=RUN_TO-FROM;
+        expect(receivedAt).toBeLessThan(walkLeg-.2);
+        expect(ranAt).toBeGreaterThanOrEqual(walkLeg-.02);
+        expect(ranAt).toBeLessThanOrEqual(wholeRoute+.01);
         await expect(peer).toHaveClass(/has-sector-model/);
         equipped=false;
         await expectStarterArtwork(page,sprite,"starter-two");
@@ -1382,7 +1391,8 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
                     const {rate,samples} = await sample();
                     await writeFile(info.outputPath((running ? "run" : "walk")+"-samples.json"),JSON.stringify(samples));
                     rates.push(rate);
-                    const target = running ? 120 : 31;
+                    // Players play the authored clips faster (feet stay planted).
+                    const target = running ? 120 * playerGaitPace.run : 31 * playerGaitPace.walk;
                     expect(rate).toBeGreaterThan(target * .65);
                     expect(rate).toBeLessThan(target * 1.10);
                     await page.screenshot({path: info.outputPath((running ? "run" : "walk")+".png")});
