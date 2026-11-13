@@ -3,7 +3,7 @@ import { useSectorModelPins } from "../lib/sector-model-pins";
 import "./sector-model-figure.css";
 import type { PlayerModel, SprintStyle } from "../lib/player-model";
 import { advanceSectorStride, fitSectorStride, sectorClipGait, sectorStartEntry, type GroundStride } from "../../../shared/sector-model-motion";
-import type { PackedMotion, SheetImage, SpriteClip, SpriteView } from "../lib/sector-pose-delivery";
+import type { DecodePriority, PackedMotion, SheetImage, SpriteClip, SpriteView } from "../lib/sector-pose-delivery";
 import { readSectorModelObject } from "../lib/sector-model-object";
 import { createPosePrerequisite } from "../lib/sector-pose-prerequisite";
 import { missingSectorModelFeature, reportSectorModelUnavailable, reportSectorModelUnsupported, type SectorModelStage } from "../lib/sector-model-health";
@@ -60,8 +60,11 @@ function loadModel(folder: string, revision: string): Promise<Model> {
 
 export const SectorModelFigure = forwardRef<SectorModelHandle, {
     kind: string; artBase: string; equipped?: PlayerModel; style?: SprintStyle;
+    /** The player's own figure: its pages decode ahead of every other figure's. */
+    self?: boolean;
 }>(
-    function SectorModelFigure({ kind, artBase, equipped, style = "A" }, ref) {
+    function SectorModelFigure({ kind, artBase, equipped, style = "A", self = false }, ref) {
+        const decodePriority: DecodePriority = self ? 0 : 1;
         const {revisions} = useSectorModelPins();
         const revision = equipped?.version ?? revisions[kind];
         const folder = artBase.replace(/\/$/, "") + "/" + (equipped ? "players/" + equipped.assetId : kind) + "/";
@@ -201,7 +204,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
             }
             function retainPage(slot: typeof releaseArt, spec: SpriteClip["page"], onFailure?: () => void) {
                 return !spec || slot.ready(spec.file,
-                    () => import("../lib/sector-pose-delivery").then(m => m.loadPackedImage(folder, spec)), onFailure);
+                    () => import("../lib/sector-pose-delivery").then(m => m.loadPackedImage(folder, spec, decodePriority)), onFailure);
             }
             function prepareGaitChange(bank: SpriteView, from: MovingGait) {
                 if (preparedChange === bank[from]) return;
@@ -217,7 +220,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 const spec = clip?.page;
                 if (!spec || nextPage===spec.file) return;
                 nextPage=spec.file;
-                void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec))
+                void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec,decodePriority))
                     .then(image=>image.release(),()=>{if(nextPage===spec.file) nextPage="";});
             }
             function waitForArt() {
@@ -258,7 +261,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     const fail = (error?: unknown) => {if (live && currentUrl===clip.url) {pendingUrl=""; failed("page", error);}};
                     if (clip.page) {
                         const spec=clip.page;
-                        void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec)).then(ready,fail);
+                        void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec,decodePriority)).then(ready,fail);
                     } else {
                         const image=new Image();
                         image.onload=()=>ready({image,release:()=>{}});
@@ -319,7 +322,9 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                             const bytes = spec.cell[0] * spec.cell[1] * spec.cols * Math.ceil(spec.frames / spec.cols) * 4;
                             if (bytes > remainingBytes) continue;
                             remainingBytes -= bytes;
-                            const warmed = await delivery.loadPackedImage(folder, spec).catch(() => undefined);
+                            // Warm-up waits behind every figure's visible pages; a real move
+                            // that needs one of these pages raises it on request.
+                            const warmed = await delivery.loadPackedImage(folder, spec, 2).catch(() => undefined);
                             // The crowd can exhaust the shared idle cache before the next
                             // input. Keep this self-only budget until playback owns it.
                             if (warmed && live && run === warmRun) warmStartPages.push(warmed);
@@ -571,7 +576,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 figure.classList.remove("has-sector-model");
                 figure.style.removeProperty("--sector-model-height");
             };
-        }, [folder, revision, style]);
+        }, [folder, revision, style, decodePriority]);
         return <span aria-hidden="true" className="sector-model-figure" ref={element} />;
     },
 );

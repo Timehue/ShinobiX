@@ -24,9 +24,47 @@ export async function loadFacing(folder: string, name: string): Promise<SpriteVi
     return view;
 }
 
-let worker: Worker | undefined, queue=Promise.resolve();
-function unpack(bytes: ArrayBuffer,page: Page) {
-    const pending = queue.then(() => new Promise<Blob | ImageData>((resolve,reject)=>{
+/**
+ * Decode order. One worker decodes one page at a time, so the order is the
+ * difference between your own figure appearing first and appearing after every
+ * other figure in a crowded sector.
+ *   0 — the player's own figure
+ *   1 — every other figure's pages
+ *   2 — warm-up: pages decoded ahead of a move that has not happened yet
+ * A page already waiting is raised when a more urgent figure asks for it. A
+ * decode that has started always finishes; nothing is interrupted.
+ */
+export type DecodePriority = 0 | 1 | 2;
+export type DecodeTicket = {priority: DecodePriority};
+type DecodeJob = {ticket: DecodeTicket; start: () => Promise<unknown>};
+
+/** A one-at-a-time queue that always starts the most urgent waiting job (oldest first among equals). */
+export function createDecodeQueue() {
+    const waiting: DecodeJob[] = [];
+    let busy = false;
+    function pump() {
+        if (busy || !waiting.length) return;
+        let next = 0;
+        for (let i = 1; i < waiting.length; i++) if (waiting[i]!.ticket.priority < waiting[next]!.ticket.priority) next = i;
+        const [job] = waiting.splice(next, 1);
+        busy = true;
+        void job!.start().catch(() => {}).finally(() => { busy = false; pump(); });
+    }
+    return {
+        run<T>(ticket: DecodeTicket, work: () => Promise<T>): Promise<T> {
+            return new Promise<T>((resolve, reject) => {
+                waiting.push({ticket, start: () => work().then(resolve, error => { reject(error); })});
+                pump();
+            });
+        },
+        get waiting() { return waiting.length; },
+    };
+}
+
+let worker: Worker | undefined;
+const decodes = createDecodeQueue();
+function unpack(bytes: ArrayBuffer,page: Page,ticket: DecodeTicket) {
+    return decodes.run(ticket, () => new Promise<Blob | ImageData>((resolve,reject)=>{
         worker ??= new Worker(new URL('./sector-pose.worker.ts',import.meta.url),{type:'module'});
         const reset = () => {worker?.terminate();worker=undefined;reject(Error('Pose decoder unavailable'));};
         const timer = setTimeout(reset,12000);
@@ -39,8 +77,6 @@ function unpack(bytes: ArrayBuffer,page: Page) {
         };
         worker.postMessage({...page,bytes,encodePng:true},[bytes]);
     }));
-    queue=pending.then(()=>{},()=>{});
-    return pending;
 }
 
 async function encodePixels(pixels: ImageData): Promise<Blob> {
@@ -54,9 +90,9 @@ async function encodePixels(pixels: ImageData): Promise<Blob> {
     }
 }
 
-async function decodeImage(folder: string,page: Page): Promise<SheetImage> {
+async function decodeImage(folder: string,page: Page,ticket: DecodeTicket): Promise<SheetImage> {
     const bytes=await readSectorModelObject(folder,page.file,'.264',512*1024);
-    const decoded=await unpack(bytes,page);
+    const decoded=await unpack(bytes,page,ticket);
     const blob=decoded instanceof Blob ? decoded : await encodePixels(decoded);
     const url=URL.createObjectURL(blob), image=new Image();
     try {
@@ -66,7 +102,7 @@ async function decodeImage(folder: string,page: Page): Promise<SheetImage> {
     } catch(error) {URL.revokeObjectURL(url);throw error;}
 }
 
-type CachedPage = {bytes:number;users:number;pending:Promise<SheetImage>;ready?:SheetImage};
+type CachedPage = {bytes:number;users:number;pending:Promise<SheetImage>;ready?:SheetImage;ticket:DecodeTicket};
 const decodedPages = new Map<string,CachedPage>();
 let reservedBytes = 0;
 function trim() {
@@ -80,14 +116,18 @@ function trim() {
 }
 
 /** Figures share a decoded page. The displayed sheet stays valid while unused pages can be evicted. */
-export async function loadPackedImage(folder:string,page:Page):Promise<SheetImage> {
+export async function loadPackedImage(folder:string,page:Page,priority:DecodePriority=1):Promise<SheetImage> {
     const key=folder+page.file;
     let entry=decodedPages.get(key);
-    if (entry) decodedPages.delete(key);
-    else {
+    if (entry) {
+        decodedPages.delete(key);
+        // Another figure (or a warm-up) asked first: a more urgent ask moves it up.
+        if (priority<entry.ticket.priority) entry.ticket.priority=priority;
+    } else {
         const bytes=page.cell[0]*page.cols*page.cell[1]*Math.ceil(page.frames/page.cols)*4;
-        const pending=decodeImage(folder,page);
-        entry={bytes,users:0,pending};
+        const ticket:DecodeTicket={priority};
+        const pending=decodeImage(folder,page,ticket);
+        entry={bytes,users:0,pending,ticket};
         reservedBytes+=bytes;
         const fresh=entry;
         void pending.then(ready=>{fresh.ready=ready;trim();},()=>{

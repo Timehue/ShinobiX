@@ -475,7 +475,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                     {rooms.filter(room => seen.has((room.y + 2) * base.width + room.x + 3)).map(room => <span key={room.id} className="stronghold-room-label" style={{ left: (room.x + 3.5) * tileSize, top: (room.y + 0.3) * tileSize, fontSize: overview ? 9 : 12 }}>{room.name}</span>)}
                     <StrongholdAvatar tileX={run.playerX} tileY={run.playerY} tileSize={tileSize} size={avatarSize}
                         stepMs={STEP_MS} name={displayPlayerName(character.name)} portrait={ownAvatar} overview={overview}
-                        artBase={modelArtBase} playerGaits={playerGaits} playerModel={equipped} sprintStyle={sprintStyle} />
+                        artBase={modelArtBase} playerGaits={playerGaits} playerModel={equipped} sprintStyle={sprintStyle} self />
                     {!overview && [...peerTiles].map(([tile, occupants]) => {
                         const peer = occupants[0];
                         const avatar = sharedAvatarFor(sharedImages, peer.name) || peer.character?.avatarImage;
