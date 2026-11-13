@@ -184,14 +184,14 @@ test('Stand & Fight starts the roaming Weekly Boss fight, and leaving it returns
     const returnToSector = page.getByRole('button', { name: new RegExp(`Return to Sector ${sector}\\b`) });
     // The installed scene handler owns Skip: a second Skip click can have its
     // target dismissed by that handler and wait forever for the vanished button.
-    // Step onto the sector board after any resumed story scene. Each pass
-    // waits for the board after its click, so a slow re-render under a loaded
-    // machine is not mistaken for a click that did nothing.
-    await expect(async () => {
-        if (await stage.isVisible()) return;
-        if (await returnToSector.isVisible()) await returnToSector.click();
-        await expect(stage).toBeVisible({ timeout: 4_000 });
-    }).toPass({ timeout: 60_000 });
+    // Give the scene handler the full entry deadline: short nested assertions
+    // can cancel a pending Skip and leave that handler blocked on its own scene.
+    const entryDeadline = Date.now() + 60_000;
+    const entryTimeLeft = () => Math.max(1, entryDeadline - Date.now());
+    await expect(stage.or(returnToSector).filter({ visible: true }).first())
+        .toBeVisible({ timeout: entryTimeLeft() });
+    if (!(await stage.isVisible())) await returnToSector.click({ timeout: entryTimeLeft() });
+    await expect(stage).toBeVisible({ timeout: entryTimeLeft() });
 
     // The boss stalks the hunter and engages on contact — the Stand/Flee prompt
     // opens by itself. This suite runs with reduced motion, where the boss used to

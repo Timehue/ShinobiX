@@ -13,7 +13,7 @@ import { ResourceWorld } from './ResourceWorld';
 import { SectorLife } from './SectorLife';
 import { SectorBuildings } from './SectorBuildings';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
-import { usePlayerGaits, useSectorModelArtBase } from '../lib/sector-obstacles';
+import { usePlayerGaits, useWorldModelArtBase } from '../lib/sector-obstacles';
 import { useSprintStyle, isPlayerModel, starterModel } from '../lib/player-model';
 import { WorldRunButton, type WorldRunTimers } from './WorldRunButton';
 import type { WorldRunWindow } from '../../../shared/world-run';
@@ -23,7 +23,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     const canvas = useRef<HTMLCanvasElement>(null), chunk = useRef<HTMLDivElement>(null), marker = useRef<HTMLDivElement>(null);
     const latest = useRef(props), engine = useRef<Awaited<ReturnType<typeof mountContinuousWorld>> | null>(null);
     const model = useRef<SectorModelHandle>(null);
-    const modelArtBase = useSectorModelArtBase(), gaits = usePlayerGaits();
+    const modelArtBase = useWorldModelArtBase(), gaits = usePlayerGaits();
     const [timers, setTimers] = useState<WorldRunTimers>({ endsAt: 0, readyAt: 0 });
     const runningUntil = useRef(0), lastRunResponse = useRef(0);
     const onRunWindow = useCallback(({ endsAt, readyAt, serverTime }: WorldRunWindow) => {

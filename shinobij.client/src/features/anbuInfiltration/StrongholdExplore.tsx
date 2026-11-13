@@ -14,7 +14,7 @@ import { StrongholdDialog } from './StrongholdDialog';
 import { StrongholdDefender } from './StrongholdDefender';
 import { StrongholdAvatar } from './StrongholdAvatar';
 import { isPlayerModel, useSprintStyle } from '../../lib/player-model';
-import { usePlayerGaits, useSectorModelArtBase } from '../../lib/sector-obstacles';
+import { usePlayerGaits, useWorldModelArtBase } from '../../lib/sector-obstacles';
 import { resolveOwnAvatar } from '../../lib/own-avatar';
 import { UndergroundSectorTerrain } from '../../components/UndergroundSectorTerrain';
 import { HollowGateFissureArt } from '../../components/HollowGateFissureArt';
@@ -136,7 +136,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     const rooms = strongholdRooms(sector);
     const title = strongholdTitle(sector);
     const ownAvatar = resolveOwnAvatar(character, sharedImages);
-    const modelArtBase = useSectorModelArtBase();
+    const modelArtBase = useWorldModelArtBase();
     const playerGaits = usePlayerGaits();
     const sprintStyle = useSprintStyle();
     const equipped = isPlayerModel(character.playerModel) ? character.playerModel : undefined;

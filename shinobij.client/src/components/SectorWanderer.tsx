@@ -23,7 +23,7 @@ import { loiterPositionAt } from "../lib/wanderer-loiter";
 import { serverNow } from "../lib/server-clock";
 import { createSectorNavigator } from "../lib/sector-path-waypoint";
 import { advanceAuthoredGroundMotion } from "../lib/authored-ground-motion";
-import { safeSectorTile, sectorObstaclesOn, useSectorModelArtBase, usePlayerGaits } from "../lib/sector-obstacles";
+import { safeSectorTile, sectorObstaclesOn, useWorldModelArtBase, usePlayerGaits } from "../lib/sector-obstacles";
 import { sectorGaitTilesPerSecond, type SectorGait } from "../../../shared/sector-model-motion";
 import { isWalkableTile } from "../../../shared/sector-walk-mask";
 import { SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
@@ -180,7 +180,7 @@ export function SectorWanderer({
 
     const modelRef = useRef<SectorModelHandle>(null);
     const {portraitModels} = useSectorModelPins();
-    const modelArtBase = useSectorModelArtBase();
+    const modelArtBase = useWorldModelArtBase();
     const playerGaits = usePlayerGaits();
     const fittedTravel = useRef(false);
     useLayoutEffect(() => { fittedTravel.current = worldPlayer !== null && playerGaits; }, [worldPlayer,playerGaits]);
@@ -269,6 +269,8 @@ export function SectorWanderer({
             const { w, h } = sizeRef.current;
             if (!w || !h) {
                 lastTsRef.current = 0;
+                routineDebtMs = 0;
+                setWalking(false);
                 schedule();
                 return;
             }

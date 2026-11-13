@@ -74,6 +74,19 @@ export async function supportsProfileDetailUpload() {
 export const useSectorObstacles = () => useSyncExternalStore(subscribe, sectorObstaclesOn, () => true);
 const noSubscription = () => () => {};
 export const useSectorModelArtBase = (enabled = true) => useSyncExternalStore(enabled ? subscribe : noSubscription, () => enabled ? modelArtBase : null, () => null);
+// Device preference: "2d" shows the classic portrait circles in the world instead of the models.
+const AVATAR_KEY = "worldAvatarMode.v1";
+let avatarMode2d = false;
+try { avatarMode2d = localStorage.getItem(AVATAR_KEY) === "2d"; } catch { /* storage blocked: default 3D */ }
+const applyAvatar2d = (value: boolean) => { avatarMode2d = value; listeners.forEach(listener => listener()); };
+// Another open tab changed it (or cleared storage): follow, like the running style does.
+globalThis.addEventListener?.("storage", event => { if (event.key === AVATAR_KEY || !event.key) applyAvatar2d(event.newValue === "2d"); });
+export function saveWorldAvatar2d(value: boolean) {
+    try { localStorage.setItem(AVATAR_KEY, value ? "2d" : "3d"); } catch { /* keep in memory */ }
+    applyAvatar2d(value);
+}
+/** The model art base for world figures: null when the player chose 2D avatars. */
+export const useWorldModelArtBase = () => useSyncExternalStore(subscribe, () => avatarMode2d ? null : modelArtBase, () => null);
 export const usePlayerGaits = () => useSyncExternalStore(subscribe, () => playerGaits, () => false);
 export const useWorldModelCreationAvailable = () => useSyncExternalStore(subscribe, () => worldModelCreationAvailable, () => false);
 export const safeSectorTile = (sector: number, tile: number) => nearestWalkableTile(sector, tile, enabled);

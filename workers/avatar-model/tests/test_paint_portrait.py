@@ -59,5 +59,58 @@ class CostumePromptTest(unittest.TestCase):
                     self.assertEqual(first_binding.get("headTurnaround", False), enabled)
 
 
+class PaletteTest(unittest.TestCase):
+    def setUp(self):
+        png = BytesIO()
+        Image.new("RGBA", (1536, 960)).save(png, "PNG")
+        self.art = png.getvalue()
+        self.result = {"data": [{"b64_json": base64.b64encode(self.art).decode()}]}
+
+    @staticmethod
+    def request(_portrait, _source, _template, correction, _previous, *, sector_guide, head_turnaround,
+                palette_prompt=False):
+        return {"guide": sector_guide, "correction": correction, "palette": palette_prompt}
+
+    def test_new_jobs_name_the_palette_and_correct_the_painting(self):
+        corrected = b"corrected-png"
+        palette = Mock(return_value=corrected)
+        with TemporaryDirectory() as temporary, patch.object(paint_portrait, "edit_request", side_effect=self.request) as build:
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            painter = paint_portrait.costume_painter(root / "job", "3" * 32, Mock(return_value=True),
+                                                     Mock(return_value=("fixture", self.result)), palette=palette)
+            path, digest = painter(root / "portrait", "1" * 64, template, 1, None)
+            self.assertTrue(build.call_args.kwargs["palette_prompt"])
+            palette.assert_called_once_with(self.art, root / "portrait")
+            self.assertEqual(path.read_bytes(), corrected)
+            self.assertEqual(digest, sha256(corrected).hexdigest())
+            binding = json.loads((root / "job/edit-1/completed.json").read_bytes())["binding"]
+            self.assertTrue(binding["portraitPalette"])
+
+    def test_a_job_first_billed_without_the_palette_repairs_with_the_same_prompt(self):
+        with TemporaryDirectory() as temporary, patch.object(paint_portrait, "edit_request", side_effect=self.request) as build:
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            asset, source = "4" * 32, "1" * 64
+            first = root / "job/edit-1"
+            first.mkdir(parents=True)
+            (first / "painting.png").write_bytes(self.art)
+            (first / "completed.json").write_text(json.dumps({
+                "operation": "earlier", "painting": sha256(self.art).hexdigest(),
+                "binding": {"job": asset, "source": source, "template": sha256(b"template").hexdigest(),
+                            "sectorGuide": paint_portrait.SECTOR_GUIDE, "headTurnaround": True}}))
+            painter = paint_portrait.costume_painter(root / "job", asset, Mock(return_value=True),
+                                                     Mock(return_value=("fixture", self.result)), palette=Mock(side_effect=lambda p, _u: p))
+            painter(root / "portrait", source, template, 2, "Repair detached sleeve")
+            self.assertNotIn("palette_prompt", build.call_args.kwargs)
+
+    def test_a_failed_correction_keeps_the_paid_painting(self):
+        with TemporaryDirectory() as temporary:
+            upload = Path(temporary) / "missing-portrait"
+            self.assertEqual(paint_portrait.portrait_palette(self.art, upload), self.art)
+
+
 if __name__ == "__main__":
     unittest.main()

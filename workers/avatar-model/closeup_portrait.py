@@ -4,10 +4,19 @@ from hashlib import sha256
 from io import BytesIO
 import json
 from math import isfinite
+import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+
+
+def has_phrase(label, phrase):
+    """The detector joins neighbouring prompts into one label ("a samurai helmet a helmet").
+    A phrase matches when it is the whole label or one of its article-led parts, so "a face"
+    still never matches "a face mask"."""
+    return re.search(r"(?:^| )" + re.escape(phrase) + r"(?= an? |$)", label) is not None
 
 
 def overlap(a, b):
@@ -22,7 +31,7 @@ def single_closeup(read):
 
     def boxes(group, label, threshold):
         return [tuple(row["box"]) for row in read.get(group, ())
-                if row["label"] == label and row["score"] >= threshold
+                if has_phrase(row["label"], label) and row["score"] >= threshold
                 and len(row["box"]) == 4 and all(map(isfinite, row["box"]))
                 and 0 <= row["box"][0] < row["box"][2] <= width + 1
                 and 0 <= row["box"][1] < row["box"][3] <= height + 1]
@@ -53,7 +62,7 @@ def single_closeup(read):
                for x, y, end_x, end_y in hair for other in other_hair)
 
 
-def prepare(entry, upload, master, reader_python, digest):
+def prepare(entry, upload, master, reader_python, digest, animal_only=False, ask_animal=None):
     sys.path.insert(0, str(entry.parent))
     from motion_worker_paths import TEMPLATES
     from avatar_worker.portrait import prepare_portrait
@@ -61,6 +70,10 @@ def prepare(entry, upload, master, reader_python, digest):
     from paint_portrait import layout_png
     from PIL import Image
     from armored_raccoon import face_and_muzzle, confirms_armor
+    import upright_animal
+    if ask_animal is None:
+        def ask_animal(png):
+            return upright_animal.admits(upright_animal.ask(png, os.environ.get("OPENAI_API_KEY")))
 
     raw = upload.read_bytes()
     with Image.open(BytesIO(raw)) as image:
@@ -79,11 +92,9 @@ def prepare(entry, upload, master, reader_python, digest):
         if (read["sha256"], tuple(read["size"]), read["frame"]) != (
                 digest, (portrait.width, portrait.height), portrait.frame_index):
             raise ValueError("closeup-read-mismatch")
-        style = "portrait-bust-coat" if static and single_closeup(read) else None
-        if style is None:
-            subject = face_and_muzzle(read)
-            if subject is None:
-                return
+        style = "portrait-bust-coat" if not animal_only and static and single_closeup(read) else None
+        subject = face_and_muzzle(read) if style is None else None
+        if subject is not None:
             armor_read = Path(temp) / "armor.json"
             subprocess.run([reader_python, Path(__file__).with_name("armored_raccoon.py"), entry, upload,
                             armor_read], check=True)
@@ -91,9 +102,13 @@ def prepare(entry, upload, master, reader_python, digest):
             if (armor["sha256"], tuple(armor["size"]), armor["frame"]) != (
                     digest, (portrait.width, portrait.height), portrait.frame_index):
                 raise ValueError("armored-raccoon-read-mismatch")
-            if not confirms_armor(*subject, armor["regions"]):
-                return
-            style = "armored-raccoon"
+            if confirms_armor(*subject, armor["regions"]):
+                style = "armored-raccoon"
+        # Any other illustrated animal standing upright like a person is painted on the same rig.
+        if style is None and ask_animal(portrait.png):
+            style = "upright-animal"
+        if style is None:
+            return
         template = TEMPLATES / "male-coat-template.json"
         guide = layout_png(template)
         (master / "candidate.png").write_bytes(guide)
@@ -111,5 +126,7 @@ if __name__ == "__main__":
     for name in ("entry", "upload", "master", "reader_python"):
         parser.add_argument(name, type=Path)
     parser.add_argument("digest")
+    parser.add_argument("--animal-only", action="store_true",
+                        help="the intake declined for a reason other than an uncertain bust fit")
     args = parser.parse_args()
-    prepare(args.entry, args.upload, args.master, args.reader_python, args.digest)
+    prepare(args.entry, args.upload, args.master, args.reader_python, args.digest, animal_only=args.animal_only)
