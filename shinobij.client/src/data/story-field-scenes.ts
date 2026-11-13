@@ -489,7 +489,7 @@ export const storyFieldScenes: Record<string, StoryFieldSceneJourney> = {
                 speaker: "Nyx",
                 requireTrait: "sf-ms-source-shielded",
                 dialogue: [
-                    "The booth clerk can still send corrections through several hands. Sensible person. Their name remains absent, and we can still check the facts they gave us.",
+                    "The booth clerk can still send corrections through several hands. Sensible person. Their name stays off the record, and we can still check the facts they gave us.",
                     "It would be easier to argue our case with a named witness. But keeping the clerk safe means they can keep helping us. You were right about that.",
                     "Watch the front while I check this seal. The back stool stays empty unless they choose it.",
                 ],

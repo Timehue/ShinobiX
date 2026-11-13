@@ -12,7 +12,10 @@ import type { PlayerRecord } from '../types/character';
 import { worldPeerRoster, sameContinuousWorldPeersProps, type ContinuousWorldPeersProps } from '../lib/world-peer-roster';
 import { sharedAvatarFor } from '../lib/shared-avatar';
 import { GameIcon } from './icons/GameIcon';
-import { sectorGaitTilesPerSecond } from '../../../shared/sector-model-motion';
+import { playerGaitTilesPerSecond, sectorGaitTilesPerSecond } from '../../../shared/sector-model-motion';
+// Player peers replay at the player pace. The player walk is faster than the
+// authored rate the run/walk split below was tuned on, so it is named outright.
+const peerGait = (rate: number) => rate !== playerGaitTilesPerSecond.walk && rate * 90 > 78 ? 'run' : 'walk';
 
 // `peer` is the record last reconciled; `element`/`x`/`y` the transform last written.
 type Motion = { cursor: WorldPosition; point: PeerWaypoint; points: PeerWaypoint[]; sequence: number;
@@ -105,7 +108,10 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
                             const path = peerWorldPath(world.nodes, item.cursor, cursor);
                             const previous=world.model.point(item.cursor), next=world.model.point(cursor);
                             const speed=Math.hypot(next.x-previous.x,next.y-previous.y)*1000/Math.max(1,now-item.updated);
-                            const rate = peer.gaitPresentation ? sectorGaitTilesPerSecond[peer.gaitPresentation.gait]
+                            // A player with world models sends a gait presentation and is replayed
+                            // at the player pace. Without one (NPCs, portrait-only players) the
+                            // measured speed is clamped to the authored rates, as before.
+                            const rate = peer.gaitPresentation ? playerGaitTilesPerSecond[peer.gaitPresentation.gait]
                                 : Math.min(sectorGaitTilesPerSecond.run, Math.max(sectorGaitTilesPerSecond.walk, speed));
                             if (path && item.points.length + path.length <= 64) {
                                 for (const end of path.slice(1)) item.points.push({x:end.x, y:end.y, rate});
@@ -131,7 +137,7 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
                         // A zero-distance moving update holds the painted foot. A brief
                         // missing packet must not restart the authored stop/start graph.
                         sprite?.place(x,y,width,!reduced.matches && peerPoseInMotion(item.lastMovementAt,now),
-                            (item.point.rate ?? sectorGaitTilesPerSecond.walk)*90>78?'run':'walk',true);
+                            peerGait(item.point.rate ?? sectorGaitTilesPerSecond.walk),true);
                     }
                     // A standing peer would be handed the very same transform string again.
                     if (element === item.element && x === item.x && y === item.y) continue;
