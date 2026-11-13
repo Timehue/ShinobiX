@@ -71,6 +71,10 @@ if modal.is_local():
         recognition_image = cpu_image.add_local_file(pool_path, "/opt/sprite/recognition-pool.zip", copy=True).env({
             "SPRITE_RECOGNITION_POOL_SHA256":pool_hash, "SPRITE_RECOGNITION_MODEL":os.environ["SPRITE_RECOGNITION_MODEL"]
         }).run_commands("python -m pip install --no-cache-dir -r /opt/sprite/requirements-recognition.txt", "python -m pip check")
+        if openai_secret_name:
+            # recognize_sprite's secret list depends on this name. The container re-imports this
+            # module, so it must see the same name or Modal refuses to hydrate the function.
+            recognition_image = recognition_image.env({"SPRITE_OPENAI_SECRET": openai_secret_name})
     gpu_image = cpu_image.add_local_file(HERE / "requirements-linux-reader.txt",
                                          "/opt/sprite/requirements-linux-reader.txt", copy=True).run_commands(
         "python -m venv /opt/sprite/reader",
