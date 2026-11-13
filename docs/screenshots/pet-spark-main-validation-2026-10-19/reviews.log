@@ -1,7 +1,0 @@
-{
-  "reviewedModels": 161,
-  "scope": "entire-roster",
-  "canonicalValidators": "petShapeReviewFailures + petReviewEvidenceFailures, unchanged",
-  "boundedConcurrentModels": 12,
-  "failures": []
-}

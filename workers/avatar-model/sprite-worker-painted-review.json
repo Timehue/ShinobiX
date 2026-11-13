@@ -1,6 +1,0 @@
-{
-  "intake": "0f1514a2eedc7f74eb5babdf2bac35b655ec417748c4f81f1cb3fd1c43c9bf29",
-  "movement": "d2852e551dc561ea91000e268440ba55c006af62867ee438283051cdfa88c080",
-  "paintedCostumes": true,
-  "paintedTemplates": ["male-coat-template.json", "female-coat-template.json", "masked-collar-template.json"]
-}
