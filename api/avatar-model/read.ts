@@ -23,6 +23,7 @@ const descriptions = new Map(Object.entries({
     'exposed-hair-full-figure': 'Standing warrior with uncovered hair', 'hooded-full-figure': 'Standing hooded warrior',
     'portrait-bust-coat': 'Clothed human character',
     'armored-raccoon': 'Armored raccoon character',
+    'upright-animal': 'Upright animal character',
 }));
 type ReadRow = { operation: string; stage: 'moderate' | 'read' | 'declined' | 'failed' | 'ready';
     readToken?: string; summary?: string; frameHash?: string; expiresAt: number };

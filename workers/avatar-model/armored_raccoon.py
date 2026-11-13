@@ -20,10 +20,10 @@ def nested(a, b):
 
 
 def face_and_muzzle(read):
-    from closeup_portrait import overlap
+    from closeup_portrait import has_phrase, overlap
 
     faces = [row["box"] for row in read.get("animalRegions", ())
-             if "a raccoon face" in row["label"] and row["score"] >= .33]
+             if has_phrase(row["label"], "a raccoon face") and row["score"] >= .33]
     # The detector often boxes the whole head (ears included) and the inner face
     # separately; a face box nested inside the first is the same face, not a second one.
     if not faces or any(overlap(faces[0], face) < .65 and nested(faces[0], face) < .9 for face in faces[1:]):
@@ -35,17 +35,19 @@ def face_and_muzzle(read):
         return None
     for row in read["animalRegions"]:
         x, y, u, v = muzzle = row["box"]
-        if (row["label"] == "a snout" and row["score"] >= .36 and
+        if (has_phrase(row["label"], "a snout") and row["score"] >= .36 and
                 l < x < u < r and (t+b)/2 < (y+v)/2 < b):
             return face, muzzle
     return None
 
 
 def confirms_armor(face, muzzle, rows):
-    from closeup_portrait import overlap
+    from closeup_portrait import has_phrase, overlap
 
+    # The detector merges neighbouring prompts into one label ("a samurai helmet a
+    # helmet"), so every check matches on the phrases a label is made of.
     def find(label, minimum, check):
-        return any(row["label"] == label and row["score"] >= minimum and check(row["box"]) for row in rows)
+        return any(has_phrase(row["label"], label) and row["score"] >= minimum and check(row["box"]) for row in rows)
 
     l, t, r, b = face
     x, y, u, v = muzzle
@@ -55,17 +57,15 @@ def confirms_armor(face, muzzle, rows):
         return False
     if not find("a raccoon nose", .46, lambda p: x < p[0] < p[2] < u and y < p[1] < p[3] < v):
         return False
-    if any(row["label"] == "a raccoon nose" and row["score"] >= .46 and
+    if any(has_phrase(row["label"], "a raccoon nose") and row["score"] >= .46 and
            not (x < row["box"][0] < row["box"][2] < u and y < row["box"][1] < row["box"][3] < v)
            for row in rows):
         return False
     if not find("a pair", .40, lambda p: l < p[0] < p[2] < r and
                 t < p[1] < y < p[3] < v and p[2]-p[0] >= .5*(r-l)):
         return False
-    # The detector merges neighbouring prompts into one label ("a samurai helmet a
-    # helmet"), so armor rows match on the phrase they contain.
     def best(phrase, check):
-        return max((row["score"] for row in rows if phrase in row["label"] and check(row["box"])), default=0)
+        return max((row["score"] for row in rows if has_phrase(row["label"], phrase) and check(row["box"])), default=0)
 
     def below_face(p):
         return p[0] < r and p[2] > l and p[3] > b+.3*(b-t)

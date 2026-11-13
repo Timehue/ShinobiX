@@ -36,7 +36,7 @@ def worker_image():
     if painted:
         image = image.env({"SPRITE_PAINTED_COSTUMES":"1"})
         for name in ("paint_admitted_costume.py", "paint_portrait.py", "closeup_portrait.py", "armored_raccoon.py",
-                     "sector-costume-light.png"):
+                     "upright_animal.py", "costume_palette.py", "sector-costume-light.png"):
             image = image.add_local_file(HERE / name, "/opt/sprite/" + name, copy=True)
     image = image.run_commands(
         'python -c "import platform,pathlib; assert platform.python_version() == pathlib.Path(\'/opt/sprite/.python-version\').read_text().strip()"',
@@ -127,9 +127,13 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
                         *(["--full-figure-equipment", "--portrait-bust"] if painted_costumes else [])],
                        stdout=subprocess.DEVNULL, check=True)
         receipt = json.loads((master / "read.json").read_bytes())
-        if painted_costumes and receipt["declined"] == "portrait-bust-fit-uncertain":
+        declined = receipt["declined"]
+        if painted_costumes and isinstance(declined, str) and declined.endswith("-uncertain"):
+            # Only an uncertain bust fit may still become a human close-up; any uncertain
+            # decline may be an upright animal character.
+            animal_only = [] if declined == "portrait-bust-fit-uncertain" else ["--animal-only"]
             subprocess.run([paint_python, INSTALL / "closeup_portrait.py", entry, upload, master,
-                            reader_python, expected_sha256], stdout=subprocess.DEVNULL, check=True)
+                            reader_python, expected_sha256, *animal_only], stdout=subprocess.DEVNULL, check=True)
             receipt = json.loads((master / "read.json").read_bytes())
         if receipt["sourceSha256"] != expected_sha256:
             raise ValueError("portrait-read-mismatch")
@@ -147,7 +151,12 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
 # movement packages. The reader, renderer and assemblers need that transport.
 @app.function(image=gpu_image,
               gpu="L4", max_containers=1, min_containers=0,
-              timeout=600, retries=0, block_network=False)
+              timeout=600, retries=0, block_network=False,
+              # The upright-animal check asks the costume key's model. The list has one entry in
+              # both the deploy and the container, whichever name the deploy chose.
+              secrets=[modal.Secret.from_name(openai_secret_name or "shinobix-avatar-costume-paint",
+                                              required_keys=["OPENAI_API_KEY"])]
+              if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1" else [])
 def read_portrait(raw: bytes, expected_sha256: str, frame_hash: str, operation: str | None = None):
     if not re.fullmatch(r"[a-f0-9]{64}", frame_hash):
         raise ValueError("missing-moderated-frame")

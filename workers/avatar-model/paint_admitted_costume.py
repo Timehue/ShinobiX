@@ -25,7 +25,7 @@ def admitted_rig(asset, descriptor, expected_master, raw, source):
 def paint(entry, work, asset, master, source, reader_python, submit):
     sys.path.insert(0, str(entry.resolve(strict=True).parent))
     from motion_worker_paths import TEMPLATES
-    from paint_portrait import costume_painter
+    from paint_portrait import costume_painter, portrait_palette
     from register_painted_kit import paint_screened_upload
 
     upload = work / "portrait"
@@ -45,7 +45,9 @@ def paint(entry, work, asset, master, source, reader_python, submit):
     screened = json.loads(descriptor)["fit"]
     closeup = screened.get("requiresPainting") is True
     painter = costume_painter(work/"edits", asset, reserve, submit, closeup=closeup,
-                              armored_raccoon=closeup and screened.get("style") == "armored-raccoon")
+                              armored_raccoon=closeup and screened.get("style") == "armored-raccoon",
+                              upright_animal=closeup and screened.get("style") == "upright-animal",
+                              palette=portrait_palette)
     paint_screened_upload(upload, source, template, work/"painted", painter, lambda _: None,
                           reader_python=reader_python)
     return sorted(operations)

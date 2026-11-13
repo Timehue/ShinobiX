@@ -9,6 +9,8 @@ from pathlib import Path
 
 from PIL import Image, ImageFilter, ImageOps
 
+import costume_palette
+
 
 MODEL = "gpt-image-2.5-sunburst-2026-09-08"
 SIZE = "1536x960"
@@ -39,6 +41,9 @@ Image 2 is a close-up portrait. Preserve visible facial marks, hairstyle and hai
 
 ANIMAL_CLOSEUP = """
 Keep the animal species and its recognizable muzzle, ears, and fur markings. Keep the helmet and armor design visible on the portrait, with a consistent helmet outline from all directions. Use the humanoid body and separate upright legs of the rig. Remove portrait lettering, flashes, sparks and light trails. Keep the hands empty."""
+
+UPRIGHT_ANIMAL = """
+Keep the animal species and its recognizable head, muzzle or beak, ears, and fur, feather or scale markings. Complete the outfit, armor and colors visible on the portrait in the same design. Use the humanoid body and separate upright legs of the rig, with animal hands and feet in the portrait's colors. Remove portrait lettering, flashes, sparks and light trails. Keep the hands empty."""
 
 SECTOR_MATERIALS = """
 Image 3 gives the world camera, lighting and level of detail. Apply that treatment to the portrait character.
@@ -78,7 +83,8 @@ def layout_png(template):
 
 
 def edit_request(upload, source_hash, template, correction, previous=None, *, sector_guide=SECTOR_GUIDE,
-                 head_turnaround=True, closeup=False, armored_raccoon=False):
+                 head_turnaround=True, closeup=False, armored_raccoon=False, upright_animal=False,
+                 palette_prompt=False):
     from avatar_worker.portrait import prepare_portrait
 
     with upload.open("rb") as source:
@@ -95,6 +101,10 @@ def edit_request(upload, source_hash, template, correction, previous=None, *, se
         prompt += CLOSEUP
     if armored_raccoon:
         prompt += ANIMAL_CLOSEUP
+    if upright_animal:
+        prompt += UPRIGHT_ANIMAL
+    if palette_prompt:
+        prompt += costume_palette.prompt_line(portrait.png)
     images = [image_input(guide),image_input(clean.getvalue())]
     if sector_guide is not None:
         reference = Path(__file__).with_name("sector-costume-light.png").read_bytes()
@@ -131,8 +141,22 @@ def submit_edit(body, api_key, operation):
         connection.close()
 
 
-def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armored_raccoon=False):
-    """Use durable per-job scratch. reserve(job, operation) must cover one high-quality edit."""
+def portrait_palette(pixels, upload):
+    """The production color correction: match the painted sheet to its saved portrait.
+    It runs after the paid edit, so any failure keeps the painting as delivered."""
+    try:
+        from avatar_worker.portrait import prepare_portrait
+        with upload.open("rb") as source:
+            return costume_palette.restore(pixels, prepare_portrait(source.read(20 * 1024 * 1024 + 1)).png)
+    except Exception as error:  # noqa: BLE001
+        print("costume-palette-skipped", type(error).__name__, flush=True)
+        return pixels
+
+
+def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armored_raccoon=False, upright_animal=False,
+                    palette=None):
+    """Use durable per-job scratch. reserve(job, operation) must cover one high-quality edit.
+    palette(pixels, upload) may correct a new painting's colors before it is recorded."""
     directory = Path(directory)
     directory.mkdir(exist_ok=True,parents=True)
 
@@ -154,6 +178,13 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
             binding["closeup"] = True
         if armored_raccoon:
             binding["armoredRaccoon"] = True
+        if upright_animal:
+            binding["uprightAnimal"] = True
+        # The portrait-palette prompt line arrived later; a job whose first edit was billed
+        # without it must replay and repair with the same prompt.
+        palette_prompt = first["binding"].get("portraitPalette", False) if first else palette is not None
+        if palette_prompt:
+            binding["portraitPalette"] = True
         previous = None
         if attempt == 2:
             if first is None:
@@ -163,7 +194,9 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
                 raise ValueError("image-edit-correction-binding")
         request = edit_request(upload,digest,template,correction,previous,sector_guide=sector_guide,
                                head_turnaround=head_turnaround, **({"closeup": True} if closeup else {}),
-                               **({"armored_raccoon": True} if armored_raccoon else {}))
+                               **({"armored_raccoon": True} if armored_raccoon else {}),
+                               **({"upright_animal": True} if upright_animal else {}),
+                               **({"palette_prompt": True} if palette_prompt else {}))
         body = json.dumps(request,sort_keys=True,separators=(",",":")).encode()
         operation = sha256(job_id.encode() + b"\0" + str(attempt).encode() + b"\0" + body).hexdigest()
         slot = directory / f"edit-{attempt}"
@@ -199,6 +232,9 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
             if image.format != "PNG" or image.mode != "RGBA" or image.size != (1536,960):
                 raise ValueError("image-edit-output-format")
             image.verify()
+        if palette is not None:
+            # Shrinking to a 36 px sprite and the H.264 frames mute colors; restore the portrait's strength.
+            pixels = palette(pixels, upload)
         painting.write_bytes(pixels)
         painting_hash = sha256(pixels).hexdigest()
         staged = slot / "completed.tmp"
