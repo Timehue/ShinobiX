@@ -6,6 +6,7 @@ import { advanceSectorStride, fitSectorStride, sectorClipGait, sectorStartEntry,
 import type { PackedMotion, SheetImage, SpriteClip, SpriteView } from "../lib/sector-pose-delivery";
 import { readSectorModelObject } from "../lib/sector-model-object";
 import { createPosePrerequisite } from "../lib/sector-pose-prerequisite";
+import { missingSectorModelFeature, reportSectorModelUnavailable, reportSectorModelUnsupported, type SectorModelStage } from "../lib/sector-model-health";
 
 type Model = { mapWidth: number; banks: SpriteView[]; packed?: PackedMotion };
 type MovingGait = "walk" | "run";
@@ -135,11 +136,15 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
             // starts the ladder again, so a page that never loads still settles
             // at one attempt per 30 s.
             let failures = 0, lastFailure = -Infinity;
-            function retryDelay() {
+            function retryDelay(stage: SectorModelStage, error?: unknown) {
                 const now = performance.now();
                 if (now - lastFailure > 60_000) failures = 0;
                 lastFailure = now;
-                return [1_000, 4_000][failures++] ?? 30_000;
+                const delay = [1_000, 4_000][failures++];
+                // The quick retries are spent: this figure is a portrait for the next
+                // half minute at least. That is worth knowing about.
+                if (delay === undefined) reportSectorModelUnavailable(stage, folder.includes("/players/"), error);
+                return delay ?? 30_000;
             }
 
             function retry() {
@@ -157,11 +162,11 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                         })) };
                         draw();
                     }
-                }).catch(() => {
+                }).catch(error => {
                     if (!live) return;
                     figure.classList.remove("has-sector-model");
                     window.clearTimeout(retryTimer);
-                    retryTimer = window.setTimeout(retry, retryDelay());
+                    retryTimer = window.setTimeout(retry, retryDelay("manifest", error));
                 });
             }
 
@@ -234,7 +239,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 void import("../lib/sector-pose-delivery").then(m=>m.loadFacing(folder,file)).then(bank=>{
                     pendingFacings.delete(facing);
                     if (model && live) { model.banks[facing]=bank; if (!driven) draw(); }
-                }).catch(()=>{pendingFacings.delete(facing); if(live) failed();});
+                }).catch(error=>{pendingFacings.delete(facing); if(live) failed("facing", error);});
                 return bank;
             }
 
@@ -250,7 +255,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                         const previous = painted;
                         painted=next; paintedUrl=clip.url; page=next.image; pendingUrl=""; if (!driven) draw(); previous?.release();
                     };
-                    const fail = () => {if (live && currentUrl===clip.url) {pendingUrl=""; failed();}};
+                    const fail = (error?: unknown) => {if (live && currentUrl===clip.url) {pendingUrl=""; failed("page", error);}};
                     if (clip.page) {
                         const spec=clip.page;
                         void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec)).then(ready,fail);
@@ -525,17 +530,19 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 if (stride.page !== lastClip) layer.dataset.clip = lastClip = stride.page;
                 figure.classList.add("has-sector-model");
             }
-            function failed() {
+            function failed(stage: SectorModelStage = "page", error?: unknown) {
                 // One drop usually fails a facing index, a pose page and a braking page
                 // together. They are one failure: keep the backoff already running.
                 if (performance.now()<retryAfter) return;
-                const delay=retryDelay();
+                const delay=retryDelay(stage, error);
                 retryAfter=performance.now()+delay;
                 releaseTurns();
                 figure.classList.remove("has-sector-model");
                 window.clearTimeout(retryTimer);
                 retryTimer=window.setTimeout(retry,delay);
             }
+            const missing = missingSectorModelFeature();
+            if (missing) reportSectorModelUnsupported(missing);
             notify.current = draw;
             window.addEventListener("online", retry);
             document.addEventListener("visibilitychange", retry);
