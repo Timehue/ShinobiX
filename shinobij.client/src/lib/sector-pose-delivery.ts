@@ -1,6 +1,6 @@
 import type { MotionClip } from '../../../shared/sector-model-motion';
 import type { SprintStyle } from './player-model';
-import { readSectorModelObject } from './sector-model-object';
+import { readSectorModelObject, sectorFetchPriority } from './sector-model-object';
 
 export type Page = { file: string; cell: number[]; frames: number; cols: number };
 export type SpriteClip = MotionClip & {endView?: number; reverse?: boolean; cell: number[]; cols: number; origins: number[][]; url: string; firstCell?: number; page?: Page};
@@ -8,8 +8,8 @@ export type SpriteView = Record<string,SpriteClip>;
 export type PackedMotion = {format: 'sector-motion-v2'; mapWidth: number; styles: Record<SprintStyle,string[]>};
 export type SheetImage = {image: HTMLImageElement; release: () => void};
 
-export async function loadFacing(folder: string, name: string): Promise<SpriteView> {
-    const data = await readSectorModelObject(folder,name,'.gz',128*1024);
+export async function loadFacing(folder: string, name: string, priority: DecodePriority = 1): Promise<SpriteView> {
+    const data = await readSectorModelObject(folder,name,'.gz',128*1024,sectorFetchPriority(priority));
     const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'));
     const {clips,pages} = await new Response(stream).json() as {
         clips: Record<string,MotionClip & {origins:number[][];file:string;firstCell?:number}>; pages:Record<string,Page>
@@ -91,7 +91,7 @@ async function encodePixels(pixels: ImageData): Promise<Blob> {
 }
 
 async function decodeImage(folder: string,page: Page,ticket: DecodeTicket): Promise<SheetImage> {
-    const bytes=await readSectorModelObject(folder,page.file,'.264',512*1024);
+    const bytes=await readSectorModelObject(folder,page.file,'.264',512*1024,sectorFetchPriority(ticket.priority));
     const decoded=await unpack(bytes,page,ticket);
     const blob=decoded instanceof Blob ? decoded : await encodePixels(decoded);
     const url=URL.createObjectURL(blob), image=new Image();

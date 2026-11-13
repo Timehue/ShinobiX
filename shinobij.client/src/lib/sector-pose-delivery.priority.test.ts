@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 const decoded: string[] = [];
 const releases: Array<() => void> = [];
 const bodies = new Map<string, Uint8Array>();
+const fetched = new Map<string, RequestPriority | undefined>();
 
 class FakeWorker {
     onmessage: ((event: { data: unknown }) => void) | null = null;
@@ -30,8 +31,9 @@ class FakeImage { src = ""; decode() { return Promise.resolve(); } }
 Object.assign(globalThis, {
     Worker: FakeWorker,
     Image: FakeImage,
-    fetch: async (url: string) => {
+    fetch: async (url: string, init?: RequestInit) => {
         const body = bodies.get(url.split("/").pop()!);
+        if (body) fetched.set(new TextDecoder().decode(body), init?.priority);
         return body ? new Response(body.slice(), { status: 200 }) : new Response(null, { status: 404 });
     },
 });
@@ -87,5 +89,20 @@ test("a warm-up page the player now needs is raised, not decoded twice", async (
     const images = await Promise.all(loads);
     assert.deepEqual(decoded, ["peer-c idle", "self start-walk", "peer-d idle"]);
     assert.equal(images[2]!.image, images[3]!.image, "both asks share one decoded page");
+    images.forEach(image => image.release());
+});
+
+test("the network hint follows the same order: own figure high, warm-up low", async () => {
+    const { loadPackedImage } = await import("./sector-pose-delivery");
+    const loads = [
+        loadPackedImage("/art/self/", page("self run"), 0),
+        loadPackedImage("/art/peer-e/", page("peer-e idle"), 1),
+        loadPackedImage("/art/self/", page("self warm-brake"), 2),
+    ];
+    await drain();
+    const images = await Promise.all(loads);
+    assert.equal(fetched.get("self run"), "high");
+    assert.equal(fetched.get("peer-e idle"), "auto");
+    assert.equal(fetched.get("self warm-brake"), "low");
     images.forEach(image => image.release());
 });

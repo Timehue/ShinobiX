@@ -4,7 +4,7 @@ import "./sector-model-figure.css";
 import type { PlayerModel, SprintStyle } from "../lib/player-model";
 import { advanceSectorStride, fitSectorStride, sectorClipGait, sectorStartEntry, type GroundStride } from "../../../shared/sector-model-motion";
 import type { DecodePriority, PackedMotion, SheetImage, SpriteClip, SpriteView } from "../lib/sector-pose-delivery";
-import { readSectorModelObject } from "../lib/sector-model-object";
+import { readSectorModelObject, sectorFetchPriority } from "../lib/sector-model-object";
 import { createPosePrerequisite } from "../lib/sector-pose-prerequisite";
 import { missingSectorModelFeature, reportSectorModelUnavailable, reportSectorModelUnsupported, type SectorModelStage } from "../lib/sector-model-health";
 
@@ -29,11 +29,11 @@ export type SectorModelHandle = {
 const MODEL_CACHE_LIMIT = 96;
 const models = new Map<string, Promise<Model>>();
 
-function loadModel(folder: string, revision: string): Promise<Model> {
+function loadModel(folder: string, revision: string, priority: RequestPriority = "auto"): Promise<Model> {
     const url = folder + revision + ".json";
     const existing = models.get(url);
     if (existing) { models.delete(url); models.set(url, existing); return existing; }
-    const request = readSectorModelObject(folder,revision+".json",".json",8*1024**2).then(bytes => {
+    const request = readSectorModelObject(folder,revision+".json",".json",8*1024**2,priority).then(bytes => {
         const decoded = JSON.parse(new TextDecoder().decode(bytes));
         if (decoded.mapWidth !== 1080) throw new Error("Invalid sector model scale");
         if (decoded.format === "sector-motion-v2") {
@@ -159,7 +159,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
             }
 
             function requestModel() {
-                void loadModel(folder, revision).then(asset => {
+                void loadModel(folder, revision, sectorFetchPriority(decodePriority)).then(asset => {
                     if (live) {
                         model = { ...asset, banks: asset.banks.map(bank => ({
                             ...bank, run: bank["run"+style] ?? bank.run!,
@@ -240,7 +240,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 if (bank || !model?.packed || pendingFacings.has(facing) || performance.now()<retryAfter) return bank;
                 pendingFacings.add(facing);
                 const file = model.packed.styles[style][facing];
-                void import("../lib/sector-pose-delivery").then(m=>m.loadFacing(folder,file)).then(bank=>{
+                void import("../lib/sector-pose-delivery").then(m=>m.loadFacing(folder,file,decodePriority)).then(bank=>{
                     pendingFacings.delete(facing);
                     if (model && live) { model.banks[facing]=bank; if (!driven) draw(); }
                 }).catch(error=>{pendingFacings.delete(facing); if(live) failed("facing", error);});
@@ -314,7 +314,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     for (const facing of [origin, ...[2, 6, 4, 0, 1, 3, 5, 7].filter(to => to !== origin)]) {
                         if (!live || run !== warmRun) return;
                         const bank = banks[facing] ??
-                            await delivery.loadFacing(folder, packed.styles[style][facing]).catch(() => undefined);
+                            await delivery.loadFacing(folder, packed.styles[style][facing], 2).catch(() => undefined);
                         if (!bank) continue;
                         banks[facing] ??= bank;
                         for (const spec of [bank[start]?.page, brakePage(bank, start)]) {
