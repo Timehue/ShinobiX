@@ -101,6 +101,31 @@ test('Settings sits beside Logout, replaces Character account cards, and preserv
     expect(controlsFit, 'hotkey controls stay inside the settings section at narrow widths').toBe(true);
 });
 
+test('2D/3D avatar toggle appears once world models are live and is saved on this device', async ({ page }) => {
+    test.setTimeout(90_000);
+    const { runtime } = await setup(page);
+    await page.route('**/api/world/sector-layout', route => route.fulfill({ json: {
+        obstaclesEnabled: true, modelArtBase: '/sector-models-test', playerGaitsEnabled: true,
+    } }));
+    await expectUiAuditBoot(page, runtime, 'profile');
+    const desktop = page.locator('.right-menu-section--system');
+    const mobileMenu = page.getByRole('button', { name: 'Menu', exact: true });
+    await expect.poll(async () => await desktop.isVisible() || await mobileMenu.isVisible()).toBe(true);
+    if (await desktop.isVisible()) await desktop.getByRole('button', { name: 'Settings', exact: true }).click();
+    else {
+        await mobileMenu.click();
+        await page.locator('.mobile-menu-section').getByRole('button', { name: 'Settings', exact: true }).click();
+    }
+    const toggle = page.getByLabel(/^2D\/3D avatar/);
+    await expect(toggle).not.toBeChecked();
+    await toggle.check();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('worldAvatarMode.v1'))).toBe('2d');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(toggle).toBeChecked();
+    await toggle.uncheck();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('worldAvatarMode.v1'))).toBe('3d');
+});
+
 test('guest restrictions direct account management to Settings without duplicate link controls', async ({ page }) => {
     const { runtime } = await setup(page);
     await page.route('**/api/player/account-status', route => route.fulfill({ json: {

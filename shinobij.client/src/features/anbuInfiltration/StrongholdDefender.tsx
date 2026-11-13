@@ -1,13 +1,13 @@
 import { useLayoutEffect, useRef } from "react";
 import { useSectorModelPins } from "../../lib/sector-model-pins";
 import { SectorModelFigure, type SectorModelHandle } from "../../components/SectorModelFigure";
-import { useSectorModelArtBase } from "../../lib/sector-obstacles";
+import { useWorldModelArtBase } from "../../lib/sector-obstacles";
 import { ANBU_AVATAR_ASSET_REVISION } from "../../lib/anbu-infiltration-api";
 
 export function StrongholdDefender({ portrait, name, caption, size, tileSize, overview }: {
     portrait: string | null; name: string; caption: string; size: number; tileSize: number; overview: boolean;
 }) {
-    const artBase = useSectorModelArtBase();
+    const artBase = useWorldModelArtBase();
     const {portraitModels} = useSectorModelPins();
     // Village portraits use this cache revision. The build pins their underlying files.
     const suffix = "?v=" + ANBU_AVATAR_ASSET_REVISION;

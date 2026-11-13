@@ -4,7 +4,7 @@ import { loadContinuousWorld, worldMovementRequest } from '../lib/continuous-wor
 import { peerWorldPath, advanceTimedPeerPath, peerPoseInMotion, type PeerWaypoint } from '../lib/world-peer-motion';
 import { playerNameTile } from '../lib/sector-tile';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
-import { usePlayerGaits, useSectorModelArtBase } from '../lib/sector-obstacles';
+import { usePlayerGaits, useWorldModelArtBase } from '../lib/sector-obstacles';
 import { isPlayerModel, starterModel, type PlayerModel } from '../lib/player-model';
 import { SectorPortrait } from './SectorPortrait';
 import type { WorldPosition } from '../../../shared/world-position';
@@ -47,7 +47,7 @@ const PeerFigures = memo(function PeerFigures({ figures, elements, models, artBa
  */
 export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector, selfName, sharedImages, sleepers }: ContinuousWorldPeersProps) {
     const live = useLiveSectorPlayers();
-    const artBase=useSectorModelArtBase(), gaits=usePlayerGaits();
+    const artBase=useWorldModelArtBase(), gaits=usePlayerGaits();
     const models=useRef(new Map<string,SectorModelHandle>());
     const [nearby, setNearby] = useState<PlayerRecord[]>([]);
     useEffect(() => {

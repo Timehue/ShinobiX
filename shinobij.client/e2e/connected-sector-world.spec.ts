@@ -8,11 +8,13 @@ import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 // The accepted board-pan suite is archived in output/continuous-world-20261007.
 // These are responsive/input checks; the live suite checks real server admission,
 // and shared navigation tests exercise all 186 directed roads.
-async function boot(page: Page, sector: number, tile: number, village = 'Stormveil Village') {
+async function boot(page: Page, sector: number, tile: number, village = 'Stormveil Village', routes?: () => Promise<void>) {
     const save = uiAuditSave(); save.currentSector = sector; save.currentTile = tile; save.worldGeoV = 2;
     save.character = { ...save.character, village, storyVillage: village, wandererCooldowns: quietRoadCooldowns(Array.from({ length: 65 }, (_, i) => i + 1)) };
     save.triggeredEvents = (save.triggeredEvents as string[]).map(event => event.replace('stormveil-village', village.toLowerCase().replace(/\s+/g, '-')));
     await installUiAuditRuntime(page, save);
+    // Registered after the runtime so they win over its catch-all.
+    await routes?.();
     await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
     await page.goto('/#/worldMap');
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
@@ -40,6 +42,42 @@ for (const direction of ['north', 'east', 'south', 'west'] as const) test(`the c
     expect(Number(await canvas.getAttribute('data-decoded-maps'))).toBeLessThanOrEqual(4);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`continuous-${direction}.png`), fullPage: true });
+});
+
+test('the 2D/3D avatar setting swaps the live world model for the portrait circle and back', async ({ page }) => {
+    test.setTimeout(120_000);
+    // A stand-in art host: the model element mounts whether or not its pages load.
+    await boot(page, 31, nearestWalkableTile(31, 78), undefined, async () => {
+        await page.route('**/api/world/sector-layout', route => route.fulfill({ json: {
+            obstaclesEnabled: true, playerGaitsEnabled: true, modelArtBase: '/sector-models-e2e',
+        } }));
+        await page.route('**/sector-models-e2e/**', route => route.fulfill({ status: 404, body: '' }));
+    });
+    const self = page.locator('[data-world-self]');
+    const model = self.locator('.sector-model-figure'), portrait = self.locator('.sector-avatar-body');
+    await expect(model).toHaveCount(1);
+    await expect(self.locator('.sector-self-label')).toHaveCount(1);
+    // Chosen in another tab: the open world follows without a reload.
+    const choose = (value: string | null) => page.evaluate(next => {
+        const key = 'worldAvatarMode.v1';
+        if (next === null) localStorage.removeItem(key); else localStorage.setItem(key, next);
+        window.dispatchEvent(new StorageEvent('storage', { key, newValue: next, storageArea: localStorage }));
+    }, value);
+    await choose('2d');
+    await expect(model).toHaveCount(0);
+    await expect(self).not.toHaveClass(/has-sector-model/);
+    await expect(self.locator('.sector-self-label')).toHaveCount(0);
+    await expect(portrait).toBeVisible();
+    await page.reload();
+    await expect(page.locator('.loading-screen')).toBeHidden({ timeout: 30_000 });
+    const here = page.getByRole('button', { name: /Return to Sector 31/ });
+    await expect.poll(async () => await here.isVisible() || await page.locator('.sector-image-map').isVisible()).toBe(true);
+    if (await here.isVisible()) await here.click();
+    await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'false');
+    await expect(portrait).toBeVisible();
+    await expect(model).toHaveCount(0);
+    await choose(null);
+    await expect(model).toHaveCount(1);
 });
 
 test('holding a key moves continuously and Escape cancels a route', async ({ page }) => {
