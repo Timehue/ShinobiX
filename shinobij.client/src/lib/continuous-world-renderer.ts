@@ -14,6 +14,9 @@ const colors: Record<string, string> = { forest: '#495338', central: '#747052', 
 const hash = (x: number, y: number) => Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
 /** Side of a cached terrain tile, in device pixels. */
 const TILE = 256;
+/** Tiles across the map: a whole sector from 528 px (44 px tiles). A narrower (phone) map aims
+ *  for 52 px tiles, down to 7 across, so a figure about 0.8 tile tall stays readable. */
+export const worldTilesAcross = (width: number) => width >= 528 ? 12 : Math.max(7, width / 52);
 
 /** Nearby-only painted terrain. No simulation, authority, timers or DOM HUD live here. */
 export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: ContinuousWorldSpace,
@@ -264,7 +267,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         if(restorationVersion!==sectorRestorationRevision()){restorationVersion=sectorRestorationRevision();for(const surface of paintings.values())shrink(surface);paintings.clear();revision++;}
         if(groundVersion!==sectorGroundRevision()){groundVersion=sectorGroundRevision();revision++;}
         if (!resize) { width = canvas.clientWidth; height = canvas.clientHeight; }
-        const tilePx = width / 12, dpr = Math.min(devicePixelRatio, 2), scale = tilePx * dpr;
+        const tilePx = width / worldTilesAcross(width), dpr = Math.min(devicePixelRatio, 2), scale = tilePx * dpr;
         // The painting is static: actors/weather animate in separate DOM layers.
         // Keep the raster while idle; image arrivals, camera, zone or size invalidate it.
         const signature = `${position.x}:${position.y}:${sector}:${width}:${height}:${dpr}:${revision}:${sectorLifePaintingRevision()}`;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createContinuousWorldRenderer } from './continuous-world-renderer';
+import { createContinuousWorldRenderer, worldTilesAcross } from './continuous-world-renderer';
 import type { ContinuousWorldSpace } from '../../../shared/continuous-world-space';
 import { sectorBiomeOf } from '../../../shared/sector-geo';
 import { sectorWalkMask } from '../../../shared/sector-walk-mask';
@@ -222,8 +222,18 @@ test('idle terrain reuses its raster but camera, image arrivals and resize repai
     renderer.draw({ x: 6.1, y: 6 }, 9); assert.equal(counts.paints, settled + 1);
     renderer.draw(point, 9); assert.equal(counts.paints, settled + 2);
     images[0]!.onload?.(); renderer.draw(point, 9); assert.equal(counts.paints, settled + 3);
-    canvas.clientWidth = 240; assert.equal(renderer.draw(point, 9).tilePx, 20); assert.equal(counts.paints, settled + 4);
+    // A 240 px map is closer in than a whole sector: 7 tiles across.
+    canvas.clientWidth = 240; assert.equal(renderer.draw(point, 9).tilePx, 240 / 7); assert.equal(counts.paints, settled + 4);
 }));
+
+test('the map shows a whole sector from 528 px and zooms a phone map in to 52 px tiles, at least 7 across', () => {
+    assert.equal(worldTilesAcross(1080), 12);
+    assert.equal(worldTilesAcross(528), 12);
+    assert.equal(worldTilesAcross(468), 9);
+    assert.equal(worldTilesAcross(300), 7);
+    // A 390 px phone's 364 px map: tiles grow from 30 px to 52 px, so a figure is ~73% taller.
+    assert.equal(364 / worldTilesAcross(364), 52);
+});
 
 test('walking copies cached terrain tiles instead of repainting the world', () => harness(({ renderer, images, counts }) => {
     settle(renderer, { x: 6, y: 6 });
