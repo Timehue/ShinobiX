@@ -29,20 +29,50 @@ for (const reducedMotion of ['no-preference','reduce'] as const) {
             let frameTime: number | undefined;
             let motionTime = 0;
             const requestFrame = window.requestAnimationFrame;
+            // Passive, bounded diagnostics only: never discount a slow frame or
+            // change which transforms contribute to the wall-time pace gate.
+            const diagnostics = {
+                frameGaps: [] as { at: number; elapsed: number; hidden: boolean }[],
+                slowCallbacks: [] as { at: number; duration: number; name: string; source: string }[],
+                observer: { calls: 0, records: 0, totalMs: 0, maxMs: 0 },
+                slowObservers: [] as { at: number; duration: number; records: number }[],
+                visibility: [{ at: performance.now(), hidden: document.hidden }],
+            };
+            const recordVisibility = () => {
+                if (diagnostics.visibility.length < 20) diagnostics.visibility.push({ at: performance.now(), hidden: document.hidden });
+            };
+            document.addEventListener('visibilitychange', recordVisibility);
             if (animated) {
                 window.requestAnimationFrame = callback => requestFrame.call(window, time => {
                     if (time !== frameTime) {
                         // A suspension over one second consumes one bounded
                         // 50 ms step. Ordinary late frames keep their full time.
                         const elapsed = frameTime === undefined ? 0 : time - frameTime;
+                        if (elapsed > 100 && diagnostics.frameGaps.length < 100) {
+                            diagnostics.frameGaps.push({ at: time, elapsed, hidden: document.hidden });
+                        }
                         motionTime += elapsed > 1_000 ? 50 : elapsed;
                         frameTime = time;
                     }
-                    callback(time);
+                    const started = performance.now();
+                    try {
+                        callback(time);
+                    } finally {
+                        const duration = performance.now() - started;
+                        if (duration > 50 && diagnostics.slowCallbacks.length < 40) {
+                            diagnostics.slowCallbacks.push({
+                                at: started, duration, name: callback.name,
+                                source: Function.prototype.toString.call(callback).slice(0, 180),
+                            });
+                        }
+                    }
                 });
             }
             const chunk = `.continuous-world-chunk[data-world-chunk="${sector}"]`;
             const recorder = new MutationObserver(records => {
+                const started = performance.now();
+                diagnostics.observer.calls++;
+                diagnostics.observer.records += records.length;
                 const figures = new Set<HTMLElement>();
                 for (const { target } of records) {
                     if (target instanceof HTMLElement && target.classList.contains('sector-wanderer-figure')
@@ -62,14 +92,21 @@ for (const reducedMotion of ['no-preference','reduce'] as const) {
                     if (last?.motionTime === sample.motionTime) samples[samples.length - 1] = sample;
                     else samples.push(sample);
                 }
+                const duration = performance.now() - started;
+                diagnostics.observer.totalMs += duration;
+                diagnostics.observer.maxMs = Math.max(diagnostics.observer.maxMs, duration);
+                if (duration > 8 && diagnostics.slowObservers.length < 40) {
+                    diagnostics.slowObservers.push({ at: started, duration, records: records.length });
+                }
             });
             // Capture writes from the moving figure directly. A separate frame
             // callback can miss the figure when the encounter replaces it.
             recorder.observe(document, { subtree: true, attributes: true, attributeFilter: ['style'] });
             Object.assign(window, { readBanditTravel: () => {
                 recorder.disconnect();
+                document.removeEventListener('visibilitychange', recordVisibility);
                 if (animated) window.requestAnimationFrame = requestFrame;
-                return samples;
+                return { samples, diagnostics };
             } });
         }, { name: bandit.name, sector, animated: reducedMotion === 'no-preference' });
         await page.goto('/#/worldMap');
@@ -79,14 +116,16 @@ for (const reducedMotion of ['no-preference','reduce'] as const) {
         if (await back.isVisible()) await back.dispatchEvent('click');
         const pay=page.getByRole('button',{name:'Pay 500 ryo',exact:true});
         await expect(pay).toBeVisible({timeout:40_000});
-        const samples = await page.evaluate(() => (window as unknown as { readBanditTravel: () => BanditTravelSample[] }).readBanditTravel());
+        const { samples, diagnostics } = await page.evaluate(() => (window as unknown as {
+            readBanditTravel: () => { samples: BanditTravelSample[]; diagnostics: Record<string, unknown> };
+        }).readBanditTravel());
         const lengths=samples.slice(1).map((b,i)=>{
             const a=samples[i],distance=Math.hypot(b.x-a.x,b.y-a.y)*1080/b.width;
-            return {distance,seconds:(b.motionTime-a.motionTime)/1000};
+            return {distance,seconds:(b.wallTime-a.wallTime)/1000};
         });
-        await info.attach('bandit-travel.json',{body:JSON.stringify({samples,lengths}),contentType:'application/json'});
-        // Measure the entire final 120 pixels, including waypoint crossings
-        // and any pauses in the movement logic.
+        await info.attach('bandit-travel.json',{body:JSON.stringify({samples,lengths,diagnostics}),contentType:'application/json'});
+        // Measure the entire final 120 pixels in real elapsed time, including
+        // delayed callbacks and waypoint crossings. motionTime is diagnostic only.
         let distance=0, seconds=0;
         for (const step of lengths.reverse()) {
             if (distance>=120) break;
