@@ -124,6 +124,11 @@ if (!hasPlayerIdentity() && !legalSlug && !introPreview && !cinematicVnPreview) 
 if (!legalSlug && !introPreview && !cinematicVnPreview) {
     void liveCapabilitiesStore.refresh().catch(() => {})
 }
+// A returning player lands in the world: start the fitted-figure flags and model
+// registry now, so the first figure does not wait on them one after the other.
+if (hasPlayerIdentity() && !legalSlug && !introPreview && !cinematicVnPreview) {
+    void import('./lib/sector-model-prefetch.ts').then((m) => m.prefetchSectorModels()).catch(() => {})
+}
 
 const root = createRoot(document.getElementById('root')!)
 root.render(
