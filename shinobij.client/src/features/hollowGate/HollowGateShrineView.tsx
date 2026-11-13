@@ -26,7 +26,7 @@ import { HollowGateAvatar } from "./HollowGateAvatar";
 import { HollowHoundFigure } from "./HollowHoundFigure";
 import { useSectorModelPins } from "../../lib/sector-model-pins";
 import { isPlayerModel, starterModel, useSprintStyle } from "../../lib/player-model";
-import { usePlayerGaits, useSectorModelArtBase } from "../../lib/sector-obstacles";
+import { usePlayerGaits, useWorldModelArtBase } from "../../lib/sector-obstacles";
 import { HollowGateEventDialog } from './HollowGateEventDialog';
 import { hollowGateWandererArt, hollowGateWandererFriendly, hollowGateWandererName, hollowGateWandererOrigin } from '../../../../shared/hollow-gate-wanderers';
 import { UndergroundSectorTerrain } from '../../components/UndergroundSectorTerrain';
@@ -370,7 +370,7 @@ export function HollowGateShrineView({
         ? runTiles.map((t) => (hollowGateSecretSealed(t) ? { ...t, terrain: "wall" as const } : t))
         : runTiles, [runTiles]);
     const cellArt = useMemo(() => hollowGateCellArt(sharedImages), [sharedImages]);
-    const modelArtBase = useSectorModelArtBase();
+    const modelArtBase = useWorldModelArtBase();
     const playerGaits = usePlayerGaits();
     const sprintStyle = useSprintStyle();
     const equipped = isPlayerModel(character.playerModel) ? character.playerModel : undefined;

@@ -65,7 +65,23 @@ same release.
 For painted costumes, the dedicated secret `shinobix-avatar-costume-paint`
 contains that feature's OpenAI key as `OPENAI_API_KEY` by default.
 Set `SPRITE_OPENAI_SECRET` at deployment to reuse an existing Modal secret
-for painting and recognition. For recognition, follow
+for painting and recognition. The portrait reader uses the same key for one
+upright-animal question (`upright_animal.py`, pinned model, no retries). That
+question is asked only when the intake declines a portrait as uncertain, and it
+is never asked about a human close-up or an armored raccoon that the detector
+already admits. A
+provider error fails the read and never admits a portrait. The game server must
+know the `upright-animal` style (`api/avatar-model/read.ts`) before a worker that
+emits it is deployed.
+
+Painted costumes keep the portrait's colors (`costume_palette.py`). The edit
+prompt names the portrait's main colors. The returned sheet is then corrected
+per hue family until, shrunk to world-sprite size, it carries the portrait's
+saturation and brightness. A world sprite is about 36 pixels wide and its frames
+are H.264 with half-resolution color, so an uncorrected sheet reads grey in the
+world. The correction only adds color, it leaves fur, steel and outlines as
+painted, and a failure keeps the paid painting unchanged. A job whose first edit
+was billed before this step replays with its original prompt. For recognition, follow
 [RECOGNITION.md](RECOGNITION.md): deploy the owner-approved pool ZIP, its complete
 hash and a pinned vision model. The separate `shinobix-avatar-recognition`
 secret supplies the scoped private R2 credentials. No session,

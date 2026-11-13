@@ -1444,10 +1444,20 @@ const INTERIOR_AVATAR_JS_CSS_FAIL_BYTES = DIRECT_STRIKE_JS_CSS_FAIL_BYTES + 26_5
 // The CI build with Sentry enabled emits 9,875,818 B of product JS/CSS.
 // Allow 4 KiB for the equipped-model sprite loader and battle rendering code.
 const COMBAT_SPRITE_JS_CSS_FAIL_BYTES = INTERIOR_AVATAR_JS_CSS_FAIL_BYTES + 4 * 1024;
+// Owner-approved 2026-11-12. The open-world player-model pass (paced walk/run,
+// WASD turns that pivot instead of braking, turn-page warming, retry backoff,
+// Reduce Motion facing) added about 1.5 KB of lazy world code; the Production
+// Image read 9,877,458 B against the combat-sprite threshold. A dead-rule scan
+// of the shipped CSS found only 90 B to remove. The startup gzip gate is unchanged.
+const PLAYER_GAIT_JS_CSS_FAIL_BYTES = COMBAT_SPRITE_JS_CSS_FAIL_BYTES + 2 * 1024;
+// Owner-approved 2026-11-12: the 2D/3D world avatar setting adds about 590 B
+// with dead CSS already exhausted. Allow 1 KiB on top of the player-gait pass.
+const AVATAR_MODE_JS_CSS_FAIL_BYTES = PLAYER_GAIT_JS_CSS_FAIL_BYTES + 1024;
 const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,
     BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
-    DIRECT_STRIKE_JS_CSS_FAIL_BYTES, COMBAT_SPRITE_JS_CSS_FAIL_BYTES,
+    DIRECT_STRIKE_JS_CSS_FAIL_BYTES, COMBAT_SPRITE_JS_CSS_FAIL_BYTES, PLAYER_GAIT_JS_CSS_FAIL_BYTES,
+    AVATAR_MODE_JS_CSS_FAIL_BYTES,
 );
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);

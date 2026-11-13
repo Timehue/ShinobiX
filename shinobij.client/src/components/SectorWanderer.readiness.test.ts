@@ -43,7 +43,7 @@ function mount({ reduced = false, width = 0, height = width, near = false, routi
         useSectorServiceRoutine: () => undefined,
         lifeActorPosition: () => ({ col: 4, row: 5 }), loiterPositionAt: () => ({ col: 4, row: 5, facing: 1 }),
         serverNow: () => now, useSectorModelPins: () => ({ portraitModels: new Map() }),
-        useSectorModelArtBase: () => undefined, usePlayerGaits: () => true, wandererAvatar: () => 'actor.webp',
+        useWorldModelArtBase: () => undefined, usePlayerGaits: () => true, wandererAvatar: () => 'actor.webp',
         SECTOR_MARKER_ANCHOR: 80, SECTOR_RING_AI: 'ring',
         sectorMarkerBox: (tile: number) => ({ w: tile * 0.58, h: tile }),
         publishFigureGroundPosition() {}, layoutWandererLabels() {}, paintGroundWorkTool() {},

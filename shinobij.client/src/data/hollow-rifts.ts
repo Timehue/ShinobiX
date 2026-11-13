@@ -165,8 +165,8 @@ export const hollowRifts: HollowRift[] = [
                 speaker: "Scout Vessa",
                 dialogue: [
                     "Give me one breath before you ask. I ran the last ridge.",
-                    "A violet seam is hanging above the east slope. No torii, no shrine, just a split in open air with the Hollow Gate's pressure behind it.",
-                    "A long thing climbed out while I marked the map. Too many joints. It went back before I counted the legs.",
+                    "A violet seam is hanging above the east slope. There's no torii and no shrine there, just a split in the open air with the Hollow Gate's pressure behind it.",
+                    "A long thing climbed out while I marked the map. It had too many joints. It went back in before I could count the legs.",
                 ],
             },
             {
@@ -303,7 +303,7 @@ export const hollowRifts: HollowRift[] = [
                 dialogue: [
                     "I'm Sann. I used to handle the records for Stormveil's arena office. Look at this book. It's adding names while we speak.",
                     "I copied the manifests that sent fighters' stolen reasons down to the Hollow Gate. Every one carried a circle cut into four quarters.",
-                    "A rift opened over that drain. Reasons are coming back up together, and the mass has learned to stand.",
+                    "A rift opened over that drain. The stolen reasons are coming back up through it in one mass, and that mass has learned to stand.",
                 ],
             },
             {
@@ -395,7 +395,7 @@ export const hollowRifts: HollowRift[] = [
                 ],
                 choices: [
                     { text: "Go lay the Hollowed Name to rest.", accept: true },
-                    { text: "Not yet. Tell me whose name it was.", conclusion: "Oru keeps the slate face-down. Not to an unverified stranger, he says. The name stays protected; the condemnation does not. He turns the lower edge just far enough for you to read the deed and the Hall's revocation." },
+                    { text: "Not yet. Tell me whose name it was.", conclusion: "Oru keeps the slate face-down. 'Not to a stranger I have not verified,' he says. 'The name stays protected. The condemnation does not.' He turns the lower edge just far enough for you to read the deed and the Hall's revocation." },
                 ],
             },
         ],
@@ -407,7 +407,7 @@ export const hollowRifts: HollowRift[] = [
                 dialogue: [
                     "No sound comes from the seam. Even your sandals land quietly after you cross it.",
                     "Banners from the era of the condemned entry hang in strips. Beneath them, a figure repeats one combat form without tiring or correcting a single foot placement.",
-                    "The Hollowed Name sees you and returns to its opening stance. Technique survived. Judgment did not.",
+                    "The Hollowed Name sees you and returns to its opening stance. The copy kept the old technique, but none of the judgment.",
                 ],
                 choices: [
                     { text: "Descend to the Hollowed Name.", descend: true },
@@ -438,7 +438,7 @@ export const hollowRifts: HollowRift[] = [
                 speaker: "Broker Nemo",
                 dialogue: [
                     "Booth is closed. If you came to buy a secret, tonight's secret is that I am terrified. You may have that one free.",
-                    "Moonshadow's Mirror copied the trust people surrendered in names, files, and confessions. A quartered-circle pipe carried those copies to the Hollow Gate.",
+                    "Moonshadow's Mirror copied the trust people placed in the keeper whenever they handed over names, files, and confessions. A quartered-circle pipe carried those copies to the Hollow Gate.",
                     "A rift broke one piece loose. It walked past this booth wearing my face and greeted me with a name I sold twenty years ago.",
                 ],
             },
@@ -448,7 +448,7 @@ export const hollowRifts: HollowRift[] = [
                 speaker: "Broker Nemo",
                 dialogue: [
                     "The Mirror was a still-water basin under the market. Each private reading made a copy of the person who trusted the booth.",
-                    "The valuable part was not the secret itself. It was the moment someone believed the holder would keep them safe.",
+                    "The secret itself mattered less to the Mirror than the moment someone believed the keeper would protect them.",
                     "The basin kept one copy here and sent another down the quartered-circle pipe. The loose shard is wearing those copies as faces.",
                 ],
             },
@@ -516,8 +516,8 @@ export const hollowRifts: HollowRift[] = [
                 speaker: "Kite Harrow",
                 dialogue: [
                     "The reports point to the same system. Stormveil takes away people's reasons for fighting. Ashen Leaf takes away the futures they were working toward.",
-                    "Frostfang takes the moment a person would leave. Moonshadow copies the trust handed to a keeper.",
-                    "Each village keeps enough of the yield to defend its system. The surplus travels down a hidden pipe marked with one quarter of a circle.",
+                    "Frostfang takes the moment a person decides to leave. Moonshadow copies the trust people place in a secret keeper.",
+                    "Each village keeps enough of what it takes to defend its system. The surplus travels down a hidden pipe marked with one quarter of a circle.",
                     "Those four pipes feed the Hollow Gate, the Sunken Court machine under all of them. Their backed-up surplus is what you are about to fight.",
                 ],
             },
@@ -532,7 +532,7 @@ export const hollowRifts: HollowRift[] = [
                 ],
                 choices: [
                     { text: "Take the contract. Face the Hollow Gate Heir.", accept: true },
-                    { text: "Not yet. Tell me who you are really protecting.", conclusion: "Myself, Harrow says. Then the people whose names would fill the next intake sheet. Believe those motives in whichever order makes you comfortable; I use both." },
+                    { text: "Not yet. Tell me who you are really protecting.", conclusion: "'Myself,' Harrow says. 'Then the people whose names would fill the next intake sheet. Believe those motives in whichever order you like. I use both.'" },
                 ],
             },
         ],

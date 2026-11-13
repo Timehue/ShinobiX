@@ -13,7 +13,7 @@ import { ResourceWorld } from './ResourceWorld';
 import { SectorLife } from './SectorLife';
 import { SectorBuildings } from './SectorBuildings';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
-import { usePlayerGaits, useSectorModelArtBase } from '../lib/sector-obstacles';
+import { usePlayerGaits, useWorldModelArtBase } from '../lib/sector-obstacles';
 import { useSprintStyle, isPlayerModel, starterModel } from '../lib/player-model';
 import { WorldRunButton, type WorldRunTimers } from './WorldRunButton';
 import type { WorldRunWindow } from '../../../shared/world-run';
@@ -23,7 +23,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     const canvas = useRef<HTMLCanvasElement>(null), chunk = useRef<HTMLDivElement>(null), marker = useRef<HTMLDivElement>(null);
     const latest = useRef(props), engine = useRef<Awaited<ReturnType<typeof mountContinuousWorld>> | null>(null);
     const model = useRef<SectorModelHandle>(null);
-    const modelArtBase = useSectorModelArtBase(), gaits = usePlayerGaits();
+    const modelArtBase = useWorldModelArtBase(), gaits = usePlayerGaits();
     const [timers, setTimers] = useState<WorldRunTimers>({ endsAt: 0, readyAt: 0 });
     const runningUntil = useRef(0), lastRunResponse = useRef(0);
     const onRunWindow = useCallback(({ endsAt, readyAt, serverTime }: WorldRunWindow) => {
@@ -54,7 +54,11 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
         void mountContinuousWorld({ canvas: canvas.current!, chunk: chunk.current!, marker: marker.current!, signal: abort.signal,
             gait: () => gaitEnabled.current ? performance.now() < runningUntil.current ? 'run' : 'walk' : undefined,
             onRunWindow, sprintStyle: () => peerStyle.current,
-            groundStride: (...args) => motion.matches ? undefined : model.current?.ground(...args),
+            groundStride: (...args) => {
+                if (!motion.matches) return model.current?.ground(...args);
+                model.current?.unground();
+                return undefined;
+            },
             onFigure: (x, y, width, moving, gait) => model.current?.place(x, y, width, moving && !motion.matches, gait),
             paused: () => Boolean(latest.current.suspended || latest.current.paused),
             blocked: () => Boolean(latest.current.suspended || latest.current.worldMovementBlocked?.()

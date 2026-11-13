@@ -1,14 +1,22 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { createServer, type Server } from "node:http";
+import { playerGaitPace } from "../../shared/sector-gait-rates";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { lifeSceneView, lifeWanderer, parseLifeState, type LifeActor } from "../../shared/sector-life";
-import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
+import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave, type UiAuditSave } from "./helpers/ui-audit-runtime";
 import { worldPositionModel } from "../../shared/continuous-world-layout";
+import { WORLD_GEO_VERSION } from "../../shared/sector-geo";
+import { rollTradeWanderer } from "../../shared/wanderer-extra-slots";
+import { nightWandererAt, wandererDayBucketFromMs } from "../../shared/wanderer-roster";
 import { quietRoadCooldowns } from "../e2e-live/helpers/quiet-road";
 import type { MotionClip } from "../../shared/sector-model-motion";
+import { storyInterludesByVillage } from "../src/data/story-interludes";
+import { storyReckonings } from "../src/data/story-reckonings";
+import { villageOutskirtsSectorNumber } from "../src/data/sectors";
+import { defaultVnPortrait } from "../src/lib/vn";
 
 // Bound a release from the actual displayed source frame, using the authored
 // travel tables. The compact portrait brake has a different distance limit.
@@ -191,6 +199,83 @@ test.afterAll(async () => {
         artServer = undefined;
         artBase = "";
     }
+});
+
+async function enterNamedNpcSector(page: Page, sector: number, tile: number, now: number, save: UiAuditSave) {
+    await page.clock.setFixedTime(now);
+    save.currentSector = sector;
+    save.currentTile = tile;
+    save.worldGeoV = WORLD_GEO_VERSION;
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route("**/api/world/sector-layout", route => route.fulfill({ json: { obstaclesEnabled: true, modelArtBase: artBase } }));
+    await page.addInitScript(() => localStorage.setItem("legacyRumors.seen.v1:auditninja", "[10,20,30,40,45]"));
+    await expectUiAuditBoot(page, runtime, "worldMap");
+    const back = page.getByRole("button", { name: new RegExp(`Return to Sector ${sector}\\b`) });
+    await expect(back.or(page.locator(".continuous-world-map")).first()).toBeVisible({ timeout: 60_000 });
+    await returnToTerrain(back);
+    await expect(page.locator(".continuous-world-map")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+}
+
+async function expectNamedNpcModel(page: Page, name: string, slug: string) {
+    const actor = page.locator(".sector-wanderer-figure").filter({ has: page.getByAltText(name, { exact: true }) });
+    await expect(actor).toHaveClass(/has-sector-model/, { timeout: 30_000 });
+    await expect(actor.locator(".sector-model-figure")).toHaveCSS("background-image", /blob:/);
+    expect(receivedModelObjects.get(page)?.has(`${artBase}/${slug}/${npcRevisions.get(slug)}.json`)).toBe(true);
+    return actor;
+}
+
+test("the Frostfang rival miner renders his fitted model and keeps his encounter portrait", async ({ page }) => {
+    test.skip(!artBase, "Requires the staged or hosted NPC model files");
+    test.setTimeout(90_000);
+    const sector = 26;
+    const now = Date.parse("2026-11-14T18:01:00Z");
+    const ganzo = rollTradeWanderer(sector, wandererDayBucketFromMs(now));
+    expect(ganzo?.name).toBe("Old Ganzo Ironhand");
+    const save = uiAuditSave();
+    const cooldowns = quietRoadCooldowns([sector], now);
+    delete cooldowns[ganzo!.id];
+    save.character = { ...save.character, starterCardsClaimed: true, wandererCooldowns: cooldowns };
+    await enterNamedNpcSector(page, sector, 113, now, save);
+    const miner = await expectNamedNpcModel(page, ganzo!.name, "rival-miner");
+    await miner.dispatchEvent("click");
+    await expect(page.locator('.world-wanderer-dialog img[alt="Old Ganzo Ironhand"]'))
+        .toHaveAttribute("src", "/portraits/pve/rivalMiner.webp");
+});
+
+test.describe("named world NPC models", () => {
+    for (const reckoning of storyReckonings) test(reckoning.npcName, async ({ page }, info) => {
+        test.skip(!artBase, "Requires the staged or hosted NPC model files");
+        test.setTimeout(90_000);
+        const village = reckoning.crossVillage ? "Frostfang Village" : reckoning.village;
+        const sector = villageOutskirtsSectorNumber(village);
+        const now = Date.parse("2026-11-14T18:01:00Z");
+        const save = uiAuditSave();
+        save.triggeredEvents = [...save.triggeredEvents, ...storyInterludesByVillage[village].map(entry => entry.id)];
+        save.character = { ...save.character, starterCardsClaimed: true, level: reckoning.levelReq,
+            village, storyVillage: village, storyProgress: 9,
+            storyTraits: storyReckonings.filter(arc => arc.id !== reckoning.id).map(arc => arc.completionTrait),
+            riftCooldownUntil: now + 60_000, wandererCooldowns: quietRoadCooldowns([sector], now) };
+        const slug = basename(defaultVnPortrait(reckoning.npcName), ".webp");
+        await enterNamedNpcSector(page, sector, 64, now, save);
+        await expectNamedNpcModel(page, reckoning.npcName, slug);
+        if (process.env.SECTOR_MODEL_CAPTURE) await page.screenshot({ path: info.outputPath(`${slug}-sector.png`) });
+    });
+
+    test("Tsukika the Quiet Blade", async ({ page }, info) => {
+        test.skip(!artBase, "Requires the staged or hosted NPC model files");
+        test.setTimeout(90_000);
+        const sector = 19;
+        const now = Date.parse("2026-11-14T03:40:00Z");
+        const tsukika = nightWandererAt(sector, wandererDayBucketFromMs(now), now);
+        expect(tsukika?.name).toBe("Tsukika the Quiet Blade");
+        const save = uiAuditSave();
+        const cooldowns = quietRoadCooldowns([sector], now);
+        delete cooldowns[tsukika!.id];
+        save.character = { ...save.character, starterCardsClaimed: true, wandererCooldowns: cooldowns };
+        await enterNamedNpcSector(page, sector, 38, now, save);
+        await expectNamedNpcModel(page, tsukika!.name, "tsukika");
+        if (process.env.SECTOR_MODEL_CAPTURE) await page.screenshot({ path: info.outputPath("tsukika-sector.png") });
+    });
 });
 
 // Full package qualification runs once per proposed release. Normal gameplay tests fetch on demand.
@@ -500,7 +585,7 @@ test("the top-left run button expires and refills automatically", async ({page},
     await expect(run).toBeEnabled();
 });
 
-test("Profile opens Make Model next to Upload avatar and creates one monthly model after confirmation", async ({page}, info) => {
+test("Profile opens Make Model next to Upload avatar and creates one monthly model from one accepted check", async ({page}, info) => {
     const save = uiAuditSave();
     save.character = {...save.character, patreon:{active:true,tier:'shinobi-supporter'}};
     const runtime = await installUiAuditRuntime(page, save);
@@ -543,11 +628,9 @@ test("Profile opens Make Model next to Upload avatar and creates one monthly mod
     expect(checks).toBe(0);
     await dialog.getByRole("button",{name:"Check portrait",exact:true}).click();
     await expect(dialog.getByText('Checking your portrait…')).toBeVisible();
-    await expect(dialog.getByText('Warrior in a hooded jacket')).toBeVisible({timeout:15000});
-    expect(submissions).toBe(0);
-    await dialog.getByRole("button",{name:"Create model",exact:true}).click();
+    // An accepted portrait submits its model with no second click.
     const library = page.getByRole("dialog",{name:"World model"});
-    await expect(library.getByText(/Queued for creation/)).toBeVisible();
+    await expect(library.getByText(/Queued for creation/)).toBeVisible({timeout:15000});
     await page.reload();
     await equip.click();
     await expect(library.getByText(/Queued for creation/)).toBeVisible();
@@ -973,16 +1056,21 @@ test.describe("equipped player upload", () => {
         }}));
         const world=worldPositionModel(), here=world.fallback(46,66);
         const manifest=JSON.parse(await readFile(resolve(content,"players",assetId!,version+".json"),"utf8"));
-        let equipped=true, tile=65, atSprintUpdate: number | undefined, walkIssuedAt: number | undefined;
+        // The peer walks east from FROM to WALK_TO, then the sprint packet sends it running
+        // on to RUN_TO, all along row 5. Peers are polled every 2 s and replayed at the
+        // player walk pace, so the walk leg must outlast a poll for the sprint packet to
+        // land mid-walk: 4 tiles is ~3.9 s at 1.03 tiles/s.
+        const FROM=63, WALK_TO=67, RUN_TO=70;
+        let equipped=true, tile=FROM, atSprintUpdate: number | undefined, walkIssuedAt: number | undefined;
         const peer=page.locator(".continuous-world-peer").filter({hasText:"Test Scout"});
         const markerX=()=>peer.evaluate(el=>new DOMMatrixReadOnly(getComputedStyle(el).transform).m41);
         await page.route("**/api/player/world-move**",async route=>{
             if(route.request().method()!=="GET") return route.fallback();
-            if (tile===67 && walkIssuedAt===undefined) walkIssuedAt=await page.evaluate(()=>performance.now());
-            if (tile===70 && atSprintUpdate===undefined) atSprintUpdate=await markerX();
+            if (tile===WALK_TO && walkIssuedAt===undefined) walkIssuedAt=await page.evaluate(()=>performance.now());
+            if (tile===RUN_TO && atSprintUpdate===undefined) atSprintUpdate=await markerX();
             return route.fulfill({json:{ok:true,sector:46,tile:66,sequence:0,worldPosition:here,players:[{
                 name:"Test Scout",level:5,currentSector:46,tile,worldPosition:world.fallback(46,tile),
-                movementSequence:tile,gaitPresentation:{gait:tile===70?"run":"walk",style:"C"},
+                movementSequence:tile,gaitPresentation:{gait:tile===RUN_TO?"run":"walk",style:"C"},
                 character:{avatarImage:"/starter-avatar-two.webp?v=2",...(equipped?{playerModel:{assetId,version}}:{})},
             }]}});
         });
@@ -1012,9 +1100,9 @@ test.describe("equipped player upload", () => {
             firstRun.observe(el,{attributes:true,attributeFilter:["data-gait","data-clip"]});
         });
         const ninjaFacing=page.waitForRequest(request=>request.url().endsWith(manifest.styles.C[2]));
-        tile=67;
+        tile=WALK_TO;
         await ninjaFacing;
-        tile=70;
+        tile=RUN_TO;
         await expect(sprite).toHaveAttribute("data-facing","2",{timeout:10000});
         await expect(sprite).toHaveAttribute("data-observed-run","true",{timeout:20000});
         const firstRunX=Number(await sprite.getAttribute("data-first-run-x"));
@@ -1025,9 +1113,12 @@ test.describe("equipped player upload", () => {
         const observationPath=info.outputPath("peer-gait.json");
         await writeFile(observationPath,observation);
         await info.attach("observed-peer-gait",{path:observationPath,contentType:"application/json"});
-        expect(receivedAt).toBeLessThan(1.8);
-        expect(ranAt).toBeGreaterThanOrEqual(1.98);
-        expect(ranAt).toBeLessThanOrEqual(5.01);
+        // The sprint arrived before the walk leg ended, the run began only at its corner,
+        // and it began before the run leg ended (same margins as the 2-tile original).
+        const walkLeg=WALK_TO-FROM, wholeRoute=RUN_TO-FROM;
+        expect(receivedAt).toBeLessThan(walkLeg-.2);
+        expect(ranAt).toBeGreaterThanOrEqual(walkLeg-.02);
+        expect(ranAt).toBeLessThanOrEqual(wholeRoute+.01);
         await expect(peer).toHaveClass(/has-sector-model/);
         equipped=false;
         await expectStarterArtwork(page,sprite,"starter-two");
@@ -1382,7 +1473,8 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
                     const {rate,samples} = await sample();
                     await writeFile(info.outputPath((running ? "run" : "walk")+"-samples.json"),JSON.stringify(samples));
                     rates.push(rate);
-                    const target = running ? 120 : 31;
+                    // Players play the authored clips faster (feet stay planted).
+                    const target = running ? 120 * playerGaitPace.run : 31 * playerGaitPace.walk;
                     expect(rate).toBeGreaterThan(target * .65);
                     expect(rate).toBeLessThan(target * 1.10);
                     await page.screenshot({path: info.outputPath((running ? "run" : "walk")+".png")});

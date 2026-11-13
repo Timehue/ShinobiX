@@ -294,12 +294,11 @@ test('a player submits a world model, closes the tab, then equips the finished s
     await avatarActions.getByRole('button', { name: 'Make Model', exact: true }).click();
     const creation = page.getByRole('dialog', { name: 'Make Model' });
     await expect(creation.getByText(/sends your saved portrait to OpenAI and Modal/)).toBeVisible();
-    await creation.getByRole('button', { name: 'Check portrait', exact: true }).click();
-    await expect(creation.getByText('Upright raccoon in a feathered coat')).toBeVisible();
     const submitted = page.waitForResponse(response => new URL(response.url()).pathname === '/api/avatar-model/jobs' &&
         response.request().method() === 'POST');
     const viewport = page.viewportSize() ?? undefined;
-    await creation.getByRole('button', { name: 'Create model', exact: true }).click();
+    // An accepted portrait submits its model with no second click.
+    await creation.getByRole('button', { name: 'Check portrait', exact: true }).click();
     const response = await submitted;
     expect(response.status()).toBe(202);
     const { jobId } = await response.json();

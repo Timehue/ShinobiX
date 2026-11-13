@@ -47,7 +47,8 @@ if modal.is_local() and sys.argv[1:2] != ["collect"]:
         image.add_local_file(WORKER, (INSTALL / WORKER.name).as_posix(), copy=True)
         for image in (gpu_image, paint_image, cpu_image)
     )
-    for name in ("closeup_portrait.py", "armored_raccoon.py", "paint_admitted_costume.py", "paint_portrait.py"):
+    for name in ("closeup_portrait.py", "armored_raccoon.py", "paint_admitted_costume.py", "paint_portrait.py",
+                 "upright_animal.py", "costume_palette.py"):
         reader_image = reader_image.add_local_file(WORKER.with_name(name), str(INSTALL / name), copy=True)
     assembly_image = assembly_image.add_local_file(
         WORKER.with_name("modal_trial_preview.py"), "/opt/sprite/modal_trial_preview.py", copy=True
