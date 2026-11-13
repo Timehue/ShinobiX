@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {advanceSectorStride, fitSectorStride, sectorStartEntry, type MotionClip} from './sector-model-motion';
+import {advanceSectorStride, fitSectorStride, sectorClipGait, sectorStartEntry, type MotionClip} from './sector-model-motion';
 
 const bank: Record<string, MotionClip> = {
     idle:{count:1,period:1,speed:0},
@@ -114,4 +114,15 @@ test('irregular start frames use the visible release contact and keep its author
     assert.equal(held.distance,0);
     assert.equal(held.page,'start-run');
     assert.equal(held.time,.100001);
+});
+
+test('a clip reports the gait it belongs to, so a run changing down keeps the run pace', () => {
+    const bank: Record<string, MotionClip> = {idle:{period:1,count:1}, walk:{period:1,count:8}, run:{period:.6,count:8},
+        'start-walk':{period:.7,count:6,target:'walk'}, 'change-run-walk':{period:.5,count:4,source:'run',target:'walk'},
+        'stop-run':{period:.4,count:4,entryGait:'run',target:'idle'}};
+    assert.equal(sectorClipGait(bank,'walk'),'walk');
+    assert.equal(sectorClipGait(bank,'start-walk'),'walk');
+    assert.equal(sectorClipGait(bank,'change-run-walk'),'run');
+    assert.equal(sectorClipGait(bank,'stop-run'),'run');
+    assert.equal(sectorClipGait(bank,'idle'),undefined);
 });

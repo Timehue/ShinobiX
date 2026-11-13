@@ -1,6 +1,6 @@
 /** The worker paints transitions at specific contact frames in the source clip. */
 export type SectorGait = 'walk' | 'run';
-export { sectorGaitTilesPerSecond } from './sector-gait-rates';
+export { sectorGaitTilesPerSecond, playerGaitPace, playerGaitTilesPerSecond } from './sector-gait-rates';
 export type MotionClip = {
     period: number; count: number; speed?: number;
     source?: string; entryGait?: string; entry?: number;
@@ -130,4 +130,13 @@ export function fitSectorStride(bank: Bank, state: {page:string;time:number}, de
 }
 
 export type GroundStride = (direction:{dx:number;dy:number} | null, desire: SectorGait | null,
-    seconds:number, allowance:number, afterBrake?:{dx:number;dy:number}) => {distance:number;idle:boolean} | undefined;
+    seconds:number, allowance:number, afterBrake?:{dx:number;dy:number}) =>
+    /** `gait` is the gait of the clip now on screen (a run still braking into a walk reports run). */
+    {distance:number;idle:boolean;gait?:SectorGait} | undefined;
+
+/** The gait a clip belongs to: the loop itself, or the loop a start/stop/change clip leaves. */
+export function sectorClipGait(bank: Record<string, MotionClip>, page: string): SectorGait | undefined {
+    // The loop itself, the loop a transition leaves, or the gait a `start-` clip opens.
+    for (const name of [page, bank[page]?.source ?? bank[page]?.entryGait, page.startsWith('start-') && page.slice(6)])
+        if (name === 'walk' || name === 'run') return name;
+}

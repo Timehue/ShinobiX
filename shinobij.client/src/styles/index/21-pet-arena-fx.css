@@ -75,15 +75,6 @@
     overflow-y: auto;
 }
 
-/* ── Pet avatar poison pulse ───────────────────── */
-.pet-battle-avatar.poisoned {
-    animation: pet-poison-pulse 0.8s ease-in-out infinite alternate;
-}
-@keyframes pet-poison-pulse {
-    from { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
-    to   { box-shadow: 0 0 0 6px rgba(168, 85, 247, 0.45); }
-}
-
 /* ── Glow collar aura (pet battles) ─────────────── */
 /* Pulsing halo for a pet with a collar equipped. The color comes from the
    per-collar --collar-glow custom property (set inline; falls back to gold).
