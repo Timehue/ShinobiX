@@ -58,7 +58,7 @@ export function GameplayGallery() {
                         <span className={`landing-mobile-screen${item.id === 'mobile-pet-arena' ? ' landing-mobile-screen--arena' : ''}`}><img src={`/landing/${item.id}.webp`} alt={item.alt} width={item.width} height={item.height} loading="lazy" decoding="async" /></span>
                         <span className="landing-mobile-label">{item.label}</span>
                     </button>)}
-                </div> : <button type="button" className="landing-gallery-image" aria-label={`Enlarge ${scene.label} screenshot`} onClick={(event) => openScreenshot(scene, event.currentTarget)}>
+                </div> : <button type="button" className="landing-gallery-image" aria-label={`View full size: ${scene.label} screenshot`} onClick={(event) => openScreenshot(scene, event.currentTarget)}>
                     <img key={scene.id} src={`/landing/${scene.id}.webp`} alt={scene.alt} width={scene.width} height={scene.height} loading="lazy" decoding="async" />
                     <span className="landing-gallery-enlarge" aria-hidden="true">View full size</span>
                 </button>}

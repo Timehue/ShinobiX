@@ -98,7 +98,7 @@ test('real World Map discovery binds a wild companion and survives refresh', asy
         response.url().includes('/api/pet/encounter-start') && response.request().method() === 'POST');
     if (info.project.name === 'chromium-desktop-live') await page.keyboard.press('e');
     else {
-        const explore = page.locator('.sector-hud').getByRole('button', { name: 'Explore', exact: true });
+        const explore = page.locator('.sector-hud').getByRole('button', { name: /^Explore(?: · \d+\/100)? Search this sector$/ });
         await expect(explore).toBeInViewport();
         await explore.click();
     }

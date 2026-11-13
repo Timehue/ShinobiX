@@ -49,6 +49,8 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
     const dailyActions = props.dailyExplores;
     const dailyCapped = (dailyActions ?? 0) >= 100;
     const dailyLabel = dailyActions !== undefined ? `Explores: ${dailyActions}/100 daily explores${dailyCapped ? ' · Resets at midnight UTC' : ''}` : undefined;
+    const exploreLabel = gatherDepleted ? 'Find richer ground' : dailyActions !== undefined ? `Explore · ${dailyActions}/100` : 'Explore';
+    const exploreHint = gatherDepleted ? 'Follow a richer trail' : dailyCapped ? 'Daily limit reached' : props.exploreBusy ? 'Exploring…' : 'Search this sector';
     const close = (restore = false, touch = false) => {
         if (touch) consumeTouchClick();
         setSheet(null);
@@ -66,15 +68,15 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
             <SectorHudIdentity sector={sector} present={present} biome={biome} />
             <div className="sector-hud-controls" aria-label="Sector actions">
                 <button type="button" className="sector-hud-explore" data-sector-explore=""
-                    aria-label={gatherDepleted ? 'Find richer ground' : 'Explore'}
+                    aria-label={`${exploreLabel} ${exploreHint}`}
                     aria-description={dailyLabel}
                     disabled={!gatherDepleted && (!present || dailyCapped || props.exploreBusy)} onClick={gatherDepleted ? onFindRicherGround : onExplore}>
-                    <span>{gatherDepleted ? 'Find richer ground' : dailyActions !== undefined ? `Explore · ${dailyActions}/100` : 'Explore'}</span>
-                    <small aria-hidden="true">{gatherDepleted ? 'Follow a richer trail' : dailyCapped ? 'Daily limit reached' : props.exploreBusy ? 'Exploring…' : 'Search this sector'}</small></button>
+                    <span>{exploreLabel}</span>
+                    <small aria-hidden="true">{' '}{exploreHint}</small></button>
                 <button type="button" ref={triggerRef} className={`sector-hud-info${open ? ' is-open' : ''}`}
                     aria-label={`Sector info${props.contract?.claimable ? ' · Claim ready' : ''}`}
                     aria-expanded={open} aria-controls={`${id}-info`} aria-haspopup={compact ? undefined : 'dialog'} onClick={() => setOpen(!open)}>
-                    <span>Sector info{props.contract?.claimable && <small>Claim ready</small>}</span>
+                    <span>Sector info{props.contract?.claimable && <small> Claim ready</small>}</span>
                     <span className="sector-hud-chevron" aria-hidden="true">{open ? '−' : '+'}</span>
                 </button>
             </div>

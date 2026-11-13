@@ -688,6 +688,9 @@
     line-height: 1;
     text-transform: uppercase;
 }
+.login-gate .gate-account-avatar::before {
+    content: attr(data-initial);
+}
 .login-gate .gate-account-tag {
     flex: 0 0 auto;
     padding: 3px 8px;

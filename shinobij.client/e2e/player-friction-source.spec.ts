@@ -91,7 +91,7 @@ test('hunt claim uses readable busy label and recovers after an unsuccessful res
 test('daily cap is readable at 320x568 with the complete reset explanation', async ({ page }, info) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/e2e/fixtures/sector-hud.html?capped');
-    const explore = page.getByRole('button', { name: 'Explore', exact: true });
+    const explore = page.getByRole('button', { name: /^Explore(?: · \d+\/100)? (?:Daily limit reached|Search this sector)$/ });
     await expect(explore).toBeDisabled();
     await expectHitTarget(explore);
     await expect(explore).toContainText('Daily 100/100');
@@ -105,9 +105,9 @@ test('daily cap is readable at 320x568 with the complete reset explanation', asy
 
 test('daily explore cap keeps Hunt and richer-ground navigation available', async ({ page }, info) => {
     await page.goto('/e2e/fixtures/sector-hud.html?capped');
-    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toContainText('Daily 100/100');
-    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toHaveAccessibleDescription('Your daily exploration: 100/100 · Resets at midnight UTC');
+    await expect(page.getByRole('button', { name: /^Explore(?: · \d+\/100)? (?:Daily limit reached|Search this sector)$/ })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /^Explore(?: · \d+\/100)? (?:Daily limit reached|Search this sector)$/ })).toContainText('Daily 100/100');
+    await expect(page.getByRole('button', { name: /^Explore(?: · \d+\/100)? (?:Daily limit reached|Search this sector)$/ })).toHaveAccessibleDescription('Your daily exploration: 100/100 · Resets at midnight UTC');
     await expect(page.getByText('Shared sector pool: 1,475 explores left', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Track Trail Beast' }).click();
     expect(await page.evaluate(() => window.sectorFixture.events)).toContain('hunt');
@@ -120,5 +120,5 @@ test('daily explore cap keeps Hunt and richer-ground navigation available', asyn
     await page.getByRole('button', { name: 'Find richer ground' }).click();
     expect(await page.evaluate(() => window.sectorFixture.events)).toContain('richer');
     await page.goto('/e2e/fixtures/sector-hud.html');
-    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: /^Explore(?: · \d+\/100)? (?:Daily limit reached|Search this sector)$/ })).toBeEnabled();
 });

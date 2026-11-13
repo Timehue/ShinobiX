@@ -229,10 +229,10 @@ function SectorChatView({ sector, present, playerName, hudRef, sheetOpen, onShee
         <h3 className="sector-chat-head">
             <button ref={toggleRef} type="button" className="sector-chat-toggle" aria-expanded={open}
                 aria-controls={docked ? `${id}-body` : `${id}-sheet`} aria-haspopup={docked ? undefined : 'dialog'}
-                aria-label={`Sector chat, ${stateLabel}${unread > 0 ? `, ${unread} new` : ''}`} onClick={toggle}>
+                aria-label={`Sector chat, ${stateLabel}${unread > 0 ? `, ${unread > 9 ? '9+ new, ' : ''}${unread} new` : ''}`} onClick={toggle}>
                 <span id={`${id}-title`} className="sector-chat-title">Sector chat</span>
-                <span className="sector-chat-state" data-state={state}><i aria-hidden="true" />{stateLabel}</span>
-                {unread > 0 && <span className="sector-chat-unread">{unread > 9 ? '9+' : unread} new</span>}
+                <span className="sector-chat-state" data-state={state}><i aria-hidden="true" />{' '}{stateLabel}</span>
+                {unread > 0 && <span className="sector-chat-unread">{' '}{unread > 9 ? '9+' : unread} new</span>}
                 <span className="sector-chat-chevron" aria-hidden="true" />
             </button>
         </h3>

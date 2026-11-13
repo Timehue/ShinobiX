@@ -27,9 +27,9 @@ test('built map separates capped personal allowance from shared gathering pool',
         sectorPools: { '22': { explores: 25, chests: 0 } }, sectorPoolCaps: { explores: 1500, chests: 225, ownerBonus: 0.5 } } }));
     await expectUiAuditBoot(page, runtime, 'worldMap');
     await page.getByRole('button', { name: /Return to Sector 22/ }).click();
-    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toContainText('100/100');
-    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toHaveAccessibleDescription('Explores: 100/100 daily explores · Resets at midnight UTC');
+    await expect(page.getByRole('button', { name: 'Explore · 100/100 Daily limit reached', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Explore · 100/100 Daily limit reached', exact: true })).toContainText('100/100');
+    await expect(page.getByRole('button', { name: 'Explore · 100/100 Daily limit reached', exact: true })).toHaveAccessibleDescription('Explores: 100/100 daily explores · Resets at midnight UTC');
     await expect(page.getByText(/Shared sector pool:/).first()).toBeVisible();
     await page.screenshot({ path: info.outputPath('daily-cap-built.png') });
 });
