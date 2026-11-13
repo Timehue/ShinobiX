@@ -4,12 +4,19 @@ import { playerGaitPace } from "../../shared/sector-gait-rates";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { lifeSceneView, lifeWanderer, parseLifeState, type LifeActor } from "../../shared/sector-life";
-import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
+import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave, type UiAuditSave } from "./helpers/ui-audit-runtime";
 import { worldPositionModel } from "../../shared/continuous-world-layout";
+import { WORLD_GEO_VERSION } from "../../shared/sector-geo";
+import { rollTradeWanderer } from "../../shared/wanderer-extra-slots";
+import { nightWandererAt, wandererDayBucketFromMs } from "../../shared/wanderer-roster";
 import { quietRoadCooldowns } from "../e2e-live/helpers/quiet-road";
 import type { MotionClip } from "../../shared/sector-model-motion";
+import { storyInterludesByVillage } from "../src/data/story-interludes";
+import { storyReckonings } from "../src/data/story-reckonings";
+import { villageOutskirtsSectorNumber } from "../src/data/sectors";
+import { defaultVnPortrait } from "../src/lib/vn";
 
 // Bound a release from the actual displayed source frame, using the authored
 // travel tables. The compact portrait brake has a different distance limit.
@@ -192,6 +199,83 @@ test.afterAll(async () => {
         artServer = undefined;
         artBase = "";
     }
+});
+
+async function enterNamedNpcSector(page: Page, sector: number, tile: number, now: number, save: UiAuditSave) {
+    await page.clock.setFixedTime(now);
+    save.currentSector = sector;
+    save.currentTile = tile;
+    save.worldGeoV = WORLD_GEO_VERSION;
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route("**/api/world/sector-layout", route => route.fulfill({ json: { obstaclesEnabled: true, modelArtBase: artBase } }));
+    await page.addInitScript(() => localStorage.setItem("legacyRumors.seen.v1:auditninja", "[10,20,30,40,45]"));
+    await expectUiAuditBoot(page, runtime, "worldMap");
+    const back = page.getByRole("button", { name: new RegExp(`Return to Sector ${sector}\\b`) });
+    await expect(back.or(page.locator(".continuous-world-map")).first()).toBeVisible({ timeout: 60_000 });
+    await returnToTerrain(back);
+    await expect(page.locator(".continuous-world-map")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+}
+
+async function expectNamedNpcModel(page: Page, name: string, slug: string) {
+    const actor = page.locator(".sector-wanderer-figure").filter({ has: page.getByAltText(name, { exact: true }) });
+    await expect(actor).toHaveClass(/has-sector-model/, { timeout: 30_000 });
+    await expect(actor.locator(".sector-model-figure")).toHaveCSS("background-image", /blob:/);
+    expect(receivedModelObjects.get(page)?.has(`${artBase}/${slug}/${npcRevisions.get(slug)}.json`)).toBe(true);
+    return actor;
+}
+
+test("the Frostfang rival miner renders his fitted model and keeps his encounter portrait", async ({ page }) => {
+    test.skip(!artBase, "Requires the staged or hosted NPC model files");
+    test.setTimeout(90_000);
+    const sector = 26;
+    const now = Date.parse("2026-11-14T18:01:00Z");
+    const ganzo = rollTradeWanderer(sector, wandererDayBucketFromMs(now));
+    expect(ganzo?.name).toBe("Old Ganzo Ironhand");
+    const save = uiAuditSave();
+    const cooldowns = quietRoadCooldowns([sector], now);
+    delete cooldowns[ganzo!.id];
+    save.character = { ...save.character, starterCardsClaimed: true, wandererCooldowns: cooldowns };
+    await enterNamedNpcSector(page, sector, 113, now, save);
+    const miner = await expectNamedNpcModel(page, ganzo!.name, "rival-miner");
+    await miner.dispatchEvent("click");
+    await expect(page.locator('.world-wanderer-dialog img[alt="Old Ganzo Ironhand"]'))
+        .toHaveAttribute("src", "/portraits/pve/rivalMiner.webp");
+});
+
+test.describe("named world NPC models", () => {
+    for (const reckoning of storyReckonings) test(reckoning.npcName, async ({ page }, info) => {
+        test.skip(!artBase, "Requires the staged or hosted NPC model files");
+        test.setTimeout(90_000);
+        const village = reckoning.crossVillage ? "Frostfang Village" : reckoning.village;
+        const sector = villageOutskirtsSectorNumber(village);
+        const now = Date.parse("2026-11-14T18:01:00Z");
+        const save = uiAuditSave();
+        save.triggeredEvents = [...save.triggeredEvents, ...storyInterludesByVillage[village].map(entry => entry.id)];
+        save.character = { ...save.character, starterCardsClaimed: true, level: reckoning.levelReq,
+            village, storyVillage: village, storyProgress: 9,
+            storyTraits: storyReckonings.filter(arc => arc.id !== reckoning.id).map(arc => arc.completionTrait),
+            riftCooldownUntil: now + 60_000, wandererCooldowns: quietRoadCooldowns([sector], now) };
+        const slug = basename(defaultVnPortrait(reckoning.npcName), ".webp");
+        await enterNamedNpcSector(page, sector, 64, now, save);
+        await expectNamedNpcModel(page, reckoning.npcName, slug);
+        if (process.env.SECTOR_MODEL_CAPTURE) await page.screenshot({ path: info.outputPath(`${slug}-sector.png`) });
+    });
+
+    test("Tsukika the Quiet Blade", async ({ page }, info) => {
+        test.skip(!artBase, "Requires the staged or hosted NPC model files");
+        test.setTimeout(90_000);
+        const sector = 19;
+        const now = Date.parse("2026-11-14T03:40:00Z");
+        const tsukika = nightWandererAt(sector, wandererDayBucketFromMs(now), now);
+        expect(tsukika?.name).toBe("Tsukika the Quiet Blade");
+        const save = uiAuditSave();
+        const cooldowns = quietRoadCooldowns([sector], now);
+        delete cooldowns[tsukika!.id];
+        save.character = { ...save.character, starterCardsClaimed: true, wandererCooldowns: cooldowns };
+        await enterNamedNpcSector(page, sector, 38, now, save);
+        await expectNamedNpcModel(page, tsukika!.name, "tsukika");
+        if (process.env.SECTOR_MODEL_CAPTURE) await page.screenshot({ path: info.outputPath("tsukika-sector.png") });
+    });
 });
 
 // Full package qualification runs once per proposed release. Normal gameplay tests fetch on demand.

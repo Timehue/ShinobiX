@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { RESOURCE_NODES, resourceNodeOffer } from "../../../shared/resource-nodes";
 import { RESOURCE_REFILL_MS } from "../../../shared/resource-gathering";
 import { roadNemesisPresentIn } from "../../../shared/road-nemesis";
-import { WANDERER_RIFT_INDEX, WANDERER_TRADE_INDEX, type Wanderer } from "../../../shared/wanderer-roster";
+import { ordinaryWandererEncounter, WANDERER_RIFT_INDEX, WANDERER_TRADE_INDEX, type Wanderer } from "../../../shared/wanderer-roster";
 import { anglerTip, extraRoadWanderers, roadFightAftermath, roadNemesisWanderer, wandererForcesChoice, withPatrolStance, withOrdinaryPvePreview } from "./road-cast";
+import { ordinaryPvePortrait } from "./ordinary-pve-presentation";
 
 const BUCKET = 5000;
 const NOW = BUCKET * 6 * 60 * 60 * 1000 + 1_000;
@@ -24,6 +25,18 @@ test("rift creature markers and dialogs preview the sealed player-relative fight
         assert.equal(preview.avatarKey, rolled.avatarKey);
     }
     assert.equal(withOrdinaryPvePreview(pilgrim, 100, 12), pilgrim, "friendly NPCs keep their roster identity");
+});
+
+test("ordinary road previews keep the roster appearance and honor named portrait overrides", () => {
+    const miner: Wanderer = { ...patrol, name: "Old Ganzo Ironhand", archetype: "rivalMiner", verb: "contest", avatarKey: "rivalMiner" };
+    const preview = withOrdinaryPvePreview(miner, 35, 12);
+    const encounter = ordinaryWandererEncounter(preview, 35, 12);
+    assert.ok(encounter);
+    assert.deepEqual(preview, { ...miner, level: encounter.level });
+    assert.equal(ordinaryPvePortrait(encounter), "/portraits/pve/rivalMiner.webp");
+
+    const tsukika: Wanderer = { ...patrol, name: "Tsukika the Quiet Blade", archetype: "nightblade", verb: "attack", avatarKey: "nightblade" };
+    assert.equal(withOrdinaryPvePreview(tsukika, 35, 12).avatarImage, "/portraits/pve/tsukika.webp");
 });
 
 test("patrols take the voice and stance of the village that holds the road", () => {
