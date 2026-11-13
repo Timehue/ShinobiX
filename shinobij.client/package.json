@@ -79,9 +79,9 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^10.0.1",
-    "@gltf-transform/core": "4.5.1",
-    "@gltf-transform/extensions": "4.5.1",
-    "@gltf-transform/functions": "4.5.1",
+    "@gltf-transform/core": "4.4.2",
+    "@gltf-transform/extensions": "4.5.0",
+    "@gltf-transform/functions": "4.4.2",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
