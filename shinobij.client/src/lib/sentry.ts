@@ -39,10 +39,10 @@ function loadSentry(): Promise<SentryModule | null> {
                     environment: SENTRY_ENVIRONMENT,
                     release: SENTRY_RELEASE,
                     // Our tiny listeners below load the SDK on the first error.
-                    // Disable Sentry's duplicate global handlers once it arrives.
-                    integrations: (defaults) => defaults.filter((integration) => integration.name !== "GlobalHandlers"),
+                    // Disable duplicate handlers and automatic session envelopes.
+                    integrations: (defaults) => defaults.filter((integration) => integration.name !== "GlobalHandlers" && integration.name !== "BrowserSession"),
                     tracesSampleRate: 0,
-                    sendDefaultPii: false,
+                    dataCollection: module.dataCollection,
                     beforeSend: module.beforeSend,
                 });
                 activeModule = module;
