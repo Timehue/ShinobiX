@@ -180,7 +180,7 @@ export async function mountContinuousWorld(host: Host) {
         if (Math.hypot(dx, dy) < 10) return;
         // Snap the drag to the nearest of eight headings, so a drag can walk diagonally too.
         const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI / 4;
-        const direction = { x: Math.round(Math.cos(angle) * 1e6) / 1e6, y: Math.round(Math.sin(angle) * 1e6) / 1e6 };
+        const direction = { x: Math.cos(angle), y: Math.sin(angle) };
         if (!drag.moved || held?.x!==direction.x || held?.y!==direction.y) steer(direction,!drag.moved);
         heldKeys.length=0; drag.moved=true;
     };

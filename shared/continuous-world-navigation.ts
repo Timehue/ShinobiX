@@ -157,7 +157,7 @@ export function createWorldWalker(nodes: ReadonlyMap<string, WorldNode>, start: 
         get position() { return { x: position.x, y: position.y }; },
         get node() { return nodes.get(id)!; },
         get moving() { return route.length > 0; },
-        get pivot() { return pivot ? { x: pivot.x, y: pivot.y } : null; },
+        get pivot(): Readonly<WorldPoint> | null { return pivot; },
         nextSegment() {
             for (const next of route) {
                 const point = nodes.get(next)!;

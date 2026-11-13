@@ -180,7 +180,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
             // changes facing on the next frame instead of waiting on a decode.
             const turnArt=Array.from({length:8},()=>createPosePrerequisite<SheetImage>());
             const turnReleaseArt=Array.from({length:8},()=>createPosePrerequisite<SheetImage>());
-            let turnHold: {facing: number; since: number} | undefined;
+            let holdFacing = -1, holdSince = 0;
             const releaseTurns = () => { for (const slot of [...turnArt, ...turnReleaseArt]) slot.clear(); };
             // Moving needs the pose page and its braking page (see releaseReady below).
             // Request both; true only once both are decoded.
@@ -346,21 +346,21 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 // failed load) the turn takes the normal wait-for-art path.
                 const turning = desired && facing !== view && !usingPortrait && stride.page !== "idle"
                     && model.banks[view]?.[stride.page] && paintedUrl === model.banks[view]![stride.page]!.url;
-                if (!turning) turnHold = undefined;
+                if (!turning) holdFacing = -1;
                 else {
                     const next = facingBank(facing), now = performance.now();
                     // The clock belongs to this target facing; once it runs out the turn
                     // stops holding until the target changes or the turn completes.
-                    if (turnHold?.facing !== facing) turnHold = {facing, since: now};
+                    if (holdFacing !== facing) { holdFacing = facing; holdSince = now; }
                     const ready = next && turnReady(next, facing, next[stride.page] ? stride.page : desired!);
-                    if (!ready && now - turnHold.since < 400) {
+                    if (!ready && now - holdSince < 400) {
                         facing = view;
                         // The held clip's settling correction is authored in its own facing.
                         fitX = Math.sin(view * Math.PI / 4); fitY = Math.cos(view * Math.PI / 4);
                     } else if (!ready) {
                         // The hold already spent the cold-load grace: the wait-for-art path
                         // below goes straight to the portrait instead of waiting 400 ms more.
-                        waitingSince ??= turnHold.since;
+                        waitingSince ??= holdSince;
                     }
                 }
                 if (afterBrake && !usingPortrait) {

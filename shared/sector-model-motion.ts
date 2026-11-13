@@ -136,9 +136,7 @@ export type GroundStride = (direction:{dx:number;dy:number} | null, desire: Sect
 
 /** The gait a clip belongs to: the loop itself, or the loop a start/stop/change clip leaves. */
 export function sectorClipGait(bank: Record<string, MotionClip>, page: string): SectorGait | undefined {
-    if (page === 'walk' || page === 'run') return page;
-    const from = bank[page]?.source ?? bank[page]?.entryGait;
-    if (from === 'walk' || from === 'run') return from;
-    const start = page.startsWith('start-') ? page.slice(6) : '';
-    return start === 'walk' || start === 'run' ? start : undefined;
+    // The loop itself, the loop a transition leaves, or the gait a `start-` clip opens.
+    for (const name of [page, bank[page]?.source ?? bank[page]?.entryGait, page.startsWith('start-') && page.slice(6)])
+        if (name === 'walk' || name === 'run') return name;
 }
