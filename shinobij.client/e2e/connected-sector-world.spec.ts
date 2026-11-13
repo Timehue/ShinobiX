@@ -72,7 +72,8 @@ test('the 2D/3D avatar setting swaps the live world model for the portrait circl
     await expect(page.locator('.loading-screen')).toBeHidden({ timeout: 30_000 });
     const here = page.getByRole('button', { name: /Return to Sector 31/ });
     await expect.poll(async () => await here.isVisible() || await page.locator('.sector-image-map').isVisible()).toBe(true);
-    if (await here.isVisible()) await here.click();
+    // The login restore can enter the sector itself while the button is still settling.
+    if (await here.isVisible()) await here.click({ timeout: 10_000 }).catch(() => {});
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'false');
     await expect(portrait).toBeVisible();
     await expect(model).toHaveCount(0);
