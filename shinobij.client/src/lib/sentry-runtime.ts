@@ -9,6 +9,23 @@ import { captureException, init } from "@sentry/react";
 
 export { init };
 
+// SDK 11 enables broader collection by default. Error reporting needs only
+// sanitized exception text and stack locations, never player or request data.
+export const dataCollection = {
+    userInfo: false,
+    cookies: false,
+    httpHeaders: { request: false, response: false },
+    httpBodies: [],
+    urlQueryParams: false,
+    genAI: { inputs: false, outputs: false },
+    mcp: { inputs: false, outputs: false },
+    databaseQueryData: false,
+    queues: false,
+    graphQL: { document: false, variables: false },
+    stackFrameVariables: false,
+    frameContextLines: 0,
+} satisfies NonNullable<Parameters<typeof init>[0]["dataCollection"]>;
+
 function scrub(value: unknown): string | number | boolean {
     if (typeof value === "number" || typeof value === "boolean") return value;
     return String(value ?? "").slice(0, 4_000)
