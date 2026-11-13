@@ -267,6 +267,8 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                         const image=new Image();
                         image.onload=()=>ready({image,release:()=>{}});
                         image.onerror=fail;
+                        // Older models' pages are plain images: give them the same network hint.
+                        image.fetchPriority=sectorFetchPriority(decodePriority);
                         image.src=clip.url;
                     }
                 }
