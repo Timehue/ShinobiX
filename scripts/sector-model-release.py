@@ -12,6 +12,8 @@ sys.path.insert(0, str(WORKER))
 from browser_motion import PACKAGE_BYTES, browser_motion_objects, worker_delivery_objects
 from publish_sprite import put_verified_public_object
 
+BUNDLED_MODEL_COUNT = 63
+
 
 def digest(data):
     return sha256(data).hexdigest()
@@ -52,12 +54,12 @@ def add_cinderhold(client, roster, objects, characters):
                             else "application/octet-stream", "manifest": name == revision + ".json"}
 
 
-def build_release(client, content, expected_count=53, cinderhold_roster=None):
+def build_release(client, content, expected_count=BUNDLED_MODEL_COUNT, cinderhold_roster=None):
     client, content = Path(client).resolve(), Path(content).resolve()
     pins = sorted((client / "src/data/sector-models").glob("*.json"))
     if len(pins) != expected_count:
         raise ValueError(f"Expected {expected_count} pinned appearances; found {len(pins)}")
-    if expected_count == 53 and not {"starter-one", "starter-two", "hollow-hound"} <= {p.stem for p in pins}:
+    if expected_count == BUNDLED_MODEL_COUNT and not {"starter-one", "starter-two", "hollow-hound"} <= {p.stem for p in pins}:
         raise ValueError("Missing starter or encounter appearance")
     objects, characters = {}, []
     for path in pins:

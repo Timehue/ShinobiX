@@ -17,11 +17,15 @@ export function encounterLabel(encounter: Pick<OrdinaryPveEncounter, 'difficulty
 }
 
 const PORTRAIT_KEYS = new Set(['bruiser', 'skirmisher', 'assassin', 'elementalist', 'defender', 'bandit', 'nightblade', 'rivalMiner', 'nemesis']);
-export function ordinaryPvePortrait(encounter: OrdinaryPveEncounter): string | undefined {
+export function ordinaryPvePortraitOverride(encounter: OrdinaryPveEncounter): string | undefined {
     if (/^Tsukika\b/i.test(encounter.displayName) && encounter.portraitKey === 'nightblade'
         && (!encounter.portraitImage || encounter.portraitImage === '/portraits/pve/nightblade.webp')) return '/portraits/pve/tsukika.webp';
-    if (encounter.portraitImage) return encounter.portraitImage;
-    return PORTRAIT_KEYS.has(encounter.portraitKey) ? `/portraits/pve/${encounter.portraitKey}.webp` : undefined;
+    return encounter.portraitImage || undefined;
+}
+
+export function ordinaryPvePortrait(encounter: OrdinaryPveEncounter): string | undefined {
+    return ordinaryPvePortraitOverride(encounter)
+        ?? (PORTRAIT_KEYS.has(encounter.portraitKey) ? `/portraits/pve/${encounter.portraitKey}.webp` : undefined);
 }
 
 export function namedPvePortrait(name: string): string | undefined {

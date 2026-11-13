@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Character } from "../types/character.js";
 import type { Biome } from "../types/core.js";
 import { storyReckoningById, storyReckonings } from "../data/story-reckonings.js";
-import { storyReckoningEligible, visibleStoryReckonings, storyReckoningIntroEvent, storyReckoningForEventId } from "./story-reckonings.js";
+import { storyReckoningEligible, visibleStoryReckonings, storyReckoningIntroEvent, storyReckoningForEventId, synthStoryReckoningWanderer } from "./story-reckonings.js";
 import { defaultVnPortrait } from "./vn.js";
 import { storyFieldScenes } from "../data/story-field-scenes.js";
 import { STORY_FIELD_CONTENT_SCHEMA_VERSION } from "./story-field-content-contract.js";
@@ -69,6 +69,17 @@ test("every reckoning giver and hunt-target portrait file exists", () => {
         assert.equal(existsSync(path.join(PUBLIC_DIR, giver.replace(/^\//, ""))), true, `${quest.npcName} portrait ${giver} should exist`);
         const boss = quest.task.boss?.portrait;
         if (boss) assert.equal(existsSync(path.join(PUBLIC_DIR, boss.replace(/^\//, ""))), true, `${boss} should exist`);
+    }
+});
+
+test("every story reckoning giver binds their world portrait to a fitted sector model", () => {
+    const pins = new URL("../data/sector-models/", import.meta.url);
+    const fittedPortraits = new Set(readdirSync(pins).filter(file => file.endsWith(".json"))
+        .map(file => JSON.parse(readFileSync(new URL(file, pins), "utf8")).portrait));
+    for (const quest of storyReckonings) {
+        const { avatarImage } = synthStoryReckoningWanderer(quest, 26);
+        assert.ok(avatarImage);
+        assert.ok(fittedPortraits.has(`public${avatarImage}`), `${quest.npcName} needs a fitted model for ${avatarImage}`);
     }
 });
 
