@@ -14,7 +14,7 @@ import { IphoneInstallGuide } from '../components/IphoneInstallGuide';
 import '../styles/settings.css';
 import { CombatHotkeySettings } from '../components/CombatHotkeySettings';
 import { useSprintStyle, saveSprintStyle, type SprintStyle } from '../lib/player-model';
-import { usePlayerGaits } from '../lib/sector-obstacles';
+import { saveWorldAvatar2d, usePlayerGaits, useSectorModelArtBase, useWorldModelArtBase } from '../lib/sector-obstacles';
 import '../styles/combat-hotkeys.css';
 
 export function Settings({ character, onVersionedCharacter, onDelete }: {
@@ -26,6 +26,8 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
     const [brightness, setBrightness] = useState(getDisplayBrightness);
     const gaits = usePlayerGaits();
     const style = useSprintStyle();
+    // Shown only while the server ships models; the world copy is null when 2D is chosen.
+    const modelsLive = useSectorModelArtBase() !== null, worldArt = useWorldModelArtBase();
     const changeBrightness = (level: number) => { setBrightness(level); setDisplayBrightness(level); };
     useEffect(() => subscribeAudioMute(() => { setMuted(isAudioMuted()); setVolume(getAudioVolume()); }), []);
     return <div className="settings-page card">
@@ -63,6 +65,8 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
             <div className="settings-range-ends" aria-hidden="true"><span>Darker</span><span>Lighter</span></div>
             {brightness !== BRIGHTNESS_DEFAULT && <button type="button" onClick={() => changeBrightness(BRIGHTNESS_DEFAULT)}>Reset to default</button>}
             <p className="hint">Makes the whole game lighter or darker. Saved on this device.</p>
+            {modelsLive && <label className="settings-check"><input type="checkbox" checked={!worldArt}
+                onChange={event => saveWorldAvatar2d(event.target.checked)} />2D/3D avatar: show 2D portrait circles</label>}
         </section>
         <IphoneInstallGuide />
         <CombatHotkeySettings key={character.name} player={character.name} />

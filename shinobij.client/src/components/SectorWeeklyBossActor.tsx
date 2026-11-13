@@ -18,7 +18,7 @@ import { type CSSProperties, useCallback, useContext, useEffect, useLayoutEffect
 import { WorldPlayerPosition } from '../lib/world-player-position';
 import { GameArtIcon } from "./GameArtIcon";
 import type { Biome } from "../types/core";
-import { safeSectorTile, useSectorModelArtBase } from "../lib/sector-obstacles";
+import { safeSectorTile, useWorldModelArtBase } from "../lib/sector-obstacles";
 import { createSectorNavigator } from "../lib/sector-path-waypoint";
 import { SECTOR_BOSS_SCALE, SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
 import { wandererAvatar } from "../lib/wanderer-art";
@@ -79,7 +79,7 @@ export function SectorWeeklyBossActor({
     const modelRef = useRef<SectorModelHandle>(null);
     const modelMoving = useRef(false);
     const reducedMotion = useRef(prefersReducedMotion());
-    const modelArtBase = useSectorModelArtBase();
+    const modelArtBase = useWorldModelArtBase();
     const { portraitModels } = useSectorModelPins();
     // The public fallback contains the same artwork as this canonical portrait.
     // Unrelated administrator portraits must not acquire a different character's body.
