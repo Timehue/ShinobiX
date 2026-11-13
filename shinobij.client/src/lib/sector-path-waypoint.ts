@@ -24,9 +24,14 @@ function sectorRegion(sector: number): Region | null {
         const chunk = world.space.chunks.find(c => c.sector === sector);
         const own = chunk ? world.navigation.nodes.filter(n => n.sector === sector) : [];
         const index = new Map(own.map((n, i) => [n.id, i]));
+        // Sector actors keep to straight steps: the graph's grid diagonals are
+        // for the player (leg logic below and left/right-facing actors assume them).
+        // Road nodes follow the road's own line and are always kept.
+        const straight = (a: { x: number; y: number; road?: string }, b: { x: number; y: number; road?: string }) =>
+            a.road !== undefined || b.road !== undefined || Math.abs(a.x - b.x) < .5 || Math.abs(a.y - b.y) < .5;
         regions.set(sector, own.length ? {
             points: own.map(n => ({ col: n.x - chunk!.x - .5, row: n.y - chunk!.y - .5 })),
-            links: own.map(n => n.neighbors.flatMap(id => index.has(id) ? [index.get(id)!] : [])),
+            links: own.map(n => n.neighbors.flatMap(id => index.has(id) && straight(n, world!.navigation.byId.get(id)!) ? [index.get(id)!] : [])),
         } : null);
     }
     return regions.get(sector)!;

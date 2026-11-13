@@ -5,8 +5,11 @@ import { frontierSteps, WORLD_FRONTIER_VERSION, type WorldFrontier } from './wor
 
 export type WorldNode = WorldPoint & { id: string; sector: number; tile?: number; road?: string; land?: true; neighbors: string[] };
 export type WorldNavigation = WorldFrontier & { nodes: WorldNode[]; byId: ReadonlyMap<string, WorldNode> };
-/** Cursors name graph nodes, so a graph rule change must retire every older cursor. */
-export const worldGraphVersion = (layoutVersion: string) => `${layoutVersion}.${WORLD_FRONTIER_VERSION}`;
+/** Graph rules owned by this file. `d1`: diagonal steps between grid cells. */
+const WORLD_STEP_VERSION = 'd1';
+/** Cursors name graph nodes, so a graph rule change must retire every older cursor.
+ *  A retired cursor reads as null, and the server falls back to the saved sector tile. */
+export const worldGraphVersion = (layoutVersion: string) => `${layoutVersion}.${WORLD_FRONTIER_VERSION}.${WORLD_STEP_VERSION}`;
 
 /** Corridor positions are explicit, never squeezed into a sector tile; open land surrounds both. */
 export function buildWorldNavigation(space: ContinuousWorldSpace): WorldNavigation {
@@ -62,7 +65,35 @@ function* navigationSteps(space: ContinuousWorldSpace): Generator<void, WorldNav
         }
     }
     const frontier = yield* frontierSteps(space, nodes);
+    yield* diagonalSteps(nodes);
     return { ...frontier, nodes: [...nodes.values()], byId: nodes };
+}
+
+/**
+ * Diagonal steps between grid cells (sector tiles and open land, never road nodes).
+ * Two diagonal cells are joined only when all four sides of their 2x2 square are
+ * already steps, so a diagonal never cuts a corner past rock, water, a cliff line,
+ * an overpass or an unlinked border: every rule that shaped those four steps holds.
+ */
+function* diagonalSteps(nodes: Map<string, WorldNode>): Generator<void, void> {
+    const cells = new Map<string, WorldNode>(), key = (x: number, y: number) => x + ',' + y;
+    for (const node of nodes.values()) {
+        const x = Math.floor(node.x), y = Math.floor(node.y);
+        if (!node.road && node.x - x === .5 && node.y - y === .5) cells.set(key(x, y), node);
+    }
+    yield;
+    const step = (a: WorldNode, b: WorldNode | undefined) => b !== undefined && a.neighbors.includes(b.id);
+    let work = 0;
+    for (const a of cells.values()) {
+        const x = Math.floor(a.x), y = Math.floor(a.y), across = cells.get(key(x + 1, y));
+        for (const dy of [1, -1]) {
+            const b = cells.get(key(x + 1, y + dy)), below = cells.get(key(x, y + dy));
+            if (b && step(a, across) && step(across!, b) && step(a, below) && step(below!, b) && !step(a, b)) {
+                a.neighbors.push(b.id); b.neighbors.push(a.id);
+            }
+        }
+        if (++work % 2048 === 0) yield;
+    }
 }
 
 /** A* over the world graph. Open land costs a little more, so routes keep to roads where they can. */

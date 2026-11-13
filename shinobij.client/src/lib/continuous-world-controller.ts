@@ -10,6 +10,7 @@ import { createTapIndex } from './world-tap';
 import { createWorldMovePacer } from './world-move-pacing';
 import { playerGaitPace, playerGaitTilesPerSecond, type GroundStride } from '../../../shared/sector-model-motion';
 import { createGaitBrake } from './world-gait-brake';
+import { MOVEMENT_KEYS, heldDirection } from './held-direction';
 import type { WorldRunWindow } from '../../../shared/world-run';
 
 type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivElement;
@@ -28,7 +29,7 @@ type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivE
 /** The server walks a newer world graph than this tab loaded; only a reload can follow it. */
 export const STALE_WORLD_STATUS = 'The world map was updated. Reload to keep exploring.';
 const staleReply = (reply: WorldMovementReply, version: string) => Boolean(reply.worldPosition && reply.worldPosition.layoutVersion !== version);
-const directions: Record<string, WorldPoint> = { w:{x:0,y:-1}, a:{x:-1,y:0}, s:{x:0,y:1}, d:{x:1,y:0}, arrowup:{x:0,y:-1}, arrowleft:{x:-1,y:0}, arrowdown:{x:0,y:1}, arrowright:{x:1,y:0} };
+const directions = MOVEMENT_KEYS;
 export async function mountContinuousWorld(host: Host) {
     const [world, initial] = await Promise.all([loadContinuousWorld(), worldMovementRequest(undefined, undefined, host.signal)]);
     host.signal.throwIfAborted();
@@ -49,7 +50,7 @@ export async function mountContinuousWorld(host: Host) {
     let releaseDirection: WorldPoint | null = null, fittedActive = false;
     let playingGait: 'walk' | 'run' | undefined;
     let fittedHeading: WorldPoint | null = null;
-    let heldKey = '', lastSpeed = 0;
+    let lastSpeed = 0;
     // Every movement key still down, oldest first. Releasing the newest key
     // returns to the one under it instead of stopping (hold W, tap D, keep W).
     const heldKeys: string[] = [];
@@ -148,8 +149,7 @@ export async function mountContinuousWorld(host: Host) {
         if (event.metaKey || event.ctrlKey || event.altKey) return;
         event.preventDefault(); event.stopImmediatePropagation();
         forgetKey(key); heldKeys.push(key);
-        heldKey = key;
-        if (!event.repeat || !held) steer(direction,true);
+        if (!event.repeat || !held) steer(heldDirection(heldKeys)!,true);
     }
     function releaseHeld() {
         if (!held) return;
@@ -158,18 +158,19 @@ export async function mountContinuousWorld(host: Host) {
             releaseDirection = held;
             brake = createGaitBrake(lastSpeed, gait, playerGaitPace[gait]);
         }
-        held = null; heldKey = '';
+        held = null;
     }
     const keyup = (event: KeyboardEvent) => {
         const key = event.key.toLowerCase();
         // Any key released during the modifier may never report its keyup (macOS
         // Cmd), so nothing in the stack can be trusted afterwards: stop cleanly.
         if (key === 'meta' || key === 'control' || key === 'alt') { heldKeys.length = 0; releaseHeld(); return; }
+        if (!directions[key]) return;
         forgetKey(key);
-        if (heldKey !== key) return;
-        const under = heldKeys.at(-1);
-        if (under && held && !host.blocked()) { heldKey = under; steer(directions[under]!, true); }
-        else releaseHeld();
+        // Letting go of either key of a diagonal straightens it; of the last key, stops.
+        const next = heldDirection(heldKeys);
+        if (!next || !held || host.blocked()) { if (!next) releaseHeld(); return; }
+        if (next.x !== held.x || next.y !== held.y) steer(next, true);
     };
     const blur = () => { heldKeys.length = 0; held = null; brake = null; pendingDestination = null; walker.stop(); };
     const pointerdown = (event: PointerEvent) => { drag = { x: event.clientX, y: event.clientY, moved: false }; host.canvas.setPointerCapture(event.pointerId); };
@@ -177,9 +178,11 @@ export async function mountContinuousWorld(host: Host) {
         if (!drag || host.blocked()) return;
         const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
         if (Math.hypot(dx, dy) < 10) return;
-        const direction = Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+        // Snap the drag to the nearest of eight headings, so a drag can walk diagonally too.
+        const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) * Math.PI / 4;
+        const direction = { x: Math.round(Math.cos(angle) * 1e6) / 1e6, y: Math.round(Math.sin(angle) * 1e6) / 1e6 };
         if (!drag.moved || held?.x!==direction.x || held?.y!==direction.y) steer(direction,!drag.moved);
-        heldKey=''; heldKeys.length=0; drag.moved=true;
+        heldKeys.length=0; drag.moved=true;
     };
     const pointerup = (event: PointerEvent) => {
         if (!drag) return;

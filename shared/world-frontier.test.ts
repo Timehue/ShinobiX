@@ -10,13 +10,16 @@ const navigation = buildWorldNavigation(CONTINUOUS_WORLD_SPACE);
 const nodes = new Map(navigation.nodes.map(n => [n.id, n]));
 const at = (x: number, y: number) => navigation.nodes.filter(n => Math.abs(n.x - x) < .01 && Math.abs(n.y - y) < .01);
 
-test('open land surrounds sectors and roads, and every step is a unit cardinal move', () => {
+test('open land surrounds sectors and roads, and every step is one cardinal or grid-diagonal move', () => {
     const land = navigation.nodes.filter(n => n.land);
     assert(land.length > 15_000, `${land.length} land cells`);
     for (const node of navigation.nodes) for (const id of node.neighbors) {
-        const next = nodes.get(id)!;
+        const next = nodes.get(id)!, dx = Math.abs(next.x - node.x), dy = Math.abs(next.y - node.y);
         assert(next.neighbors.includes(node.id), `${node.id} -> ${id} is one-way`);
-        assert(Math.abs(Math.abs(next.x - node.x) + Math.abs(next.y - node.y) - 1) < 1e-9, `${node.id} -> ${id} is not one step`);
+        // A diagonal joins two grid cells only (never a road node); the navigation
+        // test proves each one closes a square of four existing steps.
+        const diagonal = !node.road && !next.road && Math.abs(dx - 1) < 1e-9 && Math.abs(dy - 1) < 1e-9;
+        assert(diagonal || Math.abs(dx + dy - 1) < 1e-9, `${node.id} -> ${id} is not one step`);
     }
     for (const node of land) {
         assert.equal(node.tile !== undefined && walkableTiles(node.sector).includes(node.tile), true, `${node.id} has no legacy tile`);
@@ -28,11 +31,14 @@ test('a step into another sector only exists where a road already links the two'
     for (const node of navigation.nodes) for (const id of node.neighbors) {
         const next = nodes.get(id)!;
         if (next.sector === node.sector) continue;
-        crossings++;
         assert(sectorExits(node.sector).some(e => e.destinationSector === next.sector), `${node.id} (${node.sector}) -> ${id} (${next.sector})`);
+        // A diagonal crossing passes the corner of seams its square's straight steps
+        // already draw, so only straight (and road) crossings carry a seam of their own.
+        if (!node.road && !next.road && Math.abs(next.x - node.x) > .5 && Math.abs(next.y - node.y) > .5) continue;
+        crossings++;
     }
     assert(crossings > 186);
-    assert.equal(navigation.boundaries.length * 2, crossings, 'one dotted seam per sector-changing step');
+    assert.equal(navigation.boundaries.length * 2, crossings, 'one dotted seam per straight sector-changing step');
 });
 
 test('painting edges open onto land instead of invisible walls', () => {
