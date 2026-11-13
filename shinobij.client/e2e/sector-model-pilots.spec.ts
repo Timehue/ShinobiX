@@ -585,7 +585,7 @@ test("the top-left run button expires and refills automatically", async ({page},
     await expect(run).toBeEnabled();
 });
 
-test("Profile opens Make Model next to Upload avatar and creates one monthly model after confirmation", async ({page}, info) => {
+test("Profile opens Make Model next to Upload avatar and creates one monthly model from one accepted check", async ({page}, info) => {
     const save = uiAuditSave();
     save.character = {...save.character, patreon:{active:true,tier:'shinobi-supporter'}};
     const runtime = await installUiAuditRuntime(page, save);
@@ -628,11 +628,9 @@ test("Profile opens Make Model next to Upload avatar and creates one monthly mod
     expect(checks).toBe(0);
     await dialog.getByRole("button",{name:"Check portrait",exact:true}).click();
     await expect(dialog.getByText('Checking your portrait…')).toBeVisible();
-    await expect(dialog.getByText('Warrior in a hooded jacket')).toBeVisible({timeout:15000});
-    expect(submissions).toBe(0);
-    await dialog.getByRole("button",{name:"Create model",exact:true}).click();
+    // An accepted portrait submits its model with no second click.
     const library = page.getByRole("dialog",{name:"World model"});
-    await expect(library.getByText(/Queued for creation/)).toBeVisible();
+    await expect(library.getByText(/Queued for creation/)).toBeVisible({timeout:15000});
     await page.reload();
     await equip.click();
     await expect(library.getByText(/Queued for creation/)).toBeVisible();

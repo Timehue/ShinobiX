@@ -11,12 +11,22 @@ PROMPTS = (
 )
 
 
+def nested(a, b):
+    """Share of the smaller box that lies inside the larger one."""
+    left, top, right, bottom = a
+    x, y, end_x, end_y = b
+    area = max(0, min(right, end_x) - max(left, x)) * max(0, min(bottom, end_y) - max(top, y))
+    return area / min((right - left) * (bottom - top), (end_x - x) * (end_y - y))
+
+
 def face_and_muzzle(read):
     from closeup_portrait import overlap
 
     faces = [row["box"] for row in read.get("animalRegions", ())
              if "a raccoon face" in row["label"] and row["score"] >= .33]
-    if not faces or any(overlap(faces[0], face) < .65 for face in faces[1:]):
+    # The detector often boxes the whole head (ears included) and the inner face
+    # separately; a face box nested inside the first is the same face, not a second one.
+    if not faces or any(overlap(faces[0], face) < .65 and nested(faces[0], face) < .9 for face in faces[1:]):
         return None
     l, t, r, b = face = faces[0]
     width, height = read["size"]
@@ -52,9 +62,18 @@ def confirms_armor(face, muzzle, rows):
     if not find("a pair", .40, lambda p: l < p[0] < p[2] < r and
                 t < p[1] < y < p[3] < v and p[2]-p[0] >= .5*(r-l)):
         return False
-    return (find("a samurai helmet", .23, lambda p: p[0] <= l and p[1] < t and p[2] >= r and p[3] >= (t+b)/2)
-            and find("an armored chest", .44, lambda p: p[0] < r and p[2] > l and p[3] > b+.3*(b-t))
-            and find("metal armor", .44, lambda p: p[0] < r and p[2] > l and p[3] > b+.3*(b-t)))
+    # The detector merges neighbouring prompts into one label ("a samurai helmet a
+    # helmet"), so armor rows match on the phrase they contain.
+    def best(phrase, check):
+        return max((row["score"] for row in rows if phrase in row["label"] and check(row["box"])), default=0)
+
+    def below_face(p):
+        return p[0] < r and p[2] > l and p[3] > b+.3*(b-t)
+
+    chest, metal = best("an armored chest", below_face), best("metal armor", below_face)
+    # Chest and metal armor together must carry the evidence two .44 reads would.
+    return (best("a samurai helmet", lambda p: p[0] <= l and p[1] < t and p[2] >= r and p[3] >= (t+b)/2) >= .23
+            and min(chest, metal) >= .33 and chest + metal >= .88)
 
 
 if __name__ == "__main__":
