@@ -212,7 +212,7 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
             {before && <button type="button" disabled={busy} onClick={() => void change('older')}>Load older models</button>}
             {enabled && (!selected || selectedModel) &&
                 <ProfileModelPreview key={selected} artBase={enabled} avatar={character.avatarImage || ''}
-                    starterWorldModel={character.starterWorldModel} model={selected ? selectedModel : undefined} />}
+                    starterWorldModel={character.starterWorldModel} model={selected ? selectedModel : undefined} self />}
             <button type="button" disabled={busy || selected === equipped && (!selected || slots[slot - 1]?.assetId === selected)}
                 onClick={() => void change('equip')}>Equip</button>
             </>}

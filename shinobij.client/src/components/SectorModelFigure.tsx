@@ -146,7 +146,8 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 const delay = [1_000, 4_000][failures++];
                 // The quick retries are spent: this figure is a portrait for the next
                 // half minute at least. That is worth knowing about.
-                if (delay === undefined) reportSectorModelUnavailable(stage, folder.includes("/players/"), error);
+                // An offline phone fails every fetch; that is the network, not the figure.
+                if (delay === undefined && navigator.onLine) reportSectorModelUnavailable(stage, folder.includes("/players/"), error);
                 return delay ?? 30_000;
             }
 
