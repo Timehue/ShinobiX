@@ -37,6 +37,12 @@ Object.assign(globalThis, {
         return body ? new Response(body.slice(), { status: 200 }) : new Response(null, { status: 404 });
     },
 });
+// Node hashes on its thread pool, so under load pages can finish hashing out of order and take
+// the free worker in the wrong order. Hash on this thread so each page reaches the queue in turn.
+(globalThis.crypto.subtle as { digest: SubtleCrypto["digest"] }).digest = async (_algorithm, data) => {
+    const hash = createHash("sha256").update(new Uint8Array(data as ArrayBuffer)).digest();
+    return hash.buffer.slice(hash.byteOffset, hash.byteOffset + hash.length);
+};
 URL.createObjectURL = () => "blob:fake";
 URL.revokeObjectURL = () => {};
 
