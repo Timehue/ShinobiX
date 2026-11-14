@@ -5,6 +5,7 @@ import {quietRoadCooldowns} from '../e2e-live/helpers/quiet-road';
 import {lifeActorsAt,lifeSceneView,parseLifeState} from '../../shared/sector-life';
 import {festivalStallPlan,FESTIVAL_SITE,FESTIVAL_LINES,FESTIVAL_STAGE} from '../../shared/sector-festival-work';
 import {WORLD_DAY_MS,WORLD_HOUR_MS} from '../../shared/world-clock';
+import {walkUntilOnMap} from './helpers/world-camera';
 
 type Pose={col:number;row:number;activity?:string;visible:boolean};
 declare global{interface Window{festivalWorkPoses:()=>Record<string,Pose>}}
@@ -61,10 +62,10 @@ for(const mode of ['square steps','opening','packing','rain','cached closure','m
         writeFileSync(`${evidence}/${info.project.name}-crowded-counter-geometry.json`,JSON.stringify(geometry,null,2));
         for(const {rect:r,body:b,text,speech}of geometry)if(!speech)expect(Math.hypot(Math.max(b.x-r.x-r.width,r.x-b.x-b.width,0),Math.max(b.y-r.y-r.height,r.y-b.y-b.height,0)),`${text}: name stays near its actual owner`).toBeLessThanOrEqual(Math.max(28,b.height*1.2));
         await talk(eda,FESTIVAL_LINES.serving);await talk(nene,"I'm comparing the festival approaches with Festival Runner Ko");await talk(ko,"I'm comparing the festival approaches with Festival Guide Nene");
-        expect(await page.locator('.sector-life-point').evaluate(node=>{const r=node.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.sector-life-point')===node;})).toBe(true);
+        await walkUntilOnMap(page,page.locator('.sector-life-point'),ms=>page.clock.runFor(ms));expect(await page.locator('.sector-life-point').evaluate(node=>{const r=node.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.sector-life-point')===node;})).toBe(true);
     }else if(mode==='square steps'){
         await talk(nene,"I'm comparing the festival approaches with Festival Runner Ko");await talk(ko,"I'm comparing the festival approaches with Festival Guide Nene");
-        expect(await page.locator('.sector-life-point').evaluate(node=>{const r=node.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.sector-life-point')===node;})).toBe(true);
+        await walkUntilOnMap(page,page.locator('.sector-life-point'),ms=>page.clock.runFor(ms));expect(await page.locator('.sector-life-point').evaluate(node=>{const r=node.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.sector-life-point')===node;})).toBe(true);
         const step=pair[0].cyclePhases!.find(p=>p.workArea)!,end=pair[0].cyclePhases!.find(p=>p.activity==='Returning to the road post')!;
         await page.clock.fastForward(step.at-pair[0].cyclePhases!.find(p=>p.activity==='Exchanging road news')!.at-4000);await page.clock.runFor(3000);
         const corners=pair.map(()=>new Set<number>());let separation=Infinity;

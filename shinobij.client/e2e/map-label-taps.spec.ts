@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
+import { walkUntilOnMap } from "./helpers/world-camera";
 
 /*
  * The labels hanging under pieces on a sector board are the words a phone
@@ -91,6 +92,8 @@ test("tapping a building's name opens that building", async ({ page }, info) => 
     const name = page.locator(".sector-building-threshold .sector-building-name", { hasText: "Fieldside Tea House" });
     await expect(name).toBeVisible();
     await name.scrollIntoViewIfNeeded();
+    // A phone shows ~7 tiles around the player: walk up to the tea house first.
+    await walkUntilOnMap(page, name);
     const point = await centreOf(page, ".sector-building-threshold .sector-building-name");
     const landed = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.className, point);
     expect(String(landed)).toContain("sector-building-name");

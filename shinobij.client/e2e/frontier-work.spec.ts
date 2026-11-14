@@ -10,6 +10,7 @@ import {isWalkableTile} from '../../shared/sector-walk-mask';
 import {wandererPresenceGate,wandererDayBucketFromMs} from '../../shared/wanderer-roster';
 import {QUEST_GIVER_PRESENCE} from '../src/lib/wanderers';
 import {storyRoadEvents} from '../src/data/story-road-events';
+import {sectorBox,walkUntilOnMap} from './helpers/world-camera';
 
 type Pose={col:number;row:number;activity?:string;visible:boolean;original:boolean};
 const FRONTIER_SCENARIO_EPOCH=Date.UTC(2026,9,23,18);
@@ -60,14 +61,14 @@ for(const sector of [55,60])for(const mode of ['inspection','weather','task','fa
     const talk=async(line:string)=>{await actor.click();await expect(page.getByRole('dialog')).toContainText(line);await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();};
     await talk(mode==='fallback'?FRONTIER_LINES.fallback:sector===55?FRONTIER_LINES.pack:FRONTIER_LINES.frame);
     if(sector===55&&mode==='inspection'){
-        await page.locator('[data-life-resident="gen"]').click();await expect(page.getByRole('dialog').getByRole('heading',{name:'Gen',exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
+        await walkUntilOnMap(page,page.locator('[data-life-resident="gen"]'),ms=>page.clock.runFor(ms));await page.locator('[data-life-resident="gen"]').click();await expect(page.getByRole('dialog').getByRole('heading',{name:'Gen',exact:true})).toBeVisible();await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
         const quest=map.locator('.sector-wanderer-figure').filter({has:page.locator('.sector-wanderer-label').filter({hasText:'Pell Marrow'})});
-        expect(await quest.evaluate(node=>{const body=node.querySelector('.sector-avatar-body')!,r=body.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.sector-wanderer-figure')===node;}),'the original quest giver remains independently reachable').toBe(true);
+        await walkUntilOnMap(page,quest,ms=>page.clock.runFor(ms));expect(await quest.evaluate(node=>{const body=node.querySelector('.sector-avatar-body')!,r=body.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.sector-wanderer-figure')===node;}),'the original quest giver remains independently reachable').toBe(true);
     }
     const capture=async(name:string)=>{await page.mouse.move(2,2);await map.screenshot({path:`${evidence}/${info.project.name}-${sector}-${name}.png`});};
     const geometry=await map.locator('.sector-wanderer-label').evaluateAll(labels=>labels.filter(n=>n.parentElement!.style.visibility!=='hidden').map(n=>{const rect=(element:Element)=>{const r=element.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};};return{name:n.textContent,rect:rect(n),body:rect(n.parentElement!.querySelector('.sector-avatar-body')!)};}));
     writeFileSync(`${evidence}/${info.project.name}-${sector}-${mode}-geometry.json`,JSON.stringify(geometry,null,2));
-    if(sector===55){const gen=geometry.find(n=>n.name==='Gen')!,bounds=(await map.boundingBox())!;expect(gen).toBeTruthy();expect(gen.body.x).toBeGreaterThanOrEqual(bounds.x+2);expect(gen.body.x+gen.body.width).toBeLessThanOrEqual(bounds.x+bounds.width-2);}
+    if(sector===55){const gen=geometry.find(n=>n.name==='Gen')!,bounds=await sectorBox(page);expect(gen).toBeTruthy();expect(gen.body.x).toBeGreaterThanOrEqual(bounds.x+2);expect(gen.body.x+gen.body.width).toBeLessThanOrEqual(bounds.x+bounds.width-2);}
     for(const a of geometry){expect(Math.hypot(Math.max(a.body.x-a.rect.x-a.rect.width,a.rect.x-a.body.x-a.body.width,0),Math.max(a.body.y-a.rect.y-a.rect.height,a.rect.y-a.body.y-a.body.height,0))).toBeLessThanOrEqual(Math.max(28,a.body.height*1.2));for(const b of geometry)if(a!==b){expect(a.rect.x+a.rect.width<=b.rect.x||b.rect.x+b.rect.width<=a.rect.x||a.rect.y+a.rect.height<=b.rect.y||b.rect.y+b.rect.height<=a.rect.y).toBe(true);expect(a.body.x+a.body.width<=b.body.x||b.body.x+b.body.width<=a.body.x||a.body.y+a.body.height<=b.body.y||b.body.y+b.body.height<=a.body.y,`${a.name} and ${b.name} have distinct physical portraits`).toBe(true);}}
     if(sector===60)await expect(page.locator('.resource-world-node')).toHaveCount(0);
     await capture(`${mode}-inspection`);
