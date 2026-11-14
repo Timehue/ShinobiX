@@ -126,8 +126,14 @@ test('semantic tile reveal and focus cannot scroll the camera viewport on either
             }));
             expect(floor.x).toBeCloseTo(bounds.x, 0);
             expect(floor.y).toBeCloseTo(bounds.y, 0);
-            expect(avatar.x + avatar.width / 2).toBeCloseTo(bounds.x + bounds.width / 2, 0);
-            expect(avatar.y + avatar.height).toBeCloseTo(bounds.y + bounds.height / 2, 0);
+            if (bounds.width >= 528) {
+                expect(avatar.x + avatar.width / 2).toBeCloseTo(bounds.x + bounds.width / 2, 0);
+                expect(avatar.y + avatar.height).toBeCloseTo(bounds.y + bounds.height / 2, 0);
+            } else {
+                // A phone camera may lean toward a nearby landmark or resident, never past the player.
+                expect(avatar.x).toBeGreaterThanOrEqual(bounds.x); expect(avatar.x + avatar.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+                expect(avatar.y).toBeGreaterThanOrEqual(bounds.y); expect(avatar.y + avatar.height).toBeLessThanOrEqual(bounds.y + bounds.height);
+            }
         }
         await canvas.focus();
         await expect(canvas).toBeFocused();

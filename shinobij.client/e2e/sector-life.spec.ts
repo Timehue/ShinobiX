@@ -482,7 +482,10 @@ test('a failed supported-shrine image preserves the loaded terrain and retries o
     await page.route('**/sector-life/heartwood-dormant-shrine-v1.webp',async route=>{baseLoads++;await route.abort('failed');});
     const initial=page.waitForResponse(response=>response.url().includes('/sector-life/heartwood-left-lamp-v1.webp'));
     await enterLifeSector(page,15);await (await initial).finished();await page.waitForTimeout(500);
-    const terrain=page.locator('.continuous-world-map>canvas'),before=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL()),baseBefore=baseLoads;
+    // Wait for a still frame: on a phone the camera first settles beside the nearby residents.
+    const terrain=page.locator('.continuous-world-map>canvas');let before='',stable=0;
+    await expect.poll(async()=>{const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===before?stable+1:0;before=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);
+    const baseBefore=baseLoads;
     tier=1;await page.clock.fastForward(21_000);await expect.poll(()=>failed).toBe(1);await page.clock.runFor(1000);
     await expect.poll(()=>baseLoads).toBeGreaterThan(baseBefore);
     expect(await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())===before).toBe(true);
@@ -663,9 +666,10 @@ async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocke
         await walk.click();await expect(dialog).not.toBeVisible();
         await expect.poll(async()=>{
             if(clocked)await page.clock.runFor(1000);
-            const map=await page.locator('.continuous-world-map').boundingBox(),goal=await page.locator('.continuous-world-tile').nth(tile).boundingBox();
-            if(!map||!goal)return Infinity;
-            return Math.hypot(goal.x+goal.width/2-map.x-map.width/2,goal.y+goal.height/2-map.y-map.height/2)/(map.width/12);
+            // From the player's feet: a phone camera may lean off them toward a nearby resident.
+            const me=await page.locator('[data-world-self]').boundingBox(),goal=await page.locator('.continuous-world-tile').nth(tile).boundingBox();
+            if(!me||!goal)return Infinity;
+            return Math.hypot(goal.x+goal.width/2-me.x-me.width/2,goal.y+goal.height/2-me.y-me.height)/goal.width;
         },{timeout:30_000,intervals:[1000]}).toBeLessThan(1.5);
         await target.click();
     }

@@ -1,7 +1,7 @@
 import { createWorldWalker } from '../../../shared/continuous-world-navigation';
 import type { WorldPoint } from '../../../shared/continuous-world-space';
 import { nearestWalkableTile } from '../../../shared/sector-walk-mask';
-import { createContinuousWorldRenderer, worldTilesAcross } from './continuous-world-renderer';
+import { cameraLean, createContinuousWorldRenderer, worldTilesAcross, type LeanBox } from './continuous-world-renderer';
 import { loadContinuousWorld, worldMovementRequest, type WorldMovementReply } from './continuous-world-client';
 import { bindContinuousWorldControl } from './continuous-world-control';
 import { isRealtimePresenceLive } from './use-presence-socket';
@@ -61,6 +61,24 @@ export async function mountContinuousWorld(host: Host) {
     let pendingDestination: string | null = null;
     let startupThrottled = false;
     const pace = createWorldMovePacer(6.5);
+    // A phone shows about 7 tiles. The camera leans so that whoever is talking (with
+    // their bubble), the landmark at hand and the nearest resident fit beside the player.
+    let lean = [0, 0], leanGoal = lean, leanAt = 0, tilePx = 30, aimedFrom = { x: NaN, y: NaN }, aimedAcross = 0, aimUntil = 0;
+    const leanTargets = () => {
+        const me = host.marker.getBoundingClientRect(), x = me.left + me.width / 2, y = me.bottom;
+        const box = (r: DOMRect, top = r.top, left = r.left, right = r.right) => [(left - x) / tilePx, (top - y) / tilePx, (right - x) / tilePx, (r.bottom - y) / tilePx];
+        const near = (b: LeanBox, d: number) => b[0] < d && b[2] > -d && b[1] < d && b[3] > -d;
+        const speakers: LeanBox[] = [], landmarks: LeanBox[] = [], residents: LeanBox[] = [];
+        for (const figure of host.chunk.querySelectorAll<HTMLElement>('.sector-wanderer-figure')) {
+            const r = figure.getBoundingClientRect(), bubble = figure.querySelector<HTMLElement>('.sector-wanderer-bubble'), half = (bubble?.offsetWidth ?? 0) / 2;
+            if (!r.width || figure.style.visibility === 'hidden') continue;
+            if (bubble) { const b = box(r, r.top - bubble.offsetHeight - 10, Math.min(r.left, r.x + r.width / 2 - half), Math.max(r.right, r.x + r.width / 2 + half)); if (near(b, 4.5)) speakers.push(b); }
+            else { const b = box(r); if (near(b, 3.5)) residents.push(b); }
+        }
+        for (const mark of host.chunk.querySelectorAll('[data-footprint]')) { const b = box(mark.getBoundingClientRect()); if (near(b, 1.5)) landmarks.push(b); }
+        residents.sort((a, b) => Math.hypot(a[0] + a[2], a[1] + a[3]) - Math.hypot(b[0] + b[2], b[1] + b[3]));
+        return [...speakers, ...landmarks, ...residents.slice(0, 1)];
+    };
     const resumable = (reply: WorldMovementReply) => refusedInRow === 1 && (reply.reason === 'speed' || reply.reason === 'busy');
     function accept(reply: WorldMovementReply) {
         if (staleReply(reply, world.space.layoutVersion)) { stale = true; walker.stop(); held = null; host.onStatus(STALE_WORLD_STATUS); return false; }
@@ -188,8 +206,8 @@ export async function mountContinuousWorld(host: Host) {
         if (!drag) return;
         if (!drag.moved && !host.blocked()) {
             const rect = host.canvas.getBoundingClientRect(), scale = rect.width / worldTilesAcross(rect.width);
-            const point = { x: walker.position.x + (event.clientX - rect.left - rect.width / 2) / scale,
-                y: walker.position.y + (event.clientY - rect.top - rect.height / 2) / scale };
+            const point = { x: walker.position.x + lean[0] + (event.clientX - rect.left - rect.width / 2) / scale,
+                y: walker.position.y + lean[1] + (event.clientY - rect.top - rect.height / 2) / scale };
             const chunk = renderer.chunks.get(sector)!, col = Math.floor(point.x - chunk.x), row = Math.floor(point.y - chunk.y);
             if (col >= 0 && col < 12 && row >= 0 && row < 12 && host.onTapTile?.(row * 12 + col)) { drag = null; held = null; return; }
             const candidates = (tapIndex ??= createTapIndex(world.nodes.values()))(point, crossings);
@@ -296,7 +314,25 @@ export async function mountContinuousWorld(host: Host) {
         }
         lastSpeed = dt > 0 ? (walker.travelled - before) * 90 / dt : 0;
         if (!blocked && due) { lastSend = now; void send(false, figureGait); }
-        const view = renderer.draw(walker.position, sector), size = view.tilePx * 12;
+        const across = worldTilesAcross(host.canvas.clientWidth);
+        tilePx = host.canvas.clientWidth / across;
+        // A whole-sector view is always centred, at once after a rotation too.
+        if (across >= 12) lean = leanGoal = [0, 0];
+        else if (now >= leanAt) {
+            // The camera aims while the player moves and for a moment after they arrive or stop.
+            // Then it holds still, so residents can pace and chat without moving the view.
+            leanAt = now + 250; const at = walker.position;
+            if (!(Math.hypot(at.x - aimedFrom.x, at.y - aimedFrom.y) < .05) || across !== aimedAcross) { aimedFrom = { x: at.x, y: at.y }; aimedAcross = across; aimUntil = now + 1500; }
+            if (now < aimUntil) {
+                const goal = cameraLean(leanTargets(), across, host.canvas.clientHeight / tilePx);
+                // A quarter tile or more, so a small shift cannot keep the camera drifting.
+                if (Math.hypot(goal[0] - leanGoal[0], goal[1] - leanGoal[1]) >= .25) leanGoal = goal;
+            }
+        }
+        // Ease toward the goal, and settle exactly so an idle camera stops redrawing.
+        lean = lean.map((v, i) => Math.abs(leanGoal[i] - v) < .01 ? leanGoal[i] : v + (leanGoal[i] - v) * Math.min(1, dt * 4));
+        const view = renderer.draw({ x: walker.position.x + lean[0], y: walker.position.y + lean[1] }, sector), size = view.tilePx * 12;
+        host.marker.style.translate = `${-lean[0] * tilePx}px ${-lean[1] * tilePx}px`;
         host.onFigure?.(walker.position.x * view.tilePx, walker.position.y * view.tilePx, size, walker.travelled > before, figureGait);
         host.onPosition?.(sector, walker.position.x - view.chunk.x - .5, walker.position.y - view.chunk.y - .5);
         host.chunk.style.width = host.chunk.style.height = `${size}px`;
