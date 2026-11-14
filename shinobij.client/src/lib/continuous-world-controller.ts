@@ -75,7 +75,8 @@ export async function mountContinuousWorld(host: Host) {
             if (bubble) { const b = box(r, r.top - bubble.offsetHeight - 10, Math.min(r.left, r.x + r.width / 2 - half), Math.max(r.right, r.x + r.width / 2 + half)); if (near(b, 4.5)) speakers.push(b); }
             else { const b = box(r); if (near(b, 3.5)) residents.push(b); }
         }
-        for (const mark of host.chunk.querySelectorAll('[data-footprint]')) { const b = box(mark.getBoundingClientRect()); if (near(b, 1.5)) landmarks.push(b); }
+        // A landmark, or the work point the player stands at: keep all of it on screen, not cut off at an edge.
+        for (const mark of host.chunk.querySelectorAll('[data-footprint], .sector-life-point')) { const b = box(mark.getBoundingClientRect()); if (near(b, 1.5)) landmarks.push(b); }
         residents.sort((a, b) => Math.hypot(a[0] + a[2], a[1] + a[3]) - Math.hypot(b[0] + b[2], b[1] + b[3]));
         return [...speakers, ...landmarks, ...residents.slice(0, 1)];
     };
