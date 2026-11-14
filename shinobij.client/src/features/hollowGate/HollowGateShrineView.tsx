@@ -704,7 +704,7 @@ export function HollowGateShrineView({
                                         tilePx={tilePx}
                                         avatarImage={playerPortrait} artBase={playerGaits ? modelArtBase : null}
                                         modelKind={starterModel(playerPortrait || '')} equipped={equipped} sprintStyle={sprintStyle}
-                                        name={character.name}
+                                        name={character.name} self
                                     />
                                     </div>
                                     {fissuresInSight && <div className="hg-arena-note" role="status">Fissures vent spirit fire in a rhythm. Cross a crack once its glow dies down.</div>}

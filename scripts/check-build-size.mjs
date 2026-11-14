@@ -1453,11 +1453,16 @@ const PLAYER_GAIT_JS_CSS_FAIL_BYTES = COMBAT_SPRITE_JS_CSS_FAIL_BYTES + 2 * 1024
 // Owner-approved 2026-11-12: the 2D/3D world avatar setting adds about 590 B
 // with dead CSS already exhausted. Allow 1 KiB on top of the player-gait pass.
 const AVATAR_MODE_JS_CSS_FAIL_BYTES = PLAYER_GAIT_JS_CSS_FAIL_BYTES + 1024;
+// Owner-approved 2026-11-13 (PR #106): main measured 9,879,115 B with the CI
+// Sentry build args (553 B left), and the world-figure loading work adds
+// 2,445 B: fast presentation-flag retry, boot prefetch, give-up reporting, and
+// own-figure decode and fetch priority. Allow 3 KiB.
+const FIGURE_LOADING_JS_CSS_FAIL_BYTES = AVATAR_MODE_JS_CSS_FAIL_BYTES + 3 * 1024;
 const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,
     BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
     DIRECT_STRIKE_JS_CSS_FAIL_BYTES, COMBAT_SPRITE_JS_CSS_FAIL_BYTES, PLAYER_GAIT_JS_CSS_FAIL_BYTES,
-    AVATAR_MODE_JS_CSS_FAIL_BYTES,
+    AVATAR_MODE_JS_CSS_FAIL_BYTES, FIGURE_LOADING_JS_CSS_FAIL_BYTES,
 );
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);

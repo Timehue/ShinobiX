@@ -101,7 +101,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
             </div>
             <div ref={marker} className="sector-avatar-figure continuous-world-self" aria-hidden="true" data-world-self="true">
                 {gaits && modelArtBase && <SectorModelFigure ref={model} kind={starter} equipped={equipped}
-                    style={sprintStyle} artBase={modelArtBase} />}
+                    style={sprintStyle} artBase={modelArtBase} self />}
                 <span className="sector-avatar-shadow" /><span className="sector-avatar-sprite"><span className="sector-avatar-body">
                     <SectorPortrait key={props.playerAvatarImage} src={props.playerAvatarImage} name={props.playerName} /><span className="sector-avatar-pin" />
                 </span></span>

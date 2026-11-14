@@ -5,11 +5,13 @@ import { isPlayerModel, starterModel, type PlayerModel, type SprintStyle } from 
 /** Presentation only. The parent still submits and reconciles every stronghold step. */
 export function StrongholdAvatar({ tileX, tileY, tileSize, size, stepMs, name, portrait,
     artBase, playerGaits, playerModel, sprintStyle, overview = false, count = 1,
-    onSelect, disabled, title, tile }: {
+    onSelect, disabled, title, tile, self = false }: {
     tileX: number; tileY: number; tileSize: number; size: number; stepMs: number;
     name: string; portrait?: string | null; artBase: string | null; playerGaits: boolean;
     playerModel?: PlayerModel; sprintStyle?: SprintStyle; overview?: boolean; count?: number;
     onSelect?: () => void; disabled?: boolean; title?: string; tile?: number;
+    /** The player's own avatar (decodes its figure first). */
+    self?: boolean;
 }) {
     const root = useRef<HTMLElement | null>(null);
     const model = useRef<SectorModelHandle>(null);
@@ -127,7 +129,7 @@ export function StrongholdAvatar({ tileX, tileY, tileSize, size, stepMs, name, p
             {count > 1 ? <b>{count}</b> : portrait ? <img src={portrait} alt="" /> : <b>{name.slice(0, 2)}</b>}
         </span>
         {useModel && <SectorModelFigure key={kind} ref={model} kind={kind} equipped={equipped}
-            artBase={artBase!} style={sprintStyle} />}
+            artBase={artBase!} style={sprintStyle} self={self} />}
         {onSelect && <span className="stronghold-peer-label">{count > 1 ? `${count} shinobi` : name}</span>}
     </Element>;
 }

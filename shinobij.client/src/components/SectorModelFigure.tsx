@@ -3,9 +3,10 @@ import { useSectorModelPins } from "../lib/sector-model-pins";
 import "./sector-model-figure.css";
 import type { PlayerModel, SprintStyle } from "../lib/player-model";
 import { advanceSectorStride, fitSectorStride, sectorClipGait, sectorStartEntry, type GroundStride } from "../../../shared/sector-model-motion";
-import type { PackedMotion, SheetImage, SpriteClip, SpriteView } from "../lib/sector-pose-delivery";
-import { readSectorModelObject } from "../lib/sector-model-object";
+import type { DecodePriority, PackedMotion, SheetImage, SpriteClip, SpriteView } from "../lib/sector-pose-delivery";
+import { readSectorModelObject, sectorFetchPriority } from "../lib/sector-model-object";
 import { createPosePrerequisite } from "../lib/sector-pose-prerequisite";
+import { missingSectorModelFeature, reportSectorModelUnavailable, reportSectorModelUnsupported, type SectorModelStage } from "../lib/sector-model-health";
 
 type Model = { mapWidth: number; banks: SpriteView[]; packed?: PackedMotion };
 type MovingGait = "walk" | "run";
@@ -28,11 +29,11 @@ export type SectorModelHandle = {
 const MODEL_CACHE_LIMIT = 96;
 const models = new Map<string, Promise<Model>>();
 
-function loadModel(folder: string, revision: string): Promise<Model> {
+function loadModel(folder: string, revision: string, priority: RequestPriority = "auto"): Promise<Model> {
     const url = folder + revision + ".json";
     const existing = models.get(url);
     if (existing) { models.delete(url); models.set(url, existing); return existing; }
-    const request = readSectorModelObject(folder,revision+".json",".json",8*1024**2).then(bytes => {
+    const request = readSectorModelObject(folder,revision+".json",".json",8*1024**2,priority).then(bytes => {
         const decoded = JSON.parse(new TextDecoder().decode(bytes));
         if (decoded.mapWidth !== 1080) throw new Error("Invalid sector model scale");
         if (decoded.format === "sector-motion-v2") {
@@ -59,8 +60,11 @@ function loadModel(folder: string, revision: string): Promise<Model> {
 
 export const SectorModelFigure = forwardRef<SectorModelHandle, {
     kind: string; artBase: string; equipped?: PlayerModel; style?: SprintStyle;
+    /** The player's own figure: its pages decode ahead of every other figure's. */
+    self?: boolean;
 }>(
-    function SectorModelFigure({ kind, artBase, equipped, style = "A" }, ref) {
+    function SectorModelFigure({ kind, artBase, equipped, style = "A", self = false }, ref) {
+        const decodePriority: DecodePriority = self ? 0 : 1;
         const {revisions} = useSectorModelPins();
         const revision = equipped?.version ?? revisions[kind];
         const folder = artBase.replace(/\/$/, "") + "/" + (equipped ? "players/" + equipped.assetId : kind) + "/";
@@ -135,11 +139,16 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
             // starts the ladder again, so a page that never loads still settles
             // at one attempt per 30 s.
             let failures = 0, lastFailure = -Infinity;
-            function retryDelay() {
+            function retryDelay(stage: SectorModelStage, error?: unknown) {
                 const now = performance.now();
                 if (now - lastFailure > 60_000) failures = 0;
                 lastFailure = now;
-                return [1_000, 4_000][failures++] ?? 30_000;
+                const delay = [1_000, 4_000][failures++];
+                // The quick retries are spent: this figure is a portrait for the next
+                // half minute at least. That is worth knowing about.
+                // An offline phone fails every fetch; that is the network, not the figure.
+                if (delay === undefined && navigator.onLine) reportSectorModelUnavailable(stage, folder.includes("/players/"), error);
+                return delay ?? 30_000;
             }
 
             function retry() {
@@ -150,18 +159,18 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
             }
 
             function requestModel() {
-                void loadModel(folder, revision).then(asset => {
+                void loadModel(folder, revision, sectorFetchPriority(decodePriority)).then(asset => {
                     if (live) {
                         model = { ...asset, banks: asset.banks.map(bank => ({
                             ...bank, run: bank["run"+style] ?? bank.run!,
                         })) };
                         draw();
                     }
-                }).catch(() => {
+                }).catch(error => {
                     if (!live) return;
                     figure.classList.remove("has-sector-model");
                     window.clearTimeout(retryTimer);
-                    retryTimer = window.setTimeout(retry, retryDelay());
+                    retryTimer = window.setTimeout(retry, retryDelay("manifest", error));
                 });
             }
 
@@ -196,7 +205,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
             }
             function retainPage(slot: typeof releaseArt, spec: SpriteClip["page"], onFailure?: () => void) {
                 return !spec || slot.ready(spec.file,
-                    () => import("../lib/sector-pose-delivery").then(m => m.loadPackedImage(folder, spec)), onFailure);
+                    () => import("../lib/sector-pose-delivery").then(m => m.loadPackedImage(folder, spec, decodePriority)), onFailure);
             }
             function prepareGaitChange(bank: SpriteView, from: MovingGait) {
                 if (preparedChange === bank[from]) return;
@@ -212,7 +221,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 const spec = clip?.page;
                 if (!spec || nextPage===spec.file) return;
                 nextPage=spec.file;
-                void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec))
+                void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec,decodePriority))
                     .then(image=>image.release(),()=>{if(nextPage===spec.file) nextPage="";});
             }
             function waitForArt() {
@@ -231,10 +240,10 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 if (bank || !model?.packed || pendingFacings.has(facing) || performance.now()<retryAfter) return bank;
                 pendingFacings.add(facing);
                 const file = model.packed.styles[style][facing];
-                void import("../lib/sector-pose-delivery").then(m=>m.loadFacing(folder,file)).then(bank=>{
+                void import("../lib/sector-pose-delivery").then(m=>m.loadFacing(folder,file,decodePriority)).then(bank=>{
                     pendingFacings.delete(facing);
                     if (model && live) { model.banks[facing]=bank; if (!driven) draw(); }
-                }).catch(()=>{pendingFacings.delete(facing); if(live) failed();});
+                }).catch(error=>{pendingFacings.delete(facing); if(live) failed("facing", error);});
                 return bank;
             }
 
@@ -250,14 +259,16 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                         const previous = painted;
                         painted=next; paintedUrl=clip.url; page=next.image; pendingUrl=""; if (!driven) draw(); previous?.release();
                     };
-                    const fail = () => {if (live && currentUrl===clip.url) {pendingUrl=""; failed();}};
+                    const fail = (error?: unknown) => {if (live && currentUrl===clip.url) {pendingUrl=""; failed("page", error);}};
                     if (clip.page) {
                         const spec=clip.page;
-                        void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec)).then(ready,fail);
+                        void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec,decodePriority)).then(ready,fail);
                     } else {
                         const image=new Image();
                         image.onload=()=>ready({image,release:()=>{}});
                         image.onerror=fail;
+                        // Older models' pages are plain images: give them the same network hint.
+                        image.fetchPriority=sectorFetchPriority(decodePriority);
                         image.src=clip.url;
                     }
                 }
@@ -305,7 +316,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     for (const facing of [origin, ...[2, 6, 4, 0, 1, 3, 5, 7].filter(to => to !== origin)]) {
                         if (!live || run !== warmRun) return;
                         const bank = banks[facing] ??
-                            await delivery.loadFacing(folder, packed.styles[style][facing]).catch(() => undefined);
+                            await delivery.loadFacing(folder, packed.styles[style][facing], 2).catch(() => undefined);
                         if (!bank) continue;
                         banks[facing] ??= bank;
                         for (const spec of [bank[start]?.page, brakePage(bank, start)]) {
@@ -314,7 +325,9 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                             const bytes = spec.cell[0] * spec.cell[1] * spec.cols * Math.ceil(spec.frames / spec.cols) * 4;
                             if (bytes > remainingBytes) continue;
                             remainingBytes -= bytes;
-                            const warmed = await delivery.loadPackedImage(folder, spec).catch(() => undefined);
+                            // Warm-up waits behind every figure's visible pages; a real move
+                            // that needs one of these pages raises it on request.
+                            const warmed = await delivery.loadPackedImage(folder, spec, 2).catch(() => undefined);
                             // The crowd can exhaust the shared idle cache before the next
                             // input. Keep this self-only budget until playback owns it.
                             if (warmed && live && run === warmRun) warmStartPages.push(warmed);
@@ -525,17 +538,19 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 if (stride.page !== lastClip) layer.dataset.clip = lastClip = stride.page;
                 figure.classList.add("has-sector-model");
             }
-            function failed() {
+            function failed(stage: SectorModelStage = "page", error?: unknown) {
                 // One drop usually fails a facing index, a pose page and a braking page
                 // together. They are one failure: keep the backoff already running.
                 if (performance.now()<retryAfter) return;
-                const delay=retryDelay();
+                const delay=retryDelay(stage, error);
                 retryAfter=performance.now()+delay;
                 releaseTurns();
                 figure.classList.remove("has-sector-model");
                 window.clearTimeout(retryTimer);
                 retryTimer=window.setTimeout(retry,delay);
             }
+            const missing = missingSectorModelFeature();
+            if (missing) reportSectorModelUnsupported(missing);
             notify.current = draw;
             window.addEventListener("online", retry);
             document.addEventListener("visibilitychange", retry);
@@ -564,7 +579,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 figure.classList.remove("has-sector-model");
                 figure.style.removeProperty("--sector-model-height");
             };
-        }, [folder, revision, style]);
+        }, [folder, revision, style, decodePriority]);
         return <span aria-hidden="true" className="sector-model-figure" ref={element} />;
     },
 );

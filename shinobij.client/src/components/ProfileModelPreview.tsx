@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
 import { starterModel, type PlayerModel } from '../lib/player-model';
 
-export function ProfileModelPreview({ artBase, avatar, model, starterWorldModel }: {
+export function ProfileModelPreview({ artBase, avatar, model, starterWorldModel, self = false }: {
     artBase: string; avatar: string; model?: PlayerModel;
+    /** The viewer's own model: decode it ahead of any figures still loading behind. */
+    self?: boolean;
     starterWorldModel?: import('../../../shared/player-model-ref').StarterWorldModel;
 }) {
     const figure = useRef<SectorModelHandle>(null);
@@ -34,7 +36,7 @@ export function ProfileModelPreview({ artBase, avatar, model, starterWorldModel 
     }, [walking]);
     return <>
         <div className="profile-model-stage" role="img" aria-label={walking ? 'World model walking' : 'World model standing'}>
-            <span className="profile-model-actor"><SectorModelFigure ref={figure} artBase={artBase} kind={starterModel(avatar, starterWorldModel)} equipped={model} /></span>
+            <span className="profile-model-actor"><SectorModelFigure ref={figure} artBase={artBase} kind={starterModel(avatar, starterWorldModel)} equipped={model} self={self} /></span>
             <span className="profile-model-loading">{slow ? 'Preview unavailable' : 'Loading preview…'}</span>
         </div>
         <button type="button" aria-pressed={walking} onClick={() => setWalking(value => !value)}>Preview walk</button>

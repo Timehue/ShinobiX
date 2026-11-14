@@ -1,11 +1,21 @@
+/**
+ * The browser's network priority for a figure's file, from its decode priority:
+ * the player's own figure (0) asks first, warm-up pages (2) yield, everything
+ * else is left to the browser. Browsers without fetch priority ignore the hint.
+ */
+export function sectorFetchPriority(priority: 0 | 1 | 2): RequestPriority {
+    return priority === 0 ? 'high' : priority === 2 ? 'low' : 'auto';
+}
+
 /** Read one immutable file from the sector art host and verify the bytes before use. */
-export async function readSectorModelObject(folder: string, name: string, suffix: string, limit: number) {
+export async function readSectorModelObject(folder: string, name: string, suffix: string, limit: number,
+    priority: RequestPriority = 'auto') {
     const digest = name.slice(0,64);
     if (!/^[a-f0-9]{64}$/.test(digest) || name.slice(64) !== suffix) throw Error('Invalid sprite object');
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), 12_000);
     try {
-        const response = await fetch(folder+name, {credentials:'omit',signal:abort.signal});
+        const response = await fetch(folder+name, {credentials:'omit',signal:abort.signal,priority});
         if (!response.ok || Number(response.headers.get('Content-Length')) > limit) throw Error('Sprite object unavailable');
         const bytes = await response.arrayBuffer();
         if (bytes.byteLength > limit) throw Error('Oversized sprite object');

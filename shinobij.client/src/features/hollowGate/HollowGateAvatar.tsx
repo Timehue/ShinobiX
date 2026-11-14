@@ -30,7 +30,7 @@ function prefersReducedMotion(): boolean {
 }
 
 export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSelect, disposition, label,
-    artBase, modelKind, equipped, sprintStyle }: {
+    artBase, modelKind, equipped, sprintStyle, self }: {
     tileX: number;
     tileY: number;
     tilePx: number;
@@ -43,6 +43,8 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
     modelKind?: string;
     equipped?: PlayerModel;
     sprintStyle?: SprintStyle;
+    /** The player's own avatar (decodes its figure first). */
+    self?: boolean;
 }) {
     const figRef = useRef<HTMLDivElement | null>(null);
     const spriteRef = useRef<HTMLSpanElement | null>(null);
@@ -175,7 +177,7 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
             onClick={onSelect} onKeyDown={onSelect ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onSelect(); } } : undefined}>
             <span className="hg-avatar-shadow" />
             {artBase && modelKind && <SectorModelFigure key={modelKind} ref={model} kind={modelKind}
-                equipped={equipped} style={sprintStyle} artBase={artBase} />}
+                equipped={equipped} style={sprintStyle} artBase={artBase} self={self} />}
             <span className="hg-avatar-aura" />
             <span className="hg-avatar-sprite" ref={spriteRef}>
                 <span className="hg-avatar-body">
