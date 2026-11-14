@@ -1,7 +1,7 @@
 import { createWorldWalker } from '../../../shared/continuous-world-navigation';
 import type { WorldPoint } from '../../../shared/continuous-world-space';
 import { nearestWalkableTile } from '../../../shared/sector-walk-mask';
-import { createContinuousWorldRenderer } from './continuous-world-renderer';
+import { createContinuousWorldRenderer, worldTilesAcross } from './continuous-world-renderer';
 import { loadContinuousWorld, worldMovementRequest, type WorldMovementReply } from './continuous-world-client';
 import { bindContinuousWorldControl } from './continuous-world-control';
 import { isRealtimePresenceLive } from './use-presence-socket';
@@ -187,7 +187,7 @@ export async function mountContinuousWorld(host: Host) {
     const pointerup = (event: PointerEvent) => {
         if (!drag) return;
         if (!drag.moved && !host.blocked()) {
-            const rect = host.canvas.getBoundingClientRect(), scale = rect.width / 12;
+            const rect = host.canvas.getBoundingClientRect(), scale = rect.width / worldTilesAcross(rect.width);
             const point = { x: walker.position.x + (event.clientX - rect.left - rect.width / 2) / scale,
                 y: walker.position.y + (event.clientY - rect.top - rect.height / 2) / scale };
             const chunk = renderer.chunks.get(sector)!, col = Math.floor(point.x - chunk.x), row = Math.floor(point.y - chunk.y);

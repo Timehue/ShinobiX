@@ -3,6 +3,7 @@ import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { uniquePlayerName } from './helpers/player-names';
 import { quietRoadCooldowns } from './helpers/quiet-road';
 import { uiAuditSave } from '../e2e/helpers/ui-audit-runtime';
+import { walkUntilOnMap } from '../e2e/helpers/world-camera';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { sectorBuilding } from '../../shared/sector-buildings';
 import { sectorName } from '../../shared/sector-geo';
@@ -54,8 +55,14 @@ async function openCounter(page:Page,id:string,atThreshold=true,input:'pointer'|
     else{
         // The upper frontage stays clear of the player and staff at its feet.
         // Exercise real pointer/touch dispatch, without force or synthetic clicks.
-        const box=await opener.boundingBox();expect(box).not.toBeNull();
-        const position={x:box!.width/2,y:Math.max(2,box!.height*.2)};
+        // A phone shows ~7 tiles around the player. Tap the part of the frontage on screen,
+        // and only walk up when too little of it is (a walk would leave an evidence point).
+        const shown=async()=>{const box=(await opener.boundingBox())!,world=page.locator('.continuous-world-map'),map=await world.count()?(await world.boundingBox())!:{x:0,y:0,...page.viewportSize()!};
+            const left=Math.max(box.x,map.x+12),right=Math.min(box.x+box.width,map.x+map.width-12),top=Math.max(box.y,map.y+12),bottom=Math.min(box.y+box.height,map.y+map.height-12);
+            return{box,left,right,top,bottom,usable:right-left>=24&&bottom-top>=24};};
+        let view=await shown();if(!view.usable){await walkUntilOnMap(page,opener);view=await shown();}
+        const {box}=view;expect(box).not.toBeNull();
+        const position={x:(view.left+view.right)/2-box.x,y:Math.min(view.bottom-box.y-2,Math.max(2,box.height*.2,view.top-box.y))};
         if(test.info().project.use.hasTouch)await opener.tap({position});else await opener.click({position});
     }
     const counter=page.getByRole('dialog',{name:b.name,exact:true});

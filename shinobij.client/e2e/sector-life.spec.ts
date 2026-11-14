@@ -5,6 +5,7 @@ import { installUiAuditRuntime,uiAuditSave } from './helpers/ui-audit-runtime';
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 import {installDateOnlyClock,setDateOnlyClock} from './helpers/date-only-clock';
 import {waitForCurrentSectorMap} from './helpers/sector-navigation';
+import {sectorBox,walkUntilOnMap} from './helpers/world-camera';
 import { lifeAnchors,lifeEventView,lifeSceneView,parseLifeState,advanceLifeEvent,LIFE_WINDOW_MS } from '../../shared/sector-life';
 import { travelerRoute,lifeActorsAt,lifeCourierRoute,LIFE_ACTIVE_MS } from '../../shared/sector-life';
 import { COURIER_REST_MS } from '../../shared/sector-life-courier';
@@ -104,7 +105,7 @@ for(const sector of [6,18])for(const mode of ['weather','stale-night','unavailab
     await figure.click();const dialog=page.getByRole('dialog');await expect(dialog).toContainText("I'm watching the float.");
     await dialog.getByRole('button',{name:'Ask about the water',exact:true}).click();await expect(dialog).toContainText(ANGLER_TIP);await dialog.getByRole('button',{name:'Close',exact:true}).click();
     for(const node of RESOURCE_NODES.filter(node=>node.sector===sector&&node.activity==='fishing')){
-        await page.getByRole('button',{name:new RegExp(`^${node.name}, fishing, 3 attempts remaining, skill \\d$`)}).click();
+        const pool=page.getByRole('button',{name:new RegExp(`^${node.name}, fishing, 3 attempts remaining, skill \\d$`)});await walkUntilOnMap(page,pool,ms=>page.clock.runFor(ms));await pool.click();
         const shoal=page.getByRole('dialog',{name:node.name,exact:true});await expect(shoal).toBeVisible();
         await shoal.getByRole('button',{name:/Close/}).click();
     }
@@ -280,7 +281,7 @@ for(const memory of ['observed','unwitnessed','expired'] as const)test(`duel wit
     const close=dialog.getByRole('button',{name:/Close/});await expect(close).toBeInViewport();await close.click({trial:true});
     if(memory==='observed')await expect(dialog).toContainText('I saw Rin and Kota fighting near here.');else await expect(dialog).not.toContainText('I saw');
     await page.screenshot({path:`${evidence}/${info.project.name}-duel-witness-${memory}.png`});
-    await dialog.getByRole('button',{name:/Close/}).click();await page.locator('[data-life-resident="keeper:15"]').click();
+    await dialog.getByRole('button',{name:/Close/}).click();await walkUntilOnMap(page,page.locator('[data-life-resident="keeper:15"]'),ms=>page.clock.runFor(ms));await page.locator('[data-life-resident="keeper:15"]').click();
     await expect(page.getByRole('dialog')).not.toContainText('I saw');
 });
 for(const sector of [42,15,21,31,58])test(`committed gathering ${sector}: paints the actual verge and expires locally when polling is unavailable`,async({page},info)=>{
@@ -581,8 +582,8 @@ for(const sector of Object.keys(LIFE_ROAD_CREWS).map(Number))test(`regional work
     await expect(second).toHaveAttribute('data-activity',LIFE_ROAD_CREWS[sector].handover?.activity??'Exchanging road news');
     await expect(first).toBeVisible();await expect(second).toBeVisible();
     expect(await moving.getAttribute('style')).not.toBe(before);
-    const a=(await first.boundingBox())!,b=(await second.boundingBox())!,map=(await page.locator('.continuous-world-map').boundingBox())!;
-    expect(Math.hypot(a.x+a.width/2-b.x-b.width/2,a.y+a.height/2-b.y-b.height/2)/(map.width/12)).toBeLessThan(1.4);
+    const a=(await first.boundingBox())!,b=(await second.boundingBox())!,map=await sectorBox(page);
+    expect(Math.hypot(a.x+a.width/2-b.x-b.width/2,a.y+a.height/2-b.y-b.height/2)/map.tile).toBeLessThan(1.4);
     const left=(await first.locator('.sector-wanderer-label').boundingBox())!,right=(await second.locator('.sector-wanderer-label').boundingBox())!;
     expect(Math.min(left.x+left.width,right.x+right.width)<=Math.max(left.x,right.x)||Math.min(left.y+left.height,right.y+right.height)<=Math.max(left.y,right.y)).toBe(true);
     await page.mouse.move(2,2);await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-regional-road-handover-${sector}.png`});
@@ -654,6 +655,7 @@ for(const visitor of ['Ashen Leaf Village','Frostfang Village'])test(`village re
 });
 async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocked=false,target=page.locator('.sector-life-point')) {
     const {action,tile}=view;
+    await walkUntilOnMap(page,target,clocked?ms=>page.clock.runFor(ms):undefined);
     await target.click();
     const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
     const walk=dialog.getByRole('button',{name:'Walk to the work point',exact:true});
@@ -717,7 +719,7 @@ for (const sector of [2,15,42]) test(`sector ${sector}: painted workplace stays 
         await expect(page.locator('.sector-life-point')).toHaveClass(/life-active/);
     }
     const roundRyo=lifeWorkRyo(lifeEventView(sector,state,now)).reduce((sum,n)=>sum+n,0);
-    await page.locator(`[data-life-resident="${sector===2?'shipment:merchant':`resident:${sector}`}"] .sector-avatar-body`).click();
+    const keeper=page.locator(`[data-life-resident="${sector===2?'shipment:merchant':`resident:${sector}`}"] .sector-avatar-body`);await walkUntilOnMap(page,keeper,ms=>page.clock.runFor(ms));await keeper.click();
     await expect(page.getByRole('dialog')).toContainText(lifeRewardHint(lifeEventView(sector,state,now)));
     await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
     for(let step=0;step<3;step++) {
@@ -957,7 +959,7 @@ test('an unattended winter courier returns and rests without claiming player hel
     const courier=page.locator('[data-life-resident="courier:31"]');await expect(courier).toHaveAttribute('data-activity','Resting at the roadside stop');
     await courier.click();await expect(page.getByRole('dialog')).toContainText("resting my ankle");await expect(page.getByRole('dialog')).not.toContainText('Thank');await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
     await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-winter-courier-unattended.png`});
-    await page.locator('.sector-life-point').click();await expect(page.getByRole('dialog')).toContainText('returned without help');
+    await walkUntilOnMap(page,page.locator('.sector-life-point'),ms=>page.clock.runFor(ms));await page.locator('.sector-life-point').click();await expect(page.getByRole('dialog')).toContainText('returned without help');
 });
 
 for(const kind of ['tea','shrine'] as const)test(`two independent players share ${kind} stages and keep the aftermath after a reload`,async({page,browser},info)=>{
@@ -995,7 +997,7 @@ for(const kind of ['tea','shrine'] as const)test(`two independent players share 
         await page.clock.fastForward(21_000);await expect(page.locator('.sector-life-point')).toHaveClass(/life-aftermath/);
         await expect(other.locator('.sector-life-point')).toHaveClass(/life-aftermath/);
         await page.reload();await enter(page);await expect(page.locator('.sector-life-point')).toHaveClass(/life-aftermath/);
-        await page.locator('.sector-life-point').click();await expect(page.getByRole('dialog')).toContainText('AuditNinja, Mika');
+        await walkUntilOnMap(page,page.locator('.sector-life-point'),ms=>page.clock.runFor(ms));await page.locator('.sector-life-point').click();await expect(page.getByRole('dialog')).toContainText('AuditNinja, Mika');
         await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
         await other.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-shared-${kind}-aftermath.png`});
     } finally {await other.close();}

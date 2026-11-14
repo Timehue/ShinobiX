@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
@@ -39,10 +39,13 @@ for (const mode of ['aided', 'cached outage', 'unattended'] as const) test(`dock
     const snap = async (stage: string) => { await page.clock.runFor(300); await page.mouse.move(2, 2); await map.screenshot({ path: `${evidence}/${info.project.name}-${mode}-${stage}.png` }); };
     await expect.poll(painting).toBe(`/sector-life/${P.spilled}.webp`);
     await snap('fallen-bundles');
-    await guard.click(); await expect(page.getByRole('dialog')).toContainText('Keep the crossing clear. This is a Stormveil road.');
+    // Unattended keeps the player away from the work point, which a phone's ~7-tile camera may not frame:
+    // talk to the figures with the keyboard there. The other modes stand at the crossing and tap.
+    const activate = async (target: Locator) => { if (mode === 'unattended') { await target.focus(); await target.press('Enter'); } else await target.click(); };
+    await activate(guard); await expect(page.getByRole('dialog')).toContainText('Keep the crossing clear. This is a Stormveil road.');
     await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
     const point = page.locator('.sector-life-point'), dialog = page.getByRole('dialog');
-    await point.click();
+    await activate(point);
     if (mode !== 'unattended') {
         await dialog.getByRole('button', { name: 'Inspect the bundles', exact: true }).click();
         await expect(dialog).toContainText(L.inspected);
@@ -68,11 +71,11 @@ for (const mode of ['aided', 'cached outage', 'unattended'] as const) test(`dock
     await expect(guard).toBeHidden();
     expect(await page.locator('[data-life-resident]').count()).toBeLessThanOrEqual(5);
     await snap('delivered');
-    await merchant.click();
+    await activate(merchant);
     await expect(dialog).toContainText(mode === 'unattended' ? L.merchantAlone : L.merchantThanks);
     await dialog.screenshot({ path: `${evidence}/${info.project.name}-${mode}-delivery-dialogue.png` });
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-    await point.click(); await expect(dialog).toContainText(mode === 'unattended' ? L.unhelpedDelivery : L.delivered);
+    await activate(point); await expect(dialog).toContainText(mode === 'unattended' ? L.unhelpedDelivery : L.delivered);
     if (mode === 'aided') {
         await dialog.getByRole('button', { name: 'Check the delivered bundles', exact: true }).click();
         await expect(dialog).toContainText(L.complete); expect(posts).toBe(3);

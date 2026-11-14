@@ -8,6 +8,7 @@ import { nextChronicleStop, chronicleStopPlan,chronicleStopActors, type Chronicl
 import { stopChronicleGame } from '../../api/sector/_life-chronicle-game';
 import { addChronicleStop } from '../../api/sector/_life-chronicle';
 import {isWalkableTile} from '../../shared/sector-walk-mask';
+import { walkUntilOnMap } from './helpers/world-camera';
 
 const evidence = process.env.CHRONICLE_STOP_EVIDENCE_DIR??'../output/living-world/chronicle-browser'; mkdirSync(evidence, { recursive: true });
 // Fixed, not Date.now(): a roaming Legacy Emissary ignores quietRoadCooldowns, and no sector has one at any hour of 2026-10-10 (01:00 UTC is world noon).
@@ -24,7 +25,7 @@ for (const mode of ['complete', 'rain', 'offline', 'visibility resume', 'crowded
     // thirty seconds of authored walking with an artificial instantaneous jump.
     const bootAt=plan.matchAt-7000;
     await page.clock.install({ time: new Date(bootAt) });await page.clock.setFixedTime(new Date(bootAt));
-    const save = uiAuditSave(); save.currentSector = 42; save.currentTile = mode==='crowded stop'?125:65;
+    const save = uiAuditSave(); save.currentSector = 42; save.currentTile = 125; // beside the tea table, so a phone's ~7-tile camera frames it
     save.character = { ...save.character, starterCardsClaimed: true, wandererCooldowns: quietRoadCooldowns([42], start) };
     await installUiAuditRuntime(page, save);
     await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
@@ -78,6 +79,7 @@ for (const mode of ['complete', 'rain', 'offline', 'visibility resume', 'crowded
     await page.getByRole('dialog').screenshot({ path: `${evidence}/${info.project.name}-${mode}-turn-dialogue.png` });
     await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
     await second.click();await expect(page.getByRole('dialog')).toContainText('Our life points are');await page.getByRole('dialog').getByRole('button',{name:'Close',exact:true}).click();
+    await walkUntilOnMap(page, page.locator('.sector-life-point'), ms => page.clock.runFor(ms));
     expect(await page.locator('.sector-life-point').evaluate(node=>{const r=node.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.sector-life-point')===node;}),'the work button stays independently reachable beside Sada').toBe(true);
     if(mode==='crowded stop'){
         for(const id of ['visitor:42','gen']){
