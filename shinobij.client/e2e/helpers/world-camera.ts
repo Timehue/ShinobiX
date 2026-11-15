@@ -20,11 +20,12 @@ export async function walkUntilOnMap(page: Page, target: Locator, advance?: (ms:
     // A fixed ground-floor map (an isolated village) has no follow camera to walk.
     if (!await map.count()) return;
     for (let step = 0; step < 16; step++) {
-        const [view, body, sector] = await Promise.all([map.boundingBox(), target.boundingBox(), sectorBox(page)]);
+        const [view, body, sector, self] = await Promise.all([map.boundingBox(), target.boundingBox(), sectorBox(page), map.locator('[data-world-self]').boundingBox()]);
         expect(view, 'the world map is laid out').not.toBeNull();
         expect(body, 'the walk target is laid out').not.toBeNull();
         const margin = Math.min(view!.width, view!.height) * .2, tile = sector.tile;
-        const centre = { x: view!.x + view!.width / 2, y: view!.y + view!.height / 2 };
+        // The player's feet. The camera may lean off them toward whoever is talking nearby.
+        const centre = { x: self!.x + self!.width / 2, y: self!.y + self!.height };
         const x = body!.x + body!.width / 2, y = body!.y + body!.height / 2;
         const inside = (v: number, from: number, size: number) => v >= from + margin && v <= from + size - margin;
         if (inside(x, view!.x, view!.width) && inside(y, view!.y, view!.height)) return;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createContinuousWorldRenderer, worldTilesAcross } from './continuous-world-renderer';
+import { cameraLean, createContinuousWorldRenderer, worldTilesAcross } from './continuous-world-renderer';
 import type { ContinuousWorldSpace } from '../../../shared/continuous-world-space';
 import { sectorBiomeOf } from '../../../shared/sector-geo';
 import { sectorWalkMask } from '../../../shared/sector-walk-mask';
@@ -233,6 +233,17 @@ test('the map shows a whole sector from 528 px and zooms a phone map in to 52 px
     assert.equal(worldTilesAcross(300), 7);
     // A 390 px phone's 364 px map: tiles grow from 30 px to 52 px, so a figure is ~73% taller.
     assert.equal(364 / worldTilesAcross(364), 52);
+});
+
+test('a zoomed camera frames the speaker, then the landmark at hand, and keeps the player in view', () => {
+    assert.deepEqual(cameraLean([], 7, 7), [0, 0]);
+    // Elder Vanta speaks 3 tiles up and a village fills 5 tiles to the right: both fit in 7 × 7.
+    const vanta = [-.4, -5, .4, -3], village = [.7, -1.5, 5.5, 1.5];
+    assert.deepEqual(cameraLean([vanta, village], 7, 7), [2.5, -1.75]);
+    // A view too short for both keeps the speaker and drops the village.
+    assert.deepEqual(cameraLean([vanta, village], 7, 6), [0, -2.45]);
+    // Nothing that cannot fit beside the player moves the camera.
+    assert.deepEqual(cameraLean([[-.5, -9, .5, -8]], 7, 7), [0, 0]);
 });
 
 test('walking copies cached terrain tiles instead of repainting the world', () => harness(({ renderer, images, counts }) => {

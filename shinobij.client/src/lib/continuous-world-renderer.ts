@@ -17,6 +17,19 @@ const TILE = 256;
 /** Tiles across the map: a whole sector from 528 px (44 px tiles). A narrower (phone) map aims
  *  for 52 px tiles, down to 7 across, so a figure about 0.8 tile tall stays readable. */
 export const worldTilesAcross = (width: number) => width >= 528 ? 12 : Math.max(7, width / 52);
+/** A box [left, top, right, bottom] in tiles, measured from the player's feet. */
+export type LeanBox = number[];
+/** Where a zoomed-in camera centres, relative to the player's feet: on the player plus as many of
+ *  `boxes` (most important first) as fit in the `across` × `down` tile view, with a margin. */
+export function cameraLean(boxes: LeanBox[], across: number, down: number) {
+    let frame = [-.5, -1.2, .5, .1], lean = [0, 0];
+    for (const box of boxes) {
+        const next = [Math.min(frame[0], box[0]), Math.min(frame[1], box[1]), Math.max(frame[2], box[2]), Math.max(frame[3], box[3])];
+        if (next[2] - next[0] > across - .4 || next[3] - next[1] > down - .4) continue;
+        frame = next; lean = [(next[0] + next[2]) / 2, (next[1] + next[3]) / 2];
+    }
+    return lean;
+}
 
 /** Nearby-only painted terrain. No simulation, authority, timers or DOM HUD live here. */
 export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: ContinuousWorldSpace,
