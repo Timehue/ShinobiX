@@ -61,24 +61,26 @@ export async function mountContinuousWorld(host: Host) {
     let pendingDestination: string | null = null;
     let startupThrottled = false;
     const pace = createWorldMovePacer(6.5);
-    // A phone shows about 7 tiles. The camera leans so that whoever is talking (with
-    // their bubble), the landmark at hand and the nearest resident fit beside the player.
+    // A phone shows about 7 tiles. The camera leans so that the spot the player is about to use,
+    // whoever is talking (with their bubble), the landmark at hand and the nearest resident fit beside them.
     let lean = [0, 0], leanGoal = lean, leanAt = 0, tilePx = 30, aimedFrom = { x: NaN, y: NaN }, aimedAcross = 0, aimUntil = 0;
     const leanTargets = () => {
         const me = host.marker.getBoundingClientRect(), x = me.left + me.width / 2, y = me.bottom;
         const box = (r: DOMRect, top = r.top, left = r.left, right = r.right) => [(left - x) / tilePx, (top - y) / tilePx, (right - x) / tilePx, (r.bottom - y) / tilePx];
         const near = (b: LeanBox, d: number) => b[0] < d && b[2] > -d && b[1] < d && b[3] > -d;
-        const speakers: LeanBox[] = [], landmarks: LeanBox[] = [], residents: LeanBox[] = [];
+        const spots: LeanBox[] = [], speakers: LeanBox[] = [], landmarks: LeanBox[] = [], residents: LeanBox[] = [];
         for (const figure of host.chunk.querySelectorAll<HTMLElement>('.sector-wanderer-figure')) {
             const r = figure.getBoundingClientRect(), bubble = figure.querySelector<HTMLElement>('.sector-wanderer-bubble'), half = (bubble?.offsetWidth ?? 0) / 2;
             if (!r.width || figure.style.visibility === 'hidden') continue;
             if (bubble) { const b = box(r, r.top - bubble.offsetHeight - 10, Math.min(r.left, r.x + r.width / 2 - half), Math.max(r.right, r.x + r.width / 2 + half)); if (near(b, 4.5)) speakers.push(b); }
             else { const b = box(r); if (near(b, 3.5)) residents.push(b); }
         }
-        // A landmark, work point or gathering node beside the player: keep all of it on screen, not cut off at an edge.
-        for (const mark of host.chunk.querySelectorAll('[data-footprint], .sector-life-point, .resource-world-node')) { const b = box(mark.getBoundingClientRect()); if (near(b, 1.5)) landmarks.push(b); }
+        // A work point or gathering node beside the player is what they are about to use: it comes first,
+        // whole, ahead of anyone talking. A landmark at hand comes after the speaker.
+        for (const mark of host.chunk.querySelectorAll('.sector-life-point, .resource-world-node')) { const b = box(mark.getBoundingClientRect()); if (near(b, 1.5)) spots.push(b); }
+        for (const mark of host.chunk.querySelectorAll('[data-footprint]')) { const b = box(mark.getBoundingClientRect()); if (near(b, 1.5)) landmarks.push(b); }
         residents.sort((a, b) => Math.hypot(a[0] + a[2], a[1] + a[3]) - Math.hypot(b[0] + b[2], b[1] + b[3]));
-        return [...speakers, ...landmarks, ...residents.slice(0, 1)];
+        return [...spots, ...speakers, ...landmarks, ...residents.slice(0, 1)];
     };
     const resumable = (reply: WorldMovementReply) => refusedInRow === 1 && (reply.reason === 'speed' || reply.reason === 'busy');
     function accept(reply: WorldMovementReply) {
