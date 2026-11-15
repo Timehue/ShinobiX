@@ -8,6 +8,7 @@ import { FRACTURE_TEMPLATES } from '../../shared/fracture-chain';
 import { kunaiFish, kunaiFlightMs, kunaiSeed } from '../../shared/kunai-fishing';
 import { readResourceGathering } from '../../shared/resource-gathering';
 import { expectVisibleTouchTarget } from '../e2e/helpers/visible-target';
+import { walkUntilOnMap } from '../e2e/helpers/world-camera';
 
 test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 // These journeys cross the map, shops, inventory, Outpost and crafting. Budget
@@ -48,7 +49,10 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'false');
     await expect.poll(() => page.locator('.resource-node-art').evaluateAll(images => images.length > 0 && images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
     await page.screenshot({ path: info.outputPath('live-resource-markers.png'), fullPage: true });
-    await page.getByRole('button', { name: /^Harbor iron seam, mining/ }).click();
+    // On a phone the camera may lean toward a nearby resident and leave a node off the map: walk until it shows.
+    const ironSeam = page.getByRole('button', { name: /^Harbor iron seam, mining/ });
+    await walkUntilOnMap(page, ironSeam);
+    await ironSeam.click();
     await expect(page.getByRole('dialog', { name: 'Harbor iron seam', exact: true })).toBeVisible();
     const approach = page.getByRole('button', { name: 'Approach rock base', exact: true });
     if (await approach.isVisible()) {
@@ -70,11 +74,13 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
     await page.screenshot({ path: info.outputPath('live-mining-result.png'), fullPage: true });
     await page.getByRole('button', { name: 'Back to map', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
+    const shoal = page.getByRole('button', { name: /^Dockside shoal, fishing/ });
+    await walkUntilOnMap(page, shoal);
+    await shoal.click();
     await page.getByRole('button', { name: 'Approach shore', exact: true }).click();
     await expect.poll(async () => (await (await request.get('/api/player/world-move', { headers })).json()).tile, { timeout: 30_000 }).toBe(99);
     await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label', 'Current tile row 9 column 4');
-    await page.getByRole('button', { name: /^Dockside shoal, fishing/ }).click();
+    await shoal.click();
     await page.getByRole('button', { name: 'Ready kunai · 1 attempt' }).click();
     const throwButton = page.getByRole('button', { name: 'Throw kunai', exact: true });
     await expect(throwButton).toBeEnabled();
@@ -215,7 +221,10 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     await expect.poll(async () => await returnButton.isVisible() || await page.locator('.continuous-world-map').isVisible()).toBe(true);
     if (await returnButton.isVisible()) await returnButton.click();
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'false');
-    await page.getByRole('button', { name: /^Harbor stormglass seam, mining/ }).click();
+    // On a phone the camera may lean toward a nearby resident and leave the seam off the map: walk until it shows.
+    const seam = page.getByRole('button', { name: /^Harbor stormglass seam, mining/ });
+    await walkUntilOnMap(page, seam);
+    await seam.click();
     await expect(page.getByRole('dialog', { name: 'Harbor stormglass seam', exact: true })).toBeVisible();
     const approach = page.getByRole('button', { name: 'Approach rock base', exact: true });
     if (await approach.isVisible()) {
