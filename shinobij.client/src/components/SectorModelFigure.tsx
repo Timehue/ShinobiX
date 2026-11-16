@@ -27,6 +27,8 @@ export type SectorModelHandle = {
 // An evicted entry that a mounted figure still uses stays alive through that figure; a later mount
 // re-reads the immutable manifest from the HTTP cache.
 const MODEL_CACHE_LIMIT = 96;
+/** How long a figure other than the player's own keeps its last painted frame while its next page decodes. */
+const PAINTED_GRACE_MS = 2_000;
 const models = new Map<string, Promise<Model>>();
 
 function loadModel(folder: string, revision: string, priority: RequestPriority = "auto"): Promise<Model> {
@@ -224,26 +226,39 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec,decodePriority))
                     .then(image=>image.release(),()=>{if(nextPage===spec.file) nextPage="";});
             }
-            function waitForArt() {
+            function waitForArt(grace = 400) {
                 waiting = true;
                 const now = performance.now();
                 waitingSince ??= now;
-                if (now-waitingSince < 400) return {distance:0,idle:false};
+                if (now-waitingSince < grace) return {distance:0,idle:false};
                 // A cold download must never hold navigation until the network timeout.
                 usingPortrait = true;
                 releaseTurns();
                 figure.classList.remove("has-sector-model");
                 return undefined;
             }
-            function facingBank(facing: number) {
+            // A facing asked for ahead of need (a turn the actor may take) that fails
+            // backs off on its own (2 s, 8 s, then 30 s) instead of failing the whole
+            // figure: the facing on screen is fine, so a dropped prefetch must not
+            // swap it for the portrait. A facing that is really needed still goes
+            // through failed() and its report.
+            const facingRetryAt = new Array<number>(8).fill(0);
+            const facingMisses = new Array<number>(8).fill(0);
+            function facingBank(facing: number, speculative = false) {
                 const bank = model?.banks[facing];
                 if (bank || !model?.packed || pendingFacings.has(facing) || performance.now()<retryAfter) return bank;
+                if (speculative && performance.now()<facingRetryAt[facing]!) return bank;
                 pendingFacings.add(facing);
                 const file = model.packed.styles[style][facing];
                 void import("../lib/sector-pose-delivery").then(m=>m.loadFacing(folder,file,decodePriority)).then(bank=>{
                     pendingFacings.delete(facing);
                     if (model && live) { model.banks[facing]=bank; if (!driven) draw(); }
-                }).catch(error=>{pendingFacings.delete(facing); if(live) failed("facing", error);});
+                }).catch(error=>{
+                    pendingFacings.delete(facing);
+                    if (!live) return;
+                    if (speculative) facingRetryAt[facing] = performance.now() + ([2_000, 8_000][facingMisses[facing]!++] ?? 30_000);
+                    else failed("facing", error);
+                });
                 return bank;
             }
 
@@ -286,7 +301,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     if (step === 0) continue;
                     // Let go of facings a curve has left behind: hold the four in reach only.
                     if (step > 2 && step < 6) { turnArt[facing]!.clear(); turnReleaseArt[facing]!.clear(); continue; }
-                    const bank = facingBank(facing);
+                    const bank = facingBank(facing, true);
                     if (bank) turnReady(bank, facing, page);
                 }
             }
@@ -339,8 +354,9 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
             unground.current = () => {
                 if (!driven) return;
                 driven = false; waiting = false;
-                // The next placement starts from a standing pose, not a stale stride.
-                prior = null;
+                // The next placement starts from a standing pose, not a stale stride,
+                // and its art wait starts fresh: the two paths use different graces.
+                prior = null; waitingSince = undefined;
             };
             ground.current = (direction, desired, dt, allowance, afterBrake) => {
                 if (!model?.packed || performance.now()<retryAfter) {
@@ -348,6 +364,9 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     waiting = false;
                     return;
                 }
+                // A figure placed until now may have spent up to 2 s of the placed
+                // grace; that wait must not count against this 400 ms one.
+                if (!driven) waitingSince = undefined;
                 driven = true;
                 const angle = view * Math.PI / 4;
                 const dx = direction?.dx ?? Math.sin(angle), dy = direction?.dy ?? Math.cos(angle);
@@ -361,7 +380,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     && model.banks[view]?.[stride.page] && paintedUrl === model.banks[view]![stride.page]!.url;
                 if (!turning) holdFacing = -1;
                 else {
-                    const next = facingBank(facing), now = performance.now();
+                    const next = facingBank(facing, true), now = performance.now();
                     // The clock belongs to this target facing; once it runs out the turn
                     // stops holding until the target changes or the turn completes.
                     if (holdFacing !== facing) { holdFacing = facing; holdSince = now; }
@@ -379,7 +398,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 if (afterBrake && !usingPortrait) {
                     // The held heading starts the moment this brake ends. Keep its first
                     // moving pose and that pose's braking page decoded while the actor slows.
-                    const next = facingBank(facingFor(afterBrake.dx,afterBrake.dy));
+                    const next = facingBank(facingFor(afterBrake.dx,afterBrake.dy), true);
                     const start = "start-" + (latest.current?.gait ?? "walk");
                     if (next) {
                         retainPage(startArt, next[start]?.page);
@@ -456,7 +475,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     if (heading && distance > .001 && prior?.width === pos.width)
                         view = (Math.round(Math.atan2(dx, dy) / (Math.PI / 4)) + 8) % 8;
                     const bank = facingBank(view);
-                    if (!bank) { waitForArt(); return; }
+                    if (!bank) { waitForArt(painted ? PAINTED_GRACE_MS : 400); return; }
                     if (pos.snapped || !prior || prior.width !== pos.width || (!pos.routed && (dt > .35 || distance > 45))) {
                         gait = "idle";
                         stride = {page:"idle",time:0};
@@ -478,7 +497,12 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 // Substeps may move the feet before the next clip starts loading.
                 // Paint the last committed pose from its retained sheet on this frame.
                 if (!clip || (driven ? paintedUrl!==clip.url : !sheetReady(clip)) || !page) {
-                    if (!driven) waitForArt();
+                    // Every figure decodes through one shared worker, so in a crowd a
+                    // peer's next page (start, stop, turn) can queue past 400 ms. One
+                    // already on screen holds its last frame for that wait, as it does
+                    // for a facing still downloading above, rather than blinking to the
+                    // portrait and back. A real failure still drops it at once (failed()).
+                    if (!driven) waitForArt(painted ? PAINTED_GRACE_MS : 400);
                     return;
                 }
                 if (!driven) {
