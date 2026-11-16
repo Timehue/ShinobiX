@@ -58,3 +58,23 @@ test('a failed prefetch waits for the pose to be needed before retrying',async()
     assert.equal(loads,2);
     hold.dispose();
 });
+
+test('a missed prefetch is asked again once its cool-down passes, not never',async()=>{
+    let clock=0,loads=0;
+    const hold=createPosePrerequisite(2_000,()=>clock);
+    const load=async()=>{
+        if(++loads===1) throw Error('dropped turn page');
+        return {release(){}};
+    };
+    assert.equal(hold.ready('turn-walk',load),false);
+    await Promise.resolve();
+    clock=1_999;
+    assert.equal(hold.ready('turn-walk',load),false);
+    assert.equal(loads,1,'inside the cool-down the miss is not re-requested every frame');
+    clock=2_000;
+    assert.equal(hold.ready('turn-walk',load),false);
+    await Promise.resolve();
+    assert.equal(hold.ready('turn-walk',load),true);
+    assert.equal(loads,2);
+    hold.dispose();
+});
