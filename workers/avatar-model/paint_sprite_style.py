@@ -1,5 +1,6 @@
 """Render and audit one complete run style from a private, sealed player fitting."""
 import argparse
+from hashlib import sha256
 import json
 from pathlib import Path
 import sys
@@ -23,6 +24,11 @@ def paint(entry, master, digest, style, blender, work, expected_movement=None):
     revision = movement_revision(blender)
     if expected_movement is not None and revision != expected_movement:
         raise MovementRevisionMismatch("movement-worker-revision-mismatch")
+    battle_sprite = None
+    if style == "A":
+        from battle_pose import render_battle_pose
+        battle_sprite = render_battle_pose(fit, sheet, template, work)
+        (work / "battle.webp").write_bytes(battle_sprite)
     source = ["--fitted-master", master, "--master-sha256", digest]
     cache = work / "lower"
     checks = bake_style(source, fit["sourceSha256"], sheet, template, style, work / "style.zip",
@@ -30,6 +36,8 @@ def paint(entry, master, digest, style, blender, work, expected_movement=None):
                         grouped_walk=use_for_job(cache))
     receipt = dict(style=style, master=digest, portrait=fit["sourceSha256"], movement=revision,
                    archive=checks["releases"]["archiveSha256"], checks=checks)
+    if battle_sprite is not None:
+        receipt["battleSpriteSha256"] = sha256(battle_sprite).hexdigest()
     (work / "style.json").write_text(json.dumps(receipt, allow_nan=False))
 
 

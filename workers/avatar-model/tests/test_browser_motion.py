@@ -13,7 +13,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from browser_motion import ATLAS_BYTES, DIRECTIONS, INDEX_BYTES, PAGE_BYTES, browser_motion_objects, worker_delivery_objects
-from finish_sprite import add_battle_sprite
+from finish_sprite import add_battle_sprite, read_rendered_battle_sprite
 from render_admitted_sprite import recover_delivery
 from publish_sprite import publish_worker_result
 
@@ -64,6 +64,29 @@ class BrowserDeliveryTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
                 browser_motion_objects(directory, result["version"], portrait)
 
+    def test_style_a_guard_is_delivered_as_authored_and_requires_its_receipt(self):
+        with TemporaryDirectory() as temp:
+            directory = Path(temp)
+            version, _ = self.package(directory)
+            portrait = "a" * 64
+            objects = browser_motion_objects(directory, version, portrait)
+            model = dict(assetId="1" * 32, version=version, objects=len(objects), bytes=sum(map(len, objects.values())))
+            data = BytesIO()
+            Image.new("RGBA", (6, 8), (110, 45, 220, 255)).save(data, "WEBP", lossless=True)
+            sprite = data.getvalue()
+            filename = sha256(sprite).hexdigest()
+            self.assertIsNone(read_rendered_battle_sprite(directory, {}))
+            (directory / "battle.webp").write_bytes(sprite)
+            with self.assertRaisesRegex(ValueError, "battle-sprite-receipt-mismatch"):
+                read_rendered_battle_sprite(directory, {"battleSpriteSha256": "0" * 64})
+            verified = read_rendered_battle_sprite(directory, {"battleSpriteSha256": filename})
+            with patch("recognition_lineup.posed_views", side_effect=AssertionError("guard already rendered")):
+                result = add_battle_sprite(directory, model, objects, portrait, "ffmpeg", battle_sprite=verified)
+            package = browser_motion_objects(directory, result["version"], portrait)
+            manifest = json.loads(package[result["version"] + ".json"])
+            self.assertEqual(manifest["battleSprite"], filename + ".webp")
+            self.assertEqual(package[manifest["battleSprite"]], sprite)
+
     def test_public_readback_failure_and_retry(self):
         class Bucket:
             def __init__(self):
@@ -77,8 +100,10 @@ class BrowserDeliveryTest(unittest.TestCase):
                 assert IfNoneMatch == "*"
                 if Key in self.objects:
                     raise ClientError({"Error":{"Code":"PreconditionFailed"}}, "PutObject")
-                if Key.endswith(".json") and len(self.pages_read) != 2:
-                    raise AssertionError("Manifest visible before both dependencies were verified")
+                if Key.endswith(".webp"):
+                    assert ContentType == "image/webp"
+                if Key.endswith(".json") and len(self.pages_read) != 3:
+                    raise AssertionError("Manifest visible before all dependencies were verified")
                 self.objects[Key] = Body
 
             def get_object(self, *, Bucket, Key):
@@ -86,9 +111,9 @@ class BrowserDeliveryTest(unittest.TestCase):
                     from botocore.exceptions import ClientError
                     raise ClientError({'Error':{'Code':'NoSuchKey'}},'GetObject')
                 data = self.objects[Key]
-                if not Key.endswith(".json"):
+                if Key.endswith((".264", ".gz")):
                     self.concurrent_reads.wait(timeout=5)
-                if self.corrupt and Key.endswith(".264"):
+                if self.corrupt and Key.endswith(".webp"):
                     data = b"!"
                 elif not Key.endswith(".json"):
                     self.pages_read.add(Key)
@@ -96,13 +121,18 @@ class BrowserDeliveryTest(unittest.TestCase):
 
         with TemporaryDirectory() as temp:
             directory = Path(temp)
-            version, names = self.package(directory)
-            objects = {name: (directory / name).read_bytes() for name in names}
+            version, _ = self.package(directory)
             asset = "f" * 32
-            model = dict(assetId=asset, version=version, objects=len(objects), bytes=sum(map(len, objects.values())))
+            portrait = "a" * 64
+            objects = browser_motion_objects(directory, version, portrait)
+            sprite = BytesIO()
+            Image.new("RGBA", (6, 8), (110, 45, 220, 255)).save(sprite, "WEBP", lossless=True)
+            model = add_battle_sprite(directory, dict(assetId=asset, version=version), objects, portrait, "ffmpeg",
+                                      battle_sprite=sprite.getvalue())
+            objects = browser_motion_objects(directory, model["version"], portrait)
             result = dict(model=model, objects=objects)
             bucket = Bucket()
-            args = (result, asset, "a" * 64, bucket, "public-test")
+            args = (result, asset, portrait, bucket, "public-test")
             with self.assertRaisesRegex(ValueError, "read-back"):
                 publish_worker_result(*args)
             self.assertFalse(any(name.endswith(".json") for name in bucket.objects))
@@ -110,7 +140,7 @@ class BrowserDeliveryTest(unittest.TestCase):
             for _ in range(2):
                 bucket.pages_read.clear()
                 self.assertEqual(publish_worker_result(*args), model)
-                self.assertEqual(bucket.objects, {f"sector-models/players/{asset}/{n}": objects[n] for n in names})
+                self.assertEqual(bucket.objects, {f"sector-models/players/{asset}/{name}": data for name, data in objects.items()})
 
     def test_retrieved_result_is_bound_to_its_job_and_contains_only_public_objects(self):
         with TemporaryDirectory() as temp:

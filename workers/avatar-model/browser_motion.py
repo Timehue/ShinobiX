@@ -14,6 +14,15 @@ ATLAS_BYTES = 12 * 1024**2
 DIRECTIONS = ["s", "se", "e", "ne", "n", "nw", "w", "sw"]
 
 
+def checked_style_battle_sprite(style, expected, data):
+    if expected is None and data is None:
+        return None  # Older style calls can resume without a combat render.
+    if (style != "A" or not isinstance(data, bytes) or not 0 < len(data) <= BATTLE_SPRITE_BYTES
+            or sha256(data).hexdigest() != expected):
+        raise ValueError("battle-sprite-receipt-mismatch")
+    return data
+
+
 def check_facing(bank):
     clips, pages = bank["clips"], bank["pages"]
     required = {"idle", "walk", "run", "start-walk", "start-run", "pivot"}

@@ -19,10 +19,18 @@ import { towerHexPixel } from "./tower-grid";
 export type BattlefieldSpriteKind = "humanoid" | "quadruped" | "flying" | "serpentine" | "boss" | "construct";
 export type BattlefieldSpriteFacing = "left" | "right";
 
-const CINDERHOLD_RIGHT_FACING = new Set([
-    "alisia", "ayame", "daigo", "isamu", "kairo", "kat", "kohaku", "raku",
-    "roy", "seiran", "shion", "sly", "suiren", "tavi", "vesper", "veyl",
-]);
+const CINDERHOLD_NATIVE_FACING: Record<string, BattlefieldSpriteFacing> = {
+    akari: "left", alisia: "right", ayame: "right", daigo: "right", hayate: "left",
+    isamu: "right", jiro: "left", kaien: "left", kairo: "right", kat: "right",
+    kohaku: "right", kuroto: "left", lumen: "left", mizuki: "left", nozomi: "left",
+    nyra: "left", raku: "right", reika: "left", renji: "left", riven: "left",
+    roy: "right", sayo: "left", seiran: "right", shion: "right", sly: "right",
+    suiren: "right", tavi: "right", vesper: "right", veyl: "right", virath: "left",
+};
+
+export function cinderholdCombatantId(id?: string): string | undefined {
+    return id && Object.hasOwn(CINDERHOLD_NATIVE_FACING, id) ? id : undefined;
+}
 
 type BattlefieldFacingActor = {
     id: string;
@@ -59,7 +67,7 @@ export function inferSpriteKind(src: string): BattlefieldSpriteKind {
 export function inferSpriteNativeFacing(src: string): BattlefieldSpriteFacing {
     const path = src.split(/[?#]/, 1)[0];
     const cinderhold = /\/combat-actors\/cinderhold\/([a-z]+)-idle\.webp$/.exec(path)?.[1];
-    if (cinderhold && CINDERHOLD_RIGHT_FACING.has(cinderhold)) return "right";
+    if (cinderhold && cinderholdCombatantId(cinderhold)) return CINDERHOLD_NATIVE_FACING[cinderhold]!;
     const filename = path.split("/").pop() ?? "";
     // Murogane, Donkaku and the Hollow Hound are drawn with their heads leading
     // to the right.

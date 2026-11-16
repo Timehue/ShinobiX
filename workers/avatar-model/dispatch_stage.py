@@ -113,6 +113,11 @@ def advance(request, ledger, function, lookup, terminal_errors=(), paint_claim=N
             or not re.fullmatch("[a-f0-9]{64}", receipt["movement"])
             or (request.get("movement") and receipt["movement"] != request["movement"])):
         raise ValueError("invalid-render-receipt")
+    from browser_motion import checked_style_battle_sprite
+    try:
+        checked_style_battle_sprite(stage, receipt.get("battleSpriteSha256"), result.get("battleSprite"))
+    except ValueError:
+        return {"status": "failed", "callId": call_id}
     return {"status": "complete", "callId": call_id, "movement": receipt["movement"]}
 
 
