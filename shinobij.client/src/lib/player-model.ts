@@ -11,7 +11,7 @@ export function starterModel(avatar: string, savedChoice?: unknown) {
 const key = "worldSprintStyle.v1";
 let inMemory: SprintStyle = "A";
 let storageWritable = true;
-function getSprintStyle(): SprintStyle {
+export function getSprintStyle(): SprintStyle {
     if (!storageWritable) return inMemory;
     try {
         const value = localStorage.getItem(key);

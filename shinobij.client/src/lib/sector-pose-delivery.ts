@@ -8,7 +8,23 @@ export type SpriteView = Record<string,SpriteClip>;
 export type PackedMotion = {format: 'sector-motion-v2'; mapWidth: number; styles: Record<SprintStyle,string[]>};
 export type SheetImage = {image: HTMLImageElement; release: () => void};
 
-export async function loadFacing(folder: string, name: string, priority: DecodePriority = 1): Promise<SpriteView> {
+// A facing index is small and immutable (named by its hash), and figures only read it. Sharing one
+// read means a travel warm-up, a crowd of the same NPC and a remount do not each download, hash and
+// gunzip it again. Least-recently-used, with a failed read dropped so the next ask retries.
+const FACING_CACHE_LIMIT = 128;
+const facings = new Map<string, Promise<SpriteView>>();
+export function loadFacing(folder: string, name: string, priority: DecodePriority = 1): Promise<SpriteView> {
+    const key = folder + name;
+    const existing = facings.get(key);
+    if (existing) { facings.delete(key); facings.set(key, existing); return existing; }
+    const request = readFacing(folder, name, priority)
+        .catch(error => { if (facings.get(key) === request) facings.delete(key); throw error; });
+    facings.set(key, request);
+    while (facings.size > FACING_CACHE_LIMIT) facings.delete(facings.keys().next().value!);
+    return request;
+}
+
+async function readFacing(folder: string, name: string, priority: DecodePriority): Promise<SpriteView> {
     const data = await readSectorModelObject(folder,name,'.gz',128*1024,sectorFetchPriority(priority));
     const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'));
     const {clips,pages} = await new Response(stream).json() as {
