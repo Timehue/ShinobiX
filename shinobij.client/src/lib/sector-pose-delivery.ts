@@ -8,7 +8,27 @@ export type SpriteView = Record<string,SpriteClip>;
 export type PackedMotion = {format: 'sector-motion-v2'; mapWidth: number; styles: Record<SprintStyle,string[]>};
 export type SheetImage = {image: HTMLImageElement; release: () => void};
 
-export async function loadFacing(folder: string, name: string, priority: DecodePriority = 1): Promise<SpriteView> {
+// A facing index is immutable (content-addressed) and read-only once parsed.
+// Road travelers remount their figure for every new walk, so keep recent
+// parsed facings: a remount then paints from memory instead of showing the
+// portrait while the same index is fetched and unzipped again.
+// The same bound as the manifest cache: enough for the figures one sector shows
+// at once without keeping every model's eight facings parsed on a phone.
+const FACING_CACHE_LIMIT = 96;
+const facings = new Map<string, Promise<SpriteView>>();
+export function loadFacing(folder: string, name: string, priority: DecodePriority = 1): Promise<SpriteView> {
+    const key = folder + name, cached = facings.get(key);
+    if (cached) { facings.delete(key); facings.set(key, cached); return cached; }
+    const request = fetchFacing(folder, name, priority).catch(error => {
+        if (facings.get(key) === request) facings.delete(key);
+        throw error;
+    });
+    facings.set(key, request);
+    while (facings.size > FACING_CACHE_LIMIT) facings.delete(facings.keys().next().value!);
+    return request;
+}
+
+async function fetchFacing(folder: string, name: string, priority: DecodePriority): Promise<SpriteView> {
     const data = await readSectorModelObject(folder,name,'.gz',128*1024,sectorFetchPriority(priority));
     const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'));
     const {clips,pages} = await new Response(stream).json() as {

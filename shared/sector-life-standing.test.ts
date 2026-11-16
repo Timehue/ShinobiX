@@ -15,8 +15,10 @@ import {LIFE_STANDING_CODES,lifeStandingTiles} from './sector-life-standing.js';
  * are added directly. */
 function standingTiles(sector:number):number[] {
     const tiles=new Set<number>(),start=Date.UTC(2026,9,1);
-    for(let i=0;i<320;i++){
-        const now=start+i*337_000,weather=i%2?'rain':'clear',step=Math.floor(i/2)%4,tier=Math.floor(i/8)%3;
+    for(let i=0;i<480;i++){
+        // Eight samples span one 45-minute window, so a step cycle of eight
+        // would pin each errand stage to the same window phase. Twelve drifts it.
+        const now=start+i*337_000,weather=i%2?'rain':'clear',step=Math.floor(i/3)%4,tier=Math.floor(i/8)%3;
         for(const actor of lifeSceneView(sector,{...parseLifeState(null,now),step,updatedAt:now-60_000},now,weather,undefined,undefined,{tier,...parseShrineCare(null,now)}).actors)
             for(const tile of [actor.restTile,actor.workTile,...[...actor.phases??[],...actor.cyclePhases??[]].map(phase=>phase.workTile)])if(tile!==undefined)tiles.add(tile);
     }

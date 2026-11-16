@@ -1,8 +1,10 @@
 type Point={col:number;row:number};
 /** The task still targets its actual ground cell. Only an overlapping button
  * moves, with a visible tether, leaving both the person and work accessible. */
-export function lifeWorkMarker(tile:number,point:Point,actors:readonly Point[]=[]){
-    const target={col:tile%12,row:Math.floor(tile/12)},x=target.col-point.col,y=target.row-point.row,scale=Math.max(1,Math.abs(x)/4.5,Math.abs(y)/4.5);
+export function lifeWorkMarker(tile:number,point:Point,actors:readonly Point[]=[],guide=true){
+    /** Only open work earns an edge pointer. A finished or lapsed story stays
+     * on its own ground cell, so it never tugs at the player from afar. */
+    const target={col:tile%12,row:Math.floor(tile/12)},x=target.col-point.col,y=target.row-point.row,scale=guide?Math.max(1,Math.abs(x)/4.5,Math.abs(y)/4.5):1;
     let anchor={col:point.col+x/scale,row:point.row+y/scale},tether:undefined|{x1:number;y1:number;x2:number;y2:number};
     const distance=(a:Point,b:Point)=>Math.hypot(a.col-b.col,a.row-b.row);
     const hits=(actor:Point,p:Point)=>Math.abs(actor.col-p.col)<.98&&p.row>actor.row-1.75&&p.row<actor.row+.65;

@@ -27,7 +27,7 @@ export type SectorModelHandle = {
 // An evicted entry that a mounted figure still uses stays alive through that figure; a later mount
 // re-reads the immutable manifest from the HTTP cache.
 const MODEL_CACHE_LIMIT = 96;
-/** How long a figure other than the player's own keeps its last painted frame while its next page decodes. */
+/** How long a figure other than the player's own waits on its next page before its motion stops waiting for the art. */
 const PAINTED_GRACE_MS = 2_000;
 const models = new Map<string, Promise<Model>>();
 
@@ -234,7 +234,11 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 // A cold download must never hold navigation until the network timeout.
                 usingPortrait = true;
                 releaseTurns();
-                figure.classList.remove("has-sector-model");
+                // The grace frees navigation; it does not have to hide the figure.
+                // One already on screen, the player's own included, keeps its last
+                // frame until the page lands. Only a figure that has never painted
+                // shows the portrait here; a real failure still drops it (failed()).
+                if (!lastSheet) figure.classList.remove("has-sector-model");
                 return undefined;
             }
             // A facing asked for ahead of need (a turn the actor may take) that fails
@@ -500,15 +504,16 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     // Every figure decodes through one shared worker, so in a crowd a
                     // peer's next page (start, stop, turn) can queue past 400 ms. One
                     // already on screen holds its last frame for that wait, as it does
-                    // for a facing still downloading above, rather than blinking to the
-                    // portrait and back. A real failure still drops it at once (failed()).
+                    // for a facing still downloading above, and past it (waitForArt),
+                    // rather than blinking to the portrait and back. A real failure
+                    // still drops it at once (failed()).
                     if (!driven) waitForArt(painted ? PAINTED_GRACE_MS : 400);
                     return;
                 }
                 if (!driven) {
                     // NPC and peer movement continues independently of sprite downloads.
-                    // Use the portrait after the same cold-load grace as local movement,
-                    // then reveal the fitted figure only once its current page is ready.
+                    // A figure that has never painted uses the portrait after the cold-load
+                    // grace, then reveals the fitted figure once its current page is ready.
                     waiting=false; waitingSince=undefined; usingPortrait=false;
                 }
                 if (stride.page === "idle" && clip.count > 1) {

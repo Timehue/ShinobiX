@@ -686,10 +686,6 @@
         }
     }
 
-.sector-player-tile {
-    box-shadow: 0 0 14px var(--gold);
-}
-
 .sector-image-map {
     background-size: cover !important;
     background-position: center !important;
@@ -761,10 +757,17 @@
         }
     }
 
+/* The figure and its ground ring already show where you stand. The tile under
+   it stays unmarked so no square sits over the painted ground; the class is
+   kept for keyboard focus and tests. */
 .sector-player-tile {
-    background: rgba(230, 196, 119, 0.2) !important;
-    outline: 3px solid gold !important;
-    box-shadow: 0 0 14px gold !important;
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+.sector-player-tile:focus-visible {
+    outline: 2px solid #e5d39a !important;
+    outline-offset: -3px !important;
 }
 
 /* Other players on the sector map */
