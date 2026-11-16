@@ -2,7 +2,7 @@ import { expect } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { test } from './helpers/reconnecting-request';
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { uniquePlayerName } from './helpers/player-names';
 import { AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
@@ -138,7 +138,7 @@ test('a player attacks a Cinderhold shinobi and the server plays it to the end',
     const modelRequests: string[] = [];
     await page.route(`**/api/save/${name}*`, async route => {
         if (route.request().method() !== 'GET') return route.fallback();
-        const response = await route.fetch();
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
         const save = await response.json();
         await route.fulfill({ response, json: { ...save, character: { ...save.character, playerModel: { ...art.model, version } } } });
     });
