@@ -10,9 +10,10 @@ import { walkUntilOnMap } from "./helpers/world-camera";
  */
 const SECTOR = 42;
 const PHONE_PROJECTS = new Set(["chromium-mobile", "webkit-mobile"]);
+const SCENE_TIME = Date.UTC(2026, 10, 16, 12);
 
 function worldBossState() {
-    const now = Date.now();
+    const now = SCENE_TIME;
     return {
         event: {
             eventId: "e2e-world-boss", bossId: "hollow-beast", bossName: "Chicxulub", status: "roaming",
@@ -39,7 +40,7 @@ function buildingsView() {
     return {
         ok: true,
         view: {
-            sector: SECTOR, saveVersion: 0, serverNow: Date.now(),
+            sector: SECTOR, saveVersion: 0, serverNow: SCENE_TIME,
             progress: { version: 1, standing: {}, repairs: 0, deliveries: 0, watches: 0, surveys: 0, day: "", repairsToday: 0, deliveriesToday: 0, rewardsToday: 0, shardClaims: 0, receipts: [], titles: [] },
             buildings: [{
                 building, greeting: "Sit a while.", standing, services: [],
@@ -51,8 +52,12 @@ function buildingsView() {
 }
 
 async function bootInSector(page: Page) {
+    // Sector life moves residents in and out by the clock, and the phone camera
+    // leans toward the nearest one. Pin the page clock so the same residents
+    // stand in the same places on every run.
+    await page.clock.setFixedTime(SCENE_TIME);
     const save = { ...uiAuditSave(), currentSector: SECTOR };
-    const now = Date.now();
+    const now = SCENE_TIME;
     const bucket = Math.floor(now / (6 * 60 * 60 * 1000));
     const wandererCooldowns: Record<string, number> = {};
     for (const offset of [-1, 0, 1]) {
