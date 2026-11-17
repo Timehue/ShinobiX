@@ -1,7 +1,10 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv, type KvLike } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { isFullAdmin, rotatePlayerSessionEpoch } from '../_auth.js';
+import { randomUUID } from 'node:crypto';
+import { adminAuditIdentity, isFullAdmin, rotatePlayerSessionEpoch } from '../_auth.js';
+import { recordAudit, type AuditEntry } from '../_audit.js';
+import { adminActorLabel } from '../_admin-audit.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 import { bumpImageVersion } from '../_image-version.js';
@@ -525,6 +528,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const body = (req.body ?? {}) as { dryRun?: unknown };
     const dryRun = body.dryRun === true;
+    // Shared fields of this run's audit records; set once the destructive run
+    // starts (a dry run changes nothing and records nothing).
+    let resetAudit = null as (Omit<AuditEntry, 'ts' | 'action'> & { meta: Record<string, unknown> }) | null;
 
     try {
         const resetEpoch = dryRun ? null : await kv.get<ModelReset>(modelResetKey);
@@ -556,6 +562,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 deletedTruncated: doomed.length > DELETED_SAMPLE_CAP,
             });
         }
+
+        // Audit trail (logging only). `audit:*` is on the preserve list, so the
+        // record survives the sweep it describes. Written BEFORE anything is
+        // deleted, so a reset that dies half way still left a trace.
+        const auditIdentity = adminAuditIdentity(req);
+        resetAudit = {
+            actor: adminActorLabel(auditIdentity.role),
+            domain: 'admin',
+            entityType: 'server',
+            entityId: 'kv-store',
+            meta: { role: auditIdentity.role, via: auditIdentity.via, resetId: randomUUID() },
+        };
+        await recordAudit({
+            ...resetAudit,
+            action: 'server-reset.start',
+            after: summarizeByNamespace(doomed),
+            meta: {
+                ...resetAudit.meta,
+                totalKeys: allKeys.length,
+                deletedCount: doomed.length,
+                preservedCount: preserved.length,
+                subscriptionsToCancel: subscriptions.length,
+            },
+        });
 
         const authNames = authNamesRequiringRevocation(doomed);
         const subscriptionReport = await withModelReset(resetEpoch, async () => {
@@ -639,6 +669,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        await recordAudit({
+            ...resetAudit,
+            action: 'server-reset.complete',
+            meta: {
+                ...resetAudit.meta,
+                deletedCount: doomed.length,
+                sessionsRevoked: authNames.length,
+                subscriptionsCancelled: subscriptionReport.cancelled.length,
+                subscriptionsParked: subscriptionReport.parked.length,
+                protectedStandingStripped: standingStripped,
+            },
+        });
+
         return res.status(200).json({
             ok: true,
             dryRun: false,
@@ -659,6 +702,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     } catch (err) {
         console.error('[admin/server-reset]', err);
+        // Only a run that got as far as its start record has a failure to log.
+        if (resetAudit) {
+            await recordAudit({
+                ...resetAudit,
+                action: 'server-reset.failed',
+                meta: { ...resetAudit.meta, error: err instanceof Error ? err.name : 'error' },
+            });
+        }
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

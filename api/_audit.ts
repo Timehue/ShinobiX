@@ -16,7 +16,9 @@ import { withKvLock } from './_lock.js';
 // (changed fields only) — never whole entities — so the list stays small and
 // never leaks base64 image blobs into the log.
 
-export type AuditDomain = 'content' | 'reward' | 'sector' | 'combat' | 'legacy' | 'npc';
+// `admin`: the most powerful admin writes (raw save overwrites, server reset).
+// `auth`:  admin login outcomes and wrong admin-password headers.
+export type AuditDomain = 'content' | 'reward' | 'sector' | 'combat' | 'legacy' | 'npc' | 'admin' | 'auth';
 
 export interface AuditEntry {
     ts: number;
@@ -40,6 +42,14 @@ export const MAX_AUDIT_ENTRIES = 5000;
 // Cap the serialized size of a single before/after summary so a careless caller
 // (or a hand-edited blob) can't bloat the log with a megabyte of JSON.
 export const MAX_SUMMARY_LEN = 2000;
+// Domains an unauthenticated caller can append to (a wrong admin password is
+// logged) keep a shorter list: every entry rewrites the whole row, and a
+// guessing burst must not turn into megabyte rewrites. 1000 still holds weeks
+// of real logins.
+const DOMAIN_MAX_ENTRIES: Partial<Record<AuditDomain, number>> = { auth: 1000 };
+export function maxAuditEntries(domain: AuditDomain): number {
+    return DOMAIN_MAX_ENTRIES[domain] ?? MAX_AUDIT_ENTRIES;
+}
 
 export function auditKey(domain: AuditDomain): string { return `${AUDIT_PREFIX}${domain}`; }
 
@@ -81,7 +91,7 @@ export async function recordAudit(entry: Omit<AuditEntry, 'ts'> & { ts?: number 
         await withKvLock(key, async () => {
             const existing = (await kv.get<AuditEntry[]>(key)) ?? [];
             if (entry.receiptId && existing.some((item) => item.receiptId === entry.receiptId)) return;
-            await kv.set(key, appendCapped(existing, full));
+            await kv.set(key, appendCapped(existing, full, maxAuditEntries(entry.domain)));
         }, { failClosed: true });
         return true;
     } catch (e) {

@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { cors } from './_utils.js';
 import { safeEqual, issueAdminToken, isPlaceholderSecret } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
+import { clientIp } from './_client-ip.js';
+import { recordAdminAuthAudit } from './_admin-audit.js';
 
 // Login endpoint for the admin panel.
 //
@@ -38,7 +40,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const configuredContent = process.env.ADMIN_CONTENT_PASSWORD;
     const adminContentPassword = configuredContent && !isPlaceholderSecret(configuredContent) ? configuredContent : '';
 
+    // Audit trail for every login outcome below (api/_admin-audit.ts). Logging
+    // only: it is recorded after the decision, carries the role and address but
+    // never the submitted password, and a failed write changes nothing.
+    const ip = clientIp(req) ?? null;
+
     if (!password) {
+        await recordAdminAuthAudit({ outcome: 'failure', source: 'admin-auth', ip });
         return res.status(401).json({ success: false, error: 'Incorrect password.' });
     }
 
@@ -52,11 +60,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ADMIN_SESSION_SECRET is unset — the client then keeps using the password,
     // unchanged. The token encodes only the role; it carries no password.
     if (matchFull) {
+        await recordAdminAuthAudit({ outcome: 'success', source: 'admin-auth', role: 'full', ip });
         return res.status(200).json({ success: true, account: 'Admin 1', role: 'full', token: issueAdminToken('full') });
     }
     if (matchContent) {
+        await recordAdminAuthAudit({ outcome: 'success', source: 'admin-auth', role: 'content', ip });
         return res.status(200).json({ success: true, account: 'Admin 2', role: 'content', token: issueAdminToken('content') });
     }
 
+    await recordAdminAuthAudit({ outcome: 'failure', source: 'admin-auth', ip });
     return res.status(401).json({ success: false, error: 'Incorrect password.' });
 }
