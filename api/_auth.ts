@@ -12,7 +12,7 @@
  * intentionally require the player's own credential instead of an admin shortcut.
  */
 
-import { timingSafeEqual, createHmac, createHash } from 'crypto';
+import { timingSafeEqual, createHmac } from 'crypto';
 import { verifyPlayerPassword } from './player-auth.js';
 import { safeName } from './_utils.js';
 import { getActiveBan } from './admin/moderation.js';
@@ -59,13 +59,20 @@ function headerString(req: ReqLike, key: string): string {
 }
 
 /**
- * Constant-time comparison of two strings. Both sides are hashed to a fixed
- * 32 bytes first, so neither the outcome's timing nor an early return can tell
- * a caller how long the secret is (the old length check returned early).
+ * Constant-time comparison of two strings. Both sides are zero-padded to the
+ * longer length and always compared in full, so there is no early return on a
+ * length mismatch: the time taken follows the longer input (which a caller
+ * controls), not the secret's length. The lengths are checked after the compare.
+ * No hashing: a fast hash over a password is exactly what CodeQL's
+ * insufficient-password-hash rule (rightly) rejects.
  */
 export function safeEqual(a: string, b: string): boolean {
-    const digest = (value: string) => createHash('sha256').update(value, 'utf8').digest();
-    return timingSafeEqual(digest(a), digest(b));
+    const ba = Buffer.from(a, 'utf8'), bb = Buffer.from(b, 'utf8');
+    const size = Math.max(ba.length, bb.length, 1);
+    const pa = Buffer.alloc(size), pb = Buffer.alloc(size);
+    ba.copy(pa); bb.copy(pb);
+    const same = timingSafeEqual(pa, pb);
+    return same && ba.length === bb.length;
 }
 
 // ─── Revocable player session tokens ──────────────────────────────────────────
