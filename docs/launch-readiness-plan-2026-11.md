@@ -21,7 +21,7 @@ Measured with a timing probe on the production build, over a throttled phone con
 | First painted ground on the canvas | ~660–710 ms (blank until then) | **0–90 ms** |
 | Player's own marker visible | ~650–730 ms | **first frame** |
 | "Connecting to world…" banner | shown for the whole connect | hidden unless the connect takes over 1.2 s |
-| Road residents (SectorLife) start mounting | after 2 server round trips | with the world |
+| Road residents (SectorLife) start mounting | after 2 server round trips | unchanged (still on `ready`, see below) |
 
 Three causes, all in the arrival path:
 
@@ -33,7 +33,7 @@ Three causes, all in the arrival path:
 
 - `lib/continuous-world-controller.ts`: the renderer is built as soon as the (already warmed) world layout is loaded. It paints the **arrival tile** every frame, with the player's marker, while the position request is in flight. The server's answer then takes over exactly as before. If it fails, the renderer is disposed and the marker is hidden again. The tick and the preview share one `place()` helper.
 - `lib/world-floor-warm.ts` (new): during the travel wait, fetch **and decode** the destination's floor, its biome ground and its current life painting. The renderer takes them already decoded (`takeWarmImage`), so the first frame draws them. Anything nobody takes is released after 30 s, a failed decode is forgotten, and engines without `decode()` just warm the HTTP cache. The renderer and the warm-up share `worldFloorSource` / `worldTerrainName`, so they cannot drift apart.
-- `components/ContinuousWorldSector.tsx`: passes the arrival tile, mounts `SectorLife` without waiting on `ready`, and marks the routine connect banner so CSS can delay it.
+- `components/ContinuousWorldSector.tsx`: passes the arrival tile and marks the routine connect banner so CSS can delay it. `SectorLife` still waits for `ready`. Mounting it during the preview showed residents and work points before the world could be walked or tapped, and broke the two-player shared-work e2e (`sector-life.spec.ts`). Their figures' first frames are still warmed during the travel wait (#115).
 - `continuous-world.css`: the "Connecting to world…" label appears only after 1.2 s. Errors, Retry and Reload show at once as before.
 
 Not changed: server, saves, movement authority, travel time, rewards. Sectors sit 46+ tiles apart in the world layout, so no neighbouring floor is ever on screen at arrival. The warm-up therefore only covers the destination.
