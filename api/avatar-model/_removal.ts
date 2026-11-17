@@ -7,6 +7,7 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { pushSaveVersion } from '../_realtime/notify.js';
 import { isPlayerModel, readPlayerModelSlots } from '../../shared/player-model-ref.js';
 import { validModelOwnerId } from './_owner.js';
+import { fixedSettlementOps } from './_fixed-cost.js';
 import { offlineNoticesKey, prepareOfflineNoticeWrite } from '../player/_offline-notices.js';
 
 const prefix='avatar-model:';
@@ -14,7 +15,7 @@ type RemovalInput={slug:string;assetId:string;expectedVersion:string;reason:stri
 type Result={assetId:string;cleanupPending:boolean;replayed:boolean};
 type Job={slug:string;accountId:string;state:string;monthKey:string;attempt:number;publishingAt?:number;sourceSha256:string;
     masterSha256:string;originalMasterSha256?:string;recognition?:{nonce:string};
-    reserved:Array<{provider:string;cycle:string;micros:number}>};
+    reserved:Array<{provider:string;cycle:string;micros:number}>; settledCosts?:Record<string,unknown>};
 type Asset={owner:string;accountId:string;privateRefKey?:string;status:string;assetId:string;version:string;sourceSha256:string;masterSha256:string;jobId:string};
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const digest=(v:unknown):v is string=>typeof v==='string' && /^[a-f0-9]{64}$/.test(v);
@@ -64,6 +65,13 @@ export async function removePlayerModel(input:RemovalInput, actor:'admin:full') 
                 const dispatchKey=prefix+'dispatch',publishKey=prefix+'publish';
                 const [dispatch,publish]=await Promise.all([kv.get<string[]>(dispatchKey),kv.get<string[]>(publishKey)]);
                 const unclaimed=job.state==='queued' && job.attempt===0 && dispatch?.includes(active!);
+                // A dispatched job settles its fixed cost (_fixed-cost.ts) instead of holding its reservation;
+                // one that cannot be settled keeps the reservation for scripts/reconcile-avatar-cost.ts.
+                let settled: Awaited<ReturnType<typeof fixedSettlementOps>> | undefined;
+                if (!unclaimed) {
+                    try { settled=await fixedSettlementOps(job); ops.push(...settled.ops); }
+                    catch (error) { console.warn('[avatar-model] Fixed cost not settled for job',active,error instanceof Error ? error.message : ''); }
+                }
                 if (unclaimed) for(const r of job.reserved) {
                     const key=prefix+'budget:'+r.provider+':'+r.cycle;
                     const row=await kv.get<{reservedMicros:number;spentMicros:number}>(key);
@@ -73,7 +81,8 @@ export async function removePlayerModel(input:RemovalInput, actor:'admin:full') 
                     ops.push({op:'cas',key,expected:row,value:{...row,reservedMicros:row.reservedMicros-r.micros}});
                 }
                 ops.push({op:'cas',key:jobKey,expected:job,value:{...job,state:'cancelled',errorCode:'moderator-removed',
-                    endedAt:now,reserved:unclaimed ? [] : job.reserved}},
+                    endedAt:now,reserved:unclaimed || settled ? [] : job.reserved,
+                    ...(settled ? {settledCosts:settled.settledCosts} : {})}},
                     {op:'cas',key:slotKey,expected:slot,value:{...slot,usedAt:now}});
                 for(const [key,queue] of [[dispatchKey,dispatch],[publishKey,publish]] as const) {
                     if (queue?.includes(active!)) ops.push({op:'cas',key,expected:queue,value:queue.filter(id=>id!==active)});

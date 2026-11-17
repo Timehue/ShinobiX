@@ -53,7 +53,7 @@ test('a finished delivery remains private until its exact recognition receipt pa
     assert.equal(uploads,1); assert.equal((await f.kv.get<{state:string}>(f.key))?.state,'ready');
 });
 
-test('a mismatched or uncertain sprite refunds the slot and preserves incurred reservations and verdict',async()=>{
+test('a mismatched or uncertain sprite refunds the slot, settles its fixed cost and keeps its verdict',async()=>{
     const {advanceSpriteJob,publishSpriteJob}=await import('./_dispatch.js');
     for(const correct of [0,6,8]) {
         const f=await fixture('reject-'+correct), receipt={...f.receipt,correct,passed:false};
@@ -66,7 +66,8 @@ test('a mismatched or uncertain sprite refunds the slot and preserves incurred r
         assert.equal(await f.kv.get(prefix+'slot:'+f.slug+':2026-11'),null);
         assert.equal(await f.kv.get(prefix+'active:'+f.slug),null);
         assert.deepEqual(await f.kv.get(prefix+'dispatch'),[]);
-        for(const p of f.job.reserved) assert.deepEqual(await f.kv.get(prefix+'budget:'+p.provider+':'+f.id),{spentMicros:0,reservedMicros:300});
+        // The 300-micro test holds are below the default fixed cost, so each settles in full.
+        for(const p of f.job.reserved) assert.deepEqual(await f.kv.get(prefix+'budget:'+p.provider+':'+f.id),{spentMicros:300,reservedMicros:0});
     }
 });
 

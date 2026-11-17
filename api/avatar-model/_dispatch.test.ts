@@ -79,6 +79,11 @@ for (const remoteAssembly of [false,true]) test('the queue repairs one expired s
     assert.deepEqual(await kv.get(prefix+'publish'),[]);
     assert.equal(await kv.get(prefix+'active:'+slug),null);
     assert.equal((await kv.get<{state:string}>(key))?.state,'ready');
+    // Publishing settles the fixed cost at once (the 300-micro holds are under the default amount),
+    // so the next player's job is not blocked by this one.
+    for (const provider of ['modal','openai'])
+        assert.deepEqual(await kv.get(prefix+'budget:'+provider+':fixture'),{spentMicros:300,reservedMicros:0});
+    assert.deepEqual((await kv.get<{reserved:unknown[]}>(key))?.reserved,[]);
     const calls=(await kv.get<{providerCalls:Record<string,string>}>(key))!.providerCalls;
     assert.deepEqual(Object.values(calls).sort(), submits.map(value=>'fc-'+value).sort());
     const {reconcileModelCost}=await import('./_cost-reconciliation.js');
@@ -86,8 +91,12 @@ for (const remoteAssembly of [false,true]) test('the queue repairs one expired s
         charges:Object.values(calls).map(callId=>({callId,eventId:id+'/'+callId,cycle:'fixture',micros:10}))};
     await assert.rejects(reconcileModelCost({...billing,charges:billing.charges.filter(row=>row.callId!=='fc-B1')},true),
         /omits a recorded Modal call/);
+    // A real statement replaces the fixed estimate: the fixed 300 leaves and the billed lines take its place.
     await reconcileModelCost(billing,true);
     assert.deepEqual(await kv.get(prefix+'budget:modal:fixture'),{spentMicros:submits.length*10,reservedMicros:0});
+    assert.equal((await reconcileModelCost(billing,true)).status,'already-settled');
+    assert.deepEqual(await kv.get(prefix+'budget:modal:fixture'),{spentMicros:submits.length*10,reservedMicros:0});
+    assert.deepEqual(await kv.get(prefix+'budget:openai:fixture'),{spentMicros:300,reservedMicros:0});
     assert.equal((await kv.get<{owner:string}>(prefix+'asset:'+assetId))?.owner,slug);
     process.env.SESSION_SECRET='dispatch-local-test-session-key';
     process.env.ENABLE_SECTOR_MODEL_DISPLAY='1';
@@ -126,6 +135,7 @@ test('cancellation during submission preserves the late call ID for provider bil
     const record=await kv.get<{state:string; providerCalls:Record<string,string>}>(key);
     assert.equal(record?.state,'cancelled');
     assert.deepEqual(record.providerCalls,{'A/1':'fc-late'});
-    assert.deepEqual(await kv.get(prefix+'budget:modal:cancel'),{spentMicros:0,reservedMicros:300});
+    // A cancelled, dispatched job settles the fixed cost (never more than it held) and releases its hold.
+    assert.deepEqual(await kv.get(prefix+'budget:modal:cancel'),{spentMicros:300,reservedMicros:0});
     assert.deepEqual(await kv.get(prefix+'dispatch'),[]);
 });

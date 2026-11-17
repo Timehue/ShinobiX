@@ -27,8 +27,8 @@ export const modelCreationFixture = {
         dailyLimit: 3,
         recognition: { model: 'local-vision-fixture', poolSha256: '9'.repeat(64) },
         providers: [
-            { provider: 'modal', cycle: 'test-cycle', perAttemptMicros: 100, limitMicros: 600 },
-            { provider: 'openai', cycle: 'another-cycle', perAttemptMicros: 2, limitMicros: 12 },
+            { provider: 'modal', cycle: 'test-cycle', perAttemptMicros: 100, limitMicros: 600, settleMicros: 10 },
+            { provider: 'openai', cycle: 'another-cycle', perAttemptMicros: 2, limitMicros: 12, settleMicros: 1 },
         ],
     }),
 };

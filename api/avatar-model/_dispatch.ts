@@ -10,6 +10,7 @@ import type { AdmissionPolicy, ProviderReservation } from './_admission.js';
 import { readPrivateModelFile, storePaintedFit, validatePaintedFit } from './_private-files.js';
 import { modelModalEnvironment, moderateModelPortrait } from './_read-provider.js';
 import { endModelJob } from './_settlement.js';
+import { fixedSettlementOps } from './_fixed-cost.js';
 import { modelOwnerProof } from './_owner.js';
 import { isRecognitionPolicy, validRecognition, type RecognitionOperation, type RecognitionReceipt } from './_recognition.js';
 
@@ -27,6 +28,7 @@ type DispatchJob = {
     retryCauses?: Partial<Record<ModelRetryCause, number>>;
     recognition?:RecognitionOperation; recognitionReceipt?:RecognitionReceipt;
     reserved:Array<{provider:string; cycle:string; micros:number}>;
+    settledCosts?:Record<string,unknown>;
 };
 type StageRequest = Pick<DispatchJob,'attempt'|'assetId'|'sourceSha256'|'masterSha256'|'movement'|'completed'|'callId'> &
     {stage:Stage|'publish'; descriptor?:string; sheet?:string; portrait?:string; model?:StageReply['model'];
@@ -293,18 +295,26 @@ export async function publishSpriteJob(id:string, run=modalStage) {
     if (reply.status!=='complete' || !reply.model || reply.model.version!==model.version ||
         reply.model.assetId!==job.assetId || reply.model.bytes!==model.bytes || reply.model.objects!==model.objects)
         throw new Error('Unverified sprite publication');
-    await withKvLock(prefix+'admit:'+job.slug,async()=>{
+    await withKvLock(prefix+'admit:'+job.slug,()=>withKvLock(prefix+'admit:budgets',async()=>{
         const queueKey=prefix+'publish', queue=await kv.get<string[]>(queueKey);
         if (!queue?.includes(id)) return;
         const now=Date.now();
-        await kv.compareSetMany?.([...ownerGuards,guard,{op:'delete',key:activeKey,expected:id},
+        // The finished job settles its fixed cost in the same transaction, so its worst-case
+        // reservation is free for the next player at once. A budget that cannot be settled keeps
+        // the reservation on the job (for scripts/reconcile-avatar-cost.ts) and publishes anyway.
+        let settled: Awaited<ReturnType<typeof fixedSettlementOps>> | undefined;
+        try { settled=await fixedSettlementOps(job); }
+        catch (error) { console.warn('[avatar-model] Fixed cost not settled for job',id,error instanceof Error ? error.message : ''); }
+        const ended={...job,state:'ready',endedAt:now,
+            ...(settled ? {reserved:[],settledCosts:settled.settledCosts} : {})};
+        await kv.compareSetMany?.([...ownerGuards,guard,...(settled?.ops??[]),{op:'delete',key:activeKey,expected:id},
             {op:'cas',key:slotKey,expected:slot,value:{...slot,usedAt:now}},
             {op:'cas',key:assetKey,expected:null,value:{...model,owner:job.slug,jobId:id,status:'ready',
                 accountId:job.accountId,privateRefKey:job.privateRefKey,
                 sourceSha256:job.sourceSha256,masterSha256:job.masterSha256,readyAt:now}},
-            {op:'cas',key,expected:job,value:{...job,state:'ready',endedAt:now}},
+            {op:'cas',key,expected:job,value:ended},
             {op:'cas',key:queueKey,expected:queue,value:queue.filter(item=>item!==id)}]);
-    },{failClosed:true});
+    },{failClosed:true}),{failClosed:true});
 }
 
 export async function tickSpriteDispatch() {

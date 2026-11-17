@@ -89,7 +89,10 @@ test('revocation clears self and peer presence, cancels the job, keeps the slot 
     assert.deepEqual(await f.kv.get('save:'+f.owner),snapshot);
     assert.equal((await f.remove({...f.input,reason:'A different reason.'})).status,409);
     assert.equal((await f.equip()).status,404);
-    assert.deepEqual(await f.kv.get(f.prefix+'budget:modal:atomic'),{spentMicros:0,reservedMicros:300});
+    // The removed job was dispatched: it settles the fixed cost (capped at its 300 hold) and frees the budget.
+    assert.deepEqual(await f.kv.get(f.prefix+'budget:modal:atomic'),{spentMicros:300,reservedMicros:0});
+    const removedJob=await f.kv.get<{reserved:unknown[];settledCosts:{modal:{basis:string}}}>(f.prefix+'job:'+f.jobId);
+    assert.deepEqual(removedJob?.reserved,[]); assert.equal(removedJob.settledCosts.modal.basis,'fixed');
     const {endModelJob}=await import('../../avatar-model/_settlement.js');
     assert.equal(await endModelJob(f.jobId,f.owner,'moderator-removed'),'cancelled');
     assert.ok((await f.kv.get<{usedAt:number}>(f.prefix+'slot:'+f.owner+':2026-11'))?.usedAt);

@@ -3,6 +3,7 @@ import { withKvLock } from '../_lock.js';
 import { offlineNoticesKey, OFFLINE_NOTICES_TTL_SEC, parseOfflineNotices } from '../player/_offline-notices.js';
 import { modelOwnerKey,validModelOwnerId,type ModelOwner } from './_owner.js';
 import { withPrivateFileLock } from './_private-index.js';
+import { budgetDeltaOps, fixedSettlement, type BudgetDelta } from './_fixed-cost.js';
 
 type Row=Record<string,unknown>;
 const prefix='avatar-model:';
@@ -36,10 +37,21 @@ export async function detachModelAccount(owner:string,{freeMonthlySlot=false}:{f
         const dispatchKey=prefix+'dispatch',publishKey=prefix+'publish';
         const [dispatch,publish]=await Promise.all([kv.get<string[]>(dispatchKey),kv.get<string[]>(publishKey)]);
         const releases=new Map<string,number>();
+        // Dispatched jobs settle their fixed cost (_fixed-cost.ts); all of them write each budget row once.
+        const settlements:BudgetDelta[]=[];
         for(const {key,row} of jobs) {
             if(!['queued','render','validate'].includes(String(row.state))) continue;
             const jobId=key.slice((prefix+'job:').length);
             const unclaimed=row.state==='queued' && row.attempt===0 && dispatch?.includes(jobId);
+            let settled: ReturnType<typeof fixedSettlement> | undefined;
+            if(!unclaimed) {
+                // One that cannot be settled keeps its reservation for scripts/reconcile-avatar-cost.ts.
+                try {
+                    settled=fixedSettlement(row as Parameters<typeof fixedSettlement>[0]);
+                    await budgetDeltaOps([...settlements,...settled.deltas]);
+                    settlements.push(...settled.deltas);
+                } catch { settled=undefined; }
+            }
             if(unclaimed) {
                 if(!Array.isArray(row.reserved)) throw new Error('Invalid model reservation');
                 for(const reservation of row.reserved as Array<{provider:string;cycle:string;micros:number}>) {
@@ -50,15 +62,14 @@ export async function detachModelAccount(owner:string,{freeMonthlySlot=false}:{f
                 }
             }
             ops.push({op:'cas',key,expected:row,value:{...row,state:'cancelled',errorCode:'account-deleted',endedAt:now,
-                reserved:unclaimed ? [] : row.reserved}});
+                reserved:unclaimed || settled ? [] : row.reserved, ...(settled ? {settledCosts:settled.settledCosts} : {})}});
         }
         for(const [key,amount] of releases) {
-            const row=await kv.get<{reservedMicros:number;spentMicros:number}>(key);
-            if(!Number.isSafeInteger(amount) || !row || !Number.isSafeInteger(row.spentMicros) || row.spentMicros<0 ||
-                !Number.isSafeInteger(row.reservedMicros) || row.reservedMicros<amount)
-                throw new Error('Invalid model account budget');
-            ops.push({op:'cas',key,expected:row,value:{...row,reservedMicros:row.reservedMicros-amount}});
+            if(!Number.isSafeInteger(amount)) throw new Error('Invalid model account budget');
+            settlements.push({key,release:amount,spend:0});
         }
+        try { ops.push(...await budgetDeltaOps(settlements)); }
+        catch { throw new Error('Invalid model account budget'); }
         for(const [key,queue] of [[dispatchKey,dispatch],[publishKey,publish]] as const) {
             if(queue!==null && (!Array.isArray(queue) || queue.some(item=>typeof item!=='string'))) throw new Error('Invalid model queue');
             if(queue?.some(jobId=>ownJobIds.has(jobId)))
