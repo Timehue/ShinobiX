@@ -7,7 +7,8 @@ import { runInNewContext } from 'node:vm';
 // Execute the actual component's hooks and movement closure with a minimal
 // host. JSX rendering and React scheduling are deliberately outside this unit
 // harness; browser tests remain responsible for the real DOM integration.
-const source = readFileSync(new URL('./SectorWanderer.tsx', import.meta.url), 'utf8');
+// A Windows checkout (core.autocrlf) has CRLF; the boundaries below are LF.
+const source = readFileSync(new URL('./SectorWanderer.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const start = source.indexOf('const GRID_W =');
 const end = source.lastIndexOf('    return (\n');
 assert.ok(start >= 0 && end > start, 'component fixture boundaries must exist');

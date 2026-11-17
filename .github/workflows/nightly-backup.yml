@@ -1,0 +1,105 @@
+# Nightly off-platform backup of the game database.
+#
+# Supabase's own backups live with Supabase. This keeps an independent, encrypted
+# copy somewhere else (a private workflow artifact on GitHub), so a bad migration,
+# a dupe exploit, an AI agent's mistake or a provider problem can still be rolled
+# back. It runs the same command the restore runbook uses
+# (docs/BACKUP_RESTORE_RUNBOOK.md): `node scripts/kv-backup.mjs export`.
+#
+# OPT-IN: it does nothing until both repository secrets exist:
+#   BACKUP_DATABASE_URL   the production pooler URL (read-only role is enough)
+#   KV_BACKUP_PASSPHRASE  the encryption passphrase (AES-256-GCM, scrypt key);
+#                         keep a copy outside GitHub, or the backups cannot be read
+# An unencrypted backup is never uploaded.
+#
+# ⛔ THIS JOB MUST NEVER GO RED. A scheduled run is tied to main's newest commit,
+# and Railway waits for every check suite on a commit before deploying it (see
+# post-deploy-health.yml for the deadlock that caused). So the export step may
+# fail without failing the job; a failure opens (or comments on) a GitHub issue
+# titled "Nightly backup failed" instead, which is the alert.
+name: Nightly backup
+
+permissions:
+  contents: read
+  issues: write
+
+on:
+  schedule:
+    - cron: '17 7 * * *' # 07:17 UTC, the quietest hour
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Encrypted database export
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      KV_BACKUP_PASSPHRASE: ${{ secrets.KV_BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check configuration
+        id: config
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$KV_BACKUP_PASSPHRASE" ]; then
+            echo "::notice::Nightly backup is not configured (set BACKUP_DATABASE_URL and KV_BACKUP_PASSPHRASE). Skipping."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Only the script and the lockfile: the full tree is ~10 GB of review evidence.
+      - uses: actions/checkout@v7
+        if: steps.config.outputs.ready == 'true'
+        with:
+          sparse-checkout: |
+            scripts/kv-backup.mjs
+            package-lock.json
+            .nvmrc
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@v7
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version-file: .nvmrc
+
+      - name: Export
+        id: export
+        if: steps.config.outputs.ready == 'true'
+        continue-on-error: true
+        run: |
+          PG_VERSION=$(node -p "require('./package-lock.json').packages['node_modules/pg'].version")
+          npm install --no-save --no-package-lock "pg@${PG_VERSION}"
+          mkdir -p backup
+          OUT="backup/kv-$(date -u +%Y%m%dT%H%M%SZ).shinobix-backup.json.gz"
+          node scripts/kv-backup.mjs export --out "$OUT"
+          # Refuse to upload anything the script did not encrypt.
+          head -c 7 "$OUT" | grep -q 'SJKVENC' || { echo "::error::Backup is not encrypted; refusing to upload."; rm -f "$OUT"; exit 1; }
+          sha256sum "$OUT" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        id: upload
+        if: steps.export.outcome == 'success'
+        continue-on-error: true
+        with:
+          name: kv-backup-${{ github.run_id }}
+          path: ${{ steps.export.outputs.file }}
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Report a failed backup
+        if: steps.config.outputs.ready == 'true' && (steps.export.outcome != 'success' || steps.upload.outcome != 'success')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open --search 'in:title "Nightly backup failed"' --json number --jq '.[0].number')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "${{ github.repository }}" --body "Failed again: $RUN"
+          else
+            gh issue create --repo "${{ github.repository }}" --title "Nightly backup failed" --body "The encrypted database export did not complete: $RUN"
+          fi

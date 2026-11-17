@@ -211,7 +211,7 @@ function SectorChatView({ sector, present, playerName, hudRef, sheetOpen, onShee
             ? <GuestSocialLock compact what="Guest characters can listen to sector chat but cannot speak in it." />
             : <form className="sector-chat-compose" onSubmit={(event) => { void submit(event); }}>
                 <label className="sector-chat-field">
-                    <span className="sector-chat-sr">Message everyone in {place}</span>
+                    <span className="ui-sr-only">Message everyone in {place}</span>
                     <input value={draft} maxLength={SECTOR_CHAT_MAX_CHARS} disabled={loading}
                         placeholder="Speak to the sector…" autoComplete="off" enterKeyHint="send"
                         onChange={(event) => { setDraft(event.target.value); if (notice) setNotice(''); }} />

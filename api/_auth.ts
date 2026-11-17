@@ -12,7 +12,7 @@
  * intentionally require the player's own credential instead of an admin shortcut.
  */
 
-import { timingSafeEqual, createHmac } from 'crypto';
+import { timingSafeEqual, createHmac, createHash } from 'crypto';
 import { verifyPlayerPassword } from './player-auth.js';
 import { safeName } from './_utils.js';
 import { getActiveBan } from './admin/moderation.js';
@@ -59,18 +59,13 @@ function headerString(req: ReqLike, key: string): string {
 }
 
 /**
- * Constant-time comparison of two strings. Returns false on length mismatch
- * without leaking the correct length via timing.
+ * Constant-time comparison of two strings. Both sides are hashed to a fixed
+ * 32 bytes first, so neither the outcome's timing nor an early return can tell
+ * a caller how long the secret is (the old length check returned early).
  */
 export function safeEqual(a: string, b: string): boolean {
-    const ba = Buffer.from(a);
-    const bb = Buffer.from(b);
-    if (ba.length !== bb.length) {
-        // Still do a compare to keep timing flat-ish.
-        timingSafeEqual(ba, ba);
-        return false;
-    }
-    return timingSafeEqual(ba, bb);
+    const digest = (value: string) => createHash('sha256').update(value, 'utf8').digest();
+    return timingSafeEqual(digest(a), digest(b));
 }
 
 // ─── Revocable player session tokens ──────────────────────────────────────────

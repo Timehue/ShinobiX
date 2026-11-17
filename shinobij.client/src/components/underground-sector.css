@@ -204,7 +204,6 @@
     .underground-depths { gap: 4px; }
     .underground-depths li { position: relative; min-width: 0; padding: 4px; font-size: 11px; text-align: center; }
     .underground-depths__number { display: block; }
-    .underground-depths__name { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .underground-depths li[data-depth-state="traversed"] { border-color: #a8cfc670; color: #a8cfc6; }
     .hg-floor-notes__epithet { display: none; }
     .underground-world .hg-floor-notes summary { min-height: 44px; }

@@ -368,6 +368,7 @@ async function createAccount(page: Page) {
     await page.getByLabel("Name").fill("AdaptiveNinja");
     await page.locator("#cc-password").fill("Adaptive!Pass1234");
     await page.locator("#cc-confirm-password").fill("Adaptive!Pass1234");
+    await page.locator("#cc-birth-year").selectOption("1995");
     await page.getByRole("button", { name: "Enter the World" }).click();
 }
 
@@ -959,7 +960,7 @@ test("capture adaptive shell and representative route evidence", async ({ page }
     await expect(page.locator(".app-shell")).not.toHaveAttribute("data-screen", "start");
     const introDialogue = page.locator(".icx-dialogue");
     await expect(introDialogue).toBeVisible({ timeout: 10_000 });
-    await expect(introDialogue.locator(".icx-sr")).not.toHaveText("");
+    await expect(introDialogue.locator(".ui-sr-only")).not.toHaveText("");
     await expect(introDialogue.locator(".icx-advance")).toBeVisible({ timeout: 10_000 });
     await expect(introDialogue.locator(".icx-tap-hint")).toBeVisible();
     for (const viewport of [

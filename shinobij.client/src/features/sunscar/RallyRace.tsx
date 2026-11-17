@@ -285,7 +285,7 @@ function RallyRaceView({ initial, difficulty, official, title, onBegin, onCheckp
             </Modal>
         </div>
         <div className="rally-dashboard">
-            <span className="rally-warning-announcement" role="status" aria-atomic="true">{started && !hud.playerFinished ? hud.incomingLabel.split(' · ').slice(0, 2).join(' · ') : ''}</span>
+            <span className="ui-sr-only" role="status" aria-atomic="true">{started && !hud.playerFinished ? hud.incomingLabel.split(' · ').slice(0, 2).join(' · ') : ''}</span>
             <div className="rally-context">
                 {started && !hud.playerFinished && <div className="rally-race-hints">
                     {hud.incomingLabel && <span className="rally-incoming-hint" aria-hidden="true">{hud.incomingLabel}</span>}

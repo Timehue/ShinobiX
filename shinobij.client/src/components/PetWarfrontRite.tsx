@@ -363,7 +363,7 @@ function PlacementBoard({ band, deployment, onChange, sharedImages, healthBySlot
                 </div>
                 <div className="wfr-route-labels" aria-hidden="true"><span>North edge</span><span>North</span><span>Center</span><span>South</span><span>South edge</span></div>
             </div>
-            <output className="wfr-placement-status" aria-live="polite">{announcement}</output>
+            <output className="ui-sr-only" aria-live="polite">{announcement}</output>
         </div>
     );
 }
