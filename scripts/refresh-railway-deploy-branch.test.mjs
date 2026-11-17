@@ -9,6 +9,17 @@ const script = readFileSync(new URL('./refresh-railway-deploy-branch.sh', import
 const bash = process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash';
 
 test('lean deployment publishes the same source tree without fetching promised blobs', (t) => {
+    publishLean(t, { mainMovedOn: false });
+});
+
+// A manual run for an older commit: no ref the server advertises points at it,
+// so without push negotiation git packs the whole tree and lazy-fetches every
+// blob (the 2026-11-17 hang that timed out both workflow_dispatch runs).
+test('a manual run for an older commit publishes without fetching promised blobs', (t) => {
+    publishLean(t, { mainMovedOn: true });
+});
+
+function publishLean(t, { mainMovedOn }) {
     const root = mkdtempSync(join(tmpdir(), 'shinobix-lean-deploy-'));
     t.after(() => {
         assert.equal(dirname(resolve(root)), resolve(tmpdir()));
@@ -46,9 +57,20 @@ test('lean deployment publishes the same source tree without fetching promised b
     git(seed, 'add', '.');
     git(seed, 'commit', '-m', 'Deployment fixture source');
     const source = git(seed, 'rev-parse', 'HEAD');
+    if (mainMovedOn) {
+        writeFileSync(join(seed, 'api/later.ts'), 'fixture later\n');
+        git(seed, 'add', '.');
+        git(seed, 'commit', '-m', 'A later main commit');
+    }
     git(root, 'clone', '--bare', seed, origin);
     git(origin, 'config', 'uploadpack.allowFilter', 'true');
-    git(root, 'clone', '--no-local', '--filter=blob:none', '--depth=1', '--no-checkout', origin, partial);
+    git(origin, 'config', 'uploadpack.allowAnySHA1InWant', 'true');
+    // The workflow's checkout: blob-less, depth 1, at the source commit (no files
+    // checked out, which would hydrate them).
+    mkdirSync(partial);
+    git(partial, 'init');
+    git(partial, 'remote', 'add', 'origin', `file://${origin.replaceAll('\\', '/')}`);
+    git(partial, 'fetch', '--no-tags', '--depth=1', '--filter=blob:none', 'origin', source);
     git(partial, 'config', 'user.name', 'Deployment regression fixture');
     git(partial, 'config', 'user.email', 'fixture@example.invalid');
     assert.equal(git(partial, 'config', '--get', 'remote.origin.promisor'), 'true');
@@ -72,9 +94,11 @@ test('lean deployment publishes the same source tree without fetching promised b
             `${path} must retain the exact source object`);
     }
     const fetches = readFileSync(trace, 'utf8').trim().split('\n').map(line => JSON.parse(line))
-        .filter(event => event.event === 'child_start' && event.argv?.includes('fetch'));
+        // The push's negotiation round trip downloads no objects; anything else is a blob fetch.
+        .filter(event => event.event === 'child_start' && event.argv?.includes('fetch')
+            && !event.argv.includes('--negotiate-only'));
     assert.equal(fetches.length, 0,
         `publishing a tree must not hydrate promised blobs: ${JSON.stringify(fetches.map(event => event.argv))}`);
     assert.match(git(partial, 'rev-list', '--objects', '--missing=print', source), /^\?/m,
         'publishing must leave the source blobs unhydrated');
-});
+}
