@@ -1,4 +1,7 @@
-export const AWAKENING_ELEMENTS = ['Water', 'Wind', 'Earth', 'Lightning', 'Fire'] as const;
+import { AWAKENING_ELEMENTS, AWAKENING_REROLL_COST, awakeningBothRerollPairs, awakeningSingleRerollPool } from '../../shared/awakening-roll.js';
+
+// The pools and prices live in shared/ so the screen publishes the same odds this rolls.
+export { AWAKENING_ELEMENTS };
 export const AWAKENING_FREE_LV2_ID = 'awakening-free-lv2';
 export const AWAKENING_FREE_LV20_ID = 'awakening-free-lv20';
 export const AWAKENING_PAID_SINGLE_ID = 'paid-single';
@@ -40,7 +43,7 @@ export function rollAwakening(character: Record<string, unknown>, kindRaw: unkno
         nextClaimed = [...claimed, kind];
     } else if (kind === 'paid' || kind === AWAKENING_PAID_SINGLE_ID || kind === AWAKENING_PAID_BOTH_ID) {
         const rerollCount = kind === AWAKENING_PAID_BOTH_ID ? 2 : 1;
-        const cost = rerollCount === 2 ? 15 : 10;
+        const cost = rerollCount === 2 ? AWAKENING_REROLL_COST.both : AWAKENING_REROLL_COST.single;
         if (rerollCount === 2 && owned.length < 2) return { ok: false as const, reason: 'second-element-required' as const };
         // A single reroll may name which owned element it replaces. An unknown or
         // unowned name is refused (before the debit) rather than silently
@@ -65,18 +68,13 @@ export function rollAwakening(character: Record<string, unknown>, kindRaw: unkno
         if (rerollCount === 1) {
             // The chosen element is replaced in its own slot, so rerolling the
             // secondary keeps the primary first.
-            const pool = AWAKENING_ELEMENTS.filter((element) => !owned.includes(element));
+            const pool = awakeningSingleRerollPool(owned);
             if (!pool.length) return { ok: false as const, reason: 'no-new-element' as const };
             next = [...owned];
             next[targetIndex] = pick(pool, randomIndex);
         } else {
             const preserved = owned.slice(rerollCount);
-            const replaced = owned.slice(0, rerollCount);
-            const pool = AWAKENING_ELEMENTS.filter((element) => !preserved.includes(element));
-            const pairs: string[][] = [];
-            for (const a of pool) for (const b of pool) {
-                if (a !== b && !(replaced.includes(a) && replaced.includes(b))) pairs.push([a, b]);
-            }
+            const pairs = awakeningBothRerollPairs(owned);
             if (!pairs.length) return { ok: false as const, reason: 'no-new-element' as const };
             const rolled = pairs[Math.max(0, Math.min(pairs.length - 1, Math.floor(randomIndex(pairs.length))))]!;
             next = [...rolled, ...preserved];

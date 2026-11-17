@@ -227,6 +227,8 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
             await expect(rerollButtons).toHaveCount(2);
             await expect(dialog.getByRole("button", { name: /^Reroll element 1 element/ })).toBeVisible();
             await expect(dialog.getByRole("button", { name: /^Reroll elements Both elements/ })).toBeVisible();
+            // Paid random rolls publish their odds before purchase (shared/awakening-roll.ts).
+            await expect(dialog.getByText(/^A single reroll gives .+, each with a [\d.]+% chance\./)).toBeVisible();
             await capture(page, testInfo, "awakening-stone-premium-desktop");
             const forge = dialog.getByRole("heading", { name: /Bloodline Awakening/i });
             await forge.scrollIntoViewIfNeeded();
