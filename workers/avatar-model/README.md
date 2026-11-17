@@ -55,9 +55,17 @@ does not read files from the owner's PC. `SPRITE_BLENDER_ARCHIVE` can supply the
 existing pinned Blender tarball. Without it, the image build fetches that exact
 tarball and verifies its checksum.
 
-The local painted release archives are `portable-fit-worker/painted-sleeves.zip`
+The local painted release archives are `portable-fit-worker/painted-sleeves-torso.zip`
 and `portable-motion-worker/painted-sleeves.zip` under the avatar-model evidence
-folder. Their hashes match `sprite-worker-painted-review.json`. For the earlier
+folder. Their hashes match `sprite-worker-painted-review.json`.
+`painted-sleeves-torso.zip` is `painted-sleeves.zip` with one change in
+`register_painted_kit.py`: a painted torso whose width-to-height ratio is outside
+0.72–1.45 of its guide in any view is rejected at paint time with a
+`PaintingGeometryError`, so the painter's one correction pass repaints it. Before
+this, the sheet was accepted and `render_fitted_roster.py` refused it on every
+render retry ("Invalid painted body proportions"). Its `intake.json` carries the
+new file hash and `paintingRevision`; every other entry is byte-identical. The
+packer's source tree must carry the same edit, or a later repack drops it. For the earlier
 reader release the matching files are `portable-fit-worker/profile-intake.zip`
 and `portable-motion-worker/browser-motion.zip`. Use the two inputs from the
 same release.
