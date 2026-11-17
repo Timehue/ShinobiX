@@ -58,7 +58,7 @@ export function SectorLife({ sector, player, tile, biome, traces, openReports,on
     const actual = worldPosition?.current;
     const point = actual?.sector === sector ? actual : { col: tile % 12, row: Math.floor(tile/12) };
     const near = event && Math.hypot(point.col - event.tile % 12, point.row - Math.floor(event.tile / 12)) <= 1.9;
-    const marker=lifeWorkMarker(event?.tile??tile,point,actors.map(actor=>lifeActorPosition(sector,actor,serverNow())));
+    const marker=lifeWorkMarker(event?.tile??tile,point,actors.map(actor=>lifeActorPosition(sector,actor,serverNow())),event?.phase==='active');
     const currentPanel = typeof panel === 'object' ? panel : null;
     const showEvent = panel === 'event' || (event && lifeActorOffersWork(currentPanel?.id,event));
     return <>
@@ -68,7 +68,9 @@ export function SectorLife({ sector, player, tile, biome, traces, openReports,on
         {event&&marker.tether&&<svg data-work-marker-tether aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:7}}><line x1={`${marker.tether.x1}%`} y1={`${marker.tether.y1}%`} x2={`${marker.tether.x2}%`} y2={`${marker.tether.y2}%`} stroke="#eee0b1" strokeWidth="1" opacity=".65"/></svg>}
         {event && <button type="button" className={`sector-life-point life-${event.phase}`} style={marker.style}
             onClick={() => setPanel('event')} aria-label={event.label} title={event.title}>
-            <span aria-hidden="true" style={{display:'inline-block',transform:`rotate(${marker.offscreen?marker.angle:0}rad)`}}>{marker.offscreen?'➤':'◇'}</span>
+            {marker.offscreen
+                ? <span aria-hidden="true" className="sector-life-guide" style={{transform:`rotate(${marker.angle}rad)`}}><span className="sector-life-guide-mark" style={{transform:`rotate(${-marker.angle}rad)`}}>◇</span><span className="sector-life-guide-tip">›</span></span>
+                : <span aria-hidden="true">◇</span>}
         </button>}
         <Modal open={panel !== null} onClose={() => setPanel(null)} size="sm" title={panel === 'event' ? event?.title : panel === 'memory' ? 'Local reports' : currentPanel?.name}>
             <div className="sector-life-dialog">

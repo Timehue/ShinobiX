@@ -61,9 +61,10 @@
 .sector-stage-panel .sector-avatar-body { container-type: inline-size; }
 .sector-stage-panel .sector-avatar-initials { font-size: clamp(4px, 44cqw, 20px); }
 .map-instance .sector-stage-panel .sector-image-map .sector-player-tile {
-    background: #efc78910 !important; border-color: #dec09288 !important; outline: none !important; box-shadow: inset 0 0 0 1px #ead2a9b3 !important;
+    background: transparent !important; border-color: transparent !important; outline: none !important; box-shadow: none !important;
 }
-.map-instance .sector-stage-panel .sector-image-map .transparent-sector-tile:focus-visible {
+.map-instance .sector-stage-panel .sector-image-map .transparent-sector-tile:focus-visible,
+.map-instance .sector-stage-panel .sector-image-map .sector-player-tile:focus-visible {
     outline: 2px solid #edd3aa !important; outline-offset: -2px !important; box-shadow: inset 0 0 0 3px #18121bb3 !important;
 }
 .sector-hud-panel {

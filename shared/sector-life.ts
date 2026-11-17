@@ -6,7 +6,7 @@ import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts.js';
 import { SECTOR_ROAD_PAIRS, sectorExits } from './sector-links.js';
 import { nearestWalkableTile, walkPath, isWalkableTile } from './sector-walk-mask.js';
 import { isWorldNight } from './world-phase.js';
-import { lifeRegionFor, lifeResidentName, LIFE_TRAVELERS, LIFE_EVENTS, type LifeArt } from './sector-life-content.js';
+import { lifeRegionFor, lifeResidentName, LIFE_TRAVELERS, LIFE_EVENTS, type LifeArt, type LifeEventKind } from './sector-life-content.js';
 import type { Wanderer, WandererArchetypeId } from './wanderer-roster.js';
 import type { LifeMotion,LifePhase } from './sector-life-motion.js';
 import { localVillageReaction } from './sector-life-villages.js';
@@ -29,6 +29,8 @@ export { lifeActorPosition } from './sector-life-motion.js';
 
 export const LIFE_WINDOW_MS = 45 * 60_000;
 export const LIFE_ACTIVE_MS = 18 * 60_000;
+/** A sector's road courier comes up once in this many life windows. */
+export const COURIER_EVERY_WINDOWS = 4;
 export type LifeEventState = { window: number; step: number; updatedAt: number; contributors: string[]; care?:LifeShrineCare; hunt?:LifeHunt;scenario?:typeof DOCK_SHIPMENT_SCENARIO;shipmentAt?:number };
 /** One bounded row per sector keeps a round and its remembered upkeep atomic. */
 export const lifeStorageKey=(sector:number)=>`sector-life:${Math.floor(sector)}`;
@@ -99,8 +101,14 @@ export function lifeEventView(sector: number, state: LifeEventState, now: number
     if(sector===DOCK_SHIPMENT_SECTOR)state=normalizeDockShipmentState(state);
     const shipment=sector===DOCK_SHIPMENT_SECTOR?dockShipmentEvent(state,now,LIFE_WINDOW_MS,LIFE_ACTIVE_MS):undefined;
     const primary = lifeRegionFor(sector).event;
-    const pool = [...new Set([primary, 'courier'] as const)];
-    const rolled=sector===15&&state.window%2===1?'shrine':LIFE_WORK_SITES[sector]?primary:pool[(state.window+sector)%pool.length];
+    // The injured courier is a rare road story: one window in four, not every
+    // other one. Snow roads that led with the courier fall back to the watch
+    // round between couriers. The festival road keeps its own courier errand, and
+    // a staged work site (LIFE_WORK_SITES, e.g. the sector 31 courier camp) keeps
+    // the errand its camp was built for, every window.
+    const courierTurn=(state.window+sector)%COURIER_EVERY_WINDOWS===0;
+    const usual:LifeEventKind=primary==='courier'&&sector!==52?'signal':primary;
+    const rolled=sector===15&&state.window%2===1?'shrine':LIFE_WORK_SITES[sector]?primary:courierTurn?'courier':usual;
     const natural=rolled==='tracks'&&!state.hunt?lifeNaturalTracker(sector,now):undefined,pending=!!state.hunt&&!state.hunt.result;
     const kind=pending||state.hunt?.window===state.window?'tracks':rolled==='tracks'&&!natural?'signal':rolled,content=LIFE_EVENTS[kind];
     if(pending)state={...state,step:2};else if(state.hunt?.result&&state.hunt.window===state.window)state={...state,step:3};

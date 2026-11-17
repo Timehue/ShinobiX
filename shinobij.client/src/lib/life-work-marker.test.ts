@@ -9,6 +9,10 @@ test('ordinary and offscreen work keep their original placement and direction wi
     const far=lifeWorkMarker(143,{col:0,row:0},[{col:11,row:11}]);assert(far.offscreen);assert(!far.tether);assert.equal(far.angle,Math.PI/4);
 });
 
+test('finished or lapsed work never gets an edge pointer; it stays on its own ground cell',()=>{
+    const far=lifeWorkMarker(143,{col:0,row:0},[],false);assert(!far.offscreen);assert.equal(far.style.left,`${11.5/12*100}%`);assert.equal(far.style.top,`${11.5/12*100}%`);
+});
+
 test('a task one row above a courier also leaves the upward-grounded portrait clickable on phones',()=>{
     const m=lifeWorkMarker(53,{col:5,row:4},[{col:5,row:5}]);assert(m.tether);assert.notEqual(m.tether.x2,m.tether.x1);
 });

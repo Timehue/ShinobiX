@@ -733,7 +733,7 @@ test("Profile previews an owned model, equips it after a lapse and restores the 
 
 test.describe("equipped player upload", () => {
     test.use({ contextOptions: { reducedMotion: "no-preference" } });
-    test("a moving NPC uses its portrait during a delayed facing and restores its fitted animation",async({page},info)=>{
+    test("a moving NPC holds its last pose during a delayed facing and restores its fitted animation",async({page},info)=>{
         test.setTimeout(90_000);
         test.skip(!artBase,"Mount the local NPC packages");
         const revision=npcRevisions.get("patrol")!;
@@ -759,10 +759,12 @@ test.describe("equipped player upload", () => {
             await expect(actor).toHaveClass(/has-sector-model/,{timeout:25_000});
             await expect(figure).toHaveAttribute("data-facing","2");
             await expect.poll(()=>facingRequested,{timeout:20_000}).toBe(true);
-            await expect(actor).not.toHaveClass(/has-sector-model/,{timeout:3000});
+            // The figure keeps its last painted pose instead of blinking to the
+            // portrait, and its ground travel does not wait on the download.
             const start=await actor.evaluate(el=>el.style.transform);
             await expect.poll(()=>actor.evaluate(el=>el.style.transform),{timeout:3000}).not.toBe(start);
-            await page.screenshot({path:info.outputPath('npc-portrait-fallback.png')});
+            await expect(actor).toHaveClass(/has-sector-model/);
+            await page.screenshot({path:info.outputPath('npc-held-pose.png')});
             resume();
             await expect(actor).toHaveClass(/has-sector-model/,{timeout:10_000});
             // The shared route clock keeps advancing during a download. A restored
@@ -1124,7 +1126,7 @@ test.describe("equipped player upload", () => {
         await expectStarterArtwork(page,sprite,"starter-two");
         await expect(peer).toHaveClass(/has-sector-model/);
     });
-    test("a delayed facing page allows travel with the portrait and restores the fitted sprite", async ({page})=>{
+    test("a delayed facing page allows travel on the held pose and restores the fitted sprite", async ({page})=>{
         const assetId=process.env.SECTOR_MODEL_TEST_PLAYER_ID,version=process.env.SECTOR_MODEL_TEST_MOTION_VERSION;
         test.skip(!assetId || !version,"Mount a fitted player package");
         const root=JSON.parse(await readFile(resolve(content,"players",assetId!,version+".json"),"utf8"));
@@ -1152,10 +1154,10 @@ test.describe("equipped player upload", () => {
         try {
             await request;
             const start=Number(await canvas.getAttribute("data-world-x"));
-            await expect(marker).not.toHaveClass(/has-sector-model/,{timeout:3000});
             await expect.poll(async()=>Number(await canvas.getAttribute("data-world-x"))-start,{timeout:3000}).toBeGreaterThan(.04);
+            // Travel went ahead without the page, and the standing pose stayed up.
+            await expect(marker).toHaveClass(/has-sector-model/);
             resume();
-            await expect(marker).toHaveClass(/has-sector-model/,{timeout:10000});
             await expect(actor).toHaveAttribute("data-facing","2");
         } finally { resume(); await page.keyboard.up("ArrowRight"); }
         await expect(actor).toHaveAttribute("data-clip","idle",{timeout:10000});
@@ -1269,11 +1271,10 @@ test.describe("equipped player upload", () => {
         await canvas.focus();await page.keyboard.down('ArrowRight');
         try {
             await expect.poll(()=>requested).toBe(true);
-            await expect(marker).not.toHaveClass(/has-sector-model/,{timeout:3000});
             const start=Number(await canvas.getAttribute('data-world-x'));
             await expect.poll(async()=>Number(await canvas.getAttribute('data-world-x'))-start,{timeout:3000}).toBeGreaterThan(.04);
+            await expect(marker).toHaveClass(/has-sector-model/);
             resume();
-            await expect(marker).toHaveClass(/has-sector-model/,{timeout:15000});
             await expect(actor).toHaveAttribute('data-clip','run');
         } finally {resume();await page.keyboard.up('ArrowRight');}
         await expect(actor).toHaveAttribute('data-clip','idle',{timeout:10000});
