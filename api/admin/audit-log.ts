@@ -12,7 +12,9 @@ import { readAudit, type AuditDomain } from '../_audit.js';
 //
 //   GET /api/admin/audit-log?domain=content&limit=200   (x-admin-password header)
 //   → 200 { domain, count, entries }
-const DOMAINS: AuditDomain[] = ['content', 'reward', 'sector', 'combat', 'legacy', 'npc'];
+// `admin` (save overwrites, server reset) and `auth` (admin logins) are
+// full-admin only, like every non-content domain.
+const DOMAINS: AuditDomain[] = ['content', 'reward', 'sector', 'combat', 'legacy', 'npc', 'admin', 'auth'];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);

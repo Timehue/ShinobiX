@@ -142,8 +142,10 @@ describe('every api/admin route refuses everyone who is not an admin', () => {
         // A route that only ever said 405 never reached an auth check on any method tried.
         assert.deepEqual(ungated, [], `these routes never answered 401/403, so none of the methods tried reached an auth gate: ${ungated.join(', ')}`);
         // Refusing must not write anything on the caller's behalf. Rate-limit and
-        // failed-guess bookkeeping is the one thing a refusal may leave behind.
-        const written = (await kv.keys('*')).filter((k) => !before.has(k) && !/^(rl:|ratelimit|adminpw-fail|rate)/i.test(k));
+        // failed-guess bookkeeping is the one thing a refusal may leave behind:
+        // that includes the `audit:auth` record of a wrong admin password
+        // (api/_admin-audit.ts), and only that audit row.
+        const written = (await kv.keys('*')).filter((k) => !before.has(k) && !/^(rl:|ratelimit|adminpw-fail|rate)/i.test(k) && k !== 'audit:auth');
         assert.deepEqual(written, [], `a refused request wrote to storage: ${written.slice(0, 10).join(', ')}`);
     });
 

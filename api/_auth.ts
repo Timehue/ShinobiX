@@ -19,6 +19,7 @@ import { getActiveBan } from './admin/moderation.js';
 import { kv } from './_storage.js';
 import { allow, hasBudget } from './_ratelimit.js';
 import { clientIp } from './_client-ip.js';
+import { recordAdminAuthAudit, type AdminCredentialVia } from './_admin-audit.js';
 import { disconnectPlayerSockets } from './_realtime/notify.js';
 import { isNpcAccount } from '../shared/npc-village-roster.js';
 
@@ -539,8 +540,29 @@ function adminPasswordRole(req: ReqLike): AdminRole | null {
     if (!chargedAdminFailures.has(req)) {
         chargedAdminFailures.add(req);
         allow(adminFailKey, ADMIN_PASSWORD_FAIL_LIMIT, ADMIN_PASSWORD_FAIL_WINDOW_MS);
+        // Audit trail only, once per charged request, never awaited: this
+        // check is synchronous and its answer must not depend on the log.
+        // The guessed value is never passed along.
+        void recordAdminAuthAudit({
+            outcome: 'failure',
+            source: 'password-header',
+            ip: clientIp(req),
+            lockedOut: !hasBudget(adminFailKey, ADMIN_PASSWORD_FAIL_LIMIT),
+        });
     }
     return null;
+}
+
+/**
+ * For audit records only: the verified admin role on this request and which
+ * credential carried it. Never use it to decide access; that is adminRole /
+ * isAdmin / isFullAdmin.
+ */
+export function adminAuditIdentity(req: ReqLike): { role: AdminRole | null; via: AdminCredentialVia | null } {
+    const role = adminRole(req);
+    if (!role) return { role: null, via: null };
+    const via: AdminCredentialVia = verifyAdminToken(headerString(req, 'x-admin-token')) === role ? 'token' : 'password';
+    return { role, via };
 }
 
 /**

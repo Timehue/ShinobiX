@@ -24,7 +24,8 @@ import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
 import { safeName, mergePreservingImages, cors, parseJsonBody, clanBareSlug } from '../_utils.js';
 import { clanPublicView, playerClanSlug } from '../clans/_clan-public-view.js';
-import { authedPlayerOrAdmin, isAdmin, isFullAdmin, verifyPlayerPasswordBudgeted } from '../_auth.js';
+import { adminAuditIdentity, authedPlayerOrAdmin, isAdmin, isFullAdmin, verifyPlayerPasswordBudgeted } from '../_auth.js';
+import { recordAdminSaveOverwrite } from '../_admin-audit.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { isKnownEarnedTitle, appendCustomTitleLog } from '../_titles-registry.js';
@@ -1559,8 +1560,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // and posts it back, so a stale body is detectable. A body with NO
             // version remains accepted for existing/never-created records
             // (scripts / older tooling), but not across a deletion generation.
+            // Filled in once the overwrite commits, then recorded after the save
+            // lock is released (api/_admin-audit.ts). Logging only.
+            let overwriteAudit = null as Parameters<typeof recordAdminSaveOverwrite>[0] | null;
             try {
-                return await withKvLock(`save:${name.toLowerCase()}`, async () => {
+                const adminWrite = await withKvLock(`save:${name.toLowerCase()}`, async () => {
                     const deletionFenceKey = playerSaveDeletionFenceKey(name, isClanSave);
                     const [existing, deletionFence] = await Promise.all([
                         kv.get(key),
@@ -1663,8 +1667,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     // Set reset-signal after the new save is committed so the client reloads that exact version.
                     await kv.set(resetSignalKey, 1, { ex: 300 });
+                    const auditIdentity = adminAuditIdentity(req);
+                    overwriteAudit = {
+                        role: auditIdentity.role,
+                        via: auditIdentity.via,
+                        target: name,
+                        kind: isClanSave ? 'clan' : isAdminContentSlot(name) ? 'content-slot' : 'player',
+                        existing: existing ?? null,
+                        written: payload,
+                    };
                     return res.status(200).end();
                 }, { failClosed: true });
+                if (overwriteAudit) await recordAdminSaveOverwrite(overwriteAudit);
+                return adminWrite;
             } catch (lockErr) {
                 if (lockErr instanceof LockContendedError) {
                     return reply(429, { error: 'Concurrent save in flight. Retry.' });

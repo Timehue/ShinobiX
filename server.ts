@@ -62,7 +62,7 @@ import { isAdmin, safeEqual, maybeRefreshPlayerToken, PLAYER_TOKEN_REFRESH_HEADE
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and the localhost
 // dev origins (non-production only). No *.up.railway.app wildcard.
 import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } from './api/_utils.js';
-import { classifyBodyLimit } from './api/_body-limits.js';
+import { classifyBodyLimit, DEFAULT_JSON_LIMIT, isOversizedBodyError } from './api/_body-limits.js';
 import { publicErrorPayload, securityHeaders } from './api/_http-security.js';
 import { evaluateLaunchControl, presenceStateJobsDisabled } from './api/_launch-controls.js';
 import { captureExpressException } from './api/_sentry-context.js';
@@ -247,23 +247,23 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 });
 
 // JSON body parsing. The vast majority of routes carry tiny JSON (polls, moves,
-// player actions); only the image-pipe and admin-import routes legitimately POST
-// multi-MB base64 payloads. Cap the default at 5 MB to shrink the synchronous
-// parse / memory-pressure surface on the hot gameplay/poll routes — a malicious
-// 50 MB body to e.g. /api/pvp/move can no longer force a 50 MB buffer+parse — and
-// grant the 50 MB ceiling only to the routes that need it. Player saves are
-// <=1 MB-gated in api/save/[name].ts and the leadership-portrait POST to
-// /api/game-state both fit the 5 MB default with room to spare.
+// player actions); only a handful of routes legitimately POST large bodies. The
+// default is 256 KB so a malicious multi-MB body to e.g. /api/pvp/move cannot
+// force a large buffer + synchronous parse before any auth check.
 // Route-specific JSON body limits (see api/_body-limits.ts). The 50 MB parser is
 // scoped to the exact image/import routes that need it — NOT the whole /admin/*
-// tree, so an unauthenticated caller can't force a 50 MB buffer + parse before a
-// handler's auth check. Player saves get a 1 MB parser (the save handler already
-// rejects >1 MB), rejecting an oversized save at the parser boundary rather than
-// after a larger parse. game-state's leadership portrait still fits the 5 MB
-// default with room to spare.
+// tree. Player saves get a 1 MB parser (the save handler already rejects
+// >1 MB). Content publish and the leadership-portrait POST to /api/game-state
+// get 5 MB with admin credentials; the challenge routes (whole live character)
+// keep 5 MB, and the profile portrait / starter pet get 2 MB.
+// The default dropped from 5 MB to 256 KB (2026-11-16 audit): it parses before
+// any auth check on every route. The routes that legitimately post more are
+// named in api/_body-limits.ts and keep a larger parser below.
 const jsonBig = express.json({ limit: '50mb' });
+const jsonLarge = express.json({ limit: '5mb' });
+const jsonMedium = express.json({ limit: '2mb' });
 const jsonSave = express.json({ limit: '1mb' });
-const jsonDefault = express.json({ limit: '5mb' });
+const jsonDefault = express.json({ limit: DEFAULT_JSON_LIMIT });
 // The Tebex purchase webhook authenticates an HMAC over the EXACT raw bytes, so
 // this parser stashes the raw Buffer on req.rawBody. Express parses and discards
 // the original otherwise, and a re-stringified body does not reproduce it
@@ -281,12 +281,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     switch (classifyBodyLimit(req.path)) {
         // The 50 MB parser only for a request that already carries admin
         // credentials (a synchronous HMAC/compare, no storage). Everyone else on
-        // a big-body route gets the 5 MB default, which a player's largest
-        // legitimate body (one image, capped at 3 MB by images.ts) fits inside,
-        // so an anonymous caller can no longer make the server buffer and
-        // parse 50 MB before any auth check runs.
-        case 'big':  return isAdmin(req) ? jsonBig(req, res, next) : jsonDefault(req, res, next);
+        // a big-body route gets 5 MB, which a player's largest legitimate body
+        // (one image, capped at 3 MB by images.ts) fits inside, so an
+        // anonymous caller can no longer make the server buffer and parse
+        // 50 MB before any auth check runs.
+        case 'big':  return isAdmin(req) ? jsonBig(req, res, next) : jsonLarge(req, res, next);
         case 'save': return jsonSave(req, res, next);
+        // Whole-blob admin writes (content publish, leadership portraits): 5 MB
+        // with admin credentials, 1 MB for the player kinds of game-state.
+        case 'admin-large': return isAdmin(req) ? jsonLarge(req, res, next) : jsonSave(req, res, next);
+        case 'large':  return jsonLarge(req, res, next);
+        case 'medium': return jsonMedium(req, res, next);
         default:     return jsonDefault(req, res, next);
     }
 });
@@ -1082,6 +1087,12 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     if (isMalformedJsonBodyError(err, req.body)) {
         if (!res.headersSent) {
             res.status(400).json({ error: MALFORMED_JSON_BODY_ERROR, requestId: reqId });
+        }
+        return;
+    }
+    if (isOversizedBodyError(err)) {
+        if (!res.headersSent) {
+            res.status(413).json({ error: 'Request body too large.', requestId: reqId });
         }
         return;
     }

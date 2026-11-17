@@ -130,3 +130,27 @@ test('an invalid avatar owner aborts before deleting saves and a retry releases 
     assert.equal((await kv.get<{active:boolean}>(modelResetKey))?.active, false);
     assert.equal((await ensureModelOwner('rill')).ok, true);
 });
+
+test('every destructive run leaves an audit:admin trail; dry runs leave none (runs after the two tests above)', async () => {
+    const { readAudit } = await import('../_audit.js');
+    const entries = (await readAudit('admin')).filter((e) => e.action.startsWith('server-reset.'));
+    // Newest first: the retry (start, complete), the aborted run (start, failed),
+    // and the first test's run (start, complete). Its dry run recorded nothing.
+    assert.deepEqual(entries.map((e) => e.action), [
+        'server-reset.complete', 'server-reset.start',
+        'server-reset.failed', 'server-reset.start',
+        'server-reset.complete', 'server-reset.start',
+    ]);
+    const runIds = entries.map((e) => (e.meta as Record<string, unknown>).resetId);
+    assert.equal(runIds[0], runIds[1]);
+    assert.equal(runIds[2], runIds[3]);
+    assert.equal(runIds[4], runIds[5]);
+    assert.notEqual(runIds[0], runIds[2]);
+    for (const entry of entries) {
+        assert.equal(entry.actor, 'admin:full');
+        assert.equal((entry.meta as Record<string, unknown>).via, 'password');
+    }
+    const start = entries[5].meta as Record<string, unknown>;
+    assert.ok(Number(start.deletedCount) > 0 && Number(start.totalKeys) >= Number(start.deletedCount));
+    assert.ok(!JSON.stringify(entries).includes('server-reset-test-full'), 'the admin password never reaches the log');
+});
