@@ -13,6 +13,7 @@ import { disconnectPlayerSockets } from '../_realtime/notify.js';
 import { kickVillageChat } from '../_realtime/notify.js';
 import { safeLogValue } from '../_safe-log.js';
 import { releasePermanentlyBannedStanding } from './_permanent-ban-release.js';
+import { listTebexReversals } from '../tebex/_reversal.js';
 
 // ─── Moderation key model ─────────────────────────────────────────────────────
 //
@@ -345,10 +346,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const silences = silKeys
                 .map((k, i) => ({ name: k.slice(SILENCE_KEY_PREFIX.length), record: silVals[i] }))
                 .filter(s => s.record && s.record.until > now);
+            // Tebex refunds and chargebacks (api/tebex/_reversal.ts), including
+            // any Shards already spent: the owner's freeze-or-ban queue. A
+            // failure here must not blank the rest of the panel.
+            const paymentReversals = await listTebexReversals().catch((error) => {
+                console.error('[moderation] payment reversals unavailable', (error as Error)?.message);
+                return [];
+            });
             return res.status(200).json({
                 bans,
                 silences,
                 audit: Array.isArray(audit) ? audit : [],
+                paymentReversals,
             });
         }
 

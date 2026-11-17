@@ -86,6 +86,9 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'pvp/_bounty-claim.ts', mechanism: 'in-save-receipt', markers: ['inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt'] },
     // Payout endpoints issue #19 found missing from this inventory.
     { file: 'tebex/webhook.ts', mechanism: 'in-save-receipt', markers: ['redeemedTebexPurchases'] },
+    // The reversal's durable record commits in the debit's own transaction and
+    // is CAS'd from the state it read, so a redelivery takes nothing twice.
+    { file: 'tebex/_reversal.ts', mechanism: 'state-machine', markers: ['atomicProof', "state: 'reversed'", "previous?.state === 'reversed'"] },
     { file: 'village/claim-daily-agenda.ts', mechanism: 'in-save-receipt', markers: ['claimedVillageAgendaDate', 'agendaClaimReceipts'] },
     { file: 'village/claim-map-control.ts', mechanism: 'in-save-receipt', markers: ['claimedMapControlDate', 'writeVersionedPlayerSave'] },
     // Clan Honor Seal pool (issue #179 sibling): the donation keeps its own

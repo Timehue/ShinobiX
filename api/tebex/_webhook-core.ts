@@ -206,16 +206,110 @@ export function shardGrantsForPayment(
 }
 
 /**
- * Refunds and chargebacks are reported so an operator can act, but this
- * deliberately does NOT auto-revoke shards: they may already be spent, and
- * driving a balance negative to reclaim them breaks more than it fixes. Tebex
- * Seller Protection also means a lost dispute usually leaves the revenue intact,
- * so a reflexive clawback would be wrong as often as it was right.
+ * The durable, uncapped receipt for one Tebex transaction. A transaction id
+ * that is not a plain token is hashed so it can never shape the key.
  */
+export function tebexTransactionKey(transactionId: string): string {
+    return `tebex:txn:${tebexKeyId(transactionId)}`;
+}
+
+/** A transaction id as it may appear inside a `tebex:*` key. */
+export function tebexKeyId(transactionId: string): string {
+    return /^[A-Za-z0-9._-]{1,128}$/.test(transactionId)
+        ? transactionId
+        : createHash('sha256').update(transactionId, 'utf8').digest('hex');
+}
+
+/*
+ * ── Refunds and chargebacks ───────────────────────────────────────────────
+ *
+ * A reversal takes back what the payment bought: the Shards it credited and
+ * the Supporter time it paid for. api/tebex/_reversal.ts does the IO; this
+ * decides which events count and what the payload says was bought.
+ *
+ *   payment.refunded ......... reversed (we, or Tebex, gave the money back)
+ *   payment.dispute.lost ..... reversed (the chargeback stands)
+ *   payment.dispute.opened ... RECORDED ONLY. The bank may still rule for us,
+ *                              so no currency moves; the open dispute is shown
+ *                              to the owner, and a later `lost` reverses it.
+ *   payment.dispute.won ...... recorded; closes an open dispute.
+ *
+ * ⛔ The amount reversed is what WE credited, read from the `tebex:txn:` receipt
+ * the grant wrote, not anything in this payload. The payload is only used to
+ * find that receipt and, for an old receipt that never stored its amount, to
+ * price the packages from our own catalogue exactly as the grant did.
+ */
+export type ReversalKind = 'refund' | 'chargeback' | 'dispute-opened' | 'dispute-won';
+
+const REVERSAL_KINDS: Readonly<Record<string, ReversalKind>> = {
+    'payment.refunded': 'refund',
+    'payment.dispute.lost': 'chargeback',
+    'payment.dispute.opened': 'dispute-opened',
+    'payment.dispute.won': 'dispute-won',
+};
+
 export function isReversalWebhook(webhook: TebexWebhookEnvelope): boolean {
-    return webhook.type === 'payment.refunded'
-        || webhook.type === 'payment.dispute.lost'
-        || webhook.type === 'payment.dispute.opened';
+    return Object.prototype.hasOwnProperty.call(REVERSAL_KINDS, webhook.type);
+}
+
+export type ReversalDecision =
+    | { action: 'ignore'; reason: string }
+    | {
+        action: 'reverse';
+        kind: ReversalKind;
+        transactionId: string;
+        /** From the payload's sealed `custom` blob; '' when it carries none. The grant receipt's name wins. */
+        playerName: string;
+        /** What the payload's packages are worth in our catalogue (the fallback amount). */
+        catalogueShards: number;
+        /** The payment named the Supporter subscription package. */
+        supporter: boolean;
+        /** The `tbx-r-…` reference of the subscription this payment billed, or ''. */
+        subscriptionReference: string;
+    };
+
+const RECURRING_REFERENCE = /^tbx-r-[A-Za-z0-9._-]{1,120}$/;
+
+/** Decide what a refund or dispute webhook is about. Pure. */
+export function reversalForPayment(
+    webhook: TebexWebhookEnvelope,
+    subscriptionPackageId: string,
+    lookup: (providerId: string) => ShardPackage | null = (id) => shardPackageForProvider('tebex', id),
+): ReversalDecision {
+    if (!isReversalWebhook(webhook)) return { action: 'ignore', reason: `not-a-reversal:${webhook.type}` };
+    const kind = REVERSAL_KINDS[webhook.type];
+    const subject = webhook.subject;
+    const transactionId = typeof subject.transaction_id === 'string' ? subject.transaction_id.trim() : '';
+    if (!transactionId) return { action: 'ignore', reason: 'missing-transaction-id' };
+
+    let playerName = '';
+    let catalogueShards = 0;
+    let supporter = false;
+    const products = Array.isArray(subject.products) ? subject.products : [];
+    for (const entry of products) {
+        if (!entry || typeof entry !== 'object') continue;
+        const product = entry as Record<string, unknown>;
+        const providerId = typeof product.id === 'number' ? String(product.id)
+            : typeof product.id === 'string' ? product.id.trim() : '';
+        playerName = playerName || readPlayerNameFromCustom(product.custom) || readUsernameId(product);
+        if (subscriptionPackageId && providerId === subscriptionPackageId) supporter = true;
+        const pack = providerId ? lookup(providerId) : null;
+        if (!pack) continue;
+        // The same quantity rule as the grant, so the fallback can never
+        // reverse more than the grant could have paid.
+        const rawQuantity = typeof product.quantity === 'number' ? Math.floor(product.quantity) : 1;
+        if (!Number.isFinite(rawQuantity) || rawQuantity < 1) continue;
+        catalogueShards += pack.shards * Math.min(rawQuantity, MAX_PACKAGE_QUANTITY);
+    }
+    playerName = playerName || readPlayerNameFromCustom(subject.custom) || readUsernameId(subject.customer);
+
+    const rawReference = typeof subject.recurring_payment_reference === 'string' ? subject.recurring_payment_reference.trim() : '';
+    const subscriptionReference = RECURRING_REFERENCE.test(rawReference) ? rawReference : '';
+    // A payment that billed a subscription is a Supporter payment even when
+    // its product list is missing or the package id is unconfigured.
+    if (subscriptionReference) supporter = true;
+
+    return { action: 'reverse', kind, transactionId, playerName, catalogueShards, supporter, subscriptionReference };
 }
 
 /*

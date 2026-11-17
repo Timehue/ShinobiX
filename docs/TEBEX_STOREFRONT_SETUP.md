@@ -162,6 +162,39 @@ for example after an admin revoke. In those cases the renewal entitles the next
 owner of the name. Closing that needs a record of every reference cancelled on
 deletion, which is a storage change awaiting a decision.
 
+## Refunds and chargebacks
+
+Until 2026-11 these were only logged, so a player could buy Shards, spend them,
+charge the payment back and keep everything. `api/tebex/_reversal.ts` now takes
+back what the payment bought:
+
+| Event | Effect |
+|---|---|
+| `payment.refunded` | Reversed |
+| `payment.dispute.lost` | Reversed, and the subscription (if any) is cancelled at Tebex |
+| `payment.dispute.opened` | **Recorded only.** No currency moves while the bank decides. |
+| `payment.dispute.won` | Recorded; closes the open dispute |
+
+- **Shards**: the amount is the one the grant recorded in `tebex:txn:<id>`,
+  never a number from the refund. The balance is debited **down to zero at
+  most**. Whatever was already spent is the *shortfall*: kept on the record,
+  logged as `[tebex] CHARGEBACK DEBT`, and listed in the Admin Panel under
+  **Moderation → Payment reversals**. ⚠ What to do about an account with a
+  shortfall (freeze, ban, or debit future purchases) is an **open owner
+  decision**; nothing is automated.
+- **Supporter time**: the flag is revoked for the subscription reference the
+  payment billed (`recurring_payment_reference`), through
+  `applyEntitlementToSave`, so a flag holding another subscription or a live
+  admin comp is left alone. A lost chargeback also cancels the subscription; a
+  failed cancel is parked in `tebex:orphaned-subscriptions`, which also stops a
+  renewal entitling anyone. A refund leaves billing to whoever issued it.
+- **Exactly once**: `tebex:reversal:<id>` commits in the same Postgres
+  transaction as the debit and its `ledger:currency:<name>` row. A redelivery,
+  or a second reversal of the same payment, takes nothing.
+- A reversal that arrives **before** its purchase was credited writes the
+  purchase's `tebex:txn:` receipt too, so the late `payment.completed` pays
+  nothing.
+
 ## Prices
 
 ⛔ **Never display `usd` from `shared/shard-packages.ts`.** Those are planning
