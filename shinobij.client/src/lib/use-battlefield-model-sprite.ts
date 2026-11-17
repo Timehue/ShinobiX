@@ -21,11 +21,16 @@ export function useBattlefieldModelSprite(model?: PlayerModel): string | null {
         if (!key || !revision) return;
         let active = true;
         let url: string | undefined;
-        void readBattleSprite(folder, revision).then(bytes => {
+        void readBattleSprite(folder, revision).then(async bytes => {
             if (!active || !bytes) return;
             url = URL.createObjectURL(new Blob([bytes], { type: 'image/webp' }));
-            setSprite({ key, url });
-        }).catch(() => { /* Bundled art or the portrait remains available. */ });
+            const image = new Image();
+            image.src = url;
+            await image.decode();
+            if (active) setSprite({ key, url });
+        }).catch(() => {
+            if (url) URL.revokeObjectURL(url);
+        });
         return () => {
             active = false;
             if (url) URL.revokeObjectURL(url);

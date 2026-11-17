@@ -1,6 +1,7 @@
 """Produce a review sheet from the final hosted model's packaged pose pages."""
 from bisect import bisect_right
 from gzip import decompress
+from io import BytesIO
 import json
 from math import ceil, cos, pi, sin
 from pathlib import Path
@@ -18,7 +19,11 @@ from recognition_lineup import DIRECTIONS, posed_views
 def preview(result, source, map_path, destination):
     tile, columns, top, gap = 112, 8, 49, 6
     left = 67
-    board = Image.new("RGB", (left + columns * (tile + gap), top + 3 * (tile + gap)), "#22272d")
+    model = result["model"]
+    objects = worker_delivery_objects(result, model["assetId"], source)
+    battle_sprite = json.loads(objects[model["version"] + ".json"]).get("battleSprite")
+    rows = 4 if battle_sprite else 3
+    board = Image.new("RGB", (left + columns * (tile + gap), top + rows * (tile + gap)), "#22272d")
     draw = ImageDraw.Draw(board)
     draw.text((14, 10), "Hosted game package", fill="#f3f4f6")
     with Image.open(map_path) as sector:
@@ -36,6 +41,15 @@ def preview(result, source, map_path, destination):
             panel = road.copy()
             panel.paste(sprite, (round(tile//2 + origin[0]), round(91 + origin[1])), sprite)
             board.paste(panel, (x, y))
+    if battle_sprite:
+        with Image.open(BytesIO(objects[battle_sprite])) as image:
+            guard = image.convert("RGBA")
+        guard.thumbnail((tile, 91), Image.Resampling.LANCZOS)
+        y = top + 3 * (tile + gap)
+        draw.text((12, y + tile//2), "Combat", fill="#f3f4f6")
+        panel = road.copy()
+        panel.paste(guard, ((tile - guard.width)//2, 91 - guard.height), guard)
+        board.paste(panel, (left + DIRECTIONS.index("sw") * (tile + gap), y))
     board.save(destination, "PNG")
 
 

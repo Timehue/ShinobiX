@@ -30,7 +30,7 @@ def worker_image():
     manifest = Path(os.environ.get("SPRITE_WORKER_RELEASE_MANIFEST", str(HERE / release))).resolve(strict=True)
     image = image.add_local_file(manifest, "/opt/sprite/sprite-worker-release.json", copy=True)
     for name in (".python-version", "requirements-linux-paint.txt",
-                 "install_sprite_worker.py", "finish_sprite.py", "paint_sprite_style.py", "browser_motion.py",
+                 "install_sprite_worker.py", "finish_sprite.py", "paint_sprite_style.py", "browser_motion.py", "battle_pose.py",
                  "verify_moderated_frame.py", "recognition_lineup.py", "recognition_worker.py", "requirements-recognition.txt"):
         image = image.add_local_file(HERE / name, "/opt/sprite/" + name, copy=True)
     if painted:
@@ -308,12 +308,18 @@ def render_style(descriptor: bytes, sheet: bytes, master_sha256: str, style: str
                 (expected_movement is not None and receipt["movement"] != expected_movement) or
                 hashlib.sha256(archive).hexdigest() != receipt["archive"]):
             raise ValueError("movement-style-binding")
-        return {"receipt": receipt, "archive": archive}
+        result = {"receipt": receipt, "archive": archive}
+        if "battleSpriteSha256" in receipt:
+            result["battleSprite"] = (work / "battle.webp").read_bytes()
+        return result
 
 
 def deliver(asset_id, descriptor, master_sha256, *, styles=None, archive=None, archive_sha256=None):
     if not re.fullmatch("[0-9a-f]{32}", asset_id):
         raise ValueError("invalid-game-asset")
+    sys.path.insert(0, str(INSTALL))
+    from browser_motion import browser_motion_objects, checked_style_battle_sprite
+
     entry = Path((INSTALL / "entry.txt").read_text().strip())
     with TemporaryDirectory() as directory:
         work = Path(directory)
@@ -327,7 +333,11 @@ def deliver(asset_id, descriptor, master_sha256, *, styles=None, archive=None, a
             if set(styles) != set("ABC"):
                 raise ValueError("incomplete-run-styles")
             for style, stage in styles.items():
-                (work / (style + ".json")).write_text(json.dumps(stage["receipt"], allow_nan=False))
+                receipt = stage["receipt"]
+                battle_sprite = checked_style_battle_sprite(style, receipt.get("battleSpriteSha256"), stage.get("battleSprite"))
+                if battle_sprite is not None:
+                    (work / "battle.webp").write_bytes(battle_sprite)
+                (work / (style + ".json")).write_text(json.dumps(receipt, allow_nan=False))
                 (work / (style + ".zip")).write_bytes(stage["archive"])
             source = ["--from-styles", work]
         content = work / "content"
@@ -340,8 +350,6 @@ def deliver(asset_id, descriptor, master_sha256, *, styles=None, archive=None, a
         if delivery["assetId"] != asset_id or not re.fullmatch("[0-9a-f]{64}", delivery["version"]):
             raise ValueError("unexpected-game-model")
         folder = content / "players" / asset_id
-        sys.path.insert(0, str(INSTALL))
-        from browser_motion import browser_motion_objects
         portrait = json.loads(descriptor)["fit"]["sourceSha256"]
         objects = browser_motion_objects(folder, delivery["version"], portrait)
         if len(objects) != delivery["objects"] or sum(map(len, objects.values())) != delivery["bytes"]:

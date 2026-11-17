@@ -9,7 +9,17 @@ import re
 import sys
 from zipfile import ZipFile
 
-from browser_motion import browser_motion_objects
+from browser_motion import BATTLE_SPRITE_BYTES, browser_motion_objects, checked_style_battle_sprite
+
+
+def read_rendered_battle_sprite(directory, receipt):
+    path = directory / "battle.webp"
+    try:
+        with path.open("rb") as stream:
+            data = stream.read(BATTLE_SPRITE_BYTES + 1)
+    except FileNotFoundError:
+        data = None
+    return checked_style_battle_sprite("A", receipt.get("battleSpriteSha256"), data)
 
 
 def combine_styles(entry, directory, master_digest, archive):
@@ -44,13 +54,14 @@ def combine_styles(entry, directory, master_digest, archive):
         if (turns["portrait"] != receipt["portrait"] or turns != receipt["checks"]["turns"] or
                 braking != receipt["checks"]["releases"]):
             raise ValueError("movement-style-audit")
+    battle_sprite = read_rendered_battle_sprite(directory, receipts["A"])
     combine(directory / "A.zip", directory / "B.zip", archive, directory / "C.zip")
     with archive.open("rb") as handle:
-        return file_digest(handle, "sha256").hexdigest()
+        return file_digest(handle, "sha256").hexdigest(), battle_sprite
 
 
 def finish(entry, descriptor, master_digest, archive, archive_digest, asset_id, destination, *, ffmpeg=None,
-           expected_version=None):
+           expected_version=None, battle_sprite=None):
     raw = descriptor.read_bytes()
     if len(raw) > 64 * 1024 or sha256(raw).hexdigest() != master_digest:
         raise ValueError("fitted-master-descriptor")
@@ -60,11 +71,12 @@ def finish(entry, descriptor, master_digest, archive, archive_digest, asset_id, 
         raise ValueError("movement-master-mismatch")
     return encode_bound_archive(entry, archive, archive_digest, asset_id, destination,
                                 fit["sourceSha256"], fit["sheetSha256"], master["templateSha256"],
-                                ffmpeg=ffmpeg, expected_version=expected_version)
+                                ffmpeg=ffmpeg, expected_version=expected_version, battle_sprite=battle_sprite)
 
 
 def encode_bound_archive(entry, archive, archive_digest, asset_id, destination,
-                         portrait_digest, sheet_digest, template_digest, *, ffmpeg=None, expected_version=None):
+                         portrait_digest, sheet_digest, template_digest, *, ffmpeg=None, expected_version=None,
+                         battle_sprite=None):
     """Encode movement after its fitting has been independently authenticated."""
     if not re.fullmatch("[0-9a-f]{32}", asset_id):
         raise ValueError("invalid-game-asset")
@@ -94,23 +106,24 @@ def encode_bound_archive(entry, archive, archive_digest, asset_id, destination,
     # An older job may need its original, motion-only revision reconstructed.
     if result["version"] == expected_version:
         return result
-    return add_battle_sprite(folder, result, objects, portrait_digest, ffmpeg)
+    return add_battle_sprite(folder, result, objects, portrait_digest, ffmpeg, battle_sprite=battle_sprite)
 
 
-def add_battle_sprite(folder, model, objects, portrait_digest, ffmpeg):
-    from recognition_lineup import posed_views
+def add_battle_sprite(folder, model, objects, portrait_digest, ffmpeg, *, battle_sprite=None):
+    if battle_sprite is None:
+        from recognition_lineup import posed_views
 
-    # Use the exact delivered southwest idle frame evaluated by recognition.
-    [(sprite, _)] = posed_views(dict(model=model, objects=objects), portrait_digest, ffmpeg, "idle", 0, ("sw",))
-    output = BytesIO()
-    sprite.save(output, format="WEBP", lossless=True)
-    data = output.getvalue()
-    filename = sha256(data).hexdigest() + ".webp"
+        # Legacy style calls and archive recovery reproduce their original output.
+        [(sprite, _)] = posed_views(dict(model=model, objects=objects), portrait_digest, ffmpeg, "idle", 0, ("sw",))
+        output = BytesIO()
+        sprite.save(output, format="WEBP", lossless=True)
+        battle_sprite = output.getvalue()
+    filename = sha256(battle_sprite).hexdigest() + ".webp"
     header = json.loads(objects[model["version"] + ".json"])
     header["battleSprite"] = filename
     manifest = json.dumps(header, separators=(",", ":"), allow_nan=False).encode()
     revision = sha256(manifest).hexdigest()
-    (folder / filename).write_bytes(data)
+    (folder / filename).write_bytes(battle_sprite)
     (folder / (revision + ".json")).write_bytes(manifest)
     checked = browser_motion_objects(folder, revision, portrait_digest)
     return dict(model, version=revision, bytes=sum(map(len, checked.values())), objects=len(checked))
@@ -127,7 +140,8 @@ if __name__ == "__main__":
     source.add_argument("--from-styles", type=Path)
     args = parser.parse_args()
     digest = args.archive_sha256
+    battle_sprite = None
     if args.from_styles:
-        digest = combine_styles(args.entry, args.from_styles, args.master_sha256, args.archive)
+        digest, battle_sprite = combine_styles(args.entry, args.from_styles, args.master_sha256, args.archive)
     print(json.dumps(finish(args.entry, args.descriptor, args.master_sha256, args.archive,
-                            digest, args.asset_id, args.destination)))
+                            digest, args.asset_id, args.destination, battle_sprite=battle_sprite)))

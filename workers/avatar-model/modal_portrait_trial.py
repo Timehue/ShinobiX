@@ -50,15 +50,15 @@ if modal.is_local() and sys.argv[1:2] != ["collect"]:
     for name in ("closeup_portrait.py", "armored_raccoon.py", "paint_admitted_costume.py", "paint_portrait.py",
                  "upright_animal.py", "costume_palette.py"):
         reader_image = reader_image.add_local_file(WORKER.with_name(name), str(INSTALL / name), copy=True)
-    assembly_image = assembly_image.add_local_file(
-        WORKER.with_name("modal_trial_preview.py"), "/opt/sprite/modal_trial_preview.py", copy=True
-    ).add_local_file(WORKER.parents[2] / "shinobij.client/public/sector-map/s46.webp",
+    for name in ("paint_sprite_style.py", "battle_pose.py"):
+        motion_image = motion_image.add_local_file(WORKER.with_name(name), str(INSTALL / name), copy=True)
+    for name in ("modal_trial_preview.py", "finish_sprite.py", "browser_motion.py"):
+        assembly_image = assembly_image.add_local_file(WORKER.with_name(name), str(INSTALL / name), copy=True)
+    assembly_image = assembly_image.add_local_file(WORKER.parents[2] / "shinobij.client/public/sector-map/s46.webp",
                      "/opt/sprite/trial-sector.webp", copy=True)
     combiner = os.environ.get("SPRITE_TRIAL_ASSEMBLY_COMBINER")
     if combiner:
-        assembly_image = assembly_image.add_local_file(
-            WORKER.with_name("finish_sprite.py"), "/opt/sprite/finish_sprite.py", copy=True
-        ).add_local_file(combiner, "/opt/sprite/run_style_package.py", copy=True)
+        assembly_image = assembly_image.add_local_file(combiner, "/opt/sprite/run_style_package.py", copy=True)
 
 
 @app.function(image=reader_image, gpu=TRIAL_GPUS, cpu=2, memory=6144, timeout=600, retries=0, max_containers=1)

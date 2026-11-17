@@ -41,6 +41,24 @@ class StageDispatchTest(unittest.TestCase):
         self.assertEqual(self.tick(), {"status":"complete", "callId":"fc-stageA", "movement":"2"*64})
         self.function.spawn.assert_called_once()
 
+    def test_style_completion_requires_the_claimed_combat_bytes(self):
+        self.request.update(callId="fc-stageA")
+        archive, sprite = b"verified animation", b"combat pose"
+        receipt = {"master": self.request["masterSha256"], "portrait": self.request["sourceSha256"],
+                   "style": "A", "archive": sha256(archive).hexdigest(), "movement": "2" * 64,
+                   "battleSpriteSha256": sha256(sprite).hexdigest()}
+        result = {"archive": archive, "receipt": receipt, "battleSprite": sprite}
+        self.lookup.return_value.get.return_value = result
+        self.assertEqual(self.tick()["status"], "complete")
+        failed = {"status": "failed", "callId": "fc-stageA"}
+        result["battleSprite"] = b"different pose"
+        self.assertEqual(self.tick(), failed)
+        del result["battleSprite"]
+        self.assertEqual(self.tick(), failed)
+        self.request["stage"] = receipt["style"] = "B"
+        result["battleSprite"] = sprite
+        self.assertEqual(self.tick(), failed)
+
     def test_ambiguous_spawn_is_never_resubmitted_without_provider_evidence(self):
         self.function.spawn.side_effect = TimeoutError("lost response")
         with self.assertRaises(TimeoutError):
@@ -135,6 +153,13 @@ class StageDispatchTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "invalid-style-binding"):
                 service.finish_styles.local(*args)
             deliver.assert_not_called()
+            sprite = b"guard from recovered style A"
+            stages = {style: {"receipt": {**receipt, "style": style}, "archive": b"staged"} for style in "ABC"}
+            stages["A"]["receipt"]["battleSpriteSha256"] = sha256(sprite).hexdigest()
+            stages["A"]["battleSprite"] = sprite
+            input_call.get.side_effect = list(stages.values())
+            self.assertIs(service.finish_styles.local(*args), deliver.return_value)
+            deliver.assert_called_once_with(*args[:3], styles=stages)
 
     def test_paint_claim_recovers_the_same_costume_and_rejects_other_jobs(self):
         raw, sheet = b"account portrait", b"painted costume"
