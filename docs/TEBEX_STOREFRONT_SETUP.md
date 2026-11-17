@@ -179,7 +179,12 @@ back what the payment bought:
   never a number from the refund. The balance is debited **down to zero at
   most**. Whatever was already spent is the *shortfall*: kept on the record,
   logged as `[tebex] CHARGEBACK DEBT`, and listed in the Admin Panel under
-  **Moderation → Payment reversals**. ⚠ What to do about an account with a
+  **Moderation → Payment reversals**. ⛔ Only the account that was paid is
+  debited: its in-save receipt list must hold the transaction, or the
+  receipt's `bornAt` (the paid save's `createdAt`) must match. A name that has
+  changed hands is never debited; the whole grant is recorded as the shortfall
+  (`name-reassigned`, or `account-unverified` for a receipt written before
+  `bornAt` existed). ⚠ What to do about an account with a
   shortfall (freeze, ban, or debit future purchases) is an **open owner
   decision**; nothing is automated.
 - **Supporter time**: the flag is revoked for the subscription reference the

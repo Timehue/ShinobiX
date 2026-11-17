@@ -204,6 +204,31 @@ describe('tebex refunds and chargebacks', { concurrency: false }, () => {
         assert.equal(row?.shortfall, 35);
     });
 
+    it('never debits whoever registered the name after the paid account was deleted', async () => {
+        await kv.set(`save:${PLAYER}`, { _saveVersion: 1, character: { name: PLAYER, createdAt: 1_000, fateShards: 0 } });
+        assert.equal((await deliver(payment())).body?.granted, true);
+        // The account is deleted and a stranger registers the same name.
+        await kv.set(`save:${PLAYER}`, { _saveVersion: 1, character: { name: PLAYER, createdAt: 2_000, fateShards: 50 } });
+
+        const out = await deliver(chargeback());
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.shardsDebited, 0);
+        assert.equal(out.body?.shortfall, 35, 'the whole grant is the debt, recorded for the owner');
+        assert.equal(await shards(), 50, "the stranger's Shards are untouched");
+        assert.equal((await record())?.note, 'name-reassigned');
+    });
+
+    it('still debits the paid account once its id has rolled off the in-save list, by its createdAt', async () => {
+        await kv.set(`save:${PLAYER}`, { _saveVersion: 1, character: { name: PLAYER, createdAt: 1_000, fateShards: 0 } });
+        assert.equal((await deliver(payment())).body?.granted, true);
+        const save = await kv.get<{ _saveVersion: number; character: Record<string, unknown> }>(`save:${PLAYER}`);
+        const rolled = Array.from({ length: 200 }, (_, i) => `tbx-newer-${i}`);
+        await kv.set(`save:${PLAYER}`, { ...save, _saveVersion: save!._saveVersion + 1, character: { ...save!.character, redeemedTebexPurchases: rolled } });
+
+        assert.equal((await deliver(refund())).body?.shardsDebited, 35);
+        assert.equal(await shards(), 0);
+    });
+
     describe('Supporter time', () => {
         const supporterPayment = (type: string, statusId: number) => ({
             ...payment(type, statusId, { recurring_payment_reference: REFERENCE }),

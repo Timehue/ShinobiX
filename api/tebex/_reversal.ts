@@ -88,14 +88,37 @@ export type TebexReversalRecord = {
     balanceBefore?: number;
     balanceAfter?: number;
     supporter?: SupporterReversal;
-    /** Why the reversal could not reach a save, when it could not. */
+    /**
+     * Why nothing (or less) was debited from a save:
+     * no-save / no-player-identity: there was no account to debit;
+     * name-reassigned: the name now belongs to a different account;
+     * account-unverified: an old receipt could not prove which account it paid.
+     */
     note?: string;
     at: number;
     updatedAt: number;
 };
 
 /** The purchase receipt the grant wrote (webhook.ts recordTebexTransaction). */
-type GrantReceipt = { playerName?: unknown; shards?: unknown; reversedBeforeGrant?: unknown };
+type GrantReceipt = { playerName?: unknown; shards?: unknown; bornAt?: unknown; reversedBeforeGrant?: unknown };
+
+/**
+ * Is this save the account the purchase actually paid? A name outlives its
+ * account, so the name alone is not enough: after a deletion or a full reset,
+ * whoever registers it next must never be debited for someone else's refund.
+ *   - the save's own in-save receipt list holds the transaction: yes
+ *   - the receipt's `bornAt` (the paid save's createdAt) matches this save's: yes
+ *   - anything else, including an older receipt with no `bornAt` whose id has
+ *     rolled off the 200-entry list: not proven, so nothing is debited
+ */
+function paidThisAccount(receipt: GrantReceipt | null, character: Record<string, unknown>, transactionId: string): boolean {
+    const ledger = Array.isArray(character.redeemedTebexPurchases) ? character.redeemedTebexPurchases as unknown[] : [];
+    if (ledger.includes(transactionId)) return true;
+    const bornAt = receipt?.bornAt;
+    if (typeof bornAt !== 'number' || !Number.isFinite(bornAt)) return false;
+    const createdAt = character.createdAt;
+    return createdAt !== undefined && createdAt !== null && Number(createdAt) === bornAt;
+}
 
 export type ReversalReply = { status: number; body: Record<string, unknown> };
 
@@ -275,13 +298,17 @@ export async function applyTebexReversal(decision: Reverse): Promise<ReversalRep
             }
             const granted = grantedShards(currentReceipt, character, decision);
             const balanceBefore = whole(character.fateShards);
-            const debit = Math.min(balanceBefore, granted);
+            // Debit only the account that was paid; otherwise the whole grant
+            // is the shortfall and this save is left alone.
+            const sameAccount = granted === 0 || paidThisAccount(currentReceipt, character, decision.transactionId);
+            const debit = sameAccount ? Math.min(balanceBefore, granted) : 0;
             const record = build(previous, {
                 shardsGranted: granted,
                 shardsDebited: debit,
                 shortfall: granted - debit,
                 balanceBefore,
                 balanceAfter: balanceBefore - debit,
+                ...(sameAccount ? {} : { note: typeof currentReceipt?.bornAt === 'number' ? 'name-reassigned' : 'account-unverified' }),
             });
             const receiptOps = currentReceipt ? [] : blockingReceipt(granted);
             if (debit === 0) {

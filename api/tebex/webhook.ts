@@ -54,9 +54,14 @@ export { tebexTransactionKey };
  * grant it follows has already committed, and the in-save receipt still
  * covers a redelivery until the next attempt backfills this row.
  */
-async function recordTebexTransaction(key: string, playerName: string, shards: number): Promise<void> {
+async function recordTebexTransaction(key: string, playerName: string, shards: number, character: Record<string, unknown>): Promise<void> {
+    // `bornAt` binds the receipt to the account it paid, not just its name: a
+    // name outlives its account, and a later refund must never debit whoever
+    // registered the name next (api/tebex/_reversal.ts checks it).
+    const createdAt = Number(character.createdAt);
+    const bornAt = character.createdAt !== undefined && character.createdAt !== null && Number.isFinite(createdAt) ? createdAt : null;
     try {
-        await kv.set(key, { playerName, shards, at: Date.now() }, { nx: true });
+        await kv.set(key, { playerName, shards, bornAt, at: Date.now() }, { nx: true });
     } catch (error) {
         console.error('[tebex] durable transaction receipt write failed', key, (error as Error)?.message);
     }
@@ -257,7 +262,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // The backfill records the amount the in-save receipt stands
                 // for (the same payload prices to the same total), so a later
                 // refund of this transaction knows what to take back.
-                if (!durable) await recordTebexTransaction(txnKey, outcome.playerName, outcome.totalShards);
+                if (!durable) await recordTebexTransaction(txnKey, outcome.playerName, outcome.totalShards, character as unknown as Record<string, unknown>);
                 return { ok: true as const, character, write: false, value: { granted: false, shards: 0 } };
             }
             const balance = Math.max(0, Math.floor(Number((character as unknown as Record<string, unknown>).fateShards ?? 0)) || 0);
@@ -270,7 +275,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ok: true as const,
                 character: next,
                 value: { granted: true, shards: outcome.totalShards },
-                afterCommit: () => recordTebexTransaction(txnKey, outcome.playerName, outcome.totalShards),
+                afterCommit: () => recordTebexTransaction(txnKey, outcome.playerName, outcome.totalShards, next as unknown as Record<string, unknown>),
             };
         },
     );
