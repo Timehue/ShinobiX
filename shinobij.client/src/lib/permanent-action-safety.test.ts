@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
 
 function source(relativeUrl: string): string {
     return readFileSync(new URL(relativeUrl, import.meta.url), "utf8");
@@ -119,7 +120,7 @@ describe("permanent action interaction safety", () => {
     });
 
     test("ambiguous paid-action failures direct players to refresh", () => {
-        assert.match(source("./ambiguous-action.ts"), /AMBIGUOUS_ACTION_MESSAGE = "That action may not have gone through\. Wait until the game has saved, then refresh to check before you try again\."/);
+        assert.equal(AMBIGUOUS_ACTION_MESSAGE, "That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.");
         const profileSettlement = source("./profile-settlement.ts");
         assert.match(profileSettlement, /AMBIGUOUS_ACTION_MESSAGE/);
 
