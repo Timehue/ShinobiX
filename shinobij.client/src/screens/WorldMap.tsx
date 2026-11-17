@@ -69,6 +69,8 @@ import { sectorFloorLayout } from "../lib/sector-floor-layout";
 import { openBuildingCounter } from "../lib/sector-building-counter";
 import { sectorWalkMask } from "../../../shared/sector-walk-mask";
 import { stepSectorTile, useSectorTileGrounding } from "../lib/sector-obstacles";
+import { warmSectorArrival } from "../lib/sector-arrival-warm";
+import { getSprintStyle, isPlayerModel, starterModel } from "../lib/player-model";
 import { WorldSectorOverlayLayer } from "../components/WorldSectorOverlayLayer";
 import { ModalDialogScrim } from "../components/ModalDialogScrim";
 import { WorldWandererDialog, type WorldWandererDialogState } from "../components/WorldWandererDialog";
@@ -77,7 +79,7 @@ import {
     type WorldSectorCommandTerritory,
 } from "../components/WorldSectorCommandPanel";
 import { resolveOwnAvatar } from "../lib/own-avatar";
-import { useSectorWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, capSectorWanderers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves,WANDERER_ARCHETYPES, type Wanderer } from "../lib/wanderers";
+import { useSectorWanderers, sectorWandererCast, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, capSectorWanderers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves,WANDERER_ARCHETYPES, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, bossStatBonusFromChoices, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import {
@@ -2740,6 +2742,15 @@ function WorldMapContent({
         // will paint. Only the floor is warmed — the vista stack no longer renders
         // for a normal sector, so its art would be a wasted fetch.
         preloadImg(sectorMapUrl(biomeForSector(sector), sector));
+        // Then the world layout, the road's people and each figure's first frame,
+        // so the sector does not open on portrait circles while they decode.
+        const playerModel = isPlayerModel(character.playerModel) ? character.playerModel : undefined;
+        const self = {
+            kind: starterModel(resolveOwnAvatar(character, sharedImages), character.starterWorldModel),
+            equipped: playerModel, style: getSprintStyle(),
+        };
+        void warmSectorArrival({ sector, player: character.name, self,
+            cast: sectorWandererCast(sector, character.wandererCooldowns, character.wandererMoves) }).catch(() => {});
     }
     function beginSectorTravel(
         sector: number,
@@ -2887,7 +2898,11 @@ function WorldMapContent({
                 }
             }
             if (reopen !== null && isWildSector(reopen) && reopen !== FESTIVAL_SECTOR) { travelToSector(reopen); return; }
-            if (reload && isWildSector(currentSector) && currentSector !== FESTIVAL_SECTOR) setSelectedSector(currentSector);
+            if (reload && isWildSector(currentSector) && currentSector !== FESTIVAL_SECTOR) {
+                // A reload has no travel wait to hide behind: start the same warm-up alongside the mount.
+                prefetchTravelDestination(currentSector);
+                setSelectedSector(currentSector);
+            }
         });
     }, []);
 

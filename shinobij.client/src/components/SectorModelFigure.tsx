@@ -3,12 +3,12 @@ import { useSectorModelPins } from "../lib/sector-model-pins";
 import "./sector-model-figure.css";
 import type { PlayerModel, SprintStyle } from "../lib/player-model";
 import { advanceSectorStride, fitSectorStride, sectorClipGait, sectorStartEntry, type GroundStride } from "../../../shared/sector-model-motion";
-import type { DecodePriority, PackedMotion, SheetImage, SpriteClip, SpriteView } from "../lib/sector-pose-delivery";
-import { readSectorModelObject, sectorFetchPriority } from "../lib/sector-model-object";
+import type { DecodePriority, SheetImage, SpriteClip, SpriteView } from "../lib/sector-pose-delivery";
+import { sectorFetchPriority } from "../lib/sector-model-object";
+import { loadSectorModel as loadModel, sectorModelFolder, type SectorModel as Model } from "../lib/sector-model-manifest";
 import { createPosePrerequisite } from "../lib/sector-pose-prerequisite";
 import { missingSectorModelFeature, reportSectorModelUnavailable, reportSectorModelUnsupported, type SectorModelStage } from "../lib/sector-model-health";
 
-type Model = { mapWidth: number; banks: SpriteView[]; packed?: PackedMotion };
 type MovingGait = "walk" | "run";
 type Position = { x: number; y: number; width: number; moving: boolean; now: number; gait?: MovingGait; snapped?: boolean; routed?: boolean };
 export type SectorModelHandle = {
@@ -22,43 +22,8 @@ export type SectorModelHandle = {
     stop: () => boolean;
 };
 
-// Least-recently-used: every distinct equipped peer adds a manifest, so a long session in busy sectors
-// must not keep all of them. 96 covers the 53-model roster plus a crowded sector of player models.
-// An evicted entry that a mounted figure still uses stays alive through that figure; a later mount
-// re-reads the immutable manifest from the HTTP cache.
-const MODEL_CACHE_LIMIT = 96;
 /** How long a figure other than the player's own waits on its next page before its motion stops waiting for the art. */
 const PAINTED_GRACE_MS = 2_000;
-const models = new Map<string, Promise<Model>>();
-
-function loadModel(folder: string, revision: string, priority: RequestPriority = "auto"): Promise<Model> {
-    const url = folder + revision + ".json";
-    const existing = models.get(url);
-    if (existing) { models.delete(url); models.set(url, existing); return existing; }
-    const request = readSectorModelObject(folder,revision+".json",".json",8*1024**2,priority).then(bytes => {
-        const decoded = JSON.parse(new TextDecoder().decode(bytes));
-        if (decoded.mapWidth !== 1080) throw new Error("Invalid sector model scale");
-        if (decoded.format === "sector-motion-v2") {
-            for (const style of ["A", "B", "C"]) {
-                const indexes = decoded.styles?.[style];
-                if (!Array.isArray(indexes) || indexes.length !== 8 || indexes.some(name =>
-                    typeof name !== "string" || !/^[a-f0-9]{64}\.gz$/.test(name))) throw new Error("Invalid motion index");
-            }
-            return {mapWidth:decoded.mapWidth, banks:[], packed:decoded};
-        }
-        const model: Model = decoded;
-        for (const view of model.banks) for (const clip of Object.values(view)) {
-            const filename = clip.url.split("/").pop();
-            if (!filename || !/^[a-f0-9]{64}\.webp$/.test(filename)) throw new Error("Invalid sector model page");
-            clip.url = folder + filename;
-            clip.count = clip.origins.length;
-        }
-        return model;
-    }).catch(error => { if (models.get(url) === request) models.delete(url); throw error; });
-    models.set(url, request);
-    while (models.size > MODEL_CACHE_LIMIT) models.delete(models.keys().next().value!);
-    return request;
-}
 
 export const SectorModelFigure = forwardRef<SectorModelHandle, {
     kind: string; artBase: string; equipped?: PlayerModel; style?: SprintStyle;
@@ -69,7 +34,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
         const decodePriority: DecodePriority = self ? 0 : 1;
         const {revisions} = useSectorModelPins();
         const revision = equipped?.version ?? revisions[kind];
-        const folder = artBase.replace(/\/$/, "") + "/" + (equipped ? "players/" + equipped.assetId : kind) + "/";
+        const folder = sectorModelFolder(artBase, kind, equipped?.assetId);
         const element = useRef<HTMLSpanElement>(null);
         const latest = useRef<Position | null>(null);
         const notify = useRef<(() => void) | null>(null);

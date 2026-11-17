@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { LifeSceneView } from '../../../shared/sector-life';
 import { isPlayableWildSector } from '../../../shared/sector-geo';
-import { requestSectorLife } from './sector-life-api';
+import { requestSectorLife, takePrefetchedSectorLife } from './sector-life-api';
 import { isCoveredByCombat, subscribeCombatCover } from './combat-cover';
 import {acceptLifeScene} from './sector-life-cache';
 import {lifeStepRyo} from '../../../shared/sector-life-rewards';
@@ -23,7 +23,10 @@ export function useSectorLife(player: string, sector: number) {
             const request = ++revision;
             pending = new AbortController();
             try {
-                const result = await requestSectorLife(player, sector, pending.signal);
+                // The first read may already be in hand from the travel wait.
+                const early = request === 1 ? takePrefetchedSectorLife(player, sector) : undefined;
+                const warm = early && await early.catch(() => undefined);
+                const result = warm?.ok ? warm : await requestSectorLife(player, sector, pending.signal);
                 if (alive && request === revision && result.ok && result.view) { accept(result.view); setError(''); }
             } catch { /* Removal and visibility changes abort quietly. */ }
             if (alive && request === revision && !document.hidden && !isCoveredByCombat()) timer = window.setTimeout(load, 20_000);

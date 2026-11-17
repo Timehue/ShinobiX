@@ -85,6 +85,8 @@ export function saveWorldAvatar2d(value: boolean) {
     try { localStorage.setItem(AVATAR_KEY, value ? "2d" : "3d"); } catch { /* keep in memory */ }
     applyAvatar2d(value);
 }
+/** useWorldModelArtBase outside React: null until the flags answer, or when the player chose 2D. */
+export const worldModelArtBase = () => avatarMode2d ? null : modelArtBase;
 /** The model art base for world figures: null when the player chose 2D avatars. */
 export const useWorldModelArtBase = () => useSyncExternalStore(subscribe, () => avatarMode2d ? null : modelArtBase, () => null);
 export const usePlayerGaits = () => useSyncExternalStore(subscribe, () => playerGaits, () => false);

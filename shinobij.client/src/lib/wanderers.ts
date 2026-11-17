@@ -56,29 +56,36 @@ export function useSectorWanderers(
 ): Wanderer[] {
     const worldNight = useWorldNightIndex(); // re-rolls the cast at dusk and dawn
     return useMemo(
-        () => {
-            if (!isWanderersEnabled() || sector == null) return [];
-            const now = serverNow();
-            const bucket = currentWandererDayBucket();
-            // Hide natural road NPCs you've already used for a few hours, AND hide
-            // ones that have since wandered off to another sector so they don't
-            // reappear here when the cooldown lifts. Legacy Sage/emissaries render
-            // from their own arrays in WorldMap and stay exempt.
-            // Content the player can't act on yet (a gambler before the codex, a
-            // beast with no pet) stays ON the road like for everyone else; the verb is
-            // refused in-fiction (startWandererCardDuel / startWandererPetDuel).
-            const natives = wandererCastAt(sector, bucket, now)
-                .filter(w => !isWandererOnCooldown(cooldowns, w.id, now) && !hasWandererRelocated(moves, w.id));
-            // Plus any wanderers that have wandered INTO this sector from elsewhere and
-            // whose cooldown has now lifted — they're findable again, just somewhere new.
-            const visitors = wanderersVisitingSector(sector, bucket, moves, cooldowns, now);
-            return [...natives, ...visitors];
-        },
+        () => sectorWandererCast(sector, cooldowns, moves),
         // worldNight is read through serverNow(); listing it re-runs the roll
         // when night falls or ends.
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [sector, cooldowns, moves, worldNight],
     );
+}
+
+/** The road cast of `sector` right now: what useSectorWanderers shows, outside React. */
+export function sectorWandererCast(
+    sector: number | null | undefined,
+    cooldowns: Record<string, number> | null | undefined,
+    moves: Record<string, number> | null | undefined,
+): Wanderer[] {
+    if (!isWanderersEnabled() || sector == null) return [];
+    const now = serverNow();
+    const bucket = currentWandererDayBucket();
+    // Hide natural road NPCs you've already used for a few hours, AND hide
+    // ones that have since wandered off to another sector so they don't
+    // reappear here when the cooldown lifts. Legacy Sage/emissaries render
+    // from their own arrays in WorldMap and stay exempt.
+    // Content the player can't act on yet (a gambler before the codex, a
+    // beast with no pet) stays ON the road like for everyone else; the verb is
+    // refused in-fiction (startWandererCardDuel / startWandererPetDuel).
+    const natives = wandererCastAt(sector, bucket, now)
+        .filter(w => !isWandererOnCooldown(cooldowns, w.id, now) && !hasWandererRelocated(moves, w.id));
+    // Plus any wanderers that have wandered INTO this sector from elsewhere and
+    // whose cooldown has now lifted — they're findable again, just somewhere new.
+    const visitors = wanderersVisitingSector(sector, bucket, moves, cooldowns, now);
+    return [...natives, ...visitors];
 }
 import { isPlayableWildSector } from "../../../shared/sector-geo";
 import { serverNow } from "./server-clock";
