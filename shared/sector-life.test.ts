@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { PLAYABLE_WILD_SECTOR_IDS } from './sector-geo.js';
 import { SECTOR_ROAD_PAIRS, sectorExits } from './sector-links.js';
 import { isWalkableTile, walkPath } from './sector-walk-mask.js';
-import { advanceLifeEvent, lifeAnchors, lifeActorsAt, lifeActorPosition, lifeSceneView, LIFE_WORK_SITES, LIFE_WINDOW_MS, LIFE_ACTIVE_MS, lifeWindowAt, lifeEventView, parseLifeState, travelerRoute } from './sector-life.js';
+import { advanceLifeEvent, lifeAnchors, lifeActorsAt, lifeActorPosition, lifeSceneView, LIFE_WORK_SITES, LIFE_WINDOW_MS, LIFE_ACTIVE_MS, lifeWindowAt, lifeEventView, parseLifeState, travelerRoute, COURIER_EVERY_WINDOWS } from './sector-life.js';
 import { WORLD_HOUR_MS } from './world-clock.js';
 import { LIFE_EVENTS, LIFE_REGIONS, LIFE_STOP_REGIONS, LIFE_TRAVELERS, lifeRegionFor } from './sector-life-content.js';
 import { COURIER_REST_MS } from './sector-life-courier.js';
@@ -41,11 +41,24 @@ test('furniture dialogue belongs to painted workplaces and ordinary road checks 
     }
     assert.deepEqual(Object.keys(LIFE_STOP_REGIONS),Object.keys(LIFE_WORK_SITES));
 });
+test('the road courier comes up once in four windows; only the festival road and the courier camp keep it every round',()=>{
+    const couriersIn=(sector:number)=>Array.from({length:16},(_,round)=>{const at=now+round*LIFE_WINDOW_MS;return lifeEventView(sector,parseLifeState(null,at),at).kind;}).filter(kind=>kind==='courier').length;
+    for(const sector of PLAYABLE_WILD_SECTOR_IDS) {
+        if(LIFE_WORK_SITES[sector]||sector===15)continue;
+        assert.equal(couriersIn(sector),sector===52?16:4,`sector ${sector} couriers in 16 windows`);
+    }
+    // A staged work site keeps the errand its camp was built for.
+    assert.equal(couriersIn(31),16,'the Frostfang courier camp');
+    for(const sector of [2,15,42])assert.equal(couriersIn(sector),0,`work site ${sector} runs its own errand`);
+});
 test('courier events have a present requester, an actual exit walk, and a departure that survives refresh',()=>{
     for(const sector of PLAYABLE_WILD_SECTOR_IDS) {
         let time=now;
-        for(let i=0;i<3&&lifeEventView(sector,parseLifeState(null,time),time).kind!=='courier';i++)time+=LIFE_WINDOW_MS;
-        if(lifeEventView(sector,parseLifeState(null,time),time).kind!=='courier')continue;
+        for(let i=0;i<COURIER_EVERY_WINDOWS&&lifeEventView(sector,parseLifeState(null,time),time).kind!=='courier';i++)time+=LIFE_WINDOW_MS;
+        if(lifeEventView(sector,parseLifeState(null,time),time).kind!=='courier'){
+            // Only the work sites that run another errand never roll a courier.
+            assert.ok([2,15,42].includes(sector),`sector ${sector} never rolled its courier`);continue;
+        }
         const state=parseLifeState(null,time),before=lifeSceneView(sector,state,time,'clear');
         const requester=before.actors.find(a=>a.id===`courier:${sector}`);assert(requester);
         assert.equal(requester.activity,'Resting an injured ankle');

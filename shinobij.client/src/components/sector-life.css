@@ -2,6 +2,7 @@
 .pixel-map .sector-life-point{position:absolute;transform:translate(-50%,-50%);padding:0;border:0;background:none;color:#eee0b1;box-shadow:none;z-index:8;pointer-events:auto;cursor:pointer;min-width:24px;min-height:24px;font-size:18px;text-shadow:0 1px 3px #151d19}
 .sector-life-point:focus-visible{outline:2px solid #e9d8a3;outline-offset:3px;border-radius:50%}
 .ui-modal-backdrop:has(.sector-life-dialog){z-index:10000}
+.sector-life-guide{position:relative;display:inline-block;width:30px;height:24px;line-height:24px}.sector-life-guide-mark{position:absolute;left:3px;top:0;width:24px;text-align:center}.sector-life-guide-tip{position:absolute;right:-6px;top:0;font-size:15px;font-weight:700;opacity:.85}
 .sector-life-point.life-aftermath{color:#b5c9a0}.sector-life-point.life-unattended{opacity:.6}
 .sector-life-wildlife{z-index:3!important;pointer-events:none!important}
 .sector-fishing-tackle{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;visibility:hidden;overflow:visible;fill:none;stroke-linecap:round}.sector-fishing-ripple{stroke:#ced2b8;stroke-width:1.5;opacity:.5}

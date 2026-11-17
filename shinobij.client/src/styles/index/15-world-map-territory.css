@@ -31,10 +31,6 @@
     box-shadow: inset 0 0 0 2px rgba(2, 6, 23, 0.86), 0 0 0 2px rgba(56, 189, 248, 0.45) !important;
 }
 
-.map-instance .sector-image-map .sector-player-tile {
-    box-shadow: inset 0 0 0 2px rgba(230, 196, 119, 0.62), 0 0 14px rgba(230, 196, 119, 0.34) !important;
-}
-
 /* Painted road mouths carry the route. Keep their hit targets accessible
    without adding glowing squares or portal symbols to the landscape. */
 .map-instance .sector-image-map .sector-road-exit {
