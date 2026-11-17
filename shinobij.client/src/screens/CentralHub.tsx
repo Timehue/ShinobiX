@@ -99,6 +99,7 @@ import {
     NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_STATS,
     NAMED_GAUNTLET_OFFENSE, NAMED_ARMOR_SPECIALS, namedForgeUniformPercent,
 } from "../../../shared/named-forge-roll";
+import { AWAKENING_REROLL_COST, awakeningRerollOddsText } from "../../../shared/awakening-roll";
 import { rollAwakeningServer } from "../lib/awakening-api";
 import { purchaseBloodlineForge } from "../lib/bloodline-forge";
 import { bloodlineTagPercentChoices, jutsuCountForRank, pointBudgetForRank } from "../lib/jutsu-points";
@@ -147,6 +148,9 @@ const DUNGEON_BIOME_ICON: Record<string, GameIconName> = {
     shadow: "moon",
     central: "gate",
 };
+
+// The server's reroll prices (api/awakening/_roll.ts reads the same table).
+const { single: ONE_COST, both: BOTH_COST } = AWAKENING_REROLL_COST;
 
 const BLOODLINE_AWAKENING_TIERS = [
     { rank: "B Rank", rankMark: "B", className: "rank-b", materialKey: "boneCharms", materialName: "Bone Charms", currencyIcon: "bone", artwork: "/assets/awakening-bone-altar-v1.webp" },
@@ -518,9 +522,9 @@ export function CentralHub({
                 mode: isPaidSingle || isPaidBoth ? "reroll" : "awakening",
             });
             setAwakeningMsg(isPaidSingle
-                ? `Awakened: The stone swirls and reveals ${revealed ?? next[0]}! Your other element was preserved (-10 Fate Shards).`
+                ? `Awakened: The stone swirls and reveals ${revealed ?? next[0]}! Your other element was preserved (-${ONE_COST} Fate Shards).`
                 : isPaidBoth
-                    ? `Awakened: The stone surges and reveals: ${next.slice(0, 2).join(" / ")}! Both elements were rerolled (-15 Fate Shards).`
+                    ? `Awakened: The stone surges and reveals: ${next.slice(0, 2).join(" / ")}! Both elements were rerolled (-${BOTH_COST} Fate Shards).`
                     : `Awakened: The stone pulses${revealed ? ` with ${revealed} chakra` : ""}! Your awakened elements: ${next.join(" / ")}.`);
         } catch (error) {
             setAwakeningMsg(`Error: ${error instanceof Error ? error.message : "Elemental awakening failed."}`);
@@ -537,9 +541,10 @@ export function CentralHub({
     // A paid reroll spends Fate Shards and replaces an element at random, which can
     // leave element-bound gear and jutsu unusable, so it asks first. With two
     // elements the first tap opens a picker for which one the stone replaces.
+    // The confirm repeats the odds (shared/awakening-roll.ts) before the debit.
     async function awakeningPaidRoll(pick?: string) {
-        if (character.fateShards < 10) {
-            setAwakeningMsg("Error: Not enough Fate Shards — you need 10 to reroll your element.");
+        if (character.fateShards < ONE_COST) {
+            setAwakeningMsg(`Error: Not enough Fate Shards — you need ${ONE_COST} to reroll your element.`);
             return;
         }
         if (awakeningRequestRef.current || ritualBusy) return;
@@ -548,10 +553,11 @@ export function CentralHub({
         setRerollPickOpen(false);
         const primary = pick ?? owned[0];
         const other = owned.find(element => element !== primary);
+        const odds = awakeningRerollOddsText(owned, "single");
         if (!(await gameConfirm(
             primary
-                ? `Reroll your ${primary} element for 10 Fate Shards? The stone picks a different random element to replace it${other ? `, and your ${other} element stays` : ""}. You cannot choose the result. Gear and jutsu that need ${primary} may stop working.`
-                : "Roll an element for 10 Fate Shards? The stone picks one at random. You cannot choose the result.",
+                ? `Reroll your ${primary} element for ${ONE_COST} Fate Shards? The stone picks a different random element to replace it${other ? `, and your ${other} element stays` : ""}. ${odds} You cannot choose the result. Gear and jutsu that need ${primary} may stop working.`
+                : `Roll an element for ${ONE_COST} Fate Shards? The stone picks one at random. ${odds} You cannot choose the result.`,
             { title: "Reroll element", confirmLabel: "Reroll", danger: true },
         ))) return;
         void rollAwakening(AWAKENING_PAID_SINGLE_ID, primary);
@@ -563,13 +569,13 @@ export function CentralHub({
             setAwakeningMsg("Error: Awaken your second element before rerolling both elements.");
             return;
         }
-        if (character.fateShards < 15) {
-            setAwakeningMsg("Error: Not enough Fate Shards — you need 15 to reroll both elements.");
+        if (character.fateShards < BOTH_COST) {
+            setAwakeningMsg(`Error: Not enough Fate Shards — you need ${BOTH_COST} to reroll both elements.`);
             return;
         }
         if (awakeningRequestRef.current || ritualBusy) return;
         if (!(await gameConfirm(
-            `Reroll your ${owned[0]} and ${owned[1]} elements for 15 Fate Shards? The stone picks a new pair of elements; you never get the same pair back. You cannot choose the result. Gear and jutsu that need ${owned[0]} or ${owned[1]} may stop working.`,
+            `Reroll your ${owned[0]} and ${owned[1]} elements for ${BOTH_COST} Fate Shards? The stone picks a new pair of elements; you never get the same pair back. ${awakeningRerollOddsText(owned, "both")} You cannot choose the result. Gear and jutsu that need ${owned[0]} or ${owned[1]} may stop working.`,
             { title: "Reroll both elements", confirmLabel: "Reroll both", danger: true },
         ))) return;
         void rollAwakening(AWAKENING_PAID_BOTH_ID);
@@ -1272,27 +1278,27 @@ export function CentralHub({
                                         <button
                                             className="aw-paid-btn"
                                             onClick={() => void awakeningPaidRoll()}
-                                            disabled={character.fateShards < 10 || ritualBusy}
+                                            disabled={character.fateShards < ONE_COST || ritualBusy}
                                             aria-expanded={awakenedElements[1] ? rerollPickOpen : undefined}
-                                            title={character.fateShards < 10 ? "Not enough Fate Shards" : "Reroll one element"}
+                                            title={character.fateShards < ONE_COST ? "Not enough Fate Shards" : "Reroll one element"}
                                         >
                                             <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
                                             <span className="aw-action-copy">
                                                 <strong>{awakeningBusy ? "Attuning…" : "Reroll element"}</strong>
-                                                <small>1 element · 10 Fate Shards · {character.fateShards} available</small>
+                                                <small>1 element · {ONE_COST} Fate Shards · {character.fateShards} available</small>
                                             </span>
                                             <span className="aw-action-arrow" aria-hidden="true">→</span>
                                         </button>
                                         <button
                                             className="aw-paid-btn aw-paid-btn--both"
                                             onClick={() => { setRerollPickOpen(false); void awakeningPaidBothRoll(); }}
-                                            disabled={awakenedElements.length < 2 || character.fateShards < 15 || ritualBusy}
-                                            title={awakenedElements.length < 2 ? "Awaken your second element first" : character.fateShards < 15 ? "Not enough Fate Shards" : "Reroll both elements"}
+                                            disabled={awakenedElements.length < 2 || character.fateShards < BOTH_COST || ritualBusy}
+                                            title={awakenedElements.length < 2 ? "Awaken your second element first" : character.fateShards < BOTH_COST ? "Not enough Fate Shards" : "Reroll both elements"}
                                         >
                                             <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
                                             <span className="aw-action-copy">
                                                 <strong>{awakeningBusy ? "Attuning…" : "Reroll elements"}</strong>
-                                                <small>Both elements · 15 Fate Shards · {character.fateShards} available</small>
+                                                <small>Both elements · {BOTH_COST} Fate Shards · {character.fateShards} available</small>
                                             </span>
                                             <span className="aw-action-arrow" aria-hidden="true">→</span>
                                         </button>
@@ -1310,10 +1316,14 @@ export function CentralHub({
                                 </div>
                             )}
                             {/* Why "Reroll Elements" is grey, in words a phone can show (no tooltip there). */}
-                            {!hasFreeRoll && (awakenedElements.length < 2 || character.fateShards < 15) && (
+                            {!hasFreeRoll && (awakenedElements.length < 2 || character.fateShards < BOTH_COST) && (
                                 <p className="aw-hint">{awakenedElements.length < 2
                                     ? "Awaken your second element before you reroll both."
-                                    : `Rerolling both elements costs 15 Fate Shards. You have ${character.fateShards}.`}</p>
+                                    : `Rerolling both elements costs ${BOTH_COST} Fate Shards. You have ${character.fateShards}.`}</p>
+                            )}
+                            {/* Paid-roll odds, shown before any purchase (shared/awakening-roll.ts is the roll's own table). */}
+                            {!hasFreeRoll && (
+                                <p className="aw-hint">{awakeningRerollOddsText(awakenedElements, "single")}{awakenedElements[1] && ` ${awakeningRerollOddsText(awakenedElements, "both")}`}</p>
                             )}
                         </div>
 
@@ -2067,7 +2077,7 @@ export function CentralHub({
                                                         ))}
                                                     </div>
                                                     {/* Poison has its own weapon ceiling, so its strength is fixed rather than rolled. */}
-                                                    <div className="no-row"><span>Rolled percentages set effect strength; damage and stat bonuses have diminishing returns. Poison is always {WEAPON_POISON_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: as the only tag a swing heals or shields {WEAPON_FLAT_TAG_SOLO} or drains {WEAPON_DRAIN_TICK_SOLO} HP and chakra per turn; with 2 tags, {WEAPON_FLAT_TAG_SPLIT} and {WEAPON_DRAIN_TICK_SPLIT}. Drain cannot be reduced.</span></div>
+                                                    <div className="no-row"><span>Each whole percent in a tag&apos;s range is equally likely. Rolled percentages set effect strength; damage and stat bonuses have diminishing returns. Poison is always {WEAPON_POISON_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: as the only tag a swing heals or shields {WEAPON_FLAT_TAG_SOLO} or drains {WEAPON_DRAIN_TICK_SOLO} HP and chakra per turn; with 2 tags, {WEAPON_FLAT_TAG_SPLIT} and {WEAPON_DRAIN_TICK_SPLIT}. Drain cannot be reduced.</span></div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>
