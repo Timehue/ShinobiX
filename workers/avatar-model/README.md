@@ -61,9 +61,12 @@ folder. Their hashes match `sprite-worker-painted-review.json`.
 `painted-sleeves-torso.zip` is `painted-sleeves.zip` with one change in
 `register_painted_kit.py`: a painted torso whose width-to-height ratio is outside
 0.72–1.45 of its guide in any view is rejected at paint time with a
-`PaintingGeometryError`, so the painter's one correction pass repaints it. Before
-this, the sheet was accepted and `render_fitted_roster.py` refused it on every
-render retry ("Invalid painted body proportions"). Its `intake.json` carries the
+`PaintingGeometryError`, so the painter's one correction pass repaints it. If the
+corrected painting is still outside the range by no more than 20%, its torso is
+drawn at the nearest bound instead of failing the job; further out, the job fails
+and the slot is refunded. Before this, the sheet was accepted and
+`render_fitted_roster.py` refused it on every render retry ("Invalid painted body
+proportions"). Its `intake.json` carries the
 new file hash and `paintingRevision`; every other entry is byte-identical. The
 packer's source tree must carry the same edit, or a later repack drops it. For the earlier
 reader release the matching files are `portable-fit-worker/profile-intake.zip`
