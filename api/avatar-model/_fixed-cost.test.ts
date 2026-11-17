@@ -48,18 +48,23 @@ test('several jobs settling against one budget row write it once with their comb
         /Inconsistent provider budget/);
 });
 
-test('a Modal attempt holds at most $1.25, whatever the policy says; a lower value still wins', async () => {
+test('an attempt holds at most $1.25 Modal and $0.75 OpenAI, whatever the policy says; a lower value still wins', async () => {
     const { modelCreationFixture } = await import('./_creation-config.fixture.js');
-    const { modelCreationPolicy, MODAL_PER_ATTEMPT_CAP_MICROS } = await import('./_admission.js');
+    const { modelCreationPolicy, MODAL_PER_ATTEMPT_CAP_MICROS, OPENAI_PER_ATTEMPT_CAP_MICROS } = await import('./_admission.js');
     Object.assign(process.env, modelCreationFixture);
+    // The live policy on 2026-11-17: $6 and $1 per attempt, with caps that fit one job each.
     const live = JSON.parse(modelCreationFixture.AVATAR_MODEL_RESERVATIONS_JSON);
-    for (const p of live.providers) if (p.provider === 'modal') Object.assign(p, { perAttemptMicros: 6_000_000, limitMicros: 30_000_000 });
+    for (const p of live.providers) Object.assign(p, p.provider === 'modal'
+        ? { perAttemptMicros: 6_000_000, limitMicros: 18_000_000 } : { perAttemptMicros: 1_000_000, limitMicros: 3_000_000 });
     process.env.AVATAR_MODEL_RESERVATIONS_JSON = JSON.stringify(live);
     try {
         const policy = modelCreationPolicy();
         assert.equal(policy.enabled, true);
         assert.equal(policy.providers.find(p => p.provider === 'modal')?.perAttemptMicros, MODAL_PER_ATTEMPT_CAP_MICROS);
-        assert.equal(policy.providers.find(p => p.provider === 'openai')?.perAttemptMicros, 2);
+        assert.equal(policy.providers.find(p => p.provider === 'openai')?.perAttemptMicros, OPENAI_PER_ATTEMPT_CAP_MICROS);
+        // With one fixed-cost job already spent ($1 / $0.25), a new job's hold still fits under one-job caps.
+        assert.ok(1_000_000 + MODAL_PER_ATTEMPT_CAP_MICROS * 3 <= 18_000_000);
+        assert.ok(250_000 + OPENAI_PER_ATTEMPT_CAP_MICROS * 3 <= 3_000_000);
         process.env.AVATAR_MODEL_RESERVATIONS_JSON = modelCreationFixture.AVATAR_MODEL_RESERVATIONS_JSON;
         assert.equal(modelCreationPolicy().providers.find(p => p.provider === 'modal')?.perAttemptMicros, 100);
     } finally {
