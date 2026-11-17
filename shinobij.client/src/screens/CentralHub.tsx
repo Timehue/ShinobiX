@@ -556,8 +556,8 @@ export function CentralHub({
         const odds = awakeningRerollOddsText(owned, "single");
         if (!(await gameConfirm(
             primary
-                ? `Reroll your ${primary} element for ${ONE_COST} Fate Shards?${other ? ` Your ${other} element stays.` : ""} ${odds} You cannot choose the result. Gear and jutsu that need ${primary} may stop working.`
-                : `Roll an element for ${ONE_COST} Fate Shards? ${odds} You cannot choose the result.`,
+                ? `Reroll your ${primary} element for ${ONE_COST} Fate Shards? The stone picks a different random element to replace it${other ? `, and your ${other} element stays` : ""}. ${odds} You cannot choose the result. Gear and jutsu that need ${primary} may stop working.`
+                : `Roll an element for ${ONE_COST} Fate Shards? The stone picks one at random. ${odds} You cannot choose the result.`,
             { title: "Reroll element", confirmLabel: "Reroll", danger: true },
         ))) return;
         void rollAwakening(AWAKENING_PAID_SINGLE_ID, primary);
@@ -575,7 +575,7 @@ export function CentralHub({
         }
         if (awakeningRequestRef.current || ritualBusy) return;
         if (!(await gameConfirm(
-            `Reroll your ${owned[0]} and ${owned[1]} elements for ${BOTH_COST} Fate Shards? ${awakeningRerollOddsText(owned, "both")} You cannot choose the result. Gear and jutsu that need ${owned[0]} or ${owned[1]} may stop working.`,
+            `Reroll your ${owned[0]} and ${owned[1]} elements for ${BOTH_COST} Fate Shards? The stone picks a new pair of elements; you never get the same pair back. ${awakeningRerollOddsText(owned, "both")} You cannot choose the result. Gear and jutsu that need ${owned[0]} or ${owned[1]} may stop working.`,
             { title: "Reroll both elements", confirmLabel: "Reroll both", danger: true },
         ))) return;
         void rollAwakening(AWAKENING_PAID_BOTH_ID);
