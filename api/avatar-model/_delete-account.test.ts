@@ -59,7 +59,7 @@ test('full account deletion fences jobs, revokes assets, queues erasure and keep
     assert.deepEqual(await admitModelJob(f.owner,f.token,f.token,f.policy),{error:'read-expired'});
 });
 
-test('account deletion during submission retains a late provider call for reconciliation and never publishes it',async()=>{
+test('account deletion during submission settles the fixed cost, keeps a late provider call and never publishes it',async()=>{
     const f=await fixture('modellateaccountdelete');
     const {advanceSpriteJob,publishSpriteJob}=await import('./_dispatch.js');
     const {detachModelAccount}=await import('./_delete-account.js');
@@ -67,9 +67,12 @@ test('account deletion during submission retains a late provider call for reconc
         await detachModelAccount(f.owner);
         return {status:'pending',callId:'fc-afterdeletion'};
     },async()=>Buffer.from(JSON.stringify({fit:{sourceSha256:f.source}})));
-    const ended=await f.kv.get<{state:string;providerCalls:Record<string,string>;reserved:unknown[]}>(f.key);
+    const ended=await f.kv.get<{state:string;providerCalls:Record<string,string>;reserved:unknown[];
+        settledCosts:Record<string,{basis:string}>}>(f.key);
     assert.equal(ended?.state,'cancelled');assert.deepEqual(ended.providerCalls,{'A/1':'fc-afterdeletion'});
-    assert.equal(ended.reserved.length,2,'Dispatched costs remain reserved until the actual bill is known');
+    assert.deepEqual(ended.reserved,[],'A dispatched job settles its fixed cost instead of holding the budget');
+    assert.deepEqual(Object.keys(ended.settledCosts).sort(),['modal','openai']);
+    assert.ok(Object.values(ended.settledCosts).every(receipt=>receipt.basis==='fixed'));
     await advanceSpriteJob(f.jobId,f.policy,async()=>{throw Error('Deleted account resumed rendering');});
     await publishSpriteJob(f.jobId,async()=>{throw Error('Deleted account published a model');});
     const assetId=String(f.job.assetId),cleanupKey='avatar-model:cleanup:'+assetId;

@@ -3,11 +3,12 @@ import { kv, type KvCasOp } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { isDeepStrictEqual } from 'node:util';
 import { modelOwnerProof, validModelOwnerId } from './_owner.js';
+import { fixedSettlementOps } from './_fixed-cost.js';
 
 type Reservation = { provider: string; cycle: string; micros: number };
 type Job = {
     slug: string; monthKey: string; state: string; attempt: number; sourceSha256: string;
-    reserved: Reservation[]; errorCode?: string; publishingAt?:number;
+    reserved: Reservation[]; errorCode?: string; publishingAt?:number; settledCosts?: Record<string, unknown>;
     accountId?:string;assetId?:string;masterSha256?:string;delivery?:{version:string};privateRefKey?:string;
 };
 type Budget = { spentMicros: number; reservedMicros: number };
@@ -59,10 +60,17 @@ async function settle(id: string, owner: string, reason: string, expectedJob?:un
         const queueKey=prefix+'publish', queue=await kv.get<string[]>(queueKey);
         if (queue?.includes(id)) ops.push({op:'cas',key:queueKey,expected:queue,value:queue.filter(item=>item!==id)});
     }
-    // Only an unclaimed outbox entry proves that no provider could have incurred cost.
-    // For a dispatched attempt the ledger keeps its reservation until provider reconciliation.
+    // Only an unclaimed outbox entry proves that no provider could have incurred cost, so it
+    // releases its whole reservation. A dispatched attempt settles its fixed cost here instead
+    // (_fixed-cost.ts) so that a failed or cancelled job no longer holds the budget.
     const unclaimed = job.attempt === 0 && job.state === 'queued' && dispatch?.includes(id);
-    if (unclaimed) {
+    let settled: Awaited<ReturnType<typeof fixedSettlementOps>> | undefined;
+    if (!unclaimed) {
+        // Ending the job must never wait on its bill: a budget that cannot be settled keeps the
+        // reservation on the job, as before, for scripts/reconcile-avatar-cost.ts.
+        try { settled = await fixedSettlementOps(job); ops.push(...settled.ops); }
+        catch (error) { console.warn('[avatar-model] Fixed cost not settled for job', id, error instanceof Error ? error.message : ''); }
+    } else {
         for (const reservation of job.reserved) {
             const budgetKey = prefix + 'budget:' + reservation.provider + ':' + reservation.cycle;
             const budget = await kv.get<Budget>(budgetKey);
@@ -95,7 +103,8 @@ async function settle(id: string, owner: string, reason: string, expectedJob?:un
         if(!queue?.includes(job.assetId)) ops.push({op:'cas',key:queueKey,expected:queue,value:[...(queue??[]),job.assetId]});
     }
     ops.push({op:'cas', key, expected:job, value:{...job, state, endedAt, errorCode:code,
-        reserved:unclaimed ? [] : job.reserved, ...(refund ? {refund:{month:job.monthKey, at:endedAt}} : {})}});
+        reserved:unclaimed || settled ? [] : job.reserved, ...(settled ? {settledCosts:settled.settledCosts} : {}),
+        ...(refund ? {refund:{month:job.monthKey, at:endedAt}} : {})}});
     if (await kv.compareSetMany?.(ops)) return state;
     const latest = await kv.get<Job>(key);
     return latest?.slug === owner && latest.state === state && latest.errorCode === code ? state : 'conflict';

@@ -17,7 +17,12 @@ export function playerPortraitChecksEnabled() {
         [process.env.AVATAR_MODEL_READ_DAILY_LIMIT, process.env.AVATAR_MODEL_READ_PLAYER_DAILY_LIMIT]
             .every(limit => Number.isSafeInteger(Number(limit)) && Number(limit) > 0);
 }
-export type ProviderReservation = { provider: 'modal' | 'openai'; cycle: string; limitMicros: number; perAttemptMicros: number };
+/** The most one Modal attempt holds ($1.25). The first live job cost $0.76 in total; a lower configured value still wins. */
+export const MODAL_PER_ATTEMPT_CAP_MICROS = 1_250_000;
+/** The most one OpenAI attempt holds ($0.75): recognition costs under a cent and a costume paint is at most two image edits. */
+export const OPENAI_PER_ATTEMPT_CAP_MICROS = 750_000;
+const PER_ATTEMPT_CAPS: Record<string, number> = { modal: MODAL_PER_ATTEMPT_CAP_MICROS, openai: OPENAI_PER_ATTEMPT_CAP_MICROS };
+export type ProviderReservation ={ provider: 'modal' | 'openai'; cycle: string; limitMicros: number; perAttemptMicros: number };
 export type AdmissionPolicy = { enabled: boolean; dailyLimit: number; providers: ProviderReservation[]; recognition?:RecognitionPolicy };
 
 /** Static readiness for new requests. Provider access is verified separately at deployment. */
@@ -47,6 +52,12 @@ export function modelCreationPolicy(): AdmissionPolicy {
         new URL(artBase);
         const config = JSON.parse(env.AVATAR_MODEL_RESERVATIONS_JSON ?? '{}') as Partial<AdmissionPolicy> | null;
         const policy = { ...config, enabled: true } as AdmissionPolicy;
+        // A job holds three attempts while it runs. The live policy held $6 per Modal attempt
+        // ($18 a job) and $1 per OpenAI attempt when a whole job costs under $1, so one running
+        // job filled the budget.
+        if (Array.isArray(policy.providers)) policy.providers = policy.providers.map(p =>
+            p && Object.hasOwn(PER_ATTEMPT_CAPS, p.provider) && Number.isSafeInteger(p.perAttemptMicros)
+                ? { ...p, perAttemptMicros: Math.min(p.perAttemptMicros, PER_ATTEMPT_CAPS[p.provider]!) } : p);
         if (eligiblePolicy(policy) && policy.providers.length === 2 &&
             policy.providers.every(provider => provider.perAttemptMicros > 0 && provider.limitMicros >= provider.perAttemptMicros * 3))
             return policy;

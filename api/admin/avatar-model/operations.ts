@@ -16,7 +16,8 @@ type Job = {
     pipelineVersion?: string;
     kitVersion?: string;
     reserved?: unknown[];
-    settledCosts?: { modal?: { spentMicros: number; billedMilliseconds?: number }; openai?: { spentMicros: number } };
+    settledCosts?: { modal?: { spentMicros: number; billedMilliseconds?: number; basis?: 'fixed' };
+        openai?: { spentMicros: number; basis?: 'fixed' } };
 };
 
 const prefix = 'avatar-model:';
@@ -90,8 +91,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
                     totals.billing.timedJobs++;
                     totals.billing.workerMilliseconds = (totals.billing.workerMilliseconds ?? 0) + modal.billedMilliseconds;
                 }
+                // The average is of real statements only: a fixed settlement (basis 'fixed') is an estimate.
                 if (job.state === 'ready' && Array.isArray(job.reserved) && job.reserved.length === 0 &&
-                    amount(modal?.spentMicros) && amount(openai?.spentMicros)) {
+                    amount(modal?.spentMicros) && amount(openai?.spentMicros) &&
+                    modal.basis !== 'fixed' && openai.basis !== 'fixed') {
                     totals.billing.settledReady++;
                     readyMicros += modal.spentMicros + openai.spentMicros;
                 }

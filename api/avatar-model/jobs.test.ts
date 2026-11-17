@@ -110,7 +110,7 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
     assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:300,spentMicros:0});
     const winner = rival[0].status === 202 ? other : third;
     let failedId = rival.find(x=>x.status===202)!.jobId!;
-    // A failed, already dispatched attempt retains unknown costs until reconciled.
+    // A failed, already dispatched attempt settles its fixed cost (settleMicros) and frees the rest of its hold.
     const claimed = await kv.get<Record<string,unknown>>('avatar-model:job:'+failedId);
     await kv.set('avatar-model:job:'+failedId,{...claimed,attempt:1,state:'render'});
     for (let i=1;i<=3;i++) {
@@ -119,7 +119,13 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
         assert.equal(await endModelJob(failedId,winner,'unrecognized provider exception'),'failed');
         assert.deepEqual(await kv.get('avatar-model:failures:'+winner+':'+hash),{count:i});
         assert.equal(await kv.get('avatar-model:slot:'+winner+':'+day.slice(0,7)),null);
-        assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:300,spentMicros:0});
+        // Only the first job was dispatched; the retries end unclaimed and release their whole hold free.
+        assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:0,spentMicros:10});
+        assert.deepEqual(await kv.get('avatar-model:budget:openai:another-cycle'),{reservedMicros:0,spentMicros:1});
+        const failed=await kv.get<{reserved:unknown[];settledCosts?:Record<string,{spentMicros:number;basis:string}>}>('avatar-model:job:'+failedId);
+        assert.deepEqual(failed?.reserved,[]);
+        if (i===1) { assert.equal(failed.settledCosts?.modal.spentMicros,10); assert.equal(failed.settledCosts?.modal.basis,'fixed'); }
+        else assert.equal(failed.settledCosts,undefined);
         const config=JSON.parse(process.env.AVATAR_MODEL_RESERVATIONS_JSON!);
         config.dailyLimit=10;
         process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(config);

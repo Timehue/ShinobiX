@@ -14,7 +14,8 @@ type Job = {
     assetId: string; state: string; reserved: Reservation[]; providerCalls?: Record<string,string>;
     completed?: Record<string,string>; finishedCall?: string; callId?: string;
     recognitionReceipt?:{responseId:string};
-    settledCosts?: Partial<Record<Provider, { digest: string; releasedMicros: number; spentMicros: number; billedMilliseconds?:number }>>;
+    settledCosts?: Partial<Record<Provider, { digest: string; releasedMicros: number; spentMicros: number; billedMilliseconds?:number;
+        basis?: 'fixed'; cycle?: string }>>;
 };
 type Budget = { reservedMicros: number; spentMicros: number };
 const prefix = 'avatar-model:';
@@ -68,15 +69,22 @@ export async function reconcileModelCost(statement: Statement, apply = false) {
             !charges.some(line=>line.responseId===job.recognitionReceipt!.responseId))
             throw new Error('Statement omits the recorded recognition response');
         const previous = job.settledCosts?.[provider];
-        if (previous) {
+        // A job settles a fixed cost when it ends (_fixed-cost.ts). A real statement replaces that
+        // estimate once: the fixed charge leaves its cycle and the billed charges take its place.
+        const estimate = previous?.basis === 'fixed' ? previous : undefined;
+        if (previous && !estimate) {
             if (previous.digest !== digest) throw new Error('Provider already settled with different charges');
             return { status: 'already-settled', ...previous };
         }
+        if (estimate && (typeof estimate.cycle !== 'string' || !cyclePattern.test(estimate.cycle) ||
+            !amountValid(estimate.spentMicros) || !amountValid(estimate.releasedMicros)))
+            throw new Error('Invalid fixed settlement');
         const reservations = job.reserved.filter(item => item.provider === provider);
-        const [reservation] = reservations;
-        if (reservations.length !== 1 || !cyclePattern.test(reservation.cycle) || !amountValid(reservation.micros))
+        const [reservation] = estimate ? [{ provider, cycle: estimate.cycle!, micros: 0 }] : reservations;
+        if ((!estimate && reservations.length !== 1) || (estimate && reservations.length) ||
+            !cyclePattern.test(reservation.cycle) || !amountValid(reservation.micros))
             throw new Error('Missing or invalid provider reservation');
-        const receipt = { digest, releasedMicros: reservation.micros, spentMicros,
+        const receipt = { digest, releasedMicros: estimate ? estimate.releasedMicros : reservation.micros, spentMicros,
             ...(billedMilliseconds!==undefined ? {billedMilliseconds} : {}) };
         const ops: KvCasOp[] = [{op:'cas', key, expected:job, value:{...job,
             reserved:job.reserved.filter(item => item.provider !== provider),
@@ -85,9 +93,10 @@ export async function reconcileModelCost(statement: Statement, apply = false) {
             const budgetKey = prefix + 'budget:' + provider + ':' + cycle;
             const previousBudget = await kv.get<Budget>(budgetKey);
             const release = cycle === reservation.cycle ? reservation.micros : 0;
+            const withdrawn = estimate && cycle === estimate.cycle ? estimate.spentMicros : 0;
             if (cycle === reservation.cycle && !previousBudget) throw new Error('Reserved budget missing');
             const budget = previousBudget ?? { spentMicros:0, reservedMicros:0 };
-            const updated = { ...budget, spentMicros:budget.spentMicros + (billed.get(cycle) ?? 0),
+            const updated = { ...budget, spentMicros:budget.spentMicros - withdrawn + (billed.get(cycle) ?? 0),
                 reservedMicros:budget.reservedMicros - release };
             if (![budget.spentMicros,budget.reservedMicros,updated.spentMicros,updated.reservedMicros].every(amountValid))
                 throw new Error('Inconsistent provider budget');

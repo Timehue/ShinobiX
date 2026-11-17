@@ -22,6 +22,9 @@ test('world model activity is full-admin only and exposes aggregate queue, retry
             settledCosts: { modal: { spentMicros: 13000, billedMilliseconds: 24000 }, openai: { spentMicros: 2000 } } },
         'ready-zero': { ...sample, path: 'A', state: 'ready', attempt: 1, reserved: [],
             settledCosts: { modal: { spentMicros: 0, billedMilliseconds: 0 }, openai: { spentMicros: 0 } } },
+        // A fixed settlement is an estimate, not a bill: it stays out of the average cost.
+        'ready-fixed': { ...sample, path: 'A', state: 'ready', attempt: 1, reserved: [],
+            settledCosts: { modal: { spentMicros: 1000000, basis: 'fixed' }, openai: { spentMicros: 250000, basis: 'fixed' } } },
         'ready-incomplete': { ...sample, path: 'B', state: 'ready', reserved: [{ provider: 'openai' }],
             settledCosts: { modal: { spentMicros: 12000 } } },
         'known-failure': { ...sample, path: 'B', state: 'failed', attempt: 2, errorCode: 'worker-crash' },
@@ -55,7 +58,7 @@ test('world model activity is full-admin only and exposes aggregate queue, retry
     const data = result.json as ModelOperations;
     assert.equal(data.windowDays, 30);
     assert.deepEqual(data.paths, {
-        A: { admitted: 3, ready: 2, failed: 0, cancelled: 0 },
+        A: { admitted: 4, ready: 3, failed: 0, cancelled: 0 },
         B: { admitted: 2, ready: 1, failed: 1, cancelled: 0 },
         unknown: { admitted: 1, ready: 0, failed: 1, cancelled: 0 },
     });
@@ -66,7 +69,7 @@ test('world model activity is full-admin only and exposes aggregate queue, retry
     assert.deepEqual(data.retries, { 'expired-style': 1, 'worker-failure': 1, unknown: 1 });
     assert.deepEqual(data.failures, { 'worker-crash': 1, unknown: 1 });
     assert.deepEqual(data.versions, [
-        { pipeline: 'pipeline-v4', kit: 'kit-v3', count: 5 },
+        { pipeline: 'pipeline-v4', kit: 'kit-v3', count: 6 },
         { pipeline: 'Unknown', kit: 'kit-v3', count: 1 },
     ]);
     const serialized = JSON.stringify(data);
