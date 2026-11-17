@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { clientIp } from '../_client-ip.js';
 import { kv } from '../_storage.js';
@@ -13,10 +12,13 @@ import {
     isTebexSourceIp,
     isValidationWebhook,
     parseTebexWebhook,
+    reversalForPayment,
     shardGrantsForPayment,
     subscriptionOutcome,
+    tebexTransactionKey,
     verifyTebexSignature,
 } from './_webhook-core.js';
+import { applyTebexReversal } from './_reversal.js';
 
 /*
  * POST /api/tebex/webhook — Tebex purchase notifications.
@@ -43,25 +45,23 @@ import {
 
 const TEBEX_WEBHOOK_SECRET = (): string => String(process.env.TEBEX_WEBHOOK_SECRET ?? '').trim();
 
-/**
- * The durable, uncapped receipt for one Tebex transaction. A transaction id
- * that is not a plain token is hashed so it can never shape the key.
- */
-export function tebexTransactionKey(transactionId: string): string {
-    const id = /^[A-Za-z0-9._-]{1,128}$/.test(transactionId)
-        ? transactionId
-        : createHash('sha256').update(transactionId, 'utf8').digest('hex');
-    return `tebex:txn:${id}`;
-}
+// The durable, uncapped receipt key for one Tebex transaction. It lives in
+// _webhook-core.ts so the reversal path (./_reversal.ts) reads the same row.
+export { tebexTransactionKey };
 
 /**
  * Write the durable receipt (NX: the first record wins). Never throws: the
  * grant it follows has already committed, and the in-save receipt still
  * covers a redelivery until the next attempt backfills this row.
  */
-async function recordTebexTransaction(key: string, playerName: string, shards: number): Promise<void> {
+async function recordTebexTransaction(key: string, playerName: string, shards: number, character: Record<string, unknown>): Promise<void> {
+    // `bornAt` binds the receipt to the account it paid, not just its name: a
+    // name outlives its account, and a later refund must never debit whoever
+    // registered the name next (api/tebex/_reversal.ts checks it).
+    const createdAt = Number(character.createdAt);
+    const bornAt = character.createdAt !== undefined && character.createdAt !== null && Number.isFinite(createdAt) ? createdAt : null;
     try {
-        await kv.set(key, { playerName, shards, at: Date.now() }, { nx: true });
+        await kv.set(key, { playerName, shards, bornAt, at: Date.now() }, { nx: true });
     } catch (error) {
         console.error('[tebex] durable transaction receipt write failed', key, (error as Error)?.message);
     }
@@ -131,12 +131,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ id: webhook.id });
     }
 
-    // 4. Reversals are recorded for a human, never auto-clawed back: the shards
-    //    may already be spent, and driving a balance negative to reclaim them
-    //    breaks more than it fixes.
+    // 4. Refunds and lost chargebacks take back what the payment bought: the
+    //    Shards it credited (never below zero; anything already spent becomes a
+    //    recorded debt for the owner) and the Supporter time it paid for. An
+    //    opened dispute is recorded only. Once per transaction; see _reversal.ts.
     if (isReversalWebhook(webhook)) {
-        console.warn('[tebex] reversal', webhook.type, JSON.stringify(webhook.subject.transaction_id ?? ''));
-        return res.status(200).json({ ok: true, action: 'logged' });
+        const decision = reversalForPayment(webhook, tebexSubscriptionPackageId());
+        if (decision.action === 'ignore') {
+            console.warn('[tebex] reversal ignored', webhook.type, decision.reason);
+            return res.status(200).json({ ok: true, action: 'ignored', reason: decision.reason });
+        }
+        try {
+            const out = await applyTebexReversal(decision);
+            return res.status(out.status).json(out.body);
+        } catch (error) {
+            // Storage or the save lock failed. Nothing is recorded as done, so
+            // Tebex's retry runs the whole reversal again.
+            console.error('[tebex] reversal failed', webhook.type, JSON.stringify(decision.transactionId), (error as Error)?.message);
+            return res.status(500).json({ error: 'Reversal failed; will retry.' });
+        }
     }
 
     // 5. Shinobi Supporter. Recurring billing writes the perk flag rather than
@@ -246,7 +259,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // A redelivered webhook. Idempotent by construction: the in-save
                 // receipt is written in the same committed save as the shards,
                 // and the durable row only ever follows a committed grant.
-                if (!durable) await recordTebexTransaction(txnKey, outcome.playerName, 0);
+                // The backfill records the amount the in-save receipt stands
+                // for (the same payload prices to the same total), so a later
+                // refund of this transaction knows what to take back.
+                if (!durable) await recordTebexTransaction(txnKey, outcome.playerName, outcome.totalShards, character as unknown as Record<string, unknown>);
                 return { ok: true as const, character, write: false, value: { granted: false, shards: 0 } };
             }
             const balance = Math.max(0, Math.floor(Number((character as unknown as Record<string, unknown>).fateShards ?? 0)) || 0);
@@ -259,7 +275,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ok: true as const,
                 character: next,
                 value: { granted: true, shards: outcome.totalShards },
-                afterCommit: () => recordTebexTransaction(txnKey, outcome.playerName, outcome.totalShards),
+                afterCommit: () => recordTebexTransaction(txnKey, outcome.playerName, outcome.totalShards, next as unknown as Record<string, unknown>),
             };
         },
     );

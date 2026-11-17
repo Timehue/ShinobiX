@@ -10,6 +10,7 @@ import {
     parseTebexWebhook,
     isValidationWebhook,
     isReversalWebhook,
+    reversalForPayment,
     shardGrantsForPayment,
     isSubscriptionWebhook,
     subscriptionOutcome,
@@ -197,10 +198,47 @@ describe('shard grant decision', () => {
         assert.equal(outcome.reason, 'missing-transaction-id');
     });
 
-    it('flags reversals for an operator without auto-revoking', () => {
-        assert.equal(isReversalWebhook({ ...payment(), type: 'payment.refunded' }), true);
-        assert.equal(isReversalWebhook({ ...payment(), type: 'payment.dispute.lost' }), true);
+    it('routes refunds and every dispute event to the reversal path', () => {
+        for (const type of ['payment.refunded', 'payment.dispute.lost', 'payment.dispute.opened', 'payment.dispute.won']) {
+            assert.equal(isReversalWebhook({ ...payment(), type }), true, type);
+        }
         assert.equal(isReversalWebhook(payment()), false);
+        assert.equal(isReversalWebhook({ ...payment(), type: 'payment.declined' }), false);
+    });
+});
+
+describe('tebex reversal decision', () => {
+    it('names the transaction, the player and the catalogue value of what was bought', () => {
+        const decision = reversalForPayment({ ...payment({ products: [{ id: 4, quantity: 2, username: { id: 'kaito' } }] }), type: 'payment.refunded' }, '', lookup);
+        assert.deepEqual(decision, {
+            action: 'reverse', kind: 'refund', transactionId: 'tbx-abc123', playerName: 'kaito',
+            catalogueShards: 310, supporter: false, subscriptionReference: '',
+        });
+    });
+
+    it('classifies each event', () => {
+        const kinds = ['payment.refunded', 'payment.dispute.lost', 'payment.dispute.opened', 'payment.dispute.won']
+            .map((type) => (reversalForPayment({ ...payment(), type }, '', lookup) as { kind?: string }).kind);
+        assert.deepEqual(kinds, ['refund', 'chargeback', 'dispute-opened', 'dispute-won']);
+    });
+
+    it('caps quantity exactly as the grant does, so the fallback can never exceed what was paid', () => {
+        const decision = reversalForPayment({ ...payment({ products: [{ id: 4, quantity: 10_000 }] }), type: 'payment.refunded' }, '', lookup);
+        assert.equal(decision.action === 'reverse' && decision.catalogueShards, 155 * MAX_PACKAGE_QUANTITY);
+    });
+
+    it('spots a Supporter payment by package id or by its subscription reference', () => {
+        const byPackage = reversalForPayment({ ...payment({ products: [{ id: 77 }] }), type: 'payment.refunded' }, '77', lookup);
+        assert.equal(byPackage.action === 'reverse' && byPackage.supporter, true);
+        const byReference = reversalForPayment({ ...payment({ recurring_payment_reference: 'tbx-r-abc' }), type: 'payment.dispute.lost' }, '', lookup);
+        assert.equal(byReference.action === 'reverse' && byReference.subscriptionReference, 'tbx-r-abc');
+        const junk = reversalForPayment({ ...payment({ recurring_payment_reference: 'not a reference' }), type: 'payment.refunded' }, '', lookup);
+        assert.equal(junk.action === 'reverse' && junk.subscriptionReference, '');
+    });
+
+    it('ignores a reversal with no transaction id, and anything that is not a reversal', () => {
+        assert.equal(reversalForPayment({ ...payment({ transaction_id: '' }), type: 'payment.refunded' }, '', lookup).action, 'ignore');
+        assert.equal(reversalForPayment(payment(), '', lookup).action, 'ignore');
     });
 });
 

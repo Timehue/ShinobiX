@@ -4,6 +4,7 @@ import { villages } from "../data/sectors";
 import { isPlayerModel, type PlayerModel } from "../lib/player-model";
 import { ModerationModelReport } from "../components/ModerationModelReport";
 import { AvatarModelOperations } from "../components/AvatarModelOperations";
+import { PaymentReversalsList, type PaymentReversal } from "../components/PaymentReversalsList";
 
 // ─── Admin Moderation Panel ───────────────────────────────────────────────────
 // Player search → IP history + linked accounts. Ban / silence (1d / 3d / 7d /
@@ -50,6 +51,7 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
     const [bans, setBans] = useState<Array<{ name: string; record: ModBanRecord }>>([]);
     const [silences, setSilences] = useState<Array<{ name: string; record: ModSilenceRecord }>>([]);
     const [audit, setAudit] = useState<ModAuditEntry[]>([]);
+    const [reversals, setReversals] = useState<PaymentReversal[]>([]);
     const [reports, setReports] = useState<ModReport[]>([]);
     const [modelReview, setModelReview] = useState<{ owner: string; model: PlayerModel } | null>(null);
     const [searchName, setSearchName] = useState("");
@@ -77,6 +79,7 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
             setBans(Array.isArray(data.bans) ? data.bans : []);
             setSilences(Array.isArray(data.silences) ? data.silences : []);
             setAudit(Array.isArray(data.audit) ? data.audit : []);
+            setReversals(Array.isArray(data.paymentReversals) ? data.paymentReversals : []);
         } catch (e) {
             setStatus(`❌ ${(e as Error).message}`);
         }
@@ -500,6 +503,8 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
                     )
                 }
             </section>
+
+            <PaymentReversalsList rows={reversals} onPivot={pivotTo} />
 
             <section className="summary-box">
                 <h3>📜 Audit Log (last {audit.length})</h3>

@@ -47,6 +47,8 @@ const INSTRUMENTED: { file: string; sources: string[] }[] = [
     { file: 'api/bloodlines/forge.ts', sources: ['bloodline.forge'] },
     { file: 'api/awakening/roll.ts', sources: ['awakening.reroll'] },
     { file: 'api/tebex/webhook.ts', sources: ['tebex.shards'] },
+    // A refund or lost chargeback takes the purchase's Shards back (a sink).
+    { file: 'api/tebex/_reversal.ts', sources: ['tebex.reversal'] },
     // PvP: casual win/loss purses, the bounty posting fee, the ranked purse and
     // the sleeping-camp KO.
     { file: 'api/pvp/claim-rewards.ts', sources: ['pvp.win', 'pvp.loss'] },
