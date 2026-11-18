@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { silenceRefusal } from './moderation.js';
 
@@ -25,10 +25,11 @@ test('a silence with no recorded reason still says when it ends', () => {
 test('no API surface answers a silenced author with the bare message any more', () => {
     const offenders: string[] = [];
     const walk = (dir: string) => {
-        for (const name of readdirSync(dir)) {
-            const path = join(dir, name);
-            if (statSync(path).isDirectory()) { walk(path); continue; }
-            if (!name.endsWith('.ts') || name.endsWith('.test.ts')) continue;
+        // Directory entries carry their type, so there is no separate stat to race.
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+            const name = entry.name, path = join(dir, name);
+            if (entry.isDirectory()) { walk(path); continue; }
+            if (!entry.isFile() || !name.endsWith('.ts') || name.endsWith('.test.ts')) continue;
             if (readFileSync(path, 'utf8').includes("error: 'You are silenced.'")) offenders.push(path);
         }
     };
