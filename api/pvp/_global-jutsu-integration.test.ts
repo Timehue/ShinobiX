@@ -35,7 +35,7 @@ test('all new jutsu seal from authoritative definitions and retain normal learni
         const character = { name: 'slot-integration', level: 100, patreon: { active: supporter },
             equippedJutsuIds: ids, jutsuMastery: ids.map(jutsuId => ({ jutsuId, level: 1, xp: 0 })) };
         const resolved = resolveEquippedLoadout(character, { character }, {}) as Array<{ id: string }>;
-        assert.deepEqual(resolved.map(j => j.id), ids.slice(0, supporter ? 15 : 12));
+        assert.deepEqual(resolved.map(j => j.id), ids.slice(0, supporter ? 15 : 14));
         assert.deepEqual(character.equippedJutsuIds, ids, 'sealing preserves stored slot preferences');
     }
 });
