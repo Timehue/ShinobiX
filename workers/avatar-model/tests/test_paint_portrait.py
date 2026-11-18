@@ -24,7 +24,8 @@ class CostumePromptTest(unittest.TestCase):
         source = "1" * 64
         asset = "2" * 32
 
-        def request(_portrait, _source, _template, correction, _previous, *, sector_guide, head_turnaround):
+        def request(_portrait, _source, _template, correction, _previous, *, sector_guide, head_turnaround,
+                    torso_fit=False):
             return {"guide": sector_guide, "prompt": paint_portrait.PROMPT + (
                 paint_portrait.HEAD_TURNAROUND if head_turnaround else ""), "correction": correction}
 
@@ -59,6 +60,62 @@ class CostumePromptTest(unittest.TestCase):
                     self.assertEqual(first_binding.get("headTurnaround", False), enabled)
 
 
+class RepairTest(unittest.TestCase):
+    """A costume gets one painting and two repairs, each shown the sheet the rig rejected."""
+
+    def setUp(self):
+        self.sheets = []
+        for shade in (10, 20, 30):
+            png = BytesIO()
+            Image.new("RGBA", (1536, 960), (shade, 0, 0, 255)).save(png, "PNG")
+            self.sheets.append(png.getvalue())
+
+    def painter(self, folder, submit, asset="5" * 32):
+        return paint_portrait.costume_painter(folder, asset, Mock(return_value=True), submit)
+
+    @staticmethod
+    def request(_portrait, _source, _template, correction, previous, *, sector_guide, head_turnaround,
+                torso_fit=False, attempt=2):
+        return {"correction": correction, "previous": sha256(previous).hexdigest() if previous else None,
+                "torsoFit": torso_fit, "attempt": attempt}
+
+    def test_new_jobs_ask_for_the_torso_fit_and_repair_twice_from_the_latest_sheet(self):
+        results = [{"data": [{"b64_json": base64.b64encode(sheet).decode()}]} for sheet in self.sheets]
+        submit = Mock(side_effect=[("fixture", result) for result in results])
+        with TemporaryDirectory() as temporary, patch.object(paint_portrait, "edit_request", side_effect=self.request) as build:
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            paint = self.painter(root / "job", submit)
+            paint(root / "portrait", "1" * 64, template, 1, None)
+            paint(root / "portrait", "1" * 64, template, 2, "first rejection")
+            paint(root / "portrait", "1" * 64, template, 3, "second rejection")
+            self.assertEqual(submit.call_count, 3)
+            calls = [call.kwargs for call in build.call_args_list]
+            self.assertTrue(all(kwargs["torso_fit"] for kwargs in calls))
+            self.assertNotIn("attempt", calls[1])
+            self.assertEqual(calls[2]["attempt"], 3)
+            # The third request carries the second painting, not the first.
+            self.assertEqual(build.call_args_list[1].args[4], self.sheets[0])
+            self.assertEqual(build.call_args_list[2].args[4], self.sheets[1])
+            binding = json.loads((root / "job/edit-3/completed.json").read_bytes())["binding"]
+            self.assertTrue(binding["torsoFit"])
+            with self.assertRaises(ValueError):
+                paint(root / "portrait", "1" * 64, template, 4, "too many")
+
+    def test_a_third_attempt_needs_the_second_painting(self):
+        with TemporaryDirectory() as temporary, patch.object(paint_portrait, "edit_request", side_effect=self.request):
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            submit = Mock(return_value=("fixture", {"data": [{"b64_json": base64.b64encode(self.sheets[0]).decode()}]}))
+            paint = self.painter(root / "job", submit)
+            paint(root / "portrait", "1" * 64, template, 1, None)
+            with self.assertRaises(ValueError):
+                paint(root / "portrait", "1" * 64, template, 3, "skipped the second")
+            self.assertEqual(submit.call_count, 1)
+
+
 class PaletteTest(unittest.TestCase):
     def setUp(self):
         png = BytesIO()
@@ -68,7 +125,7 @@ class PaletteTest(unittest.TestCase):
 
     @staticmethod
     def request(_portrait, _source, _template, correction, _previous, *, sector_guide, head_turnaround,
-                palette_prompt=False):
+                palette_prompt=False, torso_fit=False):
         return {"guide": sector_guide, "correction": correction, "palette": palette_prompt}
 
     def test_new_jobs_name_the_palette_and_correct_the_painting(self):

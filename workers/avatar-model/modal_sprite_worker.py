@@ -205,7 +205,7 @@ if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
                                 entry,work,INSTALL/"reader/bin/python",asset,master,source],check=True)
             finally:
                 edits = []
-                for number in (1, 2):
+                for number in (1, 2, 3):
                     report = work/"edits"/f"edit-{number}"/"provider.json"
                     if report.is_file():
                         record = json.loads(report.read_bytes())

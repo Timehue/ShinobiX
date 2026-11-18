@@ -36,8 +36,9 @@ def paint(entry, work, asset, master, source, reader_python, submit):
         raise ValueError("screened-rig-revision-mismatch")
     operations = set()
 
+    # One painting plus up to two repairs (paint_screened_upload).
     def reserve(job, operation):
-        if job != asset or operation in operations or len(operations) >= 2:
+        if job != asset or operation in operations or len(operations) >= 3:
             return False
         operations.add(operation)
         return True
