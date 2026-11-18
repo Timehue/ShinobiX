@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanOrdinaryPveEncounter, ordinaryPveDifficulty, ordinaryPveLevel, rollOrdinaryPveEncounter } from './ordinary-pve-encounter.js';
+import { cleanOrdinaryPveEncounter, isOrdinaryPveEncounterId, ordinaryPveDifficulty, ordinaryPveLevel, rollOrdinaryPveEncounter } from './ordinary-pve-encounter.js';
 import { ordinaryWandererEncounter, rollWanderers } from './wanderer-roster.js';
 
 describe('ordinary PvE encounter roll', () => {
@@ -34,6 +34,19 @@ describe('ordinary PvE encounter roll', () => {
         const named = rollOrdinaryPveEncounter({ ...input, displayName: 'Tsukika', portraitKey: 'nightblade', portraitImage: '/art/tsukika.webp' });
         assert.equal(named.displayName, 'Tsukika');
         assert.equal(named.portraitImage, '/art/tsukika.webp');
+    });
+
+    it('accepts the raised-tier id a night ninja above level 35 carries', () => {
+        const nightblade = rollWanderers(66, 5000)[0]!;
+        const ninja = { ...nightblade, id: 'w-66-5000-9', archetype: 'nightblade' as const, name: 'Hollow-Moon Kaito', avatarKey: 'nightblade' as const };
+        const encounter = ordinaryWandererEncounter(ninja, 100, 66)!;
+        assert.ok(encounter.level > 35, 'the fixture must reach the raised night tier');
+        assert.match(encounter.id, /^ordinary-[a-f0-9]{1,8}-night-(standard|dangerous|elite)$/);
+        assert.ok(isOrdinaryPveEncounterId(encounter.id));
+        assert.deepEqual(cleanOrdinaryPveEncounter(encounter), encounter, 'a sealed night encounter survives the token and settlement readback');
+        for (const forged of ['ordinary-deadbeef-night-weaker', 'ordinary-deadbeef-night-', 'ordinary-deadbeef-day-elite', 'ordinary-123456789', 'night-elite']) {
+            assert.equal(isOrdinaryPveEncounterId(forged), false, forged);
+        }
     });
 
     it('leaves noncombat and patrol roster entries outside the ordinary roll', () => {

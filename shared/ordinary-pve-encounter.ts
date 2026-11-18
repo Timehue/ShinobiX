@@ -99,12 +99,23 @@ export function rollOrdinaryPveEncounter(params: {
     };
 }
 
+/** Every id an ordinary encounter can carry: the plain `ordinary-<hash>` from
+ * rollOrdinaryPveEncounter, or a night ninja's raised tier
+ * `ordinary-<hash>-night-<difficulty>` (ordinaryWandererEncounter in
+ * wanderer-roster.ts). Validators must accept both, or a night ninja above
+ * level 35 can never be fought or settled. */
+const ORDINARY_PVE_ENCOUNTER_ID = /^ordinary-[a-f0-9]{1,8}(?:-night-(?:standard|dangerous|elite))?$/;
+
+export function isOrdinaryPveEncounterId(value: unknown): value is string {
+    return typeof value === 'string' && ORDINARY_PVE_ENCOUNTER_ID.test(value);
+}
+
 /** Validate a server receipt/readback. Request-body descriptors are never an
  * authority source, even if they pass this structural check. */
 export function cleanOrdinaryPveEncounter(raw: unknown): OrdinaryPveEncounter | null {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const value = raw as OrdinaryPveEncounter;
-    if (value.version !== 1 || typeof value.id !== 'string' || !/^ordinary-[a-f0-9]{1,8}$/.test(value.id)
+    if (value.version !== 1 || !isOrdinaryPveEncounterId(value.id)
         || typeof value.sourceId !== 'string' || !value.sourceId || value.sourceId.length > 96
         || typeof value.displayName !== 'string' || !value.displayName || value.displayName.length > 100
         || !Number.isSafeInteger(value.level) || value.level < 1 || value.level > 100
