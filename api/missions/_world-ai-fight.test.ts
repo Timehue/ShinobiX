@@ -16,7 +16,10 @@ import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
 import { serverHuntTrailSector } from './_hunt-trail.js';
 import { kv } from '../_storage.js';
-import { ordinaryWandererEncounter, rollWanderers, WANDERER_BUCKET_MS, WANDERER_RIFT_INDEX } from '../../shared/wanderer-roster.js';
+import { nightWandererAt, ordinaryWandererEncounter, rollWanderers, WANDERER_BUCKET_MS, WANDERER_RIFT_INDEX, wandererDayBucketFromMs } from '../../shared/wanderer-roster.js';
+import { WORLD_HOUR_MS } from '../../shared/world-clock.js';
+import type { OrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
+import { createAiFightTokenRecord } from './_ai-fight-token.js';
 import { rollTradeWanderer } from '../../shared/wanderer-extra-slots.js';
 import { roadNemesisPresentAt } from '../../shared/road-nemesis.js';
 import { RIFT_QUESTS } from '../sector/_rift-quest.js';
@@ -371,6 +374,36 @@ describe('World AI fight authority for the road cast', () => {
             save: save(road.sector, { level: 100 }), now: road.now }), /preview-stale/);
         await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request,
             save: save(road.sector, { level: 100 }), now: road.now + WANDERER_BUCKET_MS }), /not-attackable/);
+    });
+
+    it('starts a night ninja above level 35 from the raised-tier id its preview shows', async () => {
+        // A night ninja that rolls above level 35 moves up a tier and its id
+        // gains a `-night-<difficulty>` suffix. Both the start request and the
+        // sealed encounter must accept that id, or the fight can never begin.
+        let fixture: { sector: number; now: number; id: string; preview: OrdinaryPveEncounter } | undefined;
+        for (let now = 5000 * WANDERER_BUCKET_MS; now < 5400 * WANDERER_BUCKET_MS && !fixture; now += WORLD_HOUR_MS) {
+            for (let sector = 40; sector <= 66 && !fixture; sector++) {
+                const ninja = nightWandererAt(sector, wandererDayBucketFromMs(now), now);
+                const preview = ninja ? ordinaryWandererEncounter(ninja, 100, sector) : null;
+                if (ninja && preview?.id.includes('-night-')) fixture = { sector, now, id: ninja.id, preview };
+            }
+        }
+        assert.ok(fixture, 'a deterministic raised-tier night ninja exists');
+        const { preview } = fixture;
+        assert.ok(preview.level > 35);
+        const raw = { kind: 'wanderer', sourceId: fixture.id, sector: fixture.sector, stage: 0, encounterId: preview.id };
+        const request = cleanWorldAiFightRequest(raw);
+        assert.deepEqual(request, raw, 'the start request keeps the night id instead of rejecting the descriptor');
+        const spec = await buildWorldAiFightSpec({ playerName: 'Roadwalker', request: request!,
+            save: save(fixture.sector, { level: 100 }), now: fixture.now });
+        assert.equal(spec.context.encounter?.id, preview.id);
+        assert.equal(spec.profile.level, preview.level, 'the raised night level is the level fought');
+        assert.equal(spec.profile.pveDifficulty, preview.difficulty, 'the raised night tier is the tier fought');
+        // ai-fight-start mints the reward token from this same context.
+        const token = createAiFightTokenRecord('Roadwalker', 'tok-night-ninja', fixture.now, {
+            battleKind: 'world', sector: fixture.sector, encounter: spec.context.encounter, worldContext: spec.context,
+        });
+        assert.deepEqual(token.encounter, spec.context.encounter, 'the reward token keeps the sealed night encounter');
     });
 
     it('retains the sealed role template when a high-level natural NPC receives its unique world identity', async () => {

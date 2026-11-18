@@ -12,6 +12,7 @@ import { huntFormationFor } from './_hunt-trail.js';
 import { savedCurrentSector } from './_mission-progress-receipt.js';
 import { loadAiFightProfile, type AiFightProfile } from './_ai-fight-encounter.js';
 import { ordinaryAiProfile } from './_ordinary-ai-encounter.js';
+import { isOrdinaryPveEncounterId } from '../../shared/ordinary-pve-encounter.js';
 import { MAX_CHALLENGE_AI_LOADOUT_JUTSU, progressiveOrdinaryAiJutsuIds, resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
 import { maxHpForLevel } from '../_xp-engine.js';
 import { pveDifficultyHpMultiplier } from '../_pve-difficulty.js';
@@ -139,7 +140,7 @@ export function cleanWorldAiFightRequest(raw: unknown): WorldAiFightRequest | nu
     if (value.stage != null && stage == null) return null;
     const chainId = typeof value.chainId === 'string' && /^[A-Za-z0-9_-]{8,96}$/.test(value.chainId) ? value.chainId : undefined;
     const decisionId = typeof value.decisionId === 'string' && /^[A-Za-z0-9:_-]{1,96}$/.test(value.decisionId) ? value.decisionId : undefined;
-    const encounterId = typeof value.encounterId === 'string' && /^ordinary-[a-f0-9]{1,8}$/.test(value.encounterId) ? value.encounterId : undefined;
+    const encounterId = isOrdinaryPveEncounterId(value.encounterId) ? value.encounterId : undefined;
     if (value.encounterId != null && (!encounterId || value.kind !== 'wanderer')) return null;
     const stageValue = stage ?? 0;
     const chained = value.kind === 'wanderer-ambush' || value.kind === 'hunt-pack';
