@@ -41,7 +41,8 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     const gaitEnabled = useRef(gaits);
     useLayoutEffect(() => { gaitEnabled.current = gaits; }, [gaits]);
     const starter = starterModel(props.playerAvatarImage, props.starterWorldModel);
-    const [status, setStatus] = useState('Connecting to world…'), [retry, setRetry] = useState(0), [ready, setReady] = useState(false);    const name = props.playerName;
+    const [status, setStatus] = useState('Connecting to world…'), [retry, setRetry] = useState(0), [ready, setReady] = useState(false);
+    const name = props.playerName;
     const position = useRef<{ sector: number; col: number; row: number } | null>(null);
     // Off the painting, the server's tile is only the nearest painted anchor; don't mark it as underfoot.
     const [onPainting, setOnPainting] = useState(true);

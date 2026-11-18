@@ -893,10 +893,19 @@ test('every NPC on the board shares one depth layer, and the lower one draws in 
         return figures.filter(figure=>{const {x,y}=centre(figure);return x>view.left&&x<view.right&&y>view.top&&y<view.bottom;}).map(figure=>{
             const {x,y}=centre(figure);
             const under=figures.filter(other=>{const o=other.getBoundingClientRect();return x>=o.left&&x<=o.right&&y>=o.top&&y<=o.bottom;});
-            const front=under.reduce((best,other)=>z(other)>z(best)?other:best,figure);
+            // Two walkers on the same row share a z-index; then the later one in the layer draws on top.
+            const above=(a:HTMLElement,b:HTMLElement)=>z(a)>z(b)||(z(a)===z(b)&&figures.indexOf(a)>figures.indexOf(b));
+            const front=under.reduce((best,other)=>above(other,best)?other:best);
             const top=document.elementFromPoint(x,y),hit=top?.closest<HTMLElement>('.sector-wanderer-figure')??null;
-            return {name:figure.getAttribute('aria-label'),hitFront:hit===front,hitSomeNpc:!!hit,
-                over:hit?null:`${top?.tagName}.${top?.className}`};
+            // A lower NPC's portrait can overhang its own figure box, so the tap may land on an NPC
+            // that is not in `under`. That is still right as long as it draws above `front`; the
+            // bug this guards against is an NPC further up the board taking the tap.
+            const ok=hit===front||(hit!==null&&above(hit,front));
+            const label=(el:HTMLElement|null)=>el?.closest('[aria-label]')?.getAttribute('aria-label')??null;
+            return {name:label(figure),hitFront:ok,hitSomeNpc:!!hit,
+                over:hit?null:`${top?.tagName}.${top?.className}`,
+                debug:ok?null:{front:label(front),frontZ:z(front),hit:label(hit),hitZ:hit?z(hit):null,
+                    under:under.map(u=>`${label(u)} z${z(u)} #${figures.indexOf(u)}`),hitIndex:hit?figures.indexOf(hit):null}};
         });
     });
     expect(taps.length,'at least one NPC is on screen to tap').toBeGreaterThan(0);
