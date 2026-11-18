@@ -1253,9 +1253,9 @@ export function resolveEquippedLoadout(
         );
     }
     // A save can temporarily retain 15 persisted slot preferences after a
-    // supporter lapse. Resolve only the active 12/15 account entitlement here;
+    // supporter lapse. Resolve only the active 14/15 account entitlement here;
     // never truncate the stored preference itself, so reactivation is lossless.
-    // Real-player PvP keeps the active 12/15 account entitlement after
+    // Real-player PvP keeps the active 14/15 account entitlement after
     // hydration; the separate Legacy signature slot is sealed later. PvE
     // callers retain the same entitlement behavior, while save-less NPC
     // callers keep their server-authored list unchanged.
@@ -1653,7 +1653,7 @@ export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknow
  * entitlement. This is defense in depth for session hydration: the primary
  * resolver already applies the same cap, while this preserves the dedicated
  * Legacy signature slot outside it. Supporters therefore retain all 15 of
- * their equipped techniques in PvP instead of losing slots 13–15 at sealing.
+ * their equipped techniques in PvP instead of losing slot 15 at sealing.
  */
 export function normalizeHumanPvpLoadout(character: Record<string, unknown>): Record<string, unknown> {
     if (!Array.isArray(character.jutsu)) return character;

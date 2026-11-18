@@ -4,7 +4,7 @@
  * Unlike the older formula sandbox, this runner delegates damage, tags,
  * status timing, mastery caps, rank caps, DoTs, shields, and timeout scoring to
  * the live PvP implementation.  It builds creator-legal A/B bloodlines, fills
- * the normal 12-slot technique entitlement, equips level-legal gear, allocates
+ * the normal 14-slot technique entitlement, equips level-legal gear, allocates
  * the player's earned stat budget, and runs every unordered build pairing in
  * both seat assignments and with both possible round openers.
  *
@@ -2173,7 +2173,7 @@ export function runCertification(levels: readonly number[] = TEST_LEVELS): Balan
     const issues = reports.flatMap((report) => report.issues.map((issue) => `${report.label}: ${issue}`));
     return {
         generatedAt: new Date().toISOString(),
-        engine: 'live api/pvp/move.ts resolver + live action planner; deterministic tag-aware policy; human-PvP-normalized 12-slot loadouts plus 15-slot entitlement isolation',
+        engine: 'live api/pvp/move.ts resolver + live action planner; deterministic tag-aware policy; human-PvP-normalized 14-slot loadouts plus 15-slot entitlement isolation',
         levels: reports,
         issues,
     };
@@ -2197,10 +2197,10 @@ export function runCompetitiveCertification(levels: readonly number[] = TEST_LEV
  * Isolates the live A/B damage multiplier from loadout construction.
  *
  * The official A template contains five custom techniques while B contains
- * four, so forcing every custom button into a 12-slot simulator loadout also
+ * four, so forcing every custom button into a base-capacity simulator loadout also
  * gives B one additional common technique. Real players may omit any custom
  * technique. For the actual rank check, give the A fighter the B fighter's
- * exact 12 buttons while preserving A's authoritative character multipliers,
+ * exact same buttons while preserving A's authoritative character multipliers,
  * then cross both seats and both openers.
  */
 export function runRankIsolationControl(level: number): Tally {
@@ -2370,7 +2370,7 @@ function printCompetitiveProfileRotation(report: CompetitiveProfileRotationLevel
 
 /**
  * Compares the two live human-PvP account entitlements. Standard accounts use
- * 12 regular techniques; Shinobi Supporters retain their 15 equipped regular
+ * 14 regular techniques; Shinobi Supporters retain their 15 equipped regular
  * techniques when their session is hydrated. Both seats/openers ensure the
  * simulator measures that intentional entitlement rather than initiative.
  */
@@ -2412,7 +2412,7 @@ export function runEntitlementComparison(level: number): EntitlementBalanceRepor
 }
 
 function printEntitlement(report: EntitlementBalanceReport): void {
-    console.log(`  L${String(report.level).padStart(3)}: supporter-origin ${(100 * scoredRate(report.supporter)).toFixed(1)}% / base-origin ${(100 * scoredRate(report.base)).toFixed(1)}% with the live 12/15-button entitlement (${report.fights} crossed fights)${report.issues.length ? '  FLAG' : ''}`);
+    console.log(`  L${String(report.level).padStart(3)}: supporter-origin ${(100 * scoredRate(report.supporter)).toFixed(1)}% / base-origin ${(100 * scoredRate(report.base)).toFixed(1)}% with the live 14/15-button entitlement (${report.fights} crossed fights)${report.issues.length ? '  FLAG' : ''}`);
 }
 
 export function main(): void {
@@ -2443,7 +2443,7 @@ export function main(): void {
     printLevel(catalogCap);
 
     console.log(`\n${'='.repeat(84)}`);
-    console.log('Human-PvP entitlement comparison (12 regular techniques for base accounts; 15 for active Supporters)');
+    console.log('Human-PvP entitlement comparison (14 regular techniques for base accounts; 15 for active Supporters)');
     const entitlements = TEST_LEVELS.map((level) => runEntitlementComparison(level));
     for (const entitlement of entitlements) printEntitlement(entitlement);
 

@@ -59,7 +59,7 @@ test('server-legal off-nature basics are distinguished from current UI acquisiti
     assert.ok(audit.acquisitionWarnings.some(f => f.code === 'current-ui-nature-access'));
 });
 
-test('fixture loadout validation uses the actual 12/15 account entitlement', () => {
+test('fixture loadout validation uses the actual 14/15 account entitlement', () => {
     const save = pressurePlayerSave(100, 'midgame');
     save.character.equippedJutsuIds = Object.keys(JUTSU_CATALOG).filter(id => characterMayUseJutsu(save.character, save, JUTSU_CATALOG[id])).slice(0, 15);
     save.character.jutsuMastery = save.character.equippedJutsuIds.map(jutsuId => ({ jutsuId, level: 30, xp: 0 }));

@@ -484,14 +484,14 @@ function maximumContentSaveFixture(
     jutsuIds: string[],
     creatorJutsus: ReturnType<typeof adaptiveJutsuFixtureData>["creatorJutsus"],
 ): SavePayload {
-    const seeded = subscriberSaveFixture(jutsuIds.slice(0, 12), creatorJutsus);
+    const seeded = subscriberSaveFixture(jutsuIds.slice(0, 14), creatorJutsus);
     const character = {
         ...(seeded.character ?? {}),
         name: "AdaptiveNinjaWithAnExceptionallyLongButUnbrokenDisplayName",
         ryo: 9_999_999_999,
         fateShards: 9_999_999,
         inventory: itemIds,
-        equippedJutsuIds: jutsuIds.slice(0, 12),
+        equippedJutsuIds: jutsuIds.slice(0, 14),
         jutsuMastery: jutsuIds.map((jutsuId) => ({ jutsuId, level: 50, xp: 0 })),
     };
     delete (character as Record<string, unknown>).patreon;
@@ -857,8 +857,9 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "profile");
     expect(runtimeErrors, "the maximum-profile fixture must render without a route error boundary").toEqual([]);
     await page.getByRole("button", { name: "Jutsu", exact: true }).click();
-    await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(12);
-    await expect(page.locator(".jutsu-loadout-slot.is-locked")).toHaveCount(3);
+    await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(14);
+    await expect(page.locator(".jutsu-loadout-slot.is-locked")).toHaveCount(1);
+    await expect(page.getByText("Unlock 1 additional slot.", { exact: true })).toBeVisible();
     await expect(page.getByText(creatorJutsus[0].name, { exact: true }).first()).toBeVisible();
     await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
 

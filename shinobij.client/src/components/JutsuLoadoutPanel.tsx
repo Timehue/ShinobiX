@@ -439,7 +439,7 @@ export function JutsuLoadoutPanel({
                             <span>♛</span>
                             <div>
                                 <strong>{subscriber ? "Subscriber Active" : "Subscriber Bonus"}</strong>
-                                <small>{subscriber ? "All 15 slots unlocked." : "Unlock 3 additional slots."}</small>
+                                <small>{subscriber ? "All 15 slots unlocked." : "Unlock 1 additional slot."}</small>
                             </div>
                         </div>
                     </div>
@@ -619,7 +619,7 @@ export function JutsuLoadoutPanel({
                     <section className="jutsu-sidebar-section jutsu-subscription-benefits">
                         <h3>♛ Subscription Benefits</h3>
                         <ul>
-                            <li>Unlock 3 additional regular jutsu slots (13–15).</li>
+                            <li>Unlock 1 additional regular jutsu slot (15).</li>
                             <li>The larger loadout also applies in PvP. Your Legacy signature uses a separate slot.</li>
                         </ul>
                     </section>

@@ -31,12 +31,12 @@ type Measured = ReturnType<typeof pressureFight> & { fixture: Fixture; source: s
 
 function fixture(name: Fixture) {
     // Identical to the previously measured optimized75 eight-slot control,
-    // except four learned techniques fill the ordinary account's12 slots.
+    // except four learned techniques extend it to the fixed 12-slot control.
     const save = diagnosticPlayerSave(LEVEL, 'maxed', 'coherent', 'B');
     save.character.equippedJutsuIds.push(...KITS[name]);
     save.character.jutsuMastery.push(...KITS[name].map(jutsuId => ({ jutsuId, level: 50, xp: 0 })));
     const audit = auditPressureFixture(save, LEVEL, { expectedMasteryCeiling: 50, expectedBloodlineRank: 'S Rank' });
-    if (!audit.legal || audit.acquisitionWarnings.length || maxLoadout(save.character) !== 12
+    if (!audit.legal || audit.acquisitionWarnings.length || maxLoadout(save.character) < 12
         || save.character.equippedJutsuIds.length !== 12 || save.character.earnedStatPoints !== earnedForLevel(LEVEL)) {
         throw new Error(`Invalid ${name} fixture: ${JSON.stringify(audit)}`);
     }

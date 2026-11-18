@@ -160,14 +160,31 @@ describe('jutsu loadout persistence', () => {
         equippedJutsuIds: [...slotOrder, slotOrder[0]],
     });
 
-    it('preserves slot order while enforcing the base 12-slot cap', () => {
-        const out = sanitizeCompatible(incomingSave, storedSave(false)).character as Record<string, unknown>;
-        assert.deepEqual(out.equippedJutsuIds, slotOrder.slice(0, 12));
+    it('preserves 14 ordered learned slots and rejects a forged supporter flag in both ledger modes', () => {
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            const out = sanitize(incomingSave, storedSave(false)).character as Record<string, unknown>;
+            assert.deepEqual(out.equippedJutsuIds, slotOrder.slice(0, 14));
+        }
     });
 
     it('preserves all 15 ordered slots for a stored subscriber entitlement', () => {
-        const out = sanitizeCompatible(incomingSave, storedSave(true)).character as Record<string, unknown>;
-        assert.deepEqual(out.equippedJutsuIds, slotOrder);
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            const out = sanitize(incomingSave, storedSave(true)).character as Record<string, unknown>;
+            assert.deepEqual(out.equippedJutsuIds, slotOrder);
+        }
+    });
+
+    it('normalizes a lapsed supporter save to 14 without losing learned jutsu', () => {
+        const stored = storedSave(true);
+        Object.assign(stored.character, {
+            patreon: { active: true, expiresAt: Date.now() - 1 },
+            equippedJutsuIds: slotOrder,
+        });
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            const out = sanitize(wrap({ equippedJutsuIds: slotOrder }), stored).character as Record<string, unknown>;
+            assert.deepEqual(out.equippedJutsuIds, slotOrder.slice(0, 14));
+            assert.deepEqual(out.jutsuMastery, stored.character.jutsuMastery);
+        }
     });
 
     it('rejects newly injected slot ids in both ledger modes but accepts a level-0 mastery row', () => {
