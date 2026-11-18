@@ -44,8 +44,15 @@ type LegalDocument = {
 // left out of the provider list. Notices names the EU DSA single point of
 // contact and credits Inter, Marcellus, fflate and h264bsd, whose licences
 // already shipped in public/ without a player-facing credit.
-const LAST_UPDATED = "November 16, 2026";
-const VERSION = "1.13";
+// 1.14: the privacy policy states concrete retention periods (read from the
+// TTLs and caps the code enforces; docs/DATA_RETENTION_POLICY.md has the full
+// schedule) instead of "kept while needed". The guest sweep it already
+// promised now actually deletes by default. The Terms state what a ban does
+// to purchases (EU unfair-terms / DSA Art. 17): it keeps Shards and Supporter
+// time, cancels nothing, and sign-in shows the ban's end and recorded reason
+// (player-auth.ts returns both on a 403).
+const LAST_UPDATED = "November 18, 2026";
+const VERSION = "1.14";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -77,6 +84,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 content: <>
                     <p>You must follow the <a href="/community-rules">Community Rules</a>. Cheating, automation, exploit abuse, harassment, scams, malicious links, unauthorized access, and interference with the game or its APIs are prohibited.</p>
                     <p>Staff may investigate activity, preserve relevant evidence, remove content, reverse illegitimate gains, restrict features, suspend accounts, or close accounts based on context and severity.</p>
+                    <p><strong>What a ban does to purchases.</strong> A timed ban blocks sign-in until it ends. A permanent ban also gives up village and clan seats and returns Exchange listings. Neither removes or refunds Shards or Supporter time, and neither cancels a subscription, so cancel it through Tebex if you no longer want it. Sign-in shows a ban's end and reason, and you can appeal.</p>
                 </>,
             },
             {
@@ -180,7 +188,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 content: <>
                     <p>The game uses browser storage for sign-in, preferences, cached game state, and interrupted-session recovery. Details appear in the <a href="/cookies">Cookie and Local Storage Notice</a>.</p>
                     <p><strong>Guest characters are deleted automatically.</strong> A guest character has no password and no linked account, so it exists only in the browser that made it. If it goes fourteen days without being played, it and its save are deleted permanently and the name is released. Linking a Google account to it stops that clock immediately and makes it an ordinary account. Clearing your browser storage before you link one loses a guest character with no way to recover it — we hold nothing that could identify you as its owner.</p>
-                    <p>Records are kept while needed to operate accounts, shared game systems, security, moderation, troubleshooting, and backups. IP and device records are kept for abuse investigation. Some shared records — clan history, leaderboard entries, chat other players have seen — may need to be anonymized rather than removed. Current deletion is handled by request and is complete only after connected records have been reviewed.</p>
+                    <p><strong>How long records are kept.</strong> Your account and save are kept until you delete them. IP and device records are kept for 7 days after last use, and moderation links to them for 90 days. Sector and battle chat lasts about an hour. Village, clan and direct chats keep their latest 30, 50 and 200 messages, and are removed after 30 days without a new one. Save backups are kept for 90 days, and encrypted off-site backups for 14. Logs keep their latest 5,000 entries, and reports stay until staff close them. Some shared records, such as clan history, leaderboards and chat others saw, may be anonymized rather than removed.</p>
                 </>,
             },
             {

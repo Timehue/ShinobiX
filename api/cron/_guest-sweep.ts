@@ -21,8 +21,10 @@
  *    thing this cron could do. A password or Google account is unreachable
  *    from here no matter what else is wrong.
  *
- * Runs in dry-run mode unless GUEST_SWEEP_ENABLED=1, so the first cycles report
- * what they would have taken and take nothing.
+ * Deletes by default, because the privacy policy promises guest characters are
+ * deleted after fourteen days without play (owner ruling 2026-11-18; it had run
+ * report-only since launch). GUEST_SWEEP_ENABLED=0 switches it back to a dry
+ * run that reports what it would take and takes nothing.
  */
 import { kv } from './../_storage.js';
 import { isDeepStrictEqual } from 'node:util';
@@ -36,7 +38,7 @@ import { REGISTRY_KEY } from './../player/_public-index.js';
 const AUTH_PREFIX = 'auth:';
 
 export type GuestSweepResult = {
-    /** False while GUEST_SWEEP_ENABLED is unset — nothing was deleted. */
+    /** False only when GUEST_SWEEP_ENABLED=0 — a dry run, nothing was deleted. */
     enabled: boolean;
     scanned: number;
     guests: number;
@@ -47,7 +49,7 @@ export type GuestSweepResult = {
 
 /** Whether the sweep actually deletes, or only reports. */
 export function guestSweepEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-    return env.GUEST_SWEEP_ENABLED === '1';
+    return env.GUEST_SWEEP_ENABLED !== '0';
 }
 
 function parseLastSeen(raw: unknown): number {

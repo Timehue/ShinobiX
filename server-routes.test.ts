@@ -158,6 +158,15 @@ describe('Express route parity (Railway + cPanel)', () => {
         assert.ok(registration < serverEntrySrc.indexOf("app.get('/robots.txt'"));
         assert.match(serverEntrySrc, /import '\.\/api\/_force-ipv4\.js';[\s\S]*import \{ registerApiRoutes,/);
     });
+    it('opens /restart only with a dedicated, non-placeholder RESTART_TOKEN', () => {
+        const route = serverEntrySrc.slice(serverEntrySrc.indexOf("app.post(['/restart', '/api/restart']"),
+            serverEntrySrc.indexOf("gracefulShutdown(OPERATOR_RESTART_EXIT_CODE, 'operator restart')"));
+        assert.ok(route.length > 0, 'the restart route is found');
+        // One leaked internal secret must not restart the game: the old KV proxy token is not a key.
+        assert.doesNotMatch(route, /KV_PROXY_TOKEN/);
+        assert.match(route, /const expected = dedicated && !isPlaceholderSecret\(dedicated\) \? dedicated : undefined;/);
+        assert.match(route, /if \(!expected \|\| !provided \|\| !safeEqual\(provided, expected\)\)/);
+    });
     it('registers every /api endpoint the client calls', () => {
         const client = clientApiPaths();
         const missing: string[] = [];

@@ -56,7 +56,7 @@ import { clientIp, noteRealIpAgreementOnce } from './api/_client-ip.js';
 import { registerApiRoutes, type AnyHandler, villageWarMapEnabled, googleRedirectUriProblem } from './server-api-routes.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
-import { isAdmin, safeEqual, maybeRefreshPlayerToken, PLAYER_TOKEN_REFRESH_HEADER, weakSecretWarnings } from './api/_auth.js';
+import { isAdmin, safeEqual, isPlaceholderSecret, maybeRefreshPlayerToken, PLAYER_TOKEN_REFRESH_HEADER, weakSecretWarnings } from './api/_auth.js';
 // CORS origin predicate — single source of truth, shared with cors() and the
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and the localhost
@@ -740,11 +740,11 @@ function headerValue(h: string | string[] | undefined): string {
 // cPanel host, Passenger respawned the worker on any exit).
 //
 // Auth hardening (see "Route parity + deployment safety" handoff):
-//   • Prefer a DEDICATED `RESTART_TOKEN`. KV_PROXY_TOKEN is a legacy fallback
-//     from when that secret also guarded the cPanel KV proxy (removed
-//     2026-10-02); it applies only while RESTART_TOKEN is unset, and a one-time
-//     warning nudges the migration. Once every deployment sets RESTART_TOKEN,
-//     the fallback and the KV_PROXY_TOKEN variable can both go.
+//   • Only a DEDICATED `RESTART_TOKEN` opens it. The old fallback to
+//     KV_PROXY_TOKEN (a secret that also guarded the retired cPanel KV proxy)
+//     was removed 2026-11-18: one leaked internal token no longer restarts the
+//     game. Unset or a placeholder value disables the route (401); Railway's own
+//     Restart still works, so nothing depends on it being configured.
 //   • Constant-time compare via safeEqual (no early-exit timing leak).
 //   • Array-header safe (headerValue) — repeated headers no longer bypass the
 //     `!==` check by arriving as an array.
@@ -765,7 +765,7 @@ const RESTART_WINDOW_MS = 60_000;
 // grow this map without limit. Past the bound, the oldest entry is evicted.
 const RESTART_MAX_TRACKED_IPS = 1_000;
 const restartFailures = new Map<string, number[]>();   // ip -> epoch-ms of recent FAILED attempts
-let warnedRestartFallback = false;
+let warnedRestartDisabled = false;
 
 function recentRestartFailures(ipKey: string, now: number): number[] {
     const recent = (restartFailures.get(ipKey) ?? []).filter((t) => now - t < RESTART_WINDOW_MS);
@@ -798,10 +798,10 @@ app.post(['/restart', '/api/restart'], (req, res) => {
     }
 
     const dedicated = process.env.RESTART_TOKEN;
-    const expected = dedicated || process.env.KV_PROXY_TOKEN;
-    if (!dedicated && process.env.KV_PROXY_TOKEN && !warnedRestartFallback) {
-        warnedRestartFallback = true;
-        console.warn('[restart] RESTART_TOKEN not set — falling back to KV_PROXY_TOKEN. Set a dedicated RESTART_TOKEN to separate restart auth from the KV proxy secret.');
+    const expected = dedicated && !isPlaceholderSecret(dedicated) ? dedicated : undefined;
+    if (!expected && !warnedRestartDisabled) {
+        warnedRestartDisabled = true;
+        console.warn('[restart] RESTART_TOKEN is unset or a placeholder: /restart is disabled. Use Railway\'s Restart instead.');
     }
 
     const provided = headerValue(req.headers['x-restart-token']) || headerValue(req.headers['x-kv-token']);

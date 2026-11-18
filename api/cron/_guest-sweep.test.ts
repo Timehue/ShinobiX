@@ -425,8 +425,18 @@ describe('guest sweep', () => {
         assert.equal(store.has('auth-recovery:wanderer'), false);
     });
 
-    it('reports without deleting until the sweep is switched on', async () => {
+    it('deletes by default, as the privacy policy promises', async () => {
         delete process.env.GUEST_SWEEP_ENABLED;
+        seed('wanderer', { guest: true, createdAt: LONG_AGO }, { lastSeen: LONG_AGO });
+
+        const result = await runGuestSweep(NOW);
+        assert.equal(result.enabled, true, 'no setting is needed for the published 14-day deletion');
+        assert.deepEqual(result.expired, ['wanderer']);
+        assert.equal(store.has('auth:wanderer'), false);
+    });
+
+    it('only reports when the sweep is switched off with GUEST_SWEEP_ENABLED=0', async () => {
+        process.env.GUEST_SWEEP_ENABLED = '0';
         seed('wanderer', { guest: true, createdAt: LONG_AGO }, { lastSeen: LONG_AGO });
 
         const result = await runGuestSweep(NOW);
