@@ -34,15 +34,17 @@ import { GameIcon, ShinobiCurrencyIcon, type GameIconName } from "../components/
 import { GameArtIcon } from "../components/GameArtIcon";
 import { ElementSigil } from "../components/icons/ElementSigil";
 import centralCommandHero from "../assets/central-command-v2.webp";
-import arenaDistrictArt from "../assets/facilities/battle-arena.webp";
-import councilHallArt from "../assets/council-hall-command-v2.webp";
-import grandMarketplaceArt from "../assets/facilities/shop.webp";
-import hunterGuildArt from "../assets/hunter/hunter-guild-board.webp";
-import ancientArchivesArt from "../assets/studio/archive-armory.webp";
-import crafterForgeArt from "../assets/central/crafter-forge-v1.webp";
-import petColosseumArt from "../assets/coliseum/pet-arena-command-v2.webp";
-import relicDungeonArt from "../assets/towers/chamber.webp";
-import celestialTowerArt from "../assets/towers/battle-towers-key-art-v1.webp";
+import arenaDistrictArt from "../assets/central/destinations/arena-district.webp";
+import councilHallArt from "../assets/central/destinations/council-hall.webp";
+import grandMarketplaceArt from "../assets/central/destinations/grand-marketplace.webp";
+import hunterGuildArt from "../assets/central/destinations/shinobi-outpost.webp";
+import hallOfLegendsArt from "../assets/central/destinations/hall-of-legends.webp";
+import ancientArchivesArt from "../assets/central/destinations/ancient-archives.webp";
+import awakeningStoneArt from "../assets/central/destinations/awakening-stone.webp";
+import crafterForgeArt from "../assets/central/destinations/crafter.webp";
+import petColosseumArt from "../assets/central/destinations/pet-colosseum.webp";
+import relicDungeonArt from "../assets/central/destinations/relic-dungeons.webp";
+import celestialTowerArt from "../assets/central/destinations/celestial-tower.webp";
 import firstPactArt from "../assets/first-pact/sunken-court-key-art.webp";
 import weeklyAshenDragonArt from "../assets/combat-actors/creatures/apex-ai-ember-drake-idle.webp";
 import weeklyStormveilBeastArt from "../assets/combat-actors/creatures/apex-ai-ancient-chakra-beast-idle.webp";
@@ -107,6 +109,7 @@ import { CentralAwakeningCinematic } from "../components/CentralAwakeningCinemat
 import { BloodlineAwakeningCinematic, type BloodlineRitualRank } from "../components/BloodlineAwakeningCinematic";
 import { playGameSfx, primeGameAudio } from "../lib/game-audio";
 import { primeCentralAwakeningArtwork } from "../lib/central-awakening-artwork";
+import { IMAGE_GUARD_ATTRIBUTE } from "../lib/imageErrorGuard";
 import { dailyMissionsCompleted } from "../lib/character-progress";
 import { ENDLESS_BC_FIRST_RUN_OF_DAY, ENDLESS_FACTOR_CAP_WAVE, ENDLESS_FS_LIFETIME_FIRST } from "../lib/endless-tower";
 
@@ -612,7 +615,12 @@ export function CentralHub({
     // Surface the current server-wide hunt in the hub so players can tell whether
     // the destination is live before committing to the route.
     const weeklyBoss = weeklyBossSchedule(character, Date.now(), weeklyBossOverrideAi);
-    const weeklyBossArtwork = weeklyBossOverrideAi?.image || WEEKLY_BOSS_ART[weeklyBoss.bossId] || weeklyMoonshadowArt;
+    const [failedBossPortrait, setFailedBossPortrait] = useState<string>();
+    const customBossPortrait = weeklyBossOverrideAi?.image;
+    const useCustomBossPortrait = customBossPortrait && customBossPortrait !== failedBossPortrait;
+    const weeklyBossArtwork = useCustomBossPortrait
+        ? customBossPortrait
+        : WEEKLY_BOSS_ART[weeklyBoss.bossId] || weeklyMoonshadowArt;
     // Idle regen replaces `character` every second while a vital is below max,
     // so the catalog and the owned counts are keyed on what they actually read.
     const allHubItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
@@ -734,7 +742,7 @@ export function CentralHub({
                     kicker: "Compete",
                     badge: "Ranked & clan",
                     art: arenaDistrictArt,
-                    artPosition: "52% center",
+                    artPosition: "center 37%",
                     text: "Enter tournaments, ranked ladders, spectator boards, and challenge halls.",
                     action: () => setScreen("arenaDistrict"),
                 },
@@ -743,7 +751,6 @@ export function CentralHub({
                     kicker: "Govern",
                     badge: "War command",
                     art: councilHallArt,
-                    artPosition: "72% center",
                     text: "Review active village and clan wars, side strength, and leading contributors.",
                     action: () => setScreen("shinobiCouncil"),
                 },
@@ -752,7 +759,6 @@ export function CentralHub({
                     kicker: "Trade",
                     badge: "Elite stock",
                     art: grandMarketplaceArt,
-                    artPosition: "66% center",
                     text: "Browse legendary gear and companion equipment.",
                     action: () => setScreen("grandMarketplace"),
                 },
@@ -761,7 +767,6 @@ export function CentralHub({
                     kicker: "Track",
                     badge: "Contracts",
                     art: hunterGuildArt,
-                    artPosition: "center",
                     text: "Take hunting contracts, train fishing and mining, and prepare your gathering tools.",
                     action: () => setScreen("hunting"),
                 },
@@ -778,8 +783,8 @@ export function CentralHub({
                     name: "Hall of Legends",
                     kicker: "Compare",
                     badge: "Leaderboards",
-                    art: "/legacy/hall-of-legends-banner.webp",
-                    artPosition: "center",
+                    art: hallOfLegendsArt,
+                    artPosition: "center 16%",
                     text: "See the shinobi, clans, pets, streaks, and villages defining the current era.",
                     action: () => setScreen("hallOfLegends"),
                 },
@@ -788,7 +793,6 @@ export function CentralHub({
                     kicker: "Study",
                     badge: "Bloodline codex",
                     art: ancientArchivesArt,
-                    artPosition: "64% center",
                     text: "Explore bloodline lore, techniques, ranks, elements, and player records.",
                     action: () => setShowArchives(true),
                 },
@@ -796,8 +800,8 @@ export function CentralHub({
                     name: "Awakening Stone",
                     kicker: "Awaken",
                     badge: hasFreeRoll ? "Free awakening ready" : awakenedElements.length ? awakenedElements.join(" · ") : "Elemental path",
-                    art: "/assets/awakening-stone-cinematic-v1.webp",
-                    artPosition: "center",
+                    art: awakeningStoneArt,
+                    artPosition: "center 35%",
                     text: awakenedElements.length
                                 ? "Reroll your elemental nature or begin a Bloodline Awakening with ancient materials."
                                 : "Reveal your elemental nature and open the path to Bloodline Awakening.",
@@ -814,7 +818,6 @@ export function CentralHub({
                     kicker: "Forge",
                     badge: "Weapons & supplies",
                     art: crafterForgeArt,
-                    artPosition: "68% center",
                     text: "Convert hunting, boss, dungeon, and war materials into proven equipment.",
                     action: () => setShowCrafter(true),
                 },
@@ -832,7 +835,6 @@ export function CentralHub({
                     kicker: "Command",
                     badge: "Companion trials",
                     art: petColosseumArt,
-                    artPosition: "72% center",
                     text: "Choose a companion for cinematic Colosseum showdowns or command a four-pet squad in Beastbound Warfront.",
                     action: () => setScreen("petArena"),
                 },
@@ -841,7 +843,7 @@ export function CentralHub({
                     kicker: "Explore",
                     badge: `${dungeonKeyCount} ${dungeonKeyCount === 1 ? "key" : "keys"}`,
                     art: relicDungeonArt,
-                    artPosition: "center",
+                    artPosition: "center 36%",
                     text: "Spend a Dungeon Key to breach one of five relic vaults with equal strength curves.",
                     action: () => setShowDungeonPanel(true),
                 },
@@ -850,7 +852,7 @@ export function CentralHub({
                     kicker: "Rally",
                     badge: weeklyBossBadge,
                     art: weeklyBossArtwork,
-                    artPosition: "center 24%",
+                    bossPortrait: true,
                     text: "Choose the weekly hunt or the roaming Hollow Beast, then follow each contribution board.",
                     action: () => setScreen("weeklyBoss"),
                     featured: weeklyBoss.status === "active",
@@ -860,7 +862,6 @@ export function CentralHub({
                     kicker: "Ascend",
                     badge: "Endless climb",
                     art: celestialTowerArt,
-                    artPosition: "72% center",
                     text: "Climb harder waves, retreat to claim your run ryo, and earn permanent milestones.",
                     action: () => setShowCelestialPanel(true),
                 },
@@ -1023,13 +1024,21 @@ export function CentralHub({
                                     key={option.name}
                                     onClick={option.action}
                                 >
-                                    <span className="central-card-art" aria-hidden="true">
+                                    <span className={`central-card-art${"bossPortrait" in option ? " central-card-art--boss" : ""}`} aria-hidden="true">
                                         <img
+                                            key={option.art}
                                             src={option.art}
                                             alt=""
                                             loading="lazy"
                                             decoding="async"
-                                            style={{ objectPosition: option.artPosition }}
+                                            style={"artPosition" in option ? { objectPosition: option.artPosition } : undefined}
+                                            onError={"bossPortrait" in option && useCustomBossPortrait
+                                                ? (event) => {
+                                                    if (event.currentTarget.getAttribute(IMAGE_GUARD_ATTRIBUTE) !== "retrying") {
+                                                        setFailedBossPortrait(customBossPortrait);
+                                                    }
+                                                }
+                                                : undefined}
                                         />
                                     </span>
                                     <span className="central-card-content">
