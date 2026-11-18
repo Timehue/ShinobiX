@@ -72,16 +72,16 @@ const levels = LEVELS.map((level) => {
 
 const entitlement = runEntitlementComparison(100);
 console.log(JSON.stringify({
-    version: 1,
+    version: 2,
     command: 'node --import tsx scripts/pvp-late-game-diversity.mts',
     engine: 'api/pvp/move.ts combat resolver with scripts/pvp-level-balance-sim.ts deterministic tag-aware scripted policy',
     determinism: 'No random source is used: profiles, build pairings, seats, openers, and policy tie breaks have fixed order. Rerun the same command for the same matrix; there is no RNG seed.',
-    policy: 'Same 12 regular techniques and equal legal progression/gear budget within each comparison; profile rotation bounds construction sensitivity. This diagnostic retains the current subscriber 12/15 rule in a separate matched comparison.',
+    policy: 'Same 14 regular techniques and equal legal progression/gear budget within each comparison; profile rotation bounds construction sensitivity. This diagnostic retains the current subscriber 14/15 rule in a separate matched comparison.',
     archetypes: COMPETITIVE_ARCHETYPES,
     levels,
     entitlementAtLevel100: {
         fights: entitlement.fights,
-        base12: tally(entitlement.base),
+        base14: tally(entitlement.base),
         activeSupporter15: tally(entitlement.supporter),
         flags: entitlement.issues,
     },

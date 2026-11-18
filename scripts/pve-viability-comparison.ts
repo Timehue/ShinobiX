@@ -49,7 +49,7 @@ async function main() {
             'After uses server ordinaryAiProfile, actual fraction/region-derived level, and the sealed legal kit/resources.',
             'Nonstarter moderate B-rank multiplier1.10; maxed control retains S-rank1.20. No BL-exclusive jutsu.',
             'Full starting resources; no pets/consumables. Five builds use one/two acquired natures and effective-gated gear.',
-            'Eight techniques are a bounded loadout below player baseline12-slot entitlement. Policy is competent, not optimal.',
+            'Eight techniques are a bounded loadout below the baseline14-slot entitlement. Policy is competent, not optimal.',
             'Pre-DR base unavailable from immutable old resolver; rawAfterMitigation is post-DR/pre-guard.',
             'Living round-limit loss is separate from death. AP wasted includes terminal partial turns. Net resource spend includes regeneration.'] };
     const checkpoint = (complete = false) => writeFileSync(opt('--output')!, JSON.stringify({ ...metadata, complete, rows, summary: summarizePressure(rows) }, null, 2) + '\n');
