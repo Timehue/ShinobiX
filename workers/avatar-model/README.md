@@ -190,6 +190,23 @@ Assembly also downloads the three finished style results. These functions
 have no mounted application credentials. The game dispatcher verifies result
 bindings before moving a job forward.
 
+The three run styles render side by side. The dispatcher still walks A, B, C,
+finish in order. Once the current style's call is known, it also starts every
+style that is neither finished nor running, records those calls in the job's
+`running` map and `providerCalls`, and adopts each one when the walk reaches it.
+A style that fails is retried alone, and the others keep their renders. An
+early start whose reply was lost keeps its attempt in `startingAt` until its
+call is known, so a later retry cannot orphan a call it started, and the walk
+waits for it (with the usual six-hour grace) instead of starting a second
+render. An early start that errors is logged and skipped, so it never holds up
+the style being polled. An early start cannot know the first style's movement
+revision, so polls leave that check to the dispatcher: a style that finishes on
+another revision (a worker redeploy mid-job) is rendered again, bound to the
+job's revision.
+`render_style` allows three containers for this. Ending a job does not stop
+style calls already running, so one cancelled early can still bill up to three
+renders, all recorded on the job.
+
 Unknown submissions retain their original operation. Do not manually resubmit a
 paint or recognition operation because a response was lost. Reconcile it from
 its journal, provider call and billing records. Token usage is not a billing

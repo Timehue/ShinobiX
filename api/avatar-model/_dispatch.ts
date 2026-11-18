@@ -23,6 +23,10 @@ type DispatchJob = {
     sourceSha256:string; masterSha256:string; movement?:string; callId?:string; unknownSince?:number;
     paintCostume?:true; originalMasterSha256?:string; checkedPainting?:string; kitVersion?:string; masterKey?:string;
     completed?:Partial<Record<Style,string>>; finishedCall?:string; delivery?:StageReply['model']; publishingAt?:number;
+    /** Style renders started ahead of their turn so the three run side by side. The stage walk adopts each one. */
+    running?:Partial<Record<Style,string>>;
+    /** The attempt an early style start was submitted under, kept until its call ID is known. */
+    startingAt?:Partial<Record<Style,number>>;
     providerCalls?: Record<string,string>;
     erasedAt?:number;
     retryCauses?: Partial<Record<ModelRetryCause, number>>;
@@ -40,6 +44,19 @@ const prefix = 'avatar-model:';
 const callIdPattern = /^fc-[A-Za-z0-9]{1,100}$/;
 // Allow the longest style invocation to finish and its started call to become discoverable.
 const unknownSubmissionGraceMs = 6 * 60 * 60_000;
+
+const isStyle = (stage:string): stage is Style => (styles as readonly string[]).includes(stage);
+
+/** A cancellation can win while a call starts. Keep its outcome and attach the late billing ID. */
+async function keepLateCall(key:string, job:DispatchJob, operation:string, callId:string) {
+    const ended=await kv.get<DispatchJob>(key);
+    if (ended?.assetId===job.assetId && ended.erasedAt===undefined &&
+        ['cancelled','failed'].includes(ended.state) && !ended.providerCalls?.[operation]) {
+        if (!await kv.compareSetMany?.([{op:'cas',key,expected:ended,value:{...ended,
+            providerCalls:{...ended.providerCalls,[operation]:callId}}}]))
+            throw new Error('Late provider receipt could not be recorded');
+    }
+}
 
 function retryJob(job: DispatchJob, cause: ModelRetryCause): DispatchJob {
     const next = { ...job, attempt: job.attempt + 1,
@@ -122,13 +139,83 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
         !/^[a-f0-9]{64}$/.test(job.recognition.nonce) || !job.reserved.some(p=>p.provider==='openai' && p.micros>0))) {
         await endModelJob(id,job.slug,'generation-disabled',job); return;
     }
-    const request:StageRequest = {stage, assetId:job.assetId, sourceSha256:job.sourceSha256,
-        masterSha256:job.masterSha256, attempt:job.attempt, movement:job.movement, completed:job.completed, callId:job.callId,
-        ...(stage==='recognize' ? {recognition:job.recognition,finishedCall:job.finishedCall,model:job.delivery} : {})};
-    if (!job.callId) {
+    let artwork:{descriptor:Buffer; master:{fit:{sheetSha256:string}}}|undefined;
+    const loadArtwork=async()=>{
+        if (artwork) return artwork;
         const descriptor=await read('masters',job.masterSha256);
         const master=JSON.parse(descriptor.toString('utf8'));
         if (master.fit?.sourceSha256!==job.sourceSha256) throw new Error('Invalid job artwork');
+        return artwork={descriptor,master};
+    };
+    if (isStyle(stage)) {
+        /** Start (or recover) one style's render ahead of its turn and record its call. */
+        const startEarly=async(style:Style):Promise<'recorded'|'unknown'|'stop'>=>{
+            // A start whose reply was lost keeps its attempt, so a later retry cannot orphan the call.
+            const attempt=job.startingAt?.[style] ?? job.attempt;
+            const art=await loadArtwork();
+            const reply=await run({stage:style, assetId:job.assetId, sourceSha256:job.sourceSha256,
+                masterSha256:job.masterSha256, attempt, movement:job.movement, completed:job.completed,
+                descriptor:art.descriptor.toString('base64'),
+                sheet:(await read('sheets',art.master.fit.sheetSha256)).toString('base64')});
+            if (reply.status==='unknown' || !reply.callId || !callIdPattern.test(reply.callId)) {
+                if (job.startingAt?.[style]===attempt) return 'unknown';
+                const pinned={...job,startingAt:{...job.startingAt,[style]:attempt}};
+                if (!await kv.compareSetMany?.([...ownerGuards,active,guard,{op:'cas',key,expected:job,value:pinned}])) return 'stop';
+                job=pinned;
+                return 'unknown';
+            }
+            const operation=style+'/'+attempt;
+            const recorded=job.providerCalls?.[operation];
+            if (recorded && recorded!==reply.callId) throw new Error('Conflicting provider operation');
+            const startingAt={...job.startingAt};
+            delete startingAt[style];
+            const updated={...job,running:{...job.running,[style]:reply.callId},
+                providerCalls:{...job.providerCalls,[operation]:reply.callId},startingAt};
+            if (!await kv.compareSetMany?.([...ownerGuards,active,guard,{op:'cas',key,expected:job,value:updated}])) {
+                await keepLateCall(key,job,operation,reply.callId);
+                return 'stop';
+            }
+            job=updated;
+            return 'recorded';
+        };
+        // This stage's own early start lost its reply: resolve it before starting anything new for it.
+        if (!job.callId && !job.running?.[stage] && job.startingAt?.[stage]!==undefined) {
+            const outcome=await startEarly(stage);
+            if (outcome==='stop') return;
+            if (outcome==='unknown') {
+                if (job.unknownSince===undefined) {
+                    await kv.compareSetMany?.([...ownerGuards,active,guard,{op:'cas',key,expected:job,value:{...job,unknownSince:Date.now()}}]);
+                } else if (Date.now()-job.unknownSince>=unknownSubmissionGraceMs) {
+                    await endModelJob(id,job.slug,'provider-outage',job);
+                }
+                return;
+            }
+        }
+        // A style started ahead of its turn becomes this stage's call, exactly as if the walk had started it.
+        const waiting=job.running?.[stage];
+        if (waiting && !job.callId) {
+            const running={...job.running};
+            delete running[stage];
+            const adopted={...job,callId:waiting,running};
+            delete adopted.unknownSince;
+            if (!await kv.compareSetMany?.([...ownerGuards,active,guard,{op:'cas',key,expected:job,value:adopted}])) return;
+            job=adopted;
+        }
+        // Once this stage's call is known, start the other styles so all three render at once.
+        // An early start that errors is skipped, so it can never hold up the stage being polled.
+        if (job.callId) for (const style of styles) {
+            if (style===stage || job.completed?.[style] || job.running?.[style]) continue;
+            try { if (await startEarly(style)==='stop') return; }
+            catch { console.warn('[avatar-model] Unable to start a style early for job',id,style); }
+        }
+    }
+    const request:StageRequest = {stage, assetId:job.assetId, sourceSha256:job.sourceSha256,
+        // A style started ahead of its turn did not know the movement revision; the result is checked below.
+        masterSha256:job.masterSha256, attempt:job.attempt, movement:isStyle(stage) && job.callId ? undefined : job.movement,
+        completed:job.completed, callId:job.callId,
+        ...(stage==='recognize' ? {recognition:job.recognition,finishedCall:job.finishedCall,model:job.delivery} : {})};
+    if (!job.callId) {
+        const {descriptor,master}=await loadArtwork();
         request.descriptor=descriptor.toString('base64');
         if (stage==='paint' || stage==='recognize') request.portrait=(await read('portraits',job.sourceSha256)).toString('base64');
         else if (stage!=='finish') request.sheet=(await read('sheets',master.fit.sheetSha256)).toString('base64');
@@ -171,17 +258,13 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
         const operation = stage+'/'+job.attempt;
         const recorded = job.providerCalls?.[operation];
         if (recorded && recorded!==result.callId) throw new Error('Conflicting provider operation');
-        if (!recorded) {
+        // A style started ahead of its turn is already recorded under the attempt it started in.
+        const startedEarlier=Object.entries(job.providerCalls??{})
+            .some(([op,call])=>call===result.callId && op.startsWith(stage+'/'));
+        if (!recorded && !startedEarlier) {
             const updated={...job,providerCalls:{...job.providerCalls,[operation]:result.callId}};
             if (!await kv.compareSetMany?.([{op:'cas',key,expected:job,value:updated}])) {
-                // Cancellation can win during spawn. Keep its outcome and attach the late billing ID.
-                const ended=await kv.get<DispatchJob>(key);
-                if (ended?.assetId===job.assetId && ended.erasedAt===undefined &&
-                    ['cancelled','failed'].includes(ended.state) && !ended.providerCalls?.[operation]) {
-                    if (!await kv.compareSetMany?.([{op:'cas',key,expected:ended,value:{...ended,
-                        providerCalls:{...ended.providerCalls,[operation]:result.callId}}}]))
-                        throw new Error('Late provider receipt could not be recorded');
-                }
+                await keepLateCall(key,job,operation,result.callId);
                 return;
             }
             job=updated;
@@ -203,7 +286,14 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
     }
     let next:DispatchJob={...job,callId:result.callId};
     if (result.status==='pending' && result.callId===job.callId) return;
-    if (result.status==='complete') {
+    // Styles started side by side cannot be told the first one's movement revision. One that
+    // disagrees (a worker redeploy mid-job) is rendered again, bound to the job's revision.
+    const staleStyle=result.status==='complete' && isStyle(stage) && !!job.movement && result.movement!==job.movement &&
+        !!result.movement && /^[a-f0-9]{64}$/.test(result.movement);
+    if (staleStyle) {
+        if (job.attempt>=3) { await endModelJob(id,job.slug,'provider-outage',job); return; }
+        next=retryJob(job,'worker-failure');
+    } else if (result.status==='complete') {
         if (stage==='paint') {
             const sheet=Buffer.from(result.sheet!,'base64'), descriptor=Buffer.from(result.descriptor!,'base64');
             try { validatePaintedFit(job.sourceSha256,job.kitVersion!,descriptor,sheet); }
@@ -326,12 +416,15 @@ export async function tickSpriteDispatch() {
         const policy={...config,enabled:process.env.AVATAR_MODEL_CREATION_ENABLED==='1' &&
             process.env.AVATAR_MODEL_KILL_SWITCH!=='1'};
         for (const id of jobs??[]) {
-            try { await withScheduledJobLease('avatar-model-job:'+id,()=>advanceSpriteJob(id,policy),{ttlSec:240}); }
+            // A render-stage tick can make three worker calls (two early starts and the poll), each up to 120 s.
+            try { await withScheduledJobLease('avatar-model-job:'+id,()=>advanceSpriteJob(id,policy),{ttlSec:420}); }
             catch { console.warn('[avatar-model] Unable to advance private job',id); }
         }
         for (const id of await kv.get<string[]>(prefix+'publish')??[]) {
             try { await withScheduledJobLease('avatar-model-publish:'+id,()=>publishSpriteJob(id),{ttlSec:900}); }
             catch { console.warn('[avatar-model] Unable to verify sprite publication',id); }
         }
-    },{ttlSec:300});
+        // Every write inside also proves this outer lease is live, so it must outlast the inner ones
+        // (420 s per job, 900 s per publication). The lease is released as soon as the tick ends.
+    },{ttlSec:900});
 }
