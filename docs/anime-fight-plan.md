@@ -76,7 +76,7 @@ all of these, so a jab is quiet and an ultimate dominates the frame.
   hits ×1.5. *Highest-ROI single addition after multi-hit.*
 - **Hit-stop shake (A2).** During the freeze, vibrate the victim harder than the
   attacker, horizontal for grounded / vertical for airborne, decaying — logical
-  position stays fixed. [Sakurai's 8 hit-stop techniques]
+  position stays fixed. [Hit-stop techniques talk]
 - **Scale of importance (A4).** Spark size, flash intensity, shake, and hit-stop
   all derive from the impact tier. Uniform medium sparks = everything reads weak.
 - **Procedural smears (E3).** During the 2–3 frames of a swing, stretch the sprite
@@ -182,7 +182,7 @@ playing; attack/hurt frames triggered by the beats.
 
 ## Key sources
 
-Fighting-game craft: [Sakurai hit-stop techniques](https://www.youtube.com/watch?v=tycbMSjDDLg) ·
+Fighting-game craft: [Hit-stop techniques talk](https://www.youtube.com/watch?v=tycbMSjDDLg) ·
 [Sakuga impact frames](https://blog.sakugabooru.com/glossary/impact-frames/) ·
 [SLYNYRD idle stance](https://www.slynyrd.com/blog/2024/9/26/pixelblog-52-idle-fighting-stance) ·
 a leading gacha RPG dev interview ·
