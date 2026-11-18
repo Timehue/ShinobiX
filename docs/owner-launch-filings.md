@@ -77,13 +77,13 @@ The game is in testing and a reset is planned. Players should know before they p
 
 Bring this list so the hour covers everything:
 
-1. Terms and Privacy as a whole (v1.14), including the ban paragraph in the Terms' conduct section.
+1. Terms and Privacy as a whole (v1.15), including the ban paragraph in the Terms' conduct section.
 2. Is the game "directed to children" under COPPA (anime style, chat, purchases)? Should under-16s get chat and purchases off by default (UK children's code)?
 3. Does the game need an EU or UK representative (GDPR Art. 27, DSA Art. 13)?
 4. The UK Online Safety Act: the illegal-content and children's-access risk assessments that chat brings into scope.
 5. The trademark search results from section 4.
 6. AI-assisted art: what records of human creative work to keep.
-7. The purchase claims in the Terms. The page says "Everything Fate Shards buy can also be earned by playing" and that Supporter "grants no combat advantage". In the code, Supporter's three extra jutsu slots also apply in PvP. Legendary armour, mythic weapons and pet PvP gear can be bought only with Shards (or from another player). Ask whether the wording must change before sales, or whether the game must change. Details: `docs/launch-readiness-plan-2026-11.md` section 3.B item 14.
+7. The purchase claims in the Terms (v1.15). The old wording ("Everything Fate Shards buy can also be earned by playing", Supporter "grants no combat advantage") was untrue and has been replaced. The page now says Shards can be earned by playing but more slowly than bought, names the Shard-only items, and says Supporter's 15-slot loadout also applies in PvP. Ask whether that disclosure is enough under EU consumer law and the FTC rules, or whether the Shard-only gear needs a play path. Details: `docs/launch-readiness-plan-2026-11.md` section 3.B item 14.
 
 ## 7. Real-phone check after a deploy (about 5 minutes)
 

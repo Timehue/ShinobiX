@@ -443,9 +443,19 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     const heading = pos.moving || (reducedMotion.matches && !pos.snapped && distance <= 45);
                     if (heading && distance > .001 && prior?.width === pos.width)
                         view = (Math.round(Math.atan2(dx, dy) / (Math.PI / 4)) + 8) % 8;
+                    // Until its first paint, a figure stands in its front standing pose:
+                    // the one page the travel wait decoded for it (sector-arrival-warm.ts).
+                    // A wanderer that arrives walking, or facing another way, then shows
+                    // its model at once instead of the portrait while the page for the
+                    // way it walks downloads. From the next frame its real heading and
+                    // stride take over, and the painted frame holds until they land.
+                    const standIn = !lastSheet;
+                    if (standIn) { view = 0; gait = "idle"; stride = {page:"idle",time:0}; index = 0; }
                     const bank = facingBank(view);
                     if (!bank) { waitForArt(painted ? PAINTED_GRACE_MS : 400); return; }
-                    if (pos.snapped || !prior || prior.width !== pos.width || (!pos.routed && (dt > .35 || distance > 45))) {
+                    if (standIn) {
+                        // Stands this frame; the stride starts once the figure is on screen.
+                    } else if (pos.snapped || !prior || prior.width !== pos.width || (!pos.routed && (dt > .35 || distance > 45))) {
                         gait = "idle";
                         stride = {page:"idle",time:0};
                         index = 0;
