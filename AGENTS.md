@@ -16,8 +16,13 @@ This repository must not name, cite or describe any other shinobi browser game.
 - Do not write comparison reports against another game. Do not read another
   game's source code for design ideas.
 - Use "shinobi RPG", never the compound phrase with "ninja".
-- `scripts/ip-hygiene.test.mjs` enforces this in CI. If it fails, rename or remove
-  the text. Never weaken the check, and never add a real name to it in plain text.
+- `scripts/ip-hygiene.test.mjs` enforces this in CI. It reads every tracked text
+  file and file path, with no allowlist. If it fails, rename or remove the text.
+  Never weaken the check, and never add a real name to it in plain text.
+- A guard that has to recognise a name stores it as a SHA-256 hash, as that test
+  and `RESERVED_TITLE_TERM_HASHES` in `api/_text-moderation.ts` do. Art prompts
+  describe Shinobi Journey's own look instead of naming what to avoid. Tests use
+  invented names.
 
 Words that are genuinely part of this game's own world, such as jutsu, chakra,
 Genin or Kage, are fine.

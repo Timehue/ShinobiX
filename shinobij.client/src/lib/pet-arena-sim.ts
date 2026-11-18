@@ -293,8 +293,8 @@ function makeRng(seed: number): () => number {
 // whole team to burst it is genuinely risky and clumping is punished). It moves slower
 // than a pet, so trackers/assassins can kite it while the tanks tank. The team that
 // lands the killing blow still gets a capped swing — a point PLUS a short team-wide
-// attack buff — enough to matter, not enough to erase the match (the Pokémon-Unite
-// "cap the swing" lesson). It spawns EARLIER now so the Warden fight is a real beat of
+// attack buff — enough to matter, not enough to erase the match (cap the swing a
+// single objective can cause). It spawns EARLIER now so the Warden fight is a real beat of
 // the match rather than a late footnote the objective churn buries.
 export const BOSS_RADIUS = 1.25;                 // boss body radius — pets strike from atkRange + this
 const BOSS_SPAWN_AT = ARENA_TPS * 32;            // appears ~32 s in (was 60 s — earlier so the Warden actually anchors the mid-game)
@@ -329,8 +329,7 @@ const BOSS_LUNGE_CD = Math.round(ARENA_TPS * 3.5);// ~3.5 s between lunges (a co
 
 // ── Shrines (the always-on, movement-POSITIVE tactical beat) ───────────────────
 // Replaces the old king-of-the-hill zone, which made pets stagnate (camp a tile and
-// grind a meter). Modern MOBA design (Dota 7.38 shrines, Pokémon-Unite Regi-buffs,
-// Deadlock runes) converged on the same shape: ONE contested pickup at a time, claimed
+// grind a meter). The shape that keeps a team arena moving is ONE contested pickup at a time, claimed
 // by a SHORT CHANNEL, that ROTATES across the map and grants a timed buff — so squads
 // keep MOVING (grab-and-go) instead of holding ground. Shrines give a tactical edge,
 // NOT score — scoring stays clean (scroll captures + the Warden). Two flavours alternate:

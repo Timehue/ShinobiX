@@ -1,4 +1,4 @@
-// Pet Showdown epic VFX art batch — the "Pokémon Champions scale" round.
+// Pet Showdown epic VFX art batch — the stadium-scale signature-move round.
 // Generates large PAINTED single-sprite textures (not flipbook frames) that the
 // Showdown set-piece layer renders as billboards/floor discs:
 //
@@ -41,7 +41,7 @@ function resolveKey() {
 }
 
 function styleWrap(prompt) {
-    return `Create a AAA-quality painted game VFX sprite for a turn-based monster-battling RPG (the visual register of a Pokémon signature-move cinematic).
+    return `Create a AAA-quality painted game VFX sprite for a turn-based monster-battling RPG (Shinobi Journey's Pet Showdown: a brief, cinematic signature move painted with bold elemental color and a clear silhouette).
 
 User request:
 ${prompt}
@@ -109,7 +109,7 @@ const ARENA_DIR = path.join(CLIENT, "src", "assets", "coliseum");
 
 /** Arena backdrops are scenes, not sprites — skip the isolated-effect rules. */
 function arenaWrap(prompt) {
-    return `Create a AAA-quality painted game arena backdrop for a turn-based monster-battling RPG (the visual register of a Pokémon Champions stadium).\n\nUser request:\n${prompt}\n\nStyle rules:\n- painted anime environment art, dramatic value range, rich lighting\n- no text, no logos, no UI, no watermarks\n- no foreground creatures or protagonists — the crowd is distant scenery only`;
+    return `Create a AAA-quality painted game arena backdrop for a turn-based monster-battling RPG (Shinobi Journey's Pet Showdown stadium: a vast floodlit shinobi arena with a distant crowd).\n\nUser request:\n${prompt}\n\nStyle rules:\n- painted anime environment art, dramatic value range, rich lighting\n- no text, no logos, no UI, no watermarks\n- no foreground creatures or protagonists — the crowd is distant scenery only`;
 }
 
 function outPathOf(job) {

@@ -1827,7 +1827,7 @@ export function pickBestPartyOrder(
     return best?.pair ?? null;
 }
 
-// ── 2v2 Party Battle (simultaneous, Pokémon-doubles style) ────────────────
+// ── 2v2 Party Battle (simultaneous, two pets per side) ────────────────────
 // All 4 pets on the 14×7 grid at once:
 //   Player team in column 1 (rows 2 and 4 — tiles 29 and 57)
 //   Enemy team in column 12 (rows 2 and 4 — tiles 40 and 68)
