@@ -183,7 +183,7 @@ async function visualNovelState(page: Page): Promise<string> {
   if (await cinematic.count()) {
     return cinematic.evaluate((root) => JSON.stringify({
       progress: root.querySelector(".cvn-progress")?.getAttribute("aria-label") ?? "",
-      spoken: root.querySelector(".cvn-sr-only")?.textContent ?? "",
+      spoken: root.querySelector(".ui-sr-only")?.textContent ?? "",
       displayed: root.querySelector(".cvn-dialogue-text")?.textContent ?? "",
       conclusion: root.querySelector(".vn-conclusion-text")?.textContent ?? "",
       typing: Boolean(root.querySelector(".cvn-tap-hint")),

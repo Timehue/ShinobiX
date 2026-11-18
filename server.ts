@@ -506,6 +506,11 @@ function route(path: string, handler: AnyHandler) {
                 enumerable: true,
                 configurable: true,
             });
+            // API answers are per-player unless a handler says otherwise. Cloudflare fronts
+            // this origin and caches some GETs, so the safe default is private, no-store;
+            // the deliberately shared ones (game-state, world-state, weekly-boss, img) set
+            // their own Cache-Control, which replaces this.
+            if (!res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'private, no-store');
             await handler(req, res);
         } catch (err) {
             next(err);

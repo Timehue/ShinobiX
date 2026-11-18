@@ -162,6 +162,7 @@ async function createCharacter(page: Page, playerName: string, password: string)
     await page.getByLabel('Name').fill(playerName);
     await page.locator('#cc-password').fill(password);
     await page.locator('#cc-confirm-password').fill(password);
+    await page.locator('#cc-birth-year').selectOption('1995');
 
     // Same owner-slug rule as the test body; this helper cannot see its local.
     const playerKey = playerName.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);

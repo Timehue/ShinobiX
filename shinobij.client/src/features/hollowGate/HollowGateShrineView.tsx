@@ -604,7 +604,7 @@ export function HollowGateShrineView({
                                 {Array.from({ length: maxFloor }, (_, i) => <li key={i} aria-current={run.floor === i + 1 ? 'step' : undefined}
                                     data-depth-state={i + 1 < run.floor ? 'traversed' : i + 1 === run.floor ? 'current' : 'ahead'}>
                                     <span className="underground-depths__number" aria-hidden="true">{i + 1}</span>
-                                    <span className="underground-depths__name"><small>{i + 1 < run.floor ? 'Traversed' : i + 1 === run.floor ? 'Current depth' : `Depth ${i + 1}`}</small>{(isQuestRift ? hollowGateRiftFloorProfile(i + 1, maxFloor, bossName) : hollowGateFloorProfile(i + 1)).name}</span>
+                                    <span className="ui-sr-only"><small>{i + 1 < run.floor ? 'Traversed' : i + 1 === run.floor ? 'Current depth' : `Depth ${i + 1}`}</small>{(isQuestRift ? hollowGateRiftFloorProfile(i + 1, maxFloor, bossName) : hollowGateFloorProfile(i + 1)).name}</span>
                                 </li>)}
                             </ol>
                             <details className="hg-floor-notes"><summary><span className="hg-floor-notes__epithet">{floorProfile.epithet} · </span>{isQuestRift ? 'Rift lore & guardian intel' : 'Cave lore & hound intel'}</summary>

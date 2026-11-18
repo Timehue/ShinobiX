@@ -25,21 +25,61 @@ type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivE
     blocked: () => boolean;
     /** A fullscreen interior covers the world: stop drawing and sending until it closes. */
     paused?: () => boolean;
+    /** Where the player is expected to stand (the arrival tile). The ground there is painted while the
+     *  server's position is still on its way; the server's answer then places the player as before. */
+    provisional?: { sector: number; tile: number };
     onAuthority: (sector: number, tile: number) => void; onStatus: (status: string) => void; signal: AbortSignal };
 /** The server walks a newer world graph than this tab loaded; only a reload can follow it. */
 export const STALE_WORLD_STATUS = 'The world map was updated. Reload to keep exploring.';
 const staleReply = (reply: WorldMovementReply, version: string) => Boolean(reply.worldPosition && reply.worldPosition.layoutVersion !== version);
 const directions = MOVEMENT_KEYS;
 export async function mountContinuousWorld(host: Host) {
-    const [world, initial] = await Promise.all([loadContinuousWorld(), worldMovementRequest(undefined, undefined, host.signal)]);
+    const asked = worldMovementRequest(undefined, undefined, host.signal);
+    asked.catch(() => {}); // awaited below; this only keeps an early failure from going unhandled
+    const world = await loadContinuousWorld();
     host.signal.throwIfAborted();
-    if (staleReply(initial, world.space.layoutVersion)) throw new Error(STALE_WORLD_STATUS);
-    const initialPosition = world.model.read(initial.worldPosition);
-    if (!initial.ok || !initialPosition) throw new Error('World presence is not ready. Try again.');
+    const renderer = createContinuousWorldRenderer(host.canvas, world.space, world.navigation);
+    /** Lays the DOM layers (figure, landmarks, residents) over a drawn view. */
+    const place = (view: ReturnType<typeof renderer.draw>, at: WorldPoint, moving = false, gait?: 'walk' | 'run') => {
+        const size = view.tilePx * 12;
+        host.onFigure?.(at.x * view.tilePx, at.y * view.tilePx, size, moving, gait);
+        host.chunk.style.width = host.chunk.style.height = `${size}px`;
+        host.chunk.style.setProperty('--world-tile-px', `${view.tilePx}px`);
+        host.chunk.style.transform = `translate3d(${view.x}px,${view.y}px,0)`;
+        host.marker.style.setProperty('--world-tile-px', `${view.tilePx}px`);
+    };
+    // The arrival tile's ground is on screen while the server's position is on its way (two
+    // round trips on a phone), instead of an empty canvas. Nothing moves or sends until it answers.
+    const expected = host.provisional && world.model.read(world.model.fallback(host.provisional.sector, host.provisional.tile));
+    let preview = 0;
+    const previewFrame = () => {
+        if (!host.paused?.()) {
+            const at = world.model.point(expected!);
+            place(renderer.draw(at, host.provisional!.sector), at);
+            // The player stands on the arrival tile from the first frame (the busy world otherwise hides them).
+            host.marker.style.visibility = 'visible';
+        }
+        preview = requestAnimationFrame(previewFrame);
+    };
+    if (expected) previewFrame();
+    let initial!: WorldMovementReply, initialPosition!: NonNullable<ReturnType<typeof world.model.read>>;
+    try {
+        initial = await asked;
+        host.signal.throwIfAborted();
+        if (staleReply(initial, world.space.layoutVersion)) throw new Error(STALE_WORLD_STATUS);
+        const read = world.model.read(initial.worldPosition);
+        if (!initial.ok || !read) throw new Error('World presence is not ready. Try again.');
+        initialPosition = read;
+    } catch (error) {
+        renderer.dispose();
+        host.marker.style.visibility = '';
+        throw error;
+    } finally {
+        cancelAnimationFrame(preview);
+    }
     if (initial.run) host.onRunWindow?.(initial.run);
     const walker = createWorldWalker(world.nodes, initialPosition.from);
     walker.restore(initialPosition);
-    const renderer = createContinuousWorldRenderer(host.canvas, world.space, world.navigation);
     const crossings = worldRoadCrossings(world.space.roads);
     // Built at the first tap, so a tap measures only the nodes near it, not the whole world.
     let tapIndex: ReturnType<typeof createTapIndex> | null = null;
@@ -128,8 +168,9 @@ export async function mountContinuousWorld(host: Host) {
         });
         adopted = await send(true);
     }
-    if (!adopted) { renderer.dispose(); throw new Error('World presence is not ready. Try again.'); }
-    if (host.signal.aborted) { renderer.dispose(); throw new DOMException('Aborted', 'AbortError'); }
+    if (!adopted || host.signal.aborted) { renderer.dispose(); host.marker.style.visibility = ''; }
+    if (!adopted) throw new Error('World presence is not ready. Try again.');
+    if (host.signal.aborted) throw new DOMException('Aborted', 'AbortError');
     const chooseDestination = (destination: string) => {
         if (host.blocked()) return;
         held = null; brake = null;
@@ -334,14 +375,10 @@ export async function mountContinuousWorld(host: Host) {
         }
         // Ease toward the goal, and settle exactly so an idle camera stops redrawing.
         lean = lean.map((v, i) => Math.abs(leanGoal[i] - v) < .01 ? leanGoal[i] : v + (leanGoal[i] - v) * Math.min(1, dt * 4));
-        const view = renderer.draw({ x: walker.position.x + lean[0], y: walker.position.y + lean[1] }, sector), size = view.tilePx * 12;
+        const view = renderer.draw({ x: walker.position.x + lean[0], y: walker.position.y + lean[1] }, sector);
         host.marker.style.translate = `${-lean[0] * tilePx}px ${-lean[1] * tilePx}px`;
-        host.onFigure?.(walker.position.x * view.tilePx, walker.position.y * view.tilePx, size, walker.travelled > before, figureGait);
+        place(view, walker.position, walker.travelled > before, figureGait);
         host.onPosition?.(sector, walker.position.x - view.chunk.x - .5, walker.position.y - view.chunk.y - .5);
-        host.chunk.style.width = host.chunk.style.height = `${size}px`;
-        host.chunk.style.setProperty('--world-tile-px', `${view.tilePx}px`);
-        host.chunk.style.transform = `translate3d(${view.x}px,${view.y}px,0)`;
-        host.marker.style.setProperty('--world-tile-px', `${view.tilePx}px`);
         const under = view.crossings.some(c => walker.node.road === c.under && Math.abs(walker.position.x - c.x) < .7 && Math.abs(walker.position.y - c.y) < .7);
         host.marker.style.opacity = under ? '.25' : '1';
         host.marker.classList.toggle('is-walking', walker.moving && !blocked);

@@ -9,6 +9,7 @@ import { sectorBannerRevision,tintSectorBanners } from './sector-banner';
 import { drawSectorRestorations,sectorRestorationRevision } from './sector-restoration-art';
 import {recordDisplayedSectorFloor,forgetDisplayedSectorFloor,forgetDisplayedFloors} from './sector-displayed-floor';
 import { MOLTEN_ROCK_LIMIT, moltenShare, rockWindows } from './continuous-world-rock';
+import { takeWarmImage, worldFloorSource, worldTerrainName } from './world-floor-warm';
 
 const colors: Record<string, string> = { forest: '#495338', central: '#747052', snow: '#b5bdba', shadow: '#55505c', volcano: '#4a3d36' };
 const hash = (x: number, y: number) => Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
@@ -82,7 +83,17 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     // Without decode() (an older engine) a loaded image is used as before.
     const usable = (image: HTMLImageElement | undefined): image is HTMLImageElement => !!image && image.complete && image.naturalWidth > 0
         && (decoded.has(image) || typeof image.decode !== 'function');
-    const material = (name: string) => { let image = materials.get(name); if (!image) { image = new Image(); whenDecoded(image, () => { revision++; }); image.src = `/sector-map/world-terrain/${name}.webp`; materials.set(name, image); } return image; };
+    const material = (name: string) => {
+        let image = materials.get(name);
+        if (!image) {
+            const source = `/sector-map/world-terrain/${name}.webp`, ready = takeWarmImage(source);
+            // Decoded during the travel wait: usable on this very frame.
+            if (ready) { image = ready; decoded.add(image); revision++; }
+            else { image = new Image(); whenDecoded(image, () => { revision++; }); image.src = source; }
+            materials.set(name, image);
+        }
+        return image;
+    };
     const roads = space.roads.map(r => ({ ...r, left: Math.min(...r.points.map(p => p.x)), right: Math.max(...r.points.map(p => p.x)),
         top: Math.min(...r.points.map(p => p.y)), bottom: Math.max(...r.points.map(p => p.y)) }));
     const nearestChunk = (x: number, y: number) => space.chunks.reduce((best, chunk) =>
@@ -96,9 +107,12 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     };
     const imageFor = (sector: number) => {
         let image = images.get(sector);
-        const source=sectorLifePainting(sector)??sectorFloorImage(sector);
+        const source=worldFloorSource(sector);
         const loading=pending.get(sector);
         if ((image?.floorSource!==source||image.failedRevision!==undefined&&image.failedRevision!==sectorLifePaintingRevision())&&(loading?.floorSource!==source||loading.failedRevision!==undefined&&loading.failedRevision!==sectorLifePaintingRevision())) {
+            // A floor decoded during the travel wait is drawn at once, on the arrival frame.
+            const ready=!image&&!loading?takeWarmImage(source) as FloorImage|undefined:undefined;
+            if(ready){ready.floorSource=source;decoded.add(ready);images.set(sector,ready);revision++;return ready;}
             const created=new Image() as FloorImage;created.floorSource=source;pending.set(sector,created);
             // Keep the decoded previous floor until the new phase is ready. A
             // failed or superseded image must never blank the terrain or win late.
@@ -108,7 +122,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
                     return;
                 }
                 pending.delete(sector);
-                if((sectorLifePainting(sector)??sectorFloorImage(sector))!==source)return;
+                if(worldFloorSource(sector)!==source)return;
                 const old=paintings.get(sector);if(old)shrink(old);
                 paintings.delete(sector);roadTextures.delete(sector);images.set(sector,created);
                 painting(sector,created);revision++;
@@ -154,7 +168,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     function texture(chunk: WorldChunk, image: HTMLImageElement) {
         const biome = sectorBiomeOf(chunk.sector), mask = sectorWalkMask(chunk.sector);
         if (!mask || !usable(image)) return;
-        const terrain = material(biome === 'snow' ? 'snow' : biome === 'volcano' || biome === 'shadow' ? 'cinder' : 'forest');
+        const terrain = material(worldTerrainName(chunk.sector, biome));
         const ready = usable(terrain), sourceKey = ready ? terrain.src : image.src;
         // Until the material arrives, the first map's stand-in holds. Each map of the biome
         // used to rebuild it from its own art in turn, every frame, so the screen never went

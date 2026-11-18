@@ -8,6 +8,7 @@ import { setSectorLifePainting,setSectorGroundMarks,sectorGroundMarks,sectorGrou
 import { setSectorBannerOwners } from './sector-banner';
 import {displayedSectorFloor} from './sector-displayed-floor';
 import { clearSectorRestorations,setSectorRestorations } from './sector-restoration-art';
+import { warmWorldFloors, worldFloorSource, worldTerrainSource } from './world-floor-warm';
 
 type Fixture = { renderer: ReturnType<typeof createContinuousWorldRenderer>; canvas: { clientWidth: number }; images: { src: string; onload: (() => void) | null; onerror?: (()=>void)|null; complete:boolean;naturalWidth:number }[];
     counts: { paints: number; tilePaints: number; blits: number; canvases: number; scuffs:number; boots:number };
@@ -51,6 +52,19 @@ function settle(renderer: ReturnType<typeof createContinuousWorldRenderer>, poin
     assert.fail('the terrain never settled');
 }
 
+test('a floor decoded during the travel wait paints on the arrival frame, with no second request', async () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'Image');
+    class Decoding { src = ''; decoding = ''; complete = false; naturalWidth = 0; decode() { this.complete = true; this.naturalWidth = 1536; return Promise.resolve(); } }
+    Object.defineProperty(globalThis, 'Image', { configurable: true, value: Decoding });
+    try { warmWorldFloors(9); await new Promise(resolve => setImmediate(resolve)); }
+    finally { if (original) Object.defineProperty(globalThis, 'Image', original); else Reflect.deleteProperty(globalThis, 'Image'); }
+    harness(({ renderer, images, drawn }) => {
+        renderer.draw({ x: 6, y: 6 }, 9);
+        assert.ok(drawn.includes(worldFloorSource(9)), 'the first frame draws the warmed floor');
+        assert.ok(drawn.includes(worldTerrainSource(9)), 'and the warmed biome ground');
+        assert.deepEqual(images.filter(image => image.src === worldFloorSource(9) || image.src === worldTerrainSource(9)), [], 'neither is requested again');
+    });
+});
 test('habitat cues use a fully drawn decoded floor, retain old art while loading, and follow actual fallback art',()=>{
     try{
         setSectorLifePainting(23,'moonwell-dormant-shrine-v1');

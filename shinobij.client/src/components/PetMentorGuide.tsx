@@ -191,7 +191,7 @@ export function PetMentorGuide({
                 </header>
 
                 <div className="pet-mentor-layout">
-                    <p className="pet-mentor-sr-only" role="status" aria-live="polite" aria-atomic="true">
+                    <p className="ui-sr-only" role="status" aria-live="polite" aria-atomic="true">
                         Lesson {lesson.order} of {PET_TUTORIAL_LESSONS.length}: {lesson.title}. Page {pageIndex + 1} of {lesson.pages.length}: {page.title}.
                     </p>
                     <nav className="pet-mentor-curriculum" aria-label="Pet battle lessons">

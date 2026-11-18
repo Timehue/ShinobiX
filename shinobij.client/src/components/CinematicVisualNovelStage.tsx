@@ -562,7 +562,7 @@ export function CinematicVisualNovelStage({
 
             <section ref={dialogueRef} className="cvn-dialogue-shell">
                 <p className="cvn-dialogue-scene">{scene}</p>
-                <span className="cvn-sr-only" aria-live="polite" aria-atomic="true">
+                <span className="ui-sr-only" aria-live="polite" aria-atomic="true">
                     {speaker}: {spoken}
                 </span>
                 <div className="cvn-speaker">{speaker}</div>

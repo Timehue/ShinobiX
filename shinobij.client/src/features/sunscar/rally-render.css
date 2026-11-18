@@ -62,7 +62,6 @@
     background: var(--rally-dock); border-top: 1px solid var(--rally-dock-line);
 }
 .rally-context { grid-column: 1 / -1; min-width: 0; min-height: 56px; }
-.rally-warning-announcement { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
 .sunscar-rally-session .rally-race .rally-race-hints {
     position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch; gap: 4px; max-width: none;

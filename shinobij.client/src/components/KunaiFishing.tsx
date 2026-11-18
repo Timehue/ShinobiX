@@ -121,7 +121,7 @@ export default function KunaiFishing({ attempt, busy, resolve, golden = false }:
         </div>
         <p className="kunai-status" role="status">{message}</p>
         <p className="kunai-help" id="kunai-help">{relaxed ? 'Animation mode uses your skill’s baseline success rate.' : <>{skillLevel != null && <>You: Fishing Lv.{skillLevel} · Locked fish fail the attempt<br /></>}Drag to aim · Release · Arrows + Space</>}</p>
-        <span className="kunai-sr-only" id="kunai-species">{shoal?.map(fish => `${fish.name}, requires Fishing level ${fish.level}, ${fish.level > skillLevel! ? 'too strong' : 'catchable'}.`).join(' ')}</span>
+        <span className="ui-sr-only" id="kunai-species">{shoal?.map(fish => `${fish.name}, requires Fishing level ${fish.level}, ${fish.level > skillLevel! ? 'too strong' : 'catchable'}.`).join(' ')}</span>
         {!relaxed && !done && <button type="button" className="resource-primary" disabled={!ready} onClick={() => fire()}>{state.phase === 'flight' ? 'Blade in flight…' : state.phase === 'hauling' ? 'Retrieving catch…' : state.phase === 'resisting' ? 'Fish breaking free…' : state.phase === 'returning' ? 'Retrieving kunai…' : 'Throw kunai'}</button>}
         {done && <button type="button" autoFocus className="resource-primary" disabled={busy} onClick={() => resolve(relaxed ? {} : { events: inputRef.current })}>{busy ? 'Recording result…' : 'Recover result'}</button>}
     </div>;
