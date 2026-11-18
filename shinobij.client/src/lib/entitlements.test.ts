@@ -31,6 +31,17 @@ describe("client supporter entitlement mirror", () => {
         }
     });
 
+    it("ends the fifteenth regular slot at the exact expiry on both client and server", (t) => {
+        let now = 9_999;
+        t.mock.method(Date, "now", () => now);
+        const character = { patreon: { ...supporter.patreon!, expiresAt: 10_000 } };
+        for (const [at, cap] of [[9_999, 15], [10_000, 14], [10_001, 14]] as const) {
+            now = at;
+            assert.equal(maxLoadout(character), cap);
+            assert.equal(serverMaxLoadout(character), cap);
+        }
+    });
+
     it("lets every account carry the full Tactical Arena team", () => {
         assert.ok(PET_CAP_BASE >= TACTICAL_ARENA_PET_REQUIREMENT);
     });

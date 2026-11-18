@@ -878,6 +878,32 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
 });
 
+test("supporter expiry updates the loaded loadout without another login", async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
+    test.skip(testInfo.project.name !== "chromium-desktop", "the loaded expiry transition is exercised once");
+    const { jutsuIds, creatorJutsus } = adaptiveJutsuFixtureData();
+    const save = subscriberSaveFixture(jutsuIds, creatorJutsus);
+    const expiresAt = Date.now() + 3_600_000;
+    save.character = { ...save.character, patreon: { ...(save.character?.patreon as Record<string, unknown>), expiresAt } };
+    await installPersistedAdaptiveSession(page);
+    const api = await installAuthenticatedApi(page, save);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
+    await expectLoadedSave(page, api);
+    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
+    await page.getByRole("dialog", { name: "Your shinobi" }).getByTitle("View character profile").click();
+    await page.getByRole("button", { name: "Jutsu", exact: true }).click();
+    await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(15);
+    await page.clock.setFixedTime(new Date(expiresAt));
+    await page.getByRole("tab", { name: /^Learned jutsu/ }).click();
+    await expect(page.locator(".jutsu-equipped-badge")).toHaveCount(14);
+    await page.getByRole("tab", { name: /^Loadout/ }).click();
+    await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(14);
+    await expect(page.locator(".jutsu-loadout-slot.is-locked")).toHaveCount(1);
+    await expect(page.getByText("When membership ends, your first 14 regular slots stay equipped.", { exact: false })).toBeVisible();
+    await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
+});
+
 test("subscriber capacity and expanded mobile drawers reflow safely", async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     test.skip(testInfo.project.name !== "chromium-desktop", "entitlement fixtures are exercised once; the route smoke suite supplies engine coverage");

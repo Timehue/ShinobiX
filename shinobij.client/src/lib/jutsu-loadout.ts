@@ -21,6 +21,7 @@ import { isDeletedJutsuEntry } from "../../../shared/admin-content-tombstone";
 import { builtInJutsuIds, starterJutsus, starterSavedBloodlines } from "../data/jutsu";
 import { mergeDisplayJutsu, normalizeJutsu, orderEquippedJutsus } from "./jutsu";
 import { getCharacterBloodlines, isUncarriedBloodlineJutsu } from "./bloodline";
+import { maxLoadout } from "./entitlements";
 
 export function allStarterBloodlineJutsus() {
     return starterSavedBloodlines.flatMap((bloodline) => bloodline.jutsus.map((jutsu) => ({ jutsu, rank: bloodline.rank })));
@@ -57,7 +58,9 @@ export function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: J
 }
 
 export function getPvpJutsuLoadout(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[], character: Character) {
-    return orderEquippedJutsus(getAllJutsus(savedBloodlines, creatorJutsus, character), character.equippedJutsuIds);
+    // Membership can expire after hydration while the player is still online.
+    return orderEquippedJutsus(getAllJutsus(savedBloodlines, creatorJutsus, character), character.equippedJutsuIds)
+        .slice(0, maxLoadout(character));
 }
 
 // An equipped ID is only a *preference*: it survives in the save as long as a

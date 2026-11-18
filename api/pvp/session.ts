@@ -1252,9 +1252,11 @@ export function resolveEquippedLoadout(
             safeLogValue(unlearned.join(',')),
         );
     }
-    // A save can temporarily retain 15 persisted slot preferences after a
-    // supporter lapse. Resolve only the active 14/15 account entitlement here;
-    // never truncate the stored preference itself, so reactivation is lossless.
+    // A stored save can still have 15 slot preferences immediately after a
+    // supporter lapse. Resolve only the active 14/15 entitlement here without
+    // mutating that input. Client hydration and the next save normalize to 14;
+    // learned ownership survives, but after normalization renewal requires
+    // re-equipping slot 15.
     // Real-player PvP keeps the active 14/15 account entitlement after
     // hydration; the separate Legacy signature slot is sealed later. PvE
     // callers retain the same entitlement behavior, while save-less NPC
@@ -1603,8 +1605,8 @@ export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknow
     // BALANCE (owner-documented, intentional): this is a strictly-additive slot
     // on top of the regular loadout — a Legacy player fields one more jutsu than
     // a no-Legacy player, with no offsetting loadout cost. Human PvP later seals
-    // the regular portion to 12 for both players while retaining this earned
-    // signature. That is accepted
+    // the regular portion to the active 14/15 entitlement while retaining this
+    // earned signature. That is accepted
     // prestige power: it is EARNED (achievement floors + a 5-stage trial arc),
     // never bought or RNG'd, so it stays inside the skill-gated-power pillar. Its
     // only in-combat cost is AP contention (it shares the 100 AP/turn) and its

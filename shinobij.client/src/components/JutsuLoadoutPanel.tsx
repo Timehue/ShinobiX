@@ -289,7 +289,8 @@ export function JutsuLoadoutPanel({
     // jutsu, kept in the save by its mastery row — resolves to nothing and must
     // not hold a slot: counting it wedged the loadout at 14 usable jutsu while
     // the cap check insisted all 15 were taken.
-    const equippedJutsus = orderEquippedJutsus(catalogJutsus, character.equippedJutsuIds);
+    const equippedJutsus = orderEquippedJutsus(catalogJutsus, character.equippedJutsuIds).slice(0, unlockedSlots);
+    const equippedIds = new Set(equippedJutsus.map((jutsu) => jutsu.id));
     const equippedCount = equippedJutsus.length;
     const loadoutFull = equippedCount >= unlockedSlots;
     const automaticLensDiscipline = resolveLoadoutLensDiscipline(character, learnedJutsus, savedBloodlines);
@@ -302,7 +303,7 @@ export function JutsuLoadoutPanel({
         : undefined;
     const signature = legacySignatureFor(character);
     const academyRecommendedJutsuId = academyLoadoutStep
-        ? learnedJutsus.find((jutsu) => !character.equippedJutsuIds.includes(jutsu.id))?.id ?? ""
+        ? learnedJutsus.find((jutsu) => !equippedIds.has(jutsu.id))?.id ?? ""
         : "";
 
     const disciplines = Array.from(new Set(learnedJutsus.map((jutsu) => jutsu.type))).sort();
@@ -565,7 +566,7 @@ export function JutsuLoadoutPanel({
                                     jutsu={jutsu}
                                     character={character}
                                     selected={selectedJutsu?.id === jutsu.id}
-                                    equipped={character.equippedJutsuIds.includes(jutsu.id)}
+                                    equipped={equippedIds.has(jutsu.id)}
                                     view={view}
                                     isBloodline={isBloodlineJutsu(jutsu)}
                                     bloodlineName={bloodlineNameFor(jutsu)}
@@ -599,7 +600,7 @@ export function JutsuLoadoutPanel({
                             jutsu={selectedJutsu}
                             character={character}
                             lensDiscipline={lensDiscipline}
-                            equipped={Boolean(selectedJutsu && character.equippedJutsuIds.includes(selectedJutsu.id))}
+                            equipped={Boolean(selectedJutsu && equippedIds.has(selectedJutsu.id))}
                             loadoutFull={loadoutFull}
                             isBloodline={Boolean(selectedJutsu && isBloodlineJutsu(selectedJutsu))}
                             bloodlineName={selectedJutsu ? bloodlineNameFor(selectedJutsu) : ""}
@@ -621,6 +622,7 @@ export function JutsuLoadoutPanel({
                         <ul>
                             <li>Unlock 1 additional regular jutsu slot (15).</li>
                             <li>The larger loadout also applies in PvP. Your Legacy signature uses a separate slot.</li>
+                            <li>When membership ends, your first 14 regular slots stay equipped. All learned jutsu remain; after renewing, you may need to equip your fifteenth jutsu again.</li>
                         </ul>
                     </section>
                     <section className="jutsu-sidebar-section jutsu-element-legend">
@@ -645,7 +647,7 @@ export function JutsuLoadoutPanel({
                         jutsu={popupJutsu}
                         character={character}
                         lensDiscipline={lensDiscipline}
-                        equipped={character.equippedJutsuIds.includes(popupJutsu.id)}
+                        equipped={equippedIds.has(popupJutsu.id)}
                         loadoutFull={loadoutFull}
                         isBloodline={isBloodlineJutsu(popupJutsu)}
                         bloodlineName={bloodlineNameFor(popupJutsu)}

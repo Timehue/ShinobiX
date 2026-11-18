@@ -110,6 +110,24 @@ describe("getAllJutsus", () => {
 });
 
 describe("getPvpJutsuLoadout", () => {
+    it("rechecks expiry and revocation after a 15-slot character has already loaded", (t) => {
+        let now = 1_000;
+        t.mock.method(Date, "now", () => now);
+        const ids = starterJutsus.slice(0, 15).map((entry) => entry.id);
+        assert.equal(ids.length, 15);
+        const fighter = character({
+            equippedJutsuIds: ids,
+            patreon: { userId: "test", tier: "shinobi-supporter", active: true, entitledCents: 1_500, updatedAt: 1, expiresAt: 2_000 },
+        });
+        assert.deepEqual(getPvpJutsuLoadout([], [], fighter).map((entry) => entry.id), ids);
+        now = 2_000;
+        assert.deepEqual(getPvpJutsuLoadout([], [], fighter).map((entry) => entry.id), ids.slice(0, 14));
+        now = 1_000;
+        fighter.patreon = { ...fighter.patreon!, active: false };
+        assert.deepEqual(getPvpJutsuLoadout([], [], fighter).map((entry) => entry.id), ids.slice(0, 14));
+        assert.deepEqual(fighter.equippedJutsuIds, ids, "reading a combat preview does not mutate save preferences");
+    });
+
     it("returns ONLY the equipped jutsu, in equipped order", () => {
         const a = starterJutsus[0].id;
         const b = starterJutsus[1].id;

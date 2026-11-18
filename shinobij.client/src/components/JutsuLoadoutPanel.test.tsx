@@ -95,6 +95,24 @@ test("only equipped collection cards carry the badge, and both views share one c
     assert.match(source, /jutsu-collection-grid \$\{view === "list" \? "is-list-view" : ""\}/);
 });
 
+test("an expired or revoked loaded supporter shows 14 equipped slots and leaves the fifteenth jutsu learned", () => {
+    const learned = Array.from({ length: 15 }, (_, index) => jutsu(`expiry-${index}`, `Technique ${index}`));
+    const base = createCharacter("Expiry Tester", "Leaf", "Ninjutsu", "None");
+    const supporter = { userId: "test", tier: "shinobi-supporter", active: true, entitledCents: 1_500, updatedAt: 1 };
+    for (const patreon of [{ ...supporter, active: false }, { ...supporter, expiresAt: Date.now() - 1 }]) {
+        const character = { ...base, patreon, onboardingStep: "jutsuLoadout" as const,
+            equippedJutsuIds: learned.map((entry) => entry.id),
+            jutsuMastery: learned.map((entry) => ({ jutsuId: entry.id, level: 4, xp: 0 })) };
+        const html = renderToStaticMarkup(<JutsuLoadoutPanel character={character} learnedJutsus={learned}
+            catalogJutsus={learned} onPlaceJutsu={() => {}} onUnequip={() => {}} onUnequipAll={() => {}} />);
+        assert.match(html, /14 \/ 14/);
+        assert.equal((html.match(/class="jutsu-equipped-badge"/g) ?? []).length, 14);
+        assert.match(html, /Technique 14/);
+        assert.equal(character.equippedJutsuIds.length, 15, "rendering does not edit the saved input");
+        assert.equal(character.jutsuMastery.length, 15);
+    }
+});
+
 test("grid badges stay inside the artwork as the art and name change height", () => {
     const shared = css.match(/\.profile-page-card \.jutsu-equipped-badge\s*\{([^}]*)\}/);
     assert.ok(shared, "expected the shared .jutsu-equipped-badge rule");

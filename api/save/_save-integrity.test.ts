@@ -187,6 +187,24 @@ describe('jutsu loadout persistence', () => {
         }
     });
 
+    it('keeps learned ownership across downgrade and renewal, but requires re-equipping slot 15', () => {
+        for (const sanitize of [sanitizeCompatible, sanitizeStrict]) {
+            for (const patreon of [{ active: false }, { active: true, expiresAt: Date.now() - 1 }]) {
+                const stored = storedSave(true);
+                Object.assign(stored.character, { patreon, equippedJutsuIds: slotOrder });
+                const downgraded = sanitize(wrap({ equippedJutsuIds: slotOrder }), stored);
+                const downgradedCharacter = downgraded.character as Record<string, unknown>;
+                assert.deepEqual(downgradedCharacter.equippedJutsuIds, slotOrder.slice(0, 14));
+                assert.deepEqual(downgradedCharacter.jutsuMastery, stored.character.jutsuMastery);
+                const renewed = { ...downgraded, character: { ...downgradedCharacter, patreon: { active: true } } };
+                const unchanged = sanitize(wrap({ equippedJutsuIds: downgradedCharacter.equippedJutsuIds }), renewed).character as Record<string, unknown>;
+                assert.deepEqual(unchanged.equippedJutsuIds, slotOrder.slice(0, 14));
+                const reequipped = sanitize(wrap({ equippedJutsuIds: slotOrder }), renewed);
+                assert.deepEqual((reequipped.character as Record<string, unknown>).equippedJutsuIds, slotOrder);
+            }
+        }
+    });
+
     it('rejects newly injected slot ids in both ledger modes but accepts a level-0 mastery row', () => {
         const existing = wrap({
             jutsuMastery: [
