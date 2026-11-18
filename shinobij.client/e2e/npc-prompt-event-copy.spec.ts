@@ -115,7 +115,16 @@ for (const reducedMotion of ['no-preference','reduce'] as const) {
         await expect.poll(async()=>await map.isVisible()||await back.isVisible(),{timeout:30_000}).toBe(true);
         if (await back.isVisible()) await back.dispatchEvent('click');
         const pay=page.getByRole('button',{name:'Pay 500 ryo',exact:true});
-        await expect(pay).toBeVisible({timeout:40_000});
+        // Wait for the toll with a plain text scan, not a role query. A role
+        // query works out the accessible name of every button on the page on
+        // each poll; on CI's CPU-rendered WebKit that held the main thread for
+        // 1-2.5 s per poll while the bandit walked (2026-11-18 traces: the
+        // stalls began with the walk and ended when the toll resolved), so the
+        // probe slowed the very pace this test measures. The pace gate is
+        // unchanged; the role check still runs once the bandit has arrived.
+        await page.waitForFunction(()=>Array.from(document.querySelectorAll('button'))
+            .some(b=>b.textContent?.trim()==='Pay 500 ryo'),undefined,{timeout:40_000,polling:250});
+        await expect(pay).toBeVisible();
         const { samples, diagnostics } = await page.evaluate(() => (window as unknown as {
             readBanditTravel: () => { samples: BanditTravelSample[]; diagnostics: Record<string, unknown> };
         }).readBanditTravel());
