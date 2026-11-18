@@ -134,6 +134,22 @@ export async function getActiveSilence(name: string): Promise<SilenceRecord | nu
     return rec;
 }
 
+/**
+ * The 403 body every surface returns to a silenced author. The message itself
+ * says when the silence ends and the reason staff recorded (the DSA Art. 17
+ * statement of reasons), so every chat shows both through the error text it
+ * already displays. `silence` keeps the raw record for clients that format it.
+ */
+export function silenceRefusal(rec: SilenceRecord): { error: string; silence: { until: number; reason: string } } {
+    const reason = String(rec.reason ?? '').trim();
+    const ends = new Date(rec.until).toUTCString().replace(/:\d\d GMT$/, ' UTC');
+    return {
+        error: `You are silenced until ${ends}.${reason ? ` Reason: ${reason}${/[.!?]$/.test(reason) ? '' : '.'}` : ''}`
+            + ' To appeal, write to support@shinobijourney.com.',
+        silence: { until: rec.until, reason: rec.reason },
+    };
+}
+
 /** Extract the client browser fingerprint from the x-client-fp header. */
 export function clientFpFrom(req: VercelRequest): string {
     const raw = req.headers['x-client-fp'];

@@ -8,7 +8,7 @@ import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { clanChatKey, appendChatMessage, cleanChatText, CLAN_CHAT_TTL_SEC, type ClanChatMessage } from './_storage.js';
 import { rejectUnclaimedGuest } from '../../_guest-gate.js';
-import { getActiveSilence } from '../../admin/moderation.js';
+import { getActiveSilence, silenceRefusal } from '../../admin/moderation.js';
 import { kickClanChat } from '../../_realtime/notify.js';
 
 /*
@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // as api/messages.ts so the client's existing handling applies.
         if (!identity.admin) {
             const sil = await getActiveSilence(identity.name);
-            if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
+            if (sil) return res.status(403).json(silenceRefusal(sil));
         }
 
         const slug = clanBareSlug(clan);

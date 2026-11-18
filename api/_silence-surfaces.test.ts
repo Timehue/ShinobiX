@@ -89,7 +89,9 @@ async function silence(ms = 60 * 60 * 1000) {
 
 function assertSilenced(out: { statusCode: number; body?: Json }, where: string) {
     assert.equal(out.statusCode, 403, `${where} must refuse a silenced author: ${JSON.stringify(out.body)}`);
-    assert.equal(out.body?.error, 'You are silenced.', `${where} must use the shared 403 shape the client already handles`);
+    // The shared silenceRefusal() message: it names the end and the recorded
+    // reason, so the player sees why (DSA Art. 17) on every surface.
+    assert.match(String(out.body?.error), /^You are silenced until .+ UTC\. Reason: test\. To appeal/, `${where} must use the shared silenceRefusal() 403`);
     assert.ok(out.body?.silence, `${where} must return the silence record so the client can show until/reason`);
 }
 

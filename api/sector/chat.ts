@@ -7,7 +7,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { rejectUnclaimedGuest } from '../_guest-gate.js';
-import { getActiveSilence } from '../admin/moderation.js';
+import { getActiveSilence, silenceRefusal } from '../admin/moderation.js';
 import { blockedPlayersFor } from '../player/_blocks.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { sectorChatEnabled } from '../_release-flags.js';
@@ -108,7 +108,7 @@ async function post(
     // Listening stays open to unclaimed guests; speaking to strangers does not.
     if (await rejectUnclaimedGuest(res, identity)) return;
     const silence = await getActiveSilence(name);
-    if (silence) return res.status(403).json({ error: 'You are silenced.', silence: { until: silence.until, reason: silence.reason } });
+    if (silence) return res.status(403).json(silenceRefusal(silence));
     const away = sectorPresenceBlock(name, sector);
     if (away) return res.status(away.status).json({ error: away.error, reason: away.reason });
 

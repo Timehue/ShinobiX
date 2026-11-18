@@ -118,9 +118,11 @@ describe('sector chat client calls', () => {
         assert.equal(limited.ok, false);
         if (!limited.ok) { assert.equal(limited.status, 429); assert.equal(limited.retryAfterMs, 4200); }
 
-        fakeFetch(403, { error: 'You are silenced.', silence: { until: 777, reason: 'x' } });
+        // A silence shows the server's own line: end, recorded reason, appeal.
+        const line = 'You are silenced until Thu, 19 Nov 2026 03:00 UTC. Reason: x. To appeal, write to support@shinobijourney.com.';
+        fakeFetch(403, { error: line, silence: { until: 777, reason: 'x' } });
         const silenced = await sendSectorChat(12, 'hi');
-        assert.equal(!silenced.ok && silenced.silencedUntil, 777);
+        assert.equal(!silenced.ok && silenced.error, line);
         assert.equal(sectorChatUnavailable(), false, 'only a 404 latches');
     });
 

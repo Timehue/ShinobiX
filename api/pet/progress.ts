@@ -5,7 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { hasStaffImpersonationName, isCleanPlayerName, isCleanText } from '../_text-moderation.js';
-import { getActiveSilence } from '../admin/moderation.js';
+import { getActiveSilence, silenceRefusal } from '../admin/moderation.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { applyPetSummonCost, gainServerPetXp, PET_FEED_XP, PET_TRAINING_DURATIONS, PET_TRAINING_FOCI, petTrainingUpgradeBonusPct, removePetItem, settleFinishedTraining } from './_progress.js';
@@ -72,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // as with a custom title (player/profile-title.ts).
         if (!identity.admin && action === 'nickname') {
             const sil = await getActiveSilence(identity.name);
-            if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
+            if (sil) return res.status(403).json(silenceRefusal(sil));
         }
         const trainingAction = action === 'start-training' || action === 'complete-training';
         // Set by the settle's afterCommit: the session this call settled, and the

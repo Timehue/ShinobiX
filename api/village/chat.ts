@@ -4,7 +4,7 @@ import { readKvProjection } from '../_storage-projection.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { getActiveSilence } from '../admin/moderation.js';
+import { getActiveSilence, silenceRefusal } from '../admin/moderation.js';
 import { withKvLock } from '../_lock.js';
 import { VILLAGE_CHAT_TTL_SECONDS, villageChatKey } from './_chat-key.js';
 import { isCleanText, sanitizeUserText, TEXT_LIMITS, hasReservedTitleTerm } from '../_text-moderation.js';
@@ -168,10 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin) {
                 const sil = await getActiveSilence(identity.name);
                 if (sil) {
-                    return res.status(403).json({
-                        error: 'You are silenced.',
-                        silence: { until: sil.until, reason: sil.reason },
-                    });
+                    return res.status(403).json(silenceRefusal(sil));
                 }
             }
 

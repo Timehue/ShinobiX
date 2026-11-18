@@ -23,6 +23,24 @@ Measured with a timing probe on the production build, over a throttled phone con
 | "Connecting to world…" banner | shown for the whole connect | hidden unless the connect takes over 1.2 s |
 | Road residents (SectorLife) start mounting | after 2 server round trips | unchanged (still on `ready`, see below) |
 
+Re-measured 2026-11-18 on the shipped build (#123 live), same throttled profile, with the **live model art** served through the probe from `img.shinobijourney.com/sector-models` (150 ms + size at ~1.2 MB/s per file). 9 arrivals, desktop and phone sizes:
+
+| After the travel mask ends | Measured |
+|---|---|
+| First painted ground | 97–190 ms (desktop); first frame on phone |
+| The player's own model (starter) | **56–192 ms**, every run |
+| A road wanderer's model, when the wanderer is on screen | already drawn in 8 of 9 runs. In 1 run it was a portrait circle for ~1.2 s (in view at 152 ms, model at 1,387 ms) |
+| World walkable (`ready`) | 0.65–1.3 s |
+
+The one remaining visible gap is that occasional wanderer. It is still unverified on a real phone over mobile data (`docs/owner-launch-filings.md` section 7).
+
+**Why the wanderer gap happens.** During the travel wait, `warmSectorArrival` (`lib/sector-arrival-warm.ts`) decodes one page per figure: its standing, front-facing frame. A wanderer that arrives walking, or facing another way, needs a different page. Until that page lands, `SectorModelFigure` shows the portrait circle (`waitForArt`), because the figure has never painted. On the throttled profile that page takes about a second.
+
+**[OWNER] choice:**
+- (a) Warm more pages per wanderer. The 9 MB decoded budget cannot hold all eight walking facings for several people, so this only narrows the gap.
+- (b) Draw the warmed standing frame as a stand-in until the right page lands. The portrait never shows, but a walking wanderer glides in a standing pose for up to a second. That changes model presentation, which the owner reviews.
+- (c) Leave it: the gap is occasional, and only on a slow connection.
+
 Three causes, all in the arrival path:
 
 - **The world rebuilt from nothing after the mask.** `WorldMap` swaps the whole scene for `TravelingOverlay` during travel, so `ContinuousWorldSector` mounted only once the mask ended. `mountContinuousWorld` then waited for the server's position (`GET /api/player/world-move`) before it drew a single frame, leaving a blank canvas for one round trip.
@@ -198,17 +216,36 @@ Minor items:
    - The year is never stored or sent (`e2e/age-screen.spec.ts` checks that).
 
    Still open: **[LAWYER]** on whether the game counts as "directed to children", and whether under-16s should get chat and purchases off by default (the UK children's code, FTC precedents).
-4. ✅ **Stated 2026-11-18 (Terms, v1.14).** The conduct section now says what a ban does, as the code does it: a timed ban blocks sign-in until it ends; a permanent ban also gives up village and clan seats and returns Exchange listings; neither removes or refunds Shards or Supporter time; neither cancels a subscription (owner ruling 2026-11-18), with a pointer to cancel through Tebex; and sign-in shows the ban's end date and recorded reason (`player-auth.ts` 403, `player-login.ts`), which is the DSA Art. 17 statement of reasons. Still open: **[LAWYER]** review of the wording, and silences and chat removals do not yet show the player a reason.
+4. ✅ **Stated 2026-11-18 (Terms, v1.14).** The conduct section now says what a ban does, as the code does it: a timed ban blocks sign-in until it ends; a permanent ban also gives up village and clan seats and returns Exchange listings; neither removes or refunds Shards or Supporter time; neither cancels a subscription (owner ruling 2026-11-18), with a pointer to cancel through Tebex; and sign-in shows the ban's end date and recorded reason (`player-auth.ts` 403, `player-login.ts`), which is the DSA Art. 17 statement of reasons. Still open: **[LAWYER]** review of the wording.
+   - ✅ **Silences, 2026-11-18.** Every surface that refuses a silenced author now answers with one shared message (`silenceRefusal` in `api/admin/moderation.ts`). It names when the silence ends (UTC), the reason staff recorded, and the appeal address. Sector chat shows that line instead of its own reason-less one.
+   - Still open: removing a single chat message tells its author nothing. *Low*, because the author keeps posting.
 5. **No registered DMCA agent** (the Copyright page says one "will be published"). *Fix:* register at copyright.gov/dmca-directory ($6, renew every 3 years) and name it on the page. Without it there is no safe harbour for player content. *High.*
 6. ✅ **DSA contact point done in this branch.** Notices now names support@shinobijourney.com as the single point of contact for users and authorities under DSA Articles 11–12. Still open: **[LAWYER]** on whether an EU or UK representative is needed (GDPR Art. 27, DSA Art. 13).
 7. ✅ **Done 2026-11-18 (privacy policy v1.14).** "Kept while needed" is replaced by the periods the code enforces: IP and device stamps 7 days, moderation linkage 90 days, sector and battle chat about an hour, village, clan and direct messages capped and removed after 30 idle days, save backups 90 days, off-site backups 14 days, logs capped at 5,000 entries. `docs/DATA_RETENTION_POLICY.md` keeps the full schedule.
    - The policy also promised that guest characters are deleted after 14 days without play, but the sweep had only ever run report-only (it needed `GUEST_SWEEP_ENABLED=1`; production logs showed 3 abandoned guests kept). On the owner's ruling it now deletes by default, and `GUEST_SWEEP_ENABLED=0` turns it back to report-only.
 8. **Data export is by manual request only.** That is acceptable under GDPR if answered within a month. An in-app export is nice to have. *Low.*
 9. ✅ **Done in this branch.** There were no credits for Inter, Marcellus, fflate or h264bsd, although their licences shipped in `public/`. `public/licenses/THIRD-PARTY-NOTICES.txt` now lists every bundled font and library with its copyright and licence, and Notices links to it. The internal `src/assets/fx/CREDITS.txt` covers authored FX, not third-party code.
-10. **Shard-priced items show no real-money equivalent** (packs, rerolls, forge). The EU CPC principles ask for it. *Fix:* show "≈ $X" next to Shard prices, using the cheapest tier's rate. *Medium.*
+10. **Shard-priced items show no real-money equivalent** (packs, rerolls, forge). The EU CPC principles ask for it. *Medium.* **[OWNER] decision, 2026-11-18.**
+    - A flat "≈ $X" conflicts with `shared/shard-packages.ts`, which forbids showing the reference USD price: players are charged Tebex's localized price, such as euros with VAT.
+    - It would also need client bytes the bundle cap no longer has.
+    - Options:
+      - (a) show "≈ $X (USD)" from the $5 tier's rate, with the currency stated;
+      - (b) show it only on the Shard bundle tiles, as a per-Shard price taken from Tebex's localized price;
+      - (c) leave it to the lawyer review.
 11. **UK Online Safety Act.** Chat makes the game in scope regardless of size, so a written illegal-content and children's-access risk assessment is required. **[LAWYER]** *Medium.*
 12. **Google Play.** Before submission: the Data safety form must match what is really collected (IP, fingerprint, chat, purchases, PostHog, Sentry); the IARC questionnaire must declare chat and purchases; and if Play users can ever buy, Play Billing is required. *Before the Play release.*
 13. **IP clearance.** Get a trademark search on "Shinobi Journey". Keep technique, character and clan names generic and original (the ip-hygiene test already guards competitor names). Keep records of human creative work on AI-assisted art, since purely AI output is not copyrightable in the US. **[LAWYER]** for the trademark search.
+14. **The Terms' purchase claims overstate what play can earn. [OWNER] + [LAWYER], found 2026-11-18.** The Terms (`LegalPage.tsx`, conduct and purchases section) say "Everything Fate Shards buy can also be earned by playing" and that Supporter "grants no combat advantage". An audit of every Shard sink in `api/` found:
+    - **Supporter does give a PvP edge.** It raises the jutsu loadout from 12 to 15 (`LOADOUT_CAP_SUB`), and `normalizeHumanPvpLoadout` (`api/pvp/session.ts`) deliberately keeps all 15 in human PvP. Tests pin this.
+    - **The strongest gear is Shard-only.** Legendary armour costs 150 Shards a piece, with +30 to every offense and defense stat (`api/pvp/_item-catalog.ts`). Mythic weapons cost 100 Shards. Pet PvP gear, evolution stones and Named forge rolls (200) have no drop or craft path either. Crafting stops at rare armour and legendary weapons (`api/craft/_forge.ts`), and gear drops stop below legendary (`shared/gear-steps.ts`). The only other route is buying from another player on the Exchange.
+    - **Shards themselves are earnable, but slowly.** Login, the weekly board, the Spire, towers, Hollow Gate, quests, clan boss and war each pay a few a week, plus one-time tower clears (~160). A 900-Shard armour set is a long grind.
+    - **Not tradeable and Shard-only:** stat respec, the chosen Awakening reroll, profession and village transfer scrolls, the Ancient Beast Seal, golden tools and custom titles.
+
+    The "earnable" sentence is true only because Shards themselves drop. "No combat advantage" is contradicted by the PvP loadout. Misleading purchase claims are an EU CPC and FTC risk, and they clash with the balanced-PvP design pillar.
+    - *Options for the wording:* say exactly what is true ("Fate Shards can also be earned by playing; Supporter adds three jutsu slots, which also apply in PvP"); or cap human PvP at the 12-slot base for everyone.
+    - *Options for the gear:* add play paths (drops, crafting) for legendary armour, mythic weapons and pet PvP gear.
+
+    Both gear options are balance changes, so they wait on the owner. The wording needs the lawyer review. *High*, because the claim is on the page players read before paying.
 
 Sources (security and legal):
 - Lovable Supabase RLS flaw: https://nvd.nist.gov/vuln/detail/CVE-2025-48757
@@ -257,7 +294,7 @@ Still to build, each its own PR:
 - web push (2 #5);
 - catch-up for late joiners (2 #6);
 - in-game text size and reduced-motion toggles (2 #7);
-- "≈ $X" next to Shard-priced items (3.B #10).
+- "≈ $X" next to Shard-priced items (3.B #10). This waits on the owner's choice of currency.
 
 **Bundle budget: one owner-approved 2 KiB step.** After #118 and #120 merged, `main` itself read 9,883,287 B in its Production Image, 547 B over the 9,882,740 B cap, so those fixes could not deploy. This branch adds about 600 B more. The owner approved `LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES` (+2 KiB) on 2026-11-17. The production-env build now measures 9,883,801 B against 9,884,788 B (987 B left). Startup gzip is unchanged at 398,823 B against its 399,000 B cap. Trims made first:
 - The third-party credits moved into a plain-text notices file, which is outside the JS/CSS budget.

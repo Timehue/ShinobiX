@@ -83,6 +83,7 @@ Bring this list so the hour covers everything:
 4. The UK Online Safety Act: the illegal-content and children's-access risk assessments that chat brings into scope.
 5. The trademark search results from section 4.
 6. AI-assisted art: what records of human creative work to keep.
+7. The purchase claims in the Terms. The page says "Everything Fate Shards buy can also be earned by playing" and that Supporter "grants no combat advantage". In the code, Supporter's three extra jutsu slots also apply in PvP. Legendary armour, mythic weapons and pet PvP gear can be bought only with Shards (or from another player). Ask whether the wording must change before sales, or whether the game must change. Details: `docs/launch-readiness-plan-2026-11.md` section 3.B item 14.
 
 ## 7. Real-phone check after a deploy (about 5 minutes)
 

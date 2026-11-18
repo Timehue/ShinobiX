@@ -13,8 +13,9 @@ import { sectorChatUnavailable, type SectorChatRefusal } from '../lib/sector-cha
 
 const NEAR_BOTTOM_PX = 48;
 
+// A silence falls through to the server's own line, which names the end, the
+// recorded reason and how to appeal (api/admin/moderation.ts silenceRefusal).
 function refusalLine(refusal: SectorChatRefusal): string {
-    if (refusal.silencedUntil) return `You are silenced until ${sectorChatClock(refusal.silencedUntil)}.`;
     if (refusal.status === 429) return `You are speaking too fast. Try again in ${Math.max(1, Math.ceil((refusal.retryAfterMs ?? 1000) / 1000))}s.`;
     if (refusal.status === 409) return 'Your connection to this sector is not ready. Wait a moment before sending another message.';
     if (refusal.status === 0) return 'Your message could not be confirmed. Check the chat before sending it again.';

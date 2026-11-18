@@ -149,7 +149,7 @@ describe('/api/sector/chat', () => {
         await kv.set(`mod:silence:${SPEAKER}`, { until: Date.now() + 60_000, reason: 'test', by: 'admin' });
         const out = await say(SPEAKER, 'Can anyone hear me?');
         assert.equal(out.status, 403);
-        assert.equal(out.body.error, 'You are silenced.');
+        assert.match(String(out.body.error), /^You are silenced until .+ UTC\. Reason: test\./);
     });
 
     it('hides lines from authors the reader has blocked', async () => {
