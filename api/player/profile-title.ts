@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { isAllowedCustomTitle, sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { TITLE_ICON_SET, TITLE_STYLE_IDS, isKnownEarnedTitle, normalizeTitleKey } from '../_titles-registry.js';
-import { getActiveSilence } from '../admin/moderation.js';
+import { getActiveSilence, silenceRefusal } from '../admin/moderation.js';
 import { ownsKnownProfileTitle } from './_profile-title-ownership.js';
 import { recordEconomyTxn } from '../_economy.js';
 
@@ -35,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const candidate = sanitizeUserText(body.value, TEXT_LIMITS.customTitle);
             if (candidate && !isKnownEarnedTitle(candidate)) {
                 const sil = await getActiveSilence(identity.name);
-                if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
+                if (sil) return res.status(403).json(silenceRefusal(sil));
             }
         }
         const result = await mutatePlayerSave(playerName, ({ character }) => {

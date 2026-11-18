@@ -16,7 +16,6 @@ export type SectorChatRefusal = {
     reason?: string;
     retryAfterMs?: number;
     guestLocked?: boolean;
-    silencedUntil?: number;
 };
 
 /** `away` means the server does not place this player in the sector yet. */
@@ -37,7 +36,6 @@ export function resetSectorChatAvailability(): void {
 async function refusal(response: Response): Promise<SectorChatRefusal> {
     const body = await response.json().catch(() => ({})) as Record<string, unknown>;
     if (response.status === 404) unavailable = true;
-    const silence = body.silence as { until?: unknown } | undefined;
     return {
         ok: false,
         status: response.status,
@@ -45,7 +43,6 @@ async function refusal(response: Response): Promise<SectorChatRefusal> {
         ...(typeof body.reason === 'string' ? { reason: body.reason } : {}),
         ...(typeof body.retryAfterMs === 'number' ? { retryAfterMs: body.retryAfterMs } : {}),
         ...(body.guestLocked === true ? { guestLocked: true } : {}),
-        ...(typeof silence?.until === 'number' ? { silencedUntil: silence.until } : {}),
     };
 }
 

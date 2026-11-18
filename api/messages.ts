@@ -6,7 +6,7 @@ import { resolvePlayerReference } from './_account-name.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { rejectUnclaimedGuest } from './_guest-gate.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
-import { getActiveSilence } from './admin/moderation.js';
+import { getActiveSilence, silenceRefusal } from './admin/moderation.js';
 import { withKvLock } from './_lock.js';
 import { isCleanText, sanitizeUserText, TEXT_LIMITS } from './_text-moderation.js';
 import { blockRelationship, blockedPlayersFor } from './player/_blocks.js';
@@ -179,7 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Silenced players can read but not send.
             const sil = await getActiveSilence(from);
-            if (sil) return res.status(403).json({ error: 'You are silenced.', silence: { until: sil.until, reason: sil.reason } });
+            if (sil) return res.status(403).json(silenceRefusal(sil));
 
             // Recipient must be a real player (avoids junk threads / typos).
             const recipientSave = await kv.get<Record<string, unknown>>(`save:${recipient}`);

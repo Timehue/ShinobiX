@@ -198,14 +198,22 @@ Minor items:
    - The year is never stored or sent (`e2e/age-screen.spec.ts` checks that).
 
    Still open: **[LAWYER]** on whether the game counts as "directed to children", and whether under-16s should get chat and purchases off by default (the UK children's code, FTC precedents).
-4. ✅ **Stated 2026-11-18 (Terms, v1.14).** The conduct section now says what a ban does, as the code does it: a timed ban blocks sign-in until it ends; a permanent ban also gives up village and clan seats and returns Exchange listings; neither removes or refunds Shards or Supporter time; neither cancels a subscription (owner ruling 2026-11-18), with a pointer to cancel through Tebex; and sign-in shows the ban's end date and recorded reason (`player-auth.ts` 403, `player-login.ts`), which is the DSA Art. 17 statement of reasons. Still open: **[LAWYER]** review of the wording, and silences and chat removals do not yet show the player a reason.
+4. ✅ **Stated 2026-11-18 (Terms, v1.14).** The conduct section now says what a ban does, as the code does it: a timed ban blocks sign-in until it ends; a permanent ban also gives up village and clan seats and returns Exchange listings; neither removes or refunds Shards or Supporter time; neither cancels a subscription (owner ruling 2026-11-18), with a pointer to cancel through Tebex; and sign-in shows the ban's end date and recorded reason (`player-auth.ts` 403, `player-login.ts`), which is the DSA Art. 17 statement of reasons. Still open: **[LAWYER]** review of the wording.
+   - ✅ **Silences, 2026-11-18.** Every surface that refuses a silenced author now answers with one shared message (`silenceRefusal` in `api/admin/moderation.ts`). It names when the silence ends (UTC), the reason staff recorded, and the appeal address. Sector chat shows that line instead of its own reason-less one.
+   - Still open: removing a single chat message tells its author nothing. *Low*, because the author keeps posting.
 5. **No registered DMCA agent** (the Copyright page says one "will be published"). *Fix:* register at copyright.gov/dmca-directory ($6, renew every 3 years) and name it on the page. Without it there is no safe harbour for player content. *High.*
 6. ✅ **DSA contact point done in this branch.** Notices now names support@shinobijourney.com as the single point of contact for users and authorities under DSA Articles 11–12. Still open: **[LAWYER]** on whether an EU or UK representative is needed (GDPR Art. 27, DSA Art. 13).
 7. ✅ **Done 2026-11-18 (privacy policy v1.14).** "Kept while needed" is replaced by the periods the code enforces: IP and device stamps 7 days, moderation linkage 90 days, sector and battle chat about an hour, village, clan and direct messages capped and removed after 30 idle days, save backups 90 days, off-site backups 14 days, logs capped at 5,000 entries. `docs/DATA_RETENTION_POLICY.md` keeps the full schedule.
    - The policy also promised that guest characters are deleted after 14 days without play, but the sweep had only ever run report-only (it needed `GUEST_SWEEP_ENABLED=1`; production logs showed 3 abandoned guests kept). On the owner's ruling it now deletes by default, and `GUEST_SWEEP_ENABLED=0` turns it back to report-only.
 8. **Data export is by manual request only.** That is acceptable under GDPR if answered within a month. An in-app export is nice to have. *Low.*
 9. ✅ **Done in this branch.** There were no credits for Inter, Marcellus, fflate or h264bsd, although their licences shipped in `public/`. `public/licenses/THIRD-PARTY-NOTICES.txt` now lists every bundled font and library with its copyright and licence, and Notices links to it. The internal `src/assets/fx/CREDITS.txt` covers authored FX, not third-party code.
-10. **Shard-priced items show no real-money equivalent** (packs, rerolls, forge). The EU CPC principles ask for it. *Fix:* show "≈ $X" next to Shard prices, using the cheapest tier's rate. *Medium.*
+10. **Shard-priced items show no real-money equivalent** (packs, rerolls, forge). The EU CPC principles ask for it. *Medium.* **[OWNER] decision, 2026-11-18.**
+    - A flat "≈ $X" conflicts with `shared/shard-packages.ts`, which forbids showing the reference USD price: players are charged Tebex's localized price, such as euros with VAT.
+    - It would also need client bytes the bundle cap no longer has.
+    - Options:
+      - (a) show "≈ $X (USD)" from the $5 tier's rate, with the currency stated;
+      - (b) show it only on the Shard bundle tiles, as a per-Shard price taken from Tebex's localized price;
+      - (c) leave it to the lawyer review.
 11. **UK Online Safety Act.** Chat makes the game in scope regardless of size, so a written illegal-content and children's-access risk assessment is required. **[LAWYER]** *Medium.*
 12. **Google Play.** Before submission: the Data safety form must match what is really collected (IP, fingerprint, chat, purchases, PostHog, Sentry); the IARC questionnaire must declare chat and purchases; and if Play users can ever buy, Play Billing is required. *Before the Play release.*
 13. **IP clearance.** Get a trademark search on "Shinobi Journey". Keep technique, character and clan names generic and original (the ip-hygiene test already guards competitor names). Keep records of human creative work on AI-assisted art, since purely AI output is not copyrightable in the US. **[LAWYER]** for the trademark search.
@@ -257,7 +265,7 @@ Still to build, each its own PR:
 - web push (2 #5);
 - catch-up for late joiners (2 #6);
 - in-game text size and reduced-motion toggles (2 #7);
-- "≈ $X" next to Shard-priced items (3.B #10).
+- "≈ $X" next to Shard-priced items (3.B #10). This waits on the owner's choice of currency.
 
 **Bundle budget: one owner-approved 2 KiB step.** After #118 and #120 merged, `main` itself read 9,883,287 B in its Production Image, 547 B over the 9,882,740 B cap, so those fixes could not deploy. This branch adds about 600 B more. The owner approved `LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES` (+2 KiB) on 2026-11-17. The production-env build now measures 9,883,801 B against 9,884,788 B (987 B left). Startup gzip is unchanged at 398,823 B against its 399,000 B cap. Trims made first:
 - The third-party credits moved into a plain-text notices file, which is outside the JS/CSS budget.
