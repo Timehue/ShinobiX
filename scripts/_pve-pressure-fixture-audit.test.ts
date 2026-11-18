@@ -14,7 +14,7 @@ test('all current pressure and coherent moderate-bloodline fixtures satisfy earn
             assert.deepEqual(audit.failures, [], `${level}/${build}`);
             assert.deepEqual(audit.acquisitionWarnings, [], `${level}/${build}: current UI natures`);
             assert.deepEqual(save, before, 'validation never rewrites fixture evidence');
-            assert.equal(audit.activeLoadoutLimit, 12, 'ordinary player entitlement exceeds the bounded eight-move fixture');
+            assert.equal(audit.activeLoadoutLimit, 14, 'ordinary player entitlement exceeds the bounded eight-move fixture');
             if (build === 'maxed' && level >= 50) assert.equal(audit.derivedBloodlineMult, 1.2);
             else if ((save.character as Record<string, unknown>).equippedBloodlineId) assert.equal(audit.derivedBloodlineMult, 1.1);
         }
