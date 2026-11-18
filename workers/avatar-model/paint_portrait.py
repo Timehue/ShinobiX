@@ -45,6 +45,11 @@ Keep the animal species and its recognizable muzzle, ears, and fur markings. Kee
 UPRIGHT_ANIMAL = """
 Keep the animal species and its recognizable head, muzzle or beak, ears, and fur, feather or scale markings. Complete the outfit, armor and colors visible on the portrait in the same design. Use the humanoid body and separate upright legs of the rig, with animal hands and feet in the portrait's colors. Remove portrait lettering, flashes, sparks and light trails. Keep the hands empty."""
 
+# The rig measures each torso's width against its guide outline and refuses one far
+# outside it (TORSO_ASPECT in register_painted_kit.py). Saying so up front saves a repaint.
+TORSO_FIT = """
+Fit armor, padding, fur and loose garments inside each torso's guide outline. A torso may be a little broader or slimmer than its outline, but never widen it with shoulder plates, capes or bulk past the outline's edges."""
+
 SECTOR_MATERIALS = """
 Image 3 gives the world camera, lighting and level of detail. Apply that treatment to the portrait character.
 Keep the portrait's face, hair silhouette, distinctive garment shapes and main colors recognizable at a standing height of 73 pixels.
@@ -84,7 +89,7 @@ def layout_png(template):
 
 def edit_request(upload, source_hash, template, correction, previous=None, *, sector_guide=SECTOR_GUIDE,
                  head_turnaround=True, closeup=False, armored_raccoon=False, upright_animal=False,
-                 palette_prompt=False):
+                 palette_prompt=False, torso_fit=False, attempt=2):
     from avatar_worker.portrait import prepare_portrait
 
     with upload.open("rb") as source:
@@ -105,6 +110,8 @@ def edit_request(upload, source_hash, template, correction, previous=None, *, se
         prompt += UPRIGHT_ANIMAL
     if palette_prompt:
         prompt += costume_palette.prompt_line(portrait.png)
+    if torso_fit:
+        prompt += TORSO_FIT
     images = [image_input(guide),image_input(clean.getvalue())]
     if sector_guide is not None:
         reference = Path(__file__).with_name("sector-costume-light.png").read_bytes()
@@ -116,7 +123,9 @@ def edit_request(upload, source_hash, template, correction, previous=None, *, se
         if previous is None:
             raise ValueError("missing-first-painting")
         images.append(image_input(previous))
-        prompt += f"\nImage {len(images)} is the rejected first sheet. Repair its failed parts while preserving the successful ones. The rig check reported: " + correction
+        # The second-attempt wording is part of jobs already billed; keep it byte-identical.
+        sheet = "first sheet" if attempt == 2 else "corrected sheet, which the rig check rejected again"
+        prompt += f"\nImage {len(images)} is the rejected {sheet}. Repair its failed parts while preserving the successful ones. The rig check reported: " + correction
     return dict(model=MODEL, size=SIZE, quality="high", background="transparent",
                 output_format="png", n=1, prompt=prompt, images=images)
 
@@ -161,7 +170,7 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
     directory.mkdir(exist_ok=True,parents=True)
 
     def paint(upload, digest, template, attempt, correction):
-        if attempt not in (1,2) or (attempt == 1) != (correction is None):
+        if attempt not in (1,2,3) or (attempt == 1) != (correction is None):
             raise ValueError("invalid-costume-attempt")
         binding = dict(job=job_id,source=digest,template=sha256(template.read_bytes()).hexdigest())
         first_receipt = directory/"edit-1/completed.json"
@@ -185,18 +194,29 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
         palette_prompt = first["binding"].get("portraitPalette", False) if first else palette is not None
         if palette_prompt:
             binding["portraitPalette"] = True
+        # Same for the up-front torso-fit line.
+        torso_fit = first["binding"].get("torsoFit", False) if first else True
+        if torso_fit:
+            binding["torsoFit"] = True
         previous = None
-        if attempt == 2:
-            if first is None:
+        if attempt > 1:
+            # Each repair shows the painter the sheet the rig just rejected.
+            before = directory/f"edit-{attempt-1}"
+            receipt_before = before/"completed.json"
+            if first is None or not receipt_before.is_file():
                 raise ValueError("missing-first-painting")
-            previous = (directory/"edit-1/painting.png").read_bytes()
-            if first["binding"] != binding or sha256(previous).hexdigest()!=first["painting"]:
+            earlier = json.loads(receipt_before.read_bytes())
+            previous = (before/"painting.png").read_bytes()
+            if (first["binding"] != binding or earlier["binding"] != binding
+                    or sha256(previous).hexdigest() != earlier["painting"]):
                 raise ValueError("image-edit-correction-binding")
         request = edit_request(upload,digest,template,correction,previous,sector_guide=sector_guide,
                                head_turnaround=head_turnaround, **({"closeup": True} if closeup else {}),
                                **({"armored_raccoon": True} if armored_raccoon else {}),
                                **({"upright_animal": True} if upright_animal else {}),
-                               **({"palette_prompt": True} if palette_prompt else {}))
+                               **({"palette_prompt": True} if palette_prompt else {}),
+                               **({"torso_fit": True} if torso_fit else {}),
+                               **({"attempt": 3} if attempt == 3 else {}))
         body = json.dumps(request,sort_keys=True,separators=(",",":")).encode()
         operation = sha256(job_id.encode() + b"\0" + str(attempt).encode() + b"\0" + body).hexdigest()
         slot = directory / f"edit-{attempt}"

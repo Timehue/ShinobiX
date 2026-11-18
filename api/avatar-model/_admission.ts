@@ -19,7 +19,10 @@ export function playerPortraitChecksEnabled() {
 }
 /** The most one Modal attempt holds ($1.25). The first live job cost $0.76 in total; a lower configured value still wins. */
 export const MODAL_PER_ATTEMPT_CAP_MICROS = 1_250_000;
-/** The most one OpenAI attempt holds ($0.75): recognition costs under a cent and a costume paint is at most two image edits. */
+/** The most one OpenAI attempt holds ($0.75): recognition costs under a cent and a costume paint is at most three image
+ * edits (the worker's own limit, paint_admitted_costume.py). A job settles a fixed cost when it ends (_fixed-cost.ts), so
+ * this hold only paces the monthly budget. Raising it is safe only while each provider's limitMicros stays at least three
+ * holds, or modelCreationPolicy() turns creation off. */
 export const OPENAI_PER_ATTEMPT_CAP_MICROS = 750_000;
 const PER_ATTEMPT_CAPS: Record<string, number> = { modal: MODAL_PER_ATTEMPT_CAP_MICROS, openai: OPENAI_PER_ATTEMPT_CAP_MICROS };
 export type ProviderReservation ={ provider: 'modal' | 'openai'; cycle: string; limitMicros: number; perAttemptMicros: number };

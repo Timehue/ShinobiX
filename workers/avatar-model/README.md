@@ -55,9 +55,30 @@ does not read files from the owner's PC. `SPRITE_BLENDER_ARCHIVE` can supply the
 existing pinned Blender tarball. Without it, the image build fetches that exact
 tarball and verifies its checksum.
 
-The local painted release archives are `portable-fit-worker/painted-sleeves.zip`
-and `portable-motion-worker/painted-sleeves.zip` under the avatar-model evidence
-folder. Their hashes match `sprite-worker-painted-review.json`. For the earlier
+The local painted release archives are `portable-fit-worker/painted-sleeves-fit.zip`
+and `portable-motion-worker/painted-sleeves-wide-torso.zip` under the avatar-model
+evidence folder. Their hashes match `sprite-worker-painted-review.json`. Each is
+the matching `painted-sleeves.zip` with one file changed, and its index carries
+the new file hash (`intake.json` also a recomputed `paintingRevision`); every
+other entry is byte-identical.
+
+- `register_painted_kit.py` (intake) checks each painted torso's width-to-height
+  ratio against its guide at paint time. Every view outside 0.6–1.75 is named in
+  one `PaintingGeometryError` that says how much narrower or wider to paint it.
+  A costume gets one painting and up to two repairs (`PAINT_ATTEMPTS`), each shown
+  the sheet just rejected. On the last one, a torso up to 30% past the range is
+  drawn at the nearest bound; further out, the job fails and the slot is refunded.
+  Before this, the sheet was accepted and `render_fitted_roster.py` refused it on
+  every render retry ("Invalid painted body proportions").
+- `render_fitted_roster.py` (movement) accepts the same 0.6–1.75 range, up from
+  0.72–1.45, so bulky armor keeps its painted breadth. The renderer widens the
+  torso about the hip axis and moves the sleeve sockets with it; at 1.75 the
+  figure stays well inside the 400 px render frame.
+
+`paint_portrait.py` adds the torso-fit rule to the first prompt for new jobs, and
+`paint_admitted_costume.py` reserves three edits. The packer's source tree must
+carry the same bundle edits, or a later repack drops them; the edited files sit
+next to the archives with the archive's name as a prefix. For the earlier
 reader release the matching files are `portable-fit-worker/profile-intake.zip`
 and `portable-motion-worker/browser-motion.zip`. Use the two inputs from the
 same release.
