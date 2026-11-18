@@ -20,11 +20,11 @@ still reads as "approach → bonk." Both are fixable without touching a single
 line of game logic.
 
 > A note on "3D models": the pets are **2D posed billboards on a 3D stage**
-> (HD-2D), not rigged 3D models — and that's the right call (148 rigged creatures
-> is an infeasible pipeline, and the HD-2D RPGs/Triangle-Strategy look proves 2D
+> (2.5D), not rigged 3D models — and that's the right call (148 rigged creatures
+> is an infeasible pipeline, and the 2.5D look proves 2D
 > sprites can look *more* beautiful than mid 3D). This plan makes them *read* as
 > fully dimensional, lit creatures in the world via lighting, rim light, shadow,
-> and post-processing — the exact HD-2D trick — and leaves a clean upgrade path
+> and post-processing — the exact 2.5D trick — and leaves a clean upgrade path
 > to "more 3D" (per-pose normal maps) if we ever want it.
 
 ---
@@ -41,7 +41,7 @@ Why it looks flat, read straight from the code:
    depth-of-field, no vignette, no filmic tone-map. Every glow (auras, cast
    rings, the new afterimage trails, impact flashes) renders at face value
    instead of *blooming*, and the backdrop sits in hard focus competing with the
-   action. This is the **single biggest gap** versus every HD-2D reference.
+   action. This is the **single biggest gap** versus every 2.5D reference.
 3. **Flat, high ambient + no real shadows.** `ambientLight intensity 0.95` +
    one directional at 0.9, `shadowMap` disabled. No form, no contrast, no
    contact — just the fake blob shadows. The whole scene is evenly, blandly lit.
@@ -58,9 +58,9 @@ Everything above is renderer-only.
 
 ---
 
-# PART A — The Stage (make it HD-2D gorgeous)
+# PART A — The Stage (make it 2.5D gorgeous)
 
-The HD-2D recipe (HD-2D RPGs Traveler), confirmed by research: **dynamic lighting
+The 2.5D recipe, confirmed by research: **dynamic lighting
 + depth of field + tilt-shift + bloom + a point light that casts sprite shadows
 + a wide FOV that flattens but keeps depth → a diorama.** We have none of the
 post layer and an unlit sprite material. Closing that is the highest-ROI work in
@@ -184,8 +184,8 @@ buff = rising sparkles. This alone makes a fight legible as a fight.
 ## B4 — Signature & finisher moments (rationed peaks)
 
 - **Signature move / KO** → brief slow-mo + a **cut-in card from the pet's own
-  portrait art** + a full-screen element wash + a flash of letterbox. Persona /
-  Star Rail grammar. Rationed hard so it stays special.
+  portrait art** + a full-screen element wash + a flash of letterbox.
+  Rationed hard so it stays special.
 - The **KO blow** gets the biggest treatment — the speed *contrast* (slow-mo →
   snap back to full speed) is what sells the whole fight as fast.
 
@@ -249,14 +249,12 @@ stage.
 
 ## Key sources
 
-HD-2D technique: [HD-2D — Wikipedia](https://en.wikipedia.org/wiki/HD-2D) ·
-HD-2D RPGs HD-2D breakdown.
+2.5D technique: 2.5D technique ·
+2.5D breakdowns.
 R3F post-processing: [react-postprocessing docs](https://react-postprocessing.docs.pmnd.rs/) ·
 [Bloom](https://react-postprocessing.docs.pmnd.rs/effects/bloom) ·
 [SSAO/N8AO](https://react-postprocessing.docs.pmnd.rs/effects/ssao).
 Dimensional sprites: [3D sprite edge/rim lighting (shader)](https://godotshaders.com/shader/3d-sprite-edge-lighting/) ·
 [SpriteIlluminator normal maps](https://www.codeandweb.com/spriteilluminator).
-Autobattler design / game feel: [TFT design pillars](https://nexus.leagueoflegends.com/en-us/2019/06/dev-design-pillars-of-tft/) ·
-[TFT art blast](https://magazine.artstation.com/2020/06/riot-games-teamfight-tactics-league-of-legends-art-blast/) ·
-[Juice in game design](https://www.bloodmooninteractive.com/articles/juice.html).
+Autobattler design / game feel: [Juice in game design](https://www.bloodmooninteractive.com/articles/juice.html).
 Anime-fight craft (companion plan): `docs/anime-fight-plan.md`.

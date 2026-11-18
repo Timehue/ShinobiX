@@ -31,7 +31,7 @@ Existing launch copy already tells players village choice has no hidden stat bon
 - No hidden stat bonuses.
 - No first-week village power tuning.
 - Village/Sector War systems are monitored or gated.
-- Kage, Elder, ANBU, war, and treasury systems should not be marketed as stable first-week competitive seasons.
+- Kage, Elder, Shadowguard, war, and treasury systems should not be marketed as stable first-week competitive seasons.
 
 ## Risks
 
@@ -40,7 +40,7 @@ Existing launch copy already tells players village choice has no hidden stat bon
 | Population imbalance | One village may become the default from art/name preference | Do not punish popularity; use content/copy first. |
 | Low-pop village disadvantage | War/social systems can snowball | Keep war seasons staffed or delayed. |
 | Hidden-power assumptions | Players may think village choice secretly affects stats | Keep explicit no-hidden-bonus copy. |
-| Leadership disputes | Kage/Elder/ANBU systems are high-drama by design | Staff before broad enabling. |
+| Leadership disputes | Kage/Elder/Shadowguard systems are high-drama by design | Staff before broad enabling. |
 | War economy inflation | War rewards are large | Receipt review and admin coverage required. |
 
 ## Beta Patch 1 Recommendation

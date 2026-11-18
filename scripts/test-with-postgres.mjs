@@ -12,7 +12,7 @@ if (args.includes('--help')) {
     console.log('node scripts/test-with-postgres.mjs --pg-bin=PATH [--integration-only | --stronghold-multiplayer | --underground-api] [--output=PATH]');
     console.log('Default: full CI suite. --integration-only: the 14 real-Postgres storage tests.');
     console.log('--stronghold-multiplayer: authenticated mobile browsers and concurrent players backed by fresh Postgres.');
-    console.log('--underground-api: Anbu recovery/queue and cave traveler integration tests against fresh Postgres.');
+    console.log('--underground-api: Shadowguard recovery/queue and cave traveler integration tests against fresh Postgres.');
     process.exit(0);
 }
 for (const arg of args) {
@@ -24,7 +24,7 @@ if (['--integration-only', '--stronghold-multiplayer', '--underground-api'].filt
 const outputArg = args.find(arg => arg.startsWith('--output='));
 if (outputArg && !multiplayer) throw new Error('--output applies only to --stronghold-multiplayer.');
 const root = resolve(import.meta.dirname, '..');
-const databaseNames = undergroundApi ? ['kv_integration', 'kv_integration_anbu', 'kv_integration_hollow'] : ['kv_integration'];
+const databaseNames = undergroundApi ? ['kv_integration', 'kv_integration_shadowguard', 'kv_integration_hollow'] : ['kv_integration'];
 const suppliedBin = args.find(arg => arg.startsWith('--pg-bin='))?.slice('--pg-bin='.length) ?? process.env.PG_TEST_BIN;
 if (!suppliedBin) throw new Error('Supply --pg-bin=PATH or PG_TEST_BIN pointing to Postgres 16 bin (initdb and pg_ctl).');
 const bin = resolve(root, suppliedBin);
@@ -91,7 +91,7 @@ try {
 
     const testArgs = multiplayer
         ? ['--import', 'tsx', 'scripts/stronghold-multiplayer-qa.mjs', '--postgres', ...(outputArg ? [outputArg] : [])]
-        : undergroundApi ? ['--import', 'tsx', '--import', './scripts/test-asset-hooks.mjs', '--test', '--test-concurrency=1', 'api/village/anbu-async-recovery.test.ts', 'api/hollow-gate/_wanderers.integration.test.ts']
+        : undergroundApi ? ['--import', 'tsx', '--import', './scripts/test-asset-hooks.mjs', '--test', '--test-concurrency=1', 'api/village/shadowguard-async-recovery.test.ts', 'api/hollow-gate/_wanderers.integration.test.ts']
         : args.includes('--integration-only')
         ? ['--import', 'tsx', '--test', 'api/_storage-compare-set-many.pg-integration.test.ts']
         : ['--import', 'tsx', 'scripts/run-tests.mjs']; // The exact test:ci runner.

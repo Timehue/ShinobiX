@@ -42,8 +42,8 @@ export const SHOWDOWN_ELEMENT_BEATS: Readonly<Record<string, string>> = Object.f
 // Tuned per the elemental-wheel research pass (docs/pet-showdown-design.md):
 // with bench switching shipped as the counterplay, a gentle wheel underprices
 // the switch (the matchup delta a swap captures must beat ~2 actions of cost).
-// 1.5/0.75 (swing 2.0) sits between WoW pet battles' proven 1.5/0.66 and the
-// genre's fan-consensus ±25% standard: a half-flip switch pays back in ~2.7
+// 1.5/0.75 (swing 2.0) sits between a steep 1.5/0.66 wheel and the
+// genre's common ±25% standard: a half-flip switch pays back in ~2.7
 // full flip in ~1.3 — switching becomes the central decision without being
 // forced every turn. The 0.75 floor (not the 0.66 reciprocal) is deliberate:
 // single-element pets have no second type to hedge a bad matchup, and the

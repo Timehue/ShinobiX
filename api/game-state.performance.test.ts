@@ -7,7 +7,7 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
 test('shared game-state batches both collections once, shares concurrent builds, and preserves ETags', async t => {
     const { kv } = await import('./_storage.js');
     const { WAR_VILLAGES } = await import('./_war-map-sectors.js');
-    const { leadershipVillageKey } = await import('../shared/village-anbu.js');
+    const { leadershipVillageKey } = await import('../shared/village-shadowguard.js');
     const { __clearProcCache } = await import('./_proc-cache.js');
     const handler = (await import('./game-state.js')).default as unknown as (req: never, res: never) => Promise<unknown>;
     __clearProcCache();
@@ -42,13 +42,13 @@ test('shared game-state batches both collections once, shares concurrent builds,
         const slug = leadershipVillageKey(village);
         return [slug, { seatedKage: undefined, firstLiberator: undefined, kageSystemUnlocked: false,
             elderAppointees: ['', '', ''], elderTerm: await kv.get(`village:elder-council:${slug}`),
-            anbuAppointees: ['', '', ''], anbuEarned: [], anbuMembers: [] }];
+            shadowguardAppointees: ['', '', ''], shadowguardEarned: [], shadowguardMembers: [] }];
     })));
     for (const { out } of replies) {
         assert.equal(out.status, 200);
         assert.deepEqual(out.body, {
             // The seeded treasury is members-only (api/_village-state-view.ts): absent here.
-            villageStates: { ...defaults, leaf: { seatedKage: undefined, firstLiberator: undefined, kageSystemUnlocked: false, elderAppointees: ['', '', ''], elderTerm: await kv.get('village:elder-council:leaf'), anbuAppointees: ['', '', ''], anbuEarned: [], anbuMembers: [] } },
+            villageStates: { ...defaults, leaf: { seatedKage: undefined, firstLiberator: undefined, kageSystemUnlocked: false, elderAppointees: ['', '', ''], elderTerm: await kv.get('village:elder-council:leaf'), shadowguardAppointees: ['', '', ''], shadowguardEarned: [], shadowguardMembers: [] } },
             clanPetBattles: { fox: { id: 'battle-1' } },
             arenaTournament: null, arenaActiveFights: [], weeklyBossAiId: null, dojoCircuitEnabled: false,
             boostEvent: null,
@@ -67,7 +67,7 @@ test('shared frame uses fresh projected membership for moved/deleted leaders and
     const { projectKvValue } = await import('./_storage-projection.js');
     const { buildPublicPlayerIndexEntry } = await import('./player/_public-index.js');
     const { WAR_VILLAGES } = await import('./_war-map-sectors.js');
-    const { leadershipVillageKey } = await import('../shared/village-anbu.js');
+    const { leadershipVillageKey } = await import('../shared/village-shadowguard.js');
     const { __clearProcCache } = await import('./_proc-cache.js');
     const handler = (await import('./game-state.js')).default as unknown as (req: never, res: never) => Promise<unknown>;
     const keys = await kv.keys('*');
@@ -88,7 +88,7 @@ test('shared frame uses fresh projected membership for moved/deleted leaders and
     }
     saves['save:appointed'] = { character: { village }, private: 'never transferred' };
     await kv.hset('player:registry', registry);
-    await kv.set(`game:village-state:${slug}`, { anbuAppointees: ['appointed', 'candidate0', 'candidate1'] });
+    await kv.set(`game:village-state:${slug}`, { shadowguardAppointees: ['appointed', 'candidate0', 'candidate1'] });
     for (const name of WAR_VILLAGES) await kv.set(`village:elder-council:${leadershipVillageKey(name)}`, {
         version: 1, startedAt: now - 1000, nextSelectionAt: now + 86400000,
         seats: name === village ? ['appointed', 'candidate0', 'candidate1'] : ['', '', ''], winningScores: [1, 1],
@@ -106,7 +106,7 @@ test('shared frame uses fresh projected membership for moved/deleted leaders and
     };
     t.after(() => { delete kv.mgetProjected; });
     async function frame() {
-        let body: { villageStates: Record<string, { elderAppointees: string[]; anbuAppointees: string[]; anbuEarned: string[] }> } | undefined;
+        let body: { villageStates: Record<string, { elderAppointees: string[]; shadowguardAppointees: string[]; shadowguardEarned: string[] }> } | undefined;
         let status = 200;
         const res = { setHeader() {}, status(code: number) { status = code; return this; }, json(value: typeof body) { body = value; return this; }, end() {} };
         await handler({ method: 'GET', query: {}, headers: {} } as never, res as never);
@@ -115,15 +115,15 @@ test('shared frame uses fresh projected membership for moved/deleted leaders and
     }
     const first = await frame();
     assert.deepEqual(first.elderAppointees, ['appointed', '', '']);
-    assert.deepEqual(first.anbuAppointees, ['appointed', '', '']);
-    assert.deepEqual(first.anbuEarned, Array.from({ length: 7 }, (_, index) => `candidate${index + 2}`));
+    assert.deepEqual(first.shadowguardAppointees, ['appointed', '', '']);
+    assert.deepEqual(first.shadowguardEarned, Array.from({ length: 7 }, (_, index) => `candidate${index + 2}`));
     assert.ok(batches.some(batch => batch.length === 7), 'earned validation remains bounded and batched');
     saves['save:appointed'] = { character: { village: WAR_VILLAGES[1] } };
     delete saves['save:candidate2'];
     __clearProcCache();
     const second = await frame();
     assert.deepEqual(second.elderAppointees, ['', '', '']);
-    assert.deepEqual(second.anbuAppointees, ['', '', '']);
-    assert.deepEqual(second.anbuEarned, Array.from({ length: 6 }, (_, index) => `candidate${index + 3}`));
+    assert.deepEqual(second.shadowguardAppointees, ['', '', '']);
+    assert.deepEqual(second.shadowguardEarned, Array.from({ length: 6 }, (_, index) => `candidate${index + 3}`));
     assert.ok(!JSON.stringify(second).includes('never transferred'));
 });

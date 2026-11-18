@@ -99,8 +99,8 @@ beforeEach(async () => {
         kv.set('save:alice', { character: { name: 'Alice', clan: 'Storm Clan', village: 'Stormveil Village' } }),
         kv.set('save:bob', { character: { name: 'Bob', clan: 'Storm Clan', village: 'Stormveil Village' } }),
         kv.set('save:outsider', { character: { name: 'Outsider', clan: 'Other Clan', village: 'Stormveil Village' } }),
-        kv.set('save:anbu', { character: { name: 'Anbu', village: 'Stormveil Village' } }),
-        kv.set('game:village-state:stormveilvillage', { anbuAppointees: ['Anbu'] }),
+        kv.set('save:shadowguard', { character: { name: 'Shadowguard', village: 'Stormveil Village' } }),
+        kv.set('game:village-state:stormveilvillage', { shadowguardAppointees: ['Shadowguard'] }),
     ]);
 });
 
@@ -124,7 +124,7 @@ describe('legacy world-state territory write authority', { concurrency: false },
         assert.equal(saved?.warSupply, 300);
     });
 
-    it('lets members and appointed ANBU toggle only their own guard entry', async () => {
+    it('lets members and appointed Shadowguard toggle only their own guard entry', async () => {
         const member = await invoke('bob', territory({ guards: ['Alice', 'Bob'] }));
         assert.equal(member.statusCode, 200);
         assert.deepEqual((await kv.get<Record<string, unknown>>(territoryKey))?.guards, ['Alice', 'Bob']);
@@ -133,9 +133,9 @@ describe('legacy world-state territory write authority', { concurrency: false },
         assert.equal(forged.statusCode, 403);
         assert.deepEqual((await kv.get<Record<string, unknown>>(territoryKey))?.guards, ['Alice', 'Bob']);
 
-        const appointed = await invoke('anbu', territory({ guards: ['Alice', 'Bob', 'Anbu'] }));
+        const appointed = await invoke('shadowguard', territory({ guards: ['Alice', 'Bob', 'Shadowguard'] }));
         assert.equal(appointed.statusCode, 200);
-        assert.deepEqual((await kv.get<Record<string, unknown>>(territoryKey))?.guards, ['Alice', 'Bob', 'Anbu']);
+        assert.deepEqual((await kv.get<Record<string, unknown>>(territoryKey))?.guards, ['Alice', 'Bob', 'Shadowguard']);
     });
 });
 

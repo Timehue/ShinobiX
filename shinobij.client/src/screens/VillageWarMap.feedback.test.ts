@@ -131,9 +131,9 @@ describe('Village War Map feedback contract', () => {
         assert.doesNotMatch(screen, /⚠/, 'the warning emoji is replaced by GiHazardSign');
     });
 
-    it('3k — an ANBU appointment made mid-session lights the feed controls up', () => {
-        assert.match(screen, /const isAnbu = isVillageAnbu\(character\)/);
-        assert.doesNotMatch(screen, /useState\(\(\) => isVillageAnbu/);
+    it('3k — a Shadowguard appointment made mid-session lights the feed controls up', () => {
+        assert.match(screen, /const isShadowguard = isVillageShadowguard\(character\)/);
+        assert.doesNotMatch(screen, /useState\(\(\) => isVillageShadowguard/);
     });
 
     it('3l — the depot conversion note disappears when the cap is zero', () => {
@@ -169,7 +169,7 @@ describe('Village War Map feedback contract', () => {
         const memo = screen.match(/const sectorViews = useMemo\(\(\) => new Map\([\s\S]*?\}\)\)\), \[[^\]]*\]\);/)?.[0] ?? '';
         assert.ok(memo, 'expected a sectorViews useMemo');
         // Keyed on the data that actually feeds it — never on the tick.
-        assert.match(memo, /\[data, owners, myVillage, isKage, isAnbu, contestBySector, myView\]\);$/);
+        assert.match(memo, /\[data, owners, myVillage, isKage, isShadowguard, contestBySector, myView\]\);$/);
         assert.doesNotMatch(memo, /nowTick|useSharedNow/, 'the memo must not depend on the clock');
         const unfedMemo = screen.match(/const unfedContestIds = useMemo\([\s\S]*?\[data, myVillage\],\s*\);/)?.[0] ?? '';
         assert.ok(unfedMemo, 'expected an unfedContestIds useMemo for the Active Wars list');

@@ -123,7 +123,7 @@ describe('the public /api/game-state frame', { concurrency: false }, () => {
         assert.deepEqual(frost.warRecords, ROW.warRecords, 'war history stays public');
         assert.deepEqual(frost.kageHistory, ROW.kageHistory);
         assert.equal(frost.hollowGateUnlockedUntil, ROW.hollowGateUnlockedUntil);
-        assert.ok(Array.isArray(frost.anbuMembers), 'leadership stays public');
+        assert.ok(Array.isArray(frost.shadowguardMembers), 'leadership stays public');
         const text = JSON.stringify(frame);
         for (const secret of ['Raid Sector 33', '125000', 'tx-secret-1', 'spoils-secret', 'donated 1,000 ryo']) {
             assert.equal(text.includes(secret), false, `"${secret}" must not be public`);

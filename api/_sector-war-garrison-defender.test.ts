@@ -8,7 +8,7 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
  * Who holds a sector's garrison is one decision shared by all three engines
  * (api/_sector-war-garrison-defender.ts). Choosing a defender was not enough:
  * the chosen one has to be able to FIELD what the engine seals, and a defender
- * who could not (a Pet garrison ANBU whose pets were all on an expedition)
+ * who could not (a Pet garrison Shadowguard whose pets were all on an expedition)
  * refused the whole assault for as long as the rotation kept landing on them.
  */
 
@@ -18,12 +18,12 @@ const KAGE_KEY = 'village:kage:frostfang-village';
 
 let kv: typeof import('./_storage.js').kv;
 let defender: typeof import('./_sector-war-garrison-defender.js');
-let anbuLastDefKey: typeof import('./_anbu-infiltration-store.js').anbuLastDefKey;
+let shadowguardLastDefKey: typeof import('./_shadowguard-infiltration-store.js').shadowguardLastDefKey;
 
 before(async () => {
     ({ kv } = await import('./_storage.js'));
     defender = await import('./_sector-war-garrison-defender.js');
-    ({ anbuLastDefKey } = await import('./_anbu-infiltration-store.js'));
+    ({ shadowguardLastDefKey } = await import('./_shadowguard-infiltration-store.js'));
 });
 
 beforeEach(async () => {
@@ -41,40 +41,40 @@ async function seedVillage(appointees: string[], kage = '') {
     for (const slug of [...appointees, ...(kage ? [kage] : [])]) {
         await kv.set(`save:${slug}`, { character: { name: slug, village: VILLAGE } });
     }
-    await kv.set(STATE_KEY, { anbuAppointees: appointees });
+    await kv.set(STATE_KEY, { shadowguardAppointees: appointees });
     if (kage) await kv.set(KAGE_KEY, { seatedKage: kage });
 }
 
-const lastDefended = async () => (await kv.get<Record<string, number>>(anbuLastDefKey('frostfangvillage'))) ?? {};
+const lastDefended = async () => (await kv.get<Record<string, number>>(shadowguardLastDefKey('frostfangvillage'))) ?? {};
 
 describe('fieldGarrisonDefender', { concurrency: false }, () => {
-    it('walks the rotation past an ANBU who cannot field, and stamps only the one who defends', async () => {
-        await seedVillage(['anbualpha', 'anbubravo']);
+    it('walks the rotation past a Shadowguard who cannot field, and stamps only the one who defends', async () => {
+        await seedVillage(['shadowguardalpha', 'shadowguardbravo']);
         const tried: string[] = [];
         const out = await defender.fieldGarrisonDefender(VILLAGE, async (slug) => {
             tried.push(slug);
-            return slug === 'anbualpha' ? null : `team-of-${slug}`;
+            return slug === 'shadowguardalpha' ? null : `team-of-${slug}`;
         });
         assert.equal(out.ok, true);
         if (!out.ok) return;
-        assert.deepEqual(tried, ['anbualpha', 'anbubravo'], 'rotation order: least recently defended, then slug');
-        assert.deepEqual(out.defender, { slug: 'anbubravo', byKage: false });
-        assert.equal(out.fielded, 'team-of-anbubravo');
+        assert.deepEqual(tried, ['shadowguardalpha', 'shadowguardbravo'], 'rotation order: least recently defended, then slug');
+        assert.deepEqual(out.defender, { slug: 'shadowguardbravo', byKage: false });
+        assert.equal(out.fielded, 'team-of-shadowguardbravo');
         const stamps = await lastDefended();
-        assert.ok(stamps.anbubravo > 0, 'the defender is stamped so the rotation moves past them');
-        assert.equal(stamps.anbualpha, undefined, 'a refusal stamps nobody');
+        assert.ok(stamps.shadowguardbravo > 0, 'the defender is stamped so the rotation moves past them');
+        assert.equal(stamps.shadowguardalpha, undefined, 'a refusal stamps nobody');
     });
 
     it('follows the same least-recently-defended order the pick always used', async () => {
-        await seedVillage(['anbualpha', 'anbubravo']);
-        await kv.set(anbuLastDefKey('frostfangvillage'), { anbualpha: Date.now() });
+        await seedVillage(['shadowguardalpha', 'shadowguardbravo']);
+        await kv.set(shadowguardLastDefKey('frostfangvillage'), { shadowguardalpha: Date.now() });
         const tried: string[] = [];
         await defender.fieldGarrisonDefender(VILLAGE, async (slug) => { tried.push(slug); return slug; });
-        assert.deepEqual(tried, ['anbubravo'], 'alpha defended last, so bravo goes first');
+        assert.deepEqual(tried, ['shadowguardbravo'], 'alpha defended last, so bravo goes first');
     });
 
     it('falls back to the seated Kage when no appointee can field', async () => {
-        await seedVillage(['anbualpha'], 'thekage');
+        await seedVillage(['shadowguardalpha'], 'thekage');
         const out = await defender.fieldGarrisonDefender(VILLAGE, async (slug) => (slug === 'thekage' ? 'kage-team' : null));
         assert.equal(out.ok, true);
         if (!out.ok) return;
@@ -82,21 +82,21 @@ describe('fieldGarrisonDefender', { concurrency: false }, () => {
     });
 
     it('refuses only when nobody can field, and says which refusal it is', async () => {
-        await seedVillage(['anbualpha'], 'thekage');
+        await seedVillage(['shadowguardalpha'], 'thekage');
         const none = await defender.fieldGarrisonDefender(VILLAGE, async () => null);
         assert.deepEqual(none, { ok: false, reason: 'cannot-field' });
 
         const keys = await kv.keys('*');
         if (keys.length) await kv.del(...keys);
         const empty = await defender.fieldGarrisonDefender(VILLAGE, async () => 'anything');
-        assert.deepEqual(empty, { ok: false, reason: 'no-defender' }, 'no ANBU and no Kage: nobody to defend at all');
+        assert.deepEqual(empty, { ok: false, reason: 'no-defender' }, 'no Shadowguard and no Kage: nobody to defend at all');
     });
 });
 
 describe('maskedGarrisonDefenderName', () => {
     it('names the defence, never the player, numbered by roster position', () => {
-        const roster = ['anbualpha', 'anbubravo'];
-        assert.equal(defender.maskedGarrisonDefenderName(VILLAGE, { slug: 'anbubravo', byKage: false }, roster), 'Frostfang Anbu #2');
+        const roster = ['shadowguardalpha', 'shadowguardbravo'];
+        assert.equal(defender.maskedGarrisonDefenderName(VILLAGE, { slug: 'shadowguardbravo', byKage: false }, roster), 'Frostfang Shadowguard #2');
         assert.equal(defender.maskedGarrisonDefenderName(VILLAGE, { slug: 'thekage', byKage: true }, roster), 'The Frostfang Kage');
     });
 });

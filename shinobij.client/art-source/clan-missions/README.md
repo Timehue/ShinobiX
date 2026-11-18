@@ -16,7 +16,7 @@ Subject prompts, in source-file order:
 - `mission`: one tightly rolled parchment mission scroll bound with dark red cord and a small stamped wax seal; clear readable silhouette.
 - `guard`: one compact lacquered forearm guard shield with a subtle leaf crest engraved in aged gold, dark blue-black lacquer and visible edge wear.
 - `territory`: one folded hand-drawn shinobi region map with a single small red banner pin planted in a marked district, no writing or labels.
-- `anbu`: one dark ivory fox-anbu half mask with understated carved lines, a small indigo cord tie and a single muted crimson accent; mysterious but not horror.
+- `shadowguard`: one dark ivory fox-shadowguard half mask with understated carved lines, a small indigo cord tie and a single muted crimson accent; mysterious but not horror.
 - `donation`: a short stack of aged gold ryō coins, one upright coin embossed with a simple original leaf-and-wave crest, no currency letters or numbers.
 - `training`: one scarred wooden makiwara practice post wrapped with worn indigo hand wraps, a couple of embedded training kunai; compact and clear.
 - `raid`: one cracked iron oni boss mask with one broken horn and subtle red light in the fracture, dark steel and ash; heroic game loot art, not gore.
@@ -27,7 +27,7 @@ Subject prompts, in source-file order:
 | `clan-mission-mission-source.png` | Wax-sealed mission scroll |
 | `clan-mission-guard-source.png` | Lacquered leaf-crest arm guard |
 | `clan-mission-territory-source.png` | War map with a district banner |
-| `clan-mission-anbu-source.png` | Ivory fox ANBU mask |
+| `clan-mission-shadowguard-source.png` | Ivory fox Shadowguard mask |
 | `clan-mission-donation-source.png` | Ryō coins with a leaf-and-wave crest |
 | `clan-mission-training-source.png` | Wrapped wooden makiwara |
 | `clan-mission-raid-source.png` | Cracked iron oni mask |

@@ -55,7 +55,7 @@ describe("clan mission progress mirrors the server (I-15)", () => {
         ];
         for (const members of rosters) {
             const data = clan(members, 1_000_000);
-            for (const key of ["battle", "mission", "guard", "anbu", "donation", "training", "raid"] as const) {
+            for (const key of ["battle", "mission", "guard", "shadowguard", "donation", "training", "raid"] as const) {
                 assert.equal(clanMissionProgress(data, key, NOW), clanMissionProgressServer(data as never, "Mist", [], key, NOW), `${members[0].name}: ${key}`);
             }
         }

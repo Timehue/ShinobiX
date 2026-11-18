@@ -20,7 +20,7 @@ export interface RankTier {
 }
 
 // A 7-rung ladder on a SEPARATE axis from the village career rank. It deliberately
-// avoids the career/role vocabulary (Genin/Chūnin/Jōnin/Anbu/Sannin and especially
+// avoids the career/role vocabulary (Genin/Chūnin/Jōnin/Shadowguard/Sannin and especially
 // Kage — a single reserved title held by the duel-won village leader): a ranked
 // tier is your *dueling skill*, not your in-world office, so reusing those words
 // would be wrong (you can't have many "Kages"). The default unrated player (1000)

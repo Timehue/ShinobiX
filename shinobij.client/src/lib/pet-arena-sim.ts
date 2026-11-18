@@ -358,7 +358,7 @@ const SHRINE_SPOTS: [number, number][] = [
 // ── Pacing: anti-snowball / comeback ──────────────────────────────────────────
 // Anti-snowball / comeback: a team trailing by a clear margin hits a little harder, so a
 // lead is defensible but not a runaway. Capped low (the leader's own play should decide
-// it, per Riot's comeback note) and re-evaluated every tick from the live score.
+// it) and re-evaluated every tick from the live score.
 const COMEBACK_GAP = 3;                           // behind by this many points → the catch-up buff turns on
 const COMEBACK_DMG = 1.12;                        // +12% damage while trailing (does NOT erase a lead, just slows the snowball)
 

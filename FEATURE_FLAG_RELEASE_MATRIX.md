@@ -23,7 +23,7 @@ Updated: August 6, 2026 (post-merge release closeout)
 | Pet Arena | Enable with warning | Good side content. | Medium | Rating/pacing telemetry. |
 | Pet Ladder | Enable with warning | Ranked pet content. | Medium | Offer/stuck-match monitoring. |
 | Hollow Gate | Desktop-first beta | Dense late-game flow with no-retreat pressure. | Medium | Desktop staging pass, then mobile pass. |
-| ANBU infiltration | Enable with warning | Server-owned Solo encounter bound to the infiltration run, with recovery and once settlement. | Medium | Staging reconnect and retry smoke. |
+| Shadowguard infiltration | Enable with warning | Server-owned Solo encounter bound to the infiltration run, with recovery and once settlement. | Medium | Staging reconnect and retry smoke. |
 | Legacy system | Enable with warning | Long-term goal layer. | Medium | Admin emergency tools verified. |
 | Professions | Enable with warning | Adds identity and long-term rewards. | Medium | Confirm role explanations and reward pacing. |
 | Creator tools | Gate/desktop-first | Large forms and player-created content moderation risk. | High | Content moderation staffing and review queues. |

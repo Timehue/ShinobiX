@@ -1023,7 +1023,7 @@
           },
           {
             "type": "p",
-            "text": "Wins against players from the enemy village count toward the war. Spars and ranked matches do not. Each village also has three strongholds, one for shinobi combat, one for pet battles, and one for cards. You can queue to defend your own stronghold from Town Hall while online and available. Attackers must travel to the enemy stronghold and enter it. Its appointed ANBU defends when no player is queued."
+            "text": "Wins against players from the enemy village count toward the war. Spars and ranked matches do not. Each village also has three strongholds, one for shinobi combat, one for pet battles, and one for cards. You can queue to defend your own stronghold from Town Hall while online and available. Attackers must travel to the enemy stronghold and enter it. Its appointed Shadowguard defends when no player is queued."
           },
           {
             "type": "p",
@@ -1081,7 +1081,7 @@
           },
           {
             "type": "p",
-            "text": "Each player has four attempts per campaign day, with at most one Supply, two Sabotage, and two Espionage attempts. ANBU fallback assaults share the Sabotage allowance. An attempt is spent when accepted, even if you abandon it or lose. Movement, travel, combat, or a lost connection resets an unfinished stationary hold. Check the order's reset timer instead of assuming it changes at midnight."
+            "text": "Each player has four attempts per campaign day, with at most one Supply, two Sabotage, and two Espionage attempts. Shadowguard fallback assaults share the Sabotage allowance. An attempt is spent when accepted, even if you abandon it or lose. Movement, travel, combat, or a lost connection resets an unfinished stationary hold. Check the order's reset timer instead of assuming it changes at midnight."
           }
         ]
       },
@@ -1469,7 +1469,7 @@
           },
           {
             "type": "p",
-            "text": "Chronicle Points come from several places. Echoes of War pays for its victories. A duel against another player in free play, a Clan War, a Sector War, or a Village War card stronghold pays 20 Chronicle Points for a win and 8 for a loss. It counts when it reaches turn 3, lasts 45 seconds, has three plays from each side, and ends without a forfeit or timeout. Wins traded back and forth with one opponent do not pay. Each opponent pays in full for your first two counted duels of the day, then half, then a quarter, then nothing until the next day. A duel pays no one when the loser is under 72 hours old and below level 20, or when the winner is more than 20 levels above the loser. A winner that new still earns the win, but the loser gets no loss pay. Winning a Dungeon card seal or a Rift card ambush pays 10, and beating a Sector War garrison pays 15, as does beating a Village War stronghold's ANBU deck. The result screen shows what each battle paid."
+            "text": "Chronicle Points come from several places. Echoes of War pays for its victories. A duel against another player in free play, a Clan War, a Sector War, or a Village War card stronghold pays 20 Chronicle Points for a win and 8 for a loss. It counts when it reaches turn 3, lasts 45 seconds, has three plays from each side, and ends without a forfeit or timeout. Wins traded back and forth with one opponent do not pay. Each opponent pays in full for your first two counted duels of the day, then half, then a quarter, then nothing until the next day. A duel pays no one when the loser is under 72 hours old and below level 20, or when the winner is more than 20 levels above the loser. A winner that new still earns the win, but the loser gets no loss pay. Winning a Dungeon card seal or a Rift card ambush pays 10, and beating a Sector War garrison pays 15, as does beating a Village War stronghold's Shadowguard deck. The result screen shows what each battle paid."
           }
         ]
       }
@@ -1666,7 +1666,7 @@
       "augment",
       "rift",
       "stronghold",
-      "anbu",
+      "shadowguard",
       "first pact",
       "celestial",
       "era",
@@ -1799,7 +1799,7 @@
       },
       {
         "id": "strongholds",
-        "heading": "Strongholds and ANBU vaults",
+        "heading": "Strongholds and Shadowguard vaults",
         "blocks": [
           {
             "type": "p",
@@ -1807,7 +1807,7 @@
           },
           {
             "type": "p",
-            "text": "The War Archives offer an optional intel objective. ANBU treasury raids are a separate level-100 activity: reach the vault inside a rival stronghold and clear any patrol before challenging its defender. Check the raid panel for the target, available rewards, and daily allowance before committing."
+            "text": "The War Archives offer an optional intel objective. Shadowguard treasury raids are a separate level-100 activity: reach the vault inside a rival stronghold and clear any patrol before challenging its defender. Check the raid panel for the target, available rewards, and daily allowance before committing."
           }
         ]
       },

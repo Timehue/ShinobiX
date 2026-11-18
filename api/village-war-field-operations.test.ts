@@ -196,7 +196,7 @@ it('level-15 guard duty admits only current owners at ordinary active-war posts 
     save.character.level = 15; await kv.set('save:bob', save);
     const guard = await call('guard-enter', extra, 'bob'); assert.equal(guard.status, 200, JSON.stringify(guard.data)); assert.equal(guard.data.guard.inside, true);
     const row = await kv.get<any>(`world:war:${id}`); assert.equal(row.campaign.usage[`${B}:0`], undefined); assert.equal(Object.keys(row.campaign.admissions).length, 1);
-    const legacy = (await import('./village/anbu-infiltration.js')).default as unknown as typeof endpoint;
+    const legacy = (await import('./village/shadowguard-infiltration.js')).default as unknown as typeof endpoint;
     assert.equal((await call('stronghold-enter', { playerName: 'bob', sector: m.sectors[0], presenceId: 'legacy-guard-denied' }, 'bob', legacy)).status, 403);
     const objective = row.campaign.strongholds.find((o: any) => o.village === B);
     arrive(objective.sector, 'bob'); assert.equal((await call('guard-enter', { ...extra, sector: objective.sector }, 'bob')).status, 409);

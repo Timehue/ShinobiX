@@ -6,7 +6,7 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
 const missionFight = read("./MissionArenaFight.tsx");
 const weeklyWrapper = read("./WeeklyBossFight.tsx");
 const weeklyArena = read("./WeeklyBossArena.tsx");
-const anbuRaid = read("../features/anbuInfiltration/AnbuVaultRaid.tsx");
+const shadowguardRaid = read("../features/shadowguardInfiltration/ShadowguardVaultRaid.tsx");
 const app = read("../App.tsx");
 const worldBossHub = read("./WorldBossesHub.tsx");
 
@@ -29,12 +29,12 @@ test("Weekly Boss renders on the arena shell, not the tower rail", () => {
     assert.doesNotMatch(app, /<BattleTowerFight|screens\/BattleTowerFight/);
 });
 
-test("Anbu Vault fight renders on the arena shell with a guarded Solo PvE transport", () => {
-    assert.match(anbuRaid, /<MissionArenaFight/);
-    assert.match(anbuRaid, /soloPveSessionForArena\(fight\.session\)/);
-    assert.match(anbuRaid, /\.\.\.soloPveArenaTransport/);
-    assert.match(anbuRaid, /soloPveArenaTransport\.(?:fetchState|submitAction)/);
-    assert.match(anbuRaid, /transport=\{guardedArenaTransport\}/);
-    assert.match(anbuRaid, /settleOnAnyDone/);
-    assert.doesNotMatch(anbuRaid, /createTowerArenaTransport|infiltrationAct|towerSessionForArena|<BattleTowerFight|screens\/BattleTowerFight/);
+test("Shadowguard Vault fight renders on the arena shell with a guarded Solo PvE transport", () => {
+    assert.match(shadowguardRaid, /<MissionArenaFight/);
+    assert.match(shadowguardRaid, /soloPveSessionForArena\(fight\.session\)/);
+    assert.match(shadowguardRaid, /\.\.\.soloPveArenaTransport/);
+    assert.match(shadowguardRaid, /soloPveArenaTransport\.(?:fetchState|submitAction)/);
+    assert.match(shadowguardRaid, /transport=\{guardedArenaTransport\}/);
+    assert.match(shadowguardRaid, /settleOnAnyDone/);
+    assert.doesNotMatch(shadowguardRaid, /createTowerArenaTransport|infiltrationAct|towerSessionForArena|<BattleTowerFight|screens\/BattleTowerFight/);
 });

@@ -1,4 +1,4 @@
-import { readVillageAnbu } from '../village/_anbu.js';
+import { readVillageShadowguard } from '../village/_shadowguard.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
@@ -355,9 +355,9 @@ export async function settleRaidTerritoryDamage(params: {
                 const controlsTerritory = (!!ownerClan && ownerClan === playerClan)
                     || (!!ownerVillage && ownerVillage === playerVillage);
                 if (ownerClan && !controlsTerritory) {
-                const anbu = new Set((await readVillageAnbu(ownerVillage)).members.map(safeName));
-                const anbuCount = guards.filter((guard) => anbu.has(guard)).length;
-                amount = anbuCount > 0 ? Math.max(50, 250 - anbuCount * 50) : guards.length > 0 ? 150 : 250;
+                const shadowguard = new Set((await readVillageShadowguard(ownerVillage)).members.map(safeName));
+                const shadowguardCount = guards.filter((guard) => shadowguard.has(guard)).length;
+                amount = shadowguardCount > 0 ? Math.max(50, 250 - shadowguardCount * 50) : guards.length > 0 ? 150 : 250;
                 }
             }
             const rawHp = Number(current.hp);

@@ -176,7 +176,7 @@ export function applyPveOutcomeWithReceipt(params: {
             // no physical consequence on any path, including the lapse
             // reconciler's abandon of one the player walked away from.
             sessionIsSpar(params.session),
-            // A Tower run seats its squad at full HP, and an ANBU Vault raid or a
+            // A Tower run seats its squad at full HP, and a Shadowguard Vault raid or a
             // garrison assault settles against a save that kept changing with no
             // seed to charge: their remainder may only lower the save's HP. The
             // Tower lapse settles every member here, and the vault and garrison

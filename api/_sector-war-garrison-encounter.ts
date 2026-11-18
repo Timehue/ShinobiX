@@ -4,12 +4,12 @@
  * GARRISON_UNLOCK_IDLE_MS), rebuilt after the wrong-owner Tower-backed version
  * was retired in d37aa4d62 ("fix(combat): retire wrong-owner sector garrison").
  *
- * Shape mirrors api/_anbu-infiltration-encounter.ts on purpose: one human
+ * Shape mirrors api/_shadowguard-infiltration-encounter.ts on purpose: one human
  * attacker versus one server-controlled snapshot of a REAL appointed defender —
- * the defending village's ANBU, per owner ruling ("it goes off the defender
- * since it pulls from anbu of the village"), not a generic stat-scaled bot. The
+ * the defending village's Shadowguard, per owner ruling ("it goes off the defender
+ * since it pulls from shadowguard of the village"), not a generic stat-scaled bot. The
  * snapshot is content, not a live second participant, so — same reasoning as
- * Anbu Infiltration — the fight belongs on the Solo PvE runtime, never Tower
+ * Shadowguard Infiltration — the fight belongs on the Solo PvE runtime, never Tower
  * (docs/architecture/combat-runtime-boundaries.md). The contest OUTCOME still
  * has to feed the exact same sector-war score a real human PvP duel would
  * (api/pvp/_sector-war-continuation.ts), at garrison weight, which is why
@@ -19,7 +19,7 @@
  * rule the retirement enforced was against resolving it with Tower's
  * resolveMercBattle/sealTowerFighter, which this file never touches.
  *
- * A distinct encounter.kind ('sector-war-garrison', not 'anbu-infiltration')
+ * A distinct encounter.kind ('sector-war-garrison', not 'shadowguard-infiltration')
  * keeps the two modes distinguishable in session state/telemetry even though
  * they share a shape and both read a real defender's sealed loadout.
  */
@@ -29,7 +29,7 @@ import {
     createSoloPveSession,
     type SoloPveSession,
 } from './solo-pve/_session.js';
-import { biomeForTerrain } from './_anbu-infiltration-encounter.js';
+import { biomeForTerrain } from './_shadowguard-infiltration-encounter.js';
 import type { SealedSectorWeather } from './_sector-weather-seal.js';
 import { startingItemShield } from './combat-core/shields.js';
 
@@ -63,7 +63,7 @@ function fighter(input: GarrisonFighter, pos: number, enemy = false): PvpFighter
     // "start an assault, then abandon it" into a free heal for a wounded
     // attacker. That write is decrease-only as well (sessionHpIsDecreaseOnly
     // in api/missions/_ai-fight-outcome.ts). Clamped to [0, maxHp] exactly like
-    // the generic seeding in api/solo-pve/_ai-encounter.ts. The sealed ANBU is
+    // the generic seeding in api/solo-pve/_ai-encounter.ts. The sealed Shadowguard is
     // content with no save to write back to, so it always stands at full strength.
     const hp = enemy ? maxHp : Math.max(0, Math.min(maxHp, num(input.character.hp, maxHp)));
     const character = {
@@ -79,7 +79,7 @@ function fighter(input: GarrisonFighter, pos: number, enemy = false): PvpFighter
         maxChakra,
         stamina: maxStamina,
         maxStamina,
-        // Both sides' gear Shield special. The ANBU is a real player's sealed loadout,
+        // Both sides' gear Shield special. The Shadowguard is a real player's sealed loadout,
         // so it starts with its shield the way the human sector-war duel would.
         shield: startingItemShield(input.character),
         statuses: [],
@@ -92,7 +92,7 @@ export interface BuildGarrisonParams {
     runId: string;
     now: number;
     attacker: GarrisonFighter;
-    anbu: GarrisonFighter;
+    shadowguard: GarrisonFighter;
     terrain: unknown;
     sector: number;
     contestId: string;
@@ -107,22 +107,22 @@ export function buildGarrisonEncounter(params: BuildGarrisonParams): SoloPveSess
     const biome = biomeForTerrain(params.terrain);
     const spawns = combatSpawnPositions(params.runId, { openingDistance: 4 });
     const player = fighter(params.attacker, spawns.allies[0]!);
-    const enemy = fighter(params.anbu, spawns.enemies[0]!, true);
+    const enemy = fighter(params.shadowguard, spawns.enemies[0]!, true);
     return createSoloPveSession({
         sessionId: params.runId,
         ownerSlug: params.attacker.slug,
         encounter: {
             kind: GARRISON_ENCOUNTER_KIND,
             id: String(params.sector),
-            sourceId: params.anbu.slug,
+            sourceId: params.shadowguard.slug,
             bindingId: params.runId,
-            level: Math.max(1, Math.floor(num(params.anbu.character.level, 100))),
+            level: Math.max(1, Math.floor(num(params.shadowguard.character.level, 100))),
             metadata: {
                 sector: params.sector,
                 contestId: params.contestId,
                 attackerVillage: params.attackerVillage,
                 defenderVillage: params.defenderVillage,
-                anbuSlug: params.anbu.slug,
+                shadowguardSlug: params.shadowguard.slug,
                 terrain: biome,
                 roundBudget: GARRISON_ROUND_BUDGET,
             },
@@ -136,7 +136,7 @@ export function buildGarrisonEncounter(params: BuildGarrisonParams): SoloPveSess
     });
 }
 
-/** The exact contest/attacker/ANBU combination a garrison session was minted
+/** The exact contest/attacker/Shadowguard combination a garrison session was minted
  *  for — verified again at resolve so a client can never hand in an arbitrary
  *  finished solo-pve session id and have it accepted as this assault. Mirrors
  *  InfiltrationSessionBinding/infiltrationSessionMatches. */
@@ -147,7 +147,7 @@ export type GarrisonSessionBinding = {
     contestId: string;
     attackerVillage: string;
     defenderVillage: string;
-    anbuSlug: string;
+    shadowguardSlug: string;
     terrain: string;
 };
 
@@ -162,11 +162,11 @@ export function garrisonSessionMatches(
         && session.encounter.kind === GARRISON_ENCOUNTER_KIND
         && session.encounter.bindingId === run.runId
         && session.encounter.id === String(run.sector)
-        && session.encounter.sourceId === run.anbuSlug
+        && session.encounter.sourceId === run.shadowguardSlug
         && session.encounter.metadata?.sector === run.sector
         && session.encounter.metadata?.contestId === run.contestId
         && session.encounter.metadata?.attackerVillage === run.attackerVillage
         && session.encounter.metadata?.defenderVillage === run.defenderVillage
-        && session.encounter.metadata?.anbuSlug === run.anbuSlug
+        && session.encounter.metadata?.shadowguardSlug === run.shadowguardSlug
         && session.encounter.metadata?.terrain === biomeForTerrain(run.terrain));
 }

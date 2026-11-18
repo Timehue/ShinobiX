@@ -1,6 +1,6 @@
 import type { PublicCapabilities, PublicCapabilityReason } from '../../shared/public-capabilities.js';
 import {
-    anbuInfiltrationEnabled,
+    shadowguardInfiltrationEnabled,
     clanBossEnabled,
     clanBossPartiesEnabled,
     petBreedingStartsEnabled,
@@ -57,7 +57,7 @@ export function publicCapabilities(env: NodeJS.ProcessEnv = process.env): Public
         // covered by _release-flags.test.ts, and main's version referenced local
         // `villageWar` / `clanBoss` bindings that do not exist on this branch.
         villageWar: villageWarMapEnabled(env) ? available : unavailable(),
-        anbuInfiltration: anbuInfiltrationEnabled(env) ? available : unavailable(),
+        shadowguardInfiltration: shadowguardInfiltrationEnabled(env) ? available : unavailable(),
         clanBoss: clanBossEnabled(env) ? available : unavailable(),
         clanBossParties: clanBossPartiesEnabled(env) ? available : unavailable(),
         legacy: env.ENABLE_LEGACY === '1' ? available : unavailable('configuration-unavailable'),

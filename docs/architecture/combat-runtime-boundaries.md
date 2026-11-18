@@ -19,8 +19,8 @@ Tower-specific objectives. Pet and Card participant models remain independent.
   Sector War's `garrison-start`/`garrison-resolve` actions
   (`api/village/sector-war.ts`) now resolve the liveness fallback as a genuine
   Solo PvE session against a sealed snapshot of the defending village's real
-  ANBU (`api/_sector-war-garrison-encounter.ts`, reusing
-  `api/_anbu-infiltration-store.ts`'s roster/snapshot code verbatim), never
+  Shadowguard (`api/_sector-war-garrison-encounter.ts`, reusing
+  `api/_shadowguard-infiltration-store.ts`'s roster/snapshot code verbatim), never
   Tower. The mode is labeled `pvp` because Sector War orchestrates its scoring
   into the same contest a live human duel feeds — not because its combat
   engine is PvP's.
@@ -49,8 +49,8 @@ keyspace, and rollback narrative remains in
 
 | Runtime | Mounted or intended boundary summary |
 |---|---|
-| `pvp` | Casual, ranked, direct challenges, human-defender Sector War shinobi duels, Clan War shinobi 1v1, and the Sector War ANBU-garrison liveness fallback (Sector War orchestrates the scoring; the fight itself runs on `solo-pve`); Clan War shinobi 2v2 names PvP as its intended owner but new progression is retired fail-closed until a four-player lifecycle exists |
-| `solo-pve` | Generic/published AI (including Apex, explore ambushes, and village-guard raids), server-reconstructed World-context hunts/wanderers, all combat missions, Academy spar, story bosses, normal Endless waves, Hollow Gate shinobi encounters, Weekly Boss attempts, ANBU infiltration, and (under Sector War's `pvp`-labeled orchestration) the Sector War garrison fallback |
+| `pvp` | Casual, ranked, direct challenges, human-defender Sector War shinobi duels, Clan War shinobi 1v1, and the Sector War Shadowguard-garrison liveness fallback (Sector War orchestrates the scoring; the fight itself runs on `solo-pve`); Clan War shinobi 2v2 names PvP as its intended owner but new progression is retired fail-closed until a four-player lifecycle exists |
+| `solo-pve` | Generic/published AI (including Apex, explore ambushes, and village-guard raids), server-reconstructed World-context hunts/wanderers, all combat missions, Academy spar, story bosses, normal Endless waves, Hollow Gate shinobi encounters, Weekly Boss attempts, Shadowguard infiltration, and (under Sector War's `pvp`-labeled orchestration) the Sector War garrison fallback |
 | `tower` | Battle Towers, Tower parties, Endless Spire, Clan Boss, Tower PvP, Sunscar Caravan's solo 1-vs-3-to-5 ambush, and declared headless village-war mercenary battles; the Sector garrison fallback stays off Tower for good — it now runs on `solo-pve` |
 | `pet-showdown` | Showdown practice, the sole new paid Coliseum admission and progression settlement, Showdown ladder, and Showdown-backed Sector/Clan War pet fights |
 | `pet-warfront` | Pet Warfront, Pet Ladder Warfront, and co-op Tactical preview; standalone Tactical remains a distinct missing surface even where Warfront-family reuse is allowed |
@@ -62,7 +62,7 @@ keyspace, and rollback narrative remains in
 
 `story/spar-start` and `endless/wave-start` both exist, are registered, and have
 real client callers. Their rewarding paths require terminal Solo evidence.
-Weekly Boss and ANBU were audited by participant model: both current encounters
+Weekly Boss and Shadowguard were audited by participant model: both current encounters
 are one human with the normal optional companion against one AI, so they use
 Solo rather than Tower.
 

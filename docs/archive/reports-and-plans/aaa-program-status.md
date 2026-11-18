@@ -149,8 +149,8 @@ performs that locked install explicitly.
 | Validation | Result | Scope |
 | --- | --- | --- |
 | Runtime registry and audit projection | **PASS** | 21/21 focused tests cover 55 independently pinned modes, generated-document parity, reverse Express/client route and Socket.IO transport census, inert surface gaps, all six pet authority separations, and immutable compatibility projection. |
-| ANBU typed registry consumer | **PASS** | 3/3 tests retain Solo PvE ownership and reject the retired Tower/custom-action path. |
-| Canonical server release flags and public projection | **PASS** | 53/53 focused tests plus 198/198 broader ANBU, Clan Boss, and Village War tests; final source/flag contract 8/8 and public projection 6/6. |
+| Shadowguard typed registry consumer | **PASS** | 3/3 tests retain Solo PvE ownership and reject the retired Tower/custom-action path. |
+| Canonical server release flags and public projection | **PASS** | 53/53 focused tests plus 198/198 broader Shadowguard, Clan Boss, and Village War tests; final source/flag contract 8/8 and public projection 6/6. |
 | Upstream integration and adversarial review | **PASS after repair** | The two-parent merge has no conflicts or unmerged entries and retains all 14 upstream-touched paths. Review found and repaired the admin elapsed-read ownership defect; no P0/P1 remained in the reviewed Phase-2 paths. |
 | Frozen impacted census | **PASS** | Client: 424/424 tests across 55 files. Server and source contracts: 331/331 tests across 33 files. |
 | Elapsed-state and save-recovery regressions | **PASS** | Isolated elapsed-state persistence: 3/3. Corrected Tower, save-flight, and session-load slice: 20/20. |

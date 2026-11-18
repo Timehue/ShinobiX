@@ -86,7 +86,7 @@ export function nextBaseLevel(previous: number | null | undefined, target: numbe
  */
 export const NPC_MIN_LEVEL = 10;
 /**
- * Cinderhold's war ranks (Commanders, Elites, Jonin: its ANBU) never fight
+ * Cinderhold's war ranks (Commanders, Elites, Jonin: its Shadowguard) never fight
  * below the level a player needs to take part in a village war (15), or its
  * campaign defenders, shrine holders and field orders could not exist at all
  * on a low-level server (Push 4b). The rest of the village keeps the 10 floor.

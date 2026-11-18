@@ -326,7 +326,7 @@ durable outbox intent before the debit can commit.
 | Wanderer endpoints | `api/sector/wanderer-{gift,service,quest,ambush}.ts` | one `sectorDiscoveries` receipt per NPC interaction; `wandererQuests` and `hiddenFinds` for their completed deeds |
 | Village treasury donate | `api/village/treasury/donate.ts` + `api/_legacy-economy-outbox.ts` | exact donated ryo-value as `villageDonations`, delivered only after the economy transaction is complete |
 | Card clash finalize | `api/card-clash/_freeplay-legacy.ts` + `api/card-clash/ai-move.ts` | `cardClashWins` from terminal server sessions |
-| ANBU infiltration | `api/village/anbu-infiltration.ts` | `raidsCompleted`, `warContribution` from a settled run id |
+| Shadowguard infiltration | `api/village/shadowguard-infiltration.ts` | `raidsCompleted`, `warContribution` from a settled run id |
 | Story first clear | `api/story/settle.ts` | durable `firstClears`, `bossContribution` |
 | Daily login | `api/player/daily-login.ts` | `villageTenureDays` (+1 per claimed day in current village) |
 
@@ -849,7 +849,7 @@ history entries crediting the real firsts where recorded. Era 5 (Mythic
 Legacies) is the first genuinely gated one. This keeps the handoff's
 world-history fiction without a live-ops regression. (Flagged in §24.)
 
-### 14.2 Milestones (anti-chore, from AQ-gate lessons)
+### 14.2 Milestones (anti-chore)
 
 Each active era tracks 3–5 mixed-category server-wide counters (missions,
 explorations, PvP battles, village projects) + one credited final trigger
@@ -1148,5 +1148,3 @@ filter+revoke/refund instead of a pre-approval queue (§1.4).
 - Permanent-choice design & regret: a deep action RPG’s ascendancy permanence, a deep action RPG respec debate, a deep action RPG respec philosophy shift — informs the double-confirmation + decline-freely + prestige-not-power stance.
 - Pity systems: [Pity timers explained](https://gameanatomy.blog/2025/05/03/pity-timers-in-games-explained/), [Bad-luck protection modeling](https://medium.com/@niklasvmoers/designing-fair-and-fun-randomness-in-video-games-via-bad-luck-protection-48f2c2262cfa), [Soft/hard pity](https://mwm.ai/glossary/pity-system) — Sage 5%+5%/day, day-7 guarantee.
 - UGC/title moderation: [CleanSpeak UGC best practices](https://cleanspeak.com/blog-archive/2022/06/07/best-practices-ugc-moderation-video-games), [Gaming content moderation guide](https://www.cometchat.com/blog/gaming-content-moderation) — hybrid filter + human review.
-- Server-first/exploit handling: [Realm-first exploit report handling](https://us.forums.blizzard.com/en/wow/t/mop-classic-realm-first-pandaren-ambassador-exploit/2144814) — revoke-and-annotate, never silently erase.
-- Community milestone events: [Blizzard engineering retro on recreating the AQ war effort](https://news.blizzard.com/en-us/world-of-warcraft/23504702/engineer-s-workshop-recreating-the-ahn-qiraj-war-effort), [AQ gates history](https://massivelyop.com/2020/06/27/the-game-archaeologist-when-world-of-warcraft-opened-ahnqirajs-gates/) — era milestone design (short timelines, population scaling, credit one/reward all).

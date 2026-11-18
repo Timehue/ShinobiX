@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const state = await kv.get<Record<string, unknown>>(stateKey) ?? {};
             const kage = await kv.get<{ seatedKage?: string }>(kageKey);
             const role = await villageOrderRole(playerName, village, state, kage);
-            if (!role) return { status: 403, body: { error: 'Only the seated Kage, ANBU, and current village Elders can manage orders.' } };
+            if (!role) return { status: 403, body: { error: 'Only the seated Kage, Shadowguard, and current village Elders can manage orders.' } };
             const posts: Order[] = Array.isArray(state.noticePosts) ? state.noticePosts : [];
             const previous = posts.find(post => post.id === id);
             if (previous && role !== 'Kage' && safeName(String(previous.author ?? '')) !== playerName) {
@@ -61,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     createdAt: Date.now(), pinned: body.type === 'order',
                     ...(Number.isInteger(sector) && sector >= 1 && sector <= MAX_WILD_SECTOR ? { sector } : {}) };
                 // Retention is a server policy, so a full board never asks an
-                // ANBU/elder to delete another author's post merely to publish.
+                // Shadowguard/elder to delete another author's post merely to publish.
                 noticePosts = [post, ...posts].slice(0, 60);
             } else if (action === 'pin') {
                 if (!previous) return { status: 404, body: { error: 'That order no longer exists.' } };

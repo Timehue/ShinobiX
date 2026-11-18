@@ -265,11 +265,11 @@ describe('step C wiring', () => {
         assert.ok(configure < start, 'Clan Boss encounter config must run before the first AI turn');
     });
 
-    it('the weekly boss and Anbu Vault stay deliberately unarmed', () => {
+    it('the weekly boss and Shadowguard Vault stay deliberately unarmed', () => {
         // Weekly boss has NO server boss->player clamp, so tripling its damage is
         // exactly the "mastery before the guard" failure the ruling forbids.
-        // Anbu's opponent is a real player whose own mastery is already sealed.
-        for (const file of ['api/weekly-boss.ts', 'api/village/anbu-infiltration.ts']) {
+        // Shadowguard's opponent is a real player whose own mastery is already sealed.
+        for (const file of ['api/weekly-boss.ts', 'api/village/shadowguard-infiltration.ts']) {
             assert.ok(!read(file).includes('sealPveAiMastery'), `${file} armed AI mastery — see the _pve-ai-mastery.ts header`);
         }
     });

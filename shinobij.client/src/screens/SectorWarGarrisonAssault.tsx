@@ -6,8 +6,8 @@
  * Map, not a dungeon):
  *   1. fight — starts the server-auth assault (api/village/sector-war action
  *      'garrison-start') and REUSES the whole normal Solo PvE Arena shell
- *      (MissionArenaFight), same as Anbu Infiltration. The defender is a
- *      server-sealed snapshot of the defending village's real ANBU.
+ *      (MissionArenaFight), same as Shadowguard Infiltration. The defender is a
+ *      server-sealed snapshot of the defending village's real Shadowguard.
  *   2. result — the assault report: whether the garrison fell or held, and
  *      the sector-war contest's new score. The returned server character
  *      replaces local state; this screen does not reconstruct combat costs.
@@ -55,7 +55,7 @@ export function SectorWarGarrisonAssault({
     const stashed = useMemo(() => readGarrisonStash(), []);
 
     const [phase, setPhase] = useState<Phase>("starting");
-    const [fight, setFight] = useState<{ runId: string; session: SoloPveSession | null; anbuName: string } | null>(null);
+    const [fight, setFight] = useState<{ runId: string; session: SoloPveSession | null; shadowguardName: string } | null>(null);
     const [report, setReport] = useState<GarrisonResolveResponse | null>(null);
     // The result on screen is an EARLIER assault's, settled on this visit.
     const [earlier, setEarlier] = useState(false);
@@ -70,12 +70,12 @@ export function SectorWarGarrisonAssault({
     /** Show a settled assault's result. Installs the server-settled character
      *  (item usage + surviving HP/hospital) first — and a `false` from the
      *  commit only means a NEWER save is already installed: keep it and still
-     *  finish (AnbuVaultRaid's contract). This used to return early there and
+     *  finish (ShadowguardVaultRaid's contract). This used to return early there and
      *  leave the player on "Reporting the outcome…" for good. */
-    function adoptResult(runId: string, anbuName: string, r: GarrisonResolveResponse, fromEarlier = false) {
+    function adoptResult(runId: string, shadowguardName: string, r: GarrisonResolveResponse, fromEarlier = false) {
         if (r.ok && r.character) onVersionedCharacter(r.character, r._saveVersion);
-        if (stashed) writeGarrisonStash({ sector: stashed.sector, runId, anbuName, done: true });
-        setFight((current) => current ?? { runId, session: null, anbuName });
+        if (stashed) writeGarrisonStash({ sector: stashed.sector, runId, shadowguardName, done: true });
+        setFight((current) => current ?? { runId, session: null, shadowguardName });
         setEarlier(fromEarlier);
         setReport(r);
         setPhase("result");
@@ -93,7 +93,7 @@ export function SectorWarGarrisonAssault({
                     // A finished assault's result, re-read (the server replays its
                     // cached settlement) — never a new assault behind the player's back.
                     const r = await resolveGarrisonAssault(plan.runId, character.name);
-                    adoptResultFromMount(plan.runId, plan.anbuName, r);
+                    adoptResultFromMount(plan.runId, plan.shadowguardName, r);
                     return;
                 }
                 // garrison-start is itself the refresh-resume path: the server keys
@@ -102,11 +102,11 @@ export function SectorWarGarrisonAssault({
                 // and returns one that finished unreported.
                 const res = await startGarrisonAssault(character.name, plan.sector);
                 if (res.settledPrevious) {
-                    adoptResultFromMount(res.runId, res.anbu.name, res.result, true);
+                    adoptResultFromMount(res.runId, res.shadowguard.name, res.result, true);
                     return;
                 }
-                writeGarrisonStash({ sector: plan.sector, runId: res.runId, anbuName: res.anbu.name });
-                setFight({ runId: res.runId, session: res.session, anbuName: res.anbu.name });
+                writeGarrisonStash({ sector: plan.sector, runId: res.runId, shadowguardName: res.shadowguard.name });
+                setFight({ runId: res.runId, session: res.session, shadowguardName: res.shadowguard.name });
                 setPhase("fight");
             } catch (e) {
                 setError(String((e as Error)?.message ?? e));
@@ -116,7 +116,7 @@ export function SectorWarGarrisonAssault({
 
     async function settleGarrison(runId: string, _playerName: string): Promise<unknown> {
         const r = await resolveGarrisonAssault(runId, character.name);
-        adoptResult(runId, fight?.anbuName ?? "", r);
+        adoptResult(runId, fight?.shadowguardName ?? "", r);
         return r;
     }
 
@@ -169,7 +169,7 @@ export function SectorWarGarrisonAssault({
     }
 
     if (phase === "result") {
-        const copy = garrisonReportCopy(report, fight?.anbuName ?? "", earlier);
+        const copy = garrisonReportCopy(report, fight?.shadowguardName ?? "", earlier);
         return (
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "1.2rem", textAlign: "center" }}>
                 <h2 style={{ margin: "0.4rem 0" }}>{copy.title}</h2>

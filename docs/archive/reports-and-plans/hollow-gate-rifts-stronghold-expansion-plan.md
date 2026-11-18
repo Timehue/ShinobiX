@@ -26,11 +26,11 @@
 - Hollow Gate's current five-floor standard run, server-sealed run token, immutable floor manifest, reward ledger, death/extraction rules, and augment authority remain authoritative. Event Rifts remain short variants of the same engine, currently one to three floors.
 - Hollow Gate floors remain randomly generated. This proposal does not restore mandatory hub-and-wing layouts.
 - Rift quests continue to use their current daily offer rotation, authored story, level access, and server-owned completion/reward catalog.
-- Stronghold remains a shared 37×23, twelve-chamber interior. Movement continues to add 4% threat per successful step; the patrol threshold, PvP rules, Death's Gate rewards, and current Anbu encounter gates do not change in this plan.
+- Stronghold remains a shared 37×23, twelve-chamber interior. Movement continues to add 4% threat per successful step; the patrol threshold, PvP rules, Death's Gate rewards, and current Shadowguard encounter gates do not change in this plan.
 - No reward rate, currency payout, drop chance, daily cap, combat formula, or save schema changes without a separate balance and implementation review.
 - Keep environmental presentation inexpensive: prefer static art, restrained transitions, and clear UI cues over continuous particles, extra canvases, or per-tile animation.
 
-See the current owners: [Hollow Gate gameplay loop](../../hollow-gate-loop.md), [Hollow Gate server and augment contract](../../hollow-gate-augments.md), and [Stronghold design and validation](../../stronghold/README.md). The existing [Anbu Infiltration plan](../../anbu-infiltration-plan.md) remains the owner for raid rewards and economy boundaries.
+See the current owners: [Hollow Gate gameplay loop](../../hollow-gate-loop.md), [Hollow Gate server and augment contract](../../hollow-gate-augments.md), and [Stronghold design and validation](../../stronghold/README.md). The existing [Shadowguard Infiltration plan](../../shadowguard-infiltration-plan.md) remains the owner for raid rewards and economy boundaries.
 
 ## Recommended sequence
 
@@ -126,8 +126,8 @@ Place one optional, non-economic field-intel interaction in the War Archives. Th
 ### Acceptance criteria
 
 - Objective completion is server-authoritative, visit-bound, and idempotent across reloads and network retries.
-- Skipping or failing the cache cannot block the vault or change the Anbu admission condition.
-- The exact step threat and patrol threshold, PvP rewards, and existing Anbu rewards remain unchanged.
+- Skipping or failing the cache cannot block the vault or change the Shadowguard admission condition.
+- The exact step threat and patrol threshold, PvP rewards, and existing Shadowguard rewards remain unchanged.
 - The objective is reachable on the shared map, readable at mobile sizes, and does not increase repeated render work during presence polling.
 - No reward settlement or player-save schema is introduced for the intel objective.
 

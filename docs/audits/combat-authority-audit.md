@@ -71,8 +71,8 @@ fighter for these modes; it only gates rewards with sealed tokens/receipts.
 (`api/story/_authoritative-story-combat.ts`), tower catalog `getEnemyTemplate` →
 `templateActor` (`api/towers/_encounter.ts:237`), `buildMercCharacter`
 (`api/towers/_merc-fighters.ts:60` — synthetic capped-stat fighter, deliberately
-no bloodline/item bonuses). The Anbu defender is a player save sealed through
-Pipeline A (`getOrSealAnbuSnapshot`, `api/_anbu-infiltration-store.ts:196`, seal `:208`).
+no bloodline/item bonuses). The Shadowguard defender is a player save sealed through
+Pipeline A (`getOrSealShadowguardSnapshot`, `api/_shadowguard-infiltration-store.ts:196`, seal `:208`).
 
 The combat-core "slice 2" adapters (`api/combat-adapters/pvpAdapter.ts:10`,
 `clanBossAdapter.ts:59/83`) are shape converters for the shared resolver
@@ -96,7 +96,7 @@ The combat-core "slice 2" adapters (`api/combat-adapters/pvpAdapter.ts:10`,
 | Endless Tower (client mode, distinct from Spire) | `POST /api/endless/run` | **C** — wave wins gated on `aiFightToken` proof; server bookkeeping only (`_run.ts`) | |
 | Generic AI/mercenary fights, raids | `missions/ai-fight-start.ts` → `report-ai-fight.ts`; `raid-start` → `report-raid` | **C** — sealed base-reward token, no server fighter | |
 | War mercenaries | `deployOneMerc` (`api/_merc-auto.ts:77-79`) headless | Target = **A via sealTowerFighter** (clientChar `{}`); merc = `buildMercCharacter`; deterministic `resolveMercBattle` via towers engine | defender cannot suppress the outcome |
-| ANBU Vault raid | `api/village/anbu-infiltration.ts:175,182` | Raider = **A** (live save); Anbu boss = **A** over the appointee's save, from a **daily sealed snapshot** (`_anbu-infiltration-store.ts:208`) | |
+| Shadowguard Vault raid | `api/village/shadowguard-infiltration.ts:175,182` | Raider = **A** (live save); Shadowguard boss = **A** over the appointee's save, from a **daily sealed snapshot** (`_shadowguard-infiltration-store.ts:208`) | |
 | Tournament combat | **None exists** (grep VERIFIED — only a passing comment `session.ts:146`) | — | |
 
 ## 3. Comparison matrix (vs the PvP truth source)
@@ -104,7 +104,7 @@ The combat-core "slice 2" adapters (`api/combat-adapters/pvpAdapter.ts:10`,
 | Mode group | Items | Jutsu | Stats | Modifiers | Resources | Consumables | Content defs |
 |---|---|---|---|---|---|---|---|
 | Casual/Ranked/War PvP | SAME (`resolveEquippedPvpItems` + attunement overlay `:727-747`) | SAME (`resolveEquippedLoadout` + legacy 16th slot `:892-915`) | SAME (`clampStatsObject` ≤2500 + gear fold `:839-846`) | SAME — bloodlineMult `:798-810`, legacy slot, war-only `guardDefensePct` | SAME (v2 caps `:853-856`, `sealV2JutsuCosts` `:920`) | SAME (`sealItemCharges`, potion cap 2, `itemsUsed` deducted at claim-rewards) | JUTSU_CATALOG + ITEM_CATALOG + admin slots + own bloodlines/creatorJutsus/creatorItems |
-| Towers / Spire / Clan Boss / Missions / Story / Weekly / Anbu / Merc-target | SAME (delegates) | SAME | SAME + specialty clamp (`_seal.ts:58`) | SAME | SAME | SAME (`sealTowerItemCharges`; tower settle deducts `itemsUsed`) | SAME — all callers pass `loadAdminCombatContent()` (verified per call site) |
+| Towers / Spire / Clan Boss / Missions / Story / Weekly / Shadowguard / Merc-target | SAME (delegates) | SAME | SAME + specialty clamp (`_seal.ts:58`) | SAME | SAME | SAME (`sealTowerItemCharges`; tower settle deducts `itemsUsed`) | SAME — all callers pass `loadAdminCombatContent()` (verified per call site) |
 | Hollow Gate / Endless Tower / AI fights / legacy E/D missions | **DIFFERENT** — client-resolved from client bundle + local creatorItems mirror | **DIFFERENT** — client-resolved | **DIFFERENT** — client `perRankStatCap` (Arena.tsx:301); server never clamps the fighter | client-side equivalents | client-side | **DIFFERENT** — no server charge seal; deduction via autosave, not receipts | client bundle catalogs (can drift from server mirrors) |
 | PvP-vs-NPC | clamped client payload | sanitized client payload | clamped | clamped | vitals NOT clamped (`:974`) | potion sealed at cap, others unlimited (`:1010-1011`) | client-supplied |
 
@@ -125,8 +125,8 @@ The combat-core "slice 2" adapters (`api/combat-adapters/pvpAdapter.ts:10`,
    and `api/_authoritative-pve.ts:239-243` both document that calling without
    the admin catalog "drops any admin-authored equipped item silently."
    Every production caller currently passes it (`towers/start.ts:76`,
-   `clan-boss/assault-start.ts:84`, `village/anbu-infiltration.ts:175`,
-   `_anbu-infiltration-store.ts:208`, `_merc-auto.ts:77`,
+   `clan-boss/assault-start.ts:84`, `village/shadowguard-infiltration.ts:175`,
+   `_shadowguard-infiltration-store.ts:208`, `_merc-auto.ts:77`,
    `missions/combat-start.ts:71`, `story/boss-start.ts:72`,
    `weekly-boss.ts:586`) — but the parameter defaults to `null`, so any future
    caller regresses silently. VERIFIED.
@@ -137,7 +137,7 @@ The combat-core "slice 2" adapters (`api/combat-adapters/pvpAdapter.ts:10`,
 
 **Across all server-sealed modes: yes, byte-comparable** — casual PvP, ranked,
 war PvP, Towers, Spire, Clan Boss, mission combat-start, story bosses, Weekly
-Boss, Anbu, and merc-target hydration all flow through
+Boss, Shadowguard, and merc-target hydration all flow through
 `hydrateCharacterFromSave` with the admin catalog. That is the concrete
 achievement of the unification work (through slice 2). Remaining divergences:
 
@@ -149,7 +149,7 @@ achievement of the unification work (through slice 2). Remaining divergences:
   fallback fields; allies/defenders/merc-targets always get `{}`
   (`towers/start.ts:97`, `clan-boss:94`, `_merc-auto:77`). Matters only for
   fields the save lacks — normally none.
-- **Anbu defender staleness:** sealed from a daily snapshot, can lag the
+- **Shadowguard defender staleness:** sealed from a daily snapshot, can lag the
   appointee's real loadout by up to a day.
 - **Specialty clamp** exists only on the tower wrapper (`_seal.ts:58`), not raw
   PvP hydration (PvP defaults invalid specialties at use). Cosmetic difference.

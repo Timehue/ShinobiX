@@ -11,7 +11,7 @@ import { withoutKvLeaseContext } from '../_kv-lock-context.js';
  * (api/save/_registry-throttle.ts). Server grants can be far more frequent (a
  * stat point per AI fight), so this applies the same budget per player:
  *
- *  - urgent fields (village, level, PvP kills, account name: the village/ANBU
+ *  - urgent fields (village, level, PvP kills, account name: the village/Shadowguard
  *    rankings act on them at once) are written immediately, as before;
  *  - any other change is written at most once per REINDEX_MIN_INTERVAL_MS, and
  *    the latest pending entry is flushed at the end of the window, so the

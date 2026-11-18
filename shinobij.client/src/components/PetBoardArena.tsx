@@ -1,7 +1,7 @@
 /*
  * PetBoardArena — the Pet Gauntlet BOARD fight view, rendered in 3D (r3f).
  *
- * A real tilted game board (Dota-Underlords style): the approved roster GLBs
+ * A real tilted 3D game board: the approved roster GLBs
  * fight on raised flagstone cells in their actual formation (3 deep × 5 across
  * per side), with pose-art standees retained only as a resilient fallback. It
  * plays a deterministic BoardResult

@@ -140,7 +140,7 @@ destroyed, permanent.** Cost `floor(base + lvl·4 + lvl^1.25·2)`.
   fateShards, boneCharms, auraStones, mythicSeals) + items. Donate = any member;
   withdraw = Kage only. Validator `api/_village-state-validate.ts` forbids client‑side
   credit.
-- Kage (L100 + story), ANBU (3), Kage challenges. `api/village/kage*.ts`.
+- Kage (L100 + story), Shadowguard (3), Kage challenges. `api/village/kage*.ts`.
 - Currencies `api/_economy.ts`: ryo, fateShards, boneCharms, auraStones, auraDust,
   honorSeals, mythicSeals, hollowShards. **No War Resources.**
 - Daily cron: in‑process scheduler `api/cron/_scheduler.ts`, fires 03:00 UTC, single
@@ -165,7 +165,7 @@ destroyed, permanent.** Cost `floor(base + lvl·4 + lvl^1.25·2)`.
 1. **One coherent economy with three legible loops** (§5), each resource doing one
    job — no "what is this currency even for" confusion.
 2. **Sinks kept taut and wealth‑scaling**, per the economy master‑plan and the
-   external research (Koster, EVE MER, CivFanatics upkeep threads): a balance‑scaling
+   external research (Koster, published economy reports, upkeep-scaling discussions): a balance‑scaling
    faucet needs a balance‑scaling sink; percentage sinks stay relevant when fixed ones
    don't.
 3. **Expansion is the reward** — controlling more sectors must visibly *help*
@@ -316,7 +316,7 @@ one. This is the entire WR faucet.
 
 ### 6.2 Structure maintenance (per structure, per day, in WR)
 `dailyMaint(level) = round(2 · level^1.25)` — gently super‑linear so high levels are
-a real commitment (matches the CivFanatics/Civ upkeep‑scaling research). Village‑level
+a real commitment (matches common strategy-game upkeep scaling). Village‑level
 structures cap at **L10** (not L50 — they're shared and potent; see §7). Re‑based to
 **2** (from 3) to fit the tighter 100–200/day income band.
 
@@ -711,12 +711,12 @@ strategic relays, and per‑territory resources — all of which this plan mirro
 which the game already implements in part.
 
 Economy/upkeep design (named, non‑genre sources):
-- **Percentage / wealth‑scaling sinks** stay effective when fixed ones don't (a sandbox MMO,
-  EVE MER) → drives the %‑of‑wallet tax and the wealth exemption.
-- **Polynomial upkeep scaling** with level (CivFanatics building/unit‑maintenance
-  threads; Civ era‑scaled upkeep) → the `level^1.25` maintenance curve.
-- **Faucet ≈ sink, kept taut; match the math‑class** (Koster AGC; Cook/Lost Garden;
-  EVE MER) → the WR income vs. upkeep ceiling, and tax as the wealth‑scaling
+- **Percentage / wealth‑scaling sinks** stay effective when fixed ones don't (sandbox
+  MMO economy reports) → drives the %‑of‑wallet tax and the wealth exemption.
+- **Polynomial upkeep scaling** with level (strategy-game building and unit
+  maintenance) → the `level^1.25` maintenance curve.
+- **Faucet ≈ sink, kept taut; match the math‑class** (Koster AGC; Cook/Lost Garden)
+  → the WR income vs. upkeep ceiling, and tax as the wealth‑scaling
   counterweight to the wealth‑scaling bank‑interest faucet flagged in
   `economy-progression-redesign.md`.
 
@@ -742,7 +742,7 @@ leadership‑editable.
 
 **Untouched (no regression):** the existing 8 per‑player upgrades · the village‑war
 HP/decay/spoils math (only the declare currency, the territory‑coupling, and the new
-winner buff change) · clan territory + `warSupply` collection · Kage/ANBU · treasury
+winner buff change) · clan territory + `warSupply` collection · Kage/Shadowguard · treasury
 donate/withdraw · per‑player map‑control reward · Vanguard seal gating · all other
 currencies · saves (tax is additive, idempotent, capped, flag‑gated).
 
@@ -842,7 +842,7 @@ The defending Kage assigns **each of the 8 owned sectors** a win‑condition —
 **Card Battle**, or **Pet Battle** — and an attacker contesting a sector must win *that*
 type. **No single type may be on more than 7 sectors**, so at least two types are always
 in play and an attacker can't take the map with one competency (tactical RPS; "defender
-sets the conditions" is the genre norm — Tibia/a sandbox MMO).
+sets the conditions" is the genre norm in sandbox MMOs).
 
 **Server‑authority audit (this gates which types are safe):**
 
@@ -875,7 +875,7 @@ Terrain is already a per‑sector field (`terrainBuffStat`) that already affects
 shadow→Genjutsu, central→none (`api/pvp/move.ts terrainMultiplier`). It's just not
 player‑editable yet.
 
-- **Kage sets terrain on 3 owned sectors; each elder (ANBU, up to 3) on 1** → up to
+- **Kage sets terrain on 3 owned sectors; each elder (Shadowguard, up to 3) on 1** → up to
   **6 of 8** customized, the rest default to their biome.
 - The chosen terrain buffs the **defender** in that sector's fight (home advantage — the
   research's "reward the defender" lesson). **Combat** sectors feed the existing
@@ -888,7 +888,7 @@ player‑editable yet.
 ### 17.4 Permissions (owner ruling #4)
 - **Kage:** declares village war + sector wars, spends the WR pool (incl. mercenaries),
   assigns the 8 sector win‑conditions, sets terrain on 3 sectors, upgrades structures.
-- **Elders (ANBU, up to 3):** set terrain on 1 sector each. No WR spend.
+- **Elders (Shadowguard, up to 3):** set terrain on 1 sector each. No WR spend.
 - **Any member:** fights (raids/defends/champions a sector); contribution → existing
   MVP / war‑crate rewards so individuals stay motivated (§16b #6).
 

@@ -34,17 +34,17 @@ disposable-fixture preparation are recorded in the balance specification's
 [current multiplayer evidence](battle-towers-squad-balance.md) and the
 [sanitized numeric results](battle-towers-multiplayer-certification-results.json).
 
-## First-party comparisons
+## Co-op design principles
 
-These published designs provide comparison points, not numeric balance targets
+These general principles provide comparison points, not numeric balance targets
 or specifications for Shinobi Journey's network implementation.
 
-| Reference | Documented pattern | Application to Towers |
-| --- | --- | --- |
-| [FFXIV Palace of the Dead play guide](https://na.finalfantasyxiv.com/lodestone/playguide/contentsguide/deepdungeon/) | Fixed parties allow up to four players without a required role composition; matched parties contain four. Saved progression and party identity govern resuming. | Keep roster membership, ready state, shared progress and reconnect identity authoritative. Test four players of one discipline as well as mixed squads. |
-| [ArenaNet's Fractals design explanation](https://www.guildwars2.com/en/news/the-brand-new-fractals-of-the-mists-legendary-backpacks-ascended-salvaging-and-more/) | Early scales teach mechanics; later scales combine stat growth with additional modifiers and clearer messaging. | Check escalating enemy roles, reinforcement timing, fields and boss counters alongside durability. Avoid using HP growth as the only difficulty measure. |
-| [Bungie's Rite of the Nine difficulty explanation, May 15, 2025](https://www.bungie.net/7/en/News/Article/twid_05_15_2025) | Introductory play explains encounters, while the mastery tier adds stricter revive, timing and combat demands. | Explain required actions and distinguish score par from a genuine deadline. A revive system or additional difficulty menu is not automatically required for this turn-based mode. |
-| [Valve: The AI Systems of Left 4 Dead, Michael Booth, 2009](https://cdn.cloudflare.steamstatic.com/apps/valve/2009/ai_systems_of_l4d_mike_booth.pdf) | Four-player cooperative AI combines dependable teammate behavior with alternating pressure and recovery; Valve also describes automated four-bot stress tests. | Use coordinated full-squad scenarios, varied threats and pacing checks. Towers uses authored waves and phase mechanics; this audit does not claim it has an adaptive AI Director. |
+| Principle | Application to Towers |
+| --- | --- |
+| Fixed parties of up to four, with no required role composition; saved progression and party identity govern resuming. | Keep roster membership, ready state, shared progress and reconnect identity authoritative. Test four players of one discipline as well as mixed squads. |
+| Early difficulty scales teach mechanics; later scales combine stat growth with additional modifiers and clearer messaging. | Check escalating enemy roles, reinforcement timing, fields and boss counters alongside durability. Avoid using HP growth as the only difficulty measure. |
+| Introductory play explains encounters, while a mastery tier adds stricter revive, timing and combat demands. | Explain required actions and distinguish score par from a genuine deadline. A revive system or additional difficulty menu is not automatically required for this turn-based mode. |
+| Four-player co-op AI combines dependable teammate behavior with alternating pressure and recovery, checked by automated four-bot stress tests. | Use coordinated full-squad scenarios, varied threats and pacing checks. Towers uses authored waves and phase mechanics; this audit does not claim it has an adaptive AI Director. |
 
 The resulting audit criteria are an engineering interpretation of those
 patterns. Their existence does not establish that another game's exact rules,

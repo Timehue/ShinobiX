@@ -26,7 +26,7 @@ describe('public capability projection', () => {
         assert.deepEqual(Object.keys(capabilities), [...PUBLIC_CAPABILITY_IDS]);
         assert.equal(capabilities.gameplay.state, 'available');
         assert.equal(capabilities.villageWar.state, 'available');
-        assert.equal(capabilities.anbuInfiltration.state, 'available');
+        assert.equal(capabilities.shadowguardInfiltration.state, 'available');
         assert.equal(capabilities.clanBoss.state, 'available');
         assert.equal(capabilities.clanBossParties.state, 'available');
         assert.equal(capabilities.legacy.reason, 'configuration-unavailable');
@@ -49,7 +49,7 @@ describe('public capability projection', () => {
             FREEZE_ECONOMY_REWARDS: '1',
             DISABLE_NEW_REGISTRATIONS: '1',
             DISABLE_VILLAGE_WAR: '1',
-            DISABLE_ANBU_INFILTRATION: '1',
+            DISABLE_SHADOWGUARD_INFILTRATION: '1',
             DISABLE_CLAN_BOSS: '1',
             DISABLE_PET_BREEDING_STARTS: '1',
             DISABLE_WEEKLY_BOSS_GUARD: '1',
@@ -59,7 +59,7 @@ describe('public capability projection', () => {
         assert.equal(capabilities.gameplay.reason, 'maintenance');
         assert.equal(capabilities.gameplayMutations.reason, 'maintenance');
         assert.equal(capabilities.villageWar.reason, 'temporarily-disabled');
-        assert.equal(capabilities.anbuInfiltration.reason, 'temporarily-disabled');
+        assert.equal(capabilities.shadowguardInfiltration.reason, 'temporarily-disabled');
         assert.equal(capabilities.clanBoss.reason, 'temporarily-disabled');
         assert.equal(capabilities.clanBossParties.reason, 'temporarily-disabled');
         assert.equal(capabilities.legacy.state, 'available');
@@ -79,7 +79,7 @@ describe('public capability projection', () => {
 
         const independent = publicCapabilities({ DISABLE_VILLAGE_WAR: '1' });
         assert.equal(independent.villageWar.state, 'temporarily-unavailable');
-        assert.equal(independent.anbuInfiltration.state, 'available');
+        assert.equal(independent.shadowguardInfiltration.state, 'available');
     });
 
     it('distinguishes an economy pause from general maintenance', () => {

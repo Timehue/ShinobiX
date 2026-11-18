@@ -7,7 +7,7 @@ import { after, before, beforeEach, describe, it, type TestContext } from 'node:
 import type { HollowGateRunToken } from '../hollow-gate/_run-token.js';
 
 /*
- * The two war fights, the ANBU Vault raid and the sector-war garrison assault,
+ * The two war fights, the Shadowguard Vault raid and the sector-war garrison assault,
  * driven through their mounted handlers over the in-memory KV.
  *
  * Both seat the player on the HP their save holds. Neither start used to settle
@@ -31,7 +31,7 @@ const HANDLERS = {
     combatStart: '../missions/combat-start.js',
     fightOutcome: '../pve/fight-outcome.js',
     sectorWar: './sector-war.js',
-    infiltration: './anbu-infiltration.js',
+    infiltration: './shadowguard-infiltration.js',
     gateCombatStart: '../hollow-gate/combat-start.js',
 } as const;
 
@@ -39,7 +39,7 @@ const SECTOR = 12;
 const ATTACKER_VILLAGE = 'Stormveil Village';
 const DEFENDER_VILLAGE = 'Frostfang Village';
 const CONTEST_ID = `${SECTOR}:stormveilvillage-vs-frostfangvillage`;
-const ANBU_SLUG = 'heldwaranbu';
+const SHADOWGUARD_SLUG = 'heldwarshadowguard';
 const HOUR = 60 * 60 * 1000;
 
 let kv: typeof import('../_storage.js').kv;
@@ -156,11 +156,11 @@ async function stillFighting(sessionId: string, hp: number): Promise<void> {
     await writeSoloPveSession({ ...live, player: { ...live.player, hp }, version: live.version + 1 });
 }
 
-async function seedAnbu(): Promise<void> {
-    await kv.set('game:village-state:frostfangvillage', { anbuAppointees: [ANBU_SLUG] });
-    await kv.set(`save:${ANBU_SLUG}`, {
+async function seedShadowguard(): Promise<void> {
+    await kv.set('game:village-state:frostfangvillage', { shadowguardAppointees: [SHADOWGUARD_SLUG] });
+    await kv.set(`save:${SHADOWGUARD_SLUG}`, {
         character: {
-            name: 'Frostfang Anbu', village: DEFENDER_VILLAGE, level: 100,
+            name: 'Frostfang Shadowguard', village: DEFENDER_VILLAGE, level: 100,
             maxHp: 12_000, hp: 12_000, maxChakra: 1_000, maxStamina: 1_000,
             stats: {}, jutsu: [], pvpItems: [], equipment: {},
         },
@@ -178,13 +178,13 @@ async function seedGarrisonWar(now: number, lastLiveBattleAgo = 3 * HOUR): Promi
         startedAt, endsAt: startedAt + 72 * HOUR, updatedAt: startedAt,
         lastLiveBattleAt: now - lastLiveBattleAgo, flipped: false, appliedBattles: [],
     });
-    await seedAnbu();
+    await seedShadowguard();
 }
 
-/** Frostfang holds the sector and its ANBU defends the vault; the raider is level 100. */
+/** Frostfang holds the sector and its Shadowguard defends the vault; the raider is level 100. */
 async function seedVault(name: string): Promise<void> {
     await kv.set(`world:territory:${SECTOR}`, { sector: SECTOR, ownerVillage: DEFENDER_VILLAGE, updatedAt: Date.now() });
-    await seedAnbu();
+    await seedShadowguard();
     const record = await kv.get<Json>(`save:${name}`);
     await kv.set(`save:${name}`, { ...record, character: { ...record?.character, level: 100 } });
 }
@@ -322,7 +322,7 @@ describe('garrison assault: the fights a player is holding are settled before th
     });
 });
 
-describe('ANBU Vault raid: the fights a player is holding are settled before the raider is seated', { concurrency: false }, () => {
+describe('Shadowguard Vault raid: the fights a player is holding are settled before the raider is seated', { concurrency: false }, () => {
     it('a mission won and held back: the raid starts on what the mission left', async (t) => {
         freezeClock(t);
         const name = freshName('vaultheld');
@@ -347,7 +347,7 @@ describe('ANBU Vault raid: the fights a player is holding are settled before the
 
         const refused = await startVault(name);
         assert.equal(refused.status, 409, JSON.stringify(refused.body));
-        assert.match(String(refused.body.error), /Reach the Anbu/);
+        assert.match(String(refused.body.error), /Reach the Shadowguard/);
         assert.equal((await readSoloPveSession(mission))?.status, 'active', 'the mission is still the player\'s to finish');
         assert.equal((await saved(name)).hp, 600, 'and nothing was charged for it');
     });
@@ -364,8 +364,8 @@ describe('ANBU Vault raid: the fights a player is holding are settled before the
         assert.equal(refused.status, 409, JSON.stringify(refused.body));
         assert.equal(refused.body.errorCode, 'hospitalized');
         assert.equal((await saved(name)).hospitalized, true);
-        const { infilActiveRunKey, infilStartCountKey } = await import('../_anbu-infiltration-store.js');
-        const { utcDateKey } = await import('../_anbu-infiltration.js');
+        const { infilActiveRunKey, infilStartCountKey } = await import('../_shadowguard-infiltration-store.js');
+        const { utcDateKey } = await import('../_shadowguard-infiltration.js');
         assert.equal(await kv.get(infilActiveRunKey(name, SECTOR)), null, 'no raid was sealed');
         assert.equal(await kv.get(infilStartCountKey(name, utcDateKey(now))), null, 'no daily attempt was spent');
     });

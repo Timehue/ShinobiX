@@ -284,16 +284,16 @@ export function MissionArenaFight({
     /** Explicit runtime boundary. The Arena shell only renders returned state. */
     transport: ServerArenaTransport;
     /** Settle on ANY resolution, not just a squad win — the Weekly Boss banks damage
-     *  on a knockout, and the Anbu raid reports win OR loss. Default (unset) keeps the
+     *  on a knockout, and the Shadowguard raid reports win OR loss. Default (unset) keeps the
      *  mission/story rule of settling only on a win. */
     settleOnAnyDone?: boolean;
     /** Record the fight to Profile → Battles when it resolves (win or loss). */
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
-    /** Human label for the recorded battle's mode (e.g. "Anbu Vault"). Default "Duel". */
+    /** Human label for the recorded battle's mode (e.g. "Shadowguard Vault"). Default "Duel". */
     recordMode?: string;
     /** Force the enemy's portrait (dossier + bark face). Used when the correct art
      *  isn't sealed into the session or published under `ai:<visual>` — e.g. the story
-     *  boss's authored chapter portrait, or the Anbu defender's masked art. Falls
+     *  boss's authored chapter portrait, or the Shadowguard defender's masked art. Falls
      *  through to the sealed avatar / published art / initials when absent. */
     enemyAvatarOverride?: string;
     encounter?: OrdinaryPveEncounter;
@@ -812,7 +812,7 @@ export function MissionArenaFight({
     useEffect(() => {
         const done = session.status === "done";
         // Missions/story settle only on a win; Weekly Boss (score-attack) and the
-        // Anbu raid pass settleOnAnyDone to settle on any resolution.
+        // Shadowguard raid pass settleOnAnyDone to settle on any resolution.
         const shouldSettle = settleOnAnyDone ? done : (done && session.winner === "squad");
         if (shouldSettle && !settledRef.current) {
             settledRef.current = true;

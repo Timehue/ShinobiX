@@ -3,7 +3,7 @@
 > Raw evidence files linked from this page (logs, transcripts, screenshots) were removed on 2026-10-16 to cut repository weight. Retrieve one with `git show 5124ba3f2:<path>`.
 
 October 12, 2026. This follows the original underground expansion, level-50 entry,
-Anbu recovery/queue fixes, and the [real-Postgres CI run](postgres-integration-review.md).
+Shadowguard recovery/queue fixes, and the [real-Postgres CI run](postgres-integration-review.md).
 
 ## Current improvements
 
@@ -17,7 +17,7 @@ Anbu recovery/queue fixes, and the [real-Postgres CI run](postgres-integration-r
 - Keys and banked shards use the game's shared compact-number convention, with
   precise values in titles and accessible labels. At-risk loot uses the same
   currency preview and gives its status belt reserved space, including landscape.
-- First-entry Anbu checks use a neutral loading message; a known saved raid retains
+- First-entry Shadowguard checks use a neutral loading message; a known saved raid retains
   its reconnect message. The asynchronous recovery protocol and attempt rules are
   unchanged.
 - Terrain raster bounds, backgrounds, fog masks and scenery follow the viewport
@@ -35,11 +35,11 @@ Anbu recovery/queue fixes, and the [real-Postgres CI run](postgres-integration-r
 | Requirement | Authoritative implementation and verification |
 | --- | --- |
 | Shared dungeon strongholds, twelve connected purposeful rooms | `shared/sector-stronghold.ts`, `shared/underground-floor-features.ts`, `UndergroundSectorTerrain.tsx`; all twelve room paintings and their exact collision bounds reviewed in Chromium/WebKit. |
-| Entry 50; Anbu raid 100; own village vault protected | Shared minimums, saved-level API admission, WorldMap entrance projection, Anbu challenge; executable boundary/defender coverage in the complete CI suite and entry-level browser matrix. |
+| Entry 50; Shadowguard raid 100; own village vault protected | Shared minimums, saved-level API admission, WorldMap entrance projection, Shadowguard challenge; executable boundary/defender coverage in the complete CI suite and entry-level browser matrix. |
 | Existing combat/threat rules and real collision | Server-owned successful steps add 4% threat; step 25 seals a patrol. Walls/architecture spend nothing when rejected. Migration preserves owed threat. API tests and authenticated HTTP checks exercise those paths. |
 | Multiplayer, interior/exterior isolation, normal/Obsidian rewards | Four actual authenticated two-browser scenarios on Postgres 16.15 cover peer updates, reconnects, collision, both combat joins, combat movement locks, KO, settlement and replay. 24 players per stronghold each see 23 peers and retain 24% threat after six steps. |
-| Village/sector war, garrison, Card/Pet contests, mission/Legacy/Era hooks | `WorldMap.tsx` passes the existing selected-sector attack/contest/garrison handlers into `AnbuVaultRaid` and `StrongholdExplore`. Actual API regression tests cover contest admission/scoring and war-holder rules. Anbu reports retain their capped war-resource, receipt, mission, Legacy and Era authorities. |
-| Anbu async snapshot, interrupted admission, queue exclusion | Eight cases run against real Postgres: lost start/commit acknowledgements, preserved concurrent combat, midnight attempt accounting, queue exclusion, and owed patrol recovery. Direct SQL confirms durable records in the Anbu fixture database. |
+| Village/sector war, garrison, Card/Pet contests, mission/Legacy/Era hooks | `WorldMap.tsx` passes the existing selected-sector attack/contest/garrison handlers into `ShadowguardVaultRaid` and `StrongholdExplore`. Actual API regression tests cover contest admission/scoring and war-holder rules. Shadowguard reports retain their capped war-resource, receipt, mission, Legacy and Era authorities. |
+| Shadowguard async snapshot, interrupted admission, queue exclusion | Eight cases run against real Postgres: lost start/commit acknowledgements, preserved concurrent combat, midnight attempt accounting, queue exclusion, and owed patrol recovery. Direct SQL confirms durable records in the Shadowguard fixture database. |
 | Private Hollow Gate, five levels, event Rifts | Standard runs stay solo and five floors. Existing sealed Rift dimensions/depth/bosses/signals/loot remain authoritative. All five standard depth layouts and Rift UI are exercised on mobile; the complete API suite covers generation, progression and receipt/recovery rules. |
 | Good travelers and human hunters with existing rules | Seven real-Postgres API cases prove bounded sealed rosters, immutable origins, gift proximity/one-use receipts, Treasure Sense, hunter contact/combat/reward replay, collision, resume and safe legacy-floor upgrades. NPCs use the player's circle-pin component; hunters consume existing battle identities. |
 | Professional thematic art placed with purpose | Coherent overhead military rooms have built-in guard, barracks, armory, stores, training, archive, officer, cistern, seal and treasury bays. The cave has ancient rock, water seams, lanterns, perimeter formations and distinct depth palettes. No floating stronghold doors or oblique furniture stamps render. Original prompts and source paintings remain in `docs/art/fortress-room-maps-v3.json`. |
@@ -52,7 +52,7 @@ Anbu recovery/queue fixes, and the [real-Postgres CI run](postgres-integration-r
 | --- | --- |
 | Final twelve-room/integration browser matrix | 88 passed; no page/image errors; exact art/collision alignment |
 | Real-Postgres authenticated multiplayer | Four two-browser scenarios and two 24-player loads passed; no page errors |
-| Real-Postgres Anbu and cave API integration | 15 passed, zero failed/cancelled/skipped; direct SQL persistence verified; clean shutdown |
+| Real-Postgres Shadowguard and cave API integration | 15 passed, zero failed/cancelled/skipped; direct SQL persistence verified; clean shutdown |
 | Camera/projection invariants | 10 passed, including three new raster-bound/projection checks |
 | Final complete mobile and movement checks | 88 passed; 0 page/image errors; 32 walking samples, highest p95 28ms |
 | Final stronghold host/Arena and recovery checks | 52 passed; 0 page errors |
@@ -90,7 +90,7 @@ real API log,
 [depth layouts](goal-final-depths/results.json),
 [mobile matrix](goal-final-mobile/results.json),
 [final WebKit walking](goal-webkit-walking/results.json),
-[Anbu/Arena UI](goal-final-anbu-ui/results.json),
+[Shadowguard/Arena UI](goal-final-shadowguard-ui/results.json),
 [entry/raid boundaries](goal-final-entry-levels/results.json),
 full CI and database cleanup,
 server build, client build,

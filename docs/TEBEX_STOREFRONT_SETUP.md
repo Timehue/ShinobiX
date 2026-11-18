@@ -70,7 +70,7 @@ trap under Prices below — do not reintroduce either.
 
 ⛔ **Ours is a universal webstore, which collects no username.** Tebex's
 `products[].username.id` — the obvious identity field — is populated only for
-*game* stores where the buyer types a Minecraft name at checkout. Here it
+*game* stores where the buyer types an in-game player name at checkout. Here it
 arrives empty, so identity rides in the basket's **`custom`** blob, which Tebex
 echoes back with every webhook.
 

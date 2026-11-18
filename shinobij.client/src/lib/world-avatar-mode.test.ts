@@ -22,7 +22,7 @@ test("every world view reads the model art through the 2D/3D preference", () => 
     const worldViews = [
         "../components/ContinuousWorldSector.tsx", "../components/ContinuousWorldPeers.tsx",
         "../components/SectorWanderer.tsx", "../components/SectorWeeklyBossActor.tsx",
-        "../features/anbuInfiltration/StrongholdExplore.tsx", "../features/anbuInfiltration/StrongholdDefender.tsx",
+        "../features/shadowguardInfiltration/StrongholdExplore.tsx", "../features/shadowguardInfiltration/StrongholdDefender.tsx",
         "../features/hollowGate/HollowGateShrineView.tsx",
     ];
     for (const file of worldViews) {

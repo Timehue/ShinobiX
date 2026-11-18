@@ -171,7 +171,7 @@ Each item below changes how the game looks, so none was touched.
 | Retired yellow `#facc15` family | 746 uses in 138 files beside `--sj-gold`. A parallel `--bsv2-*` palette is defined identically four times. | Mechanical alias plus `color-mix` |
 | Gold hairlines | 547 declarations, 81 of them `!important` in `profile-skin.css`, beating the neutral border token | Broad |
 | Electric blue `#4ea8ff` hover/selection | 83 uses. Veiled Steel uses spirit teal and the village accent for selection. | Medium |
-| Violet primaries | Hollow Gate boss button `#6d28d9 → #c026d3` (the most textbook purple gradient in the repo); Tower PvP primary; ANBU Stronghold threat bar (red is reserved for danger) | Three rules |
+| Violet primaries | Hollow Gate boss button `#6d28d9 → #c026d3` (the most textbook purple gradient in the repo); Tower PvP primary; Shadowguard Stronghold threat bar (red is reserved for danger) | Three rules |
 | Rarity chips | Tailwind-500 tints, while the `--rarity-*` tokens go unused. Mythic is violet on companions and seal-red everywhere else. | Every item chip |
 | Inline styles | 2,220 `style={{}}` objects with 896 hard-coded hex values. Worst: PetColiseum 92, PetGauntlet 73, VillageWarScreen 62, LegacyPanel 57. | Per screen |
 | Boot splash and manifest | `theme-color #0f172a` (Tailwind slate), slate text, an amber reload button and a 1.1rem panel. The manifest also feeds the Android shell. | Brand |
@@ -247,5 +247,5 @@ harness pages are not served, and title/description/Open Graph metadata is real 
 - Laith0003/ux-skill, [How to detect AI slop in your design](https://github.com/Laith0003/ux-skill/wiki/How-to-detect-AI-slop-in-your-design)
 - FlowingData, [Signs of AI writing on Wikipedia](https://flowingdata.com/2025/10/20/signs-of-ai-writing-on-wikipedia/), and Pangram, [9 Signs of AI Writing](https://www.pangram.com/signs-of-ai-writing)
 - Axon Build, [How to tell if an app was vibe coded](https://axonbuild.com/blog/how-to-tell-if-an-app-was-vibe-coded/)
-- UX Collective, [Usability heuristics and competition in games](https://uxdesign.cc/usability-heuristics-and-competition-in-games-707cac36ff12), and Celia Hodent, [The UX of Fortnite](https://www.designative.info/2019/03/28/the-ux-of-fortnite-celia-hodent/)
+- UX Collective, [Usability heuristics and competition in games](https://uxdesign.cc/usability-heuristics-and-competition-in-games-707cac36ff12)
 - Game Wisdom, [Designing for Minimal Friction in Player Onboarding](https://game-wisdom.com/?p=32617)

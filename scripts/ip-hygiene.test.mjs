@@ -54,7 +54,7 @@ const phraseHashes = new Set([
 // NOT joined across words: one of them is also what two ordinary English words
 // spell when run together, which would fail on normal prose. Words that are
 // also real Japanese vocabulary this game uses (a helmet, a cherry-blossom
-// banner, a squad name) are deliberately not here.
+// banner) are deliberately not here.
 const wordHashes = new Set([
     '846f6a76ffc111552f1c9ca3a06d989d0c9c9b79c4fc25ff67f6207be512955c',
     '5bbad634a53dee0d6f37c9067a232fae9d3069114c41ad4a37660ad8e62c8bb9',
@@ -108,6 +108,8 @@ const wordHashes = new Set([
     '43999461d22f67840fcd9b8824293eaa4f18146e57b2c651bcd925e3b3e4e429',
     'd963ebee302d8b4282c76f83735d3b2bee78869a9cb4300952a4f2711c9c4d35',
     'f2423d071f26082d053141bad42a7cb050310a1c0dfc7be5e6333fa76d32328e',
+    // The borrowed squad name the Shadowguard replaced (2026-11-18).
+    '3e164a1b174a2c4e87eb0de98fa3be14ae0da50c2e82e5e7c762ee4477609af3',
 ]);
 
 // Fingerprints of the two lists. A hash cannot quietly disappear: removing or
@@ -115,7 +117,7 @@ const wordHashes = new Set([
 // is a visible, reviewable edit. Recompute with fingerprint() below.
 const PINNED = {
     phrases: { count: 16, fingerprint: '73de102a5c5bcf361ee3737c4dbaafcc7346eea528e5e2a5b952d25ff1825f20' },
-    words: { count: 52, fingerprint: '9d67a5b384a7f53c56184746ca45215ea3017bbca9c9d43071e8c7d8b377b538' },
+    words: { count: 53, fingerprint: '4bf8d865bc90ca7c4cb28272cab5f50309795b5ee33ce3ea0c37381ab05c3996' },
 };
 
 // The seven hashes the gate has carried since its first version. They must

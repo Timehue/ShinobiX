@@ -4,7 +4,7 @@ import pg from 'pg';
 /** Opt-in integration fixture owned by scripts/test-with-postgres.mjs.
  * Each suite gets its own empty database; ordinary CI tests remain isolated QA.
  */
-export function configureDisposablePgTest(suite: 'anbu' | 'hollow'): boolean {
+export function configureDisposablePgTest(suite: 'shadowguard' | 'hollow'): boolean {
     process.env.NODE_ENV = 'test';
     if (process.env.SHINOBIX_QA_DISPOSABLE_PG !== '1') {
         process.env.SHINOBIX_QA_MEMORY_KV = '1';

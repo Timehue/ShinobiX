@@ -437,7 +437,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // remaining ~120 s while staying un-raidable yourself. attack.ts
             // already closes that on the online raid door; this is the other one.
             // The shared writer credits the elder win from the kill counter and
-            // refreshes the public index (ANBU earned seats) in the same write.
+            // refreshes the public index (Shadowguard earned seats) in the same write.
             const attackerSide: PlayerSavesSide = rewardEligible || attackerShielded
                 ? {
                     character: updatedAttacker,

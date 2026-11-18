@@ -129,7 +129,6 @@ Sources (MMO/PBBG):
 - First-time experience: https://unity.com/how-to/10-first-time-user-experience-tips-games
 - Guild play and retention (DiGRA): https://dl.digra.org/index.php/dl/article/download/75/75
 - Streak design and burnout: https://yukaichou.com/gamification-analysis/streak-design-gamification-motivation-burnout/
-- Banked daily turns: https://wiki.kingdomofloathing.com/Adventure
 - Paying for power in matchmade games: https://gamedeveloper.com/business/paying-for-power-in-matchmade-games
 - Penalty and reporting systems (ADL): https://www.adl.org/resources/reports/games-framework-resource-penalty-and-reporting-systems
 - Community channels: https://www.codecks.io/blog/guide-for-community-management-in-game-development-channels-and-best-practices/

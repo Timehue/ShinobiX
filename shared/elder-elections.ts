@@ -1,4 +1,4 @@
-import { leadershipNameKey, leadershipVillageKey } from './village-anbu.js';
+import { leadershipNameKey, leadershipVillageKey } from './village-shadowguard.js';
 
 export const ELDER_TERM_MS = 30 * 86400000;
 export const ELDER_WIN_HISTORY_MS = 90 * 86400000;

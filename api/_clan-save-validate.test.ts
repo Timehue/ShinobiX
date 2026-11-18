@@ -411,7 +411,7 @@ describe('validateClanSaveWrite — wrong-type fields and roster counters (2026-
         assert.deepEqual(rows[1], roster.members[1], "another member's row keeps its stored numbers");
     });
 
-    it('keeps a server-credited row value above the character counter (ANBU raids credit the row)', () => {
+    it('keeps a server-credited row value above the character counter (Shadowguard raids credit the row)', () => {
         const callerCharacter = { level: 20, clanBattleContrib: 0, clanEventContrib: 0, clanMissionContrib: 0, clanContribMonth: month };
         const { next } = validateClanSaveWrite(roster, roster, { ...member, callerCharacter });
         assert.equal((next.members as Array<Record<string, unknown>>)[0].eventContrib, 1);

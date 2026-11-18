@@ -365,7 +365,7 @@
     },
     {
       "engine": "chromium",
-      "room": "Anbu Vault",
+      "room": "Shadowguard Vault",
       "purposes": [
         "vault security alcove",
         "vault security alcove",
@@ -765,7 +765,7 @@
     },
     {
       "engine": "webkit",
-      "room": "Anbu Vault",
+      "room": "Shadowguard Vault",
       "purposes": [
         "vault security alcove",
         "vault security alcove",

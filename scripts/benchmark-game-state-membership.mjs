@@ -14,7 +14,7 @@ const { kv } = await import('../api/_storage.ts');
 const { projectKvValue } = await import('../api/_storage-projection.ts');
 const { __clearProcCache } = await import('../api/_proc-cache.ts');
 const { WAR_VILLAGES } = await import('../api/_war-map-sectors.ts');
-const { leadershipVillageKey } = await import('../shared/village-anbu.ts');
+const { leadershipVillageKey } = await import('../shared/village-shadowguard.ts');
 const { buildPublicPlayerIndexEntry } = await import('../api/player/_public-index.ts');
 const imported = await import('../api/game-state.ts');
 const handler = typeof imported.default === 'function' ? imported.default : imported.default.default;
@@ -30,7 +30,7 @@ for (const [index, village] of WAR_VILLAGES.entries()) {
         saves.set(`save:${name}`, { character, _saveVersion: 1, creatorEvents: ['x'.repeat(128 * 1024)] });
         registry[name] = buildPublicPlayerIndexEntry(character, name, now);
     }
-    await kv.set(`game:village-state:${leadershipVillageKey(village)}`, { anbuAppointees: names.slice(0, 3) });
+    await kv.set(`game:village-state:${leadershipVillageKey(village)}`, { shadowguardAppointees: names.slice(0, 3) });
     await kv.set(`village:elder-council:${leadershipVillageKey(village)}`, {
         version: 1, startedAt: now - 1000, nextSelectionAt: now + 86400000,
         seats: names.slice(3, 6), winningScores: [1, 1],
@@ -81,7 +81,7 @@ for (let i = 0; i < 7; i++) {
     assert.equal(status, 200);
     for (const village of WAR_VILLAGES) {
         const state = payload.villageStates[leadershipVillageKey(village)];
-        assert.equal(state.anbuMembers.length, 10);
+        assert.equal(state.shadowguardMembers.length, 10);
         assert.equal(state.elderAppointees.filter(Boolean).length, 3);
     }
     const nextDigest = createHash('sha256').update(JSON.stringify(payload)).digest('hex');

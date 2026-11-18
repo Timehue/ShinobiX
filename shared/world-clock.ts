@@ -15,10 +15,9 @@
  * sees dawn. Worse, it taxes people by timezone — a night-gated contract
  * (shared/sector-contracts) landed inside working hours for half the map.
  *
- * So the world's day is COMPRESSED, which is what live games do: Guild Wars 2
- * runs a 2-hour cycle, Final Fantasy XIV a 70-minute one. We take 2 hours,
- * which lands the phase split close to GW2's (~75 real minutes of dawn→dusk,
- * ~45 of night) while leaving the dawn and dusk ramps long enough — 12.5 and 15
+ * So the world's day is COMPRESSED, as live games usually run it, with cycles
+ * of one to two hours. We take 2 hours, which splits into ~75 real minutes of
+ * dawn→dusk and ~45 of night while leaving the dawn and dusk ramps long enough — 12.5 and 15
  * real minutes — to actually watch the light change rather than blink and miss
  * it.
  *

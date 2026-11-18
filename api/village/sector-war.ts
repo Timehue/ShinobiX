@@ -63,8 +63,8 @@ import {
     garrisonActiveRunKey,
     readGarrisonRun,
     writeGarrisonRun,
-    loadAnbuAppointees,
-    getOrSealAnbuSnapshot,
+    loadShadowguardAppointees,
+    getOrSealShadowguardSnapshot,
     GARRISON_RUN_TTL,
     type GarrisonRun,
 } from '../_sector-war-garrison-store.js';
@@ -135,10 +135,10 @@ import { pvpWorldBattleSector, settlePvpSectorWarContinuation } from '../pvp/_se
  *               hours close (api/_sector-war-settle.ts).
  *   - garrison-start   : the LIVENESS fallback — once a Combat contest has gone
  *               GARRISON_UNLOCK_IDLE_MS without a live-player battle, an attacker may
- *               assault the sector's ANBU garrison instead of being blocked by an
+ *               assault the sector's Shadowguard garrison instead of being blocked by an
  *               absent defence. The defender is a REAL sealed snapshot of the
- *               defending village's appointed ANBU (their actual equipped jutsu,
- *               gear, weapons, and items — api/_anbu-infiltration-store.ts), fought
+ *               defending village's appointed Shadowguard (their actual equipped jutsu,
+ *               gear, weapons, and items — api/_shadowguard-infiltration-store.ts), fought
  *               through a genuine multi-turn Solo PvE session
  *               (api/_sector-war-garrison-encounter.ts), never a client-reportable
  *               instant roll.
@@ -148,7 +148,7 @@ import { pvpWorldBattleSector, settlePvpSectorWarContinuation } from '../pvp/_se
  *               GARRISON_POINTS_CAP), and settles the attacker's own item usage +
  *               surviving HP onto their save.
  *   - abandon : the attacking Kage calls off their own siege.
- *   - garrison-feed : Village Stores — { sectorWarId, on } by the Kage or an ANBU
+ *   - garrison-feed : Village Stores — { sectorWarId, on } by the Kage or a Shadowguard
  *               appointee of a participant. Sets/clears ONLY the caller's own
  *               village's entry in the war's per-village `garrisonFeed` map (the
  *               enemy side can never switch a village's paid feed off); while on
@@ -409,7 +409,7 @@ async function continueSectorDeclaration(context: SectorFundingContext): Promise
             return withKvLock(territoryKey(session.sector), async () => {
             // The debit lands on the attacker's War Resource record. Every other
             // writer of that record (merc hires and ticks, the daily stores pass,
-            // intel, ANBU skims) rewrites it whole under this lock, so a debit
+            // intel, Shadowguard skims) rewrites it whole under this lock, so a debit
             // CAS'd past them without it could be erased by the rewrite, receipt
             // and all. The village-war declaration already holds it.
             return withKvLock(fundingPlan.source.recordKey, async () => {
@@ -1008,14 +1008,14 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
     return sendSectorResolutionReceipt(res, canonical);
 }
 
-// ── garrison-start (assault the sector's ANBU when no defender turns up) ──────
+// ── garrison-start (assault the sector's Shadowguard when no defender turns up) ──────
 // The liveness fallback (§17.6). Every win-condition needs a live online enemy,
 // so at a small population a contested sector could sit unplayable — an attacker
 // pays the WR to declare and then has nobody to fight. A held sector is not empty
 // though: what remains when the defence stops showing up is its GARRISON — and
-// per owner ruling, that garrison IS the defending village's real appointed ANBU
+// per owner ruling, that garrison IS the defending village's real appointed Shadowguard
 // (their actual equipped jutsu/gear/weapons/items, sealed once per UTC day —
-// api/_anbu-infiltration-store.ts, reused verbatim), not a generic bot.
+// api/_shadowguard-infiltration-store.ts, reused verbatim), not a generic bot.
 //
 // SERVER-AUTHORITATIVE: the fight is a genuine multi-turn Solo PvE session
 // (api/_sector-war-garrison-encounter.ts) resolved over /solo-pve/action, the
@@ -1083,17 +1083,17 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
             return { status: 409 as const, body: { error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' } };
         }
 
-        // Defenders: the village's appointed ANBU in rotation order, then its
+        // Defenders: the village's appointed Shadowguard in rotation order, then its
         // seated Kage (also a real appointed leader) — the first of them with a
         // sealable save holds the garrison. Shared with the Card and Pet
-        // garrisons (api/_sector-war-garrison-defender.ts), so one ANBU who
+        // garrisons (api/_sector-war-garrison-defender.ts), so one Shadowguard who
         // cannot be prepared never leaves the garrison unassaultable while the
         // rest of the village stands ready.
-        const fielded = await fieldGarrisonDefender(contest.defenderVillage, (slug) => getOrSealAnbuSnapshot(contest.defenderVillage, slug));
+        const fielded = await fieldGarrisonDefender(contest.defenderVillage, (slug) => getOrSealShadowguardSnapshot(contest.defenderVillage, slug));
         if (!fielded.ok) {
             return { status: 409 as const, body: { error: fielded.reason === 'no-defender'
                 ? NO_GARRISON_DEFENDER_ERROR
-                : 'No defending ANBU could be prepared — try again shortly.' } };
+                : 'No defending Shadowguard could be prepared — try again shortly.' } };
         }
         const snapshot = fielded.fielded;
 
@@ -1106,14 +1106,14 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
         const attackerCharacter = hydrateCharacterFromSave(char, {}, rec ?? null, await loadAdminCombatContent());
 
         const runId = `garrison-${randomUUID().replace(/-/g, '')}`;
-        // Masked, like Anbu Infiltration's own defender, and numbered by roster
+        // Masked, like Shadowguard Infiltration's own defender, and numbered by roster
         // position (owner ruling) so a returning attacker can tell whether they
-        // face the same Anbu again or a rotation.
-        const maskedAnbuName = maskedGarrisonDefenderName(contest.defenderVillage, fielded.defender, fielded.appointees);
+        // face the same Shadowguard again or a rotation.
+        const maskedShadowguardName = maskedGarrisonDefenderName(contest.defenderVillage, fielded.defender, fielded.appointees);
         const session = buildGarrisonEncounter({
             runId, now,
             attacker: { slug: playerName, name: String(char.name ?? playerName), character: attackerCharacter, itemCharges: sealItemCharges(attackerCharacter, char) },
-            anbu: { slug: snapshot.slug, name: maskedAnbuName, character: snapshot.character },
+            shadowguard: { slug: snapshot.slug, name: maskedShadowguardName, character: snapshot.character },
             terrain, sector, contestId: contest.id,
             attackerVillage: contest.attackerVillage, defenderVillage: contest.defenderVillage,
             // The sector's sky, as the human sector-war duel this stands in for seals it.
@@ -1122,7 +1122,7 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
         const run: GarrisonRun = {
             runId, attackerName: playerName, attackerVillage: contest.attackerVillage,
             sector, contestId: contest.id, defenderVillage: contest.defenderVillage,
-            anbuSlug: snapshot.slug, anbuName: maskedAnbuName, terrain,
+            shadowguardSlug: snapshot.slug, shadowguardName: maskedShadowguardName, terrain,
             createdAt: now,
             startState: 'ready',
         };
@@ -1139,7 +1139,7 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
         }
         return { status: 200 as const, body: {
             ok: true, replayed: false, runId, sector, contestId: contest.id,
-            defenderVillage: contest.defenderVillage, anbu: { name: maskedAnbuName }, session,
+            defenderVillage: contest.defenderVillage, shadowguard: { name: maskedShadowguardName }, session,
         } };
     }, { failClosed: true, ttlSec: 30 });
     return res.status(started.status).json(started.body);
@@ -1176,7 +1176,7 @@ async function existingGarrisonAssault(activeKey: string, playerName: string, id
         const lapsed = await terminalizeLapsedSoloPveSession(activeRunId);
         if (lapsed.ok && lapsed.session) activeSession = lapsed.session;
     }
-    const identityOf = { runId: activeRunId, sector, contestId: activeRun.contestId, defenderVillage: activeRun.defenderVillage, anbu: { name: activeRun.anbuName } };
+    const identityOf = { runId: activeRunId, sector, contestId: activeRun.contestId, defenderVillage: activeRun.defenderVillage, shadowguard: { name: activeRun.shadowguardName } };
     if (activeSession.status === 'done') {
         const settled = await settleGarrisonRun(activeRunId, { name: playerName, admin: identity.admin });
         // Never trap the attacker behind a run that cannot settle: the pointer
@@ -1290,18 +1290,18 @@ async function doGarrisonFeed(req: VercelRequest, res: VercelResponse, identity:
     if (!contest || !isSectorWarActive(contest, Date.now())) return res.status(409).json({ error: 'No active sector war with that id.' });
 
     // The caller may only touch THEIR OWN village's entry: the seated Kage or an
-    // ANBU appointee of a participant acts for that participant; an admin may
+    // Shadowguard appointee of a participant acts for that participant; an admin may
     // name either side via body.village (defaults to the defender).
     const participants = [contest.attackerVillage, contest.defenderVillage];
     let village = '';
     for (const v of participants) {
-        if (await isSeatedKage(v, playerName) || (await loadAnbuAppointees(v)).includes(playerName)) { village = v; break; }
+        if (await isSeatedKage(v, playerName) || (await loadShadowguardAppointees(v)).includes(playerName)) { village = v; break; }
     }
     if (!village && identity.admin) {
         const asked = typeof body.village === 'string' ? body.village.trim() : '';
         village = participants.includes(asked) ? asked : contest.defenderVillage;
     }
-    if (!village) return res.status(403).json({ error: 'Only a seated Kage or an ANBU appointee of a warring village can feed the garrison.' });
+    if (!village) return res.status(403).json({ error: 'Only a seated Kage or a Shadowguard appointee of a warring village can feed the garrison.' });
 
     const now = Date.now();
     const today = utcDay(now);

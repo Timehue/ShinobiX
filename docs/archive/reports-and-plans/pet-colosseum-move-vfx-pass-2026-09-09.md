@@ -13,7 +13,7 @@ The actual engine seals 945 equipped move slots across 160 pet templates. Every 
 - Adjusted signature framing relative to the attack lane, with a higher view for ground effects and a stable launch origin during melee travel.
 - Bounded the reusable renderer to at most 36 small particles and quality-scaled fragments/halos. Reduced motion retains the primary geometry while removing particle travel, moving surface noise and extra lights.
 
-The requested Earthquake, Blizzard, Hydro Pump, Thunder and Flamethrower examples supplied the visual direction. These are original procedural effects using the game's existing palette and models.
+The visual direction asked for a ground quake, a blizzard, a water jet, a thunder strike and a fire stream. These are original procedural effects using the game's existing palette and models.
 
 ## Verification
 

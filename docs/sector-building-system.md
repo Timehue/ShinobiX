@@ -127,9 +127,9 @@ The road book docks clear of the personal-quest journal and yields while the
 journal is expanded. Routes to or from the isolated Obsidian arena open the
 existing atlas travel flow; they never pretend to be connected walking roads.
 
-The MMORPG research and ranked adaptation list are recorded in
-[`sector-building-research.md`](archive/reports-and-plans/sector-building-research.md). These comparisons
-explain the design approach; the rules below and the registry remain authoritative.
+The design principles behind these rules are recorded in
+[`sector-building-research.md`](archive/reports-and-plans/sector-building-research.md). The rules below
+and the registry remain authoritative.
 
 ## Repair economy and persistence
 

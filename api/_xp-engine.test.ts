@@ -58,7 +58,7 @@ const cLevelOnly = new Set(['Academy Student', 'Genin', 'Chunin', 'Jonin', 'Elit
 function cRoleTitle(ch: Record<string, unknown>) {
     const cur = typeof ch.rankTitle === 'string' ? ch.rankTitle.trim() : '';
     const low = cur.toLowerCase();
-    const isRole = low.includes('kage') || low.includes('elder') || low.includes('anbu') || low.includes('clan leader') || low.includes('clan head');
+    const isRole = low.includes('kage') || low.includes('elder') || low.includes('shadowguard') || low.includes('clan leader') || low.includes('clan head');
     if (cur && isRole && !cLevelOnly.has(cur)) return cur;
     if (ch.clanFounder) return 'Clan Leader';
     return '';

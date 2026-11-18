@@ -35,7 +35,7 @@ test("cinematic NPC portraits keep their faces inside the square crop", () => {
 test("elder contribution is awarded only after the authoritative save is adopted", () => {
     const handler = source.slice(
         source.indexOf("async function supportVillageFocus"),
-        source.indexOf("function updateAnbuAppointmentInput"),
+        source.indexOf("function updateShadowguardAppointmentInput"),
     );
     assert.ok(handler.indexOf("onVersionedCharacter") < handler.indexOf("contributionPoints: state.contributionPoints + 10"));
     assert.match(handler, /elderFocusBusyRef\.current = true/);

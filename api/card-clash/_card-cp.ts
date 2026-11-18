@@ -17,7 +17,7 @@
  *
  * PvE. A won Dungeon Card seal (CARD_PVE_DUNGEON_CP, card-clash/ai-move.ts), a
  * won Hollow Gate card ambush (CARD_PVE_GATE_CP, hollow-gate/card-settle.ts)
- * and a won sector-war garrison assault or Village War assault on an ANBU or
+ * and a won sector-war garrison assault or Village War assault on a Shadowguard or
  * Kage deck (CARD_PVE_GARRISON_CP, here through settleCardCpCredit). Each
  * mode's own access limit bounds it: a Dungeon key per run, one card ambush per
  * Rift, the garrison's two-hour re-form window, the campaign's personal daily

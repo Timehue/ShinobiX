@@ -148,7 +148,7 @@ export type NpcPost = { sector: number; tile: number; duty: 'front' | 'boss' };
  * rotating per window), so the sector being fought over has Cinderhold
  * shinobi in it to duel. `opts.warParticipants` (npcWarParticipants: the Genin
  * and Chunin at level 15 or more, owner ruling 2026-11-11) fill the fronts
- * after them, so the ANBU still lead and a front the ANBU cannot man is
+ * after them, so the Shadowguard still lead and a front the Shadowguard cannot man is
  * filled. While a world boss stands on the roam ground (`bossSector`), up to
  * NPC_BOSS_WATCHERS others are sent to watch it (`duty: 'boss'`: a journey
  * with that purpose, presence only).

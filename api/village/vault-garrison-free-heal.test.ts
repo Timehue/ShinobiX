@@ -7,7 +7,7 @@ process.env.ADMIN_PASSWORD = 'vault-garrison-heal-test-admin';
 process.env.SESSION_SECRET = 'vault-garrison-heal-test-secret-32-bytes';
 
 /*
- * The ANBU Vault infiltration and the sector-war garrison assault, driven
+ * The Shadowguard Vault infiltration and the sector-war garrison assault, driven
  * through their mounted handlers over the in-memory KV.
  *
  * Both seat the player at the HP their save holds, and both stay open while the
@@ -31,7 +31,7 @@ const DEFENDER_VILLAGE = 'Frostfang Village';
 const CONTEST_ID = `${SECTOR}:moonshadowvillage-vs-frostfangvillage`;
 const CONTEST_KEY = `shared:sector-war:${CONTEST_ID}`;
 const TERRITORY_KEY = `world:territory:${SECTOR}`;
-const ANBU_SLUG = 'healtestanbu';
+const SHADOWGUARD_SLUG = 'healtestshadowguard';
 const MAX_HP = 9_000;
 /** The engine's abandon (a walk-out or a lapse) costs 10% of max HP. */
 const WALK_OUT_HP = MAX_HP - MAX_HP / 10;
@@ -52,11 +52,11 @@ before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     sectorWar = (await import('./sector-war.js')).default as unknown as Handler;
-    infiltration = (await import('./anbu-infiltration.js')).default as unknown as Handler;
+    infiltration = (await import('./shadowguard-infiltration.js')).default as unknown as Handler;
     fightOutcome = (await import('../pve/fight-outcome.js')).default as unknown as Handler;
     soloPveAction = (await import('../solo-pve/action.js')).default as unknown as Handler;
     ({ reconcileLapsedBattle } = await import('../_battle-lapse.js'));
-    ({ RAID_RYO_REWARD } = await import('../_anbu-infiltration.js'));
+    ({ RAID_RYO_REWARD } = await import('../_shadowguard-infiltration.js'));
     ({ AI_FIGHT_HOSPITAL_DURATION_MS } = await import('../missions/_ai-fight-outcome.js'));
 });
 
@@ -109,11 +109,11 @@ async function seedPlayer(name: string, hp: number): Promise<void> {
     });
 }
 
-async function seedAnbu(): Promise<void> {
-    await kv.set('game:village-state:frostfangvillage', { anbuAppointees: [ANBU_SLUG] });
-    await kv.set(`save:${ANBU_SLUG}`, {
+async function seedShadowguard(): Promise<void> {
+    await kv.set('game:village-state:frostfangvillage', { shadowguardAppointees: [SHADOWGUARD_SLUG] });
+    await kv.set(`save:${SHADOWGUARD_SLUG}`, {
         character: {
-            name: 'Frostfang Anbu', village: DEFENDER_VILLAGE, level: 100,
+            name: 'Frostfang Shadowguard', village: DEFENDER_VILLAGE, level: 100,
             maxHp: 12_000, hp: 12_000, maxChakra: 1_000, maxStamina: 1_000,
             stats: {}, jutsu: [], pvpItems: [], equipment: {},
         },
@@ -131,13 +131,13 @@ async function seedGarrisonWar(attacker: string, hp = MAX_HP): Promise<void> {
         lastLiveBattleAt: startedAt, flipped: false, appliedBattles: [],
     });
     await seedPlayer(attacker, hp);
-    await seedAnbu();
+    await seedShadowguard();
 }
 
 async function seedVault(raider: string, hp = MAX_HP): Promise<void> {
     await kv.set(TERRITORY_KEY, { sector: SECTOR, ownerVillage: DEFENDER_VILLAGE, updatedAt: Date.now() });
     await seedPlayer(raider, hp);
-    await seedAnbu();
+    await seedShadowguard();
 }
 
 async function character(name: string): Promise<Json> {
@@ -309,7 +309,7 @@ describe('garrison assault — what a fight costs', { concurrency: false }, () =
     });
 });
 
-describe('ANBU Vault raid — HP lost elsewhere while it is open never comes back', { concurrency: false }, () => {
+describe('Shadowguard Vault raid — HP lost elsewhere while it is open never comes back', { concurrency: false }, () => {
     it('a won raid, reported: the raid still pays, the save keeps its loss', async () => {
         const raider = freshName('vaultheal');
         await seedVault(raider);
@@ -364,7 +364,7 @@ describe('ANBU Vault raid — HP lost elsewhere while it is open never comes bac
     });
 });
 
-describe('ANBU Vault raid — what a fight costs', { concurrency: false }, () => {
+describe('Shadowguard Vault raid — what a fight costs', { concurrency: false }, () => {
     it('settled at once, it writes the HP the fight left, as before', async () => {
         const raider = freshName('vaultcost');
         await seedVault(raider);

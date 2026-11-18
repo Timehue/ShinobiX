@@ -17,20 +17,20 @@ const ATTACKER = 'Moonshadow Village';
 const DEFENDER = 'Frostfang Village';
 const RAIDER = 'cpraider';
 const HOLDOUT = 'cpholdout';
-const ANBU = 'cpanbu';
+const Shadowguard = 'cpshadowguard';
 const IDLE_MS = 2 * 60 * 60 * 1000;
 
 let handler: Handler;
 let kv: typeof import('../_storage.js').kv;
 let war: typeof import('../_sector-war.js');
-let villageStateKey: typeof import('../_anbu-infiltration-store.js').villageStateKey;
+let villageStateKey: typeof import('../_shadowguard-infiltration-store.js').villageStateKey;
 let issuePlayerToken: (name: string) => string | null;
 let resetRateLimits: () => void;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     war = await import('../_sector-war.js');
-    ({ villageStateKey } = await import('../_anbu-infiltration-store.js'));
+    ({ villageStateKey } = await import('../_shadowguard-infiltration-store.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
     const card = await import('./sector-card.js');
@@ -43,8 +43,8 @@ beforeEach(async () => {
     resetRateLimits();
     await kv.set(`save:${RAIDER}`, { _saveVersion: 1, character: { name: RAIDER, village: ATTACKER, chroniclePoints: 0 } });
     await kv.set(`save:${HOLDOUT}`, { _saveVersion: 1, character: { name: HOLDOUT, village: DEFENDER, chroniclePoints: 0 } });
-    await kv.set(`save:${ANBU}`, { _saveVersion: 1, character: { name: ANBU, village: DEFENDER } });
-    await kv.set(villageStateKey(DEFENDER), { anbuAppointees: [ANBU] });
+    await kv.set(`save:${Shadowguard}`, { _saveVersion: 1, character: { name: Shadowguard, village: DEFENDER } });
+    await kv.set(villageStateKey(DEFENDER), { shadowguardAppointees: [Shadowguard] });
 });
 
 after(async () => {

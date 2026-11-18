@@ -49,15 +49,13 @@ damage number is unchanged — we just split *how* it's shown.
   (jab-jab-jab-LAUNCHER rhythm), each with its own small spark + 3–5f micro
   hit-stop; the **final** hit gets the big freeze + knockback. Sum = the same
   deterministic damage. *The single biggest turn-based→anime conversion.*
-  [DBFZ auto-combos]
 - **Explosive approach (B1).** Attacker crosses to melee in **≤300ms regardless
   of distance** (scale speed, not duration) with a ghost trail; for ninja pets,
   occasionally **teleport** (smoke puff → reappear at melee mid-swing). Never a
-  slow stroll. [DBFZ Super Dash/Vanish, Batman Arkham freeflow]
+  slow stroll.
 - **Engagement bubble (B3).** Cluster 2–4 beats into a close-quarters exchange
   where both pets *stay* in the bubble (no retreat to spawn between hits),
-  punctuated by a knockback "phase shift" that resets spacing. [Pokkén
-  Field/Duel phases]
+  punctuated by a knockback "phase shift" that resets spacing.
 - **Idle aggression (B4).** Never stand still: procedural micro-bounce
   (asymmetric 100ms/50ms timing reads as coiled energy), forward lean toward the
   foe, micro-feints, slow circling/strafing while waiting. [SLYNYRD fighting-idle
@@ -74,25 +72,23 @@ Make the hit *feel* like force. One shared **impact-tier** value per hit drives
 all of these, so a jab is quiet and an ultimate dominates the frame.
 
 - **Damage-scaled hit-stop (A1).** Freeze BOTH fighters on contact; frames scale
-  with damage (Smash formula `d×0.65+6`, cap 30f ≈ 500ms; weak ≈ 5–8f). Elemental
-  hits ×1.5. *Highest-ROI single addition after multi-hit.* [SmashWiki Hitlag]
+  with damage (formula `d×0.65+6`, cap 30f ≈ 500ms; weak ≈ 5–8f). Elemental
+  hits ×1.5. *Highest-ROI single addition after multi-hit.*
 - **Hit-stop shake (A2).** During the freeze, vibrate the victim harder than the
   attacker, horizontal for grounded / vertical for airborne, decaying — logical
   position stays fixed. [Sakurai's 8 hit-stop techniques]
 - **Scale of importance (A4).** Spark size, flash intensity, shake, and hit-stop
   all derive from the impact tier. Uniform medium sparks = everything reads weak.
-  [Riot VFX style guide]
 - **Procedural smears (E3).** During the 2–3 frames of a swing, stretch the sprite
   1.4–1.8× along the motion axis, squash perpendicular, tint the stretched copy
   element-colored, and **step** (no tween) between key poses — stepped motion
-  reads *faster* than smooth. [Guilty Gear Xrd GDC talk]
+  reads *faster* than smooth.
 - **Impact frames (A3).** On crits/finishers only, a 1–2 frame full-screen
   element-tinted silhouette flash. Rationed so it stays powerful. [Sakuga Blog]
 - **Wall-slam (A6).** A heavy knockback slams the victim into a Phase-0 pillar →
-  stick 6f → rebound, with a crack decal + camera shake. [DBFZ smash hits]
+  stick 6f → rebound, with a crack decal + camera shake.
 - **Permanence (A8/E4).** Big hits leave accumulating floor decals (scorch /
-  frost / crack). The arena testifies a real fight happened. [Vlambeer
-  screenshake]
+  frost / crack). The arena testifies a real fight happened.
 
 ---
 
@@ -100,10 +96,9 @@ all of these, so a jab is quiet and an ultimate dominates the frame.
 
 - **Cut per action (C1).** Don't smoothly track — **cut**: attacker wind-up
   close-up → impact shot → wide. 2–3 cuts per beat. Cuts themselves read as
-  energy. [a leading gacha RPG: Star Rail]
+  energy. [a leading gacha RPG]
 - **Finisher slow-mo (A5).** After a crit/kill freeze, run the next 300–500ms at
   0.3–0.5× then snap to full speed. The speed *contrast* is what sells speed.
-  [Guilty Gear Strive counter-hit slowdown]
 
 ---
 
@@ -111,7 +106,7 @@ all of these, so a jab is quiet and an ultimate dominates the frame.
 
 - **Persistent idle aura (E1).** Element wisps/embers orbit each pet at all times,
   intensifying before its turn. One dominant + one secondary color, never
-  pure-saturated. [Riot VFX]
+  pure-saturated.
 - **Dash trails (E2).** 3–5 element-tinted ghost copies along the dash path,
   leading edge sharp, trailing dissolving. Parallel streaks = speed.
 - **Element washes/decals (E4).** Screen-edge color wash during big casts; element
@@ -154,7 +149,7 @@ playing; attack/hurt frames triggered by the beats.
 ## Phase 6 — 2v2 coordination · free
 
 - **Serialize the camera (D1).** Exactly one action owns the screen at a time
-  (partners may add one short peripheral contribution). [a leading gacha RPG/E7]
+  (partners may add one short peripheral contribution). [a leading gacha RPG]
 - **Off-turn participation (D2).** Non-acting pets hold idle-aggression stances,
   face the action, **guard-flinch when their partner is hit**, reposition at the
   bubble edge — never stand at spawn.
@@ -169,8 +164,7 @@ playing; attack/hurt frames triggered by the beats.
 
 - Strict hierarchy basic → skill → **ultimate**; the top tier *breaks the frame*
   (full-screen element wash, **cut-in card from the existing pet art**,
-  letterbox), rationed to signatures/crits/finishers so it stays special. [Persona
-  5 All-Out Attack, a leading gacha RPG]
+  letterbox), rationed to signatures/crits/finishers so it stays special. [a leading gacha RPG]
 
 ---
 
@@ -188,15 +182,8 @@ playing; attack/hurt frames triggered by the beats.
 
 ## Key sources
 
-Fighting-game craft: [SmashWiki Hitlag](https://www.ssbwiki.com/Hitlag) ·
-[Sakurai hit-stop techniques](https://www.youtube.com/watch?v=tycbMSjDDLg) ·
-[Riot VFX style guide](https://nexus.leagueoflegends.com/en-us/2017/10/dev-leagues-vfx-style-guide/) ·
-[Guilty Gear Xrd GDC](https://www.ggxrd.com/Motomura_Junya_GuiltyGearXrd.pdf) ·
-[Dustloop DBFZ](https://www.dustloop.com/wiki/index.php?title=DBFZ/Offense) /
-[GGST](https://www.dustloop.com/w/GGST/Mechanics) ·
-[Pokkén phases](https://wiki.supercombo.gg/w/Pokken_Tournament_DX/Phase_Mechanics) ·
+Fighting-game craft: [Sakurai hit-stop techniques](https://www.youtube.com/watch?v=tycbMSjDDLg) ·
 [Sakuga impact frames](https://blog.sakugabooru.com/glossary/impact-frames/) ·
-[Vlambeer screenshake](https://www.youtube.com/watch?v=AJdEqssNZ-U) ·
 [SLYNYRD idle stance](https://www.slynyrd.com/blog/2024/9/26/pixelblog-52-idle-fighting-stance) ·
 a leading gacha RPG dev interview ·
 a leading gacha RPG follow-ups.

@@ -91,5 +91,5 @@ Unchecked items are conditions for scaling beyond the explicitly approved limite
 - [x] Economy/reward freeze tested at the real Express boundary: an unsafe shop mutation returned non-cacheable 503 with `gameplay_mutations_frozen` while player authentication remained reachable (2026-07-12).
 - [x] Scheduled-job disable switch tested at real server startup: the scheduler logged that all jobs were disabled and did not arm its timers; the server remained healthy and drained cleanly (2026-07-12).
 - [x] Session invalidation procedure: rotating `SESSION_SECRET` invalidates prior global tokens; password change/admin reset rotate per-account epochs. Token rotation/revocation tests pass and the operator procedure is documented in `docs/EMERGENCY_LAUNCH_CONTROLS.md` (2026-07-12).
-- [x] Owner explicitly accepted launching Village War, Clan Boss, and ANBU Infiltration without staging smoke/load evidence (2026-07-12); features remain enabled and the exception must be reviewed before scaling.
+- [x] Owner explicitly accepted launching Village War, Clan Boss, and Shadowguard Infiltration without staging smoke/load evidence (2026-07-12); features remain enabled and the exception must be reviewed before scaling.
 - [ ] Rollback owner, incident channel, player-communication template, and evidence-retention procedure assigned.

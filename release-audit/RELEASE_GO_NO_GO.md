@@ -25,7 +25,7 @@ On 2026-07-12 the owner declined additional staging spend and explicitly accepte
 
 Supabase showed seven daily restore points (2026-07-06 through 2026-07-12). Point-in-time recovery is a paid add-on and is not enabled; the owner declined the additional spend and accepts daily-backup recovery granularity for the limited launch.
 
-On 2026-07-12 the owner also explicitly accepted launching Village War, Clan Boss, and ANBU Infiltration without their staging smoke/load evidence. Their emergency disable flags remain available, but the features stay enabled by owner decision.
+On 2026-07-12 the owner also explicitly accepted launching Village War, Clan Boss, and Shadowguard Infiltration without their staging smoke/load evidence. Their emergency disable flags remain available, but the features stay enabled by owner decision.
 
 Cloudflare/DNS MFA was subsequently enabled and verified with mobile TOTP on 2026-07-12, closing the earlier deferred DNS-account security gap.
 

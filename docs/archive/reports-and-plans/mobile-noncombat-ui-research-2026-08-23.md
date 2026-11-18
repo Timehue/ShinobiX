@@ -5,21 +5,19 @@ Scope: authenticated player screens below 980px, excluding every active combat v
 
 ## Competitive patterns
 
-- **Hordes.io** keeps the core in-game surfaces persistent and lets players move,
+- Keep the core in-game surfaces persistent and let players move,
   lock, and reset panels. The transferable lesson is stable navigation and
   predictable panel ownership rather than forcing every destination into the
-  persistent bar. Source: [Hordes.io User Interface](https://hordesio.wiki.gg/wiki/User_Interface).
-- **Flyff Universe** keeps chat resumable from a compact preview, uses contextual
-  item actions instead of exposing every command at once, and embeds inventory
-  where item-dependent tasks need it. Its mobile windows are responsive rather
-  than scaled-down desktop canvases. Source: [Flyff Universe Mobile Interface](https://madrigalinside.com/guides/beginners-guide/mobile-interface/).
-- **RuneScape Mobile** explicitly enlarged dropdowns, buttons, text, and backpack
-  slots; adapted child-window height; kept search usable around the software
-  keyboard; and minimized chat while preserving notifications. Source:
-  [RuneScape Mobile UI update](https://forums.rs/en/294%2C295%2C386%2C66023934.html).
-- **Flyff Universe's technical FAQ** treats modern Android and iOS browsers as
-  first-class clients alongside desktop browsers. Source:
-  [Flyff Universe device FAQ](https://universe.flyff.com/news/faqtechnicaldevices).
+  persistent bar.
+- Keep chat resumable from a compact preview, use contextual
+  item actions instead of exposing every command at once, and embed inventory
+  where item-dependent tasks need it. Mobile windows should be responsive rather
+  than scaled-down desktop canvases.
+- Enlarge dropdowns, buttons, text, and backpack
+  slots; adapt child-window height; keep search usable around the software
+  keyboard; and minimize chat while preserving notifications.
+- Treat modern Android and iOS browsers as
+  first-class clients alongside desktop browsers.
 
 ## Applied product decisions
 

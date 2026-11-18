@@ -319,7 +319,7 @@ describe('Cinderhold in a five-day village war', { concurrency: false }, () => {
         assert.equal(war.campaign.receipts[`field:${next!.missionId}`]?.village, CH);
 
         // Owner ruling 2026-11-11: a Chunin at level 15+ takes a war job like
-        // the ANBU; a Genin under 15 is never ordered, even when it is free.
+        // the Shadowguard; a Genin under 15 is never ordered, even when it is free.
         const high = everyone().find((n) => n.rank === 'chunin')!;
         const low = everyone().find((n) => n.rank === 'genin')!;
         for (const [npc, lvl] of [[high, 20], [low, 12]] as const) {

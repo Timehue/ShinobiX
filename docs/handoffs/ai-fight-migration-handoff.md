@@ -36,7 +36,7 @@ The authority boundary now (from `SERVER_COMBAT_MIGRATION_PLAN.md`):
 
 | Runtime | Owns |
 |---|---|
-| `api/solo-pve/*` | every one-human/one-AI shinobi fight: catalog + published AI, hunts, ambushes, guards, wanderers, all built-in combat missions, **Academy sparring**, story battles, normal **Endless**, Hollow Gate shinobi combat, **Weekly Boss**, **ANBU** |
+| `api/solo-pve/*` | every one-human/one-AI shinobi fight: catalog + published AI, hunts, ambushes, guards, wanderers, all built-in combat missions, **Academy sparring**, story battles, normal **Endless**, Hollow Gate shinobi combat, **Weekly Boss**, **Shadowguard** |
 | `api/towers/*` | genuine party / N-actor encounters only: Battle Towers, Endless **Spire**, Clan Boss |
 | `api/pvp/*` | player-versus-player |
 | Pet / Card | independent runtimes |
@@ -209,7 +209,7 @@ explicitly). Corroboration that this is an oversight, not a balance choice:
 Empirically confirmed at ~3.3× in `api/towers/_pve-guard.test.ts`.
 
 **Fixed for AI fights only.** Still open for **combat missions, story bosses,
-Hollow Gate, the towers, clan boss, Anbu vault and the weekly boss** — their
+Hollow Gate, the towers, clan boss, Shadowguard vault and the weekly boss** — their
 templates were hand-tuned with mastery 0 in place, so correcting them is a real
 balance change. Very likely why some server PvE reads as limp.
 
@@ -288,7 +288,7 @@ every mode, so "ships on" cannot silently regress.
 | missions, story | ✅ | ✅ | canonical standard PvE — solo, level-keyed, AI template |
 | towers / Spire, clan boss | ✅ | ❌ | already floor- + party- + ascension-scaled; clan boss HP is the SHARED pool |
 | AI fights | ✅ | ✅ | unchanged maths, now answers the kill switch |
-| weekly boss, Anbu | ❌ | ❌ | see below |
+| weekly boss, Shadowguard | ❌ | ❌ | see below |
 
 ⚠ **Towers and clan boss call `startRound`/`runAiUntilHuman` inline at start** —
 the seal must precede them or the opening enemy turn resolves unguarded. Pinned
@@ -308,8 +308,8 @@ boss→player clamp today while the client has one** — a real gap, worth its o
 commit. (The per-hit cap in `_weekly-boss-fight-token.ts` is the OPPOSITE
 direction: anti-cheat validation of client-reported PLAYER→boss damage.)
 
-**Anbu** is excluded because its opponent is `getOrSealAnbuSnapshot(...)` — a
-sealed snapshot of a REAL player's ANBU defender, i.e. exactly the
+**Shadowguard** is excluded because its opponent is `getOrSealShadowguardSnapshot(...)` — a
+sealed snapshot of a REAL player's Shadowguard defender, i.e. exactly the
 `opponentCharacter` case the client's `isStandardPve` carves out.
 
 ⚠ **This is a live balance change, not a parity fix.** These modes are resolved
@@ -328,7 +328,7 @@ guard-before-mastery-before-`startRound`, so the order cannot silently invert.
 
 Not armed: **weekly boss** (no server boss→player clamp at all — this is the
 "mastery before the guard" failure; land it WITH the `weeklyBossGuardedHit`
-port), **Anbu** (`sealTowerFighter` already carries the real player's own
+port), **Shadowguard** (`sealTowerFighter` already carries the real player's own
 mastery), AI fights (self-sealed at 3b), Hollow Gate (not migrated).
 
 ⚠ **Spire has its own dial.** Its level-100 bosses are PEER band, where the B
@@ -731,7 +731,7 @@ on a defeat/forfeit), reusing `applyAiFightOutcomeToCharacter`.
 
 `MissionArenaFight` gained an opt-in `outcomeFn`, fired on ANY resolution **and**
 on leaving an unresolved run. Modes that don't pass it are unchanged, so towers,
-Spire, clan boss and Anbu — which have their own run economies — are untouched.
+Spire, clan boss and Shadowguard — which have their own run economies — are untouched.
 
 ⚠ **Two traps specific to this endpoint:**
 - Its runId is **client-supplied**, unlike the AI-fight path (whose runId comes
@@ -772,7 +772,7 @@ was permanent.
 first-clear and assist channels. Stated positively ("catalog floors only") so a
 future mode that invents a floor some other way is refused by default.
 
-⚠ Anbu infiltration was safe only **by accident** — it sets `session.floor` to
+⚠ Shadowguard infiltration was safe only **by accident** — it sets `session.floor` to
 9101 without embedding a floor, so the old `!floor` check caught it. That is
 also why the 9101 id it shares with `combat-d-errand` never mattered.
 **Whenever a new solo mode joins the tower engine, re-check this.**
@@ -808,7 +808,7 @@ Player-side loading is **consistent across every sealed mode** — authoritative
 save + `augmentSaveWithForgedDefs` + `loadAdminCombatContent` →
 `hydrateCharacterFromSave`, guarded by `api/_fighter-authority.test.ts`. Covers
 PvP/MPvP (ranked, spar, bounty), solo PvE (missions, story, weekly, AI fight)
-and MPvE (co-op towers, clan boss, Anbu). `towers/join.ts` is a pure read with
+and MPvE (co-op towers, clan boss, Shadowguard). `towers/join.ts` is a pure read with
 no re-seal — correct; a prior tampering hole there is closed.
 
 **Hollow Gate PvE is the one mode not migrated at all** (still client-built).

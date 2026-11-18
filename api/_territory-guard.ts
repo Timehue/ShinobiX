@@ -1,7 +1,7 @@
 import { safeName } from './_utils.js';
 
 /**
- * Territory guards are self-service. A member or appointed ANBU may add/remove
+ * Territory guards are self-service. A member or appointed Shadowguard may add/remove
  * only their own name; a crafted full-row write cannot replace other guards.
  */
 export function territoryGuardsAfterSelfUpdate(

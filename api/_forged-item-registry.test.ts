@@ -82,7 +82,7 @@ describe('mint-time recording is wired', () => {
     it('every fighter-sealing entry point grafts recovered definitions', () => {
         for (const rel of [
             'pvp/session.ts', 'towers/start.ts', 'clan-boss/assault-start.ts',
-            'village/anbu-infiltration.ts', '_anbu-infiltration-store.ts',
+            'village/shadowguard-infiltration.ts', '_shadowguard-infiltration-store.ts',
             '_merc-auto.ts', 'missions/combat-start.ts', 'story/boss-start.ts',
             'weekly-boss.ts',
         ]) {

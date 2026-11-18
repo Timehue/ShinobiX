@@ -100,9 +100,7 @@ baseline), named tiers, a season-end reward table keyed to peak tier, and an
 authoritative leaderboard — then apply it to all four competitive systems. Right
 now none of them reset or pay out over time, so the ladders ossify and there's
 nothing to climb *toward*. This is the highest retention leverage in the whole
-audit. *(Peers: ranked seasons/tiers/decay/rewards are universal — League,
-Apex, Hero Wars guild seasons, a major MMO WvW 2-week seasons, Tacticus 6-wars/season
-leagues.)*
+audit. Ranked seasons, tiers, decay and season rewards are universal in the genre.
 
 ### FM-2 — Enemy variety: elite affixes + a bestiary
 **Touches:** hunting, Hollow Gate, Endless Tower, explore — *all* PvE at once.
@@ -112,8 +110,7 @@ additive changes multiply perceived depth everywhere:
   etc.) onto elite/boss encounters, reusing the existing combat-tag system.
 - **A bestiary screen** built off the *already-saved* `defeatedAiIds`, with
   kill-count tiers, lore, and drop info (and optionally a small per-type combat
-  bonus). *(Peers: D3/D4 elite affixes; a deep action RPG map modifiers; Terraria/a leading action RPG
-  Immortal bestiaries.)*
+  bonus).
 
 ### FM-3 — Turn on dormant systems
 **Touches:** clans, pets. Cheapest wins in the audit — the code already exists.
@@ -242,7 +239,7 @@ personal daily currency drip.
 - **Med** — Village mechanical identity from lore theme: map each village's
   theme to one tiny passive (e.g. one +offense, one +defense). *S–M, ⚠️*
 - **Med** — Village-wide build track (distinct from per-character upgrades):
-  Walls/Barracks/Watchtower funded from treasury by Kage/ANBU — a collective goal
+  Walls/Barracks/Watchtower funded from treasury by Kage/Shadowguard — a collective goal
   + treasury sink. *L, ⚠️*
 - **Med** — War seasons / recurring war ladder (FM-1). *M*
 - **Low** — Per-sector identity (names + small yields) so captures are
@@ -319,10 +316,10 @@ client; no collection/dex bonus.
   (FM-1). Finished-but-invisible system; lowest-risk highest-yield. *M, ⚠️*
 - **High** — Pet evolution/ascension: let a maxed standard/rare pet ascend to the
   next tier's cap (consuming dupes/treats) so early pets stay relevant. *M–L, ⚠️*
-- **High** — Per-pet stat variance ("Potential", Coromon-style grindable — not
+- **High** — Per-pet stat variance ("Potential", grindable — not
   RNG) so same-species pets differ and training has a target. Flag-gate so live
   pets default neutral. *M, ⚠️*
-- **Med** — Breeding **or** fusion (pick one): fusion (Cassette Beasts model)
+- **Med** — Breeding **or** fusion (pick one): fusion
   reuses 140 species combinatorially as a long-tail goal. *Big new system —
   needs approval.* *L, ⚠️*
 - **Med** — Non-destructive storage box (active 5 + reserve) to kill the
@@ -422,18 +419,3 @@ Decide the territory↔village structural question first.
   mirror any combat-formula change into `api/pvp/move.ts` and the parity test.
 - **Don't touch** avatars or the storage-routing rules; rebuild + commit `dist/`
   for any cPanel-bound change.
-
----
-
-## Appendix — peers referenced
-
-Seasons/ladders: League ranked seasons, Apex ranked & decay, Hero Wars/Wild Rift
-guild seasons, a major MMO WvW, Tacticus Guild War leagues. Combat depth:
-a live-service shooter (elemental triangles). PvE: a leading action RPG
-3/4 elite affixes, a deep action RPG map modifiers, a leading idle RPG King's Tower, New World
-phased bosses, Terraria/a leading action RPG Immortal bestiaries. Missions/dispatch: a leading idle RPG Bounty/Abyssal dispatch.
-Pets: the reference model/Coromon (IV/EV & Potential), Cassette Beasts & SMT (fusion),
-a leading gacha RPG/a leading gacha RPG (ascension), IdleOn (collection passives). Economy:
-a deep action RPG (currency-as-crafting, affixes), a sandbox MMO (sink design), a leading action RPG/a live-service shooter
-(paragon/prestige). Guild/territory: a major MMO guild halls, a browser strategy game build trees, a classic MMO
-relics, Foxhole logistics.

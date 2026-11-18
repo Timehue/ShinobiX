@@ -4,17 +4,17 @@ The council, Village Orders, exams, and war actions now resolve leadership from 
 
 ## Role rules
 
-| Behavior | Kage | Elder | ANBU | Other villagers |
+| Behavior | Kage | Elder | Shadowguard | Other villagers |
 | --- | --- | --- | --- | --- |
 | Appointment | Authoritative Kage succession system | First: Kage-appointed; Second: term PvP winner; Third: term PvE winner | Three appointed seats plus seven earned seats | No office |
-| Appoint or clear First Elder / appointed ANBU seats | Yes | No | No | No |
+| Appoint or clear First Elder / appointed Shadowguard seats | Yes | No | No | No |
 | Post Village Orders | Yes | Yes | Yes | Read only |
 | Pin/delete orders | Any order | Own orders while holding office | Own orders while holding office | No |
 | Purchase village upgrades, hire war mercs, set sector win conditions | Yes | No | No | No |
 | Set home-sector terrain | Three sectors; may override another leader within quota | One sector per player; cannot override another leader | No | No |
-| Toggle own village's garrison feed in a participating war | Yes | Only if also ANBU | Yes | No |
-| Guard village territory outside own clan | Only if also ANBU | Only if also ANBU | May toggle own guard entry | Own clan's applicable permissions |
-| Garrison / infiltration defender selection | Fallback when no ANBU is available | Only if also ANBU/Kage | Current roster participates in defender rotation | No leadership defender slot |
+| Toggle own village's garrison feed in a participating war | Yes | Only if also Shadowguard | Yes | No |
+| Guard village territory outside own clan | Only if also Shadowguard | Only if also Shadowguard | May toggle own guard entry | Own clan's applicable permissions |
+| Garrison / infiltration defender selection | Fallback when no Shadowguard is available | Only if also Shadowguard/Kage | Current roster participates in defender rotation | No leadership defender slot |
 | Special Jonin leadership requirement | Satisfied | Satisfied | Does not satisfy it by itself | Not satisfied |
 | War role: win contribution / loss penalty | 30 / 50 | 20 / 20 | 15 / 0 | 5 / 0 |
 
@@ -24,15 +24,15 @@ Focus remains a personal selection from the occupied doctrine seats. A player-he
 
 ## Appointment and succession lifecycle
 
-- Each office is backed by a real player in that village. Invalid, missing, duplicate, or out-of-village appointees are rejected or excluded. The Elder council has three fixed slots; appointed ANBU retain their three slots.
-- Kage succession preserves the current council term and appointments. The incoming Kage can replace the First Elder and appointed ANBU; earned Elder seats remain fixed until term expiry. The outgoing Kage immediately loses appointment authority.
-- Holding multiple roles is allowed. War scoring and order author labels use Kage, then Elder, then ANBU, without adding role bonuses together.
+- Each office is backed by a real player in that village. Invalid, missing, duplicate, or out-of-village appointees are rejected or excluded. The Elder council has three fixed slots; appointed Shadowguard retain their three slots.
+- Kage succession preserves the current council term and appointments. The incoming Kage can replace the First Elder and appointed Shadowguard; earned Elder seats remain fixed until term expiry. The outgoing Kage immediately loses appointment authority.
+- Holding multiple roles is allowed. War scoring and order author labels use Kage, then Elder, then Shadowguard, without adding role bonuses together.
 - War role evidence is sealed when a fight starts. Later appointments cannot inflate its settlement rewards.
-- Appointed ANBU seats persist across months. Earned seats follow current UTC-month PvP results, excluding appointed ANBU. At least one kill is required; ties use lifetime PvP kills, level, then normalized player name.
-- Clearing an appointed ANBU seat removes that appointment. The player can still qualify for an earned seat, which Town Hall now explains.
+- Appointed Shadowguard seats persist across months. Earned seats follow current UTC-month PvP results, excluding appointed Shadowguard. At least one kill is required; ties use lifetime PvP kills, level, then normalized player name.
+- Clearing an appointed Shadowguard seat removes that appointment. The player can still qualify for an earned seat, which Town Hall now explains.
 - The existing Kage challenge rules remain: level 90, seven-day account age, 250 Village Merit, and a 250,000-ryo stake; separate 24-hour response clocks measured only while both players are online, 24-hour post-defense grace, and three-day loss cooldown. There is no calendar challenge expiry. The existing ten-day inactivity vacancy and challenge stake refund paths retain their regression coverage.
 
-The ANBU choice follows Town Hall's existing **3 appointed + 7 earned** presentation. The one-kill minimum prevents zero-kill players from becoming ANBU merely because their village is small. This is a rule alignment pass, not a simulation of long-term PvP balance.
+The Shadowguard choice follows Town Hall's existing **3 appointed + 7 earned** presentation. The one-kill minimum prevents zero-kill players from becoming Shadowguard merely because their village is small. This is a rule alignment pass, not a simulation of long-term PvP balance.
 
 ## Elder elections and 30-day terms
 
@@ -47,10 +47,10 @@ The ANBU choice follows Town Hall's existing **3 appointed + 7 earned** presenta
 
 ## Wiring repaired
 
-1. Added `/api/village/anbu` and registered it in the server router. Appointments validate the current Kage and target membership, serialize writes, preserve other seats, and return the authoritative roster. Generic village blobs cannot restore removed appointments or forge earned members.
-2. Town Hall, orders, war scoring, territory guards, raid defense, garrison rotation, and infiltration now consume the same ANBU roster. The seven earned seats were previously only a client display.
+1. Added `/api/village/shadowguard` and registered it in the server router. Appointments validate the current Kage and target membership, serialize writes, preserve other seats, and return the authoritative roster. Generic village blobs cannot restore removed appointments or forge earned members.
+2. Town Hall, orders, war scoring, territory guards, raid defense, garrison rotation, and infiltration now consume the same Shadowguard roster. The seven earned seats were previously only a client display.
 3. Public player index entries include the monthly kill count and month. Old entries backfill from saves. Committed PvP mutations and sleeper rewards refresh the index before a client autosave. The month is server-owned, preventing a client from relabeling old kills as the current month.
-4. Special Jonin now checks the actual Elder ledger and authoritative Kage seat. It previously treated appointed ANBU as Elders and trusted the cached Kage mirror.
+4. Special Jonin now checks the actual Elder ledger and authoritative Kage seat. It previously treated appointed Shadowguard as Elders and trusted the cached Kage mirror.
 5. Elders now receive the existing 20/20 war role and terrain authority. The war map exposes Elder terrain controls while keeping win-condition controls Kage-only.
 6. Shared frames project the authoritative Kage record, including an empty/reset seat. Town Hall and war screens refresh role state; cached titles and the premature local liberation seat no longer grant role effects.
 7. Village upgrades and Hollow Gate purchases use the authoritative Kage record with current membership checks. Hollow Gate extension must use the paid endpoint: ordinary village writes can no longer bypass the 10,000 personal Honor Seal cost per 30 days. Village upgrades continue spending treasury seals.
@@ -68,13 +68,13 @@ The second review found and repaired these cross-system gaps:
 
 ## Validation and limits
 
-- **617 tests passed in the final follow-up suite.** Coverage includes council rollover, actual order/exam/focus authorization, stale and forged state, concurrency, win ledger ownership, combat replay recovery, Kage succession/inactivity, ANBU, territory authority, training, and client regressions.
+- **617 tests passed in the final follow-up suite.** Coverage includes council rollover, actual order/exam/focus authorization, stale and forged state, concurrency, win ledger ownership, combat replay recovery, Kage succession/inactivity, Shadowguard, territory authority, training, and client regressions.
 - Server and client TypeScript checks passed.
 - `git diff --check` passed.
 - API interaction tests use isolated in-memory storage. The release browser checks also use a disposable local server; no production player data was changed during verification.
-- Roster changes update on the existing polling cadence; cached Elder authority expires at the term deadline even without a successful poll. Protected actions independently check server authority. The derived public ranking index uses the existing best-effort refresh/backfill approach; a storage failure can delay earned ANBU display until that index refreshes. Elder elections read authoritative saves for scores and persist the selected winners for the full term.
+- Roster changes update on the existing polling cadence; cached Elder authority expires at the term deadline even without a successful poll. Protected actions independently check server authority. The derived public ranking index uses the existing best-effort refresh/backfill approach; a storage failure can delay earned Shadowguard display until that index refreshes. Elder elections read authoritative saves for scores and persist the selected winners for the full term.
 
-Primary regression coverage: `api/village/elder-elections.test.ts`, `shared/elder-elections.test.ts`, `api/village/leadership-interactions.test.ts`, and `shared/village-anbu.test.ts`.
+Primary regression coverage: `api/village/elder-elections.test.ts`, `shared/elder-elections.test.ts`, `api/village/leadership-interactions.test.ts`, and `shared/village-shadowguard.test.ts`.
 
 ## Release verification on current main
 
@@ -84,7 +84,7 @@ Prepared on `663bcd30025c5df83bf7680a0c98d7e6a58174fd`, which matched the health
 - Client lint passed with zero errors (nine existing warnings). Removed an unused import, typed the order test capture, and bound the war screen's fetched Kage identity to its village so changing village cannot retain the prior seat's controls.
 - Server and client TypeScript builds, story-content verification, production client build with public deployment-length test values, dist verification, and bundle-size checks passed.
 - Refreshed the generated design-token source locations; tooling-handoff, deployment-topology, and rollback compatibility contracts passed.
-- Two real Express/Chromium checks passed. The Town Hall journey confirms that all AI seats show zero bonus and have no focus button; ordinary villagers have no appointment/order composer; direct focus, Elder/ANBU appointment, and order-post attempts return 403. Treasury donations and the existing supply-log journey still complete.
+- Two real Express/Chromium checks passed. The Town Hall journey confirms that all AI seats show zero bonus and have no focus button; ordinary villagers have no appointment/order composer; direct focus, Elder/Shadowguard appointment, and order-post attempts return 403. Treasury donations and the existing supply-log journey still complete.
 
 
 ## Kage challenge response clocks

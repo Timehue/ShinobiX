@@ -58,8 +58,8 @@ async function chroniclePointsOf(slug: string): Promise<number> {
 }
 describe('five-day village campaigns', { concurrency: false }, () => {
     it('caps only v3 shrine extras while normal role rewards and deductions survive restart and retries', async () => {
-        const { ROLE_KAGE, ROLE_ELDER, ROLE_ANBU, ROLE_VILLAGER } = await import('./_war-role.js');
-        for (const version of [2, 3] as const) for (const winner of [ROLE_KAGE, ROLE_ELDER, ROLE_ANBU, ROLE_VILLAGER]) {
+        const { ROLE_KAGE, ROLE_ELDER, ROLE_SHADOWGUARD, ROLE_VILLAGER } = await import('./_war-role.js');
+        for (const version of [2, 3] as const) for (const winner of [ROLE_KAGE, ROLE_ELDER, ROLE_SHADOWGUARD, ROLE_VILLAGER]) {
             let c = (version === 2 ? create : createCurrent)([A, B], 1000, 47);
             const o = c.shrine[0]; c.pvp[B] = 1000;
             for (let i = 0; i < o.limit + 3; i++) {
@@ -893,11 +893,11 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(await chroniclePointsOf('alice'), 20);
         assert.equal(await chroniclePointsOf('bob'), 8);
     });
-    it('pays a won card assault on the ANBU deck 15 Chronicle Points once, and a lost one nothing', async () => {
+    it('pays a won card assault on the Shadowguard deck 15 Chronicle Points once, and a lost one nothing', async () => {
         const row = await seed(); row.campaign.intel[A] = 72;
         await kv.set(`world:war:${id}`, row);
         const deck = await import('./card-clash/_deck.js'); await deck.resolveChronicleDeckWithSave('bob', []);
-        await kv.set('game:village-state:moonshadowvillage', { anbuAppointees: ['bob'] });
+        await kv.set('game:village-state:moonshadowvillage', { shadowguardAppointees: ['bob'] });
         const objective = row.campaign.strongholds.find(o => o.village === B && o.mode === 'card')!;
         presence.upsert({ name: 'alice', sector: objective.sector, character: { level: 100, village: A } });
         await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'enter', objectiveId: objective.id });
@@ -914,7 +914,7 @@ describe('five-day village campaigns', { concurrency: false }, () => {
             else assert.equal(done.data.chroniclePoints, undefined);
             await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'state', runId: start.data.runId });
             assert.equal(await chroniclePointsOf('alice'), 15);
-            assert.equal(await chroniclePointsOf('bob'), 0, 'the ANBU whose deck defended is never paid');
+            assert.equal(await chroniclePointsOf('bob'), 0, 'the Shadowguard whose deck defended is never paid');
         }
     });
     it('resolves a pet stronghold with sealed player teams and a replay, without consuming a PvE attempt', async () => {
@@ -946,7 +946,7 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal((fresh.campaign.pvp[A] ?? 0) + (fresh.campaign.pvp[B] ?? 0), 50);
         assert.deepEqual(fresh.campaign.usage, {});
     });
-    it('combines ANBU support with three human pet wins and the completion bonus exactly once', async () => {
+    it('combines Shadowguard support with three human pet wins and the completion bonus exactly once', async () => {
         const row = await seed(); row.campaign.intel[A] = 72;
         await kv.set(`world:war:${id}`, row);
         await kv.set('village:kage:moonshadow-village', { seatedKage: 'bob' });
@@ -987,7 +987,7 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(summary.data.campaign.scores[A].total, 320);
         assert.equal(summary.data.campaign.strongholds.find((o: any) => o.id === objective.id).bouts, 3);
     });
-    it('reuses the same offline ANBU pet copy without disturbing its real breeding or expedition', async () => {
+    it('reuses the same offline Shadowguard pet copy without disturbing its real breeding or expedition', async () => {
         const row = await seed(); row.campaign.intel[A] = 72;
         await kv.set(`world:war:${id}`, row);
         const pet = (name: string, power: number) => ({ id: name, name, level: 100, rarity: 'legendary', hp: power, attack: power, defense: power, speed: power, element: 'Earth', fatigue: 0 });
@@ -996,7 +996,7 @@ describe('five-day village campaigns', { concurrency: false }, () => {
             pets: [{ ...pet('sentry', 1), expedition: { status: 'active' } }],
             petBreeding: { state: 'breeding', parentIds: ['sentry'], readyAt: Date.now() + WAR_DAY_MS } } };
         await kv.set('save:bob', defender);
-        await kv.set('game:village-state:moonshadowvillage', { anbuAppointees: ['bob'] });
+        await kv.set('game:village-state:moonshadowvillage', { shadowguardAppointees: ['bob'] });
         const objective = row.campaign.strongholds.find(o => o.village === B && o.mode === 'pet')!;
         presence.upsert({ name: 'alice', sector: objective.sector, character: { level: 100, village: A } });
         assert.equal((await call(endpoint, 'alice', { warId: id, action: 'enter', objectiveId: objective.id })).status, 200);
@@ -1016,13 +1016,13 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(fresh.campaign.usage[`${A}:0`].players.alice.categories.sabotage, 2);
         assert.equal((await call(endpoint, 'alice', { warId: id, action: 'start', objectiveId: objective.id })).status, 409, 'only the personal support cap limits repeated NPC assaults');
     });
-    it('fields an anonymous ANBU fallback and enforces Sabotage admission without consuming live objective bouts', async () => {
+    it('fields an anonymous Shadowguard fallback and enforces Sabotage admission without consuming live objective bouts', async () => {
         const row = await seed(); row.campaign.intel[A] = 72;
         await kv.set(`world:war:${id}`, row);
         const defender = await kv.get<any>('save:bob');
         defender.character.hp = 0; defender.character.avatarImage = '/private-bob-avatar.webp';
         await kv.set('save:bob', defender);
-        await kv.set('game:village-state:moonshadowvillage', { anbuAppointees: ['bob'] });
+        await kv.set('game:village-state:moonshadowvillage', { shadowguardAppointees: ['bob'] });
         const objective = row.campaign.strongholds.find(o => o.village === B && o.mode === 'combat')!;
         presence.upsert({ name: 'alice', sector: objective.sector, character: { level: 100, village: A } });
         await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'enter', objectiveId: objective.id });
@@ -1031,9 +1031,9 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         const start = await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'start', objectiveId: objective.id });
         assert.equal(start.status, 200, JSON.stringify(start.data)); assert.equal(start.data.npc, true);
         assert.equal(start.data.session.encounter.kind, 'village-war-garrison');
-        assert.equal(start.data.session.encounter.metadata.anbuSlug, undefined);
+        assert.equal(start.data.session.encounter.metadata.shadowguardSlug, undefined);
         assert.notEqual(start.data.session.enemy.name, 'Bob');
-        assert.equal(start.data.session.enemy.character.avatarImage, '/anbu/moonshadow.webp?v=2');
+        assert.equal(start.data.session.enemy.character.avatarImage, '/shadowguard/moonshadow.webp?v=2');
         assert.equal(start.data.session.enemy.hp, start.data.session.enemy.maxHp, 'the AI copy defends at full strength');
         assert.equal(start.data.session.enemy.character.boss, undefined);
         assert.equal(start.data.session.enemy.character.aiTargetMode, 'lowest-hp');
@@ -1041,9 +1041,9 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(start.data.session.enemy.character.aiTurnPolicy, 'standard-pve-v1');
         assert.equal(start.data.session.difficultyGuard, undefined);
         assert.equal(start.data.session.weeklyBossGuard, undefined);
-        const snapshot = await (await import('./_village-war-anbu-defender.js')).sealCampaignAnbuCombat('bob');
+        const snapshot = await (await import('./_village-war-shadowguard-defender.js')).sealCampaignShadowguardCombat('bob');
         const expectedCharacter = { ...snapshot!.character, name: start.data.session.enemy.name,
-            avatarImage: '/anbu/moonshadow.webp?v=2', aiTargetMode: 'lowest-hp', masterAi: true, aiTurnPolicy: 'standard-pve-v1' };
+            avatarImage: '/shadowguard/moonshadow.webp?v=2', aiTargetMode: 'lowest-hp', masterAi: true, aiTurnPolicy: 'standard-pve-v1' };
         delete (expectedCharacter as Record<string, unknown>).boss;
         assert.deepEqual(start.data.session.enemy.character, expectedCharacter, 'every combat build field matches the actual player snapshot');
         assert.deepEqual(await kv.get('save:bob'), defender, 'the real member stays wounded and keeps their own avatar');

@@ -145,7 +145,7 @@ async function helpAppliedSectorWarEffects(
     // bumpEraContributionOnce returns false rather than throwing. Any later
     // replay of this battle (either fighter's claim) retries it; otherwise the
     // battle stays uncounted. Once an era gates on warBattles, throw on false
-    // here so the claim stays pending, as the ANBU raid's report already does.
+    // here so the claim stays pending, as the Shadowguard raid's report already does.
     // _sector-war-continuation.test.ts fails as soon as an era does, as a
     // reminder.
     await bumpEraContributionOnce('warBattles', receiptId);

@@ -8,8 +8,7 @@
  * ── WHY THE IDENTITY LIVES IN `custom` ────────────────────────────────────
  * Tebex's webhook schema carries `products[].username.id` and
  * `customer.username.id`, and those are the obvious place to look for "who
- * bought this". They are populated for GAME stores — Minecraft and friends,
- * where the buyer types a game username at checkout and Tebex resolves it.
+ * bought this". They are populated for GAME stores, where the buyer types a game username at checkout and Tebex resolves it.
  *
  * Ours is a UNIVERSAL webstore. Tebex's own words: "No username is required for
  * your store." Nothing ever asks the buyer who they are, so those fields arrive

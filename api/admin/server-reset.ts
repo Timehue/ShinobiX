@@ -381,14 +381,14 @@ export async function deleteDoomedKeys(
  * What a protected (admin) account keeps through a reset: its progress, gear
  * and currency. What it loses: every tie to the old world's clans and village
  * leadership (owner ruling 2026-10-29: "reserve Rill … but remove him from any
- * Kage/Elder/ANBU role").
+ * Kage/Elder/Shadowguard role").
  *
  * The seats themselves are wiped with the store (`village:kage:*`,
  * `village:elder-council:*`, `game:village-state:*`), so the Town Hall falls
  * back to the NPC Acting Kage Council and NPC elders. These save fields are
  * what would put the account straight back into a seat or a dead clan:
  * - clan membership points at a clan the sweep deleted;
- * - this month's PvP kills auto-seat the earned ANBU (earnedAnbuCandidates);
+ * - this month's PvP kills auto-seat the earned Shadowguard (earnedShadowguardCandidates);
  * - elder win days feed the next elder election;
  * - guard duty and the monthly clan counters belong to the old roster.
  * Explicit nulls, like clan/leave.ts: dropping a key would let the save merger

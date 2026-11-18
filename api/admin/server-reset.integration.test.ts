@@ -46,7 +46,7 @@ test('a full reset leaves the start state: no players, no clans, NPC leaders, Ri
     await kv.set('clan-seal-pool:storm lords', { clanName: 'Storm Lords', balance: 500, log: [] });
     await kv.set('village:kage:stormveil-village', { kageSystemUnlocked: true, seatedKage: 'Rill', seatedAt: 1 });
     await kv.set('village:elder-council:stormveil', { seats: ['Rill', '', ''] });
-    await kv.set('game:village-state:stormveilvillage', { anbuAppointees: ['Rill', '', ''], elderAppointees: ['Rill', '', ''] });
+    await kv.set('game:village-state:stormveilvillage', { shadowguardAppointees: ['Rill', '', ''], elderAppointees: ['Rill', '', ''] });
     await kv.set('game:village-leadership-images', { images: {} });
     await kv.set('save:admin1', { creatorItems: [] });
 
@@ -98,7 +98,7 @@ test('a full reset leaves the start state: no players, no clans, NPC leaders, Ri
     assert.equal(rill.clan, null);
     assert.equal(rill.clanFounder, false);
     assert.equal(rill.guardQueued, false);
-    assert.equal(rill.monthlyPvpKills, 0, 'no auto-earned ANBU seat from last era\'s kills');
+    assert.equal(rill.monthlyPvpKills, 0, 'no auto-earned Shadowguard seat from last era\'s kills');
     assert.deepEqual(rill.elderWinDays, [], 'no head start in the next elder election');
     assert.equal(rill.elderFocus, null);
     assert.equal(rill.clanBattleContrib, 0);

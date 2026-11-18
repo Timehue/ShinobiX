@@ -89,7 +89,7 @@ The [clan acceptance correction](clan-ratchet-correction.md) replaces a legacy h
 
 ## Review and validation
 
-Independent source review found and resolved two regressions during this change: an unscoped weapon candidate on real ANBU garrison copies, and a clan-boss mastery rollback omission. Challenge weapons now require a server builder seal; player hydration removes forged seals and garrison copies remain excluded. A matched real garrison replay established the local regression before the fix (three moves versus a1,120HP weapon hit), and focused tests cover the repaired path.
+Independent source review found and resolved two regressions during this change: an unscoped weapon candidate on real Shadowguard garrison copies, and a clan-boss mastery rollback omission. Challenge weapons now require a server builder seal; player hydration removes forged seals and garrison copies remain excluded. A matched real garrison replay established the local regression before the fix (three moves versus a1,120HP weapon hit), and focused tests cover the repaired path.
 
 The independent final review passed44 focused tests with no failures/skips. The implementation review passed55 scope/authority/weapon tests and the server build. The mercenary suite passed65 checks plus3 final builder/policy checks, including equality between the instrumented probe and the actual production headless resolver. Boss tests passed14/14 plus32 existing weekly authority/recovery/reward regressions. Independent review also approved the peer80 fixture/data and the corrected clan ratchet, whose unchanged two tests pass. Final Kage kit assertions pass5/5; HUD, retained-log and journal checks pass28/28.
 

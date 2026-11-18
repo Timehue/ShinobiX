@@ -44,8 +44,8 @@ export type PveBandMode =
  *   mercy floor, plus the player→boss open/guarded cycle. Applying this generic
  *   band as well would double-scale a deliberately bespoke encounter.
  *
- * • ANBU VAULT. Its opponent is `getOrSealAnbuSnapshot(...)`, a sealed snapshot
- *   of a REAL player's ANBU defender. That is precisely the `opponentCharacter`
+ * • Shadowguard VAULT. Its opponent is `getOrSealShadowguardSnapshot(...)`, a sealed snapshot
+ *   of a REAL player's Shadowguard defender. That is precisely the `opponentCharacter`
  *   case the client's own `isStandardPve` carves out. Banding it would scale a
  *   real player's defensive loadout down by up to 40%, which is a PvP balance
  *   change wearing a PvE hat.

@@ -7,7 +7,7 @@
  * biome, its weather window, a holding clan's stamp first), fed the SERVER
  * clock, so a client cannot wait for or claim a favourable sky. Until this was
  * sealed, wanderers, patrols, hunts, exploration, raid, sector-war garrison,
- * ANBU vault and stronghold patrol fights ignored the weather the plate
+ * Shadowguard vault and stronghold patrol fights ignored the weather the plate
  * advertised while the board still drew its rain.
  *
  * The biome is always the SECTOR's (sectorBiomeOf), never a fight's board

@@ -64,12 +64,12 @@ for (const [village, kind] of [
 ]) test(`${village} defender uses its fitted body at the vault and retains the challenge action`, async ({ page }, info) => {
     const { state, errors, requests } = await prepare(page, false, false, village);
     const pin = JSON.parse(await readFile(resolve('src/data/sector-models', kind + '.json'), 'utf8'));
-    const defender = page.locator('.stronghold-anbu-station');
+    const defender = page.locator('.stronghold-shadowguard-station');
     await expect(defender).toHaveClass(/has-sector-model/);
     const sprite = defender.locator('.sector-model-figure');
     await expect(sprite).toHaveAttribute('data-clip', 'idle');
     await expect(sprite).toHaveCSS('background-image', /blob:/);
-    await expect(defender.locator('.stronghold-anbu')).toHaveCSS('opacity', '0');
+    await expect(defender.locator('.stronghold-shadowguard')).toHaveCSS('opacity', '0');
     expect(requests.has('/fixture-art/' + kind + '/' + pin.manifestSha256 + '.json')).toBe(true);
     const painted = await sprite.evaluate(async element => {
         const css = getComputedStyle(element), rect = element.getBoundingClientRect();
@@ -98,7 +98,7 @@ for (const [village, kind] of [
     expect(Math.abs(painted.footY - painted.groundY)).toBeLessThan(painted.tileSize * .15 + 2);
     await writeFile(info.outputPath('defender-paint.json'), JSON.stringify({ village, kind, revision: pin.manifestSha256, ...painted }));
     await page.screenshot({ path: info.outputPath('defender-vault.png') });
-    await page.getByRole('button', { name: /^Anbu vault, row/ }).click();
+    await page.getByRole('button', { name: /^Shadowguard vault, row/ }).click();
     await expect.poll(() => page.evaluate(() => document.body.dataset.challenge)).toBe('true');
     expect(state.steps).toEqual([]);
     expect(errors).toEqual([]);
