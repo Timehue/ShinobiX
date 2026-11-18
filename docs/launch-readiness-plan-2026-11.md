@@ -53,6 +53,16 @@ Three causes, all in the arrival path:
 
 Not changed: server, saves, movement authority, travel time, rewards. Sectors sit 46+ tiles apart in the world layout, so no neighbouring floor is ever on screen at arrival. The warm-up therefore only covers the destination.
 
+**The 3 s wait itself (measured 2026-11-18).** Fast travel's mask is `WORLD_TRAVEL_MS = 3_000` (`api/player/travel.ts`), a deliberate "short loading mask, not a distance tax"; walking through a road exit is already instant. The arrival probe re-ran on the throttled phone profile with the mask shortened, arriving at sector 15 with its road wanderer (4 runs each; times after the mask ends):
+
+| Mask | Own model | Wanderer model | World ready |
+|---|---|---|---|
+| 3 s (live) | 40–58 ms | 41–57 ms | ~650 ms |
+| 1.5 s | 40–75 ms | 690–1,076 ms | ~650 ms |
+| 1 s | 506–1,217 ms | up to 1,701 ms | ~650 ms |
+
+On a slow phone the 3 s is the warm-up's working time: at 1.5 s the road's figures pop in again, and at 1 s so does the player's own figure. A fixed shorter mask therefore trades the wait for the pop-in the user also reported. The alternative is an adaptive mask that ends when the warm-up finishes (at least ~1 s, at most 3 s). It needs the server's travel lease (`arrivalAt`, which also sets the untouchable window and attackability) to accept an earlier arrival, so it is a server and anti-cheat change. **Owner ruling 2026-11-18: keep 3 s.** Arrival is now complete when the mask ends, even on a slow phone.
+
 ### What is still slow, and the next step
 
 - **`ready` still costs two round trips (GET, then the adopting POST). Reviewed 2026-11-18 and kept.** The ground and the player show during that time; the residents, buildings, movement and the run button wait for it. Overlapping the two would save one round trip (about 0.15 s on a phone) for those layers, but it means either a server-authority change or letting the world start before the server has adopted the player's position, in the core movement code. A bug there costs far more than 0.15 s, so this stays as it is unless a real-phone check shows the residents' wait is noticeable.
