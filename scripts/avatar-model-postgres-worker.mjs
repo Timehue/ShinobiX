@@ -31,6 +31,19 @@ const server = createServer(async (req, res) => {
 });
 await new Promise(done => server.listen(0, '127.0.0.1', done));
 process.send({ ready: true, port: server.address().port });
+// A fail-closed lock that stays held past its ~0.4 s of attempts answers a
+// racing request with LockContendedError, which a real client sees as a 503 and
+// retries. Retry it here the same way, so a slow CI database cannot turn the
+// losing racer's wait into a test failure; every other error still fails.
+async function retryContended(work) {
+    for (let attempt = 0; ; attempt++) {
+        try { return await work(); }
+        catch (error) {
+            if (error?.name !== 'LockContendedError' || attempt >= 40) throw error;
+            await new Promise(done => setTimeout(done, 100));
+        }
+    }
+}
 process.on('message', async ({ id, command, input }) => {
     try {
         if (!/^pgmodel[a-f0-9]+$/.test(input.slug)) throw new Error('Invalid fixture owner');
@@ -41,14 +54,18 @@ process.on('message', async ({ id, command, input }) => {
             pipelineVersion: 'pg-admission-fixture', kitVersion: 'pg-admission-fixture',
             path: 'A', summary: 'Completed fixture portrait read', revision: 0, expiresAt: Date.now() + 300_000,
         });
-        else if (command === 'remove') value = await removePlayerModel(input, 'admin:full');
-        else if (command === 'erase') value = await sweepDeletedModelOwners();
+        else if (command === 'remove') value = await retryContended(() => removePlayerModel(input, 'admin:full'));
+        else if (command === 'erase') value = await retryContended(() => sweepDeletedModelOwners());
         else if (command === 'notice') await pushOfflineNotice(input.slug, {
             kind: 'bounty-placed', by: 'Fixture', sector: 0, at: Date.now(), amount: 100, total: 100,
         });
         else throw new Error('Unknown fixture command');
         process.send({ id, value });
-    } catch { process.send({ id, error: 'fixture-command-failed' }); }
+    } catch (error) {
+        // Name the failure: a bare "failed" left the 2026-11-18 main CI run with
+        // nothing to read.
+        process.send({ id, error: `fixture-command-failed (${command}): ${error?.name ?? 'Error'}: ${String(error?.message ?? error).slice(0, 300)}` });
+    }
 });
 process.on('disconnect', async () => {
     server.closeAllConnections(); server.close();
