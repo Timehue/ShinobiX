@@ -23,6 +23,17 @@ Measured with a timing probe on the production build, over a throttled phone con
 | "Connecting to world…" banner | shown for the whole connect | hidden unless the connect takes over 1.2 s |
 | Road residents (SectorLife) start mounting | after 2 server round trips | unchanged (still on `ready`, see below) |
 
+Re-measured 2026-11-18 on the shipped build (#123 live), same throttled profile, with the **live model art** served through the probe from `img.shinobijourney.com/sector-models` (150 ms + size at ~1.2 MB/s per file). 9 arrivals, desktop and phone sizes:
+
+| After the travel mask ends | Measured |
+|---|---|
+| First painted ground | 97–190 ms (desktop); first frame on phone |
+| The player's own model (starter) | **56–192 ms**, every run |
+| A road wanderer's model, when the wanderer is on screen | already drawn in 8 of 9 runs. In 1 run it was a portrait circle for ~1.2 s (in view at 152 ms, model at 1,387 ms) |
+| World walkable (`ready`) | 0.65–1.3 s |
+
+The one remaining visible gap is that occasional wanderer. It is still unverified on a real phone over mobile data (`docs/owner-launch-filings.md` section 7).
+
 Three causes, all in the arrival path:
 
 - **The world rebuilt from nothing after the mask.** `WorldMap` swaps the whole scene for `TravelingOverlay` during travel, so `ContinuousWorldSector` mounted only once the mask ended. `mountContinuousWorld` then waited for the server's position (`GET /api/player/world-move`) before it drew a single frame, leaving a blank canvas for one round trip.
