@@ -34,6 +34,13 @@ Re-measured 2026-11-18 on the shipped build (#123 live), same throttled profile,
 
 The one remaining visible gap is that occasional wanderer. It is still unverified on a real phone over mobile data (`docs/owner-launch-filings.md` section 7).
 
+**Why the wanderer gap happens.** During the travel wait, `warmSectorArrival` (`lib/sector-arrival-warm.ts`) decodes one page per figure: its standing, front-facing frame. A wanderer that arrives walking, or facing another way, needs a different page. Until that page lands, `SectorModelFigure` shows the portrait circle (`waitForArt`), because the figure has never painted. On the throttled profile that page takes about a second.
+
+**[OWNER] choice:**
+- (a) Warm more pages per wanderer. The 9 MB decoded budget cannot hold all eight walking facings for several people, so this only narrows the gap.
+- (b) Draw the warmed standing frame as a stand-in until the right page lands. The portrait never shows, but a walking wanderer glides in a standing pose for up to a second. That changes model presentation, which the owner reviews.
+- (c) Leave it: the gap is occasional, and only on a slow connection.
+
 Three causes, all in the arrival path:
 
 - **The world rebuilt from nothing after the mask.** `WorldMap` swaps the whole scene for `TravelingOverlay` during travel, so `ContinuousWorldSector` mounted only once the mask ended. `mountContinuousWorld` then waited for the server's position (`GET /api/player/world-move`) before it drew a single frame, leaving a blank canvas for one round trip.
