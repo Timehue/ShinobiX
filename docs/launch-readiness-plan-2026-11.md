@@ -235,6 +235,17 @@ Minor items:
 11. **UK Online Safety Act.** Chat makes the game in scope regardless of size, so a written illegal-content and children's-access risk assessment is required. **[LAWYER]** *Medium.*
 12. **Google Play.** Before submission: the Data safety form must match what is really collected (IP, fingerprint, chat, purchases, PostHog, Sentry); the IARC questionnaire must declare chat and purchases; and if Play users can ever buy, Play Billing is required. *Before the Play release.*
 13. **IP clearance.** Get a trademark search on "Shinobi Journey". Keep technique, character and clan names generic and original (the ip-hygiene test already guards competitor names). Keep records of human creative work on AI-assisted art, since purely AI output is not copyrightable in the US. **[LAWYER]** for the trademark search.
+14. **The Terms' purchase claims overstate what play can earn. [OWNER] + [LAWYER], found 2026-11-18.** The Terms (`LegalPage.tsx`, conduct and purchases section) say "Everything Fate Shards buy can also be earned by playing" and that Supporter "grants no combat advantage". An audit of every Shard sink in `api/` found:
+    - **Supporter does give a PvP edge.** It raises the jutsu loadout from 12 to 15 (`LOADOUT_CAP_SUB`), and `normalizeHumanPvpLoadout` (`api/pvp/session.ts`) deliberately keeps all 15 in human PvP. Tests pin this.
+    - **The strongest gear is Shard-only.** Legendary armour costs 150 Shards a piece, with +30 to every offense and defense stat (`api/pvp/_item-catalog.ts`). Mythic weapons cost 100 Shards. Pet PvP gear, evolution stones and Named forge rolls (200) have no drop or craft path either. Crafting stops at rare armour and legendary weapons (`api/craft/_forge.ts`), and gear drops stop below legendary (`shared/gear-steps.ts`). The only other route is buying from another player on the Exchange.
+    - **Shards themselves are earnable, but slowly.** Login, the weekly board, the Spire, towers, Hollow Gate, quests, clan boss and war each pay a few a week, plus one-time tower clears (~160). A 900-Shard armour set is a long grind.
+    - **Not tradeable and Shard-only:** stat respec, the chosen Awakening reroll, profession and village transfer scrolls, the Ancient Beast Seal, golden tools and custom titles.
+
+    The "earnable" sentence is true only because Shards themselves drop. "No combat advantage" is contradicted by the PvP loadout. Misleading purchase claims are an EU CPC and FTC risk, and they clash with the balanced-PvP design pillar.
+    - *Options for the wording:* say exactly what is true ("Fate Shards can also be earned by playing; Supporter adds three jutsu slots, which also apply in PvP"); or cap human PvP at the 12-slot base for everyone.
+    - *Options for the gear:* add play paths (drops, crafting) for legendary armour, mythic weapons and pet PvP gear.
+
+    Both gear options are balance changes, so they wait on the owner. The wording needs the lawyer review. *High*, because the claim is on the page players read before paying.
 
 Sources (security and legal):
 - Lovable Supabase RLS flaw: https://nvd.nist.gov/vuln/detail/CVE-2025-48757
