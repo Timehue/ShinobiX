@@ -449,13 +449,10 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     // its model at once instead of the portrait while the page for the
                     // way it walks downloads. From the next frame its real heading and
                     // stride take over, and the painted frame holds until they land.
-                    const standIn = !lastSheet;
-                    if (standIn) { view = 0; gait = "idle"; stride = {page:"idle",time:0}; index = 0; }
+                    if (!lastSheet) view = 0;
                     const bank = facingBank(view);
                     if (!bank) { waitForArt(painted ? PAINTED_GRACE_MS : 400); return; }
-                    if (standIn) {
-                        // Stands this frame; the stride starts once the figure is on screen.
-                    } else if (pos.snapped || !prior || prior.width !== pos.width || (!pos.routed && (dt > .35 || distance > 45))) {
+                    if (!lastSheet || pos.snapped || !prior || prior.width !== pos.width || (!pos.routed && (dt > .35 || distance > 45))) {
                         gait = "idle";
                         stride = {page:"idle",time:0};
                         index = 0;
