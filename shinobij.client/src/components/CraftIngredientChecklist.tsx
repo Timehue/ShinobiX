@@ -13,12 +13,12 @@ export function CraftIngredientChecklist({ rows }: { rows: readonly CraftCheckli
                     <span className="cf-check-mark" aria-hidden="true">{row.state === 'done' ? '✓' : ''}</span>
                     <span className="cf-check-name">
                         {row.name}
-                        {row.orBetter && <><span className="cf-check-grade" aria-hidden="true">+</span><span className="cf-sr-only"> or better</span></>}
+                        {row.orBetter && <><span className="cf-check-grade" aria-hidden="true">+</span><span className="ui-sr-only"> or better</span></>}
                     </span>
                     <span className="cf-check-count">
                         {row.have}/{row.need}
                         {row.extra > 0 && <span className="cf-check-extra"> +{row.extra}</span>}
-                        <span className="cf-sr-only">, {STATE_TEXT[row.state]}</span>
+                        <span className="ui-sr-only">, {STATE_TEXT[row.state]}</span>
                     </span>
                 </li>
             ))}

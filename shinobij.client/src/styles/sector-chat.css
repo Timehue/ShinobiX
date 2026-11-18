@@ -138,10 +138,6 @@
 .map-instance .sector-hud .sector-chat-send:disabled { opacity: .45; }
 
 .sector-chat-notice { margin: 0; color: #f1c8aa; font-size: 12px; line-height: 1.45; }
-.sector-chat-sr {
-    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
-    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
-}
 
 @media (hover: hover) {
     .sector-chat-line:hover .sector-chat-report { opacity: 1; }

@@ -518,7 +518,7 @@ export function IntroCinematic({
                     >
                         {fullText.slice(0, typedCount)}
                     </p>
-                    <span className="icx-sr">{fullText}</span>
+                    <span className="ui-sr-only">{fullText}</span>
                     {typingDone && !companionMode && phase.stage === "pre" && phase.idx === 0 && (
                         <span className="icx-tap-hint">Tap anywhere to continue</span>
                     )}

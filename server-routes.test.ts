@@ -212,6 +212,16 @@ describe('Express route parity (Railway + cPanel)', () => {
         );
     });
 
+    it('defaults every API answer to private, no-store unless its handler sets its own caching', () => {
+        const start = serverSrc.indexOf('function route(path: string');
+        const adapter = serverSrc.slice(start, serverSrc.indexOf('await handler(req, res);', start));
+        assert.match(adapter, /if \(!res\.getHeader\('Cache-Control'\)\) res\.setHeader\('Cache-Control', 'private, no-store'\);/,
+            'per-player API responses must not be cacheable by Cloudflare by default');
+        for (const shared of ['api/game-state.ts', 'api/world-state.ts', 'api/weekly-boss.ts', 'api/img.ts']) {
+            assert.match(readFileSync(join(HERE, shared), 'utf8'), /Cache-Control/, `${shared} keeps its explicit shared caching`);
+        }
+    });
+
     it('404s missing static asset URLs before the SPA fallback', () => {
         assert.match(serverSrc, /_STATIC_ASSET_URL_RE/, 'missing static asset URL guard');
         assert.match(serverSrc, /Static asset not found/, 'missing asset guard should return a clear 404 body');

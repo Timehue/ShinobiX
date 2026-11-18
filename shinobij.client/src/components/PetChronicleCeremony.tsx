@@ -26,7 +26,7 @@ export function PetChronicleCeremony({
 
     return (
         <section className="pet-chronicle-ceremony" aria-labelledby={headingId}>
-            <p className="pet-chronicle-ceremony__announcement" role="status" aria-live="polite" aria-atomic="true">
+            <p className="ui-sr-only" role="status" aria-live="polite" aria-atomic="true">
                 {copy.announcement}
             </p>
             <div className="pet-chronicle-ceremony__seal" aria-hidden="true">記</div>

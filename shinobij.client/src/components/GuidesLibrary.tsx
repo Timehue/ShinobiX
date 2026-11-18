@@ -493,7 +493,7 @@ export function GuidesLibrary({ onExit }: { onExit: () => void }) {
                                 <h2 id="guides-discovery-heading">What are you trying to do?</h2>
                             </div>
                             <label className="guides-search">
-                                <span className="guides-sr-only">Search guides</span>
+                                <span className="ui-sr-only">Search guides</span>
                                 <GiSpyglass aria-hidden="true" />
                                 <input
                                     type="search"

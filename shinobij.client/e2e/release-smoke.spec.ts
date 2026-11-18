@@ -359,6 +359,7 @@ test('a first-time Google user lands in the creator and registers without a pass
     await expect(page.locator('#cc-password')).toHaveCount(0);
     await expect(page.locator('#cc-confirm-password')).toHaveCount(0);
 
+    await page.locator('#cc-birth-year').selectOption('1995');
     await page.getByRole('button', { name: 'Enter the world', exact: true }).click();
     await expect.poll(() => registration).not.toBeNull();
     // The Google identity rides the server-side ticket, never the request body.

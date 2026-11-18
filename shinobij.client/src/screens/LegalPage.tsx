@@ -39,8 +39,13 @@ type LegalDocument = {
 // terms (the URL Play Console requires for the 1st Shinobi Reward Box is
 // /purchases-and-refunds#preregistration-reward).
 // 1.12: Make Model processing, visibility and monthly Supporter eligibility.
-const LAST_UPDATED = "November 10, 2026";
-const VERSION = "1.12";
+// 1.13: the privacy policy names PostHog, which receives the aggregate product
+// analytics events (and, like any web request, their IP address). It had been
+// left out of the provider list. Notices names the EU DSA single point of
+// contact and credits Inter, Marcellus, fflate and h264bsd, whose licences
+// already shipped in public/ without a player-facing credit.
+const LAST_UPDATED = "November 16, 2026";
+const VERSION = "1.13";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -149,7 +154,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 id: "providers",
                 title: "Service providers",
                 content: <>
-                    <p>Hosting and database providers process game data to run the service. Error reporting may be sent to Sentry when that feature is configured. When optional AI image generation is enabled and used, the submitted prompt is sent to OpenAI to generate the requested image.</p>
+                    <p>Hosting and database providers process game data to run the service. Error reporting may be sent to Sentry when that feature is configured. Aggregate product analytics (named gameplay events such as finishing a tutorial step, with no account name, player identifier or cookie) are sent to PostHog; as with any web request, PostHog receives the IP address the event comes from. When optional AI image generation is enabled and used, the submitted prompt is sent to OpenAI to generate the requested image.</p>
                     <p>When you use Make Model, OpenAI screens an image from your saved portrait, and Modal runs the portrait and sprite processing. OpenAI may also process portrait and model images to produce or review the result. The game stores working files privately. Finished sprite files are published through our asset service, and other players can see your world model when you equip it. You can play with a default character without using Make Model.</p>
                     <p>If you choose to sign in with Google, that sign-in happens on Google's own pages and is governed by Google's privacy policy. We receive only your email address and a Google account identifier, and we send Google nothing about your character or play. Choosing another sign-in method means no data is exchanged with Google at all.</p>
                     <p>These providers process information for their service roles. Shinobi Journey does not sell personal information and does not share it for behavioral advertising.</p>
@@ -475,7 +480,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 title: "Provider and contact",
                 content: <>
                     <p>Shinobi Journey is an independent browser game. For account, legal, privacy, copyright, or safety matters, contact the operator by email at <a href="mailto:support@shinobijourney.com">support@shinobijourney.com</a>, or privately through the official community link on the main page.</p>
-                    <p>Email is the direct contact point for formal notices; community channels are for general help. Please do not put passwords, session tokens, or identity documents in any public channel.</p>
+                    <p>That address is also the single point of contact for users and for authorities under the EU Digital Services Act (Articles 11 and 12); write in English. Email is the direct contact point for formal notices; community channels are for general help. Please do not put passwords, session tokens, or identity documents in any public channel.</p>
                 </>,
             },
             {
@@ -494,6 +499,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 content: <>
                     <p>Shinobi Journey includes open-source components. Their licences are honoured and their notices are preserved.</p>
                     <p><strong>Roboto</strong> — Copyright 2011 Google Inc., used under the Apache License 2.0. It renders the label on the "Sign in with Google" button, whose branding guidelines call for that typeface. The font is served from this site rather than from Google's font service, so displaying it sends nothing to a third party. The full licence ships with the game at <a href="/fonts/roboto-LICENSE.txt">/fonts/roboto-LICENSE.txt</a>.</p>
+                    <p>Every bundled font and library (Inter, Marcellus, fflate, h264bsd), its copyright and its licence: <a href="/licenses/THIRD-PARTY-NOTICES.txt">third-party notices</a>.</p>
                     <p>The Google "G" mark on that button is a trademark of Google LLC, reproduced under Google's Sign in with Google branding guidelines. Shinobi Journey is not affiliated with, endorsed by, or sponsored by Google.</p>
                 </>,
             },

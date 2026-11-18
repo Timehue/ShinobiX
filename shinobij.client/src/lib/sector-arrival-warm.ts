@@ -7,6 +7,7 @@ import { prefetchSectorLife } from "./sector-life-api";
 import { loadSectorModel, sectorModelFolder } from "./sector-model-manifest";
 import { prefetchSectorPresentation, sectorPlayerGaitsOn, worldModelArtBase } from "./sector-obstacles";
 import { wandererAvatar } from "./wanderer-art";
+import { warmLifePainting, warmWorldFloors } from "./world-floor-warm";
 
 const modelForPerson = (person: Wanderer) => portraitModels.get(person.avatarImage || wandererAvatar(person.avatarKey));
 
@@ -42,6 +43,8 @@ async function warmFigure(artBase: string, figure: ArrivalFigure, budget: number
 export async function warmSectorArrival({ sector, player, self, cast }: {
     sector: number; player: string; self: ArrivalFigure | null; cast: readonly Wanderer[];
 }): Promise<void> {
+    // The floors the arriving world paints first, decoded while the mask is up.
+    warmWorldFloors(sector);
     void loadContinuousWorld().catch(() => {});
     // Only sectors that run a road scene ask for one (the same gate useSectorLife uses).
     const life = isPlayableWildSector(sector) ? prefetchSectorLife(player, sector) : Promise.resolve(undefined);
@@ -54,7 +57,10 @@ export async function warmSectorArrival({ sector, player, self, cast }: {
     let budget = ARRIVAL_WARM_BYTES;
     const own = arrivalFigures(sectorPlayerGaitsOn() ? self : null, [], () => undefined);
     for (const figure of own) budget -= await warmFigure(artBase, figure, budget).catch(() => 0);
-    const people = await life.then(reply => reply?.view?.actors.map(actor => actor.wanderer) ?? [], () => []);
+    const people = await life.then(reply => {
+        if (reply?.view?.painting) warmLifePainting(reply.view.painting);
+        return reply?.view?.actors.map(actor => actor.wanderer) ?? [];
+    }, () => []);
     const others = arrivalFigures(own[0] ?? null, [...people, ...cast], modelForPerson).slice(own.length);
     for (const figure of others) {
         if (budget <= 0) break;

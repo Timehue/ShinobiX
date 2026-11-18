@@ -176,7 +176,7 @@ export default function KamaReaping({ attempt, busy, resolve }: {
         <p className="kama-status" role="status">{message}</p>
         <p className="kama-help" id="kama-help">{relaxed ? 'Animation mode uses your skill’s baseline success rate.'
             : 'Swipe across the stalks · or tap a stalk and press Reap when the dashed line crosses its band. Each Reap also takes the nearest stalk ·Arrows + Space'}</p>
-        <span className="kama-sr-only" id="kama-stalks">{`Stalk ${standing.indexOf(target) + 1} of ${standing.length} standing is selected.${partner === undefined ? '' : ` Reap also cuts stalk ${standing.indexOf(partner) + 1}.`}`}</span>
+        <span className="ui-sr-only" id="kama-stalks">{`Stalk ${standing.indexOf(target) + 1} of ${standing.length} standing is selected.${partner === undefined ? '' : ` Reap also cuts stalk ${standing.indexOf(partner) + 1}.`}`}</span>
         {!relaxed && !over && <button type="button" className="resource-primary" disabled={!canStrike || elapsed - lastAt < KAMA_STROKE_GAP_MS} onClick={() => strike(null)}>Reap at the line</button>}
         {done && <button type="button" autoFocus className="resource-primary" disabled={busy} onClick={() => resolve(relaxed ? {} : { events: inputRef.current })}>{busy ? 'Recording result…' : 'Recover result'}</button>}
     </div>;

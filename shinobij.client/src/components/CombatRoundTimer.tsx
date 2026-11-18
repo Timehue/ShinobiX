@@ -169,7 +169,7 @@ export function CombatRoundTimer({
                 screen reader. This live region carries it without touching the
                 visible layout, and its text changes exactly ONCE — at the
                 threshold — rather than once per second. */}
-            <span className="round-timer-sr" aria-live="polite">
+            <span className="ui-sr-only" aria-live="polite">
                 {remaining <= 10 ? "Under ten seconds left in your turn" : ""}
             </span>
         </div>

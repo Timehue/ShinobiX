@@ -612,6 +612,12 @@ jobs:
             fi
             tee -a "$log" < "$attempt_out"
             if ! grep -qE 'audit endpoint returned an error|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ERR_SOCKET_TIMEOUT' "$attempt_out"; then
+              # Passes only when every high/critical advisory is listed in
+              # scripts/npm-audit-allowlist.json with a reason and an unexpired date.
+              if node scripts/npm-audit-allowlist.mjs shinobij.client 2>&1 | tee -a "$log"; then
+                echo "::warning::npm audit found only allowlisted advisories (scripts/npm-audit-allowlist.json); remove each once a fix is published."
+                exit 0
+              fi
               echo "::error::npm audit reported a high-severity advisory."
               exit 1
             fi
