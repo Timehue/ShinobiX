@@ -14,7 +14,7 @@ export function PetChronicleProgress({ receipt }: { receipt: PetChronicleProgres
 
     return (
         <section className="pet-chronicle-progress" aria-labelledby={headingId}>
-            <p className="pet-chronicle-progress__announcement" role="status" aria-live="polite" aria-atomic="true">
+            <p className="ui-sr-only" role="status" aria-live="polite" aria-atomic="true">
                 {entries.map(({ copy }) => copy.announcement).join(" ")}
             </p>
             <div className="pet-chronicle-progress__seal" aria-hidden="true">記</div>

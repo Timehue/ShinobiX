@@ -51,7 +51,7 @@ type AuditEntry = {
     entityType?: string; entityId?: string; before?: unknown; after?: unknown;
     reason?: string; meta?: Record<string, unknown>;
 };
-type AuditDomain = "content" | "reward" | "sector" | "combat" | "legacy";
+type AuditDomain = "content" | "reward" | "sector" | "combat" | "legacy" | "admin" | "auth";
 type DiagnosticsSection = "capabilities" | "assets" | "receipts" | "audit" | "economy" | "beta" | "balance" | "operations" | "index";
 
 const DIAGNOSTICS_SECTIONS: readonly DiagnosticsSection[] = [
@@ -720,6 +720,8 @@ export function AdminDiagnosticsPanel({ adminPw, fullAdmin = false }: { adminPw:
                             <option value="sector">sector</option>
                             <option value="combat">combat</option>
                             <option value="legacy">legacy</option>
+                            <option value="admin">admin</option>
+                            <option value="auth">auth</option>
                         </select>
                         <button onClick={() => void loadAudit(auditDomain)} disabled={!adminPw}>↻ Refresh</button>
                         {auditStatus && <span style={{ color: "#f88" }}>{auditStatus}</span>}

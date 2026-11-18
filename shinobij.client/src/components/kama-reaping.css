@@ -14,7 +14,6 @@
 .resource-dialog .kama-help{margin:0 0 13px;text-align:center;font-size:10px;color:var(--kama-muted);line-height:1.5}
 .kama-game>.resource-primary{width:100%;min-height:46px}
 .kama-game[data-done] .kama-field{border-color:#d6b978}
-.kama-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 @media(max-width:600px){.kama-game .gather-game-heading h3{font-size:24px}.kama-field{width:min(100%,calc(40dvh * 1.5))}.kama-strokes{top:8px;right:8px;padding:5px;font-size:9px;gap:3px}.kama-strokes>span{display:none}.kama-gust{top:8px;left:8px}.resource-dialog .kama-status{font-size:12px}.resource-dialog .kama-help{font-size:9px}}
 /* Short landscape phones: the field on the left, words and the button on the right. */
 @media(min-width:480px) and (max-height:500px){.kama-game{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);grid-template-rows:32px auto auto 46px;gap:4px 14px;padding-top:6px}.kama-game>.gather-game-heading{grid-column:2;grid-row:1;padding:0}.kama-game .gather-game-heading h3{font-size:20px}.kama-game .resource-kicker,.kama-game .gather-game-method{display:none}.kama-field{grid-column:1;grid-row:1/5;width:min(100%,calc(78dvh * 1.5))}.resource-dialog .kama-status{grid-column:2;grid-row:2;margin:0;font-size:11px}.resource-dialog .kama-help{grid-column:2;grid-row:3;margin:0;font-size:8px}.kama-game>.resource-primary{grid-column:2;grid-row:4}.kama-strokes>span{display:none}}

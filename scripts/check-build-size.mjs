@@ -1458,11 +1458,19 @@ const AVATAR_MODE_JS_CSS_FAIL_BYTES = PLAYER_GAIT_JS_CSS_FAIL_BYTES + 1024;
 // 2,445 B: fast presentation-flag retry, boot prefetch, give-up reporting, and
 // own-figure decode and fetch priority. Allow 3 KiB.
 const FIGURE_LOADING_JS_CSS_FAIL_BYTES = AVATAR_MODE_JS_CSS_FAIL_BYTES + 3 * 1024;
+// Owner-approved 2026-11-17. Main d813e1214c's Production Image read 9,883,287 B, 547 B
+// over, after #118 (payment reversals list) and #120 (Awakening odds before purchase), so
+// those fixes could not deploy. The sector-arrival + launch-compliance PR adds about 600 B
+// more: the first frame painted during the position round trip, the travel-wait floor
+// decode, a neutral age screen, and the privacy/DSA text. Dead CSS is exhausted (one 165 B
+// rule left); that PR already folded 17 duplicate screen-reader-only rules into .ui-sr-only.
+// Allow 2 KiB. The startup gzip gate is unchanged.
+const LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES = FIGURE_LOADING_JS_CSS_FAIL_BYTES + 2 * 1024;
 const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,
     BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
     DIRECT_STRIKE_JS_CSS_FAIL_BYTES, COMBAT_SPRITE_JS_CSS_FAIL_BYTES, PLAYER_GAIT_JS_CSS_FAIL_BYTES,
-    AVATAR_MODE_JS_CSS_FAIL_BYTES, FIGURE_LOADING_JS_CSS_FAIL_BYTES,
+    AVATAR_MODE_JS_CSS_FAIL_BYTES, FIGURE_LOADING_JS_CSS_FAIL_BYTES, LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES,
 );
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);

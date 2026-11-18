@@ -1,0 +1,10 @@
+{
+  "advisories": [
+    {
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "package": "picomatch",
+      "reason": "ReDoS via repeated extglobs, published 2026-11-17 for every picomatch release (<=4.0.7), so no patched version exists to move to. In the client it is reached only through build tooling (vite, tinyglobby, eslint) that runs on our own glob patterns at build time; `npm audit --omit=dev` for the client is clean, so nothing shipped to players contains it. Remove this entry as soon as picomatch 4.0.8+ is published and the lockfile is updated.",
+      "expires": "2026-12-15"
+    }
+  ]
+}

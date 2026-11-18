@@ -67,7 +67,7 @@
     border-radius: 4px 18px 4px 18px;
     background: #0b121d;
     box-shadow: 0 35px 120px #000c, 0 0 70px #a8533220, inset 0 0 0 1px #f4d5a50a;
-    animation: fc-journal-enter .28s ease-out;
+    animation: game-toast-in .28s ease-out;
 }
 .fc-journal-scroll {
     max-height: calc(100dvh - 50px);
@@ -259,7 +259,6 @@
 .asm-ceremony:has(.fc-routes) .asm-seal { display: none; }
 .asm-ceremony:has(.fc-routes) .asm-copy { width: 100%; grid-row: 1; }
 
-@keyframes fc-journal-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 760px) {
     .fc-backdrop { padding: 12px; }
     .fc-journal { max-height: calc(100dvh - 24px); border-radius: 3px 13px 3px 13px; }

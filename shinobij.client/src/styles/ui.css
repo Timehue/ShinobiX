@@ -7,6 +7,10 @@
    legacy screen-specific styles.
    ========================================================================== */
 
+/* Read by screen readers, invisible on screen. One shared rule (the !important
+   flags keep it hidden inside screens whose own rules position text). */
+.ui-sr-only,.coach-guide-sr{position:absolute!important;width:1px!important;height:1px!important;margin:-1px;padding:0;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0}
+
 /* ---------------------------------------------------------------- Button --- */
 .ui-btn {
   display: inline-flex;

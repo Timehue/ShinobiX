@@ -14,6 +14,7 @@ import type { SignupCredential } from "../../lib/guest-play";
 import "./character-creator.css";
 
 const STEP_ORDER = CREATOR_STEPS.map((step) => step.id);
+const AGE_SCREEN_KEY = "ageScreen.v1";
 
 type TouchedFields = Record<keyof IdentityErrors, boolean>;
 
@@ -57,6 +58,12 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
     const [avatarId, setAvatarId] = useState<StarterAvatarId>("avatar-one");
     const [touched, setTouched] = useState<TouchedFields>(EMPTY_TOUCHED);
     const [submitting, setSubmitting] = useState(false);
+    // A neutral age screen (COPPA): the year is asked without hinting at the cutoff,
+    // never stored or sent, and an under-13 answer is remembered in this browser so
+    // going back and picking another year does not reopen the door.
+    const thisYear = new Date().getFullYear();
+    const [birthYear, setBirthYear] = useState("");
+    const [ageBlocked, setAgeBlocked] = useState(() => { try { return localStorage.getItem(AGE_SCREEN_KEY) === "under"; } catch { return false; } });
 
     const stepIndex = Math.max(0, STEP_ORDER.indexOf(step));
     const selectedAvatar = STARTER_AVATARS.find((avatar) => avatar.id === avatarId) ?? STARTER_AVATARS[0];
@@ -93,9 +100,14 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
 
     async function submitCharacter() {
         const errors = validateIdentity({ name, password, confirmPassword, requirePassword: wantsPassword });
-        if (hasIdentityErrors(errors)) {
+        if (hasIdentityErrors(errors) || !birthYear || ageBlocked) {
             setTouched(ALL_TOUCHED);
             goToStep("identity");
+            return;
+        }
+        if (thisYear - Number(birthYear) < 13) {
+            try { localStorage.setItem(AGE_SCREEN_KEY, "under"); } catch { /* blocked for this visit */ }
+            setAgeBlocked(true);
             return;
         }
 
@@ -210,6 +222,19 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
                                 />
                                 {identityErrorFor("name") && <em id="cc-name-error">{identityErrorFor("name")}</em>}
                             </label>
+
+                            <label className="cc-field" htmlFor="cc-birth-year">
+                                <span>Birth year</span>
+                                <select id="cc-birth-year" value={birthYear} disabled={ageBlocked}
+                                    onChange={(e) => setBirthYear(e.target.value)}
+                                    aria-invalid={touched.name && !birthYear}
+                                    aria-describedby={touched.name && !birthYear ? "cc-birth-year-error" : undefined}>
+                                    <option value="">Select</option>
+                                    {Array.from({ length: 100 }, (_, i) => thisYear - i).map((year) => <option key={year}>{year}</option>)}
+                                </select>
+                                {touched.name && !birthYear && !ageBlocked && <em id="cc-birth-year-error">Choose your birth year.</em>}
+                            </label>
+                            {ageBlocked && <p className="cc-signup-note" role="alert">Sorry, you can't create an account right now.</p>}
 
                             {wantsPassword && <>
                             <label className="cc-field" htmlFor="cc-password">
@@ -414,7 +439,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
                                     Back
                                 </button>
                             )}
-                            <button type="button" className="cc-primary" onClick={handlePrimaryAction} disabled={step === "identity" && submitting}>
+                            <button type="button" className="cc-primary" onClick={handlePrimaryAction} disabled={step === "identity" && (submitting || ageBlocked)}>
                                 {primaryLabelByStep[step]}
                             </button>
                         </div>

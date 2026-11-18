@@ -59,18 +59,20 @@ function headerString(req: ReqLike, key: string): string {
 }
 
 /**
- * Constant-time comparison of two strings. Returns false on length mismatch
- * without leaking the correct length via timing.
+ * Constant-time comparison of two strings. Both sides are zero-padded to the
+ * longer length and always compared in full, so there is no early return on a
+ * length mismatch: the time taken follows the longer input (which a caller
+ * controls), not the secret's length. The lengths are checked after the compare.
+ * No hashing: a fast hash over a password is exactly what CodeQL's
+ * insufficient-password-hash rule (rightly) rejects.
  */
 export function safeEqual(a: string, b: string): boolean {
-    const ba = Buffer.from(a);
-    const bb = Buffer.from(b);
-    if (ba.length !== bb.length) {
-        // Still do a compare to keep timing flat-ish.
-        timingSafeEqual(ba, ba);
-        return false;
-    }
-    return timingSafeEqual(ba, bb);
+    const ba = Buffer.from(a, 'utf8'), bb = Buffer.from(b, 'utf8');
+    const size = Math.max(ba.length, bb.length, 1);
+    const pa = Buffer.alloc(size), pb = Buffer.alloc(size);
+    ba.copy(pa); bb.copy(pb);
+    const same = timingSafeEqual(pa, pb);
+    return same && ba.length === bb.length;
 }
 
 // ─── Revocable player session tokens ──────────────────────────────────────────

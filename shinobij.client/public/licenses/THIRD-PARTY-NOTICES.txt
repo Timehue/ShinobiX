@@ -1,0 +1,25 @@
+Shinobi Journey - third-party notices
+
+Shinobi Journey includes the open-source components below. Each is used under
+its own licence, and the full licence text ships with the game at the path given.
+
+Roboto
+  Copyright 2011 Google Inc.
+  Apache License 2.0 - /fonts/roboto-LICENSE.txt
+
+Inter (latin subset, variable weight 400-800)
+  Copyright 2020 The Inter Project Authors
+  SIL Open Font License 1.1 - /fonts/inter-LICENSE.txt
+
+Marcellus (latin subset, regular 400)
+  Copyright 2012 The Marcellus Project Authors
+  SIL Open Font License 1.1 - /fonts/marcellus-LICENSE.txt
+
+fflate
+  Copyright (c) Arjun Barrett
+  MIT License - /licenses/fflate.txt
+
+h264bsd (video decoder)
+  Copyright (c) 2005-2008, The Android Open Source Project
+  Copyright (c) Simon Chan
+  Apache License 2.0 - /licenses/h264bsd.txt

@@ -408,6 +408,7 @@ async function createAccount(page: Page) {
     await page.getByLabel("Name").fill(PLAYER_NAME);
     await page.locator("#cc-password").fill("Audit!Pass1234");
     await page.locator("#cc-confirm-password").fill("Audit!Pass1234");
+    await page.locator("#cc-birth-year").selectOption("1995");
     await page.getByRole("button", { name: "Enter the World" }).click();
 }
 

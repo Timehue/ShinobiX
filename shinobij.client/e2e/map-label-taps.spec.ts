@@ -97,6 +97,11 @@ test("tapping a building's name opens that building", async ({ page }, info) => 
     const name = page.locator(".sector-building-threshold .sector-building-name", { hasText: "Fieldside Tea House" });
     await expect(name).toBeVisible();
     await name.scrollIntoViewIfNeeded();
+    // A resident standing near the arrival point greets the player once they have been on
+    // the board ~2.2 s, and the phone camera turns toward whoever is speaking, ahead of a
+    // landmark. Let that greeting come and go first, so the walk's camera aims at the tea house.
+    await page.waitForTimeout(2_500);
+    await expect(page.locator(".sector-wanderer-bubble")).toHaveCount(0, { timeout: 6_000 });
     // A phone shows ~7 tiles around the player: walk up to the tea house first.
     await walkUntilOnMap(page, name);
     const point = await centreOf(page, ".sector-building-threshold .sector-building-name");

@@ -965,7 +965,7 @@ export function ChronicleDuelBoard({
           ) : null}
         </div>
       </div>
-      <div className="chronicle-sr-only" aria-live="polite">
+      <div className="ui-sr-only" aria-live="polite">
         {attacker !== null && attackingMonster?.cardId
           ? `${(cardsById[attackingMonster.cardId] ?? getChronicleCard(attackingMonster.cardId))?.name ?? "Monster"} selected to attack. Focus an opponent Monster to hear its projected visible-stat outcome.`
           : smartAssistPending

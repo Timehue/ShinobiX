@@ -40,6 +40,7 @@ async function createCharacter(page: Page) {
     await page.getByLabel('Name').fill(PLAYER_NAME);
     await page.locator('#cc-password').fill(PASSWORD);
     await page.locator('#cc-confirm-password').fill(PASSWORD);
+    await page.locator('#cc-birth-year').selectOption('1995');
 
     const firstSave = page.waitForResponse((response) =>
         response.request().method() === 'POST'

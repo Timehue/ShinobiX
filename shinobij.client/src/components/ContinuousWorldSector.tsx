@@ -54,6 +54,8 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
         void mountContinuousWorld({ canvas: canvas.current!, chunk: chunk.current!, marker: marker.current!, signal: abort.signal,
             gait: () => gaitEnabled.current ? performance.now() < runningUntil.current ? 'run' : 'walk' : undefined,
             onRunWindow, sprintStyle: () => peerStyle.current,
+            // The tile the player is arriving on: its ground paints during the position round trip.
+            provisional: { sector: latest.current.sector, tile: latest.current.playerTile },
             groundStride: (...args) => {
                 if (!motion.matches) return model.current?.ground(...args);
                 model.current?.unground();
@@ -93,6 +95,8 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                 {!props.suspended && <ContinuousWorldTiles sector={props.sector} playerTile={props.playerTile} onPainting={onPainting} ready={ready} roadExits={props.roadExits} go={go} />}
                 {props.showLivePeers && !props.suspended && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} sleepers={props.sleeperPeers} />}
                 <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
+                    {/* Held for `ready`: the road's people and their work points are interactive, so they
+                        appear once the world can be walked and tapped, not during the first-frame preview. */}
                     {!props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}
                         traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} commit={props.onGatheringCommit} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
                     {!props.suspended && ready && props.gatheringCharacter && props.onGatheringCommit && <SectorBuildings key={props.gatheringCharacter.name} character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} onAtlas={props.onOpenAtlas} walk={(sector,tile)=>engine.current?.go(sector,tile)} />}
@@ -109,7 +113,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
             </div>
             {props.mapHudLayer}
             {gaits && ready && !props.suspended && !props.paused && <WorldRunButton timers={timers} onWindow={onRunWindow} />}
-            <div className="continuous-world-status" role="status" aria-live="polite">{status}
+            <div className="continuous-world-status" role="status" aria-live="polite" data-connecting={status === 'Connecting to world…' || undefined}>{status}
                 {status === STALE_WORLD_STATUS ? <button type="button" onClick={() => window.location.reload()}>Reload</button>
                     : !ready && status !== 'Connecting to world…' && <button type="button" onClick={() => { setStatus('Connecting to world…'); setRetry(value => value + 1); }}>Retry</button>}
             </div>
