@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SectorNpcLayerHost } from "./SectorNpcLayerHost";
 import type { Biome, WeatherType } from "../types/core";
 import { sectorName } from "../../../shared/sector-geo";
 import type { SectorDirection, SectorExit } from "../../../shared/sector-links";
@@ -207,10 +208,12 @@ export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
                 )}
                 </>}
 
+                <SectorNpcLayerHost>
                 {overlayLayer}
                 {!suspended && isCurrent && props.gatheringCharacter && props.onGatheringCommit && <SectorBuildings key={props.gatheringCharacter.name} character={props.gatheringCharacter} sector={sector} tile={playerTile} commit={props.onGatheringCommit} directRoadWalking={false} onAtlas={props.onOpenAtlas} walk={(targetSector,targetTile)=>{if(targetSector===sector)onSelectTile(targetTile);}} />}
                 {props.mapHudLayer}
                 {encounterLayer}
+                </SectorNpcLayerHost>
             </div>
         </main>
     );

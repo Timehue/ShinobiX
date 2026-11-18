@@ -283,6 +283,7 @@ test("the walking boss never takes another board piece's taps", () => {
     const board = {
         "trail signs": zIndexOf(read("../styles/index/29-clan-exchange-storefront.css"), ".sector-trace-overlay {"),
         wanderers: zIndexOf(read("../styles/index/11-sector-explore-village-themes.css"), ".sector-wanderer-overlay {"),
+        "the shared NPC layer": zIndexOf(read("../components/sector-npc-layer.css"), ".sector-npc-layer {"),
         "structures and the village entrance": zIndexOf(read("../styles/index/39-sector-world.css"), ".sector-ground-landmark, .sector-village-entrance {"),
         "cairns and authored story markers": zIndexOf(read("../styles/index/39-sector-world.css"), ".sector-ground-cairn, button.atlas-landmark.sector-story-authored {"),
         "story field markers": zIndexOf(read("../styles/index/29-clan-exchange-storefront.css"), "button.atlas-landmark.sector-story-field-marker {"),

@@ -850,6 +850,61 @@ test('a recurring traveler remembers a meeting and walks out along the road',asy
     await expect(nao).toHaveCount(0);
 });
 
+test('every NPC on the board shares one depth layer, and the lower one draws in front',async({page},info)=>{
+    // Each NPC used to be its own stacking context at z-index 6, so NPCs drew in
+    // mount order: a resident further up the board could cover one below it.
+    const route=travelerRoute(1);let slot=Math.floor(LIFE_SCENARIO_EPOCH/3_000_000)*10+8;
+    while(isWorldNight(slot*300_000+120_000))slot+=10;
+    const start=slot*300_000;
+    expect(route[(slot+2)%route.length]).toBe(15);
+    await page.clock.install({time:new Date(start+120_000)});
+    const save=uiAuditSave();save.currentSector=15;save.currentTile=115;
+    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([15],start)};
+    await installUiAuditRuntime(page,save);
+    await page.addInitScript(()=>{localStorage.setItem('dayCycle.hour','12');localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45]));});
+    await page.route('**/api/sector/life**',async request=>{
+        const now=await page.evaluate(()=>Date.now());
+        await request.fulfill({json:{ok:true,serverNow:now,view:lifeSceneView(15,parseLifeState(null,now),now,'clear')}});
+    });
+    await enterLifeSector(page,15);
+    await expect(page.locator('[data-life-resident="nao"]')).toBeVisible();
+    await page.clock.runFor(1_000);
+    const layering=await page.evaluate(()=>{
+        const chunk=document.querySelector('.continuous-world-chunk')!;
+        const overlays=[...chunk.querySelectorAll<HTMLElement>('.sector-wanderer-overlay')];
+        return {layers:chunk.querySelectorAll(':scope > .sector-npc-layer').length,
+            outside:overlays.filter(overlay=>!overlay.parentElement?.classList.contains('sector-npc-layer')).length,
+            figures:overlays.map(overlay=>({z:Number(getComputedStyle(overlay).zIndex),
+                foot:overlay.querySelector('.sector-wanderer-figure')!.getBoundingClientRect().bottom}))};
+    });
+    expect(layering.layers).toBe(1);
+    expect(layering.outside,'no NPC draws outside the board layer').toBe(0);
+    expect(layering.figures.length).toBeGreaterThanOrEqual(2);
+    for(const a of layering.figures)for(const b of layering.figures)
+        if(b.foot-a.foot>2)expect(b.z,'the NPC lower on the board is in front').toBeGreaterThanOrEqual(a.z);
+    // What a tap actually hits, not what the z-index says: at every NPC's centre the
+    // hit lands on the NPC that draws in front there, and every NPC can still be tapped.
+    const taps=await page.evaluate(()=>{
+        const figures=[...document.querySelectorAll<HTMLElement>('.continuous-world-chunk .sector-npc-layer .sector-wanderer-figure')];
+        const view=document.querySelector('.continuous-world-map')!.getBoundingClientRect();
+        const z=(figure:HTMLElement)=>Number(getComputedStyle(figure.parentElement!).zIndex);
+        const centre=(figure:HTMLElement)=>{const r=figure.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};};
+        // A phone shows about 7 tiles: an NPC whose centre is off the map view cannot be tapped at all.
+        return figures.filter(figure=>{const {x,y}=centre(figure);return x>view.left&&x<view.right&&y>view.top&&y<view.bottom;}).map(figure=>{
+            const {x,y}=centre(figure);
+            const under=figures.filter(other=>{const o=other.getBoundingClientRect();return x>=o.left&&x<=o.right&&y>=o.top&&y<=o.bottom;});
+            const front=under.reduce((best,other)=>z(other)>z(best)?other:best,figure);
+            const top=document.elementFromPoint(x,y),hit=top?.closest<HTMLElement>('.sector-wanderer-figure')??null;
+            return {name:figure.getAttribute('aria-label'),hitFront:hit===front,hitSomeNpc:!!hit,
+                over:hit?null:`${top?.tagName}.${top?.className}`};
+        });
+    });
+    expect(taps.length,'at least one NPC is on screen to tap').toBeGreaterThan(0);
+    expect(taps.filter(tap=>!tap.hitSomeNpc),'nothing outside the NPC layer covers an NPC here').toEqual([]);
+    expect(taps.filter(tap=>!tap.hitFront),'a tap lands on the NPC drawn in front').toEqual([]);
+    await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-npc-depth-layer.png`});
+});
+
 test('tea staff follow server weather and night while staying beside the painted table',async({page},info)=>{
     const day=Math.floor(LIFE_SCENARIO_EPOCH/WORLD_DAY_MS)*WORLD_DAY_MS;
     await page.clock.install({time:new Date(day+8*WORLD_HOUR_MS)});

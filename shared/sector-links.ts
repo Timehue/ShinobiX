@@ -1,4 +1,5 @@
-import { nearestWalkableTile, sectorWalkMask } from './sector-walk-mask';
+import { nearestWalkableTile, sectorWalkMask, tileNeighbors, walkableInMask } from './sector-walk-mask';
+import { lifeStandingTiles } from './sector-life-standing';
 import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts';
 import { sectorArtKey } from './sector-geo';
 /** Shared, reciprocal overworld road topology used by client and server. */
@@ -286,11 +287,41 @@ export function arrivalTileFromOrigin(origin: number, destination: number): numb
  */
 export function travelArrivalTile(origin: number, destination: number, obstaclesEnabled = true): number | null {
     const village = obstaclesEnabled ? SECTOR_FLOOR_LAYOUTS[sectorArtKey(destination)]?.village : undefined;
-    if (origin === 0 && village) return village.approach;
+    if (origin === 0 && village) return arrivalStandTile(destination, village.approach);
     const road = sectorExits(origin).find((exit) => exit.destinationSector === destination);
     const tile = road ? road.destinationTile : arrivalTileFromOrigin(origin, destination);
     if (tile === null && !sectorWalkMask(destination, obstaclesEnabled)) return null;
-    return nearestWalkableTile(destination, tile ?? 78, obstaclesEnabled);
+    return arrivalStandTile(destination, tile ?? 78, obstaclesEnabled);
+}
+
+/**
+ * The tile an arriving player is actually put on: `tile` grounded, then moved
+ * off any tile a sector-life resident rests, works or waits on.
+ *
+ * The centre tile (the fallback for leaving a village) is the default camp of
+ * most sectors' resident, and road crews post at the road mouths, so arrivals
+ * kept dropping the player inside an NPC for half the day. The step is the
+ * shortest walk to a free tile that is not on the board's edge (an edge tile
+ * could be an exit), preferring the same depth from the edge so a crossing
+ * still reads as one tile in from the seam, then the fewest residents beside
+ * it. Pure and shared: the server seals this tile and the client draws it.
+ */
+export function arrivalStandTile(sector: number, tile: number, obstaclesEnabled = true): number {
+    const start = nearestWalkableTile(sector, tile, obstaclesEnabled), taken = lifeStandingTiles(sector);
+    if (!taken.includes(start)) return start;
+    const mask = sectorWalkMask(sector, obstaclesEnabled), steps = new Map([[start, 0]]), queue = [start];
+    const depth = (t: number) => Math.min(t % 12, 11 - t % 12, Math.floor(t / 12), 11 - Math.floor(t / 12));
+    let best = start, score = Infinity;
+    for (const at of queue) {
+        const step = steps.get(at)!;
+        if (!taken.includes(at) && depth(at) > 0) {
+            const value = step * 10 + Math.abs(depth(at) - depth(start)) * 3
+                + taken.filter((t) => Math.max(Math.abs(t % 12 - at % 12), Math.abs(Math.floor(t / 12) - Math.floor(at / 12))) <= 1).length;
+            if (value < score) { best = at; score = value; }
+        }
+        for (const next of tileNeighbors(at)) if (walkableInMask(mask, next) && !steps.has(next)) { steps.set(next, step + 1); queue.push(next); }
+    }
+    return best;
 }
 
 /** `inwardTile` applied `steps` times, stopping early at the far edge. */

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { CASTLE_SECTORS, CINDERHOLD_GATE_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, PLAYABLE_WILD_SECTOR_IDS, playableFieldObjectiveSector, remapLegacySector, sectorArtKey } from "../../../shared/sector-geo";
-import { SECTOR_EXITS, sectorExits } from "../../../shared/sector-links";
+import { SECTOR_EXITS, arrivalStandTile, sectorExits } from "../../../shared/sector-links";
 import { SHRINE_DEFS } from "../../../shared/shrines";
 import { riftTargetSector } from "../lib/hollow-rifts";
 import { hollowRifts } from "./hollow-rifts";
@@ -122,11 +122,13 @@ function keepOut(scale: Scale, sector: number): { label: string; box: Box }[] {
     for (const exit of sectorExits(sector)) {
         zones.push({ label: `road-exit gate (tile ${exit.tile})`, box: grow(tileBox(scale, exit.tile, sector), authored ? 0 : scale.margin.gate) });
     }
-    // Where arriving players ACTUALLY stand: the destinationTile of every exit, from
-    // any sector, that leads here — the game's own value (one tile in), not a guess.
+    // Where arriving players ACTUALLY stand: every exit's destinationTile, from any
+    // sector, that leads here, stepped off a resident's tile the way the server does
+    // (arrivalStandTile) — the game's own value, not a guess.
     for (const exit of SECTOR_EXITS) {
         if (exit.destinationSector !== sector) continue;
-        zones.push({ label: `arrival tile ${exit.destinationTile} (from ${exit.sector})`, box: grow(tileBox(scale, exit.destinationTile, sector), authored ? 0 : scale.margin.arrival) });
+        const arrival = arrivalStandTile(sector, exit.destinationTile);
+        zones.push({ label: `arrival tile ${arrival} (from ${exit.sector})`, box: grow(tileBox(scale, arrival, sector), authored ? 0 : scale.margin.arrival) });
     }
     for (const shrine of SHRINE_DEFS) {
         if (shrine.sector === sector) zones.push({ label: `shrine ${shrine.id}`, box: authoredBox(sector, "shrine") ?? grow(shrineBox(scale, shrine.left, shrine.top), scale.margin.shrine) });

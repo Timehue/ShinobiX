@@ -14,7 +14,7 @@
 .continuous-world-tile{border:0;padding:0;background:none;box-shadow:none;pointer-events:none;min-width:0;min-height:0}
 .continuous-world-chunk button:not(.continuous-world-tile),.continuous-world-chunk [role=button]{pointer-events:auto}
 .continuous-world-tile:focus-visible{outline:2px solid #e5d39a;outline-offset:-3px;background:#ffeeb51a}
-.continuous-world-peers{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.continuous-world-peers{position:absolute;inset:0;pointer-events:none;overflow:visible;isolation:isolate}
 .continuous-world-peer{position:absolute;left:0;top:0;width:calc(var(--world-tile-px,30px)*.72);height:calc(var(--world-tile-px,30px)*.936);--marker-ring:#7dd3fc;pointer-events:none}
 .continuous-world-map .continuous-world-self{position:absolute;left:50%;top:50%;width:calc(var(--world-tile-px,30px)*.72);height:calc(var(--world-tile-px,30px)*.936);transform:translate(-50%,-100%);z-index:12;pointer-events:none;--marker-ring:rgba(230, 196, 119, .95)}
 .continuous-world-map[aria-busy=true] .continuous-world-self{visibility:hidden}

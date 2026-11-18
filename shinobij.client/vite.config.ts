@@ -29,7 +29,7 @@ import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { playerPasswordPolicyError } from './src/lib/player-auth-policy.ts';
 import { normalizeRecoveryCode, formatRecoveryCode } from './src/lib/recovery-code.ts';
-import { sectorExitById } from '../shared/sector-links.ts';
+import { arrivalStandTile, sectorExitById } from '../shared/sector-links.ts';
 import { SHRINE_DEFS } from '../shared/shrines.ts';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.ts';
 import { sectorContractFor, utcDayOf } from '../shared/sector-contracts.ts';
@@ -641,7 +641,7 @@ export default defineConfig({
                                 || exit.tile !== Number(body.originTile)) {
                                 sendJson(res, 409, { error: 'Move onto that road exit before crossing sectors.' }); return;
                             }
-                            arrivalTile = exit.destinationTile;
+                            arrivalTile = arrivalStandTile(destinationSector, exit.destinationTile);
                         }
                         // Mirror api/player/travel.ts: edge crossings are instant
                         // (walking is free movement); only map fast-travel wears the
