@@ -198,7 +198,7 @@ Minor items:
    - The year is never stored or sent (`e2e/age-screen.spec.ts` checks that).
 
    Still open: **[LAWYER]** on whether the game counts as "directed to children", and whether under-16s should get chat and purchases off by default (the UK children's code, FTC precedents).
-4. **Ban and forfeiture of purchases are not stated.** EU unfair-terms law and DSA Art. 17 (statement of reasons) apply. *Fix:* a Terms clause on what a ban does to Shards and Supporter time, plus a reason shown with every restriction (the ban reason exists; silences and chat removals should carry one too). **[LAWYER]** *High.*
+4. ✅ **Stated 2026-11-18 (Terms, v1.14).** The conduct section now says what a ban does, as the code does it: a timed ban blocks sign-in until it ends; a permanent ban also gives up village and clan seats and returns Exchange listings; neither removes or refunds Shards or Supporter time; neither cancels a subscription (owner ruling 2026-11-18), with a pointer to cancel through Tebex; and sign-in shows the ban's end date and recorded reason (`player-auth.ts` 403, `player-login.ts`), which is the DSA Art. 17 statement of reasons. Still open: **[LAWYER]** review of the wording, and silences and chat removals do not yet show the player a reason.
 5. **No registered DMCA agent** (the Copyright page says one "will be published"). *Fix:* register at copyright.gov/dmca-directory ($6, renew every 3 years) and name it on the page. Without it there is no safe harbour for player content. *High.*
 6. ✅ **DSA contact point done in this branch.** Notices now names support@shinobijourney.com as the single point of contact for users and authorities under DSA Articles 11–12. Still open: **[LAWYER]** on whether an EU or UK representative is needed (GDPR Art. 27, DSA Art. 13).
 7. ✅ **Done 2026-11-18 (privacy policy v1.14).** "Kept while needed" is replaced by the periods the code enforces: IP and device stamps 7 days, moderation linkage 90 days, sector and battle chat about an hour, village, clan and direct messages capped and removed after 30 idle days, save backups 90 days, off-site backups 14 days, logs capped at 5,000 entries. `docs/DATA_RETENTION_POLICY.md` keeps the full schedule.
@@ -268,6 +268,8 @@ Still to build, each its own PR:
 Dead CSS is exhausted: a full scan found one 165 B rule, in a QA stylesheet. Merging adjacent duplicate rules saves nothing, because the minifier already does it.
 
 ## 5. Decisions only the owner can make
+
+Every item below that needs a filing or a form has ready-to-use steps and answers in `docs/owner-launch-filings.md`.
 
 - The wipe policy, and what survives a reset (2 #2).
 - What happens to an account that #118 flags for spent Shards after a refund or chargeback: freeze, ban, or nothing (3.A #1).

@@ -47,7 +47,10 @@ type LegalDocument = {
 // 1.14: the privacy policy states concrete retention periods (read from the
 // TTLs and caps the code enforces; docs/DATA_RETENTION_POLICY.md has the full
 // schedule) instead of "kept while needed". The guest sweep it already
-// promised now actually deletes by default.
+// promised now actually deletes by default. The Terms state what a ban does
+// to purchases (EU unfair-terms / DSA Art. 17): it keeps Shards and Supporter
+// time, cancels nothing, and sign-in shows the ban's end and recorded reason
+// (player-auth.ts returns both on a 403).
 const LAST_UPDATED = "November 18, 2026";
 const VERSION = "1.14";
 
@@ -81,6 +84,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 content: <>
                     <p>You must follow the <a href="/community-rules">Community Rules</a>. Cheating, automation, exploit abuse, harassment, scams, malicious links, unauthorized access, and interference with the game or its APIs are prohibited.</p>
                     <p>Staff may investigate activity, preserve relevant evidence, remove content, reverse illegitimate gains, restrict features, suspend accounts, or close accounts based on context and severity.</p>
+                    <p><strong>What a ban does to purchases.</strong> A timed ban blocks sign-in until it ends. A permanent ban also gives up village and clan seats and returns Exchange listings to the save. Neither removes or refunds Shards or Supporter time already on the account, and neither cancels a Supporter subscription: cancel it through Tebex, using your receipt, if you no longer want it. Gains reversed for cheating are removed whether or not a ban follows. A banned account is shown the ban's end date and the reason staff recorded when it signs in, and can appeal it.</p>
                 </>,
             },
             {
