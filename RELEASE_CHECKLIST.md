@@ -24,7 +24,7 @@ have current evidence.
 - [ ] `SESSION_SECRET` set to a long random value
 - [ ] `ADMIN_PASSWORD` set
 - [ ] `ADMIN_CONTENT_PASSWORD` set
-- [ ] `RESTART_TOKEN` set and not equal to `KV_PROXY_TOKEN`
+- [ ] `RESTART_TOKEN` set if you want `POST /restart` (it is disabled without one; Railway's Restart covers the same need)
 - [ ] `CRON_SECRET` set if the manual cron endpoint is used
 - [ ] Production storage is the current Supabase/base-store topology; the retired cPanel overlay is not configured
 - [ ] Credentialed `/health?deep=1` confirms `saveStore=base-store` and a fresh backup

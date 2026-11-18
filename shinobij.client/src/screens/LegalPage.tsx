@@ -44,8 +44,12 @@ type LegalDocument = {
 // left out of the provider list. Notices names the EU DSA single point of
 // contact and credits Inter, Marcellus, fflate and h264bsd, whose licences
 // already shipped in public/ without a player-facing credit.
-const LAST_UPDATED = "November 16, 2026";
-const VERSION = "1.13";
+// 1.14: the privacy policy states concrete retention periods (read from the
+// TTLs and caps the code enforces; docs/DATA_RETENTION_POLICY.md has the full
+// schedule) instead of "kept while needed". The guest sweep it already
+// promised now actually deletes by default.
+const LAST_UPDATED = "November 18, 2026";
+const VERSION = "1.14";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -180,7 +184,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                 content: <>
                     <p>The game uses browser storage for sign-in, preferences, cached game state, and interrupted-session recovery. Details appear in the <a href="/cookies">Cookie and Local Storage Notice</a>.</p>
                     <p><strong>Guest characters are deleted automatically.</strong> A guest character has no password and no linked account, so it exists only in the browser that made it. If it goes fourteen days without being played, it and its save are deleted permanently and the name is released. Linking a Google account to it stops that clock immediately and makes it an ordinary account. Clearing your browser storage before you link one loses a guest character with no way to recover it — we hold nothing that could identify you as its owner.</p>
-                    <p>Records are kept while needed to operate accounts, shared game systems, security, moderation, troubleshooting, and backups. IP and device records are kept for abuse investigation. Some shared records — clan history, leaderboard entries, chat other players have seen — may need to be anonymized rather than removed. Current deletion is handled by request and is complete only after connected records have been reviewed.</p>
+                    <p><strong>How long records are kept.</strong> Your account and save are kept until you delete them. The IP address and device signal recorded against your account are kept for 7 days after you last use them, and the moderation records linking accounts to them for 90 days. Sector and battle chat is kept for about an hour. Village chat keeps its latest 30 messages, clan chat its latest 50 and each direct conversation its latest 200, and each is removed after 30 days without a new message. Daily save backups are kept for 90 days, and encrypted off-site backups for 14 days. Audit and moderation logs keep their most recent 5,000 entries, reports are kept until staff close them, and a ban is kept for as long as it lasts. Some shared records — clan history, leaderboard entries, chat other players have seen — may need to be anonymized rather than removed.</p>
                 </>,
             },
             {

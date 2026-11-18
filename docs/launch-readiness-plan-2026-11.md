@@ -40,7 +40,7 @@ Not changed: server, saves, movement authority, travel time, rewards. Sectors si
 
 ### What is still slow, and the next step
 
-- **`ready` still costs two round trips (GET, then the adopting POST).** The ground, the player and the residents now show during that time. Movement and the run button still wait for it. Folding the two into one request is a server-authority change, so it is left alone here.
+- **`ready` still costs two round trips (GET, then the adopting POST). Reviewed 2026-11-18 and kept.** The ground and the player show during that time; the residents, buildings, movement and the run button wait for it. Overlapping the two would save one round trip (about 0.15 s on a phone) for those layers, but it means either a server-authority change or letting the world start before the server has adopted the player's position, in the core movement code. A bug there costs far more than 0.15 s, so this stays as it is unless a real-phone check shows the residents' wait is noticeable.
 - **Phone camera glide.** On phones the camera eases about 1.5 s toward the nearest landmark/resident (the framing from #108). That is deliberate and not loading, but it reads as "settling". Snapping to the framed view on the first ready frame would be a small, separate UX change.
 - **Real-device check.** All numbers above come from Chromium with network emulation. Confirm on a real phone over mobile data after deploy.
 - Bundle: about +1.7 KB of lazy JS/CSS, with startup unchanged. Together with section 3's fixes, the whole branch fits the existing budget after trims (section 4).
@@ -159,7 +159,7 @@ That is better than most hand-written indie backends.
 
 1. ✅ **Fixed by #118 (merged).** Tebex refunds and chargebacks used to be only logged. They are now reversed, and Shards that were already spent are flagged for you. Details are in that PR.
 2. ✅ **Fixed by #119 (merged).** Admin save overwrites and server resets are recorded in the `admin` audit domain, and admin logins in the `auth` domain. This branch adds `admin` and `auth` to the admin console's audit viewer, so both can be read there. Logging only: no auth decision changed.
-3. **The reusable admin password works on every route** (`ADMIN_STRICT_TOKEN_ONLY` is off by default). *Fix:* set it in Railway production, and add a second factor or an IP allowlist for admin login. Configuration only; **owner action**. *High.*
+3. **Reviewed 2026-11-18: no change needed.** The reusable admin password is still accepted on admin routes (`ADMIN_STRICT_TOKEN_ONLY` is off by default), but turning strict mode on would add almost nothing. The admin panel already sends a signed token instead of the password (`authFetch.ts`). Wrong passwords are capped at 10 per 15 minutes per address on every route (`adminPasswordRole`), and an attacker who holds the password could mint a token at `/admin-auth` anyway. It would also break the operator scripts that send `x-admin-password` (`beta-daily-report.mjs`, the probes). The protection that would help is a second factor on admin login, which is a feature for later, not a setting.
 4. ✅ **Done in this branch.** API responses had no default `Cache-Control`: 121 handlers opted in to `no-store` one by one, and authenticated GETs such as `admin/moderation`, `clan/seal-pool/get`, `legacy/stats`, `sector/life` and `solo-pve/state` had none, while Cloudflare does cache some `/api` GETs. `server.ts`'s `route()` adapter now defaults every API answer to `private, no-store`. The 21 handlers that deliberately share a cached answer (`game-state`, `world-state`, `weekly-boss`, `img` and others) set their own header, which replaces the default. A test in `server-routes.test.ts` pins this.
 5. ✅ **Done in this branch; it runs once you add two secrets.** `.github/workflows/nightly-backup.yml` runs the runbook's own `kv-backup.mjs export` every night at 07:17 UTC and keeps the result for 14 days as a private workflow artifact, off Railway and off Supabase.
    - It refuses to upload anything the script did not encrypt (AES-256-GCM).
@@ -173,9 +173,8 @@ That is better than most hand-written indie backends.
 
 Minor items:
 - ✅ `safeEqual` no longer leaks a secret's length; it compares SHA-256 digests in constant time.
-- Owner actions:
-  - HSTS `includeSubDomains`/`preload`: preload is effectively permanent for every subdomain, so only you can decide it.
-  - `/restart`'s fallback to `KV_PROXY_TOKEN`: set `RESTART_TOKEN` in Railway, then delete the fallback. Removing it first could lock you out of `/restart`.
+- Owner decision: HSTS `includeSubDomains`/`preload`. Preload is effectively permanent for every subdomain, so only you can decide it.
+- ✅ `/restart` no longer accepts `KV_PROXY_TOKEN` (2026-11-18). Only a real `RESTART_TOKEN` opens it; unset or a placeholder disables the route. Nothing calls it, and Railway's Restart does the same job, so this needs no setting.
 - Deliberate and documented: the Tebex IP check only logs, because the HMAC signature is the authentication, and a proxy-attribution mismatch once threw paid purchases away.
 
 ### 3.B Legal: the checklist vs. this repo
@@ -202,7 +201,8 @@ Minor items:
 4. **Ban and forfeiture of purchases are not stated.** EU unfair-terms law and DSA Art. 17 (statement of reasons) apply. *Fix:* a Terms clause on what a ban does to Shards and Supporter time, plus a reason shown with every restriction (the ban reason exists; silences and chat removals should carry one too). **[LAWYER]** *High.*
 5. **No registered DMCA agent** (the Copyright page says one "will be published"). *Fix:* register at copyright.gov/dmca-directory ($6, renew every 3 years) and name it on the page. Without it there is no safe harbour for player content. *High.*
 6. ✅ **DSA contact point done in this branch.** Notices now names support@shinobijourney.com as the single point of contact for users and authorities under DSA Articles 11–12. Still open: **[LAWYER]** on whether an EU or UK representative is needed (GDPR Art. 27, DSA Art. 13).
-7. **Vague data retention** ("kept while needed"). *Fix:* concrete periods: chat logs, IP logs, audit, backups, deleted accounts. *Medium.*
+7. ✅ **Done 2026-11-18 (privacy policy v1.14).** "Kept while needed" is replaced by the periods the code enforces: IP and device stamps 7 days, moderation linkage 90 days, sector and battle chat about an hour, village, clan and direct messages capped and removed after 30 idle days, save backups 90 days, off-site backups 14 days, logs capped at 5,000 entries. `docs/DATA_RETENTION_POLICY.md` keeps the full schedule.
+   - The policy also promised that guest characters are deleted after 14 days without play, but the sweep had only ever run report-only (it needed `GUEST_SWEEP_ENABLED=1`; production logs showed 3 abandoned guests kept). On the owner's ruling it now deletes by default, and `GUEST_SWEEP_ENABLED=0` turns it back to report-only.
 8. **Data export is by manual request only.** That is acceptable under GDPR if answered within a month. An in-app export is nice to have. *Low.*
 9. ✅ **Done in this branch.** There were no credits for Inter, Marcellus, fflate or h264bsd, although their licences shipped in `public/`. `public/licenses/THIRD-PARTY-NOTICES.txt` now lists every bundled font and library with its copyright and licence, and Notices links to it. The internal `src/assets/fx/CREDITS.txt` covers authored FX, not third-party code.
 10. **Shard-priced items show no real-money equivalent** (packs, rerolls, forge). The EU CPC principles ask for it. *Fix:* show "≈ $X" next to Shard prices, using the cheapest tier's rate. *Medium.*
@@ -270,7 +270,6 @@ Dead CSS is exhausted: a full scan found one 165 B rule, in a QA stylesheet. Mer
 ## 5. Decisions only the owner can make
 
 - The wipe policy, and what survives a reset (2 #2).
-- Setting `ADMIN_STRICT_TOKEN_ONLY` in Railway, and adding a second factor or IP allowlist for admin (3.A #3).
 - What happens to an account that #118 flags for spent Shards after a refund or chargeback: freeze, ban, or nothing (3.A #1).
 - Add the `BACKUP_DATABASE_URL` and `KV_BACKUP_PASSPHRASE` secrets to switch on the nightly backup (3.A #5).
 - Legal text: review the v1.13 wording (PostHog, the DSA contact, credits), then decide ban forfeiture and retention periods (3.B #4, #7). Then a lawyer review of Terms and Privacy as a whole.

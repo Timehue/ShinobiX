@@ -608,13 +608,13 @@ async function fireCore(): Promise<void> {
     } catch (err) {
         console.error('[cron-scheduler] clan-war campaign sweep threw:', (err as Error).message);
     }
-    // Reclaim abandoned guest accounts. Reports what it would take unless
-    // GUEST_SWEEP_ENABLED=1, so the first cycles can be read before anything is
-    // deleted. Only accounts still flagged `guest` are ever in scope.
+    // Reclaim abandoned guest accounts, as the privacy policy promises. Deletes by
+    // default; GUEST_SWEEP_ENABLED=0 makes it report only. Only credential-less
+    // guests (no password, no Google link) are ever in scope.
     try {
         const g = await dailyJob('guest-sweep', LEASE_TTL.guestSweep, () => runGuestSweep(), result => result.failures.length === 0);
         if (g && (g.expired.length > 0 || g.failures.length > 0)) {
-            console.log(`[cron-scheduler] guest sweep${g.enabled ? '' : ' (DRY RUN — set GUEST_SWEEP_ENABLED=1 to delete)'}: ${g.expired.length}/${g.guests} guests expired of ${g.scanned} accounts${g.failures.length ? `, ${g.failures.length} failures` : ''}.`);
+            console.log(`[cron-scheduler] guest sweep${g.enabled ? '' : ' (DRY RUN — GUEST_SWEEP_ENABLED=0)'}: ${g.expired.length}/${g.guests} guests expired of ${g.scanned} accounts${g.failures.length ? `, ${g.failures.length} failures` : ''}.`);
             if (g.failures.length) console.warn(`[cron-scheduler] guest sweep failures: ${g.failures.slice(0, 5).join('; ')}`);
         }
     } catch (err) {

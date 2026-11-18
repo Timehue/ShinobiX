@@ -178,6 +178,7 @@ put the family first in `.gate-google-btn`. Do **not** add an external
 ## 9. Guest sweep
 
 Guest characters are reclaimed after 14 days of inactivity by the daily cron.
-It ships in **dry-run**: it logs what it would delete and deletes nothing until
-`GUEST_SWEEP_ENABLED=1`. Read a night or two of
-`[cron-scheduler] guest sweep (DRY RUN …)` before switching it on.
+It deletes by default, because the privacy policy promises it. It ran
+report-only until 2026-11-18, when the owner had it match the policy.
+`GUEST_SWEEP_ENABLED=0` makes it report only
+(`[cron-scheduler] guest sweep (DRY RUN …)`).
