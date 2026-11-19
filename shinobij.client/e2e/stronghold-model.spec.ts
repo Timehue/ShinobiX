@@ -8,6 +8,7 @@ const content = resolve(process.env.SECTOR_MODEL_TEST_CONTENT ?? '../.ci-evidenc
 const rosterFile = process.env.SECTOR_MODEL_TEST_ROSTER;
 
 async function prepare(page: Page, custom: boolean, reduced: boolean, defender?: string) {
+    test.skip(!rosterFile, 'Mount the fitted player pair and local art objects');
     const roster = JSON.parse(await readFile(rosterFile!, 'utf8'));
     const model: PlayerModel = roster.Zayah;
     expect(isPlayerModel(model)).toBe(true);
@@ -56,7 +57,25 @@ async function prepare(page: Page, custom: boolean, reduced: boolean, defender?:
     return { self, peer, state, errors, requests };
 }
 
-test.beforeEach(() => { test.skip(!rosterFile, 'Mount the fitted player pair and local art objects'); });
+test('the lightweight stronghold shows standing players and a village defender', async ({ page }) => {
+    const tile = STRONGHOLD_VAULT - 1;
+    const visit: StrongholdVisit = { id: 'standing-qa', layoutVersion: 1, sector: 12, tile,
+        version: 0, steps: 0, threat: 0, visited: [tile] };
+    const peers = [{ name: 'Rival', level: 100, village: 'Ashen Leaf Village', stronghold: { sector: 12, tile: tile - 1 },
+        character: { avatarImage: '/starter-avatar-one.webp' } }];
+    await page.route('**/api/**', route => route.fulfill({ json: new URL(route.request().url()).pathname === '/api/world/sector-layout'
+        ? { obstaclesEnabled: false, playerGaitsEnabled: false, modelArtBase: null } : { ok: true, visit, peers } }));
+    await page.goto('/e2e/fixtures/stronghold-model.html?starter=two&defender=Moonshadow%20Village');
+    for (const [selector, kind] of [['.stronghold-player', 'starter-two'], ['.stronghold-peer', 'starter-one'],
+        ['.stronghold-hush-station', 'moonshadow-defender']]) {
+        const image = page.locator(selector + ' .world-standing-figure');
+        await expect(image).toHaveAttribute('src', '/world-figures/v1/' + kind + '.webp');
+        await expect.poll(() => image.evaluate(node => (node as HTMLImageElement).naturalHeight)).toBeGreaterThan(0);
+    }
+    await expect(page.locator('.sector-model-figure')).toHaveCount(0);
+    await page.getByRole('button', { name: /^Anbu vault, row/ }).click();
+    await expect.poll(() => page.evaluate(() => document.body.dataset.challenge)).toBe('true');
+});
 
 for (const [village, kind] of [
     ['Moonshadow Village', 'moonshadow-defender'], ['Stormveil Village', 'stormveil-defender'],

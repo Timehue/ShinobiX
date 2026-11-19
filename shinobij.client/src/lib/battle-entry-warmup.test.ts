@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { battleEntryWarmupDelay } from "./battle-entry-warmup";
 
-const ready = { screen: "worldMap" as const, hasCharacter: true, restoringSession: false, onboardingStep: "done" as const, saveData: false };
+const ready = { screen: "arena" as const, hasCharacter: true, restoringSession: false, onboardingStep: "done" as const, saveData: false };
 
 test("noncombat screens, restore and Academy do not speculatively download PvP", () => {
-    for (const screen of ["start", "village", "inventory", "profile", "adminPanel"] as const) {
+    for (const screen of ["start", "worldMap", "village", "inventory", "profile", "adminPanel"] as const) {
         assert.equal(battleEntryWarmupDelay({ ...ready, screen }), null);
     }
     assert.equal(battleEntryWarmupDelay({ ...ready, restoringSession: true }), null);
@@ -15,7 +15,7 @@ test("noncombat screens, restore and Academy do not speculatively download PvP",
 });
 
 test("likely combat entry retains warmup, including legacy completed accounts", () => {
-    for (const screen of ["worldMap", "arenaDistrict", "arena", "battleTowers", "villageWar", "villageWarMap", "clanWar2v2"] as const) {
+    for (const screen of ["arenaDistrict", "arena", "battleTowers", "villageWar", "villageWarMap", "clanWar2v2"] as const) {
         assert.equal(battleEntryWarmupDelay({ ...ready, screen }), 650);
     }
     assert.equal(battleEntryWarmupDelay({ ...ready, onboardingStep: undefined }), 650);

@@ -15,6 +15,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { HOLLOW_GATE_STEP_MS } from "./use-hollow-gate-walk";
 import { SectorModelFigure, type SectorModelHandle } from "../../components/SectorModelFigure";
+import { WorldStandingFigure } from '../../components/WorldStandingFigure';
 import type { PlayerModel, SprintStyle } from "../../lib/player-model";
 
 // Base glide speed — slightly faster than the walk-logic cadence so the
@@ -29,12 +30,11 @@ function prefersReducedMotion(): boolean {
         && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSelect, disposition, label,
+export function HollowGateAvatar({ tileX, tileY, tilePx, name, onSelect, disposition, label,
     artBase, modelKind, equipped, sprintStyle, self }: {
     tileX: number;
     tileY: number;
     tilePx: number;
-    avatarImage?: string;
     name: string;
     onSelect?: () => void;
     disposition?: 'friendly' | 'hostile';
@@ -167,7 +167,6 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
         };
     }, []);
 
-    const initials = name.slice(0, 2).toUpperCase();
     const figSize = Math.min(56, tilePx * 0.64);
 
     return (
@@ -180,12 +179,7 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSe
                 equipped={equipped} style={sprintStyle} artBase={artBase} self={self} />}
             <span className="hg-avatar-aura" />
             <span className="hg-avatar-sprite" ref={spriteRef}>
-                <span className="hg-avatar-body">
-                    {avatarImage
-                        ? <img src={avatarImage} alt={name} style={disposition ? { objectFit: 'contain' } : undefined} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                        : <span className="hg-avatar-initials">{initials}</span>}
-                </span>
-                <span className="hg-avatar-pin" />
+                <WorldStandingFigure kind={modelKind ?? (disposition === 'friendly' ? 'underground-medic' : 'underground-patrol')} name={name} />
             </span>
             {label && <span className="hg-avatar-label"><b>{name}</b><small>{label}</small></span>}
         </div>

@@ -3,7 +3,7 @@ import {clanWarViewerCache as viewerCache} from './clan-war-cache-state';
 import {retryDynamicImport} from './lazyWithRetry';
 
 export {sharedClanWarCache,cwListWars} from './clan-war-read-api';
-export type ClanShrineRoomView={serverNow:number;players:Array<{name:string;displayName:string;clan:string;tile:number;inBattle:boolean}>};
+export type ClanShrineRoomView={serverNow:number;players:Array<{name:string;displayName:string;clan:string;tile:number;inBattle:boolean;starterWorldModel?:import('../../../shared/player-model-ref').StarterWorldModel}>};
 export type ClanWarQueueActionInput={warId:string;action:string;mode?:string;scope?:'normal'|'shrine';windowIndex?:number;partnerEntryId?:string;matchId?:string;tile?:number};
 const changedViewerError='The signed-in player changed. Reopen the clan page.';
 

@@ -258,6 +258,15 @@ export function petCardImage(
     return "";
 }
 
+/** Each pet has a local battle pose while published body art is unavailable. */
+export function petBattlefieldArt(pet: Pet | undefined, visual: string, sharedImages?: Record<string, string>) {
+    const posedId = (pet ? petPoseArtIds(pet) : [visual, petStripVariant(visual.split(":")[0])]).find(hasPetPose);
+    const fallback = pet && isBasePebbleTortoise(pet) ? PEBBLE_TORTOISE_CUTOUT
+        : idlePoseUrl(posedId ?? 'generic-ai-pet-guardhound');
+    const body = pet && petBattleSprite(pet, sharedImages);
+    return { sprite: body?.mode === 'fullBodySprite' ? body.src : fallback, fallback };
+}
+
 /** Portrait art for circular pet tokens, which should not prefer body sprites. */
 export function petPortraitImage(pet: Pet, sharedImages: Record<string, string> = {}): string {
     if (isBasePebbleTortoise(pet)) return PEBBLE_TORTOISE_CARD_PORTRAIT;

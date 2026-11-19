@@ -128,7 +128,7 @@ test("App and admission surfaces consume live capability truth at both boundarie
     // unit-tested at the top of this file), which covers the landing screen too —
     // an in-form copy would be a second, drifting owner of the same rule.
     assert.match(app, /playerSurfaceBlockerMode\(/);
-    assert.match(start, /if \(view\.startsWith\("legal:"\)\) \{\s*return <LegalPage/);
+    assert.match(start, /if \(view\.startsWith\("legal:"\)\) \{\s*return <Suspense fallback=\{<p role="status">[^<]+<\/p>\}>\s*<LegalPage slug=\{view\.slice\("legal:"\.length\)/);
     assert.match(townHall, /useCapabilityViewAvailability\("villageWar"\)/);
     assert.match(vanguard, /useCapabilityViewAvailability\("villageWar"\)/);
     // Sector Map is a Town Hall operation, not a global-menu destination.

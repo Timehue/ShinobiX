@@ -1,14 +1,17 @@
 import { useLayoutEffect, useRef } from 'react';
 import { SectorModelFigure, type SectorModelHandle } from '../../components/SectorModelFigure';
+import { WorldStandingFigure } from '../../components/WorldStandingFigure';
+import type { StarterWorldModel } from '../../../../shared/player-model-ref';
 import { isPlayerModel, starterModel, type PlayerModel, type SprintStyle } from '../../lib/player-model';
 
 /** Presentation only. The parent still submits and reconciles every stronghold step. */
 export function StrongholdAvatar({ tileX, tileY, tileSize, size, stepMs, name, portrait,
-    artBase, playerGaits, playerModel, sprintStyle, overview = false, count = 1,
+    artBase, playerGaits, playerModel, starterWorldModel, sprintStyle, overview = false, count = 1,
     onSelect, disabled, title, tile, self = false }: {
     tileX: number; tileY: number; tileSize: number; size: number; stepMs: number;
     name: string; portrait?: string | null; artBase: string | null; playerGaits: boolean;
     playerModel?: PlayerModel; sprintStyle?: SprintStyle; overview?: boolean; count?: number;
+    starterWorldModel?: StarterWorldModel;
     onSelect?: () => void; disabled?: boolean; title?: string; tile?: number;
     /** The player's own avatar (decodes its figure first). */
     self?: boolean;
@@ -23,7 +26,7 @@ export function StrongholdAvatar({ tileX, tileY, tileSize, size, stepMs, name, p
     const lastTravel = useRef(0);
     const metrics = useRef({ tileSize, stepMs });
     const equipped = isPlayerModel(playerModel) ? playerModel : undefined;
-    const kind = starterModel(portrait || '');
+    const kind = starterModel(portrait || '', starterWorldModel);
     const useModel = !!artBase && playerGaits && count === 1;
 
     useLayoutEffect(() => {
@@ -126,7 +129,7 @@ export function StrongholdAvatar({ tileX, tileY, tileSize, size, stepMs, name, p
         title={title} disabled={onSelect ? disabled : undefined} onClick={onSelect}
         style={{ width: onSelect ? Math.max(44, size) : size, height: onSelect ? Math.max(44, size) : size }}>
         <span className={`stronghold-avatar${onSelect ? ' stronghold-peer-avatar' : ''}`} style={{ width: size, height: size }}>
-            {count > 1 ? <b>{count}</b> : portrait ? <img src={portrait} alt="" /> : <b>{name.slice(0, 2)}</b>}
+            <WorldStandingFigure kind={kind} />
         </span>
         {useModel && <SectorModelFigure key={kind} ref={model} kind={kind} equipped={equipped}
             artBase={artBase!} style={sprintStyle} self={self} />}

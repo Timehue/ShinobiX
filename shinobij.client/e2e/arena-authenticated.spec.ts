@@ -137,8 +137,15 @@ function applyAuthoritativeAction(session: SoloPveSession, payload: SoloActionPa
     const enemy = payload.type === "basicAttack"
         ? { ...session.enemy, hp: Math.max(1, session.enemy.hp - 25) }
         : session.enemy;
+    const seal = payload.type === "summon" ? session.pendingCompanion : undefined;
     return {
         ...session,
+        ...(seal && { pendingCompanion: undefined, companion: {
+            ...session.player, name: seal.name, pos: 53, petId: seal.petId, hp: seal.hp, maxHp: seal.hp,
+            character: { companion: true, visual: seal.petId, companionSpecies: 'starter-fire-r' },
+            baseDamage: seal.damage, happiness: seal.happiness, loyal: seal.loyal, moves: seal.moves,
+            cooldowns: {}, roundsLeft: 4, pveGearId: seal.pveGearId,
+        } }),
         enemy,
         round: session.round + 1,
         actionsThisTurn: 0,
@@ -157,6 +164,7 @@ async function installArenaApi(page: Page, options: {
     certifyRankedQueueLifecycle?: boolean;
     finishPracticeOutcome?: 'win' | 'loss';
     summonPricing?: { cost: number; ap: number };
+    practiceSnapshot?: SoloPveSession;
 } = {}) {
     let save: SavePayload | null = null;
     let saveVersion = 0;
@@ -246,7 +254,7 @@ async function installArenaApi(page: Page, options: {
                     await firstPracticeStartGate;
                     return json(route, { error: "Practice authority temporarily unavailable." }, 503);
                 }
-                activeSession = practiceSession();
+                activeSession = options.practiceSnapshot ?? practiceSession();
                 if (options.summonPricing) {
                     activeSession.ap.player = options.summonPricing.ap;
                     activeSession.pendingCompanion = { petId: 'priced-pet', name: 'Price Check Pet', hp: 200, damage: 40,
@@ -470,6 +478,11 @@ for (const { cost, ap } of [{ cost: 20, ap: 19 }, { cost: 20, ap: 20 }, { cost: 
             expect(api.actionPayloads().length).toBe(0, 'arming does not submit or spend AP');
             await combatSurface(page).locator('button.hex-tile.jutsu-self-target-tile').click();
             await expect.poll(() => api.actionPayloads().filter(action => action.type === 'summon').length).toBe(1);
+            const pet = combatSurface(page).locator('[data-battlefield-actor-id="companion"]');
+            const sprite = pet.getByAltText('Price Check Pet');
+            await expect(pet).toHaveAttribute('data-battlefield-sprite-kind', 'quadruped');
+            await expect(sprite).toHaveAttribute('src', /\/combat-actors\/pets\/quadruped\/starter-fire-r-guard\.webp/);
+            await expect.poll(() => sprite.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
         }
         await page.screenshot({ path: info.outputPath(`summon-${cost}-ap-${ap}.png`), fullPage: true });
     });
@@ -482,6 +495,44 @@ async function chooseLevelAndStart(page: Page) {
     await spar.locator('input[type="number"]').fill("8");
     await spar.getByRole("button", { name: "Start AI battle" }).click();
 }
+
+test('a group fight restores the summoned species on the board and in inspection without the owner roster', async ({ page }) => {
+    test.setTimeout(120_000);
+    const { buildSoloPveAiEncounter } = await import('../../api/solo-pve/_ai-encounter');
+    const { attachHuntCombat, applyHuntCombatAction } = await import('../../api/solo-pve/_hunt-combat');
+    const pet = { id: 'owned-instance', templateId: 'starter-wind', evolutionStage: 1, level: 75, name: 'Storm Hawk', hp: 1800 };
+    const profile = { id: 'builtin-ai-mist-sentinel', name: 'Mist Sentinel', level: 50, hp: 10000, jutsuIds: [] };
+    const fight = buildSoloPveAiEncounter({ sessionId: SESSION_ID, playerName: PLAYER_NAME, now: Date.now(), admin: null, profile,
+        save: { character: { ...practiceSession().player.character, name: PLAYER_NAME, level: 65, hp: 10000,
+            pets: [pet], activePetId: pet.id } }, encounter: { kind: 'generic-ai', id: profile.id, sourceId: profile.id } });
+    attachHuntCombat(fight, { kind: 'hunt-pack', huntRunId: 'group-summon', sourceId: 'group-summon', sector: 1,
+        stage: 0, displayName: 'Hunt', huntFormation: { version: 1, kind: 'pack', count: 3 } });
+    const summoned = applyHuntCombatAction(fight, { type: 'huntAction', action: { type: 'summon' } }, {});
+    expect(summoned.applied).toBe(true);
+    const api = await installArenaApi(page, { practiceSnapshot: JSON.parse(JSON.stringify(summoned.session)) });
+    await createAccount(page);
+    await expect.poll(api.hasSave).toBe(true);
+    await expect(page.getByRole('button', { name: 'Enter Battle Arena' })).toBeVisible({ timeout: 30000 });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openBattleArena(page);
+    await chooseLevelAndStart(page);
+
+    const tile = page.locator('#tower-board-actor-companion-0');
+    const sprite = tile.getByAltText(pet.name);
+    const guard = /\/combat-actors\/pets\/flying\/starter-wind-r-guard\.webp/;
+    await expect(sprite).toHaveAttribute('src', guard);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(sprite).toHaveAttribute('src', guard);
+    await tile.click();
+    const portrait = page.locator('.tower-fighter-portrait:visible').last();
+    await expect(portrait).toHaveAttribute('src', guard);
+    await expect.poll(() => portrait.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+
+    await page.route('**/combat-actors/pets/flying/starter-wind-r-guard.webp*', route => route.fulfill({ status: 404 }));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(sprite).toHaveAttribute('src', /starter-wind-r-idle\.webp/);
+    await expect.poll(() => sprite.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+});
 
 async function assertAuthoritativeCombatSurface(page: Page, compact: boolean) {
     const combat = combatSurface(page);

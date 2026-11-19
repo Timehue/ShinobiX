@@ -21,6 +21,12 @@ test("village restoration defers PvP until entering a combat gateway", async ({ 
     expect(pvpRequests()).toEqual([]);
     await page.getByRole("button", { name: "Enter World Map", exact: true }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await page.waitForTimeout(1_500);
+    expect(pvpRequests()).toEqual([]);
+    await page.goto("/#/centralHub");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: /Arena District/ }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "arenaDistrict");
     await expect.poll(() => pvpRequests().length).toBeGreaterThan(0);
 });
 

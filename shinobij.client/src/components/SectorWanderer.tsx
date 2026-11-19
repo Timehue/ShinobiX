@@ -31,6 +31,7 @@ import type { LifeActor } from '../../../shared/sector-life';
 import { lifeActorPosition,lifeActivityAt,lifeActivityAtPosition } from '../../../shared/sector-life-motion';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
 import { useSectorModelPins } from '../lib/sector-model-pins';
+import { WorldStandingFigure } from './WorldStandingFigure';
 import { sectorTrackerAway } from '../lib/sector-life-art';
 import { isCoveredByCombat, subscribeCombatCover } from '../lib/combat-cover';
 import {useSectorServiceRoutine} from '../lib/sector-service-routine';
@@ -187,7 +188,9 @@ export function SectorWanderer({
     const fittedTravel = useRef(false);
     useLayoutEffect(() => { fittedTravel.current = worldPlayer !== null && playerGaits; }, [worldPlayer,playerGaits]);
     const img = wanderer.avatarImage || wandererAvatar(wanderer.avatarKey);
-    const modelKind = modelArtBase && portraitModels.get(img);
+    const modelKind = portraitModels.get(img);
+    const standingKind = modelKind ?? portraitModels.get(wandererAvatar(wanderer.avatarKey))
+        ?? (wanderer.avatarKey === 'beast' ? 'ember-fox' : wanderer.avatarKey === 'riftspawn' ? 'riftspawn' : 'patrol');
     const modelWalking = useRef(false);
     const travelGait = useRef<SectorGait | undefined>(undefined);
     function tileSizePx(): number {
@@ -216,7 +219,7 @@ export function SectorWanderer({
         const fishing=routineRef.current?.fishing;
         if(tackleRef.current)tackleRef.current.style.visibility=fishing&&now>=fishing.startsAt&&now<fishing.until&&Math.hypot(posRef.current.col-fishing.bank%12,posRef.current.row-Math.floor(fishing.bank/12))<.18?'visible':'hidden';
     },[nativeWork]);
-    useLayoutEffect(()=>{paint();},[paint,routine,modelKind]);
+    useLayoutEffect(()=>{paint();},[paint,routine,modelKind,modelArtBase]);
     function setWalking(on: boolean, modelMoving = on, gait?: SectorGait) {
         figRef.current?.classList.toggle("is-walking", on);
         modelWalking.current = modelMoving;
@@ -438,7 +441,6 @@ export function SectorWanderer({
         onEngageRef.current(nativeWork&&current?{...wanderer,greeting:current.line}:wanderer,current);
     }
 
-    const initials = wanderer.name.slice(0, 2).toUpperCase();
     const presentation=routine?lifeActivityAt(routine,serverNow()):undefined,tackle=routine?.fishing;
     // Name pills used to be one fixed height above every figure, so two
     // wanderers standing near each other printed overlapping, unreadable text.
@@ -480,11 +482,7 @@ export function SectorWanderer({
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />
                 <span className="sector-avatar-sprite" ref={spriteRef}>
                     <span className="sector-avatar-body">
-                        <span className="sector-wanderer-tell" style={{ ["--tell"]: wanderer.tellTint } as CSSProperties} />
-                        {img
-                            ? <img src={img} alt={wanderer.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : <span className="sector-avatar-initials">{initials}</span>}
-                        <span className="sector-avatar-pin" />
+                        <WorldStandingFigure kind={standingKind} name={wanderer.name} />
                     </span>
                 </span>
                 <span className="sector-wanderer-label" style={{ ["--label-lane"]: labelLane } as CSSProperties}>

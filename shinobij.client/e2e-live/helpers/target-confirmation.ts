@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { API_CONNECTION_RETRIES } from './reconnecting-request';
 
 /** Exercise the mounted screen without spending the layout fixture's AP/ammo.
  * Confirmed requests use rejection probes or successful replay snapshots;
@@ -29,7 +30,9 @@ export async function assertTargetConfirmation(page: Page, selector: string, kin
         if (kind === 'pvp') {
             // A successful acknowledgement while it remains our turn must
             // disarm the command too, even without a turn-change reset.
-            const snapshot = await page.request.get(`/api/pvp/session?id=${encodeURIComponent(String(body.battleId))}`);
+            const snapshot = await page.request.get(`/api/pvp/session?id=${encodeURIComponent(String(body.battleId))}`, {
+                maxRetries: API_CONNECTION_RETRIES,
+            });
             expect(snapshot.ok()).toBe(true);
             await route.fulfill({ status: 200, contentType: 'application/json', body: await snapshot.text() });
             return;
@@ -39,6 +42,7 @@ export async function assertTargetConfirmation(page: Page, selector: string, kin
             // unchanged authoritative session. HTTP 400 instead tests the
             // adapter's network retry, which intentionally repeats its token.
             const snapshot = await page.request.get(`/api/solo-pve/state?sessionId=${encodeURIComponent(String(body.sessionId))}&playerName=${encodeURIComponent(playerName)}`, {
+                maxRetries: API_CONNECTION_RETRIES,
                 headers: Object.fromEntries(Object.entries(route.request().headers()).filter(([name]) => name.startsWith('x-') || name === 'authorization')),
             });
             expect(snapshot.ok()).toBe(true);

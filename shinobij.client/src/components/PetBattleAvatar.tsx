@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { type Pet } from "../App";
 import { petDisplayName } from "../lib/pet";
 import { ROLE_META, derivePetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
 import { petCollarVisual, petTraitDescriptions } from "../data/pet-config";
-import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass } from "../lib/pet-battle-anim";
+import { petBattlefieldArt, petBattleLayers, petBattleSheet, petAvatarStateClass } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import type { PetVisualState } from "../types/pet-battle";
 import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
@@ -21,21 +22,13 @@ const JUTSU_KIND_ART: Record<string, GameArtIconKind> = {
 };
 
 export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages = {}, visualState = "idle" }: { pet: Pet; side: "player" | "enemy"; active: boolean; hit?: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string>; visualState?: PetVisualState }) {
-    // Sprite mode, most-dimensional first:
-    //   spriteSheet     — a baked animation strip (petsheet:<id>), played via a
-    //                     CSS steps() loop (Phase C — the AI-3D-baked slot);
-    //   layeredParallax — depth-sliced far/mid/near layers (petlayers:<id>:*),
-    //                     drawn as a parallax stack (Phase B 2.5D billboard);
-    //   fullBodySprite  — a single transparent full-body PNG (petbody:<id>);
-    //   circleFallback  — the legacy clipped portrait orb.
-    // All modes share the same directional pose classes.
+    // Animated sheets and layered art take priority over the static battle pose.
     const sheet = petBattleSheet(pet, sharedImages);
     const layers = sheet ? null : petBattleLayers(pet, sharedImages);
-    const { mode, src } = petBattleSprite(pet, sharedImages);
-    const modeClass = sheet ? " pet-sprite-sheet"
-        : layers ? " pet-sprite-layered"
-        : mode === "fullBodySprite" ? " pet-sprite-fullbody"
-        : " pet-sprite-circle-fallback";
+    const art = petBattlefieldArt(pet, pet.id, sharedImages);
+    const [failedSprite, setFailedSprite] = useState<string>();
+    const src = failedSprite === art.sprite ? art.fallback : art.sprite;
+    const modeClass = sheet ? " pet-sprite-sheet" : layers ? " pet-sprite-layered" : " pet-sprite-fullbody";
     const poseClass = ` ${petAvatarStateClass(visualState, side)}`;
     // Glow collar equipped → wrap the pet in a colored aura during battle.
     // Prismatic collars cycle through the rainbow instead of a single color.
@@ -62,7 +55,7 @@ export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages =
                     <img className="pet-sprite-layer mid" src={layers.mid} alt="" />
                     <img className="pet-sprite-layer near" src={layers.near} alt={pet.name} />
                 </span>
-            ) : src ? <img src={src} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
+            ) : <img src={src} alt={pet.name} onError={() => { if (src !== art.fallback) setFailedSprite(src); }} />}
             {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
         </div>
     );

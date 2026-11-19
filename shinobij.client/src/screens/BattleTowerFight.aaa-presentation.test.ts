@@ -83,9 +83,9 @@ test("fighter inspection retains combat details without the removed briefing row
 test("battlefield sprites remain presentation-only inside the authoritative actor button", () => {
     assert.match(fight, /import \{ BattlefieldActor \} from "\.\.\/components\/BattlefieldActor"/);
     assert.match(fight, /const fighterSprite = bundledFighterSprite\(appearance, img\)/);
-    assert.match(fight, /a\.side === "enemy" && !isTeamPvp \? battlefieldAiSprite/);
+    assert.match(fight, /a\.side === "npc" \|\| \(a\.side === "enemy" && !isTeamPvp\)/);
     assert.match(fight, /model=\{model\}/);
-    assert.match(fight, /const spriteFacing = battleSprite[\s\S]{0,180}?battlefieldFacingTowardNearest\(a, session\.actors, w\)/);
+    assert.match(fight, /const spriteFacing = battlefieldFacingTowardNearest\(a, session\.actors, w\)/);
     assert.match(fight, /facing=\{spriteFacing\}/);
     assert.match(
         fight,
@@ -94,7 +94,7 @@ test("battlefield sprites remain presentation-only inside the authoritative acto
     );
     // The active/target ring is a silhouette glow on the actor art now, not an
     // inline rectangular outline that hid the circular ground marker.
-    assert.match(fight, /<BattlefieldActor[\s\S]{0,1000}?className=\{isActive \? "tower-actor-highlight--active"/);
+    assert.match(fight, /<BattlefieldActor[\s\S]{0,1000}?className=\{\[isActive \? "tower-actor-highlight--active"/);
     assert.match(tacticalCss, /\.battlefield-actor\.tower-actor-highlight--active \{[^}]*drop-shadow/);
     assert.match(fight, /<BattlefieldActor[\s\S]{0,2200}?<\/BattlefieldActor>/);
 });

@@ -9,10 +9,9 @@ import { SceneAmbience } from "./SceneAmbience";
 import { SceneCritters } from "./SceneCritters";
 import { SectorAvatar } from "./SectorAvatar";
 import { SectorMap } from "./SectorMap";
-import { SectorPeersLive, type SectorPeer } from "./SectorPeers";
+import { ScoutedSectorPlayers, SectorPeersLive, type ScoutedSectorPlayer, type SectorPeer } from "./SectorPeers";
 import { SectorScene } from "./SectorScene";
 import { playerNameTile } from "../lib/sector-tile";
-import { GameArtIcon } from "./GameArtIcon";
 import { isWalkableTile, nearestWalkableTile, sectorWalkMask } from "../../../shared/sector-walk-mask";
 import { safeSectorTile } from "../lib/sector-obstacles";
 import { ContinuousWorldSector } from "./ContinuousWorldSector";
@@ -21,12 +20,7 @@ import { SectorBuildings } from "./SectorBuildings";
 const GRID_SIZE = 12;
 const TILE_COUNT = GRID_SIZE * GRID_SIZE;
 
-export type WorldSectorCanvasPlayer = {
-    name: string;
-    level: number;
-    sleeping: boolean;
-    avatarImage: string;
-};
+export type WorldSectorCanvasPlayer = ScoutedSectorPlayer;
 
 export type WorldSectorCanvasProps = {
     lifeTraces?: import('../lib/sector-traces').SectorTracesView | null;
@@ -108,7 +102,15 @@ export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
     // re-reads the position (continuous-world-controller resync).
     if (isCurrent && roadExits.length && props.onWorldAuthority) return <ContinuousWorldSector {...props} />;
     const mapMode = Boolean(mapImage);
-    const fallbackMarkers = players.slice(0, 48);
+    const markersByTile = new Map<number, WorldSectorCanvasPlayer[]>();
+    if (!showLivePeers && !suspended) {
+        for (const player of players.slice(0, 48)) {
+            const tile = safeSectorTile(sector, playerNameTile(player.name));
+            const group = markersByTile.get(tile);
+            if (group) group.push(player);
+            else markersByTile.set(tile, [player]);
+        }
+    }
     return (
         <main className="tile-scene sector-stage-panel">
             {!suspended && hudLayer}
@@ -148,7 +150,7 @@ export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
                     const roadExit = roadExits.find((exit) => exit.tile === index);
                     const tileCol = (index % GRID_SIZE) + 1;
                     const tileRow = Math.floor(index / GRID_SIZE) + 1;
-                    const otherHere = showLivePeers ? [] : fallbackMarkers.filter((player) => safeSectorTile(sector, playerNameTile(player.name)) === index);
+                    const otherHere = markersByTile.get(index) ?? [];
                     const walkable = isWalkableTile(sector, index, obstacles);
 
                     return (
@@ -169,18 +171,7 @@ export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
                                 else onSelectTile(nearestWalkableTile(sector, index, obstacles));
                             }}
                         >
-                            {otherHere.length > 0 ? (
-                                <div className="other-players-map-stack">
-                                    {otherHere.map((player) => (
-                                        <div key={player.name} className="other-player-map-dot" title={`${player.name} Lv ${player.level}`}>
-                                            {player.avatarImage
-                                                ? <img className="tiny-map-avatar other-player-map-avatar" src={player.avatarImage} alt={player.name} onError={(event) => { event.currentTarget.style.display = "none"; }} />
-                                                : <span className="other-player-map-emoji"><GameArtIcon kind="roleAssassin" size={20} title={`${player.name}, shinobi`} /></span>}
-                                            <span className="other-player-map-name">{player.name}{player.sleeping && <> <GameArtIcon kind="biomeShadow" size={12} title="Sleeping" /></>}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : ""}
+                            {otherHere.length > 0 && <ScoutedSectorPlayers players={otherHere} />}
                         </button>
                     );
                 })}
@@ -193,13 +184,14 @@ export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
                         sleepers={sleeperPeers}
                     />
                 )}
-                {!showLivePeers && players.length > fallbackMarkers.length && <div className="sector-peers-overflow" aria-hidden="true">+{players.length - fallbackMarkers.length} more here</div>}
+                {!showLivePeers && players.length > 48 && <div className="sector-peers-overflow" aria-hidden="true">+{players.length - 48} more here</div>}
 
                 {isCurrent && (
                     <SectorAvatar
                         targetIndex={playerTile}
                         sector={sector}
                         avatarImage={playerAvatarImage}
+                        starterWorldModel={props.starterWorldModel}
                         name={playerName}
                         biome={ambienceBiome}
                         enterDirection={enterDirection}

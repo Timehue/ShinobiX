@@ -66,7 +66,7 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
             {brightness !== BRIGHTNESS_DEFAULT && <button type="button" onClick={() => changeBrightness(BRIGHTNESS_DEFAULT)}>Reset to default</button>}
             <p className="hint">Makes the whole game lighter or darker. Saved on this device.</p>
             {modelsLive && <label className="settings-check"><input type="checkbox" checked={!worldArt}
-                onChange={event => saveWorldAvatar2d(event.target.checked)} />2D/3D avatar: show 2D portrait circles</label>}
+                onChange={event => saveWorldAvatar2d(event.target.checked)} />2D/3D avatar — use lightweight standing figures</label>}
         </section>
         <IphoneInstallGuide />
         <CombatHotkeySettings key={character.name} player={character.name} />

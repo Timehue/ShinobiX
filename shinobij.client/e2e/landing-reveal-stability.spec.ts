@@ -21,3 +21,13 @@ test('landing sections begin their reveal before entering the viewport', async (
     await expect(section).toHaveClass(/is-revealed/);
     expect(await section.evaluate(element => element.getBoundingClientRect().top >= window.innerHeight)).toBe(true);
 });
+
+test('distant landing artwork loads when the reader reaches its section', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('shinobix:storage-notice-ack', '1'));
+    await page.goto('/');
+    const story = page.locator('.landing-clan-media img');
+    await expect(story).toBeAttached();
+    expect(await story.getAttribute('src')).toBeNull();
+    await story.scrollIntoViewIfNeeded();
+    await expect.poll(() => story.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+});

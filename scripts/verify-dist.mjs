@@ -272,10 +272,20 @@ for (const entry of portraitEntries) {
 const unexpectedPortraitFile = clientRelativeFiles.find((file) =>
     file.startsWith('pet-portraits/shinobi-v1/') && !expectedPortraitFiles.has(file));
 if (unexpectedPortraitFile) fail(`client dist copied an obsolete scenic portrait: ${unexpectedPortraitFile}`);
-if (petPortraitBytes > maxPetPortraitBytes) {
-    fail(`scenic companion portraits use ${petPortraitBytes} B; ceiling is ${maxPetPortraitBytes} B`);
+// The board cutouts come from the same reviewed paintings and share their existing 16 MiB allowance.
+const summonIds = new Set(portraitEntries.map(entry => entry.id));
+let summonBytes = 0;
+for (const file of clientRelativeFiles.filter(file => file.startsWith('combat-actors/pets/'))) {
+    const id = /^combat-actors\/pets\/(?:humanoid|quadruped|flying|serpentine)\/([\w-]+)-guard\.webp$/.exec(file)?.[1];
+    if (!summonIds.delete(id)) fail(`unrecognized or duplicate summon sprite: ${file}`);
+    summonBytes += statSync(join(clientDist, file)).size;
 }
-console.log(`[verify:dist] Scenic companions: 161 reviewed portraits / ${(petPortraitBytes / 1024 / 1024).toFixed(1)} MiB (16 MiB ceiling).`);
+if (summonIds.size) fail(`missing summon sprites: ${[...summonIds].join(', ')}`);
+const companionArtBytes = petPortraitBytes + summonBytes;
+if (companionArtBytes > maxPetPortraitBytes) {
+    fail(`companion portraits and cutouts use ${companionArtBytes} B; ceiling is ${maxPetPortraitBytes} B`);
+}
+console.log(`[verify:dist] Scenic companions: 161 reviewed portraits and combat cutouts / ${(companionArtBytes / 1024 / 1024).toFixed(1)} MiB (16 MiB ceiling).`);
 const rallyAtlasFiles = clientFiles.filter((file) =>
     relative(clientDist, file).replaceAll('\\', '/').startsWith('pet-rally/'));
 if (rallyAtlasFiles.length !== 161 || rallyAtlasFiles.some((file) => !file.endsWith('.webp'))) {
@@ -410,7 +420,7 @@ const chronicleArtBytes = clientFiles
 if (chronicleArtBytes > maxChronicleArtBytes) {
     fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${(maxChronicleArtBytes / 1024 / 1024).toFixed(1)} MiB`);
 }
-const otherClientBytes = clientArtifactBytes - chronicleArtBytes - petPortraitBytes - sectorBuildingArtBytes - cavernArtBytes - sectorSpriteDelivery.bytes;
+const otherClientBytes = clientArtifactBytes - chronicleArtBytes - companionArtBytes - sectorBuildingArtBytes - cavernArtBytes - sectorSpriteDelivery.bytes;
 if (otherClientBytes > maxOtherClientBytes) {
     fail(`client excluding Chronicle art and scenic companions is ${otherClientBytes} B (${(otherClientBytes / 1024 / 1024).toFixed(3)} MiB); ceiling is ${maxOtherClientBytes} B; over by ${otherClientBytes - maxOtherClientBytes} B`);
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { WorldSectorCanvasProps } from './WorldSectorCanvas';
 import { mountContinuousWorld, STALE_WORLD_STATUS } from '../lib/continuous-world-controller';
-import { SectorPortrait } from './SectorPortrait';
+import { WorldStandingFigure } from './WorldStandingFigure';
 import { ContinuousWorldPeers } from './ContinuousWorldPeers';
 import { DayNightSky } from './DayNightSky';
 import { SceneAmbience } from './SceneAmbience';
@@ -110,7 +110,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                 {gaits && modelArtBase && <SectorModelFigure ref={model} kind={starter} equipped={equipped}
                     style={sprintStyle} artBase={modelArtBase} self />}
                 <span className="sector-avatar-shadow" /><span className="sector-avatar-sprite"><span className="sector-avatar-body">
-                    <SectorPortrait key={props.playerAvatarImage} src={props.playerAvatarImage} name={props.playerName} /><span className="sector-avatar-pin" />
+                    <WorldStandingFigure kind={starter} />
                 </span></span>
                 {gaits && modelArtBase && <span className="sector-peer-label sector-self-label">{name}</span>}
             </div>

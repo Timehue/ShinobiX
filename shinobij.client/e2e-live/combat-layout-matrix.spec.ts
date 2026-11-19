@@ -190,7 +190,7 @@ async function seedAccount(request: APIRequestContext, testInfo: TestInfo, mode:
     const token = String((await registered.json()).token ?? '');
     expect(token.length).toBeGreaterThan(10);
     await seedSave(request, name, mode !== 'solo' ? {
-        characterPatch: { level: mode === 'tower' ? 30 : 20, rankTitle: 'Genin' },
+        characterPatch: { level: mode === 'tower' ? 30 : 20, rankTitle: 'Genin', avatarImage: '/starter-avatar-two.webp' },
         triggeredEvents: [AURA_SPHERE_VN_ID],
     } : { characterPatch: { avatarImage: '/starter-avatar-one.webp' } });
     if (mode !== 'solo') {
@@ -238,7 +238,7 @@ async function seedEstablishedTowerAccount(request: APIRequestContext, name: str
     const token = String((await registered.json()).token ?? '');
     expect(token.length).toBeGreaterThan(10);
     await seedSave(request, name, {
-        characterPatch: { level: 30, rankTitle: 'Genin' },
+        characterPatch: { level: 30, rankTitle: 'Genin', avatarImage: /[bd]$/.test(name) ? '/starter-avatar-two.webp' : '/starter-avatar-one.webp' },
         triggeredEvents: [AURA_SPHERE_VN_ID],
     });
     const headers = { 'x-player-name': name, 'x-player-token': token };
@@ -1904,22 +1904,16 @@ async function assertEdgeActionPopovers(page: Page, rootSelector: string): Promi
 async function assertBattlefieldActorPresentation(
     page: Page,
     rootSelector: string,
-    expected: { playerMarkers: number; enemyMarkers: number; minimumEnemySprites: number; playerSprites?: number },
+    expected: { playerSprites: number; minimumEnemySprites: number; playerVariant: 'one' | 'two'; enemyVariant?: 'one' | 'two' },
 ): Promise<void> {
-    const root = page.locator(rootSelector);
-    const actors = root.locator('[data-battlefield-actor]');
-    const playerMarkers = root.locator('[data-battlefield-actor="player"][data-battlefield-presentation="marker"]');
-    const playerSprites = root.locator('[data-battlefield-actor="player"][data-battlefield-presentation="sprite"]');
-    const enemyMarkers = root.locator('[data-battlefield-actor="enemy"][data-battlefield-presentation="marker"]');
-    const enemySprites = root.locator('[data-battlefield-actor="enemy"][data-battlefield-presentation="sprite"]');
-    await expect(playerMarkers, 'player portrait markers').toHaveCount(expected.playerMarkers);
-    await expect(playerSprites, 'player body sprites').toHaveCount(expected.playerSprites ?? 0);
-    await expect(enemyMarkers, 'enemy portrait markers').toHaveCount(expected.enemyMarkers);
-    const enemySpriteCount = await enemySprites.count();
-    expect(enemySpriteCount, 'enemy body sprite count').toBeGreaterThanOrEqual(expected.minimumEnemySprites);
-    await expect(actors, 'every fighter must use the shared marker-or-sprite presentation').toHaveCount(
-        expected.playerMarkers + (expected.playerSprites ?? 0) + expected.enemyMarkers + enemySpriteCount,
-    );
+    const actors = page.locator(rootSelector).locator('[data-battlefield-actor]');
+    const players = actors.and(page.locator('[data-battlefield-actor="player"]'));
+    await expect(players).toHaveCount(expected.playerSprites);
+    await expect(players.first().locator('img.battlefield-actor-sprite')).toHaveAttribute('src', `/combat-actors/starters/starter-${expected.playerVariant}-idle.webp`);
+    const enemies = actors.and(page.locator('[data-battlefield-actor="enemy"]'));
+    await expect.poll(() => enemies.count()).toBeGreaterThanOrEqual(expected.minimumEnemySprites);
+    if (expected.enemyVariant) await expect(enemies.first().locator('img.battlefield-actor-sprite')).toHaveAttribute('src', `/combat-actors/starters/starter-${expected.enemyVariant}-idle.webp`);
+    await expect(actors.locator('.battlefield-actor-sprite')).toHaveCount(await actors.count());
 
     expect(await actors.evaluateAll((nodes) => nodes.every((node) => {
         const style = getComputedStyle(node);
@@ -1928,13 +1922,11 @@ async function assertBattlefieldActorPresentation(
             && Number.parseFloat(style.height) >= 40;
     })), 'actor art must stay inside a non-interactive combat anchor').toBe(true);
 
-    if (expected.minimumEnemySprites > 0 || expected.playerSprites) {
-        await expect.poll(() => actors.locator('.battlefield-actor-sprite').evaluateAll((images) =>
-            images.length > 0 && images.every((image) => {
-                const sprite = image as HTMLImageElement;
-                return sprite.complete && sprite.naturalWidth > 0 && sprite.naturalHeight > 0;
-            })), { message: 'body sprites must load successfully' }).toBe(true);
-    }
+    await expect.poll(() => actors.locator('.battlefield-actor-sprite').evaluateAll(images =>
+        images.length > 0 && images.every(image => {
+            const sprite = image as HTMLImageElement;
+            return sprite.complete && sprite.naturalWidth > 0 && sprite.naturalHeight > 0;
+        })), { message: 'body sprites must load successfully' }).toBe(true);
 }
 
 async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: string, testInfo: TestInfo) {
@@ -2200,9 +2192,7 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
     await expect(page.locator('.mission-arena-fight .combat-action-notice')).toBeVisible();
     await assertBattlefieldActorPresentation(page, '.mission-arena-fight', {
-        playerMarkers: 0,
-        playerSprites: 1,
-        enemyMarkers: 0,
+        playerSprites: 1, playerVariant: 'one',
         minimumEnemySprites: 1,
     });
     // Linux WebKit in CI runs this whole test in about two minutes. Playwright's
@@ -2364,9 +2354,9 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     await expect(page.locator('.pvp-battle-layout')).toBeVisible();
     await expect(page.locator('.pvp-countdown-overlay')).toBeHidden({ timeout: 10_000 });
     await assertBattlefieldActorPresentation(page, '.pvp-battle-layout', {
-        playerMarkers: 1,
-        enemyMarkers: 1,
-        minimumEnemySprites: 0,
+        playerSprites: 1, playerVariant: activeRole === 'p1' ? 'two' : 'one',
+        enemyVariant: activeRole === 'p1' ? 'one' : 'two',
+        minimumEnemySprites: 1,
     });
     // Match Solo's bounded sweep allowance once real combat is ready. CI WebKit
     // reached the zoom matrix with valid geometry but exhausted the 240s setup
@@ -2456,8 +2446,7 @@ test('Tower combat shell keeps jutsu selection geometry stable', async ({ page, 
     // Check the launch turn before the long viewport sweep can advance it.
     await assertTowerCountdownGeometryStable(page, testInfo, launch.session.turnStartedAt);
     await assertBattlefieldActorPresentation(page, '.screen-battleTowerFight', {
-        playerMarkers: 1,
-        enemyMarkers: 0,
+        playerSprites: 1, playerVariant: 'two',
         minimumEnemySprites: 1,
     });
 
@@ -2582,6 +2571,12 @@ test('Tower MPvP authoritative variant keeps jutsu selection geometry stable', a
 
     const fight = page.locator('.screen-battleTowerFight.tower-team-pvp-fight');
     await expect(fight).toBeVisible({ timeout: 20_000 });
+    for (const member of match.roster) {
+        const variant = /[bd]$/.test(member.slug) ? 'two' : 'one';
+        const sprite = fight.locator(`[data-battlefield-actor-id="${member.actorId}"] .battlefield-actor-sprite`);
+        await expect(sprite).toHaveAttribute('src', `/combat-actors/starters/starter-${variant}-idle.webp`);
+        await expect.poll(() => sprite.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    }
     await expect(page.getByRole('complementary', { name: 'Device and server saves diverged' })).toBeHidden();
     await assertJutsuSelectionGeometryStable(page, '.tower-team-pvp-fight', true, `tower-mpvp-${testInfo.project.name}`);
     await assertAuthoritativeTowerFlickerCast(

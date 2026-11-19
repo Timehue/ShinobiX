@@ -13,7 +13,7 @@ const modes = ['solo', 'hunt-pack', 'hunt-waves', 'narrative-group', 'story-twin
 
 function encounter(mode: typeof modes[number], professionRank: number) {
     const pet = { id: 'selected-pet', templateId: 'starter-fire', name: 'Cinder Cub', nickname: 'Actual Companion',
-        level: 75, hp: 1800, attack: 160, defense: 130, speed: 120, role: 'sage', trait: 'Loyal',
+        evolutionStage: 1, level: 75, hp: 1800, attack: 160, defense: 130, speed: 120, role: 'sage', trait: 'Loyal',
         happiness: 100, happinessDay: Math.floor(NOW / 86_400_000), loadout: {} };
     const character = { name: 'Summoner', village: 'Stormveil Village', level: 65, storyProgress: 4,
         specialty: 'Ninjutsu', profession: 'petTamer', professionRank, hp: 10000, maxHp: 10000,
@@ -43,6 +43,7 @@ for (const mode of modes) for (const rank of [9, 10]) for (const legacy of [fals
         const expectedHp = rank === 10 ? 1944 : 1800;
         assert.equal(session.pendingCompanion?.summonApCost, price);
         assert.equal(session.pendingCompanion?.petId, pet.id);
+        assert.equal(session.pendingCompanion?.speciesId, 'starter-fire-r');
         assert.equal(session.pendingCompanion?.name, pet.nickname);
         assert.equal(session.pendingCompanion?.hp, expectedHp);
         assert.equal(session.pendingCompanion?.reviveOnce, rank === 10 ? true : undefined);
@@ -62,6 +63,7 @@ for (const mode of modes) for (const rank of [9, 10]) for (const legacy of [fals
         await writeSoloPveSession(session, { kv });
         character.professionRank = rank === 10 ? 9 : 10;
         pet.hp = 1;
+        pet.evolutionStage = 2;
         let writes = 0;
         const deps = { now: () => NOW + 1000, lock: (async (_key, fn) => fn()) as SoloPveLock,
             read: (id: string) => readSoloPveSession(id, { kv }),
@@ -95,6 +97,7 @@ for (const mode of modes) for (const rank of [9, 10]) for (const legacy of [fals
         const actor = view.actors.find((candidate: { character: Record<string, unknown> }) => candidate.character.companion === true);
         assert.ok(actor, 'the summoned pet reaches the rendered actor collection');
         assert.equal(actor.name, 'Actual Companion');
+        assert.equal(actor.character.companionSpecies, 'starter-fire-r', 'the admitted appearance survives storage and replay');
         assert.equal(actor.maxHp, expectedHp, 'the admitted pet and its HP mastery reach the rendered actor');
         assert.equal(actor.character.companionRoundsLeft, 4);
     });

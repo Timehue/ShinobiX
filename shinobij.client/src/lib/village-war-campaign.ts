@@ -14,7 +14,7 @@ export type CampaignPetSession = { status: 'active' | 'done'; winner: 'p1' | 'p2
 export type CampaignResponse = CampaignBattle & { campaign?: CampaignView;
     mission?: CampaignFieldMissionView | null; peers?: PlayerRecord[]; guard?: { sector: number; inside: boolean };
     room?: { objective: CampaignObjective; serverNow: number;
-        players: { name: string; displayName: string; village: string; tile: number; inBattle: boolean }[] };
+        players: { name: string; displayName: string; village: string; tile: number; inBattle: boolean; starterWorldModel?: import('../../../shared/player-model-ref').StarterWorldModel }[] };
     defense?: { objectiveId: string; seenAt: number }; run?: CampaignBattle | null; error?: string };
 export async function campaignRequest(name: string, warId: string, action: string, extra: Record<string, unknown> = {}): Promise<CampaignResponse> {
     const response = await fetch('/api/village/war-campaign', { method: 'POST', headers: { 'Content-Type': 'application/json' },

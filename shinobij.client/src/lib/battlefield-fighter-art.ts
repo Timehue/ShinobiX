@@ -1,4 +1,5 @@
 import { isPlayerModel, readStarterWorldModel, type PlayerModel } from '../../../shared/player-model-ref';
+import { cinderholdBattleModels } from './cinderhold-battle-models';
 import { isNpcVillage } from '../../../shared/npc-village';
 import { cinderholdCombatantId } from './battlefield-sprite';
 
@@ -9,22 +10,31 @@ function cinderholdPortraitId(portrait: unknown): string | undefined {
     return cinderholdCombatantId(id);
 }
 
-function cinderholdFighterId(appearance: FighterAppearance | null | undefined, portrait?: string | null): string | undefined {
+/** Only a roster identity or its exact owned model revision identifies an authored fighter. */
+function rosterFighterId(appearance: FighterAppearance | null | undefined): string | undefined {
+    const model = appearance?.playerModel;
     const rosterId = isNpcVillage(appearance?.village) && typeof appearance?.name === 'string'
         ? cinderholdCombatantId(appearance.name.trim().toLowerCase()) : undefined;
-    return rosterId ?? cinderholdPortraitId(appearance?.avatarImage) ?? cinderholdPortraitId(portrait);
+    return rosterId ?? (isPlayerModel(model) ? cinderholdBattleModels[model.assetId + model.version] : undefined);
 }
 
 export function bundledFighterSprite(appearance: FighterAppearance | null | undefined, portrait?: string | null): string | null {
-    const savedPortrait = typeof appearance?.avatarImage === 'string' ? appearance.avatarImage : '';
-    const npcId = cinderholdFighterId(appearance, portrait);
-    if (npcId) return `/combat-actors/cinderhold/${npcId}-idle.webp`;
-    const starter = readStarterWorldModel(undefined, savedPortrait || portrait)
-        ?? readStarterWorldModel(appearance?.starterWorldModel);
-    return starter ? `/combat-actors/starters/${starter}-idle.webp` : null;
+    const rosterId = rosterFighterId(appearance);
+    if (rosterId) return `/combat-actors/cinderhold/${rosterId}-idle.webp`;
+    const starter = readStarterWorldModel(appearance?.starterWorldModel, appearance?.avatarImage)
+        ?? readStarterWorldModel(undefined, portrait);
+    if (starter) return `/combat-actors/starters/${starter}-idle.webp`;
+    const legacyId = cinderholdPortraitId(appearance?.avatarImage) ?? cinderholdPortraitId(portrait);
+    return legacyId ? `/combat-actors/cinderhold/${legacyId}-idle.webp` : null;
+}
+
+export const DEFAULT_PLAYER_BATTLE_SPRITE = '/combat-actors/starters/starter-one-idle.webp';
+
+export function playerBattleFallback(appearance: FighterAppearance | null | undefined, portrait?: string | null): string {
+    return bundledFighterSprite(appearance, portrait) ?? DEFAULT_PLAYER_BATTLE_SPRITE;
 }
 
 export function generatedFighterModel(appearance: FighterAppearance | null | undefined): PlayerModel | undefined {
     const model = appearance?.playerModel;
-    return isPlayerModel(model) && !cinderholdFighterId(appearance) ? model : undefined;
+    return isPlayerModel(model) && !rosterFighterId(appearance) ? model : undefined;
 }

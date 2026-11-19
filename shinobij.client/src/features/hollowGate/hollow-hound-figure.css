@@ -9,3 +9,15 @@
     z-index: 1;
 }
 .hg-hound-figure img { display: block; width: 100%; }
+.hg-hound-standing {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 110%;
+    height: 82%;
+    object-fit: contain;
+    object-position: bottom;
+    transform: translate(-50%, -100%);
+    pointer-events: none;
+    z-index: 1;
+}

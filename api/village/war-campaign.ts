@@ -131,7 +131,8 @@ async function shrineRoster(war: CampaignWarRow, sector: number, facts = new Map
         const character = facts.get(player.name)?.character, village = String(character?.village ?? '');
         const eligible = !!character && war.villages.includes(village) && Number(character.level) >= 15 && !isIncapacitated(character);
         confirmShrineRoomVillage(player.name, eligible ? village : undefined);
-        return eligible ? [{ name: player.name, displayName: String(character!.name ?? player.displayName), village, tile, inBattle: !!player.inBattle }] : [];
+        return eligible ? [{ name: player.name, displayName: String(character!.name ?? player.displayName), village, tile, inBattle: !!player.inBattle,
+            starterWorldModel: player.starterWorldModel }] : [];
     });
 }
 /**

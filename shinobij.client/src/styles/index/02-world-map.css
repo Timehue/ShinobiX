@@ -245,6 +245,13 @@
     filter: drop-shadow(0 0 4px #f97316) drop-shadow(0 1px 1px #000);
     animation: weekly-boss-flag-bob 1.8s ease-in-out infinite;
 }
+.atlas-boss-flag .world-standing-figure {
+    display: block;
+    width: 19px;
+    height: 23px;
+    object-fit: contain;
+    object-position: bottom;
+}
 @keyframes weekly-boss-flag-bob {
     0%, 100% { transform: translateY(0) rotate(-6deg); }
     50% { transform: translateY(-2px) rotate(6deg); }

@@ -31,7 +31,7 @@ import { GameArtIcon } from "../components/GameArtIcon";
 import roleAssassinPortrait from "../assets/roles/role-assassin.webp";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
-import { bundledFighterSprite, generatedFighterModel } from "../lib/battlefield-fighter-art";
+import { playerBattleFallback, generatedFighterModel } from "../lib/battlefield-fighter-art";
 import { battlefieldFacingTowardNearest, battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
 import { useBattlefieldModelSprite } from "../lib/use-battlefield-model-sprite";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
@@ -2237,8 +2237,10 @@ export function PvpBattleScreen({
     };
     const myAvatar = (me.character?.avatarImage as string) || sharedAvatarFor(sharedImages, me.name) || "";
     const oppAvatar = (opp.character?.avatarImage as string) || sharedAvatarFor(sharedImages, opp.name) || "";
-    const mySprite = myModelSprite || bundledFighterSprite(myAppearance, myAvatar);
-    const oppSprite = oppModelSprite || bundledFighterSprite(oppAppearance, oppAvatar);
+    const myFallback = playerBattleFallback(myAppearance, myAvatar);
+    const oppFallback = playerBattleFallback(oppAppearance, oppAvatar);
+    const mySprite = myModelSprite || myFallback;
+    const oppSprite = oppModelSprite || oppFallback;
     const myBoardActor = { id: role, side: "squad" as const, pos: myPos, hp: me.hp };
     const oppBoardActor = { id: role === "p1" ? "p2" : "p1", side: "enemy" as const, pos: oppPos, hp: opp.hp };
     const boardActors = [myBoardActor, oppBoardActor];
@@ -2388,7 +2390,7 @@ export function PvpBattleScreen({
                                 left: "0", top: "0",
                             }}>
                                 {(() => {
-                                    const orbForPos = (animPos: number, isOpp: boolean, imgSrc: string, altName: string, fighter: { shield: number; statuses: Array<{ name: string }> }) => {
+                                    const orbForPos = (animPos: number, isOpp: boolean, altName: string, fighter: { shield: number; statuses: Array<{ name: string }> }) => {
                                         const pos = animPos >= 0 ? animPos : (isOpp ? oppPos : myPos);
                                         const row = Math.floor(pos / gridWidth);
                                         const col = pos % gridWidth;
@@ -2397,18 +2399,14 @@ export function PvpBattleScreen({
                                         const ward = pvpCombatWardKey(fighter, session.round);
                                         return (
                                             // Walk the hex path between cells instead of snapping (Move / Dash /
-                                            // Flicker / Push / Pull / ground relocation) so units read as travelling,
-                                            // not teleporting. Stable key => same DOM node => CSS transitions each
-                                            // hop. Always rendered (emoji fallback when there's no avatar image) so
-                                            // emoji-only fighters travel too rather than blinking tile-to-tile.
+                                            // Flicker / Push / ground relocation) with one stable anchor per fighter.
                                             <BattlefieldActor key={isOpp ? "opp-orb" : "me-orb"}
                                                 side={isOpp ? "enemy" : "player"}
                                                 actorId={isOpp ? (role === "p1" ? "p2" : "p1") : role}
                                                 label={altName}
-                                                portrait={imgSrc}
+                                                fallbackSprite={isOpp ? oppFallback : myFallback}
                                                 sprite={isOpp ? oppSprite : mySprite}
                                                 facing={battlefieldFacingTowardNearest(isOpp ? oppBoardActor : myBoardActor, boardActors, gridWidth)}
-                                                fallback={altName.slice(0, 2).toUpperCase()}
                                                 style={{ position: "absolute", left: ox, top: oy, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: ORB_PATH_TRANSITION }}>
                                                 {ward && <span className={`pvp-guard-aura pvp-guard-${ward}`} aria-hidden="true" />}
                                             </BattlefieldActor>
@@ -2438,8 +2436,8 @@ export function PvpBattleScreen({
                                     };
                                     return (
                                         <>
-                                            {orbForPos(myPathPos, false, myAvatar, me.name, me)}
-                                            {orbForPos(oppPathPos, true, oppAvatar, opp.name, opp)}
+                                            {orbForPos(myPathPos, false, me.name, me)}
+                                            {orbForPos(oppPathPos, true, opp.name, opp)}
                                             {hpBadgeFor(myPathPos, false, me.hp, me.maxHp)}
                                             {hpBadgeFor(oppPathPos, true, opp.hp, opp.maxHp)}
                                         </>
