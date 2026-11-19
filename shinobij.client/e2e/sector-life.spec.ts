@@ -211,9 +211,10 @@ for(const sector of [2,15,23,31])test(`ownership cloth sector ${sector}: live se
     await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);if(await back.isVisible())await back.click();
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');await expect.poll(()=>polls).toBeGreaterThan(0);
     const terrain=page.locator('.continuous-world-map>canvas'),map=page.locator('.continuous-world-map');
-    const stable=async()=>{let last='',count=0;await expect.poll(async()=>{const next=await terrain.evaluate(el=>(el as HTMLCanvasElement).toDataURL());count=next===last?count+1:0;last=next;return count;},{intervals:[150]}).toBeGreaterThanOrEqual(3);return last;};
-    // Let floor decoding and native raster-cache arrival finish before the baseline.
-    await expect.poll(()=>floorLoaded).toBe(true);
+    // Run the page clock between samples: a stalled frame loop repeats a mid-glide camera frame (see the gathering test).
+    const stable=async()=>{let last='',count=0;await expect.poll(async()=>{await page.clock.runFor(250);const next=await terrain.evaluate(el=>(el as HTMLCanvasElement).toDataURL());count=next===last?count+1:0;last=next;return count;},{intervals:[150]}).toBeGreaterThanOrEqual(3);return last;};
+    // Let floor decoding and native raster-cache arrival finish, and the camera's 1.5 s aim window close, before the baseline.
+    await expect.poll(()=>floorLoaded).toBe(true);await page.clock.runFor(1_500);
     const initial=await stable(),states=new Set([initial]);let previous=initial;
     for(const [id,village] of [['moonshadow','Moonshadow Village'],['stormveil','Stormveil Village'],['ashen-leaf','Ashen Leaf Village'],['frostfang','Frostfang Village'],['neutral',undefined]] as const){
         const before=polls;ownerVillage=village;await page.clock.fastForward(16_000);await expect.poll(()=>polls).toBeGreaterThan(before);
@@ -490,9 +491,10 @@ test('a failed supported-shrine image preserves the loaded terrain and retries o
     await page.route('**/sector-life/heartwood-dormant-shrine-v1.webp',async route=>{baseLoads++;await route.abort('failed');});
     const initial=page.waitForResponse(response=>response.url().includes('/sector-life/heartwood-left-lamp-v1.webp'));
     await enterLifeSector(page,15);await (await initial).finished();await page.waitForTimeout(500);
-    // Wait for a still frame: on a phone the camera first settles beside the nearby residents.
-    const terrain=page.locator('.continuous-world-map>canvas');let before='',stable=0;
-    await expect.poll(async()=>{const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===before?stable+1:0;before=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);
+    // Wait for a still frame: on a phone the camera first settles beside the nearby residents. Close its
+    // 1.5 s aim window and run the page clock between samples, or a stalled frame loop repeats a mid-glide frame.
+    const terrain=page.locator('.continuous-world-map>canvas');let before='',stable=0;await page.clock.runFor(1_500);
+    await expect.poll(async()=>{await page.clock.runFor(250);const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===before?stable+1:0;before=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);
     const baseBefore=baseLoads;
     tier=1;await page.clock.fastForward(21_000);await expect.poll(()=>failed).toBe(1);await page.clock.runFor(1000);
     await expect.poll(()=>baseLoads).toBeGreaterThan(baseBefore);
@@ -540,8 +542,8 @@ test('an initial floor still decodes when a newer shrine state is waiting behind
     // The renderer deliberately fills its tile cache over several frames.
     // Wait for that budgeted repaint to settle before checking retention.
     let decodedBase='',stable=0;
-    await expect.poll(async()=>{const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===decodedBase?stable+1:0;decodedBase=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);
-    await page.waitForTimeout(100);expect(await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())===decodedBase).toBe(true);
+    await expect.poll(async()=>{await page.clock.runFor(250);const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===decodedBase?stable+1:0;decodedBase=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);
+    await page.clock.runFor(100);expect(await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())===decodedBase).toBe(true);
     releaseNew();await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).not.toBe(decodedBase);
 });
 for(const sector of Object.keys(LIFE_ROAD_CREWS).map(Number))test(`regional workers ${sector} meet a real partner at the handover and wait out bad weather`,async({page},info)=>{
