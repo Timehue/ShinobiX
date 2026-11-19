@@ -80,10 +80,23 @@ describe("defaults and caps a stored save may be missing", () => {
         assert.equal(normalizeCharacter(save({})).storyVillage, villages[0]);
     });
 
-    it("caps the equipped jutsu list at 15", () => {
+    it("preserves ordered regular jutsu up to the active 14/15 entitlement", () => {
         const ids = Array.from({ length: 40 }, (_, i) => `j${i}`);
-        assert.equal(normalizeCharacter(save({ equippedJutsuIds: ids })).equippedJutsuIds.length, 15);
-        assert.deepEqual(normalizeCharacter(save({ equippedJutsuIds: ids })).equippedJutsuIds, ids.slice(0, 15));
+        const supporter = { userId: "test", tier: "shinobi-supporter", active: true, entitledCents: 1_500, updatedAt: 1 };
+        for (const [patreon, cap] of [
+            [undefined, 14],
+            [supporter, 15],
+            [{ ...supporter, active: false }, 14],
+            [{ ...supporter, expiresAt: Date.now() - 1 }, 14],
+        ] as const) {
+            const input = save({ equippedJutsuIds: ids, patreon });
+            const normalized = normalizeCharacter(input);
+            assert.deepEqual(normalized.equippedJutsuIds, ids.slice(0, cap));
+            assert.deepEqual(normalizeCharacter(normalized), normalized);
+            assert.deepEqual(input.equippedJutsuIds, ids, "loading does not mutate the stored input");
+        }
+        const existing = ids.slice(0, 12);
+        assert.deepEqual(normalizeCharacter(save({ equippedJutsuIds: existing })).equippedJutsuIds, existing);
     });
 
     it("seeds unspentStats from the starting pool and never goes negative", () => {

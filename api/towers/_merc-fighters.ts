@@ -33,7 +33,7 @@ const STAT_KEYS = [
     'genjutsuOffense', 'genjutsuDefense', 'ninjutsuOffense', 'ninjutsuDefense',
 ] as const;
 
-// A two-nature veteran curriculum, capped at the baseline player's 12 slots.
+// A fixed two-nature veteran curriculum of at most 12 techniques.
 // All EP/AP/tags/cooldowns come from the catalog. Six or more strikes cover
 // recovery turns; 40AP stances can pair with a 60AP attack. Upper tiers add
 // counters rather than inflating the EP of their attacks.

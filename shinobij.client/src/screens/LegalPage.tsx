@@ -55,8 +55,9 @@ type LegalDocument = {
 // earned and that Supporter gives no combat advantage. Shards are earnable,
 // but some gear is Shard-only, and Supporter's 15-slot loadout also applies in
 // human PvP (normalizeHumanPvpLoadout). It now says exactly that.
+// 1.16: regular jutsu capacity is 14 by default and 15 with Supporter.
 const LAST_UPDATED = "November 18, 2026";
-const VERSION = "1.15";
+const VERSION = "1.16";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -262,7 +263,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                     <>
                         <p>The Premium Shop sells <strong>Fate Shards</strong>, a virtual currency spent in game, and <strong>Shinobi Supporter</strong>, a monthly subscription. Prices are shown before you pay, and the exact amount in your own currency — including any tax — is confirmed by the checkout before the payment is taken.</p>
                         <p>Fate Shards can also be earned by playing, more slowly than they can be bought. Some items are sold only for Fate Shards, including the strongest armour and weapons, pet PvP gear and evolution stones.</p>
-                        <p>Shinobi Supporter adds a larger jutsu loadout (15 slots instead of 12, which also applies in PvP), an extra pet and bloodline slot, bloodline switching from your Profile, and a custom avatar.</p>
+                        <p>Shinobi Supporter adds one regular jutsu slot (15 instead of 14, also in PvP), an extra pet and bloodline slot, bloodline switching from your Profile, and a custom avatar.</p>
                         <p>Where Make Model is available, an active Shinobi Supporter subscription includes one world model creation per calendar month in UTC from a supported portrait. Confirming a request uses the slot. A system failure returns it, and a cancellation keeps it used. The supported portraits and availability of Make Model may vary.</p>
                     </>
                 ),

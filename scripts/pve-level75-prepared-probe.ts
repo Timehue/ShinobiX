@@ -31,12 +31,12 @@ type Measured = ReturnType<typeof pressureFight> & { fixture: Fixture; source: s
 
 function fixture(name: Fixture) {
     // Identical to the previously measured optimized75 eight-slot control,
-    // except four learned techniques fill the ordinary account's12 slots.
+    // except four learned techniques extend it to the fixed 12-slot control.
     const save = diagnosticPlayerSave(LEVEL, 'maxed', 'coherent', 'B');
     save.character.equippedJutsuIds.push(...KITS[name]);
     save.character.jutsuMastery.push(...KITS[name].map(jutsuId => ({ jutsuId, level: 50, xp: 0 })));
     const audit = auditPressureFixture(save, LEVEL, { expectedMasteryCeiling: 50, expectedBloodlineRank: 'S Rank' });
-    if (!audit.legal || audit.acquisitionWarnings.length || maxLoadout(save.character) !== 12
+    if (!audit.legal || audit.acquisitionWarnings.length || maxLoadout(save.character) < 12
         || save.character.equippedJutsuIds.length !== 12 || save.character.earnedStatPoints !== earnedForLevel(LEVEL)) {
         throw new Error(`Invalid ${name} fixture: ${JSON.stringify(audit)}`);
     }
@@ -91,7 +91,7 @@ async function main() {
         fixtureAudit: fixtures, sourceHashes: candidateHashes, baselineSourceHashes: baselineHashes, archiveMismatches,
         complete: false, rows, limitations: [
             'Synthetic L75 fixtures with exactly17711earned points, S-rank multiplier1.20, mastery50 and obtainable legendary catalog gear; no invented passive, companion, consumable or supporter capacity.',
-            'Both fixed Earth/Wind kits use12baseline slots; stats/gear/bloodline are unchanged from the earlier optimized eight-slot L75 fixture.',
+            'Both fixed Earth/Wind kits use12equipped slots within the ordinary capacity; stats/gear/bloodline are unchanged from the earlier optimized eight-slot L75 fixture.',
             'The same current bounded own-turn player policy is used in both variants. It is weapon-aware and reads only public state and its own legal actions; no future opponent response is searched.',
             'Before uses archived main resolver/builder/catalog at the same exact rolled enemy level, role, seed, player fixture and player policy. Ordinary profile adapter is unchanged at this baseline.',
             'Observed HP damage, shields, applied healing, net loss and minimum/end HP are distinct; recovery may net within one event.',
@@ -134,7 +134,7 @@ async function main() {
         sourceHashesAtFinish: afterHashes, baselineSourceHashesAtFinish: afterBaselineHashes, changedSources: changed, changedBaselineSources: baselineChanged, summary: groups });
     checkpoint();
     const table = rows.map(row => `| ${row.fixture} | ${row.source} | ${row.difficulty} | ${row.seed} | ${row.enemyLevel} | ${row.control} | ${row.variant} | ${row.outcome} | ${row.rounds} | ${row.minimumHp} | ${row.finalHp} | ${row.finalEnemyHp} |`).join('\n');
-    writeFileSync(markdown, `# Level75 prepared capacity probe\n\nBaseline: \`${BASELINE_SHA}\`. Candidate head at start: \`${report.candidateHeadAtStart}\`. Complete: **${report.complete}**. Source changes: ${changed.length}; baseline changes: ${baselineChanged.length}. Raw audit, full fixtures, source hashes and complete per-action traces are in [the JSON](level75-prepared.json).\n\nThe12-slot controls preserve the earlier optimized75 stats, owned gear, S-rank multiplier and50mastery. Only the four added catalog techniques differ. Production audit confirms12baseline slots,2natures,2100stat cap and17711earned points. Rotation and sustain kits are both retained; neither is selected per enemy.\n\n${groups.map(group => `- ${group.key}: ${group.wins}/${group.fights}wins, ${group.deaths}HP-zero endings, ${group.livingLimits}living limits, mean ${group.meanRounds.toFixed(1)}rounds.`).join('\n')}\n\n| Fixture | Source | Tier | Seed | Enemy Lv | Policy | Variant | Outcome | Rounds | MinHP | EndHP | EnemyHP |\n|---|---|---|---:|---:|---|---|---|---:|---:|---:|---:|\n${table}\n\n${report.limitations.map(limit => `- ${limit}`).join('\n')}\n`);
+    writeFileSync(markdown, `# Level75 prepared capacity probe\n\nBaseline: \`${BASELINE_SHA}\`. Candidate head at start: \`${report.candidateHeadAtStart}\`. Complete: **${report.complete}**. Source changes: ${changed.length}; baseline changes: ${baselineChanged.length}. Raw audit, full fixtures, source hashes and complete per-action traces are in [the JSON](level75-prepared.json).\n\nThe12-slot controls preserve the earlier optimized75 stats, owned gear, S-rank multiplier and50mastery. Only the four added catalog techniques differ. Production audit confirms12equipped slots within the ordinary capacity,2natures,2100stat cap and17711earned points. Rotation and sustain kits are both retained; neither is selected per enemy.\n\n${groups.map(group => `- ${group.key}: ${group.wins}/${group.fights}wins, ${group.deaths}HP-zero endings, ${group.livingLimits}living limits, mean ${group.meanRounds.toFixed(1)}rounds.`).join('\n')}\n\n| Fixture | Source | Tier | Seed | Enemy Lv | Policy | Variant | Outcome | Rounds | MinHP | EndHP | EnemyHP |\n|---|---|---|---:|---:|---|---|---|---:|---:|---:|---:|\n${table}\n\n${report.limitations.map(limit => `- ${limit}`).join('\n')}\n`);
     if (!report.complete) throw new Error(`Evidence sources changed: ${JSON.stringify({ changed, baselineChanged })}`);
     console.log(JSON.stringify({ complete: report.complete, rows: rows.length, summary: groups, output, markdown }));
 }

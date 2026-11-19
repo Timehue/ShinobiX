@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, canCustomAvatar, maxLoadout, maxPets, maxStoredBloodlines, PET_CAP_BASE } from "./entitlements";
 import { TACTICAL_ARENA_PET_REQUIREMENT } from "./pet";
+import { maxLoadout as serverMaxLoadout } from "../../../api/_entitlements";
 
 describe("client supporter entitlement mirror", () => {
     const supporter: Parameters<typeof maxLoadout>[0] = {
@@ -15,10 +16,30 @@ describe("client supporter entitlement mirror", () => {
     };
 
     it("matches the canonical jutsu and carried-pet caps", () => {
-        assert.equal(maxLoadout({}), 12);
+        assert.equal(maxLoadout({}), 14);
         assert.equal(maxLoadout(supporter), 15);
         assert.equal(maxPets({}), 5);
         assert.equal(maxPets(supporter), 6);
+    });
+
+    it("matches the server's 14/15 capacity for missing, inactive and expired subscriptions", () => {
+        for (const character of [undefined, null, {}, supporter,
+            { patreon: { ...supporter.patreon!, active: false } },
+            { patreon: { ...supporter.patreon!, expiresAt: Date.now() - 1 } },
+            { patreon: { ...supporter.patreon!, expiresAt: Date.now() + 60_000 } }]) {
+            assert.equal(maxLoadout(character), serverMaxLoadout(character));
+        }
+    });
+
+    it("ends the fifteenth regular slot at the exact expiry on both client and server", (t) => {
+        let now = 9_999;
+        t.mock.method(Date, "now", () => now);
+        const character = { patreon: { ...supporter.patreon!, expiresAt: 10_000 } };
+        for (const [at, cap] of [[9_999, 15], [10_000, 14], [10_001, 14]] as const) {
+            now = at;
+            assert.equal(maxLoadout(character), cap);
+            assert.equal(serverMaxLoadout(character), cap);
+        }
     });
 
     it("lets every account carry the full Tactical Arena team", () => {

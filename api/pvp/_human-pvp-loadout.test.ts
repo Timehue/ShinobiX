@@ -16,7 +16,7 @@ describe('human PvP loadout normalization', () => {
         assert.deepEqual(normalized.jutsu, regular.slice(0, LOADOUT_CAP_SUB));
     });
 
-    it('hydrates all 15 learned subscriber slots before human-PvP sealing', () => {
+    it('hydrates 14 base or 15 supporter learned slots before human-PvP sealing', () => {
         const equippedJutsuIds = Object.keys(JUTSU_CATALOG)
             .filter((id) => id.startsWith('starter-'))
             .slice(0, LOADOUT_CAP_SUB);
@@ -30,19 +30,23 @@ describe('human PvP loadout normalization', () => {
             equippedJutsuIds,
             jutsuMastery: equippedJutsuIds.map((jutsuId) => ({ jutsuId, level: 0 })),
         };
-        const hydrated = hydrateCharacterFromSave(saveCharacter, {}, { character: saveCharacter });
-        assert.deepEqual(
-            (hydrated.jutsu as Array<{ id: string }>).map(({ id }) => id),
-            equippedJutsuIds,
-        );
+        for (const [active, cap] of [[false, 14], [true, 15]] as const) {
+            const character = { ...saveCharacter, patreon: { active } };
+            const hydrated = hydrateCharacterFromSave(character, {}, { character });
+            const normalized = normalizeHumanPvpLoadout(hydrated);
+            assert.deepEqual(
+                (normalized.jutsu as Array<{ id: string }>).map(({ id }) => id),
+                equippedJutsuIds.slice(0, cap),
+            );
+        }
     });
 
     it('keeps the base-account cap and does not mutate a loadout already within it', () => {
-        const character = { name: 'Base', jutsu: techniques(12) };
+        const character = { name: 'Base', jutsu: techniques(14) };
         assert.equal(normalizeHumanPvpLoadout(character), character);
         assert.deepEqual(
             normalizeHumanPvpLoadout({ name: 'Base', jutsu: techniques(15) }).jutsu,
-            techniques(15).slice(0, LOADOUT_CAP_BASE),
+            techniques(14),
         );
     });
 

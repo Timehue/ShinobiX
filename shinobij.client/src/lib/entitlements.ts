@@ -22,7 +22,7 @@ export function isPatreonSubscriber(character: WithPatreon): boolean {
 }
 
 // Perk caps: base = non-subscriber, sub = $15 "Shinobi Supporter".
-export const LOADOUT_CAP_BASE = 12;
+export const LOADOUT_CAP_BASE = 14;
 export const LOADOUT_CAP_SUB = 15;
 export const PET_CAP_BASE = 5;
 export const PET_CAP_SUB = 6;
