@@ -1,6 +1,6 @@
 {
-  "intake": "88b82b0da52d1b60be52b1c6f31d3cc4c524d057598d837fe55b95c047b2ace9",
-  "movement": "6fc5ea69b176385c6e82004ff105e2a1555eced4b445f7fc988af7ec1c86868e",
+  "intake": "b676656b5dbb4980206814acefdfbd2075ab88aa144d60c352645e26e9ac8bc8",
+  "movement": "bcd49663e81a89c4a8eaa219f67331cca47b1f8e189f6930bccaabeae4e9f84e",
   "paintedCostumes": true,
   "paintedTemplates": ["male-coat-template.json", "female-coat-template.json", "masked-collar-template.json"]
 }

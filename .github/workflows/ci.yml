@@ -1704,6 +1704,8 @@ jobs:
         run: |
           python -m unittest discover -s workers/avatar-model/tests -p 'test_cleanup_*.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/cleanup-tests.log
           python -m unittest discover -s workers/avatar-model/tests -p 'test_browser_motion.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/delivery-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_battle_sprite.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/battle-sprite-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_paint_*.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/paint-tests.log
           python -m unittest discover -s workers/avatar-model/tests -p 'test_dispatch_result.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/recovery-tests.log
           python -m unittest discover -s workers/avatar-model/tests -p 'test_roster_release.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/roster-release-tests.log
       - name: Retain recognition test results

@@ -14,8 +14,10 @@ const cyclePattern = /^[A-Za-z0-9_-]{1,64}$/;
  * What one finished job is charged when it ends, per provider, in millionths of a US dollar.
  * Neither provider bills per job, so a job settles a fixed amount the moment it ends and its
  * worst-case reservation goes back to the budget. The first live job cost $0.76 on Modal.
+ * OpenAI was $0.25 while a model was one costume image; it now also paints a combat sprite
+ * (workers/avatar-model/paint_battle_sprite.py), so a finished job is charged for two.
  */
-export const DEFAULT_SETTLE_MICROS: Record<Provider, number> = { modal: 1_000_000, openai: 250_000 };
+export const DEFAULT_SETTLE_MICROS: Record<Provider, number> = { modal: 1_000_000, openai: 500_000 };
 
 /** The owner can tune the amounts with `settleMicros` on a provider in AVATAR_MODEL_RESERVATIONS_JSON. */
 export function fixedSettleMicros(env: NodeJS.ProcessEnv = process.env): Record<Provider, number> {

@@ -10,7 +10,26 @@ class MovementRevisionMismatch(ValueError):
     pass
 
 
-def paint(entry, master, digest, style, blender, work, expected_movement=None):
+def painted_battle_sprite(path):
+    """A combat sprite painted for this model (paint_battle_sprite.py), if it is one sound WebP."""
+    from browser_motion import BATTLE_SPRITE_BYTES
+    from PIL import Image
+
+    try:
+        with path.open("rb") as stream:
+            data = stream.read(BATTLE_SPRITE_BYTES + 1)
+        if not 0 < len(data) <= BATTLE_SPRITE_BYTES:
+            return None
+        with Image.open(path) as image:
+            if image.format != "WEBP" or max(image.size) > 512:
+                return None
+            image.verify()
+        return data
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def paint(entry, master, digest, style, blender, work, expected_movement=None, battle_sprite_path=None):
     if style not in ("A", "B", "C"):
         raise ValueError("invalid-run-style")
     sys.path.insert(0, str(entry.resolve(strict=True).parent))
@@ -26,8 +45,11 @@ def paint(entry, master, digest, style, blender, work, expected_movement=None):
         raise MovementRevisionMismatch("movement-worker-revision-mismatch")
     battle_sprite = None
     if style == "A":
-        from battle_pose import render_battle_pose
-        battle_sprite = render_battle_pose(fit, sheet, template, work)
+        battle_sprite = painted_battle_sprite(battle_sprite_path) if battle_sprite_path else None
+        if battle_sprite is None:
+            # No painted fighter for this model: pose the world model instead.
+            from battle_pose import render_battle_pose
+            battle_sprite = render_battle_pose(fit, sheet, template, work)
         (work / "battle.webp").write_bytes(battle_sprite)
     source = ["--fitted-master", master, "--master-sha256", digest]
     cache = work / "lower"
@@ -48,9 +70,11 @@ if __name__ == "__main__":
     parser.add_argument("--master-sha256", required=True)
     parser.add_argument("--style", choices=("A", "B", "C"), required=True)
     parser.add_argument("--expected-movement", help="Movement revision recorded by a previous style of this job")
+    parser.add_argument("--battle-sprite", type=Path, help="Painted combat sprite for style A, in place of the posed model")
     args = parser.parse_args()
     try:
-        paint(args.entry, args.master, args.master_sha256, args.style, args.blender, args.work, args.expected_movement)
+        paint(args.entry, args.master, args.master_sha256, args.style, args.blender, args.work, args.expected_movement,
+              args.battle_sprite)
     except MovementRevisionMismatch as error:
         print(error, file=sys.stderr)
         sys.exit(78)
