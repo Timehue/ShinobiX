@@ -62,7 +62,8 @@ def single_closeup(read):
                for x, y, end_x, end_y in hair for other in other_hair)
 
 
-def prepare(entry, upload, master, reader_python, digest, animal_only=False, ask_animal=None):
+def prepare(entry, upload, master, reader_python, digest, animal_only=False, ask_style=None):
+    """ask_style(png) returns "upright-animal", "upright-character" or None (upright_animal.style)."""
     sys.path.insert(0, str(entry.parent))
     from motion_worker_paths import TEMPLATES
     from avatar_worker.portrait import prepare_portrait
@@ -71,9 +72,9 @@ def prepare(entry, upload, master, reader_python, digest, animal_only=False, ask
     from PIL import Image
     from armored_raccoon import face_and_muzzle, confirms_armor
     import upright_animal
-    if ask_animal is None:
-        def ask_animal(png):
-            return upright_animal.admits(upright_animal.ask(png, os.environ.get("OPENAI_API_KEY")))
+    if ask_style is None:
+        def ask_style(png):
+            return upright_animal.style(upright_animal.ask(png, os.environ.get("OPENAI_API_KEY")))
 
     raw = upload.read_bytes()
     with Image.open(BytesIO(raw)) as image:
@@ -104,9 +105,13 @@ def prepare(entry, upload, master, reader_python, digest, animal_only=False, ask
                 raise ValueError("armored-raccoon-read-mismatch")
             if confirms_armor(*subject, armor["regions"]):
                 style = "armored-raccoon"
-        # Any other illustrated animal standing upright like a person is painted on the same rig.
-        if style is None and ask_animal(portrait.png):
-            style = "upright-animal"
+        # Any other illustrated character that walks on two legs is painted on the same rig: an
+        # animal with the animal prompt, anyone else (a bald, helmeted, masked, horned or animated
+        # human, an elf, a robot) with the human close-up prompt.
+        if style is None:
+            style = ask_style(portrait.png)
+            if style not in (None, "upright-animal", "upright-character"):
+                raise ValueError("upright-style-unknown")
         if style is None:
             return
         template = TEMPLATES / "male-coat-template.json"

@@ -24,6 +24,8 @@ const descriptions = new Map(Object.entries({
     'portrait-bust-coat': 'Clothed human character',
     'armored-raccoon': 'Armored raccoon character',
     'upright-animal': 'Upright animal character',
+    // Any other two-legged character the vision check admits (workers/avatar-model/upright_animal.py).
+    'upright-character': 'Two-legged character',
 }));
 type ReadRow = { operation: string; stage: 'moderate' | 'read' | 'declined' | 'failed' | 'ready';
     readToken?: string; summary?: string; frameHash?: string; expiresAt: number };

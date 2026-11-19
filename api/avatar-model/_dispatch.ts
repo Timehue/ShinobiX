@@ -6,7 +6,7 @@ import { withKvLock } from '../_lock.js';
 import { withScheduledJobLease } from '../cron/_job-lease.js';
 import { isPlayerModel, type PlayerModel } from '../../shared/player-model-ref.js';
 import type { ModelRetryCause } from '../../shared/avatar-model-operations.js';
-import type { AdmissionPolicy, ProviderReservation } from './_admission.js';
+import { isBudgetedProvider, type AdmissionPolicy, type ProviderReservation } from './_admission.js';
 import { readPrivateModelFile, storePaintedFit, validatePaintedFit } from './_private-files.js';
 import { modelModalEnvironment, moderateModelPortrait } from './_read-provider.js';
 import { endModelJob } from './_settlement.js';
@@ -92,6 +92,9 @@ async function modalStage(request:StageRequest):Promise<StageReply> {
 async function covered(job:DispatchJob, providers:ProviderReservation[]) {
     if (!providers.some(p => p.provider==='modal') || !job.reserved?.length) return false;
     for (const reservation of job.reserved) {
+        // A job admitted before OpenAI stopped being budgeted still carries its hold; that hold is
+        // released when the job ends, and it never stops the job.
+        if (!isBudgetedProvider(reservation.provider)) continue;
         const policy = providers.find(p => p.provider===reservation.provider && p.cycle===reservation.cycle);
         const row = await kv.get<{reservedMicros:number; spentMicros:number}>(prefix+'budget:'+reservation.provider+':'+reservation.cycle);
         if (!policy || !row || !Number.isSafeInteger(policy.limitMicros) || !Number.isSafeInteger(reservation.micros) ||
@@ -129,14 +132,13 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
         job=claimed;
     }
     const needsPaint=job.paintCostume && !job.originalMasterSha256;
-    if (needsPaint && (!job.reserved.some(p=>p.provider==='openai' && p.micros>0) ||
-        !job.kitVersion || !/^[a-f0-9]{64}$/.test(job.kitVersion))) {
+    if (needsPaint && (!job.kitVersion || !/^[a-f0-9]{64}$/.test(job.kitVersion))) {
         await endModelJob(id,job.slug,'generation-disabled',job);
         return;
     }
     const stage=job.finishedCall ? 'recognize' : needsPaint ? 'paint' : styles.find(style=>!job.completed?.[style])??'finish';
     if (stage==='recognize' && (!job.delivery || !isRecognitionPolicy(job.recognition) ||
-        !/^[a-f0-9]{64}$/.test(job.recognition.nonce) || !job.reserved.some(p=>p.provider==='openai' && p.micros>0))) {
+        !/^[a-f0-9]{64}$/.test(job.recognition.nonce))) {
         await endModelJob(id,job.slug,'generation-disabled',job); return;
     }
     let artwork:{descriptor:Buffer; master:{fit:{sheetSha256:string}}}|undefined;

@@ -130,12 +130,24 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
                        stdout=subprocess.DEVNULL, check=True)
         receipt = json.loads((master / "read.json").read_bytes())
         declined = receipt["declined"]
-        if painted_costumes and isinstance(declined, str) and declined.endswith("-uncertain"):
-            # Only an uncertain bust fit may still become a human close-up; any uncertain
-            # decline may be an upright animal character.
+        if painted_costumes and isinstance(declined, str):
+            # Only an uncertain bust fit may still become a detector-checked human close-up. Any
+            # decline may still be a two-legged character the vision check admits (upright_animal.py),
+            # which itself refuses photos, groups and four-legged animals: the rig takes every
+            # bipedal character, so the intake's narrower families are not the last word.
             animal_only = [] if declined == "portrait-bust-fit-uncertain" else ["--animal-only"]
-            subprocess.run([paint_python, INSTALL / "closeup_portrait.py", entry, upload, master,
-                            reader_python, expected_sha256, *animal_only], stdout=subprocess.DEVNULL, check=True)
+            try:
+                subprocess.run([paint_python, INSTALL / "closeup_portrait.py", entry, upload, master,
+                                reader_python, expected_sha256, *animal_only], stdout=subprocess.DEVNULL, check=True)
+            except subprocess.CalledProcessError as error:
+                # An uncertain decline always went through this fallback, and its failure still fails
+                # the read. A decline that only reaches it since every bipedal character is screened
+                # keeps its original decline instead: the player keeps the monthly model and reads
+                # "could not use this portrait", never "something went wrong". closeup_portrait
+                # replaces read.json only as its last step, so the intake's receipt is still there.
+                if declined.endswith("-uncertain"):
+                    raise
+                print("closeup-fallback-skipped", declined, error.returncode, flush=True)
             receipt = json.loads((master / "read.json").read_bytes())
         if receipt["sourceSha256"] != expected_sha256:
             raise ValueError("portrait-read-mismatch")

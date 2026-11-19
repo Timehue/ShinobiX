@@ -632,10 +632,11 @@ test("Profile opens Make Model next to Upload avatar and creates one monthly mod
         .screenshot({path: info.outputPath('profile-model-placement.png')});
     await opener.click();
     const dialog = page.getByRole("dialog",{name:"Make Model"});
-    await expect(dialog.getByText(/sends your saved portrait to OpenAI and Modal/)).toBeVisible();
+    await expect(dialog.getByText(/sent to OpenAI and Modal/)).toBeVisible();
+    await expect(dialog.getByText(/usually takes 2 to 6 minutes/).first()).toBeVisible();
     expect(checks).toBe(0);
     await dialog.getByRole("button",{name:"Check portrait",exact:true}).click();
-    await expect(dialog.getByText('Checking your portrait…')).toBeVisible();
+    await expect(dialog.getByRole('status')).toHaveText(/^Checking your portrait…/);
     // An accepted portrait submits its model with no second click.
     const library = page.getByRole("dialog",{name:"World model"});
     await expect(library.getByText(/Queued for creation/)).toBeVisible({timeout:15000});

@@ -19,12 +19,12 @@ export function playerPortraitChecksEnabled() {
 }
 /** The most one Modal attempt holds ($1.25). The first live job cost $0.76 in total; a lower configured value still wins. */
 export const MODAL_PER_ATTEMPT_CAP_MICROS = 1_250_000;
-/** The most one OpenAI attempt holds ($0.75): recognition costs under a cent, a costume paint is at most three image
- * edits (the worker's own limit, paint_admitted_costume.py) and the combat sprite is one more plus one repair
- * (paint_battle_sprite.py). A job holds three attempts, $2.25, for at most those five images. It settles a fixed cost when it ends (_fixed-cost.ts), so
- * this hold only paces the monthly budget. Raising it is safe only while each provider's limitMicros stays at least three
- * holds, or modelCreationPolicy() turns creation off. */
+/** The cap on a configured OpenAI attempt ($0.75). Jobs no longer hold OpenAI money: since 2026-11-19 the OpenAI
+ * account's own spend limit and warning email guard it (owner's call), because a $3 in-game cap blocked every player
+ * after three jobs. An `openai` entry in AVATAR_MODEL_RESERVATIONS_JSON is still accepted and ignored by admission. */
 export const OPENAI_PER_ATTEMPT_CAP_MICROS = 750_000;
+/** Providers whose spend admission holds and checks. OpenAI is guarded by its own account limit instead. */
+export const isBudgetedProvider = (provider: string) => provider !== 'openai';
 const PER_ATTEMPT_CAPS: Record<string, number> = { modal: MODAL_PER_ATTEMPT_CAP_MICROS, openai: OPENAI_PER_ATTEMPT_CAP_MICROS };
 export type ProviderReservation ={ provider: 'modal' | 'openai'; cycle: string; limitMicros: number; perAttemptMicros: number };
 export type AdmissionPolicy = { enabled: boolean; dailyLimit: number; providers: ProviderReservation[]; recognition?:RecognitionPolicy };
@@ -62,8 +62,8 @@ export function modelCreationPolicy(): AdmissionPolicy {
         if (Array.isArray(policy.providers)) policy.providers = policy.providers.map(p =>
             p && Object.hasOwn(PER_ATTEMPT_CAPS, p.provider) && Number.isSafeInteger(p.perAttemptMicros)
                 ? { ...p, perAttemptMicros: Math.min(p.perAttemptMicros, PER_ATTEMPT_CAPS[p.provider]!) } : p);
-        if (eligiblePolicy(policy) && policy.providers.length === 2 &&
-            policy.providers.every(provider => provider.perAttemptMicros > 0 && provider.limitMicros >= provider.perAttemptMicros * 3))
+        if (eligiblePolicy(policy) && policy.providers.every(provider => !isBudgetedProvider(provider.provider) ||
+            (provider.perAttemptMicros > 0 && provider.limitMicros >= provider.perAttemptMicros * 3)))
             return policy;
     } catch {
         // Invalid configuration must not interrupt the model library or expose secret values.
@@ -78,7 +78,8 @@ export type ApprovedRead = {
 type Budget = { reservedMicros: number; spentMicros: number };
 type Receipt = { jobId: string; requestHash: string; accountId:string };
 type Save = {character?: {playerModelOwnerId?:string;patreon?: {source?: string; tier?: string}}};
-type Refusal = 'disabled' | 'input' | 'entitlement' | 'quota' | 'budget' | 'read-expired' | 'busy';
+/** `daily` is the game-wide count of models started today (UTC); `budget` is a provider's monthly spend. */
+type Refusal = 'disabled' | 'input' | 'entitlement' | 'quota' | 'daily' | 'budget' | 'read-expired' | 'busy';
 type Outcome = { jobId: string } | { error: Refusal };
 
 export function validateModelRead(read: ApprovedRead): void {
@@ -146,8 +147,6 @@ export async function admitModelJob(owner: string, token: string, idempotencyKey
         const read = await kv.get<ApprovedRead>(readKey);
         if (!read || read.slug!==owner || read.expiresAt<=Date.now() || !read.accountId || !read.privateRefKey)
             return {error:'read-expired'};
-        if (!policy.providers.some(p=>p.provider==='openai' && p.perAttemptMicros>0))
-            return {error:'budget'};
         const saveKey = 'save:'+owner;
         const revisionKey = prefix+'revision:'+owner, holdKey = prefix+'failures:'+owner+':'+read.sourceSha256;
         const [save, revision, failures] = await Promise.all([
@@ -171,10 +170,12 @@ export async function admitModelJob(owner: string, token: string, idempotencyKey
             kv.get(slot),kv.get(active),kv.get<number>(dailyKey),kv.get<string[]>(dispatchKey),
         ]);
         if (existingSlot || existingActive) return {error:'quota'};
-        if (!Number.isSafeInteger(daily??0) || (daily??0)<0 || (daily??0)>=policy.dailyLimit) return {error:'budget'};
+        if (!Number.isSafeInteger(daily??0) || (daily??0)<0) return {error:'budget'};
+        if ((daily??0)>=policy.dailyLimit) return {error:'daily'};
         const ops: KvCasOp[] = [];
         const reserved = [];
         for (const p of policy.providers) {
+            if (!isBudgetedProvider(p.provider)) continue;
             const key=prefix+'budget:'+p.provider+':'+p.cycle;
             const row=await kv.get<Budget>(key);
             const prev=row??{reservedMicros:0,spentMicros:0};
