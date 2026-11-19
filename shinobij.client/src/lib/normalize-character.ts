@@ -34,6 +34,7 @@ import { getCharacterElements } from "./elements";
 import { deriveStoryTraits } from "./character-progress";
 import { normalizePet } from "./pet-roster";
 import { villages } from "../data/sectors";
+import { maxLoadout } from "./entitlements";
 
 export function normalizeCharacter(parsed: Character): Character {
     const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(parsed.level ?? 1)));
@@ -79,7 +80,7 @@ export function normalizeCharacter(parsed: Character): Character {
         equipment: parsed.equipment ?? {},
         stats,
         unspentStats: Math.max(0, Math.floor(parsed.unspentStats ?? STARTING_STAT_POINTS)), // two-axis: stored pool, not budget-derived
-        equippedJutsuIds: (parsed.equippedJutsuIds ?? []).slice(0, 15),
+        equippedJutsuIds: (parsed.equippedJutsuIds ?? []).slice(0, maxLoadout(parsed)),
         jutsuMastery: parsed.jutsuMastery ?? [],
         // The server is authoritative for roster entitlement and grandfathers
         // legitimate larger rosters. Hydration must not silently discard a

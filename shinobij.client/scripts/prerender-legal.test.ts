@@ -113,3 +113,17 @@ test('external deletion contact is exempt from Cloudflare script-dependent email
         rmSync(dir, { recursive: true, force: true });
     }
 });
+
+test('purchase disclosures describe one extra regular jutsu slot and retain Shard-only item disclosures', () => {
+    const { dir } = runPrerender();
+    try {
+        const body = visibleText(readFileSync(path.join(dir, 'prerendered', 'purchases-and-refunds.html'), 'utf8'));
+        ok(body.includes('one regular jutsu slot (15 instead of 14, also in PvP)'));
+        ok(!/no combat advantage|15 slots instead of 12/i.test(body));
+        ok(body.includes('Fate Shards can also be earned by playing, more slowly than they can be bought.'));
+        ok(body.includes('Some items are sold only for Fate Shards, including the strongest armour and weapons, pet PvP gear and evolution stones.'));
+        ok(body.includes('1.16'));
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});

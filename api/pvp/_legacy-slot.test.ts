@@ -16,7 +16,8 @@
  */
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { hydrateCharacterFromSave } from './session.js';
+import { hydrateCharacterFromSave, normalizeHumanPvpLoadout } from './session.js';
+import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 
 const PREV = process.env.ENABLE_LEGACY;
@@ -50,6 +51,25 @@ function sealedJutsu(hydrated: Record<string, unknown>): Array<{ id: string; typ
 }
 
 describe('legacy signature slot — sealed loadout injection', () => {
+    it('keeps the earned signature outside 14/15 regular slots for modern and legacy saved loadouts', () => {
+        const regular = Object.values(JUTSU_CATALOG).filter((entry) => entry.id.startsWith('starter-')).slice(0, 15);
+        assert.equal(regular.length, 15);
+        const ids = regular.map((entry) => entry.id);
+        for (const [patreon, cap] of [[{ active: true }, 15], [{ active: false }, 14],
+            [{ active: true, expiresAt: Date.now() - 1 }, 14]] as const) {
+            for (const legacySnapshot of [false, true]) {
+                const character = saveChar({ legacyId: 'duel-king', stage: 3, acceptedAt: 1, titles: [] }, {
+                    patreon, equippedJutsuIds: legacySnapshot ? undefined : ids,
+                    jutsu: legacySnapshot ? regular : [],
+                    jutsuMastery: ids.map((jutsuId) => ({ jutsuId, level: 1 })),
+                });
+                const sealed = normalizeHumanPvpLoadout(hydrateCharacterFromSave(character, clientChar, { character }));
+                assert.deepEqual(sealedJutsu(sealed).map((entry) => entry.id), [...ids.slice(0, cap), ADAPTIVE_ID]);
+                assert.deepEqual(character.jutsuMastery, ids.map((jutsuId) => ({ jutsuId, level: 1 })));
+            }
+        }
+    });
+
     it('Stage 3 Bound injects the signature with stage-scaled mastery', () => {
         const h = hydrateCharacterFromSave(saveChar({ legacyId: 'duel-king', stage: 3, acceptedAt: 1, titles: [] }), clientChar, {});
         const sig = sealedJutsu(h).find((j) => j.id === ADAPTIVE_ID);

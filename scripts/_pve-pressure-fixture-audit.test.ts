@@ -14,7 +14,7 @@ test('all current pressure and coherent moderate-bloodline fixtures satisfy earn
             assert.deepEqual(audit.failures, [], `${level}/${build}`);
             assert.deepEqual(audit.acquisitionWarnings, [], `${level}/${build}: current UI natures`);
             assert.deepEqual(save, before, 'validation never rewrites fixture evidence');
-            assert.equal(audit.activeLoadoutLimit, 12, 'ordinary player entitlement exceeds the bounded eight-move fixture');
+            assert.equal(audit.activeLoadoutLimit, 14, 'ordinary player entitlement exceeds the bounded eight-move fixture');
             if (build === 'maxed' && level >= 50) assert.equal(audit.derivedBloodlineMult, 1.2);
             else if ((save.character as Record<string, unknown>).equippedBloodlineId) assert.equal(audit.derivedBloodlineMult, 1.1);
         }
@@ -59,7 +59,7 @@ test('server-legal off-nature basics are distinguished from current UI acquisiti
     assert.ok(audit.acquisitionWarnings.some(f => f.code === 'current-ui-nature-access'));
 });
 
-test('fixture loadout validation uses the actual 12/15 account entitlement', () => {
+test('fixture loadout validation uses the actual 14/15 account entitlement', () => {
     const save = pressurePlayerSave(100, 'midgame');
     save.character.equippedJutsuIds = Object.keys(JUTSU_CATALOG).filter(id => characterMayUseJutsu(save.character, save, JUTSU_CATALOG[id])).slice(0, 15);
     save.character.jutsuMastery = save.character.equippedJutsuIds.map(jutsuId => ({ jutsuId, level: 30, xp: 0 }));
