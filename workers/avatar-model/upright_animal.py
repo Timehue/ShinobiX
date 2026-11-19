@@ -1,4 +1,8 @@
-"""Ask a vision model whether a portrait shows one illustrated animal character standing upright like a person."""
+"""Ask a vision model whether a portrait shows one illustrated character that walks on two legs.
+
+Every model is painted on the same human-shaped rig, so any two-legged character fits it: a tiger or a
+raccoon (`upright-animal`), or a human, elf, demon, robot or masked ninja that the detector's strict
+human checks missed (`upright-character`)."""
 import base64
 import json
 import re
@@ -14,7 +18,7 @@ Then answer each question about the image with true or false.
 single_character: exactly one character is the subject. Small background figures do not count.
 illustrated: the character is drawn, painted or rendered art, not a photograph of a real animal or person.
 animal: the character's head is an animal, bird, reptile or amphibian head with a muzzle, snout or beak, not a human face. A human, elf, demon, dwarf or other person with animal ears, horns, face paint, a mask or a costume is false.
-upright_humanoid: the character stands or sits upright like a person, or the visible chest, shoulders, arms or clothing show a person-shaped upper body. A bust portrait of a clothed or armored animal counts as upright.
+upright_humanoid: the character stands or sits upright like a person, or the visible chest, shoulders, arms or clothing show a person-shaped upper body. A bust portrait of a clothed or armored animal counts as upright, and so does a head-and-shoulders portrait of a human, elf, demon, robot or masked or helmeted warrior.
 two_legs: the character has two legs it could walk on like a person, or, in a bust portrait, nothing suggests otherwise. An octopus, squid, snake, fish or other creature with tentacles, a serpent or fish tail, or no legs is false, even when it wears clothes or stands upright.
 four_legged: the character stands or walks on four legs like an ordinary animal.
 real_photo: the image is a photograph of a real animal, person or object."""
@@ -48,9 +52,22 @@ def verdict(response, model=MODEL):
     return answer
 
 
-def admits(answer):
-    return (answer["single_character"] and answer["illustrated"] and answer["animal"] and answer["upright_humanoid"]
+def bipedal(answer):
+    """One drawn character that walks on two legs, whatever its species."""
+    return (answer["single_character"] and answer["illustrated"] and answer["upright_humanoid"]
             and answer["two_legs"] and not answer["four_legged"] and not answer["real_photo"])
+
+
+def admits(answer):
+    """An upright animal: painted with the animal prompt (species, muzzle, fur, tail)."""
+    return bipedal(answer) and answer["animal"]
+
+
+def style(answer):
+    """The style a screened portrait is painted in, or None to decline it."""
+    if not bipedal(answer):
+        return None
+    return "upright-animal" if answer["animal"] else "upright-character"
 
 
 def ask(png, api_key, model=MODEL):

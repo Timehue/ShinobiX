@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from closeup_portrait import has_phrase
-from upright_animal import MODEL, QUESTIONS, admits, request_body, verdict
+from upright_animal import MODEL, QUESTIONS, admits, request_body, style, verdict
 
 UPRIGHT = {"species": "raccoon", "single_character": True, "illustrated": True, "animal": True, "upright_humanoid": True,
            "two_legs": True, "four_legged": False, "real_photo": False}
@@ -42,6 +42,20 @@ class VerdictTest(unittest.TestCase):
                            ("upright_humanoid", False), ("single_character", False), ("illustrated", False)):
             with self.subTest(key=key):
                 self.assertFalse(admits(verdict(response({**UPRIGHT, key: value}))))
+
+    def test_any_two_legged_character_gets_a_style(self):
+        self.assertEqual(style(verdict(response(UPRIGHT))), "upright-animal")
+        self.assertEqual(style(verdict(response({**UPRIGHT, "species": "tiger"}))), "upright-animal")
+        for species in ("human", "elf", "demon", "robot"):
+            with self.subTest(species=species):
+                person = {**UPRIGHT, "species": species, "animal": False}
+                self.assertEqual(style(verdict(response(person))), "upright-character")
+                self.assertFalse(admits(verdict(response(person))), "a person never gets the animal prompt")
+        for key, value in (("four_legged", True), ("real_photo", True), ("two_legs", False),
+                           ("upright_humanoid", False), ("single_character", False), ("illustrated", False)):
+            for animal in (True, False):
+                with self.subTest(key=key, animal=animal):
+                    self.assertIsNone(style(verdict(response({**UPRIGHT, "animal": animal, key: value}))))
 
     def test_incomplete_or_malformed_answers_raise_instead_of_admitting(self):
         for bad in (response(UPRIGHT, status="incomplete"), response(UPRIGHT, model="another-model"),

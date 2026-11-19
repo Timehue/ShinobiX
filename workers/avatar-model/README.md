@@ -108,13 +108,22 @@ For painted costumes, the dedicated secret `shinobix-avatar-costume-paint`
 contains that feature's OpenAI key as `OPENAI_API_KEY` by default.
 Set `SPRITE_OPENAI_SECRET` at deployment to reuse an existing Modal secret
 for painting and recognition. The portrait reader uses the same key for one
-upright-animal question (`upright_animal.py`, pinned model, no retries). That
-question is asked only when the intake declines a portrait as uncertain, and it
-is never asked about a human close-up or an armored raccoon that the detector
+two-legged-character question (`upright_animal.py`, pinned model, no retries).
+Every model is painted on the same human-shaped rig, so the question admits any
+single illustrated character that walks on two legs: an animal becomes
+`upright-animal` (painted with the species, muzzle, fur and tail prompt), anyone
+else becomes `upright-character` (painted with the human close-up prompt), which
+covers the bald, helmeted, masked, horned and animated humans, elves and robots
+that the detector's strict human checks decline. It refuses photos, groups and
+four-legged animals. The question is asked after any intake decline. If the
+fallback fails on a decline that is not `*-uncertain` (the ones it reaches only
+since every bipedal character is screened), the original decline stands, so the
+player keeps the monthly model instead of seeing a failure. It is
+never asked about a human close-up or an armored raccoon that the detector
 already admits. A
 provider error fails the read and never admits a portrait. The game server must
-know the `upright-animal` style (`api/avatar-model/read.ts`) before a worker that
-emits it is deployed.
+know both styles (`api/avatar-model/read.ts`) before a worker that emits them is
+deployed.
 
 Every painted sheet is checked for likeness before the rig accepts it
 (`painted_likeness.py`, same key and pinned model). The head-and-torso row of
@@ -154,7 +163,8 @@ environment, kit/movement hashes and pool/model pins before enabling admission.
 
 The server needs the scoped private/public R2 configuration, moderation key,
 Modal interpreter/environment and a server-owned reservation policy. The policy
-must cover every paid stage and retry, with separate provider billing cycles.
+holds the Modal cost of every paid stage and retry; OpenAI spend is guarded by
+the OpenAI account's own limit, not by the policy.
 Display, creation and dispatch are independent flags. Missing configuration must
 be handled without preventing login, travel or NPC display.
 

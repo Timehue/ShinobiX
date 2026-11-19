@@ -19,7 +19,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             return res.status(400).json({error:'input'});
         const result=await admitModelJob(owner,body.readToken,body.idempotencyKey,modelCreationPolicy());
         if ('jobId' in result) return res.status(202).json(result);
-        const statuses={disabled:503,input:400,entitlement:403,quota:409,budget:429,'read-expired':409,busy:503};
+        const statuses={disabled:503,input:400,entitlement:403,quota:409,daily:429,budget:429,'read-expired':409,busy:503};
         return res.status(statuses[result.error]).json(result);
     }catch(error){
         console.error('[avatar-model/admission]',safeLogValue(error));

@@ -60,10 +60,11 @@ test('confirmed jobs paint once, bind the replacement to the screened rig and re
     const providers:ProviderReservation[]=[{provider:'modal',cycle:'cycle',limitMicros:30,perAttemptMicros:10}];
     const policy={enabled:true,dailyLimit:1,recognition:{model:'local-vision-fixture',poolSha256:'9'.repeat(64)},providers};
     const confirm=()=>admitModelJob(owner,screenedResult.readToken!,screenedResult.readToken!,policy);
-    assert.deepEqual(await confirm(),{error:'budget'});
-    assert.deepEqual(await kv.keys(prefix+'slot:*'),[]);
-    providers.push({...providers[0],provider:'openai'});
+    // OpenAI spend is guarded by the OpenAI account itself, so a Modal-only policy admits a painted
+    // job and the job holds no OpenAI money.
     const job=await confirm(); assert.ok('jobId' in job);
+    assert.deepEqual((await kv.get<{reserved:{provider:string}[]}>(prefix+'job:'+job.jobId))?.reserved.map(r=>r.provider),['modal']);
+    assert.deepEqual(await kv.keys(prefix+'budget:openai:*'),[]);
     assert.deepEqual(await confirm(),job);
     const stages:string[]=[];
     let reviewed=0;

@@ -49,9 +49,14 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
     const withoutReview=JSON.parse(configuredPolicy); delete withoutReview.recognition;
     process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(withoutReview);
     assert.equal((await post(owner,read)).error,'disabled');
+    // OpenAI is guarded by its own account limit, so a policy without an OpenAI budget stays on.
     const withoutReviewBudget=JSON.parse(configuredPolicy);
     withoutReviewBudget.providers=withoutReviewBudget.providers.filter((p:{provider:string})=>p.provider!=='openai');
     process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(withoutReviewBudget);
+    assert.equal(modelCreationPolicy().enabled,true);
+    const withoutModal=JSON.parse(configuredPolicy);
+    withoutModal.providers=withoutModal.providers.filter((p:{provider:string})=>p.provider!=='modal');
+    process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(withoutModal);
     assert.equal((await post(owner,read)).error,'disabled');
     process.env.AVATAR_MODEL_RESERVATIONS_JSON = '{';
     assert.deepEqual(await post(third,await token(third)), { status: 503, error: 'disabled' });
@@ -85,7 +90,8 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
     const day=new Date().toISOString().slice(0,10);
     assert.equal(await kv.get('avatar-model:daily:'+day),2);
     assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:600,spentMicros:0});
-    assert.deepEqual(await kv.get('avatar-model:budget:openai:another-cycle'),{reservedMicros:12,spentMicros:0});
+    // The configured OpenAI entry is ignored: the OpenAI account's own limit guards that spend.
+    assert.equal(await kv.get('avatar-model:budget:openai:another-cycle'),null);
     assert.equal(await kv.get('avatar-model:active:'+owner),jobId);
     assert.equal(await kv.get('avatar-model:read:'+createHash('sha256').update(read).digest('hex')),null);
     const job=await kv.get<{state:string;sourceKey:string;entitlement:{source:string};recognition:{model:string;poolSha256:string;nonce:string}}>('avatar-model:job:'+jobId);
@@ -121,7 +127,7 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
         assert.equal(await kv.get('avatar-model:slot:'+winner+':'+day.slice(0,7)),null);
         // Only the first job was dispatched; the retries end unclaimed and release their whole hold free.
         assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:0,spentMicros:10});
-        assert.deepEqual(await kv.get('avatar-model:budget:openai:another-cycle'),{reservedMicros:0,spentMicros:1});
+        assert.equal(await kv.get('avatar-model:budget:openai:another-cycle'),null);
         const failed=await kv.get<{reserved:unknown[];settledCosts?:Record<string,{spentMicros:number;basis:string}>}>('avatar-model:job:'+failedId);
         assert.deepEqual(failed?.reserved,[]);
         if (i===1) { assert.equal(failed.settledCosts?.modal.spentMicros,10); assert.equal(failed.settledCosts?.modal.basis,'fixed'); }
