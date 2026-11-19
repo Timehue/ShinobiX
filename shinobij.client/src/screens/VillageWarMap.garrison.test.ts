@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
  * the retired UI's absence (no button, no request wrapper). This is the real,
  * rebuilt contract: the "Assault Garrison" button is back, wired to the
  * two-step garrison-start / garrison-resolve flow on a dedicated screen — a
- * genuine Solo PvE fight against the defending village's sealed ANBU, not the
+ * genuine Solo PvE fight against the defending village's sealed Hush, not the
  * old single-shot headless roll.
  */
 

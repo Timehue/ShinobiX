@@ -67,7 +67,7 @@ export function sanitizeExamProgress(
     char.examsPassed = validatedExams.slice(0, 4);
     // Final authority boundary: the dedicated /api/exams/pass flow evaluates
     // the complete checklist (including mastery, clan, named AI defeats, and
-    // live Kage/ANBU leadership). Generic saves only preserve its committed list.
+    // live Kage/Hush leadership). Generic saves only preserve its committed list.
     if (!isFirstSave) char.examsPassed = exExams.filter((exam, index) => KNOWN_EXAMS.has(exam) && exExams.indexOf(exam) === index).slice(0, 4);
 
     // ─── pendingCombatMissionClaims validation ────────────────────────────────

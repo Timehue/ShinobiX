@@ -2,9 +2,8 @@
 
 ## Reference findings
 
-- [Pokémon Stadium 2's official game page](https://www.pokemon.com/uk/pokemon-video-games/pokemon-stadium-2) emphasizes larger 3D battle animations while keeping the arena battle formula. The useful lesson for Colosseum is to make each move's intent and result legible in the existing battle view; no camera change is needed.
-- The requested “Pokémon Stadium 3” does not appear as an internationally released title in the [official Pokémon game list](https://www.pokemon.co.jp/game/). That list has three Japanese Stadium entries: the 1998 original, a 1999 second entry, and the 2000 Gold/Silver entry. The [English page](https://www.pokemon.com/uk/pokemon-video-games/pokemon-stadium-2) calls the latter Pokémon Stadium 2. I treated “3” as the third Japanese entry, rather than assuming an unannounced game.
-- Crema's [battle-flow patch notes](https://crema.gg/temtem/temtem-0-1-9/) explicitly improved action pacing and added an indicator for the technique being used. Its [ranked update](https://crema.gg/temtem/temtem-0-5-16/) added a battle log showing health, stamina, statuses, and stat stages, alongside more technique animations. Its [animation-skip update](https://crema.gg/temtem/patch-1-8/) says skipped effects should not hide battle information. These support a persistent readable weather state and a clear status read even with reduced motion.
+- Larger, clearer 3D battle animations matter more than a new arena layout. The useful lesson for Colosseum is to make each move's intent and result legible in the existing battle view; no camera change is needed.
+- Battle pacing reads better when the technique being used is named on screen, and a battle log that shows health, stamina, statuses and stat stages keeps the state readable as animations grow. Skipped or reduced effects must never hide battle information. These support a persistent readable weather state and a clear status read even with reduced motion.
 
 ## Current move inventory
 

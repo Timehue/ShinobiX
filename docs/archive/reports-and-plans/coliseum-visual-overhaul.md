@@ -3,7 +3,7 @@
 > **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
 
 > Status: **Phases 1–3 SHIPPED to main (2026-06-11).** Written 2026-06-11 after
-> auditing the shipped HD-2D coliseum (commits 902b3a8 → c283de0) against a real
+> auditing the shipped 2.5D coliseum (commits 902b3a8 → c283de0) against a real
 > battle screenshot. Scope: presentation only. The deterministic engine
 > (`runPetArenaBattle`), the event queue (`buildPetAnimationEvents`), and all
 > balance math are untouched — same guardrails as
@@ -81,7 +81,7 @@ existing admin pet-art grid — instant, no re-encode, no token spend.
   51e488b, c283de0) is a losing game.
 
 **Fix concept: formation-slot staging.** Decouple *where pets stand* from raw
-sim tiles, the way every creature-battler (the leading creature-battler, HD-2D RPGs, FF) does: each
+sim tiles, the way every creature-battler (the leading creature-battler, 2.5D RPGs, classic JRPGs) does: each
 side owns fixed lane anchors (player front-left + back-left, enemy mirrored),
 chosen so sprites can never overlap and nameplates never collide. The sim still
 decides everything that matters — who acts, who's in melee range
@@ -94,7 +94,7 @@ its lane, retreat slides back). Pure function of the frame → deterministic.
 
 - **Full camera-facing billboards tilt back.** `<Billboard>` (drei) pitches the
   plane up toward the elevated camera (y=4.1), so the sprite's bottom edge
-  lifts off the floor visually. The HD-2D standard is a **Y-axis-locked
+  lifts off the floor visually. The 2.5D standard is a **Y-axis-locked
   billboard** (yaw only — `lockX`/`lockZ`): sprites stay vertical, feet stay
   planted.
 - **Generated art has transparent padding under the feet.** The mesh assumes
@@ -176,14 +176,14 @@ Phase 3: instead of fighting to make two standees meet perfectly in world
 space, we can let a **dynamic camera hide the gap**.
 
 This sets up the one real design decision (see "Key decision" below): the
-**Super Auto Pets** model (make them physically bump, simultaneously, then snap
-back) vs the **Colosseum** model (keep them apart, cut the camera to sell it).
-For an HD-2D angled spectator battler, the strongest answer is a **blend** —
-SAP-style bump for clean melee reads *plus* a Colosseum-style impact push-in.
+**physical-bump** model (make them physically bump, simultaneously, then snap
+back) vs the **camera-cut** model (keep them apart, cut the camera to sell it).
+For an 2.5D angled spectator battler, the strongest answer is a **blend** —
+a physical bump for clean melee reads *plus* a camera-cut impact push-in.
 
 ### B. The #1 thing that makes modern the leading creature-battler look flat — and our current scene too
 
-The consensus diagnosis of why GameCube-era battles felt weighty and Switch-era
+The consensus diagnosis of why older console battles felt weighty and modern
 ones feel cheap: modern mons **freeze in place until the move's VFX finishes**,
 then do a tiny push-back and snap home. The lineage instead triggered the
 **defender's knockback/stagger the *instant* the hit lands**, overlapping
@@ -191,7 +191,7 @@ reaction with the effect. Our current `poseMotion` lerp has exactly the modern
 flaw — the recoil is a slow ease, not an instant reaction. **Fix: impact must
 fire the defender's stagger on the contact frame, not ease into it.**
 
-Z-A's own reviews drive the same nail from the other side: the loudest
+A recent creature-battler's own reviews drive the same nail from the other side: the loudest
 criticism was the **grounding disconnect** — mons "slide along the floor,"
 hold default idle poses mid-move, beams clip through bodies. Reviewers called
 the whole thing "clinical." That is precisely the floaty/sliding read the user
@@ -206,19 +206,19 @@ step/anticipation, and lock its shadow to its feet.**
   Attack.")
 - **Hit-stop is the highest-ROI single addition** — freeze BOTH bodies (and
   hold the damage-number spawn) for **3–6 frames** at contact, scaling **longer
-  for crits/KO**. Final Fight used a universal 6f; SF2 ≈10f; Smash scales with
-  damage. (CritPoints, SmashWiki Hitlag.)
-- **Vlambeer "Art of Screenshake" recipe:** muzzle/impact flash on frame 1,
+  for crits/KO**. A universal 6f, about 10f, or a value that scales with damage
+  are all common. (CritPoints.)
+- **"Art of Screenshake" recipe:** muzzle/impact flash on frame 1,
   **white hit-flash + knockback on the defender**, **screenshake on both firing
   AND hitting (more on hit)**, a split-second hit-pause (longer on death),
   smoothstep camera lerp (never snap). Many small stacked feedbacks = "crunchy."
-- **Pacing:** ~**one resolved bump per 0.6–1.0 s** reads as relaxed-but-alive
-  (TFT); **hold a visible beat on KO** (the HS Battlegrounds "they die before
+- **Pacing:** ~**one resolved bump per 0.6–1.0 s** reads as relaxed-but-alive;
+  **hold a visible beat on KO** (the common auto-battler "they die before
   you can see them" complaint); offer a **2×/skip** spectator speed control.
-- **Snap the attacker back to its anchor** every time (the HS Battlegrounds
-  "Glyph Guardian hangs in the middle" bug) or the formation desyncs.
+- **Snap the attacker back to its anchor** every time (the well-known
+  "unit hangs in the middle" bug) or the formation desyncs.
 
-### D. Staging & "intelligent-looking" movement (Z-A + SAP)
+### D. Staging & "intelligent-looking" movement
 
 - **Move-driven auto-spacing reads as intelligence for free:** melee billboard
   slides IN to contact range then strikes; ranged/beam slides BACK to a fixed
@@ -227,11 +227,11 @@ step/anticipation, and lock its shadow to its feet.**
 - **Three clear delivery silhouettes** — melee lunge, arcing projectile,
   straight beam — should look distinct from motion alone. (We already branch
   these in `buildPetAnimationEvents`; the renderer should make them read.)
-- **SAP serializes its queue** (one bump fully resolves before the next) and
-  deliberately *queues* ability VFX rather than overlapping them — its one
-  famous bug was overlapping hurt-triggers blending into mush. **For 2v2,
+- **Serialize the queue** (one bump fully resolves before the next) and
+  deliberately *queue* ability VFX rather than overlapping them, because
+  overlapping hurt-triggers blend into mush. **For 2v2,
   serialize beats; don't stack simultaneous VFX.**
-- **Make beams STOP on the first body** (Z-A's through-clipping beams read as a
+- **Make beams STOP on the first body** (through-clipping beams read as a
   bug).
 
 ### E. Arena/stage — direct fixes for the three named scene bugs
@@ -242,7 +242,7 @@ step/anticipation, and lock its shadow to its feet.**
   texture with NO baked perspective + projected decals** (center emblem, court
   rings, scuffs); the camera supplies all foreshortening. A **center-emblem
   circle** both fixes the perspective fight AND fills our empty dead center
-  (every creature-battler arena — Stadium's Poké Ball inlay — uses one as the
+  (every creature-battler arena uses one as the
   camera's visual anchor).
 - **Void wedges have an exact cause + fix.** three.js `camera.fov` is *vertical
   only*; horizontal is derived from aspect, so ultra-wide reveals un-dressed
@@ -251,7 +251,7 @@ step/anticipation, and lock its shadow to its feet.**
   hFOV and let vFOV shrink. **Extend the backdrop + floor well past the widest
   supported frustum** ("set extension") so the camera never sees an edge —
   preferred over letterboxing.
-- **HD-2D depth recipe** (Square Enix's own stack): wide-FOV + **tilt-shift /
+- **2.5D depth recipe** (the style's own stack): wide-FOV + **tilt-shift /
   depth-of-field** that blurs the backdrop and keeps the combatant band sharp
   (this single effect sells "diorama" and hides backdrop sparseness); a **point
   light casting real shadows** to ground sprites; a **cool rim/back light** so
@@ -271,18 +271,18 @@ step/anticipation, and lock its shadow to its feet.**
 
 | Approach | How contact reads | Camera | Best for |
 |---|---|---|---|
-| **SAP (physical bump)** | sprites actually meet at midpoint, recoil, snap back | static + shake | clean, legible, low-risk |
-| **Colosseum (cut/orbit)** | sprites stay apart; cut-to-defender implies the hit | dynamic cuts/orbit | dramatic, weighty, more work |
-| **Blend (recommended)** | bump for melee reads + impact push-in/shake | mostly static, punches in on impact/KO | our HD-2D spectator battler |
+| **Physical bump** | sprites actually meet at midpoint, recoil, snap back | static + shake | clean, legible, low-risk |
+| **Camera cut/orbit** | sprites stay apart; cut-to-defender implies the hit | dynamic cuts/orbit | dramatic, weighty, more work |
+| **Blend (recommended)** | bump for melee reads + impact push-in/shake | mostly static, punches in on impact/KO | our 2.5D spectator battler |
 
 The blend keeps Phase 1–2 unchanged and makes the camera question a contained
-Phase 3/3.5 choice. A full cutting/orbiting camera (Colosseum-grade) is the
+Phase 3/3.5 choice. A full cutting/orbiting camera is the
 upgrade path if the blend still reads flat — and since we're spectator-only,
-we have the license Z-A lacked to push the camera in on big beats.
+we have the license to push the camera in on big beats.
 
 ---
 
-## Direction: fix the HD-2D scene — don't go top-down
+## Direction: fix the 2.5D scene — don't go top-down
 
 The user offered "even top down" as an escape hatch. Recommendation: **no**.
 
@@ -301,7 +301,7 @@ The user offered "even top down" as an escape hatch. Recommendation: **no**.
 
 If after Phases 1–3 the look still doesn't land, the fallback isn't top-down —
 it's locking the camera lower/flatter (pure constants change) for a more
-side-on HD-2D RPGs look, which all of this work transfers to 1:1.
+side-on 2.5D RPGs look, which all of this work transfers to 1:1.
 
 ---
 
@@ -371,7 +371,7 @@ readable combatants at both real viewports.
 
 ### Phase 3 — Combat choreography (kill "bashing") ~1.5–2 days
 
-Research-driven numbers below (GDKeys, CritPoints, Vlambeer); all assume the
+Research-driven numbers below (GDKeys, CritPoints, "Art of Screenshake"); all assume the
 scene runs ~60fps so frames ≈ ms·0.06.
 
 1. Pure `beatTimeline(eventType, opts) → keyframe[]` in
@@ -387,7 +387,7 @@ scene runs ~60fps so frames ≈ ms·0.06.
    knockback/stagger fires on the *contact frame*, NOT an eased lerp (this is
    the §B fix; the current slow `recoil` ease is the modern-the leading creature-battler flatness) —
    plus a 1–2 frame white flash, knockback impulse scaled by damage/maxHp →
-   attacker **snaps back to its anchor** on an ease-out (the HS Glyph-Guardian
+   attacker **snaps back to its anchor** on an ease-out (the snap-back
    rule; never leave it mid-lane). Crits/signatures keep the bigger shake they
    already trigger.
 3. Ranged: cast recoil on release (frame-1 muzzle flash), projectile on a low
@@ -396,7 +396,7 @@ scene runs ~60fps so frames ≈ ms·0.06.
 4. Idle/victory: breathing squash-stretch (scale, not just y-bob); victory hop
    loop on the result frame.
 5. **2v2 ordering:** serialize beats — resolve one attack's queue before the
-   next; do NOT overlap simultaneous VFX (the SAP blend-mush lesson).
+   next; do NOT overlap simultaneous VFX (the blend-mush lesson).
 6. **Pacing + control:** target ~one resolved exchange per 0.6–1.0s; hold an
    extra beat on KO before the result overlay; add a **2× / skip** spectator
    speed toggle (cosmetic — scales the scheduler pace only).
@@ -410,7 +410,7 @@ through another; the attacker always returns to its slot.
 ### Phase 3.5 — Dynamic camera (optional, the "weight" upgrade) ~1 day
 
 Only if the static-camera blend from Phase 3 still reads flat. This is the
-Colosseum lever — *editing implies the contact our billboards can't make*.
+camera-cut lever — *editing implies the contact our billboards can't make*.
 
 1. Extend the existing fixed-camera + shake into a small **beat-driven camera
    director** (pure `cameraForBeat(beat, combatants) → {pos, look, fov}` in
@@ -420,7 +420,7 @@ Colosseum lever — *editing implies the contact our billboards can't make*.
    impact, **pull out to frame all four** for 2v2 and on the result, an
    optional **KO punch-in / brief orbit flourish**.
 2. Keep it short (~0.3–0.8s per move per the lineage) and gentle — a spectator
-   battler can push the camera (the license Z-A wasted), but motion sickness
+   battler can push the camera, but motion sickness
    and readability cap how aggressive it should be. Honor reduced-motion by
    falling back to the static frame.
 3. Strictly cosmetic + deterministic (pure function of the frame/beat, no RNG)
@@ -446,7 +446,7 @@ sell weight without making the fight hard to follow at both real viewports?
    projected on top (fixes the perspective fight AND fills the dead center).
    Light direction matched to the backdrop's warm key. Publish/bundle per the
    asset pipeline.
-4. **HD-2D depth pass:** add **depth-of-field / subtle tilt-shift** (blur the
+4. **2.5D depth pass:** add **depth-of-field / subtle tilt-shift** (blur the
    backdrop + stands, keep the combatant band sharp); a **cool rim/back light**
    to separate warm pets from the warm backdrop; **floating ember/dust
    particles + torch bloom** for atmosphere; a **value-contrast/vignette** pass
@@ -485,11 +485,11 @@ sell weight without making the fight hard to follow at both real viewports?
 
 1. **Camera model** (the decision the research surfaced): ship the **static +
    shake blend** (Phase 3) and stop there, or invest in the **dynamic
-   cut-on-impact camera** (Phase 3.5, the Colosseum lever that sells weight by
+   cut-on-impact camera** (Phase 3.5, the camera-cut lever that sells weight by
    hiding non-contact)? I lean: build Phase 3 first, demo, decide 3.5 from the
    real feel.
-2. **Camera flavor** once staging lands: keep the slightly-elevated Z-A style,
-   or flatten toward a side-on HD-2D RPGs look? (Constants-only; can demo both.)
+2. **Camera flavor** once staging lands: keep the slightly-elevated style,
+   or flatten toward a side-on 2.5D RPGs look? (Constants-only; can demo both.)
 3. **Default-ON timing**: flip the coliseum to default after Phase 3 or only
    after Phase 4 polish?
 4. Are per-species size classes wanted (Colossus > Kitsune), or keep all pets
@@ -497,25 +497,25 @@ sell weight without making the fight hard to follow at both real viewports?
 
 ## Sources (2026-06-11 research)
 
-- **Auto-battlers / game-feel:** Super Auto Pets wiki + a327ex mechanics
-  breakdown; a leading card auto-battler wiki (+ Glyph-Guardian "hangs in the
-  middle" return bug); TFT design (GDC 2020; world-space mana-over-HP bars);
-  Dota Underlords edge-docked UI; Mechabellum silhouette readability; GDKeys
-  "Anatomy of an Attack" (anticipation 8–15f, reaction ~0.25s); CritPoints /
-  SmashWiki Hitlag (hit-stop 6f Final Fight, ~10f SF2, damage-scaled); Vlambeer
+- **Auto-battlers / game-feel:** a327ex mechanics
+  breakdown; a leading card auto-battler wiki (+ the "hangs in the
+  middle" return bug); an auto-battler design talk (GDC 2020; world-space mana-over-HP bars);
+  edge-docked UI; silhouette readability; GDKeys
+  "Anatomy of an Attack" (anticipation 8–15f, reaction ~0.25s); CritPoints
+  hitlag notes (hit-stop 6f to ~10f, damage-scaled);
   "Art of Screenshake" / "Juice It or Lose It."
-- **a modern creature-battler:** Bulbapedia + Serebii (wind-up→execution,
-  move-driven spacing, melee/projectile/beam, cooldowns); Smogon mechanics
+- **a modern creature-battler:** fan wikis (wind-up→execution,
+  move-driven spacing, melee/projectile/beam, cooldowns); competitive mechanics
   research; TheGamer impressions; GamesHub review + Metacritic (the "sliding /
   clinical / grounding-disconnect" criticisms = what to AVOID).
-- **console creature-battler arenas lineage:** Nintendo World Report (camera
-  zoom/orbit; "the models never touch — camera + animation mask it"); Bulbapedia
-  Battle effects + Realgam Colosseum (center Poké Ball emblem; pan-out for
-  doubles); PokéCommunity "Battles visually left behind…" (instant overlapping
-  reaction vs the modern freeze-then-snap); Nintendo Life hidden-animations;
+- **console creature-battler arenas lineage:** camera notes (camera
+  zoom/orbit; "the models never touch — camera + animation mask it"); battle
+  effect and arena references (center emblem; pan-out for
+  doubles); a fan forum's "Battles visually left behind…" (instant overlapping
+  reaction vs the modern freeze-then-snap); hidden-animation features;
   faint-animation compilations.
-- **Arena / HD-2D staging:** Wikipedia HD-2D (tilt-shift, point-light cast
-  shadows, bloom/fog/particles); HD-2D RPGs II "picture-perfect" framing; Carré's
+- **Arena / 2.5D staging:** 2.5D (tilt-shift, point-light cast
+  shadows, bloom/fog/particles); 2.5D RPGs "picture-perfect" framing; Carré's
   Corner fighting-stage grayscale/value rules; a party roguelike art (chiaroscuro,
   rule-of-thirds); Halisavakis + Unity threads (orthographic floor projection vs
   the baked-perspective anti-pattern); three.js docs/forum (vertical-only FOV,

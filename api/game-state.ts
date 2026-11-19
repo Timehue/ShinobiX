@@ -1,9 +1,9 @@
 import { readElderCouncil } from './village/_elder-council.js';
-import { readVillageAnbu } from './village/_anbu.js';
+import { readVillageHush } from './village/_hush.js';
 import { createVillageMembershipReader } from './village/_membership-reader.js';
 import { readPublicPlayerIndex } from './player/_public-index-store.js';
 import { WAR_VILLAGES } from './_war-map-sectors.js';
-import { leadershipVillageKey } from '../shared/village-anbu.js';
+import { leadershipVillageKey } from '../shared/village-hush.js';
 import { safeLogValue } from './_safe-log.js';
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
@@ -103,7 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const kageKeys = villageNames.map(village => `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`);
                 const stateKeys = [...villageStateKeys, ...clanPetBattleKeys, ...kageKeys];
                 const stateValues = stateKeys.length ? await kv.mget<unknown[]>(...stateKeys) : [];
-                const candidates = villageStateKeys.length ? [...(await readPublicPlayerIndex({ backfill: true, logContext: 'game-state-anbu' })).entries.values()] : [];
+                const candidates = villageStateKeys.length ? [...(await readPublicPlayerIndex({ backfill: true, logContext: 'game-state-hush' })).entries.values()] : [];
                 // Membership needs only the current village, not each complete
                 // save blob. Batch simultaneous display checks across councils;
                 // election resolution and every authority caller keep live kv.
@@ -114,9 +114,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const name = k.slice(VILLAGE_STATE_PREFIX.length);
                         const state = (stateValues[i] ?? {}) as Record<string, unknown>;
                         const kage = stateValues[villageStateKeys.length + clanPetBattleKeys.length + i] as { seatedKage?: string; kageSystemUnlocked?: boolean; firstLiberator?: string } | null;
-                        const [elders, anbu] = await Promise.all([
+                        const [elders, hush] = await Promise.all([
                             readElderCouncil(name, state, Date.now(), membershipStore),
-                            readVillageAnbu(name, state, membershipStore, candidates),
+                            readVillageHush(name, state, membershipStore, candidates),
                         ]);
                         // Public fields only (owner ruling 2026-10-08): this frame
                         // needs no login and is CDN-cached, so a village's
@@ -124,7 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // members by /api/village/state (api/_village-state-view.ts).
                         setSafeRecordValue(villageStates, name, { ...publicVillageStateView(state), seatedKage: kage?.seatedKage,
                             kageSystemUnlocked: Boolean(kage?.kageSystemUnlocked), firstLiberator: kage?.firstLiberator,
-                            elderAppointees: elders.seats, elderTerm: elders, anbuAppointees: anbu.appointed, anbuEarned: anbu.earned, anbuMembers: anbu.members });
+                            elderAppointees: elders.seats, elderTerm: elders, hushAppointees: hush.appointed, hushEarned: hush.earned, hushMembers: hush.members });
                     }));
                 }
 

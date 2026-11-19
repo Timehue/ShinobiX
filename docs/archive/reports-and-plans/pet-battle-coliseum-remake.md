@@ -56,7 +56,7 @@ The previous dev left the renderer **pre-architected for exactly this**:
   60fps. CSS/DOM (the current approach) will not hold up for "real fighting."
   Integrates cleanly with React 19 + Vite.
   - *Alternative:* `react-three-fiber` (Three.js) with **billboarded 2D sprites**
-    = the "HD-2D / HD-2D RPGs Traveler" look with a real 3D camera that can pan/zoom
+    = the "2.5D" look with a real 3D camera that can pan/zoom
     the arena. More wow, more complexity. **Start with Pixi**; r3f is the upgrade
     path if a true 3D camera is wanted.
 - **Driver:** the existing deterministic event queue (`petBattleChoreograph`).
@@ -89,7 +89,7 @@ creatures. There is a ladder; climb it incrementally:
 **Full 3D (Three.js) with AI-generated rigged pet models.** Sounds coolest, but
 the rigged-animated-3D-creature pipeline doesn't exist — you'd hand-clean meshes
 and rig by hand. 3D models are heavy (MBs each), fighting the project's
-bandwidth-cost strategy. HD-2D gets ~90% of the wow at ~20% of the risk/cost.
+bandwidth-cost strategy. 2.5D gets ~90% of the wow at ~20% of the risk/cost.
 
 ## Recommended first step (prototype, zero new deps or spend)
 
@@ -138,9 +138,8 @@ This proves the direction before any token or art spend.
 
 ## Open decisions — RESOLVED 2026-06-10 (see "LOCKED PLAN" below)
 
-1. **Renderer → react-three-fiber (HD-2D)**, not flat Pixi. The user's reference
-   (the leading creature-battler Legends: Z-A real-time battle) is a true-3D-camera-over-a-receding-
-   ground look; r3f gives a real 3D floor + angled camera with the pets as 2D
+1. **Renderer → react-three-fiber (2.5D)**, not flat Pixi. The target look is a
+   real-time creature battle with a true-3D camera over a receding ground; r3f gives a real 3D floor + angled camera with the pets as 2D
    billboard sprites — which matches it far better than flat 2D.
 2. **Procedural-first** (no cost). AI-animation token path is a later, gated step.
 3. **Scope → one-matchup prototype first**, behind an opt-in flag; current battle
@@ -159,12 +158,11 @@ This proves the direction before any token or art spend.
 
 ---
 
-# ✅ LOCKED PLAN — HD-2D Coliseum (decided 2026-06-10)
+# ✅ LOCKED PLAN — 2.5D Coliseum (decided 2026-06-10)
 
 ## Visual target (locked, with reference)
 
-The user's reference is **the leading creature-battler Legends: Z-A** real-time battle (screenshot
-provided): two elemental creatures on a 3D ground viewed at a ~3/4 angled,
+The target is a real-time creature battle (screenshot provided): two elemental creatures on a 3D ground viewed at a ~3/4 angled,
 slightly-elevated camera; grounded with contact shadows; one mid-cast with the
 move's elemental VFX **swirling around the caster**; floating world-space
 nameplate + HP bar over each creature; a top-right **"X used Y!"** toast; a
@@ -177,7 +175,7 @@ crowd backdrop), not Z-A's city street.
 
 **Honest ceiling:** Z-A uses fully-rigged 3D creature models. We have ONE flat
 front-facing portrait per pet, and the cost strategy rules out heavy 3D. So pets
-are **2D billboard sprites on a 3D stage (HD-2D / Paper-Mario)**, animated
+are **2D billboard sprites on a 3D stage (2.5D)**, animated
 **procedurally**. That reproduces the staging/camera/VFX/UI/feel (~90%); the
 creatures themselves read as animated standees, not 3D models. Closing that last
 gap = per-pet animation assets later (the asset ladder above), gated on user spend.
@@ -239,7 +237,7 @@ chooses which renderer mounts. Engine, frame-stepping, result handling, and the
   3D chunk is split out.
 - Throwaway scene in `/petvfx.html`: a `<Canvas>` with an angled fixed camera, a
   ground plane, and TWO billboarded planes textured with real pet portraits,
-  grounded with blob shadows, always facing the camera. Confirm the HD-2D look
+  grounded with blob shadows, always facing the camera. Confirm the 2.5D look
   reads right. **Gate before continuing:** does it feel like the reference?
 
 ### Phase 1 — Static coliseum stage (no motion)

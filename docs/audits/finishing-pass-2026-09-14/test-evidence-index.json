@@ -6347,18 +6347,18 @@
   {
     "file": "api/village/leadership-interactions.test.ts",
     "tests": [
-      "ANBU appointments require the real Kage, valid seats, and a real member",
+      "Hush appointments require the real Kage, valid seats, and a real member",
       "concurrent appointments preserve other seats and unrelated village data",
       "appointments grant orders and war weight; clearing and stale writes cannot keep those powers",
-      "all seven earned seats have real ANBU powers and rotate at UTC month rollover",
+      "all seven earned seats have real Hush powers and rotate at UTC month rollover",
       "village changes remove appointed and earned powers and do not block the next candidate",
       "succession preserves appointments, transfers management, and role weights never stack",
-      "special Jonin recognizes real Elders and Kage, not ANBU or a stale Kage mirror",
-      "terrain belongs to Kage and Elders with separate quotas; ANBU cannot set it",
+      "special Jonin recognizes real Elders and Kage, not Hush or a stale Kage mirror",
+      "terrain belongs to Kage and Elders with separate quotas; Hush cannot set it",
       "only the current Kage can spend village funds or pay to extend the Hollow Gate",
       "new Elders can inherit former leaders terrain while current quotas and authority remain enforced",
       "shared village display includes leadership before the first generic village save",
-      "shared frame clears stale Kage seats and returns the same verified ANBU and elder rosters",
+      "shared frame clears stale Kage seats and returns the same verified Hush and elder rosters",
       "committed PvP rewards refresh earned seats before the next client autosave"
     ]
   },
@@ -6366,7 +6366,7 @@
     "file": "api/village/orders.test.ts",
     "tests": [
       "ordinary villagers cannot post any order category, regardless of titles or personal focus",
-      "Kage, appointed ANBU and player Elders can post every category with canonical attribution",
+      "Kage, appointed Hush and player Elders can post every category with canonical attribution",
       "self-appointed seats and stale Kage mirrors cannot unlock orders in the same request",
       "ordinary and former leaders cannot rewrite, pin or delete even their old orders",
       "current leadership can manage its own posts; only the Kage can manage another author",
@@ -6386,12 +6386,12 @@
       "stays locked while the defence is still fighting",
       "is attacker-only — the defence cannot farm its own garrison",
       "refuses on a Card sector — each engine owns only its own win-condition",
-      "refuses when the village has no ANBU and no seated Kage to field one",
+      "refuses when the village has no Hush and no seated Kage to field one",
       "cannot be spammed — the garrison re-forms on the same window it unlocks on",
       "starts the re-form cooldown on a LOSS too, not just a win",
       "credits an attacker win to the player, and a garrison hold to NOBODY",
       "never clobbers a pending live duel — the real seat stays open",
-      "falls back to the seated Kage when no ANBU are appointed",
+      "falls back to the seated Kage when no Hush are appointed",
       "Card sector garrison closes the same hole",
       "opens a real Chronicle match against the defending village garrison deck",
       "stays locked while the defence is still fighting",
@@ -6983,26 +6983,26 @@
     ]
   },
   {
-    "file": "api/_anbu-infiltration-encounter.test.ts",
+    "file": "api/_hush-infiltration-encounter.test.ts",
     "tests": [
       "biomeForTerrain accepts sealed terrain values and falls back to central",
       "buildInfiltrationEncounter seals a one-human Solo PvE session and exact raid binding",
-      "raider and Anbu start on the same row with tight duel spacing",
+      "raider and Hush start on the same row with tight duel spacing",
       "builder is deterministic for the same authoritative inputs",
       "infiltrationSessionMatches rejects every hostile binding substitution",
-      "shared Solo PvE engine drives the sealed Anbu and terminates the duel"
+      "shared Solo PvE engine drives the sealed Hush and terminates the duel"
     ]
   },
   {
-    "file": "api/_anbu-infiltration-solo-cutover.test.ts",
+    "file": "api/_hush-infiltration-solo-cutover.test.ts",
     "tests": [
-      "ANBU combat has no Tower runtime dependency and retires its custom action channel",
-      "ANBU start and report paths retain durable replay state",
-      "runtime mode registry records the ANBU participant and Solo authority decision"
+      "Hush combat has no Tower runtime dependency and retires its custom action channel",
+      "Hush start and report paths retain durable replay state",
+      "runtime mode registry records the Hush participant and Solo authority decision"
     ]
   },
   {
-    "file": "api/_anbu-infiltration-store.test.ts",
+    "file": "api/_hush-infiltration-store.test.ts",
     "tests": [
       "settleInfiltrationWin",
       "both-roll: drains both pools, mints both caches + ryo, writes ledgers",
@@ -7023,15 +7023,15 @@
       "clan at full weekly cap → cap-reached, nothing consumed",
       "clan without a clan → not-in-clan; nothing held → nothing-to-turn-in",
       "village: partial count only consumes that many",
-      "Anbu roster + snapshot",
-      "loadAnbuAppointees: safeNamed, deduped",
-      "pickAnbuDefender: least-recently-defended rotation",
-      "getOrSealAnbuSnapshot: seals once per day and caches (stale save changes ignored)",
+      "Hush roster + snapshot",
+      "loadHushAppointees: safeNamed, deduped",
+      "pickHushDefender: least-recently-defended rotation",
+      "getOrSealHushSnapshot: seals once per day and caches (stale save changes ignored)",
       "daily attempt reservation replays the same prepared run without incrementing"
     ]
   },
   {
-    "file": "api/_anbu-infiltration.test.ts",
+    "file": "api/_hush-infiltration.test.ts",
     "tests": [
       "rollRewardPools: \"both\" is the rare leading band, singles split the rest",
       "rolloverLedger: resets on a new/blank day, preserves same-day",
@@ -8355,7 +8355,7 @@
       "${file} delegates AI mastery to the Solo-PvE builder",
       "towers/start.ts routes Spire to its own mode",
       "mastery is sealed AFTER the guard, and before the first AI turn",
-      "the weekly boss and Anbu Vault stay deliberately unarmed"
+      "the weekly boss and Hush Vault stay deliberately unarmed"
     ]
   },
   {
@@ -8395,7 +8395,7 @@
       "${file} arms the layer",
       "${file} delegates the difficulty band to the Solo-PvE builder",
       "towers and clan boss arm BEFORE the first AI turn is advanced",
-      "the weekly boss and Anbu Vault stay deliberately unarmed"
+      "the weekly boss and Hush Vault stay deliberately unarmed"
     ]
   },
   {
@@ -8910,10 +8910,10 @@
     "file": "api/_sector-war-garrison-encounter.test.ts",
     "tests": [
       "buildGarrisonEncounter seals a one-human Solo PvE session and exact contest binding",
-      "attacker and ANBU start on the same row with tight duel spacing",
+      "attacker and Hush start on the same row with tight duel spacing",
       "builder is deterministic for the same authoritative inputs",
       "garrisonSessionMatches rejects every hostile binding substitution",
-      "shared Solo PvE engine drives the sealed ANBU (the \"smart AI\") and terminates the duel"
+      "shared Solo PvE engine drives the sealed Hush (the \"smart AI\") and terminates the duel"
     ]
   },
   {
@@ -9260,7 +9260,7 @@
       "legacy world-state territory write authority",
       "cannot bypass scroll repairs or verified raid damage",
       "allows only clan leadership to change terrain settings",
-      "lets members and appointed ANBU toggle only their own guard entry"
+      "lets members and appointed Hush toggle only their own guard entry"
     ]
   },
   {
@@ -9822,7 +9822,7 @@
     "file": "api/_war-role.test.ts",
     "tests": [
       "war-role: weights mirror the village-war model",
-      "Kage 30/50, Elder 20/20, ANBU 15/0, villager 5/0; a merc is a villager",
+      "Kage 30/50, Elder 20/20, Hush 15/0, villager 5/0; a merc is a villager",
       "war-role: sectorControlSwing = winner.win + loser.loss",
       "villager v villager = 5 (the small chip that makes a capture take a while)",
       "a villager who fells a defending Kage swings 55 (5 + 50)",
@@ -9834,10 +9834,10 @@
       "is NOT the village-state slug, which strips punctuation entirely",
       "a Kage swing is worth 6x a villager, which is what the bug silently cost",
       "war-role: sealed village authority",
-      "does not let a post-battle Kage/ANBU appointment amplify sealed villager evidence",
-      "does not import Kage, ANBU, or clan-leader weight after a village switch",
+      "does not let a post-battle Kage/Hush appointment amplify sealed villager evidence",
+      "does not import Kage, Hush, or clan-leader weight after a village switch",
       "retains authoritative role resolution when the current and sealed villages match",
-      "ignores forged Kage, Elder, and ANBU titles",
+      "ignores forged Kage, Elder, and Hush titles",
       "does not trust self-promoted role overrides or a padded client-writable clan roster"
     ]
   },
@@ -10339,7 +10339,7 @@
     ]
   },
   {
-    "file": "shared/village-anbu.test.ts",
+    "file": "shared/village-hush.test.ts",
     "tests": [
       "appointed seats preserve three slots and deduplicate player identity",
       "earned seats require current-month kills and exclude appointed players and other villages",
@@ -11684,15 +11684,15 @@
     ]
   },
   {
-    "file": "shinobij.client/src/features/anbuInfiltration/anbu-art-framing.test.ts",
+    "file": "shinobij.client/src/features/hushInfiltration/hush-art-framing.test.ts",
     "tests": [
       "every war village that can hold a vault has defender art wired to it",
       "the defender portrait URL carries a cache-busting revision",
-      "every Anbu defender portrait is framed clear of the canvas edges"
+      "every Hush defender portrait is framed clear of the canvas edges"
     ]
   },
   {
-    "file": "shinobij.client/src/features/anbuInfiltration/vault-interior.test.ts",
+    "file": "shinobij.client/src/features/hushInfiltration/vault-interior.test.ts",
     "tests": [
       "vault interior: a vault (boss) tile always exists and is REACHABLE from spawn",
       "vault interior: all Hollow Gate content is stripped (walls + ONE vault only)",
@@ -13895,7 +13895,7 @@
       "gates breeding starts separately while keeping session reads and hatch recovery visible",
       "uses the shared Legacy capability without probing definitions for availability",
       "presents Weekly Boss guard-cycle status without gating the core fight",
-      "keeps cached World Map operations visible but blocks fresh Village War, ANBU, and Legacy mutations"
+      "keeps cached World Map operations visible but blocks fresh Village War, Hush, and Legacy mutations"
     ]
   },
   {
@@ -17733,7 +17733,7 @@
     "tests": [
       "MissionArenaFight is a runtime-neutral server-arena renderer",
       "Weekly Boss renders on the arena shell, not the tower rail",
-      "Anbu Vault fight renders on the arena shell with a guarded Solo PvE transport"
+      "Hush Vault fight renders on the arena shell with a guarded Solo PvE transport"
     ]
   },
   {
@@ -17798,7 +17798,7 @@
       "3e / 3f — the read-only feed lines say who is feeding what, and what it buys",
       "3g — the button that was pressed relabels; the rest merely disable",
       "3j — the new rows use the icon vocabulary, not bolted-on emoji",
-      "3k — an ANBU appointment made mid-session lights the feed controls up",
+      "3k — a Hush appointment made mid-session lights the feed controls up",
       "3l — the depot conversion note disappears when the cap is zero",
       "C2 — the stores meaning is visible text and the Fed/Unfed rule is in the accordion",
       "3h / 3i — the mobile contest track is wide enough and the taps are 44px",

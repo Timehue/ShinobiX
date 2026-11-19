@@ -1,5 +1,5 @@
 import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
-import { CACHE_ITEM_IDS } from '../_anbu-infiltration.js';
+import { CACHE_ITEM_IDS } from '../_hush-infiltration.js';
 import { countEquippedItems } from '../_equipment-ownership.js';
 import { HOLLOW_BEAST_CACHE_ID } from '../../shared/world-boss-cache.js';
 
@@ -18,8 +18,8 @@ const SERVER_OWNED_ITEM_IDS = new Set([
     // Minted only by authoritative Clan War shinobi PvP settlement. Players may
     // spend/donate existing scrolls, but an ordinary client save cannot add any.
     'territory-control-scroll',
-    // Anbu Vault Infiltration war caches — minted ONLY by the raid settle
-    // (api/_anbu-infiltration-store.ts), redeemed only by its turn-in. A client
+    // Hush Vault Infiltration war caches — minted ONLY by the raid settle
+    // (api/_hush-infiltration-store.ts), redeemed only by its turn-in. A client
     // save can spend them, never mint them.
     CACHE_ITEM_IDS.warSupply,
     CACHE_ITEM_IDS.warResources,

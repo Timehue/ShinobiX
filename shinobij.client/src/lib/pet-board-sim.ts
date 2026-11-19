@@ -1,7 +1,7 @@
 /*
  * pet-board-sim — the Pet Gauntlet BOARD auto-battler resolver (POSITIONAL).
  *
- * A purpose-built, deterministic engine for the Gauntlet's TFT-style board: each
+ * A purpose-built, deterministic engine for the Gauntlet's auto-battler board: each
  * unit sits in a grid cell (row, col) — row 0 = FRONT, row 2 = BACK — and acts in
  * speed order until one side is wiped. Placement is a real lever:
  *   • the FRONT row shields the BACK — melee must clear the front before reaching

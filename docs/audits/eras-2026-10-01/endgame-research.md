@@ -16,15 +16,15 @@ The brief investigations already authored can become campaign introductions. Thr
 
 ## External research
 
-These are historical design examples, not claims about every current rule in the referenced games. Their lessons for Shinobi Journey are inferences.
+These are general design principles. Their application to Shinobi Journey is an inference.
 
-| Primary source | Evidence | Application proposed here |
-| --- | --- | --- |
-| [Jagex: Combat Achievements, July 21, 2021](https://secure.runescape.com/m=news/combat-achievements?oldschool=1) | Six difficulty tiers; higher tiers introduce demanding boss and speed challenges. Tasks include distinct ways of defeating bosses, with progress and cosmetic recognition. | Name and verify individual mastery feats. Earning volume cannot substitute for the hardest required feat. |
-| [ArenaNet: A Legendary Journey](https://www.guildwars2.com/en/news/a-legendary-journey/) | Precursor journeys have themed collections, research and crafting stages, and visible intermediate forms. | Each era tells an unfolding story through different work, with a tangible reward after each major stage. |
-| [ArenaNet: New Rewards in Secrets of the Obscure](https://www.guildwars2.com/en-gb/news/new-rewards-in-guild-wars-2-secrets-of-the-obscure/) | Legendary armor components span open-world gameplay and prerequisite collections. Wizard's Vault cosmetics remain obtainable through its legacy section. | Breadth and permanent availability can support a substantial long-term goal. Late arrivals retain a route to the same earned mastery rewards. |
-| [Bungie: This Week in Destiny, July 18, 2024](https://www.bungie.net/7/en/News/Article/twid-07-18-2024) | Missing Master challenge credit interfered with a prestige title; weekly availability made recovering that credit difficult. Bungie opened all challenges temporarily. | Preserve exact achievement receipts, recover settlement failures, and provide repeatable trials without waiting for a specific weekly rotation. |
-| [Blizzard: The Scarab Lords are Rising](https://news.blizzard.com/en-us/article/23482836/wow-classic-ahnqiraj-the-scarab-lords-are-rising) | Realm resource contributions and a long individual quest culminated in a shared opening, with special recognition for opening participants. | Maintain separate community participation, world-first history and repeatable personal mastery. A server-wide bar alone does not measure an individual's skill. |
+| Principle | Application proposed here |
+| --- | --- |
+| Tiered mastery challenges, with higher tiers adding demanding boss and speed feats, each recognised individually. | Name and verify individual mastery feats. Earning volume cannot substitute for the hardest required feat. |
+| A long goal told through themed collections, research and crafting stages, with visible intermediate forms. | Each era tells an unfolding story through different work, with a tangible reward after each major stage. |
+| A substantial long-term reward that spans several activities and stays obtainable for late arrivals. | Breadth and permanent availability can support a substantial long-term goal. Late arrivals retain a route to the same earned mastery rewards. |
+| Missing challenge credit that blocks a prestige title is hard to recover when the challenge rotates weekly. | Preserve exact achievement receipts, recover settlement failures, and provide repeatable trials without waiting for a specific weekly rotation. |
+| A server-wide resource drive that ends in a shared opening, with recognition for the participants. | Maintain separate community participation, world-first history and repeatable personal mastery. A server-wide bar alone does not measure an individual's skill. |
 
 ## What the game actually provides
 

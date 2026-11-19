@@ -16,10 +16,9 @@ import { SaveDebitRefusal } from '../_save-debit-saga.js';
  *
  * WHY SEND-SIDE ONLY, AND WHY NOTHING IS ADDED TO RECEIVING
  *
- * RuneScape ran the other experiment. Its 2008 trade limit capped what players
- * could give away, broke legitimate play (merchanting, gifting, helping a
- * friend) and was removed in 2011 as a failure. The lesson the genre took is
- * that RMT controls belong on the SENDER and on untrusted accounts, never on
+ * A trade limit that caps what players can give away breaks legitimate play
+ * (merchanting, gifting, helping a friend), and the genre has dropped it as a
+ * failure. The lesson is that RMT controls belong on the SENDER and on untrusted accounts, never on
  * everyone: a real player receiving a gift has done nothing suspicious, and a
  * new player receiving help is the case you most want to work.
  *

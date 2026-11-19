@@ -10528,9 +10528,9 @@
     "classification": "REVIEW REQUIRED — syntactic discovery includes projections; see reviewed value-path registry"
   },
   {
-    "file": "api/village/anbu-infiltration.ts",
+    "file": "api/village/hush-infiltration.ts",
     "routes": [
-      "/village/anbu-infiltration"
+      "/village/hush-infiltration"
     ],
     "candidateEvidence": [
       {
@@ -12241,7 +12241,7 @@
     "classification": "REVIEW REQUIRED — syntactic discovery includes projections; see reviewed value-path registry"
   },
   {
-    "file": "api/_anbu-infiltration-encounter.ts",
+    "file": "api/_hush-infiltration-encounter.ts",
     "routes": [],
     "candidateEvidence": [
       {
@@ -12253,7 +12253,7 @@
     "classification": "REVIEW REQUIRED — syntactic discovery includes projections; see reviewed value-path registry"
   },
   {
-    "file": "api/_anbu-infiltration-store.ts",
+    "file": "api/_hush-infiltration-store.ts",
     "routes": [],
     "candidateEvidence": [
       {
@@ -12300,7 +12300,7 @@
     "classification": "REVIEW REQUIRED — syntactic discovery includes projections; see reviewed value-path registry"
   },
   {
-    "file": "api/_anbu-infiltration.ts",
+    "file": "api/_hush-infiltration.ts",
     "routes": [],
     "candidateEvidence": [
       {

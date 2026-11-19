@@ -217,7 +217,7 @@ export function isProtectedAdminName(name: string | undefined | null): boolean {
 // These size NEW floors only — a saved run carries its own width/height, so an
 // old 15×11 mid-run save keeps rendering and resuming unchanged.
 // 25×17 = 425 cells: real chambers (from 4×3 up to ~9×7) connected by
-// corridors, explored through a scrolling camera viewport (Zelda-DS-style
+// corridors, explored through a scrolling camera viewport (handheld
 // dungeon scale) instead of the old cramped single-screen board.
 // 2026-11-04: 31x21, the crypt board: a 4x3 graph of painted prefab rooms
 // (lib/hollow-gate-crypt-layout). Runs sealed at 25x17 keep that size.

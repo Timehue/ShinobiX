@@ -4,7 +4,7 @@ export const STRONGHOLD_DIMS = { width: 37, height: 23 } as const;
 export const STRONGHOLD_LAYOUT_VERSION = 1;
 export const STRONGHOLD_MIN_LEVEL = 50;
 /** Treasury raids remain endgame activities even when exploration unlocks earlier. */
-export const ANBU_RAID_MIN_LEVEL = 100;
+export const HUSH_RAID_MIN_LEVEL = 100;
 export function strongholdLevelEligible(level: unknown): boolean {
     const value = Number(level);
     return Number.isFinite(value) && value >= STRONGHOLD_MIN_LEVEL;
@@ -33,7 +33,7 @@ export function strongholdPvpRewardMultiplier(sector: unknown, rewardStronghold?
 export const STRONGHOLD_ROOMS = [
     'Entry Hall', 'Watch Barracks', 'Armory', 'Signal Chamber',
     'Supply Depot', 'Training Hall', 'War Archives', 'Officer Quarters',
-    'Cistern', 'Seal Workshop', 'Inner Guard', 'Anbu Vault',
+    'Cistern', 'Seal Workshop', 'Inner Guard', 'Hush Vault',
 ].map((name, id) => ({ id, name, x: 2 + (id % 4) * 9, y: 2 + Math.floor(id / 4) * 7, width: 7, height: 5 }));
 const OBSIDIAN_ROOM_NAMES = ['Ashen Threshold', 'Cinder Barracks', 'Obsidian Armory', 'Ember Watch',
     'Charred Stores', 'Crucible', 'Hall of Echoes', 'Warden Quarters',

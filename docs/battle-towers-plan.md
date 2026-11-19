@@ -636,18 +636,18 @@ and (iv) draining App.tsx is a hard prerequisite.
 
 ---
 
-## 19. Design inspiration — G Generation Eternal "Generation Tower" + genre patterns (researched 2026-06-18)
+## 19. Design patterns for the tower (researched 2026-06-18)
 
-The concept maps almost 1:1 onto G Gen Eternal's **Generation Tower** (East/West towers): you form **two
+The concept follows a proven tower skeleton (paired East/West towers): you form **two
 free squads**, climb floors that are single-map tactical battles, each with a **mission type**, terrain
 domains, and **buff/debuff zones**; bosses start at **Floor 10**; entry is **free with unlimited
 retries**; rewards are **one-time first-clear** loot + **milestone unit drops** at landmark floors; gated
 behind a player rank. We adopt that skeleton, expressed through our 100-AP hex combat, and layer in
-proven patterns from Spiral Abyss / a leading gacha RPG endgame / a roguelike deckbuilder / RAID / FFXIV.
+proven patterns from gacha endgames, roguelike deckbuilders and MMO raid mechanics.
 
 **Adopt directly (the headline design):**
 - **Free entry, unlimited retries, manual tactical puzzle** — gate by **level/rank, not stamina**. (Note:
-  "no AP cost" in G Gen = no *entry energy*. We keep the **in-battle 100-AP/turn** economy untouched —
+  "no AP cost" here means no *entry energy*. We keep the **in-battle 100-AP/turn** economy untouched —
   the two are different. So: no entry cost + unlimited retries, but the same in-fight AP combat.)
 - **Boss floors from a threshold** (e.g. F10). Lower floors = "defeat all" warm-ups; upper floors layer
   a named boss + one signature gimmick each.
@@ -660,20 +660,20 @@ proven patterns from Spiral Abyss / a leading gacha RPG endgame / a roguelike de
 4. Protect an NPC / "guest" shinobi (fails if it dies). 5. Kill + escort (clear while NPC survives).
 6. Reach a goal tile within a round limit. 7. Break an objective across phase/HP gates.
 8. Survive N rounds (boss unkillable). 9. Kill summoned adds first (boss shielded until adds die).
-(Round/turn limits are tight in G Gen — 3–4 turns; for 4-player we use a **round budget** as a star tier,
+(Tight round/turn limits of 3–4 turns are common in this format; for 4-player we use a **round budget** as a star tier,
 not a hard fail, except on explicit timed floors.)
 
 **Map mechanics (reuse our existing `groundZones` + `barrierTiles` primitives):**
 - **Terrain domains** = our biomes (forest/water/rooftop/open/etc.) with per-shinobi aptitude affecting
-  damage/accuracy (G Gen aptitude is *both* a damage and accuracy modifier — stronger than a flat ±%).
+  damage/accuracy (aptitude is *both* a damage and accuracy modifier — stronger than a flat ±%).
 - **Buff/debuff zones** (ATK / DEF / chakra) — park DPS on attack tiles, tanks on fortified tiles; a
   squad may **start on a debuff tile** and must reposition turn 1.
-- **Hazard "no-go" zones** (G Gen MAP-weapon ranges) — entering them invites a big AoE; maps include a
+- **Hazard "no-go" zones** (map-wide weapon ranges) — entering them invites a big AoE; maps include a
   safe pocket. **Mid-battle terrain mutation** (a region floods/changes domain) for upper floors.
 - **Aura sources** — an allied NPC projects a buff radius the squad moves to cover.
 
 **Layered affixes (keep curated content fresh — cheap to author, infinitely re-mixable):**
-- **Field rule per floor** (unchosen) — Spiral Abyss "Ley Line Disorder": hazard (chakra drain/round),
+- **Field rule per floor** (unchosen) — a floor-wide disorder rule: hazard (chakra drain/round),
   debuff (element-X jutsu cost +AP), or buff (taijutsu crits).
 - **Drafted boon, 1-of-3 at floor entry** (Benediction/Cacophony) — squad agency keeps fixed maps
   replayable.
@@ -691,8 +691,8 @@ squad fields tank/heal/cleanse/DPS, not 4 nukers.
 
 **Reward structure (three zones + the primary anti-faucet) — reconciles "reward everyone" with economy
 safety (§9):**
-- **First-clear floors (1…N): one-time** account-progression loot (Spiral Abyss "Chamber's Bounty"
-  model). Climb-to-unlock **milestone rewards** at landmark floors (G Gen's UR-unit drops) — everyone in
+- **First-clear floors (1…N): one-time** account-progression loot (a one-time chamber bounty
+  model). Climb-to-unlock **milestone rewards** at landmark floors (top-rarity unit drops) — everyone in
   the squad who clears gets it.
 - **A season-resetting top "Spire" segment**: repeatable currency, leaderboard, **affix set rotates per
   season** (~biweekly–monthly, a leading gacha RPG's 6-week cadence is a good upper bound).
@@ -702,14 +702,9 @@ safety (§9):**
   segments, **plus the borrowed-ally assist cap** (§9). Free unlimited retries apply to *clearing*, not
   to *re-earning* repeatable loot.
 
-**Deferred-but-noted (great, but change the action economy → not v1):** G Gen's **"Chance Step"**
+**Deferred-but-noted (great, but change the action economy → not v1):** a **"Chance Step"**
 (killing blow → immediate bonus action) and a **Tension/momentum→crit** bar. Both are excellent fits for
 a later expansion; they're out of v1 because the handoff freezes the AP/movement economy for now.
-
-Sources: G Gen Eternal Generation Tower guides (ldplayer, vortexgaming, invenglobal, note.com, ldshop,
-mumuplayer); G Gen series wikis (Overworld/World/Genesis Fandom, Wikipedia, Cross Rays Steam combat
-guide); genre — a leading open-world RPG Spiral Abyss, a leading gacha RPG endgame (Game8), a roguelike deckbuilder Ascension, Arknights I.S.,
-RAID Hydra, FFXIV common mechanics. (Full URL list in the research transcript.)
 
 ---
 
@@ -889,10 +884,10 @@ here.
 
 **Group J — Affix / modifier system:**
 - **P3.J1 Field rule per floor** (unchosen) — one passive from {hazard / debuff / buff} applied each
-  round (Ley Line Disorder model).
+  round (floor-wide disorder model).
 - **P3.J2 Drafted boon (1-of-3)** at floor entry — sealed into the run so the server recompute honors it.
 - **P3.J3 Prestige ladder** — tower tiers add stacking modifiers (enemy +AP regen → +HP → smarter AI →
-  dual-boss finale), sealed per run (Slay-the-Spire Ascension model).
+  dual-boss finale), sealed per run (an escalating per-run difficulty ladder).
 
 **Group K — Live-ops economy (per Decision 5 = Option A, no seasons):**
 - **P3.K1 ~~Season "Spire"~~ — REMOVED.** No resetting segment, no repeatable currency faucet. All floors
@@ -1027,8 +1022,8 @@ score          = round( FLOOR_BASE[floor] * DIFFICULTY_MULT[floor] * perfMult )
   on a fixed boss encounter total damage is ~capped by enemy HP, so rewarding raw damage there just
   incentivizes overkill padding; instead boss floors reward *clean* damage (low overkill) and horde/score
   floors reward total felled. This keeps "damage" meaningful without being gameable.
-- **Stars (1–3)** by sub-goals (★ clear · ★ under round budget · ★ no deaths / full objective) — Spiral
-  Abyss model; the leaderboard ranks by the **raw score** for finer granularity than stars.
+- **Stars (1–3)** by sub-goals (★ clear · ★ under round budget · ★ no deaths / full objective);
+  the leaderboard ranks by the **raw score** for finer granularity than stars.
 - **Attribution:** a clear's score is the squad's; each participating member banks it as *their* best on
   that floor. A player's **season tower rating** = Σ (best score per floor cleared this season) — a
   personal climb metric (works identically for a live 4-human squad or async player+AI-allies).

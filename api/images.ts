@@ -272,7 +272,7 @@ export const KNOWN_PREFIXES: Readonly<Record<string, string>> = {
     // Admin-only — see ADMIN_ONLY_PREFIXES. (audit #16)
     leader:    'leader',
     // Pet BATTLE-ART slots the renderer already reads from sharedImages:
-    // `petbody:<id>` (transparent full-body battle sprite — HD-2D coliseum +
+    // `petbody:<id>` (transparent full-body battle sprite — 2.5D coliseum +
     // the DOM full-body standee), `petsheet:<id>` (baked animation strip) and
     // `petlayers:<id>:<band>` (depth-sliced 2.5D parallax). Riding the 'pet'
     // category means loadCategory('pet')'s id manifest returns them, so the

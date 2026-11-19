@@ -17,7 +17,7 @@ handlers, and route registration under `api/solo-pve/` are live for:
 - normal Endless waves;
 - Hollow Gate shinobi encounters;
 - Weekly Boss attempts; and
-- ANBU infiltration.
+- Hush infiltration.
 
 Every migrated start either mints/resumes a bound Solo session or fails closed.
 The Arena adapter sends intent and renders returned state/events. No rewarding
@@ -52,8 +52,8 @@ already-applied result.
    resume.
 5. Hollow Gate combat cutover while retaining augments, second wind, no-retreat,
    exact ledger credits, pet receipts, extraction, and death reconciliation.
-6. Participant-model audit and cutover of Weekly Boss and ANBU; the retired
-   ANBU custom action operation returns HTTP 410.
+6. Participant-model audit and cutover of Weekly Boss and Hush; the retired
+   Hush custom action operation returns HTTP 410.
 7. Canonical admin AI dual-read, validated rule publication/execution, and the
    normalized Solo combat-event contract.
 

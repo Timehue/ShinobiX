@@ -47,6 +47,6 @@ export function WarFieldOrders({ campaign, mission, name, busy, live, command }:
             </article>;
         })}</div>
         {mission && <><FieldMissionSummary mission={mission} />{mission.status === 'active' && <button disabled={busy || !!mission.battleRunId} onClick={() => void command('operation-abandon', { missionId: mission.id })}>Abandon order</button>}</>}
-        <p>Travel on the World Map to advance your order. One field order at a time. Attempts are spent on acceptance; abandoning or losing does not refund them. ANBU fallback assaults share the Sabotage allowance. Support points count up to 20% of the final war score.</p>
+        <p>Travel on the World Map to advance your order. One field order at a time. Attempts are spent on acceptance; abandoning or losing does not refund them. Hush fallback assaults share the Sabotage allowance. Support points count up to 20% of the final war score.</p>
     </section>;
 }

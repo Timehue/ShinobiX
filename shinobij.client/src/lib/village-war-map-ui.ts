@@ -112,7 +112,7 @@ export function declareEstimateNote(intelLabel: string): string {
 export function garrisonFeedStatusLine(opts: { feeding: boolean; sector: number }): string {
     return opts.feeding
         ? `Your Kage is feeding the Sector ${opts.sector} garrison.`
-        : "Nobody is feeding this garrison — your Kage or ANBU can.";
+        : "Nobody is feeding this garrison — your Kage or Hush can.";
 }
 
 /** What a covered feed does for `side`, in points (one sentence). */
@@ -134,7 +134,7 @@ export function garrisonFedCapLine(village: string, covered: boolean, side: Garr
 /** The feed toggle's tooltip for `side`. */
 export function garrisonFeedButtonTitle(side: GarrisonFeedSide, rationsPerDay: number): string {
     const effect = garrisonFeedEffect(side);
-    return `Spend ${rationsPerDay} rations a day from the Town Hall stores to feed this sector's garrison fight. While it is covered, ${effect}. Kage or ANBU only.`;
+    return `Spend ${rationsPerDay} rations a day from the Town Hall stores to feed this sector's garrison fight. While it is covered, ${effect}. Kage or Hush only.`;
 }
 
 // ── E19: the two sector-war buttons that cannot be taken back ───────────────

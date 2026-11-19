@@ -1,4 +1,4 @@
-import { leadershipNameKey } from './village-anbu.js';
+import { leadershipNameKey } from './village-hush.js';
 export const ELDER_FOCI = ['war', 'trade', 'training'] as const;
 export type ElderFocus = typeof ELDER_FOCI[number];
 

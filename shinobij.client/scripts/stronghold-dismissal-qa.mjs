@@ -1,14 +1,14 @@
 // Real Stronghold parents + native dialogs with delayed local route responses.
 import assert from 'node:assert/strict';
 const viewport = { width: 390, height: 844 };
-const runKey = 'anbuInfiltration.activeRun:scout';
+const runKey = 'hushInfiltration.activeRun:scout';
 function gate() {
     let release, entered;
     const waiting = new Promise(resolve => { release = resolve; });
     const observed = new Promise(resolve => { entered = resolve; });
     return { observed, release, handle: async route => { entered(); const response = await waiting; await route.fulfill(response); } };
 }
-const accepted = state => ({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', anbu: { name: 'The Moonshadow Anbu' } } });
+const accepted = state => ({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', hush: { name: 'The Moonshadow Hush' } } });
 async function challenge(page) {
     await page.getByRole('button', { name: 'Move right', exact: true }).click();
     await page.getByRole('button', { name: 'Challenge', exact: true }).click();
@@ -39,12 +39,12 @@ export async function auditStrongholdDismissal({ browser, engineName, fixture, p
         const state = fixture({ tile: 697, visited: [697], onStart: admission.handle });
         const page = await prepare(browser, viewport, state, '?host=1'); await ready(page);
         await challenge(page); await admission.observed; await dismiss(page, method, 'Retreat');
-        await pending(page, 'Connecting to the Anbu fight… Closing the dialog does not cancel the challenge.');
+        await pending(page, 'Connecting to the Hush fight… Closing the dialog does not cancel the challenge.');
         assert.equal(state.starts, 1); assert.equal(state.leaves, 0); assert.equal(state.steps, 0);
         admission.release(accepted(state));
         await page.locator('.hex-grid-layer').waitFor();
         assert.equal(await page.evaluate(key => localStorage.getItem(key), runKey), 'qa-patrol');
-        checks.push({ engine: engineName, scenario: `Anbu busy ${method} dismissal preserves acknowledged fight`, starts: state.starts });
+        checks.push({ engine: engineName, scenario: `Hush busy ${method} dismissal preserves acknowledged fight`, starts: state.starts });
         await page.close();
     }
     {
@@ -90,7 +90,7 @@ export async function auditStrongholdDismissal({ browser, engineName, fixture, p
         admission.release(accepted(state));
         await page.waitForFunction(key => localStorage.getItem(key) === 'qa-patrol', runKey);
         assert.equal(await page.locator('.hex-grid-layer').count(), 0, 'old admission cannot open a fight in the new view');
-        assert.equal(await page.evaluate(() => localStorage.getItem('anbuInfiltration.activeRun:other')), null);
+        assert.equal(await page.evaluate(() => localStorage.getItem('hushInfiltration.activeRun:other')), null);
         await page.getByRole('button', { name: replacement === 'unmount' ? 'Enter preview' : 'Switch account', exact: true }).click();
         await page.locator('.hex-grid-layer').waitFor();
         assert.equal(state.starts, 1, 'return resumes acknowledged run without a new admission');

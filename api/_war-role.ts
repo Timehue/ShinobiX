@@ -1,7 +1,7 @@
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
 import { readVillageElders } from './village/_elders.js';
-import { readVillageAnbu } from './village/_anbu.js';
+import { readVillageHush } from './village/_hush.js';
 import { isNpcVillage } from '../shared/npc-village.js';
 import { npcBySlug } from '../shared/npc-village-roster.js';
 import { isNpcWarDefenderRank } from './_npc-war-roster.js';
@@ -30,7 +30,7 @@ export interface RoleWeights {
 
 export const ROLE_KAGE: RoleWeights = { win: 30, loss: 50 };
 export const ROLE_ELDER: RoleWeights = { win: 20, loss: 20 };
-export const ROLE_ANBU: RoleWeights = { win: 15, loss: 0 };
+export const ROLE_HUSH: RoleWeights = { win: 15, loss: 0 };
 export const ROLE_VILLAGER: RoleWeights = { win: 5, loss: 0 };
 // An AI mercenary fights as rank-and-file: a villager's chip, nothing lost when it falls.
 export const ROLE_MERC: RoleWeights = ROLE_VILLAGER;
@@ -45,14 +45,14 @@ export interface SealedWarRoleEvidence {
 function exactServerRole(value: unknown): RoleWeights | null {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const role = value as Partial<RoleWeights>;
-    const known = [ROLE_KAGE, ROLE_ELDER, ROLE_ANBU, ROLE_VILLAGER] as const;
+    const known = [ROLE_KAGE, ROLE_ELDER, ROLE_HUSH, ROLE_VILLAGER] as const;
     const match = known.find(candidate => candidate.win === role.win && candidate.loss === role.loss);
     return match ? { ...match } : null;
 }
 
 /** Read immutable role evidence sealed when the PvP session was created.
  * Missing/malformed legacy evidence fails closed to villager; settlement never
- * imports a Kage seat or ANBU appointment granted after the battle began. */
+ * imports a Kage seat or Hush appointment granted after the battle began. */
 export function sealedSectorWarRoleOf(
     evidence: unknown,
     side: 'p1' | 'p2',
@@ -86,10 +86,10 @@ function kageSeatKey(village: string): string {
 }
 
 interface SaveShape { character?: { village?: string } }
-interface VillageStateShape { seatedKage?: string; anbuAppointees?: string[]; elderAppointees?: unknown }
+interface VillageStateShape { seatedKage?: string; hushAppointees?: string[]; elderAppointees?: unknown }
 
 /** Resolve a player's sector-war role weights from authoritative server state.
- *  Kage = seated leader; Elder = current appointed/elected seat; ANBU = appointed or earned seat; everyone else
+ *  Kage = seated leader; Elder = current appointed/elected seat; Hush = appointed or earned seat; everyone else
  *  fights as a villager. When `expectedVillage` is supplied from a sealed battle,
  *  a later village switch cannot import the current village's seat or title weight
  *  into that older battle. Never throws — falls back to villager on any miss. */
@@ -106,16 +106,16 @@ export async function sectorWarRoleOf(playerName: string, expectedVillage?: stri
             return ROLE_VILLAGER;
         }
         // A Cinderhold shinobi's rank comes from the roster, never a seat: its
-        // Commanders at Elder weight, its other war defenders as ANBU
+        // Commanders at Elder weight, its other war defenders as Hush
         // (api/_npc-war-roster.ts). Its Genin and Chunin, who fight its wars
         // from level 15 (owner ruling 2026-11-11), are its villagers.
         if (isNpcVillage(village)) {
             const npc = npcBySlug(name);
             if (!npc) return ROLE_VILLAGER;
             if (npc.rank === 'commander') return ROLE_ELDER;
-            return isNpcWarDefenderRank(npc.rank) ? ROLE_ANBU : ROLE_VILLAGER;
+            return isNpcWarDefenderRank(npc.rank) ? ROLE_HUSH : ROLE_VILLAGER;
         }
-        // The seat comes from the AUTHORITATIVE `village:kage:` row; ANBU appointees
+        // The seat comes from the AUTHORITATIVE `village:kage:` row; Hush appointees
         // only exist on the village-state, so that is still read for them.
         //
         // This used to take the Kage from `game:village-state:<slug>.seatedKage`, a
@@ -133,8 +133,8 @@ export async function sectorWarRoleOf(playerName: string, expectedVillage?: stri
         const seatedKage = safeName(String(seat?.seatedKage ?? ''));
         if (seatedKage === name) return ROLE_KAGE;
         if ((await readVillageElders(village, { ...vs })).some(appointee => safeName(appointee) === name)) return ROLE_ELDER;
-        const anbu = (await readVillageAnbu(village, { ...vs })).members.some(appointee => safeName(appointee) === name);
-        if (anbu) return ROLE_ANBU;
+        const hush = (await readVillageHush(village, { ...vs })).members.some(appointee => safeName(appointee) === name);
+        if (hush) return ROLE_HUSH;
         return ROLE_VILLAGER;
     } catch {
         return ROLE_VILLAGER;

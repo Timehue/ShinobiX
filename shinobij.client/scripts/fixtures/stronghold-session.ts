@@ -4,7 +4,7 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
 const { buildSoloPveAiEncounter } = await import('../../../api/solo-pve/_ai-encounter.js');
 const { builtinAiProfile } = await import('../../../api/_ai-profile-catalog.js');
 const { loadAdminCombatContent } = await import('../../../api/_admin-content.js');
-const character = { name: 'scout', level: 100, village: 'Frostfang Village', avatarImage: '/anbu/frostfang.webp',
+const character = { name: 'scout', level: 100, village: 'Frostfang Village', avatarImage: '/hush/frostfang.webp',
     hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000, stamina: 1000, maxStamina: 1000, stats: {}, equipment: {}, inventory: [], itemStacks: [], jutsu: [], jutsuMastery: [] };
 const session = buildSoloPveAiEncounter({ sessionId: 'qa-patrol', playerName: 'scout', save: { character }, now: Date.now(),
     admin: await loadAdminCombatContent(), profile: { ...builtinAiProfile('story-ai-ashen-leaf-village-15')!, name: 'Stronghold Sentry' },

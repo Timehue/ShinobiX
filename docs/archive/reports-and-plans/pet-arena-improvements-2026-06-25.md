@@ -25,12 +25,12 @@ ways to do that, all **movement-positive** (grab-and-go, never camp-a-tile):
 
 ### Research: are shrines the right call? (yes)
 Modern MOBAs converged on exactly this shape, and *away* from static control:
-- **Dota 2 (patch 7.38)** converted simple rune/Lotus pickups into **Shrines** you must
+- Simple rune pickups have become **shrines** you must
   *enter and channel briefly* while *driving opponents off* — pickup → contested-channel.
-- **the leading creature-battler UNITE** spawns **one buff objective at a time**, each granting a timed buff +
+- Another approach spawns **one buff objective at a time**, each granting a timed buff +
   a small shield, respawning on a timer; objectives are spread across the map to force
   rotations and "which objective do we take?" decisions.
-- **Deadlock** runes grant timed buffs at contested map points → repeated movement.
+- Runes grant timed buffs at contested map points → repeated movement.
 The throughline: *one contested pickup at a time, short channel, rotating spawn, timed
 buff, no camping*. That's precisely what was built. A plain static zone (what we removed)
 is the pattern these games deprecated. Sources in the chat log / commit message.

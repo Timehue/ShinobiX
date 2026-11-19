@@ -10,7 +10,7 @@ process.env.SESSION_SECRET = 'delete-settlements-secret';
 
 /*
  * Account deletion vs the shared rows that hold value: Sunscar Exchange
- * listings, PvP bounty heads, and Elder / ANBU seats. Names are reusable, so
+ * listings, PvP bounty heads, and Elder / Hush seats. Names are reusable, so
  * each case ends by re-registering the deleted name and checking the newcomer
  * inherits nothing.
  *
@@ -163,11 +163,11 @@ for (const path of ['guest sweep (deletePlayerAccount)', 'interactive delete (de
             assert.equal((await character('rival')).ryo, 10_000);
         });
 
-        it('empties the deleted player\'s Elder and ANBU seats in every village', async () => {
+        it('empties the deleted player\'s Elder and Hush seats in every village', async () => {
             const [home, other] = WAR_VILLAGES;
             await kv.set(elderCouncilKey(home), { termStartedAt: 1, seats: ['Wanderer', 'Kaze', ''] });
-            await kv.set(elderVillageKey(home), { seatedKage: 'Kaze', elderAppointees: ['wanderer', 'Rival'], anbuAppointees: ['Wanderer', 'Kaze'] });
-            await kv.set(elderVillageKey(other), { anbuAppointees: ['Wanderer'] });
+            await kv.set(elderVillageKey(home), { seatedKage: 'Kaze', elderAppointees: ['wanderer', 'Rival'], hushAppointees: ['Wanderer', 'Kaze'] });
+            await kv.set(elderVillageKey(other), { hushAppointees: ['Wanderer'] });
             await kv.set(elderCouncilKey(other), { termStartedAt: 2, seats: ['Rival'] });
 
             const result = await remove('wanderer');
@@ -175,9 +175,9 @@ for (const path of ['guest sweep (deletePlayerAccount)', 'interactive delete (de
             assert.deepEqual((await kv.get<Obj>(elderCouncilKey(home)))?.seats, ['', 'Kaze', '']);
             const homeState = await kv.get<Obj>(elderVillageKey(home));
             assert.deepEqual(homeState?.elderAppointees, ['', 'Rival']);
-            assert.deepEqual(homeState?.anbuAppointees, ['', 'Kaze']);
+            assert.deepEqual(homeState?.hushAppointees, ['', 'Kaze']);
             assert.equal(homeState?.seatedKage, 'Kaze', 'the rest of the leadership row is untouched');
-            assert.deepEqual((await kv.get<Obj>(elderVillageKey(other)))?.anbuAppointees, ['']);
+            assert.deepEqual((await kv.get<Obj>(elderVillageKey(other)))?.hushAppointees, ['']);
             assert.deepEqual((await kv.get<Obj>(elderCouncilKey(other)))?.seats, ['Rival'], 'other players keep their seats');
             assert.ok(result.detached.includes(`village-seats:${home}`));
         });

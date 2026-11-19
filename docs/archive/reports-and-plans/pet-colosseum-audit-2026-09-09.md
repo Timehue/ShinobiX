@@ -46,9 +46,9 @@ node --import tsx scripts/showdown-burst-audit.mjs --charged --levels 1,10,25 --
 
 ## Visual direction and research
 
-Pokémon Stadium 2 is the requested art-direction reference: a readable creature performance in a staged 3D arena. Nintendo's [official overview](https://www.nintendo.com/au/news-and-articles/find-out-how-you-can-play-pokemon-stadium-2-and-pokemon-trading-card-game-on-nintendo-switch/) establishes that context. The StadiumBattleFX author's [attack-presentation research](https://github.com/anxiousintrovert/StadiumBattleFX/blob/main/docs/attack-cinematics.md) describes distinct body, primary-effect, and defender-impact layers. That research concerns the first Stadium, so it is a structural reference, not evidence for exact Stadium 2 timings. Riot's [clarity principles](https://www.leagueoflegends.com/en-us/news/dev/clarity-in-league/) support matching effect direction and importance while keeping silhouettes readable.
+The art direction is a readable creature performance in a staged 3D arena. Each attack is built from three distinct layers: the attacker's body motion, the primary effect, and the defender's impact. Effect direction and visual weight follow the move's importance, and silhouettes stay readable throughout.
 
-The implementation interprets those references as a short launch cue, directional travel, a precise impact, and visible recovery:
+The implementation expresses that direction as a short launch cue, directional travel, a precise impact, and visible recovery:
 
 - Six small launch-dust puffs establish the planted starting point.
 - Tapered trails now lie along the dash, instead of standing vertically; fixed world-space spacing avoids stretching them across long routes. They dissipate through contact instead of vanishing at arrival.

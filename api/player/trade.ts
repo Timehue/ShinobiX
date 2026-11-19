@@ -238,9 +238,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // debit runs under so two concurrent transfers cannot both pass a
             // pre-lock check and jointly exceed it. The per-transfer cap alone
             // left the real ceiling at 20 calls/min x 200,000 = 4,000,000 ryo a
-            // minute. Nothing is added to RECEIVING: RuneScape ran that
-            // experiment in 2008 and removed it in 2011 for breaking ordinary
-            // play. (MMORPG behavior audit F8.)
+            // minute. Nothing is added to RECEIVING: a receive-side limit
+            // breaks ordinary play such as gifts and help for new players.
+            // (MMORPG behavior audit F8.)
             const budgetRefusal = async (debit: number): Promise<Record<string, unknown> | null> => {
                 if (identity.admin) return null;
                 const tier = await senderTrustTier(playerName, sender.character);

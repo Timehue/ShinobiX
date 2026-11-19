@@ -113,7 +113,7 @@ map-control `sectors×100` · **pet expeditions `(90·hours·typeMult + petLevel
 **⚠️ Bank interest is the dominant faucet.** Rate = `0.25%/bank-upgrade-level`,
 max 50 levels = **12.5% _per day_**, on a **10M ryo principal cap**
 (`_bank-interest.ts:32`). That's **up to ~1,250,000 ryo/day, passive, decoupled
-from effort** — 200×+ a day of missions. Research (Koster, Cook, EVE) is
+from effort** — 200×+ a day of missions. Research (Koster, Cook) is
 unanimous: a compounding/percentage interest faucet is the worst-behaved faucet
 there is. The 10M principal cap helps but 12.5%/day is still enormous.
 
@@ -152,13 +152,13 @@ real faucet yet). (`_mission-catalog.ts:30`, `_economy.ts` draft type.)
 
 | Principle | Why it matters here | Source |
 |---|---|---|
-| **Fast-early/slow-late in *real time* needs requirement-growth > income-growth.** Same rate → flat time/level (WoW); requirement faster → slow late. | Today income grows ~linearly and requirement grows linearly → ~flat pace. Must steepen the requirement. | Aversa leveling-derivative; PavCreations |
-| **For a bounded level cap, use polynomial (B≈2–3), not exponential.** Exponential late-values "skyrocket… nearly impossible," and the coefficient is hard to find. | Pick quadratic-per-level (cubic cumulative) — the leading creature-battler/WoW shape, not a long-running MMO's geometric. | Game Developer "XP thresholds"; Bulbapedia |
-| **Time-to-max = total requirement ÷ daily income.** Pace the daily caps to hit the target; make the last stretch deliberately slow. | This is exactly how we back-solve 90 days. | a leading battle royale/Valorant battle-pass math |
-| **Gate the no-lifer with capped daily resources; pay the absent player a catch-up multiplier.** Cap should be ≥ ~1 day's regen so once-daily play is near-optimal. | We already cap most faucets; need to cap the *uncapped* ones and consider a rested-XP-style catch-up. | A leading open-world RPG resin, WoW rested XP |
-| **Faucet ≈ sink, kept "taut" (sinks marginally ahead); match math-class.** A balance-scaling faucet (interest) needs a balance-scaling sink. | Drives the bank-interest cut + wealth-scaling sinks. | Koster AGC; Cook (Lost Garden); EVE MER |
-| **Pity / bad-luck protection is now expected, not optional.** Every disclosed gacha has a hard floor + dup protection. | Add pity to black market and mythic-pet rolls. | a leading open-world RPG 0.6%/90-pity; a leading digital card game 40-pack; Overwatch |
-| **Rarity split rule-of-thumb:** legendary ~0.5%, epic ~5%, plus a guaranteed floor. | Sanity-check our pet/drop odds against this. | WintermuteDigital; Overwatch disclosed |
+| **Fast-early/slow-late in *real time* needs requirement-growth > income-growth.** Same rate → flat time/level; requirement faster → slow late. | Today income grows ~linearly and requirement grows linearly → ~flat pace. Must steepen the requirement. | Aversa leveling-derivative; PavCreations |
+| **For a bounded level cap, use polynomial (B≈2–3), not exponential.** Exponential late-values "skyrocket… nearly impossible," and the coefficient is hard to find. | Pick quadratic-per-level (cubic cumulative) — the leading creature-battler shape, not a long-running MMO's geometric. | Game Developer "XP thresholds" |
+| **Time-to-max = total requirement ÷ daily income.** Pace the daily caps to hit the target; make the last stretch deliberately slow. | This is exactly how we back-solve 90 days. | a leading battle royale battle-pass math |
+| **Gate the no-lifer with capped daily resources; pay the absent player a catch-up multiplier.** Cap should be ≥ ~1 day's regen so once-daily play is near-optimal. | We already cap most faucets; need to cap the *uncapped* ones and consider a rested-XP-style catch-up. | A leading open-world RPG resin; rested XP |
+| **Faucet ≈ sink, kept "taut" (sinks marginally ahead); match math-class.** A balance-scaling faucet (interest) needs a balance-scaling sink. | Drives the bank-interest cut + wealth-scaling sinks. | Koster AGC; Cook (Lost Garden) |
+| **Pity / bad-luck protection is now expected, not optional.** Every disclosed gacha has a hard floor + dup protection. | Add pity to black market and mythic-pet rolls. | a leading open-world RPG 0.6%/90-pity; a leading digital card game 40-pack |
+| **Rarity split rule-of-thumb:** legendary ~0.5%, epic ~5%, plus a guaranteed floor. | Sanity-check our pet/drop odds against this. | WintermuteDigital; disclosed odds |
 
 ---
 
@@ -535,7 +535,7 @@ so the curve can't be blown past, (c) a couple of targeted nudges.
 | Story/Hollow/Weekly boss | as-is | one-time / event cadence |
 
 ### 7.3 Catch-up — CUT (redundant with the existing idle layer)
-A WoW-style offline-accruing "Training Rest" XP multiplier was considered and
+An offline-accruing "Training Rest" XP multiplier was considered and
 **dropped** (owner decision). The game already rewards absence three ways — **idle
 training timers** (set one, log off, collect the XP next login), **pet expeditions**
 (accrue offline), and the **daily-cap reset** (a returning player has fresh
@@ -743,7 +743,7 @@ throughout.
 
 - **Build the economy telemetry layer** (`economy-telemetry-plan.md`) *before or
   with* this rollout — it's the only way to see faucet-vs-sink balance and catch
-  inflation early (EVE MER model). Track: ryo created vs destroyed/week, fate-shard
+  inflation early (a monthly economic report model). Track: ryo created vs destroyed/week, fate-shard
   faucet rate, wealth-vs-level outliers, money in circulation.
 - **Balance CI gates** (`balance-ci-gates-plan.md`): add a test that *simulates*
   the reference player's daily income against the curve and asserts "days-to-90 ∈

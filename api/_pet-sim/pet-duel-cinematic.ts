@@ -8,8 +8,8 @@ import { petBattleJutsus } from "../../shared/pet-battle-loadout.js";
 // ─────────────────────────────────────────────────────────────────────────────
 // pet-duel-cinematic.ts — the REDESIGNED pet-coliseum combat engine.
 //
-// Owner mandate: the coliseum must feel like a modern creature-battler /
-// Digimon-World battle — creatures that MOVE AROUND, reposition, kite, dodge and
+// Owner mandate: the coliseum must feel like a modern real-time creature
+// battle — creatures that MOVE AROUND, reposition, kite, dodge and
 // OUTMANEUVER each other, not two sprites bashing heads in place. The old
 // `pet-duel-sim.ts` orbit-then-lunge model is REPLACED here for the casual path;
 // this engine is built to be promoted to authoritative everywhere once proven.
@@ -28,8 +28,8 @@ import { petBattleJutsus } from "../../shared/pet-battle-loadout.js";
 //     glass fire-assassin RUSHES; a water sage KITES and counters; a type-
 //     disadvantaged pet plays cautious and looks for openings.
 //   • ACTIVE DODGE — telegraph-reactive and SPEED-gated: a fast pet reads the
-//     wind-up and sidesteps; a slow one can't and eats it (Digimon "Speed = dodge",
-//     Z-A "avoidance is positioning"). Items the pet holds bend its risk.
+//     wind-up and sidesteps; a slow one can't and eats it (speed is dodge, and
+//     avoidance is positioning). Items the pet holds bend its risk.
 //
 // DETERMINISM CONTRACT (identical to pet-duel-sim.ts — load-bearing for the
 // eventual ranked promotion):

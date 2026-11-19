@@ -37,7 +37,7 @@ function tsxFiles(dir: string, out: string[] = []): string[] {
 }
 
 /** "Claim Reward" yes; "Claim reward", "OK", "Open PvP", "Sell all x3" no.
- *  Acronyms and camel-case words (PvP, ANBU, XP) are neutral: they neither make
+ *  Acronyms and camel-case words (PvP, Hush, XP) are neutral: they neither make
  *  a label Title Case nor stop it from being one. */
 export function isTitleCaseLabel(label: string): boolean {
     const words = label.trim().split(/\s+/)

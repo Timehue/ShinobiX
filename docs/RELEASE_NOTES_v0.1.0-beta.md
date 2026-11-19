@@ -27,7 +27,7 @@ feature-gated.
 - Tactical AP combat with jutsu, movement, cooldowns, effects, battle logs, and
   PvP-oriented rule parity work.
 - Server-owned Solo PvE combat across missions, story and Academy fights,
-  Endless Tower, Hollow Gate, Weekly Boss, generic AI fights, and ANBU raids,
+  Endless Tower, Hollow Gate, Weekly Boss, generic AI fights, and Hush raids,
   including refresh recovery and once-only settlement.
 - Data-driven AI rule authoring and a bounded normalized combat-event contract
   now provide the foundations for reusable behavior and telemetry consumers.

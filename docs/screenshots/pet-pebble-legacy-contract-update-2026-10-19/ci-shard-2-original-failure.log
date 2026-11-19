@@ -354,9 +354,9 @@ shinobij.client/package-lock.json
 2026-10-19T20:42:45.4867136Z   ✔ STRICT mode rejects the reusable password and requires a token (0.753872ms)
 2026-10-19T20:42:45.4868586Z   ✔ no admin credential → not admin (0.287765ms)
 2026-10-19T20:42:45.4869599Z ✔ admin session tokens (21.388069ms)
-2026-10-19T20:42:45.5741310Z ✔ ANBU combat has no Tower runtime dependency and retires its custom action channel (18.792135ms)
-2026-10-19T20:42:45.5743222Z ✔ ANBU start and report paths retain durable replay state (5.407021ms)
-2026-10-19T20:42:45.5770498Z ✔ runtime mode registry records the ANBU participant and Solo authority decision (0.678181ms)
+2026-10-19T20:42:45.5741310Z ✔ Hush combat has no Tower runtime dependency and retires its custom action channel (18.792135ms)
+2026-10-19T20:42:45.5743222Z ✔ Hush start and report paths retain durable replay state (5.407021ms)
+2026-10-19T20:42:45.5770498Z ✔ runtime mode registry records the Hush participant and Solo authority decision (0.678181ms)
 2026-10-19T20:42:45.5775499Z ▶ Discord announcement webhook destination
 2026-10-19T20:42:45.5776730Z   ✔ accepts only the canonical HTTPS Discord webhook shape (1.000375ms)
 2026-10-19T20:42:45.5777858Z   ✔ rejects SSRF, credential, port, query, and path variants (0.383738ms)
@@ -821,7 +821,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:42:54.5593969Z   ✔ api/missions/combat-start.ts delegates the difficulty band to the Solo-PvE builder (0.137226ms)
 2026-10-19T20:42:54.5595364Z   ✔ api/story/boss-start.ts delegates the difficulty band to the Solo-PvE builder (0.088904ms)
 2026-10-19T20:42:54.5596593Z   ✔ towers and clan boss arm BEFORE the first AI turn is advanced (0.339942ms)
-2026-10-19T20:42:54.5597707Z   ✔ the weekly boss and Anbu Vault stay deliberately unarmed (0.588095ms)
+2026-10-19T20:42:54.5597707Z   ✔ the weekly boss and Hush Vault stay deliberately unarmed (0.588095ms)
 2026-10-19T20:42:54.5599029Z ✔ step B wiring — every armed entry point still calls the seal (1.888881ms)
 2026-10-19T20:42:54.7010511Z ✔ ordinary NPC mastery follows player ryo, Seal, battle and rank ceilings (3.527263ms)
 2026-10-19T20:42:54.7012809Z ✔ NPC damage uses the shared effective EP once, and setup remains zero damage (4.155069ms)
@@ -947,11 +947,11 @@ shinobij.client/package-lock.json
 2026-10-19T20:43:02.5722660Z ✔ wild-field endpoints enforce the gate (3.954544ms)
 2026-10-19T20:43:02.5723885Z ✔ buildGarrisonEncounter seals a one-human Solo PvE session and exact contest binding (2.060553ms)
 2026-10-19T20:43:02.5725437Z ✔ the attacker walks in with the HP their save holds, never a free full pool (0.708537ms)
-2026-10-19T20:43:02.5726638Z ✔ attacker and ANBU start on the same row with tight duel spacing (0.217958ms)
+2026-10-19T20:43:02.5726638Z ✔ attacker and Hush start on the same row with tight duel spacing (0.217958ms)
 2026-10-19T20:43:02.5727594Z ✔ builder is deterministic for the same authoritative inputs (0.527448ms)
 2026-10-19T20:43:02.5734022Z ✔ the sealed sector sky rides along while the defender's terrain stays the board (0.48476ms)
 2026-10-19T20:43:02.5735126Z ✔ garrisonSessionMatches rejects every hostile binding substitution (0.491376ms)
-2026-10-19T20:43:02.5736323Z ✔ shared Solo PvE engine drives the sealed ANBU (the "smart AI") and terminates the duel (12.543465ms)
+2026-10-19T20:43:02.5736323Z ✔ shared Solo PvE engine drives the sealed Hush (the "smart AI") and terminates the duel (12.543465ms)
 2026-10-19T20:43:02.5737141Z [kv] isolated in-memory QA backend active
 2026-10-19T20:43:02.5739348Z [war-event] {"kind":"settled","contestId":"12:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1792179780746","sector":12,"attackerVillage":"Moonshadow Village","defenderVillage":"Frostfang Village","outcome":"defended","attackerWon":false,"attackerPoints":0,"defenderPoints":0}
 2026-10-19T20:43:02.5742149Z [war-event] {"kind":"settlement-deferred","contestId":"12:moonshadowvillage-vs-frostfangvillage","sector":12,"reason":"error","error":"injected: the war stamp was lost"}
@@ -1545,15 +1545,15 @@ shinobij.client/package-lock.json
 2026-10-19T20:43:05.1266012Z   ✔ a null treasury or war record list keeps the stored value instead of wiping it (0.618824ms)
 2026-10-19T20:43:05.1267607Z ✔ validateVillageStateWrite — wrong-type fields (2026-10-15) (0.72716ms)
 2026-10-19T20:43:07.0590408Z [kv] isolated in-memory QA backend active
-2026-10-19T20:43:07.0752840Z ▶ reusable village-war ANBU copies
+2026-10-19T20:43:07.0752840Z ▶ reusable village-war Hush copies
 2026-10-19T20:43:07.0753778Z   ✔ uses a fresh random candidate rather than the sector-war rotation (6.464482ms)
-2026-10-19T20:43:07.0782777Z   ✔ can reuse the sole ANBU repeatedly without consuming or cooldown-locking them (1.200076ms)
+2026-10-19T20:43:07.0782777Z   ✔ can reuse the sole Hush repeatedly without consuming or cooldown-locking them (1.200076ms)
 2026-10-19T20:43:07.0784138Z   ✔ seals the current combat build for each assault while keeping an earlier copy unchanged (3.853949ms)
 2026-10-19T20:43:07.0791087Z   ✔ tries another member when the randomly selected member cannot field that specialty (0.750148ms)
 2026-10-19T20:43:07.0792487Z   ✔ retains the seated Kage as a reusable reserve (0.693293ms)
 2026-10-19T20:43:07.0794381Z   ✔ fails closed for missing village data rather than inventing a player build (0.296465ms)
 2026-10-19T20:43:07.0796513Z   ✔ copies busy pets at their legal stat ceilings without touching their real activities (0.837421ms)
-2026-10-19T20:43:07.0797968Z ✔ reusable village-war ANBU copies (2417.475955ms)
+2026-10-19T20:43:07.0797968Z ✔ reusable village-war Hush copies (2417.475955ms)
 2026-10-19T20:43:07.3009801Z [kv] isolated in-memory QA backend active
 2026-10-19T20:43:07.3011838Z [village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.
 2026-10-19T20:43:07.3013668Z [village-war] at-war check failed for Moonshadow Village; keeping its per-war structures: war scan down
@@ -1620,7 +1620,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:43:07.3533474Z   ✔ through the source intent and the abort when the Seals run short (2.210569ms)
 2026-10-19T20:43:07.3534597Z ✔ a mercenary hire keeps the hiring player's idle recovery (5.840747ms)
 2026-10-19T20:43:07.3535494Z ▶ war-role: weights mirror the village-war model
-2026-10-19T20:43:07.3536471Z   ✔ Kage 30/50, Elder 20/20, ANBU 15/0, villager 5/0; a merc is a villager (1.62517ms)
+2026-10-19T20:43:07.3536471Z   ✔ Kage 30/50, Elder 20/20, Hush 15/0, villager 5/0; a merc is a villager (1.62517ms)
 2026-10-19T20:43:07.3537485Z ✔ war-role: weights mirror the village-war model (2.98248ms)
 2026-10-19T20:43:07.3538748Z ▶ war-role: sectorControlSwing = winner.win + loser.loss
 2026-10-19T20:43:07.3539732Z   ✔ villager v villager = 5 (the small chip that makes a capture take a while) (0.427368ms)
@@ -1635,10 +1635,10 @@ shinobij.client/package-lock.json
 2026-10-19T20:43:07.3548343Z   ✔ a Kage swing is worth 6x a villager, which is what the bug silently cost (0.196158ms)
 2026-10-19T20:43:07.3549246Z ✔ war-role: the Kage seat key (1.237007ms)
 2026-10-19T20:43:07.3549918Z ▶ war-role: sealed village authority
-2026-10-19T20:43:07.3550953Z   ✔ does not let a post-battle Kage/ANBU appointment amplify sealed villager evidence (1.493018ms)
-2026-10-19T20:43:07.3552207Z   ✔ does not import Kage, ANBU, or clan-leader weight after a village switch (3.272776ms)
+2026-10-19T20:43:07.3550953Z   ✔ does not let a post-battle Kage/Hush appointment amplify sealed villager evidence (1.493018ms)
+2026-10-19T20:43:07.3552207Z   ✔ does not import Kage, Hush, or clan-leader weight after a village switch (3.272776ms)
 2026-10-19T20:43:07.3553423Z   ✔ retains authoritative role resolution when the current and sealed villages match (11.356184ms)
-2026-10-19T20:43:07.3554457Z   ✔ ignores forged Kage, Elder, and ANBU titles (0.91578ms)
+2026-10-19T20:43:07.3554457Z   ✔ ignores forged Kage, Elder, and Hush titles (0.91578ms)
 2026-10-19T20:43:07.3555655Z   ✔ does not trust self-promoted role overrides or a padded client-writable clan roster (0.539503ms)
 2026-10-19T20:43:07.3556691Z ✔ war-role: sealed village authority (18.045407ms)
 2026-10-19T20:43:07.5834297Z ▶ war-state: default record
@@ -5004,9 +5004,9 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:36.3430919Z   ✔ seals a real solo-PvE operation, reserves its allowance once and resumes after a lost response (22.750262ms)
 2026-10-19T20:44:36.3432299Z   ✔ admits a card-mode stronghold defender, seals legal decks, and scores a server forfeit once (26.937312ms)
 2026-10-19T20:44:36.3433623Z   ✔ resolves a pet stronghold with sealed player teams and a replay, without consuming a PvE attempt (50.351486ms)
-2026-10-19T20:44:36.3434850Z   ✔ combines ANBU support with three human pet wins and the completion bonus exactly once (64.705915ms)
-2026-10-19T20:44:36.3436199Z   ✔ reuses the same offline ANBU pet copy without disturbing its real breeding or expedition (27.504448ms)
-2026-10-19T20:44:36.3437922Z   ✔ fields an anonymous ANBU fallback and enforces Sabotage admission without consuming live objective bouts (16.421019ms)
+2026-10-19T20:44:36.3434850Z   ✔ combines Hush support with three human pet wins and the completion bonus exactly once (64.705915ms)
+2026-10-19T20:44:36.3436199Z   ✔ reuses the same offline Hush pet copy without disturbing its real breeding or expedition (27.504448ms)
+2026-10-19T20:44:36.3437922Z   ✔ fields an anonymous Hush fallback and enforces Sabotage admission without consuming live objective bouts (16.421019ms)
 2026-10-19T20:44:36.3439461Z   ✔ does not rewind a completed card battle when retrying interrupted prepared cleanup (17.553442ms)
 2026-10-19T20:44:36.3442776Z   ✔ refuses an otherwise authorized shinobi spar inside a pet-only stronghold (10.216952ms)
 2026-10-19T20:44:36.3443677Z ✔ five-day village campaigns (2550.606386ms)
@@ -5041,16 +5041,16 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:36.4048401Z   ✔ leaving a village drops the mirror so its bonuses stop paying (0.542124ms)
 2026-10-19T20:44:36.4049469Z ✔ village upgrades are server-owned on the SHARED blob (2.586922ms)
 2026-10-19T20:44:36.4050226Z [kv] isolated in-memory QA backend active
-2026-10-19T20:44:36.4051109Z [village/anbu-infiltration] Error: simulated lost combat write acknowledgement
-2026-10-19T20:44:36.4052118Z [village/anbu-infiltration] Error: simulated lost attempt acknowledgement
-2026-10-19T20:44:36.4053068Z [village/anbu-infiltration] Error: simulated interrupted publication
-2026-10-19T20:44:36.4054300Z ✔ a lost start response recovers the exact admitted Anbu run without its browser run ID (936.71417ms)
+2026-10-19T20:44:36.4051109Z [village/hush-infiltration] Error: simulated lost combat write acknowledgement
+2026-10-19T20:44:36.4052118Z [village/hush-infiltration] Error: simulated lost attempt acknowledgement
+2026-10-19T20:44:36.4053068Z [village/hush-infiltration] Error: simulated interrupted publication
+2026-10-19T20:44:36.4054300Z ✔ a lost start response recovers the exact admitted Hush run without its browser run ID (936.71417ms)
 2026-10-19T20:44:36.4055440Z ✔ recovery distinguishes no saved fight from an invalid sector (0.923799ms)
 2026-10-19T20:44:36.4056948Z ✔ a committed combat write with a lost acknowledgement keeps a recoverable prepared start (6.788298ms)
 2026-10-19T20:44:36.4058352Z ✔ a committed attempt with a lost acknowledgement completes once on recovery (8.83078ms)
 2026-10-19T20:44:36.4059628Z ✔ prepared recovery preserves combat advanced by another request while authority is read (11.319769ms)
 2026-10-19T20:44:36.4061004Z ✔ retrying the same ready run after UTC midnight does not spend another day’s attempt (9.285928ms)
-2026-10-19T20:44:36.4062337Z ✔ a queued world-boss player cannot also start an Anbu raid or spend its daily attempt (5.833229ms)
+2026-10-19T20:44:36.4062337Z ✔ a queued world-boss player cannot also start a Hush raid or spend its daily attempt (5.833229ms)
 2026-10-19T20:44:36.4063640Z ✔ an owed patrol waits for a world-boss queue without creating simultaneous combat (17.525614ms)
 2026-10-19T20:44:36.4064588Z ▶ village chat membership comparison
 2026-10-19T20:44:36.4065472Z   ✔ accepts the same village independent of casing and whitespace (0.969534ms)
@@ -5086,7 +5086,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:37.6484269Z   ✔ a village claimed in the presence row does not open that village's block (11.424693ms)
 2026-10-19T20:44:37.6485204Z ✔ GET /api/village/intel — who the viewer is (18.935416ms)
 2026-10-19T20:44:39.5409515Z [kv] isolated in-memory QA backend active
-2026-10-19T20:44:39.5416286Z ✔ ANBU appointments require the real Kage, valid seats, and a real member (375.133716ms)
+2026-10-19T20:44:39.5416286Z ✔ Hush appointments require the real Kage, valid seats, and a real member (375.133716ms)
 2026-10-19T20:44:39.5440286Z [village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.
 2026-10-19T20:44:39.5486546Z [village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.
 2026-10-19T20:44:39.5509765Z [village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.
@@ -5098,15 +5098,15 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:39.5614430Z [village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.
 2026-10-19T20:44:39.6509128Z ✔ concurrent appointments preserve other seats and unrelated village data (54.7394ms)
 2026-10-19T20:44:39.6515733Z ✔ appointments grant orders and war weight; clearing and stale writes cannot keep those powers (40.231205ms)
-2026-10-19T20:44:39.6545269Z ✔ all seven earned seats have real ANBU powers and rotate at UTC month rollover (2140.77892ms)
+2026-10-19T20:44:39.6545269Z ✔ all seven earned seats have real Hush powers and rotate at UTC month rollover (2140.77892ms)
 2026-10-19T20:44:39.6570217Z ✔ village changes remove appointed and earned powers and do not block the next candidate (7.680126ms)
 2026-10-19T20:44:39.6599546Z ✔ succession preserves appointments, transfers management, and role weights never stack (5.013792ms)
-2026-10-19T20:44:39.6644468Z ✔ special Jonin recognizes real Elders and Kage, not ANBU or a stale Kage mirror (23.591161ms)
-2026-10-19T20:44:39.6669327Z ✔ terrain belongs to Kage and Elders with separate quotas; ANBU cannot set it (12.327965ms)
+2026-10-19T20:44:39.6644468Z ✔ special Jonin recognizes real Elders and Kage, not Hush or a stale Kage mirror (23.591161ms)
+2026-10-19T20:44:39.6669327Z ✔ terrain belongs to Kage and Elders with separate quotas; Hush cannot set it (12.327965ms)
 2026-10-19T20:44:39.6670807Z ✔ only the current Kage can spend village funds or pay to extend the Hollow Gate (13.569401ms)
 2026-10-19T20:44:39.6672014Z ✔ new Elders can inherit former leaders terrain while current quotas and authority remain enforced (5.881479ms)
 2026-10-19T20:44:39.6673232Z ✔ shared village display includes leadership before the first generic village save (71.784742ms)
-2026-10-19T20:44:39.6674418Z ✔ shared frame clears stale Kage seats and returns the same verified ANBU and elder rosters (6.212764ms)
+2026-10-19T20:44:39.6674418Z ✔ shared frame clears stale Kage seats and returns the same verified Hush and elder rosters (6.212764ms)
 2026-10-19T20:44:39.6675523Z ✔ committed PvP rewards refresh earned seats before the next client autosave (10.404125ms)
 2026-10-19T20:44:39.7293042Z [kv] isolated in-memory QA backend active
 2026-10-19T20:44:39.7295380Z [war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g0.s1792431878330","battleId":"pet-garrison:23:moonshadowvillage-vs-frostfangvillage:1792442678334","attackerWon":false,"points":1,"attackerPoints":0,"defenderPoints":1,"garrison":true}
@@ -5128,14 +5128,14 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:39.7345817Z   ✔ stays locked while the defence is still fighting (1.413931ms)
 2026-10-19T20:44:39.7346737Z   ✔ is attacker-only — the defence cannot farm its own garrison (1.190527ms)
 2026-10-19T20:44:39.7347772Z   ✔ refuses on a Card sector — each engine owns only its own win-condition (1.216781ms)
-2026-10-19T20:44:39.7348969Z   ✔ refuses when the village has no ANBU and no seated Kage to field one (1.532389ms)
+2026-10-19T20:44:39.7348969Z   ✔ refuses when the village has no Hush and no seated Kage to field one (1.532389ms)
 2026-10-19T20:44:39.7350070Z   ✔ cannot be spammed — the garrison re-forms on the same window it unlocks on (7.048359ms)
 2026-10-19T20:44:39.7351008Z   ✔ starts the re-form cooldown on a LOSS too, not just a win (6.850303ms)
 2026-10-19T20:44:39.7351923Z   ✔ credits an attacker win to the player, and a garrison hold to NOBODY (7.005305ms)
 2026-10-19T20:44:39.7352848Z   ✔ never clobbers a pending live duel — the real seat stays open (10.947544ms)
-2026-10-19T20:44:39.7354016Z   ✔ walks past an ANBU whose pets are all busy to one who can field a team (7.090344ms)
-2026-10-19T20:44:39.7354959Z   ✔ falls back to the seated Kage when every ANBU is busy (4.093233ms)
-2026-10-19T20:44:39.7355858Z   ✔ falls back to the seated Kage when no ANBU are appointed (3.735678ms)
+2026-10-19T20:44:39.7354016Z   ✔ walks past a Hush whose pets are all busy to one who can field a team (7.090344ms)
+2026-10-19T20:44:39.7354959Z   ✔ falls back to the seated Kage when every Hush is busy (4.093233ms)
+2026-10-19T20:44:39.7355858Z   ✔ falls back to the seated Kage when no Hush are appointed (3.735678ms)
 2026-10-19T20:44:39.7356809Z ✔ Pet sector garrison closes the absent-defence hold (1077.486375ms)
 2026-10-19T20:44:39.7357589Z ▶ Card sector garrison closes the same hole
 2026-10-19T20:44:39.7359468Z   ✔ opens a real Chronicle match against the defending village garrison deck (22.021755ms)
@@ -5166,7 +5166,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:40.1305552Z ▶ Sector Combat garrison assault (rebuilt on Solo PvE)
 2026-10-19T20:44:40.1309917Z   ✔ refuses to assault before the liveness idle has elapsed (14.906975ms)
 2026-10-19T20:44:40.1332399Z   ✔ refuses a non-attacker village member (2.061623ms)
-2026-10-19T20:44:40.1346198Z   ✔ seals the defending village's REAL appointed ANBU (their own save), never scales to the attacker (16.936046ms)
+2026-10-19T20:44:40.1346198Z   ✔ seals the defending village's REAL appointed Hush (their own save), never scales to the attacker (16.936046ms)
 2026-10-19T20:44:40.1349468Z   ✔ replays the same active session on a second garrison-start (resumable, not a fresh mint) (5.724265ms)
 2026-10-19T20:44:40.1350744Z   ✔ refuses to resolve an unfinished assault (4.880411ms)
 2026-10-19T20:44:40.1351939Z   ✔ a fallen garrison scores the contest (half-weight, garrison-capped) and settles the attacker's own item usage + HP (31.592029ms)
@@ -6058,7 +6058,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:46:13.6817095Z ✔ adjacent world lore, wanderers, shrines, and era events expose no pilgrim terminology (34.972843ms)
 2026-10-19T20:46:13.6818498Z ✔ client weatherEffects elements match the shared server-side weather element map (1.837798ms)
 2026-10-19T20:46:13.6819655Z ✔ the biome weather tables the client renders from ARE the shared tables (0.171365ms)
-2026-10-19T20:46:13.6820729Z ✔ Anbu Stronghold connects the live gamepad mapper to its tile-movement handler (1.16544ms)
+2026-10-19T20:46:13.6820729Z ✔ Hush Stronghold connects the live gamepad mapper to its tile-movement handler (1.16544ms)
 2026-10-19T20:46:13.6821929Z ✔ the three tall starter rigs receive headroom in every shared companion presentation (1.331861ms)
 2026-10-19T20:46:13.6823265Z ✔ all four packed same-lane companions retain separated nameplates in minimum portrait and landscape courses (3.422991ms)
 2026-10-19T20:46:13.6824511Z ✔ finish slots retain all four edge-clamped long names without covering podium pets (0.891804ms)

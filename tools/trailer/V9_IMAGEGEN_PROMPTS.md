@@ -2,7 +2,7 @@
 
 Mode: built-in OpenAI image generation, reference-guided cinematic illustration and one targeted image edit.
 
-Shared direction applied to every generation: 16:9 widescreen key art for a premium theatrical hand-drawn anime feature; polished 2D cel-painted characters over richly painted backgrounds; cinematic depth, volumetric atmosphere, decisive readable silhouettes, consistent silver-haired Rill design and a golden fox with red neck scarf; no text, captions, logos, watermarks, UI, copyrighted franchise marks, or Naruto-style forehead symbols. The fox's forehead must be completely bare: no headband, metal plate, strap, glyph, spiral, or mark. Correct anatomy, clean hands/paws, coherent weapons, and only the specified people and creatures.
+Shared direction applied to every generation: 16:9 widescreen key art for a premium theatrical hand-drawn anime feature; polished 2D cel-painted characters over richly painted backgrounds; cinematic depth, volumetric atmosphere, decisive readable silhouettes, consistent silver-haired Rill design and a golden fox with red neck scarf; no text, captions, logos, watermarks, UI, emblems, or forehead symbols. The fox's forehead must be completely bare: no headband, metal plate, strap, glyph, spiral, or mark. Correct anatomy, clean hands/paws, coherent weapons, and only the specified people and creatures.
 
 ## Final accepted prompts
 

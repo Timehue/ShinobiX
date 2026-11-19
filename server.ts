@@ -975,7 +975,7 @@ const _HASHED_ASSET_RE = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/i;
 const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf|glb|gltf|bin|ktx2|basis|hdr)$/i;
 const _STATIC_ASSET_URL_RE = /^\/(?:assets|badges|music|sfx|sector-map|scenes)\/.+\.[a-z0-9]+$/i;
 // Any request for a file with a real asset extension, wherever it lives
-// (/pet-models/roster/*.glb, /combat-vfx/*.webp, /anbu/*, …). Client routes never
+// (/pet-models/roster/*.glb, /combat-vfx/*.webp, /hush/*, …). Client routes never
 // carry a file extension, so matching on extension alone cannot shadow one.
 const _ASSET_EXT_URL_RE = /\.(?:js|mjs|css|map|json|png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf|glb|gltf|bin|ktx2|basis|hdr)$/i;
 
