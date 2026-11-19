@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SECTOR_EXITS, SECTOR_POINTS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, WALK_IN_DEPTH, arrivalTileFromOrigin, sectorExitById, sectorExits, travelArrivalTile } from '../shared/sector-links.js';
+import { SECTOR_EXITS, SECTOR_POINTS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, WALK_IN_DEPTH, arrivalStandTile, arrivalTileFromOrigin, sectorExitById, sectorExits, travelArrivalTile } from '../shared/sector-links.js';
 import { WILD_SECTOR_IDS } from '../shared/sector-geo.js';
-import { nearestWalkableTile } from '../shared/sector-walk-mask.js';
+import { isWalkableTile, nearestWalkableTile, walkPath } from '../shared/sector-walk-mask.js';
+import { lifeStandingTiles } from '../shared/sector-life-standing.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
     // 82 pre-reorg roads remapped + the approved Upper Terraces ↔ Canal Heart
@@ -142,7 +143,7 @@ test('travelArrivalTile is the ONE definition both trees arrive by', () => {
         for (const exit of sectorExits(point.id)) {
             // A road between the two: arrive at that road's mouth, exactly as if
             // the player had walked through the gate.
-            assert.equal(travelArrivalTile(point.id, exit.destinationSector), exit.destinationTile,
+            assert.equal(travelArrivalTile(point.id, exit.destinationSector), arrivalStandTile(exit.destinationSector, exit.destinationTile),
                 `${point.id} → ${exit.destinationSector} must arrive at the road mouth`);
             roadArrivals++;
         }
@@ -157,8 +158,8 @@ test('travelArrivalTile is the ONE definition both trees arrive by', () => {
         for (const to of SECTOR_POINTS) {
             if (from.id === to.id || linked.has(to.id)) continue;
             const geometricTile = arrivalTileFromOrigin(from.id, to.id);
-            assert.equal(travelArrivalTile(from.id, to.id, false), geometricTile, 'rollback preserves the geographic arrival');
-            assert.equal(travelArrivalTile(from.id, to.id), nearestWalkableTile(to.id, geometricTile!));
+            assert.equal(travelArrivalTile(from.id, to.id, false), arrivalStandTile(to.id, geometricTile!, false), 'rollback preserves the geographic arrival');
+            assert.equal(travelArrivalTile(from.id, to.id), arrivalStandTile(to.id, geometricTile!));
             assert.ok(travelArrivalTile(from.id, to.id) !== null);
             geometric++;
         }
@@ -168,6 +169,32 @@ test('travelArrivalTile is the ONE definition both trees arrive by', () => {
     // Leaving a village (sector 0 is not a map point) names no tile, and the
     // caller keeps its centre-tile fallback.
     assert.equal(travelArrivalTile(0, 12, false), null);
-    assert.equal(travelArrivalTile(0, 12), nearestWalkableTile(12, 78));
-    for (const sector of [1, 9, 17, 26]) assert.equal(travelArrivalTile(0, sector), 102, 'leave town at its centered entrance');
+    assert.equal(travelArrivalTile(0, 12), arrivalStandTile(12, 78));
+    // Each town's centered entrance is 102, where a resident rests, so leaving
+    // town puts you one step beside it instead of inside that NPC.
+    for (const sector of [1, 9, 17, 26]) assert.equal(travelArrivalTile(0, sector), 103, 'leave town beside its centered entrance');
+});
+
+test('no arrival puts the player inside a resident NPC', () => {
+    // Leaving a village used to land on the centre tile, the default camp of most
+    // sectors' resident (about half the day), and road crews post at road mouths.
+    const edge = (tile: number) => [tile % 12, Math.floor(tile / 12)].some((n) => n === 0 || n === 11);
+    const check = (sector: number, raw: number, tile: number | null, label: string) => {
+        assert.ok(tile !== null, label);
+        assert.ok(!lifeStandingTiles(sector).includes(tile), `${label}: lands on resident tile ${tile}`);
+        assert.ok(isWalkableTile(sector, tile), `${label}: lands on blocked ground`);
+        const from = nearestWalkableTile(sector, raw);
+        if (tile !== from) {
+            assert.ok(!edge(tile), `${label}: moved onto the board edge (${tile})`);
+            assert.equal(walkPath(sector, from, tile)?.length, 2, `${label}: moved more than one step`);
+        }
+    };
+    for (const sector of WILD_SECTOR_IDS) {
+        if (NON_WALKABLE_SECTORS.includes(sector)) continue;
+        for (const exit of sectorExits(sector)) check(exit.destinationSector, exit.destinationTile, travelArrivalTile(sector, exit.destinationSector), `${sector} → ${exit.destinationSector}`);
+        check(sector, 78, arrivalStandTile(sector, 78), `centre of ${sector}`);
+    }
+    // Pinned: the Midlands gate road and the village fallback both used to stack.
+    assert.equal(travelArrivalTile(47, 46), 49, 'Gate Watch Jiro holds 46\'s west mouth');
+    assert.equal(travelArrivalTile(0, 37), 77, 'Field Hand Aki camps on 37\'s centre');
 });

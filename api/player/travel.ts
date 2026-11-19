@@ -6,13 +6,12 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { getIo } from '../_realtime/socket.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
 import { randomUUID } from 'node:crypto';
-import { sectorExitById, travelArrivalTile, SECTOR_TILE_COUNT, type SectorExit } from '../../shared/sector-links.js';
+import { arrivalStandTile, sectorExitById, travelArrivalTile, SECTOR_TILE_COUNT, type SectorExit } from '../../shared/sector-links.js';
 import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { clearTravelLeaseIfSame, setTravelLease, TravelLeaseHeldError, type TravelLease } from '../_realtime/travel-lease.js';
 import { engagedInWorldDuel } from '../_realtime/world-duel-engagement.js';
 import { kv } from '../_storage.js';
 import { sectorObstaclesEnabled } from '../_release-flags.js';
-import { serverWalkTile } from '../_sector-obstacles.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
 // The server mints the timer so clients cannot claim an arbitrary destination
@@ -133,7 +132,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!exit || !edgeOriginTileAllowed(player.tile, exit.tile)) {
             return res.status(409).json({ error: 'Move onto that road exit before crossing sectors.' });
         }
-        arrivalTile = serverWalkTile(destinationSector, exit.destinationTile);
+        // Grounded and stepped off any resident's tile, like every other arrival.
+        arrivalTile = arrivalStandTile(destinationSector, exit.destinationTile, sectorObstaclesEnabled());
         edgeOriginSector = exit.sector;
     } else {
         // A MAP jump arrives on the edge facing the sector it came from, same as

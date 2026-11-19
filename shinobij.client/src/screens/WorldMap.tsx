@@ -145,7 +145,7 @@ import { WorldToast } from "../components/WorldToast";
 import { TravelingOverlay } from "../components/TravelingOverlay";
 
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
-import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
+import { arrivalStandTile, sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { startWildPetEncounter, wildPetEncounterFailureMessage } from "../lib/wild-pet-encounter-api";
 import { WildPetBinding, useWarmWildPetBinding } from "../lib/wild-pet-binding-loader";
@@ -2864,7 +2864,7 @@ function WorldMapContent({
     function triggerTravelPoint(sector: number) {
         const originSector = getWorldPosition().sector;
         const road = originSector == null ? undefined : roadExitsForSector(originSector).find(exit => exit.destinationSector === sector);
-        if (road && requestContinuousWorldWalk(sector, road.destinationTile)) return;
+        if (road && requestContinuousWorldWalk(sector, arrivalStandTile(sector, road.destinationTile))) return;
         if (sector === FESTIVAL_SECTOR) {
             setSelectedSector(null);
             setScreen("sunscarFestival");
@@ -2909,7 +2909,7 @@ function WorldMapContent({
     function crossSectorExit(exit: SectorExit) {
         if (!sameSector(currentSector, exit.sector) || sectorPlayerPos !== exit.tile) return;
         beginSectorTravel(exit.destinationSector, (arrivalTile) => {
-            const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : exit.destinationTile;
+            const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : arrivalStandTile(exit.destinationSector, exit.destinationTile);
             const destinationBiome = biomeForSector(exit.destinationSector);
             // Match the incoming road edge and stop; further movement is input.
             setSectorPlayerPos(destinationTile);

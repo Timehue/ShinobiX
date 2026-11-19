@@ -24,6 +24,7 @@ import { SECTOR_BOSS_SCALE, SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBo
 import { wandererAvatar } from "../lib/wanderer-art";
 import { useSectorModelPins } from "../lib/sector-model-pins";
 import { SectorModelFigure, type SectorModelHandle } from "./SectorModelFigure";
+import { inNpcLayer, layerNpcByDepth, npcBoard, useSectorNpcLayer } from "../lib/sector-npc-layer";
 
 const GRID_W = 12;
 const GRID_H = 12;
@@ -101,6 +102,7 @@ export function SectorWeeklyBossActor({
     // latest props for the long-lived RAF closure
     const playerRef = useRef(playerIndex);
     const worldPlayer = useContext(WorldPlayerPosition);
+    const npcLayer = useSectorNpcLayer();
     const onEngageRef = useRef(onEngage);
     useEffect(() => { playerRef.current = playerIndex; }, [playerIndex]);
     useEffect(() => { onEngageRef.current = onEngage; }, [onEngage]);
@@ -117,6 +119,7 @@ export function SectorWeeklyBossActor({
         const cx = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
         const cy = cellCentre(h, GRID_H, posRef.current.row, padY, gapY);
         fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -${BASE_ANCHOR}%)`;
+        layerNpcByDepth(wrapRef.current, posRef.current.row);
         modelRef.current?.place(cx, cy, w * SECTOR_BOSS_SCALE, modelMoving.current && !reducedMotion.current);
     }, []);
     useLayoutEffect(() => { paint(); }, [paint, modelKind]);
@@ -129,7 +132,7 @@ export function SectorWeeklyBossActor({
 
     // Measure the parent .pixel-map grid (same approach as SectorAvatar/SectorWanderer).
     useLayoutEffect(() => {
-        const grid = wrapRef.current?.parentElement;
+        const grid = npcBoard(wrapRef.current, npcLayer);
         if (!grid) return;
         const ro = new ResizeObserver(() => {
             const r = grid.getBoundingClientRect();
@@ -151,7 +154,7 @@ export function SectorWeeklyBossActor({
         });
         ro.observe(grid);
         return () => ro.disconnect();
-    }, [paint]);
+    }, [paint, npcLayer]);
 
     // The stalk loop — always hunts the player.
     useEffect(() => {
@@ -224,7 +227,7 @@ export function SectorWeeklyBossActor({
         };
     }, [sector, worldPlayer, paint]);
 
-    return (
+    return inNpcLayer(npcLayer, (
         <div className="sector-wanderer-overlay" ref={wrapRef} aria-hidden="true">
             <div
                 className="sector-avatar-figure sector-wanderer-figure"
@@ -250,5 +253,5 @@ export function SectorWeeklyBossActor({
                 <span className="sector-wanderer-label" style={{ color: "#ffd9cc", fontWeight: 700 }}><GameArtIcon kind="attack" size={15} /> {name}</span>
             </div>
         </div>
-    );
+    ));
 }

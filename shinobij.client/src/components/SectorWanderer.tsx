@@ -39,6 +39,7 @@ import {publishFigureGroundPosition} from '../lib/figure-ground-position';
 import {GroundWorkTool} from './GroundWorkTool';
 import {paintGroundWorkTool} from '../lib/ground-work-tool';
 import {groundWorkPresentation} from '../lib/ground-work-surface';
+import {inNpcLayer,layerNpcByDepth,npcBoard,useSectorNpcLayer} from '../lib/sector-npc-layer';
 
 const GRID_W = 12;
 const GRID_H = 12;
@@ -136,6 +137,7 @@ export function SectorWanderer({
     const homeTile = safeSectorTile(sector, wanderer.homeTile);
     const walkable = (tile: number) => isWalkableTile(sector, tile, sectorObstaclesOn());
     const worldPlayer = useContext(WorldPlayerPosition);
+    const npcLayer = useSectorNpcLayer();
     const nativeWork=worldPlayer!==null&&wanderer.verb==='angler'&&(sector===6||sector===18);
     const service=useSectorServiceRoutine(sector,wanderer.id,nativeWork),routine=suppliedRoutine??service??undefined;
     const initialPose = routine ? lifeActorPosition(sector, routine, serverNow()) : wanderer.movement === "stationary"
@@ -206,6 +208,7 @@ export function SectorWanderer({
         const cx = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
         const cy = cellCentre(h, GRID_H, posRef.current.row, padY, gapY);
         fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -${BASE_ANCHOR}%)`;
+        layerNpcByDepth(wrapRef.current,posRef.current.row);
         publishFigureGroundPosition(fig,posRef.current);
         modelRef.current?.place(cx,cy,w,modelWalking.current && !reducedTool.current,travelGait.current);
         layoutWandererLabels(fig);
@@ -224,7 +227,7 @@ export function SectorWanderer({
 
     // Measure the parent .pixel-map grid (same approach as SectorAvatar).
     useLayoutEffect(() => {
-        const grid = wrapRef.current?.parentElement;
+        const grid = npcBoard(wrapRef.current, npcLayer);
         if (!grid) return;
         const ro = new ResizeObserver(() => {
             const r = grid.getBoundingClientRect();
@@ -246,7 +249,7 @@ export function SectorWanderer({
         });
         ro.observe(grid);
         return () => ro.disconnect();
-    }, [paint]);
+    }, [paint, npcLayer]);
 
     // The movement loop.
     useEffect(() => {
@@ -447,7 +450,7 @@ export function SectorWanderer({
     // near their owners rather than adding a second static vertical offset.
     const labelLane = routine ? 0 : labelLaneFor(wanderer.id);
 
-    return (
+    return inNpcLayer(npcLayer, (
         <div className="sector-wanderer-overlay" ref={wrapRef} aria-hidden={routine ? undefined : true}>
             {routine?.workTool&&<GroundWorkTool toolRef={workToolRef} tool={routine.workTool}/>}
             {tackle&&<svg ref={tackleRef} className="sector-fishing-tackle" viewBox="0 0 1200 1200" aria-hidden="true" data-water={tackle.water}>
@@ -490,5 +493,5 @@ export function SectorWanderer({
             </div>
 
         </div>
-    );
+    ));
 }

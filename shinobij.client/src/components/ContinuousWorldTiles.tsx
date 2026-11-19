@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { SectorExit } from '../../../shared/sector-links';
+import { arrivalStandTile, type SectorExit } from '../../../shared/sector-links';
 import { sectorName } from '../../../shared/sector-geo';
 import { isWalkableTile } from '../../../shared/sector-walk-mask';
 
@@ -21,6 +21,7 @@ export const ContinuousWorldTiles = memo(function ContinuousWorldTiles({ sector,
             : `${tile === playerTile ? 'Current tile' : isWalkableTile(sector, tile) ? 'Move to tile' : 'Move near blocked tile'} row ${Math.floor(tile / 12) + 1} column ${tile % 12 + 1}`}
         onClick={() => {
             const exit = roadExits.find(e => e.tile === tile);
-            go(exit?.destinationSector ?? sector, exit?.destinationTile ?? tile);
+            // A crossing walks to the tile the server would put you on, off any resident.
+            go(exit?.destinationSector ?? sector, exit ? arrivalStandTile(exit.destinationSector, exit.destinationTile) : tile);
         }} />)}</>;
 });

@@ -1466,11 +1466,19 @@ const FIGURE_LOADING_JS_CSS_FAIL_BYTES = AVATAR_MODE_JS_CSS_FAIL_BYTES + 3 * 102
 // rule left); that PR already folded 17 duplicate screen-reader-only rules into .ui-sr-only.
 // Allow 2 KiB. The startup gzip gate is unchanged.
 const LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES = FIGURE_LOADING_JS_CSS_FAIL_BYTES + 2 * 1024;
+// Owner-approved 2026-11-18. Main c4a0c3281c's Production Image read 9,884,479 B (309 B
+// left), and the NPC arrival + depth-layer fix adds 2,168 B with the production env: the
+// arrival step off residents' tiles (shared with the server), one depth-sorted NPC layer
+// per board, and the resident tile table splitting into its own chunk. Either half alone
+// is still over, and dead CSS is exhausted. Allow 3 KiB; 2 KiB would leave under 100 B
+// after the Docker image's extra ~93 B. The startup gzip gate is unchanged.
+const NPC_ARRIVAL_LAYER_JS_CSS_FAIL_BYTES = LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES + 3 * 1024;
 const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,
     BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
     DIRECT_STRIKE_JS_CSS_FAIL_BYTES, COMBAT_SPRITE_JS_CSS_FAIL_BYTES, PLAYER_GAIT_JS_CSS_FAIL_BYTES,
     AVATAR_MODE_JS_CSS_FAIL_BYTES, FIGURE_LOADING_JS_CSS_FAIL_BYTES, LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES,
+    NPC_ARRIVAL_LAYER_JS_CSS_FAIL_BYTES,
 );
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);
