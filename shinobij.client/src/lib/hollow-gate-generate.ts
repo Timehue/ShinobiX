@@ -6,7 +6,7 @@
  * connection graph + RogueBasin Dijkstra-map content):
  *   1. Rooms        — BSP leaves → chunky, non-overlapping chambers (rooms fill
  *                     most of their leaf so the floor reads as REAL rooms, not
- *                     scattered closets — Zelda-DS dungeon scale on the 25×17 grid).
+ *                     scattered closets — handheld dungeon scale on the 25×17 grid).
  *   2. Corridors    — Prim's MINIMUM SPANNING TREE over room centres + L-corridors,
  *                     so every room joins its NEAREST neighbours (no x-sorted
  *                     crossing corridors), then 0-1 extra edge for a single loop.

@@ -3,7 +3,7 @@
  *
  * A ban used to write `mod:ban:` and nothing else. A banned Kage held the seat
  * until the 10-day inactivity pass, a banned founder kept the clan's founder
- * gates (dissolve, seal pool, war) locked for everyone, banned Elder and ANBU
+ * gates (dissolve, seal pool, war) locked for everyone, banned Elder and Hush
  * appointees stayed seated, and the player's Exchange listings stayed buyable.
  *
  * A bounty on the player is also taken down and its backers refunded, since a

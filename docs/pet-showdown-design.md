@@ -43,7 +43,7 @@ never attribute a result to a decision.
 
 ## The design
 
-A **turn-based command battle** with **the classic monster battler-Stadium-style presentation**:
+A **turn-based command battle** with **classic monster-battler presentation**:
 one action at a time, each sold by a camera cut, a windup→strike→recover clip,
 projectile/impact VFX, a damage number, and an effectiveness banner. Formats
 1v1 / 2v2 (flagship) / 3v3 — same engine, different slot counts, all pets
@@ -190,7 +190,7 @@ glow). All presentation-only; every number still arrives in a server event.
 ## Round 4 — the bench, the switch, and the AAA shell (2026-08-07)
 
 **Bench + switching** (the prediction layer that replaces board movement —
-grounded in a competitive-design research pass over the classic monster battler/Smogon/the reference model):
+grounded in a competitive-design research pass over the classic monster battler and the reference model):
 every format now picks up to 3 pets (field size 1/2/3 + reserves). `switch` is
 a command that resolves BEFORE all attacks (the classic monster battler priority) — the incoming
 pet eats anything aimed at the slot, and both pets forfeit the action (the
@@ -219,7 +219,7 @@ BENCH badges; the Switch action with a bench-pick flow.
 ## Round 5 — the wheel sharpened, per-element move identity, seen-and-fixed UI (2026-08-08)
 
 **Element wheel 1.16/0.9 → 1.5/0.75** (swing 2.0), grounded in a dedicated
-research pass (WoW pet battles' proven 1.5/0.66 flat chart in a switch-centric
+research pass (a proven 1.5/0.66 flat pet-battle chart in a switch-centric
 format; the genre's fan-consensus ±25% standard; licensed games in the genre
 either skip the
 wheel or use ~±25%; the classic monster battler/the reference model's 2x/0.5x only works with dual-type
@@ -229,7 +229,7 @@ now the central decision the bench was built for. Cycle symmetry keeps
 aggregates intact: post-change sim bands are the TIGHTEST yet (roles 45-55%,
 elements 43.5-55.1%, pace 8.2 rounds, judge 11%). The 93% advantaged-matchup
 rate in the benchless 1v1 sim is intended — live play answers it by switching.
-Canon note: the friendlier 0.75 floor (not WoW's 0.66) reflects the source
+Canon note: the friendlier 0.75 floor (not 0.66) reflects the source
 genre's "power can overcome nature" rule. Reserve option if telemetry shows switching
 underused: 1.5/0.66. Wu-Xing "generating cycle" ally-synergy noted as a
 future team-mode layer.
@@ -274,7 +274,7 @@ needing kit re-authoring in the shared catalog (not engine distortion):
 Abyssal Oni Hound, Stormgod Raijin (mythic assassins with under-powered
 authored kits).
 
-## Round 7 — the reference model technique engine, kit surgery, Colosseum cameras (2026-08-10)
+## Round 7 — the reference model technique engine, kit surgery, cut-camera grammar (2026-08-10)
 
 **reference-style technique mechanics** (the two we lacked):
 - **Per-move PRIORITY, multiplicative** (order = pet speed × chosen move's
@@ -295,7 +295,7 @@ proper mythic burst kits with mark setups and lifesteal sustain. Overridden
 kits skip kit-power normalization (they're authored at correct tier power).
 Result: worst species now 21.4% (was 5.6%); elements 46.7-53.3%.
 
-**the classic monster battler Colosseum camera grammar**: non-super actions now CUT instead of
+**the classic monster battler cut-camera grammar**: non-super actions now CUT instead of
 lerp — a low behind-the-shoulder shot frames the windup, then a HARD CUT to a
 side-on shot of the victim for the strike; supers keep their continuous
 letterboxed swoop. Every action opens with the classic declaration banner
@@ -601,7 +601,7 @@ predates this round.
 
 ## Round 14 — the art pass (2026-08-11)
 
-Research-led: the classic monster battler Colosseum / XD for the material logic, the classic monster battler Champions
+Research-led: older console monster battlers for the material logic, a current monster battler
 for the geometry, the reference model for the two-bar readout, then one spec applied across
 the mode.
 
@@ -1244,7 +1244,7 @@ Owner ruling: PvP rounds get 45 seconds to commit orders.
 (false on every AI entry — practice has no clock, a timer there punishes
 reading your own kit); the ENDPOINT stamps `turnDeadlineAt` at start and re-arms
 it on every resolved round (the engine never reads a wall clock), surfacing
-`turnDeadline` on the state view. The client renders a Champions-style MOVE
+`turnDeadline` on the state view. The client renders a MOVE
 TIME chip that goes hot for the last ten seconds and locks the round in as
 drafted at zero — the engine defaults every missing order to guard. When live
 PvP lands, its start path seals `pvp: true` and the turn handler must also
@@ -1314,7 +1314,7 @@ keep the original `-bg` art; only Showdown's STAGES repoints.
 NORMAL-blended (additive blows the foam/flame values out), bolts opt back into
 additive. FLOOR_TAKEOVERS lays the disc flat over the whole arena during
 staged casts (full presence on supers, 0.55 on heavies) — the single biggest
-Champions ingredient. Set-piece air: 900/1600ms → 1150/2100ms.
+ingredient of the reference look. Set-piece air: 900/1600ms → 1150/2100ms.
 
 **Two bugs the owner's eye caught**:
 - *Detachment*: set-piece meshes were positioned INSIDE the drei Billboard
@@ -1407,7 +1407,7 @@ the blaze has heat depth; the wave shell rocks gently as it sweeps.
 
 ## Round 37 — the ceremony round (2026-08-13)
 
-Owner: "do them all, AAA level, no shortcuts" (the six Champions-gap items).
+Owner: "do them all, AAA level, no shortcuts" (the six reference-gap items).
 
 **Species performance layer switched ON.** The 23-style hero-pose vocabulary
 (`pet-hero-moves`: pouncer-stalk, charger-drive, dragon-overrun…) authored for
@@ -1477,15 +1477,15 @@ reduced-motion exemption unchanged. Harness gained `?capture`
 (preserveDrawingBuffer without the slow-mo stretch) so in-page frame grabs
 can verify REAL pacing.
 
-## Round 39 — the Champions grammar (2026-08-13)
+## Round 39 — the reference grammar (2026-08-13)
 
-Owner supplied eight the classic monster battler Champions reference stills + ruling: NO crowd
-audio ("unnecessary clutter") — focus movesets, VFX, gameplay. Champions
-released 2026-04-08; research: we beat it on spread simultaneity and arena
+Owner supplied eight monster-battler reference stills + ruling: NO crowd
+audio ("unnecessary clutter") — focus movesets, VFX, gameplay. The reference
+game released 2026-04-08; research: we beat it on spread simultaneity and arena
 variety; its edge was per-move identity + weather-as-state + full-frame
 takeovers. This round ports that grammar:
 
-- **Casting glyph + charge orb** (the Gardevoir frame): during any ranged
+- **Casting glyph + charge orb** (the casting frame): during any ranged
   channel, an element-tinted runic circle spins under the caster while a
   swelling orb with two counter-rotating rings and spiral-in sparkles holds
   at chest height. Both read the beat clock — replays identical.
@@ -1501,7 +1501,7 @@ takeovers. This round ports that grammar:
   with debris, wounds slash red crosses, debuffs press dark rings down,
   buffs/heals lift bright rings, stuns orbit stars, pushes shove a wave,
   shields flash a dome, DoTs drip.
-- **Impact streak-throughs** (the Ursaluna frame): heavy/super/KO contacts
+- **Impact streak-throughs** (the impact frame): heavy/super/KO contacts
   throw long element streaks that slice across the frame + a ground glow
   disc; crushes and Earth heavies kick real tumbling debris chunks.
 - **Super-effective is physical** ("the screen practically vibrates"):
@@ -1517,7 +1517,7 @@ Three owner rulings landed mid-round:
   looks stupid"): STAGES points back at the original `-bg` scenery; the five
   `-bg-crowd` files are deleted and the generator's arena block is retired
   with a do-not-re-add note. The crowd exists only as confetti moments.
-- **The Garchomp still is SWORDS DANCE, a buff** — the vertical light-shaft
+- **The light-shaft reference still is a stat-up buff** — the vertical light-shaft
   cage moved from big-hit impacts to the stat-up accent (buff/haste; heals
   keep soft rings). Fixing that exposed a real bug: kind accents were
   spawned inside the damage>0 branch, so an actual buff (0 damage) could
@@ -1596,12 +1596,12 @@ rig instead of mutating a baked domain.
 
 ## Round 44 — the variety pass: weather, Protect, and a kit for every pet (2026-08-14)
 
-Owner: research the reference model and Champions movepools, then rebalance every pet with
+Owner: research the reference movepools, then rebalance every pet with
 more variety — buffs/debuffs, Protect, weather that actually boosts its
 element.
 
-**Research** ([Champions weather guides], [the reference model technique wiki]): Champions
-runs full VGC weather — sun boosts Fire and weakens Water, rain the mirror,
+**Research** (weather guides and the reference model technique wiki): the current
+monster battler runs full competitive weather — sun boosts Fire and weakens Water, rain the mirror,
 each set by a move, fixed duration, *the newest setter overwrites*; Protect
 blocks the turn and gets less reliable when chained. The reference model contributes the
 class split (status techniques that only change board state) and the
@@ -1691,7 +1691,7 @@ the species being edited, not just the top and bottom ten.
 ## Round 46 — the structural audit: every kit, every kind, every effect (2026-08-14)
 
 Owner: fix the outliers, then check the balance AND the moveset of every pet
-so they're properly done like the reference model/Champions, make sure every move has a
+so they're properly done like the reference games, make sure every move has a
 real visual effect, and use Blender again.
 
 **The audit tool** (`scripts/showdown-kit-audit.mjs`). The win-rate analyzer
@@ -1772,7 +1772,7 @@ re-learned on a different layer).
 - Coherence, measured: training foci 81.7–96.7% vs untrained twin (real-AI
   driver); elements 48.6–51.2 aggregate with 93% advantaged-matchup wins;
   roles 47.9–52.8; rarity ladder 90/87.5%; pace 7.5; species hard band holds.
-- Presentation: the reference model command grid + Champions plate skin, pulled-back board,
+- Presentation: the reference model command grid + reference plate skin, pulled-back board,
   full backdrop ring + sky cap, bench off-stage with gallop-in staging, layered
   impacts (flash → burst → heavy shell), elemental set-pieces (tsunami /
   tornado / fire wash / eruption / storm bolts — smooth-filtered, reduced-

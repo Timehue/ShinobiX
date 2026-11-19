@@ -14,7 +14,7 @@
 
 - Reviewed midpoint frames for all 60 shots in three labeled master sheets.
 - Character language remains consistent: white-haired lead, black-and-white layered shinobi clothing, elemental color coding, and the golden fox with red scarf and bare forehead.
-- No Naruto icon, branded headband symbol, unexpected costume swap, duplicated hero, backward-facing attacker, or disconnected post-boss duel appears in the final master.
+- No forehead icon, headband symbol, unexpected costume swap, duplicated hero, backward-facing attacker, or disconnected post-boss duel appears in the final master.
 - The four villages retain deliberate elemental palette differences while sharing the same detailed cel-painted anime rendering language.
 - Companion, jutsu, clan battle, village war, raid, and world-boss images stay within the same premium anime concept-art family.
 - Captions were checked for terminology and continuity, including `FOUR VILLAGES`, `CLAN VS CLAN BATTLE`, `VILLAGE VS VILLAGE WAR`, and the continuous `LEARN OVER 100 JUTSU` showcase.

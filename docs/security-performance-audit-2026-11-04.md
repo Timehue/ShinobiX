@@ -30,7 +30,7 @@ SUSPECTED.
 | 6 | Perf High | The village-war `guard-state` / `shrine-state` polls (every 3-5 s per player) rewrote the whole war row through a full-row compare-and-set even when nothing changed. Unchanged results now skip the commit. | `api/_village-war-campaign.ts` |
 | 7 | Low | `presence:request` on the socket had no throttle; each answer is an O(sector) snapshot. Now once a second per socket, with the last request answered at the end of the window (never dropped). | `api/_realtime/socket.ts` |
 
-One more finding, the ANBU win hook rewriting the clan treasury under a
+One more finding, the Hush win hook rewriting the clan treasury under a
 fail-open lock, is already fixed (uncommitted) on the 11-04 gap-scan branch
 `claude/game-gaps-scan-218f19`, so it is not touched here.
 

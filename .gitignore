@@ -536,12 +536,12 @@ war-preflight-*.json
 /docs/stronghold/underground-review/**/*.heapsnapshot
 /docs/stronghold/underground-review/**/*.cpuprofile
 /docs/stronghold/underground-review/**/diagnostics.json
-!/docs/stronghold/underground-review/entry-level-50-ui/webkit-level-50-anbu-320.png
+!/docs/stronghold/underground-review/entry-level-50-ui/webkit-level-50-hush-320.png
 !/docs/stronghold/underground-review/entry-level-50-ui/webkit-level-50-defender-320.png
 !/docs/stronghold/underground-review/sector-style-rooms-1.png
 !/docs/stronghold/underground-review/sector-style-rooms-2.png
 !/docs/stronghold/underground-review/sector-style-rooms-3.png
-!/docs/stronghold/underground-review/sector-style-anbu-vault.png
+!/docs/stronghold/underground-review/sector-style-hush-vault.png
 !/docs/stronghold/underground-review/sector-style-stronghold-phone.png
 !/docs/stronghold/underground-review/sector-style-cavern-phone.png
 !/docs/stronghold/underground-review/sector-style-multiplayer-normal.png
@@ -549,7 +549,7 @@ war-preflight-*.json
 !/docs/stronghold/underground-review/rooms-1.png
 !/docs/stronghold/underground-review/rooms-2.png
 !/docs/stronghold/underground-review/rooms-3.png
-!/docs/stronghold/underground-review/anbu-treasury.png
+!/docs/stronghold/underground-review/hush-treasury.png
 !/docs/stronghold/underground-review/hollow-gate-desktop.png
 !/docs/stronghold/underground-review/hollow-gate-phone.png
 !/docs/stronghold/underground-review/hollow-gate-travelers.png

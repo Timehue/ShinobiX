@@ -2024,7 +2024,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 challenge from the duel sealed when it was accepted. So there is ONE
                 renderer here, no onOutcome to honour (the settlement
                 already fired against the server's own verdict), and no "fight
-                again": these fights are spent when they resolve. The HD-2D
+                again": these fights are spent when they resolve. The 2.5D
                 coliseum renderer and the continuous duel player are both gone. */}
             {battleReady && selectedPet && battleOpponent && watchedDuel && (
                 <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>

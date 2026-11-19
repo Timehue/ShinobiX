@@ -1,7 +1,7 @@
 /*
  * Pet evolution cutscene — the pure, deterministic TIMELINE (the "engine").
  *
- * Digivolution cadence (owner-specified):
+ * Evolution cadence (owner-specified):
  *   1. the current pet starts to SPIN and washes into a white glow
  *   2. after the glow begins, a big TUBE OF LIGHT rises up around it
  *   3. it keeps spinning (white silhouette) inside the tube
@@ -287,7 +287,7 @@ export function floorRayIntensity(phase: EvolutionPhase): number {
 }
 
 // -- 2.5D stage motion -------------------------------------------------------
-// PetEvolutionStage3D renders flat pet art as grounded, lit HD-2D billboards.
+// PetEvolutionStage3D renders flat pet art as grounded, lit 2.5D billboards.
 // During the white/tube phases we intentionally allow the billboard to go
 // through a faster multi-turn "energy spin"; the renderer presents that as an
 // anime squash/flip illusion so the 2D art never sits invisible edge-on. Once

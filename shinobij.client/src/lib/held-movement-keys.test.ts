@@ -117,7 +117,7 @@ test("Hollow Gate walks a held key on its own timer, not on the OS key repeat", 
 });
 
 test("the stronghold and both golden shrines walk a held key on their own cadence", () => {
-    const stronghold = read("features/anbuInfiltration/StrongholdExplore.tsx");
+    const stronghold = read("features/hushInfiltration/StrongholdExplore.tsx");
     assert.match(stronghold, /const held = useHeldMovementKey\(\);/);
     assert.match(stronghold, /if \(event\.isTrusted\) \{ if \(event\.repeat\) return; held\.current = k; \}/);
     assert.match(stronghold, /event\.ctrlKey \|\| event\.metaKey \|\| event\.altKey\) return;/);

@@ -2,7 +2,7 @@
 /*
  * WorldWalkFeel — the threshold-moment layer for walking the world:
  *
- *   RegionSplash      Elden-Ring-style region-name calligraphy card, shown once
+ *   RegionSplash      large region-name calligraphy card, shown once
  *                     per region per session when the player enters it.
  *   RouteGlowOverlay  shortest walking route (BFS over the shared road graph)
  *                     glowed onto the world map while hovering a destination.

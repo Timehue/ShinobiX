@@ -105,7 +105,7 @@ function apSpent(session: SoloPveSession, events = enemyEvents(session)): number
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
 describe('standard-PvE turn planner — scope', () => {
-    it('lets a sealed village-war ANBU plan with its copied kit without changing stats or granting a difficulty guard', () => {
+    it('lets a sealed village-war Hush plan with its copied kit without changing stats or granting a difficulty guard', () => {
         const kit = [jutsu('hit-a', 40), jutsu('hit-b', 40), FLICKER];
         const copied = scenario({ level: 20, kit, distance: 3, kind: 'village-war-garrison' });
         copied.enemy.character.masterAi = true;
@@ -122,7 +122,7 @@ describe('standard-PvE turn planner — scope', () => {
         for (const kind of STANDARD_PVE_AI_KINDS) {
             assert.equal(standardPvePlannerApplies({ policy: STANDARD_PVE_AI_POLICY, kind, missionTactics: false, weeklyBoss: false, env: {} }), true, kind);
         }
-        for (const kind of ['hollow-gate', 'endless-wave', 'caravan', 'stronghold-patrol', 'weekly-boss', 'anbu-infiltration', 'sector-war-garrison', 'test']) {
+        for (const kind of ['hollow-gate', 'endless-wave', 'caravan', 'stronghold-patrol', 'weekly-boss', 'hush-infiltration', 'sector-war-garrison', 'test']) {
             assert.equal(standardPvePlannerApplies({ policy: STANDARD_PVE_AI_POLICY, kind, missionTactics: false, weeklyBoss: false, env: {} }), false, kind);
         }
         assert.equal(standardPvePlannerApplies({ policy: undefined, kind: 'generic-ai', missionTactics: false, weeklyBoss: false, env: {} }), false, 'unsealed');
@@ -139,7 +139,7 @@ describe('standard-PvE turn planner — scope', () => {
         const planned = enemyTurn(scenario({ kit, distance: 3 }));
         const original = enemyTurn(scenario({ kit, distance: 3, sealed: false }));
         assert.notDeepEqual(apSpent(planned), apSpent(original), 'the scenario distinguishes the two runners');
-        for (const kind of ['hollow-gate', 'endless-wave', 'caravan', 'stronghold-patrol', 'anbu-infiltration', 'sector-war-garrison', 'weekly-boss']) {
+        for (const kind of ['hollow-gate', 'endless-wave', 'caravan', 'stronghold-patrol', 'hush-infiltration', 'sector-war-garrison', 'weekly-boss']) {
             const sealed = enemyTurn(scenario({ kit, distance: 3, kind }));
             const unsealed = enemyTurn(scenario({ kit, distance: 3, kind, sealed: false }));
             assert.deepEqual(sealed.events, unsealed.events, kind);
@@ -155,7 +155,7 @@ describe('standard-PvE turn planner — scope', () => {
             { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' as const },
             { name: 'Wound', rounds: 2, amount: 10, kind: 'negative' as const },
         ];
-        for (const kind of ['hollow-gate', 'endless-wave', 'caravan', 'stronghold-patrol', 'anbu-infiltration', 'sector-war-garrison', 'weekly-boss']) {
+        for (const kind of ['hollow-gate', 'endless-wave', 'caravan', 'stronghold-patrol', 'hush-infiltration', 'sector-war-garrison', 'weekly-boss']) {
             const shieldOnly = enemyTurn(scenario({ level: 75, kind, kit: [], player: { shield: 200 } }));
             assert.equal(enemyEvents(shieldOnly)[0]?.action, 'basicAttack', `${kind}: legacy does not detect shield-only Clear`);
             const clearPrevent = enemyTurn(scenario({ level: 75, kind, kit: [], player: { shield: 200, statuses: preventedBuff } }));
@@ -572,7 +572,7 @@ describe('progressive PvE tactical regressions', () => {
         const defender = hydrateCharacterFromSave(raw, {}, { character: raw });
         const source = buildGarrisonEncounter({ runId: 'weapon-scope-garrison', now: NOW,
             attacker: { slug: 'alice', name: 'Alice', character: { ...defender, name: 'Alice' } },
-            anbu: { slug: 'defender', name: 'Defender', character: defender }, terrain: 'central',
+            hush: { slug: 'defender', name: 'Defender', character: defender }, terrain: 'central',
             sector: 66, contestId: 'scope-test', attackerVillage: 'Stormveil Village', defenderVillage: 'Frostfang Village' });
         source.encounter.kind = 'village-war-garrison';
         delete source.enemy.character.boss;

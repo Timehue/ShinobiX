@@ -89,7 +89,7 @@ describe('authoritative war reward settlement', () => {
         const war = {
             id: 'leaf-vs-sand', villages: ['Leaf', 'Sand'] as [string, string], endedAt: now - 1,
             winnerVillage: 'Leaf', warCrateId: 'war-crate-leaf-vs-sand', loserCrateId: 'loser-crate-leaf-vs-sand',
-            mvpByVillage: { Leaf: 'Rin', Sand: 'Gaara' },
+            mvpByVillage: { Leaf: 'Rin', Sand: 'Tesshin' },
             contributions: {
                 kiraemberfall: { name: 'Kira Emberfall', side: 'Leaf', damage: 30 },
                 sandmiko: { name: 'Sand Miko', side: 'Sand', damage: 60 },

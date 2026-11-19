@@ -14,7 +14,7 @@ export const PUBLIC_CAPABILITY_IDS = Object.freeze([
     'googleSignIn',
     'guestPlay',
     'villageWar',
-    'anbuInfiltration',
+    'hushInfiltration',
     'clanBoss',
     'clanBossParties',
     'legacy',

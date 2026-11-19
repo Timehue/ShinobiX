@@ -78,7 +78,7 @@ describe('War Resources affordability', () => {
 describe('garrison-feed copy', () => {
     it('says who is feeding what, not "on"/"off"', () => {
         assert.equal(garrisonFeedStatusLine({ feeding: true, sector: 12 }), 'Your Kage is feeding the Sector 12 garrison.');
-        assert.equal(garrisonFeedStatusLine({ feeding: false, sector: 12 }), 'Nobody is feeding this garrison — your Kage or ANBU can.');
+        assert.equal(garrisonFeedStatusLine({ feeding: false, sector: 12 }), 'Nobody is feeding this garrison — your Kage or Hush can.');
         for (const feeding of [true, false]) {
             assert.doesNotMatch(garrisonFeedStatusLine({ feeding, sector: 3 }), /feed: (on|off)/i);
         }

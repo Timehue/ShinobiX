@@ -9,9 +9,8 @@ import assert from 'node:assert/strict';
  * at 20 calls/60s the real ryo ceiling was 4,000,000 a minute.
  *
  * The ceiling is SEND-side and tiered, and receiving is deliberately untouched
- * at every tier. RuneScape's 2008 trade limit capped what players could give
- * away, broke legitimate play, and was removed in 2011 — the genre's conclusion
- * is that RMT controls belong on the sender and on untrusted accounts, never on
+ * at every tier. A limit on what players can give away breaks legitimate play,
+ * so RMT controls belong on the sender and on untrusted accounts, never on
  * everyone.
  */
 

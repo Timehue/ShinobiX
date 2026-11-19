@@ -87,7 +87,7 @@ Three-to-four ability buttons along the bottom, mirroring the pet's
 decision window. **Tap nothing and the AI picks exactly as it does today** — it
 is an opt-in override, not an obligation, which is what protects constraint #1.
 
-This is Ni no Kuni / *Digimon World: Next Order*: you issue orders, the partner
+This is the partner-command model: you issue orders, the partner
 handles its own footwork and spacing. It is also nearly free to build, because
 the sim already has a single explicit ability-choice point (`pendingIdx`) that we
 just let the player pre-empt.
@@ -104,12 +104,12 @@ a cut-in — today it fires on a 9-second AI cooldown. Moving it from "the AI do
 it at you" to "you spend the meter" hands the player authorship of the fight's
 highlight, and it is the single best showcase we have for the 3D rigs.
 
-Directly modelled on Monster Hunter Stories' Kinship gauge, where the meter both
+It works as a kinship gauge, where the meter both
 gates the big move and is fed by playing well.
 
 ### C — Timed action commands *(the moment-to-moment hook)*
 
-The Super Mario RPG / Paper Mario layer, and the best fit for our sim, because
+This is the timed-hit layer, and the best fit for our sim, because
 `windup` / `strike` / `stagger` are already discrete states with known tick
 counts and the feel overhaul already ships a scaled wind-up telegraph:
 
@@ -130,14 +130,14 @@ hit — so mastery is felt but the outcome distribution stays sane.
 ### D — Stance dial *(strategy at zero APM)*
 
 Three stances — Aggressive / Balanced / Guarded — swapping `neutralRange`, dash
-willingness, and ability-class preference. This is FF12's Gambits compressed into
+willingness, and ability-class preference. This is a full rule-based AI script compressed into
 one control, and it is the accessibility floor: a player who does not want to tap
 anything can still express a plan and still lose or win on that plan. Each stance
 gets its own idle and locomotion pose, so the choice is *visible* on the model.
 
 ### E — Clash *(the drama spike, later)*
 
-Straight from Monster Hunter Stories' head-to-head. When both pets commit heavy
+This is a head-to-head clash. When both pets commit heavy
 moves in the same window, the sim halts, the camera slams to a nose-to-nose
 two-shot of the rigs, and both sides pick Power / Speed / Tech inside ~1.5 s.
 The winner nullifies the incoming move and counters, launching the loser.
@@ -719,10 +719,3 @@ and is the next piece of work.
 - [Auto battler — Grokipedia](https://grokipedia.com/page/Auto_battler)
 - [What If Idle RPGs Let You Design the Auto-Battle? — Medium](https://medium.com/@sexwoojisung/what-if-idle-rpgs-let-you-design-the-auto-battle-0ab3cdb24295)
 - [Games based entirely on Auto Battle — RPG Maker Forums](https://forums.rpgmakerweb.com/threads/games-based-entirely-on-auto-battle.104321/)
-- [Monster Hunter Stories — Monster Hunter Wiki](https://monsterhunterwiki.org/wiki/Monster_Hunter_Stories)
-- [Monster Hunter Stories 2: Wings of Ruin — Wikipedia](https://en.wikipedia.org/wiki/Monster_Hunter_Stories_2:_Wings_of_Ruin)
-- [Action Command — Super Mario Wiki](https://www.mariowiki.com/Action_Command)
-- [Notes on Combat Systems in Paper Mario — Dampfkraft](https://www.dampfkraft.com/games/paper-mario-combat.html)
-- [Super Mario RPG Game Design: Timed Hits in Turn-Based Combat — Kokutech](https://www.kokutech.com/blog/gamedev/design-patterns/unique-mechanics/super-mario-rpg)
-- [Digimon World — Wikipedia](https://en.wikipedia.org/wiki/Digimon_World)
-- [Digimon World: Next Order — Steam](https://store.steampowered.com/app/1530160/Digimon_World_Next_Order/)

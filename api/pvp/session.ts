@@ -1,4 +1,4 @@
-import { readVillageAnbu } from '../village/_anbu.js';
+import { readVillageHush } from '../village/_hush.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import type { ActionReceipt } from '../_receipts.js';
 import { createHash, randomUUID, randomBytes } from 'crypto';
@@ -244,7 +244,7 @@ export type PvpSession = {
         observedAt: number;
     };
     /** Immutable server role evidence used by village-war continuation. Seats
-     * or ANBU appointments granted after battle creation cannot amplify it. */
+     * or Hush appointments granted after battle creation cannot amplify it. */
     warRoleEvidence?: SealedWarRoleEvidence;
     challengeId?: string;
     /** Server-derived official Kage duel prerequisite. Moves help it forward
@@ -2827,10 +2827,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : [];
                     let raidDamage = 0;
                     if (ownerClan && !controls) {
-                        const anbu = new Set((await readVillageAnbu(ownerVillage)).members.map(safeName));
-                        const anbuCount = guards.filter((guard) => anbu.has(guard)).length;
-                        raidDamage = anbuCount > 0
-                            ? Math.max(50, 250 - anbuCount * 50)
+                        const hush = new Set((await readVillageHush(ownerVillage)).members.map(safeName));
+                        const hushCount = guards.filter((guard) => hush.has(guard)).length;
+                        raidDamage = hushCount > 0
+                            ? Math.max(50, 250 - hushCount * 50)
                             : guards.length > 0 ? 150 : 250;
                     }
                     worldTerritoryEvidence = {

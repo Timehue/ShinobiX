@@ -108,7 +108,7 @@ Remaining risks:
 
 ## Inventory
 
-All checked-in item creation paths were mapped: first save, shops/packs, missions/story, dungeons, war/weekly/ranked rewards, chests/events, crafting/named forge, Hollow Gate, Anbu, Clan Exchange, cafeteria, elemental cores, and admin grants. Important routes validate server catalog/proof and commit debit plus grant inside one save mutation or an explicit saga.
+All checked-in item creation paths were mapped: first save, shops/packs, missions/story, dungeons, war/weekly/ranked rewards, chests/events, crafting/named forge, Hollow Gate, Hush, Clan Exchange, cafeteria, elemental cores, and admin grants. Important routes validate server catalog/proof and commit debit plus grant inside one save mutation or an explicit saga.
 
 No item behavior changed. Outstanding risks are domain-specific stacking/uniqueness semantics, named-forge recovery publication after the authoritative commit, Clan Exchange refund reconciliation, and absence of a live production scan for negative/orphan/unknown item state.
 

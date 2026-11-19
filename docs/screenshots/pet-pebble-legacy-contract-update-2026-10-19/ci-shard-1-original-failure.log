@@ -348,11 +348,11 @@ shinobij.client/package-lock.json
 2026-10-19T20:43:50.8330828Z ✔ biomeForTerrain accepts sealed terrain values and falls back to central (1.454341ms)
 2026-10-19T20:43:50.8346601Z ✔ buildInfiltrationEncounter seals a one-human Solo PvE session and exact raid binding (2.155963ms)
 2026-10-19T20:43:50.8371618Z ✔ the raider walks in with the HP their save holds, never a free full pool (0.884507ms)
-2026-10-19T20:43:50.8373393Z ✔ raider and Anbu start on the same row with tight duel spacing (0.408152ms)
+2026-10-19T20:43:50.8373393Z ✔ raider and Hush start on the same row with tight duel spacing (0.408152ms)
 2026-10-19T20:43:50.8374717Z ✔ builder is deterministic for the same authoritative inputs (0.59999ms)
 2026-10-19T20:43:50.8376169Z ✔ the sealed sector sky rides along while the Kage-set terrain stays the board (0.423775ms)
 2026-10-19T20:43:50.8384133Z ✔ infiltrationSessionMatches rejects every hostile binding substitution (0.40001ms)
-2026-10-19T20:43:50.8385868Z ✔ shared Solo PvE engine drives the sealed Anbu and terminates the duel (21.745729ms)
+2026-10-19T20:43:50.8385868Z ✔ shared Solo PvE engine drives the sealed Hush and terminates the duel (21.745729ms)
 2026-10-19T20:43:50.9339919Z ✔ rollRewardPools: "both" is the rare leading band, singles split the rest (2.428592ms)
 2026-10-19T20:43:50.9369389Z ✔ rolloverLedger: resets on a new/blank day, preserves same-day (0.581913ms)
 2026-10-19T20:43:50.9370800Z ✔ applySkim: 1% of balance on a fresh ledger (0.492318ms)
@@ -501,7 +501,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:43:51.5075822Z ▶ validateClanSaveWrite — wrong-type fields and roster counters (2026-10-15)
 2026-10-19T20:43:51.5077212Z   ✔ a null treasury, notices or members keeps the stored value instead of wiping it (0.588092ms)
 2026-10-19T20:43:51.5078837Z   ✔ a member cannot raise another member's counters, nor their own past the server character (0.230606ms)
-2026-10-19T20:43:51.5080388Z   ✔ keeps a server-credited row value above the character counter (ANBU raids credit the row) (0.331487ms)
+2026-10-19T20:43:51.5080388Z   ✔ keeps a server-credited row value above the character counter (Hush raids credit the row) (0.331487ms)
 2026-10-19T20:43:51.5081864Z   ✔ refreshes a spaced display name from its own slug-authenticated character only (0.281001ms)
 2026-10-19T20:43:51.5083267Z   ✔ a newly added row starts its counters at 0 (0.29972ms)
 2026-10-19T20:43:51.5084345Z   ✔ an authenticated admin may still correct roster numbers by hand (0.824376ms)
@@ -1203,7 +1203,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:04.3000164Z ✔ admitted Death’s Gate blocks lava and roofs while grounding arena arrivals and keeping interior rewards (19.56342ms)
 2026-10-19T20:44:04.3296066Z [kv] isolated in-memory QA backend active
 2026-10-19T20:44:04.3429075Z ▶ fieldGarrisonDefender
-2026-10-19T20:44:04.3440237Z   ✔ walks the rotation past an ANBU who cannot field, and stamps only the one who defends (4.969102ms)
+2026-10-19T20:44:04.3440237Z   ✔ walks the rotation past a Hush who cannot field, and stamps only the one who defends (4.969102ms)
 2026-10-19T20:44:04.3442007Z   ✔ follows the same least-recently-defended order the pick always used (0.844537ms)
 2026-10-19T20:44:04.3443290Z   ✔ falls back to the seated Kage when no appointee can field (1.028863ms)
 2026-10-19T20:44:04.3444431Z   ✔ refuses only when nobody can field, and says which refusal it is (0.918658ms)
@@ -5394,7 +5394,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:17.4853908Z ▶ legacy world-state territory write authority
 2026-10-19T20:44:17.4854696Z   ✔ cannot bypass scroll repairs or verified raid damage (8.306166ms)
 2026-10-19T20:44:17.4857406Z   ✔ allows only clan leadership to change terrain settings (5.064665ms)
-2026-10-19T20:44:17.4858587Z   ✔ lets members and appointed ANBU toggle only their own guard entry (2.542173ms)
+2026-10-19T20:44:17.4858587Z   ✔ lets members and appointed Hush toggle only their own guard entry (2.542173ms)
 2026-10-19T20:44:17.4859568Z ✔ legacy world-state territory write authority (765.931627ms)
 2026-10-19T20:44:17.4860304Z ▶ territory writes read back from Postgres
 2026-10-19T20:44:17.4861226Z   ✔ a sector-war capture whose write landed but lost its reply still resolves (2.482994ms)
@@ -5630,7 +5630,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:17.5097582Z ✔ peace, surrender and a war closing during its quote cannot spend resources (3.39511ms)
 2026-10-19T20:44:17.5099230Z ✔ campaign preparations can be purchased during funded preparation and disappear from live contexts on surrender (3.406688ms)
 2026-10-19T20:44:17.5100935Z ✔ Academy raises raw support only; zero PvP still scores zero and support never exceeds 20% of the total (0.844446ms)
-2026-10-19T20:44:17.5102737Z ✔ sealed admission tiers control all field/ANBU awards; later changes cannot retroactively upgrade an accepted order (1.171526ms)
+2026-10-19T20:44:17.5102737Z ✔ sealed admission tiers control all field/Hush awards; later changes cannot retroactively upgrade an accepted order (1.171526ms)
 2026-10-19T20:44:17.5123420Z ✔ Watchtower intel applies to one successful Espionage order per player/day; retries, other missions and full meters add nothing extra (0.443255ms)
 2026-10-19T20:44:17.5125244Z ✔ sector Academy improves only player-run garrison support and preserves its cap and human awards (1.252738ms)
 2026-10-19T20:44:17.5126668Z ✔ Barracks upkeep is per instance, rounded up, and excludes expired preparations (0.632198ms)
@@ -6291,7 +6291,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:44:27.8710659Z ▶ the gear Shield special is seeded in every engine
 2026-10-19T20:44:27.8712052Z   ✔ tower encounters (clan boss shown) start the squad with it, timed from round one (2.274221ms)
 2026-10-19T20:44:27.8716635Z   ✔ Tower Team Arena seeds each fighter like a PvP duel (2.085627ms)
-2026-10-19T20:44:27.8719771Z   ✔ the ANBU vault raid and the garrison assault seed both sealed loadouts, like the duel they stand in for (1.521231ms)
+2026-10-19T20:44:27.8719771Z   ✔ the Hush vault raid and the garrison assault seed both sealed loadouts, like the duel they stand in for (1.521231ms)
 2026-10-19T20:44:27.8721454Z   ✔ a village-war merc battle starts the defending player with it (29.732809ms)
 2026-10-19T20:44:27.8733218Z ✔ the gear Shield special is seeded in every engine (36.061888ms)
 2026-10-19T20:44:27.9939539Z ▶ N-target cast reducer scopes
@@ -7819,7 +7819,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:45:11.8204990Z   ✔ Hollow Gate dive fight: starts on the 450 the held mission left, not the 600 it had spent (33.816932ms)
 2026-10-19T20:45:11.8206363Z   ✔ Sunscar caravan ambush: starts on the 450 the held mission left, not the 600 it had spent (75.714398ms)
 2026-10-19T20:45:11.8207930Z   ✔ Sunscar caravan escort: starts on the 450 the held mission left, not the 600 it had spent (10.52836ms)
-2026-10-19T20:45:11.8209229Z   ✔ ANBU Vault raid: starts on the 450 the held mission left, not the 600 it had spent (25.321768ms)
+2026-10-19T20:45:11.8209229Z   ✔ Hush Vault raid: starts on the 450 the held mission left, not the 600 it had spent (25.321768ms)
 2026-10-19T20:45:11.8210573Z   ✔ sector-war garrison assault: starts on the 450 the held mission left, not the 600 it had spent (27.951868ms)
 2026-10-19T20:45:11.8211913Z ✔ each route that seals a fight from the save settles a held fight first (1271.78478ms)
 2026-10-19T20:45:11.8213035Z ▶ every route that seals a fight from the save settles held fights first
@@ -9413,11 +9413,11 @@ shinobij.client/package-lock.json
 2026-10-19T20:45:57.7173463Z   ✔ a knockout held back sends the attacker to the hospital instead of the garrison (20.486723ms)
 2026-10-19T20:45:57.7178330Z   ✔ an open Hollow Gate dive fight refuses the assault, and is left to its dive (17.323655ms)
 2026-10-19T20:45:57.7181897Z ✔ garrison assault: the fights a player is holding are settled before the attacker is seated (1025.950337ms)
-2026-10-19T20:45:57.7183513Z ▶ ANBU Vault raid: the fights a player is holding are settled before the raider is seated
+2026-10-19T20:45:57.7183513Z ▶ Hush Vault raid: the fights a player is holding are settled before the raider is seated
 2026-10-19T20:45:57.7184836Z   ✔ a mission won and held back: the raid starts on what the mission left (55.787413ms)
 2026-10-19T20:45:57.7185910Z   ✔ a raid refused short of the vault ends no fight (3.545941ms)
 2026-10-19T20:45:57.7187110Z   ✔ a knockout held back sends the raider to the hospital, and spends no daily attempt (11.404591ms)
-2026-10-19T20:45:57.7189240Z ✔ ANBU Vault raid: the fights a player is holding are settled before the raider is seated (71.309571ms)
+2026-10-19T20:45:57.7189240Z ✔ Hush Vault raid: the fights a player is holding are settled before the raider is seated (71.309571ms)
 2026-10-19T20:45:57.8501518Z ▶ authoritative war reward settlement
 2026-10-19T20:45:57.8562046Z   ✔ settles village winner, MVP, contribution stats, and currencies once (3.063538ms)
 2026-10-19T20:45:57.8569227Z   ✔ validates village loss consolation from the stamped contribution (0.329103ms)
@@ -10197,7 +10197,7 @@ shinobij.client/package-lock.json
 2026-10-19T20:51:08.1201064Z ✔ equippable relic roster (3.666132ms)
 2026-10-19T20:51:08.1202132Z ✔ every war village that can hold a vault has defender art wired to it (1.429812ms)
 2026-10-19T20:51:08.1203185Z ✔ the defender portrait URL carries a cache-busting revision (0.347521ms)
-2026-10-19T20:51:08.1204254Z ✔ every Anbu defender portrait is framed clear of the canvas edges (215.30778ms)
+2026-10-19T20:51:08.1204254Z ✔ every Hush defender portrait is framed clear of the canvas edges (215.30778ms)
 2026-10-19T20:51:08.1205033Z ▶ starter avatar path retention
 2026-10-19T20:51:08.1205727Z   ✔ keeps every avatar the creator can actually offer (0.712826ms)
 2026-10-19T20:51:08.1206676Z   ✔ only keeps paths the save clamp will accept from a non-subscriber (0.212378ms)

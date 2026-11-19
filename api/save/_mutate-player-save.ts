@@ -147,7 +147,7 @@ export async function writeVersionedPlayerSaveWithStore(
     return { record: intended, _saveVersion: out._saveVersion };
 }
 
-/** Registry fields the village/ANBU rankings act on at once (never deferred). */
+/** Registry fields the village/Hush rankings act on at once (never deferred). */
 const URGENT_REGISTRY_FIELDS = ['village', 'level', 'monthlyPvpKills', 'pvpKillMonth', 'totalPvpKills', 'accountName'] as const;
 
 export async function writeVersionedPlayerSave(
@@ -165,7 +165,7 @@ export async function writeVersionedPlayerSave(
     // server-side changes (stat points, profession XP, tower floors...) without
     // waiting for the owner's next session. A hand-picked six-field list here
     // used to leave the other boards stale. Those six (village, level, PvP
-    // kills, account name) still write at once for the ANBU/village rankings;
+    // kills, account name) still write at once for the Hush/village rankings;
     // the rest share a once-a-minute budget per player (_registry-reindex.ts),
     // because this is the ONE shared row every leaderboard reads.
     try {

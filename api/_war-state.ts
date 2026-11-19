@@ -10,7 +10,7 @@
  * and enforces the max-7-per-win-condition diversity rule on read.
  */
 
-import { leadershipNameKey } from '../shared/village-anbu.js';
+import { leadershipNameKey } from '../shared/village-hush.js';
 import { normalizeWarPreparations, preparationUpkeep, type WarPreparation } from '../shared/war-preparations.js';
 import {
     VILLAGE_STRUCTURE_MAX_LEVEL,

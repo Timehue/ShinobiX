@@ -97,7 +97,7 @@ export interface SectorWarSession {
     /** UTC day the stores pass last evaluated this war. */
     storesDate?: string;
     /** Garrison feed, PER VILLAGE (keyed by participant village name). Only
-     *  that village's Kage / ANBU appointee may set or clear its own entry —
+     *  that village's Kage / Hush appointee may set or clear its own entry —
      *  the other side can never switch a village's paid feed off. `covered`
      *  is stamped by the daily pass once the day's GARRISON_RATIONS_PER_DAY
      *  were actually paid; only then does the cap rise (garrisonPointsCapFor).

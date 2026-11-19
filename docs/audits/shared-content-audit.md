@@ -119,7 +119,7 @@ This is the highest-value remaining gap in shared content (P0-4 target).
 Via `loadAdminCombatContent`: `pvp/session.ts:1268`,
 `missions/combat-start.ts:71`, `story/boss-start.ts:72`, `towers/start.ts:76`,
 `clan-boss/assault-start.ts:84`, `weekly-boss.ts:586`,
-`village/anbu-infiltration.ts:175`, `_anbu-infiltration-store.ts:208`,
+`village/hush-infiltration.ts:175`, `_hush-infiltration-store.ts:208`,
 `_merc-auto.ts:77`. `training/jutsu-ryo.ts:36` uses `loadAdminJutsuObjects`
 directly (same catalog). Direct slot readers bypassing the composer:
 

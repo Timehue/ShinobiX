@@ -228,7 +228,7 @@ const FROZEN = {
         'sunscarRally', 'sunscarCaravan', 'brokerCertificates', 'brokerCrateLedger',
         'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves
         'elderWinDays', 'elderRankedWinReceipts', 'villageMerit',
-        'pvpKillMonth', // Monthly ANBU rankings must not accept a client-written reset month.
+        'pvpKillMonth', // Monthly Hush rankings must not accept a client-written reset month.
         'serverExploreDate', 'serverExploresToday', 'serverFreeDungeonProbeDate', 'serverFreeDungeonProbesToday', 'redeemedSectorExplorations',
         'serverChestDate', 'serverChestsToday', 'redeemedAncientChests',
         // Relic survey: world/explore appends the biome, quest accept resets it.

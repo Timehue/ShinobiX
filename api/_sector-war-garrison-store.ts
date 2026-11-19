@@ -1,9 +1,9 @@
 /*
  * Sector War Garrison Assault — KV storage.
  *
- * Mirrors the run-record shape of api/_anbu-infiltration-store.ts (InfilRun),
+ * Mirrors the run-record shape of api/_hush-infiltration-store.ts (InfilRun),
  * scoped to garrison: the authoritative binding from a Combat sector-war
- * contest's attacker to the ANBU snapshot they're assaulting, plus a durable
+ * contest's attacker to the Hush snapshot they're assaulting, plus a durable
  * settlement receipt on the ATTACKER'S OWN save (item usage + surviving
  * HP/hospital — this is a real multi-turn fight now, not a free instant
  * dice-roll, so it costs the same as any other sealed AI fight). The CONTEST
@@ -13,11 +13,11 @@
  * applySectorWarBattle/GARRISON_POINTS_CAP machinery a live-defender fight
  * uses (api/_sector-war.ts).
  *
- * ANBU roster/snapshot selection is NOT duplicated here. loadAnbuAppointees /
- * pickAnbuDefender / getOrSealAnbuSnapshot are re-exported straight from
- * api/_anbu-infiltration-store.ts — "read the jutsu/equipment/weapons/items…
+ * Hush roster/snapshot selection is NOT duplicated here. loadHushAppointees /
+ * pickHushDefender / getOrSealHushSnapshot are re-exported straight from
+ * api/_hush-infiltration-store.ts — "read the jutsu/equipment/weapons/items…
  * and use it all properly" is exactly what that store already does, tested,
- * for a different attacker; garrison just picks a different village's ANBU
+ * for a different attacker; garrison just picks a different village's Hush
  * for a different contest.
  */
 import { kv as realKv, type KvLike } from './_storage.js';
@@ -36,11 +36,11 @@ import {
 import { pveOutcomeReceiptIdentity } from './pve/_fight-outcome-settlement.js';
 
 export {
-    loadAnbuAppointees,
-    pickAnbuDefender,
-    getOrSealAnbuSnapshot,
-    type AnbuSnapshot,
-} from './_anbu-infiltration-store.js';
+    loadHushAppointees,
+    pickHushDefender,
+    getOrSealHushSnapshot,
+    type HushSnapshot,
+} from './_hush-infiltration-store.js';
 
 // ─── injectable deps ─────────────────────────────────────────────────────────
 /** The run records' store. The attacker's save never goes through it: that
@@ -80,7 +80,7 @@ export const GARRISON_RUN_TTL = 14 * 24 * 60 * 60;
 export const GARRISON_TERMINAL_RUN_TTL = 7 * 24 * 60 * 60;
 
 /** The authoritative live run binding plus sealed assault context (which
- *  contest, which ANBU defends). All scoring parameters derive from THIS
+ *  contest, which Hush defends). All scoring parameters derive from THIS
  *  record at resolve — never from the client. */
 export interface GarrisonRun {
     runId: string;
@@ -90,9 +90,9 @@ export interface GarrisonRun {
     /** the sector-war contest id this assault is bound to */
     contestId: string;
     defenderVillage: string;
-    /** which appointed ANBU is defending this run */
-    anbuSlug: string;
-    anbuName: string;
+    /** which appointed Hush is defending this run */
+    hushSlug: string;
+    hushName: string;
     /** sector terrain at start (biome / home-terrain edge, sealed) */
     terrain: string;
     createdAt: number;
@@ -137,7 +137,7 @@ export type SettleGarrisonFightOutcome =
  *
  * Idempotent via a settlement receipt on the character (separate from the run
  * record's own `settlement` cache — the two writes are not atomic with each
- * other), mirroring settleInfiltrationLoss in _anbu-infiltration-store.ts.
+ * other), mirroring settleInfiltrationLoss in _hush-infiltration-store.ts.
  *
  * Commits through mutatePlayerSave. The fight writes HP only, so the chakra and
  * stamina the attacker recovered while the assault ran are settled into the
@@ -163,7 +163,7 @@ export async function settleGarrisonFight(
 ): Promise<SettleGarrisonFightOutcome> {
     const { now } = resolve(deps);
     const receiptId = `sector-war-garrison-${run.runId}`.slice(0, 80);
-    const fingerprint = `${run.attackerName}:${run.sector}:${run.contestId}:${run.anbuSlug}`;
+    const fingerprint = `${run.attackerName}:${run.sector}:${run.contestId}:${run.hushSlug}`;
     const outcome = resolveAiFightOutcome(session);
     const body = pveOutcomeReceiptIdentity(session, run.attackerName, outcome);
     const result = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ alreadySettled: boolean }>(run.attackerName, ({ character }) => {

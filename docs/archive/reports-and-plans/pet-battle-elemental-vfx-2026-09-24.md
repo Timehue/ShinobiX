@@ -6,24 +6,21 @@ events, combat outcomes, and replay timing remain authoritative.
 
 ## Research takeaways
 
-Pokémon Stadium 2 makes a useful reference because attacks stay brief but are
-not visually interchangeable. Its move demonstrations include elemental,
-weather, status, and physical examples, and its Pokémon-specific actions let the
-creature's body sell the move before or during the effect. The practical lesson
-for these modes is to make the full action legible: anticipation, directed
-travel, body response, contact, and a short aftermath. Big effects should earn
-their screen time; frequent attacks still need a quick, clear silhouette.
+Creature-battle attacks read best when they stay brief but are never visually
+interchangeable. Elemental, weather, status and physical moves each need their
+own look, and the creature's body should sell the move before or during the
+effect. The practical lesson for these modes is to make the full action
+legible: anticipation, directed travel, body response, contact, and a short
+aftermath. Big effects should earn their screen time; frequent attacks still
+need a quick, clear silhouette.
 
-The Stadium 2 move archive provides direct examples for [Thunder Wave],
-[Sandstorm], [Rain Dance], [Future Sight], and other moves. A contemporary
-review specifically notes the game's brief, varied technique animations and
-species-adjusted attack actions, while also calling its arenas visually plain.
-That points this pass toward richer, more authored attack effects and creature
-response, while keeping the existing arena readable.
+Brief, varied technique animations and body actions adjusted to each species
+matter more than an elaborate arena. That points this pass toward richer, more
+authored attack effects and creature response, while keeping the existing arena
+readable.
 
 The GDC session [Visual Effects Bootcamp: Artistic Principles of VFX] frames
-effects as artistic and gameplay work, with examples from *League of Legends*
-and *Hearthstone*. Applied here: element identity must be recognizable at a
+effects as artistic and gameplay work. Applied here: element identity must be recognizable at a
 glance, attack travel should point toward its target, and visual intensity must
 reinforce the combat event rather than obscure it. The project already has
 simulation-clocked tells, travel, contact, body reactions, bounded particle
@@ -92,12 +89,4 @@ animation, lighting, and per-move art coverage.
 
 ## References
 
-- [Bulbagarden Archives: Pokémon Stadium 2 move demonstrations](https://archives.bulbagarden.net/wiki/Category:Moves_(Stadium_2))
-- [Bulbagarden Archives: Thunder Wave in Stadium 2](https://archives.bulbagarden.net/wiki/File:Thunder_Wave_Stad2.png)
-- [GameSpot: Pokémon Stadium 2 review](https://www.gamespot.com/reviews/pokmon-stadium-2-review/1900-2701265/)
 - [GDC Vault: Visual Effects Bootcamp: Artistic Principles of VFX](https://gdcvault.com/play/1023943/Visual-Effects-Bootcamp-Artistic-Principles)
-
-[Thunder Wave]: https://archives.bulbagarden.net/wiki/File:Thunder_Wave_Stad2.png
-[Sandstorm]: https://archives.bulbagarden.net/wiki/File:Sandstorm_Stad2.png
-[Rain Dance]: https://archives.bulbagarden.net/wiki/File:Rain_Dance_Stad2.png
-[Future Sight]: https://archives.bulbagarden.net/wiki/File:Future_Sight_Stad2.png

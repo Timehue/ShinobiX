@@ -1,4 +1,4 @@
-import { readVillageAnbu } from '../village/_anbu.js';
+import { readVillageHush } from '../village/_hush.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
@@ -355,9 +355,9 @@ export async function settleRaidTerritoryDamage(params: {
                 const controlsTerritory = (!!ownerClan && ownerClan === playerClan)
                     || (!!ownerVillage && ownerVillage === playerVillage);
                 if (ownerClan && !controlsTerritory) {
-                const anbu = new Set((await readVillageAnbu(ownerVillage)).members.map(safeName));
-                const anbuCount = guards.filter((guard) => anbu.has(guard)).length;
-                amount = anbuCount > 0 ? Math.max(50, 250 - anbuCount * 50) : guards.length > 0 ? 150 : 250;
+                const hush = new Set((await readVillageHush(ownerVillage)).members.map(safeName));
+                const hushCount = guards.filter((guard) => hush.has(guard)).length;
+                amount = hushCount > 0 ? Math.max(50, 250 - hushCount * 50) : guards.length > 0 ? 150 : 250;
                 }
             }
             const rawHp = Number(current.hp);

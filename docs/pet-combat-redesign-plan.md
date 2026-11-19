@@ -360,7 +360,7 @@ owner has twice said isn't landing. My recommendation is the redesign, staged.
 
 ## Sources & companions
 
-Combat-feel + autobattler craft and the HD-2D/juice references are catalogued in
+Combat-feel + autobattler craft and the 2.5D/juice references are catalogued in
 `docs/autobattler-visual-plan.md` and `docs/anime-fight-plan.md`. Determinism
 model + integration facts: this plan's §0–§1 are grounded in
 `shinobij.client/src/lib/pet-battle-sim.ts`, `shinobij.client/src/types/pet.ts`,

@@ -168,7 +168,7 @@ it('Academy raises raw support only; zero PvP still scores zero and support neve
     assert.deepEqual(campaignScore(c, A), { pvp: 40, rawPve: 13, pve: 10, total: 50 });
     assert.equal(supportPoints(20, 3), 26);
 });
-it('sealed admission tiers control all field/ANBU awards; later changes cannot retroactively upgrade an accepted order', () => {
+it('sealed admission tiers control all field/Hush awards; later changes cannot retroactively upgrade an accepted order', () => {
     const c = campaign.createVillageCampaign([A, B], 1000, 40);
     c.admissions.one = { player: 'alice', operation: 'sabotage', createdAt: 2000, supportTiers: { warAcademy: 1, watchtower: 0 } };
     const war = { id: 'campaign', villages: [A, B] as [string, string], startedAt: 1000, updatedAt: 1000, campaign: c };
