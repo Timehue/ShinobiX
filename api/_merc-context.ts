@@ -59,7 +59,7 @@ export function villageWarInstanceFromRow(key: string, raw: unknown, now: number
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const row = raw as Record<string, unknown>;
     if (row.endedAt) return null;
-    // Score campaigns use player defenses and capped ANBU support. HP-damage
+    // Score campaigns use player defenses and capped Hush support. HP-damage
     // bands cannot serve them, so they must not be offered or charged for one.
     if (row.campaign) return null;
     // Gameplay-active (world-state warIsGameplayActive): a legacy row, or a

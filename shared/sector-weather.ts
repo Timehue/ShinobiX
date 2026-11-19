@@ -18,10 +18,8 @@
  *    which sector-contracts had to write around in prose: a weather requirement
  *    "would be either always true or always impossible for a given sector that
  *    day". Windows are now a third of an IN-WORLD day (shared/world-clock), so
- *    three skies per in-world day and one change every 40 real minutes. That is
- *    Final Fantasy XIV's cadence, which changes zone weather every eight Eorzean
- *    hours, and it is picked for the same reason: often enough to be worth
- *    looking up, slow enough to plan around.
+ *    three skies per in-world day and one change every 40 real minutes: often
+ *    enough to be worth looking up, slow enough to plan around.
  *
  * 2. Each window drew independently, so the sky teleported — clear, tornado,
  *    clear again inside two hours. Draws are now a MARKOV CHAIN: the next window
@@ -85,7 +83,7 @@ const BIOME_SALT: Readonly<Record<SectorWeatherBiome, number>> = Object.freeze({
     forest: 1, snow: 2, volcano: 3, shadow: 4, central: 5,
 });
 
-/** Weather windows per in-world day — FFXIV's three (every eight world hours). */
+/** Weather windows per in-world day: three, one every eight world hours. */
 export const WEATHER_WINDOWS_PER_DAY = 3;
 
 /** How long one sky lasts, in real ms: 40 minutes at a 2-hour world day. */

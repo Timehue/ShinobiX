@@ -124,7 +124,7 @@ export function VillageTransfer({ character, onVersionedCharacter }: {
                     {village}
                 </label>)}
             </fieldset>
-            <p className="hint">Your new village's upgrades replace your current village bonuses. Village Merit resets and Elder / ANBU appointments end. If you are Kage, hand over your seat at the Town Hall first.</p>
+            <p className="hint">Your new village's upgrades replace your current village bonuses. Village Merit resets and Elder / Hush appointments end. If you are Kage, hand over your seat at the Town Hall first.</p>
             {error && <p role="alert">{error}</p>}
             </div>
             <div className="village-transfer-actions">

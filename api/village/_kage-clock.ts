@@ -7,7 +7,7 @@ import { sessionOpponentBlock } from '../_realtime/presence-gating.js';
 import { isPlayerOnline } from '../_realtime/_presence-beat.js';
 import { invalidateProcCache } from '../_proc-cache.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
-import { leadershipVillageKey } from '../../shared/village-anbu.js';
+import { leadershipVillageKey } from '../../shared/village-hush.js';
 import { applyPress, applySeatTransfer, applyChallengerForfeit, type KageStateLike } from './_kage-challenge.js';
 import { announceKageDethroned, kageKey } from './_kage-settle.js';
 

@@ -8,6 +8,7 @@ import { SceneAmbience } from './SceneAmbience';
 import { RegionSplash } from './WorldWalkFeel';
 import './continuous-world.css';
 import { WorldPlayerPosition } from '../lib/world-player-position';
+import { SectorNpcLayerHost } from './SectorNpcLayerHost';
 import { ContinuousWorldTiles } from './ContinuousWorldTiles';
 import { ResourceWorld } from './ResourceWorld';
 import { SectorLife } from './SectorLife';
@@ -94,6 +95,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                 {/* A stronghold covers a suspended world: its tiles would only re-render, unseen, on every map update. */}
                 {!props.suspended && <ContinuousWorldTiles sector={props.sector} playerTile={props.playerTile} onPainting={onPainting} ready={ready} roadExits={props.roadExits} go={go} />}
                 {props.showLivePeers && !props.suspended && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} sleepers={props.sleeperPeers} />}
+                <SectorNpcLayerHost>
                 <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
                     {/* Held for `ready`: the road's people and their work points are interactive, so they
                         appear once the world can be walked and tapped, not during the first-frame preview. */}
@@ -101,6 +103,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                         traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} commit={props.onGatheringCommit} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
                     {!props.suspended && ready && props.gatheringCharacter && props.onGatheringCommit && <SectorBuildings key={props.gatheringCharacter.name} character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} onAtlas={props.onOpenAtlas} walk={(sector,tile)=>engine.current?.go(sector,tile)} />}
                 </WorldPlayerPosition.Provider>
+                </SectorNpcLayerHost>
                 {!props.suspended && props.gatheringCharacter && props.onGatheringCommit && <ResourceWorld character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} walk={(sector, tile) => { engine.current?.go(sector, tile); }} worldBossCrystals={props.worldBossCrystals} onContest={props.onContestResource} />}
             </div>
             <div ref={marker} className="sector-avatar-figure continuous-world-self" aria-hidden="true" data-world-self="true">

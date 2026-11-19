@@ -8,7 +8,7 @@
  * declare get cheaper. This module is the copy layer that closes that hole.
  *
  * Everything here is PURE and display-only. It changes no rule, cost, cap,
- * reward or authority — spending the stores stays Kage-only (ANBU appointees
+ * reward or authority — spending the stores stays Kage-only (Hush appointees
  * may order a garrison fed), which these strings describe rather than alter.
  * Screens own the markup; this file owns the sentences and the "should we say
  * anything at all?" predicates, so both are testable without a DOM.
@@ -255,6 +255,6 @@ export function storesSpendAuthorityLine(input: { loaded: boolean; provisions: n
     if (!input.loaded) return null;
     const stocked = nonNeg(input.provisions) > 0 || nonNeg(input.materialPoints) > 0;
     return stocked
-        ? "Stocked and ready for the Kage. The Kage spends the stores on sieges and level 6+ structures, the mercenary bands the Kage and Elders hire eat from them, and ANBU appointees may order a garrison fed. Everyone else stocks them."
+        ? "Stocked and ready for the Kage. The Kage spends the stores on sieges and level 6+ structures, the mercenary bands the Kage and Elders hire eat from them, and Hush appointees may order a garrison fed. Everyone else stocks them."
         : "The stores stand empty. They feed sieges, mercenary bands and level 6+ structures, so anything you donate is waiting for the next war, not for you.";
 }

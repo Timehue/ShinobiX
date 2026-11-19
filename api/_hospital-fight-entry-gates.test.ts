@@ -14,7 +14,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
  * `isIncapacitated()` into the entry points it found. Eight more had been added
  * or were missed since — the Story Boss, the Academy spar, Endless Tower waves,
  * combat missions, the Clan Boss assault, the level-80 World Crisis, the Sector
- * War garrison and Anbu infiltration. Each one let a player lying in a hospital
+ * War garrison and Hush infiltration. Each one let a player lying in a hospital
  * bed walk into a fight, several of them at FULL vitals (the Tower engine seals
  * every fighter at max HP) and several spending a capped entry doing it.
  *

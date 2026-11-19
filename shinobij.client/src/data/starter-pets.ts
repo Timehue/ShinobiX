@@ -6,8 +6,8 @@
  *
  * Design intent: all five are STANDARD tier and roughly equal in total power —
  * the choice is meaningful because of the element wheel + a distinct role lean
- * and a random server-assigned trait, NOT because one is statistically better (the Pokémon-starter
- * model). Stats sit inside the standard band, so they're balance-safe and are
+ * and a random server-assigned trait, NOT because one is statistically better (an
+ * equal-power starter choice). Stats sit inside the standard band, so they're balance-safe and are
  * never clamped by capPetStats.
  *
  * IMPORTANT — the `starter-*` ids are deliberately NOT of the form

@@ -7,8 +7,8 @@ import '../../src/styles/veiled-steel.css';
 import '../../src/styles/layout/adaptive-shell.css';
 import '../../src/styles/layout/adaptive-stages.css';
 import '../../src/styles/mobile-noncombat-aaa.css';
-import { StrongholdExplore } from '../../src/features/anbuInfiltration/StrongholdExplore';
-import { AnbuVaultRaid } from '../../src/features/anbuInfiltration/AnbuVaultRaid';
+import { StrongholdExplore } from '../../src/features/hushInfiltration/StrongholdExplore';
+import { HushVaultRaid } from '../../src/features/hushInfiltration/HushVaultRaid';
 import { LiveCapabilitiesContext } from '../../src/lib/live-capabilities-context';
 import { LiveCapabilitiesStore } from '../../src/lib/live-capabilities';
 import type { Character, PlayerRecord } from '../../src/types/character';
@@ -16,7 +16,7 @@ import { PUBLIC_CAPABILITY_IDS } from '../../../shared/public-capabilities';
 import { useViewportContract } from '../../src/lib/use-viewport-contract';
 import { WorldSectorCanvas } from '../../src/components/WorldSectorCanvas';
 import { isPlayerModel } from '../../src/lib/player-model';
-import { anbuAvatarForVillage, anbuDisplayName } from '../../src/lib/anbu-infiltration-api';
+import { hushAvatarForVillage, hushDisplayName } from '../../src/lib/hush-infiltration-api';
 const params = new URLSearchParams(location.search);
 const defenderVillages = ['Moonshadow Village', 'Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village'];
 const requestedDefender = params.get('defender');
@@ -28,12 +28,12 @@ void store.refresh();
 export function Fixture() {
     useViewportContract();
     const [character, setCharacter] = useState<Character>({ name: 'scout', level: 100, village: 'Frostfang Village',
-        avatarImage: params.has('starter') ? `/starter-avatar-${params.get('starter') === 'two' ? 'two' : 'one'}.webp` : params.has('cachedAvatar') ? '' : '/anbu/frostfang.webp',
+        avatarImage: params.has('starter') ? `/starter-avatar-${params.get('starter') === 'two' ? 'two' : 'one'}.webp` : params.has('cachedAvatar') ? '' : '/hush/frostfang.webp',
         ...(isPlayerModel(model) ? { playerModel: model } : {}),
         hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000, stamina: 1000, maxStamina: 1000, stats: {}, equipment: {}, jutsu: [], inventory: [], itemStacks: [], jutsuMastery: [] } as Character);
     const [exited, setExited] = useState(params.has('lifecycle'));
     const props = { character, sector: Number(params.get('sector') ?? 12), targetVillage: defenderVillage,
-        sharedImages: params.has('cachedAvatar') ? { 'avatar:scout': '/anbu/frostfang.webp', 'avatar:rival': '/anbu/moonshadow.webp' } : {}, onExit: () => setExited(true),
+        sharedImages: params.has('cachedAvatar') ? { 'avatar:scout': '/hush/frostfang.webp', 'avatar:rival': '/hush/moonshadow.webp' } : {}, onExit: () => setExited(true),
         onAttackPlayer: async (peer: PlayerRecord) => {
             document.body.dataset.attack = peer.name;
             document.body.dataset.attackCount = String(Number(document.body.dataset.attackCount ?? 0) + 1);
@@ -44,16 +44,16 @@ export function Fixture() {
             } else await new Promise(resolve => setTimeout(resolve, 700));
         } };
     const present = (content: React.ReactNode) => params.has('backdrop') ? <WorldSectorCanvas sector={99} biome="volcano" ambienceBiome="volcano" weather="clear"
-        playerTile={50} playerName="scout" playerAvatarImage="/anbu/frostfang.webp" isCurrent suspended={!exited}
-        enterDirection={null} regionSplash={null} onRegionSplashDone={() => {}} sceneImage="/anbu/moonshadow.webp"
-        mapImage={params.get('backdrop') === 'fallback' ? undefined : '/anbu/moonshadow.webp'} roadExits={[]} showLivePeers={false}
+        playerTile={50} playerName="scout" playerAvatarImage="/hush/frostfang.webp" isCurrent suspended={!exited}
+        enterDirection={null} regionSplash={null} onRegionSplashDone={() => {}} sceneImage="/hush/moonshadow.webp"
+        mapImage={params.get('backdrop') === 'fallback' ? undefined : '/hush/moonshadow.webp'} roadExits={[]} showLivePeers={false}
         players={[]} sharedImages={{}} sleeperPeers={[]} onSelectTile={() => {}} onCrossExit={() => {}} overlayLayer={content} encounterLayer={null} /> : content;
     if (exited) return present(<><h1>Returned to sector</h1>{params.has('lifecycle') && <button onClick={() => setExited(false)}>Enter preview</button>}</>);
     return present(<LiveCapabilitiesContext.Provider value={store}>
         {params.has('lifecycle') && createPortal(<div hidden={params.has('resourceAudit')} style={{ position: 'fixed', zIndex: 2147483647, left: 0, bottom: 0 }}><button data-testid="stronghold-qa-unmount" onClick={() => setExited(true)}>Unmount preview</button><button onClick={() => setCharacter(previous => ({ ...previous, name: previous.name === 'scout' ? 'other' : 'scout' }))}>Switch account</button></div>, document.body)}
-        {params.get('host') ? createPortal(<div className="stronghold-overlay"><AnbuVaultRaid key={`${character.name}:${props.sector}`} {...props} onVersionedCharacter={next => { if (params.get('rejectSave')) return false; setCharacter(next); return true; }} /></div>, document.body)
+        {params.get('host') ? createPortal(<div className="stronghold-overlay"><HushVaultRaid key={`${character.name}:${props.sector}`} {...props} onVersionedCharacter={next => { if (params.get('rejectSave')) return false; setCharacter(next); return true; }} /></div>, document.body)
             : <StrongholdExplore key={`${character.name}:${props.sector}`} {...props} blocked={false}
-                anbuAvatar={requestedDefender ? anbuAvatarForVillage(defenderVillage) : '/anbu/moonshadow.webp'} anbuName={anbuDisplayName(defenderVillage)}
+                hushAvatar={requestedDefender ? hushAvatarForVillage(defenderVillage) : '/hush/moonshadow.webp'} hushName={hushDisplayName(defenderVillage)}
                 onChallenge={() => { document.body.dataset.challenge = 'true'; }} onPatrol={session => { document.body.dataset.patrol = session.sessionId; }} />}
     </LiveCapabilitiesContext.Provider>);
 }

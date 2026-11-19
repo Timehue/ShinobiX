@@ -405,7 +405,7 @@
     },
     {
       "engine": "chromium",
-      "room": "Anbu Vault",
+      "room": "Hush Vault",
       "purposes": [
         "vault security alcove",
         "vault security alcove",
@@ -1005,7 +1005,7 @@
     },
     {
       "engine": "webkit",
-      "room": "Anbu Vault",
+      "room": "Hush Vault",
       "purposes": [
         "vault security alcove",
         "vault security alcove",

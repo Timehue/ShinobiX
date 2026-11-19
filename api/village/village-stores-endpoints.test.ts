@@ -88,9 +88,9 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         const now = Date.now();
         await kv.set(CONTEST_KEY, contest(now));
         await kv.set(FROST_KAGE_KEY, { seatedKage: 'frostkage' });
-        await kv.set('game:village-state:moonshadowvillage', { anbuAppointees: ['moonanbu'] });
+        await kv.set('game:village-state:moonshadowvillage', { hushAppointees: ['moonhush'] });
         await kv.set('village:kage:ember-village', { seatedKage: 'emberkage' });
-        for (const n of ['villager', 'frostkage', 'moonanbu']) await seedPlayer(n, n === 'moonanbu' ? ATTACKER : DEFENDER);
+        for (const n of ['villager', 'frostkage', 'moonhush']) await seedPlayer(n, n === 'moonhush' ? ATTACKER : DEFENDER);
         await seedPlayer('emberkage', 'Ember Village');
 
         const denied = await call(sectorWar, { action: 'garrison-feed', playerName: 'villager', sectorWarId: CONTEST_ID, on: true });
@@ -114,8 +114,8 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         assert.equal(stored?.garrisonFeed?.[DEFENDER].by, 'frostkage');
         assert.equal(stored?.garrisonFed, undefined, 'the legacy single flag is no longer written');
 
-        // The ATTACKER's ANBU turning "off" only writes Moonshadow's own entry - Frostfang's stays on.
-        const off = await call(sectorWar, { action: 'garrison-feed', playerName: 'moonanbu', sectorWarId: CONTEST_ID, on: false });
+        // The ATTACKER's Hush turning "off" only writes Moonshadow's own entry - Frostfang's stays on.
+        const off = await call(sectorWar, { action: 'garrison-feed', playerName: 'moonhush', sectorWarId: CONTEST_ID, on: false });
         assert.equal(off.statusCode, 200, JSON.stringify(off.body));
         assert.equal(off.body?.village, ATTACKER);
         const offView = off.body?.contest as Record<string, unknown>;
@@ -125,7 +125,7 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         assert.equal(stored?.garrisonFeed?.[ATTACKER].on, false);
 
         // Each side's toggle is independent: Moonshadow on, then Frostfang off.
-        const moonOn = await call(sectorWar, { action: 'garrison-feed', playerName: 'moonanbu', sectorWarId: CONTEST_ID, on: true });
+        const moonOn = await call(sectorWar, { action: 'garrison-feed', playerName: 'moonhush', sectorWarId: CONTEST_ID, on: true });
         assert.equal(moonOn.statusCode, 200);
         assert.equal((moonOn.body?.contest as Record<string, unknown>).garrisonFedBy, ATTACKER);
         stored = await kv.get<{ garrisonFeed?: Feed }>(CONTEST_KEY);

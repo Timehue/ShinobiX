@@ -167,7 +167,7 @@ describe('sector-war declaration territory authority race', { concurrency: false
     });
 
     // The debit lands on the attacker's War Resource record, which merc hires
-    // and ticks, the daily stores pass and ANBU skims rewrite whole under that
+    // and ticks, the daily stores pass and Hush skims rewrite whole under that
     // record's lock. A declaration that debited without the lock could have its
     // debit, and the receipt that proves it, erased by such a rewrite.
     it('debits only while holding the lock every other War Resource writer uses', async () => {

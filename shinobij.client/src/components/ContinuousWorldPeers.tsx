@@ -67,7 +67,9 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
     }, [selfName]);
     const allPeers = worldPeerRoster(sector, selfName, nearby, live, sleepers);
     const peers = allPeers.slice(0, 48);
-    const figures = peers.map((peer): PeerFigure => ({ name: peer.name, level: peer.level,
+    // Mounted by name, not in the server's nearest-first order: that order changes
+    // as anyone moves, and two peers on one tile then swapped in front every poll.
+    const figures = [...peers].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0).map((peer): PeerFigure => ({ name: peer.name, level: peer.level,
         local: peer.currentSector===sector, style: peer.gaitPresentation?.style,
         starter: starterModel(peer.character?.avatarImage ?? '', peer.character?.starterWorldModel),
         model: isPlayerModel(peer.character?.playerModel) ? peer.character.playerModel : undefined,
@@ -142,6 +144,9 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
                     // A standing peer would be handed the very same transform string again.
                     if (element === item.element && x === item.x && y === item.y) continue;
                     element.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
+                    // Nearer the bottom draws in front; the peer layer is isolated, so this
+                    // orders peers only among themselves.
+                    element.style.zIndex = String(Math.round(y));
                     item.element = element; item.x = x; item.y = y;
                 }
                 for (const name of motion.keys()) if (!present.has(name)) motion.delete(name);

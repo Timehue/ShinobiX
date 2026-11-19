@@ -66,7 +66,7 @@ export const NPC_BLOCKED_ROUTES: readonly string[] = [
     '/village/open-war-crate',
     '/village/sector-war',
     '/village/war-merc',
-    '/village/anbu-infiltration',
+    '/village/hush-infiltration',
     // Kage seats and challenges: Cinderhold's leaders are the server's
     // (api/_npc-village-leaders.ts). Both routes only check that the actor
     // belongs to the village named, and only NPCs belong to Cinderhold, so a

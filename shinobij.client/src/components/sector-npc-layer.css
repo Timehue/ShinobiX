@@ -1,0 +1,22 @@
+/* Board depth layering, loaded with the board (SectorNpcLayerHost) rather than
+   at startup. Every NPC on a board portals into .sector-npc-layer
+   (lib/sector-npc-layer). It holds the band NPCs always had against landmarks
+   and buildings, and inside it each NPC overlay carries a z-index from its foot
+   row, so the one lower on the board draws in front instead of whichever
+   mounted last. */
+.sector-npc-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 6;
+}
+@media (hover: hover) {
+    .sector-npc-layer > .sector-wanderer-overlay:has(> .sector-wanderer-figure:hover) {
+        z-index: 99999 !important; /* the hovered NPC and its full name come forward */
+    }
+}
+/* Inside a peer layer the peers are layered by row/foot y; stay above them. */
+.sector-peers-overlay > .sector-peers-overflow,
+.continuous-world-peers > .sector-peers-overflow {
+    z-index: 99999;
+}

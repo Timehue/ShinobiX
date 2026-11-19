@@ -74,7 +74,7 @@ import {ClanOverview} from '../components/ClanOverview';
 import type {CwChallenge} from '../lib/clan-war-api';
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { ClanExchange } from "../components/ClanExchange";
-import { applyAuthoritativeSectorTerritory, applyWarCrateGrants, claimServerWarCrates, clanOwnedTerritories, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, saveSectorTerritory, sectorRaidDamageAmount, territoryBreachMinsLeft, territoryRewardsSuspended, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
+import { applyAuthoritativeSectorTerritory, applyWarCrateGrants, claimServerWarCrates, clanOwnedTerritories, isVillageHush, loadAllSectorTerritories, loadSectorTerritory, saveSectorTerritory, sectorRaidDamageAmount, territoryBreachMinsLeft, territoryRewardsSuspended, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 import { gameToast } from "../components/GameToast";
 import { CLAN_VIEW_REQUEST_EVENT } from "../lib/use-notifications";
@@ -918,10 +918,10 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     function toggleTerritoryGuard(sector: number) {
         if (!clanData) return;
         const territory = loadSectorTerritory(sector);
-        const isAnbu = isVillageAnbu(character);
+        const isHush = isVillageHush(character);
         if (territory.ownerClan !== clanData.name
-            && !(isAnbu && territory.ownerVillage === character.village)) {
-            return alert("Only the owning clan or an ANBU appointed by the controlling village can guard this sector.");
+            && !(isHush && territory.ownerVillage === character.village)) {
+            return alert("Only the owning clan or a Hush appointed by the controlling village can guard this sector.");
         }
         const guards = territory.guards.includes(character.name)
             ? territory.guards.filter(name => name !== character.name)
@@ -1007,7 +1007,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     const personalTerritoryScrolls = territoryScrollCount(character);
     const clanTerritoryScrolls = clanTreasuryItems.find(stack => stack.itemId === TERRITORY_CONTROL_SCROLL_ID)?.count ?? 0;
     const canGuardSelectedTerritory = selectedTerritory.ownerClan === clanData.name
-        || (selectedTerritory.ownerVillage === character.village && isVillageAnbu(character));
+        || (selectedTerritory.ownerVillage === character.village && isVillageHush(character));
     // Capturing a NEW sector needs a full roster; reinforcing an owned one is exempt.
     const selectedOwnedByUs = selectedTerritory.ownerClan === clanData.name;
     const canCaptureNewSector = clanData.members.length >= TERRITORY_CAPTURE_MIN_MEMBERS;

@@ -152,7 +152,9 @@ export function SectorPeers({ peers, sector }: { peers: SectorPeer[]; sector?: n
         return 0;
     });
     const markerBudget = metrics.w < 260 ? 6 : metrics.w < 360 ? 12 : metrics.w < 500 ? 25 : MAX_MARKERS;
-    const shown = ordered.slice(0, markerBudget);
+    // Drawn by name, then layered by row, so a peer leaving or waking never
+    // pops in front of the one it shares a tile with.
+    const shown = ordered.slice(0, markerBudget).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     const overflow = Math.max(0, peers.length - markerBudget);
 
     return (
@@ -172,6 +174,7 @@ export function SectorPeers({ peers, sector }: { peers: SectorPeer[]; sector?: n
                         style={{
                             width: `${box.w}px`,
                             height: `${box.h}px`,
+                            zIndex: row + 1,
                             transform: `translate(var(--peer-x, ${cx}px), var(--peer-y, ${cy}px)) translate(-50%, -${SECTOR_MARKER_ANCHOR}%)`,
                             ["--marker-ring"]: SECTOR_RING_PEER,
                         } as CSSProperties}

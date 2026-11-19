@@ -29,10 +29,10 @@ rate. At level 100 the pools are 10,000 each (`HP_CAP`, `CHAKRA_CAP_V2`,
 **2h46m**, a Feast cost 100 ryo, and dying returned up to 30,000 points free in 60
 seconds. Dying was simply the best of the three.
 
-The genre has been here. FFXIV 1.0 had players suiciding to teleport; BioShock's
-Vita-Chambers made dying a strategy. The answer was never a bigger stick — Guild Wars 2
-deleted repair costs outright on the reasoning that lost time is penalty enough. What
-does work is Lost Ark's rule for raid resurrection: you come back at full health, but
+The genre has been here. When death is cheap, players die to teleport, and dying becomes
+a strategy. The answer was never a bigger stick: repair costs can be deleted outright on
+the reasoning that lost time is penalty enough. What
+does work is a raid-resurrection rule: you come back at full health, but
 your cooldowns and gauges do not reset. That removes the tactical value of dying without
 touching currency, gear or XP — all three of which are architecturally blocked here
 anyway (ryo is client-owned, level is derived from the stat ledger so an XP penalty
@@ -60,7 +60,7 @@ than a forced wait.
 **Rejected:** the audit's own "discharge at 50% HP". About 68% of explore tiles force a
 fight and an unresolved ambush blocks all further tiles, so death here attaches to the
 game's highest-frequency *compulsory* activity. Sending players back into that at half
-health is the Guild Wars 1 shape where the penalty manufactures more of itself. Also
+health is the shape where the penalty manufactures more of itself. Also
 rejected: a longer or escalating stay (lands on the unlucky and the under-levelled, not
 the exploiter), and any ryo or item cost on death (collides with the client-owned ryo
 architecture and with economy ruling 6).
@@ -141,8 +141,8 @@ which is why the non-text branches stay open.
 that just beat you. Deliberately short: on a 100–200 player server, opponent
 availability is already the binding constraint on Honor Seals — the tuning note in
 `_vanguard-rewards.ts` says so — and a long immunity would starve legitimate sector PvP
-to stop a grief the reward caps already make unprofitable. WoW's answer to the same
-problem was diminishing returns on repeat kills, which this codebase already has; what
+to stop a grief the reward caps already make unprofitable. The usual answer to the same
+problem is diminishing returns on repeat kills, which this codebase already has; what
 it lacked was any protection on the *action*.
 
 **Why the save and not presence.** The presence character is whatever that player's own
@@ -174,8 +174,8 @@ idempotent.
 **Why.** `founderName` could only change by admin action, so a founder who left kept the
 title forever and dissolution, doctrine and seal-pool distribution became permanently
 unreachable for the people still in the clan — which could still hold territory, a
-treasury and war commitments. Every major MMO solved this long ago: WoW ships automatic
-guild-master replacement, FFXIV and EVE ship explicit transfer plus an inactivity path.
+treasury and war commitments. Every major MMO solved this long ago, with automatic
+guild-master replacement or explicit transfer plus an inactivity path.
 Nobody leaves a guild headless.
 
 **Why rank is a preference and not a gate:** a clan whose remaining members hold no rank
@@ -199,8 +199,8 @@ what mattered was stopping new ones. Worth adding before launch.
 25,000 for a guest, a brand-new account, or one below level 10. **Nothing is added to
 receiving, at any tier.**
 
-**Why send-side only.** RuneScape ran the other experiment: its 2008 trade limit capped
-what players could give away, broke legitimate play, and was removed in 2011 as a
+**Why send-side only.** The other experiment has been run: a trade limit that capped
+what players could give away broke legitimate play, and was removed as a
 failure. The lesson the genre took is that RMT controls belong on the sender and on
 untrusted accounts, never on everyone — a player receiving a gift has done nothing
 suspicious, and a new player receiving help is precisely the case you want to work.

@@ -28,6 +28,8 @@
  * lowercases the input before comparing.
  */
 
+import { createHash } from 'node:crypto';
+
 // Per-field text length ceilings. Anything beyond is silently truncated.
 export const TEXT_LIMITS = {
     clanName: 32,
@@ -334,12 +336,66 @@ export function isCleanPlayerName(input: unknown): boolean {
 export const RESERVED_TITLE_TERMS: readonly string[] = [
     'admin', 'administrator', 'moderator', 'owner', 'developer',
     'staff', 'official', 'game master', 'gamemaster',
-    'hokage', 'kazekage', 'raikage', 'mizukage', 'tsuchikage',
     'server first', 'world first', 'hall of legends',
     'anthropic', 'system message', 'game master',
 ];
 
+/**
+ * Reserved title words that belong to another series. They are stored only as
+ * SHA-256 hashes so this repository never spells them out: five leader titles
+ * that read as an official village rank. Each hash is of the term after
+ * `leetCollapse` with every non-alphanumeric character removed, so the hash
+ * matches the canonical form the input is reduced to. To add one, hash that
+ * canonical form. `_text-moderation-titles.test.ts` pins this list, and
+ * `scripts/ip-hygiene.test.mjs` checks that every entry is also guarded there.
+ */
+export const RESERVED_TITLE_TERM_HASHES: ReadonlySet<string> = new Set([
+    '332cde01112429bacd16b06ef342ac283ab78ca5721260fbc919afad3587765f',
+    'eba2ead8ff67d87403ceab1202f451edbd61958c85615a1197f5fdf197d0bc15',
+    '9d05784afac36a2a0499e50a4345ee6fed252d4d964f942404f253935b195c95',
+    '9c466412766035c349dd53f9862eeeff9093d5c3c62ba236e209b7f79af372b4',
+    '379ee033aa10b319a18fd2750715bd1bfc483502e2f251347dc22fdc504e0ce0',
+]);
+
 const COLLAPSED_RESERVED = RESERVED_TITLE_TERMS.map((t) => leetCollapseStripSpace(t));
+
+/** How many neighbouring words a hashed term may be split across ("ab cd ef"). */
+const HASHED_TERM_MAX_PARTS = 4;
+
+const sha256Hex = (text: string): string => createHash('sha256').update(text).digest('hex');
+
+/**
+ * True when a hashed term appears as a whole word of the collapsed text, or
+ * spelled across up to four neighbouring words joined by spaces or punctuation
+ * ("ab-cd", "ab.cd", "ab cd"). Matching is on whole words only, like the
+ * word-boundary regex used for the plain-text terms, so a term inside a longer
+ * word ("xabcdx") is not a match. Exported so tests can drive it with invented
+ * terms instead of the real ones.
+ */
+export function hasHashedTerm(input: unknown, hashes: ReadonlySet<string>): boolean {
+    if (typeof input !== 'string' || !input.trim() || hashes.size === 0) return false;
+    const seen = new Set<string>();
+    const isHashed = (candidate: string): boolean => {
+        if (seen.has(candidate)) return false;
+        seen.add(candidate);
+        return hashes.has(sha256Hex(candidate));
+    };
+    for (const collapsed of [leetCollapsePreserveSpace(input), leetCollapseStripSpace(input)]) {
+        const words = collapsed.match(/[a-z0-9]+/g) ?? [];
+        for (let i = 0; i < words.length; i++) {
+            let joined = '';
+            for (let j = i; j < Math.min(words.length, i + HASHED_TERM_MAX_PARTS); j++) {
+                joined += words[j];
+                if (isHashed(joined)) return true;
+                // The joined form goes through the same repeat collapse the
+                // term's canonical hash was taken from ("ab" + "bc" → "abc").
+                const recollapsed = joined.replace(/(.)\1+/g, '$1');
+                if (recollapsed !== joined && isHashed(recollapsed)) return true;
+            }
+        }
+    }
+    return false;
+}
 
 /** True when the text contains a reserved authority/impersonation term. */
 export function hasReservedTitleTerm(input: unknown): boolean {
@@ -350,7 +406,7 @@ export function hasReservedTitleTerm(input: unknown): boolean {
         const re = new RegExp(`(^|[^a-z0-9])(${canonical})(?=[^a-z0-9]|$)`, 'i');
         if (re.test(collapsedWithSpace) || re.test(collapsedNoSpace)) return true;
     }
-    return false;
+    return hasHashedTerm(input, RESERVED_TITLE_TERM_HASHES);
 }
 
 // Staff words a NAME may not open or close with. Names have no reliable word

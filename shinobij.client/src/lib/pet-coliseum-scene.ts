@@ -1,5 +1,5 @@
 /*
- * Pet COLISEUM scene math — PURE helpers for the HD-2D react-three-fiber
+ * Pet COLISEUM scene math — PURE helpers for the 2.5D react-three-fiber
  * renderer (PetColiseum.tsx, retired 2026-10-16). Two jobs:
  *   1. tileToWorld()  — map a sim grid tile (14×7) to 3D floor coordinates, so
  *      pet positions still come straight from the deterministic simulator.

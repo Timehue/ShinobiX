@@ -14,8 +14,8 @@ import { safeName } from '../_utils.js';
  * own UI warned about it ("leaving doesn't transfer ownership") because there
  * was no mechanism, not because anyone wanted that outcome.
  *
- * The genre settled this a long time ago: WoW ships automatic guild-master
- * replacement, FFXIV and EVE ship explicit transfer plus an inactivity path.
+ * The genre settled this a long time ago: online games ship automatic
+ * guild-master replacement, or an explicit transfer plus an inactivity path.
  * Nobody leaves a guild permanently headless.
  *
  * WHY IT IS COMPUTED, NEVER CLAIMED

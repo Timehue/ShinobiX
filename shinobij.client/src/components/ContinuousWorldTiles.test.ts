@@ -42,6 +42,9 @@ test("the grid renders 144 tap targets with the current tile, exits and readines
     assert.match(html, /tabindex="0"[^>]*sector-player-tile[^>]*aria-label="Current tile row 7 column 7"/);
     assert.equal(html.match(/disabled=""/g)?.length, 144);
     assert.ok(html.includes("Cross to "), "exit tiles are labelled as crossings");
+    // A crossing walks to the server's arrival tile (stepped off any resident), not the raw road tile.
+    assert.match(readFileSync(join(root, "ContinuousWorldTiles.tsx"), "utf8"),
+        /go\(exit\?\.destinationSector \?\? sector, exit \? arrivalStandTile\(exit\.destinationSector, exit\.destinationTile\) : tile\)/);
     const offPainting = renderToStaticMarkup(createElement(ContinuousWorldTiles, {
         sector: 9, playerTile: 78, onPainting: false, ready: true, roadExits: exits, go: () => {},
     }));

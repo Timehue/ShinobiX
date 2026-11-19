@@ -109,7 +109,7 @@ import villageWarMercHandler from './api/village/war-merc.js';
 import villageSectorCardHandler from './api/village/sector-card.js';
 import villageSectorPetHandler  from './api/village/sector-pet.js';
 import villageCampaignHandler from './api/village/war-campaign.js';
-import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
+import hushInfiltrationHandler from './api/village/hush-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageTaxHandler from './api/village/tax.js';
 import villageIntelHandler from './api/village/intel.js';
@@ -166,7 +166,7 @@ import storySparStartHandler from './api/story/spar-start.js';
 import trainingJutsuRyoHandler from './api/training/jutsu-ryo.js';
 import villageElderFocusHandler from './api/village/elder-focus.js';
 import villageOrdersHandler from './api/village/orders.js';
-import villageAnbuHandler from './api/village/anbu.js';
+import villageHushHandler from './api/village/hush.js';
 import villageHollowGateUnlockHandler from './api/village/hollow-gate-unlock.js';
 import villageOpenWarCrateHandler from './api/village/open-war-crate.js';
 import villageUpgradeHandler from './api/village/upgrade.js';
@@ -581,11 +581,11 @@ export function registerApiRoutes(registerRoute: (path: string, handler: AnyHand
     // the same contest's tallies. The client replays the same (pets, seed). Gated.
     route('/village/sector-pet',  villageSectorPetHandler);
     route('/village/war-campaign', villageCampaignHandler);
-    // Anbu Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
-    // turn-in action switch): fight a daily-sealed Anbu snapshot (Solo PvE engine)
+    // Hush Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
+    // turn-in action switch): fight a daily-sealed Hush snapshot (Solo PvE engine)
     // to skim 1% of the enemy war economy into turn-in caches. NEVER flips
-    // sector ownership. Independently gated by the default-on ANBU kill switch.
-    route('/village/anbu-infiltration', anbuInfiltrationHandler);
+    // sector ownership. Independently gated by the default-on Hush kill switch.
+    route('/village/hush-infiltration', hushInfiltrationHandler);
     // Village War Map — read-only aggregator for the client War-Map panel (Phase 6):
     // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
     // GET only, gated by the Sector Map campaign switch.
@@ -935,7 +935,7 @@ export function registerApiRoutes(registerRoute: (path: string, handler: AnyHand
     route('/training/jutsu-ryo', trainingJutsuRyoHandler);
     route('/village/elder-focus', villageElderFocusHandler);
     route('/village/orders', villageOrdersHandler);
-    route('/village/anbu', villageAnbuHandler);
+    route('/village/hush', villageHushHandler);
     route('/village/hollow-gate-unlock', villageHollowGateUnlockHandler);
     route('/village/open-war-crate', villageOpenWarCrateHandler);
     route('/village/upgrade', villageUpgradeHandler);

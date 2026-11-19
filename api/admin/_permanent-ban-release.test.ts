@@ -9,7 +9,7 @@ process.env.ADMIN_PASSWORD = 'permanent-ban-release-admin';
 process.env.SESSION_SECRET = 'permanent-ban-release-secret';
 
 /*
- * What a permanent ban releases (owner ruling 2026-11-04): Kage, Elder and ANBU
+ * What a permanent ban releases (owner ruling 2026-11-04): Kage, Elder and Hush
  * seats, a founded clan, and Exchange listings. A timed ban releases nothing.
  * Driven through the real moderation handler on the in-memory store.
  */
@@ -48,7 +48,7 @@ beforeEach(async () => {
     await kv.set('save:kaze', save('Kaze', { clan: 'Storm Petals' }));
     await kv.set('save:rival', save('Rival', { inventory: [itemId] }));
     await kv.set(kageKey(home), { kageSystemUnlocked: true, seatedKage: 'Wanderer', seatedAt: 5, history: [{ kage: 'Wanderer', startedAt: 5 }] });
-    await kv.set(elderVillageKey(home), { elderAppointees: ['Wanderer', 'Rival'], anbuAppointees: ['wanderer'] });
+    await kv.set(elderVillageKey(home), { elderAppointees: ['Wanderer', 'Rival'], hushAppointees: ['wanderer'] });
     await kv.set('save:clan-stormpetals', {
         name: 'Storm Petals', founderName: 'Wanderer',
         members: [{ name: 'Wanderer', joinedAt: 1 }, { name: 'Kaze', joinedAt: 2 }], roleOverrides: {},
@@ -142,7 +142,7 @@ describe('banning a player', () => {
         assert.equal((await kv.get<Obj>(kageKey(home)))?.seatedKage, undefined, 'the Kage seat opens');
         const elders = await kv.get<Obj>(elderVillageKey(home));
         assert.deepEqual(elders?.elderAppointees, ['', 'Rival']);
-        assert.deepEqual(elders?.anbuAppointees, ['']);
+        assert.deepEqual(elders?.hushAppointees, ['']);
 
         const clan = await kv.get<Obj>('save:clan-stormpetals');
         assert.equal(clan?.founderName, 'Kaze', 'the clan goes to the next in line');
@@ -166,7 +166,7 @@ describe('banning a player', () => {
         const body = await ban('Wanderer', 3);
         assert.equal(body.released, undefined);
         assert.equal((await kv.get<Obj>(kageKey(home)))?.seatedKage, 'Wanderer');
-        assert.deepEqual((await kv.get<Obj>(elderVillageKey(home)))?.anbuAppointees, ['wanderer']);
+        assert.deepEqual((await kv.get<Obj>(elderVillageKey(home)))?.hushAppointees, ['wanderer']);
         assert.equal((await kv.get<Obj>('save:clan-stormpetals'))?.founderName, 'Wanderer');
         assert.equal((await kv.get<Obj>(exchange.exchangeListingKey(listing.id)))?.state, 'active');
     });
