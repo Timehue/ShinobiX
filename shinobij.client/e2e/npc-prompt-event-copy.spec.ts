@@ -12,7 +12,9 @@ for (const reducedMotion of ['no-preference','reduce'] as const) {
     test(`a bandit runs to the player at the authored pace (${reducedMotion})`, async ({page},info) => {
         test.setTimeout(90_000);
         await page.emulateMedia({reducedMotion});
-        await page.clock.setFixedTime(ENCOUNTER_TIME);
+        // Pin the roster date while the browser schedules the frames and timers
+        // used to measure the bandit's travel in real elapsed time.
+        await page.addInitScript(time => { Date.now = () => time; }, ENCOUNTER_TIME);
         const sector = 24, tile = 61;
         const bandit = rollWanderers(sector,wandererDayBucketFromMs(ENCOUNTER_TIME)).find(w=>w.archetype==='bandit')!;
         expect(bandit.homeTile).toBe(64);
