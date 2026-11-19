@@ -4,15 +4,16 @@ import { test } from 'node:test';
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 
-test('fixed costs default to $1 Modal and $0.25 OpenAI and follow settleMicros in the policy', async () => {
+test('fixed costs default to $1 Modal and $0.50 OpenAI and follow settleMicros in the policy', async () => {
     const { fixedSettleMicros, DEFAULT_SETTLE_MICROS } = await import('./_fixed-cost.js');
-    assert.deepEqual(fixedSettleMicros({}), { modal: 1_000_000, openai: 250_000 });
+    // Two images a job: the costume sheet and the combat sprite.
+    assert.deepEqual(fixedSettleMicros({}), { modal: 1_000_000, openai: 500_000 });
     assert.deepEqual(fixedSettleMicros({ AVATAR_MODEL_RESERVATIONS_JSON: '{' }), DEFAULT_SETTLE_MICROS);
     assert.deepEqual(fixedSettleMicros({ AVATAR_MODEL_RESERVATIONS_JSON: JSON.stringify({ providers: [
         { provider: 'modal', settleMicros: 760_000 },
         { provider: 'openai', settleMicros: -1 },
         { provider: 'other', settleMicros: 5 },
-    ] }) }), { modal: 760_000, openai: 250_000 });
+    ] }) }), { modal: 760_000, openai: 500_000 });
 });
 
 test('a job settles each provider once: the hold leaves, the fixed charge (at most the hold) is spent', async () => {
@@ -62,9 +63,10 @@ test('an attempt holds at most $1.25 Modal and $0.75 OpenAI, whatever the policy
         assert.equal(policy.enabled, true);
         assert.equal(policy.providers.find(p => p.provider === 'modal')?.perAttemptMicros, MODAL_PER_ATTEMPT_CAP_MICROS);
         assert.equal(policy.providers.find(p => p.provider === 'openai')?.perAttemptMicros, OPENAI_PER_ATTEMPT_CAP_MICROS);
-        // With one fixed-cost job already spent ($1 / $0.25), a new job's hold still fits under one-job caps.
-        assert.ok(1_000_000 + MODAL_PER_ATTEMPT_CAP_MICROS * 3 <= 18_000_000);
-        assert.ok(250_000 + OPENAI_PER_ATTEMPT_CAP_MICROS * 3 <= 3_000_000);
+        // With one fixed-cost job already spent ($1 / $0.50), a new job's hold still fits under one-job caps.
+        const { DEFAULT_SETTLE_MICROS } = await import('./_fixed-cost.js');
+        assert.ok(DEFAULT_SETTLE_MICROS.modal + MODAL_PER_ATTEMPT_CAP_MICROS * 3 <= 18_000_000);
+        assert.ok(DEFAULT_SETTLE_MICROS.openai + OPENAI_PER_ATTEMPT_CAP_MICROS * 3 <= 3_000_000);
         process.env.AVATAR_MODEL_RESERVATIONS_JSON = modelCreationFixture.AVATAR_MODEL_RESERVATIONS_JSON;
         assert.equal(modelCreationPolicy().providers.find(p => p.provider === 'modal')?.perAttemptMicros, 100);
     } finally {

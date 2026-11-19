@@ -55,12 +55,14 @@ does not read files from the owner's PC. `SPRITE_BLENDER_ARCHIVE` can supply the
 existing pinned Blender tarball. Without it, the image build fetches that exact
 tarball and verifies its checksum.
 
-The local painted release archives are `portable-fit-worker/painted-sleeves-fit.zip`
-and `portable-motion-worker/painted-sleeves-wide-torso.zip` under the avatar-model
+The local painted release archives are `portable-fit-worker/painted-sleeves-tail.zip`
+and `portable-motion-worker/painted-sleeves-tail.zip` under the avatar-model
 evidence folder. Their hashes match `sprite-worker-painted-review.json`. Each is
 the matching `painted-sleeves.zip` with one file changed, and its index carries
 the new file hash (`intake.json` also a recomputed `paintingRevision`); every
-other entry is byte-identical.
+other entry is byte-identical. The release before them, and the rollback, is
+`painted-sleeves-fit.zip` (intake `88b82b0d…`) with
+`painted-sleeves-wide-torso.zip` (movement `6fc5ea69…`).
 
 - `register_painted_kit.py` (intake) checks each painted torso's width-to-height
   ratio against its guide at paint time. Every view outside 0.6–1.75 is named in
@@ -75,7 +77,26 @@ other entry is byte-identical.
   torso about the hip axis and moves the sleeve sockets with it; at 1.75 the
   figure stays well inside the 400 px render frame.
 
-`paint_portrait.py` adds the torso-fit rule to the first prompt for new jobs, and
+- A tail has no rig piece of its own, so the painter attaches it to the torso
+  cutout. Counted as torso width it pushed the trunk off the hips and left the
+  sleeve socket on the tail side out past the shoulder, with ground showing
+  between arm and body. `register_painted_kit.py` now tells a part that trails
+  off one side from the trunk (`trailing_part`): it compares the painted chest
+  with the guide's chest, and only a one-sided excess of 0.2 chest widths or
+  more counts, so a costume that is broader on both sides fits as before. The
+  measure runs from the cutout's edges, so anything one-sided counts, not only a
+  tail: a ponytail or a cape end streaming to one side is kept off the trunk the
+  same way, which centres those characters better than before. The
+  torso range is judged on the trunk alone, and the trailing part is recorded
+  per view as `bodyOverhang` (trunk widths per side). `render_fitted_roster.py`
+  places the trunk on the hips, keeps the sockets on the painted shoulders and
+  lets the trailing part hang past the trunk. A fitted master with no trailing
+  part has no `bodyOverhang` and renders byte-identical to before. A part that
+  would leave the render frame is sent back for a repaint; on the last attempt
+  it is trimmed.
+
+`paint_portrait.py` adds the torso-fit rule to the first prompt for new jobs
+(and, for an animal character, where its tail goes), and
 `paint_admitted_costume.py` reserves three edits. The packer's source tree must
 carry the same bundle edits, or a later repack drops them; the edited files sit
 next to the archives with the archive's name as a prefix. For the earlier
@@ -130,9 +151,28 @@ can publish both existing motion-only revisions and new revisions with a combat
 WebP. Use the existing dispatch pause if you need to hold new finishes between
 the two deployments.
 
-Style A renders the fitted character's combat guard and binds the WebP checksum
-to its stage receipt. Assembly includes that WebP in the new public revision.
-Previously completed stages and published revisions retain their original art.
+Style A binds the combat sprite's WebP checksum to its stage receipt. Assembly
+includes that WebP in the new public revision. Previously completed stages and
+published revisions retain their original art.
+
+The combat sprite is its own painting (`paint_battle_sprite.py`). The world
+model is drawn to read at 73 pixels, so posing it for the battle board gave a
+soft, stiff fighter. After the costume sheet is accepted, the costume call sends
+one more image edit: the portrait for identity, the accepted sheet for the rest
+of the outfit, and `battle-stance-reference.png` (one of the bundled fighters)
+for stance, camera and finish. The result is refused unless it is one whole
+figure on a transparent ground; a refused painting gets one repair, shown the
+refused art and told what was wrong. It is then framed like a bundled fighter (384 px
+canvas, figure on the 368 px line), moderated with the same check the server
+runs on the sheet, mirrored if a vision check says it faces right, and saved as
+WebP. It waits in the Modal Dict `shinobix-avatar-battle-sprites`, keyed by
+asset and bound to the painted master, until style A publishes it; assembly then
+drops the waiting copy, and an entry that is never collected expires after
+seven days. The edit shares the costume call's single execution, so it is never
+sent twice, and each edit's billing record joins that call's `edits`. Any failure, a
+flagged sprite, or too little time left in the call leaves the job on the posed
+world model (`battle_pose.py`), framed on the same canvas; the combat painting never fails a job. Deploy
+the worker before or after the game server; neither depends on the other.
 
 ### Standalone online portrait trial
 

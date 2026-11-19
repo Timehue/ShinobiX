@@ -98,6 +98,9 @@ test('blind sprite recognition tests run without provider access and gate the fi
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_cleanup_\*\.py' -v/);
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_browser_motion\.py' -v/);
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_dispatch_result\.py' -v/);
+    // The painted combat sprite and the costume prompts spend real money per model; keep them gated.
+    assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_battle_sprite\.py' -v/);
+    assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_paint_\*\.py' -v/);
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_roster_release\.py' -v/);
     assert.match(job, /^\s+\/scripts\/sector-model-release\.py$/m);
     assert.match(job, /OPENAI_API_KEY: ''/);

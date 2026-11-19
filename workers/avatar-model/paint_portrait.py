@@ -50,6 +50,11 @@ Keep the animal species and its recognizable head, muzzle or beak, ears, and fur
 TORSO_FIT = """
 Fit armor, padding, fur and loose garments inside each torso's guide outline. A torso may be a little broader or slimmer than its outline, but never widen it with shoulder plates, capes or bulk past the outline's edges."""
 
+# The rig has no tail piece, so a tail rides on the torso cutout. The rig tells it from
+# the torso (trailing_part in register_painted_kit.py) and refuses one that reaches too far.
+TAIL_FIT = """
+If the character has a tail, paint it on the torso cutout only, joined at the base of the spine. Keep it short and close to the body. It ends no lower than the bottom of the torso cutout, and in the side and three-quarter views it trails behind the hips by no more than half the torso's width."""
+
 SECTOR_MATERIALS = """
 Image 3 gives the world camera, lighting and level of detail. Apply that treatment to the portrait character.
 Keep the portrait's face, hair silhouette, distinctive garment shapes and main colors recognizable at a standing height of 73 pixels.
@@ -89,7 +94,7 @@ def layout_png(template):
 
 def edit_request(upload, source_hash, template, correction, previous=None, *, sector_guide=SECTOR_GUIDE,
                  head_turnaround=True, closeup=False, armored_raccoon=False, upright_animal=False,
-                 palette_prompt=False, torso_fit=False, attempt=2):
+                 palette_prompt=False, torso_fit=False, tail_fit=False, attempt=2):
     from avatar_worker.portrait import prepare_portrait
 
     with upload.open("rb") as source:
@@ -112,6 +117,8 @@ def edit_request(upload, source_hash, template, correction, previous=None, *, se
         prompt += costume_palette.prompt_line(portrait.png)
     if torso_fit:
         prompt += TORSO_FIT
+    if tail_fit:
+        prompt += TAIL_FIT
     images = [image_input(guide),image_input(clean.getvalue())]
     if sector_guide is not None:
         reference = Path(__file__).with_name("sector-costume-light.png").read_bytes()
@@ -198,6 +205,10 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
         torso_fit = first["binding"].get("torsoFit", False) if first else True
         if torso_fit:
             binding["torsoFit"] = True
+        # And for the tail line, which only an animal character is given.
+        tail_fit = first["binding"].get("tailFit", False) if first else armored_raccoon or upright_animal
+        if tail_fit:
+            binding["tailFit"] = True
         previous = None
         if attempt > 1:
             # Each repair shows the painter the sheet the rig just rejected.
@@ -216,6 +227,7 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
                                **({"upright_animal": True} if upright_animal else {}),
                                **({"palette_prompt": True} if palette_prompt else {}),
                                **({"torso_fit": True} if torso_fit else {}),
+                               **({"tail_fit": True} if tail_fit else {}),
                                **({"attempt": 3} if attempt == 3 else {}))
         body = json.dumps(request,sort_keys=True,separators=(",",":")).encode()
         operation = sha256(job_id.encode() + b"\0" + str(attempt).encode() + b"\0" + body).hexdigest()
