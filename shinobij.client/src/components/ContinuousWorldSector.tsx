@@ -111,8 +111,8 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                 </span></span>
                 {gaits && modelArtBase && <span className="sector-peer-label sector-self-label">{name}</span>}
             </div>
-            {props.mapHudLayer}
             {gaits && ready && !props.suspended && !props.paused && <WorldRunButton timers={timers} onWindow={onRunWindow} />}
+            {props.mapHudLayer}
             <div className="continuous-world-status" role="status" aria-live="polite" data-connecting={status === 'Connecting to world…' || undefined}>{status}
                 {status === STALE_WORLD_STATUS ? <button type="button" onClick={() => window.location.reload()}>Reload</button>
                     : !ready && status !== 'Connecting to world…' && <button type="button" onClick={() => { setStatus('Connecting to world…'); setRetry(value => value + 1); }}>Retry</button>}
