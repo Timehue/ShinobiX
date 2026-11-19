@@ -243,7 +243,12 @@ the style being polled. An early start cannot know the first style's movement
 revision, so polls leave that check to the dispatcher: a style that finishes on
 another revision (a worker redeploy mid-job) is rendered again, bound to the
 job's revision.
-`render_style` allows three containers for this. Ending a job does not stop
+`render_style` runs the three in one container, three inputs at a time, not in
+three containers. The styles share their walking and standing frames, assembly
+requires those to match byte for byte, and the leg renderer's output differs by
+a few edge pixels between machines: a 2026-11-18 trial on three containers
+rendered every style and then failed assembly with "Incompatible movement
+banks". Keep it at one container unless that check is first made tolerant. Ending a job does not stop
 style calls already running, so one cancelled early can still bill up to three
 renders, all recorded on the job.
 

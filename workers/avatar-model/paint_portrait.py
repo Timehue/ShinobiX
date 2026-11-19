@@ -53,7 +53,7 @@ Fit armor, padding, fur and loose garments inside each torso's guide outline. A 
 # The rig has no tail piece, so a tail rides on the torso cutout. The rig tells it from
 # the torso (trailing_part in register_painted_kit.py) and refuses one that reaches too far.
 TAIL_FIT = """
-If the character has a tail, paint it on the torso cutout only, joined at the base of the spine. Keep it short and close to the body. It ends no lower than the bottom of the torso cutout, and in the side and three-quarter views it trails behind the hips by no more than half the torso's width."""
+If the character has a tail, keep it simple: one plain shape on the torso cutout, joined at the base of the spine. Paint it only in the side and back views, columns three to seven. In the front view and the two front three-quarter views, columns one, two and eight, the body hides the tail, so paint no tail there at all. Keep it short and close to the body: it ends no lower than the bottom of the torso cutout and trails behind the hips by no more than half the torso's width."""
 
 SECTOR_MATERIALS = """
 Image 3 gives the world camera, lighting and level of detail. Apply that treatment to the portrait character.

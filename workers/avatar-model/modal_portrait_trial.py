@@ -82,7 +82,10 @@ def paint_trial(asset, descriptor, master, portrait, source):
     return paint_costume.local(asset, descriptor, master, portrait, source)
 
 
-@app.function(image=motion_image, cpu=4, memory=8192, timeout=6 * 3600, retries=0, max_containers=3)
+# One container for the three styles, as in the deployed worker: their shared walking frames only
+# match byte for byte when one machine renders them (see render_style in modal_sprite_worker.py).
+@app.function(image=motion_image, cpu=12, memory=24576, timeout=6 * 3600, retries=0, max_containers=1)
+@modal.concurrent(max_inputs=3)
 def render_trial(descriptor, sheet, master, style, asset=None):
     sys.path.insert(0, str(INSTALL))
     from modal_sprite_worker import render_style

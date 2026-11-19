@@ -332,10 +332,16 @@ def recognize_sprite(asset, descriptor, master, portrait, source, finished_call,
     return execute_review(op, prepare, claims, lambda payload:post_response(payload, os.environ.get("OPENAI_API_KEY")))
 
 
-# Three containers: the game server starts a job's A, B and C renders together, so one job's
-# styles finish in the time of its slowest instead of the sum of all three.
-@app.function(image=paint_image, cpu=4, memory=8192, max_containers=3, min_containers=0,
+# The game server starts a job's A, B and C renders together, so one job's styles finish in the
+# time of its slowest instead of the sum of all three. They run side by side in ONE container.
+# The styles share their walking and standing frames, and assembly requires those to be
+# byte-identical (run_style_package.combine: "Incompatible movement banks"). The leg renderer's
+# output differs by a few edge pixels between machines: with three containers, a 2026-11-18 trial
+# rendered every style correctly and then could not be assembled, because one container's
+# walking pages differed from the other two by 1 to 8 pixels. One machine gives one answer.
+@app.function(image=paint_image, cpu=12, memory=24576, max_containers=1, min_containers=0,
               timeout=6 * 3600, retries=0, block_network=False)
+@modal.concurrent(max_inputs=3)
 def render_style(descriptor: bytes, sheet: bytes, master_sha256: str, style: str,
                  expected_movement: str | None = None, asset_id: str | None = None, attempt: int | None = None,
                  painted_for: str | None = None):
