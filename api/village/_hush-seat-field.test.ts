@@ -13,7 +13,7 @@ import {
 const sha256 = (text: string) => createHash('sha256').update(text).digest('hex');
 const CANARY = sha256('velmoraSeats');
 
-describe('Hush seat field compatibility', () => {
+describe('Anbu seat field compatibility', () => {
     it('moves a hashed earlier field onto the current field', () => {
         const row = { seatedKage: 'kage', velmoraSeats: ['a', 'b', ''], treasury: { ryo: 5 } };
         assert.deepEqual(adoptHashedField(row, 'seats', CANARY), { seatedKage: 'kage', seats: ['a', 'b', ''], treasury: { ryo: 5 } });

@@ -3,7 +3,7 @@ import { safeName } from './_utils.js';
 import { readVillageElders } from './village/_elders.js';
 import { readVillageHush } from './village/_hush.js';
 
-export type VillageOrderRole = 'Kage' | 'Hush' | 'Village Elder';
+export type VillageOrderRole = 'Kage' | 'Anbu' | 'Village Elder';
 
 /** Only current village members in current appointed or elected seats can issue orders. */
 export async function villageOrderRole(
@@ -17,7 +17,7 @@ export async function villageOrderRole(
     const matches = (name: unknown) => typeof name === 'string' && safeName(name) === caller;
     const role = matches(kageState?.seatedKage) ? 'Kage'
         : (await readVillageElders(village, state)).some(matches) ? 'Village Elder'
-        : (await readVillageHush(village, state)).members.some(matches) ? 'Hush' : null;
+        : (await readVillageHush(village, state)).members.some(matches) ? 'Anbu' : null;
     if (!role) return null;
     const save = await kv.get<{ character?: { village?: string } }>(`save:${caller}`);
     return save?.character?.village?.trim().toLowerCase() === village.trim().toLowerCase() ? role : null;

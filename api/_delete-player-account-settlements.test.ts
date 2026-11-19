@@ -10,7 +10,7 @@ process.env.SESSION_SECRET = 'delete-settlements-secret';
 
 /*
  * Account deletion vs the shared rows that hold value: Sunscar Exchange
- * listings, PvP bounty heads, and Elder / Hush seats. Names are reusable, so
+ * listings, PvP bounty heads, and Elder / Anbu seats. Names are reusable, so
  * each case ends by re-registering the deleted name and checking the newcomer
  * inherits nothing.
  *
@@ -163,7 +163,7 @@ for (const path of ['guest sweep (deletePlayerAccount)', 'interactive delete (de
             assert.equal((await character('rival')).ryo, 10_000);
         });
 
-        it('empties the deleted player\'s Elder and Hush seats in every village', async () => {
+        it('empties the deleted player\'s Elder and Anbu seats in every village', async () => {
             const [home, other] = WAR_VILLAGES;
             await kv.set(elderCouncilKey(home), { termStartedAt: 1, seats: ['Wanderer', 'Kaze', ''] });
             await kv.set(elderVillageKey(home), { seatedKage: 'Kaze', elderAppointees: ['wanderer', 'Rival'], hushAppointees: ['Wanderer', 'Kaze'] });

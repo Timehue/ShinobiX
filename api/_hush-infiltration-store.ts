@@ -1,5 +1,5 @@
 /*
- * Hush Vault Infiltration — KV storage + server-authoritative settlement.
+ * Anbu Vault Infiltration — KV storage + server-authoritative settlement.
  *
  * The security core of the raid (docs/hush-infiltration-plan.md §9). Every payout
  * is server-authoritative and follows the repo's hardened patterns:
@@ -128,7 +128,7 @@ function num(v: unknown, fallback = 0): number {
 
 // ─── run record ──────────────────────────────────────────────────────────────
 /** The authoritative live run binding plus sealed raid context
- *  (target sector/village, which Hush defends, who raids). All reward parameters
+ *  (target sector/village, which Anbu defends, who raids). All reward parameters
  *  derive from THIS record at settle — never from the client. */
 export interface InfilRun {
     runId: string;
@@ -136,7 +136,7 @@ export interface InfilRun {
     sector: number;
     /** the sector's owning village at start (the WR pool the raid drains) */
     targetVillage: string;
-    /** which appointed Hush is defending this run */
+    /** which appointed Anbu is defending this run */
     hushSlug: string;
     hushName: string;
     /** sector terrain at start (biome / home-terrain edge, sealed) */
@@ -200,8 +200,8 @@ export async function reserveInfilStartAttempt(
     }, { failClosed: true });
 }
 
-// ─── Hush roster / defender selection / daily seal ───────────────────────────
-/** The verified appointed + monthly earned Hush roster as safeName slugs. */
+// ─── Anbu roster / defender selection / daily seal ───────────────────────────
+/** The verified appointed + monthly earned Anbu roster as safeName slugs. */
 export async function loadHushAppointees(village: string, deps: StoreDeps = {}): Promise<string[]> {
     const { kv } = resolve(deps);
     return (await readVillageHush(village, undefined, kv)).members.map(safeName);
@@ -235,9 +235,9 @@ export interface HushSnapshot {
     sealedAt: number;
 }
 
-/** Get today's sealed snapshot of a Hush, sealing it from their authoritative
+/** Get today's sealed snapshot of an Anbu, sealing it from their authoritative
  *  save on first use each UTC day ("frozen at appointment + re-sealed daily",
- *  realized lazily — no cron needed). Null if the Hush has no save. */
+ *  realized lazily — no cron needed). Null if the Anbu has no save. */
 export async function getOrSealHushSnapshot(village: string, hushSlug: string, deps: StoreDeps = {}): Promise<HushSnapshot | null> {
     const { kv, now } = resolve(deps);
     const t = now();
@@ -435,7 +435,7 @@ export async function settleInfiltrationWin(
         let character: Record<string, unknown> = {};
         let alreadySettled = false;
         let raidRyo = 0;
-        // The sealed Hush defender's level, from the fight's own session (the
+        // The sealed Anbu defender's level, from the fight's own session (the
         // raid pays at the lower of the two levels, raidRyoReward).
         const defenderLevel = Number(session?.enemy?.character?.level);
         try {

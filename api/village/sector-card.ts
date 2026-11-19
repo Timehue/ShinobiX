@@ -205,7 +205,7 @@ async function applyGarrisonOutcome(session: GarrisonSession): Promise<void> {
     if (!result) return;
     const winner: 'p1' | 'p2' | 'draw' = result === 'player' ? 'p1' : result === 'opponent' ? 'p2' : 'draw';
     const attackerWon = winner === 'p1';
-    // The garrison is an AI holding ground, not the Hush whose deck it borrowed:
+    // The garrison is an AI holding ground, not the Anbu whose deck it borrowed:
     // it weighs as a plain villager and credits nobody. Mirrors the Combat
     // garrison in api/village/sector-war.ts.
     const winnerName = attackerWon ? session.attackerName : '';
@@ -348,7 +348,7 @@ async function runGarrison(me: string, admin: boolean, sectorWarId: string, acti
             : `The defence is still contesting this sector - the garrison can be fought in ${inMin(Math.max(contest.lastLiveBattleAt ?? 0, contest.startedAt))} min if no defender answers.`;
         return { status: 409, body: { error } };
     }
-    // The first Hush in rotation (then the Kage) who actually HAS a legal deck
+    // The first Anbu in rotation (then the Kage) who actually HAS a legal deck
     // holds the garrison: one appointee without a deck no longer refuses the
     // assault while the rest of the village could have held it.
     const fielded = await fieldGarrisonDefender(contest.defenderVillage, sealedGarrisonDeck);

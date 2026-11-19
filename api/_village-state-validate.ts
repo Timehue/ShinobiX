@@ -4,7 +4,7 @@
 // Before this layer existed, the writer only checked that the caller's
 // `character.village` matched the URL village — any villager could ship
 // a wholesale blob with their name as `seatedKage`, 99M ryo in treasury,
-// fake "System" notice posts, themselves as Hush, a far-future
+// fake "System" notice posts, themselves as Anbu, a far-future
 // `hollowGateUnlockedUntil`, etc.
 //
 // This module returns an audited next-state by merging the incoming
@@ -198,7 +198,7 @@ export async function validateVillageStateWrite(
     if (lower(incoming.seatedKage) !== lower(next.seatedKage)) suppressed.push('seatedKage (mirrored from /api/village/kage)');
 
     // Appointments change only through the atomic /village/hush action.
-    if (incoming.hushAppointees !== undefined && JSON.stringify(incoming.hushAppointees) !== JSON.stringify(prev.hushAppointees ?? [])) suppressed.push('hushAppointees (use the Hush appointment endpoint)');
+    if (incoming.hushAppointees !== undefined && JSON.stringify(incoming.hushAppointees) !== JSON.stringify(prev.hushAppointees ?? [])) suppressed.push('hushAppointees (use the Anbu appointment endpoint)');
     next.hushAppointees = prev.hushAppointees ?? [];
     // Earned seats are computed from server-owned monthly PvP results.
     delete next.hushEarned;
@@ -355,7 +355,7 @@ export async function validateVillageStateWrite(
             next.noticePosts = prevPosts;
         } else if (!ctx.isAdmin && role === null) {
             next.noticePosts = prevPosts;
-            suppressed.push('noticePosts rejected (only seated Kage, Hush, or current Elders may post or manage orders)');
+            suppressed.push('noticePosts rejected (only seated Kage, Anbu, or current Elders may post or manage orders)');
         } else if (removed.some(post => !canManage(post))) {
             next.noticePosts = prevPosts;
             suppressed.push('noticePosts removal rejected (only Kage or a current leadership author may delete)');

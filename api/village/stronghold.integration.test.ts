@@ -379,7 +379,7 @@ test('an engaged player cannot leave or move through a pending PvP attack', asyn
     onlineStore.clearPendingAttacker(name);
 });
 
-test('final Hush admission requires vault proximity and refuses an unresolved patrol', async () => {
+test('final Anbu admission requires vault proximity and refuses an unresolved patrol', async () => {
     const { strongholdVaultReady, strongholdVisitKey } = await import('./_stronghold.js');
     const { STRONGHOLD_VAULT } = await import('../../shared/sector-stronghold.js');
     const name = 'shvault'; await seed(name);

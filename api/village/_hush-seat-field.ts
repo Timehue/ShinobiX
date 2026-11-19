@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 /**
- * The appointed Hush seats live in each village's leadership row
+ * The appointed Anbu seats live in each village's leadership row
  * (`game:village-state:<village>`) as `hushAppointees`. Rows written
  * before the squad was renamed hold the same list under the field's earlier
  * name. That name is kept only as a SHA-256 hash, so this repository never

@@ -581,10 +581,10 @@ export function registerApiRoutes(registerRoute: (path: string, handler: AnyHand
     // the same contest's tallies. The client replays the same (pets, seed). Gated.
     route('/village/sector-pet',  villageSectorPetHandler);
     route('/village/war-campaign', villageCampaignHandler);
-    // Hush Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
-    // turn-in action switch): fight a daily-sealed Hush snapshot (Solo PvE engine)
+    // Anbu Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
+    // turn-in action switch): fight a daily-sealed Anbu snapshot (Solo PvE engine)
     // to skim 1% of the enemy war economy into turn-in caches. NEVER flips
-    // sector ownership. Independently gated by the default-on Hush kill switch.
+    // sector ownership. Independently gated by the default-on Anbu kill switch.
     route('/village/hush-infiltration', hushInfiltrationHandler);
     // Village War Map — read-only aggregator for the client War-Map panel (Phase 6):
     // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.

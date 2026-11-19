@@ -34,7 +34,7 @@ beforeEach(async () => {
     if (keys.length) await kv.del(...keys);
     for (const name of ['kage', 'hush', 'elder', 'villager', 'formerkage', 'formerelder', 'formerhush', 'outsider']) {
         await kv.set(`save:${name}`, { character: { name, village: name === 'outsider' ? 'Stormveil Village' : village,
-            elderFocus: 'training', rankTitle: 'Kage', storyTitle: 'Village Elder Hush' } });
+            elderFocus: 'training', rankTitle: 'Kage', storyTitle: 'Village Elder Anbu' } });
     }
     await council(['', 'elder', '']);
     await kv.set(kageKey, { seatedKage: 'kage', kageSystemUnlocked: true });
@@ -65,8 +65,8 @@ test('ordinary villagers cannot post any order category, regardless of titles or
     }
 });
 
-test('Kage, appointed Hush and player Elders can post every category with canonical attribution', async () => {
-    for (const [name, role] of [['kage', 'Kage'], ['hush', 'Hush'], ['elder', 'Village Elder']]) {
+test('Kage, appointed Anbu and player Elders can post every category with canonical attribution', async () => {
+    for (const [name, role] of [['kage', 'Kage'], ['hush', 'Anbu'], ['elder', 'Village Elder']]) {
         const previous = (await kv.get<any>(stateKey)).noticePosts;
         const additions = types.map(type => order(`${name}-${type}`, name, type));
         const result = await post(name, [...additions, ...previous]);
@@ -159,7 +159,7 @@ test('atomic order actions deny all ordinary players and allow every current lea
             assert.equal(posted.status, 200);
             const saved = posted.body.noticePosts.find((post: any) => post.id === `${name}-${type}`);
             assert.equal(saved.author, name);
-            assert.equal(saved.authorRole, name === 'elder' ? 'Village Elder' : name === 'hush' ? 'Hush' : 'Kage');
+            assert.equal(saved.authorRole, name === 'elder' ? 'Village Elder' : name === 'hush' ? 'Anbu' : 'Kage');
         }
     }
 });

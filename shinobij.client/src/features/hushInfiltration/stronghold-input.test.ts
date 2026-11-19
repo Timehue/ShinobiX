@@ -6,7 +6,7 @@ import { MOVEMENT_KEYS } from "../../lib/held-movement-keys";
 
 const source = readFileSync(join(import.meta.dirname, "StrongholdExplore.tsx"), "utf8");
 
-test("Hush Stronghold connects the live gamepad mapper to its tile-movement handler", () => {
+test("Anbu Stronghold connects the live gamepad mapper to its tile-movement handler", () => {
     assert.match(source, /<section[^>]*data-gamepad-mode="sector"/,
         "the left stick must send the same WASD movement keys used by this screen");
     assert.match(source, /const k = event\.key\.toLowerCase\(\), delta = MOVEMENT_KEYS\[k\];/,

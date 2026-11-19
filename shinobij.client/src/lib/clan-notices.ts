@@ -22,7 +22,8 @@ export function normalizeNoticePosts(posts?: Partial<NoticePost>[], legacyNotice
             title: String(notice.title ?? "Notice").slice(0, 70),
             body: String(notice.body ?? "").slice(0, 500),
             author: String(notice.author ?? "System"),
-            authorRole: String(notice.authorRole ?? "System"),
+            // Orders posted on 2026-11-19 before the squad took back its Anbu name say "Hush".
+            authorRole: notice.authorRole === "Hush" ? "Anbu" : String(notice.authorRole ?? "System"),
             createdAt: Number(notice.createdAt ?? Date.now()),
             pinned: Boolean(notice.pinned),
             sector: typeof notice.sector === "number" ? notice.sector : undefined,

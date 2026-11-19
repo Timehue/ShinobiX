@@ -323,7 +323,7 @@ export function sessionUsesContinuousVitals(session: unknown): boolean {
     return encounter?.metadata?.continuousVitals === true;
 }
 
-/** Hush Vault infiltration (api/_hush-infiltration-encounter.ts). */
+/** Anbu Vault infiltration (api/_hush-infiltration-encounter.ts). */
 const HUSH_INFILTRATION_ENCOUNTER_KIND = 'hush-infiltration';
 /** A sector-war garrison assault (GARRISON_ENCOUNTER_KIND in api/_sector-war-garrison-encounter.ts). */
 const SECTOR_WAR_GARRISON_ENCOUNTER_KIND = 'sector-war-garrison';
@@ -332,7 +332,7 @@ const SECTOR_WAR_GARRISON_ENCOUNTER_KIND = 'sector-war-garrison';
  * May this fight's surviving HP only LOWER the save's HP, never raise it?
  *
  * True for a run that seats a FULL HP pool (`sessionSeedsFullHp`), and for an
- * Hush Vault infiltration and a sector-war garrison assault. Those two seat the
+ * Anbu Vault infiltration and a sector-war garrison assault. Those two seat the
  * player at the HP their save holds, but on a FULL chakra and stamina pool.
  * They seal no `seededVitals`, so a late settle has nothing to charge against,
  * and nothing battle-locks the save while they stay open. So the HP such a
@@ -367,7 +367,7 @@ export function applyAiFightOutcomeToCharacter(
     /** True for a spar (`sessionIsSpar`): no physical consequence is written. */
     spar = false,
     /** True when the surviving HP may lower the save's HP but never raise it
-     *  (`sessionHpIsDecreaseOnly`: a full-pool run, a Hush Vault raid or a
+     *  (`sessionHpIsDecreaseOnly`: a full-pool run, an Anbu Vault raid or a
      *  garrison assault). */
     hpDecreaseOnly = false,
     /** What the save held when the fight was seeded from it (`sessionSeededVitals`).

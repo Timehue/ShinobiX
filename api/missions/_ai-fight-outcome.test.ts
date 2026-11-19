@@ -290,13 +290,13 @@ describe('sessionHpIsDecreaseOnly — the fights whose surviving HP may only go 
     const vault = () => buildInfiltrationEncounter({
         runId: 'infil-decrease-only', now: 1,
         raider: { slug: 'rill', name: 'Rill', character: sealed(300) },
-        hush: { slug: 'hush', name: 'The Frostfang Hush', character: sealed(400) },
+        hush: { slug: 'hush', name: 'The Frostfang Anbu', character: sealed(400) },
         terrain: 'forest', sector: 12, targetVillage: 'Frostfang Village',
     });
     const garrison = () => buildGarrisonEncounter({
         runId: 'garrison-decrease-only', now: 1,
         attacker: { slug: 'rill', name: 'Rill', character: sealed(300) },
-        hush: { slug: 'hush', name: 'Frostfang Hush #1', character: sealed(400) },
+        hush: { slug: 'hush', name: 'Frostfang Anbu #1', character: sealed(400) },
         terrain: 'forest', sector: 12, contestId: '12:moonshadowvillage-vs-frostfangvillage',
         attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
     });

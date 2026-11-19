@@ -45,7 +45,7 @@ const EVENT_ITEM_IDS: ReadonlySet<string> = new Set([
     HOLLOW_GATE_KEY_ID,          // spend to enter the Hollow Gate Shrine
     LEGENDARY_WAR_CRATE_ID,      // open for loot
     HOLLOW_BEAST_CACHE_ID,       // open for world-boss rewards
-    // Hush Vault Infiltration war caches — spend at the Clan Hall (2:1 clan
+    // Anbu Vault Infiltration war caches — spend at the Clan Hall (2:1 clan
     // points) / Town Hall (1:1 village merit). KEEP IN SYNC with
     // api/_hush-infiltration.ts CACHE_ITEM_IDS.
     "war-supply-cache",

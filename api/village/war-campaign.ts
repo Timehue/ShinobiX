@@ -273,7 +273,7 @@ async function chooseDefense(war: CampaignWarRow, objectiveId: string, enemy: st
 /**
  * Pay a finished card battle's Chronicle Points (call with the run lock held).
  * A duel against a defending player pays like every other PvP card duel; a won
- * assault on the Hush or Kage deck pays like a sector-war garrison, and the
+ * assault on the Anbu or Kage deck pays like a sector-war garrison, and the
  * personal daily support allowance it reserves bounds it.
  */
 async function settleCampaignCardPoints(run: CampaignRun): Promise<CardCpCommitted> {
@@ -600,7 +600,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const block = sectorPresenceBlock(me, objective.sector);
                     if (block) refuse(block.error);
                 }
-                if (objective?.village && (!strongholdLocation(me, objective.sector) || strongholdLocation(me, objective.sector)?.room)) refuse('Find and enter this sector stronghold before attacking its Hush defense.');
+                if (objective?.village && (!strongholdLocation(me, objective.sector) || strongholdLocation(me, objective.sector)?.room)) refuse('Find and enter this sector stronghold before attacking its Anbu defense.');
                 if (objective && !objective.village && !shrineRoomLocation(me, war, objective.sector)) refuse(`Travel to shrine sector ${objective.sector} and enter the golden shrine before fighting.`);
                 const enemy = war.villages.find(v => v !== village)!;
                 const mode = objective?.mode ?? 'combat';
@@ -626,14 +626,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const serverSeat = !!objective && isNpcAccount(me) && !identity.admin && !(await isNpcPossessed(me));
                     if (objective && serverSeat) {
                         const fielded = await fieldCampaignHush(enemy, sealCampaignHushCombat);
-                        if (!fielded.ok) refuse('The enemy village has no Hush or Kage able to defend this stronghold.');
+                        if (!fielded.ok) refuse('The enemy village has no Anbu or Kage able to defend this stronghold.');
                         run.defender = fielded.fielded.slug;
                         const { resolveNpcGarrisonAssault } = await import('../_village-war-npc-assault.js');
                         run.merc = await resolveNpcGarrisonAssault({ npcName: String(freshChar.name ?? me), save: fresh, character: freshChar, admin,
                             copy: { slug: fielded.fielded.slug, name: maskedGarrisonDefenderName(enemy, fielded.defender, fielded.appointees), character: fielded.fielded.character }, now });
                     } else if (objective) {
                         const fielded = await fieldCampaignHush(enemy, sealCampaignHushCombat);
-                        if (!fielded.ok) refuse('The enemy village has no Hush or Kage able to defend this stronghold.');
+                        if (!fielded.ok) refuse('The enemy village has no Anbu or Kage able to defend this stronghold.');
                         run.defender = fielded.fielded.slug;
                         solo = buildGarrisonEncounter({ runId: id, now, attacker: { slug: me, name: me,
                             character: hydrateCharacterFromSave(freshChar, {}, fresh, admin), itemCharges: sealItemCharges(freshChar, freshChar) },
@@ -667,7 +667,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (defense) theirTeam = await sealWarTeam(defense.player);
                     else {
                         const fielded = await fieldCampaignHush(enemy, sealCampaignHushTeam);
-                        if (!fielded.ok) refuse('No enemy Hush or Kage can field a pet team.');
+                        if (!fielded.ok) refuse('No enemy Anbu or Kage can field a pet team.');
                         run.defender = fielded.defender.slug; theirTeam = fielded.fielded;
                         defenderName = maskedGarrisonDefenderName(enemy, fielded.defender, fielded.appointees);
                     }
@@ -695,7 +695,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         run.participation = { startedAt: now, p1Actions: 0, p2Actions: 0 };
                     } else {
                         const fielded = await fieldCampaignHush(enemy, legalDeck);
-                        if (!fielded.ok) refuse('No enemy Hush or Kage can field a Chronicle deck.');
+                        if (!fielded.ok) refuse('No enemy Anbu or Kage can field a Chronicle deck.');
                         run.defender = fielded.defender.slug;
                         run.aiCard = createAiMatch(id, me, mine.deck, 'hard', now, Math.random, 'external', undefined,
                             { name: maskedGarrisonDefenderName(enemy, fielded.defender, fielded.appointees), deck: fielded.fielded });

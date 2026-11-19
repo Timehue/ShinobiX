@@ -54,10 +54,10 @@ export type GarrisonStartResponse =
         result: GarrisonResolveResponse;
     };
 
-/** Assault the sector's Hush garrison. Unlocks only after the contest has gone
+/** Assault the sector's Anbu garrison. Unlocks only after the contest has gone
  *  ~2h with no live-player battle (garrisonAssaultable in village-war-map.ts);
  *  a real defender fighting re-locks it. The server picks + seals the
- *  defending village's real appointed Hush (their actual equipped jutsu, gear,
+ *  defending village's real appointed Anbu (their actual equipped jutsu, gear,
  *  weapons, and items) and returns a live Solo PvE session — resolved through
  *  the normal /api/solo-pve/action loop, never client-reported. An assault the
  *  player already has on the sector comes back instead: still live, it resumes;

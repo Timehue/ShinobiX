@@ -921,7 +921,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         const isHush = isVillageHush(character);
         if (territory.ownerClan !== clanData.name
             && !(isHush && territory.ownerVillage === character.village)) {
-            return alert("Only the owning clan or a Hush appointed by the controlling village can guard this sector.");
+            return alert("Only the owning clan or an Anbu appointed by the controlling village can guard this sector.");
         }
         const guards = territory.guards.includes(character.name)
             ? territory.guards.filter(name => name !== character.name)

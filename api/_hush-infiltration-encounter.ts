@@ -1,5 +1,5 @@
 /*
- * Hush Vault Infiltration is one human raider versus one server-controlled
+ * Anbu Vault Infiltration is one human raider versus one server-controlled
  * snapshot of a real appointed defender. The snapshot is content, not a live
  * second participant, so the fight belongs on the Solo PvE runtime.
  */
@@ -44,7 +44,7 @@ function fighter(input: InfiltrationFighter, pos: number, enemy = false): PvpFig
     // out" a free heal. That write is decrease-only as well
     // (sessionHpIsDecreaseOnly in api/missions/_ai-fight-outcome.ts).
     // Clamped to [0, maxHp] like api/solo-pve/_ai-encounter.ts.
-    // The sealed Hush has no save to write back to and always starts full.
+    // The sealed Anbu has no save to write back to and always starts full.
     const hp = enemy ? maxHp : Math.max(0, Math.min(maxHp, num(input.character.hp, maxHp)));
     const character = {
         ...input.character,
@@ -59,7 +59,7 @@ function fighter(input: InfiltrationFighter, pos: number, enemy = false): PvpFig
         maxChakra,
         stamina: maxStamina,
         maxStamina,
-        // Both sides' gear Shield special. The Hush is a real player's sealed loadout
+        // Both sides' gear Shield special. The Anbu is a real player's sealed loadout
         // (getOrSealHushSnapshot), so it starts with its shield as in a PvP duel.
         shield: startingItemShield(input.character),
         statuses: [],

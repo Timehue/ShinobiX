@@ -98,7 +98,7 @@ for (const [village, kind] of [
     expect(Math.abs(painted.footY - painted.groundY)).toBeLessThan(painted.tileSize * .15 + 2);
     await writeFile(info.outputPath('defender-paint.json'), JSON.stringify({ village, kind, revision: pin.manifestSha256, ...painted }));
     await page.screenshot({ path: info.outputPath('defender-vault.png') });
-    await page.getByRole('button', { name: /^Hush vault, row/ }).click();
+    await page.getByRole('button', { name: /^Anbu vault, row/ }).click();
     await expect.poll(() => page.evaluate(() => document.body.dataset.challenge)).toBe('true');
     expect(state.steps).toEqual([]);
     expect(errors).toEqual([]);

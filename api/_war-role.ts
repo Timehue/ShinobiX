@@ -52,7 +52,7 @@ function exactServerRole(value: unknown): RoleWeights | null {
 
 /** Read immutable role evidence sealed when the PvP session was created.
  * Missing/malformed legacy evidence fails closed to villager; settlement never
- * imports a Kage seat or Hush appointment granted after the battle began. */
+ * imports a Kage seat or Anbu appointment granted after the battle began. */
 export function sealedSectorWarRoleOf(
     evidence: unknown,
     side: 'p1' | 'p2',
@@ -89,7 +89,7 @@ interface SaveShape { character?: { village?: string } }
 interface VillageStateShape { seatedKage?: string; hushAppointees?: string[]; elderAppointees?: unknown }
 
 /** Resolve a player's sector-war role weights from authoritative server state.
- *  Kage = seated leader; Elder = current appointed/elected seat; Hush = appointed or earned seat; everyone else
+ *  Kage = seated leader; Elder = current appointed/elected seat; Anbu = appointed or earned seat; everyone else
  *  fights as a villager. When `expectedVillage` is supplied from a sealed battle,
  *  a later village switch cannot import the current village's seat or title weight
  *  into that older battle. Never throws — falls back to villager on any miss. */
@@ -106,7 +106,7 @@ export async function sectorWarRoleOf(playerName: string, expectedVillage?: stri
             return ROLE_VILLAGER;
         }
         // A Cinderhold shinobi's rank comes from the roster, never a seat: its
-        // Commanders at Elder weight, its other war defenders as Hush
+        // Commanders at Elder weight, its other war defenders as Anbu
         // (api/_npc-war-roster.ts). Its Genin and Chunin, who fight its wars
         // from level 15 (owner ruling 2026-11-11), are its villagers.
         if (isNpcVillage(village)) {
@@ -115,7 +115,7 @@ export async function sectorWarRoleOf(playerName: string, expectedVillage?: stri
             if (npc.rank === 'commander') return ROLE_ELDER;
             return isNpcWarDefenderRank(npc.rank) ? ROLE_HUSH : ROLE_VILLAGER;
         }
-        // The seat comes from the AUTHORITATIVE `village:kage:` row; Hush appointees
+        // The seat comes from the AUTHORITATIVE `village:kage:` row; Anbu appointees
         // only exist on the village-state, so that is still read for them.
         //
         // This used to take the Kage from `game:village-state:<slug>.seatedKage`, a

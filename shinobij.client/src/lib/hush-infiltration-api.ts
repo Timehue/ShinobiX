@@ -1,5 +1,5 @@
 /*
- * Hush Vault Infiltration — client API + feature flag.
+ * Anbu Vault Infiltration — client API + feature flag.
  *
  * Thin typed wrappers over the single server route (api/village/hush-infiltration,
  * action switch). Combat itself uses the normal Solo PvE action/state routes;
@@ -34,8 +34,8 @@ export function hushInfiltrationAdmissionEnabled(availability: CapabilityAvailab
     return capabilityPreferenceAllowsAdmission(hushInfiltrationEnabled(), availability);
 }
 
-// ── Per-village masked Hush defender (public/hush/<slug>.webp) ────────────────
-// Hush are anonymous masked operatives, so the vault's boss room shows a
+// ── Per-village masked Anbu defender (public/hush/<slug>.webp) ────────────────
+// Anbu are anonymous masked operatives, so the vault's boss room shows a
 // village-signature masked figure, not the real appointee's face (their loadout
 // still drives combat). slug KEEP IN SYNC with scripts/gen-hush-vault-art.mjs.
 const HUSH_AVATAR_BY_VILLAGE: Record<string, string> = {
@@ -58,16 +58,16 @@ const HUSH_AVATAR_BY_VILLAGE: Record<string, string> = {
  */
 export const HUSH_AVATAR_ASSET_REVISION = 2;
 
-/** The masked-Hush standee/portrait for a village (null if not a known war village). */
+/** The masked-Anbu standee/portrait for a village (null if not a known war village). */
 export function hushAvatarForVillage(village: string): string | null {
     const slug = HUSH_AVATAR_BY_VILLAGE[village];
     return slug ? `/hush/${slug}.webp?v=${HUSH_AVATAR_ASSET_REVISION}` : null;
 }
 
-/** The masked display name for the defender — "The Frostfang Hush" (anonymity). */
+/** The masked display name for the defender — "The Frostfang Anbu" (anonymity). */
 export function hushDisplayName(village: string): string {
     const short = village.replace(/\s+Village$/i, '').trim();
-    return `The ${short || 'Village'} Hush`;
+    return `The ${short || 'Village'} Anbu`;
 }
 
 // ── Reward / turn-in shapes (mirror api/village/hush-infiltration.ts) ─────────
@@ -127,7 +127,7 @@ async function post<T>(body: Record<string, unknown>, signal?: AbortSignal): Pro
 }
 
 /** Begin an infiltration of an enemy-held war sector. The server picks + seals the
- *  defending Hush, builds the vault fight, and returns the live session. */
+ *  defending Anbu, builds the vault fight, and returns the live session. */
 export function startInfiltration(
     playerName: string,
     sector: number,

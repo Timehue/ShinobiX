@@ -7,7 +7,7 @@ process.env.ADMIN_PASSWORD = 'vault-garrison-heal-test-admin';
 process.env.SESSION_SECRET = 'vault-garrison-heal-test-secret-32-bytes';
 
 /*
- * The Hush Vault infiltration and the sector-war garrison assault, driven
+ * The Anbu Vault infiltration and the sector-war garrison assault, driven
  * through their mounted handlers over the in-memory KV.
  *
  * Both seat the player at the HP their save holds, and both stay open while the
@@ -113,7 +113,7 @@ async function seedHush(): Promise<void> {
     await kv.set('game:village-state:frostfangvillage', { hushAppointees: [HUSH_SLUG] });
     await kv.set(`save:${HUSH_SLUG}`, {
         character: {
-            name: 'Frostfang Hush', village: DEFENDER_VILLAGE, level: 100,
+            name: 'Frostfang Anbu', village: DEFENDER_VILLAGE, level: 100,
             maxHp: 12_000, hp: 12_000, maxChakra: 1_000, maxStamina: 1_000,
             stats: {}, jutsu: [], pvpItems: [], equipment: {},
         },
@@ -309,7 +309,7 @@ describe('garrison assault — what a fight costs', { concurrency: false }, () =
     });
 });
 
-describe('Hush Vault raid — HP lost elsewhere while it is open never comes back', { concurrency: false }, () => {
+describe('Anbu Vault raid — HP lost elsewhere while it is open never comes back', { concurrency: false }, () => {
     it('a won raid, reported: the raid still pays, the save keeps its loss', async () => {
         const raider = freshName('vaultheal');
         await seedVault(raider);
@@ -364,7 +364,7 @@ describe('Hush Vault raid — HP lost elsewhere while it is open never comes bac
     });
 });
 
-describe('Hush Vault raid — what a fight costs', { concurrency: false }, () => {
+describe('Anbu Vault raid — what a fight costs', { concurrency: false }, () => {
     it('settled at once, it writes the HP the fight left, as before', async () => {
         const raider = freshName('vaultcost');
         await seedVault(raider);

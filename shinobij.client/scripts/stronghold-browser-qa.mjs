@@ -89,7 +89,7 @@ async function prepare(browser, viewport, state, query = '', beforeNavigate, { h
         if (action === 'state' && state.failResume) return fail('Connection temporarily unavailable.');
         if (action === 'start') { state.starts++; if (state.onStart) return state.onStart(route); }
         if (route.request().url().includes('/api/qa/stronghold-attack')) { state.attacks++; return state.onAttack ? state.onAttack(route) : route.fulfill({ json: { ok: true } }); }
-        if (action === 'state' || action === 'start' || action === 'recover') return route.fulfill({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', hush: { name: 'The Moonshadow Hush' } } });
+        if (action === 'state' || action === 'start' || action === 'recover') return route.fulfill({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', hush: { name: 'The Moonshadow Anbu' } } });
         if (action === 'stronghold-patrol-report' || action === 'report') {
             state.reports++;
             if (state.failReport) return fail('Settlement temporarily unavailable.');
@@ -246,7 +246,7 @@ try {
             await page.getByRole('button', { name: 'Move right', exact: true }).click();
             await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '4');
             assert.equal(state.visit.tile, 698, 'the altar must be walkable');
-            assert.equal(await page.getByRole('dialog').count(), 0, 'no village Hush in Death’s Gate');
+            assert.equal(await page.getByRole('dialog').count(), 0, 'no village Anbu in Death’s Gate');
             assert.equal(await page.evaluate(() => localStorage.getItem('hushInfiltration.activeRun:scout')), 'unrelated-saved-hush');
             checks.push({ engine: engineName, obsidianAltar: true, savedHushIsolated: true });
             await page.close();
@@ -355,7 +355,7 @@ try {
             await page.reload();
             await page.getByRole('heading', { name: 'Rejoining your infiltration' }).waitFor({ state: 'hidden' });
             assert.equal(lostResponse.starts, 0);
-            checks.push(`${engineName}: missing browser run ID recovers the server’s exact Hush fight through reload`);
+            checks.push(`${engineName}: missing browser run ID recovers the server’s exact Anbu fight through reload`);
             await page.close();
         }
         for (const outcome of ['win', 'loss', 'save-rejected', 'report-failure']) {

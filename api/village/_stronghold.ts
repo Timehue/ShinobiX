@@ -58,7 +58,7 @@ function snapshot(playerName: string, visit: StrongholdVisit, extra: Record<stri
     return { status: 200, body: { ok: true, visit, peers, ...extra } };
 }
 
-/** Shared by final-boss admission: the Hush cannot be reached by skipping patrols. */
+/** Shared by final-boss admission: the Anbu cannot be reached by skipping patrols. */
 export async function strongholdVaultReady(playerName: string, sector: number): Promise<boolean> {
     if (isDeathsGateStronghold(sector)) return false;
     if (sectorPresenceBlock(playerName, sector)) return false;

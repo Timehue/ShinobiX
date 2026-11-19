@@ -3,7 +3,7 @@
  *
  * Mirrors the run-record shape of api/_hush-infiltration-store.ts (InfilRun),
  * scoped to garrison: the authoritative binding from a Combat sector-war
- * contest's attacker to the Hush snapshot they're assaulting, plus a durable
+ * contest's attacker to the Anbu snapshot they're assaulting, plus a durable
  * settlement receipt on the ATTACKER'S OWN save (item usage + surviving
  * HP/hospital — this is a real multi-turn fight now, not a free instant
  * dice-roll, so it costs the same as any other sealed AI fight). The CONTEST
@@ -13,11 +13,11 @@
  * applySectorWarBattle/GARRISON_POINTS_CAP machinery a live-defender fight
  * uses (api/_sector-war.ts).
  *
- * Hush roster/snapshot selection is NOT duplicated here. loadHushAppointees /
+ * Anbu roster/snapshot selection is NOT duplicated here. loadHushAppointees /
  * pickHushDefender / getOrSealHushSnapshot are re-exported straight from
  * api/_hush-infiltration-store.ts — "read the jutsu/equipment/weapons/items…
  * and use it all properly" is exactly what that store already does, tested,
- * for a different attacker; garrison just picks a different village's Hush
+ * for a different attacker; garrison just picks a different village's Anbu
  * for a different contest.
  */
 import { kv as realKv, type KvLike } from './_storage.js';
@@ -80,7 +80,7 @@ export const GARRISON_RUN_TTL = 14 * 24 * 60 * 60;
 export const GARRISON_TERMINAL_RUN_TTL = 7 * 24 * 60 * 60;
 
 /** The authoritative live run binding plus sealed assault context (which
- *  contest, which Hush defends). All scoring parameters derive from THIS
+ *  contest, which Anbu defends). All scoring parameters derive from THIS
  *  record at resolve — never from the client. */
 export interface GarrisonRun {
     runId: string;
@@ -90,7 +90,7 @@ export interface GarrisonRun {
     /** the sector-war contest id this assault is bound to */
     contestId: string;
     defenderVillage: string;
-    /** which appointed Hush is defending this run */
+    /** which appointed Anbu is defending this run */
     hushSlug: string;
     hushName: string;
     /** sector terrain at start (biome / home-terrain edge, sealed) */

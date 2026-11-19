@@ -38,13 +38,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
         const village = String(save?.character?.village ?? '').trim();
         if (!village) return res.status(404).json({ error: 'Player village not found.' });
-        if (!['appoint', 'clear'].includes(body.action) || !Number.isInteger(body.seat) || body.seat < 0 || body.seat > 2) return res.status(400).json({ error: 'Invalid Hush seat action.' });
+        if (!['appoint', 'clear'].includes(body.action) || !Number.isInteger(body.seat) || body.seat < 0 || body.seat > 2) return res.status(400).json({ error: 'Invalid Anbu seat action.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hush-appointment', 20, 60_000, identity.name))) return;
         const stateKey = elderVillageKey(village);
         const kageKey = `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
         const result = await withKvLock(kageKey, () => withKvLock<{ status: number; body: Record<string, unknown> }>(stateKey, async () => {
             const kage = await kv.get<{ seatedKage?: string }>(kageKey);
-            if (!identity.admin && safeName(kage?.seatedKage ?? '') !== playerName) return { status: 403, body: { error: 'Only the seated Kage can appoint or clear Hush seats.' } };
+            if (!identity.admin && safeName(kage?.seatedKage ?? '') !== playerName) return { status: 403, body: { error: 'Only the seated Kage can appoint or clear Anbu seats.' } };
             const actor = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
             if (leadershipVillageKey(actor?.character?.village) !== leadershipVillageKey(village)) return { status: 409, body: { error: 'Your village changed. Refresh Town Hall.' } };
             const state = withHushSeatField(await kv.get<Record<string, unknown>>(stateKey)) ?? {};
@@ -53,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const appointee = safeName(String(body.appointee ?? ''));
                 const target = appointee ? await kv.get<{ character?: { name?: string; village?: string } }>(`save:${appointee}`) : null;
                 if (!target?.character || leadershipVillageKey(target.character.village) !== leadershipVillageKey(village)) return { status: 400, body: { error: 'Choose an existing player in your village.' } };
-                if (appointed.some((name, index) => index !== body.seat && safeName(name) === appointee)) return { status: 409, body: { error: 'That player already holds another appointed Hush seat. Clear it first.' } };
+                if (appointed.some((name, index) => index !== body.seat && safeName(name) === appointee)) return { status: 409, body: { error: 'That player already holds another appointed Anbu seat. Clear it first.' } };
                 appointed[body.seat] = String(target.character.name ?? appointee);
             } else appointed[body.seat] = '';
             const next = { ...state, hushAppointees: appointed };

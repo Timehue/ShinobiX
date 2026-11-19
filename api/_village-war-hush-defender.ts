@@ -9,8 +9,8 @@ import { hydrateCharacterFromSave } from './pvp/session.js';
 import { isNpcVillage } from '../shared/npc-village.js';
 
 /**
- * Existing village Hush artwork, including its published cache revision.
- * Cinderhold has no Hush art (its Hush are named NPCs, Push 4b): its defender
+ * Existing village Anbu artwork, including its published cache revision.
+ * Cinderhold has no Anbu art (its Anbu are named NPCs, Push 4b): its defender
  * shows the NPC's own preset portrait (every NPC save has one) instead of a
  * missing /hush/cinderhold.webp.
  */
@@ -32,7 +32,7 @@ export async function fieldCampaignHush<T>(village: string, field: (slug: string
     pickIndex: (length: number) => number = randomInt): Promise<FieldedGarrison<T>> {
     const appointees = await loadHushAppointees(village);
     const candidates = [...appointees];
-    // Cinderhold's Hush are its war NPCs (api/_npc-war-roster.ts): one that is
+    // Cinderhold's Anbu are its war NPCs (api/_npc-war-roster.ts): one that is
     // wounded, logged off, admin-played or already fighting cannot be copied
     // into a defense, as a player away from the village still can (Push 4b).
     const npcFree = isNpcVillage(village) ? (await import('./_npc-village-campaign.js')).npcCampaignFighterFree : null;

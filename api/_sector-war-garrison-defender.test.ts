@@ -8,7 +8,7 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
  * Who holds a sector's garrison is one decision shared by all three engines
  * (api/_sector-war-garrison-defender.ts). Choosing a defender was not enough:
  * the chosen one has to be able to FIELD what the engine seals, and a defender
- * who could not (a Pet garrison Hush whose pets were all on an expedition)
+ * who could not (a Pet garrison Anbu whose pets were all on an expedition)
  * refused the whole assault for as long as the rotation kept landing on them.
  */
 
@@ -48,7 +48,7 @@ async function seedVillage(appointees: string[], kage = '') {
 const lastDefended = async () => (await kv.get<Record<string, number>>(hushLastDefKey('frostfangvillage'))) ?? {};
 
 describe('fieldGarrisonDefender', { concurrency: false }, () => {
-    it('walks the rotation past a Hush who cannot field, and stamps only the one who defends', async () => {
+    it('walks the rotation past an Anbu who cannot field, and stamps only the one who defends', async () => {
         await seedVillage(['hushalpha', 'hushbravo']);
         const tried: string[] = [];
         const out = await defender.fieldGarrisonDefender(VILLAGE, async (slug) => {
@@ -89,14 +89,14 @@ describe('fieldGarrisonDefender', { concurrency: false }, () => {
         const keys = await kv.keys('*');
         if (keys.length) await kv.del(...keys);
         const empty = await defender.fieldGarrisonDefender(VILLAGE, async () => 'anything');
-        assert.deepEqual(empty, { ok: false, reason: 'no-defender' }, 'no Hush and no Kage: nobody to defend at all');
+        assert.deepEqual(empty, { ok: false, reason: 'no-defender' }, 'no Anbu and no Kage: nobody to defend at all');
     });
 });
 
 describe('maskedGarrisonDefenderName', () => {
     it('names the defence, never the player, numbered by roster position', () => {
         const roster = ['hushalpha', 'hushbravo'];
-        assert.equal(defender.maskedGarrisonDefenderName(VILLAGE, { slug: 'hushbravo', byKage: false }, roster), 'Frostfang Hush #2');
+        assert.equal(defender.maskedGarrisonDefenderName(VILLAGE, { slug: 'hushbravo', byKage: false }, roster), 'Frostfang Anbu #2');
         assert.equal(defender.maskedGarrisonDefenderName(VILLAGE, { slug: 'thekage', byKage: true }, roster), 'The Frostfang Kage');
     });
 });

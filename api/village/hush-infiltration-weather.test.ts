@@ -1,5 +1,5 @@
 /*
- * A Hush vault infiltration is fought on a war sector, under that sector's sky.
+ * An Anbu vault infiltration is fought on a war sector, under that sector's sky.
  *
  * The defender's Kage-set terrain is the board (unchanged); the weather above
  * it is the sector's own, sealed at start by the same shared helper every other
@@ -26,7 +26,7 @@ const SECTOR = 12;
 const TARGET = 'Frostfang Village';
 const TERRITORY_KEY = `world:territory:${SECTOR}`;
 const RAIDER = 'vaultweatherraider';
-const Hush = 'vaultweatherhush';
+const Anbu = 'vaultweatherhush';
 
 let kv: typeof import('../_storage.js').kv;
 let handler: Handler;
@@ -57,10 +57,10 @@ async function seed(territory: Record<string, unknown>) {
             stats: {}, jutsu: [], pvpItems: [], equipment: {}, inventory: [], itemStacks: [],
         },
     });
-    await kv.set('game:village-state:frostfangvillage', { hushAppointees: [Hush] });
-    await kv.set(`save:${Hush}`, {
+    await kv.set('game:village-state:frostfangvillage', { hushAppointees: [Anbu] });
+    await kv.set(`save:${Anbu}`, {
         character: {
-            name: 'Frostfang Hush', village: TARGET, level: 100,
+            name: 'Frostfang Anbu', village: TARGET, level: 100,
             maxHp: 12000, hp: 12000, maxChakra: 1000, maxStamina: 1000,
             stats: {}, jutsu: [], pvpItems: [], equipment: {},
         },

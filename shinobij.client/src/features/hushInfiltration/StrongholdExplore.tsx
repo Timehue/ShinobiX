@@ -66,7 +66,7 @@ type TileCellProps = {
  */
 const StrongholdTileCell = memo(function StrongholdTileCell({ idx, width, tileSize, avatarSize, overview, known, lit, walkable, movementBlocked,
     wall, boss, door, bloodAltar, intelCache, intelMarker, hushAvatar, hushName, hushCaption, fissure, onClick, onKeyDown }: TileCellProps) {
-    return <div data-tile={idx} role={walkable ? 'button' : undefined} aria-disabled={walkable && movementBlocked ? true : undefined} tabIndex={walkable && !movementBlocked ? 0 : -1} aria-label={walkable ? `${boss ? 'Hush vault' : bloodAltar ? 'Blood Altar' : door ? 'Passage' : 'Dungeon floor'}, row ${Math.floor(idx / width) + 1}, column ${idx % width + 1}` : undefined}
+    return <div data-tile={idx} role={walkable ? 'button' : undefined} aria-disabled={walkable && movementBlocked ? true : undefined} tabIndex={walkable && !movementBlocked ? 0 : -1} aria-label={walkable ? `${boss ? 'Anbu vault' : bloodAltar ? 'Blood Altar' : door ? 'Passage' : 'Dungeon floor'}, row ${Math.floor(idx / width) + 1}, column ${idx % width + 1}` : undefined}
         className={`stronghold-tile ${wall ? 'is-wall' : 'is-floor'}${bloodAltar ? ' is-blood-altar' : ''}${intelCache ? ' is-intel-cache' : ''}`} onClick={onClick}
         onKeyDown={onKeyDown}
         style={{ gridColumn: idx % width + 1, gridRow: Math.floor(idx / width) + 1, width: tileSize, height: tileSize, opacity: lit ? 1 : .3 }}>
@@ -159,7 +159,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     }, [base, shownVisit?.visited]);
     const discovered = useMemo(() => new Set([...seen].map(i => base.tiles[i].roomId).filter(id => id != null)), [base, seen]);
     const intelKnown = discovered.has(STRONGHOLD_INTEL_ROOM_ID);
-    // Vault arena: fissures vent fire in a rhythm across the Hush's chamber
+    // Vault arena: fissures vent fire in a rhythm across the Anbu's chamber
     // (lib/hollow-gate-arena). Raiders time their approach; defenders and the
     // Blood Altar's open duelling floor are unaffected. Movement-only: no damage.
     const fissures = useMemo(() => obsidian || defending ? new Map<number, number>() : hollowGateArenaFissures(base), [base, obsidian, defending]);
@@ -442,7 +442,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
 
     return <section className={`stronghold-shell underground-world${obsidian ? ' stronghold-obsidian underground-world--obsidian' : ''}`} aria-label={title} data-gamepad-mode="sector">
         <header className="stronghold-header">
-            <div><span className="stronghold-eyebrow">Dungeon sector · {obsidian ? 'Death’s Gate · Open PvP' : `${targetVillage} territory`}</span><h2>{title}</h2><p>{obsidian ? 'Descend into the ember halls. Rival shinobi await at the Blood Altar.' : defending ? 'Guard duty · Use Players to confront enemy spies inside. Your Hush stays on defense.' : 'Explore the buried fortress. Reach the Hush vault through twelve connected chambers.'}</p></div>
+            <div><span className="stronghold-eyebrow">Dungeon sector · {obsidian ? 'Death’s Gate · Open PvP' : `${targetVillage} territory`}</span><h2>{title}</h2><p>{obsidian ? 'Descend into the ember halls. Rival shinobi await at the Blood Altar.' : defending ? 'Guard duty · Use Players to confront enemy spies inside. Your Anbu stays on defense.' : 'Explore the buried fortress. Reach the Anbu vault through twelve connected chambers.'}</p></div>
             <div className={`stronghold-threat ${threat >= 80 ? 'is-danger' : ''}`}>
                 <div><b>Threat</b><strong>{threat}%</strong></div>
                 <div role="progressbar" aria-label="Stronghold threat" aria-valuemin={0} aria-valuemax={100} aria-valuenow={threat}><i style={{ width: `${threat}%` }} /></div>
@@ -515,11 +515,11 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                         : <><p>A sealed patrol ledger rests here. Inspect it for route intel; it does not affect patrol pressure.</p>
                             <button disabled={intelPending || !!pending || threat >= 100 || !!state?.patrol} onClick={() => void claimIntel()}>{intelPending ? 'Reading…' : 'Inspect patrol ledger'}</button></>}
                 </div>}
-                <p className="stronghold-hint">Each step adds 4% threat. Defeat the patrol to keep exploring. {obsidian ? 'Rival shinobi gather at the Blood Altar somewhere below. PvP wins anywhere inside earn more than Death’s Gate’s rewards. Patrols do not earn this bonus. Normal reward limits apply.' : 'The Hush guards the vault somewhere in these halls. Your map records only the ground you have explored.'}</p>
-                <p className="stronghold-hint underground-field-note">Sector {sector} · Shared dungeon<br />Your sector, village allegiance and active war follow you inside. Rival battles use this sector’s combat rules. {obsidian ? 'Patrols keep their normal rewards.' : 'Patrols and the Hush keep their own rewards and event credit.'}</p>
+                <p className="stronghold-hint">Each step adds 4% threat. Defeat the patrol to keep exploring. {obsidian ? 'Rival shinobi gather at the Blood Altar somewhere below. PvP wins anywhere inside earn more than Death’s Gate’s rewards. Patrols do not earn this bonus. Normal reward limits apply.' : 'The Anbu guards the vault somewhere in these halls. Your map records only the ground you have explored.'}</p>
+                <p className="stronghold-hint underground-field-note">Sector {sector} · Shared dungeon<br />Your sector, village allegiance and active war follow you inside. Rival battles use this sector’s combat rules. {obsidian ? 'Patrols keep their normal rewards.' : 'Patrols and the Anbu keep their own rewards and event credit.'}</p>
             </aside></StrongholdDialog>}
         </div>
-        <footer className="stronghold-footer"><div className="stronghold-guidance"><span className={!admissionError && !actionError && !error && !admissionPending && pending !== 'attack' && !state?.combatBlocked && !overview && !arenaNote && !fissuresInSight ? 'stronghold-control-help' : undefined} role={admissionError || actionError ? 'alert' : 'status'}>{admissionError || actionError || error || (admissionPending ? 'Connecting to the Hush fight… Closing the dialog does not cancel the challenge.' : pending === 'attack' ? 'Connecting to battle…' : state?.combatBlocked ? 'Resolve your PvP fight, then return to face the patrol.' : overview ? 'Map overview · Return to follow view to move.' : arenaNote || (fissuresInSight ? 'Fissures vent spirit fire in a rhythm. Cross a crack once its glow dies down.' : '') || 'Tap a floor tile or use the on-screen arrows. Keyboard: WASD/arrow keys. Controller: left stick moves; D-pad navigates.')}</span>
+        <footer className="stronghold-footer"><div className="stronghold-guidance"><span className={!admissionError && !actionError && !error && !admissionPending && pending !== 'attack' && !state?.combatBlocked && !overview && !arenaNote && !fissuresInSight ? 'stronghold-control-help' : undefined} role={admissionError || actionError ? 'alert' : 'status'}>{admissionError || actionError || error || (admissionPending ? 'Connecting to the Anbu fight… Closing the dialog does not cancel the challenge.' : pending === 'attack' ? 'Connecting to battle…' : state?.combatBlocked ? 'Resolve your PvP fight, then return to face the patrol.' : overview ? 'Map overview · Return to follow view to move.' : arenaNote || (fissuresInSight ? 'Fissures vent spirit fire in a rhythm. Cross a crack once its glow dies down.' : '') || 'Tap a floor tile or use the on-screen arrows. Keyboard: WASD/arrow keys. Controller: left stick moves; D-pad navigates.')}</span>
             {onRetryAdmission && <button onClick={onRetryAdmission}>Reconnect to challenge</button>}
             {(error || actionError) && state && <button disabled={!!pending || admissionPending} onClick={reconnectPresence}>Reconnect</button>}
             <button className="stronghold-players-toggle" onClick={() => { stopWalk(); setPlayersOpen(true); }}>Players <b>{peers.length + (state ? 1 : 0)}</b></button>

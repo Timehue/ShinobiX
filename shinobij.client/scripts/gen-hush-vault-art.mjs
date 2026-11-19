@@ -1,4 +1,4 @@
-// Hush Vault Infiltration art batch — the sector-base reskin + item icons.
+// Anbu Vault Infiltration art batch — the sector-base reskin + item icons.
 //
 //   curated prompts ──▶ OpenAI gpt-image-1 ──▶ sharp (resize + WebP) ──▶ asset-gen-out/hush-vault/
 //                                                                   └──▶ (--publish) POST /api/images (shrine:* ids only)
@@ -108,25 +108,25 @@ add("war-resource-cache", "item:war-resource-cache",
     `a sealed war-resource strongbox: a small dark iron coffer overflowing with rolled requisition scrolls and a few steel ingots, a glowing crimson ward-seal clasp, ${ICON_RULES}`,
     { transparent: true, copyTo: path.join(CLIENT_ROOT, "public", "items", "war-resource-cache.webp") });
 
-// ── 4. The per-village Hush defenders (public/hush/<slug>.webp) ──────────────
-// The masked guardian that stands in the vault's boss room. Hush are anonymous
+// ── 4. The per-village Anbu defenders (public/hush/<slug>.webp) ──────────────
+// The masked guardian that stands in the vault's boss room. Anbu are anonymous
 // masked operatives, so each village gets a signature masked figure (the real
 // appointee's LOADOUT still drives combat — this is only the face). Themed to
 // the village biome. slug KEEP IN SYNC with the client's HUSH_AVATAR_BY_VILLAGE.
 // FRAMING IS PART OF THE PROMPT. The first batch said only "single character
 // centered" and gpt-image-1 composed all four edge to edge: every hood crown
 // and every boot sole was sliced off by the frame, and the boss-room portrait
-// (HushVaultRaid, 168px) showed a headless-looking Hush. The shipped files were
+// (HushVaultRaid, 168px) showed a headless-looking Anbu. The shipped files were
 // repaired with scripts/fix-hush-framing.mjs; these clauses stop a re-roll from
 // putting the bug back, and hush-art-framing.test.ts fails the build if it does.
-const HUSH_FIGURE = "full-body three-quarter view of a masked Hush black-ops shinobi standing in a guarded ready stance, anonymous, signature porcelain animal mask, fitted dark stealth bodysuit with arm guards and a short hooded cloak, a tanto blade sheathed across the back, painterly anime shinobi RPG style, single character centered and framed SMALLER than the canvas with a clear band of empty space above the top of the hood and below the soles of the boots, the entire figure fully inside the frame, nothing cropped and no part of the character touching any edge of the image, transparent background, no ground plane, no scene, no text, no watermark";
-const Hush = [
+const HUSH_FIGURE = "full-body three-quarter view of a masked Anbu black-ops shinobi standing in a guarded ready stance, anonymous, signature porcelain animal mask, fitted dark stealth bodysuit with arm guards and a short hooded cloak, a tanto blade sheathed across the back, painterly anime shinobi RPG style, single character centered and framed SMALLER than the canvas with a clear band of empty space above the top of the hood and below the soles of the boots, the entire figure fully inside the frame, nothing cropped and no part of the character touching any edge of the image, transparent background, no ground plane, no scene, no text, no watermark";
+const Anbu = [
     { slug: "moonshadow", theme: "a pale bone-white porcelain OWL mask with deep violet markings, indigo-and-charcoal cloak edged in cold silver, faint moonlit violet rim light" },
     { slug: "stormveil", theme: "a slate-grey porcelain HAWK mask with jade-green markings, mossy deep-green and dark slate cloak, faint teal storm-light rim glow" },
     { slug: "ashenleaf", theme: "a charcoal porcelain FOX mask with smouldering ember-orange markings, ash-grey and black cloak with faint glowing orange trim, warm ember rim light" },
     { slug: "frostfang", theme: "a frost-white porcelain fanged-WOLF mask with pale cyan markings, frost-white and steel-blue cloak, cold icy-blue rim light" },
 ];
-for (const a of Hush) {
+for (const a of Anbu) {
     add(`hush-${a.slug}`, `hush:${a.slug}`, `${HUSH_FIGURE}, wearing ${a.theme}`,
         { transparent: true, maxPx: 512, quality: "high", copyTo: path.join(CLIENT_ROOT, "public", "hush", `${a.slug}.webp`) });
 }

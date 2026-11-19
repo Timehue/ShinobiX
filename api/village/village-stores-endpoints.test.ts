@@ -114,7 +114,7 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         assert.equal(stored?.garrisonFeed?.[DEFENDER].by, 'frostkage');
         assert.equal(stored?.garrisonFed, undefined, 'the legacy single flag is no longer written');
 
-        // The ATTACKER's Hush turning "off" only writes Moonshadow's own entry - Frostfang's stays on.
+        // The ATTACKER's Anbu turning "off" only writes Moonshadow's own entry - Frostfang's stays on.
         const off = await call(sectorWar, { action: 'garrison-feed', playerName: 'moonhush', sectorWarId: CONTEST_ID, on: false });
         assert.equal(off.statusCode, 200, JSON.stringify(off.body));
         assert.equal(off.body?.village, ATTACKER);

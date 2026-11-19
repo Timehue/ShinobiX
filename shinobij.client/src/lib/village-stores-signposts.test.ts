@@ -251,7 +251,7 @@ test("a stocked storehouse reads as ready for the Kage", () => {
     assert.ok(line.includes("The Kage spends the stores on sieges"), line);
     // Elders hire mercenary bands too since the 2026-10-08 redesign.
     assert.ok(line.includes("the Kage and Elders hire"), line);
-    assert.ok(line.includes("Hush appointees may order a garrison fed"), line);
+    assert.ok(line.includes("Anbu appointees may order a garrison fed"), line);
     assert.equal(storesSpendAuthorityLine({ loaded: true, provisions: 0, materialPoints: 12 }), line);
 });
 

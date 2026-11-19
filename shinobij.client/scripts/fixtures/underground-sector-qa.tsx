@@ -136,7 +136,7 @@ export function DungeonFixture() {
     if (params.has('raidHost')) return <LiveCapabilitiesContext.Provider value={capabilityStore}><HushVaultRaid character={character} sector={Number(params.get('sector') ?? 12)} targetVillage={targetVillage} sharedImages={{}}
         onVersionedCharacter={() => true} onExit={() => setExited(true)} onAttackPlayer={() => { document.body.dataset.attack = 'true'; }} /></LiveCapabilitiesContext.Provider>;
     return <StrongholdExplore character={character} sector={Number(params.get('sector') ?? 12)} targetVillage={targetVillage} sharedImages={{}}
-        hushAvatar="/hush/frostfang.webp?v=2" hushName="Frostfang Hush" blocked={false} onExit={() => setExited(true)}
+        hushAvatar="/hush/frostfang.webp?v=2" hushName="Frostfang Anbu" blocked={false} onExit={() => setExited(true)}
         onChallenge={() => { document.body.dataset.challenge = 'true'; }} onPatrol={() => { document.body.dataset.patrol = 'true'; }}
         onAttackPlayer={async player => {
             if (params.has('multiplayer')) { const result = await fetch('/api/player/attack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, targetName: player.name, attacker: { name: character.name } }) });

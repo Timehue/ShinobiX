@@ -9,7 +9,7 @@ process.env.ADMIN_PASSWORD = 'permanent-ban-release-admin';
 process.env.SESSION_SECRET = 'permanent-ban-release-secret';
 
 /*
- * What a permanent ban releases (owner ruling 2026-11-04): Kage, Elder and Hush
+ * What a permanent ban releases (owner ruling 2026-11-04): Kage, Elder and Anbu
  * seats, a founded clan, and Exchange listings. A timed ban releases nothing.
  * Driven through the real moderation handler on the in-memory store.
  */

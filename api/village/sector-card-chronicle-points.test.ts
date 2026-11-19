@@ -17,7 +17,7 @@ const ATTACKER = 'Moonshadow Village';
 const DEFENDER = 'Frostfang Village';
 const RAIDER = 'cpraider';
 const HOLDOUT = 'cpholdout';
-const Hush = 'cphush';
+const Anbu = 'cphush';
 const IDLE_MS = 2 * 60 * 60 * 1000;
 
 let handler: Handler;
@@ -43,8 +43,8 @@ beforeEach(async () => {
     resetRateLimits();
     await kv.set(`save:${RAIDER}`, { _saveVersion: 1, character: { name: RAIDER, village: ATTACKER, chroniclePoints: 0 } });
     await kv.set(`save:${HOLDOUT}`, { _saveVersion: 1, character: { name: HOLDOUT, village: DEFENDER, chroniclePoints: 0 } });
-    await kv.set(`save:${Hush}`, { _saveVersion: 1, character: { name: Hush, village: DEFENDER } });
-    await kv.set(villageStateKey(DEFENDER), { hushAppointees: [Hush] });
+    await kv.set(`save:${Anbu}`, { _saveVersion: 1, character: { name: Anbu, village: DEFENDER } });
+    await kv.set(villageStateKey(DEFENDER), { hushAppointees: [Anbu] });
 });
 
 after(async () => {

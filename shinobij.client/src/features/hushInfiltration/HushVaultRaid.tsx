@@ -1,4 +1,4 @@
-/* Sector stronghold: shared exploration, movement patrols, and the final Hush raid. */
+/* Sector stronghold: shared exploration, movement patrols, and the final Anbu raid. */
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { StrongholdExplore } from "./StrongholdExplore";
 import { useEmbeddedCombat } from '../../lib/use-embedded-combat';
@@ -119,7 +119,7 @@ function HushVaultRaidLegacy({
     const mounted = useRef(false);
     const lifetime = useRef<object | null>(null);
     // Warm the fight while the player explores (not on Save-Data), so a patrol
-    // or the Hush opens without a download. A failed warm-up is the real load's
+    // or the Anbu opens without a download. A failed warm-up is the real load's
     // failure too, and that path already recovers through the error boundary.
     useEffect(() => {
         if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
@@ -132,7 +132,7 @@ function HushVaultRaidLegacy({
         mounted.current = true;
         return () => { mounted.current = false; lifetime.current = null; };
     }, [runKey, sector]);
-    // Boss room: true once the player reaches the Hush at the vault, opening the
+    // Boss room: true once the player reaches the Anbu at the vault, opening the
     // Challenge / Retreat confrontation (the fight no longer auto-starts on step).
     const [challenge, setChallenge] = useState(false);
     // The masked, anonymous face of this village's vault defender.
@@ -186,18 +186,18 @@ function HushVaultRaidLegacy({
             .catch(e => { if (ownsAction()) setError((e as Error).message); })
             .finally(() => { if (ownsAction()) { startingRef.current = false; setStarting(false); } });
     }
-    // ── the vault: start the server-auth Hush fight (fired from the boss-room
+    // ── the vault: start the server-auth Anbu fight (fired from the boss-room
     //    Challenge confirm, not on step) ────────────────────────────────────────
     async function enterVault() {
         if (isDeathsGateStronghold(sector)) return;
         if (startingRef.current || phase !== "traverse") return;
         if (defendingVillage) return;
         if (!raidLevelEligible) {
-            setError(`Hush treasury raids require level ${HUSH_RAID_MIN_LEVEL}. You can continue exploring the stronghold.`);
+            setError(`Anbu treasury raids require level ${HUSH_RAID_MIN_LEVEL}. You can continue exploring the stronghold.`);
             return;
         }
         if (!hushInfiltrationAdmissionEnabled(mutationAvailability("hushInfiltration"))) {
-            setError("Hush infiltration actions are paused. No raid attempt was started.");
+            setError("Anbu infiltration actions are paused. No raid attempt was started.");
             return;
         }
         startingRef.current = true;
@@ -238,7 +238,7 @@ function HushVaultRaidLegacy({
     }
     async function settleInfiltration(runId: string, _playerName: string, signal?: AbortSignal): Promise<unknown> {
         if (!hushInfiltrationAdmissionEnabled(mutationAvailability("hushInfiltration"))) {
-            throw new Error("Saving Hush results is paused. Keep this run open and try again when live actions return.");
+            throw new Error("Saving Anbu results is paused. Keep this run open and try again when live actions return.");
         }
         const owner = lifetime.current;
         const r = await reportInfiltration(runId, character.name, signal);
@@ -267,13 +267,13 @@ function HushVaultRaidLegacy({
         ...soloPveArenaTransport,
         fetchState: (sessionId: string, playerName: string) => {
             if (viewAvailability("hushInfiltration") !== "available") {
-                return Promise.reject(new Error("Hush recovery status is temporarily unavailable."));
+                return Promise.reject(new Error("Anbu recovery status is temporarily unavailable."));
             }
             return soloPveArenaTransport.fetchState(sessionId, playerName);
         },
         submitAction: (...args: Parameters<typeof soloPveArenaTransport.submitAction>) => {
             if (!hushInfiltrationAdmissionEnabled(mutationAvailability("hushInfiltration"))) {
-                return Promise.reject(new Error("Hush combat actions are temporarily paused."));
+                return Promise.reject(new Error("Anbu combat actions are temporarily paused."));
             }
             return soloPveArenaTransport.submitAction(...args);
         },
@@ -314,7 +314,7 @@ function HushVaultRaidLegacy({
                     if (report) setPhase("result"); else leaveResolvedRaid();
                 }}
                 onRecordBattle={onRecordBattle}
-                recordMode={fight.patrol ? (isDeathsGateStronghold(sector) ? "Obsidian Patrol" : "Stronghold Patrol") : "Hush Vault"}
+                recordMode={fight.patrol ? (isDeathsGateStronghold(sector) ? "Obsidian Patrol" : "Stronghold Patrol") : "Anbu Vault"}
                 enemyAvatarOverride={fight.patrol ? undefined : hushAvatar ?? undefined}
                 settleFn={fight.patrol ? settlePatrol : settleInfiltration}
                 settleOnAnyDone
@@ -359,11 +359,11 @@ function HushVaultRaidLegacy({
             : null;
         return (
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "1.2rem", textAlign: "center" }}>
-                <h2 style={{ margin: "0.4rem 0" }}>{won ? "Vault Breached" : "The Hush Held"}</h2>
+                <h2 style={{ margin: "0.4rem 0" }}>{won ? "Vault Breached" : "The Anbu Held"}</h2>
                 <p style={{ opacity: 0.85 }}>
                     {won
                         ? `You slipped past ${fight?.targetVillage ?? targetVillage}'s defenses and cracked the war vault in Sector ${fight?.sector ?? sector}.`
-                        : `${fight?.hushName ?? "The defending Hush"} repelled your raid on Sector ${fight?.sector ?? sector}. No spoils — the vault stands.`}
+                        : `${fight?.hushName ?? "The defending Anbu"} repelled your raid on Sector ${fight?.sector ?? sector}. No spoils — the vault stands.`}
                 </p>
                 {fresh && (
                     <div style={{ display: "grid", gap: 8, margin: "1rem auto", maxWidth: 380, textAlign: "left" }}>
@@ -411,11 +411,11 @@ function HushVaultRaidLegacy({
                 onExit={onExit}
             />
             {/* Boss room — the Challenge / Retreat confrontation at the vault. */}
-            {challenge && <StrongholdDialog title={defendingVillage ? "Your village’s Hush" : "Challenge the Hush"} busy={starting} onClose={() => setChallenge(false)}>
+            {challenge && <StrongholdDialog title={defendingVillage ? "Your village’s Anbu" : "Challenge the Anbu"} busy={starting} onClose={() => setChallenge(false)}>
                 {hushAvatar && <img className="stronghold-boss-portrait" src={hushAvatar} alt={hushName} />}
                 <h3>{hushName}</h3>
-                <p>{defendingVillage ? 'This Hush protects your village’s war reserves. Explore the stronghold and confront rival players. Your own treasury cannot be raided.' : 'The masked operative guards the vault at full strength. Defeat them to raid this sector’s war reserves. Your current health and supplies carry into the fight.'}</p>
-                {!defendingVillage && !raidLevelEligible && <p role="status">Hush treasury raids unlock at level {HUSH_RAID_MIN_LEVEL}. You can continue exploring and fighting patrols or rival players.</p>}
+                <p>{defendingVillage ? 'This Anbu protects your village’s war reserves. Explore the stronghold and confront rival players. Your own treasury cannot be raided.' : 'The masked operative guards the vault at full strength. Defeat them to raid this sector’s war reserves. Your current health and supplies carry into the fight.'}</p>
+                {!defendingVillage && !raidLevelEligible && <p role="status">Anbu treasury raids unlock at level {HUSH_RAID_MIN_LEVEL}. You can continue exploring and fighting patrols or rival players.</p>}
                 {error && <p className="stronghold-error" role="alert">{error}</p>}
                 <div className="stronghold-dialog-actions">
                     {!defendingVillage && <button className="stronghold-attack" onClick={() => void enterVault()} disabled={starting || !actionsAvailable || !raidLevelEligible}>{starting ? 'Engaging…' : !raidLevelEligible ? `Requires level ${HUSH_RAID_MIN_LEVEL}` : 'Challenge'}</button>}

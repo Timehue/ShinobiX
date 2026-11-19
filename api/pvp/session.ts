@@ -244,7 +244,7 @@ export type PvpSession = {
         observedAt: number;
     };
     /** Immutable server role evidence used by village-war continuation. Seats
-     * or Hush appointments granted after battle creation cannot amplify it. */
+     * or Anbu appointments granted after battle creation cannot amplify it. */
     warRoleEvidence?: SealedWarRoleEvidence;
     challengeId?: string;
     /** Server-derived official Kage duel prerequisite. Moves help it forward

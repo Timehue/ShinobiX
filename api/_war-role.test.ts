@@ -30,7 +30,7 @@ async function withKvRecords<T>(records: Map<string, unknown>, run: () => Promis
 }
 
 describe('war-role: weights mirror the village-war model', () => {
-    it('Kage 30/50, Elder 20/20, Hush 15/0, villager 5/0; a merc is a villager', () => {
+    it('Kage 30/50, Elder 20/20, Anbu 15/0, villager 5/0; a merc is a villager', () => {
         assert.deepEqual(ROLE_KAGE, { win: 30, loss: 50 });
         assert.deepEqual(ROLE_ELDER, { win: 20, loss: 20 });
         assert.deepEqual(ROLE_HUSH, { win: 15, loss: 0 });
@@ -86,7 +86,7 @@ describe('war-role: the Kage seat key', () => {
 });
 
 describe('war-role: sealed village authority', () => {
-    it('does not let a post-battle Kage/Hush appointment amplify sealed villager evidence', async () => {
+    it('does not let a post-battle Kage/Anbu appointment amplify sealed villager evidence', async () => {
         const createdAt = 1_800_000_000_000;
         const evidence = {
             version: 1 as const,
@@ -116,7 +116,7 @@ describe('war-role: sealed village authority', () => {
         );
     });
 
-    it('does not import Kage, Hush, or clan-leader weight after a village switch', async () => {
+    it('does not import Kage, Anbu, or clan-leader weight after a village switch', async () => {
         const roleCases: Array<{
             label: string;
             seat: Record<string, unknown>;
@@ -124,7 +124,7 @@ describe('war-role: sealed village authority', () => {
             character?: Record<string, unknown>;
         }> = [
             { label: 'seated Kage', seat: { seatedKage: 'switcher' }, villageState: {} },
-            { label: 'appointed Hush', seat: {}, villageState: { hushAppointees: ['switcher'] } },
+            { label: 'appointed Anbu', seat: {}, villageState: { hushAppointees: ['switcher'] } },
             { label: 'client-claimed clan leader', seat: {}, villageState: {}, character: { clan: 'Cloud Guard', clanFounder: true } },
         ];
 
@@ -177,8 +177,8 @@ describe('war-role: sealed village authority', () => {
 
     });
 
-    it('ignores forged Kage, Elder, and Hush titles', async () => {
-        for (const storyTitle of ['Kage', 'Second Elder', 'Hush Captain']) {
+    it('ignores forged Kage, Elder, and Anbu titles', async () => {
+        for (const storyTitle of ['Kage', 'Second Elder', 'Anbu Captain']) {
             const records = new Map<string, unknown>([
                 ['save:forger', { character: { village: 'Mist', storyTitle, rankTitle: storyTitle } }],
                 ['village:kage:mist', {}],

@@ -6,7 +6,7 @@
  * to an NPC and lost, and a siege on Cinderhold could be won by never meeting
  * one. Each tick, for every live Combat sector war with Cinderhold on one side,
  * ONE free Cinderhold war participant (api/_npc-war-roster.ts
- * npcWarParticipants: its Hush first, then its Genin and Chunin at level 15+)
+ * npcWarParticipants: its Anbu first, then its Genin and Chunin at level 15+)
  * strikes:
  *   - an enemy player standing in the contested sector (lowest HP first,
  *     honouring the shared 15-minute merc-target cooldown) is ATTACKED for
@@ -14,7 +14,7 @@
  *     world duel exactly as a player would (api/_npc-war-strike.ts), which the
  *     server plays and which scores the war like any duel there; or
  *   - when Cinderhold is attacking and no defender has fought for the garrison
- *     idle window, the defending village's garrison (its sealed Hush or Kage),
+ *     idle window, the defending village's garrison (its sealed Anbu or Kage),
  *     auto-resolved on the server (resolveMercBattle) as a player's garrison
  *     assault is: an NPC win scores at garrison weight under the war's cap, a
  *     garrison that holds scores the defence like a merc repel, a stall nothing.
@@ -74,7 +74,7 @@ export type NpcWarPartyDeps = {
     standsIn?: (npc: NpcShinobi, sector: number) => boolean;
     /** Opens the real world duel (api/_npc-war-strike.ts). */
     openDuel?: (npc: NpcShinobi, target: string, sector: number) => Promise<NpcWarDuel>;
-    /** Who may strike (npcWarParticipants: the Hush, then Genin and Chunin at level 15+). */
+    /** Who may strike (npcWarParticipants: the Anbu, then Genin and Chunin at level 15+). */
     participants?: (now: number) => Promise<readonly NpcShinobi[]>;
 };
 
@@ -119,7 +119,7 @@ async function gapClosingJutsu(): Promise<AiOpponentJutsu[]> {
 
 /**
  * The free war participant whose turn it is (rotation by tick), sealed from its
- * save. Its Hush first, then (owner ruling 2026-11-11) its Genin and Chunin at
+ * save. Its Anbu first, then (owner ruling 2026-11-11) its Genin and Chunin at
  * level 15 or more, each group rotating on its own. `where` keeps it to one
  * that can reach the target.
  */

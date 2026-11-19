@@ -29,7 +29,7 @@ const ATTACKER = 'Moonshadow Village';
 const DEFENDER = 'Frostfang Village';
 const RAIDER = 'raider';
 const HOLDOUT = 'holdout';
-const Hush = 'hushdefender';
+const Anbu = 'hushdefender';
 
 let petHandler: Handler;
 let cardHandler: Handler;
@@ -105,9 +105,9 @@ beforeEach(async () => {
     if (keys.length) await kv.del(...keys);
     await seedPlayer(RAIDER, ATTACKER, [pet('atk1', 'Ashfang'), pet('atk2', 'Emberpaw')]);
     await seedPlayer(HOLDOUT, DEFENDER, [pet('def1', 'Frostmaw')]);
-    await seedPlayer(Hush, DEFENDER, [pet('hush1', 'Wardenclaw'), pet('hush2', 'Snowveil')]);
-    // The defending village's appointed Hush is who the garrison seals from.
-    await kv.set(villageStateKey(DEFENDER), { hushAppointees: [Hush] });
+    await seedPlayer(Anbu, DEFENDER, [pet('hush1', 'Wardenclaw'), pet('hush2', 'Snowveil')]);
+    // The defending village's appointed Anbu is who the garrison seals from.
+    await kv.set(villageStateKey(DEFENDER), { hushAppointees: [Anbu] });
 });
 
 describe('Pet sector garrison closes the absent-defence hold', { concurrency: false }, () => {
@@ -120,13 +120,13 @@ describe('Pet sector garrison closes the absent-defence hold', { concurrency: fa
         assert.equal(session.status, 'done');
         assert.equal(session.garrison, true);
         assert.ok(session.winner === 'p1' || session.winner === 'p2');
-        // The garrison seals the appointed Hush, not the absent defender — and
+        // The garrison seals the appointed Anbu, not the absent defender — and
         // fights under the defence's MASKED name, like the Combat garrison:
-        // the Hush's real name never reaches the attacker.
-        assert.equal(session.p2?.name, 'Frostfang Hush #1');
-        assert.doesNotMatch(JSON.stringify(out.body), new RegExp(Hush), 'the Hush slug is never sent to the attacker');
+        // the Anbu's real name never reaches the attacker.
+        assert.equal(session.p2?.name, 'Frostfang Anbu #1');
+        assert.doesNotMatch(JSON.stringify(out.body), new RegExp(Anbu), 'the Anbu slug is never sent to the attacker');
         const stored = await kv.get<{ garrisonDefenderSlug?: string }>(`sector-pet-garrison:${contest.id}`);
-        assert.equal(stored?.garrisonDefenderSlug, Hush, 'the server still records whose team it sealed');
+        assert.equal(stored?.garrisonDefenderSlug, Anbu, 'the server still records whose team it sealed');
 
         // The whole point: the war is no longer stuck at 0-0.
         const after = await loadSectorWar(contest.id);
@@ -169,12 +169,12 @@ describe('Pet sector garrison closes the absent-defence hold', { concurrency: fa
         assert.match(String(out.body?.error), /not a Pet contest/i);
     });
 
-    it('refuses when the village has no Hush and no seated Kage to field one', async () => {
+    it('refuses when the village has no Anbu and no seated Kage to field one', async () => {
         await kv.del(villageStateKey(DEFENDER));
         const contest = await seedContest('pet', IDLE_MS + 60_000);
         const out = await call(petHandler, { action: 'garrison-duel', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
         assert.equal(out.statusCode, 409);
-        assert.match(String(out.body?.error), /no Hush or Kage/i);
+        assert.match(String(out.body?.error), /no Anbu or Kage/i);
     });
 
     it('cannot be spammed — the garrison re-forms on the same window it unlocks on', async () => {
@@ -213,7 +213,7 @@ describe('Pet sector garrison closes the absent-defence hold', { concurrency: fa
 
     it('credits an attacker win to the player, and a garrison hold to NOBODY', async () => {
         // `by` feeds the settlement capture credit. An AI holding ground must not
-        // hand credit to the Hush whose kit it borrowed — they never played.
+        // hand credit to the Anbu whose kit it borrowed — they never played.
         // This mirrors the Combat garrison's `by: attackerWon ? name : ''`.
         const contest = await seedContest('pet', IDLE_MS + 60_000);
         const out = await call(petHandler, { action: 'garrison-duel', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
@@ -256,22 +256,22 @@ describe('Pet sector garrison closes the absent-defence hold', { concurrency: fa
         assert.equal((answered.body?.session as { status: string }).status, 'done');
     });
 
-    it('walks past a Hush whose pets are all busy to one who can field a team', async () => {
+    it('walks past an Anbu whose pets are all busy to one who can field a team', async () => {
         // 'hushaway' sorts first and has never defended, so the rotation lands
         // on them first. Their only pet is on an expedition, so they field no
         // team — which used to refuse the assault outright, every time.
         await seedPlayer('hushaway', DEFENDER, [{ ...pet('away1', 'Driftfang'), expedition: { endsAt: Date.now() + 3_600_000 } }]);
-        await kv.set(villageStateKey(DEFENDER), { hushAppointees: ['hushaway', Hush] });
+        await kv.set(villageStateKey(DEFENDER), { hushAppointees: ['hushaway', Anbu] });
         const contest = await seedContest('pet', IDLE_MS + 60_000);
         const out = await call(petHandler, { action: 'garrison-duel', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
         assert.equal(out.body?.garrisonDefendedByKage, false);
-        assert.equal((out.body?.session as { p2?: { name: string } }).p2?.name, 'Frostfang Hush #2');
+        assert.equal((out.body?.session as { p2?: { name: string } }).p2?.name, 'Frostfang Anbu #2');
         const stored = await kv.get<{ garrisonDefenderSlug?: string }>(`sector-pet-garrison:${contest.id}`);
-        assert.equal(stored?.garrisonDefenderSlug, Hush, 'the next Hush in rotation held the garrison');
+        assert.equal(stored?.garrisonDefenderSlug, Anbu, 'the next Anbu in rotation held the garrison');
     });
 
-    it('falls back to the seated Kage when every Hush is busy', async () => {
+    it('falls back to the seated Kage when every Anbu is busy', async () => {
         await seedPlayer('hushaway', DEFENDER, [{ ...pet('away1', 'Driftfang'), expedition: { endsAt: Date.now() + 3_600_000 } }]);
         await kv.set(villageStateKey(DEFENDER), { hushAppointees: ['hushaway'] });
         await kv.set(`village:kage:${DEFENDER.toLowerCase().replace(/\s+/g, '-')}`, { seatedKage: HOLDOUT });
@@ -282,7 +282,7 @@ describe('Pet sector garrison closes the absent-defence hold', { concurrency: fa
         assert.equal((out.body?.session as { p2?: { name: string } }).p2?.name, 'The Frostfang Kage');
     });
 
-    it('falls back to the seated Kage when no Hush are appointed', async () => {
+    it('falls back to the seated Kage when no Anbu are appointed', async () => {
         await kv.del(villageStateKey(DEFENDER));
         await kv.set(`village:kage:${DEFENDER.toLowerCase().replace(/\s+/g, '-')}`, { seatedKage: HOLDOUT });
         const contest = await seedContest('pet', IDLE_MS + 60_000);
@@ -327,9 +327,9 @@ describe('Card sector garrison closes the same hole', { concurrency: false }, ()
 
     it('never writes the DEFENDER\'s save — an assault must not mutate an uninvolved player', async () => {
         const contest = await seedContest('card', IDLE_MS + 60_000);
-        const before = JSON.stringify(await kv.get(`save:${Hush}`));
+        const before = JSON.stringify(await kv.get(`save:${Anbu}`));
         await call(cardHandler, { action: 'join', garrison: true, playerName: RAIDER, sectorWarId: contest.id });
-        assert.equal(JSON.stringify(await kv.get(`save:${Hush}`)), before);
+        assert.equal(JSON.stringify(await kv.get(`save:${Anbu}`)), before);
     });
 
     it('makes the attacker provably IN A FIGHT while the assault is live', async () => {

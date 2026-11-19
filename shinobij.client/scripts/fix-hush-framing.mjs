@@ -1,4 +1,4 @@
-// Hush defender OUTPAINT repair — un-crop the four vault guardians.
+// Anbu defender OUTPAINT repair — un-crop the four vault guardians.
 //
 //   public/hush/<slug>.webp ──▶ pad to 1024 with head/foot room ──▶ gpt-image-1
 //        /images/edits with a mask that opens ONLY the empty bands
@@ -37,16 +37,16 @@ const OUT_DIR = path.join(CLIENT_ROOT, "asset-gen-out", "hush-reframe");
 const MAIN_ENV = "C:/Users/Tyler R/source/repos/NinjaK/shinobij.client/.env";
 
 // KEEP IN SYNC with HUSH_AVATAR_BY_VILLAGE (src/lib/hush-infiltration-api.ts)
-// and the Hush list in gen-hush-vault-art.mjs — the theme strings are that
+// and the Anbu list in gen-hush-vault-art.mjs — the theme strings are that
 // script's verbatim, so the repaired art lands back on the same palette the
 // village was authored with.
-const Hush = {
+const Anbu = {
     moonshadow: "a pale bone-white porcelain OWL mask with deep violet markings, indigo-and-charcoal cloak edged in cold silver, faint moonlit violet rim light",
     stormveil: "a slate-grey porcelain HAWK mask with jade-green markings, mossy deep-green and dark slate cloak, faint teal storm-light rim glow",
     ashenleaf: "a charcoal porcelain FOX mask with smouldering ember-orange markings, ash-grey and black cloak with faint glowing orange trim, warm ember rim light",
     frostfang: "a frost-white porcelain fanged-WOLF mask with pale cyan markings, frost-white and steel-blue cloak, cold icy-blue rim light",
 };
-const SLUGS = Object.keys(Hush).sort();
+const SLUGS = Object.keys(Anbu).sort();
 
 // Canvas plan at 1024 — the figure is placed inside this box so the model is
 // handed a reference that already SHOWS where the head and feet should end.
@@ -68,8 +68,8 @@ const BORDER = 80;  // locked transparent frame the model is not allowed to pain
 // answer. The village palette vocabulary holds the character through the redraw.
 function promptFor(slug) {
     return [
-        "This painterly anime RPG illustration of a masked Hush black-ops shinobi —",
-        Hush[slug] + " — has been cropped: the top of the hood and the soles of the boots run off the frame.",
+        "This painterly anime RPG illustration of a masked Anbu black-ops shinobi —",
+        Anbu[slug] + " — has been cropped: the top of the hood and the soles of the boots run off the frame.",
         "Paint in the missing hood crown and the missing boot soles so the figure is whole.",
         "Everything already drawn stays exactly as it is: same mask shape and markings, same cloak and outfit colours, same guarded ready stance, same proportions, same brushwork and lighting.",
         "Frame the finished figure smaller than the canvas, with a clear band of empty space above the hood and below the boots; no part of the character may touch an edge.",

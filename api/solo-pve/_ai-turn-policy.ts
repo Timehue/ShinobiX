@@ -19,8 +19,8 @@ import type { CombatStatus } from '../combat-core/types.js';
  * character when the session is built (./_ai-encounter.ts), exactly like
  * `missionTactics`, so a session keeps the runner it started with and every
  * other Solo host (Hollow Gate, endless waves, caravan, stronghold patrols,
- * weekly boss, vault Hush, sector garrisons) keeps the original runner byte-for-byte.
- * Village-war Hush copies explicitly seal the same planner for tactical play.
+ * weekly boss, vault Anbu, sector garrisons) keeps the original runner byte-for-byte.
+ * Village-war Anbu copies explicitly seal the same planner for tactical play.
  */
 export const STANDARD_PVE_AI_POLICY = 'standard-pve-v1' as const;
 /** Sealed only by server-authored challenge builders, never player copies. */
@@ -49,7 +49,7 @@ export const STANDARD_PVE_AI_KINDS: ReadonlySet<string> = new Set([
     'academy-spar',
     'generic-ai',
     'world-ai',
-    // Explicitly sealed village-war Hush copies use the same legal planner.
+    // Explicitly sealed village-war Anbu copies use the same legal planner.
     'village-war-garrison',
 ]);
 
