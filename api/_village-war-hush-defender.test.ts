@@ -18,7 +18,7 @@ async function seed(members: string[], kage = '') {
     await kv.set('game:village-state:frostfangvillage', { hushAppointees: members });
     if (kage) await kv.set('village:kage:frostfang-village', { seatedKage: kage });
 }
-describe('reusable village-war Hush copies', { concurrency: false }, () => {
+describe('reusable village-war Anbu copies', { concurrency: false }, () => {
     it('uses a fresh random candidate rather than the sector-war rotation', async () => {
         await seed(['alpha', 'bravo']);
         const rotation = { bravo: Date.now() };
@@ -28,7 +28,7 @@ describe('reusable village-war Hush copies', { concurrency: false }, () => {
         if (selected.ok) assert.equal(selected.defender.slug, 'bravo');
         assert.deepEqual(await kv.get('infil-hush-last:frostfangvillage'), rotation);
     });
-    it('can reuse the sole Hush repeatedly without consuming or cooldown-locking them', async () => {
+    it('can reuse the sole Anbu repeatedly without consuming or cooldown-locking them', async () => {
         await seed(['alpha']);
         for (let assault = 0; assault < 5; assault++) {
             const selected = await fieldCampaignHush(village, async name => name);

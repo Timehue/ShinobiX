@@ -94,8 +94,8 @@ export function VillageCampaignPanel({ character, warId: initialWarId, sharedIma
                 onClick={() => void command(defense === objective.id ? 'dequeue' : 'defend', { objectiveId: objective.id })}>
                 {defense === objective.id ? 'Leave defense queue' : 'Queue to defend'}</button>}
             {!defenseOnly && !own && objective.village && sector === objective.sector && <button disabled={busy || closed || locked || !live}
-                onClick={() => void command('start', { objectiveId: objective.id })}>{objective.village ? 'Attack the Hush defense' : 'Contest the shrine'}</button>}
-            {objective.village && !own && <small>Travel to Sector {objective.sector} and enter its stronghold. A queued player takes the defense; otherwise its Hush stands in.</small>}
+                onClick={() => void command('start', { objectiveId: objective.id })}>{objective.village ? 'Attack the Anbu defense' : 'Contest the shrine'}</button>}
+            {objective.village && !own && <small>Travel to Sector {objective.sector} and enter its stronghold. A queued player takes the defense; otherwise its Anbu stands in.</small>}
         </article>;
     }
     return <section className='village-campaign' aria-label='Village war campaign'>

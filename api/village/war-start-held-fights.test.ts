@@ -7,7 +7,7 @@ import { after, before, beforeEach, describe, it, type TestContext } from 'node:
 import type { HollowGateRunToken } from '../hollow-gate/_run-token.js';
 
 /*
- * The two war fights, the Hush Vault raid and the sector-war garrison assault,
+ * The two war fights, the Anbu Vault raid and the sector-war garrison assault,
  * driven through their mounted handlers over the in-memory KV.
  *
  * Both seat the player on the HP their save holds. Neither start used to settle
@@ -160,7 +160,7 @@ async function seedHush(): Promise<void> {
     await kv.set('game:village-state:frostfangvillage', { hushAppointees: [HUSH_SLUG] });
     await kv.set(`save:${HUSH_SLUG}`, {
         character: {
-            name: 'Frostfang Hush', village: DEFENDER_VILLAGE, level: 100,
+            name: 'Frostfang Anbu', village: DEFENDER_VILLAGE, level: 100,
             maxHp: 12_000, hp: 12_000, maxChakra: 1_000, maxStamina: 1_000,
             stats: {}, jutsu: [], pvpItems: [], equipment: {},
         },
@@ -181,7 +181,7 @@ async function seedGarrisonWar(now: number, lastLiveBattleAgo = 3 * HOUR): Promi
     await seedHush();
 }
 
-/** Frostfang holds the sector and its Hush defends the vault; the raider is level 100. */
+/** Frostfang holds the sector and its Anbu defends the vault; the raider is level 100. */
 async function seedVault(name: string): Promise<void> {
     await kv.set(`world:territory:${SECTOR}`, { sector: SECTOR, ownerVillage: DEFENDER_VILLAGE, updatedAt: Date.now() });
     await seedHush();
@@ -322,7 +322,7 @@ describe('garrison assault: the fights a player is holding are settled before th
     });
 });
 
-describe('Hush Vault raid: the fights a player is holding are settled before the raider is seated', { concurrency: false }, () => {
+describe('Anbu Vault raid: the fights a player is holding are settled before the raider is seated', { concurrency: false }, () => {
     it('a mission won and held back: the raid starts on what the mission left', async (t) => {
         freezeClock(t);
         const name = freshName('vaultheld');
@@ -347,7 +347,7 @@ describe('Hush Vault raid: the fights a player is holding are settled before the
 
         const refused = await startVault(name);
         assert.equal(refused.status, 409, JSON.stringify(refused.body));
-        assert.match(String(refused.body.error), /Reach the Hush/);
+        assert.match(String(refused.body.error), /Reach the Anbu/);
         assert.equal((await readSoloPveSession(mission))?.status, 'active', 'the mission is still the player\'s to finish');
         assert.equal((await saved(name)).hp, 600, 'and nothing was charged for it');
     });

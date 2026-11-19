@@ -2548,7 +2548,7 @@ function WorldMapContent({
     const [petVnLine, setPetVnLine] = useState(0);
     const sectorObstacles = useSectorTileGrounding(selectedSector, sectorPlayerPos, setSectorPlayerPos);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
-    // Hush Vault Infiltration (hushInfiltration.v1): the walk-up prompt on the
+    // Anbu Vault Infiltration (hushInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
     const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string; warEntry?: boolean } | null>(null);
     const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
@@ -4652,7 +4652,7 @@ function WorldMapContent({
                                 />
                             )}
 
-                            {/* Hush Vault — Infiltrate / Retreat prompt (portaled above nav). */}
+                            {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
                             {warShrine.overlay}
                             {vaultPrompt && hushViewOpen && createPortal(
                                 <WarStrongholdEntrance character={character} target={vaultPrompt} campaign={villageCampaign.state?.campaign}
@@ -4664,7 +4664,7 @@ function WorldMapContent({
                                 document.body,
                             )}
 
-                            {/* Hush Vault — the live raid (traverse → Hush fight → spoils),
+                            {/* Anbu Vault — the live raid (traverse → Anbu fight → spoils),
                                 portaled full-screen so the bottom nav can't paint over it. */}
                             {vaultRaid && createPortal(
                                 <div className="stronghold-overlay">
@@ -4687,7 +4687,7 @@ function WorldMapContent({
                                     ) : (
                                         <div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", padding: 24 }}>
                                             <div className="card" role="status" style={{ maxWidth: 460, textAlign: "center", padding: 20 }}>
-                                                <h3>Hush operation paused</h3>
+                                                <h3>Anbu operation paused</h3>
                                                 <p>The vault run remains recoverable, but moving, fighting, and saving results are paused until live actions return.</p>
                                                 <button type="button" onClick={() => setVaultRaid(null)}>Leave operation view</button>
                                             </div>

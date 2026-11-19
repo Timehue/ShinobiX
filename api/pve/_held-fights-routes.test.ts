@@ -119,13 +119,13 @@ async function caravanAtCombat(name: string, now: number, sessionId: (node: stri
 
 const WAR_SECTOR = 12;
 
-/** Frostfang holds the war sector, and its appointed Hush defends both the vault and the garrison. */
+/** Frostfang holds the war sector, and its appointed Anbu defends both the vault and the garrison. */
 async function seedWarDefence(): Promise<void> {
     await kv.set(`world:territory:${WAR_SECTOR}`, { sector: WAR_SECTOR, ownerVillage: 'Frostfang Village', updatedAt: Date.now() });
     await kv.set('game:village-state:frostfangvillage', { hushAppointees: ['heldrouteshush'] });
     await kv.set('save:heldrouteshush', {
         character: {
-            name: 'Frostfang Hush', village: 'Frostfang Village', level: 100,
+            name: 'Frostfang Anbu', village: 'Frostfang Village', level: 100,
             maxHp: 12_000, hp: 12_000, maxChakra: 1_000, maxStamina: 1_000,
             stats: {}, jutsu: [], pvpItems: [], equipment: {},
         },
@@ -279,7 +279,7 @@ describe('each route that seals a fight from the save settles a held fight first
             },
         },
         {
-            route: 'Hush Vault raid',
+            route: 'Anbu Vault raid',
             async start(name) {
                 const { onlineStore } = await import('../_realtime/online-store.js');
                 const { handleStrongholdAction, strongholdVisitKey } = await import('../village/_stronghold.js');
@@ -336,7 +336,7 @@ describe('each route that seals a fight from the save settles a held fight first
 // A file "seals a fight from the save" when it builds a Solo-PvE encounter
 // (buildSoloPveAiEncounter seeds HP from the save), or one of the two war
 // fights, which seat the player on the save's HP through their own builders:
-// the Hush Vault raid and the sector-war garrison assault. The caravan ambush,
+// the Anbu Vault raid and the sector-war garrison assault. The caravan ambush,
 // the one Tower run re-seeded from the save, lives in a file that also seals
 // the escort.
 

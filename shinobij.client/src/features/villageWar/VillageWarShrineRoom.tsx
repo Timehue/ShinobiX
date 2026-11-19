@@ -140,7 +140,7 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
             {player.inBattle ? `${player.displayName} is fighting` : `Fight ${player.displayName}`}</button>)}</div>}
         <details className='war-shrine-rules'><summary>How Scoring Works</summary>
             <p>The first {target.limit} enemy-player victories inside earn {rules.winPoints} {campaignVersion === 3 ? 'extra War Points' : 'War Points'} each, shared across both villages. Combat stays open until the window closes.</p>
-            {campaignVersion === 3 && <p>Every victory also awards normal role points and deducts the defeated player's role penalty from the enemy score, down to zero. These continue after the extra-point cap: Kage wins earn 30, Elder 20, Hush 15 and villager 5 points; losing a Kage costs 50 and an Elder 20.</p>}
+            {campaignVersion === 3 && <p>Every victory also awards normal role points and deducts the defeated player's role penalty from the enemy score, down to zero. These continue after the extra-point cap: Kage wins earn 30, Elder 20, Anbu 15 and villager 5 points; losing a Kage costs 50 and an Elder 20.</p>}
             <p>The village with the most uncontested time across the window earns {rules.controlBonus.toLocaleString()} points at closing, even if it has left. Empty and contested time does not count. Tied or zero totals award no bonus.</p>
         </details></aside></div>
     </section></dialog>;

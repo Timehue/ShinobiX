@@ -3,8 +3,8 @@ import { before, describe, it } from 'node:test';
 
 // Owner ruling 2026-11-11: like a player village, where anyone level 15+ can
 // fight in a war, Cinderhold's Genin and Chunin whose LIVE level is 15 or more
-// take the war jobs its Hush take, at villager weight. Under 15 they stay out.
-// The Hush set itself (Commanders, Elites, Jonin) is unchanged. Every NPC here
+// take the war jobs its Anbu take, at villager weight. Under 15 they stay out.
+// The Anbu set itself (Commanders, Elites, Jonin) is unchanged. Every NPC here
 // is picked by rank and live level, never by id or name.
 
 process.env.NODE_ENV = 'test';
@@ -45,11 +45,11 @@ before(async () => {
 });
 
 describe('who takes war jobs', { concurrency: false }, () => {
-    it('the Hush always, first; a Genin or Chunin only at live level 15+ and still in Cinderhold', async () => {
+    it('the Anbu always, first; a Genin or Chunin only at live level 15+ and still in Cinderhold', async () => {
         const now = Date.now();
         const list = await war.npcWarParticipants(now);
         const ids = list.map((n) => n.id);
-        assert.deepEqual(ids.slice(0, war.NPC_WAR_DEFENDERS.length), war.NPC_WAR_DEFENDERS.map((n) => n.id), 'the Hush lead the list');
+        assert.deepEqual(ids.slice(0, war.NPC_WAR_DEFENDERS.length), war.NPC_WAR_DEFENDERS.map((n) => n.id), 'the Anbu lead the list');
         assert.ok(ids.includes(high.id), 'a level-20 Chunin fights');
         assert.ok(!ids.includes(low.id), 'a level-12 Genin stays out');
         assert.equal(list.length, war.NPC_WAR_DEFENDERS.length + 1);
@@ -60,7 +60,7 @@ describe('who takes war jobs', { concurrency: false }, () => {
         assert.equal(pure(14), false);
         assert.equal(pure(15), true);
         assert.equal(pure(40, MOON), false);
-        assert.equal(war.npcWarParticipantsFrom(() => null).length, war.NPC_WAR_DEFENDERS.length, 'no saves: the Hush alone');
+        assert.equal(war.npcWarParticipantsFrom(() => null).length, war.NPC_WAR_DEFENDERS.length, 'no saves: the Anbu alone');
     });
 
     it('one read serves a minute; a level-up shows after it', async () => {
@@ -75,7 +75,7 @@ describe('who takes war jobs', { concurrency: false }, () => {
         assert.ok(!(await war.npcWarParticipants(t0)).some((n) => n.id === low.id));
     });
 
-    it('the Hush list itself is unchanged: readVillageHush and the AI-copy defender see only Commanders, Elites and Jonin', async () => {
+    it('the Anbu list itself is unchanged: readVillageHush and the AI-copy defender see only Commanders, Elites and Jonin', async () => {
         const { readVillageHush } = await import('./village/_hush.js');
         const hush = await readVillageHush(CH);
         assert.deepEqual(hush.members, war.NPC_WAR_DEFENDERS.map((n) => n.id));
@@ -85,7 +85,7 @@ describe('who takes war jobs', { concurrency: false }, () => {
 });
 
 describe('a war-eligible Genin or Chunin scores as a villager', () => {
-    it('Commander Elder, Jonin Hush, a level-15+ Chunin and a Genin villagers', async () => {
+    it('Commander Elder, Jonin Anbu, a level-15+ Chunin and a Genin villagers', async () => {
         const { sectorWarRoleOf, ROLE_ELDER, ROLE_HUSH, ROLE_VILLAGER } = await import('./_war-role.js');
         const commander = all.find((n) => n.rank === 'commander')!;
         const jonin = all.find((n) => n.rank === 'jonin')!;
@@ -98,7 +98,7 @@ describe('a war-eligible Genin or Chunin scores as a villager', () => {
 });
 
 describe('war fronts', () => {
-    it('the Hush take the front first; a level-15+ Chunin fills in for them; a level-12 Genin never stands there', async () => {
+    it('the Anbu take the front first; a level-15+ Chunin fills in for them; a level-12 Genin never stands there', async () => {
         const { npcPosts, NPC_FRONT_SQUAD } = await import('./_npc-presence.js');
         const now = Date.now();
         const eligible = new Set((await war.npcWarParticipants(now)).map((n) => n.id));
@@ -106,9 +106,9 @@ describe('war fronts', () => {
 
         const healthy = at(npcPosts(now, all, [18], new Set(), { warParticipants: eligible }));
         assert.equal(healthy.length, NPC_FRONT_SQUAD);
-        assert.ok(healthy.every((id) => war.NPC_WAR_DEFENDERS.some((n) => n.id === id)), 'the Hush lead while they can');
+        assert.ok(healthy.every((id) => war.NPC_WAR_DEFENDERS.some((n) => n.id === id)), 'the Anbu lead while they can');
 
-        // Every Hush beaten: the eligible Chunin holds the front, the Genin does not.
+        // Every Anbu beaten: the eligible Chunin holds the front, the Genin does not.
         const hushDown = new Set(war.NPC_WAR_DEFENDERS.map((n) => n.id));
         const front = at(npcPosts(now, all, [18], hushDown, { warParticipants: eligible }));
         assert.deepEqual(front, [high.id]);
@@ -117,7 +117,7 @@ describe('war fronts', () => {
         assert.deepEqual(at(npcPosts(now, all, [18], hushDown)), []);
     });
 
-    it('the war party strikes with a level-15+ Chunin when no Hush is free, never a level-12 Genin; Hush first when free', async () => {
+    it('the war party strikes with a level-15+ Chunin when no Anbu is free, never a level-12 Genin; Anbu first when free', async () => {
         const party = await import('./_npc-war-party.js');
         const sw = await import('./_sector-war.js');
         const contest = sw.newSectorWarSession({ sector: 18, attackerVillage: CH, defenderVillage: MOON, winCondition: 'combat', now: Date.now() - 3_600_000 });
@@ -138,7 +138,7 @@ describe('war fronts', () => {
             return duels.map((d) => d.npc);
         };
         const hush = new Set(war.NPC_WAR_DEFENDERS.map((n) => n.id));
-        assert.ok(hush.has((await run(() => true, 'moonwpa'))[0]!), 'a Hush strikes while one is free');
+        assert.ok(hush.has((await run(() => true, 'moonwpa'))[0]!), 'an Anbu strikes while one is free');
         assert.deepEqual(await run((id) => !hush.has(id), 'moonwpb'), [high.id], 'the Chunin strikes in their place');
         assert.deepEqual(await run((id) => id === low.id, 'moonwpc'), [], 'a Genin under 15 never strikes');
     });

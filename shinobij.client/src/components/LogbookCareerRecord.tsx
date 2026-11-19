@@ -23,7 +23,7 @@ export function LogbookCareerRecord({ character, village, onOpenAchievements }: 
         {character.legacy && <p><strong>Legacy:</strong> Stage {character.legacy.stage} · World Era {character.legacy.eraBorn ?? "unrecorded"}</p>}
         {ownKageTerms.length > 0 && <p><strong>Kage service:</strong> {ownKageTerms.length} recorded {ownKageTerms.length === 1 ? "term" : "terms"}{currentKage ? " · currently seated" : ""}</p>}
         {currentKage && ownKageTerms.length === 0 && <p><strong>Kage service:</strong> Currently seated</p>}
-        {currentHush && <p><strong>Hush service:</strong> Current village operative</p>}
+        {currentHush && <p><strong>Anbu service:</strong> Current village operative</p>}
         {currentElderSeat >= 0 && <p><strong>Elder service:</strong> Current council seat {currentElderSeat + 1}</p>}
         <p className="hint">Your full achievement collection and Nindō live on your shinobi profile.</p>
         {onOpenAchievements && <button onClick={onOpenAchievements}>View achievements</button>}

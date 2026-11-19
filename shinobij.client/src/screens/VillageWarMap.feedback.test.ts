@@ -131,7 +131,7 @@ describe('Village War Map feedback contract', () => {
         assert.doesNotMatch(screen, /⚠/, 'the warning emoji is replaced by GiHazardSign');
     });
 
-    it('3k — a Hush appointment made mid-session lights the feed controls up', () => {
+    it('3k — an Anbu appointment made mid-session lights the feed controls up', () => {
         assert.match(screen, /const isHush = isVillageHush\(character\)/);
         assert.doesNotMatch(screen, /useState\(\(\) => isVillageHush/);
     });

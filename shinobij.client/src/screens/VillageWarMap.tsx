@@ -105,7 +105,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     const [disabled, setDisabled] = useState(false);
     const [busy, setBusy] = useState("");
     const [showInfo, setShowInfo] = useState(false);
-    // Hush appointees may toggle the garrison feed (like the war systems); the
+    // Anbu appointees may toggle the garrison feed (like the war systems); the
     // server re-checks against the village's appointee list. Derived, not frozen
     // at mount — an appointment made mid-session must light the controls up.
     const isHush = isVillageHush(character);
@@ -270,9 +270,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         } catch { /* ignore */ }
         setScreen("sectorPet");
     }, [setScreen]);
-    // Combat's liveness fallback — assault the sector's Hush garrison when no
+    // Combat's liveness fallback — assault the sector's Anbu garrison when no
     // live defender has fought in ~2h. Resolved server-side as a real Solo PvE
-    // fight against the defending village's sealed Hush; stash the sector and
+    // fight against the defending village's sealed Anbu; stash the sector and
     // navigate, mirroring the card/pet battle launches above.
     const launchGarrisonAssault = useCallback((sector: number) => {
         try { sessionStorage.setItem("sectorWarGarrison.v1", JSON.stringify({ sector })); } catch { /* ignore */ }
@@ -487,7 +487,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                 <button
                                                     className="vwm-declare"
                                                     disabled={!!busy}
-                                                    title="No defender has fought here for hours — assault the sector's Hush garrison instead. A real Solo PvE fight against the defending village's sealed Hush; worth less than beating a real defender."
+                                                    title="No defender has fought here for hours — assault the sector's Anbu garrison instead. A real Solo PvE fight against the defending village's sealed Anbu; worth less than beating a real defender."
                                                     onClick={() => launchGarrisonAssault(sec.sector)}
                                                 >
                                                     <GameArtIcon kind="guard" size={17} /> Assault garrison

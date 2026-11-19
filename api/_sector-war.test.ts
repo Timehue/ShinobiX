@@ -206,7 +206,7 @@ describe('sector-war: score caps (anti-farm)', () => {
     });
 
     it('garrison kills score at half weight and stop at the garrison cap', () => {
-        // Hush vs garrison: floor(15 × 0.5) = 7 per assault. Derive the run-out
+        // Anbu vs garrison: floor(15 × 0.5) = 7 per assault. Derive the run-out
         // from the constant so retuning the cap retunes the test with it.
         const per = Math.floor(SWING_HUSH_V_VILLAGER * GARRISON_POINTS_FRACTION);
         assert.equal(per, 7);

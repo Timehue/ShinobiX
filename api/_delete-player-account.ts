@@ -160,7 +160,7 @@ async function detachFromModerationIndexes(slug: string, result: DeletePlayerAcc
  *    voided, a standing high bid is withdrawn, and the player index goes.
  *  - PvP bounty board: the head on the player comes down and every backer is
  *    refunded their stake through the claim payout's save receipts.
- *  - Elder and Hush seats, in every village (Kage seats are handled above).
+ *  - Elder and Anbu seats, in every village (Kage seats are handled above).
  */
 async function releaseSettledPlayerRows(slug: string, result: DeletePlayerAccountResult): Promise<void> {
     try {

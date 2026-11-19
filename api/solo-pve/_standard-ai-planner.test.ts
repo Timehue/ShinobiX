@@ -105,7 +105,7 @@ function apSpent(session: SoloPveSession, events = enemyEvents(session)): number
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
 describe('standard-PvE turn planner — scope', () => {
-    it('lets a sealed village-war Hush plan with its copied kit without changing stats or granting a difficulty guard', () => {
+    it('lets a sealed village-war Anbu plan with its copied kit without changing stats or granting a difficulty guard', () => {
         const kit = [jutsu('hit-a', 40), jutsu('hit-b', 40), FLICKER];
         const copied = scenario({ level: 20, kit, distance: 3, kind: 'village-war-garrison' });
         copied.enemy.character.masterAi = true;

@@ -311,7 +311,7 @@ const baseStarterItems: GameItem[] = [
     { id: "village-supply-bundle", name: "Village Supply Bundle", slot: "item", rarity: "common", cost: 0, image: "/items/village-supply-bundle-v1.webp", description: "Donate at your village Town Hall for 10 provisions. Shares the 40-provisions daily limit. Cannot be sold or donated to clans.", bonuses: {} },
     { id: "village-supply-crate", name: "Village Supply Crate", slot: "item", rarity: "uncommon", cost: 0, image: "/items/village-supply-crate-v1.webp", description: "Donate at your village Town Hall for 40 provisions. Shares the 40-provisions daily limit. Cannot be sold or donated to clans.", bonuses: {} },
     { id: "ration-pack", name: "Ration Pack", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-beast-meat-v1.webp", description: "Donate at your village Town Hall for 1 provision per pack. Village provision donations share a limit of 40 per day.", bonuses: {} },
-    // -- Hush Vault Infiltration war caches (hushInfiltration.v1) ---------------
+    // -- Anbu Vault Infiltration war caches (hushInfiltration.v1) ---------------
     // Server-minted ONLY (raid settle; the save sanitizer blocks client mints).
     // Ids KEEP IN SYNC with api/_hush-infiltration.ts CACHE_ITEM_IDS.
     { id: "war-supply-cache", name: "War Supply Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-supply-cache.webp", description: "War supplies skimmed from an enemy sector's vault. Turn in at your Clan Hall. 2 caches earn 1 clan point.", bonuses: {} },

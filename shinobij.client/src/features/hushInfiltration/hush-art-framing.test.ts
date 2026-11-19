@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
-// ─── Hush defender art framing gate ─────────────────────────────────────────
+// ─── Anbu defender art framing gate ─────────────────────────────────────────
 // The vault boss room shows public/hush/<slug>.webp at 168px (HushVaultRaid's
 // Challenge modal). The first batch of that art was generated with a prompt
 // that asked for a "centered" figure but never asked for MARGIN, so gpt-image-1
 // composed all four edge to edge: every hood crown and every boot sole was
-// sliced flat by the frame, and players met a Hush with the top of his head
+// sliced flat by the frame, and players met an Anbu with the top of his head
 // missing. `object-fit: contain` cannot rescue that — the pixels were gone.
 //
 // This gate names the four files and fails if a subject ever runs into the
@@ -69,7 +69,7 @@ test("the defender portrait URL carries a cache-busting revision", () => {
         "HUSH_AVATAR_ASSET_REVISION must be defined — bump it whenever the art is replaced in place");
 });
 
-test("every Hush defender portrait is framed clear of the canvas edges", async () => {
+test("every Anbu defender portrait is framed clear of the canvas edges", async () => {
     let sharp: typeof import("sharp");
     try {
         sharp = (await import("sharp")).default as unknown as typeof import("sharp");
@@ -77,7 +77,7 @@ test("every Hush defender portrait is framed clear of the canvas edges", async (
         // sharp is a client dependency; the root runner's pretest installs it.
         // Only a genuinely absent module is tolerated — anything else is a bug.
         if ((err as NodeJS.ErrnoException)?.code !== "ERR_MODULE_NOT_FOUND") throw err;
-        console.warn("skip: sharp is not installed, cannot decode the Hush webp files");
+        console.warn("skip: sharp is not installed, cannot decode the Anbu webp files");
         return;
     }
 

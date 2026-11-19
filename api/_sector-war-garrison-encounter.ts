@@ -6,10 +6,10 @@
  *
  * Shape mirrors api/_hush-infiltration-encounter.ts on purpose: one human
  * attacker versus one server-controlled snapshot of a REAL appointed defender —
- * the defending village's Hush, per owner ruling ("it goes off the defender
+ * the defending village's Anbu, per owner ruling ("it goes off the defender
  * since it pulls from hush of the village"), not a generic stat-scaled bot. The
  * snapshot is content, not a live second participant, so — same reasoning as
- * Hush Infiltration — the fight belongs on the Solo PvE runtime, never Tower
+ * Anbu Infiltration — the fight belongs on the Solo PvE runtime, never Tower
  * (docs/architecture/combat-runtime-boundaries.md). The contest OUTCOME still
  * has to feed the exact same sector-war score a real human PvP duel would
  * (api/pvp/_sector-war-continuation.ts), at garrison weight, which is why
@@ -63,7 +63,7 @@ function fighter(input: GarrisonFighter, pos: number, enemy = false): PvpFighter
     // "start an assault, then abandon it" into a free heal for a wounded
     // attacker. That write is decrease-only as well (sessionHpIsDecreaseOnly
     // in api/missions/_ai-fight-outcome.ts). Clamped to [0, maxHp] exactly like
-    // the generic seeding in api/solo-pve/_ai-encounter.ts. The sealed Hush is
+    // the generic seeding in api/solo-pve/_ai-encounter.ts. The sealed Anbu is
     // content with no save to write back to, so it always stands at full strength.
     const hp = enemy ? maxHp : Math.max(0, Math.min(maxHp, num(input.character.hp, maxHp)));
     const character = {
@@ -79,7 +79,7 @@ function fighter(input: GarrisonFighter, pos: number, enemy = false): PvpFighter
         maxChakra,
         stamina: maxStamina,
         maxStamina,
-        // Both sides' gear Shield special. The Hush is a real player's sealed loadout,
+        // Both sides' gear Shield special. The Anbu is a real player's sealed loadout,
         // so it starts with its shield the way the human sector-war duel would.
         shield: startingItemShield(input.character),
         statuses: [],
@@ -136,7 +136,7 @@ export function buildGarrisonEncounter(params: BuildGarrisonParams): SoloPveSess
     });
 }
 
-/** The exact contest/attacker/Hush combination a garrison session was minted
+/** The exact contest/attacker/Anbu combination a garrison session was minted
  *  for — verified again at resolve so a client can never hand in an arbitrary
  *  finished solo-pve session id and have it accepted as this assault. Mirrors
  *  InfiltrationSessionBinding/infiltrationSessionMatches. */

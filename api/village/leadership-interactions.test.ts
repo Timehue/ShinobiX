@@ -71,7 +71,7 @@ async function request(endpoint: typeof hush, name: string | null, body: Record<
     return out;
 }
 
-test('Hush appointments require the real Kage, valid seats, and a real member', async () => {
+test('Anbu appointments require the real Kage, valid seats, and a real member', async () => {
     const action = { action: 'appoint', seat: 0, appointee: 'operative' };
     assert.equal((await request(hush, null, action)).status, 401);
     assert.equal((await request(hush, 'villager', action)).status, 403, 'stale cached Kage is powerless');
@@ -106,7 +106,7 @@ test('appointments grant orders and war weight; clearing and stale writes cannot
     assert.deepEqual(await roles.sectorWarRoleOf('operative', village), roles.ROLE_VILLAGER);
 });
 
-test('all seven earned seats have real Hush powers and rotate at UTC month rollover', async t => {
+test('all seven earned seats have real Anbu powers and rotate at UTC month rollover', async t => {
     let clock = Date.UTC(2026, 8, 30, 23, 59);
     t.mock.method(Date, 'now', () => clock);
     for (let i = 0; i < 9; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: '2026-09' });
@@ -156,14 +156,14 @@ test('succession preserves appointments, transfers management, and role weights 
     assert.deepEqual(roles.sealedSectorWarRoleOf(evidence, 'p1', village, 123), roles.ROLE_ELDER, 'a later promotion does not rewrite sealed battle weights');
 });
 
-test('special Jonin recognizes real Elders and Kage, not Hush or a stale Kage mirror', async () => {
+test('special Jonin recognizes real Elders and Kage, not Anbu or a stale Kage mirror', async () => {
     await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
     await request(elders, 'kage', { action: 'appoint', focus: 'war', appointee: 'elder' });
     for (const name of ['operative', 'villager']) assert.equal((await request(exam, name, { examKey: 'specialJonin' })).status, 409);
     for (const name of ['elder', 'kage']) assert.equal((await request(exam, name, { examKey: 'specialJonin' })).status, 200);
 });
 
-test('terrain belongs to Kage and Elders with separate quotas; Hush cannot set it', async () => {
+test('terrain belongs to Kage and Elders with separate quotas; Anbu cannot set it', async () => {
     await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
     await request(elders, 'kage', { action: 'appoint', focus: 'war', appointee: 'elder' });
     const { HOME_SECTORS } = await import('../_war-map-sectors.js');
@@ -216,7 +216,7 @@ test('shared village display includes leadership before the first generic villag
     assert.ok(state.elderTerm.nextSelectionAt > Date.now());
 });
 
-test('shared frame clears stale Kage seats and returns the same verified Hush and elder rosters', async () => {
+test('shared frame clears stale Kage seats and returns the same verified Anbu and elder rosters', async () => {
     await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
     await request(elders, 'kage', { action: 'appoint', focus: 'war', appointee: 'elder' });
     await kv.set(kageKey, { kageSystemUnlocked: true });

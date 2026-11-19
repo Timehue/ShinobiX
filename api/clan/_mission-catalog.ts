@@ -79,7 +79,7 @@ export function memberMonthCounters(member: Member | null | undefined, now: numb
 
 /**
  * Credit `amount` event contribution to one roster row from a server writer
- * (Hush raid wins). A stale row starts the current month from zero first, so
+ * (Anbu raid wins). A stale row starts the current month from zero first, so
  * the credit counts instead of reviving last month's totals.
  */
 export function withRosterEventContrib(member: Record<string, unknown>, amount: number, now: number): Record<string, unknown> {

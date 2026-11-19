@@ -9,7 +9,7 @@ import { npcVillageHush } from '../_npc-war-roster.js';
 
 type Store = Pick<KvLike, 'get'>;
 export async function readVillageHush(village: string, snapshot?: Record<string, unknown>, store: Store = kv, indexedCandidates?: HushCandidate[]): Promise<{ appointed: [string, string, string]; earned: string[]; members: string[] }> {
-    // Cinderhold appoints nobody: its Hush are its roster Commanders, Elites
+    // Cinderhold appoints nobody: its Anbu are its roster Commanders, Elites
     // and Jonin (api/_npc-war-roster.ts), so its garrisons always have defenders.
     if (isNpcVillage(village)) return npcVillageHush();
     const state = withHushSeatField(snapshot ?? await store.get<Record<string, unknown>>(elderVillageKey(village)));

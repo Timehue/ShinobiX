@@ -893,7 +893,7 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(await chroniclePointsOf('alice'), 20);
         assert.equal(await chroniclePointsOf('bob'), 8);
     });
-    it('pays a won card assault on the Hush deck 15 Chronicle Points once, and a lost one nothing', async () => {
+    it('pays a won card assault on the Anbu deck 15 Chronicle Points once, and a lost one nothing', async () => {
         const row = await seed(); row.campaign.intel[A] = 72;
         await kv.set(`world:war:${id}`, row);
         const deck = await import('./card-clash/_deck.js'); await deck.resolveChronicleDeckWithSave('bob', []);
@@ -914,7 +914,7 @@ describe('five-day village campaigns', { concurrency: false }, () => {
             else assert.equal(done.data.chroniclePoints, undefined);
             await call(endpoint, 'alice', { name: 'alice', warId: id, action: 'state', runId: start.data.runId });
             assert.equal(await chroniclePointsOf('alice'), 15);
-            assert.equal(await chroniclePointsOf('bob'), 0, 'the Hush whose deck defended is never paid');
+            assert.equal(await chroniclePointsOf('bob'), 0, 'the Anbu whose deck defended is never paid');
         }
     });
     it('resolves a pet stronghold with sealed player teams and a replay, without consuming a PvE attempt', async () => {
@@ -946,7 +946,7 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal((fresh.campaign.pvp[A] ?? 0) + (fresh.campaign.pvp[B] ?? 0), 50);
         assert.deepEqual(fresh.campaign.usage, {});
     });
-    it('combines Hush support with three human pet wins and the completion bonus exactly once', async () => {
+    it('combines Anbu support with three human pet wins and the completion bonus exactly once', async () => {
         const row = await seed(); row.campaign.intel[A] = 72;
         await kv.set(`world:war:${id}`, row);
         await kv.set('village:kage:moonshadow-village', { seatedKage: 'bob' });
@@ -987,7 +987,7 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(summary.data.campaign.scores[A].total, 320);
         assert.equal(summary.data.campaign.strongholds.find((o: any) => o.id === objective.id).bouts, 3);
     });
-    it('reuses the same offline Hush pet copy without disturbing its real breeding or expedition', async () => {
+    it('reuses the same offline Anbu pet copy without disturbing its real breeding or expedition', async () => {
         const row = await seed(); row.campaign.intel[A] = 72;
         await kv.set(`world:war:${id}`, row);
         const pet = (name: string, power: number) => ({ id: name, name, level: 100, rarity: 'legendary', hp: power, attack: power, defense: power, speed: power, element: 'Earth', fatigue: 0 });
@@ -1016,7 +1016,7 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(fresh.campaign.usage[`${A}:0`].players.alice.categories.sabotage, 2);
         assert.equal((await call(endpoint, 'alice', { warId: id, action: 'start', objectiveId: objective.id })).status, 409, 'only the personal support cap limits repeated NPC assaults');
     });
-    it('fields an anonymous Hush fallback and enforces Sabotage admission without consuming live objective bouts', async () => {
+    it('fields an anonymous Anbu fallback and enforces Sabotage admission without consuming live objective bouts', async () => {
         const row = await seed(); row.campaign.intel[A] = 72;
         await kv.set(`world:war:${id}`, row);
         const defender = await kv.get<any>('save:bob');

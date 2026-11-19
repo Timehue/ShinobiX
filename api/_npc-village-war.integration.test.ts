@@ -125,7 +125,7 @@ describe('Cinderhold is a sector-war village, not a player war village', () => {
 });
 
 describe('Cinderhold war roles come from its roster', () => {
-    it('its Hush are its Commanders, Elites and Jonin; no Kage stands in (the roster has none)', async () => {
+    it('its Anbu are its Commanders, Elites and Jonin; no Kage stands in (the roster has none)', async () => {
         const { readVillageHush } = await import('./village/_hush.js');
         const { seatedKageOf } = await import('./_sector-war-garrison-defender.js');
         const hush = await readVillageHush(CH);
@@ -135,7 +135,7 @@ describe('Cinderhold war roles come from its roster', () => {
         assert.equal(await seatedKageOf(CH), '');
     });
 
-    it('fights at roster weight: Commanders as Elders, Elites and Jonin as Hush, the rest as villagers', async () => {
+    it('fights at roster weight: Commanders as Elders, Elites and Jonin as Anbu, the rest as villagers', async () => {
         const { sectorWarRoleOf, ROLE_ELDER, ROLE_HUSH, ROLE_VILLAGER } = await import('./_war-role.js');
         const { NPC_VILLAGE_ROSTER } = await import('../shared/npc-village-roster.js');
         const commander = roster.NPC_WAR_DEFENDERS.find((n) => n.rank === 'commander')!;

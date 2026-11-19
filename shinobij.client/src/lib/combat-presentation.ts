@@ -238,7 +238,7 @@ export function combatWeatherPresentation(weather: WeatherType | null | undefine
  * into Weekly Boss, Hollow Gate, Endless Tower, dungeon and practice fights that
  * no weather affects. Every fight fought on a wild sector seals its sky now
  * (missions, world encounters, exploration, raids, sector-war garrison, the
- * Hush vault and stronghold patrols), so the fallback only ever drew weather
+ * Anbu vault and stronghold patrols), so the fallback only ever drew weather
  * that was not there. A weatherless fight therefore reads as clear on the board.
  * The lookup is injected so this stays pure and node-testable.
  */

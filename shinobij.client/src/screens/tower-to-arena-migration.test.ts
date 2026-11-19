@@ -29,7 +29,7 @@ test("Weekly Boss renders on the arena shell, not the tower rail", () => {
     assert.doesNotMatch(app, /<BattleTowerFight|screens\/BattleTowerFight/);
 });
 
-test("Hush Vault fight renders on the arena shell with a guarded Solo PvE transport", () => {
+test("Anbu Vault fight renders on the arena shell with a guarded Solo PvE transport", () => {
     assert.match(hushRaid, /<MissionArenaFight/);
     assert.match(hushRaid, /soloPveSessionForArena\(fight\.session\)/);
     assert.match(hushRaid, /\.\.\.soloPveArenaTransport/);

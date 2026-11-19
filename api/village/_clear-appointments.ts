@@ -7,7 +7,7 @@ import { elderCouncilKey } from './_elder-council.js';
 import { invalidateProcCache } from '../_proc-cache.js';
 
 /**
- * Empty every Elder and Hush seat `playerName` (a slug) holds in `village`:
+ * Empty every Elder and Anbu seat `playerName` (a slug) holds in `village`:
  * the elected council term (`village:elder-council:<v>` seats) and the
  * leadership row's `elderAppointees` / `hushAppointees`.
  *

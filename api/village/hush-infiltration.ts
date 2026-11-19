@@ -74,12 +74,12 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
 
 /*
- * /api/village/hush-infiltration — POST only. The Hush Vault Infiltration raid
+ * /api/village/hush-infiltration — POST only. The Anbu Vault Infiltration raid
  * (docs/hush-infiltration-plan.md): a level-100 sector-attrition activity, fully
  * server-authoritative, one route with an action switch (the sector-war.ts shape).
  *
  * Actions (body.action):
- *   - start   : gate-check, pick + daily-seal the defending Hush, build the vault
+ *   - start   : gate-check, pick + daily-seal the defending Anbu, build the vault
  *               Solo PvE fight against a sealed REAL defender snapshot).
  *   - act     : retired compatibility action; combat intents go to /solo-pve/action.
  *   - state   : read-only run fetch (refresh-restore).
@@ -93,7 +93,7 @@ import { withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
  * LIVE by default — no opt-in flag. Set DISABLE_HUSH_INFILTRATION=1 only as an
  * emergency kill switch. Runs on the base war map (a sector with no seeded
  * world:territory owner falls back to its home village, so it works before any
- * sector-war capture), and defends with the village's appointed Hush or, if none
+ * sector-war capture), and defends with the village's appointed Anbu or, if none
  * are appointed yet, its seated Kage. NEVER flips sector ownership; conquest
  * stays with /village/sector-war.
  */
@@ -143,7 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         switch (action) {
             case 'start': return await doStart(req, res, identity, playerName, body);
-            case 'act': return res.status(410).json({ error: 'Hush combat actions moved to /api/solo-pve/action.', code: 'hush-solo-pve-cutover' });
+            case 'act': return res.status(410).json({ error: 'Anbu combat actions moved to /api/solo-pve/action.', code: 'hush-solo-pve-cutover' });
             case 'state': return await doState(res, identity, playerName, body);
             case 'recover': return await doRecover(res, identity, playerName, body);
             case 'report': return await doReport(req, res, identity, playerName, body);
@@ -172,10 +172,10 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     if (!char) return res.status(404).json({ error: 'Your save was not found.' });
     const level = Math.floor(Number(char.level) || 0);
     if (!identity.admin && level < HUSH_RAID_MIN_LEVEL) {
-        return res.status(403).json({ error: `Hush infiltration requires level ${HUSH_RAID_MIN_LEVEL}.` });
+        return res.status(403).json({ error: `Anbu infiltration requires level ${HUSH_RAID_MIN_LEVEL}.` });
     }
     const raiderVillage = String(char.village ?? '').trim();
-    if (await villageCampaignStronghold(raiderVillage, sector)) return res.status(409).json({ error: 'This is a village war objective. Use its nominated battle mode to attack the Hush defense.' });
+    if (await villageCampaignStronghold(raiderVillage, sector)) return res.status(409).json({ error: 'This is a village war objective. Use its nominated battle mode to attack the Anbu defense.' });
     if (!raiderVillage) return res.status(403).json({ error: 'You must belong to a village.' });
 
     // The target: an enemy-held war sector. Prefer the live captured owner; fall
@@ -186,16 +186,16 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     if (!targetVillage || !isWarVillage(targetVillage)) return res.status(409).json({ error: 'That sector is not held by a war village.' });
     if (targetVillage === raiderVillage) return res.status(400).json({ error: 'You cannot infiltrate your own village’s sector.' });
 
-    // Defenders: the village's appointed Hush, or — if none are appointed yet —
+    // Defenders: the village's appointed Anbu, or — if none are appointed yet —
     // its seated Kage (also a real appointed leader). Either way the defender is
-    // a real player's sealed loadout, shown behind the village's Hush mask.
+    // a real player's sealed loadout, shown behind the village's Anbu mask.
     let appointees = await loadHushAppointees(targetVillage);
     if (appointees.length === 0) {
         const kage = await seatedKageOf(targetVillage);
         if (kage) appointees = [kage];
     }
     if (appointees.length === 0) {
-        return res.status(409).json({ error: 'That village has no Hush or Kage to defend its vault yet.' });
+        return res.status(409).json({ error: 'That village has no Anbu or Kage to defend its vault yet.' });
     }
 
     // Defender home-terrain edge: the sector's Kage-set terrain seals in as the
@@ -250,7 +250,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         if (!identity.admin && isIncapacitated(char)) return hospitalized;
 
         if (!identity.admin && !await strongholdVaultReady(playerName, sector)) {
-            return { status: 409 as const, body: { error: 'Reach the Hush inside the stronghold and clear any patrol first.' } };
+            return { status: 409 as const, body: { error: 'Reach the Anbu inside the stronghold and clear any patrol first.' } };
         }
 
         // Every fight this player is holding is settled before the raid is
@@ -272,17 +272,17 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         // resolve from the authoritative save and admin catalogs.
         const adminCombatContent = await loadAdminCombatContent();
 
-        // Defender: least-recently-defended Hush, sealed daily from their save.
+        // Defender: least-recently-defended Anbu, sealed daily from their save.
         const hushSlug = await pickHushDefender(targetVillage, appointees);
         const snapshot = hushSlug ? await getOrSealHushSnapshot(targetVillage, hushSlug) : null;
         if (!hushSlug || !snapshot) {
-            return { status: 409 as const, body: { error: 'No defending Hush could be prepared — try again shortly.' } };
+            return { status: 409 as const, body: { error: 'No defending Anbu could be prepared — try again shortly.' } };
         }
 
         const runId = `infil-${randomUUID().replace(/-/g, '')}`;
         const now = Date.now();
         const shortVillage = targetVillage.replace(/\s+Village$/i, '').trim();
-        const maskedHushName = `The ${shortVillage || 'Village'} Hush`;
+        const maskedHushName = `The ${shortVillage || 'Village'} Anbu`;
         const run: InfilRun = {
             runId, raiderSlug: playerName, sector, targetVillage,
             hushSlug: snapshot.slug, hushName: maskedHushName, terrain,
@@ -293,7 +293,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         // Persist a resumable prepared run before consuming the daily attempt.
         const commit = () => withCombatAdmissionSave(playerName, async (fresh) => {
             if (!identity.admin && !await strongholdVaultReady(playerName, sector)) {
-                return { status: 409 as const, body: { error: 'Reach the Hush inside the stronghold and clear any patrol first.' } };
+                return { status: 409 as const, body: { error: 'Reach the Anbu inside the stronghold and clear any patrol first.' } };
             }
             rec = await augmentSaveWithForgedDefs(fresh);
             char = rec?.character as Record<string, unknown> | undefined;
@@ -326,7 +326,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
             } };
         });
         const admission = identity.admin ? { ok: true as const, value: await commit() } : await withWorldBossPvpLock([playerName], commit);
-        return admission.ok ? admission.value : { status: 409 as const, body: { error: 'Leave the world boss queue or finish its fight before challenging the Hush.' } };
+        return admission.ok ? admission.value : { status: 409 as const, body: { error: 'Leave the world boss queue or finish its fight before challenging the Anbu.' } };
     }, { failClosed: true, ttlSec: 30 });
     return res.status(started.status).json(started.body);
 }
@@ -334,7 +334,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
 /** Recover an admitted raid when the browser never received its run ID. */
 async function doRecover(res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
     const sector = Number(body.sector);
-    if (!Number.isInteger(sector) || !isWarSector(sector)) return res.status(400).json({ error: 'That sector has no Hush raid.' });
+    if (!Number.isInteger(sector) || !isWarSector(sector)) return res.status(400).json({ error: 'That sector has no Anbu raid.' });
     const activeKey = infilActiveRunKey(playerName, sector);
     const reply = await withKvLock(activeKey, async () => {
         const runId = await kv.get<string>(activeKey);
@@ -411,7 +411,7 @@ async function doReportLocked(res: VercelResponse, identity: Identity, playerNam
     if (session.status !== 'done' || !session.terminalEvidence) return res.status(409).json({ error: 'The fight is not finished.' });
 
     if (session.outcome !== 'win') {
-        // The Hush held. No reward, no drain — the vault stands.
+        // The Anbu held. No reward, no drain — the vault stands.
         const loss = await settleInfiltrationLoss(run, session);
         if (!loss.ok) {
             return loss.error === 'no-save'

@@ -10,7 +10,7 @@ const previousLegacyFlag = process.env.ENABLE_LEGACY;
 process.env.ENABLE_LEGACY = '1';
 
 /*
- * A won Hush raid credits the era's war-battle counter after its Legacy
+ * A won Anbu raid credits the era's war-battle counter after its Legacy
  * record. bumpEraContributionOnce reports a failed write as false instead of
  * throwing, and the raid used to drop that result: the report answered 200 and
  * the battle was never counted. The raid reward is saved before either credit,
@@ -93,7 +93,7 @@ async function seedVault(raider: string): Promise<void> {
     await kv.set('game:village-state:frostfangvillage', { hushAppointees: [HUSH_SLUG] });
     await kv.set(`save:${HUSH_SLUG}`, {
         character: {
-            name: 'Frostfang Hush', village: DEFENDER_VILLAGE, level: 100,
+            name: 'Frostfang Anbu', village: DEFENDER_VILLAGE, level: 100,
             maxHp: 12_000, hp: 12_000, maxChakra: 1_000, maxStamina: 1_000,
             stats: {}, jutsu: [], pvpItems: [], equipment: {},
         },
@@ -148,7 +148,7 @@ async function raidsCompleted(name: string): Promise<number> {
     return Number((await kv.get<Json>(`legacy:stats:${name}`))?.raidsCompleted ?? 0);
 }
 
-describe('Hush raid: the era war-battle credit', { concurrency: false }, () => {
+describe('Anbu raid: the era war-battle credit', { concurrency: false }, () => {
     it('a failed era write keeps the won report retryable; the retry counts the battle once and never pays again', async (t) => {
         const raider = 'husheracredit';
         await seedVault(raider);

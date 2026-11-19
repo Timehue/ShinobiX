@@ -7,7 +7,7 @@ import { RUNTIME_AUTHORITY_ENGINES, runtimeModeById } from '../shared/runtime-mo
 const root = process.cwd();
 const read = (path: string) => readFile(resolve(root, path), 'utf8');
 
-test('Hush combat has no Tower runtime dependency and retires its custom action channel', async () => {
+test('Anbu combat has no Tower runtime dependency and retires its custom action channel', async () => {
     const [encounter, store, handler, client, screen] = await Promise.all([
         read('api/_hush-infiltration-encounter.ts'),
         read('api/_hush-infiltration-store.ts'),
@@ -28,7 +28,7 @@ test('Hush combat has no Tower runtime dependency and retires its custom action 
     assert.doesNotMatch(screen, /infiltrationAct|towerSessionForArena|createTowerArenaTransport/);
 });
 
-test('Hush start and report paths retain durable replay state', async () => {
+test('Anbu start and report paths retain durable replay state', async () => {
     const [handler, store] = await Promise.all([
         read('api/village/hush-infiltration.ts'),
         read('api/_hush-infiltration-store.ts'),
@@ -46,7 +46,7 @@ test('Hush start and report paths retain durable replay state', async () => {
     assert.doesNotMatch(store, /infilPaidKey|INFIL_PAID_TTL/);
 });
 
-test('runtime mode registry records the Hush participant and Solo authority decision', () => {
+test('runtime mode registry records the Anbu participant and Solo authority decision', () => {
     const mode = runtimeModeById('hush-infiltration');
     assert.ok(mode);
     assert.equal(mode.authorityEngine, RUNTIME_AUTHORITY_ENGINES.SOLO_PVE);

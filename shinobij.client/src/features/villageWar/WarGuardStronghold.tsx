@@ -46,7 +46,7 @@ export function WarGuardStronghold({ character, warId, sector, onAttackPlayer, o
     }
     return <StrongholdDialog title={`Guard duty · Sector ${sector}`} busy={busy} onClose={() => void leave()}>
         <img className='war-espionage-room-art' src='/ui/village-war/stronghold-combat-v1.webp' width={640} height={360} alt='Allied stronghold courtyard' />
-        <p>Defend your village from enemy spies. Victories count as world-war PvP. Your allied Hush remains on guard.</p>
+        <p>Defend your village from enemy spies. Victories count as world-war PvP. Your allied Anbu remains on guard.</p>
         {error && <p role='alert'>{error}</p>}
         {!inside && <p>{error ? 'Reconnect to the guard post or leave.' : 'Entering the guard post…'}</p>}
         {!inside && error && <button disabled={busy} onClick={() => retry(value => value + 1)}>Reconnect guard duty</button>}

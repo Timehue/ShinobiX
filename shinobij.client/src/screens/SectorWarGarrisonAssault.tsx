@@ -6,8 +6,8 @@
  * Map, not a dungeon):
  *   1. fight — starts the server-auth assault (api/village/sector-war action
  *      'garrison-start') and REUSES the whole normal Solo PvE Arena shell
- *      (MissionArenaFight), same as Hush Infiltration. The defender is a
- *      server-sealed snapshot of the defending village's real Hush.
+ *      (MissionArenaFight), same as Anbu Infiltration. The defender is a
+ *      server-sealed snapshot of the defending village's real Anbu.
  *   2. result — the assault report: whether the garrison fell or held, and
  *      the sector-war contest's new score. The returned server character
  *      replaces local state; this screen does not reconstruct combat costs.

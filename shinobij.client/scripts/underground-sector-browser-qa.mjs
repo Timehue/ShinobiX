@@ -198,7 +198,7 @@ try {
                     await page.goto(`${url}?mode=stronghold&raidHost&level=${level}`);
                     await page.locator('.stronghold-hush-station').waitFor();
                     await page.getByRole('button', { name: 'Move right', exact: true }).click();
-                    const dialog = page.getByRole('dialog', { name: 'Challenge the Hush' }); await dialog.waitFor();
+                    const dialog = page.getByRole('dialog', { name: 'Challenge the Anbu' }); await dialog.waitFor();
                     if (level < 100) {
                         assert.equal(await dialog.getByRole('button', { name: 'Requires level 100', exact: true }).isDisabled(), true);
                         assert.match(await dialog.getByRole('status').innerText(), /unlock at level 100/);
@@ -224,7 +224,7 @@ try {
                     await page.locator('.stronghold-hush-station').waitFor();
                     assert.match(await page.locator('.stronghold-hush-station').innerText(), /Village vault · Protected/);
                     await page.getByRole('button', { name: 'Move right', exact: true }).click();
-                    const dialog = page.getByRole('dialog', { name: 'Your village’s Hush' }); await dialog.waitFor();
+                    const dialog = page.getByRole('dialog', { name: 'Your village’s Anbu' }); await dialog.waitFor();
                     assert.match(await dialog.innerText(), /Your own treasury cannot be raided/);
                     assert.equal(await dialog.locator('.stronghold-attack').count(), 0); assert.equal(raidRequests, 0);
                     if (level === 50) await page.screenshot({ path: `${output}/${engineName}-level-50-defender-${viewport.width}.png` });

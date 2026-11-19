@@ -98,7 +98,7 @@ async function racing<T>(saveKey: string, edit: (character: Json) => Json, run: 
 function makeRun(over: Partial<InfilRun> = {}): InfilRun {
     return {
         runId: 'r1', raiderSlug: 'raider', sector: SECTOR, targetVillage: VILLAGE,
-        hushSlug: 'hush-one', hushName: 'Hush One', terrain: 'snow',
+        hushSlug: 'hush-one', hushName: 'Anbu One', terrain: 'snow',
         createdAt: NOW,
     ...over };
 }
@@ -111,7 +111,7 @@ function terminalSession(outcome: 'win' | 'loss' = 'win') {
             character: { level: 100, maxHp: 9000, maxChakra: 100, maxStamina: 100, stats: {}, jutsu: [], pvpItems: [], equipment: {} },
         },
         hush: {
-            slug: 'hush-one', name: 'The Frostfang Hush',
+            slug: 'hush-one', name: 'The Frostfang Anbu',
             character: { level: 100, maxHp: 9000, maxChakra: 100, maxStamina: 100, stats: {}, jutsu: [], pvpItems: [], equipment: {} },
         },
     });
@@ -290,7 +290,7 @@ describe('settleInfiltrationWin', { concurrency: false }, () => {
 });
 
 describe('settleInfiltrationLoss', { concurrency: false }, () => {
-    it('a held Hush defense protects both village and sector war reserves on settlement and replay', async () => {
+    it('a held Anbu defense protects both village and sector war reserves on settlement and replay', async () => {
         await seedTerritory(); await seedWarRecord(); await seedSave('raider', { hp: 9000 });
         const territory = await read(TERRITORY_KEY), war = await read(villageWarKey(VILLAGE));
         const held = await settleInfiltrationLoss(makeRun(), terminalSession('loss'), deps);
@@ -463,7 +463,7 @@ describe('turnInCachesForSave', { concurrency: false }, () => {
     });
 });
 
-describe('Hush roster + snapshot', { concurrency: false }, () => {
+describe('Anbu roster + snapshot', { concurrency: false }, () => {
     it('loadHushAppointees: safeNamed, deduped', async () => {
         // safeName lowercases (so 'Hush-One' ≡ 'hush-one') but a spaced display
         // name slugs differently ('Hush Two' → 'hushtwo') — matching how
@@ -484,16 +484,16 @@ describe('Hush roster + snapshot', { concurrency: false }, () => {
     });
 
     it('getOrSealHushSnapshot: seals once per day and caches (stale save changes ignored)', async () => {
-        await seedSave('hush-one', { name: 'Hush One', specialty: 'Ninjutsu', maxHp: 12000 });
+        await seedSave('hush-one', { name: 'Anbu One', specialty: 'Ninjutsu', maxHp: 12000 });
         const snap1 = await getOrSealHushSnapshot(VILLAGE, 'hush-one', deps);
         assert.ok(snap1);
-        assert.equal(snap1!.name, 'Hush One');
+        assert.equal(snap1!.name, 'Anbu One');
         assert.equal(snap1!.sealedAt, NOW);
         assert.ok(snap1!.character); // sealed combat character
         // mutate the save; same-day snapshot stays frozen
         await seedSave('hush-one', { name: 'Renamed', maxHp: 1 });
         const snap2 = await getOrSealHushSnapshot(VILLAGE, 'hush-one', deps);
-        assert.equal(snap2!.name, 'Hush One');
+        assert.equal(snap2!.name, 'Anbu One');
         // no save at all → null
         assert.equal(await getOrSealHushSnapshot(VILLAGE, 'ghost', deps), null);
     });

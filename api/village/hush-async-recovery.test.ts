@@ -34,14 +34,14 @@ async function seed(name: string) {
     await kv.set(`save:${name}`, { _saveVersion: 1, currentSector: sector, character });
     onlineStore.upsert({ name, sector, character });
     await kv.set('game:village-state:frostfangvillage', { hushAppointees: ['asyncrecoveryhush'] });
-    await kv.set('save:asyncrecoveryhush', { character: { ...character, name: 'Frostfang Hush', village: 'Frostfang Village' } });
+    await kv.set('save:asyncrecoveryhush', { character: { ...character, name: 'Frostfang Anbu', village: 'Frostfang Village' } });
     const entry = await post(name, 'stronghold-enter'); assert.equal(entry.status, 200, JSON.stringify(entry.body));
     const visit = entry.body.visit as StrongholdVisit;
     await kv.set(`stronghold:${name}:${sector}`, { ...visit, tile: STRONGHOLD_VAULT - 1 });
     assert.equal((await post(name, 'stronghold-state')).status, 200);
 }
 
-test('a lost start response recovers the exact admitted Hush run without its browser run ID', async () => {
+test('a lost start response recovers the exact admitted Anbu run without its browser run ID', async () => {
     const name = 'hushloststart'; await seed(name);
     const started = await post(name, 'start'); assert.equal(started.status, 200, JSON.stringify(started.body));
     const counts = await kv.keys(`infil-start-count:${name}:*`), before = await kv.mget(...counts);
@@ -163,7 +163,7 @@ async function bossQueue(name: string) {
     await kv.set(`world-boss-event:${id}:queue`, { tickets: [{ ticketId: id, slug: name, name, joinedAt: now, village: 'Moonshadow Village', clan: '' }], activeMatchIds: [], updatedAt: now });
 }
 
-test('a queued world-boss player cannot also start a Hush raid or spend its daily attempt', async () => {
+test('a queued world-boss player cannot also start an Anbu raid or spend its daily attempt', async () => {
     const name = 'hushqueued'; await seed(name); await bossQueue(name);
     try {
         const started = await post(name, 'start'); assert.equal(started.status, 409, JSON.stringify(started.body));

@@ -493,7 +493,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'expiring-run-and-session', status: 'match', migrationStatus: 'migrated',
     }),
     defineMode({
-        id: 'hush-infiltration', label: 'Hush infiltration', category: 'solo-pve', authorityEngine: E.SOLO_PVE,
+        id: 'hush-infiltration', label: 'Anbu infiltration', category: 'solo-pve', authorityEngine: E.SOLO_PVE,
         capabilityKey: 'hushInfiltration',
         clientEntries: ['features/hushInfiltration/HushVaultRaid.tsx', 'lib/hush-infiltration-api.ts', ...SOLO_CLIENT],
         routes: [
@@ -654,7 +654,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
             mountedRoute('/solo-pve/state', 'solo-pve/state', ['state']),
         ],
         participantModel: 'solo', rewardPolicy: 'server-settled', replayKind: 'expiring-solo-session-log-plus-contest-receipt', status: 'match',
-        statusDetail: 'The wrong-owner Tower fallback (resolveMercBattle/sealTowerFighter) stays retired. The garrison is resolved on the Solo PvE runtime over a sealed snapshot of the defending village\'s real Hush (api/_sector-war-garrison-encounter.ts, api/_hush-infiltration-store.ts) — content, not a live second participant — same shape as Hush Infiltration. Its OUTCOME still feeds the sector-war contest\'s own scored points under api/village/sector-war.ts\'s lock (garrison-start/garrison-resolve), which is why this mode is labeled pvp: sector-war orchestration, not the underlying simulation engine, is what makes it the contest\'s authority.',
+        statusDetail: 'The wrong-owner Tower fallback (resolveMercBattle/sealTowerFighter) stays retired. The garrison is resolved on the Solo PvE runtime over a sealed snapshot of the defending village\'s real Anbu (api/_sector-war-garrison-encounter.ts, api/_hush-infiltration-store.ts) — content, not a live second participant — same shape as Anbu Infiltration. Its OUTCOME still feeds the sector-war contest\'s own scored points under api/village/sector-war.ts\'s lock (garrison-start/garrison-resolve), which is why this mode is labeled pvp: sector-war orchestration, not the underlying simulation engine, is what makes it the contest\'s authority.',
     }),
     defineMode({
         id: 'village-war-mercenary', label: 'Village-War mercenary battle', category: 'tower', authorityEngine: E.TOWER,

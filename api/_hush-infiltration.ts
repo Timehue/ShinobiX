@@ -1,5 +1,5 @@
 /*
- * Hush Vault Infiltration — pure, IO-free reward/economy core.
+ * Anbu Vault Infiltration — pure, IO-free reward/economy core.
  *
  * The L100 sector-attrition raid (docs/hush-infiltration-plan.md). Split out from
  * the endpoints so the *balance math* is unit-testable without storage — same
@@ -16,7 +16,7 @@
  * (type-locked; docs plan §8, decision B).
  *
  * These balance constants are server-owned and independently protected by the
- * default-on Hush Infiltration kill switch; the Sector Map campaign switch does
+ * default-on Anbu Infiltration kill switch; the Sector Map campaign switch does
  * not control this activity.
  */
 
@@ -46,8 +46,8 @@ export const RAID_RYO_PER_ANCHOR = 10;
 
 /**
  * The raid's personal ryo, keyed on the LOWER of the raider's and the sealed
- * Hush defender's levels (framework 2.8's lower-level pay rule): the rival Kage
- * seats the Hush, with no level floor, so a colluding village could seat L1
+ * Anbu defender's levels (framework 2.8's lower-level pay rule): the rival Kage
+ * seats the Anbu, with no level floor, so a colluding village could seat L1
  * alts for a partner's L100 raiders to beat eight times a day. Full pay is
  * 10 x A(min level), so 3,000 only against an L70+ defender and 600 against an
  * L10 alt, never below the old 500. WAR_PURSE_SCALE stages the raise above

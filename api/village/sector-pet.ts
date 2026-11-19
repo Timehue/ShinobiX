@@ -244,10 +244,10 @@ async function applyPetOutcomeToContest(session: SectorPetSession): Promise<Sect
     // contest lock (authoritative server state), then applied atomically inside it.
     const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? (session.p2?.name ?? '') : '';
     const loserName = session.winner === 'p1' ? (session.p2?.name ?? '') : session.winner === 'p2' ? session.p1.name : '';
-    // A garrison is an AI holding ground, not the Hush whose kit it borrowed, so
+    // A garrison is an AI holding ground, not the Anbu whose kit it borrowed, so
     // its side weighs as a plain villager and earns its "owner" no credit. This
     // mirrors api/village/sector-war.ts's Combat garrison exactly — reading the
-    // sealed Hush's real rank instead would inflate the swing and hand capture
+    // sealed Anbu's real rank instead would inflate the swing and hand capture
     // credit to someone who never played.
     const attackerWonBattle = session.winner === 'p1';
     const [winnerRole, loserRole] = session.garrison
@@ -499,7 +499,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const pet = await sealPlayerPet(me, String(body?.petId ?? ''));
                 if (!pet) return { status: 400 as const, body: { error: 'You have no pet to send into battle.' } };
                 const team = (await sealWarTeam(me, [String(pet.id)])) ?? [pet];
-                // The first Hush in rotation (then the Kage) who can actually
+                // The first Anbu in rotation (then the Kage) who can actually
                 // field a team holds the garrison. One whose pets are all on an
                 // expedition or breeding used to refuse the whole assault, every
                 // time the rotation landed on them.
@@ -524,7 +524,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
                 // The garrison fights under the defence's MASKED name, as the
                 // Combat garrison does: it represents the village, not a callout
-                // of which Hush's kennel it borrowed.
+                // of which Anbu's kennel it borrowed.
                 const p2 = { name: maskedGarrisonDefenderName(contest.defenderVillage, defender, fielded.appointees), pet: garrisonTeam[0]!, team: garrisonTeam };
                 const p1 = { name: me, pet, team };
                 const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1, p2, rulesetVersion: 'progression-v3' }));

@@ -223,7 +223,7 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     assert.doesNotMatch(builds, /forge the revealed roll/i);
 
     assert.match(endgame, new RegExp(`Stronghold exploration opens at character level ${STRONGHOLD_MIN_LEVEL}`, "i"));
-    assert.match(endgame, new RegExp(`Hush treasury raids are a separate level-${HUSH_RAID_MIN_LEVEL} activity`, "i"));
+    assert.match(endgame, new RegExp(`Anbu treasury raids are a separate level-${HUSH_RAID_MIN_LEVEL} activity`, "i"));
     assert.match(endgame, new RegExp(`The First Pact opens at character level ${FIRST_PACT_MIN_LEVEL}`, "i"));
 });
 

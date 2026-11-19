@@ -39,8 +39,8 @@ export const WAR_PURSE_LOSE_K_DEFAULT = 0.18;
 export const WAR_PURSE_EPOCH_DEFAULT_MS = Date.UTC(2026, 9, 22);
 
 // WAR_PURSE_SCALE (default 1, range 0-1) stages the raised war pay: the purses
-// (ryo and purse honor), the MVP raise above 10,000 and the Hush raise above 500.
-// It lives in a storage-free module so the Hush core can read it too.
+// (ryo and purse honor), the MVP raise above 10,000 and the Anbu raise above 500.
+// It lives in a storage-free module so the Anbu core can read it too.
 export { warPurseScale, stagedRaise } from './_war-pay-scale.js';
 /** WAR_PURSE_WIN_K (default 0.3, range 0-0.6): winners' purse rate. */
 export function warPurseWinK(): number {

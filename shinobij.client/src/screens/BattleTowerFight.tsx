@@ -485,7 +485,7 @@ export function BattleTowerFight({
     // Some modes settle on ANY resolution: boss events bank partial contribution,
     // and story towers finalize server-recorded consumable/throwable spends on wipes.
     settleOnAnyDone?: boolean;
-    // Optional action-sender override — the Hush Vault Infiltration reuses this
+    // Optional action-sender override — the Anbu Vault Infiltration reuses this
     // whole fight screen but submits moves to its own route
     // (api/village/hush-infiltration action:'act') instead of /api/towers/action.
     // Same request/response shape (the server runs the shared tower engine).

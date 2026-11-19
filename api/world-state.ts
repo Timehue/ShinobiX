@@ -2252,7 +2252,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 && clanActorIsMember(clanRec, actorSlug);
                             const actorIsHush = await actorIsAppointedVillageHush(actorSlug, actorVillage, prevVillage);
                             if (!actorInOwnerClan && !actorIsHush) {
-                                return res.status(403).json({ error: 'Only the owning clan or a current village Hush may update this territory.' });
+                                return res.status(403).json({ error: 'Only the owning clan or a current village Anbu may update this territory.' });
                             }
 
                             // HP is combat/economy authority. Raids apply damage

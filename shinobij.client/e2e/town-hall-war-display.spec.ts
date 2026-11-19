@@ -104,7 +104,7 @@ test('Kage sector preparations bind a selected war and refresh a Watchtower purc
     await expect(structures.getByRole('button', { name: /Ramparts/ })).toHaveCount(0);
     const preparations = page.getByRole('region', { name: 'Individual war preparations' });
     await expect(preparations.getByText(/Three tiers/)).toBeVisible();
-    await expect(page.getByText(/Five-day village campaigns use queued player defenders and reusable Hush copies/)).toBeVisible();
+    await expect(page.getByText(/Five-day village campaigns use queued player defenders and reusable Anbu copies/)).toBeVisible();
     await preparations.getByRole('button', { name: /Upgrade Watchtower/ }).click();
     await expect(preparations.getByRole('heading', { name: /Watchtower Tier 1/ })).toBeVisible();
     await expect(preparations.getByRole('button', { name: 'Watchtower complete' })).toBeDisabled();

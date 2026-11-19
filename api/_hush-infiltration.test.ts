@@ -170,8 +170,8 @@ test('computeRaidReward: ryo override is honored and floored ≥ 0', () => {
 });
 
 // 2026-10 rebalance (#31): the raid pays 10 x A(L) at the LOWER of the raider's
-// and the sealed Hush defender's levels, never below the old 500, staged by
-// WAR_PURSE_SCALE. A colluding Kage who seats a low-level alt as Hush cannot
+// and the sealed Anbu defender's levels, never below the old 500, staged by
+// WAR_PURSE_SCALE. A colluding Kage who seats a low-level alt as Anbu cannot
 // feed a partner's L100 raiders full pay.
 test('raidRyoReward: a raid win pays 3,000 against an L70+ defender, scaled down against a low-level one', () => {
     assert.equal(RAID_RYO_REWARD, 3_000);
@@ -179,7 +179,7 @@ test('raidRyoReward: a raid win pays 3,000 against an L70+ defender, scaled down
     assert.equal(raidRyoReward(100, 100, 1), 3_000);
     assert.equal(raidRyoReward(100, 70, 1), 3_000);
     assert.equal(raidRyoReward(100, 50, 1), 2_200, '10 x A(50) = 10 x 220');
-    assert.equal(raidRyoReward(100, 10, 1), 600, 'an L10 Hush alt: 10 x A(10)');
+    assert.equal(raidRyoReward(100, 10, 1), 600, 'an L10 Anbu alt: 10 x A(10)');
     assert.equal(raidRyoReward(100, 1, 1), 500, 'never below the old flat 500');
     assert.equal(raidRyoReward(100, undefined, 1), 3_000, 'an unknown defender level falls back to the raider');
 });
