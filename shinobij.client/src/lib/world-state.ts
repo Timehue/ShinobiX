@@ -1,4 +1,4 @@
-import { leadershipNameKey } from '../../../shared/village-shadowguard';
+import { leadershipNameKey } from '../../../shared/village-hush';
 import { setRestoredRuinFeed, setSectorBannerOwners } from './sector-banner-state';
 import { elderSeatsForTerm } from "../../../shared/village-elders";
 import { cacheVillageElders, resetVillageElders } from "./village-elder-focus";
@@ -30,7 +30,7 @@ import { resolveSectorWeather } from "../../../shared/sector-weather";
 import { VILLAGE_WAR_REWARD_MIN_DURATION_HOURS } from "../../../shared/village-war-reward-floor";
 import { setSharedProgressionDialsPayload } from "./progression-dials-store";
 import { clampNumber, playerSlug } from "./utils";
-import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeShadowguardAppointees, normalizeVillageDailyAgenda } from "./village-state";
+import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeHushAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { normalizeNoticePosts } from "./clan-notices";
 import { sharedClanWarCache } from "./clan-war-read-api";
 import { countItem, removeItem } from "./inventory";
@@ -302,9 +302,9 @@ export type KageHistoryEntry = {
 type VillageAgendaKind = "missions" | "explore" | "ai" | "pet" | "control";
 export type VillageAgendaTask = { id: string; kind: VillageAgendaKind; label: string; target: number };
 export type VillageDailyAgenda = { date: string; tasks: VillageAgendaTask[] };
-export type VillageState = { treasury: VillageTreasury; upgrades: Record<string, number>; contributionPoints: number; notices: string[]; noticePosts: NoticePost[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; shadowguardAppointees: string[]; shadowguardEarned?: string[]; shadowguardMembers?: string[]; elderAppointees: string[]; elderTerm?: import("../../../shared/elder-elections").ElderCouncil; kageHistory?: KageHistoryEntry[]; dailyAgenda: VillageDailyAgenda; hollowGateUnlockedUntil?: number; };
+export type VillageState = { treasury: VillageTreasury; upgrades: Record<string, number>; contributionPoints: number; notices: string[]; noticePosts: NoticePost[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; hushAppointees: string[]; hushEarned?: string[]; hushMembers?: string[]; elderAppointees: string[]; elderTerm?: import("../../../shared/elder-elections").ElderCouncil; kageHistory?: KageHistoryEntry[]; dailyAgenda: VillageDailyAgenda; hollowGateUnlockedUntil?: number; };
 function defaultVillageWarRecords(village: string): DetailedVillageWarRecord[] { const leadership = villageLeadership[village]; return (leadership?.pastWars ?? ["No recorded wars yet."]).map((war, index) => ({ opponent: war.replace(/^Won |^Lost |^Draw at /, ""), winner: war.startsWith("Won") ? village : war.startsWith("Lost") ? "Enemy Village" : "Draw", finalScore: index === 0 ? "112 - 88" : index === 1 ? "76 - 91" : "64 - 64", topDefender: leadership?.elders?.[index % 3] ?? "Village Guard", topAttacker: leadership?.kage ?? "Kage Council", mvpClan: index === 0 ? "Fated Reunion" : "Unclaimed", rewards: index === 0 ? "Village standing / guard medals" : "Archive record", date: index === 0 ? "Recent Season" : "Previous Season" })); }
-function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), upgrades: {}, contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, elderAppointees: ["", "", ""], shadowguardAppointees: ["", "", ""], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlockedUntil: 0 }; }
+function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), upgrades: {}, contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, elderAppointees: ["", "", ""], hushAppointees: ["", "", ""], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlockedUntil: 0 }; }
 function sharedVillageStateKey(village: string) { return village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 let sharedVillageStateCache: Record<string, VillageState> = {};
 /* A village's members-only fields (owner ruling 2026-10-08): the public game-state
@@ -342,7 +342,7 @@ export function cleanVillageUpgrades(raw?: unknown): Record<string, number> {
     return out;
 }
 
-export function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); const notices = state?.notices?.length ? state.notices.slice(0, 8) : base.notices; return { treasury: cleanVillageTreasury(state?.treasury), upgrades: cleanVillageUpgrades(state?.upgrades), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices, /* Do NOT fold legacy `notices` strings into noticePosts: makeNoticePost stamps each with Date.now(), so a village whose noticePosts were stripped server-side (System-authored posts fail the author===caller check) would re-mint the string board into fresh, re-timestamped "System" orders on every load. The Orders board shows persisted structured posts only. */ noticePosts: normalizeNoticePosts(state?.noticePosts, [], 60), warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, shadowguardAppointees: normalizeShadowguardAppointees(state?.shadowguardAppointees), shadowguardEarned: state?.shadowguardEarned ?? [], shadowguardMembers: state?.shadowguardMembers ?? [], elderAppointees: elderSeatsForTerm(state?.elderAppointees, state?.elderTerm?.nextSelectionAt), elderTerm: state?.elderTerm, kageHistory: state?.kageHistory ?? [], dailyAgenda: normalizeVillageDailyAgenda(village, state?.dailyAgenda), hollowGateUnlockedUntil: Math.max(0, Math.floor(Number(state?.hollowGateUnlockedUntil ?? base.hollowGateUnlockedUntil ?? 0))) || 0 }; }
+export function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); const notices = state?.notices?.length ? state.notices.slice(0, 8) : base.notices; return { treasury: cleanVillageTreasury(state?.treasury), upgrades: cleanVillageUpgrades(state?.upgrades), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices, /* Do NOT fold legacy `notices` strings into noticePosts: makeNoticePost stamps each with Date.now(), so a village whose noticePosts were stripped server-side (System-authored posts fail the author===caller check) would re-mint the string board into fresh, re-timestamped "System" orders on every load. The Orders board shows persisted structured posts only. */ noticePosts: normalizeNoticePosts(state?.noticePosts, [], 60), warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, hushAppointees: normalizeHushAppointees(state?.hushAppointees), hushEarned: state?.hushEarned ?? [], hushMembers: state?.hushMembers ?? [], elderAppointees: elderSeatsForTerm(state?.elderAppointees, state?.elderTerm?.nextSelectionAt), elderTerm: state?.elderTerm, kageHistory: state?.kageHistory ?? [], dailyAgenda: normalizeVillageDailyAgenda(village, state?.dailyAgenda), hollowGateUnlockedUntil: Math.max(0, Math.floor(Number(state?.hollowGateUnlockedUntil ?? base.hollowGateUnlockedUntil ?? 0))) || 0 }; }
 export function loadVillageState(village: string): VillageState { return sharedVillageStateCache[sharedVillageStateKey(village)] ?? defaultVillageState(village); }
 
 // ── Hollow Gate: 30-day timed village unlock ────────────────────────────
@@ -395,7 +395,7 @@ export function saveVillageState(village: string, state: VillageState) {
     // upgrade levels (/api/village/upgrade). The server keeps the stored values
     // either way (api/_village-state-validate.ts); sending them only filled its
     // suppression log on every Town Hall action.
-    const { noticePosts: _orders, shadowguardAppointees: _shadowguardSeats, shadowguardEarned: _earnedShadowguard, shadowguardMembers: _shadowguardMembers, elderAppointees: _elders, elderTerm: _elderTerm, treasury: _treasury, upgrades: _upgrades, ...villageFields } = normalized;
+    const { noticePosts: _orders, hushAppointees: _hushSeats, hushEarned: _earnedHush, hushMembers: _hushMembers, elderAppointees: _elders, elderTerm: _elderTerm, treasury: _treasury, upgrades: _upgrades, ...villageFields } = normalized;
     if (!member) for (const field of VILLAGE_MEMBER_FIELDS) delete (villageFields as Partial<VillageState>)[field];
     persistSharedGameState({ kind: "villageState", village, state: villageFields });
 }
@@ -404,12 +404,12 @@ export function adoptVillageOrders(village: string, noticePosts: NoticePost[]): 
     sharedVillageStateCache[key] = { ...loadVillageState(village), noticePosts };
     if (villageMemberFields[key]) { villageMemberFields[key] = { ...villageMemberFields[key], noticePosts }; villageMemberEdits++; }
 }
-export function adoptVillageShadowguard(village: string, roster: { appointed: string[]; earned: string[]; members: string[] }): void {
-    sharedVillageStateCache[sharedVillageStateKey(village)] = { ...loadVillageState(village), shadowguardAppointees: roster.appointed, shadowguardEarned: roster.earned, shadowguardMembers: roster.members };
+export function adoptVillageHush(village: string, roster: { appointed: string[]; earned: string[]; members: string[] }): void {
+    sharedVillageStateCache[sharedVillageStateKey(village)] = { ...loadVillageState(village), hushAppointees: roster.appointed, hushEarned: roster.earned, hushMembers: roster.members };
 }
-export function isVillageShadowguard(character: Character) {
+export function isVillageHush(character: Character) {
     const state = loadVillageState(character.village);
-    return (state.shadowguardMembers ?? []).some(name => leadershipNameKey(name) === leadershipNameKey(character.name));
+    return (state.hushMembers ?? []).some(name => leadershipNameKey(name) === leadershipNameKey(character.name));
 }
 
 export const VILLAGE_WAR_HP_MAX = 5000;
@@ -1166,17 +1166,17 @@ export function villageTerritoryWarSupply(village?: string) {
     return villageOwnedTerritories(village).reduce((sum, territory) => sum + territory.warSupply, 0);
 }
 
-function guardIsVillageShadowguard(name: string, village?: string) {
+function guardIsVillageHush(name: string, village?: string) {
     if (!village) return false;
     const state = loadVillageState(village);
-    return (state.shadowguardMembers ?? []).some(appointee => leadershipNameKey(appointee) === leadershipNameKey(name));
+    return (state.hushMembers ?? []).some(appointee => leadershipNameKey(appointee) === leadershipNameKey(name));
 }
 
 export function sectorRaidDamageAmount(sector: number) {
     const territory = loadSectorTerritory(sector);
     if (!territory.ownerClan) return 250;
-    const shadowguardCount = territory.guards.filter(guard => guardIsVillageShadowguard(guard, territory.ownerVillage)).length;
-    if (shadowguardCount > 0) return Math.max(50, 250 - shadowguardCount * 50);
+    const hushCount = territory.guards.filter(guard => guardIsVillageHush(guard, territory.ownerVillage)).length;
+    if (hushCount > 0) return Math.max(50, 250 - hushCount * 50);
     return territory.guards.length > 0 ? 150 : 250;
 }
 

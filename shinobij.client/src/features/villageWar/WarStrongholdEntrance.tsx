@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import type { Character } from '../../types/character';
 import type { CampaignFieldMissionView, CampaignView } from '../../../../shared/village-war-campaign';
-import { SHADOWGUARD_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL, isDeathsGateStronghold, strongholdLevelEligible, strongholdTitle } from '../../../../shared/sector-stronghold';
-import { StrongholdDialog } from '../shadowguardInfiltration/StrongholdDialog';
+import { HUSH_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL, isDeathsGateStronghold, strongholdLevelEligible, strongholdTitle } from '../../../../shared/sector-stronghold';
+import { StrongholdDialog } from '../hushInfiltration/StrongholdDialog';
 import { warStrongholdEntryText } from './sector-vault-marker';
 
 export function WarStrongholdEntrance({ character, target, campaign, mission, admissionOpen, onEnter, onClose }: {
@@ -13,7 +13,7 @@ export function WarStrongholdEntrance({ character, target, campaign, mission, ad
     // Fetch the stronghold screen while the player reads this prompt, so Enter
     // opens it at once instead of waiting on its chunk. A failed warm-up is
     // Enter's failure too (the browser keeps a failed import).
-    useEffect(() => { void import('../shadowguardInfiltration/ShadowguardVaultRaid').catch(() => undefined); }, []);
+    useEffect(() => { void import('../hushInfiltration/HushVaultRaid').catch(() => undefined); }, []);
     const minimumLevel = target.warEntry ? 15 : STRONGHOLD_MIN_LEVEL;
     const entryEligible = target.warEntry ? (character.level ?? 0) >= 15 : strongholdLevelEligible(character.level);
     const espionage = mission?.kind === 'espionage' && mission.status === 'active' && mission.sectors[0] === target.sector;
@@ -22,13 +22,13 @@ export function WarStrongholdEntrance({ character, target, campaign, mission, ad
     const allied = target.village === character.village;
     const description = warStrongholdEntryText(campaign, target.sector, character.village, mission)
         ?? (obsidian ? 'Enter twelve obsidian chambers shared with other players. Every step raises threat; a patrol attacks after 25 steps. Your current health and supplies carry into every fight.'
-            : allied ? target.warEntry ? 'Take guard duty from level 15 to confront enemy espionage visitors. Your allied Shadowguard stays on guard.'
-                : 'Explore your village’s twelve-chamber stronghold, fight patrols, and watch for rival players. Your Shadowguard protects the war reserves in the vault at the far end.'
-                : 'Explore 12 chambers, fight patrols, and watch for rival players. A Shadowguard guards the war vault at the far end. Each step raises threat. Break through to raid this sector’s war supplies.');
+            : allied ? target.warEntry ? 'Take guard duty from level 15 to confront enemy espionage visitors. Your allied Hush stays on guard.'
+                : 'Explore your village’s twelve-chamber stronghold, fight patrols, and watch for rival players. Your Hush protects the war reserves in the vault at the far end.'
+                : 'Explore 12 chambers, fight patrols, and watch for rival players. A Hush guards the war vault at the far end. Each step raises threat. Break through to raid this sector’s war supplies.');
     return <StrongholdDialog title={strongholdTitle(target.sector)} onClose={onClose}>
-        <img src='/landmarks/shadowguard-vault.webp' alt='' className={`stronghold-boss-portrait${obsidian ? ' stronghold-obsidian-portrait' : ''}`} />
+        <img src='/landmarks/hush-vault.webp' alt='' className={`stronghold-boss-portrait${obsidian ? ' stronghold-obsidian-portrait' : ''}`} />
         <p style={{ fontSize: 13, opacity: 0.82, margin: '0.3rem 0 0.8rem' }}>{description}</p>
-        <p className='stronghold-reward-detail'>Stronghold entry unlocks at level {minimumLevel}.{!target.warEntry && !obsidian && !allied && ` Shadowguard treasury raids require level ${SHADOWGUARD_RAID_MIN_LEVEL}.`}</p>
+        <p className='stronghold-reward-detail'>Stronghold entry unlocks at level {minimumLevel}.{!target.warEntry && !obsidian && !allied && ` Hush treasury raids require level ${HUSH_RAID_MIN_LEVEL}.`}</p>
         {obsidian && <p className='stronghold-reward-detail'><b>1.5× normal Ryo and Jutsu XP on PvP wins.</b> The rest of Death’s Gate pays 1.25×. Both fighters must start inside. Patrols do not earn this bonus. Normal reward limits apply.</p>}
         <div className='stronghold-dialog-actions'>
             <button disabled={!admissionOpen || !entryEligible} style={{ padding: '0.55rem 1.15rem', opacity: admissionOpen && entryEligible ? 1 : 0.55 }}

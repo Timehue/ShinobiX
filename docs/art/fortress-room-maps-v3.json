@@ -113,14 +113,14 @@
       "sourcePreview": "docs/art/fortress-room-source-previews/fortress-room-inner-guard-v3.webp"
     },
     {
-      "key": "shadowguard-vault",
-      "prompt": "Edit the provided ENTRY HALL gameplay floor map into the following room variant. Preserve its exact 7:5 canvas, same overhead orthographic camera, detailed small natural flagstones, coherent built-in stone/timber architecture and restrained lighting. It is a finished RPG sector floor map, not a screenshot or props collage. Physical station bays occupy exactly THREE of seven floor columns by ONE of five rows: north-left x=0 to3/7,y=0 to1/5; north-right x=4/7 to1,y=0 to1/5; south-left x=0 to3/7,y=4/5 to1; south-right x=4/7 to1,y=4/5 to1. Only the specified bays contain raised artwork; all other tiles are empty walkable floor. KEEP CENTRAL COLUMN (x=3/7..4/7) and MIDDLE ROW clear through every edge; no false doors, no walls closing midpoint entrances. Nothing isometric or oblique, no visible side legs of furniture, no freestanding prop outside a bay, no character, no text, no UI. Same professional high-fidelity coherent painted map style. Room design: Shadowguard VAULT. Keep two NORTH bays as built-in heavily reinforced security stations with restrained bronze armorial plates and dim amber lamps. Add two SOUTH bays of fitted steel village war-reserve strongboxes set into stone vault cabinetry, red paper seals and metal locks viewed directly overhead. No loose freestanding chest. Center is entirely walkable slate with one very subtle small flat inlaid bronze medallion at center, to host the interactive Shadowguard marker separately in game.",
+      "key": "hush-vault",
+      "prompt": "Edit the provided ENTRY HALL gameplay floor map into the following room variant. Preserve its exact 7:5 canvas, same overhead orthographic camera, detailed small natural flagstones, coherent built-in stone/timber architecture and restrained lighting. It is a finished RPG sector floor map, not a screenshot or props collage. Physical station bays occupy exactly THREE of seven floor columns by ONE of five rows: north-left x=0 to3/7,y=0 to1/5; north-right x=4/7 to1,y=0 to1/5; south-left x=0 to3/7,y=4/5 to1; south-right x=4/7 to1,y=4/5 to1. Only the specified bays contain raised artwork; all other tiles are empty walkable floor. KEEP CENTRAL COLUMN (x=3/7..4/7) and MIDDLE ROW clear through every edge; no false doors, no walls closing midpoint entrances. Nothing isometric or oblique, no visible side legs of furniture, no freestanding prop outside a bay, no character, no text, no UI. Same professional high-fidelity coherent painted map style. Room design: Hush VAULT. Keep two NORTH bays as built-in heavily reinforced security stations with restrained bronze armorial plates and dim amber lamps. Add two SOUTH bays of fitted steel village war-reserve strongboxes set into stone vault cabinetry, red paper seals and metal locks viewed directly overhead. No loose freestanding chest. Center is entirely walkable slate with one very subtle small flat inlaid bronze medallion at center, to host the interactive Hush marker separately in game.",
       "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a12d35-3bb5-7352-9515-62574768609e\\exec-206fc26d-449c-49e7-b892-7012d1d3faa6.png",
       "outputs": [
-        "shinobij.client/public/underground/fortress-room-shadowguard-vault-north-v3.webp",
-        "shinobij.client/public/underground/fortress-room-shadowguard-vault-south-v3.webp"
+        "shinobij.client/public/underground/fortress-room-hush-vault-north-v3.webp",
+        "shinobij.client/public/underground/fortress-room-hush-vault-south-v3.webp"
       ],
-      "sourcePreview": "docs/art/fortress-room-source-previews/fortress-room-shadowguard-vault-v3.webp"
+      "sourcePreview": "docs/art/fortress-room-source-previews/fortress-room-hush-vault-v3.webp"
     },
     {
       "key": "blood-altar",

@@ -584,7 +584,7 @@ describe('executable multi-engine runtime registry', () => {
       ['/solo-pve/action', '/solo-pve/state', '/village/sector-war'],
     );
     // The wrong-owner Tower resolver stays gone; the rebuilt garrison is a Solo
-    // PvE session over a sealed real-Shadowguard snapshot, scored into the contest by
+    // PvE session over a sealed real-Hush snapshot, scored into the contest by
     // api/_sector-war-garrison-settle.ts under the SAME lock/receipt machinery a
     // live-defender fight uses. Every request that can end the fight lands
     // there: garrison-resolve and garrison-start in api/village/sector-war.ts,
@@ -784,7 +784,7 @@ describe('executable multi-engine runtime registry', () => {
 
     // The garrison is 'pvp'-labeled because sector-war ORCHESTRATES its scoring
     // (this file's own lock/receipt machinery), not because its combat engine is
-    // PvP's — it runs on Solo PvE, same as Shadowguard Infiltration. That is exactly
+    // PvP's — it runs on Solo PvE, same as Hush Infiltration. That is exactly
     // the "orchestration, never a gameplay engine" boundary this test asserts.
     const garrisonMode = runtimeModeById('sector-war-shinobi-garrison');
     assert.equal(garrisonMode.status, 'match');

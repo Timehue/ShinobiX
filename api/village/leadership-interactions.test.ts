@@ -13,7 +13,7 @@ process.env.SESSION_SECRET = 'leadership-integration-tests-secret';
 
 let kv: typeof import('../_storage.js').kv;
 let token: typeof import('../_auth.js').issuePlayerToken;
-let shadowguard: typeof import('./shadowguard.js').default;
+let hush: typeof import('./hush.js').default;
 let elders: typeof import('./elder-focus.js').default;
 let orders: typeof import('./orders.js').default;
 let upgrade: typeof import('./upgrade.js').default;
@@ -21,7 +21,7 @@ let gate: typeof import('./hollow-gate-unlock.js').default;
 let terrain: typeof import('./war-terrain.js').default;
 let exam: typeof import('../exams/pass.js').default;
 let roles: typeof import('../_war-role.js');
-let roster: typeof import('./_shadowguard.js').readVillageShadowguard;
+let roster: typeof import('./_hush.js').readVillageHush;
 let seedIndex: typeof import('../player/_public-index.js').buildPublicPlayerIndexEntry;
 const village = 'Frostfang Village';
 const stateKey = 'game:village-state:frostfangvillage';
@@ -30,7 +30,7 @@ const kageKey = 'village:kage:frostfang-village';
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     token = (await import('../_auth.js')).issuePlayerToken;
-    shadowguard = (await import('./shadowguard.js')).default as unknown as typeof shadowguard;
+    hush = (await import('./hush.js')).default as unknown as typeof hush;
     elders = (await import('./elder-focus.js')).default as unknown as typeof elders;
     orders = (await import('./orders.js')).default as unknown as typeof orders;
     upgrade = (await import('./upgrade.js')).default as unknown as typeof upgrade;
@@ -38,7 +38,7 @@ before(async () => {
     terrain = (await import('./war-terrain.js')).default as unknown as typeof terrain;
     exam = (await import('../exams/pass.js')).default as unknown as typeof exam;
     roles = await import('../_war-role.js');
-    roster = (await import('./_shadowguard.js')).readVillageShadowguard;
+    roster = (await import('./_hush.js')).readVillageHush;
     seedIndex = (await import('../player/_public-index.js')).buildPublicPlayerIndexEntry;
 });
 
@@ -58,10 +58,10 @@ beforeEach(async () => {
     for (const name of ['kage', 'elder', 'operative', 'villager', 'newkage']) await seed(name);
     await seed('outsider', { village: 'Stormveil Village' });
     await kv.set(kageKey, { seatedKage: 'kage', kageSystemUnlocked: true });
-    await kv.set(stateKey, { seatedKage: 'villager', treasury: { honorSeals: 1000 }, elderAppointees: ['', '', ''], shadowguardAppointees: ['', '', ''] });
+    await kv.set(stateKey, { seatedKage: 'villager', treasury: { honorSeals: 1000 }, elderAppointees: ['', '', ''], hushAppointees: ['', '', ''] });
 });
 
-async function request(endpoint: typeof shadowguard, name: string | null, body: Record<string, unknown> = {}, method = 'POST') {
+async function request(endpoint: typeof hush, name: string | null, body: Record<string, unknown> = {}, method = 'POST') {
     const out = { status: 200, body: {} as Record<string, any> };
     const res = { setHeader() { return res; }, status(code: number) { out.status = code; return res; },
         json(value: Record<string, any>) { out.body = value; return res; }, end() { return res; } };
@@ -71,21 +71,21 @@ async function request(endpoint: typeof shadowguard, name: string | null, body: 
     return out;
 }
 
-test('Shadowguard appointments require the real Kage, valid seats, and a real member', async () => {
+test('Hush appointments require the real Kage, valid seats, and a real member', async () => {
     const action = { action: 'appoint', seat: 0, appointee: 'operative' };
-    assert.equal((await request(shadowguard, null, action)).status, 401);
-    assert.equal((await request(shadowguard, 'villager', action)).status, 403, 'stale cached Kage is powerless');
-    assert.equal((await request(shadowguard, 'kage', { ...action, seat: 3 })).status, 400);
-    for (const appointee of ['outsider', 'AI Elder']) assert.equal((await request(shadowguard, 'kage', { ...action, appointee })).status, 400);
-    assert.equal((await request(shadowguard, 'kage', action)).status, 200);
-    assert.equal((await request(shadowguard, 'kage', { ...action, seat: 1 })).status, 409);
+    assert.equal((await request(hush, null, action)).status, 401);
+    assert.equal((await request(hush, 'villager', action)).status, 403, 'stale cached Kage is powerless');
+    assert.equal((await request(hush, 'kage', { ...action, seat: 3 })).status, 400);
+    for (const appointee of ['outsider', 'AI Elder']) assert.equal((await request(hush, 'kage', { ...action, appointee })).status, 400);
+    assert.equal((await request(hush, 'kage', action)).status, 200);
+    assert.equal((await request(hush, 'kage', { ...action, seat: 1 })).status, 409);
     assert.deepEqual((await roster(village)).appointed, ['operative', '', '']);
 });
 
 test('concurrent appointments preserve other seats and unrelated village data', async () => {
     const outcomes = await Promise.all([
-        request(shadowguard, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' }),
-        request(shadowguard, 'kage', { action: 'appoint', seat: 1, appointee: 'elder' }),
+        request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' }),
+        request(hush, 'kage', { action: 'appoint', seat: 1, appointee: 'elder' }),
     ]);
     assert.ok(outcomes.every(out => out.status === 200));
     assert.deepEqual((await roster(village)).appointed, ['operative', 'elder', '']);
@@ -93,29 +93,29 @@ test('concurrent appointments preserve other seats and unrelated village data', 
 });
 
 test('appointments grant orders and war weight; clearing and stale writes cannot keep those powers', async () => {
-    await request(shadowguard, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
-    assert.deepEqual(await roles.sectorWarRoleOf('operative', village), roles.ROLE_SHADOWGUARD);
+    await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
+    assert.deepEqual(await roles.sectorWarRoleOf('operative', village), roles.ROLE_HUSH);
     const order = { action: 'post', id: 'defend-gate', type: 'general', title: 'Defend the gate', body: 'Gather at the village gate.' };
     assert.equal((await request(orders, 'operative', order)).status, 200);
-    await request(shadowguard, 'kage', { action: 'clear', seat: 0 });
+    await request(hush, 'kage', { action: 'clear', seat: 0 });
     const { validateVillageStateWrite } = await import('../_village-state-validate.js');
-    const checked = await validateVillageStateWrite(await kv.get<any>(stateKey), { shadowguardAppointees: ['operative'], shadowguardMembers: ['operative'] }, { callerName: 'kage', village, isAdmin: false }, { seatedKage: 'kage' });
+    const checked = await validateVillageStateWrite(await kv.get<any>(stateKey), { hushAppointees: ['operative'], hushMembers: ['operative'] }, { callerName: 'kage', village, isAdmin: false }, { seatedKage: 'kage' });
     await kv.set(stateKey, checked.next);
     assert.deepEqual((await roster(village)).members, []);
     assert.equal((await request(orders, 'operative', order)).status, 403);
     assert.deepEqual(await roles.sectorWarRoleOf('operative', village), roles.ROLE_VILLAGER);
 });
 
-test('all seven earned seats have real Shadowguard powers and rotate at UTC month rollover', async t => {
+test('all seven earned seats have real Hush powers and rotate at UTC month rollover', async t => {
     let clock = Date.UTC(2026, 8, 30, 23, 59);
     t.mock.method(Date, 'now', () => clock);
     for (let i = 0; i < 9; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: '2026-09' });
-    await request(shadowguard, 'kage', { action: 'appoint', seat: 0, appointee: 'fighter0' });
+    await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'fighter0' });
     assert.deepEqual((await roster(village)).earned, ['fighter1', 'fighter2', 'fighter3', 'fighter4', 'fighter5', 'fighter6', 'fighter7']);
-    assert.deepEqual(await roles.sectorWarRoleOf('fighter1', village), roles.ROLE_SHADOWGUARD);
+    assert.deepEqual(await roles.sectorWarRoleOf('fighter1', village), roles.ROLE_HUSH);
     assert.equal((await request(orders, 'fighter1', { action: 'post', id: 'patrol-gate', type: 'general', title: 'Patrol', body: 'Patrol the gate.' })).status, 200);
-    const { loadShadowguardAppointees } = await import('../_shadowguard-infiltration-store.js');
-    assert.deepEqual(await loadShadowguardAppointees(village), (await roster(village)).members, 'garrisons and infiltration share the complete roster');
+    const { loadHushAppointees } = await import('../_hush-infiltration-store.js');
+    assert.deepEqual(await loadHushAppointees(village), (await roster(village)).members, 'garrisons and infiltration share the complete roster');
     clock = Date.UTC(2026, 9, 1, 0, 1);
     assert.deepEqual((await roster(village)).members, ['fighter0'], 'appointed seats survive monthly rollover');
     assert.deepEqual(await roles.sectorWarRoleOf('fighter1', village), roles.ROLE_VILLAGER);
@@ -131,7 +131,7 @@ test('village changes remove appointed and earned powers and do not block the ne
     t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const currentMonth = new Date(Date.now()).toISOString().slice(0, 7);
     for (let i = 0; i < 8; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: currentMonth });
-    await request(shadowguard, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
+    await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
     for (const name of ['operative', 'fighter0']) {
         const saved = await kv.get<any>(`save:${name}`);
         await kv.set(`save:${name}`, { ...saved, character: { ...saved.character, village: 'Stormveil Village' } });
@@ -144,27 +144,27 @@ test('village changes remove appointed and earned powers and do not block the ne
 });
 
 test('succession preserves appointments, transfers management, and role weights never stack', async () => {
-    await request(shadowguard, 'kage', { action: 'appoint', seat: 0, appointee: 'elder' });
+    await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'elder' });
     await request(elders, 'kage', { action: 'appoint', focus: 'war', appointee: 'elder' });
     assert.deepEqual(await roles.sectorWarRoleOf('elder', village), roles.ROLE_ELDER);
     await kv.set(kageKey, { seatedKage: 'elder', kageSystemUnlocked: true });
     assert.deepEqual(await roles.sectorWarRoleOf('elder', village), roles.ROLE_KAGE);
-    assert.equal((await request(shadowguard, 'kage', { action: 'clear', seat: 0 })).status, 403);
-    assert.equal((await request(shadowguard, 'elder', { action: 'clear', seat: 0 })).status, 200);
+    assert.equal((await request(hush, 'kage', { action: 'clear', seat: 0 })).status, 403);
+    assert.equal((await request(hush, 'elder', { action: 'clear', seat: 0 })).status, 200);
     assert.equal((await kv.get<any>('village:elder-council:frostfangvillage')).seats[0], 'elder');
     const evidence = { version: 1 as const, sealedAt: 123, p1: { village, role: roles.ROLE_ELDER }, p2: { village: 'Stormveil Village', role: roles.ROLE_VILLAGER } };
     assert.deepEqual(roles.sealedSectorWarRoleOf(evidence, 'p1', village, 123), roles.ROLE_ELDER, 'a later promotion does not rewrite sealed battle weights');
 });
 
-test('special Jonin recognizes real Elders and Kage, not Shadowguard or a stale Kage mirror', async () => {
-    await request(shadowguard, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
+test('special Jonin recognizes real Elders and Kage, not Hush or a stale Kage mirror', async () => {
+    await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
     await request(elders, 'kage', { action: 'appoint', focus: 'war', appointee: 'elder' });
     for (const name of ['operative', 'villager']) assert.equal((await request(exam, name, { examKey: 'specialJonin' })).status, 409);
     for (const name of ['elder', 'kage']) assert.equal((await request(exam, name, { examKey: 'specialJonin' })).status, 200);
 });
 
-test('terrain belongs to Kage and Elders with separate quotas; Shadowguard cannot set it', async () => {
-    await request(shadowguard, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
+test('terrain belongs to Kage and Elders with separate quotas; Hush cannot set it', async () => {
+    await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
     await request(elders, 'kage', { action: 'appoint', focus: 'war', appointee: 'elder' });
     const { HOME_SECTORS } = await import('../_war-map-sectors.js');
     const sectors = HOME_SECTORS[village];
@@ -209,22 +209,22 @@ test('shared village display includes leadership before the first generic villag
     await kv.del(stateKey);
     assert.equal((await request(elders, 'kage', { action: 'appoint', focus: 'war', appointee: 'elder' })).status, 200);
     assert.equal(await kv.get(stateKey), null);
-    const frame = (await import('../game-state.js')).default as unknown as typeof shadowguard;
+    const frame = (await import('../game-state.js')).default as unknown as typeof hush;
     const state = (await request(frame, 'villager', {}, 'GET')).body.villageStates.frostfangvillage;
     assert.equal(state.seatedKage, 'kage');
     assert.deepEqual(state.elderAppointees, ['elder', '', '']);
     assert.ok(state.elderTerm.nextSelectionAt > Date.now());
 });
 
-test('shared frame clears stale Kage seats and returns the same verified Shadowguard and elder rosters', async () => {
-    await request(shadowguard, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
+test('shared frame clears stale Kage seats and returns the same verified Hush and elder rosters', async () => {
+    await request(hush, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
     await request(elders, 'kage', { action: 'appoint', focus: 'war', appointee: 'elder' });
     await kv.set(kageKey, { kageSystemUnlocked: true });
-    const frame = (await import('../game-state.js')).default as unknown as typeof shadowguard;
+    const frame = (await import('../game-state.js')).default as unknown as typeof hush;
     const state = (await request(frame, 'villager', {}, 'GET')).body.villageStates.frostfangvillage;
     assert.equal(state.seatedKage, undefined);
     assert.equal(state.kageSystemUnlocked, true);
-    assert.deepEqual(state.shadowguardMembers, ['operative']);
+    assert.deepEqual(state.hushMembers, ['operative']);
     assert.deepEqual(state.elderAppointees, ['elder', '', '']);
 });
 

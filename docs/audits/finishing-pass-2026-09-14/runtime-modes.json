@@ -1745,21 +1745,21 @@
     ]
   },
   {
-    "id": "shadowguard-infiltration",
-    "label": "Shadowguard infiltration",
+    "id": "hush-infiltration",
+    "label": "Hush infiltration",
     "category": "solo-pve",
     "authorityEngine": "solo-pve",
-    "capabilityKey": "shadowguardInfiltration",
+    "capabilityKey": "hushInfiltration",
     "clientEntries": [
-      "features/shadowguardInfiltration/ShadowguardVaultRaid.tsx",
-      "lib/shadowguard-infiltration-api.ts",
+      "features/hushInfiltration/HushVaultRaid.tsx",
+      "lib/hush-infiltration-api.ts",
       "lib/solo-pve-api.ts",
       "lib/solo-pve-arena-adapter.ts"
     ],
     "routes": [
       {
-        "path": "/village/shadowguard-infiltration",
-        "handler": "village/shadowguard-infiltration",
+        "path": "/village/hush-infiltration",
+        "handler": "village/hush-infiltration",
         "roles": [
           "start",
           "state",
@@ -2465,7 +2465,7 @@
     "rewardPolicy": "server-settled",
     "replayKind": "expiring-solo-session-log-plus-contest-receipt",
     "status": "match",
-    "statusDetail": "The wrong-owner Tower fallback (resolveMercBattle/sealTowerFighter) stays retired. The garrison is resolved on the Solo PvE runtime over a sealed snapshot of the defending village's real Shadowguard (api/_sector-war-garrison-encounter.ts, api/_shadowguard-infiltration-store.ts) — content, not a live second participant — same shape as Shadowguard Infiltration. Its OUTCOME still feeds the sector-war contest's own scored points under api/village/sector-war.ts's lock (garrison-start/garrison-resolve), which is why this mode is labeled pvp: sector-war orchestration, not the underlying simulation engine, is what makes it the contest's authority.",
+    "statusDetail": "The wrong-owner Tower fallback (resolveMercBattle/sealTowerFighter) stays retired. The garrison is resolved on the Solo PvE runtime over a sealed snapshot of the defending village's real Hush (api/_sector-war-garrison-encounter.ts, api/_hush-infiltration-store.ts) — content, not a live second participant — same shape as Hush Infiltration. Its OUTCOME still feeds the sector-war contest's own scored points under api/village/sector-war.ts's lock (garrison-start/garrison-resolve), which is why this mode is labeled pvp: sector-war orchestration, not the underlying simulation engine, is what makes it the contest's authority.",
     "transports": [],
     "intentionallySeparateFrom": [
       "solo-pve",

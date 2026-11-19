@@ -17,7 +17,7 @@ Actual baseline producers for every qualification/trial counter family. A live p
 | `eliteKills` | `hollow-gate/settle.ts:268`; `sector/wanderer-ambush.ts:144`; `weekly-boss.ts:679` | Two per Gate clear, one per ambush gauntlet, five per weekly-boss top-10 credit. No universal elite-enemy extractor. |
 | `missionCompletions` | `missions/claim-mission.ts` progress spec and combat-run settlement | Eligible server-claimed missions; academy checklist excluded. Capped historical bootstrap. |
 | `huntCompletions` | Hunt claim spec in `missions/claim-mission.ts` | Claimed hunts, not each target/encounter. |
-| `raidsCompleted` | `missions/_raid-progression.ts:280`; `village/shadowguard-infiltration.ts:45` | Verified raid/infiltration completion plus capped bootstrap. General PvP extraction is separate. F01. |
+| `raidsCompleted` | `missions/_raid-progression.ts:280`; `village/hush-infiltration.ts:45` | Verified raid/infiltration completion plus capped bootstrap. General PvP extraction is separate. F01. |
 | `warContribution` | Raid progression; sector-war continuation; treasury economy legacy intent; infiltration | Mode-defined contribution units, not exclusively damage. Historical `lifetimeWarDamage` bootstrap cap 80,000. |
 | `bossContribution` | `weekly-boss.ts:679`; `story/settle.ts:193` | Weekly-boss damage plus one per witnessed story first-clear. No clan-boss damage producer; client label explicitly says weekly-boss damage. |
 | `weeklyBossTop10` | `weekly-boss.ts:682` | Distributed weekly-boss top-10 result, not clan-boss placement. |

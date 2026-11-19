@@ -58,7 +58,7 @@ function snapshot(playerName: string, visit: StrongholdVisit, extra: Record<stri
     return { status: 200, body: { ok: true, visit, peers, ...extra } };
 }
 
-/** Shared by final-boss admission: the Shadowguard cannot be reached by skipping patrols. */
+/** Shared by final-boss admission: the Hush cannot be reached by skipping patrols. */
 export async function strongholdVaultReady(playerName: string, sector: number): Promise<boolean> {
     if (isDeathsGateStronghold(sector)) return false;
     if (sectorPresenceBlock(playerName, sector)) return false;
@@ -212,7 +212,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
                     const profile = builtinAiProfile(profiles[(Math.floor(visit.steps / 25) - 1) % profiles.length]);
                     if (!profile) return { failure: fail('The patrol could not be prepared.', 503) };
                     // The sector's sky, the same one the vault fight in this
-                    // stronghold seals (api/village/shadowguard-infiltration.ts).
+                    // stronghold seals (api/village/hush-infiltration.ts).
                     const sky = await sealedSectorWeather(sector, Date.now());
                     session = buildSoloPveAiEncounter({ sessionId: patrolId, playerName, save, now: Date.now(),
                         admin: await loadAdminCombatContent(), profile: { ...profile, name: (isDeathsGateStronghold(sector)

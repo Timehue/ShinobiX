@@ -8,7 +8,7 @@ import { RYO_PER_WR, treasuryRyoForWr } from "../../../shared/war-treasury-costs
 
 /** The rules, in two sentences the panel shows above the hire buttons. */
 export const MERC_RULES_LINES: readonly string[] = [
-    "When an enemy attacks one of your Combat sectors, your Kage and Elders can hire 3 bands in all to defend it. Five-day village campaigns use queued player defenders and reusable Shadowguard copies instead of hired bands.",
+    "When an enemy attacks one of your Combat sectors, your Kage and Elders can hire 3 bands in all to defend it. Five-day village campaigns use queued player defenders and reusable Hush copies instead of hired bands.",
     "A band serves its defending sector for up to 2 days, ending when that war closes. It patrols on its own, and your leaders can also send it at an attacking-village player. A band win scores your defence in full; an attacker who beats one scores a quarter.",
 ];
 

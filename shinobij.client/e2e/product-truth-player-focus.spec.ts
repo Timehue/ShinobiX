@@ -55,7 +55,7 @@ const allAvailable: PublicCapabilities = {
     googleSignIn: { state: "available", reason: "available" },
     guestPlay: { state: "available", reason: "available" },
     villageWar: { state: "available", reason: "available" },
-    shadowguardInfiltration: { state: "available", reason: "available" },
+    hushInfiltration: { state: "available", reason: "available" },
     clanBoss: { state: "available", reason: "available" },
     clanBossParties: { state: "available", reason: "available" },
     legacy: { state: "available", reason: "available" },

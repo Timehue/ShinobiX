@@ -16,7 +16,7 @@ test("eloTier maps representative ratings to the right tier", () => {
 test("ranked tiers never reuse a reserved village career rank / role", () => {
     // A ranked tier is dueling SKILL, not an in-world office — Kage especially is
     // a single reserved title, so none of these may appear as a ladder tier.
-    const reserved = ["genin", "chunin", "chūnin", "jonin", "jōnin", "shadowguard", "sannin", "kage"];
+    const reserved = ["genin", "chunin", "chūnin", "jonin", "jōnin", "hush", "sannin", "kage"];
     for (const t of RANK_TIERS) {
         assert.ok(!reserved.includes(t.key.toLowerCase()), `tier key "${t.key}" collides with a career rank`);
         assert.ok(!reserved.includes(t.name.toLowerCase().replace(/[- ].*$/, "")), `tier name "${t.name}" collides with a career rank`);

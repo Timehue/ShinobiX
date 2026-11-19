@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
-const strongholdCss = readFileSync(new URL("../src/features/shadowguardInfiltration/stronghold.css", import.meta.url), "utf8");
+const strongholdCss = readFileSync(new URL("../src/features/hushInfiltration/stronghold.css", import.meta.url), "utf8");
 
 const strongholdFixture = `
-  <section class="stronghold-shell" aria-label="Shadowguard stronghold">
-    <header class="stronghold-header"><div><h2>Shadowguard VAULT</h2></div><button class="stronghold-leave">Leave stronghold</button></header>
+  <section class="stronghold-shell" aria-label="Hush stronghold">
+    <header class="stronghold-header"><div><h2>Hush VAULT</h2></div><button class="stronghold-leave">Leave stronghold</button></header>
     <div class="stronghold-body">
       <div class="stronghold-viewport">
         <button class="stronghold-peer" aria-label="Inspect shinobi" style="left:120px;top:120px;width:44px;height:44px">R</button>

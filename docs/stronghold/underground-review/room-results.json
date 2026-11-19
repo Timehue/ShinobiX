@@ -343,7 +343,7 @@
     },
     {
       "engine": "chromium",
-      "room": "Shadowguard Vault",
+      "room": "Hush Vault",
       "purposes": [
         "entrance sentry",
         "entrance sentry",
@@ -719,7 +719,7 @@
     },
     {
       "engine": "webkit",
-      "room": "Shadowguard Vault",
+      "room": "Hush Vault",
       "purposes": [
         "entrance sentry",
         "entrance sentry",

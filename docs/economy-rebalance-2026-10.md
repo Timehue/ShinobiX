@@ -138,7 +138,7 @@ shows the ranked purse, and why it paid none.
   At L90/400 points, including fixed crate currency, a Vanguard MVP winner gets
   52,000 ryo / 200 Honor / 20 BC / 8 FS; the loser gets
   37,100 / 175 / 19 / 8, replacing the additive 42,100 / 225 / 26 / 11.
-- Shadowguard vault raids pay up to 3,000 at the lower fighter's level.
+- Hush vault raids pay up to 3,000 at the lower fighter's level.
 - Mercenaries and war preparations also cost treasury ryo (250 per War Resource;
   preparations also cost treasury Bone Charms), paid by the Kage. This is the
   war-facing endgame ryo sink.
@@ -238,7 +238,7 @@ and there is no daily cap (owner ruling).
   10 CP for a won Rift card ambush (once per Rift, beside its ryo and Aura Dust). These
   points are not run loot, so a death keeps them. A won sector-war garrison assault pays
   15 CP, at most one assault per two-hour garrison re-form. A won Village War assault on
-  a Shadowguard or Kage deck pays the same 15, bounded by the campaign's personal daily support
+  a Hush or Kage deck pays the same 15, bounded by the campaign's personal daily support
   allowance it reserves.
 - **Unpaid:** Card Hall practice duels, `externalStakes` encounters with no server seal
   (the flag is set by the client, so it has no access limit), and draws. Echoes of War

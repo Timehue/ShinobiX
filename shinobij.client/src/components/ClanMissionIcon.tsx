@@ -7,7 +7,7 @@ const ART: Record<ClanMissionKey, string> = {
     mission: "/ui/clan-missions/clan-mission-mission.webp",
     guard: "/ui/clan-missions/clan-mission-guard.webp",
     territory: "/ui/clan-missions/clan-mission-territory.webp",
-    shadowguard: "/ui/clan-missions/clan-mission-shadowguard.webp",
+    hush: "/ui/clan-missions/clan-mission-hush.webp",
     donation: "/ui/clan-missions/clan-mission-donation.webp",
     training: "/ui/clan-missions/clan-mission-training.webp",
     raid: "/ui/clan-missions/clan-mission-raid.webp",

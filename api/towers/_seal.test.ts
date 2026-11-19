@@ -39,7 +39,7 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
     // SERVER_LEDGER_TOPLEVEL_FIELD), so the save the sealer reads can never supply
     // one. These callers mostly pass no client body either, so before the admin
     // parameter an equipped authored id matched nothing and was DROPPED — the player
-    // entered Towers / Clan Boss / PvE / Shadowguard / merc fights a jutsu short.
+    // entered Towers / Clan Boss / PvE / Hush / merc fights a jutsu short.
     it('seals an equipped admin-authored jutsu from the authored catalog', () => {
         const authored = {
             id: 'admin-99c8efb8-8fa2-4b28-98d1-b95ad81af554', name: 'Overload', type: 'Ninjutsu', element: 'None',

@@ -101,7 +101,7 @@ The main CI workflow does not currently invoke `test:pet-breeding-odds`, `scan:d
 
 `docs/architecture/verified-mode-authority.md` now exists as a completed Phase-0
 static call-path audit. It covers the corrected handoff's minimum modes and the
-additional mounted Shadowguard Infiltration, war mercenary, Clan War PvP/Card/Pet, Pet
+additional mounted Hush Infiltration, war mercenary, Clan War PvP/Card/Pet, Pet
 Gauntlet, co-op Tactical, and Dungeon Card families. It records actual runtime
 ownership and surface gaps without treating unmounted migration code as live.
 

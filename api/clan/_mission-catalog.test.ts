@@ -69,7 +69,7 @@ describe('roster counters count only this month (I-15)', () => {
 
     it('every counter-fed mission ignores stale rows', () => {
         const stale = rows(5, { level: 40, battleContrib: 50, missionContrib: 60, eventContrib: 30, month: LAST_MONTH });
-        for (const key of ['battle', 'mission', 'shadowguard', 'donation', 'training', 'raid'] as const) {
+        for (const key of ['battle', 'mission', 'hush', 'donation', 'training', 'raid'] as const) {
             assert.equal(progress(stale, key), 0, key);
         }
         const fresh = rows(1, { level: 40, battleContrib: 20, missionContrib: 50, eventContrib: 15, month: MONTH });
@@ -89,13 +89,13 @@ describe('roster counters count only this month (I-15)', () => {
 
 describe('Clan Points eligibility on a mission claim', () => {
     const donorOnly = { name: 'donor', level: 60, eventContrib: 30, month: MONTH };
-    it('a member who only donated earns no raid or shadowguard Clan Points (donations never earn Clan Points)', () => {
+    it('a member who only donated earns no raid or hush Clan Points (donations never earn Clan Points)', () => {
         assert.equal(clanMissionPointEligible(donorOnly, 'raid', false, NOW), false);
-        assert.equal(clanMissionPointEligible(donorOnly, 'shadowguard', false, NOW), false);
+        assert.equal(clanMissionPointEligible(donorOnly, 'hush', false, NOW), false);
         assert.equal(clanMissionPointEligible({ ...donorOnly, battleContrib: 1 }, 'raid', false, NOW), true);
         assert.equal(clanMissionPointEligible({ ...donorOnly, missionContrib: 1 }, 'raid', false, NOW), true);
-        assert.equal(clanMissionPointEligible({ ...donorOnly, battleContrib: 1 }, 'shadowguard', false, NOW), true);
-        assert.equal(clanMissionPointEligible(donorOnly, 'shadowguard', true, NOW), true, 'a sector guard still qualifies');
+        assert.equal(clanMissionPointEligible({ ...donorOnly, battleContrib: 1 }, 'hush', false, NOW), true);
+        assert.equal(clanMissionPointEligible(donorOnly, 'hush', true, NOW), true, 'a sector guard still qualifies');
     });
     it('an idle L5+ member earns no guard Clan Points; an active one or a sector guard does', () => {
         assert.equal(clanMissionPointEligible({ name: 'idle', level: 60, month: MONTH }, 'guard', false, NOW), false);

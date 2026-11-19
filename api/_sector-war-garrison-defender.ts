@@ -2,25 +2,25 @@
  * Who holds a sector's garrison — the one answer all three win-conditions share.
  *
  * The Combat garrison already had this rule inline in api/village/sector-war.ts:
- * the defending village's current Shadowguard, or — when a village has not appointed
+ * the defending village's current Hush, or — when a village has not appointed
  * any yet — its seated Kage, who is also a real appointed leader. Without the
  * Kage fallback a village could leave its garrison permanently unassaultable
- * simply by never appointing Shadowguard, which is the same "absent defence wins by
+ * simply by never appointing Hush, which is the same "absent defence wins by
  * being absent" hole the Card/Pet garrisons exist to close.
  *
  * Card and Pet now field garrisons too, so the rule moved here rather than
  * being written a second and third time. Each engine seals something different
- * from the chosen defender (Combat their sealed Shadowguard character, Pet their war
+ * from the chosen defender (Combat their sealed Hush character, Pet their war
  * team, Card their Chronicle deck) — but WHO defends is one decision, and a
  * player should never find that the same village fields a garrison against one
  * win-condition and not another.
  *
- * `pickShadowguardDefender` rotates the choice and stamps its own last-defended map,
+ * `pickHushDefender` rotates the choice and stamps its own last-defended map,
  * so repeat assaults spread across a village's appointees instead of grinding
  * one person's sealed kit.
  *
  * Choosing a defender is not enough, though: the chosen one must be ABLE to
- * field what the engine seals. A Shadowguard whose pets are all on an expedition or
+ * field what the engine seals. A Hush whose pets are all on an expedition or
  * breeding has no war team, one who never built a Chronicle deck has no deck,
  * one with no save has no snapshot. Picking that player and refusing ("the
  * garrison has nothing to hold with") made the garrison unassaultable for as
@@ -30,18 +30,18 @@
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
 import {
-    shadowguardLastDefKey,
-    loadShadowguardAppointees,
-    pickShadowguardDefender,
+    hushLastDefKey,
+    loadHushAppointees,
+    pickHushDefender,
     villageSlug,
-} from './_shadowguard-infiltration-store.js';
+} from './_hush-infiltration-store.js';
 import { isNpcVillage } from '../shared/npc-village.js';
 
 export interface GarrisonDefender {
     /** safeName slug of the player whose sealed kit defends this sector. */
     slug: string;
-    /** True when the seated Kage stood in: the village has no Shadowguard appointed,
-     *  or none of its Shadowguard could field what this engine seals. */
+    /** True when the seated Kage stood in: the village has no Hush appointed,
+     *  or none of its Hush could field what this engine seals. */
     byKage: boolean;
 }
 
@@ -52,7 +52,7 @@ function kageKey(village: string): string {
 /** The seated Kage of a village, or '' when the seat is empty. */
 export async function seatedKageOf(village: string): Promise<string> {
     // Cinderhold's seat is held only by a defected story Kage, who has no save
-    // to seal: its garrison is held by its roster Shadowguard (api/_npc-war-roster.ts).
+    // to seal: its garrison is held by its roster Hush (api/_npc-war-roster.ts).
     if (isNpcVillage(village)) return '';
     const st = await kv.get<{ seatedKage?: string }>(kageKey(village));
     const name = safeName(st?.seatedKage ?? '');
@@ -62,7 +62,7 @@ export async function seatedKageOf(village: string): Promise<string> {
 
 /**
  * Choose the player whose sealed kit defends `village`'s garrison, or null when
- * the village has neither current Shadowguard nor a seated Kage.
+ * the village has neither current Hush nor a seated Kage.
  *
  * A null is a real refusal, not a fallback to nobody: a village with no leader
  * at all fields no garrison, and the caller must say so rather than inventing a
@@ -70,9 +70,9 @@ export async function seatedKageOf(village: string): Promise<string> {
  * deliberate — there is no one there to have sealed a kit.
  */
 export async function garrisonDefenderFor(village: string): Promise<GarrisonDefender | null> {
-    const appointees = await loadShadowguardAppointees(village);
+    const appointees = await loadHushAppointees(village);
     if (appointees.length > 0) {
-        const slug = await pickShadowguardDefender(village, appointees);
+        const slug = await pickHushDefender(village, appointees);
         if (slug) return { slug, byKage: false };
     }
     const kage = await seatedKageOf(village);
@@ -81,22 +81,22 @@ export async function garrisonDefenderFor(village: string): Promise<GarrisonDefe
 
 /** The refusal a caller shows when `garrisonDefenderFor` returns null. */
 export const NO_GARRISON_DEFENDER_ERROR =
-    'That village has no Shadowguard or Kage to field a garrison yet.';
+    'That village has no Hush or Kage to field a garrison yet.';
 
 /**
- * The order `pickShadowguardDefender` picks in — least recently defended first, ties
+ * The order `pickHushDefender` picks in — least recently defended first, ties
  * broken by slug — WITHOUT stamping anyone. Only the appointee who actually
  * defends is stamped (by `fieldGarrisonDefender`), so one who cannot field
  * never pushes the rotation along on a refusal.
  */
 export async function garrisonRotation(village: string, appointees: readonly string[]): Promise<string[]> {
-    const lastMap = (await kv.get<Record<string, unknown>>(shadowguardLastDefKey(villageSlug(village)))) ?? {};
+    const lastMap = (await kv.get<Record<string, unknown>>(hushLastDefKey(villageSlug(village)))) ?? {};
     const lastDefended = (slug: string): number => {
         const at = Number(Object.prototype.hasOwnProperty.call(lastMap, slug) ? lastMap[slug] : 0);
         return Number.isFinite(at) ? at : 0;
     };
     // Slug order first, then a STABLE sort on the timestamp: equal timestamps
-    // keep slug order, exactly the tie-break pickShadowguardDefender applies.
+    // keep slug order, exactly the tie-break pickHushDefender applies.
     return [...appointees].sort().sort((a, b) => lastDefended(a) - lastDefended(b));
 }
 
@@ -111,7 +111,7 @@ export type FieldedGarrison<T> =
     }
     | {
         ok: false;
-        /** `no-defender`: no Shadowguard and no seated Kage at all. `cannot-field`:
+        /** `no-defender`: no Hush and no seated Kage at all. `cannot-field`:
          *  there were candidates, and none of them could field this engine. */
         reason: 'no-defender' | 'cannot-field';
     };
@@ -129,14 +129,14 @@ export async function fieldGarrisonDefender<T>(
     village: string,
     field: (slug: string) => Promise<T | null | undefined>,
 ): Promise<FieldedGarrison<T>> {
-    const appointees = await loadShadowguardAppointees(village);
+    const appointees = await loadHushAppointees(village);
     for (const slug of await garrisonRotation(village, appointees)) {
         const fielded = await field(slug);
         if (fielded == null) continue;
         // Stamp exactly the appointee who defends: a one-name roster makes
-        // pickShadowguardDefender choose (and timestamp) them, so the shared rotation
+        // pickHushDefender choose (and timestamp) them, so the shared rotation
         // moves past them the same way it always has.
-        await pickShadowguardDefender(village, [slug]);
+        await pickHushDefender(village, [slug]);
         return { ok: true, defender: { slug, byKage: false }, fielded, appointees };
     }
     const kage = await seatedKageOf(village);
@@ -148,12 +148,12 @@ export async function fieldGarrisonDefender<T>(
 }
 
 /**
- * The name the attacker sees for the garrison's defender. Masked like Shadowguard
+ * The name the attacker sees for the garrison's defender. Masked like Hush
  * Infiltration's own defender — the garrison represents the village's defence,
  * not a callout of which player it is — but numbered by roster position (owner
- * ruling) so a returning attacker can tell whether they face the same Shadowguard
- * again or a rotation. loadShadowguardAppointees is order-preserving, so the number
- * is stable for as long as that Shadowguard stays appointed.
+ * ruling) so a returning attacker can tell whether they face the same Hush
+ * again or a rotation. loadHushAppointees is order-preserving, so the number
+ * is stable for as long as that Hush stays appointed.
  */
 export function maskedGarrisonDefenderName(
     village: string,
@@ -163,5 +163,5 @@ export function maskedGarrisonDefenderName(
     const shortVillage = village.replace(/\s+Village$/i, '').trim() || 'Village';
     if (defender.byKage) return `The ${shortVillage} Kage`;
     const index = appointees.indexOf(defender.slug);
-    return `${shortVillage} Shadowguard #${index >= 0 ? index + 1 : appointees.length}`;
+    return `${shortVillage} Hush #${index >= 0 ? index + 1 : appointees.length}`;
 }

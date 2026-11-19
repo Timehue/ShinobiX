@@ -28,7 +28,7 @@ import {
 } from "../../../shared/pet-showdown-contract";
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 import { FIRST_PACT_MIN_LEVEL } from "../../../shared/first-pact-contract";
-import { SHADOWGUARD_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL } from "../../../shared/sector-stronghold";
+import { HUSH_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL } from "../../../shared/sector-stronghold";
 import { LOADOUT_CAP_BASE, LOADOUT_CAP_SUB, PET_CAP_BASE, PET_CAP_SUB } from "../lib/entitlements";
 import { PET_TUTORIAL_LESSONS } from "../lib/pet-tutorial";
 import { GUIDE_CATEGORIES, GUIDES } from "./guides";
@@ -223,7 +223,7 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     assert.doesNotMatch(builds, /forge the revealed roll/i);
 
     assert.match(endgame, new RegExp(`Stronghold exploration opens at character level ${STRONGHOLD_MIN_LEVEL}`, "i"));
-    assert.match(endgame, new RegExp(`Shadowguard treasury raids are a separate level-${SHADOWGUARD_RAID_MIN_LEVEL} activity`, "i"));
+    assert.match(endgame, new RegExp(`Hush treasury raids are a separate level-${HUSH_RAID_MIN_LEVEL} activity`, "i"));
     assert.match(endgame, new RegExp(`The First Pact opens at character level ${FIRST_PACT_MIN_LEVEL}`, "i"));
 });
 

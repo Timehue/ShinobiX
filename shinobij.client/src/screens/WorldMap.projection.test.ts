@@ -367,7 +367,7 @@ test("WorldSectorOverlayLayer preserves direct-grid actor and marker order", () 
     assertOrdered(overlaySource, [
         "wanderers.map",
         'className="sector-rift-standee"',
-        'key="sector-shadowguard-vault-structure"',
+        'key="sector-hush-vault-structure"',
         "<SectorTraceMarkers",
         "<SectorShrineStandee",
         "<SectorWeeklyBossActor",
@@ -415,16 +415,16 @@ test("WorldMap retains controller and portal ownership around the canvas slots",
         "encounterLayer={",
     ], "WorldMap canvas projection");
     assert.doesNotMatch(projection, /<(?:RegionSplash|SectorGateMarker|SectorPeersLive|SectorWanderer|SectorTraceMarkers|SectorShrineStandee|SectorWeeklyBossActor)\b/u);
-    assert.match(projection, /vaultRaid && createPortal\([\s\S]*<ShadowguardVaultRaid/u);
-    assert.match(projection, /<ShadowguardVaultRaid[\s\S]*onAttackPlayer=\{handleSelectedSectorPlayerAttack\}/u,
+    assert.match(projection, /vaultRaid && createPortal\([\s\S]*<HushVaultRaid/u);
+    assert.match(projection, /<HushVaultRaid[\s\S]*onAttackPlayer=\{handleSelectedSectorPlayerAttack\}/u,
         'interior attacks must share the outdoor Combat/Card/Pet war routing');
-    assert.match(projection, /<ShadowguardVaultRaid[\s\S]*sectorContest=\{sectorWarContest\}[\s\S]*onOpenSectorContest=[\s\S]*onFightSectorGarrison=/u,
+    assert.match(projection, /<HushVaultRaid[\s\S]*sectorContest=\{sectorWarContest\}[\s\S]*onOpenSectorContest=[\s\S]*onFightSectorGarrison=/u,
         'the parent sector contest and garrison remain accessible inside');
-    assert.match(projection, /<ShadowguardVaultRaid[^>]*initialCampaign=\{villageCampaign\}/u,
+    assert.match(projection, /<HushVaultRaid[^>]*initialCampaign=\{villageCampaign\}/u,
         'entry starts from the World Map campaign reading instead of waiting on a second request');
     assert.match(projection, /bossDialog && createPortal\([\s\S]*onClick=\{standBossFight\}/u);
     assert.match(projection, /<SageOfferModal/u);
-    assert.doesNotMatch(overlaySource, /\b(?:ShadowguardVaultRaid|SageOfferModal|standBossFight|createPortal)\b/u);
+    assert.doesNotMatch(overlaySource, /\b(?:HushVaultRaid|SageOfferModal|standBossFight|createPortal)\b/u);
 });
 
 test("WorldMap projects overlay time, storage, and capability decisions before rendering", () => {
@@ -433,7 +433,7 @@ test("WorldMap projects overlay time, storage, and capability decisions before r
     assert.match(projection, /capSectorWanderers\([\s\S]*sectorOverlayBoss \? 1 : 0\)/u);
     assert.match(projection, /const sectorOverlayWanderers = \[\.\.\.cappedSectorWanderers, \.\.\.mercWanderers\]/u);
     assert.match(projection, /const sectorOverlayRift/u);
-    assert.match(projection, /const sectorOverlayVault[\s\S]*shadowguardViewOpen[\s\S]*territory\.ownerVillage/u);
+    assert.match(projection, /const sectorOverlayVault[\s\S]*hushViewOpen[\s\S]*territory\.ownerVillage/u);
     assert.match(projection, /const sectorOverlayShrine[\s\S]*isSectorTracesEnabled\(\)[\s\S]*shrineForSector/u);
 });
 
@@ -563,8 +563,8 @@ test("stronghold projection delegates ordinary and war admission to the shared e
     const start = worldMapSource.indexOf("const sectorOverlayVault = sectorVaultMarker(");
     assert.ok(start >= 0);
     const block = worldMapSource.slice(start, worldMapSource.indexOf("const sectorOverlayShrine", start));
-    assert.match(block, /level: character\.level \?\? 0, shadowguardViewOpen, ownerVillage: territory\.ownerVillage/u);
-    assertOrdered(policy, ['if (!shadowguardViewOpen)', 'isDeathsGateStronghold(sector)', 'ownerVillage || homeVillageForSector(sector)'], 'shared stronghold capability policy');
+    assert.match(block, /level: character\.level \?\? 0, hushViewOpen, ownerVillage: territory\.ownerVillage/u);
+    assertOrdered(policy, ['if (!hushViewOpen)', 'isDeathsGateStronghold(sector)', 'ownerVillage || homeVillageForSector(sector)'], 'shared stronghold capability policy');
     assert.match(policy, /if \(!strongholdLevelEligible\(level\)\) return null/u);
     assert.match(entrance, /disabled=\{!admissionOpen \|\| !entryEligible\}/u);
     assert.doesNotMatch(policy, /level[^\n]*100/u);

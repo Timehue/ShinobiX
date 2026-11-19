@@ -26,7 +26,7 @@
   "evidenceSha256": {
     "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/pr470-responsive-cancelled-ci.log": "83d164a7a643df7adca43c5724e3195146e103c5f303078a46497b34f4ed34b2",
     "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/pr470-responsive-retry-ci.log": "977428691912cbd2490e7c47f48d3bb81b063f9eade8ae73f3a8e9919d662f9a",
-    "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/seven-shard-ci-doc-contract-failure.txt": "513631da59b07b76c268e748c488f1649904441049a3d7a2c2edc299407ca7b8",
+    "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/seven-shard-ci-doc-contract-failure.txt": "2faeafb30b532fa95ce1902dd7b24eac289485bb8ecde56de0504aaa5762da62",
     "docs/screenshots/pet-parallel-batch-ci-sharding-2026-10-20/workflow-and-doc-contracts.txt": "e62354d81a4d01255149898e71752bf4f2e56d9fee5ad46cf7b09a62753f71d0"
   },
   "productFilesChanged": false,

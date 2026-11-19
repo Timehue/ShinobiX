@@ -43,8 +43,8 @@ const FEATURE_COPY: Partial<Record<PublicCapabilityId, { title: string; body: st
         title: "A Weekly Boss mechanic is temporarily unavailable",
         body: "The core Weekly Boss fight remains available; its guard cycle is temporarily disabled.",
     },
-    shadowguardInfiltration: {
-        title: "Shadowguard infiltration is temporarily unavailable",
+    hushInfiltration: {
+        title: "Hush infiltration is temporarily unavailable",
         body: "The vault operation is paused. Other World Map and village activity remains available.",
     },
 };

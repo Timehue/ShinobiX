@@ -325,7 +325,7 @@
       "line": 21
     },
     {
-      "file": "shinobij.client/src/lib/shadowguard-infiltration-api.ts",
+      "file": "shinobij.client/src/lib/hush-infiltration-api.ts",
       "before": "The infiltration did not answer. Try again in a moment.",
       "after": "The infiltration request could not be confirmed. Reopen the stronghold to check your progress.",
       "reason": "State the failed action and recovery step in plain language.",

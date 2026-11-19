@@ -1078,10 +1078,10 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
         // villageWarMap.v1) are retired constants and setting them does
         // nothing. The shared layers are held off by the server capability
         // snapshot below and by the seeded cooldowns above instead.
-        localStorage.setItem("shadowguardInfiltration.v1", "0");
+        localStorage.setItem("hushInfiltration.v1", "0");
     });
 
-    const capabilities = publicCapabilitiesExcept("villageWar", "shadowguardInfiltration");
+    const capabilities = publicCapabilitiesExcept("villageWar", "hushInfiltration");
     const traceRequests: Array<{ method: string; sector: string | null; player: string | null }> = [];
     const dungeonRequests: Array<Record<string, unknown>> = [];
     const petRequests: Array<Record<string, unknown>> = [];

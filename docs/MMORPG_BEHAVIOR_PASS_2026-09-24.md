@@ -73,7 +73,7 @@ entry points had no gate, so a player lying in a hospital bed could walk into:
 | `api/endless/wave-start.ts` | a new wave seeded at the save's zero HP |
 | `api/missions/combat-start.ts` | a combat mission seeded at zero HP |
 | `api/village/sector-war.ts` (garrison) | burns the garrison window on an unplayable fight |
-| `api/village/shadowguard-infiltration.ts` | a vault raid while admitted |
+| `api/village/hush-infiltration.ts` | a vault raid while admitted |
 
 Each refuses with 409 `errorCode: 'hospitalized'` (the World branch uses `reason`, like the
 generic branch of the same endpoint) and a sentence the client already shows verbatim,

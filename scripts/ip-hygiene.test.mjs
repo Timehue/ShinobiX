@@ -108,7 +108,7 @@ const wordHashes = new Set([
     '43999461d22f67840fcd9b8824293eaa4f18146e57b2c651bcd925e3b3e4e429',
     'd963ebee302d8b4282c76f83735d3b2bee78869a9cb4300952a4f2711c9c4d35',
     'f2423d071f26082d053141bad42a7cb050310a1c0dfc7be5e6333fa76d32328e',
-    // The borrowed squad name the Shadowguard replaced (2026-11-18).
+    // The borrowed squad name the Hush replaced (2026-11-18).
     '3e164a1b174a2c4e87eb0de98fa3be14ae0da50c2e82e5e7c762ee4477609af3',
 ]);
 

@@ -30,9 +30,9 @@ const SEAL_CALLERS = [
 ] as const;
 
 const DIRECT_HYDRATOR_CALLERS = [
-    'village/shadowguard-infiltration.ts',
+    'village/hush-infiltration.ts',
     'village/sector-war.ts',
-    '_shadowguard-infiltration-store.ts',
+    '_hush-infiltration-store.ts',
 ] as const;
 
 const SOLO_ENCOUNTER_CALLERS = [

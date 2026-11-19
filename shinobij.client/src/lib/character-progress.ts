@@ -80,7 +80,7 @@ function roleRankTitle(character: Character) {
     const lowerTitle = currentTitle?.toLowerCase() ?? "";
     const isRoleTitle = lowerTitle.includes("kage") ||
         lowerTitle.includes("elder") ||
-        lowerTitle.includes("shadowguard") ||
+        lowerTitle.includes("hush") ||
         lowerTitle.includes("clan leader") ||
         lowerTitle.includes("clan head");
 

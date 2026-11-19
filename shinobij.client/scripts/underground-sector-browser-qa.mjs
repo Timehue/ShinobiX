@@ -196,9 +196,9 @@ try {
                         return route.fulfill({ json: { ok: true, visit: { presenceId: body.presenceId, id: 'entry-level-qa', layoutVersion: 1, sector: 12, tile: 697, steps: 0, threat: 0, version: 1, visited: [697, 698] }, peers: [] } });
                     });
                     await page.goto(`${url}?mode=stronghold&raidHost&level=${level}`);
-                    await page.locator('.stronghold-shadowguard-station').waitFor();
+                    await page.locator('.stronghold-hush-station').waitFor();
                     await page.getByRole('button', { name: 'Move right', exact: true }).click();
-                    const dialog = page.getByRole('dialog', { name: 'Challenge the Shadowguard' }); await dialog.waitFor();
+                    const dialog = page.getByRole('dialog', { name: 'Challenge the Hush' }); await dialog.waitFor();
                     if (level < 100) {
                         assert.equal(await dialog.getByRole('button', { name: 'Requires level 100', exact: true }).isDisabled(), true);
                         assert.match(await dialog.getByRole('status').innerText(), /unlock at level 100/);
@@ -207,7 +207,7 @@ try {
                         const challenge = dialog.getByRole('button', { name: 'Challenge', exact: true }); assert.equal(await challenge.isEnabled(), true);
                         await challenge.click(); await dialog.getByRole('alert').waitFor(); assert.equal(raidRequests, 1);
                     }
-                    if (level === 50) await page.screenshot({ path: `${output}/${engineName}-level-50-shadowguard-${viewport.width}.png` });
+                    if (level === 50) await page.screenshot({ path: `${output}/${engineName}-level-50-hush-${viewport.width}.png` });
                     await dialog.getByRole('button', { name: 'Retreat', exact: true }).click(); await dialog.waitFor({ state: 'hidden' });
                     assert.equal(await page.getByRole('button', { name: 'Move left', exact: true }).isEnabled(), true);
                     checks.push({ engine: engineName, viewport, playerLevel: level, explorationAvailable: true, raidRequires100: true, retreatResumesExploration: true }); await page.close();
@@ -221,10 +221,10 @@ try {
                         return route.fulfill({ json: { ok: true, visit: { presenceId: body.presenceId, id: 'defender-entry-qa', layoutVersion: 1, sector: 12, tile: 697, steps: 0, threat: 0, version: 1, visited: [697, 698] }, peers: [] } });
                     });
                     await page.goto(`${url}?mode=stronghold&raidHost&village=Frostfang%20Village&level=${level}`);
-                    await page.locator('.stronghold-shadowguard-station').waitFor();
-                    assert.match(await page.locator('.stronghold-shadowguard-station').innerText(), /Village vault · Protected/);
+                    await page.locator('.stronghold-hush-station').waitFor();
+                    assert.match(await page.locator('.stronghold-hush-station').innerText(), /Village vault · Protected/);
                     await page.getByRole('button', { name: 'Move right', exact: true }).click();
-                    const dialog = page.getByRole('dialog', { name: 'Your village’s Shadowguard' }); await dialog.waitFor();
+                    const dialog = page.getByRole('dialog', { name: 'Your village’s Hush' }); await dialog.waitFor();
                     assert.match(await dialog.innerText(), /Your own treasury cannot be raided/);
                     assert.equal(await dialog.locator('.stronghold-attack').count(), 0); assert.equal(raidRequests, 0);
                     if (level === 50) await page.screenshot({ path: `${output}/${engineName}-level-50-defender-${viewport.width}.png` });
@@ -461,12 +461,12 @@ try {
                     return route.fulfill({ json: { ok: true, visit: { presenceId: body.presenceId, id: 'vault-qa', layoutVersion: 1, sector: 12, tile: 697, steps: 0, threat: 0, version: 1, visited: [697, 698] }, peers: [] } });
                 });
                 await page.goto(`${url}?mode=stronghold`);
-                await page.locator('.stronghold-shadowguard-station').waitFor();
-                await page.waitForFunction(() => { const r = document.querySelector('.stronghold-shadowguard-station')?.getBoundingClientRect(); return r && r.left > 20 && r.right < innerWidth - 20 && r.top > 110 && r.bottom < innerHeight - 50; });
-                assert.equal(await page.locator('.stronghold-shadowguard').evaluate(img => img.complete && img.naturalWidth > 0), true);
-                await page.screenshot({ path: `${output}/${engineName}-shadowguard-treasury.png` });
+                await page.locator('.stronghold-hush-station').waitFor();
+                await page.waitForFunction(() => { const r = document.querySelector('.stronghold-hush-station')?.getBoundingClientRect(); return r && r.left > 20 && r.right < innerWidth - 20 && r.top > 110 && r.bottom < innerHeight - 50; });
+                assert.equal(await page.locator('.stronghold-hush').evaluate(img => img.complete && img.naturalWidth > 0), true);
+                await page.screenshot({ path: `${output}/${engineName}-hush-treasury.png` });
                 await page.getByRole('button', { name: 'View full map', exact: true }).click();
-                assert.equal(await page.locator('.stronghold-shadowguard-station').evaluate(el => el.style.width), await page.locator('.stronghold-player').evaluate(el => el.style.width));
+                assert.equal(await page.locator('.stronghold-hush-station').evaluate(el => el.style.width), await page.locator('.stronghold-player').evaluate(el => el.style.width));
                 await page.getByRole('button', { name: 'Follow player', exact: true }).click();
                 await page.getByRole('button', { name: 'Move right', exact: true }).click();
                 await page.waitForFunction(() => document.body.dataset.challenge === 'true');

@@ -140,7 +140,7 @@ destroyed, permanent.** Cost `floor(base + lvl·4 + lvl^1.25·2)`.
   fateShards, boneCharms, auraStones, mythicSeals) + items. Donate = any member;
   withdraw = Kage only. Validator `api/_village-state-validate.ts` forbids client‑side
   credit.
-- Kage (L100 + story), Shadowguard (3), Kage challenges. `api/village/kage*.ts`.
+- Kage (L100 + story), Hush (3), Kage challenges. `api/village/kage*.ts`.
 - Currencies `api/_economy.ts`: ryo, fateShards, boneCharms, auraStones, auraDust,
   honorSeals, mythicSeals, hollowShards. **No War Resources.**
 - Daily cron: in‑process scheduler `api/cron/_scheduler.ts`, fires 03:00 UTC, single
@@ -742,7 +742,7 @@ leadership‑editable.
 
 **Untouched (no regression):** the existing 8 per‑player upgrades · the village‑war
 HP/decay/spoils math (only the declare currency, the territory‑coupling, and the new
-winner buff change) · clan territory + `warSupply` collection · Kage/Shadowguard · treasury
+winner buff change) · clan territory + `warSupply` collection · Kage/Hush · treasury
 donate/withdraw · per‑player map‑control reward · Vanguard seal gating · all other
 currencies · saves (tax is additive, idempotent, capped, flag‑gated).
 
@@ -875,7 +875,7 @@ Terrain is already a per‑sector field (`terrainBuffStat`) that already affects
 shadow→Genjutsu, central→none (`api/pvp/move.ts terrainMultiplier`). It's just not
 player‑editable yet.
 
-- **Kage sets terrain on 3 owned sectors; each elder (Shadowguard, up to 3) on 1** → up to
+- **Kage sets terrain on 3 owned sectors; each elder (Hush, up to 3) on 1** → up to
   **6 of 8** customized, the rest default to their biome.
 - The chosen terrain buffs the **defender** in that sector's fight (home advantage — the
   research's "reward the defender" lesson). **Combat** sectors feed the existing
@@ -888,7 +888,7 @@ player‑editable yet.
 ### 17.4 Permissions (owner ruling #4)
 - **Kage:** declares village war + sector wars, spends the WR pool (incl. mercenaries),
   assigns the 8 sector win‑conditions, sets terrain on 3 sectors, upgrades structures.
-- **Elders (Shadowguard, up to 3):** set terrain on 1 sector each. No WR spend.
+- **Elders (Hush, up to 3):** set terrain on 1 sector each. No WR spend.
 - **Any member:** fights (raids/defends/champions a sector); contribution → existing
   MVP / war‑crate rewards so individuals stay motivated (§16b #6).
 

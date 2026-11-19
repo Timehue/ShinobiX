@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import type { TowerActor, TowerSession } from '../towers/_tower-session.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { createSoloPveSession } from '../solo-pve/_session.js';
-import { buildInfiltrationEncounter } from '../_shadowguard-infiltration-encounter.js';
+import { buildInfiltrationEncounter } from '../_hush-infiltration-encounter.js';
 import { buildGarrisonEncounter } from '../_sector-war-garrison-encounter.js';
 import {
     AI_FIGHT_HOSPITAL_DURATION_MS,
@@ -290,13 +290,13 @@ describe('sessionHpIsDecreaseOnly — the fights whose surviving HP may only go 
     const vault = () => buildInfiltrationEncounter({
         runId: 'infil-decrease-only', now: 1,
         raider: { slug: 'rill', name: 'Rill', character: sealed(300) },
-        shadowguard: { slug: 'shadowguard', name: 'The Frostfang Shadowguard', character: sealed(400) },
+        hush: { slug: 'hush', name: 'The Frostfang Hush', character: sealed(400) },
         terrain: 'forest', sector: 12, targetVillage: 'Frostfang Village',
     });
     const garrison = () => buildGarrisonEncounter({
         runId: 'garrison-decrease-only', now: 1,
         attacker: { slug: 'rill', name: 'Rill', character: sealed(300) },
-        shadowguard: { slug: 'shadowguard', name: 'Frostfang Shadowguard #1', character: sealed(400) },
+        hush: { slug: 'hush', name: 'Frostfang Hush #1', character: sealed(400) },
         terrain: 'forest', sector: 12, contestId: '12:moonshadowvillage-vs-frostfangvillage',
         attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
     });

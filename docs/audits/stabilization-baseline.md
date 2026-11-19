@@ -91,7 +91,7 @@ Flag architecture (VERIFIED): no central flags module. Three layers —
 | Creator/admin tools | Admin screens behind admin auth | `/admin/*` (`:1002-1006,1338-1348`) | admin password header | n/a | none found |
 | Legacy system | Reachable; `legacy.v1` default ON | `/legacy/*`, `/hall-of-legends` (`:1284-1292`) | **`ENABLE_LEGACY === '1'` required, NOT force-set** (`api/_legacy-track.ts:19-21`) | server side-car key | enabled UI over env-gated server: if Railway drops the flag, UI silently 404s; flag absent from `.env.example`; Railway value REQUIRES LIVE VERIFICATION |
 | Pet breeding | **Does not exist** (VERIFIED — no routes, screens, or code; only flavor text) | — | — | — | — |
-| Shadowguard Vault / Infiltration | Reachable at level ≥100 (`WorldMap.tsx:3504`); `shadowguardInfiltration.v1` default ON | `/village/shadowguard-infiltration` (`:1124`) | `DISABLE_SHADOWGUARD_INFILTRATION=1` kill-switch, **default ON** (`shadowguard-infiltration.ts:87-89`) | server-auth | memory claim "GATED OFF" is stale — on by default both sides |
+| Hush Vault / Infiltration | Reachable at level ≥100 (`WorldMap.tsx:3504`); `hushInfiltration.v1` default ON | `/village/hush-infiltration` (`:1124`) | `DISABLE_HUSH_INFILTRATION=1` kill-switch, **default ON** (`hush-infiltration.ts:87-89`) | server-auth | memory claim "GATED OFF" is stale — on by default both sides |
 | Shrine pet blessing | **Not in this tree** (uncommitted worktree elsewhere); `api/sector/shrine-offer.ts` is a pure ryo sink, "no payout path exists" | `/sector/shrine-offer` (`:1274`) | — | fail-closed lock | — |
 
 Other route-surface notes: `/kv/:op` (dormant kv-proxy) still registered
@@ -121,7 +121,7 @@ Conflicts found (code is source of truth; conflicts recorded):
 2. `WorldMap.tsx:781` comment ("default OFF") vs `weekly-boss-roam.ts:34`
    (defaults ON); `weekly-boss-roam.ts:21` still claims "nothing imports this."
 3. `.env.example` omits live operational flags: `DISABLE_VILLAGE_WAR`,
-   `DISABLE_CLAN_BOSS`, `ENABLE_LEGACY`, `DISABLE_SHADOWGUARD_INFILTRATION`,
+   `DISABLE_CLAN_BOSS`, `ENABLE_LEGACY`, `DISABLE_HUSH_INFILTRATION`,
    `DISABLE_COMBAT_RECEIPTS`, `DISABLE_ASSET_META`, `DISABLE_CURRENCY_WINDOW`.
 4. Matrix "Gate/monitor" for Bloodline Maker implies a nonexistent env gate.
 5. `petColiseumCinematic.v1` self-documents as vestigial with an obsolete

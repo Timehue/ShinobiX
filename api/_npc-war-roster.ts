@@ -1,21 +1,21 @@
 /**
  * Who fights Cinderhold's sector wars (Push 4, owner ruling 2026-11-10).
  *
- * Cinderhold has no players, so nobody is ever appointed to its Shadowguard through
+ * Cinderhold has no players, so nobody is ever appointed to its Hush through
  * the player systems. Its war roles come from the roster instead: its
- * Commanders, Elites and Jonin are its Shadowguard. They hold its garrisons and fight
+ * Commanders, Elites and Jonin are its Hush. They hold its garrisons and fight
  * its war party (api/_npc-war-party.ts), and its Commanders fight at Elder
  * weight. The roster has no Kage: Cinderhold's Kage seat is held only by a
  * defected story Kage (api/_npc-village-leaders.ts), who has no save to seal,
- * so the garrison never falls back to a Kage. With fifteen Shadowguard it never needs
+ * so the garrison never falls back to a Kage. With fifteen Hush it never needs
  * to.
  *
  * Its Genin and Chunin fight too (owner ruling 2026-11-11), as a player
  * village's villagers do: any of them whose LIVE level is NPC_WAR_MIN_LEVEL or
  * more takes the same war jobs (front posts and strikes, stronghold defense,
  * the shrine, strikes, raids, field orders) at villager weight. They are never
- * its Shadowguard: NPC_WAR_DEFENDERS stays the Shadowguard list (the AI-copy defender,
- * readVillageShadowguard, garrisons, the Elder/Shadowguard role). npcWarParticipants() is
+ * its Hush: NPC_WAR_DEFENDERS stays the Hush list (the AI-copy defender,
+ * readVillageHush, garrisons, the Elder/Hush role). npcWarParticipants() is
  * who takes war jobs right now.
  */
 import { kv } from './_storage.js';
@@ -46,7 +46,7 @@ export const NPC_WAR_DEFENDER_RANKS: readonly NpcRank[] = ['commander', 'elite',
 export const NPC_WAR_DEFENDERS: readonly NpcShinobi[] = NPC_WAR_DEFENDER_RANKS
     .flatMap((rank) => NPC_VILLAGE_ROSTER.filter((npc) => npc.rank === rank));
 
-/** Whether this rank is one of Cinderhold's Shadowguard ranks (always war-eligible). */
+/** Whether this rank is one of Cinderhold's Hush ranks (always war-eligible). */
 export function isNpcWarDefenderRank(rank: NpcRank): boolean {
     return NPC_WAR_DEFENDER_RANKS.includes(rank);
 }
@@ -63,7 +63,7 @@ export type NpcWarFacts = { level?: unknown; village?: unknown } | null | undefi
 
 /**
  * Pure: who takes war jobs, given each Genin's and Chunin's live save facts.
- * The Shadowguard always (in NPC_WAR_DEFENDERS order, so they come first wherever a
+ * The Hush always (in NPC_WAR_DEFENDERS order, so they come first wherever a
  * caller fills scarce slots in list order), then every Genin or Chunin still in
  * Cinderhold at NPC_WAR_MIN_LEVEL or more. A missing save keeps one out.
  */
@@ -80,10 +80,10 @@ const WAR_FACTS = { level: ['character', 'level'], village: ['character', 'villa
 let participantsCache: { at: number; list: readonly NpcShinobi[] } | null = null;
 
 /**
- * Cinderhold's war participants RIGHT NOW: its Shadowguard, then its Genin and Chunin
+ * Cinderhold's war participants RIGHT NOW: its Hush, then its Genin and Chunin
  * at level NPC_WAR_MIN_LEVEL or more. One projected read of those fifteen
  * saves (level and village only), cached NPC_WAR_PARTICIPANTS_CACHE_MS. A
- * failed read keeps the last answer, or the Shadowguard alone. Never throws.
+ * failed read keeps the last answer, or the Hush alone. Never throws.
  */
 export async function npcWarParticipants(now = Date.now()): Promise<readonly NpcShinobi[]> {
     if (participantsCache && Math.abs(now - participantsCache.at) < NPC_WAR_PARTICIPANTS_CACHE_MS) return participantsCache.list;
@@ -105,8 +105,8 @@ export function resetNpcWarParticipantsCacheForTest(): void { participantsCache 
 /** Drops the cached answer (after a seed pass, so a newly owned NPC takes war jobs at once). */
 export const forgetNpcWarParticipants = resetNpcWarParticipantsCacheForTest;
 
-/** Cinderhold's Shadowguard as readVillageShadowguard reports them: the first three "appointed", the rest "earned". */
-export function npcVillageShadowguard(): { appointed: [string, string, string]; earned: string[]; members: string[] } {
+/** Cinderhold's Hush as readVillageHush reports them: the first three "appointed", the rest "earned". */
+export function npcVillageHush(): { appointed: [string, string, string]; earned: string[]; members: string[] } {
     const ids = NPC_WAR_DEFENDERS.map((npc) => npc.id);
     const appointed = [ids[0] ?? '', ids[1] ?? '', ids[2] ?? ''] as [string, string, string];
     const earned = ids.slice(3);

@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import type { Character, PlayerRecord, VersionedCharacterCommit } from '../../types/character';
 import { campaignRequest, type CampaignBattle } from '../../lib/village-war-campaign';
 import type { CampaignFieldMissionView } from '../../../../shared/village-war-campaign';
-import { StrongholdDialog } from '../shadowguardInfiltration/StrongholdDialog';
+import { StrongholdDialog } from '../hushInfiltration/StrongholdDialog';
 import { FieldMissionSummary } from './WarFieldOrders';
 import { visiblePoll } from '../../lib/poll';
 import './village-campaign.css';

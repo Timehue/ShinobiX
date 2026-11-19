@@ -35,7 +35,7 @@ test.beforeEach(async ({ page }) => {
             ok: true,
             capabilities: Object.fromEntries([
                 'gameplay', 'gameplayMutations', 'registrations', 'googleSignIn', 'guestPlay',
-                'villageWar', 'shadowguardInfiltration', 'clanBoss',
+                'villageWar', 'hushInfiltration', 'clanBoss',
                 'clanBossParties', 'legacy', 'petBreedingStarts', 'weeklyBossGuardCycle',
             ].map((id) => [id, { state: 'available', reason: 'available' }])),
         }),

@@ -138,19 +138,19 @@ describe("mixed-feature public capability wiring", () => {
         assert.match(arena, /disabled=\{startingFight \|\| !weeklyBossActionsAvailable \|\| expired \|\| lockedOut \|\| contributionDisabled \|\| staminaBlocked\}/);
     });
 
-    it("keeps cached World Map operations visible but blocks fresh Village War, Shadowguard, and Legacy mutations", () => {
+    it("keeps cached World Map operations visible but blocks fresh Village War, Hush, and Legacy mutations", () => {
         const worldMap = source("../screens/WorldMap.tsx");
         const sageModal = source("../components/SageOfferModal.tsx");
         const wandererDialog = source("../components/WorldWandererDialog.tsx");
 
         assert.match(worldMap, /useCapabilityViewAvailability\("villageWar"\)/);
         assert.match(worldMap, /useCapabilityMutationAvailability\("villageWar"\)/);
-        assert.match(worldMap, /useCapabilityViewAvailability\("shadowguardInfiltration"\)/);
-        assert.match(worldMap, /useCapabilityMutationAvailability\("shadowguardInfiltration"\)/);
+        assert.match(worldMap, /useCapabilityViewAvailability\("hushInfiltration"\)/);
+        assert.match(worldMap, /useCapabilityMutationAvailability\("hushInfiltration"\)/);
         const mercenaryAdmission = between(worldMap, "async function engageRoamingMerc", "function dismissWandererDialog");
         assert.ok(mercenaryAdmission.indexOf('mutationAvailability("villageWar")') < mercenaryAdmission.indexOf("engageMerc("));
-        assert.match(worldMap, /mutationAvailability\("shadowguardInfiltration"\)[\s\S]*setVaultRaid\(vaultPrompt\)/);
-        assert.match(worldMap, /vaultRaid && createPortal\([\s\S]*shadowguardAdmissionOpen \? \([\s\S]*<ShadowguardVaultRaid[\s\S]*Shadowguard operation paused[\s\S]*vault run remains recoverable/);
+        assert.match(worldMap, /mutationAvailability\("hushInfiltration"\)[\s\S]*setVaultRaid\(vaultPrompt\)/);
+        assert.match(worldMap, /vaultRaid && createPortal\([\s\S]*hushAdmissionOpen \? \([\s\S]*<HushVaultRaid[\s\S]*Hush operation paused[\s\S]*vault run remains recoverable/);
         assert.match(worldMap, /if \(legacyAvailable\) return;[\s\S]*setSageOffer\(null\);[\s\S]*setSageVnEvent\(null\);[\s\S]*setSageChoiceOpen\(false\)/);
         assert.match(worldMap, /legacyAvailable && sageChoiceOpen && sageOffer/);
         assert.match(worldMap, /const wandererLegacyTrial = legacyAvailable && character\.legacy && wandererDialogEmissary/);

@@ -190,8 +190,8 @@ describe('Sector War card table — the whistle', { concurrency: false }, () => 
 
     it('the attacker can still finish their own garrison match after the whistle — it just does not count', async () => {
         const villageState = 'game:village-state:frostfangvillage';
-        await kv.set('save:cardshadowguard', { character: { name: 'cardshadowguard', village: DEFENDER } });
-        await kv.set(villageState, { shadowguardAppointees: ['cardshadowguard'] });
+        await kv.set('save:cardhush', { character: { name: 'cardhush', village: DEFENDER } });
+        await kv.set(villageState, { hushAppointees: ['cardhush'] });
         const contest = await seedContest({ lastLiveBattleAt: Date.now() - IDLE_MS - 60_000 });
         const opened = await call({ action: 'join', garrison: true, playerName: RAIDER, sectorWarId: contest.id });
         assert.equal(opened.statusCode, 200, JSON.stringify(opened.body));

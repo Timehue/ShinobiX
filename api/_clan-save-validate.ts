@@ -73,7 +73,7 @@ function pinMemberCounters(
             // stays without one (clan missions read a missing counter as 0).
             if (!has(member, rowField) && !has(stored, rowField)) continue;
             if (own) {
-                // Server writers (Shadowguard raids) credit the row directly, so keep
+                // Server writers (Hush raids) credit the row directly, so keep
                 // the larger of this month's stored value and the character's.
                 const storedValue = storedSameMonth ? Math.max(0, Number(stored![rowField]) || 0) : 0;
                 const charValue = callerCharacter!.clanContribMonth === month ? Math.max(0, Number(callerCharacter![charField]) || 0) : 0;

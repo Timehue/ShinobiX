@@ -326,7 +326,7 @@ durable outbox intent before the debit can commit.
 | Wanderer endpoints | `api/sector/wanderer-{gift,service,quest,ambush}.ts` | one `sectorDiscoveries` receipt per NPC interaction; `wandererQuests` and `hiddenFinds` for their completed deeds |
 | Village treasury donate | `api/village/treasury/donate.ts` + `api/_legacy-economy-outbox.ts` | exact donated ryo-value as `villageDonations`, delivered only after the economy transaction is complete |
 | Card clash finalize | `api/card-clash/_freeplay-legacy.ts` + `api/card-clash/ai-move.ts` | `cardClashWins` from terminal server sessions |
-| Shadowguard infiltration | `api/village/shadowguard-infiltration.ts` | `raidsCompleted`, `warContribution` from a settled run id |
+| Hush infiltration | `api/village/hush-infiltration.ts` | `raidsCompleted`, `warContribution` from a settled run id |
 | Story first clear | `api/story/settle.ts` | durable `firstClears`, `bossContribution` |
 | Daily login | `api/player/daily-login.ts` | `villageTenureDays` (+1 per claimed day in current village) |
 

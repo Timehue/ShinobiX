@@ -32,13 +32,13 @@ before(async () => {
 beforeEach(async () => {
     const keys = await kv.keys('*');
     if (keys.length) await kv.del(...keys);
-    for (const name of ['kage', 'shadowguard', 'elder', 'villager', 'formerkage', 'formerelder', 'formershadowguard', 'outsider']) {
+    for (const name of ['kage', 'hush', 'elder', 'villager', 'formerkage', 'formerelder', 'formerhush', 'outsider']) {
         await kv.set(`save:${name}`, { character: { name, village: name === 'outsider' ? 'Stormveil Village' : village,
-            elderFocus: 'training', rankTitle: 'Kage', storyTitle: 'Village Elder Shadowguard' } });
+            elderFocus: 'training', rankTitle: 'Kage', storyTitle: 'Village Elder Hush' } });
     }
     await council(['', 'elder', '']);
     await kv.set(kageKey, { seatedKage: 'kage', kageSystemUnlocked: true });
-    await kv.set(stateKey, { seatedKage: 'formerkage', shadowguardAppointees: ['shadowguard', '', ''],
+    await kv.set(stateKey, { seatedKage: 'formerkage', hushAppointees: ['hush', '', ''],
         elderAppointees: ['', 'elder', ''], noticePosts: [], treasury: { ryo: 250 } });
 });
 
@@ -65,8 +65,8 @@ test('ordinary villagers cannot post any order category, regardless of titles or
     }
 });
 
-test('Kage, appointed Shadowguard and player Elders can post every category with canonical attribution', async () => {
-    for (const [name, role] of [['kage', 'Kage'], ['shadowguard', 'Shadowguard'], ['elder', 'Village Elder']]) {
+test('Kage, appointed Hush and player Elders can post every category with canonical attribution', async () => {
+    for (const [name, role] of [['kage', 'Kage'], ['hush', 'Hush'], ['elder', 'Village Elder']]) {
         const previous = (await kv.get<any>(stateKey)).noticePosts;
         const additions = types.map(type => order(`${name}-${type}`, name, type));
         const result = await post(name, [...additions, ...previous]);
@@ -82,20 +82,20 @@ test('Kage, appointed Shadowguard and player Elders can post every category with
 test('self-appointed seats and stale Kage mirrors cannot unlock orders in the same request', async () => {
     for (const name of ['villager', 'formerkage']) {
         const result = await post(name, [order('forged-role', name)], {
-            seatedKage: name, shadowguardAppointees: [name], elderAppointees: [name],
+            seatedKage: name, hushAppointees: [name], elderAppointees: [name],
         });
         assert.deepEqual(result.state!.noticePosts, []);
-        assert.deepEqual(result.state!.shadowguardAppointees, ['shadowguard', '', '']);
+        assert.deepEqual(result.state!.hushAppointees, ['hush', '', '']);
         assert.deepEqual(result.state!.elderAppointees, ['', 'elder', '']);
     }
     for (const malformed of [null, {}, 'villager']) {
-        const result = await post('villager', [], { shadowguardAppointees: malformed });
-        assert.deepEqual(result.state!.shadowguardAppointees, ['shadowguard', '', '']);
+        const result = await post('villager', [], { hushAppointees: malformed });
+        assert.deepEqual(result.state!.hushAppointees, ['hush', '', '']);
     }
 });
 
 test('ordinary and former leaders cannot rewrite, pin or delete even their old orders', async () => {
-    for (const name of ['villager', 'formerkage', 'formerelder', 'formershadowguard']) {
+    for (const name of ['villager', 'formerkage', 'formerelder', 'formerhush']) {
         const original = order('existing', name);
         const state = await kv.get<any>(stateKey);
         await kv.set(stateKey, { ...state, noticePosts: [original] });
@@ -107,12 +107,12 @@ test('ordinary and former leaders cannot rewrite, pin or delete even their old o
 });
 
 test('current leadership can manage its own posts; only the Kage can manage another author', async () => {
-    for (const name of ['shadowguard', 'elder']) {
+    for (const name of ['hush', 'elder']) {
         const original = order('existing', name);
         await kv.set(stateKey, { ...(await kv.get<any>(stateKey)), noticePosts: [original] });
         const ownPin = await post(name, [{ ...original, pinned: true, authorRole: 'Kage', title: 'Forged rewrite' }]);
         assert.deepEqual(ownPin.state!.noticePosts, [{ ...original, pinned: true }]);
-        const otherName = name === 'shadowguard' ? 'elder' : 'shadowguard';
+        const otherName = name === 'hush' ? 'elder' : 'hush';
         const otherPin = await post(otherName, [{ ...original, pinned: false }]);
         assert.deepEqual(otherPin.state!.noticePosts, [{ ...original, pinned: true }]);
         const otherDelete = await post(otherName, []);
@@ -126,18 +126,18 @@ test('current leadership can manage its own posts; only the Kage can manage anot
 
 test('removing an appointment or leaving the village revokes posting immediately', async () => {
     const state = await kv.get<any>(stateKey);
-    await kv.set(stateKey, { ...state, shadowguardAppointees: [], elderAppointees: [] });
+    await kv.set(stateKey, { ...state, hushAppointees: [], elderAppointees: [] });
     await council(['', '', '']);
-    for (const name of ['shadowguard', 'elder']) assert.deepEqual((await post(name, [order(name, name)])).state!.noticePosts, []);
-    assert.equal((await post('outsider', [order('foreign', 'outsider')], { shadowguardAppointees: ['outsider'] })).status, 403);
+    for (const name of ['hush', 'elder']) assert.deepEqual((await post(name, [order(name, name)])).state!.noticePosts, []);
+    assert.equal((await post('outsider', [order('foreign', 'outsider')], { hushAppointees: ['outsider'] })).status, 403);
 });
 
 test('leadership cannot impersonate another author or bypass a silence', async () => {
     for (const author of ['villager', '', 'System']) {
-        assert.deepEqual((await post('shadowguard', [order(`spoof-${author}`, author)])).state!.noticePosts, []);
+        assert.deepEqual((await post('hush', [order(`spoof-${author}`, author)])).state!.noticePosts, []);
     }
-    await kv.set('mod:silence:shadowguard', { until: Date.now() + 60_000, reason: 'test', by: 'admin', at: Date.now() });
-    assert.deepEqual((await post('shadowguard', [order('silenced', 'shadowguard')])).state!.noticePosts, []);
+    await kv.set('mod:silence:hush', { until: Date.now() + 60_000, reason: 'test', by: 'admin', at: Date.now() });
+    assert.deepEqual((await post('hush', [order('silenced', 'hush')])).state!.noticePosts, []);
 });
 
 async function action(name: string, body: Record<string, unknown>) {
@@ -150,16 +150,16 @@ async function action(name: string, body: Record<string, unknown>) {
 }
 
 test('atomic order actions deny all ordinary players and allow every current leadership role', async () => {
-    for (const name of ['villager', 'formerkage', 'formershadowguard', 'formerelder']) {
+    for (const name of ['villager', 'formerkage', 'formerhush', 'formerelder']) {
         assert.equal((await action(name, { action: 'post', ...order(name, name) })).status, 403);
     }
-    for (const name of ['kage', 'shadowguard', 'elder']) {
+    for (const name of ['kage', 'hush', 'elder']) {
         for (const type of types) {
             const posted = await action(name, { action: 'post', ...order(`${name}-${type}`, 'System', type) });
             assert.equal(posted.status, 200);
             const saved = posted.body.noticePosts.find((post: any) => post.id === `${name}-${type}`);
             assert.equal(saved.author, name);
-            assert.equal(saved.authorRole, name === 'elder' ? 'Village Elder' : name === 'shadowguard' ? 'Shadowguard' : 'Kage');
+            assert.equal(saved.authorRole, name === 'elder' ? 'Village Elder' : name === 'hush' ? 'Hush' : 'Kage');
         }
     }
 });
@@ -180,15 +180,15 @@ test('a full board accepts new orders without client deletions, with idempotent 
 
 test('atomic pin/delete preserve intervening orders and enforce current authorship', async () => {
     await action('elder', { action: 'post', ...order('elder-post', 'elder') });
-    await action('shadowguard', { action: 'post', ...order('shadowguard-post', 'shadowguard') });
+    await action('hush', { action: 'post', ...order('hush-post', 'hush') });
     assert.equal((await action('villager', { action: 'pin', id: 'elder-post', pinned: true })).status, 403);
-    assert.equal((await action('shadowguard', { action: 'delete', id: 'elder-post' })).status, 403);
+    assert.equal((await action('hush', { action: 'delete', id: 'elder-post' })).status, 403);
     const pinned = await action('elder', { action: 'pin', id: 'elder-post', pinned: true });
     assert.equal(pinned.status, 200);
     assert.equal(pinned.body.noticePosts.length, 2);
     const deleted = await action('kage', { action: 'delete', id: 'elder-post' });
-    assert.deepEqual(deleted.body.noticePosts.map((p: any) => p.id), ['shadowguard-post']);
+    assert.deepEqual(deleted.body.noticePosts.map((p: any) => p.id), ['hush-post']);
     const state = await kv.get<any>(stateKey);
-    await kv.set(stateKey, { ...state, shadowguardAppointees: [] });
-    assert.equal((await action('shadowguard', { action: 'delete', id: 'shadowguard-post' })).status, 403);
+    await kv.set(stateKey, { ...state, hushAppointees: [] });
+    assert.equal((await action('hush', { action: 'delete', id: 'hush-post' })).status, 403);
 });

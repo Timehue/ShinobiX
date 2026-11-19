@@ -1,7 +1,7 @@
-import { normalizeShadowguardSeats } from '../../../shared/village-shadowguard';
+import { normalizeHushSeats } from '../../../shared/village-hush';
 /*
  * Pure village-state helpers — daily agenda generation, treasury defaults/
- * cleaning, and Shadowguard appointee normalization. Extracted verbatim from App.tsx.
+ * cleaning, and Hush appointee normalization. Extracted verbatim from App.tsx.
  * The cache-coupled load/save/normalizeVillageState stay in App.tsx (they
  * read/reassign sharedVillageStateCache).
  *
@@ -14,7 +14,7 @@ import { currentDateKey } from "./utils";
 import { cleanTreasuryItems } from "./items";
 import { type VillageAgendaTask, type VillageDailyAgenda, type VillageTreasury } from "./world-state";
 
-export const normalizeShadowguardAppointees = normalizeShadowguardSeats;
+export const normalizeHushAppointees = normalizeHushSeats;
 
 const villageAgendaTaskPool: Omit<VillageAgendaTask, "id">[] = [
     { kind: "control", label: "Hold controlled sectors", target: 1 },

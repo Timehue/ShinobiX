@@ -63,7 +63,7 @@ describe('shared Tower battle-start guard', () => {
             'api/missions/ai-fight-start.ts',
             'api/missions/raid-start.ts',
             'api/endless/wave-start.ts',
-            'api/village/shadowguard-infiltration.ts',
+            'api/village/hush-infiltration.ts',
         ];
         for (const file of singlePlayerRoutes) {
             const text = source(file);

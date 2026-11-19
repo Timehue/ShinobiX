@@ -53,9 +53,9 @@ export function clanBossPartiesEnabled(env: NodeJS.ProcessEnv = process.env): bo
     return clanBossEnabled(env) && env.DISABLE_CLAN_BOSS_PARTIES !== '1';
 }
 
-/** Shadowguard Infiltration is independent of the Sector Map campaign and ships on. */
-export function shadowguardInfiltrationEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-    return env.DISABLE_SHADOWGUARD_INFILTRATION !== '1';
+/** Hush Infiltration is independent of the Sector Map campaign and ships on. */
+export function hushInfiltrationEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_HUSH_INFILTRATION !== '1';
 }
 
 /**

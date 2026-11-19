@@ -11,7 +11,7 @@ Endless Spire, and Clan Boss. Pet and Card combat remain independent.
 One-human/one-AI shinobi fights use `solo-pve`. This includes catalog and
 published AI fights, hunts, ambushes, guards, wanderers, every built-in combat
 mission, Academy sparring, story battles, normal Endless, Hollow Gate shinobi
-combat, Weekly Boss attempts, and Shadowguard infiltration. Shadowguard uses one live raider
+combat, Weekly Boss attempts, and Hush infiltration. Hush uses one live raider
 against an AI-controlled daily snapshot. Weekly Boss remains a one-player score
 attack while its shared contribution economy stays on the mode route.
 
@@ -46,10 +46,10 @@ owns combat modifiers, active encounter state, exact run ledger, death, Second
 Wind, flee restrictions, item charges, extraction, and once settlement. Hollow
 Hound fights remain on the pet runtime with a distinct receipt.
 
-### Story, Academy, generic AI, Endless, and Shadowguard
+### Story, Academy, generic AI, Endless, and Hush
 
 Academy, story, catalog/published AI, hunts, ambushes, guards, wanderers, raids,
-and Shadowguard create Solo sessions and render through the normal Arena shell. Normal
+and Hush create Solo sessions and render through the normal Arena shell. Normal
 Endless derives the current wave and opponent from its durable run and settles
 terminal vitals and rewards once. No rewarding path falls back to a locally
 resolved shinobi fight.

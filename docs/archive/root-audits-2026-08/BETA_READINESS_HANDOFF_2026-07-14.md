@@ -161,7 +161,7 @@ The worktree already contained many unrelated source, UI, VFX, story, realtime, 
 - **Admin monitored:** Clan Boss enabled; watch assault settlement, item deductions, damage, standings, and weekly receipts while #15 captures live evidence.
 - **Desktop-first:** Hollow Gate while mobile layout verification remains pending; combat and rewards are server-authoritative.
 - **Staffed:** Village/Sector War runs as scheduled beta events with operators present; do not begin an unattended permanent season yet.
-- **Enabled through server authority:** all combat mission rewards, story/Academy outcomes, Hollow Gate nodes, Endless runs, Shadowguard raids, generic AI fights, and Weekly Boss contributions.
+- **Enabled through server authority:** all combat mission rewards, story/Academy outcomes, Hollow Gate nodes, Endless runs, Hush raids, generic AI fights, and Weekly Boss contributions.
 - **Legacy trust flags retired:** the former mission client-win and Weekly Boss client-damage switches no longer restore those paths; legacy reports fail closed.
 - **AI/creator:** OpenAI-side generation limits are accepted for beta. No public creator rewards exist. Apply moderation controls to public user-generated content without inventing a reward shutdown.
 - **Emergency controls unset normally but ready:** maintenance, registration disable, economy/reward freeze, scheduled-job disable.

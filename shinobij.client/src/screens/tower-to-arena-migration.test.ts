@@ -6,7 +6,7 @@ const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8"
 const missionFight = read("./MissionArenaFight.tsx");
 const weeklyWrapper = read("./WeeklyBossFight.tsx");
 const weeklyArena = read("./WeeklyBossArena.tsx");
-const shadowguardRaid = read("../features/shadowguardInfiltration/ShadowguardVaultRaid.tsx");
+const hushRaid = read("../features/hushInfiltration/HushVaultRaid.tsx");
 const app = read("../App.tsx");
 const worldBossHub = read("./WorldBossesHub.tsx");
 
@@ -29,12 +29,12 @@ test("Weekly Boss renders on the arena shell, not the tower rail", () => {
     assert.doesNotMatch(app, /<BattleTowerFight|screens\/BattleTowerFight/);
 });
 
-test("Shadowguard Vault fight renders on the arena shell with a guarded Solo PvE transport", () => {
-    assert.match(shadowguardRaid, /<MissionArenaFight/);
-    assert.match(shadowguardRaid, /soloPveSessionForArena\(fight\.session\)/);
-    assert.match(shadowguardRaid, /\.\.\.soloPveArenaTransport/);
-    assert.match(shadowguardRaid, /soloPveArenaTransport\.(?:fetchState|submitAction)/);
-    assert.match(shadowguardRaid, /transport=\{guardedArenaTransport\}/);
-    assert.match(shadowguardRaid, /settleOnAnyDone/);
-    assert.doesNotMatch(shadowguardRaid, /createTowerArenaTransport|infiltrationAct|towerSessionForArena|<BattleTowerFight|screens\/BattleTowerFight/);
+test("Hush Vault fight renders on the arena shell with a guarded Solo PvE transport", () => {
+    assert.match(hushRaid, /<MissionArenaFight/);
+    assert.match(hushRaid, /soloPveSessionForArena\(fight\.session\)/);
+    assert.match(hushRaid, /\.\.\.soloPveArenaTransport/);
+    assert.match(hushRaid, /soloPveArenaTransport\.(?:fetchState|submitAction)/);
+    assert.match(hushRaid, /transport=\{guardedArenaTransport\}/);
+    assert.match(hushRaid, /settleOnAnyDone/);
+    assert.doesNotMatch(hushRaid, /createTowerArenaTransport|infiltrationAct|towerSessionForArena|<BattleTowerFight|screens\/BattleTowerFight/);
 });

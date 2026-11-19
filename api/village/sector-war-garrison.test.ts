@@ -15,7 +15,7 @@ process.env.SESSION_SECRET = 'sector-garrison-test-secret-32-bytes-long';
  * file pinned the WRONG-OWNER Tower-backed garrison's retirement (a fail-closed
  * 410 that touched no state). This is the real, rebuilt behavior: garrison-start
  * mints a genuine Solo PvE session against a sealed snapshot of the defending
- * village's real Shadowguard, and garrison-resolve reads the AUTHORITATIVE finished
+ * village's real Hush, and garrison-resolve reads the AUTHORITATIVE finished
  * session and scores the SAME sector-war contest a live-defender fight would —
  * never a client claim, and never Tower's resolveMercBattle/sealTowerFighter.
  */
@@ -30,8 +30,8 @@ const CONTEST_ID = `${SECTOR}:moonshadowvillage-vs-frostfangvillage`;
 const CONTEST_KEY = `shared:sector-war:${CONTEST_ID}`;
 const TERRITORY_KEY = `world:territory:${SECTOR}`;
 const ATTACKER_PLAYER = 'garrisonattacker';
-const SHADOWGUARD_SLUG = 'garrisonshadowguard';
-const SHADOWGUARD_VILLAGE_STATE_KEY = 'game:village-state:frostfangvillage';
+const HUSH_SLUG = 'garrisonhush';
+const HUSH_VILLAGE_STATE_KEY = 'game:village-state:frostfangvillage';
 
 let handler: Handler;
 let kv: typeof import('../_storage.js').kv;
@@ -108,12 +108,12 @@ async function seedBaseState(now: number, contestOverrides: Record<string, unkno
             itemStacks: [{ itemId: 'potion', count: 3 }],
         },
     });
-    await kv.set(SHADOWGUARD_VILLAGE_STATE_KEY, { shadowguardAppointees: [SHADOWGUARD_SLUG] });
-    await kv.set(`save:${SHADOWGUARD_SLUG}`, {
+    await kv.set(HUSH_VILLAGE_STATE_KEY, { hushAppointees: [HUSH_SLUG] });
+    await kv.set(`save:${HUSH_SLUG}`, {
         character: {
-            name: 'Frostfang Shadowguard', village: DEFENDER, level: 100,
+            name: 'Frostfang Hush', village: DEFENDER, level: 100,
             maxHp: 12000, hp: 12000, maxChakra: 1000, maxStamina: 1000,
-            // A distinctive, non-default stat proves the seal reads the Shadowguard's
+            // A distinctive, non-default stat proves the seal reads the Hush's
             // OWN real save, not a generic scaled bot.
             stats: { taijutsuOffense: 7777 },
             jutsu: [], pvpItems: [], equipment: {},
@@ -167,23 +167,23 @@ describe('Sector Combat garrison assault (rebuilt on Solo PvE)', { concurrency: 
         assert.equal(response.statusCode, 403);
     });
 
-    it('seals the defending village\'s REAL appointed Shadowguard (their own save), never scales to the attacker', async () => {
+    it('seals the defending village\'s REAL appointed Hush (their own save), never scales to the attacker', async () => {
         const now = Date.now();
-        await seedBaseState(now); // attacker is level 50; the seeded Shadowguard is level 100
+        await seedBaseState(now); // attacker is level 50; the seeded Hush is level 100
         const response = await startGarrison();
         assert.equal(response.statusCode, 200, JSON.stringify(response.body));
         const body = response.body as { runId: string; session: { encounter: { level: number; sourceId: string } } };
         // Per owner ruling, the garrison "goes off the defender" — the encounter
-        // is built from the Shadowguard's OWN level, never floored/scaled to the
+        // is built from the Hush's OWN level, never floored/scaled to the
         // attacker's (the retired design fielded a generic bot at
         // max(40, attackerLevel), which here would have been 50, not 100).
         assert.equal(body.session.encounter.level, 100);
         assert.notEqual(body.session.encounter.level, 50);
-        assert.equal(body.session.encounter.sourceId, SHADOWGUARD_SLUG);
-        // Masked display name (privacy, like Shadowguard Infiltration) but numbered by
+        assert.equal(body.session.encounter.sourceId, HUSH_SLUG);
+        // Masked display name (privacy, like Hush Infiltration) but numbered by
         // roster position (owner ruling) so a returning attacker can tell
-        // whether it's the same Shadowguard or a rotation.
-        assert.equal((response.body as { shadowguard: { name: string } }).shadowguard.name, 'Frostfang Shadowguard #1');
+        // whether it's the same Hush or a rotation.
+        assert.equal((response.body as { hush: { name: string } }).hush.name, 'Frostfang Hush #1');
         // The session is stored under the normal Solo PvE keyspace, reachable by
         // the generic /solo-pve/action route — no bespoke combat loop.
         assert.ok(await kv.get(`solo-pve:${body.runId}`));

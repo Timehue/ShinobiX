@@ -367,8 +367,8 @@ shinobij.client/package-lock.json
 2026-10-20T15:58:41.0677741Z   ✔ resolves a real built-in AI to its full authored kit (0.404763ms)
 2026-10-20T15:58:41.0678848Z ✔ resolveAiProfileJutsu (7.890522ms)
 2026-10-20T15:58:41.4187864Z [kv] isolated in-memory QA backend active
-2026-10-20T15:58:41.5282866Z [shadowguard-infiltration] credit interrupted after debit; retry remains safe for raider: Error: injected save write failure
-2026-10-20T15:58:41.5311205Z     at Object.import_storage.kv.compareSet (/home/runner/work/ShinobiX/ShinobiX/api/_shadowguard-infiltration-store.test.ts:238:23)
+2026-10-20T15:58:41.5282866Z [hush-infiltration] credit interrupted after debit; retry remains safe for raider: Error: injected save write failure
+2026-10-20T15:58:41.5311205Z     at Object.import_storage.kv.compareSet (/home/runner/work/ShinobiX/ShinobiX/api/_hush-infiltration-store.test.ts:238:23)
 2026-10-20T15:58:41.5340766Z     at Object.compareSetMany (/home/runner/work/ShinobiX/ShinobiX/api/_storage.ts:1437:38)
 2026-10-20T15:58:41.5350977Z     at async commitInScope (/home/runner/work/ShinobiX/ShinobiX/api/save/_commit-player-save.ts:180:13)
 2026-10-20T15:58:41.5353393Z     at async writeVersionedPlayerSaveWithStore (/home/runner/work/ShinobiX/ShinobiX/api/save/_mutate-player-save.ts:135:27)
@@ -391,7 +391,7 @@ shinobij.client/package-lock.json
 2026-10-20T15:58:41.6201256Z   ✔ keeps the chakra and stamina the raider recovered while the raid ran (3.943343ms)
 2026-10-20T15:58:41.6202573Z ✔ settleInfiltrationWin (125.179019ms)
 2026-10-20T15:58:41.6203515Z ▶ settleInfiltrationLoss
-2026-10-20T15:58:41.6204932Z   ✔ a held Shadowguard defense protects both village and sector war reserves on settlement and replay (3.635851ms)
+2026-10-20T15:58:41.6204932Z   ✔ a held Hush defense protects both village and sector war reserves on settlement and replay (3.635851ms)
 2026-10-20T15:58:41.6206703Z   ✔ persists item usage and terminal outcome once, with replayable save receipt (3.204398ms)
 2026-10-20T15:58:41.6208231Z   ✔ keeps the chakra and stamina recovered before the knockout (1.980503ms)
 2026-10-20T15:58:41.6209370Z ✔ settleInfiltrationLoss (9.05101ms)
@@ -411,12 +411,12 @@ shinobij.client/package-lock.json
 2026-10-20T15:58:41.6271080Z   ✔ a lost compare-and-set re-runs on the fresh save and consumes the count once (3.648945ms)
 2026-10-20T15:58:41.6321068Z   ✔ keeps the HP, chakra and stamina recovered since the last save (2.690412ms)
 2026-10-20T15:58:41.6345048Z ✔ turnInCachesForSave (26.137732ms)
-2026-10-20T15:58:41.6360510Z ▶ Shadowguard roster + snapshot
-2026-10-20T15:58:41.6364168Z   ✔ loadShadowguardAppointees: safeNamed, deduped (1.508646ms)
-2026-10-20T15:58:41.6365329Z   ✔ pickShadowguardDefender: least-recently-defended rotation (0.509527ms)
-2026-10-20T15:58:41.6366833Z   ✔ getOrSealShadowguardSnapshot: seals once per day and caches (stale save changes ignored) (4.634969ms)
+2026-10-20T15:58:41.6360510Z ▶ Hush roster + snapshot
+2026-10-20T15:58:41.6364168Z   ✔ loadHushAppointees: safeNamed, deduped (1.508646ms)
+2026-10-20T15:58:41.6365329Z   ✔ pickHushDefender: least-recently-defended rotation (0.509527ms)
+2026-10-20T15:58:41.6366833Z   ✔ getOrSealHushSnapshot: seals once per day and caches (stale save changes ignored) (4.634969ms)
 2026-10-20T15:58:41.6368336Z   ✔ daily attempt reservation replays the same prepared run without incrementing (1.0002ms)
-2026-10-20T15:58:41.6369875Z ✔ Shadowguard roster + snapshot (7.961554ms)
+2026-10-20T15:58:41.6369875Z ✔ Hush roster + snapshot (7.961554ms)
 2026-10-20T15:58:41.7617170Z ▶ imageFormat (pure)
 2026-10-20T15:58:41.7623574Z   ✔ reads the data-URL mime, normalizing jpg→jpeg (1.182258ms)
 2026-10-20T15:58:41.7624876Z   ✔ classifies external urls and unknowns (0.227092ms)
@@ -987,7 +987,7 @@ shinobij.client/package-lock.json
 2026-10-20T15:58:53.5662581Z   ✔ api/story/boss-start.ts delegates AI mastery to the Solo-PvE builder (0.139559ms)
 2026-10-20T15:58:53.5663896Z   ✔ towers/start.ts routes Spire to its own mode (0.314836ms)
 2026-10-20T15:58:53.5751390Z   ✔ mastery is sealed AFTER the guard, and before the first AI turn (0.47843ms)
-2026-10-20T15:58:53.5843061Z   ✔ the weekly boss and Shadowguard Vault stay deliberately unarmed (0.670347ms)
+2026-10-20T15:58:53.5843061Z   ✔ the weekly boss and Hush Vault stay deliberately unarmed (0.670347ms)
 2026-10-20T15:58:53.5844312Z ✔ step C wiring (2.892952ms)
 2026-10-20T15:58:53.9113506Z ✔ challenge weapons are fixed legal catalog equipment, scoped away from weak/early/unclassified hosts (3.065573ms)
 2026-10-20T15:58:53.9118653Z ✔ server classification seals veteran gear without ratcheting HP, altering identities or arming reused raid profiles (12.416457ms)
@@ -4885,9 +4885,9 @@ shinobij.client/package-lock.json
 2026-10-20T16:00:44.9771647Z   ✔ seals a real solo-PvE operation, reserves its allowance once and resumes after a lost response (25.837107ms)
 2026-10-20T16:00:44.9801483Z   ✔ admits a card-mode stronghold defender, seals legal decks, and scores a server forfeit once (30.705446ms)
 2026-10-20T16:00:44.9837315Z   ✔ resolves a pet stronghold with sealed player teams and a replay, without consuming a PvE attempt (55.343273ms)
-2026-10-20T16:00:44.9861041Z   ✔ combines Shadowguard support with three human pet wins and the completion bonus exactly once (41.548625ms)
-2026-10-20T16:00:44.9911808Z   ✔ reuses the same offline Shadowguard pet copy without disturbing its real breeding or expedition (27.55537ms)
-2026-10-20T16:00:44.9991744Z   ✔ fields an anonymous Shadowguard fallback and enforces Sabotage admission without consuming live objective bouts (29.803195ms)
+2026-10-20T16:00:44.9861041Z   ✔ combines Hush support with three human pet wins and the completion bonus exactly once (41.548625ms)
+2026-10-20T16:00:44.9911808Z   ✔ reuses the same offline Hush pet copy without disturbing its real breeding or expedition (27.55537ms)
+2026-10-20T16:00:44.9991744Z   ✔ fields an anonymous Hush fallback and enforces Sabotage admission without consuming live objective bouts (29.803195ms)
 2026-10-20T16:00:44.9993932Z   ✔ does not rewind a completed card battle when retrying interrupted prepared cleanup (19.427349ms)
 2026-10-20T16:00:45.0040952Z   ✔ refuses an otherwise authorized shinobi spar inside a pet-only stronghold (9.401594ms)
 2026-10-20T16:00:45.0127696Z ✔ five-day village campaigns (2691.115599ms)
@@ -4922,16 +4922,16 @@ shinobij.client/package-lock.json
 2026-10-20T16:00:45.0635341Z   ✔ leaving a village drops the mirror so its bonuses stop paying (0.23654ms)
 2026-10-20T16:00:45.0635971Z ✔ village upgrades are server-owned on the SHARED blob (2.531667ms)
 2026-10-20T16:00:45.0636410Z [kv] isolated in-memory QA backend active
-2026-10-20T16:00:45.0636928Z [village/shadowguard-infiltration] Error: simulated lost combat write acknowledgement
-2026-10-20T16:00:45.0637564Z [village/shadowguard-infiltration] Error: simulated lost attempt acknowledgement
-2026-10-20T16:00:45.0638148Z [village/shadowguard-infiltration] Error: simulated interrupted publication
-2026-10-20T16:00:45.0638931Z ✔ a lost start response recovers the exact admitted Shadowguard run without its browser run ID (1017.848535ms)
+2026-10-20T16:00:45.0636928Z [village/hush-infiltration] Error: simulated lost combat write acknowledgement
+2026-10-20T16:00:45.0637564Z [village/hush-infiltration] Error: simulated lost attempt acknowledgement
+2026-10-20T16:00:45.0638148Z [village/hush-infiltration] Error: simulated interrupted publication
+2026-10-20T16:00:45.0638931Z ✔ a lost start response recovers the exact admitted Hush run without its browser run ID (1017.848535ms)
 2026-10-20T16:00:45.0640360Z ✔ recovery distinguishes no saved fight from an invalid sector (1.210942ms)
 2026-10-20T16:00:45.0641794Z ✔ a committed combat write with a lost acknowledgement keeps a recoverable prepared start (9.065978ms)
 2026-10-20T16:00:45.0643180Z ✔ a committed attempt with a lost acknowledgement completes once on recovery (5.186845ms)
 2026-10-20T16:00:45.0644718Z ✔ prepared recovery preserves combat advanced by another request while authority is read (8.188908ms)
 2026-10-20T16:00:45.0646284Z ✔ retrying the same ready run after UTC midnight does not spend another day’s attempt (5.455045ms)
-2026-10-20T16:00:45.0647723Z ✔ a queued world-boss player cannot also start a Shadowguard raid or spend its daily attempt (8.682677ms)
+2026-10-20T16:00:45.0647723Z ✔ a queued world-boss player cannot also start a Hush raid or spend its daily attempt (8.682677ms)
 2026-10-20T16:00:45.0649337Z ✔ an owed patrol waits for a world-boss queue without creating simultaneous combat (14.30927ms)
 2026-10-20T16:00:45.0650717Z ▶ village chat membership comparison
 2026-10-20T16:00:45.0651705Z   ✔ accepts the same village independent of casing and whitespace (1.078796ms)
@@ -4967,7 +4967,7 @@ shinobij.client/package-lock.json
 2026-10-20T16:00:46.2620661Z   ✔ a village claimed in the presence row does not open that village's block (12.284696ms)
 2026-10-20T16:00:46.2621996Z ✔ GET /api/village/intel — who the viewer is (18.569594ms)
 2026-10-20T16:00:48.5059910Z [kv] isolated in-memory QA backend active
-2026-10-20T16:00:48.5062298Z ✔ Shadowguard appointments require the real Kage, valid seats, and a real member (437.484206ms)
+2026-10-20T16:00:48.5062298Z ✔ Hush appointments require the real Kage, valid seats, and a real member (437.484206ms)
 2026-10-20T16:00:48.5064694Z [village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.
 2026-10-20T16:00:48.5078538Z [village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.
 2026-10-20T16:00:48.5082596Z [village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.
@@ -4979,15 +4979,15 @@ shinobij.client/package-lock.json
 2026-10-20T16:00:48.5344625Z [village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.
 2026-10-20T16:00:48.5881618Z ✔ concurrent appointments preserve other seats and unrelated village data (49.51686ms)
 2026-10-20T16:00:48.5921204Z ✔ appointments grant orders and war weight; clearing and stale writes cannot keep those powers (27.994063ms)
-2026-10-20T16:00:48.5940895Z ✔ all seven earned seats have real Shadowguard powers and rotate at UTC month rollover (2288.960608ms)
+2026-10-20T16:00:48.5940895Z ✔ all seven earned seats have real Hush powers and rotate at UTC month rollover (2288.960608ms)
 2026-10-20T16:00:48.5961354Z ✔ village changes remove appointed and earned powers and do not block the next candidate (15.170472ms)
 2026-10-20T16:00:48.5983181Z ✔ succession preserves appointments, transfers management, and role weights never stack (9.365576ms)
-2026-10-20T16:00:48.5984927Z ✔ special Jonin recognizes real Elders and Kage, not Shadowguard or a stale Kage mirror (24.187548ms)
-2026-10-20T16:00:48.5986778Z ✔ terrain belongs to Kage and Elders with separate quotas; Shadowguard cannot set it (13.113115ms)
+2026-10-20T16:00:48.5984927Z ✔ special Jonin recognizes real Elders and Kage, not Hush or a stale Kage mirror (24.187548ms)
+2026-10-20T16:00:48.5986778Z ✔ terrain belongs to Kage and Elders with separate quotas; Hush cannot set it (13.113115ms)
 2026-10-20T16:00:48.5988505Z ✔ only the current Kage can spend village funds or pay to extend the Hollow Gate (15.871755ms)
 2026-10-20T16:00:48.5990821Z ✔ new Elders can inherit former leaders terrain while current quotas and authority remain enforced (6.491153ms)
 2026-10-20T16:00:48.5993119Z ✔ shared village display includes leadership before the first generic village save (43.117353ms)
-2026-10-20T16:00:48.5995378Z ✔ shared frame clears stale Kage seats and returns the same verified Shadowguard and elder rosters (4.320534ms)
+2026-10-20T16:00:48.5995378Z ✔ shared frame clears stale Kage seats and returns the same verified Hush and elder rosters (4.320534ms)
 2026-10-20T16:00:48.5997248Z ✔ committed PvP rewards refresh earned seats before the next client autosave (7.497863ms)
 2026-10-20T16:00:48.7281879Z [kv] isolated in-memory QA backend active
 2026-10-20T16:00:48.7286297Z [war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g0.s1792501247220","battleId":"pet-garrison:23:moonshadowvillage-vs-frostfangvillage:1792512047226","attackerWon":true,"points":2,"attackerPoints":2,"defenderPoints":0,"garrison":true}
@@ -5009,14 +5009,14 @@ shinobij.client/package-lock.json
 2026-10-20T16:00:48.7349379Z   ✔ stays locked while the defence is still fighting (2.115775ms)
 2026-10-20T16:00:48.7350918Z   ✔ is attacker-only — the defence cannot farm its own garrison (1.384585ms)
 2026-10-20T16:00:48.7352096Z   ✔ refuses on a Card sector — each engine owns only its own win-condition (2.496903ms)
-2026-10-20T16:00:48.7353202Z   ✔ refuses when the village has no Shadowguard and no seated Kage to field one (2.240489ms)
+2026-10-20T16:00:48.7353202Z   ✔ refuses when the village has no Hush and no seated Kage to field one (2.240489ms)
 2026-10-20T16:00:48.7354368Z   ✔ cannot be spammed — the garrison re-forms on the same window it unlocks on (11.655172ms)
 2026-10-20T16:00:48.7355396Z   ✔ starts the re-form cooldown on a LOSS too, not just a win (9.687588ms)
 2026-10-20T16:00:48.7356444Z   ✔ credits an attacker win to the player, and a garrison hold to NOBODY (11.843455ms)
 2026-10-20T16:00:48.7357555Z   ✔ never clobbers a pending live duel — the real seat stays open (17.947506ms)
-2026-10-20T16:00:48.7358707Z   ✔ walks past a Shadowguard whose pets are all busy to one who can field a team (8.006097ms)
-2026-10-20T16:00:48.7360001Z   ✔ falls back to the seated Kage when every Shadowguard is busy (5.863746ms)
-2026-10-20T16:00:48.7360948Z   ✔ falls back to the seated Kage when no Shadowguard are appointed (5.711591ms)
+2026-10-20T16:00:48.7358707Z   ✔ walks past a Hush whose pets are all busy to one who can field a team (8.006097ms)
+2026-10-20T16:00:48.7360001Z   ✔ falls back to the seated Kage when every Hush is busy (5.863746ms)
+2026-10-20T16:00:48.7360948Z   ✔ falls back to the seated Kage when no Hush are appointed (5.711591ms)
 2026-10-20T16:00:48.7361936Z ✔ Pet sector garrison closes the absent-defence hold (1152.215558ms)
 2026-10-20T16:00:48.7362984Z ▶ Card sector garrison closes the same hole
 2026-10-20T16:00:48.7363897Z   ✔ opens a real Chronicle match against the defending village garrison deck (29.427524ms)
@@ -5047,7 +5047,7 @@ shinobij.client/package-lock.json
 2026-10-20T16:00:49.2119270Z ▶ Sector Combat garrison assault (rebuilt on Solo PvE)
 2026-10-20T16:00:49.2127757Z   ✔ refuses to assault before the liveness idle has elapsed (12.822458ms)
 2026-10-20T16:00:49.2129099Z   ✔ refuses a non-attacker village member (4.277814ms)
-2026-10-20T16:00:49.2133149Z   ✔ seals the defending village's REAL appointed Shadowguard (their own save), never scales to the attacker (14.721289ms)
+2026-10-20T16:00:49.2133149Z   ✔ seals the defending village's REAL appointed Hush (their own save), never scales to the attacker (14.721289ms)
 2026-10-20T16:00:49.2135842Z   ✔ replays the same active session on a second garrison-start (resumable, not a fresh mint) (3.733464ms)
 2026-10-20T16:00:49.2140156Z   ✔ refuses to resolve an unfinished assault (3.206075ms)
 2026-10-20T16:00:49.2142027Z   ✔ a fallen garrison scores the contest (half-weight, garrison-capped) and settles the attacker's own item usage + HP (46.519155ms)
@@ -6022,7 +6022,7 @@ shinobij.client/package-lock.json
 2026-10-20T16:07:11.6798837Z ✔ equippable relic roster (5.372568ms)
 2026-10-20T16:07:11.6799384Z ✔ every war village that can hold a vault has defender art wired to it (2.1355ms)
 2026-10-20T16:07:11.6800312Z ✔ the defender portrait URL carries a cache-busting revision (0.466497ms)
-2026-10-20T16:07:11.6800981Z ✔ every Shadowguard defender portrait is framed clear of the canvas edges (242.377619ms)
+2026-10-20T16:07:11.6800981Z ✔ every Hush defender portrait is framed clear of the canvas edges (242.377619ms)
 2026-10-20T16:07:11.6801474Z ▶ starter avatar path retention
 2026-10-20T16:07:11.6801900Z   ✔ keeps every avatar the creator can actually offer (1.189421ms)
 2026-10-20T16:07:11.6802477Z   ✔ only keeps paths the save clamp will accept from a non-subscriber (0.340463ms)
@@ -7717,7 +7717,7 @@ shinobij.client/package-lock.json
 2026-10-20T16:07:11.7643316Z   ✔ E15 — only the newest refresh writes the screen, and the Fed chip is day-scoped (5.109909ms)
 2026-10-20T16:07:11.7643636Z   ✔ 3g — the button that was pressed relabels; the rest merely disable (0.337287ms)
 2026-10-20T16:07:11.7643933Z   ✔ 3j — the new rows use the icon vocabulary, not bolted-on emoji (0.173022ms)
-2026-10-20T16:07:11.7644265Z   ✔ 3k — a Shadowguard appointment made mid-session lights the feed controls up (0.189503ms)
+2026-10-20T16:07:11.7644265Z   ✔ 3k — a Hush appointment made mid-session lights the feed controls up (0.189503ms)
 2026-10-20T16:07:11.7644562Z   ✔ 3l — the depot conversion note disappears when the cap is zero (0.167481ms)
 2026-10-20T16:07:11.7645066Z   ✔ C2 — the stores meaning is visible text and the Fed/Unfed rule is in the accordion (0.33878ms)
 2026-10-20T16:07:11.7645403Z   ✔ 3h / 3i — the mobile contest track is wide enough and the taps are 44px (0.380367ms)
@@ -7734,7 +7734,7 @@ shinobij.client/package-lock.json
 2026-10-20T16:07:11.7649746Z ✔ the dungeon cleared alert lists the piece with the relic and the other rewards (2.082771ms)
 2026-10-20T16:07:11.7650109Z ✔ MissionArenaFight is a runtime-neutral server-arena renderer (1.547898ms)
 2026-10-20T16:07:11.7650431Z ✔ Weekly Boss renders on the arena shell, not the tower rail (1.381168ms)
-2026-10-20T16:07:11.7650845Z ✔ Shadowguard Vault fight renders on the arena shell with a guarded Solo PvE transport (0.502274ms)
+2026-10-20T16:07:11.7650845Z ✔ Hush Vault fight renders on the arena shell with a guarded Solo PvE transport (0.502274ms)
 2026-10-20T16:07:11.7651228Z ✔ CSS references the Cinzel display font only via var(--font-display) (56.770246ms)
 2026-10-20T16:07:11.7651609Z ✔ the solo ground field never paints over hazard, wall or aiming markings (1.226019ms)
 2026-10-20T16:07:11.7652153Z ✔ every class MissionArenaFight gives a tile is either excluded from the field or known not to compete (0.714969ms)

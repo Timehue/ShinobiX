@@ -28,7 +28,7 @@ import {
     type WinCondition,
 } from "../lib/village-war-map";
 import { contestBackKey } from "../lib/sector-war-engagement";
-import { isVillageShadowguard } from "../lib/world-state";
+import { isVillageHush } from "../lib/world-state";
 import { revealedIntelForSector } from "../lib/village-intel";
 import { DEPOT_CONVERSION_POINTS_PER_WR, GARRISON_RATIONS_PER_DAY, expectedDeclareCost, intelTierLabel, structureMaterialsCost } from "../lib/village-stores";
 import {
@@ -105,10 +105,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     const [disabled, setDisabled] = useState(false);
     const [busy, setBusy] = useState("");
     const [showInfo, setShowInfo] = useState(false);
-    // Shadowguard appointees may toggle the garrison feed (like the war systems); the
+    // Hush appointees may toggle the garrison feed (like the war systems); the
     // server re-checks against the village's appointee list. Derived, not frozen
     // at mount — an appointment made mid-session must light the controls up.
-    const isShadowguard = isVillageShadowguard(character);
+    const isHush = isVillageHush(character);
     const isElder = isSeatedVillageElder(character);
 
     const myVillage = (character.village ?? "").trim();
@@ -213,14 +213,14 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
             participant,
             // A feed is worth the same to either side, in opposite directions.
             feedSide: (contest?.attackerVillage === myVillage ? "attacker" : "defender") as GarrisonFeedSide,
-            canFeed: participant && (isKage || isShadowguard),
+            canFeed: participant && (isKage || isHush),
             // Only MY village's feed entry — the enemy's paid feed is never shown as ours.
             myFeed: contest ? contestGarrisonFeed(contest, myVillage) : { on: false, covered: false },
             villageUnfed: !!contest && contestVillageUnfed(contest, myVillage),
             // The Fed/Unfed chip, day-scoped like the line above.
             contestUnfed: !!contest && contestUnfedToday(contest),
         }] as const;
-    }))), [data, owners, myVillage, isKage, isShadowguard, contestBySector, myView]);
+    }))), [data, owners, myVillage, isKage, isHush, contestBySector, myView]);
     // Same for the Active Wars list under the grid.
     const unfedContestIds = useMemo(
         () => new Set((data?.contests ?? []).filter((c) => contestVillageUnfed(c, myVillage)).map((c) => c.id)),
@@ -270,9 +270,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         } catch { /* ignore */ }
         setScreen("sectorPet");
     }, [setScreen]);
-    // Combat's liveness fallback — assault the sector's Shadowguard garrison when no
+    // Combat's liveness fallback — assault the sector's Hush garrison when no
     // live defender has fought in ~2h. Resolved server-side as a real Solo PvE
-    // fight against the defending village's sealed Shadowguard; stash the sector and
+    // fight against the defending village's sealed Hush; stash the sector and
     // navigate, mirroring the card/pet battle launches above.
     const launchGarrisonAssault = useCallback((sector: number) => {
         try { sessionStorage.setItem("sectorWarGarrison.v1", JSON.stringify({ sector })); } catch { /* ignore */ }
@@ -487,7 +487,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                 <button
                                                     className="vwm-declare"
                                                     disabled={!!busy}
-                                                    title="No defender has fought here for hours — assault the sector's Shadowguard garrison instead. A real Solo PvE fight against the defending village's sealed Shadowguard; worth less than beating a real defender."
+                                                    title="No defender has fought here for hours — assault the sector's Hush garrison instead. A real Solo PvE fight against the defending village's sealed Hush; worth less than beating a real defender."
                                                     onClick={() => launchGarrisonAssault(sec.sector)}
                                                 >
                                                     <GameArtIcon kind="guard" size={17} /> Assault garrison

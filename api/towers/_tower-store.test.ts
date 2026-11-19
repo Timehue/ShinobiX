@@ -449,7 +449,7 @@ describe('the tower reward channels pay CATALOG floors only', { concurrency: fal
     });
 
     it('covers every id the solo modes reserve, not just the spar', async () => {
-        // combat missions 9_100+, Shadowguard 9_101, story 9_200+, weekly boss 9_200,
+        // combat missions 9_100+, Hush 9_101, story 9_200+, weekly boss 9_200,
         // the spar 9_250, generic AI fights 9_300.
         for (const id of [9_100, 9_101, 9_200, 9_208, 9_250, 9_300]) {
             await seedSave('cheat');

@@ -2,8 +2,8 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/index.css';
 import { HollowGateShrineView } from '../../src/features/hollowGate/HollowGateShrineView';
-import { StrongholdExplore } from '../../src/features/shadowguardInfiltration/StrongholdExplore';
-import { ShadowguardVaultRaid } from '../../src/features/shadowguardInfiltration/ShadowguardVaultRaid';
+import { StrongholdExplore } from '../../src/features/hushInfiltration/StrongholdExplore';
+import { HushVaultRaid } from '../../src/features/hushInfiltration/HushVaultRaid';
 import { useHollowGateWalk } from '../../src/features/hollowGate/use-hollow-gate-walk';
 import { generateHollowGateFloor } from '../../src/lib/hollow-gate-generate';
 import { hollowRifts } from '../../src/data/hollow-rifts';
@@ -40,7 +40,7 @@ const targetVillage = params.get('targetVillage') ?? 'Frostfang Village';
 const capabilities = Object.fromEntries(PUBLIC_CAPABILITY_IDS.map(id => [id, { state: 'available', reason: 'available' }]));
 const capabilityStore = new LiveCapabilitiesStore(async () => ({ ok: true, status: 200, json: async () => ({ ok: true, capabilities }) }));
 if (params.has('raidHost')) void capabilityStore.refresh();
-const character = { name: params.get('name') ?? 'scout', level: Number(params.get('level') ?? 100), village: params.get('village') ?? 'Moonshadow Village', avatarImage: '/shadowguard/frostfang.webp',
+const character = { name: params.get('name') ?? 'scout', level: Number(params.get('level') ?? 100), village: params.get('village') ?? 'Moonshadow Village', avatarImage: '/hush/frostfang.webp',
     hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000, stamina: 1000, maxStamina: 1000,
     stats: {}, equipment: {}, jutsu: [], inventory: [], itemStacks: [], jutsuMastery: [], pets: [], hollowShards: Number(params.get('shards') ?? 100), ryo: Number(params.get('ryo') ?? 0) } as unknown as Character;
 const warKind = params.get('war') === 'card' ? 'card' : 'pet';
@@ -133,10 +133,10 @@ function ResourceCaveHost() {
 export function DungeonFixture() {
     const [exited, setExited] = useState(false);
     if (exited) return <h1>Returned to sector</h1>;
-    if (params.has('raidHost')) return <LiveCapabilitiesContext.Provider value={capabilityStore}><ShadowguardVaultRaid character={character} sector={Number(params.get('sector') ?? 12)} targetVillage={targetVillage} sharedImages={{}}
+    if (params.has('raidHost')) return <LiveCapabilitiesContext.Provider value={capabilityStore}><HushVaultRaid character={character} sector={Number(params.get('sector') ?? 12)} targetVillage={targetVillage} sharedImages={{}}
         onVersionedCharacter={() => true} onExit={() => setExited(true)} onAttackPlayer={() => { document.body.dataset.attack = 'true'; }} /></LiveCapabilitiesContext.Provider>;
     return <StrongholdExplore character={character} sector={Number(params.get('sector') ?? 12)} targetVillage={targetVillage} sharedImages={{}}
-        shadowguardAvatar="/shadowguard/frostfang.webp?v=2" shadowguardName="Frostfang Shadowguard" blocked={false} onExit={() => setExited(true)}
+        hushAvatar="/hush/frostfang.webp?v=2" hushName="Frostfang Hush" blocked={false} onExit={() => setExited(true)}
         onChallenge={() => { document.body.dataset.challenge = 'true'; }} onPatrol={() => { document.body.dataset.patrol = 'true'; }}
         onAttackPlayer={async player => {
             if (params.has('multiplayer')) { const result = await fetch('/api/player/attack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, targetName: player.name, attacker: { name: character.name } }) });

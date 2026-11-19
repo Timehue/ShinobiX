@@ -1566,8 +1566,8 @@
       "interpretation": "Saved HP; sealed continuousVitals selects whether chakra/stamina enter and leave the fight. KO causes the shared 60-second hospital stay; surviving a timed loss is not KO. Character XP is retired; stat growth and secondary credit remain activity-specific. Active/terminal retention and automatic lapse are server-owned. Location requires caller-specific inspection, not inference from the combat engine."
     },
     {
-      "mode": "shadowguard-infiltration",
-      "label": "Shadowguard infiltration",
+      "mode": "hush-infiltration",
+      "label": "Hush infiltration",
       "authorityEngine": "solo-pve",
       "registryStatus": "match",
       "availabilityCaveat": "Registry match is not deployed health certification.",
@@ -1615,7 +1615,7 @@
         "api/solo-pve/_usage-authority.ts",
         "api/solo-pve/_store.ts",
         "api/_xp-engine.ts",
-        "api/village/shadowguard-infiltration.ts",
+        "api/village/hush-infiltration.ts",
         "api/solo-pve/action.ts",
         "api/solo-pve/state.ts"
       ],
@@ -2105,7 +2105,7 @@
       "label": "Sector War shinobi garrison fallback",
       "authorityEngine": "pvp",
       "registryStatus": "match",
-      "availabilityCaveat": "The wrong-owner Tower fallback (resolveMercBattle/sealTowerFighter) stays retired. The garrison is resolved on the Solo PvE runtime over a sealed snapshot of the defending village's real Shadowguard (api/_sector-war-garrison-encounter.ts, api/_shadowguard-infiltration-store.ts) — content, not a live second participant — same shape as Shadowguard Infiltration. Its OUTCOME still feeds the sector-war contest's own scored points under api/village/sector-war.ts's lock (garrison-start/garrison-resolve), which is why this mode is labeled pvp: sector-war orchestration, not the underlying simulation engine, is what makes it the contest's authority.",
+      "availabilityCaveat": "The wrong-owner Tower fallback (resolveMercBattle/sealTowerFighter) stays retired. The garrison is resolved on the Solo PvE runtime over a sealed snapshot of the defending village's real Hush (api/_sector-war-garrison-encounter.ts, api/_hush-infiltration-store.ts) — content, not a live second participant — same shape as Hush Infiltration. Its OUTCOME still feeds the sector-war contest's own scored points under api/village/sector-war.ts's lock (garrison-start/garrison-resolve), which is why this mode is labeled pvp: sector-war orchestration, not the underlying simulation engine, is what makes it the contest's authority.",
       "cells": {
         "entry HP": "INTENTIONAL MODE RULE",
         "entry chakra": "INTENTIONAL MODE RULE",
@@ -4067,7 +4067,7 @@
     },
     {
       "mode": "village-progression",
-      "label": "Village orders, agendas, upgrades, Shadowguard and map control",
+      "label": "Village orders, agendas, upgrades, Hush and map control",
       "authorityEngine": "activity-specific",
       "registryStatus": "additional-source-discovery",
       "cells": {
@@ -4110,7 +4110,7 @@
         "api/village/claim-daily-agenda.ts",
         "api/village/claim-map-control.ts",
         "api/village/upgrade.ts",
-        "api/village/shadowguard.ts"
+        "api/village/hush.ts"
       ],
       "interpretation": "Shared village state and individual entitlements have distinct claim identities and receipts. No change to war or economy amounts."
     }

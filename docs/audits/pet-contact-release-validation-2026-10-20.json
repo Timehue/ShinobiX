@@ -68,7 +68,7 @@
     },
     "originalCiFailure": {
       "path": "docs/screenshots/pet-contact-release-validation-2026-10-20/original-ci-missing-baseline.txt",
-      "sha256": "c35d2fe9ae14b216ac63ec87d14be9215c8a2cf62369d3ced30e81dd7a95f52f"
+      "sha256": "df25f8b27119d2a07432b069d5c3e45fcf6202fe4498c214753a9d14a869028e"
     }
   }
 }

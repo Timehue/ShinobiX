@@ -300,7 +300,7 @@ The multiplayer mode exercises separately authenticated mobile browsers, both
 strongholds, reward settlement/replay, and 24 concurrent players per stronghold.
 It requires the existing client Playwright dependencies and browsers.
 `--output=PATH` selects its evidence directory relative to `shinobij.client`.
-The API mode runs the eight Shadowguard async/queue cases and seven cave traveler/collision
+The API mode runs the eight Hush async/queue cases and seven cave traveler/collision
 cases in separate fresh databases. Direct SQL checks prove persistence;
 queued telemetry drains before storage closes. Ordinary auto-discovered API
 tests retain their isolated memory mode unless this dedicated fixture is enabled.

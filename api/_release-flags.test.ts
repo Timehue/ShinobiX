@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-    shadowguardInfiltrationEnabled,
+    hushInfiltrationEnabled,
     clanBossEnabled,
     clanBossPartiesEnabled,
     playerAiImageGenerationEnabled,
@@ -31,14 +31,14 @@ describe('_release-flags', () => {
         for (const enabled of [
             villageWarMapEnabled,
             clanBossEnabled,
-            shadowguardInfiltrationEnabled,
+            hushInfiltrationEnabled,
         ]) {
             assert.equal(enabled({}), true);
-            assert.equal(enabled({ DISABLE_VILLAGE_WAR: '0', DISABLE_CLAN_BOSS: 'true', DISABLE_SHADOWGUARD_INFILTRATION: 'yes' }), true);
+            assert.equal(enabled({ DISABLE_VILLAGE_WAR: '0', DISABLE_CLAN_BOSS: 'true', DISABLE_HUSH_INFILTRATION: 'yes' }), true);
         }
         assert.equal(villageWarMapEnabled({ DISABLE_VILLAGE_WAR: '1' }), false);
         assert.equal(clanBossEnabled({ DISABLE_CLAN_BOSS: '1' }), false);
-        assert.equal(shadowguardInfiltrationEnabled({ DISABLE_SHADOWGUARD_INFILTRATION: '1' }), false);
+        assert.equal(hushInfiltrationEnabled({ DISABLE_HUSH_INFILTRATION: '1' }), false);
     });
 
     it('ignores obsolete positive flags and always gives the kill switch priority', () => {

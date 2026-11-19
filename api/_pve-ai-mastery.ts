@@ -63,7 +63,7 @@ export type PveMasteryMode =
  * • WEEKLY BOSS. It now runs on the independent Solo PvE engine, which seals
  *   its own 8%/hit, 15%/turn guard and mastery. Tower-mode mastery must not
  *   mutate that separate runtime.
- * • Shadowguard VAULT. It now runs on the independent Solo PvE engine against a
+ * • Hush VAULT. It now runs on the independent Solo PvE engine against a
  *   canonically hydrated snapshot of a REAL player, including that player's own
  *   jutsuMastery. Tower-mode mastery must not mutate the separate runtime.
  * • AI FIGHTS. `buildSoloPveAiEncounter` seals mastery in its own runtime.

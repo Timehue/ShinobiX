@@ -85,10 +85,10 @@ const INSTRUMENTED: { file: string; sources: string[] }[] = [
     { file: 'api/village/kage-challenge.ts', sources: ['kage.stake'] },
     { file: 'api/village/_kage-inactivity.ts', sources: ['kage.stake-refund'] },
     { file: 'api/clan/exchange/purchase.ts', sources: ['clan.exchange'] },
-    // War: village and sector purses, Shadowguard raids, map control, the agenda and
+    // War: village and sector purses, Hush raids, map control, the agenda and
     // the occupation tax.
     { file: 'api/war/claim-reward.ts', sources: ['war.purse.village', 'war.purse.sector'] },
-    { file: 'api/_shadowguard-infiltration-store.ts', sources: ['war.shadowguard.raid'] },
+    { file: 'api/_hush-infiltration-store.ts', sources: ['war.hush.raid'] },
     { file: 'api/village/claim-map-control.ts', sources: ['village.map-control'] },
     { file: 'api/village/claim-daily-agenda.ts', sources: ['village.agenda'] },
     { file: 'api/_war-tax-apply.ts', sources: ['village.tax'] },

@@ -2,14 +2,14 @@ import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { elderVillageKey } from './_elders.js';
-import { withShadowguardSeatField } from './_shadowguard-seat-field.js';
+import { withHushSeatField } from './_hush-seat-field.js';
 import { elderCouncilKey } from './_elder-council.js';
 import { invalidateProcCache } from '../_proc-cache.js';
 
 /**
- * Empty every Elder and Shadowguard seat `playerName` (a slug) holds in `village`:
+ * Empty every Elder and Hush seat `playerName` (a slug) holds in `village`:
  * the elected council term (`village:elder-council:<v>` seats) and the
- * leadership row's `elderAppointees` / `shadowguardAppointees`.
+ * leadership row's `elderAppointees` / `hushAppointees`.
  *
  * Two callers. A village transfer (api/village/transfer.ts) runs it so
  * returning later does not restore an abandoned seat. Account deletion
@@ -31,10 +31,10 @@ export async function clearAppointments(village: string, playerName: string): Pr
         changed = true;
     }, { failClosed: true });
     await withKvLock(elderVillageKey(village), async () => {
-        const state = withShadowguardSeatField(await kv.get<Record<string, unknown>>(elderVillageKey(village)));
-        if (!state || (!holds(state.elderAppointees) && !holds(state.shadowguardAppointees))) return;
+        const state = withHushSeatField(await kv.get<Record<string, unknown>>(elderVillageKey(village)));
+        if (!state || (!holds(state.elderAppointees) && !holds(state.hushAppointees))) return;
         await kv.set(elderVillageKey(village), {
-            ...state, elderAppointees: clear(state.elderAppointees), shadowguardAppointees: clear(state.shadowguardAppointees),
+            ...state, elderAppointees: clear(state.elderAppointees), hushAppointees: clear(state.hushAppointees),
         });
         changed = true;
     }, { failClosed: true });

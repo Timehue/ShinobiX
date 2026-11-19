@@ -4,7 +4,7 @@ import { safeName } from '../_utils.js';
 import { invalidateProcCache } from '../_proc-cache.js';
 import { REGISTRY_KEY, isPublicPlayerIndexKey } from '../player/_public-index.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
-import { leadershipVillageKey } from '../../shared/village-shadowguard.js';
+import { leadershipVillageKey } from '../../shared/village-hush.js';
 import { normalizeElderAppointees } from '../../shared/village-elders.js';
 import { ELDER_TERM_MS, elderTermScore, selectEarnedElders, type ElderCouncil } from '../../shared/elder-elections.js';
 

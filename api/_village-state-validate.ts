@@ -4,7 +4,7 @@
 // Before this layer existed, the writer only checked that the caller's
 // `character.village` matched the URL village — any villager could ship
 // a wholesale blob with their name as `seatedKage`, 99M ryo in treasury,
-// fake "System" notice posts, themselves as Shadowguard, a far-future
+// fake "System" notice posts, themselves as Hush, a far-future
 // `hollowGateUnlockedUntil`, etc.
 //
 // This module returns an audited next-state by merging the incoming
@@ -20,7 +20,7 @@ import { sanitizeUserText, TEXT_LIMITS } from './_text-moderation.js';
 import { cleanTreasuryItems } from './_treasury-donate.js';
 import { safeName } from './_utils.js';
 import { villageOrderRole } from './_village-order-role.js';
-import { withShadowguardSeatField } from './village/_shadowguard-seat-field.js';
+import { withHushSeatField } from './village/_hush-seat-field.js';
 
 // Loose shape — we don't want to depend on the client's exact union of
 // nested types here, just enough structure for the rule engine.
@@ -34,7 +34,7 @@ type VillageStateBlob = {
     kageSystemUnlocked?: boolean;
     firstLiberator?: string;
     seatedKage?: string;
-    shadowguardAppointees?: string[];
+    hushAppointees?: string[];
     kageHistory?: unknown[];
     dailyAgenda?: Record<string, unknown>;
     hollowGateUnlockedUntil?: number;
@@ -137,7 +137,7 @@ export async function validateVillageStateWrite(
     const suppressed: string[] = [];
     // An older row may hold the seats under their earlier field name; read it as
     // the current one, and drop the earlier field from what this write stores.
-    const prev: VillageStateBlob = (withShadowguardSeatField(existing as Record<string, unknown> | null | undefined) ?? {}) as VillageStateBlob;
+    const prev: VillageStateBlob = (withHushSeatField(existing as Record<string, unknown> | null | undefined) ?? {}) as VillageStateBlob;
     const next: VillageStateBlob = { ...prev, ...incoming };
     // The treasury / history guards below only run when the field arrives
     // with the expected shape, so `treasury: null` skipped them and wiped the
@@ -197,12 +197,12 @@ export async function validateVillageStateWrite(
     next.firstLiberator = kageState?.firstLiberator;
     if (lower(incoming.seatedKage) !== lower(next.seatedKage)) suppressed.push('seatedKage (mirrored from /api/village/kage)');
 
-    // Appointments change only through the atomic /village/shadowguard action.
-    if (incoming.shadowguardAppointees !== undefined && JSON.stringify(incoming.shadowguardAppointees) !== JSON.stringify(prev.shadowguardAppointees ?? [])) suppressed.push('shadowguardAppointees (use the Shadowguard appointment endpoint)');
-    next.shadowguardAppointees = prev.shadowguardAppointees ?? [];
+    // Appointments change only through the atomic /village/hush action.
+    if (incoming.hushAppointees !== undefined && JSON.stringify(incoming.hushAppointees) !== JSON.stringify(prev.hushAppointees ?? [])) suppressed.push('hushAppointees (use the Hush appointment endpoint)');
+    next.hushAppointees = prev.hushAppointees ?? [];
     // Earned seats are computed from server-owned monthly PvP results.
-    delete next.shadowguardEarned;
-    delete next.shadowguardMembers;
+    delete next.hushEarned;
+    delete next.hushMembers;
 
     // The paid endpoint debits the player's seals. A blob write cannot buy time.
     const hgNow = Date.now();
@@ -355,7 +355,7 @@ export async function validateVillageStateWrite(
             next.noticePosts = prevPosts;
         } else if (!ctx.isAdmin && role === null) {
             next.noticePosts = prevPosts;
-            suppressed.push('noticePosts rejected (only seated Kage, Shadowguard, or current Elders may post or manage orders)');
+            suppressed.push('noticePosts rejected (only seated Kage, Hush, or current Elders may post or manage orders)');
         } else if (removed.some(post => !canManage(post))) {
             next.noticePosts = prevPosts;
             suppressed.push('noticePosts removal rejected (only Kage or a current leadership author may delete)');

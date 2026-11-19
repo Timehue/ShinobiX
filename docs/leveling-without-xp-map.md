@@ -290,7 +290,7 @@ Vanguard profession XP.
 
 Level *readers* (~30 systems, 100+ sites: caps, exams, missions, matchmaking,
 Academy PvP protection, AI scaling, story gates, professions L13, Legacy L50,
-Shadowguard/Hollow-Gate L100, patch notes L5, war tax, achievements…) — **all keep
+Hush/Hollow-Gate L100, patch notes L5, war tax, achievements…) — **all keep
 working untouched** because `level` remains a field. The full sweep found **zero
 gates that read `xp`**. The nine that do read XP:
 

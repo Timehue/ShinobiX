@@ -332,7 +332,7 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         const blockedActions = [
             { path: '/api/village/elder-focus', data: { playerName: name, focus: 'training' } },
             { path: '/api/village/elder-focus', data: { playerName: name, focus: 'war', action: 'appoint', appointee: name } },
-            { path: '/api/village/shadowguard', data: { playerName: name, action: 'appoint', seat: 0, appointee: name } },
+            { path: '/api/village/hush', data: { playerName: name, action: 'appoint', seat: 0, appointee: name } },
             { path: '/api/village/orders', data: { playerName: name, action: 'post', id: 'forbidden-order', type: 'order', title: 'Hold', body: 'Hold the gate.' } },
         ];
         for (const action of blockedActions) {

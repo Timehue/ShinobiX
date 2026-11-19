@@ -46,7 +46,7 @@ function fresh(winCondition: 'combat' | 'card' | 'pet' = 'combat'): SectorWarSes
 // The role-ladder swings the live resolves actually produce (api/_war-role
 // sectorControlSwing = winner.win + loser.loss).
 const SWING_VILLAGER_V_VILLAGER = 5;    // 5 + 0
-const SWING_SHADOWGUARD_V_VILLAGER = 15;       // 15 + 0
+const SWING_HUSH_V_VILLAGER = 15;       // 15 + 0
 const SWING_VILLAGER_V_KAGE = 55;       // 5 + 50 — felling the enemy Kage is a bounty
 const SWING_KAGE_V_KAGE = 80;           // 30 + 50 — the top of the ladder
 
@@ -126,7 +126,7 @@ describe('sector-war: normalize + Control-HP migration', () => {
 
 describe('sector-war: scoring (the tally counts UP)', () => {
     it('an attacker win adds to the attacker tally, a defender win to the defender tally', () => {
-        const a = applySectorWarBattle(fresh(), true, { now: NOW + 1, roleSwing: SWING_SHADOWGUARD_V_VILLAGER, by: 'aria' });
+        const a = applySectorWarBattle(fresh(), true, { now: NOW + 1, roleSwing: SWING_HUSH_V_VILLAGER, by: 'aria' });
         assert.equal(a.side, 'attacker');
         assert.equal(a.awarded, 15);
         assert.equal(a.session.attackerPoints, 15);
@@ -206,16 +206,16 @@ describe('sector-war: score caps (anti-farm)', () => {
     });
 
     it('garrison kills score at half weight and stop at the garrison cap', () => {
-        // Shadowguard vs garrison: floor(15 × 0.5) = 7 per assault. Derive the run-out
+        // Hush vs garrison: floor(15 × 0.5) = 7 per assault. Derive the run-out
         // from the constant so retuning the cap retunes the test with it.
-        const per = Math.floor(SWING_SHADOWGUARD_V_VILLAGER * GARRISON_POINTS_FRACTION);
+        const per = Math.floor(SWING_HUSH_V_VILLAGER * GARRISON_POINTS_FRACTION);
         assert.equal(per, 7);
         const full = Math.floor(GARRISON_POINTS_CAP / per);
         const remainder = GARRISON_POINTS_CAP - full * per;
         let s = fresh();
         const awards: number[] = [];
         for (let i = 0; i < full + 2; i++) {
-            const out = applySectorWarBattle(s, true, { now: NOW + 7200000 + i, roleSwing: SWING_SHADOWGUARD_V_VILLAGER, by: 'aria', garrisonBattle: true });
+            const out = applySectorWarBattle(s, true, { now: NOW + 7200000 + i, roleSwing: SWING_HUSH_V_VILLAGER, by: 'aria', garrisonBattle: true });
             awards.push(out.awarded);
             s = recordSectorWarBattleOutcome(out, { battleId: `g-${i}`, attackerWon: true, by: 'aria', garrison: true, at: NOW + 7200000 + i }).session;
         }

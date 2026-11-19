@@ -2,7 +2,7 @@
  * The armor Shield special (Ironwall gear, a named piece's Shield 75-150) is a
  * starting shield. PvP and the Solo PvE family seeded it, but the tower engine
  * (Towers, Spire, clan boss, world boss, caravan, Team Arena, tournaments, Clan
- * War 2v2, village-war mercs) and the sector-war garrison and Shadowguard vault
+ * War 2v2, village-war mercs) and the sector-war garrison and Hush vault
  * builders started every fighter at shield 0, so the special did nothing there.
  * These pin the seeding and the round-one timer.
  */
@@ -12,7 +12,7 @@ import { startingItemShield, shieldExpiryForGrant } from './shields.js';
 import { buildTowerEncounter, type SquadMemberInput } from '../towers/_encounter.js';
 import { CLAN_BOSS_FLOORS } from '../towers/_floor-catalog.js';
 import { createTowerPvpMatch, type TowerPvpFighterSeed } from '../towers/_pvp-session.js';
-import { buildInfiltrationEncounter } from '../_shadowguard-infiltration-encounter.js';
+import { buildInfiltrationEncounter } from '../_hush-infiltration-encounter.js';
 import { buildGarrisonEncounter } from '../_sector-war-garrison-encounter.js';
 import { resolveMercBattle } from '../towers/_merc-fighters.js';
 
@@ -51,17 +51,17 @@ describe('the gear Shield special is seeded in every engine', () => {
         assert.deepEqual([byOwner.get('a'), byOwner.get('b'), byOwner.get('c'), byOwner.get('d')], [150, 0, 75, 0]);
     });
 
-    it('the Shadowguard vault raid and the garrison assault seed both sealed loadouts, like the duel they stand in for', () => {
+    it('the Hush vault raid and the garrison assault seed both sealed loadouts, like the duel they stand in for', () => {
         const vault = buildInfiltrationEncounter({
             runId: 'infil-shield', now: 1,
             raider: { slug: 'rill', name: 'Rill', character: sealed(120) },
-            shadowguard: { slug: 'shadowguard', name: 'The Frostfang Shadowguard', character: sealed(500) },
+            hush: { slug: 'hush', name: 'The Frostfang Hush', character: sealed(500) },
             terrain: 'forest', sector: 12, targetVillage: 'Frostfang Village',
         });
         const garrison = buildGarrisonEncounter({
             runId: 'garrison-shield', now: 1,
             attacker: { slug: 'rill', name: 'Rill', character: sealed(120) },
-            shadowguard: { slug: 'shadowguard', name: 'Frostfang Shadowguard #1', character: sealed(500) },
+            hush: { slug: 'hush', name: 'Frostfang Hush #1', character: sealed(500) },
             terrain: 'forest', sector: 12, contestId: '12:moonshadowvillage-vs-frostfangvillage',
             attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
         });

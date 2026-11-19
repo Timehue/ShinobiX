@@ -323,8 +323,8 @@ export function sessionUsesContinuousVitals(session: unknown): boolean {
     return encounter?.metadata?.continuousVitals === true;
 }
 
-/** Shadowguard Vault infiltration (api/_shadowguard-infiltration-encounter.ts). */
-const SHADOWGUARD_INFILTRATION_ENCOUNTER_KIND = 'shadowguard-infiltration';
+/** Hush Vault infiltration (api/_hush-infiltration-encounter.ts). */
+const HUSH_INFILTRATION_ENCOUNTER_KIND = 'hush-infiltration';
 /** A sector-war garrison assault (GARRISON_ENCOUNTER_KIND in api/_sector-war-garrison-encounter.ts). */
 const SECTOR_WAR_GARRISON_ENCOUNTER_KIND = 'sector-war-garrison';
 
@@ -332,7 +332,7 @@ const SECTOR_WAR_GARRISON_ENCOUNTER_KIND = 'sector-war-garrison';
  * May this fight's surviving HP only LOWER the save's HP, never raise it?
  *
  * True for a run that seats a FULL HP pool (`sessionSeedsFullHp`), and for an
- * Shadowguard Vault infiltration and a sector-war garrison assault. Those two seat the
+ * Hush Vault infiltration and a sector-war garrison assault. Those two seat the
  * player at the HP their save holds, but on a FULL chakra and stamina pool.
  * They seal no `seededVitals`, so a late settle has nothing to charge against,
  * and nothing battle-locks the save while they stay open. So the HP such a
@@ -351,7 +351,7 @@ const SECTOR_WAR_GARRISON_ENCOUNTER_KIND = 'sector-war-garrison';
 export function sessionHpIsDecreaseOnly(session: AiFightSession | null | undefined): boolean {
     if (sessionSeedsFullHp(session)) return true;
     if (!isSoloPveSession(session)) return false;
-    return session.encounter.kind === SHADOWGUARD_INFILTRATION_ENCOUNTER_KIND
+    return session.encounter.kind === HUSH_INFILTRATION_ENCOUNTER_KIND
         || session.encounter.kind === 'village-war-garrison'
         || session.encounter.kind === SECTOR_WAR_GARRISON_ENCOUNTER_KIND;
 }
@@ -367,7 +367,7 @@ export function applyAiFightOutcomeToCharacter(
     /** True for a spar (`sessionIsSpar`): no physical consequence is written. */
     spar = false,
     /** True when the surviving HP may lower the save's HP but never raise it
-     *  (`sessionHpIsDecreaseOnly`: a full-pool run, a Shadowguard Vault raid or a
+     *  (`sessionHpIsDecreaseOnly`: a full-pool run, a Hush Vault raid or a
      *  garrison assault). */
     hpDecreaseOnly = false,
     /** What the save held when the fight was seeded from it (`sessionSeededVitals`).
@@ -412,7 +412,7 @@ export function applyAiFightOutcomeToCharacter(
     // HP is carried from a resolved fight built by buildSoloPveAiEncounter,
     // which seeds it from the save's current HP: what the fight left is what it
     // cost. So do the two Solo-PvE builders that bypass it
-    // (api/_sector-war-garrison-encounter.ts, api/_shadowguard-infiltration-encounter.ts).
+    // (api/_sector-war-garrison-encounter.ts, api/_hush-infiltration-encounter.ts).
     // They used to seed a full pool, which made "start the fight, then walk out"
     // a free heal, and a new builder that seeds a full pool reopens it. They seal
     // no `seeded` vitals, so the late-settlement charge below does not cover them,

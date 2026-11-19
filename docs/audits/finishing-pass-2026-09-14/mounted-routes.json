@@ -450,9 +450,9 @@
     "handler": "villageSectorPetHandler"
   },
   {
-    "route": "/village/shadowguard-infiltration",
-    "file": "api/village/shadowguard-infiltration.ts",
-    "handler": "shadowguardInfiltrationHandler"
+    "route": "/village/hush-infiltration",
+    "file": "api/village/hush-infiltration.ts",
+    "handler": "hushInfiltrationHandler"
   },
   {
     "route": "/village/war-map",
@@ -1365,9 +1365,9 @@
     "handler": "villageOrdersHandler"
   },
   {
-    "route": "/village/shadowguard",
-    "file": "api/village/shadowguard.ts",
-    "handler": "villageShadowguardHandler"
+    "route": "/village/hush",
+    "file": "api/village/hush.ts",
+    "handler": "villageHushHandler"
   },
   {
     "route": "/village/hollow-gate-unlock",

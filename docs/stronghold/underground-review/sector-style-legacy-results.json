@@ -17,7 +17,7 @@
     },
     {
       "engine": "chromium",
-      "pendingShadowguardDismissal": true,
+      "pendingHushDismissal": true,
       "admittedBattlePreserved": true
     },
     {
@@ -77,7 +77,7 @@
     {
       "engine": "chromium",
       "obsidianAltar": true,
-      "savedShadowguardIsolated": true
+      "savedHushIsolated": true
     },
     "chromium 320x568: crowd, modal, tap targets, movement, overview",
     "chromium 390x844: crowd, modal, tap targets, movement, overview",
@@ -109,7 +109,7 @@
     },
     {
       "engine": "webkit",
-      "pendingShadowguardDismissal": true,
+      "pendingHushDismissal": true,
       "admittedBattlePreserved": true
     },
     {
@@ -169,7 +169,7 @@
     {
       "engine": "webkit",
       "obsidianAltar": true,
-      "savedShadowguardIsolated": true
+      "savedHushIsolated": true
     },
     "webkit 320x568: crowd, modal, tap targets, movement, overview",
     "webkit 390x844: crowd, modal, tap targets, movement, overview",

@@ -125,7 +125,7 @@ import { displayCardsById } from "../lib/chronicle-duel";
 // already owned and every card in Ihara's hand-off would lose its NEW badge.
 import { countChronicleCards } from "../../../shared/chronicle-duel";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
-import { shadowguardInfiltrationAdmissionEnabled } from "../lib/shadowguard-infiltration-api";
+import { hushInfiltrationAdmissionEnabled } from "../lib/hush-infiltration-api";
 import {
     useCapabilityMutationAvailability,
     useCapabilityViewAvailability,
@@ -136,7 +136,7 @@ import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
-const ShadowguardVaultRaid = lazy(() => import("../features/shadowguardInfiltration/ShadowguardVaultRaid").then(m => ({ default: m.ShadowguardVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
+const HushVaultRaid = lazy(() => import("../features/hushInfiltration/HushVaultRaid").then(m => ({ default: m.HushVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
@@ -406,14 +406,14 @@ function WorldMapContent({
     const { mutationAvailability } = useLiveCapabilities();
     const villageWarViewAvailability = useCapabilityViewAvailability("villageWar");
     const villageWarMutationAvailability = useCapabilityMutationAvailability("villageWar");
-    const shadowguardViewAvailability = useCapabilityViewAvailability("shadowguardInfiltration");
-    const shadowguardMutationAvailability = useCapabilityMutationAvailability("shadowguardInfiltration");
+    const hushViewAvailability = useCapabilityViewAvailability("hushInfiltration");
+    const hushMutationAvailability = useCapabilityMutationAvailability("hushInfiltration");
     const globalViewAvailability = useCapabilityViewAvailability();
     const globalMutationAvailability = useCapabilityMutationAvailability();
     const villageWarViewOpen = capabilityAdmissionAllowed(villageWarViewAvailability);
     const villageWarAdmissionOpen = capabilityAdmissionAllowed(villageWarMutationAvailability);
-    const shadowguardViewOpen = shadowguardInfiltrationAdmissionEnabled(shadowguardViewAvailability);
-    const shadowguardAdmissionOpen = shadowguardInfiltrationAdmissionEnabled(shadowguardMutationAvailability);
+    const hushViewOpen = hushInfiltrationAdmissionEnabled(hushViewAvailability);
+    const hushAdmissionOpen = hushInfiltrationAdmissionEnabled(hushMutationAvailability);
     const villageCampaign = useVillageCampaign(character.name, character.village);
     const globalViewOpen = capabilityAdmissionAllowed(globalViewAvailability);
     const globalMutationsOpen = capabilityAdmissionAllowed(globalMutationAvailability);
@@ -2548,7 +2548,7 @@ function WorldMapContent({
     const [petVnLine, setPetVnLine] = useState(0);
     const sectorObstacles = useSectorTileGrounding(selectedSector, sectorPlayerPos, setSectorPlayerPos);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
-    // Shadowguard Vault Infiltration (shadowguardInfiltration.v1): the walk-up prompt on the
+    // Hush Vault Infiltration (hushInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
     const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string; warEntry?: boolean } | null>(null);
     const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
@@ -2556,8 +2556,8 @@ function WorldMapContent({
     const warShrine = useWarShrine({ character, state: villageCampaign.state, sharedImages, onVersionedCharacter,
         sector: selectedSector, currentSector, blocked: isTraveling || !villageWarAdmissionOpen, onEnterStronghold: target => { setSelectedSector(target.sector); setVaultRaid(target); } });
     useEffect(() => {
-        if (!shadowguardViewOpen) setVaultPrompt(null);
-    }, [shadowguardViewOpen]);
+        if (!hushViewOpen) setVaultPrompt(null);
+    }, [hushViewOpen]);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
     const [creatorEventLine, setCreatorEventLine] = useState(0);
     type ChestLoot = AncientChestLoot & { replayed?: boolean };
@@ -4512,7 +4512,7 @@ function WorldMapContent({
             };
         })();
         const sectorOverlayVault = sectorVaultMarker({ campaign: villageCampaign.state?.campaign, mission: villageCampaign.state?.mission, sector: selectedSector,
-            village: character.village, level: character.level ?? 0, shadowguardViewOpen, ownerVillage: territory.ownerVillage, onOpen: setVaultPrompt });
+            village: character.village, level: character.level ?? 0, hushViewOpen, ownerVillage: territory.ownerVillage, onOpen: setVaultPrompt });
         const sectorOverlayShrine = (() => {
             if (!isSectorTracesEnabled()) return null;
             const definition = shrineForSector(selectedSector);
@@ -4652,25 +4652,25 @@ function WorldMapContent({
                                 />
                             )}
 
-                            {/* Shadowguard Vault — Infiltrate / Retreat prompt (portaled above nav). */}
+                            {/* Hush Vault — Infiltrate / Retreat prompt (portaled above nav). */}
                             {warShrine.overlay}
-                            {vaultPrompt && shadowguardViewOpen && createPortal(
+                            {vaultPrompt && hushViewOpen && createPortal(
                                 <WarStrongholdEntrance character={character} target={vaultPrompt} campaign={villageCampaign.state?.campaign}
-                                    mission={villageCampaign.state?.mission} admissionOpen={shadowguardAdmissionOpen}
+                                    mission={villageCampaign.state?.mission} admissionOpen={hushAdmissionOpen}
                                     onClose={() => setVaultPrompt(null)} onEnter={() => {
-                                        if (!shadowguardInfiltrationAdmissionEnabled(mutationAvailability("shadowguardInfiltration"))) return;
+                                        if (!hushInfiltrationAdmissionEnabled(mutationAvailability("hushInfiltration"))) return;
                                         setVaultRaid(vaultPrompt); setVaultPrompt(null);
                                     }} />,
                                 document.body,
                             )}
 
-                            {/* Shadowguard Vault — the live raid (traverse → Shadowguard fight → spoils),
+                            {/* Hush Vault — the live raid (traverse → Hush fight → spoils),
                                 portaled full-screen so the bottom nav can't paint over it. */}
                             {vaultRaid && createPortal(
                                 <div className="stronghold-overlay">
-                                    {shadowguardAdmissionOpen ? (
+                                    {hushAdmissionOpen ? (
                                         <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "var(--slate-300)" }}>Slipping past the perimeter…</div>}>
-                                            <ShadowguardVaultRaid
+                                            <HushVaultRaid
                                                 key={`${character.name}:${vaultRaid.sector}`}
                                                 character={character}
                                                 sharedImages={sharedImages} initialCampaign={villageCampaign}
@@ -4687,7 +4687,7 @@ function WorldMapContent({
                                     ) : (
                                         <div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", padding: 24 }}>
                                             <div className="card" role="status" style={{ maxWidth: 460, textAlign: "center", padding: 20 }}>
-                                                <h3>Shadowguard operation paused</h3>
+                                                <h3>Hush operation paused</h3>
                                                 <p>The vault run remains recoverable, but moving, fighting, and saving results are paused until live actions return.</p>
                                                 <button type="button" onClick={() => setVaultRaid(null)}>Leave operation view</button>
                                             </div>

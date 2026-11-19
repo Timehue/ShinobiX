@@ -146,7 +146,7 @@ describe('discardFailedStart', () => {
             [['story', 'boss-start.ts'], 1],
             [['story', 'spar-start.ts'], 1],
             [['village', 'sector-war.ts'], 1],
-            [['village', 'shadowguard-infiltration.ts'], 3],
+            [['village', 'hush-infiltration.ts'], 3],
             [['weekly-boss.ts'], 2],
         ];
         for (const [path, count] of expected) {

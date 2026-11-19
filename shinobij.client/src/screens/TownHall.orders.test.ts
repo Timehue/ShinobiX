@@ -7,7 +7,7 @@ const source = readFileSync(new URL('./TownHall.tsx', import.meta.url), 'utf8');
 test('the orders composer is locked to current leadership, never a personal focus', () => {
     const permissions = source.slice(source.indexOf('const villageOrderRole ='), source.indexOf('async function declareChallenge'));
     assert.match(permissions, /serverKage\?\.seatedKage/);
-    assert.match(permissions, /isSeatedElder \? "Village Elder" : isShadowguard \? "Shadowguard" : null/);
+    assert.match(permissions, /isSeatedElder \? "Village Elder" : isHush \? "Hush" : null/);
     assert.doesNotMatch(permissions, /character\.elderFocus|rankTitle|storyTitle/);
     assert.match(permissions, /if \(!canPostVillageOrder\) return alert/);
     assert.match(source, /!canPostVillageOrder && <p className="hint town-orders-locked"/);

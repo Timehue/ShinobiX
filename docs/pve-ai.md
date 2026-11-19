@@ -9,12 +9,12 @@ events it gets back. Enemy decisions are made inside the player's own request,
 after the player's action resolves, by the same engine that resolves every
 action. There is no client AI and no client authority for PvE outcomes.
 
-Village-war Shadowguard combat copies also explicitly opt into this planner. The war
+Village-war Hush combat copies also explicitly opt into this planner. The war
 handler seals the selected member's current build through the player combat
 hydrator and sets `masterAi` for tactical decisions. It keeps the player's
 stats, moves, equipment and bloodline; it adds no boss flag or difficulty
-guard. The copy uses the village's masked Shadowguard artwork and starts with full
-copied resource pools. Vault Shadowguard and sector-garrison sessions keep their
+guard. The copy uses the village's masked Hush artwork and starts with full
+copied resource pools. Vault Hush and sector-garrison sessions keep their
 existing runner. See `village-war-objectives-plan.md` for campaign ownership,
 repeat use, scoring and the other stronghold specialties.
 
@@ -74,7 +74,7 @@ repeat use, scoring and the other stronghold specialties.
 | Endless waves | `endless-wave` | original runner (protected) |
 | Festival caravan, stronghold patrols | `caravan`, `stronghold-patrol` | original runner (protected) |
 | Weekly boss | `weekly-boss` | original runner (protected; its guard also excludes it) |
-| Shadowguard infiltration, sector-war garrison | `shadowguard-infiltration`, `sector-war-garrison` | original runner (protected) |
+| Hush infiltration, sector-war garrison | `hush-infiltration`, `sector-war-garrison` | original runner (protected) |
 
 The gate is `standardPvePlannerApplies` (`api/solo-pve/_ai-turn-policy.ts`):
 the seal must be present, the kind must be one of the five standard kinds, the
@@ -224,7 +224,7 @@ fixtures.
 | --- | --- | --- |
 | Standard PvE (missions E/D, story, academy spar, generic and world AI fights) | Yes | Planner, by bracket |
 | Authored mission kits (C/B/A/S) | Their own scripted runner | Unchanged |
-| Hollow Gate, endless waves, caravan, stronghold patrols, Shadowguard, sector-war garrison, weekly boss | Solo runtime, original runner | Unchanged; protected by the gate and pinned by tests |
+| Hollow Gate, endless waves, caravan, stronghold patrols, Hush, sector-war garrison, weekly boss | Solo runtime, original runner | Unchanged; protected by the gate and pinned by tests |
 | PvP and ranked (`api/pvp/move.ts`) | No enemy AI at all | Unchanged; shares only the resolvers |
 | Towers, Endless Spire, clan boss, World-Crisis-80, 2v2 modes, merc battles | Tower engine's `pickAiAction` | Unchanged |
 | Pet combat (Showdown, Warfront, Gauntlet) | Pet engines | Unchanged |

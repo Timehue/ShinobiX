@@ -44,11 +44,11 @@ const ECHOES_VERSION = new Set([
     // other three participants are covered by their own settle calls, each of
     // which is a no-op past the first thanks to the per-match receipt.
     'pvp/_ranked-2v2-settlement.ts',
-    // _shadowguard-infiltration-store.ts (the raid's win credit, loss settle and cache
+    // _hush-infiltration-store.ts (the raid's win credit, loss settle and cache
     // turn-in) and _sector-war-garrison-store.ts (the garrison assault's item
     // usage + HP) now commit through mutatePlayerSave and no longer name a
     // BUMP_MARKER. They still return that exact committed `_saveVersion`, and
-    // their only callers — village/shadowguard-infiltration.ts and village/sector-war.ts's
+    // their only callers — village/hush-infiltration.ts and village/sector-war.ts's
     // garrison-resolve — still echo it in every response branch.
     // Daily village tax. The debit runs in this helper; its only caller,
     // village/tax.ts, re-reads the record and echoes `_saveVersion`, which the

@@ -37,7 +37,7 @@ export type GarrisonStartResponse =
         sector: number;
         contestId: string;
         defenderVillage: string;
-        shadowguard: { name: string };
+        hush: { name: string };
         session: SoloPveSession;
     }
     | {
@@ -50,14 +50,14 @@ export type GarrisonStartResponse =
         sector: number;
         contestId: string;
         defenderVillage: string;
-        shadowguard: { name: string };
+        hush: { name: string };
         result: GarrisonResolveResponse;
     };
 
-/** Assault the sector's Shadowguard garrison. Unlocks only after the contest has gone
+/** Assault the sector's Hush garrison. Unlocks only after the contest has gone
  *  ~2h with no live-player battle (garrisonAssaultable in village-war-map.ts);
  *  a real defender fighting re-locks it. The server picks + seals the
- *  defending village's real appointed Shadowguard (their actual equipped jutsu, gear,
+ *  defending village's real appointed Hush (their actual equipped jutsu, gear,
  *  weapons, and items) and returns a live Solo PvE session — resolved through
  *  the normal /api/solo-pve/action loop, never client-reported. An assault the
  *  player already has on the sector comes back instead: still live, it resumes;
@@ -102,7 +102,7 @@ export const GARRISON_IDLE_LAPSE_MINUTES = 45;
  *  adds the run it opened and, once that run's result is in, `done`. */
 export const GARRISON_STASH_KEY = 'sectorWarGarrison.v1';
 
-export type GarrisonStash = { sector: number; runId?: string; shadowguardName?: string; done?: boolean };
+export type GarrisonStash = { sector: number; runId?: string; hushName?: string; done?: boolean };
 type StashStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 function sessionStore(): StashStore | null {
@@ -119,7 +119,7 @@ export function readGarrisonStash(store: StashStore | null = sessionStore()): Ga
         return {
             sector: Math.floor(sector),
             ...(typeof parsed.runId === 'string' && parsed.runId ? { runId: parsed.runId } : {}),
-            ...(typeof parsed.shadowguardName === 'string' ? { shadowguardName: parsed.shadowguardName } : {}),
+            ...(typeof parsed.hushName === 'string' ? { hushName: parsed.hushName } : {}),
             ...(parsed.done === true ? { done: true } : {}),
         };
     } catch {
@@ -137,7 +137,7 @@ export function clearGarrisonStash(store: StashStore | null = sessionStore()): v
 
 export type GarrisonMountPlan =
     | { kind: 'lost' }
-    | { kind: 'show-result'; runId: string; shadowguardName: string }
+    | { kind: 'show-result'; runId: string; hushName: string }
     | { kind: 'start'; sector: number };
 
 /**
@@ -151,7 +151,7 @@ export type GarrisonMountPlan =
  */
 export function garrisonMountPlan(stash: GarrisonStash | null): GarrisonMountPlan {
     if (!stash) return { kind: 'lost' };
-    if (stash.done && stash.runId) return { kind: 'show-result', runId: stash.runId, shadowguardName: stash.shadowguardName ?? '' };
+    if (stash.done && stash.runId) return { kind: 'show-result', runId: stash.runId, hushName: stash.hushName ?? '' };
     return { kind: 'start', sector: stash.sector };
 }
 
@@ -160,10 +160,10 @@ export function garrisonMountPlan(stash: GarrisonStash | null): GarrisonMountPla
  *  nothing — it simply could not count. */
 export function garrisonReportCopy(
     report: GarrisonResolveResponse | null,
-    shadowguardName: string,
+    hushName: string,
     earlier = false,
 ): { title: string; detail: string; note?: string } {
-    const name = shadowguardName || 'The garrison';
+    const name = hushName || 'The garrison';
     const note = earlier
         ? 'This was your earlier assault on this sector. It finished without being reported, so it has been recorded now.'
         : undefined;

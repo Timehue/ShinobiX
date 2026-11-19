@@ -239,7 +239,7 @@ personal daily currency drip.
 - **Med** — Village mechanical identity from lore theme: map each village's
   theme to one tiny passive (e.g. one +offense, one +defense). *S–M, ⚠️*
 - **Med** — Village-wide build track (distinct from per-character upgrades):
-  Walls/Barracks/Watchtower funded from treasury by Kage/Shadowguard — a collective goal
+  Walls/Barracks/Watchtower funded from treasury by Kage/Hush — a collective goal
   + treasury sink. *L, ⚠️*
 - **Med** — War seasons / recurring war ladder (FM-1). *M*
 - **Low** — Per-sector identity (names + small yields) so captures are

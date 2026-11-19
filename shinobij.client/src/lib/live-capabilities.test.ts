@@ -35,7 +35,7 @@ const available: PublicCapabilities = {
     legacy: { state: "available", reason: "available" },
     petBreedingStarts: { state: "available", reason: "available" },
     weeklyBossGuardCycle: { state: "available", reason: "available" },
-    shadowguardInfiltration: { state: "available", reason: "available" },
+    hushInfiltration: { state: "available", reason: "available" },
 };
 
 function okResponse(capabilities: PublicCapabilities) {

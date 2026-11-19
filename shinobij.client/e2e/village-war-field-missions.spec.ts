@@ -48,7 +48,7 @@ for (const [mode, label] of [['combat', 'Shinobi PvP'], ['pet', 'Pet battles onl
         await expect(panel.getByRole('heading', { name: 'Enemy stronghold · Sector 18', exact: true })).toBeVisible();
         await expect(panel.getByText(label, { exact: true })).toBeVisible();
         expect(actions.find(a => a.action === 'enter')?.objectiveId).toBe(objective.id);
-        await panel.getByRole('button', { name: 'Attack the Shadowguard defense', exact: true }).click();
+        await panel.getByRole('button', { name: 'Attack the Hush defense', exact: true }).click();
         await expect(panel.getByRole('alert')).toHaveText('Finish your current combat settlement first.');
         expect(actions.find(a => a.action === 'start')?.objectiveId).toBe(objective.id);
         await page.screenshot({ path: info.outputPath(`${mode}-physical-stronghold.png`) });
@@ -169,7 +169,7 @@ test('a level-15 village defender takes guard duty in an owned stronghold and ca
     const room = page.getByRole('dialog', { name: `Guard duty · Sector ${sector}`, exact: true }); await expect(room).toBeVisible();
     await expect(room.getByText('MoonSpy · Level 15', { exact: true })).toBeVisible();
     await expect(room.getByRole('button', { name: 'Attack', exact: true })).toBeEnabled();
-    await expect(room.getByRole('button', { name: /sentry|Shadowguard|patrol/i })).toHaveCount(0);
+    await expect(room.getByRole('button', { name: /sentry|Hush|patrol/i })).toHaveCount(0);
     await expect.poll(() => room.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await expectViewportSafe(page, { horizontalScrollers: ['.world-map-grid', '.world-sector-stage'] });
     await testInfo.attach('owned-stronghold-defense', { body: await page.screenshot({ path: testInfo.outputPath('owned-stronghold-defense.png') }), contentType: 'image/png' });

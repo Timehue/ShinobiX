@@ -253,12 +253,12 @@ describe('step B wiring — every armed entry point still calls the seal', () =>
         assert.ok(configure < clanBossStart, 'api/clan-boss/_start-publication.ts: the encounter config must precede startRound');
     });
 
-    it('the weekly boss and Shadowguard Vault stay deliberately unarmed', () => {
+    it('the weekly boss and Hush Vault stay deliberately unarmed', () => {
         // Documented in the _pve-band-seal.ts header. Weekly boss needs its own
-        // (much tighter) weeklyBossGuardedHit port; Shadowguard's opponent is a real
-        // player's sealed Shadowguard defender. If either is armed later, that is a
+        // (much tighter) weeklyBossGuardedHit port; Hush's opponent is a real
+        // player's sealed Hush defender. If either is armed later, that is a
         // deliberate decision — update this test with it.
-        for (const file of ['api/weekly-boss.ts', 'api/village/shadowguard-infiltration.ts']) {
+        for (const file of ['api/weekly-boss.ts', 'api/village/hush-infiltration.ts']) {
             const src = readFileSync(join(root, file), 'utf8');
             assert.ok(!src.includes('sealPveDifficultyBand'), `${file} armed the standard band — see the _pve-band-seal.ts header`);
         }

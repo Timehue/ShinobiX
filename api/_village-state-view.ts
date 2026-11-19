@@ -18,7 +18,7 @@
  * Both lists are ALLOWLISTS, so a field added to the record later stays out of
  * both until someone decides where it belongs.
  */
-import { leadershipVillageKey } from '../shared/village-shadowguard.js';
+import { leadershipVillageKey } from '../shared/village-hush.js';
 
 /** What the public frame carries from the record. */
 export const PUBLIC_VILLAGE_STATE_FIELDS = Object.freeze([

@@ -74,7 +74,7 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('weekly-boss', [route('/weekly-boss', 'settlement+start'), route('/solo-pve/action', 'action'), route('/solo-pve/state', 'state')]),
   C('endless', [route('/endless/wave-start', 'start'), route('/solo-pve/action', 'action'), route('/solo-pve/state', 'state'), route('/endless/run', 'settlement')]),
   C('hollow-gate-shinobi', [route('/hollow-gate/combat-start', 'start'), route('/solo-pve/action', 'action'), route('/solo-pve/state', 'state'), route('/hollow-gate/combat-settle', 'settlement')]),
-  C('shadowguard-infiltration', [route('/village/shadowguard-infiltration', 'lifecycle+settlement+start+state'), route('/solo-pve/action', 'action'), route('/solo-pve/state', 'state')]),
+  C('hush-infiltration', [route('/village/hush-infiltration', 'lifecycle+settlement+start+state'), route('/solo-pve/action', 'action'), route('/solo-pve/state', 'state')]),
   C('battle-towers', [route('/towers/floors', 'catalog'), route('/towers/party', 'lifecycle'), route('/towers/join', 'lifecycle+recovery'), ...TOWER_RUNTIME]),
   C('sunscar-caravan-ambush', [route('/festival/caravan', 'action+settlement+start+state'), route('/towers/action', 'action'), route('/towers/state', 'state'), route('/towers/my-run', 'recovery+state')]),
   C('tower-party', [route('/towers/floors', 'catalog'), route('/towers/party', 'lifecycle'), route('/towers/join', 'lifecycle+recovery'), ...TOWER_RUNTIME]),
@@ -166,7 +166,7 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
   'weekly-boss': F('solo-pve', null, 'solo', 'server-capped', 'match'),
   endless: F('solo-pve', null, 'solo', 'server-settled', 'match'),
   'hollow-gate-shinobi': F('solo-pve', null, 'solo', 'parent-mode-settlement', 'match'),
-  'shadowguard-infiltration': F('solo-pve', null, 'solo', 'server-settled', 'match'),
+  'hush-infiltration': F('solo-pve', null, 'solo', 'server-settled', 'match'),
   'battle-towers': F('tower', null, 'solo-or-party', 'server-settled', 'match'),
   'sunscar-caravan-ambush': F('tower', null, 'solo', 'parent-mode-settlement', 'match'),
   'tower-party': F('tower', null, 'party', 'server-settled', 'match'),
@@ -213,9 +213,9 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
 });
 
 /** Capability bindings are independently pinned because a valid capability id
- * can still be the wrong operational boundary (for example Shadowguard vs Sector Map). */
+ * can still be the wrong operational boundary (for example Hush vs Sector Map). */
 export const EXPECTED_RUNTIME_CAPABILITY_BINDINGS = deepFreeze({
-  'shadowguard-infiltration': 'shadowguardInfiltration',
+  'hush-infiltration': 'hushInfiltration',
   'clan-boss': 'clanBoss',
   'sector-war-shinobi-human': 'villageWar',
   'sector-war-shinobi-garrison': 'villageWar',
@@ -255,7 +255,7 @@ export const EXPECTED_RUNTIME_MODE_METADATA = deepFreeze({
   'weekly-boss': M('solo-pve', 'expiring-solo-session-log'),
   endless: M('solo-pve', 'expiring-run-and-session'),
   'hollow-gate-shinobi': M('solo-pve', 'expiring-run-and-session', 'hollow-gate'),
-  'shadowguard-infiltration': M('solo-pve', 'expiring-run-and-session-with-receipt'),
+  'hush-infiltration': M('solo-pve', 'expiring-run-and-session-with-receipt'),
   'battle-towers': M('tower', 'expiring-tower-run-and-log'),
   'sunscar-caravan-ambush': M('tower', 'daily-caravan-run-bound-tower-session'),
   'tower-party': M('tower', 'expiring-tower-run-and-log'),
@@ -329,7 +329,7 @@ export const COMBAT_ROUTE_CENSUS = deepFreeze({
     '/pet-ladder',
     '/weekly-boss',
     '/dungeon/run',
-    '/village/shadowguard-infiltration',
+    '/village/hush-infiltration',
     '/village/kage-challenge',
     '/village/war-merc',
     '/village/sector-war',

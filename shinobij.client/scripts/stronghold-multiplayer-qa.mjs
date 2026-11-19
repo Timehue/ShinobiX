@@ -49,9 +49,9 @@ await build({ entryPoints: ['scripts/fixtures/underground-sector-qa.tsx'], bundl
     define: { 'import.meta.env.PROD': 'false', 'import.meta.env.DEV': 'true', 'import.meta.env.MODE': '"test"' }, logLevel: 'error' });
 const app = express(); app.use(express.json());
 let responseDelay = 120;
-for (const [path, source] of [['village/shadowguard-infiltration', 'village/shadowguard-infiltration'], ['player/attack', 'player/attack'], ['pvp/session', 'pvp/session'], ['pvp/move', 'pvp/move'], ['pvp/claim-rewards', 'pvp/claim-rewards']]) {
+for (const [path, source] of [['village/hush-infiltration', 'village/hush-infiltration'], ['player/attack', 'player/attack'], ['pvp/session', 'pvp/session'], ['pvp/move', 'pvp/move'], ['pvp/claim-rewards', 'pvp/claim-rewards']]) {
     const { default: handler } = await import(`../../api/${source}.ts`);
-    app.post(`/api/${path}`, async (req, res) => { if (path === 'village/shadowguard-infiltration') await new Promise(r => setTimeout(r, responseDelay)); await handler(req, res); });
+    app.post(`/api/${path}`, async (req, res) => { if (path === 'village/hush-infiltration') await new Promise(r => setTimeout(r, responseDelay)); await handler(req, res); });
 }
 app.get('/', (_req, res) => res.type('html').send('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/preview.css"><style>html,body,#root{margin:0;min-height:100%;background:#080d14}body{padding:0}</style></head><body><div id="root"></div><script src="/preview.js"></script></body></html>'));
 app.use(express.static(bundle)); app.use(express.static(resolve('public')));
@@ -61,7 +61,7 @@ function monitor(page) { page.on('pageerror', e => errors.push(String(e))); }
 function inspectPlayer(page, name) { return page.getByRole('button', { name: `Inspect ${displayPlayerName(name)}`, exact: true }); }
 async function post(page, path, body) { return page.evaluate(async ({ path, body }) => { const response = await fetch('/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return { status: response.status, body: await response.json() }; }, { path, body }); }
 async function seed(name, sector, village) {
-    const character = { name, level: 50, village, avatarImage: '/shadowguard/frostfang.webp', hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000,
+    const character = { name, level: 50, village, avatarImage: '/hush/frostfang.webp', hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000,
         stamina: 1000, maxStamina: 1000, stats: {}, equipment: {}, inventory: [], itemStacks: [], jutsu: [], equippedJutsuIds: ['starter-universal-flicker'], jutsuMastery: [{ jutsuId: 'starter-universal-flicker', level: 1, xp: 0 }] };
     await kv.set(`save:${name}`, { _saveVersion: 1, currentSector: sector, character }); onlineStore.upsert({ name, sector, character }); return character;
 }
@@ -95,12 +95,12 @@ try {
                 const moved = await kv.get(strongholdVisitKey(one, sector)); assert.equal(moved.tile, initial.tile + 1); assert.equal(moved.threat, 4);
                 const frameMetric = await sample; metrics.push({ engine: engineName, sector, cpuSlowdown: engineName === 'chromium' ? 4 : 1, responseDelay, ...frameMetric }); assert(frameMetric.p95Ms < 85, 'mobile frame pacing stays usable under local CPU/latency simulation');
                 const blocked = buildStrongholdTiles(sector).findIndex(t => t.solid);
-                const rejected = await post(alpha, 'village/shadowguard-infiltration', { action: 'stronghold-step', playerName: one, sector, presenceId: moved.presenceId, version: moved.version, tile: blocked });
+                const rejected = await post(alpha, 'village/hush-infiltration', { action: 'stronghold-step', playerName: one, sector, presenceId: moved.presenceId, version: moved.version, tile: blocked });
                 assert.equal(rejected.status, 409); assert.equal((await kv.get(strongholdVisitKey(one, sector))).threat, 4);
                 const oldBeta = await kv.get(strongholdVisitKey(two, sector)); await beta.getByRole('button', { name: 'Leave stronghold' }).click();
                 await inspectPlayer(alpha, two).waitFor({ state: 'hidden' }); await beta.goto(url(two));
                 await inspectPlayer(alpha, two).waitFor();
-                const staleLease = await post(beta, 'village/shadowguard-infiltration', { action: 'stronghold-state', playerName: two, sector, presenceId: oldBeta.presenceId }); assert.equal(staleLease.status, 409);
+                const staleLease = await post(beta, 'village/hush-infiltration', { action: 'stronghold-state', playerName: two, sector, presenceId: oldBeta.presenceId }); assert.equal(staleLease.status, 409);
                 await contexts[1].setOffline(true); await new Promise(r => setTimeout(r, 2400)); await contexts[1].setOffline(false);
                 await inspectPlayer(beta, one).waitFor();
                 assert.equal((await kv.get(strongholdVisitKey(one, sector))).threat, 4, 'peer reconnect cannot change another player’s threat');
@@ -112,7 +112,7 @@ try {
                 const battleId = made.body.session.battleId;
                 assert.equal(made.body.session.rewardStronghold, sector === 99 ? 'deathsgate' : undefined);
                 for (const [page, name, role] of [[alpha, one, 'p1'], [beta, two, 'p2']]) { const joined = await post(page, 'pvp/move', { playerName: name, battleId, role, action: 'join', moveToken: `join-${role}` }); assert.equal(joined.status, 200, JSON.stringify(joined.body)); }
-                const visit = await kv.get(strongholdVisitKey(one, sector)); const duringFight = await post(alpha, 'village/shadowguard-infiltration', { action: 'stronghold-step', playerName: one, sector, presenceId: visit.presenceId, version: visit.version, tile: visit.tile + 1 });
+                const visit = await kv.get(strongholdVisitKey(one, sector)); const duringFight = await post(alpha, 'village/hush-infiltration', { action: 'stronghold-step', playerName: one, sector, presenceId: visit.presenceId, version: visit.version, tile: visit.tile + 1 });
                 assert(duringFight.status !== 200 || duringFight.body.combatBlocked); assert.equal((await kv.get(strongholdVisitKey(one, sector))).tile, visit.tile);
                 // Deterministic combat board, as in the backend integration suite;
                 // admission, both joins, KO and rewards still use actual handlers.
@@ -131,7 +131,7 @@ try {
         const visits = new Map();
         const request = async (name, index, action, fields = {}) => {
             const start = performance.now();
-            const response = await fetch(base + '/api/village/shadowguard-infiltration', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-player-name': name, 'x-player-token': issuePlayerToken(name), 'x-forwarded-for': `10.92.${sector}.${index + 1}` }, body: JSON.stringify({ playerName: name, sector, action: `stronghold-${action}`, presenceId: `crowd-tab-${name}`, ...fields }) });
+            const response = await fetch(base + '/api/village/hush-infiltration', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-player-name': name, 'x-player-token': issuePlayerToken(name), 'x-forwarded-for': `10.92.${sector}.${index + 1}` }, body: JSON.stringify({ playerName: name, sector, action: `stronghold-${action}`, presenceId: `crowd-tab-${name}`, ...fields }) });
             const body = await response.json(); durations.push(performance.now() - start); assert.equal(response.status, 200, JSON.stringify(body)); return body;
         };
         await Promise.all(names.map(async (name, index) => visits.set(name, (await request(name, index, 'enter')).visit)));
