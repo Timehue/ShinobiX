@@ -4,6 +4,78 @@ import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers
 // Exercise the moving scenic fallbacks as well as the static portrait override.
 test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
+test('Central destination cards display their assigned artwork across the full frame', async ({ page }) => {
+    await expectUiAuditBoot(page, await installUiAuditRuntime(page), 'centralHub');
+    const response = await page.request.get('/.vite/manifest.json');
+    expect(response.ok()).toBe(true);
+    const manifest = await response.json() as Record<string, { file: string }>;
+    const destinations = {
+        'Arena District': 'arena-district',
+        'Shinobi Council Hall': 'council-hall',
+        'Grand Marketplace': 'grand-marketplace',
+        'Shinobi Outpost': 'shinobi-outpost',
+        'Hall of Legends': 'hall-of-legends',
+        'Ancient Archives': 'ancient-archives',
+        'Awakening Stone': 'awakening-stone',
+        'Crafter': 'crafter',
+        'Pet Colosseum': 'pet-colosseum',
+        'Relic Dungeons': 'relic-dungeons',
+        'World Bosses': 'world-boss-clearing',
+        'Celestial Tower': 'celestial-tower',
+    };
+    const cards = page.locator('.central-card');
+    await expect(cards).toHaveCount(Object.keys(destinations).length);
+    for (const [name, asset] of Object.entries(destinations)) {
+        const card = cards.filter({ has: page.getByText(name, { exact: true }) });
+        const image = card.locator('.central-card-art img');
+        await card.evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' }));
+        const expectedPath = '/' + manifest[`src/assets/central/destinations/${asset}.webp`].file;
+        await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth), { message: name }).toBeGreaterThan(0);
+        const rendered = await image.evaluate((img: HTMLImageElement) => {
+            const frame = img.parentElement!;
+            return {
+                source: new URL(img.currentSrc).pathname,
+                background: getComputedStyle(frame).backgroundImage,
+                fits: img.clientWidth > 0 && img.clientHeight > 0
+                    && Math.abs(img.clientWidth - frame.clientWidth) <= 1
+                    && Math.abs(img.clientHeight - frame.clientHeight) <= 1,
+            };
+        });
+        expect(rendered.fits, name).toBe(true);
+        if (name === 'World Bosses') {
+            expect(rendered.background).toContain(expectedPath);
+            await page.evaluate(async (src) => {
+                const backdrop = new Image();
+                backdrop.src = src;
+                await backdrop.decode();
+            }, expectedPath);
+        } else {
+            expect(rendered.source, name).toBe(expectedPath);
+        }
+    }
+});
+
+test('World Bosses restores a bundled portrait when custom artwork fails to load', async ({ page }) => {
+    const save = uiAuditSave();
+    const bossId = 'central-art-test-boss';
+    const portrait = '/test-missing-boss.webp';
+    save.creatorAis = [{ id: bossId, name: 'Test Guardian', image: portrait }];
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route('**/api/game-state*', route => route.fulfill({
+        json: { villageStates: {}, arenaActiveFights: [], weeklyBossAiId: bossId },
+    }));
+    await page.route('**/test-missing-boss.webp*', route => route.fulfill({ status: 404, body: '' }));
+    const missing = page.waitForResponse(r => new URL(r.url()).pathname === portrait && r.status() === 404);
+    await expectUiAuditBoot(page, runtime, 'centralHub');
+    const frame = page.locator('.central-card-art--boss');
+    await frame.evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' }));
+    await missing;
+    const image = frame.locator('img');
+    await expect(image).toHaveAttribute('src', /\/assets\/[^/]+\.webp$/);
+    await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+    await expect(image).toBeVisible();
+});
+
 test('field artwork requests only the responsive images needed by its layout', async ({ page }, info) => {
     const mapRequests: string[] = [];
     page.on('request', request => {
