@@ -185,7 +185,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
             await expectUiAuditBoot(page, runtime, 'profile');
             await page.locator('.profile-mobile-tabs').getByRole('button', { name: 'Jutsu', exact: true }).click();
             await capture(page, '20-loadout-slots');
-            await expect(page.locator('.jutsu-workbench-heading strong')).toContainText('/ 12');
+            await expect(page.locator('.jutsu-workbench-heading strong')).toContainText('/ 14');
         });
 
         test('an empty jutsu loadout leads to the hall where techniques are learned', async ({ page }) => {

@@ -484,14 +484,14 @@ function maximumContentSaveFixture(
     jutsuIds: string[],
     creatorJutsus: ReturnType<typeof adaptiveJutsuFixtureData>["creatorJutsus"],
 ): SavePayload {
-    const seeded = subscriberSaveFixture(jutsuIds.slice(0, 12), creatorJutsus);
+    const seeded = subscriberSaveFixture(jutsuIds.slice(0, 14), creatorJutsus);
     const character = {
         ...(seeded.character ?? {}),
         name: "AdaptiveNinjaWithAnExceptionallyLongButUnbrokenDisplayName",
         ryo: 9_999_999_999,
         fateShards: 9_999_999,
         inventory: itemIds,
-        equippedJutsuIds: jutsuIds.slice(0, 12),
+        equippedJutsuIds: jutsuIds.slice(0, 14),
         jutsuMastery: jutsuIds.map((jutsuId) => ({ jutsuId, level: 50, xp: 0 })),
     };
     delete (character as Record<string, unknown>).patreon;
@@ -857,8 +857,9 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "profile");
     expect(runtimeErrors, "the maximum-profile fixture must render without a route error boundary").toEqual([]);
     await page.getByRole("button", { name: "Jutsu", exact: true }).click();
-    await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(12);
-    await expect(page.locator(".jutsu-loadout-slot.is-locked")).toHaveCount(3);
+    await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(14);
+    await expect(page.locator(".jutsu-loadout-slot.is-locked")).toHaveCount(1);
+    await expect(page.getByText("Unlock 1 additional slot.", { exact: true })).toBeVisible();
     await expect(page.getByText(creatorJutsus[0].name, { exact: true }).first()).toBeVisible();
     await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
 
@@ -874,6 +875,32 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await expect.poll(api.battleHistoryRequests).toBeGreaterThan(battleHistoryRequestsBeforeFailure);
     const historyError = page.getByRole("alert").filter({ hasText: "server had trouble loading" });
     await expect(historyError).toBeVisible();
+    await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
+});
+
+test("supporter expiry updates the loaded loadout without another login", async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
+    test.skip(testInfo.project.name !== "chromium-desktop", "the loaded expiry transition is exercised once");
+    const { jutsuIds, creatorJutsus } = adaptiveJutsuFixtureData();
+    const save = subscriberSaveFixture(jutsuIds, creatorJutsus);
+    const expiresAt = Date.now() + 3_600_000;
+    save.character = { ...save.character, patreon: { ...(save.character?.patreon as Record<string, unknown>), expiresAt } };
+    await installPersistedAdaptiveSession(page);
+    const api = await installAuthenticatedApi(page, save);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
+    await expectLoadedSave(page, api);
+    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
+    await page.getByRole("dialog", { name: "Your shinobi" }).getByTitle("View character profile").click();
+    await page.getByRole("button", { name: "Jutsu", exact: true }).click();
+    await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(15);
+    await page.clock.setFixedTime(new Date(expiresAt));
+    await page.getByRole("tab", { name: /^Learned jutsu/ }).click();
+    await expect(page.locator(".jutsu-equipped-badge")).toHaveCount(14);
+    await page.getByRole("tab", { name: /^Loadout/ }).click();
+    await expect(page.locator(".jutsu-loadout-slot.is-filled")).toHaveCount(14);
+    await expect(page.locator(".jutsu-loadout-slot.is-locked")).toHaveCount(1);
+    await expect(page.getByText("When membership ends, your first 14 regular slots stay equipped.", { exact: false })).toBeVisible();
     await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });
 });
 
