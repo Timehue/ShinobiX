@@ -544,12 +544,16 @@ test("Profile recovers a refunded request after the player leaves", async ({page
     await expect(dialog.getByRole('button', { name: 'Equip', exact: true })).toBeDisabled();
 });
 
-test("the top-left run button expires and refills automatically", async ({page}, info) => {
+test("the bottom-left run button expires and refills automatically", async ({page}, info) => {
     await page.clock.install();
     const save = uiAuditSave();
     save.currentSector = 46;
     save.currentTile = 66;
-    save.character = {...save.character, starterCardsClaimed:true, wandererCooldowns:quietRoadCooldowns([46])};
+    save.character = {...save.character, starterCardsClaimed:true, wandererCooldowns:quietRoadCooldowns([46]),
+        storyFieldRecords: {'story-reckoning-mira-marker': {
+            version: 1, visits: [{pointId: 'sv-ridge-gate', choiceId: 'sv-take-high-line'}],
+        }},
+    };
     const runtime = await installUiAuditRuntime(page, save);
     if (!artBase) await page.route('https://models.test/**', route => route.abort());
     await page.route('**/api/world/sector-layout', route => route.fulfill({json:{
@@ -566,21 +570,25 @@ test("the top-left run button expires and refills automatically", async ({page},
     if (artBase) await expect(map.locator('[data-world-self]')).toHaveClass(/has-sector-model/);
     const mapBounds = (await map.boundingBox())!, buttonBounds = (await run.boundingBox())!;
     expect(buttonBounds.x - mapBounds.x).toBeCloseTo(8, 0);
-    expect(buttonBounds.y - mapBounds.y).toBeCloseTo(8, 0);
+    expect(mapBounds.y + mapBounds.height - buttonBounds.y - buttonBounds.height).toBeCloseTo(8, 0);
     // Firefox reports this exact 44px button as 43.99999809px inside the scaled
     // map board; round like the other 44px touch-target checks (android-qa-report).
     expect(Math.round(buttonBounds.width)).toBeGreaterThanOrEqual(44);
     expect(Math.round(buttonBounds.height)).toBeGreaterThanOrEqual(44);
+    const journal = map.getByRole('complementary', {name:'Personal quest'});
+    const disclosure = journal.locator('.story-field-journal-disclosure');
+    await disclosure.locator('summary').first().click();
+    await expect(disclosure).toHaveAttribute('open', '');
     await run.click();
     await expect(run).toHaveAttribute('data-run-state','running');
     await expect(run).toHaveAttribute('aria-pressed','true');
     await map.screenshot({path:info.outputPath('run-active.png')});
-    await page.clock.fastForward(15_100);
+    await page.clock.fastForward(30_100);
     await expect(run).toHaveAttribute('data-run-state','refilling');
     await expect(run).toHaveAttribute('aria-pressed','false');
     await expect(run).toBeDisabled();
     await run.screenshot({path:info.outputPath('run-refilling.png')});
-    await page.clock.fastForward(20_100);
+    await page.clock.fastForward(10_100);
     await expect(run).toHaveAttribute('data-run-state','ready');
     await expect(run).toBeEnabled();
 });
