@@ -62,6 +62,11 @@ Group the scarf or collar, jacket, sleeves, belt and legs into distinct material
 Use soft daylight from above, broad planes of light on the face and upper shoulders, and two or three large folds per garment.
 Simplify fine trim and surface texture. Keep the street, outfit, equipment and identity of the style reference out of the sheet."""
 
+# The style reference is a black-haired human in a dark coat and red scarf. On 2026-11-19 a raccoon
+# portrait came back as that person, the line above notwithstanding, so new jobs say it plainly.
+REFERENCE_IDENTITY = """
+Image 3 shows an unrelated person. Use it only for the camera, lighting and level of detail, and copy nothing of that person: take the face, head, hair or fur, outfit and colors from image 2 alone."""
+
 
 def image_input(png):
     url = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
@@ -94,7 +99,7 @@ def layout_png(template):
 
 def edit_request(upload, source_hash, template, correction, previous=None, *, sector_guide=SECTOR_GUIDE,
                  head_turnaround=True, closeup=False, armored_raccoon=False, upright_animal=False,
-                 palette_prompt=False, torso_fit=False, tail_fit=False, attempt=2):
+                 palette_prompt=False, torso_fit=False, tail_fit=False, reference_identity=False, attempt=2):
     from avatar_worker.portrait import prepare_portrait
 
     with upload.open("rb") as source:
@@ -126,6 +131,8 @@ def edit_request(upload, source_hash, template, correction, previous=None, *, se
             raise ValueError("image-edit-style-binding")
         images.append(image_input(reference))
         prompt += SECTOR_MATERIALS
+        if reference_identity:
+            prompt += REFERENCE_IDENTITY
     if correction:
         if previous is None:
             raise ValueError("missing-first-painting")
@@ -209,6 +216,11 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
         tail_fit = first["binding"].get("tailFit", False) if first else armored_raccoon or upright_animal
         if tail_fit:
             binding["tailFit"] = True
+        # And for the line that says the style reference is an unrelated person.
+        reference_identity = (first["binding"].get("referenceIdentity", False) if first
+                              else sector_guide is not None)
+        if reference_identity:
+            binding["referenceIdentity"] = True
         previous = None
         if attempt > 1:
             # Each repair shows the painter the sheet the rig just rejected.
@@ -228,6 +240,7 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
                                **({"palette_prompt": True} if palette_prompt else {}),
                                **({"torso_fit": True} if torso_fit else {}),
                                **({"tail_fit": True} if tail_fit else {}),
+                               **({"reference_identity": True} if reference_identity else {}),
                                **({"attempt": 3} if attempt == 3 else {}))
         body = json.dumps(request,sort_keys=True,separators=(",",":")).encode()
         operation = sha256(job_id.encode() + b"\0" + str(attempt).encode() + b"\0" + body).hexdigest()

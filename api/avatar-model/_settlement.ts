@@ -10,6 +10,7 @@ type Job = {
     slug: string; monthKey: string; state: string; attempt: number; sourceSha256: string;
     reserved: Reservation[]; errorCode?: string; publishingAt?:number; settledCosts?: Record<string, unknown>;
     accountId?:string;assetId?:string;masterSha256?:string;delivery?:{version:string};privateRefKey?:string;
+    createdAt?:number;
 };
 type Budget = { spentMicros: number; reservedMicros: number };
 const prefix = 'avatar-model:';
@@ -86,6 +87,16 @@ async function settle(id: string, owner: string, reason: string, expectedJob?:un
         const [held, recent] = await Promise.all([kv.get<{count: number}>(holdKey), kv.get<string>(recentKey)]);
         ops.push({op:'delete', key:slotKey, expected:slot}, {op:'cas', key:holdKey, expected:held,
             value:{count:(held?.count ?? 0) + 1}}, {op:'cas', key:recentKey, expected:recent, value:id});
+        // A returned creation also returns its place in the game-wide daily count (admission
+        // keys it by the UTC day it was admitted). Otherwise the player reads "your creation was
+        // returned" and Retry answers "the creation limit has been reached" until midnight UTC.
+        // The fixed cost stays charged, and the failures hold above still caps retries per portrait.
+        if (Number.isSafeInteger(job.createdAt) && job.createdAt! > 0) {
+            const dailyKey = prefix + 'daily:' + new Date(job.createdAt!).toISOString().slice(0, 10);
+            const daily = await kv.get<number>(dailyKey);
+            if (Number.isSafeInteger(daily) && daily! > 0)
+                ops.push({op:'cas', key:dailyKey, expected:daily, value:daily! - 1});
+        }
     } else {
         ops.push({op:'cas', key:slotKey, expected:slot, value:{...slot, usedAt:endedAt}});
     }

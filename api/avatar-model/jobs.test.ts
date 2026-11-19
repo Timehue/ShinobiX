@@ -126,12 +126,15 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
         assert.deepEqual(failed?.reserved,[]);
         if (i===1) { assert.equal(failed.settledCosts?.modal.spentMicros,10); assert.equal(failed.settledCosts?.modal.basis,'fixed'); }
         else assert.equal(failed.settledCosts,undefined);
+        // The refund gave back the failed job's place in today's count, so a retry fits under a
+        // daily limit of 2 (the cancelled job, a player choice, still counts).
+        assert.equal(await kv.get('avatar-model:daily:'+day),1);
         const config=JSON.parse(process.env.AVATAR_MODEL_RESERVATIONS_JSON!);
-        config.dailyLimit=10;
+        config.dailyLimit=2;
         process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(config);
         const next = await post(winner,await token(winner),'retry-after-'+i);
         if (i === 3) assert.equal(next.error,'input');
         else { assert.equal(next.status,202); failedId=next.jobId!; }
     }
-    assert.equal(await kv.get('avatar-model:daily:'+day),4);
+    assert.equal(await kv.get('avatar-model:daily:'+day),1);
 });
