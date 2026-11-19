@@ -289,23 +289,29 @@ for(const sector of [42,15,21,31,58])test(`committed gathering ${sector}: paints
     const shot=(scene:string)=>`${evidence}/${info.project.name}-harvest-${sector}-${scene}.png`;
     await page.clock.install({time:new Date(start)});const save=uiAuditSave();save.currentSector=sector;save.currentTile=tileNeighbors(tile).find(t=>isWalkableTile(sector,t))!;
     save.character={...save.character,starterCardsClaimed:true,wandererCooldowns:quietRoadCooldowns([sector],start)};
-    await installUiAuditRuntime(page,save);let worked=false,allowPoll=true,polls=0;
+    // The worked mark lasts 35 s from the moment it is worked, however long the page took to load.
+    await installUiAuditRuntime(page,save);let workedUntil=0,allowPoll=true,polls=0;
     await page.route('**/api/sector/life**',async route=>{
         if(!allowPoll)return route.abort();polls++;const now=await page.evaluate(()=>Date.now());
         const view=lifeSceneView(sector,parseLifeState(null,now),now,'clear');
-        await route.fulfill({json:{ok:true,view:{...view,groundTrail:worked?[[tile,undefined,start+35_000]]:[]},serverNow:now}});
+        await route.fulfill({json:{ok:true,view:{...view,groundTrail:workedUntil?[[tile,undefined,workedUntil]]:[]},serverNow:now}});
     });
     await page.goto('/#/worldMap');const back=page.getByRole('button',{name:`Return to Sector ${sector}`,exact:false});
     await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);if(await back.isVisible())await back.click();
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');
     const terrain=page.locator('.continuous-world-map>canvas');
-    const settled=async()=>{let previous='',stable=0;await expect.poll(async()=>{const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===previous?stable+1:0;previous=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);return previous;};
-    const clean=await settled();await terrain.screenshot({path:shot('clean-verge')});
-    worked=true;await page.clock.fastForward(21_000);await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).not.toBe(clean);const changed=await settled();
+    // Identical frames alone do not mean the camera has arrived: on a loaded runner the frame loop can
+    // stall mid-glide, and the camera then finished its lean later, so "clean" was a frame the view never
+    // returned to. Running the page clock between samples makes the glide actually advance.
+    const pixels=()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());
+    const settled=async()=>{let previous='',stable=0;await expect.poll(async()=>{await page.clock.runFor(250);const now=await pixels();stable=now===previous?stable+1:0;previous=now;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);return previous;};
+    // The camera re-aims for 1.5 s after the player arrives and then holds still; let that window close first.
+    await page.clock.runFor(1_500);const clean=await settled();await terrain.screenshot({path:shot('clean-verge')});
+    workedUntil=await page.evaluate(()=>Date.now())+35_000;await page.clock.fastForward(21_000);await expect.poll(pixels).not.toBe(clean);const changed=await settled();
     await terrain.screenshot({path:shot('worked-verge')});
     writeFileSync(shot('clean-terrain'),Buffer.from(clean.split(',')[1],'base64'));writeFileSync(shot('worked-terrain'),Buffer.from(changed.split(',')[1],'base64'));
     allowPoll=false;const before=polls;await page.clock.fastForward(16_000);
-    await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).toBe(clean);expect(polls).toBe(before);
+    await expect.poll(async()=>{await page.clock.runFor(100);return pixels();}).toBe(clean);expect(polls).toBe(before);
     await terrain.screenshot({path:shot('expired-verge')});
 });
 function shrineRoundTime() {
@@ -380,17 +386,19 @@ test('recorded duel scuffs blend into the actual ground, preserve legacy reports
     await page.route('**/api/sector/traces**',route=>route.fulfill({json:{ok:true,sector:15,footfallToday:2,signs:[],mySparked:[],scars}}));
     await page.route('**/api/sector/life**',async route=>{const now=await page.evaluate(()=>Date.now());await route.fulfill({json:{ok:true,view:lifeSceneView(15,parseLifeState(null,now),now,'clear',undefined,undefined,undefined,scars),serverNow:now}});});
     const terrain=page.locator('.continuous-world-map>canvas');
-    const settled=async()=>{let previous='',stable=0;await expect.poll(async()=>{const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===previous?stable+1:0;previous=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);return previous;};
-    await enterLifeSector(page,15);const clean=await settled();await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-clean-ground.png`});
+    // Run the page clock between samples, as in the gathering test: a stalled frame loop repeats a mid-glide frame.
+    const pixels=()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());
+    const settled=async()=>{let previous='',stable=0;await expect.poll(async()=>{await page.clock.runFor(250);const now=await pixels();stable=now===previous?stable+1:0;previous=now;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);return previous;};
+    await enterLifeSector(page,15);await page.clock.runFor(1_500);const clean=await settled();await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-clean-ground.png`});
     writeFileSync(`${evidence}/${info.project.name}-duel-clean-terrain.png`,Buffer.from(clean.split(',')[1],'base64'));
     scars=[{kind:'duel',victor:'Rin',fallen:'Kota',at:start,tile:122},{kind:'duel',victor:'Aki',fallen:'Ben',at:start}];
-    await page.clock.fastForward(21_000);await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).not.toBe(clean);const marked=await settled();
+    await page.clock.fastForward(21_000);await expect.poll(pixels).not.toBe(clean);const marked=await settled();
     await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-scuffed-ground.png`});
     writeFileSync(`${evidence}/${info.project.name}-duel-scuffed-terrain.png`,Buffer.from(marked.split(',')[1],'base64'));
     await page.locator('.sector-life-point').click();await page.getByRole('button',{name:'Read local reports'}).click();await expect(page.getByRole('dialog')).toContainText('Rin stood over Kota');
     await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
     scars=[];await page.clock.fastForward(21_000);
-    await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).toBe(clean);await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-faded-ground.png`});
+    await expect.poll(async()=>{await page.clock.runFor(100);return pixels();}).toBe(clean);await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-faded-ground.png`});
 });
 test('shrine upkeep paints each lamp, keeps the previous floor during loading, and brings a visitor on a return visit',async({page},info)=>{
     const start=shrineRoundTime();await installDateOnlyClock(page,start);
