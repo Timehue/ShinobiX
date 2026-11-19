@@ -116,6 +116,18 @@ provider error fails the read and never admits a portrait. The game server must
 know the `upright-animal` style (`api/avatar-model/read.ts`) before a worker that
 emits it is deployed.
 
+Every painted sheet is checked for likeness before the rig accepts it
+(`painted_likeness.py`, same key and pinned model). The head-and-torso row of
+all eight directions goes to the vision model beside the portrait, which says
+whether the species, the head and the main costume colors still match. A
+mismatch is refused like a geometry failure, so `paint_screened_upload` repairs
+the same sheet with the check's note, and a third refusal ends the job at once
+(a system failure, so the creation is returned). This exists because a raccoon
+was painted on 2026-11-19 as the black-haired human in a dark coat and red scarf
+from `sector-costume-light.png`, and only the blind review an hour later noticed.
+The check asks twice at most. A provider error or a malformed answer accepts the
+painting, and the final review still decides.
+
 Painted costumes keep the portrait's colors (`costume_palette.py`). The edit
 prompt names the portrait's main colors. The returned sheet is then corrected
 per hue family until, shrunk to world-sprite size, it carries the portrait's

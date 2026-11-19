@@ -22,11 +22,37 @@ def admitted_rig(asset, descriptor, expected_master, raw, source):
     return fit["template"], master["templateSha256"]
 
 
-def paint(entry, work, asset, master, source, reader_python, submit):
+def likeness_checked(painter, upload, template, asker, refuse):
+    """Run the likeness check on every painting the rig is about to receive.
+
+    A painting that lost the portrait's character is refused like a geometry failure, so the
+    rig's own loop (paint_screened_upload) repairs that same sheet with the check's note, and a
+    third refusal ends the job at once instead of after an hour of rendering."""
+    import painted_likeness
+    from avatar_worker.portrait import prepare_portrait
+    from PIL import Image
+
+    spec = json.loads(template.read_bytes())
+    with Image.open(template.with_suffix(".png")) as guide:
+        guide_size = guide.size
+    portrait = prepare_portrait(upload.read_bytes()).png
+
+    def paint(upload_path, digest, template_path, attempt, correction):
+        painting, painting_hash = painter(upload_path, digest, template_path, attempt, correction)
+        note = painted_likeness.check(portrait, painting.read_bytes(), spec, guide_size, asker)
+        if note is not None:
+            raise refuse(note)
+        return painting, painting_hash
+
+    return paint
+
+
+def paint(entry, work, asset, master, source, reader_python, submit, likeness=None):
+    """likeness(portrait_png, row_png) asks the vision model; None skips the post-paint check."""
     sys.path.insert(0, str(entry.resolve(strict=True).parent))
     from motion_worker_paths import TEMPLATES
     from paint_portrait import costume_painter, portrait_palette
-    from register_painted_kit import paint_screened_upload
+    from register_painted_kit import PaintingGeometryError, paint_screened_upload
 
     upload = work / "portrait"
     descriptor = (work/"screened.json").read_bytes()
@@ -49,6 +75,8 @@ def paint(entry, work, asset, master, source, reader_python, submit):
                               armored_raccoon=closeup and screened.get("style") == "armored-raccoon",
                               upright_animal=closeup and screened.get("style") == "upright-animal",
                               palette=portrait_palette)
+    if likeness is not None:
+        painter = likeness_checked(painter, upload, template, likeness, PaintingGeometryError)
     paint_screened_upload(upload, source, template, work/"painted", painter, lambda _: None,
                           reader_python=reader_python)
     return sorted(operations)
@@ -62,5 +90,7 @@ if __name__ == "__main__":
         parser.add_argument(name)
     args = parser.parse_args()
     from paint_portrait import submit_edit
+    import painted_likeness
     paint(args.entry, args.work, args.asset, args.master, args.source, args.reader_python,
-          lambda body, operation: submit_edit(body, os.environ["OPENAI_API_KEY"], operation))
+          lambda body, operation: submit_edit(body, os.environ["OPENAI_API_KEY"], operation),
+          likeness=lambda portrait, row: painted_likeness.ask(portrait, row, os.environ["OPENAI_API_KEY"]))

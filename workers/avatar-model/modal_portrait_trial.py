@@ -48,7 +48,8 @@ if modal.is_local() and sys.argv[1:2] != ["collect"]:
         for image in (gpu_image, paint_image, cpu_image)
     )
     for name in ("closeup_portrait.py", "armored_raccoon.py", "paint_admitted_costume.py", "paint_portrait.py",
-                 "upright_animal.py", "costume_palette.py", "paint_battle_sprite.py", "battle-stance-reference.png"):
+                 "upright_animal.py", "painted_likeness.py", "costume_palette.py", "paint_battle_sprite.py",
+                 "battle-stance-reference.png"):
         reader_image = reader_image.add_local_file(WORKER.with_name(name), (INSTALL / name).as_posix(), copy=True)
     for name in ("paint_sprite_style.py", "battle_pose.py"):
         motion_image = motion_image.add_local_file(WORKER.with_name(name), (INSTALL / name).as_posix(), copy=True)
