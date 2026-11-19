@@ -36,7 +36,16 @@ The one remaining visible gap is that occasional wanderer. It is still unverifie
 
 **Why the wanderer gap happens.** During the travel wait, `warmSectorArrival` (`lib/sector-arrival-warm.ts`) decodes one page per figure: its standing, front-facing frame. A wanderer that arrives walking, or facing another way, needs a different page. Until that page lands, `SectorModelFigure` shows the portrait circle (`waitForArt`), because the figure has never painted. On the throttled profile that page takes about a second.
 
-**Choice (owner delegated it 2026-11-18, "best for the game and players"): (b).** The options were (a) warm more pages per wanderer, which the 9 MB decoded budget limits to narrowing the gap; (b) draw the warmed standing frame as a stand-in; (c) leave it. (b) shipped: `SectorModelFigure` paints a figure's first frame from its front standing page, the one page the travel wait decoded, and its real heading and stride take over from the next frame. A warmed figure should no longer show the portrait; a wanderer that arrives walking glides in a standing pose until its walking page lands. Verified so far: the sector model e2e specs pass (57 on chromium desktop and mobile and webkit mobile), and the throttled arrival probe still paints the player's own model 39 to 57 ms after the mask lifts. Then 10 throttled runs into sectors 15 (a bandit that pursues) and 5 (a patrol): the wanderer's model showed 41 to 57 ms after the mask, in the same frame as the player's own. The old code gave the same 40 to 58 ms in the same sectors, though. In none of those runs was the wanderer walking when it mounted, so the gap case never occurred. Sixteen more old-code runs into the four sectors with a patrolling wanderer (23, 35, 38, 56) gave the same result: the wanderer's model within 43 to 61 ms every time, and the slowest of three figures at 124 ms. So the 1.2 s gap measured earlier did not recur in 26 old-code runs; it is rarer than 1 in 9 under this throttle. The fix shows no regression. Its benefit is unmeasured, because the case it covers could not be reproduced on demand. The real-phone check remains the deciding test.
+**Choice (owner delegated it 2026-11-18, "best for the game and players"): (b).** The options were (a) warm more pages per wanderer, which the 9 MB decoded budget limits to narrowing the gap; (b) draw the warmed standing frame as a stand-in; (c) leave it. (b) shipped: `SectorModelFigure` paints a figure's first frame from its front standing page, the one page the travel wait decoded, and its real heading and stride take over from the next frame. A warmed figure should no longer show the portrait; a wanderer that arrives walking glides in a standing pose until its walking page lands. Verified so far: the sector model e2e specs pass (57 on chromium desktop and mobile and webkit mobile), and the throttled arrival probe still paints the player's own model 39 to 57 ms after the mask lifts. Then 10 throttled runs into sectors 15 (a bandit that pursues) and 5 (a patrol): the wanderer's model showed 41 to 57 ms after the mask, in the same frame as the player's own. The old code gave the same 40 to 58 ms in the same sectors, though. In none of those runs was the wanderer walking when it mounted, so the gap case never occurred. Sixteen more old-code runs into sectors 23, 35, 38 and 56 gave the same result. All of those runs used the probe's default Reduce Motion, which places every wanderer standing, so the gap case could not occur in them.
+
+**Measured with motion on (how most players play), 2026-11-18.** The probe was re-run with `PROBE_MOTION=no-preference` into sectors 5, 15 and 35, with a per-frame timeline of the wanderer figure. In every run the wanderer was already walking ~70 ms after the mask.
+
+| Code | Walking wanderer's model after the mask | Runs with a portrait gap |
+|---|---|---|
+| Before #129 | 693–3,176 ms | 18 of 18 |
+| After #129 (live) | 69–110 ms | 0 of 25 |
+
+So the gap was the common case with motion on, not a rare one, and the stand-in removes it. An earlier batch of 16 runs had 6 slow arrivals, but it ran without the timeline. The probe fetches its art from the live CDN on every run, so those were most likely slow CDN fetches; that was not confirmed.
 
 Three causes, all in the arrival path:
 
@@ -52,6 +61,16 @@ Three causes, all in the arrival path:
 - `continuous-world.css`: the "Connecting to world…" label appears only after 1.2 s. Errors, Retry and Reload show at once as before.
 
 Not changed: server, saves, movement authority, travel time, rewards. Sectors sit 46+ tiles apart in the world layout, so no neighbouring floor is ever on screen at arrival. The warm-up therefore only covers the destination.
+
+**The 3 s wait itself (measured 2026-11-18).** Fast travel's mask is `WORLD_TRAVEL_MS = 3_000` (`api/player/travel.ts`), a deliberate "short loading mask, not a distance tax"; walking through a road exit is already instant. The arrival probe re-ran on the throttled phone profile with the mask shortened, arriving at sector 15 with its road wanderer (4 runs each; times after the mask ends):
+
+| Mask | Own model | Wanderer model | World ready |
+|---|---|---|---|
+| 3 s (live) | 40–58 ms | 41–57 ms | ~650 ms |
+| 1.5 s | 40–75 ms | 690–1,076 ms | ~650 ms |
+| 1 s | 506–1,217 ms | up to 1,701 ms | ~650 ms |
+
+On a slow phone the 3 s is the warm-up's working time: at 1.5 s the road's figures pop in again, and at 1 s so does the player's own figure. A fixed shorter mask therefore trades the wait for the pop-in the user also reported. The alternative is an adaptive mask that ends when the warm-up finishes (at least ~1 s, at most 3 s). It needs the server's travel lease (`arrivalAt`, which also sets the untouchable window and attackability) to accept an earlier arrival, so it is a server and anti-cheat change. **Owner ruling 2026-11-18: keep 3 s.** Arrival is now complete when the mask ends, even on a slow phone.
 
 ### What is still slow, and the next step
 

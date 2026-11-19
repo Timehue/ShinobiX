@@ -20,10 +20,15 @@ class FinishedCallTest(unittest.TestCase):
         import modal
 
         options = {}
+        wrapped = []
 
         def register(**settings):
             def decorator(function):
-                options[function.__name__] = settings
+                # modal.concurrent hands the app a wrapper around the function.
+                raw = function._get_raw_f() if hasattr(function, "_get_raw_f") else function
+                if raw is not function:
+                    wrapped.append(raw.__name__)
+                options[raw.__name__] = settings
                 return function
             return decorator
 
@@ -35,6 +40,10 @@ class FinishedCallTest(unittest.TestCase):
             with self.subTest(function=name):
                 self.assertFalse(options[name].get("block_network", False))
                 self.assertFalse(options[name].get("secrets"))
+        # A job's three run styles share one machine: their common walking frames only match
+        # byte for byte, as assembly requires, when one machine renders them.
+        self.assertEqual(options["render_style"]["max_containers"], 1)
+        self.assertEqual(wrapped, ["render_style"])
 
     def test_publication_recovers_from_storage_and_only_settles_a_confirmed_worker_failure(self):
         from modal.exception import ConnectionError as ModalConnectionError, InternalFailure

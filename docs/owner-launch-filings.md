@@ -65,9 +65,11 @@ The Play build blocks the store. Keep it that way: if Play users can ever buy di
 2. Note any live mark in those classes that contains "Shinobi" or a close variant. "Shinobi" alone is used by others, so a combined mark is what matters.
 3. Hand the list to the lawyer (section 6). A clear search can then become an application, about $350 per class.
 
-## 5. Wipe policy (a decision, about 10 minutes)
+## 5. Wipe policy: decided 2026-11-18
 
-The game is in testing and a reset is planned. Players should know before they pay what survives. Pick one, and I will write it into the Terms and the in-game notice:
+**Owner decision: a total wipe of everything when the game leaves testing.** No purchases are restored, because none exist: the store is turned off and nothing has been bought. The Terms already say the beta "may change, reset, pause, or end", so no new wording is needed while the store stays off. **Condition: keep the store off until the wipe is done.** If it is turned on before the wipe, the shop and the Terms must first say plainly that purchases made before launch are wiped too, and any purchase made before that warning existed must be refunded.
+
+The options that were considered:
 
 - **A. Full wipe, purchases restored:** progress resets, and bought Shards and Supporter time are re-credited from the Tebex records.
 - **B. Full wipe, purchases kept:** progress resets, and Shards and Supporter time on the account are kept as they are.

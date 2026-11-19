@@ -64,7 +64,7 @@ def render_battle_pose(fit, sheet, template, work):
         if not receipt["structuralFitAccepted"]:
             raise ValueError("battle-sprite-fitting")
         # read_parts validates corrections from painted templates when present.
-        for field in ("bodyAspectCorrection", "armAspectCorrection"):
+        for field in ("bodyAspectCorrection", "bodyOverhang", "armAspectCorrection"):
             if field in fit:
                 receipt[field] = fit[field]
         (parts / "fit-receipt.json").write_text(json.dumps(receipt))
@@ -81,8 +81,17 @@ def render_battle_pose(fit, sheet, template, work):
                               materials.get("heldProp"), materials.get("bedroll"))
             sprite, detail = renderer.render(name, view, pose)
 
-    sprite = sprite.crop(detail["bounds"])
-    sprite.thumbnail((148, 148), Image.Resampling.LANCZOS)
+    return frame_fighter(sprite.crop(detail["bounds"]))
+
+
+def frame_fighter(figure):
+    """Frame the posed model like a bundled fighter and like the painted sprite it stands in for
+    (paint_battle_sprite.py): a 384 px canvas with the figure, up to 352 px, standing on the 368 px line."""
+    scale = min(352 / figure.width, 352 / figure.height)
+    size = (max(1, round(figure.width * scale)), max(1, round(figure.height * scale)))
+    figure = figure.convert("RGBa").resize(size, Image.Resampling.LANCZOS).convert("RGBA")
+    sprite = Image.new("RGBA", (384, 384))
+    sprite.alpha_composite(figure, ((384 - size[0]) // 2, 368 - size[1]))
     output = BytesIO()
-    sprite.save(output, format="WEBP", lossless=True)
+    sprite.save(output, format="WEBP", quality=90, method=6)
     return output.getvalue()

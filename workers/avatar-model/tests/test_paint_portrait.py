@@ -163,6 +163,45 @@ class PaletteTest(unittest.TestCase):
             painter(root / "portrait", source, template, 2, "Repair detached sleeve")
             self.assertNotIn("palette_prompt", build.call_args.kwargs)
 
+    def test_only_an_animal_character_is_told_where_its_tail_goes(self):
+        def request(_portrait, _source, _template, correction, _previous, *, sector_guide, head_turnaround,
+                    torso_fit=False, tail_fit=False, **animal):
+            return {"tail": tail_fit, "animal": sorted(animal)}
+
+        with TemporaryDirectory() as temporary, patch.object(paint_portrait, "edit_request", side_effect=request) as build:
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            for label, flags in (("human", {}), ("raccoon", {"armored_raccoon": True}), ("animal", {"upright_animal": True})):
+                with self.subTest(label=label):
+                    painter = paint_portrait.costume_painter(root / label, "6" * 32, Mock(return_value=True),
+                                                             Mock(return_value=("fixture", self.result)), **flags)
+                    painter(root / "portrait", "1" * 64, template, 1, None)
+                    self.assertEqual(build.call_args.kwargs.get("tail_fit", False), bool(flags))
+                    binding = json.loads((root / label / "edit-1/completed.json").read_bytes())["binding"]
+                    self.assertEqual(binding.get("tailFit", False), bool(flags))
+
+    def test_an_animal_job_first_billed_without_the_tail_line_repairs_with_the_same_prompt(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            asset, source = "7" * 32, "1" * 64
+            first = root / "job/edit-1"
+            first.mkdir(parents=True)
+            (first / "painting.png").write_bytes(self.art)
+            (first / "completed.json").write_text(json.dumps({
+                "operation": "earlier", "painting": sha256(self.art).hexdigest(),
+                "binding": {"job": asset, "source": source, "template": sha256(b"template").hexdigest(),
+                            "sectorGuide": paint_portrait.SECTOR_GUIDE, "headTurnaround": True,
+                            "uprightAnimal": True, "torsoFit": True}}))
+            painter = paint_portrait.costume_painter(root / "job", asset, Mock(return_value=True),
+                                                     Mock(return_value=("fixture", self.result)), upright_animal=True)
+            with patch.object(paint_portrait, "edit_request", side_effect=lambda *a, **k: {"k": sorted(k)}) as build:
+                painter(root / "portrait", source, template, 2, "Repair detached sleeve")
+            self.assertNotIn("tail_fit", build.call_args.kwargs)
+            self.assertTrue(build.call_args.kwargs["upright_animal"])
+
     def test_a_failed_correction_keeps_the_paid_painting(self):
         with TemporaryDirectory() as temporary:
             upload = Path(temporary) / "missing-portrait"
