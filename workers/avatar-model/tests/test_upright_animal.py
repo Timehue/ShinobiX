@@ -36,6 +36,14 @@ class PhraseTest(unittest.TestCase):
 
 
 class VerdictTest(unittest.TestCase):
+    def test_a_forward_leaning_biped_counts_as_upright(self):
+        # Owner, 2026-11-20: anything bipedal, a tyrannosaur included, may become a model.
+        prompt = request_body(b"png")["instructions"]
+        for creature in ("tyrannosaur", "two-legged dinosaur", "bird", "hind legs"):
+            self.assertIn(creature, prompt)
+        rex = {**UPRIGHT, "species": "tyrannosaurus rex"}
+        self.assertEqual(style(verdict(response(rex))), "upright-animal")
+
     def test_admits_only_a_single_illustrated_upright_animal(self):
         self.assertTrue(admits(verdict(response(UPRIGHT))))
         for key, value in (("four_legged", True), ("real_photo", True), ("animal", False), ("two_legs", False),
