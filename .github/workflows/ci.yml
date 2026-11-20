@@ -857,6 +857,114 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  e2e_responsive_chronicle_webkit:
+    name: CI / e2e-responsive-chronicle-webkit
+    needs: release_artifact
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    # The two mobile WebKit Chronicle Snare cases (390x844 and 1366x768), alone
+    # on a fresh runner with one worker. On main run 44654347768 the 1366x768
+    # case lost its WebKit page inside a crowded smoke shard ("Target crashed"
+    # on the retry) while the identical tree passed on its PR. The cases are
+    # unchanged and required here; the smoke shards skip them
+    # (E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE, see playwright.config.ts).
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Skips the review-evidence folders; see SPARSE CHECKOUT at the top.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/screenshots/
+            !/docs/evidence/
+            !/docs/audits/
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/e2e-responsive-chronicle-webkit
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-responsive-chronicle-webkit/provenance.txt
+      - name: Require successful release artifact
+        if: ${{ needs.release_artifact.result != 'success' }}
+        run: |
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-chronicle-webkit/upstream-results.log
+          exit 1
+      - name: Install server runtime and QA dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/root-install.log
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/client-install.log
+      - name: Download joined release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}
+          path: .ci-artifacts/release
+      - name: Verify and extract exact release artifact
+        run: |
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+      - name: Install WebKit
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: webkit
+          log: .ci-evidence/e2e-responsive-chronicle-webkit/browser-install.log
+      - name: Record runner and browser diagnostics
+        run: |
+          {
+            echo "## runner"; uname -a; nproc; free -m; df -h .; cat /proc/loadavg; ulimit -a
+            echo "## playwright"; node -p "require('./shinobij.client/node_modules/@playwright/test/package.json').version"
+            echo "## browsers"; ls -1 "$HOME/.cache/ms-playwright"
+          } 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/diagnostics-before.log
+      - name: Require exactly the two Chronicle Snare cases
+        run: |
+          npm run test:e2e --prefix shinobij.client -- --project=webkit-mobile-chronicle-snare --list 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/list.log
+          grep -F 'Snare response, battle preview and result stay usable at 390x844' .ci-evidence/e2e-responsive-chronicle-webkit/list.log
+          grep -F 'Snare response, battle preview and result stay usable at 1366x768' .ci-evidence/e2e-responsive-chronicle-webkit/list.log
+          grep -Fx 'Total: 2 tests in 1 file' .ci-evidence/e2e-responsive-chronicle-webkit/list.log
+      - name: Mobile WebKit Chronicle Snare response, battle preview and result
+        timeout-minutes: 15
+        env:
+          # Browser process output (including a WebKit crash) lands in the log.
+          DEBUG: pw:browser
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ github.workspace }}/.ci-evidence/e2e-responsive-chronicle-webkit/results.json
+        run: npm run test:e2e --prefix shinobij.client -- --project=webkit-mobile-chronicle-snare --workers=1 --forbid-only --reporter=line,json,html 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/playwright.log
+      - name: Require both cases to have run and passed
+        run: |
+          node -e '
+            const r = require(process.argv[1]);
+            const s = r.stats;
+            console.log(JSON.stringify(s));
+            if (s.unexpected !== 0 || s.skipped !== 0 || s.expected + s.flaky !== 2) process.exit(1);
+          ' "$GITHUB_WORKSPACE/.ci-evidence/e2e-responsive-chronicle-webkit/results.json" 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/results.log
+      - name: Record runner diagnostics after the run
+        if: always()
+        continue-on-error: true
+        run: |
+          { free -m; cat /proc/loadavg; ps -eo pid,rss,etime,comm --sort=-rss | head -n 15; } 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/diagnostics-after.log
+      - name: Retain Chronicle WebKit evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-e2e-responsive-chronicle-webkit-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .ci-evidence/e2e-responsive-chronicle-webkit/
+            shinobij.client/playwright-report/
+            shinobij.client/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
   e2e_responsive_matrix:
     name: CI / e2e-responsive / ${{ matrix.shard }}-of-12
     needs: release_artifact
@@ -925,6 +1033,10 @@ jobs:
         # Below the job ceiling, so a hung smoke fails here and the evidence
         # upload below still runs, including when a runner becomes slow.
         timeout-minutes: 31
+        env:
+          # The two mobile WebKit Chronicle Snare cases run once, in
+          # e2e_responsive_chronicle_webkit, not in these shards.
+          E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE: '1'
         run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/12 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-12/playwright.log
       - name: Retain responsive browser evidence
         if: always()
@@ -1177,7 +1289,7 @@ jobs:
   e2e_responsive:
     name: CI / e2e-responsive
     if: ${{ always() }}
-    needs: [e2e_responsive_matrix, e2e_responsive_flows]
+    needs: [e2e_responsive_matrix, e2e_responsive_flows, e2e_responsive_chronicle_webkit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -1185,12 +1297,14 @@ jobs:
         env:
           RESPONSIVE_MATRIX: ${{ needs.e2e_responsive_matrix.result }}
           RESPONSIVE_FLOWS: ${{ needs.e2e_responsive_flows.result }}
+          RESPONSIVE_CHRONICLE_WEBKIT: ${{ needs.e2e_responsive_chronicle_webkit.result }}
         run: |
           mkdir -p .ci-evidence/e2e-responsive
           printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-responsive/provenance.txt
-          printf 'e2e-responsive-matrix=%s\ne2e-responsive-flows=%s\n' "$RESPONSIVE_MATRIX" "$RESPONSIVE_FLOWS" | tee .ci-evidence/e2e-responsive/results.log
+          printf 'e2e-responsive-matrix=%s\ne2e-responsive-flows=%s\ne2e-responsive-chronicle-webkit=%s\n' "$RESPONSIVE_MATRIX" "$RESPONSIVE_FLOWS" "$RESPONSIVE_CHRONICLE_WEBKIT" | tee .ci-evidence/e2e-responsive/results.log
           test "$RESPONSIVE_MATRIX" = success
           test "$RESPONSIVE_FLOWS" = success
+          test "$RESPONSIVE_CHRONICLE_WEBKIT" = success
       - name: Retain responsive aggregate evidence
         if: always()
         continue-on-error: true
