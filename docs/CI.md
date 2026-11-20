@@ -45,7 +45,7 @@ same commit as the workflow.
 | `CI / avatar-recognition` | `avatar_recognition` | 8 min | Pinned Python recognition and dispatcher dependencies; offline portrait-lineup, private-journal, duplicate-request, package delivery, revocation, erasure/CDN-failure and worker recovery tests. Provider keys are empty. Required by the final `CI / test-build` aggregate. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all nineteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`), and the mobile WebKit Chronicle Snare lane (`e2e_responsive_chronicle_webkit`) to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and all nineteen flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`), and the WebKit Chronicle Snare lane (`e2e_responsive_chronicle_webkit`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 5 min | Fail-closed aggregate requiring both Warfront browser shards (`e2e_warfront_matrix`) to succeed. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 5 min | Requires all three gameplay shards; eleven live Express player-journey steps retain separate real servers and all existing cases. |
@@ -118,16 +118,20 @@ partitioned with `--shard=N/12`. The smoke step has its own 31-minute limit, so 
 hung slice fails while there is still time to upload its evidence. On main in
 October 2026 a slice took 12 to 26 minutes and setup about 2.
 
-The two mobile WebKit Chronicle Snare cases (390x844 and 1366x768) are not in
-those slices. They run in `CI / e2e-responsive-chronicle-webkit`
-(`e2e_responsive_chronicle_webkit`, 20 minutes): one worker on a fresh runner,
-against the same verified release artifact. The job records runner and browser
-diagnostics, and it fails unless `--list` shows exactly those two cases and both
-ran and passed. On main run `44654347768` the 1366x768 case lost its WebKit page
-("Target crashed") inside a crowded smoke slice, on a tree that had passed on its
-PR. The smoke steps set `E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE=1` to drop the lane's
-project, and `webkit-mobile` always skips the two cases, so each runs exactly
-once. `CI / e2e-responsive` requires this job too.
+The four WebKit Chronicle Snare cases (390x844 and 1366x768, each in the mobile
+and the desktop WebKit project) are not in those slices. They run in
+`CI / e2e-responsive-chronicle-webkit` (`e2e_responsive_chronicle_webkit`,
+20 minutes): one worker on a fresh runner, against the same verified release
+artifact. The job records runner and browser diagnostics, and it fails unless
+`--list` shows exactly those four cases and all four ran and passed. On main run
+`44654347768` the 1366x768 case lost its WebKit page ("Target crashed") inside a
+crowded smoke slice, on a tree that had passed on its PR. Only the mobile copies
+moved at first. On main run `44818321539` the `webkit-desktop` copy of the same
+1366x768 case then failed in slice 4: the page crashed, and on the retry it hung
+right after the board rendered. The desktop copies moved into the lane as well.
+The smoke steps set `E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE=1` to drop the lane's two
+projects, and `webkit-mobile` and `webkit-desktop` always skip the cases, so each
+runs exactly once. `CI / e2e-responsive` requires this job too.
 
 The CSP check, the Stronghold modes and the dedicated suites run beside the
 slices in nineteen `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`

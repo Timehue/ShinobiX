@@ -262,7 +262,7 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     assert.ok(aggregate.includes('test "$RESPONSIVE_CHRONICLE_WEBKIT" = success'), 'the required aggregate must fail when the Chronicle WebKit lane fails');
 });
 
-test('the mobile WebKit Chronicle Snare cases run once, required, in their own one-worker lane', () => {
+test('the WebKit Chronicle Snare cases run once, required, in their own one-worker lane', () => {
     const lane = workflow.split('  e2e_responsive_chronicle_webkit:\n')[1]?.split('\n  e2e_responsive_matrix:\n')[0];
     assert.ok(lane, 'Chronicle WebKit lane job is missing');
     assert.equal(occurrences('name: CI / e2e-responsive-chronicle-webkit\n'), 1);
@@ -272,16 +272,18 @@ test('the mobile WebKit Chronicle Snare cases run once, required, in their own o
     assert.ok(lane.includes('sha256sum -c release-dist.tgz.sha256'));
     assert.ok(lane.includes('tar -xzf .ci-artifacts/release/release-dist.tgz'));
     assert.doesNotMatch(lane, /npm run build\b/);
-    assert.ok(lane.includes("grep -Fx 'Total: 2 tests in 1 file'"), 'the lane must prove both cases are scheduled');
-    assert.match(lane, /--project=webkit-mobile-chronicle-snare --workers=1 --forbid-only/);
-    assert.ok(lane.includes('s.expected + s.flaky !== 2'), 'the lane must prove both cases ran and passed');
+    assert.ok(lane.includes("grep -Fx 'Total: 4 tests in 1 file'"), 'the lane must prove all four cases are scheduled');
+    assert.match(lane, /--project=webkit-mobile-chronicle-snare --project=webkit-desktop-chronicle-snare --workers=1 --forbid-only/);
+    assert.ok(lane.includes('s.expected + s.flaky !== 4'), 'the lane must prove all four cases ran and passed');
     assert.match(lane, /name: Retain Chronicle WebKit evidence\n\s+if: always\(\)/);
-    // The smoke shards skip the lane project, and webkit-mobile always skips the two cases.
+    // The smoke shards skip the lane projects, and webkit-mobile and webkit-desktop always skip the cases.
     const smoke = responsiveShards().split('      - name: ').find(value => value.startsWith('Cross-browser responsive and accessibility smoke\n'));
     assert.match(smoke, /E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE: '1'/);
     const config = readFileSync(new URL('../shinobij.client/playwright.config.ts', import.meta.url), 'utf8');
     assert.match(config, /name: 'webkit-mobile', grepInvert: CHRONICLE_SNARE_TITLE,/);
-    assert.match(config, /process\.env\.E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE === '1' \? \[\] : \[CHRONICLE_WEBKIT_LANE\]/);
+    assert.match(config, /name: 'webkit-desktop', testIgnore: SCREEN_WALK_SPEC, grepInvert: CHRONICLE_SNARE_TITLE,/);
+    assert.match(config, /name: 'webkit-desktop-chronicle-snare',/);
+    assert.match(config, /process\.env\.E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE === '1' \? \[\] : \[CHRONICLE_WEBKIT_LANE, CHRONICLE_WEBKIT_DESKTOP_LANE\]/);
     assert.match(config, /\.\.\.chronicleWebkitLane,/);
 });
 
