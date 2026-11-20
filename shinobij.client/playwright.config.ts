@@ -40,6 +40,24 @@ SOURCE_FIXTURE_SPECS.push('**/frontier-work.spec.ts');
 const LOCAL_ROSTER_SPECS = ['**/sector-model-roster.spec.ts'];
 const SCREEN_WALK_SPEC = ['**/non-combat-ui-audit.spec.ts', ...SOURCE_FIXTURE_SPECS, ...LOCAL_ROSTER_SPECS];
 
+// The two mobile WebKit Chronicle Snare cases (390x844 and 1366x768) run in
+// their own one-worker CI job, `CI / e2e-responsive-chronicle-webkit`, against
+// the same verified release build. On main run 44654347768 the 1366x768 case
+// lost its WebKit page ("Target crashed") inside a crowded matrix shard, while
+// the identical tree passed on its PR. The cases and the layout are unchanged;
+// only where they run moved. webkit-mobile always skips them, and the lane
+// project below runs exactly those two. The matrix shards set
+// E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE=1 so the lane project does not run there
+// as well; a plain local `npm run test:e2e` still runs both.
+const CHRONICLE_SNARE_TITLE = /Snare response, battle preview and result stay usable at /;
+const CHRONICLE_WEBKIT_LANE = {
+    name: 'webkit-mobile-chronicle-snare',
+    testMatch: '**/chronicle-duel-ux.spec.ts',
+    grep: CHRONICLE_SNARE_TITLE,
+    use: { browserName: 'webkit' as const, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+};
+const chronicleWebkitLane = process.env.E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE === '1' ? [] : [CHRONICLE_WEBKIT_LANE];
+
 export default defineConfig({
     testDir: './e2e',
     testIgnore: [...SOURCE_FIXTURE_SPECS, ...LOCAL_ROSTER_SPECS],
@@ -111,7 +129,8 @@ export default defineConfig({
         { name: 'webkit-desktop', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'webkit', viewport: { width: 1366, height: 768 } } },
         { name: 'chromium-compact', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'chromium', viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true } },
         { name: 'chromium-mobile', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
-        { name: 'webkit-mobile', use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+        { name: 'webkit-mobile', grepInvert: CHRONICLE_SNARE_TITLE, use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
         { name: 'chromium-tablet', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'chromium', viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true } },
+        ...chronicleWebkitLane,
     ],
 });
