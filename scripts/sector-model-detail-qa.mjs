@@ -5,7 +5,7 @@ if (process.env.NODE_ENV !== 'test' || process.env.SHINOBIX_QA_MEMORY_KV !== '1'
 const account = 'a'.repeat(32);
 Object.assign(process.env,{AVATAR_MODEL_PROFILE_DETAIL_ENABLED:'1',AVATAR_MODEL_CREATION_ENABLED:'1',
     R2_PUBLIC_BASE:'http://127.0.0.1:'+process.env.PORT+'/review-assets',
-    AVATAR_MODEL_READ_DAILY_LIMIT:'10',AVATAR_MODEL_READ_PLAYER_DAILY_LIMIT:'2',
+    
     OPENAI_API_KEY:'local-fixture', AVATAR_MODEL_R2_ACCOUNT_ID:account,
     AVATAR_MODEL_R2_PRIVATE_BUCKET:'review-private', AVATAR_MODEL_R2_ACCESS_KEY_ID:'fixture', AVATAR_MODEL_R2_SECRET_ACCESS_KEY:'fixture'});
 const original = globalThis.fetch, objects = new Map();

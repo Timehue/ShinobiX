@@ -89,7 +89,10 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
     assert.ok(dispatch.includes(jobId));
     const day=new Date().toISOString().slice(0,10);
     assert.equal(await kv.get('avatar-model:daily:'+day),2);
-    assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:600,spentMicros:0});
+    // A job holds one realistic job's cost, in the calendar month's row whatever `cycle` the config names.
+    const budgetKey='avatar-model:budget:modal:'+day.slice(0,7);
+    assert.deepEqual(await kv.get(budgetKey),{reservedMicros:200,spentMicros:0});
+    assert.equal(await kv.get('avatar-model:budget:modal:test-cycle'),null);
     // The configured OpenAI entry is ignored: the OpenAI account's own limit guards that spend.
     assert.equal(await kv.get('avatar-model:budget:openai:another-cycle'),null);
     assert.equal(await kv.get('avatar-model:active:'+owner),jobId);
@@ -113,7 +116,7 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
     assert.deepEqual(await Promise.all([cancelAs(owner),cancelAs(owner)]),[200,200]);
     assert.equal(await kv.get('avatar-model:active:'+owner),null);
     assert.equal((await post(owner,another,'second-request')).error,'quota');
-    assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:300,spentMicros:0});
+    assert.deepEqual(await kv.get(budgetKey),{reservedMicros:100,spentMicros:0});
     const winner = rival[0].status === 202 ? other : third;
     let failedId = rival.find(x=>x.status===202)!.jobId!;
     // A failed, already dispatched attempt settles its fixed cost (settleMicros) and frees the rest of its hold.
@@ -126,18 +129,15 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
         assert.deepEqual(await kv.get('avatar-model:failures:'+winner+':'+hash),{count:i});
         assert.equal(await kv.get('avatar-model:slot:'+winner+':'+day.slice(0,7)),null);
         // Only the first job was dispatched; the retries end unclaimed and release their whole hold free.
-        assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:0,spentMicros:10});
+        assert.deepEqual(await kv.get(budgetKey),{reservedMicros:0,spentMicros:10});
         assert.equal(await kv.get('avatar-model:budget:openai:another-cycle'),null);
         const failed=await kv.get<{reserved:unknown[];settledCosts?:Record<string,{spentMicros:number;basis:string}>}>('avatar-model:job:'+failedId);
         assert.deepEqual(failed?.reserved,[]);
         if (i===1) { assert.equal(failed.settledCosts?.modal.spentMicros,10); assert.equal(failed.settledCosts?.modal.basis,'fixed'); }
         else assert.equal(failed.settledCosts,undefined);
-        // The refund gave back the failed job's place in today's count, so a retry fits under a
-        // daily limit of 2 (the cancelled job, a player choice, still counts).
+        // The refund gave back the failed job's place in today's count (the cancelled job, a player
+        // choice, still counts). The count only feeds the admin view: nothing caps it.
         assert.equal(await kv.get('avatar-model:daily:'+day),1);
-        const config=JSON.parse(process.env.AVATAR_MODEL_RESERVATIONS_JSON!);
-        config.dailyLimit=2;
-        process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(config);
         const next = await post(winner,await token(winner),'retry-after-'+i);
         if (i === 3) assert.equal(next.error,'input');
         else { assert.equal(next.status,202); failedId=next.jobId!; }

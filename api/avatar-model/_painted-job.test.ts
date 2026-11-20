@@ -23,7 +23,7 @@ async function costumeFixture() {
 
 test('confirmed jobs paint once, bind the replacement to the screened rig and render every style from it',async t=>{
     Object.assign(process.env,{NODE_ENV:'test',SHINOBIX_QA_MEMORY_KV:'1',AVATAR_MODEL_CREATION_ENABLED:'1',
-        AVATAR_MODEL_READ_DAILY_LIMIT:'3',AVATAR_MODEL_READ_PLAYER_DAILY_LIMIT:'1',AVATAR_MODEL_PAINTED_COSTUMES_ENABLED:'1',
+        AVATAR_MODEL_PAINTED_COSTUMES_ENABLED:'1',
         AVATAR_MODEL_R2_ACCOUNT_ID:'a'.repeat(32),AVATAR_MODEL_R2_PRIVATE_BUCKET:'test-private',
         AVATAR_MODEL_R2_ACCESS_KEY_ID:'fixture',AVATAR_MODEL_R2_SECRET_ACCESS_KEY:'fixture'});
     const {kv}=await import('../_storage.js');

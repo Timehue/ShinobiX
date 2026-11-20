@@ -163,8 +163,8 @@ environment, kit/movement hashes and pool/model pins before enabling admission.
 
 The server needs the scoped private/public R2 configuration, moderation key,
 Modal interpreter/environment and a server-owned reservation policy. The policy
-holds the Modal cost of every paid stage and retry; OpenAI spend is guarded by
-the OpenAI account's own limit, not by the policy.
+holds one job's Modal cost while it runs, in the current UTC month; OpenAI spend is
+guarded by the OpenAI account's own limit, not by the policy. There is no daily cap.
 Display, creation and dispatch are independent flags. Missing configuration must
 be handled without preventing login, travel or NPC display.
 
@@ -270,7 +270,10 @@ three containers. The styles share their walking and standing frames, assembly
 requires those to match byte for byte, and the leg renderer's output differs by
 a few edge pixels between machines: a 2026-11-18 trial on three containers
 rendered every style and then failed assembly with "Incompatible movement
-banks". Keep it at one container unless that check is first made tolerant. Ending a job does not stop
+banks". Keep it at one container unless that check is first made tolerant, or a
+job's three styles are rendered inside one call. Every other step runs up to
+`PARALLEL_JOBS` (3) machines, so several players' checks, paintings,
+recognitions and assemblies run side by side; renders still go one job at a time. Ending a job does not stop
 style calls already running, so one cancelled early can still bill up to three
 renders, all recorded on the job.
 

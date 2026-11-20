@@ -95,7 +95,9 @@ async function covered(job:DispatchJob, providers:ProviderReservation[]) {
         // A job admitted before OpenAI stopped being budgeted still carries its hold; that hold is
         // released when the job ends, and it never stops the job.
         if (!isBudgetedProvider(reservation.provider)) continue;
-        const policy = providers.find(p => p.provider===reservation.provider && p.cycle===reservation.cycle);
+        // The hold stays in the month it was taken; a job still running when the month turns keeps
+        // its month's row and the provider's current limit.
+        const policy = providers.find(p => p.provider===reservation.provider);
         const row = await kv.get<{reservedMicros:number; spentMicros:number}>(prefix+'budget:'+reservation.provider+':'+reservation.cycle);
         if (!policy || !row || !Number.isSafeInteger(policy.limitMicros) || !Number.isSafeInteger(reservation.micros) ||
             reservation.micros<0 || !Number.isSafeInteger(row.reservedMicros) || row.reservedMicros<reservation.micros ||

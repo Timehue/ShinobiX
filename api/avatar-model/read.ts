@@ -28,12 +28,14 @@ const descriptions = new Map(Object.entries({
     'upright-character': 'Two-legged character',
 }));
 type ReadRow = { operation: string; stage: 'moderate' | 'read' | 'declined' | 'failed' | 'ready';
-    readToken?: string; summary?: string; frameHash?: string; expiresAt: number };
+    readToken?: string; summary?: string; frameHash?: string; expiresAt: number; startedAt?: number };
 const providers = { moderate: moderateModelPortrait, read: runModelRead, seal: sealModelRead };
+const READ_WINDOW_MS = 15 * 60_000;
+/** How long a check Modal is still working on (or still queueing) stays the same check. Modal may queue a
+ * check behind other players' for a while; restarting it then would only queue a second copy. */
+export const READ_PATIENCE_MS = 2 * 60 * 60_000;
 
 export async function checkPlayerPortrait(owner: string, ports = providers) {
-    const daily = Number(process.env.AVATAR_MODEL_READ_DAILY_LIMIT);
-    const perOwner = Number(process.env.AVATAR_MODEL_READ_PLAYER_DAILY_LIMIT);
     if (!playerPortraitChecksEnabled()) return { error: 'disabled' } as const;
     const day = new Date().toISOString().slice(0, 10);
     const slot = prefix + 'slot:' + owner + ':' + day.slice(0, 7), active = prefix + 'active:' + owner;
@@ -66,17 +68,18 @@ export async function checkPlayerPortrait(owner: string, ports = providers) {
         const [all, own, held] = await Promise.all([kv.get<number>(globalKey), kv.get<number>(ownerKey),
             kv.get<{ count: number }>(prefix + 'failures:' + owner + ':' + source)]);
         if ((held?.count ?? 0) >= 3) return { state: 'declined' } as const;
-        if (![own ?? 0, all ?? 0].every(v => Number.isSafeInteger(v) && v >= 0)) throw new Error('Invalid read counters');
-        if ((own ?? 0) >= perOwner || (all ?? 0) >= daily) return { error: 'limit' } as const;
-        const next: ReadRow = { operation: randomUUID(), stage: 'moderate', expiresAt: Date.now() + 15 * 60_000 };
+        // The day's counts are kept for the admin view; they never refuse a check (owner, 2026-11-20).
+        const count = (v: number | null | undefined) => Number.isSafeInteger(v) && v! >= 0 ? v! : 0;
+        const now = Date.now();
+        const next: ReadRow = { operation: randomUUID(), stage: 'moderate', startedAt: now, expiresAt: now + READ_WINDOW_MS };
         const ownerGuards=await modelOwnerProof(owner,accountId);
         if(!ownerGuards) return {error:'unavailable'} as const;
         const won = await kv.compareSetMany?.([
             ...ownerGuards, { op: 'assert', key: revisionKey, expected: revision },
             ...guards, { op: 'assert', key: slot, expected: null },
             { op: 'assert', key: active, expected: null }, { op: 'cas', key: rowKey, expected: row, value: next, ex: 900 },
-            { op: 'cas', key: globalKey, expected: all, value: (all ?? 0) + 1, ex: 172800 },
-            { op: 'cas', key: ownerKey, expected: own, value: (own ?? 0) + 1, ex: 172800 },
+            { op: 'cas', key: globalKey, expected: all, value: count(all) + 1, ex: 172800 },
+            { op: 'cas', key: ownerKey, expected: own, value: count(own) + 1, ex: 172800 },
         ]);
         if (!won) return { state: 'pending' } as const;
         row = next;
@@ -88,7 +91,14 @@ export async function checkPlayerPortrait(owner: string, ports = providers) {
     if (row.stage === 'read') {
         if (!row.frameHash || !/^[a-f0-9]{64}$/.test(row.frameHash)) throw new Error('Missing moderated frame');
         const result = await ports.read(row.operation, source, bytes, row.frameHash);
-        if (result.status === 'pending') return { state: 'pending' } as const;
+        if (result.status === 'pending') {
+            // Keep a check Modal still holds alive instead of letting it lapse and starting a second one.
+            const startedAt = row.startedAt ?? row.expiresAt - READ_WINDOW_MS, now = Date.now();
+            const until = Math.min(now + READ_WINDOW_MS, startedAt + READ_PATIENCE_MS);
+            if (row.expiresAt - now < 5 * 60_000 && until > row.expiresAt)
+                row = await persist(row, { ...row, startedAt, expiresAt: until });
+            return { state: 'pending' } as const;
+        }
         if (result.status === 'accepted') {
             const { receipt } = result;
             const summary = descriptions.get(receipt.style);

@@ -43,6 +43,10 @@ class FinishedCallTest(unittest.TestCase):
         # A job's three run styles share one machine: their common walking frames only match
         # byte for byte, as assembly requires, when one machine renders them.
         self.assertEqual(options["render_style"]["max_containers"], 1)
+        # Every other step takes several players at once.
+        for name in ("read_portrait", "recognize_sprite", "finish_sprite", "finish_styles"):
+            with self.subTest(parallel=name):
+                self.assertGreater(options[name]["max_containers"], 1)
         self.assertEqual(wrapped, ["render_style"])
 
     def test_publication_recovers_from_storage_and_only_settles_a_confirmed_worker_failure(self):

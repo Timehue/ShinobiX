@@ -39,7 +39,9 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
         setStartedAt(Date.now());
         try {
             const headers = { 'Content-Type': 'application/json', 'x-player-name': name };
-            const deadline = Date.now() + 12 * 60_000;
+            // The server keeps a check alive while Modal queues it behind other players (up to two hours),
+            // so a page that stops waiting here and retries resumes the same check.
+            const deadline = Date.now() + 30 * 60_000;
             for (;;) {
                 const res = await fetch('/api/avatar-model/' + (accepted ? 'jobs' : 'read'), {
                     method: 'POST', headers, cache: 'no-store',
@@ -70,8 +72,10 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
                     setMessage('We could not use this portrait. Your model for this month is still available.');
                     return;
                 }
-                if (accepted || result.state !== 'pending' || Date.now() >= deadline)
+                if (accepted || result.state !== 'pending')
                     throw new Error('We could not finish checking your portrait. You can retry.');
+                if (Date.now() >= deadline)
+                    throw new Error('Your portrait is still in line to be checked. Press Check portrait to keep waiting.');
                 await new Promise<void>(resolve => {
                     const finish = () => { clearTimeout(timer); controller.signal.removeEventListener('abort', finish); resolve(); };
                     const timer = setTimeout(finish, 5000);
@@ -89,7 +93,8 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
     return <div>
         {read && <p>{read.summary}</p>}
         <p>
-            We check your saved portrait first. This usually takes 2 to 6 minutes, so keep this window open.
+            We check your saved portrait first. This usually takes 2 to 6 minutes, longer when several players
+            are making models, so keep this window open.
             If your portrait passes, your model starts right away.
         </p>
         <p>

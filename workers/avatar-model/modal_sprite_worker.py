@@ -16,6 +16,10 @@ HERE = Path(__file__).resolve().parent
 INSTALL = Path("/opt/sprite")
 MAX_UPLOAD = 20 * 1024 * 1024
 app = modal.App("shinobix-avatar-sprites")
+# Machines per step, so several players' checks, paintings and assemblies run side by side instead of
+# queueing behind one another (a check queued 11 minutes on 2026-11-20). Each one is billed only while it
+# runs. render_style stays at one: a job's three styles must share a machine (see its decorator).
+PARALLEL_JOBS = 3
 openai_secret_name = os.environ.get("SPRITE_OPENAI_SECRET", "").strip()
 
 
@@ -164,7 +168,7 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
 # Modal's durable calls use HTTPS blob storage for portraits, fitted sheets and
 # movement packages. The reader, renderer and assemblers need that transport.
 @app.function(image=gpu_image,
-              gpu="L4", max_containers=1, min_containers=0,
+              gpu="L4", max_containers=PARALLEL_JOBS, min_containers=0,
               timeout=600, retries=0, block_network=False,
               # The upright-animal check asks the costume key's model. The list has one entry in
               # both the deploy and the container, whichever name the deploy chose.
@@ -246,7 +250,7 @@ def forget_battle_sprite(asset):
 
 
 if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
-    @app.function(image=gpu_image, gpu="L4", max_containers=1, min_containers=0, retries=0, timeout=PAINT_TIMEOUT,
+    @app.function(image=gpu_image, gpu="L4", max_containers=PARALLEL_JOBS, min_containers=0, retries=0, timeout=PAINT_TIMEOUT,
                   secrets=[modal.Secret.from_name(openai_secret_name or "shinobix-avatar-costume-paint",
                                                   required_keys=["OPENAI_API_KEY"])])
     def paint_costume(asset: str, descriptor: bytes, master: str, portrait: bytes, source: str):
@@ -318,7 +322,7 @@ if openai_secret_name:
     recognition_secrets.append(modal.Secret.from_name(openai_secret_name, required_keys=["OPENAI_API_KEY"]))
 
 
-@app.function(image=recognition_image, cpu=1, memory=2048, max_containers=1, min_containers=0,
+@app.function(image=recognition_image, cpu=1, memory=2048, max_containers=PARALLEL_JOBS, min_containers=0,
               timeout=600, retries=0, secrets=recognition_secrets)
 def recognize_sprite(asset, descriptor, master, portrait, source, finished_call, model, operation, attempt):
     import sys
@@ -443,7 +447,7 @@ def deliver(asset_id, descriptor, master_sha256, *, styles=None, archive=None, a
         return {"model": delivery, "objects": objects}
 
 
-@app.function(image=cpu_image, cpu=2, memory=4096, max_containers=1, min_containers=0,
+@app.function(image=cpu_image, cpu=2, memory=4096, max_containers=PARALLEL_JOBS, min_containers=0,
               timeout=1800, retries=0, block_network=False)
 def finish_sprite(asset_id: str, descriptor: bytes, master_sha256: str,
                   archive: bytes, archive_sha256: str):
@@ -451,7 +455,7 @@ def finish_sprite(asset_id: str, descriptor: bytes, master_sha256: str,
     return deliver(asset_id, descriptor, master_sha256, archive=archive, archive_sha256=archive_sha256)
 
 
-@app.function(image=cpu_image, cpu=2, memory=4096, max_containers=1, min_containers=0,
+@app.function(image=cpu_image, cpu=2, memory=4096, max_containers=PARALLEL_JOBS, min_containers=0,
               timeout=1800, retries=0, block_network=False)
 def finish_styles(asset_id: str, descriptor: bytes, master_sha256: str, styles: dict,
                   attempt: int | None = None, movement: str | None = None):

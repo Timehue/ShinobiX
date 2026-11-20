@@ -392,7 +392,7 @@ test('model admissions and removal notices commit once across two API workers on
             await put(`save:${owner}`, { character: { name: owner, patreon: { active: true, source: 'promo', tier: 'supporter' } } });
             await put(perImageKey('avatar:' + owner), 'data:image/png;base64,' + portrait.toString('base64'));
             url.pathname = '/' + name;
-            const policy = { dailyLimit: 10, recognition:{model:'local-vision-fixture',poolSha256:'9'.repeat(64)}, providers: ['modal','openai'].map(provider=>({ provider, cycle: 'pg-race', perAttemptMicros: 100, limitMicros: 300 })) };
+            const policy = { recognition:{model:'local-vision-fixture',poolSha256:'9'.repeat(64)}, providers: ['modal','openai'].map(provider=>({ provider, cycle: 'pg-race', perAttemptMicros: 100, limitMicros: 300 })) };
             const workers = await Promise.all([0, 1].map(async () => {
                 const env: NodeJS.ProcessEnv = { ...process.env, ...modelCreationFixture, DATABASE_URL: url.href, PG_SSL: 'disable', NODE_ENV: 'test',
                     SHINOBIX_QA_DISPOSABLE_PG: '1', SESSION_SECRET: 'model-admission-disposable-pg-test-secret',
@@ -444,7 +444,9 @@ test('model admissions and removal notices commit once across two API workers on
             assert.equal(await get('avatar-model:active:' + owner), jobId);
             assert.deepEqual(await get('avatar-model:dispatch'), [jobId]);
             assert.equal((await get(`avatar-model:slot:${owner}:${job.monthKey}`)).jobId, jobId);
-            assert.deepEqual(await get('avatar-model:budget:modal:pg-race'), { reservedMicros: 300, spentMicros: 0 });
+            // One job's cost, held in the calendar month's row whatever `cycle` the config names.
+            assert.deepEqual(await get('avatar-model:budget:modal:' + job.monthKey), { reservedMicros: 100, spentMicros: 0 });
+            assert.equal(await get('avatar-model:budget:modal:pg-race'), undefined);
             // OpenAI is guarded by the OpenAI account's own limit: admission holds no OpenAI money.
             assert.equal(await get('avatar-model:budget:openai:pg-race'), undefined);
             assert.equal(job.recognition.poolSha256,'9'.repeat(64));

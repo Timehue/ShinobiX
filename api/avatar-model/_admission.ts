@@ -12,13 +12,16 @@ import { declarePrivateRead, withPrivateFileLock, type PrivateReference } from '
 const prefix = 'avatar-model:';
 const sha = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 export const canCreatePlayerModel = (character: unknown) => isPatreonSubscriber(character);
+/** Portrait checks have no daily cap (owner, 2026-11-20): the monthly model slot, the rate limit and the
+ * three-failure hold per portrait bound them. Old AVATAR_MODEL_READ_*_DAILY_LIMIT variables are ignored. */
 export function playerPortraitChecksEnabled() {
-    return process.env.AVATAR_MODEL_CREATION_ENABLED === '1' && process.env.AVATAR_MODEL_KILL_SWITCH !== '1' &&
-        [process.env.AVATAR_MODEL_READ_DAILY_LIMIT, process.env.AVATAR_MODEL_READ_PLAYER_DAILY_LIMIT]
-            .every(limit => Number.isSafeInteger(Number(limit)) && Number(limit) > 0);
+    return process.env.AVATAR_MODEL_CREATION_ENABLED === '1' && process.env.AVATAR_MODEL_KILL_SWITCH !== '1';
 }
-/** The most one Modal attempt holds ($1.25). The first live job cost $0.76 in total; a lower configured value still wins. */
-export const MODAL_PER_ATTEMPT_CAP_MICROS = 1_250_000;
+/** The most one job holds on Modal ($1), the same as the fixed charge a finished job settles
+ * (DEFAULT_SETTLE_MICROS). Live jobs cost $0.65-0.76 on Modal; a lower configured value still wins. */
+export const MODAL_PER_ATTEMPT_CAP_MICROS = 1_000_000;
+/** The month a hold is counted in. The budget follows the calendar (UTC), whatever `cycle` the config names. */
+export const budgetCycle = (now = new Date()) => now.toISOString().slice(0, 7);
 /** The cap on a configured OpenAI attempt ($0.75). Jobs no longer hold OpenAI money: since 2026-11-19 the OpenAI
  * account's own spend limit and warning email guard it (owner's call), because a $3 in-game cap blocked every player
  * after three jobs. An `openai` entry in AVATAR_MODEL_RESERVATIONS_JSON is still accepted and ignored by admission. */
@@ -27,7 +30,8 @@ export const OPENAI_PER_ATTEMPT_CAP_MICROS = 750_000;
 export const isBudgetedProvider = (provider: string) => provider !== 'openai';
 const PER_ATTEMPT_CAPS: Record<string, number> = { modal: MODAL_PER_ATTEMPT_CAP_MICROS, openai: OPENAI_PER_ATTEMPT_CAP_MICROS };
 export type ProviderReservation ={ provider: 'modal' | 'openai'; cycle: string; limitMicros: number; perAttemptMicros: number };
-export type AdmissionPolicy = { enabled: boolean; dailyLimit: number; providers: ProviderReservation[]; recognition?:RecognitionPolicy };
+/** `dailyLimit` is no longer read: models have no game-wide daily cap (owner, 2026-11-20). */
+export type AdmissionPolicy = { enabled: boolean; dailyLimit?: number; providers: ProviderReservation[]; recognition?:RecognitionPolicy };
 
 /** Static readiness for new requests. Provider access is verified separately at deployment. */
 export function modelCreationPolicy(): AdmissionPolicy {
@@ -56,14 +60,16 @@ export function modelCreationPolicy(): AdmissionPolicy {
         new URL(artBase);
         const config = JSON.parse(env.AVATAR_MODEL_RESERVATIONS_JSON ?? '{}') as Partial<AdmissionPolicy> | null;
         const policy = { ...config, enabled: true } as AdmissionPolicy;
-        // A job holds three attempts while it runs. The live policy held $6 per Modal attempt
-        // ($18 a job) and $1 per OpenAI attempt when a whole job costs under $1, so one running
-        // job filled the budget.
+        // A job holds one realistic job's cost while it runs. It used to hold three worst-case
+        // attempts ($18, later $3.75, a job) when a whole job costs under $1 on Modal, so a few
+        // running jobs filled the budget. The month comes from the calendar: a config `cycle` of
+        // "2026-11" would otherwise never reset.
+        const cycle = budgetCycle();
         if (Array.isArray(policy.providers)) policy.providers = policy.providers.map(p =>
             p && Object.hasOwn(PER_ATTEMPT_CAPS, p.provider) && Number.isSafeInteger(p.perAttemptMicros)
-                ? { ...p, perAttemptMicros: Math.min(p.perAttemptMicros, PER_ATTEMPT_CAPS[p.provider]!) } : p);
+                ? { ...p, cycle, perAttemptMicros: Math.min(p.perAttemptMicros, PER_ATTEMPT_CAPS[p.provider]!) } : p);
         if (eligiblePolicy(policy) && policy.providers.every(provider => !isBudgetedProvider(provider.provider) ||
-            (provider.perAttemptMicros > 0 && provider.limitMicros >= provider.perAttemptMicros * 3)))
+            (provider.perAttemptMicros > 0 && provider.limitMicros >= provider.perAttemptMicros)))
             return policy;
     } catch {
         // Invalid configuration must not interrupt the model library or expose secret values.
@@ -123,13 +129,13 @@ export async function issueModelRead(read: ApprovedRead): Promise<string> {
 }
 
 function eligiblePolicy(policy: AdmissionPolicy) {
-    return policy.enabled && isRecognitionPolicy(policy.recognition) && Number.isSafeInteger(policy.dailyLimit) && policy.dailyLimit>0
+    return policy.enabled && isRecognitionPolicy(policy.recognition)
         && Array.isArray(policy.providers) && policy.providers.length>0 && policy.providers.every(p=>p && typeof p==='object')
         && policy.providers.some(p=>p.provider==='modal' && p.perAttemptMicros>0)
         && new Set(policy.providers.map(p=>p.provider)).size===policy.providers.length
         && policy.providers.every(p=>['openai','modal'].includes(p.provider) && typeof p.cycle==='string' && /^[a-zA-Z0-9_-]{1,64}$/.test(p.cycle)
             && Number.isSafeInteger(p.limitMicros) && p.limitMicros>=0 && Number.isSafeInteger(p.perAttemptMicros)
-            && p.perAttemptMicros>=0 && Number.isSafeInteger(p.perAttemptMicros*3));
+            && p.perAttemptMicros>=0);
 }
 
 /** The caller supplies an authenticated slug and server-owned cost policy. */
@@ -170,8 +176,8 @@ export async function admitModelJob(owner: string, token: string, idempotencyKey
             kv.get(slot),kv.get(active),kv.get<number>(dailyKey),kv.get<string[]>(dispatchKey),
         ]);
         if (existingSlot || existingActive) return {error:'quota'};
-        if (!Number.isSafeInteger(daily??0) || (daily??0)<0) return {error:'budget'};
-        if ((daily??0)>=policy.dailyLimit) return {error:'daily'};
+        // The day's count is kept for the admin view and refunds; it never refuses a model.
+        const nextDaily = Number.isSafeInteger(daily) && daily!>=0 ? daily!+1 : 1;
         const ops: KvCasOp[] = [];
         const reserved = [];
         for (const p of policy.providers) {
@@ -179,7 +185,7 @@ export async function admitModelJob(owner: string, token: string, idempotencyKey
             const key=prefix+'budget:'+p.provider+':'+p.cycle;
             const row=await kv.get<Budget>(key);
             const prev=row??{reservedMicros:0,spentMicros:0};
-            const amount=p.perAttemptMicros*3;
+            const amount=p.perAttemptMicros;
             if (![prev.reservedMicros,prev.spentMicros].every(v=>Number.isSafeInteger(v)&&v>=0)
                 || prev.spentMicros+prev.reservedMicros+amount>p.limitMicros) return {error:'budget'};
             ops.push({op:'cas',key,expected:row,value:{...prev,reservedMicros:prev.reservedMicros+amount}});
@@ -203,7 +209,7 @@ export async function admitModelJob(owner: string, token: string, idempotencyKey
             {op:'cas',key:slot,expected:null,value:{jobId,reservedAt:createdAt}},
             {op:'cas',key:active,expected:null,value:jobId},{op:'cas',key:prefix+'job:'+jobId,expected:null,value:job},
             {op:'cas',key:idem,expected:null,value:{jobId,requestHash,accountId:read.accountId},ex:32*86400},
-            {op:'cas',key:dailyKey,expected:daily,value:(daily??0)+1},
+            {op:'cas',key:dailyKey,expected:daily,value:nextDaily},
             {op:'cas',key:dispatchKey,expected:dispatch,value:[...(dispatch??[]),jobId]});
         if (await kv.compareSetMany?.(ops)) return {jobId};
         const committed=await kv.get<Receipt>(idem);
