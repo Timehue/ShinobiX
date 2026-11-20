@@ -14,7 +14,7 @@
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { HOLLOW_GATE_STEP_MS } from "./use-hollow-gate-walk";
-import { playerGaitTilesPerSecond } from "../../../../shared/sector-model-motion";
+import { playerGaitTilesPerSecond } from "../../../../shared/sector-gait-rates";
 import { SectorModelFigure, type SectorModelHandle } from "../../components/SectorModelFigure";
 import { WorldStandingFigure } from '../../components/WorldStandingFigure';
 import type { PlayerModel, SprintStyle } from "../../lib/player-model";

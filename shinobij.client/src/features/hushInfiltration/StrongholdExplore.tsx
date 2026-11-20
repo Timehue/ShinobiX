@@ -21,7 +21,7 @@ import { HollowGateFissureArt } from '../../components/HollowGateFissureArt';
 import { HOLLOW_GATE_FISSURE_BEAT_MS, hollowGateArenaFissures, hollowGateFissureState, type HollowGateFissureState } from '../../lib/hollow-gate-arena';
 import { undergroundCamera, undergroundRenderWindow, undergroundRooms, undergroundTileSize } from '../../lib/underground-sector-camera';
 import { sectorContestLabel, sectorContestGarrisonReady, sectorEngagementFor, viewerSectorContest, type SectorWarContestView } from '../../lib/sector-war-engagement';
-import { playerGaitTilesPerSecond } from '../../../../shared/sector-model-motion';
+import { playerGaitTilesPerSecond } from '../../../../shared/sector-gait-rates';
 import './stronghold.css';
 const strongholdVisibilityCache = new WeakMap<object, Map<number, Set<number>>>();
 function visibilityForStrongholdTile(base: ReturnType<typeof buildVaultInterior>, tile: number): Set<number> {

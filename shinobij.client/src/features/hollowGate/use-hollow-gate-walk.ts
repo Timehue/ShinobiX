@@ -22,7 +22,7 @@
 import { useEffect, useRef, useState } from "react";
 import { findHollowGatePath } from "../../lib/hollow-gate-path";
 import type { HollowGateShrineRun } from "../../types/character";
-import { playerGaitTilesPerSecond } from "../../../../shared/sector-model-motion";
+import { playerGaitTilesPerSecond } from "../../../../shared/sector-gait-rates";
 
 // Pause between committed steps: the sector RUN pace (~300 ms a tile), so the
 // figure covers ground exactly as fast as it does in a sector. The avatar
