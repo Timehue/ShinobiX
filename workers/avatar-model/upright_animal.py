@@ -29,7 +29,8 @@ def request_body(png, model=MODEL):
     properties = {"species": {"type": "string"}, **{key: {"type": "boolean"} for key in QUESTIONS}}
     schema = {"type": "object", "additionalProperties": False, "properties": properties, "required": list(properties)}
     image = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
-    return {"model": model, "store": False, "instructions": PROMPT, "max_output_tokens": 256,
+    # Reasoning tokens count against this allowance, and a cut-off answer fails the screen: keep it generous.
+    return {"model": model, "store": False, "instructions": PROMPT, "max_output_tokens": 1024,
             "input": [{"role": "user", "content": [{"type": "input_image", "detail": "high", "image_url": image}]}],
             "text": {"format": {"type": "json_schema", "name": "upright_animal", "strict": True, "schema": schema}}}
 

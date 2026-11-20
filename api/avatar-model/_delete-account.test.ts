@@ -38,7 +38,12 @@ test('full account deletion fences jobs, revokes assets, queues erasure and keep
     await f.kv.set('avatar-model:asset:'+assetId,{assetId,version,owner:f.owner,accountId:f.accountId,
         status:'ready',sourceSha256:f.source,masterSha256:'d'.repeat(64),jobId:'old-finished-job'});
     await pushOfflineNotice(f.owner,{kind:'world-model-removed',by:'moderation',sector:0,at:1,modelAccountId:f.accountId});
+    // A check the model loop is finishing, beside another player's, and an old check result (_auto-start.ts).
+    await f.kv.set('avatar-model:checks',[{owner:'someoneelse',since:1},{owner:f.owner,since:2}]);
+    await f.kv.set('avatar-model:check-result:'+f.owner,'declined');
     const result=await withKvLock('save:'+f.owner,()=>deletePlayerAccount(f.owner),{failClosed:true});
+    assert.deepEqual(await f.kv.get('avatar-model:checks'),[{owner:'someoneelse',since:1}]);
+    assert.equal(await f.kv.get('avatar-model:check-result:'+f.owner),null);
     assert.deepEqual(result.failures,[]);
     assert.equal(await f.kv.get('auth:'+f.owner),null);assert.equal(await f.kv.get('save:'+f.owner),null);
     assert.equal(await f.kv.get(offlineNoticesKey(f.owner)),null);

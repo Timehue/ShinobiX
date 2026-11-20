@@ -97,7 +97,8 @@ export function validateModelRead(read: ApprovedRead): void {
         || (read.profileSha256 !== undefined && !/^[a-f0-9]{64}$/.test(read.profileSha256))
         || !['A','B'].includes(read.path) || typeof read.slug!=='string' || !read.slug.length || read.slug.length>128
         || ![read.kitVersion,read.pipelineVersion].every(v=>typeof v==='string' && v.length>0 && v.length<=128)
-        || !Number.isSafeInteger(read.expiresAt) || read.expiresAt <= Date.now() || read.expiresAt > Date.now()+15*60_000
+        // An accepted check lasts up to 30 minutes (read.ts) so the model loop can start it after the player leaves.
+        || !Number.isSafeInteger(read.expiresAt) || read.expiresAt <= Date.now() || read.expiresAt > Date.now()+30*60_000
         || !Number.isSafeInteger(read.revision) || read.revision<0 || typeof read.summary!=='string' || !read.summary.trim() || read.summary.length>1000)
         throw new Error('Invalid completed portrait read');
 }

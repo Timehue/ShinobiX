@@ -11,7 +11,7 @@ import { canCreatePlayerModel, modelCreationPolicy, playerPortraitChecksEnabled 
 import { paintedTemplates, sealModelRead } from './_private-files.js';
 import { moderateModelPortrait, runModelRead } from './_read-provider.js';
 import { ensureModelOwner, modelOwnerProof } from './_owner.js';
-import { awaitPortraitCheck } from './_auto-start.js';
+import { awaitPortraitCheck, endPortraitCheck } from './_auto-start.js';
 
 const prefix = 'avatar-model:';
 const hash = (data: Buffer) => createHash('sha256').update(data).digest('hex');
@@ -36,7 +36,8 @@ const READ_WINDOW_MS = 15 * 60_000;
  * check behind other players' for a while; restarting it then would only queue a second copy. */
 export const READ_PATIENCE_MS = 2 * 60 * 60_000;
 
-export async function checkPlayerPortrait(owner: string, ports = providers) {
+/** `resumeOnly` (the model loop, _auto-start.ts) advances an existing check and never starts or pays for a new one. */
+export async function checkPlayerPortrait(owner: string, ports = providers, { resumeOnly = false } = {}) {
     if (!playerPortraitChecksEnabled()) return { error: 'disabled' } as const;
     const day = new Date().toISOString().slice(0, 10);
     const slot = prefix + 'slot:' + owner + ':' + day.slice(0, 7), active = prefix + 'active:' + owner;
@@ -65,6 +66,7 @@ export async function checkPlayerPortrait(owner: string, ports = providers) {
     };
     let row = await kv.get<ReadRow>(rowKey);
     if (!row || row.expiresAt <= Date.now()) {
+        if (resumeOnly) return { error: 'expired' } as const;
         const globalKey = prefix + 'read-day:' + day, ownerKey = globalKey + ':' + owner + ':' + accountId;
         const [all, own, held] = await Promise.all([kv.get<number>(globalKey), kv.get<number>(ownerKey),
             kv.get<{ count: number }>(prefix + 'failures:' + owner + ':' + source)]);
@@ -108,7 +110,9 @@ export async function checkPlayerPortrait(owner: string, ports = providers) {
             if (!summary || receipt.declined !== null || receipt.sourceSha256 !== source ||
                 hash(sheet) !== receipt.sheetSha256 || fit.fit?.style !== receipt.style ||
                 !/^[a-f0-9]{64}$/.test(result.pipelineVersion)) throw new Error('Invalid portrait classification');
-            const expiresAt = Date.now() + 10 * 60_000;
+            // 30 minutes to start the model: the model loop runs each minute but can wait behind long publish
+            // steps, and an accepted check that lapses would have to be checked (and paid for) again.
+            const expiresAt = Date.now() + 30 * 60_000;
             const paintCostume=process.env.AVATAR_MODEL_PAINTED_COSTUMES_ENABLED==='1' && !fit.fit.paintingSha256 &&
                 paintedTemplates.has(fit.fit.template);
             if (fit.fit.requiresPainting === true && !paintCostume) throw new Error('Close-up painting unavailable');
@@ -131,7 +135,8 @@ export async function checkPlayerPortrait(owner: string, ports = providers) {
         } else throw new Error('Invalid reader state');
     }
     if (row.stage === 'ready') return { state: 'ready', path: 'A', summary: row.summary, readToken: row.readToken } as const;
-    return row.stage === 'declined' ? { state: 'declined' } as const : { error: 'unavailable' } as const;
+    if (row.stage === 'declined') return { state: 'declined' } as const;
+    return row.stage === 'failed' ? { error: 'failed' } as const : { error: 'unavailable' } as const;
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -148,10 +153,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         if (!await enforceRateLimitKv(req, res, 'avatar-model-screen', 24, 60_000, owner)) return;
         const result = await withKvLock(prefix + 'screen-owner:' + owner, () => checkPlayerPortrait(owner),
             { ttlSec: 180, failClosed: true });
-        if (result.error) return res.status(({ entitlement: 403, quota: 409, limit: 429, disabled: 503, busy: 503, unavailable: 503 })[result.error]).json(result);
+        if (result.error) return res.status(({ entitlement: 403, quota: 409, limit: 429, disabled: 503, busy: 503, unavailable: 503,
+            failed: 503, expired: 503 })[result.error]).json(result);
         // The player may now close the window: the model loop finishes this check and starts the model.
-        // A busy list is retried by the page's next poll; it never fails the check itself.
-        if (result.state !== 'declined') await awaitPortraitCheck(owner).catch(() => {});
+        // A busy list is retried by the page's next poll; it never fails the check itself. A declined portrait
+        // replaces any older result the panel would otherwise still show.
+        await (result.state === 'declined' ? endPortraitCheck(owner, 'declined') : awaitPortraitCheck(owner)).catch(() => {});
         return res.status(result.state === 'pending' ? 202 : 200).json(result);
     } catch { return res.status(503).json({ error: 'unavailable' }); }
 }

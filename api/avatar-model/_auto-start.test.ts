@@ -20,8 +20,14 @@ test('the model loop finishes a waiting portrait check and starts the model once
     let admitted: Admit = { jobId: 'job-1' };
     const checks: string[] = [], admissions: string[][] = [];
     const ports = {
-        check: async (owner: string) => { checks.push(owner); return next; },
+        check: async (owner: string, _ports: unknown, options?: { resumeOnly?: boolean }) => {
+            // The loop must only ever resume a check: starting one would count (and pay for) a second check.
+            assert.equal(options?.resumeOnly, true);
+            checks.push(owner);
+            return next;
+        },
         admit: async (owner: string, readToken: string, key: string) => { admissions.push([owner, readToken, key]); return admitted; },
+        banned: async (owner: string) => owner === 'banned',
     } as never;
     const waiting = async () => (await kv.get<{ owner: string; since: number }[]>('avatar-model:checks')) ?? [];
 
@@ -57,26 +63,54 @@ test('the model loop finishes a waiting portrait check and starts the model once
     await tickPortraitChecks(ports);
     assert.equal(await portraitCheckStatus('rill'), 'declined');
 
-    // A failed check is remembered; a switched-off service only waits.
+    // A switched-off service, a model reset or a storage blip only waits; a failed or lapsed check is remembered.
     await awaitPortraitCheck('kai');
-    next = { error: 'disabled' };
+    for (const error of ['disabled', 'unavailable', 'limit'] as const) {
+        next = { error } as Check;
+        await tickPortraitChecks(ports);
+        assert.equal(await portraitCheckStatus('kai'), 'checking', error + ' must keep waiting');
+    }
+    next = { error: 'failed' } as Check;
     await tickPortraitChecks(ports);
-    assert.equal(await portraitCheckStatus('kai'), 'checking');
-    next = { error: 'unavailable' };
+    assert.equal(await portraitCheckStatus('kai'), 'failed');
+    await awaitPortraitCheck('kai');
+    next = { error: 'expired' } as Check;
     await tickPortraitChecks(ports);
     assert.equal(await portraitCheckStatus('kai'), 'failed');
 
-    // The page holding the check this minute (or a provider blip) only waits for the next pass.
-    await awaitPortraitCheck('mira');
-    const blip = { check: async () => { throw new Error('contended'); }, admit: ports } as never;
-    await advancePortraitCheck({ owner: 'mira', since: Date.now() }, blip);
-    assert.equal(await portraitCheckStatus('mira'), 'checking');
-
-    // A busy admission retries; an expired one fails.
-    next = { state: 'ready', path: 'A', summary: 'Two-legged character', readToken: token };
-    admitted = { error: 'busy' };
+    // A banned player is dropped without a check or a model.
+    await awaitPortraitCheck('banned');
+    checks.length = 0;
     await tickPortraitChecks(ports);
-    assert.equal(await portraitCheckStatus('mira'), 'checking');
+    assert.deepEqual(checks, []);
+    assert.equal(await portraitCheckStatus('banned'), null);
+
+    // The page holding the check this minute only waits; a check that keeps throwing fails after five passes
+    // instead of showing "checking" for two hours, and a success clears the count.
+    const { LockContendedError } = await import('../_lock.js');
+    await awaitPortraitCheck('mira');
+    const entry = async () => (await waiting()).find(w => w.owner === 'mira') as { owner: string; since: number; errors?: number };
+    const throwing = (error: Error) => ({ check: async () => { throw error; }, admit: ports, banned: async () => false }) as never;
+    await advancePortraitCheck(await entry(), throwing(new LockContendedError('avatar-model:screen-owner:mira')));
+    assert.equal((await entry()).errors, undefined, 'a busy lock is not an error');
+    for (let pass = 1; pass <= 4; pass++) {
+        await advancePortraitCheck(await entry(), throwing(new Error('Invalid portrait classification')));
+        assert.equal((await entry()).errors, pass);
+    }
+    next = { state: 'pending' };
+    await advancePortraitCheck(await entry(), ports);
+    assert.equal((await entry()).errors, undefined, 'a good pass clears the count');
+    for (let pass = 1; pass <= 5; pass++) await advancePortraitCheck(await entry() ?? { owner: 'mira', since: start }, throwing(new Error('x')));
+    assert.equal(await portraitCheckStatus('mira'), 'failed');
+    await awaitPortraitCheck('mira');
+
+    // A busy, switched-off or full admission retries; an expired one fails.
+    next = { state: 'ready', path: 'A', summary: 'Two-legged character', readToken: token };
+    for (const error of ['busy', 'disabled', 'budget'] as const) {
+        admitted = { error };
+        await tickPortraitChecks(ports);
+        assert.equal(await portraitCheckStatus('mira'), 'checking', error + ' must keep waiting');
+    }
     admitted = { error: 'read-expired' };
     await tickPortraitChecks(ports);
     assert.equal(await portraitCheckStatus('mira'), 'failed');

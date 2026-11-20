@@ -54,6 +54,8 @@ const _noCachePrefixes = [
     // erasure proofs must reflect the same shared state as their jobs.
     'avatar-model:slot:', 'avatar-model:job:', 'avatar-model:asset:',
     'avatar-model:owner:', 'avatar-model:private-ref:', 'avatar-model:cleanup:',
+    // The page and the model loop both rewrite the waiting-check list by exact CAS (_auto-start.ts).
+    'avatar-model:checks', 'avatar-model:check-result:',
     // Save blobs are optimistic-concurrency and RMW authority shared across
     // processes. A process-local cached v5 can survive another process's v6
     // commit, pass an exact `_baseSaveVersion:5` guard under the distributed

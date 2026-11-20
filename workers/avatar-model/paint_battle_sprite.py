@@ -183,7 +183,7 @@ def facing(png, api_key):
               "properties": {"facing": {"type": "string", "enum": ["left", "right", "unclear"]}}}
     url = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
     reply = post_json("/v1/responses", {
-        "model": FACING_MODEL, "store": False, "instructions": FACING_PROMPT, "max_output_tokens": 256,
+        "model": FACING_MODEL, "store": False, "instructions": FACING_PROMPT, "max_output_tokens": 1024,
         "input": [{"role": "user", "content": [{"type": "input_image", "detail": "low", "image_url": url}]}],
         "text": {"format": {"type": "json_schema", "name": "sprite_facing", "strict": True, "schema": schema}}},
         api_key, 60)

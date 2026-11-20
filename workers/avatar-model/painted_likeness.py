@@ -80,7 +80,7 @@ def request_body(portrait_png, row_png, model=MODEL):
                for data in (portrait_png, row_png)]
     # The recognition review's allowance. Reasoning tokens count against it, and an answer cut
     # short is incomplete, which would quietly turn this check off.
-    return {"model": model, "store": False, "instructions": PROMPT, "max_output_tokens": 512,
+    return {"model": model, "store": False, "instructions": PROMPT, "max_output_tokens": 1024,
             "input": [{"role": "user", "content": content}],
             "text": {"format": {"type": "json_schema", "name": "painted_likeness", "strict": True, "schema": schema}}}
 

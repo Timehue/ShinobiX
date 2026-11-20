@@ -53,8 +53,13 @@ test('a portrait check Modal still holds stays the same check, up to two hours',
     assert.deepEqual(new Set(operations), new Set([first.operation]), 'one Modal operation the whole time');
     assert.equal(await kv.get(day), 1, 'one check counted');
 
-    // Past two hours it lapses, and the next poll starts a fresh check.
+    // Past two hours it lapses. The model loop, which only resumes (_auto-start.ts), never starts another one.
     t.mock.timers.setTime(start + READ_PATIENCE_MS + 60_000);
+    assert.deepEqual(await checkPlayerPortrait(owner, ports, { resumeOnly: true }), { error: 'expired' });
+    assert.equal(await kv.get(day), 1, 'a resumed check is never counted again');
+    assert.deepEqual(new Set(operations), new Set([first.operation]));
+
+    // The player's own next poll starts a fresh check.
     assert.deepEqual(await checkPlayerPortrait(owner, ports), { state: 'pending' });
     const fresh = await row();
     assert.ok(fresh);

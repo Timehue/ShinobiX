@@ -183,7 +183,7 @@ def response_request(prepared, model):
         content.append({"type": "input_image", "detail": "high", "image_url":
                         "data:image/png;base64," + base64.b64encode(prepared[key]).decode("ascii")})
     return {"model": model, "store": False, "instructions": PROMPT,
-            "input": [{"role": "user", "content": content}], "max_output_tokens": 512,
+            "input": [{"role": "user", "content": content}], "max_output_tokens": 1024,
             "text": {"format": {"type": "json_schema", "name": "sprite_recognition", "strict": True, "schema": schema}}}
 
 
