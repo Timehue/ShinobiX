@@ -105,15 +105,9 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
     assert.equal(job.recognition.poolSha256,'9'.repeat(64));
     assert.match(job.recognition.nonce,/^[a-f0-9]{64}$/);
     const {endModelJob} = await import('./_settlement.js');
-    const cancel = (await import('./jobs/cancel.js')).default as unknown as typeof handler;
-    async function cancelAs(slug:string) {
-        let status = 0;
-        const res = {setHeader(){},status(code:number){status=code;return res;},json(){},end(){}};
-        await cancel({method:'POST', query:{id:jobId}, headers:{'x-player-token':issuePlayerToken(slug)}} as never,res as never);
-        return status;
-    }
-    assert.equal(await cancelAs(other),404);
-    assert.deepEqual(await Promise.all([cancelAs(owner),cancelAs(owner)]),[200,200]);
+    // Players cannot cancel (owner, 2026-11-20). A moderator removal ends a job the same way: the month stays used.
+    assert.equal(await endModelJob(jobId,other,'moderator-removed'),'unavailable');
+    assert.deepEqual(await Promise.all([endModelJob(jobId,owner,'moderator-removed'),endModelJob(jobId,owner,'moderator-removed')]),['cancelled','cancelled']);
     assert.equal(await kv.get('avatar-model:active:'+owner),null);
     assert.equal((await post(owner,another,'second-request')).error,'quota');
     assert.deepEqual(await kv.get(budgetKey),{reservedMicros:100,spentMicros:0});

@@ -489,33 +489,45 @@ if (process.env.SECTOR_MODEL_LIGHTING_REVIEW) test.describe("Frostfang pilot rev
     }
 });
 
-test("Profile confirms cancellation and explains the used monthly creation", async ({page}) => {
+// Players cannot cancel a model (owner, 2026-11-20): a started model runs to its end.
+test("Profile shows a model in progress with no way to cancel it", async ({page}) => {
     const runtime = await installUiAuditRuntime(page, uiAuditSave());
     await page.route("**/api/world/sector-layout", route => route.fulfill({json:{
         obstaclesEnabled:true, modelArtBase:'https://models.test/sector-models',
     }}));
-    const pending = {id:'cancel-profile-job', month:'2026-12', state:'queued'};
+    const pending = {id:'progress-profile-job', month:'2026-12', state:'queued'};
     await page.route(/\/api\/avatar-model\/models(?:\?.*)?$/, route => route.fulfill({json:{models:[],before:null,pending}}));
-    await page.route("**/jobs/cancel-profile-job", route => route.fulfill({json:pending}));
-    let requests = 0;
-    await page.route("**/jobs/cancel-profile-job/cancel", route => {
-        expect(route.request().method()).toBe('POST');
-        requests++;
-        return route.fulfill({json:{state:'cancelled'}});
-    });
+    await page.route("**/jobs/progress-profile-job", route => route.fulfill({json:pending}));
     await expectUiAuditBoot(page,runtime,"profile");
     await page.getByRole("button",{name:"Equip Model",exact:true}).click();
     const dialog=page.getByRole("dialog",{name:"World model"});
-    const cancel=dialog.getByRole('button',{name:'Cancel model request'});
-    page.once('dialog', prompt => prompt.dismiss());
-    await cancel.click();
-    await expect(cancel).toBeVisible();
-    expect(requests).toBe(0);
-    page.once('dialog', prompt => prompt.accept());
-    await cancel.click();
-    await expect(dialog.getByText(/Model creation was cancelled.*creation was used/)).toBeVisible();
-    await expect(cancel).toHaveCount(0);
-    expect(requests).toBe(1);
+    await expect(dialog.getByText(/Queued for creation/)).toBeVisible();
+    await expect(dialog.getByRole('button',{name:/cancel/i})).toHaveCount(0);
+});
+
+// The server finishes a check and starts the model after the player closes the window.
+test("Profile follows a portrait check the server finishes on its own", async ({page}) => {
+    const save = uiAuditSave();
+    save.character = {...save.character, patreon:{active:true,tier:'shinobi-supporter'}};
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route("**/api/world/sector-layout", route => route.fulfill({json:{
+        obstaclesEnabled:true,modelArtBase:'https://models.test/sector-models',worldModelCreationAvailable:true,
+    }}));
+    const job = {id:'background-profile-job', month:'2026-12', state:'queued'};
+    let started = false;
+    await page.route(/\/api\/avatar-model\/models(?:\?.*)?$/, route => route.fulfill({json:{models:[],before:null,
+        ...(started ? {pending:job} : {creationAvailable:true,check:'checking'})}}));
+    await page.route("**/jobs/background-profile-job", route => route.fulfill({json:job}));
+    let checks = 0;
+    await page.route("**/api/avatar-model/read", route => { checks++; return route.abort(); });
+    await expectUiAuditBoot(page,runtime,"profile");
+    await page.locator('.profile-avatar-upload').getByRole("button",{name:"Make Model",exact:true}).click();
+    const dialog = page.getByRole("dialog",{name:"Make Model"});
+    await expect(dialog.getByText('Checking your portrait… You can close this window. Your model starts on its own.')).toBeVisible();
+    await expect(dialog.getByRole("button",{name:"Check portrait",exact:true})).toHaveCount(0);
+    started = true;
+    await expect(dialog.getByText(/Queued for creation/)).toBeVisible({timeout:40_000});
+    expect(checks, 'a running check needs no second press').toBe(0);
 });
 
 test("Profile recovers a refunded request after the player leaves", async ({page}) => {
@@ -633,7 +645,7 @@ test("Profile opens Make Model next to Upload avatar and creates one monthly mod
     await opener.click();
     const dialog = page.getByRole("dialog",{name:"Make Model"});
     await expect(dialog.getByText(/sent to OpenAI and Modal/)).toBeVisible();
-    await expect(dialog.getByText(/usually takes 2 to 6 minutes/).first()).toBeVisible();
+    await expect(dialog.getByText(/You can close this window at any time/)).toBeVisible();
     expect(checks).toBe(0);
     await dialog.getByRole("button",{name:"Check portrait",exact:true}).click();
     await expect(dialog.getByRole('status')).toHaveText(/^Checking your portrait…/);

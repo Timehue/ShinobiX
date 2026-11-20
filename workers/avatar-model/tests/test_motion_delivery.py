@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
-from unittest.mock import patch
 from zipfile import ZipFile
 
 from avatar_worker import motion_delivery as delivery
@@ -27,7 +26,7 @@ class EncoderBannerTest(TestCase):
             encoded = first_frame + other + slice_data
             self.assertEqual(without_encoder_banner(encoded), encoded)
 
-    def test_only_oversized_revisions_are_repacked_and_every_reference_is_rehashed(self):
+    def test_a_compacted_revision_rehashes_every_reference_and_size_never_fails_a_model(self):
         with TemporaryDirectory() as temporary:
             work = Path(temporary)
             portrait, asset = "a" * 64, "b" * 32
@@ -49,8 +48,7 @@ class EncoderBannerTest(TestCase):
             cache["sourceArchiveSha256"] = sha256(archive.read_bytes()).hexdigest()
             (work / "movement.json.gz").write_bytes(compress(json.dumps(cache).encode()))
             plain = delivery.stage_motion(archive, work, asset, portrait, work / "plain")
-            with patch.object(delivery, "MAX_MOTION_BYTES", plain["bytes"] - 1):
-                compact = delivery.stage_motion(archive, work, asset, portrait, work / "compact")
+            compact = delivery.stage_motion(archive, work, asset, portrait, work / "compact", omit_encoder_banner=True)
             self.assertLess(compact["bytes"], plain["bytes"])
             self.assertNotEqual(compact["version"], plain["version"])
             for folder, result, expected in [("plain", plain, raw), ("compact", compact, picture)]:
@@ -63,7 +61,5 @@ class EncoderBannerTest(TestCase):
                         page = json.loads(decompress(body))["pages"]["body.webp"]["file"]
                         self.assertEqual(page, sha256(expected).hexdigest() + ".264")
                         self.assertEqual((root / page).read_bytes(), expected)
-            with patch.object(delivery, "MAX_MOTION_BYTES", compact["bytes"] - 1):
-                with self.assertRaisesRegex(ValueError, "needs"):
-                    delivery.stage_motion(archive, work, asset, portrait, work / "rejected")
-            self.assertFalse((work / "rejected").exists())
+            # A player model has no total size cap (owner, 2026-11-20): Nero's 8,431,780 B model failed an 8 MiB one.
+            self.assertFalse(hasattr(delivery, "MAX_MOTION_BYTES"))

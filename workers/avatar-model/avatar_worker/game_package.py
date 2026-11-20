@@ -90,9 +90,8 @@ def stage_player(source, asset_id, portrait_sha256, content):
                         raise ValueError("Run style changed a shared standing or walking pose")
                     view[key] = page
             views.append(view)
+    # No total size cap for a player model (owner, 2026-11-20); each sheet keeps its own 384 KiB limit above.
     encoded = json.dumps(dict(mapWidth=1080, banks=views), separators=(",", ":")).encode()
-    if len(encoded) + sum(map(len, pages.values())) > 8 * 1024**2:
-        raise ValueError("Game-facing player sheets exceed the 8 MiB budget")
     revision = sha256(encoded).hexdigest()
     for filename, data in pages.items():
         install(content / folder / filename, data)

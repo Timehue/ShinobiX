@@ -56,8 +56,13 @@ existing pinned Blender tarball. Without it, the image build fetches that exact
 tarball and verifies its checksum.
 
 The local painted release archives are `portable-fit-worker/painted-sleeves-tail.zip`
-and `portable-motion-worker/painted-sleeves-tail.zip` under the avatar-model
-evidence folder. Their hashes match `sprite-worker-painted-review.json`. Each is
+and `portable-motion-worker/painted-sleeves-tail-uncapped.zip` under the avatar-model
+evidence folder. Their hashes match `sprite-worker-painted-review.json`. The uncapped
+movement archive (2026-11-20, movement `ad5f2d05…`) is `painted-sleeves-tail.zip`
+(movement `bcd49663…`, the rollback) with the 8 MiB whole-model checks deleted from
+`avatar_worker/motion_delivery.py` and `avatar_worker/game_package.py` and their two
+hashes updated in `motion-worker.json`: an 8 MiB cap failed a finished 8,431,780 B
+model, and a player model now has no total size cap. Before that, each is
 the matching `painted-sleeves.zip` with one file changed, and its index carries
 the new file hash (`intake.json` also a recomputed `paintingRevision`); every
 other entry is byte-identical. The release before them, and the rollback, is

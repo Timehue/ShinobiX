@@ -8,7 +8,9 @@ from zipfile import ZipFile
 
 from .game_package import DIRECTIONS, install
 
-MAX_MOTION_BYTES = 8 * 1024**2
+# A player model has no total size cap (owner, 2026-11-20): an 8 MiB cap failed a finished model at
+# 8,431,780 B. The per-file limits in browser_motion.py still protect the player's browser.
+
 
 def encoded(value):
     return json.dumps(value, separators=(",", ":"), allow_nan=False).encode()
@@ -101,10 +103,6 @@ def stage_motion(source, cache, asset_id, portrait, content, *, omit_encoder_ban
         raise ValueError("Unreferenced pose banks")
     manifest = encoded(header)
     size = len(manifest) + sum(map(len,payloads.values()))
-    if size > MAX_MOTION_BYTES:
-        if not omit_encoder_banner:
-            return stage_motion(source, cache, asset_id, portrait, content, omit_encoder_banner=True)
-        raise ValueError(f"Fitted player needs {size:,} bytes")
     folder = content/"players"/asset_id
     for filename,data in payloads.items():
         install(folder/filename,data)

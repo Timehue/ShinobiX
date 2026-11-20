@@ -13,6 +13,7 @@ import { endModelJob } from './_settlement.js';
 import { fixedSettlementOps } from './_fixed-cost.js';
 import { modelOwnerProof } from './_owner.js';
 import { isRecognitionPolicy, validRecognition, type RecognitionOperation, type RecognitionReceipt } from './_recognition.js';
+import { tickPortraitChecks } from './_auto-start.js';
 
 const styles = ['A','B','C'] as const;
 type Style = typeof styles[number];
@@ -330,7 +331,8 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
             }
         } else if (stage==='finish') {
             if (!isPlayerModel(result.model) || result.model.assetId!==job.assetId ||
-                !Number.isSafeInteger(result.model.bytes) || result.model.bytes<=0 || result.model.bytes>8*1024**2 ||
+                // No total size cap for a player model (owner, 2026-11-20); the worker limits each file.
+                !Number.isSafeInteger(result.model.bytes) || result.model.bytes<=0 ||
                 !Number.isSafeInteger(result.model.objects) || result.model.objects<=0) throw new Error('Invalid finished sprite receipt');
             next={...next,state:'validate',finishedCall:result.callId,delivery:result.model};
         } else {
@@ -415,6 +417,9 @@ export async function tickSpriteDispatch() {
     if (process.env.AVATAR_MODEL_DISPATCH_ENABLED!=='1' || !process.env.AVATAR_MODEL_MODAL_PYTHON ||
         !process.env.AVATAR_MODEL_MODAL_ENVIRONMENT) return;
     await withScheduledJobLease('avatar-model-dispatch', async () => {
+        // Finish the portrait checks of players who closed the window first, so a model they start
+        // joins this pass's queue.
+        await tickPortraitChecks().catch(() => console.warn('[avatar-model] Portrait checks unavailable'));
         const jobs=await kv.get<string[]>(prefix+'dispatch');
         const config=JSON.parse(process.env.AVATAR_MODEL_RESERVATIONS_JSON??'{}') as AdmissionPolicy;
         const policy={...config,enabled:process.env.AVATAR_MODEL_CREATION_ENABLED==='1' &&

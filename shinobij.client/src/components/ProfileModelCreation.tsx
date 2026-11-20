@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { modelJobIdPattern } from '../../../shared/avatar-model-job';
+import { checkText } from '../lib/model-check-text';
 
 type Read = { summary: string; readToken: string };
 
@@ -35,12 +36,12 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
         setBusy(true);
         // A failed submission keeps its accepted check, so the retry goes straight to the job.
         let accepted = read;
-        setMessage(accepted ? 'Starting your model…' : 'Checking your portrait… This usually takes 2 to 6 minutes.');
+        setMessage(accepted ? 'Starting your model…' : checkText.checking);
         setStartedAt(Date.now());
         try {
             const headers = { 'Content-Type': 'application/json', 'x-player-name': name };
-            // The server keeps a check alive while Modal queues it behind other players (up to two hours),
-            // so a page that stops waiting here and retries resumes the same check.
+            // The server finishes the check and starts the model itself (up to two hours), so a page that
+            // stops waiting here, or closes, loses nothing.
             const deadline = Date.now() + 30 * 60_000;
             for (;;) {
                 const res = await fetch('/api/avatar-model/' + (accepted ? 'jobs' : 'read'), {
@@ -69,11 +70,11 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
                     continue;
                 }
                 if (!accepted && result.state === 'declined') {
-                    setMessage('We could not use this portrait. Your model for this month is still available.');
+                    setMessage(checkText.declined);
                     return;
                 }
-                if (accepted || result.state !== 'pending' || Date.now() >= deadline)
-                    throw new Error('We could not finish checking your portrait. You can retry.');
+                if (accepted || result.state !== 'pending') throw new Error(checkText.failed);
+                if (Date.now() >= deadline) throw new Error(checkText.checking);
                 await new Promise<void>(resolve => {
                     const finish = () => { clearTimeout(timer); controller.signal.removeEventListener('abort', finish); resolve(); };
                     const timer = setTimeout(finish, 5000);
@@ -91,12 +92,12 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
     return <div>
         {read && <p>{read.summary}</p>}
         <p>
-            We check your saved portrait first. This usually takes 2 to 6 minutes, so keep this window open.
-            If your portrait passes, your model starts right away.
+            We check your saved portrait first. If it passes, your model starts on its own.
+            You can close this window at any time.
         </p>
         <p>
             You get one model each month (UTC). If we can't use your portrait, you keep it.
-            If something breaks on our side, you get it back. If you cancel, it still counts.
+            If something breaks on our side, you get it back.
         </p>
         <p><small>Your portrait is sent to OpenAI and Modal to check it and build your model.</small></p>
         <button type="button" disabled={busy} onClick={() => void submit()}>{read ? 'Retry' : 'Check portrait'}</button>

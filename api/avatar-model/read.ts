@@ -11,6 +11,7 @@ import { canCreatePlayerModel, modelCreationPolicy, playerPortraitChecksEnabled 
 import { paintedTemplates, sealModelRead } from './_private-files.js';
 import { moderateModelPortrait, runModelRead } from './_read-provider.js';
 import { ensureModelOwner, modelOwnerProof } from './_owner.js';
+import { awaitPortraitCheck } from './_auto-start.js';
 
 const prefix = 'avatar-model:';
 const hash = (data: Buffer) => createHash('sha256').update(data).digest('hex');
@@ -148,6 +149,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         const result = await withKvLock(prefix + 'screen-owner:' + owner, () => checkPlayerPortrait(owner),
             { ttlSec: 180, failClosed: true });
         if (result.error) return res.status(({ entitlement: 403, quota: 409, limit: 429, disabled: 503, busy: 503, unavailable: 503 })[result.error]).json(result);
+        // The player may now close the window: the model loop finishes this check and starts the model.
+        // A busy list is retried by the page's next poll; it never fails the check itself.
+        if (result.state !== 'declined') await awaitPortraitCheck(owner).catch(() => {});
         return res.status(result.state === 'pending' ? 202 : 200).json(result);
     } catch { return res.status(503).json({ error: 'unavailable' }); }
 }

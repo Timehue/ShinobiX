@@ -13,7 +13,6 @@ import playerModelJobHandler from './api/avatar-model/jobs/[id].js';
 import admitPlayerModelHandler from './api/avatar-model/jobs.js';
 import readPlayerPortrait from './api/avatar-model/read.js';
 import uploadModelProfilePortrait from './api/avatar-model/profile-portrait.js';
-import cancelModelJob from './api/avatar-model/jobs/cancel.js';
 import travelHandler     from './api/player/travel.js';
 import worldMoveHandler from './api/player/world-move.js';
 import challengeHandler  from './api/player/challenge.js';
@@ -393,7 +392,6 @@ export function registerApiRoutes(registerRoute: (path: string, handler: AnyHand
     route('/admin/avatar-model/operations', modelOperationsHandler);
     route('/avatar-model/models', ownedPlayerModelsHandler);
     route('/avatar-model/jobs/:id', playerModelJobHandler);
-    route('/avatar-model/jobs/:id/cancel', cancelModelJob);
     route('/avatar-model/jobs', admitPlayerModelHandler);
     route('/avatar-model/read', readPlayerPortrait);
     route('/avatar-model/profile-portrait', uploadModelProfilePortrait);

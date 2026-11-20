@@ -10,6 +10,7 @@ import { canCreatePlayerModel, modelCreationPolicy } from './_admission.js';
 import { isPlayerModel, type PlayerModel } from '../../shared/player-model-ref.js';
 import { isPendingModelJob, modelJobIdPattern, modelMonthPattern as monthPattern } from '../../shared/avatar-model-job.js';
 import { modelOwnerProof, modelResetKey, type ModelReset } from './_owner.js';
+import { portraitCheckStatus } from './_auto-start.js';
 
 type Row = Record<string, unknown>;
 const pageSize = 12;
@@ -87,8 +88,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             ]);
             creationAvailable = !active && !reset?.active;
         }
+        // A check the model loop is finishing (the player may have closed the window), or how the last one ended.
+        const check = !before && !pending.length ? await portraitCheckStatus(owner) : null;
         return res.status(200).json({ models, ...(creationAvailable ? { creationAvailable } : {}), ...(pending.length ? { pending: pending[0] } : {}), ...(ended ? { ended } : {}),
-            before: months.length > pageSize ? page[page.length - 1] : null });
+            ...(check ? { check } : {}), before: months.length > pageSize ? page[page.length - 1] : null });
     } catch (error) {
         console.error('[avatar-model/models]', safeLogValue(error));
         return res.status(500).json({ error: 'Unable to load your world models.' });
