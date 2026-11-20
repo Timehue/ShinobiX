@@ -14,15 +14,16 @@
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { HOLLOW_GATE_STEP_MS } from "./use-hollow-gate-walk";
-import { playerGaitTilesPerSecond } from "../../../../shared/sector-gait-rates";
 import { SectorModelFigure, type SectorModelHandle } from "../../components/SectorModelFigure";
 import { WorldStandingFigure } from '../../components/WorldStandingFigure';
 import type { PlayerModel, SprintStyle } from "../../lib/player-model";
 
-// Base glide speed: the sector run speed. Each step is issued only after the
-// previous one commits plus HOLLOW_GATE_STEP_MS, so the sprite still arrives
-// at each tile before the next step lands.
-const TILES_PER_SEC = playerGaitTilesPerSecond.run;
+// Base glide speed: one tile per step, which is the sector run speed
+// (HOLLOW_GATE_STEP_MS is held to it by use-hollow-gate-walk.pace.test.ts).
+// Each step is issued only after the previous one commits plus
+// HOLLOW_GATE_STEP_MS, so the sprite still arrives at each tile before the
+// next step lands.
+const TILES_PER_SEC = 1000 / HOLLOW_GATE_STEP_MS;
 // A glide completes just before the next scheduled tile. Allow two display
 // frames for its React update before starting a planted stop.
 const STEP_GAP_MS = HOLLOW_GATE_STEP_MS - 1000 / TILES_PER_SEC + 1000 / 30;

@@ -22,13 +22,15 @@
 import { useEffect, useRef, useState } from "react";
 import { findHollowGatePath } from "../../lib/hollow-gate-path";
 import type { HollowGateShrineRun } from "../../types/character";
-import { playerGaitTilesPerSecond } from "../../../../shared/sector-gait-rates";
 
-// Pause between committed steps: the sector RUN pace (~300 ms a tile), so the
-// figure covers ground exactly as fast as it does in a sector. The avatar
-// overlay glides between tile centres at that speed, so movement reads as one
-// continuous run.
-export const HOLLOW_GATE_STEP_MS = Math.round(1000 / playerGaitTilesPerSecond.run);
+// Pause between committed steps: the sector RUN pace (1000 /
+// playerGaitTilesPerSecond.run, 300 ms a tile), so the figure covers ground
+// exactly as fast as it does in a sector. The avatar overlay glides between
+// tile centres at that speed, so movement reads as one continuous run.
+// A literal, because this hook is in the startup bundle and importing the
+// shared rate split it into a startup chunk of its own (~1.1 KB, over the
+// size budget). use-hollow-gate-walk.pace.test.ts holds it to the rate.
+export const HOLLOW_GATE_STEP_MS = 300;
 // An issued step that hasn't moved us after this long was rejected — stop.
 const WALK_WATCHDOG_MS = 900;
 /** Lowercased WASD / arrow key → [dx, dy]. Mirrors MOVEMENT_KEYS in lib/held-movement-keys.ts (a test holds them equal). */

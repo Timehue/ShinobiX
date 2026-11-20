@@ -41,8 +41,8 @@ function visibilityForStrongholdTile(base: ReturnType<typeof buildVaultInterior>
 /**
  * One tile pace: the sector RUN pace (playerGaitTilesPerSecond.run, ~300 ms a
  * tile), so the figure covers ground and plays its run clip exactly as it does
- * in a sector. The camera glides over the same time (the map's inline
- * transition-duration; stronghold.css sets the curve). A step
+ * in a sector. The camera glides over the same time (stronghold.css; the
+ * Hollow Gate pace test holds both to the rate). A step
  * leaves no sooner than the previous glide ends, or when the server answers if
  * that is later. It also keeps a held key well inside the stronghold-walk
  * request limit.
@@ -462,7 +462,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         <div className="stronghold-body">
             <div className="stronghold-viewport" ref={viewport}>
                 <div className="stronghold-location"><b>{roomName}</b><span>{discovered.size} / {rooms.length} chambers discovered</span></div>
-                <div key={overview ? 'overview' : 'follow'} className="stronghold-map" data-tile-size={tileSize} style={{ width: mapWidth, height: mapHeight, gridTemplateColumns: `repeat(${base.width}, ${tileSize}px)`, gridAutoRows: `${tileSize}px`, alignContent: 'start', transform: `translate(${camera.x}px, ${camera.y}px)`, transitionDuration: `${STEP_MS}ms` }}>
+                <div key={overview ? 'overview' : 'follow'} className="stronghold-map" data-tile-size={tileSize} style={{ width: mapWidth, height: mapHeight, gridTemplateColumns: `repeat(${base.width}, ${tileSize}px)`, gridAutoRows: `${tileSize}px`, alignContent: 'start', transform: `translate(${camera.x}px, ${camera.y}px)` }}>
                     <UndergroundSectorTerrain tiles={base.tiles} width={base.width} height={base.height} known={seen} visible={visible} mode="stronghold" vault={!obsidian}
                         renderWindow={renderWindow} />
                     {run.tiles.map((tile, idx) => {
