@@ -20,6 +20,11 @@ app = modal.App("shinobix-avatar-sprites")
 # queueing behind one another (a check queued 11 minutes on 2026-11-20). Each one is billed only while it
 # runs. render_style stays at one: a job's three styles must share a machine (see its decorator).
 PARALLEL_JOBS = 3
+# GPUs a check or a costume painting may run on, in order of preference. Pinned to L4 alone, a check sat
+# 20+ minutes in Modal's queue with no machine started on 2026-11-20 while L4s were scarce (a bare L4 probe
+# took 167 s that hour, 34 s that morning). Any free one of these starts it instead. The trial harness
+# (modal_portrait_trial.py) already runs this same reader image on this list.
+GPUS = ["L4", "A10", "T4"]
 openai_secret_name = os.environ.get("SPRITE_OPENAI_SECRET", "").strip()
 
 
@@ -168,7 +173,7 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
 # Modal's durable calls use HTTPS blob storage for portraits, fitted sheets and
 # movement packages. The reader, renderer and assemblers need that transport.
 @app.function(image=gpu_image,
-              gpu="L4", max_containers=PARALLEL_JOBS, min_containers=0,
+              gpu=GPUS, max_containers=PARALLEL_JOBS, min_containers=0,
               timeout=600, retries=0, block_network=False,
               # The upright-animal check asks the costume key's model. The list has one entry in
               # both the deploy and the container, whichever name the deploy chose.
@@ -250,7 +255,7 @@ def forget_battle_sprite(asset):
 
 
 if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
-    @app.function(image=gpu_image, gpu="L4", max_containers=PARALLEL_JOBS, min_containers=0, retries=0, timeout=PAINT_TIMEOUT,
+    @app.function(image=gpu_image, gpu=GPUS, max_containers=PARALLEL_JOBS, min_containers=0, retries=0, timeout=PAINT_TIMEOUT,
                   secrets=[modal.Secret.from_name(openai_secret_name or "shinobix-avatar-costume-paint",
                                                   required_keys=["OPENAI_API_KEY"])])
     def paint_costume(asset: str, descriptor: bytes, master: str, portrait: bytes, source: str):
