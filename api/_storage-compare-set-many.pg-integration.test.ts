@@ -445,6 +445,7 @@ test('model admissions and removal notices commit once across two API workers on
             assert.deepEqual(await get('avatar-model:dispatch'), [jobId]);
             assert.equal((await get(`avatar-model:slot:${owner}:${job.monthKey}`)).jobId, jobId);
             assert.deepEqual(await get('avatar-model:budget:modal:pg-race'), { reservedMicros: 300, spentMicros: 0 });
+            // OpenAI is guarded by the OpenAI account's own limit: admission holds no OpenAI money.
             assert.equal(await get('avatar-model:budget:openai:pg-race'), undefined);
             assert.equal(job.recognition.poolSha256,'9'.repeat(64));
             assert.match(job.recognition.nonce,/^[a-f0-9]{64}$/);
