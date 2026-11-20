@@ -17,7 +17,7 @@ let worldModelCreationAvailable = false;
 const listeners = new Set<() => void>();
 let stopPoll: (() => void) | undefined;
 let pending: Promise<void> | undefined;
-// A failed answer leaves fitted figures off (the portrait pin stands in), so one
+// A failed answer leaves fitted figures off (the standing figure remains visible), so one
 // dropped request must not wait the full five-minute poll: retry at 2 s, 5 s and
 // 15 s while a view is listening, then fall back to the regular poll.
 const quickRetry = createFastRetry(() => {
@@ -74,7 +74,7 @@ export async function supportsProfileDetailUpload() {
 export const useSectorObstacles = () => useSyncExternalStore(subscribe, sectorObstaclesOn, () => true);
 const noSubscription = () => () => {};
 export const useSectorModelArtBase = (enabled = true) => useSyncExternalStore(enabled ? subscribe : noSubscription, () => enabled ? modelArtBase : null, () => null);
-// Device preference: "2d" shows the classic portrait circles in the world instead of the models.
+// Device preference: "2d" uses local standing poses for world actors.
 const AVATAR_KEY = "worldAvatarMode.v1";
 let avatarMode2d = false;
 try { avatarMode2d = localStorage.getItem(AVATAR_KEY) === "2d"; } catch { /* storage blocked: default 3D */ }

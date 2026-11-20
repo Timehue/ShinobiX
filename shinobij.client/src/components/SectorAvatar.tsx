@@ -1,4 +1,6 @@
-import { SectorPortrait } from "./SectorPortrait";
+import { WorldStandingFigure } from "./WorldStandingFigure";
+import { starterModel } from "../lib/player-model";
+import type { StarterWorldModel } from "../../../shared/player-model-ref";
 /*
  * SectorAvatar — the player's avatar as a grounded, *walking* overlay inside a
  * sector scene. Track 1 of the "living sectors" work.
@@ -9,10 +11,7 @@ import { SectorPortrait } from "./SectorPortrait";
  * flip, and a biome-tinted aura. The gold target tile underneath doubles as a
  * destination marker.
  *
- * Works with ANY player-chosen portrait — no per-avatar art is generated. The
- * 3D/alive feel comes from how the flat image is *presented* (grounded billboard
- * + shadow + motion), not from the image itself, so it applies to every current
- * and future avatar identically.
+ * The standing pose follows the player’s chosen starter model.
  *
  * Renderer-only and self-contained: it never touches game logic, balance, or
  * saves. pointer-events:none, so click-to-move underneath keeps working. Honors
@@ -36,16 +35,7 @@ const GRID_H = 12;
 const PAD = 8;
 const GAP = 1;
 const WALK_TILES_PER_SEC = 6.5; // glide speed across the grid
-// The avatar is a small "map-pin": a round portrait floating up top with a pointer
-// that tapers down to a single contact point on the tile (like a location marker /
-// the temple sprite's base sitting on a hex). The pin TIP — not the circle — is
-// anchored on the tile centre, so the marker reads as planted in the biome, and a
-// small planted shadow at the tip pulses while the marker gently bobs. The figure
-// box is narrower than a tile (the circle) and tall enough to hold circle + pin.
-//
-// The box size is NOT a local constant any more: every figure on a sector board
-// (you, other players, wandering AI, the boss) sizes itself from lib/sector-marker
-// so they cannot drift apart again. See that module for why.
+// All sector figures plant their feet at the tile centre.
 const BASE_ANCHOR = SECTOR_MARKER_ANCHOR;
 
 // Soft glow tint per biome — same palette family as <SceneAmbience>.
@@ -76,6 +66,7 @@ export function SectorAvatar({
     targetIndex,
     sector,
     avatarImage,
+    starterWorldModel,
     name,
     biome,
     enterDirection,
@@ -86,6 +77,7 @@ export function SectorAvatar({
      *  to the tile instead of walking to it — see the walk effect below. */
     sector: number | null;
     avatarImage?: string;
+    starterWorldModel?: StarterWorldModel;
     name: string;
     biome: Biome;
     enterDirection?: SectorDirection | null;
@@ -127,8 +119,6 @@ export function SectorAvatar({
         const { padX, padY, gapX, gapY } = metricsRef.current;
         const cx = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
         const cy = cellCentre(h, GRID_H, posRef.current.row, padY, gapY);
-        // Anchor the box BASE (the pin tip) on the tile centre, so the marker is
-        // planted at the spot with the circle floating above it.
         fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -${BASE_ANCHOR}%)`;
     }
 
@@ -236,7 +226,7 @@ export function SectorAvatar({
                 const { padX, padY, gapX, gapY } = metricsRef.current;
                 const t = tileSizePx();
                 const px = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
-                const py = cellCentre(h, GRID_H, posRef.current.row, padY, gapY) + t * 0.04; // at the pin tip
+                const py = cellCentre(h, GRID_H, posRef.current.row, padY, gapY) + t * 0.04; // dust at the feet
                 const id = puffIdRef.current++;
                 setPuffs(prev => [...prev.slice(-5), { id, x: px, y: py }]);
                 window.setTimeout(() => setPuffs(prev => prev.filter(pf => pf.id !== id)), 520);
@@ -249,8 +239,6 @@ export function SectorAvatar({
         return () => cancelAnimationFrame(rafRef.current);
     }, [targetIndex, sector, obstacles]);
 
-    const initials = name.slice(0, 2).toUpperCase();
-
     return (
         <div className="sector-avatar-overlay" ref={wrapRef} aria-hidden="true">
             {puffs.map(pf => (
@@ -261,8 +249,7 @@ export function SectorAvatar({
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />
                 <span className="sector-avatar-sprite" ref={spriteRef}>
                     <span className="sector-avatar-body">
-                        <SectorPortrait key={avatarImage} src={avatarImage} name={initials} />
-                        <span className="sector-avatar-pin" />
+                        <WorldStandingFigure kind={starterModel(avatarImage ?? '', starterWorldModel)} name={name} />
                     </span>
                 </span>
             </div>

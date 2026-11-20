@@ -1,3 +1,4 @@
+import { WorldStandingFigure } from './WorldStandingFigure';
 /*
  * SectorWeeklyBossActor — the roaming weekly boss as an in-sector figure
  * (roaming-weekly-boss-plan, Phase 3).
@@ -10,7 +11,7 @@
  *
  * Forked from SectorWanderer (rather than reused) so the live wanderer system
  * (always on) is untouched, and so the boss can loom larger and
- * wear its own portrait. Renderer/movement only — the fight is launched by
+ * use its own figure. Renderer/movement only — the fight is launched by
  * <WorldMap>'s Stand & Fight prompt (lib/weekly-boss-launch.ts), so nothing
  * here touches combat.
  */
@@ -84,9 +85,10 @@ export function SectorWeeklyBossActor({
     const { portraitModels } = useSectorModelPins();
     // The public fallback contains the same artwork as this canonical portrait.
     // Unrelated administrator portraits must not acquire a different character's body.
-    const modelPortrait = !portrait || portrait === "/portraits/hollow-warden.webp"
-        ? wandererAvatar("hollow-warden") : portrait;
-    const modelKind = modelArtBase && portraitModels.get(modelPortrait);
+    const canonical = wandererAvatar("hollow-warden");
+    const modelPortrait = !portrait || portrait === "/portraits/hollow-warden.webp" ? canonical : portrait;
+    const modelKind = portraitModels.get(modelPortrait);
+    const standingKind = modelKind ?? (modelPortrait === canonical ? 'hollow-warden' : 'patrol');
 
     const home = sector === undefined ? HOME_TILE : safeSectorTile(sector, HOME_TILE);
     const posRef = useRef({ col: colOf(home), row: rowOf(home) });
@@ -122,7 +124,7 @@ export function SectorWeeklyBossActor({
         layerNpcByDepth(wrapRef.current, posRef.current.row);
         modelRef.current?.place(cx, cy, w * SECTOR_BOSS_SCALE, modelMoving.current && !reducedMotion.current);
     }, []);
-    useLayoutEffect(() => { paint(); }, [paint, modelKind]);
+    useLayoutEffect(() => { paint(); }, [paint, modelKind, modelArtBase]);
     function setWalking(on: boolean) {
         figRef.current?.classList.toggle("is-walking", on);
         modelMoving.current = on;
@@ -243,11 +245,7 @@ export function SectorWeeklyBossActor({
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />
                 <span className="sector-avatar-sprite" ref={spriteRef}>
                     <span className="sector-avatar-body">
-                        <span className="sector-wanderer-tell" style={{ ["--tell"]: "#ec5b38" } as CSSProperties} />
-                        {portrait
-                            ? <img src={portrait} alt={name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : <img src="/portraits/hollow-warden.webp" alt="" />}
-                        <span className="sector-avatar-pin" />
+                        <WorldStandingFigure kind={standingKind} name={name} />
                     </span>
                 </span>
                 <span className="sector-wanderer-label" style={{ color: "#ffd9cc", fontWeight: 700 }}><GameArtIcon kind="attack" size={15} /> {name}</span>

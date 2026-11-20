@@ -44,7 +44,7 @@ for (const direction of ['north', 'east', 'south', 'west'] as const) test(`the c
     await page.screenshot({ path: info.outputPath(`continuous-${direction}.png`), fullPage: true });
 });
 
-test('the 2D/3D avatar setting swaps the live world model for the portrait circle and back', async ({ page }) => {
+test('the 2D/3D avatar setting swaps the live world model for the standing figure and back', async ({ page }, info) => {
     test.setTimeout(120_000);
     // A stand-in art host: the model element mounts whether or not its pages load.
     await boot(page, 31, nearestWalkableTile(31, 78), undefined, async () => {
@@ -54,7 +54,7 @@ test('the 2D/3D avatar setting swaps the live world model for the portrait circl
         await page.route('**/sector-models-e2e/**', route => route.fulfill({ status: 404, body: '' }));
     });
     const self = page.locator('[data-world-self]');
-    const model = self.locator('.sector-model-figure'), portrait = self.locator('.sector-avatar-body');
+    const model = self.locator('.sector-model-figure'), standing = self.locator('.world-standing-figure');
     await expect(model).toHaveCount(1);
     await expect(self.locator('.sector-self-label')).toHaveCount(1);
     // Chosen in another tab: the open world follows without a reload.
@@ -64,10 +64,14 @@ test('the 2D/3D avatar setting swaps the live world model for the portrait circl
         window.dispatchEvent(new StorageEvent('storage', { key, newValue: next, storageArea: localStorage }));
     }, value);
     await choose('2d');
+    await expect(standing).toHaveAttribute('src', /^\/world-figures\/v1\/starter-(one|two)\.webp$/);
+    await expect.poll(() => standing.evaluate(node => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await expect(standing).toHaveCSS('border-radius', '0px');
     await expect(model).toHaveCount(0);
     await expect(self).not.toHaveClass(/has-sector-model/);
     await expect(self.locator('.sector-self-label')).toHaveCount(0);
-    await expect(portrait).toBeVisible();
+    await expect(standing).toBeVisible();
+    await page.locator('.continuous-world-map').screenshot({ path: info.outputPath('standing-figure.png') });
     await page.reload();
     await expect(page.locator('.loading-screen')).toBeHidden({ timeout: 30_000 });
     const here = page.getByRole('button', { name: /Return to Sector 31/ });
@@ -75,7 +79,7 @@ test('the 2D/3D avatar setting swaps the live world model for the portrait circl
     // The login restore can enter the sector itself while the button is still settling.
     if (await here.isVisible()) await here.click({ timeout: 10_000 }).catch(() => {});
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'false');
-    await expect(portrait).toBeVisible();
+    await expect(standing).toBeVisible();
     await expect(model).toHaveCount(0);
     await choose(null);
     await expect(model).toHaveCount(1);

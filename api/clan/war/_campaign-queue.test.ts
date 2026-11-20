@@ -189,14 +189,16 @@ test('a committed queue write with a lost reply is recovered using its JSON stor
 });
 test('shrine movement is adjacent, room-bound and cannot use an ordinary stronghold visit as entry',async()=>{
     const now=Date.now(),war=await seed(now);const presence=await import('../../_stronghold-presence.js');
-    online.upsert({name:'a-0',sector:12,character:null});
+    online.upsert({name:'a-0',sector:12,character:null,restoredStarterWorldModel:'starter-two'});
     presence.touchStrongholdPresence('a-0',12,126,now);
     await assert.rejects(queue('a-0','shrine-enter',{scope:'shrine',windowIndex:0},now),/Leave your current interior/);
     presence.leaveStrongholdPresence('a-0');
     await queue('a-0','shrine-enter',{scope:'shrine',windowIndex:0},now);
     assert.equal(presence.strongholdLocation('a-0',12,now)?.room,`clan-shrine:${war.campaign!.instanceId}:0`);
     const moved=await queue('a-0','shrine-walk',{scope:'shrine',windowIndex:0,tile:114},now+1);
-    assert.equal((moved.room as {players:Array<{tile:number}>}).players[0].tile,114);
+    const [player] = (moved.room as {players:Array<{tile:number;starterWorldModel?: string}>}).players;
+    assert.equal(player.tile,114);
+    assert.equal(player.starterWorldModel,'starter-two');
     await assert.rejects(queue('a-0','shrine-walk',{scope:'shrine',windowIndex:0,tile:15},now+2),/adjacent/);
     await assert.rejects(queue('a-0','shrine-state',{scope:'shrine',windowIndex:0},now+100_000),/Enter/);
 });

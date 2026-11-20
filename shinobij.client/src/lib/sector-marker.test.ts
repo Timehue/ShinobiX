@@ -58,10 +58,7 @@ test("the boss is the one deliberate exception, and it is bigger", () => {
     assert.equal(boss.w, sectorMarkerBox(tile).w * SECTOR_BOSS_SCALE);
 });
 
-test("the figure box is tall enough for the pin tip to land on the tile centre", () => {
-    // .sector-avatar-pin hangs 30% of the circle below it. If the box were any
-    // shorter the tip would sit below the box, and BASE_ANCHOR would plant the
-    // marker off its own tile.
+test("standing figures share the tall sector footprint", () => {
     assert.equal(Number((SECTOR_MARKER_H / SECTOR_MARKER_W).toFixed(4)), 1.3);
 });
 
@@ -81,17 +78,14 @@ test("no sector actor declares its own figure size", () => {
     }
 });
 
-test("every sector actor plants its pin tip on the tile centre", () => {
+test("every sector actor plants its feet on the tile centre", () => {
     assert.equal(SECTOR_MARKER_ANCHOR, 100, "the box BASE is the ground contact point");
     for (const file of SECTOR_ACTORS) {
         const source = read(file);
-        // The bug this replaces: peers used `translate(-50%, -50%)`, centring the
-        // portrait on the tile instead of planting the pin, so they stood ~0.4
-        // tiles lower than everyone else on the same tile.
         assert.doesNotMatch(
             source,
             /translate\(-50%,\s*-50%\)/u,
-            `${file} must anchor by the pin tip, not by the figure's middle`,
+            `${file} must place the figure's feet at the centre of its tile`,
         );
     }
 });

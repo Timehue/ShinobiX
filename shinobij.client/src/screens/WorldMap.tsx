@@ -32,8 +32,7 @@ import "../components/WorldWandererDialog.css";
 import { useWorldMapLayout } from "../lib/use-world-map-layout";
 import { getWorldMapRegionForPoint, WORLD_MAP_REGIONS } from "../lib/world-map-regions";
 import { visiblePoll } from "../lib/poll";
-import "../styles/chronicle-duel.css";
-import "../styles/card-pack-opening.css";
+import { lazyWithRetry } from '../lib/lazyWithRetry';
 import {
     GiCardPickup,
     GiPawPrint,
@@ -96,6 +95,8 @@ import { aiRaidLaunchFailureMessage, mintAiRaidToken } from "../lib/ai-raid-api"
 import { raidStartActionScope } from "../lib/action-deadline-store";
 import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
+import { preloadScreen } from "../lib/screen-preload";
+import { WorldStandingFigure } from "../components/WorldStandingFigure";
 import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 import { ordinaryWandererEncounter } from '../../../shared/wanderer-roster';
@@ -116,10 +117,9 @@ import { StoryFieldJournal } from "../components/StoryFieldJournal";
 import { StoryFieldRouteBoundary } from "../components/StoryFieldRouteBoundary";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, sectorPhrase, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
-import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, CODEX_FLIP_LIMIT, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
+import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
 import { usePetMentorGuide } from "../lib/use-pet-mentor-guide";
-import { CardPackOpening } from "../components/CardPackOpening";
-import { displayCardsById } from "../lib/chronicle-duel";
+const CodexOpening = lazyWithRetry(() => import('./world-map/CodexOpening').then(m => ({ default: m.CodexOpening })));
 // The RAW count, not lib/chronicle-duel's ownedChronicleCounts: that one applies
 // the permanent starter floor, so it would report the whole teaching set as
 // already owned and every card in Ihara's hand-off would lose its NEW badge.
@@ -843,6 +843,7 @@ function WorldMapContent({
         rows: () => selectedSectorPlayerRows(getLiveSectorRoster()),
         attack: handleSelectedSectorPlayerAttack, strike: handleSelectedSectorSleeperAttack,
         spectate: async (target, isCurrent) => {
+            preloadScreen("pvpBattle");
             const battleId = await findSectorSpectatorBattle(target.name, character.name);
             if (!isCurrent()) throw new Error("This player is no longer available to spectate.");
             if (!setPvpBattleId || !setPvpRole) throw new Error("Spectating is currently unavailable.");
@@ -881,10 +882,7 @@ function WorldMapContent({
         // Paused while the tab is hidden; one catch-up tick when it returns.
         return visiblePoll(() => setRoamBossTick((t) => t + 1), 15000, 0);
     }, []);
-    // The sector the boss is rampaging in right now — the world map highlights this
-    // node (a pulsing ring + 👹 flag) instead of a floating portrait marker, per
-    // owner feedback ("the highlighted area it is in is enough"). Recomputes on the
-    // poll (roamingBoss) and the slow tick (roamBossTick).
+    // The pulse and boss figure travel with the active sector on each poll or roam tick.
     const weeklyBossSector = useMemo(() => {
         if (!isWeeklyBossRoamEnabled() || !roamingBoss) return null;
         const r = weeklyBossRoamState(roamingBoss, serverNow());
@@ -1122,9 +1120,6 @@ function WorldMapContent({
     const [codexReveal, setCodexReveal] = useState<{ nonce: string; cards: string[]; ownedBefore: Map<string, number>; grantedCount: number } | null>(null);
     const pendingCodexRevealRef = useRef<typeof codexReveal>(null);
     const codexSceneClosedRef = useRef(false);
-    // Builtin catalog only, like the other card lookups on this screen: the codex
-    // and the progression backfill grant builtin ids, never creator cards.
-    const codexCardsById = useMemo(() => displayCardsById(getAllTileCards([])), []);
     /** Called when Ihara's scene closes, by either exit path. */
     function closeCodexScene() {
         codexSceneClosedRef.current = true;
@@ -1138,17 +1133,10 @@ function WorldMapContent({
     // what re-renders once her scene closes. Rendered in the world view too so a
     // reveal can never be stranded by a mid-cinematic exit.
     const codexRevealOverlay = codexReveal ? (
-        <CardPackOpening
-            key={codexReveal.nonce}
-            packType="standard"
-            cards={codexReveal.cards}
-            cardsById={codexCardsById}
-            ownedBefore={codexReveal.ownedBefore}
-            title="The Traveler's Codex"
-            countLabel={`${codexReveal.grantedCount} card${codexReveal.grantedCount === 1 ? "" : "s"} from Ihara`}
-            flipLimit={CODEX_FLIP_LIMIT}
-            onClose={() => setCodexReveal(null)}
-        />
+        <Suspense fallback={null}>
+            <CodexOpening key={codexReveal.nonce} cards={codexReveal.cards} ownedBefore={codexReveal.ownedBefore}
+                grantedCount={codexReveal.grantedCount} onClose={() => setCodexReveal(null)} />
+        </Suspense>
     ) : null;
     // The rate-gated roaming givers, thinned to what actually stands here. Each
     // memo above only knows its OWN odds, so before this they stacked — a sector
@@ -3832,6 +3820,7 @@ function WorldMapContent({
         focusSectorCombat(environment.sector, environment.biome, environment.weather);
         // sectorAttackPlayer owns routing and only navigates after its sealed PvP
         // session request succeeds.
+        preloadScreen("pvpBattle");
         return sectorAttackPlayer(player);
     }
 
@@ -4384,6 +4373,7 @@ function WorldMapContent({
                 level: p.level,
                 sleeping: true,
                 avatar: sharedAvatarFor(sharedImages, p.name) || (p.character.avatarImage as string) || '',
+                starterWorldModel: p.character.starterWorldModel,
             }))
             : [];
         const activeHuntTrailForSector = isWildSector(selectedSector)
@@ -4570,6 +4560,7 @@ function WorldMapContent({
                             level: player.level,
                             sleeping: Boolean(player.__sleeping),
                             avatarImage: sharedAvatarFor(sharedImages, player.name) || (player.character.avatarImage as string) || '',
+                            starterWorldModel: player.character.starterWorldModel,
                         }))}
                         sharedImages={sharedImages}
                         sleeperPeers={sleeperPeers}
@@ -5090,7 +5081,7 @@ function WorldMapContent({
                         )}
                         {legacyAvailable && sageOffer?.status === "spawned" && sageOffer.sector === sector.id && (
                             <img
-                                src="/legacy/sage-marker.webp"
+                                src="/world-figures/v1/wandering-sage.webp"
                                 alt=""
                                 style={{ position: "absolute", top: -12, left: -12, width: 22, height: 22, pointerEvents: "none", filter: "drop-shadow(0 0 5px var(--purple-400))" }}
                                 title="A Wandering Sage waits here"
@@ -5100,7 +5091,7 @@ function WorldMapContent({
                             <span
                                 className="atlas-boss-flag"
                                 title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here. Travel in to challenge it`}
-                            ><img src="/portraits/hollow-warden.webp" alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "contain" }} /></span>
+                            ><WorldStandingFigure kind="hollow-warden" /></span>
                         )}
                         {huntTrail && (
                             <span
@@ -5125,12 +5116,6 @@ function WorldMapContent({
                     sector markers. Flag-gated (villageWarMap.v1) + pointer-events:none,
                     so it stays inert/invisible on the default world map. */}
                 {warMapOn && <SectorOwnershipOverlay sectorPoints={sectorPoints} counterScalePins={wmZoom.active} />}
-
-                {/* Roaming weekly boss: the boss's current sector NODE is highlighted
-                    in-place (pulsing ring + 👹 flag, see weeklyBossSector above and
-                    .atlas-sector-weekly-boss in index.css) rather than a floating
-                    portrait marker — per owner feedback that the sector highlight
-                    alone is enough. The tracker screen still shows the hop countdown. */}
 
                 {/* (War Ground beacons were removed from the world map.
                     The Central Hub banner + the explicit Village War

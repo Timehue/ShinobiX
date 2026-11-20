@@ -54,7 +54,8 @@ export function clanShrineRoster(war: ClanWar, windowIndex: number, now = Date.n
 export function clanShrineRoom(war:ClanWar,windowIndex:number,now=Date.now()) {
     return {serverNow:now,players:clanShrineRoster(war,windowIndex,now).flatMap(name=>{
         const visit=visits.get(name)!,player=onlineStore.get(name),roster=war.campaign!.rosters.find(side=>side.members.some(member=>member.name===name));
-        return player&&roster?[{name,displayName:player.displayName,clan:roster.clan,tile:visit.tile,inBattle:!!player.inBattle}]:[];
+        return player&&roster?[{name,displayName:player.displayName,clan:roster.clan,tile:visit.tile,inBattle:!!player.inBattle,
+            starterWorldModel:player.starterWorldModel}]:[];
     })};
 }
 export function refreshClanShrine(name:string,war:ClanWar,windowIndex:number,tile?:number,now=Date.now()):string|null {

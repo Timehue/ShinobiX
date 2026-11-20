@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from "react";
 import { useSectorModelPins } from "../../lib/sector-model-pins";
+import { WorldStandingFigure } from '../../components/WorldStandingFigure';
 import { SectorModelFigure, type SectorModelHandle } from "../../components/SectorModelFigure";
 import { useWorldModelArtBase } from "../../lib/sector-obstacles";
 import { HUSH_AVATAR_ASSET_REVISION } from "../../lib/hush-infiltration-api";
@@ -19,8 +20,7 @@ export function StrongholdDefender({ portrait, name, caption, size, tileSize, ov
     }, [artBase, kind, tileSize]);
     return <span className="stronghold-hush-station" style={{ width: size, height: size * 1.28 }}>
         <i aria-hidden="true" />
-        {portrait ? <img className="stronghold-hush" src={portrait} alt={name} />
-            : <span className="stronghold-hush-fallback" aria-hidden="true">◆</span>}
+        <WorldStandingFigure className="stronghold-hush" kind={kind || 'patrol'} name={name} />
         {artBase && kind && <SectorModelFigure key={kind} ref={figure} kind={kind} artBase={artBase} />}
         {!overview && <b>{name}<small>{caption}</small></b>}
     </span>;

@@ -70,6 +70,18 @@ describe('summoned companion (mission pet)', () => {
         assert.equal(companionStrikeDamage({}), 20);
     });
 
+    it('shares the evolved battle species of a summoned pet with other participants', () => {
+        const pet = { id: 'owned-instance', templateId: 'starter-fire', name: 'Ember', level: 75, rarity: 'rare', evolutionStage: 1 };
+        const seal = sealCompanionFromSave({ activePetId: pet.id, pets: [pet] })!;
+        assert.equal(seal.petId, pet.id);
+        assert.equal(companionActor(seal, 12).character?.companionSpecies, 'starter-fire-r');
+        const base = { ...pet, evolutionStage: 0 };
+        assert.equal(sealCompanionFromSave({ activePetId: base.id, pets: [base] })?.speciesId, 'starter-fire');
+        for (const evolutionStage of [undefined, null]) {
+            const older = { ...pet, evolutionStage };
+            assert.equal(sealCompanionFromSave({ activePetId: older.id, pets: [older] })?.speciesId, 'starter-fire-r');
+        }
+    });
     it('seals only the ACTIVE pet from the save', () => {
         const pets = [{ id: 'a', name: 'A', level: 50, hp: 10, attack: 1 }, { id: 'b', name: 'B', level: 50, hp: 50, attack: 8 }];
         assert.equal(sealCompanionFromSave({ pets })?.name, undefined, 'no activePetId → no companion');

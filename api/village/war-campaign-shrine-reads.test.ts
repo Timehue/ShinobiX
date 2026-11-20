@@ -62,7 +62,7 @@ describe('golden war shrine save reads', { concurrency: false }, () => {
         await kv.set('save:bob', { character: { name: 'Bob', village: B, level: 100, hp: 1000, inventory: bulk } });
         // Hospitalised: present in the sector, never counted in the room.
         await kv.set('save:cara', { character: { name: 'Cara', village: A, level: 100, hp: 0, inventory: bulk } });
-        for (const [name, village] of [['alice', A], ['bob', B], ['cara', A]] as const) presence.upsert({ name, sector: 47, character: { level: 100, village } });
+        for (const [name, village] of [['alice', A], ['bob', B], ['cara', A]] as const) presence.upsert({ name, sector: 47, character: { level: 100, village }, restoredStarterWorldModel: name === 'bob' ? 'starter-two' : undefined });
         wholeSaveReads.length = 0; projectedSaveReads.length = 0;
         const objectiveId = objective.id;
         assert.equal((await call('alice', { action: 'shrine-enter', objectiveId })).status, 200);
@@ -73,6 +73,7 @@ describe('golden war shrine save reads', { concurrency: false }, () => {
         assert.deepEqual(step.data.room.players.map((p: { name: string; displayName: string; village: string }) => [p.name, p.displayName, p.village]),
             [['alice', 'Alice', A], ['bob', 'Bob', B]]);
         assert.equal(step.data.room.players[0].tile, 114);
+        assert.equal(step.data.room.players[1].starterWorldModel, 'starter-two');
         const state = await call('bob', { action: 'shrine-state', objectiveId });
         assert.equal(state.status, 200); assert.equal(state.data.room.players.length, 2);
         assert.equal((await call('alice', { action: 'shrine-leave', objectiveId })).status, 200);

@@ -33,7 +33,7 @@ export function Fixture() {
         hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000, stamina: 1000, maxStamina: 1000, stats: {}, equipment: {}, jutsu: [], inventory: [], itemStacks: [], jutsuMastery: [] } as Character);
     const [exited, setExited] = useState(params.has('lifecycle'));
     const props = { character, sector: Number(params.get('sector') ?? 12), targetVillage: defenderVillage,
-        sharedImages: params.has('cachedAvatar') ? { 'avatar:scout': '/hush/frostfang.webp', 'avatar:rival': '/hush/moonshadow.webp' } : {}, onExit: () => setExited(true),
+        sharedImages: params.has('cachedAvatar') ? { 'avatar:scout': '/hush/frostfang.webp', 'avatar:rival': '/starter-avatar-two.webp' } : {}, onExit: () => setExited(true),
         onAttackPlayer: async (peer: PlayerRecord) => {
             document.body.dataset.attack = peer.name;
             document.body.dataset.attackCount = String(Number(document.body.dataset.attackCount ?? 0) + 1);

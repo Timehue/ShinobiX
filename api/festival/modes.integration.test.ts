@@ -192,6 +192,7 @@ for (const rank of [9, 10]) test(`Caravan seals the selected pet and rank-${rank
     const price = rank === 10 ? 0 : 20;
     assert.equal(opened.session.pendingCompanion.petId, petId, 'Caravan selection overrides the ordinary active pet');
     assert.equal(opened.session.pendingCompanion.name, 'Caravan Companion');
+    assert.equal(opened.session.pendingCompanion.speciesId, 'starter-fire');
     assert.equal(opened.session.pendingCompanion.summonApCost, price);
     assert.equal(opened.session.pendingCompanion.hp, Math.round(selected.hp * (rank === 10 ? 1.08 : 1)));
     assert.equal(opened.session.pendingCompanion.reviveOnce, rank === 10 ? true : undefined);
@@ -211,6 +212,7 @@ for (const rank of [9, 10]) test(`Caravan seals the selected pet and rank-${rank
     const resumed = ok(await call(caravan, { action: 'combat', runId: opened.progress.current.id }));
     assert.equal(resumed.session.activeAp, result.session.activeAp);
     assert.equal(resumed.session.pendingCompanion, undefined);
+    assert.equal(resumed.session.actors.find((actor: Obj) => actor.character.companion)?.character.companionSpecies, 'starter-fire');
 });
 
 test('a real combat victory resumes the route and charges a summoned companion only once', async () => {

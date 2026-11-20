@@ -8,6 +8,7 @@ import {
     petAvatarStateClass,
     extractPetMoveName,
     petBattleSprite,
+    petBattlefieldArt,
     petCardImage,
     petPortraitImage,
     petBattleLayers,
@@ -612,3 +613,13 @@ test("animation sheets read frame counts from the exact selected identity and pa
     assert.equal(petBattleSheet(variant, { "petsheet:standard-1:variant:chromatic-v1": "variant.png", "petsheet:standard-1:frames": "24" })?.frames, 8);
 });
 
+
+test('field pets retain their species and stage when portraits or published body art are unavailable', () => {
+    const pet = mkPet({ id: 'owned-uuid', templateId: 'starter-fire', evolutionStage: 1, image: '/portraits/custom.webp' });
+    const pose = '/pet-poses/starter-fire-r-idle.webp?v=6';
+    assert.deepEqual(petBattlefieldArt(pet, pet.id), { sprite: pose, fallback: pose });
+    assert.deepEqual(petBattlefieldArt(pet, pet.id, { 'petbody:starter-fire-r': '/api/img?id=body' }), { sprite: '/api/img?id=body', fallback: pose });
+    assert.equal(petBattlefieldArt(undefined, 'starter-fire-r').sprite, pose);
+    assert.equal(petBattlefieldArt(undefined, 'rare-27:old-id').sprite, '/pet-poses/rare-27-idle.webp?v=6');
+    assert.match(petBattlefieldArt(undefined, 'unknown').sprite, /generic-ai-pet-guardhound-idle/);
+});

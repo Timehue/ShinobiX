@@ -1,5 +1,6 @@
 import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
+import { StorageNotice } from './components/StorageNotice'
 import './index.css'
 import './styles/late-normalize.css' // loaded last so cross-cutting chrome (close/back btns) wins the cascade
 import './styles/veiled-steel.css' // final player-facing studio theme; intentionally wins legacy skin conflicts
@@ -46,11 +47,6 @@ coarsePointerViewport.addEventListener('change', ensureMobileProductLayer)
 // is a tiny slug lookup with no heavy dependencies.
 // eslint-disable-next-line react-refresh/only-export-components -- entry module, not a fast-refresh boundary
 const LegalPage = lazy(() => import('./screens/LegalPage.tsx').then((m) => ({ default: m.LegalPage })))
-// This transparency notice is informational, not a consent or admission gate.
-// Request it immediately with the player surface without putting its copy and
-// inline presentation styles on the render-blocking module-preload graph.
-// eslint-disable-next-line react-refresh/only-export-components -- entry module, not a fast-refresh boundary
-const StorageNotice = lazy(() => import('./components/StorageNotice.tsx').then((m) => ({ default: m.StorageNotice })))
 // Explicitly allow production-like QA bundles to retain the isolated preview
 // routes without exposing them in ordinary production builds.
 // Admin "play as a Cinderhold NPC" bar: only fetched while a takeover is active.
@@ -150,9 +146,8 @@ root.render(
                 <ErrorBoundary>
                     <App />
                 </ErrorBoundary>
-                <Suspense fallback={null}>
-                    <StorageNotice />
-                </Suspense>
+                {/* Measure the fixed notice in the first commit so the phone's play buttons stay put. */}
+                <StorageNotice />
             </LiveCapabilitiesProvider>
         )}
     </StrictMode>,

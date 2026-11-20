@@ -89,20 +89,19 @@ import {
 } from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
-import { PetSummonEntrance } from "../components/PetSummonEntrance";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
+import { petSummonBattleArt } from "../lib/pet-summon-art";
 import { battlefieldFacingTowardNearest, battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { groundZoneTilesForDisplay } from "../lib/ground-zone-display";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { isImageAvatar } from "../lib/avatar";
-import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
+import { battlefieldAiSprite, defaultAiRivalSprite, publishedAiBattleSprite } from "../lib/battlefield-actor-art";
 import { academySparringPartnerImg } from "../lib/academy-ai-art";
-import { bundledFighterSprite, generatedFighterModel } from "../lib/battlefield-fighter-art";
+import { bundledFighterSprite, generatedFighterModel, playerBattleFallback } from "../lib/battlefield-fighter-art";
 import { useBattlefieldModelSprite } from "../lib/use-battlefield-model-sprite";
 import { resolveOwnAvatar } from "../lib/own-avatar";
-import { petScenicPortraitImage as petPortraitImage } from "../lib/pet-scenic-portrait";
-import { petVisualVariantClass } from "../lib/pet-visual-variant";
 
 import { getAllItems } from "../lib/items";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
@@ -1245,7 +1244,8 @@ export function MissionArenaFight({
     // The Mirror trial copies the player's appearance, but keeps its sealed kit.
     const playerAvatar = resolveOwnAvatar(character, sharedImages) || me.slice(0, 2).toUpperCase();
     const playerModelSprite = useBattlefieldModelSprite(generatedFighterModel(character));
-    const playerBattleSprite = playerModelSprite || bundledFighterSprite(character, playerAvatar);
+    const playerFallback = playerBattleFallback(character, playerAvatar);
+    const playerBattleSprite = playerModelSprite || playerFallback;
     const enemyVisual = String(enemy?.character?.visual ?? "");
     const mirrorTrial = enemyVisual === "story-ai-moonshadow-village-50";
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
@@ -1255,17 +1255,17 @@ export function MissionArenaFight({
     const bossForm = bossFormReveal.shown;
     const enemyAvatar = mirrorTrial ? playerAvatar : bossForm?.portrait || (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || sharedImages?.[`ai:${canonicalBeastPortraitId(enemyVisual)}`] || beastPortrait(enemyVisual) || (enemyVisual === "builtin-ai-academy-sparring" ? academySparringPartnerImg : enemy?.name?.slice(0, 2).toUpperCase() || "EN");
     const enemyName = enemy?.name ?? "Enemy";
-    const enemyBattleSprite = mirrorTrial ? playerBattleSprite : bossForm?.sprite
-        || bundledFighterSprite(enemy?.character, enemyAvatar)
-        || battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype, portrait: enemyAvatar });
-    // The pet's portrait is resolved from the player's OWN save (character.pets) rather
-    // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
-    // Portrait-first — `pet.image` alone misses published and replacement art.
+    const enemyIdentity = { name: enemyName, archetype: encounter?.archetype, portrait: enemyAvatar };
+    const enemyFighterSprite = bundledFighterSprite(enemy?.character, enemyAvatar);
+    const enemyFallback = mirrorTrial ? playerFallback : enemyFighterSprite || battlefieldAiSprite(enemyVisual, undefined, enemyIdentity) || defaultAiRivalSprite();
+    const enemyBattleSprite = mirrorTrial ? playerBattleSprite : bossForm?.sprite || enemyFighterSprite
+        || publishedAiBattleSprite(enemyVisual, sharedImages) || enemyFallback;
+    // Resolve owned artwork locally so session polls carry only the pet id.
     const companionPetId = String(companion?.character?.visual ?? "");
     const companionPet = companionPetId ? (character.pets ?? []).find((p) => p.id === companionPetId) : undefined;
     const activePet = (character.pets ?? []).find((pet) => pet.id === character.activePetId);
     const unavailableCompanionCopy = unavailableCompanionSummonCopy(activePet);
-    const companionImage = companionPet ? petPortraitImage(companionPet, sharedImages ?? {}) : "";
+    const companionSprites = companion && petSummonBattleArt(companionPet, companionPetId, companion.character?.companionSpecies, sharedImages);
     const companionRoundsLeft = Number(companion?.character?.companionRoundsLeft ?? 0);
 
     // The sealed session strips jutsu art (combat fields only), so card thumbnails
@@ -1544,29 +1544,27 @@ export function MissionArenaFight({
                                 {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
                                     const facing = battlefieldFacingTowardNearest(myActor, session.actors, w);
-                                    return <BattlefieldActor key="player-orb" side="player" actorId="player" label={me} portrait={playerAvatar} sprite={playerBattleSprite} facing={facing} fallback={me.slice(0, 2).toUpperCase()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }} />;
+                                    return <BattlefieldActor key="player-orb" side="player" actorId="player" label={me} fallbackSprite={playerFallback} sprite={playerBattleSprite} facing={facing} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }} />;
                                 })()}
                                 {myActor && (() => {
                                     const { left, top } = towerHexPixel(myPos, w);
                                     const headroom = battlefieldSpriteHeadroom(ORB, playerBattleSprite);
                                     return <FighterHpBadge key="player-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16 - headroom} width={ORB} hp={myActor.hp} maxHp={myActor.maxHp} side="player" />;
                                 })()}
-                                {companion && isImageAvatar(companionImage) && (() => {
+                                {companion && companionSprites && (() => {
                                     const { left, top } = towerHexPixel(companion.pos, w);
-                                    return <div key="pet-orb" className={`avatar-orb pet-summon-orb ${companionPet ? petVisualVariantClass(companionPet) : ""}`} data-battlefield-actor-id="companion" style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                        <PetSummonEntrance><img className="tiny-map-avatar" src={companionImage} alt={companion.name} /></PetSummonEntrance>
-                                    </div>;
+                                    return <BattlefieldActor key="pet-orb" side="player" actorId="companion" label={companion.name} summon sprite={companionSprites.sprite} fallbackSprite={companionSprites.fallback} facing={battlefieldFacingTowardNearest(companion, session.actors, w)} className={`pet-summon-orb ${companionPet ? petVisualVariantClass(companionPet) : ""}`} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }} />;
                                 })()}
-                                {companion && (() => {
+                                {companion && companionSprites && (() => {
                                     const { left, top } = towerHexPixel(companion.pos, w);
-                                    return <FighterHpBadge key="pet-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16} width={ORB} hp={companion.hp} maxHp={companion.maxHp} side="pet" caption={`${companion.name} · ${companionRoundsLeft}⟳`} />;
+                                    return <FighterHpBadge key="pet-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16 - battlefieldSpriteHeadroom(ORB, companionSprites.sprite)} width={ORB} hp={companion.hp} maxHp={companion.maxHp} side="pet" caption={`${companion.name} · ${companionRoundsLeft}⟳`} />;
                                 })()}
                                 {enemy && (() => {
                                     const { left, top } = towerHexPixel(displayEnemyPos, w);
                                     const spriteFacing = enemyBattleSprite
                                         ? battlefieldFacingTowardNearest(enemy, session.actors, w)
                                         : undefined;
-                                    return <BattlefieldActor key="enemy-orb" side="enemy" actorId="enemy" label={enemyName} portrait={enemyAvatar} sprite={enemyBattleSprite} facing={spriteFacing} fallback={enemyName.slice(0, 2).toUpperCase()} className={`${gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}${bossFormAuraClass(bossForm)}`.trim()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
+                                    return <BattlefieldActor key="enemy-orb" side="enemy" actorId="enemy" label={enemyName} fallbackSprite={enemyFallback} sprite={enemyBattleSprite} facing={spriteFacing} className={`${gateDirective ? `hg-hound-orb hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}${bossFormAuraClass(bossForm)}`.trim()} style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                         {gateDirective ? <span className="hg-hound-spectral-aura" aria-hidden="true" /> : null}
                                     </BattlefieldActor>;
                                 })()}
@@ -1677,7 +1675,7 @@ export function MissionArenaFight({
                                             {isBarrier ? <span className="combat-barrier-marker" aria-hidden="true">WALL</span>
                                                 : i === myPos ? ""
                                                 : i === enemyPos ? ""
-                                                    : (companion && i === companion.pos) ? (isImageAvatar(companionImage) ? "" : companion.name.slice(0, 2).toUpperCase())
+                                                    : (companion && i === companion.pos) ? ""
                                                         : ""}
                                         </button>
                                     );

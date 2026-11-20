@@ -201,8 +201,11 @@ try {
             const state = fixture({ sector });
             const page = await prepare(browser, { width: 390, height: 844 }, state, `?host=1&sector=${sector}&cachedAvatar=1`);
             await ready(page); await fits(page);
-            assert.equal(await page.locator('.stronghold-player img').getAttribute('src'), '/hush/frostfang.webp');
-            assert.equal(await page.locator('.stronghold-peer-avatar img').getAttribute('src'), '/hush/moonshadow.webp');
+            for (const [actor, kind] of [['.stronghold-player', 'starter-one'], ['.stronghold-peer-avatar', 'starter-two']]) {
+                const figure = page.locator(actor).locator('img.world-standing-figure');
+                assert.equal(await figure.getAttribute('src'), `/world-figures/v1/${kind}.webp`);
+                await figure.evaluate(image => image.decode());
+            }
             // The transparent padding must open inspection without walking onto the tile.
             const target = await page.locator('.stronghold-peer').boundingBox();
             await page.locator('.stronghold-peer').click({ position: { x: 1, y: target.height / 2 } });
@@ -210,7 +213,7 @@ try {
             assert.equal(state.steps, 0);
             await page.keyboard.press('Escape');
             await page.getByRole('dialog').waitFor({ state: 'hidden' });
-            checks.push({ engine: engineName, sector, cachedPortraits: true, avatarSizeParity: true, transparentTouchTarget: true });
+            checks.push({ engine: engineName, sector, cachedAvatarStandingFigures: true, avatarSizeParity: true, transparentTouchTarget: true });
             await page.close();
         }
         for (const [width, height] of [[320, 568], [390, 844], [430, 932], [844, 390], [1920, 1080]]) {

@@ -4,20 +4,16 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { BattlefieldActor } from "./BattlefieldActor";
 
-test("player portraits render as grounded markers inside the fixed actor anchor", () => {
-    const html = renderToStaticMarkup(
-        <BattlefieldActor side="player" label="Player One" portrait="/api/img?id=avatar" />,
-    );
-    assert.match(html, /class="avatar-orb battlefield-actor battlefield-actor--player battlefield-actor--marker"/);
-    assert.match(html, /data-battlefield-presentation="marker"/);
-    assert.match(html, /battlefield-actor-pin/);
-    assert.match(html, /battlefield-actor-portrait-image/);
+test("a player with a custom profile portrait still has a bundled body", () => {
+    const html = renderToStaticMarkup(<BattlefieldActor side="player" label="Player One" />);
+    assert.match(html, /src="\/combat-actors\/starters\/starter-one-idle\.webp"/);
+    assert.match(html, /data-battlefield-presentation="sprite"/);
     assert.match(html, /aria-hidden="true"/);
 });
 
 test("AI body art renders as a non-interactive full-body sprite", () => {
     const html = renderToStaticMarkup(
-        <BattlefieldActor side="enemy" label="Arena Rival" sprite="/assets/rival.webp" portrait="/assets/portrait.webp" />,
+        <BattlefieldActor side="enemy" label="Arena Rival" sprite="/assets/rival.webp" />,
     );
     assert.match(html, /enemy-orb battlefield-actor--enemy battlefield-actor--sprite/);
     assert.match(html, /data-battlefield-presentation="sprite"/);
@@ -56,12 +52,8 @@ test("creature and boss sprite geometry is selected without changing the actor a
     assert.match(boss, /class="avatar-orb battlefield-actor/);
 });
 
-test("missing art keeps a readable marker fallback", () => {
-    const html = renderToStaticMarkup(
-        <BattlefieldActor side="enemy" label="Unknown Rival" fallback="UR" />,
-    );
-    assert.match(html, /battlefield-actor--marker/);
-    assert.match(html, />UR<\/span>/);
-    assert.doesNotMatch(html, /data-battlefield-facing=/);
-    assert.doesNotMatch(html, /data-battlefield-mirrored=/);
+test("an actor with unavailable primary art can use its own local battle sprite", () => {
+    const html = renderToStaticMarkup(<BattlefieldActor side="enemy" label="Rival" fallbackSprite="/combat-actors/starters/starter-two-idle.webp" />);
+    assert.ok(html.includes('src="/combat-actors/starters/starter-two-idle.webp"'));
+    assert.match(html, /data-battlefield-facing="left"/);
 });

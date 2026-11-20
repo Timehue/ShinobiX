@@ -185,6 +185,12 @@ function runtimeSprite(id: string): string | null {
     return null;
 }
 
+export function publishedAiBattleSprite(suppliedId: string, sharedImages?: Record<string, string>) {
+    if (!suppliedId || !sharedImages) return undefined;
+    const id = canonicalAiId(suppliedId);
+    return sharedImages[`ai:${suppliedId}:body`] || sharedImages[`ai:${id}:body`];
+}
+
 /**
  * Resolve display-only grid art for an AI. Published full-body art uses the
  * existing `ai` image category (`ai:<id>:body`), so adding a sprite never changes
@@ -200,13 +206,12 @@ export function battlefieldAiSprite(
     const suppliedId = String(rawId ?? "");
     if (!suppliedId) return null;
     const id = canonicalAiId(suppliedId);
-    const published = sharedImages?.[`ai:${suppliedId}:body`]
-        || sharedImages?.[`ai:${id}:body`];
+    const published = publishedAiBattleSprite(suppliedId, sharedImages);
     if (published) return published;
     const twin = storyTwinArt(id);
     if (twin) return twin;
     const authored = STORY_COMBAT_IDENTITIES[id] ?? narrativeEnemyIdentity(id);
-    if (authored) return namedPortraitSprite(authored.portrait) || authored.body || (authored.sprite && (ORDINARY_PVE_SPRITES[authored.sprite] || BUNDLED_AI_BATTLE_SPRITES[authored.sprite])) || authored.portrait;
+    if (authored) return namedPortraitSprite(authored.portrait) || authored.body || (authored.sprite && (ORDINARY_PVE_SPRITES[authored.sprite] || BUNDLED_AI_BATTLE_SPRITES[authored.sprite])) || rivalFallbackSprite;
     const portraitKey = /^\/portraits\/pve\/([a-z]+)\.webp(?:[?#]|$)/i.exec(identity?.portrait ?? '')?.[1];
     if (portraitKey && Object.hasOwn(ORDINARY_PVE_SPRITES, portraitKey)) return ORDINARY_PVE_SPRITES[portraitKey];
     if (/^Tsukika\b/i.test(identity?.name ?? '') && (id === 'nightblade' || identity?.archetype === 'assassin')) return tsukikaSprite;

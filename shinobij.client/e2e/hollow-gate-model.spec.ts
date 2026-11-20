@@ -4,16 +4,18 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 
 const content = resolve(process.env.SECTOR_MODEL_TEST_CONTENT ?? '../.ci-evidence/sector-models');
-async function openNpc(page: Page, role: string, reduced = false) {
+async function openNpc(page: Page, role: string, reduced = false, mode?: '2d' | 'missing') {
     const errors: string[] = [], requests = new Set<string>();
     page.on('pageerror', error => errors.push(error.message));
     page.on('response', response => { if (response.ok()) requests.add(new URL(response.url()).pathname); });
+    if (mode === '2d') await page.addInitScript(() => localStorage.setItem('worldAvatarMode.v1', '2d'));
     await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
     await page.route('**/api/world/sector-layout', route => route.fulfill({ json: {
         obstaclesEnabled: true, playerGaitsEnabled: true, modelArtBase: '/fixture-art',
     } }));
     await page.route('**/fixture-art/**', async route => {
         const file = new URL(route.request().url()).pathname.slice('/fixture-art/'.length);
+        if (mode === 'missing' && file.startsWith('hollow-hound/')) return route.abort();
         if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\/[a-f0-9]{64}\.(json|gz|264|webp)$/.test(file)) return route.abort();
         return route.fulfill({ body: await readFile(resolve(content, file)) });
     });
@@ -81,5 +83,16 @@ for (const reduced of [false, true]) test(`Hollow Hound encounter uses its ${red
     expect(await picture.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     expect(requests.has('/fixture-art/hollow-hound/' + expected)).toBe(true);
     await page.screenshot({ path: info.outputPath('shrine-hound.png') });
+    expect(errors).toEqual([]);
+});
+
+for (const mode of ['2d', 'missing'] as const) test(`Hollow Hound keeps its body with ${mode} model art`, async ({ page }, info) => {
+    const { errors } = await openNpc(page, 'hound', false, mode);
+    const sprite = page.locator('.hg-hound-standing');
+    await expect(sprite).toHaveAttribute('src', '/world-figures/v1/hollow-hound.webp');
+    await expect(sprite).toBeVisible();
+    await expect.poll(() => sprite.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await expect(page.locator('.hg-hound-figure:visible')).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath('standing-hound.png') });
     expect(errors).toEqual([]);
 });
