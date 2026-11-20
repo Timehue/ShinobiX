@@ -146,7 +146,8 @@ for (const custom of [false, true]) test(`${custom ? 'equipped' : 'starter'} str
     const sprite = self.locator('.sector-model-figure');
     await expect(sprite).toHaveAttribute('data-clip', 'idle');
     const observations = JSON.parse(await sprite.getAttribute('data-observed') || '[]');
-    const walking = observations.filter((s: { gait: string }) => s.gait === 'walk');
+    // The stronghold paces at the sector run speed, so a step plays the run clip.
+    const walking = observations.filter((s: { gait: string }) => s.gait === 'run');
     expect(new Set(walking.map((s: { frame: string }) => s.frame)).size).toBeGreaterThanOrEqual(3);
     expect(new Set(walking.map((s: { facing: string }) => s.facing))).toEqual(new Set(['2', '6']));
     await writeFile(info.outputPath('visible-walk-samples.json'), JSON.stringify({ steps: state.steps, observations }));

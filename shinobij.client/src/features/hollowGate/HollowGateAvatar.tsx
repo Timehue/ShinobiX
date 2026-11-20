@@ -14,13 +14,15 @@
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { HOLLOW_GATE_STEP_MS } from "./use-hollow-gate-walk";
+import { playerGaitTilesPerSecond } from "../../../../shared/sector-model-motion";
 import { SectorModelFigure, type SectorModelHandle } from "../../components/SectorModelFigure";
 import { WorldStandingFigure } from '../../components/WorldStandingFigure';
 import type { PlayerModel, SprintStyle } from "../../lib/player-model";
 
-// Base glide speed — slightly faster than the walk-logic cadence so the
-// sprite arrives at each tile before the next step lands.
-const TILES_PER_SEC = 1150 / HOLLOW_GATE_STEP_MS;
+// Base glide speed: the sector run speed. Each step is issued only after the
+// previous one commits plus HOLLOW_GATE_STEP_MS, so the sprite still arrives
+// at each tile before the next step lands.
+const TILES_PER_SEC = playerGaitTilesPerSecond.run;
 // A glide completes just before the next scheduled tile. Allow two display
 // frames for its React update before starting a planted stop.
 const STEP_GAP_MS = HOLLOW_GATE_STEP_MS - 1000 / TILES_PER_SEC + 1000 / 30;
@@ -70,7 +72,9 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, name, onSelect, disposi
         spriteRef.current?.style.setProperty("--face", String(facingRef.current));
         const width = tileRef.current * 12;
         if (snap) model.current?.snap(cx, cy, width);
-        else model.current?.place(cx, cy, width, moving, undefined, moving);
+        // The player paces at the sector run speed, so it plays the run clip.
+        // Residents keep choosing their clip from the ground they cover.
+        else model.current?.place(cx, cy, width, moving, self ? 'run' : undefined, moving);
     }
 
     function stopGlide() {

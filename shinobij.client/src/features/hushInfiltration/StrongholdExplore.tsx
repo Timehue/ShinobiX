@@ -21,6 +21,7 @@ import { HollowGateFissureArt } from '../../components/HollowGateFissureArt';
 import { HOLLOW_GATE_FISSURE_BEAT_MS, hollowGateArenaFissures, hollowGateFissureState, type HollowGateFissureState } from '../../lib/hollow-gate-arena';
 import { undergroundCamera, undergroundRenderWindow, undergroundRooms, undergroundTileSize } from '../../lib/underground-sector-camera';
 import { sectorContestLabel, sectorContestGarrisonReady, sectorEngagementFor, viewerSectorContest, type SectorWarContestView } from '../../lib/sector-war-engagement';
+import { playerGaitTilesPerSecond } from '../../../../shared/sector-model-motion';
 import './stronghold.css';
 const strongholdVisibilityCache = new WeakMap<object, Map<number, Set<number>>>();
 function visibilityForStrongholdTile(base: ReturnType<typeof buildVaultInterior>, tile: number): Set<number> {
@@ -38,13 +39,16 @@ function visibilityForStrongholdTile(base: ReturnType<typeof buildVaultInterior>
 }
 
 /**
- * One tile pace: the avatar and the camera glide over .16s (stronghold.css),
- * so a step leaves no sooner than the previous glide ends, or when the server
- * answers if that is later. It also keeps a held key well inside the
- * stronghold-walk request limit.
+ * One tile pace: the sector RUN pace (playerGaitTilesPerSecond.run, ~300 ms a
+ * tile), so the figure covers ground and plays its run clip exactly as it does
+ * in a sector. The camera glides over the same time (the map's inline
+ * transition-duration; stronghold.css sets the curve). A step
+ * leaves no sooner than the previous glide ends, or when the server answers if
+ * that is later. It also keeps a held key well inside the stronghold-walk
+ * request limit.
  */
-const STEP_MS = 160;
-/** Taps that can wait behind the step in flight: under a second of walking. */
+const STEP_MS = Math.round(1000 / playerGaitTilesPerSecond.run);
+/** Taps that can wait behind the step in flight: about 1.2 s of walking. */
 const MAX_QUEUED_INPUTS = 4;
 const sameTiles = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((tile, i) => tile === b[i]);
 
@@ -458,7 +462,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         <div className="stronghold-body">
             <div className="stronghold-viewport" ref={viewport}>
                 <div className="stronghold-location"><b>{roomName}</b><span>{discovered.size} / {rooms.length} chambers discovered</span></div>
-                <div key={overview ? 'overview' : 'follow'} className="stronghold-map" data-tile-size={tileSize} style={{ width: mapWidth, height: mapHeight, gridTemplateColumns: `repeat(${base.width}, ${tileSize}px)`, gridAutoRows: `${tileSize}px`, alignContent: 'start', transform: `translate(${camera.x}px, ${camera.y}px)` }}>
+                <div key={overview ? 'overview' : 'follow'} className="stronghold-map" data-tile-size={tileSize} style={{ width: mapWidth, height: mapHeight, gridTemplateColumns: `repeat(${base.width}, ${tileSize}px)`, gridAutoRows: `${tileSize}px`, alignContent: 'start', transform: `translate(${camera.x}px, ${camera.y}px)`, transitionDuration: `${STEP_MS}ms` }}>
                     <UndergroundSectorTerrain tiles={base.tiles} width={base.width} height={base.height} known={seen} visible={visible} mode="stronghold" vault={!obsidian}
                         renderWindow={renderWindow} />
                     {run.tiles.map((tile, idx) => {
