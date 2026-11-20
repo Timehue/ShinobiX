@@ -14,6 +14,8 @@ type Job = {
 };
 type Budget = { spentMicros: number; reservedMicros: number };
 const prefix = 'avatar-model:';
+/** How long a refunded system failure counts toward the three-failure hold on a portrait. */
+export const FAILURE_WINDOW_SEC = 7 * 86400;
 // The private worker reports these exact codes. Unknown failures return the slot.
 const failures = {
     'player-cancelled': 'player',
@@ -85,8 +87,11 @@ async function settle(id: string, owner: string, reason: string, expectedJob?:un
         const holdKey = prefix + 'failures:' + owner + ':' + job.sourceSha256;
         const recentKey = prefix + 'last-refund:' + owner;
         const [held, recent] = await Promise.all([kv.get<{count: number}>(holdKey), kv.get<string>(recentKey)]);
+        // The failure is ours, so it holds the portrait only while failures keep coming: the count lapses
+        // FAILURE_WINDOW_SEC after the latest one (owner, 2026-11-20). Three inside that window still stop
+        // a portrait that breaks the pipeline from being paid for again and again.
         ops.push({op:'delete', key:slotKey, expected:slot}, {op:'cas', key:holdKey, expected:held,
-            value:{count:(held?.count ?? 0) + 1}}, {op:'cas', key:recentKey, expected:recent, value:id});
+            value:{count:(held?.count ?? 0) + 1}, ex:FAILURE_WINDOW_SEC}, {op:'cas', key:recentKey, expected:recent, value:id});
         // A returned creation also returns its place in the game-wide daily count (admission
         // keys it by the UTC day it was admitted). Otherwise the player reads "your creation was
         // returned" and Retry answers "the creation limit has been reached" until midnight UTC.

@@ -56,6 +56,8 @@ const _noCachePrefixes = [
     'avatar-model:owner:', 'avatar-model:private-ref:', 'avatar-model:cleanup:',
     // The page and the model loop both rewrite the waiting-check list by exact CAS (_auto-start.ts).
     'avatar-model:checks', 'avatar-model:check-result:',
+    // When a job's passes started failing (_dispatch.ts noteStall); every worker must see the same start.
+    'avatar-model:stall:',
     // Save blobs are optimistic-concurrency and RMW authority shared across
     // processes. A process-local cached v5 can survive another process's v6
     // commit, pass an exact `_baseSaveVersion:5` guard under the distributed

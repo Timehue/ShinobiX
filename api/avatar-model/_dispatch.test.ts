@@ -163,6 +163,75 @@ test('a job already rendering starts its last style at once, and a style on anot
     assert.deepEqual(done.providerCalls,{'A/1':'fc-A1','B/1':'fc-B1','C/1':'fc-C1','C/2':'fc-C2','finish/2':'fc-finish2'});
 });
 
+// Nero's job (2026-11-20) failed assembly three times on the same three renders. Assembling them again cannot
+// help: a failed assembly renders all three styles afresh once, and only a second failure ends the job. That
+// failure is ours, so it holds the portrait for seven days only.
+test('a failed assembly renders all three styles again once, then a second failure ends the job for seven days',async t=>{
+    process.env.NODE_ENV='test';
+    process.env.SHINOBIX_QA_MEMORY_KV='1';
+    const start=Date.UTC(2026,10,20,23,0);
+    t.mock.timers.enable({apis:['Date'],now:start});
+    const {advanceSpriteJob}=await import('./_dispatch.js');
+    const {FAILURE_WINDOW_SEC}=await import('./_settlement.js');
+    const {kv}=await import('../_storage.js');
+    const {ensureModelOwner}=await import('./_owner.js');
+    const prefix='avatar-model:', id='rebuild-after-assembly', slug='rebuild-pilot';
+    await kv.set('save:'+slug,{character:{name:slug}});
+    const identity=await ensureModelOwner(slug);assert.ok(identity.ok);
+    const key=prefix+'job:'+id, assetId='7'.repeat(32), source='8'.repeat(64), movement='d'.repeat(64);
+    await kv.set(prefix+'active:'+slug,id);
+    await kv.set(prefix+'slot:'+slug+':2026-11',{jobId:id,reservedAt:start});
+    await kv.set(prefix+'budget:modal:rebuild',{spentMicros:0,reservedMicros:300});
+    await kv.set(prefix+'dispatch',[id]);
+    await kv.set(key,{slug,accountId:identity.value.id,assetId,sourceSha256:source,masterSha256:'4'.repeat(64),state:'render',
+        attempt:1,monthKey:'2026-11',revision:0,movement,completed:{A:'fc-A1',B:'fc-B1',C:'fc-C1'},createdAt:start,
+        providerCalls:{'A/1':'fc-A1','B/1':'fc-B1','C/1':'fc-C1'},reserved:[{provider:'modal',cycle:'rebuild',micros:300}]});
+    const read=async (kind:string)=>Buffer.from(kind==='sheets'?'pixels':JSON.stringify({fit:{sourceSha256:source,sheetSha256:'3'.repeat(64)}}));
+    const submits:string[]=[];
+    const policy={enabled:true,dailyLimit:5,providers:[{provider:'modal' as const,cycle:'rebuild',limitMicros:300,perAttemptMicros:100}]};
+    const tick=()=>advanceSpriteJob(id,policy,async req=>{
+        if (!req.callId) { submits.push(req.stage+req.attempt); return {status:'pending',callId:'fc-'+req.stage+req.attempt}; }
+        if (req.stage==='finish') return {status:'failed',callId:req.callId};
+        return {status:'complete',callId:req.callId,movement};
+    },read);
+    await tick(); await tick();
+    const rebuilt=await kv.get<{attempt:number;completed:Record<string,string>;rebuiltStyles?:true;state:string}>(key);
+    assert.deepEqual(submits,['finish1']);
+    assert.equal(rebuilt?.state,'render'); assert.equal(rebuilt.attempt,2);
+    assert.deepEqual(rebuilt.completed,{},'all three styles render again, never the same assembly');
+    assert.equal(rebuilt.rebuiltStyles,true);
+    for (let i=0;i<12 && (await kv.get<{state:string}>(key))?.state==='render';i++) await tick();
+    assert.deepEqual([...submits].sort(),['A2','B2','C2','finish1','finish2']);
+    const ended=await kv.get<{state:string;errorCode:string;attempt:number}>(key);
+    assert.equal(ended?.state,'failed'); assert.equal(ended.errorCode,'provider-outage'); assert.equal(ended.attempt,2);
+    const hold=prefix+'failures:'+slug+':'+source;
+    assert.deepEqual(await kv.get(hold),{count:1});
+    t.mock.timers.setTime(start+FAILURE_WINDOW_SEC*1000+60_000);
+    assert.equal(await kv.get(hold),null,'our failure stops holding the portrait after seven days');
+});
+
+// A job whose every pass throws (a receipt the server cannot accept, say) used to retry forever: never ended,
+// never refunded. Six hours of nothing but errors now ends it; any clean pass forgets the run.
+test('a job that only throws for six hours ends with a refund, and a clean pass resets the clock',async()=>{
+    process.env.NODE_ENV='test';
+    process.env.SHINOBIX_QA_MEMORY_KV='1';
+    const {noteStall,clearStall,STALL_MS}=await import('./_dispatch.js');
+    const {kv}=await import('../_storage.js');
+    const id='stalled-job', start=Date.UTC(2026,10,20,23,0);
+    await kv.set('avatar-model:job:'+id,{slug:'stalled-pilot',state:'render'});
+    const ended:string[][]=[];
+    const end=(async (job:string,slug:string,reason:string)=>{ ended.push([job,slug,reason]); return 'failed'; }) as never;
+    await noteStall(id,start,end);
+    await noteStall(id,start+STALL_MS-60_000,end);
+    assert.deepEqual(ended,[]);
+    await clearStall(id);
+    await noteStall(id,start+STALL_MS,end);
+    assert.deepEqual(ended,[],'a clean pass restarted the clock');
+    await noteStall(id,start+2*STALL_MS,end);
+    assert.deepEqual(ended,[[id,'stalled-pilot','provider-outage']]);
+    assert.equal(await kv.get('avatar-model:stall:'+id),null);
+});
+
 test('an early start that errors never holds up the current style, and one whose reply was lost keeps its attempt',async()=>{
     process.env.NODE_ENV='test';
     process.env.SHINOBIX_QA_MEMORY_KV='1';

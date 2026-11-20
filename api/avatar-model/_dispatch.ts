@@ -31,6 +31,8 @@ type DispatchJob = {
     providerCalls?: Record<string,string>;
     erasedAt?:number;
     retryCauses?: Partial<Record<ModelRetryCause, number>>;
+    /** All three styles were rendered again once after a failed assembly. */
+    rebuiltStyles?: true;
     recognition?:RecognitionOperation; recognitionReceipt?:RecognitionReceipt;
     reserved:Array<{provider:string; cycle:string; micros:number}>;
     settledCosts?:Record<string,unknown>;
@@ -43,6 +45,9 @@ type StageReply = {status:'unknown'|'pending'|'failed'|'complete'|'lost-style'|'
     recognitionReceipt?:RecognitionReceipt};
 const prefix = 'avatar-model:';
 const callIdPattern = /^fc-[A-Za-z0-9]{1,100}$/;
+/** A job's highest attempt (the worker accepts the same, dispatch_stage.py MAX_ATTEMPT): one style retry plus a
+ *  full rebuild of the three styles after a failed assembly must not use up a job (owner, 2026-11-20). */
+const MAX_ATTEMPTS = 5;
 // Allow the longest style invocation to finish and its started call to become discoverable.
 const unknownSubmissionGraceMs = 6 * 60 * 60_000;
 
@@ -276,7 +281,7 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
         }
     }
     if (result.status==='lost-style') {
-        if (job.attempt>=3) { await endModelJob(id,job.slug,'provider-outage',job); return; }
+        if (job.attempt>=MAX_ATTEMPTS) { await endModelJob(id,job.slug,'provider-outage',job); return; }
         const completed={...job.completed};
         delete completed[lost[0]];
         const retry={...retryJob(job,'expired-style'),completed};
@@ -296,7 +301,7 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
     const staleStyle=result.status==='complete' && isStyle(stage) && !!job.movement && result.movement!==job.movement &&
         !!result.movement && /^[a-f0-9]{64}$/.test(result.movement);
     if (staleStyle) {
-        if (job.attempt>=3) { await endModelJob(id,job.slug,'provider-outage',job); return; }
+        if (job.attempt>=MAX_ATTEMPTS) { await endModelJob(id,job.slug,'provider-outage',job); return; }
         next=retryJob(job,'worker-failure');
     } else if (result.status==='complete') {
         if (stage==='paint') {
@@ -342,8 +347,16 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
         }
         delete next.callId;
     } else if (result.status==='failed') {
-        if (stage==='paint' || stage==='recognize' || job.attempt>=3) { await endModelJob(id,job.slug,'provider-outage',job); return; }
-        next=retryJob(job,'worker-failure');
+        if (stage==='paint' || stage==='recognize' || job.attempt>=MAX_ATTEMPTS) { await endModelJob(id,job.slug,'provider-outage',job); return; }
+        if (stage==='finish') {
+            // Assembling the same three renders again fails the same way (Nero, 2026-11-20: three identical
+            // failures). Render all three afresh instead: started side by side they share one machine, so their
+            // shared poses match byte for byte. A second assembly failure after that rebuild ends the job.
+            if (job.rebuiltStyles) { await endModelJob(id,job.slug,'provider-outage',job); return; }
+            next={...retryJob(job,'worker-failure'),completed:{},rebuiltStyles:true};
+            delete next.running;
+            delete next.startingAt;
+        } else next=retryJob(job,'worker-failure');
     } else if (result.status!=='pending') throw new Error('Unknown worker state');
     delete next.unknownSince;
     if (validRecognition(next.recognitionReceipt,next)) {
@@ -413,6 +426,31 @@ export async function publishSpriteJob(id:string, run=modalStage) {
     },{failClosed:true}),{failClosed:true});
 }
 
+/** A job whose every pass has thrown for this long ends with a refund instead of retrying forever (owner, 2026-11-20).
+ *  Six hours outlasts any provider blip; a slow but healthy job never throws, so it is never ended by this. */
+export const STALL_MS = 6 * 60 * 60_000;
+const stallKey = (id:string) => prefix+'stall:'+id;
+
+/** A clean pass forgets any run of errors. */
+export async function clearStall(id:string) {
+    const since = await kv.get<number>(stallKey(id)).catch(() => null);
+    if (since !== null) await kv.compareSetMany?.([{op:'delete',key:stallKey(id),expected:since}]).catch(() => false);
+}
+
+/** Record the start of a run of errors, and end the job once that run has lasted STALL_MS. */
+export async function noteStall(id:string, now=Date.now(), end=endModelJob) {
+    try {
+        const since = await kv.get<number>(stallKey(id));
+        if (since === null || !Number.isSafeInteger(since)) {
+            await kv.compareSetMany?.([{op:'cas',key:stallKey(id),expected:since,value:now,ex:7*86400}]);
+            return;
+        }
+        if (now - since < STALL_MS) return;
+        const job = await kv.get<DispatchJob>(prefix+'job:'+id);
+        if (job?.slug && await end(id, job.slug, 'provider-outage') !== 'conflict') await clearStall(id);
+    } catch { console.warn('[avatar-model] Unable to record a stalled job', id); }
+}
+
 export async function tickSpriteDispatch() {
     if (process.env.AVATAR_MODEL_DISPATCH_ENABLED!=='1' || !process.env.AVATAR_MODEL_MODAL_PYTHON ||
         !process.env.AVATAR_MODEL_MODAL_ENVIRONMENT) return;
@@ -426,12 +464,12 @@ export async function tickSpriteDispatch() {
             process.env.AVATAR_MODEL_KILL_SWITCH!=='1'};
         for (const id of jobs??[]) {
             // A render-stage tick can make three worker calls (two early starts and the poll), each up to 120 s.
-            try { await withScheduledJobLease('avatar-model-job:'+id,()=>advanceSpriteJob(id,policy),{ttlSec:420}); }
-            catch { console.warn('[avatar-model] Unable to advance private job',id); }
+            try { if ((await withScheduledJobLease('avatar-model-job:'+id,()=>advanceSpriteJob(id,policy),{ttlSec:420})).acquired) await clearStall(id); }
+            catch { console.warn('[avatar-model] Unable to advance private job',id); await noteStall(id); }
         }
         for (const id of await kv.get<string[]>(prefix+'publish')??[]) {
-            try { await withScheduledJobLease('avatar-model-publish:'+id,()=>publishSpriteJob(id),{ttlSec:900}); }
-            catch { console.warn('[avatar-model] Unable to verify sprite publication',id); }
+            try { if ((await withScheduledJobLease('avatar-model-publish:'+id,()=>publishSpriteJob(id),{ttlSec:900})).acquired) await clearStall(id); }
+            catch { console.warn('[avatar-model] Unable to verify sprite publication',id); await noteStall(id); }
         }
         // Every write inside also proves this outer lease is live, so it must outlast the inner ones
         // (420 s per job, 900 s per publication). The lease is released as soon as the tick ends.

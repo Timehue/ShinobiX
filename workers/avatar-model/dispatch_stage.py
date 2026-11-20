@@ -17,7 +17,9 @@ def advance(request, ledger, function, lookup, terminal_errors=(), paint_claim=N
     if not re.fullmatch("[a-f0-9]{32}", asset) or not re.fullmatch("[a-f0-9]{64}", master):
         raise ValueError("invalid-job-binding")
     attempt = request["attempt"]
-    if type(attempt) is not int or not 1 <= attempt <= 3 or (stage == "paint" and attempt != 1):
+    # Five attempts (api/avatar-model/_dispatch.ts MAX_ATTEMPTS): a style retry plus a full rebuild of the
+    # three styles after a failed assembly must not use up a job (owner, 2026-11-20).
+    if type(attempt) is not int or not 1 <= attempt <= 5 or (stage == "paint" and attempt != 1):
         raise ValueError("invalid-attempt")
     key = f"{asset}/{master}/{stage}/{attempt}"
     call_id = request.get("callId") or ledger.get(key)

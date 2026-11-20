@@ -25,6 +25,9 @@ PARALLEL_JOBS = 3
 # took 167 s that hour, 34 s that morning). Any free one of these starts it instead. The trial harness
 # (modal_portrait_trial.py) already runs this same reader image on this list.
 GPUS = ["L4", "A10", "T4"]
+# A job's highest attempt (api/avatar-model/_dispatch.ts MAX_ATTEMPTS, dispatch_stage.py): a style retry plus a
+# full rebuild of the three styles after a failed assembly must not use up a job (owner, 2026-11-20).
+MAX_ATTEMPT = 5
 openai_secret_name = os.environ.get("SPRITE_OPENAI_SECRET", "").strip()
 
 
@@ -299,7 +302,7 @@ if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
 def acknowledge_movement(asset, master, stage, attempt):
     if (not isinstance(asset, str) or not re.fullmatch(r"[a-f0-9]{32}", asset)
             or not re.fullmatch(r"[a-f0-9]{64}", master) or stage not in ("A", "B", "C", "finish")
-            or type(attempt) is not int or not 1 <= attempt <= 3):
+            or type(attempt) is not int or not 1 <= attempt <= MAX_ATTEMPT):
         raise ValueError("invalid-movement-operation")
     acknowledge_reserved_call(f"{asset}/{master}/{stage}/{attempt}", "movement")
 
@@ -337,7 +340,7 @@ def recognize_sprite(asset, descriptor, master, portrait, source, finished_call,
     validate_operation(op)
     if (operation.get("model") != os.environ.get("SPRITE_RECOGNITION_MODEL")
             or operation.get("poolSha256") != os.environ.get("SPRITE_RECOGNITION_POOL_SHA256")
-            or type(attempt) is not int or not 1 <= attempt <= 3
+            or type(attempt) is not int or not 1 <= attempt <= MAX_ATTEMPT
             or not re.fullmatch(r"fc-[A-Za-z0-9]{1,100}", finished_call)):
         raise ValueError("recognition-release-unavailable")
     acknowledge_reserved_call(f"{asset}/{master}/recognize/{attempt}", "recognition")
