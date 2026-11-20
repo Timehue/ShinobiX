@@ -57,7 +57,8 @@ test('a portrait check Modal still holds stays the same check, up to two hours',
     t.mock.timers.setTime(start + READ_PATIENCE_MS + 60_000);
     assert.deepEqual(await checkPlayerPortrait(owner, ports), { state: 'pending' });
     const fresh = await row();
-    assert.notEqual(fresh?.operation, first.operation);
+    assert.ok(fresh);
+    assert.notEqual(fresh.operation, first.operation);
     assert.equal(fresh.expiresAt, start + READ_PATIENCE_MS + 16 * 60_000);
     assert.equal(await kv.get(day), 2);
 });
