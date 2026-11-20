@@ -40,7 +40,7 @@ export function StrongholdAvatar({ tileX, tileY, tileSize, size, stepMs, name, p
                 root.current.style.top = `${y}px`;
             }
             if (snap) model.current?.snap(x, y, px * 12);
-            else model.current?.place(x, y, px * 12, moving, 'walk', moving);
+            else model.current?.place(x, y, px * 12, moving, 'run', moving);
         }
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
         const snap = () => {
@@ -91,7 +91,8 @@ export function StrongholdAvatar({ tileX, tileY, tileSize, size, stepMs, name, p
                 root.current.style.top = `${y}px`;
             }
             if (immediate) model.current?.snap(x, y, px * 12);
-            else model.current?.place(x, y, px * 12, moving, 'walk', moving);
+            // The stronghold paces at the sector run speed, so it plays the run clip.
+            else model.current?.place(x, y, px * 12, moving, 'run', moving);
         };
         if (snap || queue.current.length === 0 && !frame.current) paint(false, snap);
         if (frame.current || queue.current.length === 0) return;
