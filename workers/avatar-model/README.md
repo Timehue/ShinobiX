@@ -80,7 +80,13 @@ other entry is byte-identical. The release before them, and the rollback, is
   is left; only a refused second round fails the job and refunds the slot. Each
   repair is told the rig's codes in words (`explain`: "ne/leg1:silhouette" names the
   second leg in column 4, row 5), since the bare code got the same leg repainted
-  twice on 2026-11-21. Before this, the sheet was accepted and `render_fitted_roster.py` refused it on
+  twice on 2026-11-21. Before any repair is paid for, `limb_repair.py` (hooked between
+  `register_sheet` and the rig check by `paint_admitted_costume.with_limb_repair`)
+  redraws each refused arm or leg from the same painting: a leg bent to the rig's
+  leg line, or the best matching limb of its kind from the mirror view (flipped) or
+  the same view, whichever fits its cutout best. It only runs when every refusal is
+  a limb, keeps a change only if the check then accepts that piece and refuses
+  nothing new, and never touches an accepted sheet. Before this, the sheet was accepted and `render_fitted_roster.py` refused it on
   every render retry ("Invalid painted body proportions").
 - `render_fitted_roster.py` (movement) accepts the same 0.6–1.75 range, up from
   0.72–1.45, so bulky armor keeps its painted breadth. The renderer widens the

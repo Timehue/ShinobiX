@@ -67,6 +67,33 @@ def explained(painter):
     return paint
 
 
+def with_limb_repair(kit, templates):
+    """Run limb_repair between the rig's registration and its check (register_painted_kit.receive_painting calls
+    register_sheet, then fit), so a refused arm or leg is redrawn from the same painting before any paid repair."""
+    import limb_repair
+
+    if not (callable(getattr(kit, "register_sheet", None)) and callable(getattr(kit, "register_arm", None))):
+        print("limb-repair-unavailable", flush=True)  # A rig without these seams paints exactly as before.
+        return
+    if getattr(kit.register_sheet, "limb_repair", False):
+        return
+    register_sheet = kit.register_sheet
+
+    def registered(source, template, output, **options):
+        proportions = register_sheet(source, template, output, **options)
+        if str(templates) not in sys.path:
+            sys.path.insert(0, str(templates))
+        from fit_candidate import fit
+        try:
+            limb_repair.repair(output, template, fit, kit.register_arm)
+        except Exception as error:  # noqa: BLE001
+            print("limb-repair-skipped", type(error).__name__, flush=True)  # The rig check still decides.
+        return proportions
+
+    registered.limb_repair = True
+    kit.register_sheet = registered
+
+
 def likeness_checked(painter, upload, template, asker, refuse):
     """Run the likeness check on every painting the rig is about to receive.
 
@@ -105,7 +132,9 @@ def paint(entry, work, asset, master, source, reader_python, submit, likeness=No
     sys.path.insert(0, str(entry.resolve(strict=True).parent))
     from motion_worker_paths import TEMPLATES
     from paint_portrait import costume_painter, portrait_palette
+    import register_painted_kit
     from register_painted_kit import PaintingGeometryError, paint_screened_upload
+    with_limb_repair(register_painted_kit, TEMPLATES)
 
     upload = work / "portrait"
     descriptor = (work/"screened.json").read_bytes()

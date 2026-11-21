@@ -48,7 +48,7 @@ def worker_image():
         image = image.add_local_file(HERE / name, "/opt/sprite/" + name, copy=True)
     if painted:
         image = image.env({"SPRITE_PAINTED_COSTUMES":"1"})
-        for name in ("paint_admitted_costume.py", "paint_portrait.py", "closeup_portrait.py", "armored_raccoon.py",
+        for name in ("paint_admitted_costume.py", "limb_repair.py", "paint_portrait.py", "closeup_portrait.py", "armored_raccoon.py",
                      "upright_animal.py", "painted_likeness.py", "costume_palette.py", "sector-costume-light.png",
                      "paint_battle_sprite.py", "battle-stance-reference.png"):
             image = image.add_local_file(HERE / name, "/opt/sprite/" + name, copy=True)
