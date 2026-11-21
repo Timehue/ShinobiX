@@ -210,6 +210,11 @@ BATTLE_SPRITES = "shinobix-avatar-battle-sprites"
 PAINT_TIMEOUT = 2400
 # Start the combat painting only with this long left: one edit, one repair (360 s each at most) and their checks.
 BATTLE_PAINT_ROOM = 1000
+# paint_admitted_costume.py REFUSED: the rig or the likeness check refused all three paintings of a round.
+PAINT_REFUSED = 3
+# Start a second painting round only with this long left. A round takes about 4 minutes; three edits at their
+# 360 s timeout and the checks fit in 20. A combat painting that no longer fits is skipped and the posed model used.
+REPAINT_ROOM = 1200
 
 
 def paint_battle_sprite(entry, work, asset, source, painted_master, started):
@@ -282,18 +287,28 @@ if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
             (work/"screened.json").write_bytes(descriptor)
             out = work/"painted"
             battle = []
+            command = [INSTALL/"paint/bin/python",INSTALL/"paint_admitted_costume.py",
+                       entry,work,INSTALL/"reader/bin/python",asset,master,source]
             try:
-                subprocess.run([INSTALL/"paint/bin/python",INSTALL/"paint_admitted_costume.py",
-                                entry,work,INSTALL/"reader/bin/python",asset,master,source],check=True)
+                try:
+                    subprocess.run(command,check=True)
+                except subprocess.CalledProcessError as error:
+                    # All three paintings of the first round were refused (Nero, 2026-11-21: the same leg three
+                    # times, which ended a model at the first step). Paint one fresh round while there is time.
+                    if error.returncode != PAINT_REFUSED or PAINT_TIMEOUT-(time.monotonic()-started) < REPAINT_ROOM:
+                        raise
+                    print("costume-repaint round 2", flush=True)
+                    subprocess.run(command+["--round","2"],check=True)
                 receipt = json.loads((out/"read.json").read_bytes())
                 battle = paint_battle_sprite(entry, work, asset, source, receipt["fittedMasterSha256"], started)
             finally:
                 edits = []
-                for number in (1, 2, 3):
-                    report = work/"edits"/f"edit-{number}"/"provider.json"
-                    if report.is_file():
-                        record = json.loads(report.read_bytes())
-                        edits.append({k: record[k] for k in ("operation","requestId","model","size","quality","usage")})
+                for folder in ("edits", "edits-2"):
+                    for number in (1, 2, 3):
+                        report = work/folder/f"edit-{number}"/"provider.json"
+                        if report.is_file():
+                            record = json.loads(report.read_bytes())
+                            edits.append({k: record[k] for k in ("operation","requestId","model","size","quality","usage")})
                 claims.put(asset, {**claim, "edits": edits + battle})
             return {"assetId":asset,"screened":master,"receipt":receipt,
                     "descriptor":(out/"fitted-master.json").read_bytes(),"sheet":(out/"candidate.png").read_bytes()}

@@ -74,8 +74,13 @@ other entry is byte-identical. The release before them, and the rollback, is
   one `PaintingGeometryError` that says how much narrower or wider to paint it.
   A costume gets one painting and up to two repairs (`PAINT_ATTEMPTS`), each shown
   the sheet just rejected. On the last one, a torso up to 30% past the range is
-  drawn at the nearest bound; further out, the job fails and the slot is refunded.
-  Before this, the sheet was accepted and `render_fitted_roster.py` refused it on
+  drawn at the nearest bound. A round whose three paintings are all refused exits
+  `paint_admitted_costume.py` with code 3, and `paint_costume` paints one fresh round
+  (`--round 2`, its own `edits-2` folder and billing identity) while `REPAINT_ROOM`
+  is left; only a refused second round fails the job and refunds the slot. Each
+  repair is told the rig's codes in words (`explain`: "ne/leg1:silhouette" names the
+  second leg in column 4, row 5), since the bare code got the same leg repainted
+  twice on 2026-11-21. Before this, the sheet was accepted and `render_fitted_roster.py` refused it on
   every render retry ("Invalid painted body proportions").
 - `render_fitted_roster.py` (movement) accepts the same 0.6–1.75 range, up from
   0.72–1.45, so bulky armor keeps its painted breadth. The renderer widens the
