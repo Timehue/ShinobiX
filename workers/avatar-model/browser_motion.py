@@ -16,8 +16,8 @@ INDEX_BYTES = 128 * 1024
 PAGE_BYTES = 512 * 1024
 BATTLE_SPRITE_BYTES = 256 * 1024
 # One decoded pose page. Real pages peak near 6 MB, so 12 MiB failed any costume about twice as wide (owner,
-# 2026-11-20: keep every limit above five avatars' worth). The client never refuses a page this size: its 12 MiB
-# figure is only the cache's eviction target (sector-pose-delivery.ts).
+# 2026-11-20: keep every limit above five avatars' worth). The client's decoder refuses a page over the same
+# figure (shinobij.client/src/lib/sector-pose.worker.ts); scripts/model-atlas-parity.test.mjs keeps them equal.
 ATLAS_BYTES = 32 * 1024**2
 DIRECTIONS = ["s", "se", "e", "ne", "n", "nw", "w", "sw"]
 
