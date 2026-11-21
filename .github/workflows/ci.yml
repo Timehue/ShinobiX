@@ -862,11 +862,13 @@ jobs:
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    # The two mobile WebKit Chronicle Snare cases (390x844 and 1366x768), alone
-    # on a fresh runner with one worker. On main run 44654347768 the 1366x768
-    # case lost its WebKit page inside a crowded smoke shard ("Target crashed"
+    # The four WebKit Chronicle Snare cases (390x844 and 1366x768, in the mobile
+    # and desktop WebKit projects), alone on a fresh runner with one worker. On
+    # main run 44654347768 the 1366x768 case lost its WebKit page inside a crowded smoke shard ("Target crashed"
     # on the retry) while the identical tree passed on its PR. The cases are
-    # unchanged and required here; the smoke shards skip them
+    # unchanged and required here; the smoke shards skip them. Main run
+    # 44818321539 then lost the same 1366x768 case in the webkit-desktop copy,
+    # so that copy runs here too.
     # (E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE, see playwright.config.ts).
     timeout-minutes: 20
     steps:
@@ -925,26 +927,26 @@ jobs:
             echo "## playwright"; node -p "require('./shinobij.client/node_modules/@playwright/test/package.json').version"
             echo "## browsers"; ls -1 "$HOME/.cache/ms-playwright"
           } 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/diagnostics-before.log
-      - name: Require exactly the two Chronicle Snare cases
+      - name: Require exactly the four Chronicle Snare cases
         run: |
-          npm run test:e2e --prefix shinobij.client -- --project=webkit-mobile-chronicle-snare --list 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/list.log
+          npm run test:e2e --prefix shinobij.client -- --project=webkit-mobile-chronicle-snare --project=webkit-desktop-chronicle-snare --list 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/list.log
           grep -F 'Snare response, battle preview and result stay usable at 390x844' .ci-evidence/e2e-responsive-chronicle-webkit/list.log
           grep -F 'Snare response, battle preview and result stay usable at 1366x768' .ci-evidence/e2e-responsive-chronicle-webkit/list.log
-          grep -Fx 'Total: 2 tests in 1 file' .ci-evidence/e2e-responsive-chronicle-webkit/list.log
-      - name: Mobile WebKit Chronicle Snare response, battle preview and result
+          grep -Fx 'Total: 4 tests in 1 file' .ci-evidence/e2e-responsive-chronicle-webkit/list.log
+      - name: WebKit Chronicle Snare response, battle preview and result
         timeout-minutes: 15
         env:
           # Browser process output (including a WebKit crash) lands in the log.
           DEBUG: pw:browser
           PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ github.workspace }}/.ci-evidence/e2e-responsive-chronicle-webkit/results.json
-        run: npm run test:e2e --prefix shinobij.client -- --project=webkit-mobile-chronicle-snare --workers=1 --forbid-only --reporter=line,json,html 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/playwright.log
-      - name: Require both cases to have run and passed
+        run: npm run test:e2e --prefix shinobij.client -- --project=webkit-mobile-chronicle-snare --project=webkit-desktop-chronicle-snare --workers=1 --forbid-only --reporter=line,json,html 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/playwright.log
+      - name: Require all four cases to have run and passed
         run: |
           node -e '
             const r = require(process.argv[1]);
             const s = r.stats;
             console.log(JSON.stringify(s));
-            if (s.unexpected !== 0 || s.skipped !== 0 || s.expected + s.flaky !== 2) process.exit(1);
+            if (s.unexpected !== 0 || s.skipped !== 0 || s.expected + s.flaky !== 4) process.exit(1);
           ' "$GITHUB_WORKSPACE/.ci-evidence/e2e-responsive-chronicle-webkit/results.json" 2>&1 | tee .ci-evidence/e2e-responsive-chronicle-webkit/results.log
       - name: Record runner diagnostics after the run
         if: always()

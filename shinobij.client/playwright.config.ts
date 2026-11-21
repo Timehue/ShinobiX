@@ -49,6 +49,12 @@ const SCREEN_WALK_SPEC = ['**/non-combat-ui-audit.spec.ts', ...SOURCE_FIXTURE_SP
 // project below runs exactly those two. The matrix shards set
 // E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE=1 so the lane project does not run there
 // as well; a plain local `npm run test:e2e` still runs both.
+// Main run 44818321539 (fabe78f1b2) then lost the SAME 1366x768 case in the
+// webkit-desktop copy, still inside a crowded shard: the page crashed on the
+// first attempt, and on the retry it hung right after the board rendered (no
+// frames for 10 s, so the 700 ms Snare prompt timer never ran). The lane on
+// that run passed. So the desktop WebKit copies run in the same lane, and
+// webkit-desktop skips them the same way.
 const CHRONICLE_SNARE_TITLE = /Snare response, battle preview and result stay usable at /;
 const CHRONICLE_WEBKIT_LANE = {
     name: 'webkit-mobile-chronicle-snare',
@@ -56,7 +62,13 @@ const CHRONICLE_WEBKIT_LANE = {
     grep: CHRONICLE_SNARE_TITLE,
     use: { browserName: 'webkit' as const, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
 };
-const chronicleWebkitLane = process.env.E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE === '1' ? [] : [CHRONICLE_WEBKIT_LANE];
+const CHRONICLE_WEBKIT_DESKTOP_LANE = {
+    name: 'webkit-desktop-chronicle-snare',
+    testMatch: '**/chronicle-duel-ux.spec.ts',
+    grep: CHRONICLE_SNARE_TITLE,
+    use: { browserName: 'webkit' as const, viewport: { width: 1366, height: 768 } },
+};
+const chronicleWebkitLane = process.env.E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE === '1' ? [] : [CHRONICLE_WEBKIT_LANE, CHRONICLE_WEBKIT_DESKTOP_LANE];
 
 export default defineConfig({
     testDir: './e2e',
@@ -126,7 +138,7 @@ export default defineConfig({
     projects: [
         { name: 'chromium-desktop', use: { browserName: 'chromium', viewport: { width: 1366, height: 768 } } },
         { name: 'firefox-desktop', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'firefox', viewport: { width: 1366, height: 768 } } },
-        { name: 'webkit-desktop', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'webkit', viewport: { width: 1366, height: 768 } } },
+        { name: 'webkit-desktop', testIgnore: SCREEN_WALK_SPEC, grepInvert: CHRONICLE_SNARE_TITLE, use: { browserName: 'webkit', viewport: { width: 1366, height: 768 } } },
         { name: 'chromium-compact', testIgnore: SCREEN_WALK_SPEC, use: { browserName: 'chromium', viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true } },
         { name: 'chromium-mobile', use: { browserName: 'chromium', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
         { name: 'webkit-mobile', grepInvert: CHRONICLE_SNARE_TITLE, use: { browserName: 'webkit', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
