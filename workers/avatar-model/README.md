@@ -56,8 +56,21 @@ existing pinned Blender tarball. Without it, the image build fetches that exact
 tarball and verifies its checksum.
 
 The local painted release archives are `portable-fit-worker/painted-sleeves-tail.zip`
-and `portable-motion-worker/painted-sleeves-tail-uncapped.zip` under the avatar-model
-evidence folder. Their hashes match `sprite-worker-painted-review.json`. The uncapped
+and `portable-motion-worker/painted-sleeves-tail-legs.zip` under the avatar-model
+evidence folder. Their hashes match `sprite-worker-painted-review.json`. The legs
+movement archive (2026-11-21, movement `10e9fe95…`) is `painted-sleeves-tail-uncapped.zip`
+(movement `ad5f2d05…`, the rollback) with only `render_fitted_roster.py` replaced by
+`painted-sleeves-tail-legs.render_fitted_roster.py` and its hash updated in
+`motion-worker.json`: every painted leg fills the rig's baggy-trouser cutout, so every
+model walked on legs as thick as the template's. `slim_painted_leg` narrows each leg
+texture about its hip-knee-ankle chain when the parts are read, after the rig has
+accepted the painting, so it can never refuse one: full width at the hip (the leg still
+meets the torso), 78% (`LEG_SLIM`) from mid-thigh to three quarters down the shin, back
+to full at the ankle, and the boot below it untouched (foot, sole and foot span keep
+their shape). The Blender leg pass measures its trouser and boot-shaft radii from that
+texture, so walking and running legs narrow with it; the planted turns read the same
+parts. On Nero's 2026-11-21 painting the front trouser radii went from about 48 to 38.
+Models published before the change keep their legs until remade. The uncapped
 movement archive (2026-11-20, movement `ad5f2d05…`) is `painted-sleeves-tail.zip`
 (movement `bcd49663…`, the rollback) with the 8 MiB whole-model checks deleted from
 `avatar_worker/motion_delivery.py` and `avatar_worker/game_package.py` and their two
