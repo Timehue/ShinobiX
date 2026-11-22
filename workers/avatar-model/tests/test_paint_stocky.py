@@ -28,18 +28,49 @@ class StockyTemplateTest(unittest.TestCase):
         self.assertFalse(check(roster, "d"*64, []))
 
     def test_only_a_complete_affirmative_proportion_screen_routes_the_portrait(self):
-        full = dict.fromkeys(animal_build.STOCKY_FIELDS, True)
+        full = {**dict.fromkeys(animal_build.STOCKY_FIELDS, True), "head_share": .38, "leg_share": .24}
         def verdict(answers):
             response = dict(model=animal_build.MODEL, status="completed",
                             output=[dict(type="message", content=[dict(type="output_text", text=json.dumps(answers))])])
             return animal_build.verdict(response, proportions=True)
         self.assertTrue(verdict(full))
-        for field in full:
+        for field in animal_build.STOCKY_FIELDS:
             self.assertFalse(verdict({**full,field:False}))
             with self.assertRaises(ValueError):
                 verdict({**full,field:1})
+        # The stated numbers must agree with the answers.
+        self.assertTrue(verdict({**full,"head_share":.30,"leg_share":.35}))
+        self.assertFalse(verdict({**full,"head_share":.29}))
+        self.assertFalse(verdict({**full,"leg_share":.36}))
+        for field in animal_build.STOCKY_MEASURES:
+            for bad in (True, "0.3", -.01, 1.01):
+                with self.assertRaises(ValueError):
+                    verdict({**full,field:bad})
+        with self.assertRaises(ValueError):
+            verdict(dict.fromkeys(animal_build.STOCKY_FIELDS, True))
         with self.assertRaises(ValueError):
             verdict({"bare_animal": True})
+
+    def test_stocky_needs_two_of_three_reads_and_a_bare_build(self):
+        def run(reads, build="bare"):
+            answers = iter(reads)
+            return animal_build.stocky(b"png", lambda png: next(answers), lambda png: build)
+        self.assertTrue(run([True, True, True]))
+        self.assertTrue(run([True, False, True]))
+        self.assertFalse(run([True, False, False]))
+        self.assertFalse(run([False, False, False]))
+        self.assertFalse(run([True, True, True], build="dressed"))
+        def failing(png):
+            raise TimeoutError
+        with self.assertRaises(TimeoutError):
+            animal_build.stocky(b"png", failing, lambda png: "bare")
+        with self.assertRaises(TimeoutError):
+            animal_build.stocky(b"png", lambda png: True, failing)
+        with self.assertRaises(ValueError):
+            run([True, True, True], build="unknown")
+        calls = []
+        animal_build.stocky(b"png", lambda png: calls.append("read") or True, lambda png: calls.append("build") or "bare")
+        self.assertEqual(sorted(calls), ["build", "read", "read", "read"])
 
     def test_existing_routes_and_unavailable_stocky_guide_use_the_original_layout(self):
         with TemporaryDirectory() as tmp:

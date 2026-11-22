@@ -148,5 +148,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     import animal_build
     prepare(args.entry, args.upload, args.master, args.reader_python, args.digest, animal_only=args.animal_only,
-            stocky_question=(lambda png: animal_build.ask(png, os.environ.get("OPENAI_API_KEY"), proportions=True))
+            stocky_question=(lambda png: animal_build.stocky(
+                png, lambda image: animal_build.ask(image, os.environ.get("OPENAI_API_KEY"), proportions=True),
+                lambda image: animal_build.ask(image, os.environ.get("OPENAI_API_KEY"))))
             if args.stocky else None)

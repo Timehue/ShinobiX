@@ -21,12 +21,28 @@ dressed: the character wears clothing or armor on its body or legs, such as a sh
 
 STOCKY_TEMPLATE = "stocky-template.json"
 STOCKY_FIELDS = ("bare_animal", "whole_body_visible", "large_head", "short_legs", "round_belly")
+# Measured before the yes-or-no answers, so the answers follow from the numbers the model states.
+STOCKY_MEASURES = ("head_share", "leg_share")
 STOCKY_PROMPT = """Inspect the primary illustrated character. Ignore scenery and small background creatures.
+First measure the character as it stands, from the crown of the head to the soles of the feet.
+head_share: the height of the head itself, from the bottom of the chin or jaw to the crown and excluding headwear, divided by the standing height. A number from 0 to 1.
+leg_share: the height from the hip joint to the soles, divided by the standing height. A number from 0 to 1.
+Then answer with true or false.
 bare_animal: an animal character walking on two feet, with no clothing, armor or boots on its body or legs. People in animal costumes and people with animal ears are false.
 whole_body_visible: the head, hips, legs and feet are visible enough to judge standing proportions.
 large_head: the head itself is at least one third of standing height, excluding headwear.
 short_legs: the distance from hips to soles is at most about one third of standing height.
 round_belly: a broad rounded belly and compact cartoon body. Answer false wherever uncertain."""
+# A stocky answer must state numbers that agree with its yes-or-no answers. The model reads real
+# chibi heads at 0.33 to 0.42 of standing height and their legs at 0.18 to 0.28; a small
+# tolerance keeps a correct answer from failing on its own rounding (measured 2026-11-22 on 24
+# portraits, 5 reads each: no dressed or ordinary-proportioned character passed).
+HEAD_SHARE_MIN = 0.30
+LEG_SHARE_MAX = 0.35
+# Independent reads, asked together; at least STOCKY_AGREE must call the portrait stocky, and the
+# dressed-or-bare question must also answer "bare", since a stocky character is painted bare.
+STOCKY_VOTES = 3
+STOCKY_AGREE = 2
 
 
 def stocky_review_available(release, source, approved_sources):
@@ -35,10 +51,34 @@ def stocky_review_available(release, source, approved_sources):
     return STOCKY_TEMPLATE in release.get("paintedTemplates", ()) and len(other_portraits) >= 3
 
 
+def stocky_answer(answer):
+    """Every answer yes, and the measured head and legs on the stocky side of the line."""
+    return (all(answer[key] for key in STOCKY_FIELDS)
+            and answer["head_share"] >= HEAD_SHARE_MIN and answer["leg_share"] <= LEG_SHARE_MAX)
+
+
+def stocky(png, asker, build_asker, votes=STOCKY_VOTES, agree=STOCKY_AGREE):
+    """True only when at least `agree` of `votes` independent proportion reads call the portrait
+    stocky and the dressed-or-bare question answers "bare". asker(png) is one proportion read
+    (ask(..., proportions=True)) and build_asker(png) one dressed-or-bare read (ask(...)). All of
+    them run together; any error raises, which the portrait screen treats as "not stocky"."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=votes + 1) as pool:
+        build = pool.submit(build_asker, png)
+        reads = [pool.submit(asker, png) for _ in range(votes)]
+        answers = [read.result() for read in reads]
+        build = build.result()
+    if any(type(answer) is not bool for answer in answers) or build not in ("bare", "dressed"):
+        raise ValueError("stocky-build-answer")
+    return build == "bare" and sum(answers) >= agree
+
+
 def request_body(png, model=MODEL, *, proportions=False):
     properties = {"wears": {"type": "string"}, "dressed": {"type": "boolean"}}
     if proportions:
-        properties = {key: {"type": "boolean"} for key in STOCKY_FIELDS}
+        properties = {**{key: {"type": "number"} for key in STOCKY_MEASURES},
+                      **{key: {"type": "boolean"} for key in STOCKY_FIELDS}}
     schema = {"type": "object", "additionalProperties": False, "properties": properties, "required": list(properties)}
     image = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
     return {"model": model, "store": False, "instructions": STOCKY_PROMPT if proportions else PROMPT, "max_output_tokens": 1024,
@@ -58,10 +98,11 @@ def verdict(response, model=MODEL, *, proportions=False):
         raise ValueError("animal-build-response-content")
     answer = json.loads(texts[0])
     if proportions:
-        if (not isinstance(answer, dict) or set(answer) != set(STOCKY_FIELDS)
-                or any(type(answer[key]) is not bool for key in STOCKY_FIELDS)):
+        if (not isinstance(answer, dict) or set(answer) != {*STOCKY_FIELDS, *STOCKY_MEASURES}
+                or any(type(answer[key]) is not bool for key in STOCKY_FIELDS)
+                or any(type(answer[key]) not in (int, float) or not 0 <= answer[key] <= 1 for key in STOCKY_MEASURES)):
             raise ValueError("stocky-build-response-schema")
-        return all(answer.values())
+        return stocky_answer(answer)
     if (not isinstance(answer, dict) or set(answer) != {"wears", "dressed"} or type(answer["dressed"]) is not bool
             or not isinstance(answer["wears"], str) or not 0 < len(answer["wears"]) <= 120):
         raise ValueError("animal-build-response-schema")

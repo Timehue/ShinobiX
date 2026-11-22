@@ -59,11 +59,19 @@ The stocky candidate is pinned in `sprite-worker-painted-review.json`. Its guide
 source patches live in `stocky/`. To reproduce the two archives, run
 `python stocky/package_bundles.py <previous-intake.zip> <previous-movement.zip> <new-directory>`
 from this directory. The command verifies the base hashes and writes both ZIPs, their
-changed members and the new manifest. Verify the ZIP pair with `install_sprite_worker.install`
-before building a worker image.
+changed members and the new manifest. Unchanged entries are copied byte for byte and
+changed entries are stored uncompressed, so the ZIP hashes match the pins on any machine
+and Python version. Verify the ZIP pair with `install_sprite_worker.install`
+before building a worker image. A built copy is kept in the main checkout under
+`.ci-evidence/avatar-model/stocky-release/`.
 
 Only an admitted upright animal can take the stocky route. The portrait screen checks
 for a visible bare two-legged body, a large head, a rounded belly and short legs.
+It asks three proportion reads and the dressed-or-bare question together. Each read states
+the head's and legs' share of standing height before answering, and those numbers must agree
+with its answers. At least two reads must call the portrait stocky, and the build question
+must answer bare. On 2026-11-22 this rule routed both chibi dinosaurs and none of 22 other
+upright animals (dressed ninjas, long-legged birds, borderline chibis) in two full passes.
 It seals the selected guide in the ordinary fitted master. A missing guide, uncertain
 answer or unavailable proportion screen uses the existing animal template. People and
 armored close-ups skip the proportion question. Repairs use the first edit's stocky

@@ -1,13 +1,92 @@
-"""Build the stocky release from the frozen painted archives and reviewed source diffs."""
+"""Build the stocky release from the frozen painted archives and reviewed source diffs.
+
+The output depends only on the inputs. Unchanged entries are copied byte for byte from the
+base archive, and changed or added entries are stored uncompressed, so the archive hashes
+do not depend on the local zlib build."""
 import argparse
 from hashlib import file_digest, sha256
 import json
 import os
 from pathlib import Path
-import shutil
+import struct
 import subprocess
 from tempfile import TemporaryDirectory
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZipFile
+import zlib
+
+LOCAL = struct.Struct("<4s5H3L2H")
+CENTRAL = struct.Struct("<4s6H3L5H2L")
+END = struct.Struct("<4s4H2LH")
+LIMIT = 0xFFFFFFFF
+# Fixed metadata for added entries: 1980-01-01 00:00, made on Unix by version 2.0, mode 0644.
+ADDED = dict(made_by=(3 << 8) | 20, needed=20, time=0, date=(1 << 5) | 1, external=0o100644 << 16)
+
+
+def dos_time(date_time):
+    year, month, day, hour, minute, second = date_time
+    return (hour << 11) | (minute << 5) | (second // 2), ((year - 1980) << 9) | (month << 5) | day
+
+
+def rewrite_zip(source, destination, updates):
+    """Copy source to destination, replacing or appending the entries named in updates.
+
+    Untouched entries keep their exact local header and compressed bytes. Updated and added
+    entries are stored, in source order and then in the order of updates."""
+    updates = dict(updates)
+    with ZipFile(source) as original, open(source, "rb") as raw, open(destination, "xb") as out:
+        infos = original.infolist()
+        if original.comment or len(infos) + len(updates) > 0xFFFF:
+            raise ValueError("Unsupported base archive layout")
+        central = []
+
+        def stored(name, data, made_by, needed, time, date, internal, external):
+            offset = out.tell()
+            encoded = name.encode("ascii")
+            crc = zlib.crc32(data)
+            if offset > LIMIT or len(data) > LIMIT:
+                raise ValueError("Archive needs ZIP64")
+            out.write(LOCAL.pack(b"PK\x03\x04", needed, 0, 0, time, date, crc, len(data), len(data), len(encoded), 0))
+            out.write(encoded)
+            out.write(data)
+            central.append(CENTRAL.pack(b"PK\x01\x02", made_by, needed, 0, 0, time, date, crc, len(data), len(data),
+                                        len(encoded), 0, 0, 0, internal, external, offset) + encoded)
+
+        for info in infos:
+            if info.flag_bits or info.extra or info.comment or info.file_size > LIMIT or info.compress_size > LIMIT:
+                raise ValueError(f"Unsupported base entry {info.filename}")
+            made_by = (info.create_system << 8) | info.create_version
+            time, date = dos_time(info.date_time)
+            if info.filename in updates:
+                stored(info.filename, updates.pop(info.filename), made_by, info.extract_version, time, date,
+                       info.internal_attr, info.external_attr)
+                continue
+            raw.seek(info.header_offset)
+            header = raw.read(LOCAL.size)
+            fields = LOCAL.unpack(header)
+            if fields[0] != b"PK\x03\x04" or fields[2] != 0:
+                raise ValueError(f"Unexpected local header for {info.filename}")
+            body = raw.read(fields[9] + fields[10] + info.compress_size)
+            offset = out.tell()
+            if offset > LIMIT:
+                raise ValueError("Archive needs ZIP64")
+            out.write(header)
+            out.write(body)
+            encoded = info.filename.encode("ascii")
+            central.append(CENTRAL.pack(b"PK\x01\x02", made_by, info.extract_version, 0, info.compress_type, time, date,
+                                        info.CRC, info.compress_size, info.file_size, len(encoded), 0, 0, 0,
+                                        info.internal_attr, info.external_attr, offset) + encoded)
+        for name, data in updates.items():
+            stored(name, data, ADDED["made_by"], ADDED["needed"], ADDED["time"], ADDED["date"], 0, ADDED["external"])
+        start = out.tell()
+        for record in central:
+            out.write(record)
+        size = out.tell() - start
+        if start > LIMIT or size > LIMIT:
+            raise ValueError("Archive needs ZIP64")
+        out.write(END.pack(b"PK\x05\x06", 0, 0, len(central), len(central), size, start, 0))
+    with ZipFile(destination) as check:
+        if check.testzip() is not None:
+            raise ValueError("Rewritten archive failed its CRC check")
 
 
 HERE = Path(__file__).resolve().parent
@@ -59,18 +138,9 @@ def build(source, kind, folder):
             for key in painting + [RIG+"stocky-template.json", RIG+"stocky-template.png"]:
                 revision.update(key.encode()+b"\0"+bytes.fromhex(index["files"][key]))
             index["paintingRevision"] = revision.hexdigest()
-        updates = {**files, name: json.dumps(index, indent=2).encode()}
-        with ZipFile(destination, "x") as out:
-            for info in original.infolist():
-                if info.filename in updates:
-                    out.writestr(info, updates.pop(info.filename))
-                else:
-                    with original.open(info) as src, out.open(info, "w") as dst:
-                        shutil.copyfileobj(src, dst, length=1024*1024)
-            for key, data in updates.items():
-                out.writestr(ZipInfo(key), data, compress_type=ZIP_DEFLATED)
-        for key, data in files.items():
-            (folder/(destination.stem+"."+Path(key).name)).write_bytes(data)
+    rewrite_zip(source, destination, {**files, name: json.dumps(index, indent=2).encode()})
+    for key, data in files.items():
+        (folder/(destination.stem+"."+Path(key).name)).write_bytes(data)
     return digest(destination)
 
 
