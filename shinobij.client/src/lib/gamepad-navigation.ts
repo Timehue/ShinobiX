@@ -20,18 +20,8 @@ const ACTIONABLE = [
     'input:not(:disabled):not([type="hidden"])',
     'select:not(:disabled)',
     'textarea:not(:disabled)',
-    '[role="button"][tabindex]:not([aria-disabled="true"])',
-    '[role="checkbox"][tabindex]:not([aria-disabled="true"])',
-    '[role="link"][tabindex]:not([aria-disabled="true"])',
-    '[role="option"][tabindex]:not([aria-disabled="true"])',
-    '[role="radio"][tabindex]:not([aria-disabled="true"])',
-    '[role="gridcell"][tabindex]:not([aria-disabled="true"])',
-    '[role="slider"][tabindex]:not([aria-disabled="true"])',
-    '[role="spinbutton"][tabindex]:not([aria-disabled="true"])',
-    '[role="switch"][tabindex]:not([aria-disabled="true"])',
-    '[role="tab"][tabindex]:not([aria-disabled="true"])',
-    '[role="menuitem"][tabindex]:not([aria-disabled="true"])',
-    '[role="treeitem"][tabindex]:not([aria-disabled="true"])',
+    ...['button', 'checkbox', 'link', 'option', 'radio', 'gridcell', 'slider', 'spinbutton', 'switch', 'tab', 'menuitem', 'treeitem']
+        .map(role => `[role="${role}"][tabindex]:not([aria-disabled="true"])`),
 ].join(',');
 
 const REPEAT_DELAY_MS = 220;
