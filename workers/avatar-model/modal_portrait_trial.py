@@ -28,7 +28,14 @@ if modal.is_local() and sys.argv[1:2] != ["collect"]:
 
     cached_reader = os.environ.get("SPRITE_TRIAL_READER_IMAGE_ID")
     if cached_reader:
-        gpu_image = modal.Image.from_id(cached_reader)
+        manifest = Path(os.environ.get("SPRITE_WORKER_RELEASE_MANIFEST",
+                                       WORKER.with_name("sprite-worker-painted-review.json")))
+        intake_hash = json.loads(manifest.read_bytes())["intake"]
+        if not re.fullmatch(r"im-[A-Za-z0-9]+", cached_reader) or not re.fullmatch(r"[a-f0-9]{64}", intake_hash):
+            raise ValueError("invalid-cached-reader-image")
+        gpu_image = modal.Image.from_id(cached_reader).run_commands(
+            f"echo '{intake_hash}  /opt/sprite/intake.zip' | sha256sum -c -",
+        )
     cached_assembly = os.environ.get("SPRITE_TRIAL_ASSEMBLY_IMAGE_ID")
     if cached_assembly:
         cpu_image = modal.Image.from_id(cached_assembly)
@@ -62,14 +69,15 @@ if modal.is_local() and sys.argv[1:2] != ["collect"]:
         assembly_image = assembly_image.add_local_file(combiner, "/opt/sprite/run_style_package.py", copy=True)
 
 
-@app.function(image=reader_image, gpu=TRIAL_GPUS, cpu=2, memory=6144, timeout=600, retries=0, max_containers=1)
+@app.function(image=reader_image, gpu=TRIAL_GPUS, cpu=2, memory=6144, timeout=600, retries=0, max_containers=1,
+              secrets=[modal.Secret.from_name(PAINT_SECRET, environment_name=ENVIRONMENT, required_keys=["OPENAI_API_KEY"])])
 def read_trial(portrait, source):
     sys.path.insert(0, str(INSTALL))
     from modal_sprite_worker import read_private_upload
 
     entry = Path((INSTALL / "entry.txt").read_text().strip())
     return read_private_upload(portrait, source, entry, INSTALL / "paint/bin/python",
-                               INSTALL / "reader/bin/python", painted_costumes=True)
+                               INSTALL / "reader/bin/python", painted_costumes=True, stocky=True)
 
 
 # The same limit as the deployed costume call (PAINT_TIMEOUT), which budgets the combat painting against it.

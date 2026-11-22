@@ -1,7 +1,9 @@
 # Make Model: stocky body template handoff (for Codex)
 
-> **Status: not started (2026-11-21).** The owner approved scoping this as its own project. Nothing here
-> is built. Read all of it before changing anything; every rule in the last section is an owner ruling.
+> **Local prototype built.** The fourth template fits the dinosaur portrait and renders in all
+> eight directions. The checks with Nero and Rill matched the previous release across all 48 sampled
+> idle, walk and run sheets. The worker README documents the candidate archives and the approved
+> comparison portraits required for live use. The hosted trial and deployment are pending.
 
 ## The problem
 

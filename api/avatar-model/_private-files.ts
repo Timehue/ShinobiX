@@ -7,7 +7,7 @@ import { declarePrivateRead, extendPrivateJobFiles, withPrivateFileLock } from '
 const limits = { portraits: 3*1024*1024, masters: 128*1024, sheets: 16*1024*1024 };
 type Kind = keyof typeof limits;
 const digest = (data:Buffer)=>createHash('sha256').update(data).digest('hex');
-export const paintedTemplates = new Set(['male-coat-template.json','female-coat-template.json','masked-collar-template.json']);
+export const paintedTemplates = new Set(['male-coat-template.json','female-coat-template.json','masked-collar-template.json','stocky-template.json']);
 
 export function privateObjectRequest(kind:Kind|'profile-detail', hash:string, method:'PUT'|'GET'|'DELETE', bytes:Buffer=Buffer.alloc(0),
     conditions:Parameters<typeof signR2ObjectRequest>[4]={}) {
