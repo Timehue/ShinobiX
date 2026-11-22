@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page, type Request } from "@playwright/test";
 import { createServer, type Server } from "node:http";
 import { playerGaitPace, playerGaitTilesPerSecond } from "../../shared/sector-gait-rates";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -800,7 +800,35 @@ test.describe("equipped player upload", () => {
         await expect(marker).not.toHaveClass(/has-sector-model/);
         const run = page.getByRole('button', { name: 'Run', exact: true });
         await expect(run).toBeEnabled();
-        await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
+        // The page clock keeps running until it is paused, so on a loaded WebKit
+        // runner more than the one-second margin could pass between reading it
+        // and pausing ("Cannot fast-forward to the past"). Take a fresh reading.
+        for (let attempt = 1; ; attempt++) {
+            try { await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000)); break; }
+            catch (error) { if (attempt >= 5 || !/past/i.test(String(error))) throw error; }
+        }
+        // The walker paces itself on the answers to its world-move updates
+        // (lib/world-move-pacing.ts): a slow answer lowers its rate, and too many
+        // unanswered tiles hold it still. Those answers arrive over the real
+        // network while page time is frozen, so a reply landing late in the
+        // measured window used to shorten the step on a busy runner. Advance a
+        // frame at a time and let each in-flight update be answered first, the
+        // round trip this assertion assumes.
+        let movesInFlight = 0;
+        const isMove = (request: Request) => request.method() === 'POST' && request.url().includes('/api/player/world-move');
+        page.on('request', request => { if (isMove(request)) movesInFlight++; });
+        const answered = (request: Request) => { if (isMove(request)) movesInFlight--; };
+        page.on('requestfinished', answered);
+        page.on('requestfailed', answered);
+        // A real task turn (MessageChannel is not faked) lets the page read the reply.
+        const pageTurn = () => page.evaluate(() => new Promise<void>(done => { const channel = new MessageChannel(); channel.port1.onmessage = () => done(); channel.port2.postMessage(0); }));
+        const advance = async (ms: number) => {
+            for (let elapsed = 0; elapsed < ms; elapsed += 16) {
+                await page.clock.runFor(Math.min(16, ms - elapsed));
+                await expect.poll(() => movesInFlight, { timeout: 10_000 }).toBe(0);
+                await pageTurn(); await pageTurn();
+            }
+        };
         const x = async () => Number(await canvas.getAttribute('data-world-x'));
         for (const gait of ['walk', 'run'] as const) {
             if (gait === 'run') await run.evaluate(button => button.click());
@@ -808,14 +836,14 @@ test.describe("equipped player upload", () => {
             await canvas.focus();
             await page.keyboard.down('ArrowRight');
             try {
-                await page.clock.runFor(16);
+                await advance(16);
                 const start = await x();
-                await page.clock.runFor(160);
+                await advance(160);
                 expect(await x() - start).toBeCloseTo(playerGaitTilesPerSecond[gait] * .16, 1);
             } finally {
                 await page.keyboard.up('ArrowRight');
             }
-            await page.clock.runFor(200);
+            await advance(200);
         }
     });
     test("a moving NPC holds its last pose during a delayed facing and restores its fitted animation",async({page},info)=>{
