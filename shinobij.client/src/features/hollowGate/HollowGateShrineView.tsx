@@ -23,6 +23,7 @@ import "../../styles/index/33-hollow-gate-cinematic.css";
 import "../../styles/index/29-clan-exchange-storefront.css";
 import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
+import { HOLLOW_GATE_STEP_MS } from "./use-hollow-gate-walk";
 import { HollowHoundFigure } from "./HollowHoundFigure";
 import { useSectorModelPins } from "../../lib/sector-model-pins";
 import { isPlayerModel, starterModel, useSprintStyle } from "../../lib/player-model";
@@ -438,6 +439,7 @@ export function HollowGateShrineView({
         && dismissedBossIntroKey !== bossIntroKey
         && !bossIntroWasSeen(bossIntroKey);
     const floorStyle = {
+        "--hg-step-duration": `${HOLLOW_GATE_STEP_MS}ms`,
         ...(!isQuestRift ? {
             "--hg-floor-accent": floorProfile.accent,
             "--hg-floor-accent-soft": floorProfile.accentSoft,
@@ -644,6 +646,7 @@ export function HollowGateShrineView({
                                      <div
                                          key={`${run.runToken ?? 'local'}:${run.floor}`}
                                          className="hg-board"
+                                         data-gamepad-mode="sector"
                                          data-tile-size={tilePx}
                                          role="grid"
                                          aria-label={`Floor ${run.floor} dungeon grid`}
@@ -836,7 +839,7 @@ export function HollowGateShrineView({
 
                             {/* Movement and always-available recovery controls. */}
                             <div className="hg-controls" style={{ marginTop: 12, display: "flex", justifyContent: "center", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-                                <div style={{ fontSize: 12, color: "#c4b5fd" }}>Tap a tile to walk there · WASD / arrows step · or:</div>
+                                <div style={{ fontSize: 12, color: "#c4b5fd" }}>Tap a tile to walk there, or move with WASD, arrow keys, or the left stick.</div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 44px)", gap: 4 }}>
                                     <div />
                                     <button aria-label="Move up" onClick={() => moveHollowGatePlayer(0, -1)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▲</button>

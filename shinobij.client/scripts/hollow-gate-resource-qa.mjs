@@ -69,7 +69,7 @@ export async function auditHollowGateResources({ browser, engineName, url, outpu
             const route = window.caveResourceControl.walk();
             let moving;
             // Inspect and hide in the browser's own event loop. Host automation
-            // round-trips must not race the short glide/175ms walk cadence.
+            // round-trips can outlast a tile glide.
             for (let attempt = 0; attempt < 12; attempt++) {
                 await new Promise(resolve => requestAnimationFrame(resolve));
                 moving = window.resourceSnapshot();
