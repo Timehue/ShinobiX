@@ -4,6 +4,7 @@ import { createWorldMovementGate, WORLD_WALK_MAX_CREDIT, WORLD_WALK_SPEED } from
 import type { OnlinePlayer } from '../../../api/_realtime/types';
 import { worldPositionModel, CONTINUOUS_WORLD_SPACE, WORLD_LAYOUT_VERSION } from '../../../shared/continuous-world-layout';
 import { buildWorldNavigation, createWorldWalker } from '../../../shared/continuous-world-navigation';
+import { playerGaitTilesPerSecond } from '../../../shared/sector-gait-rates';
 import { createWorldMovePacer, WORLD_UNANSWERED_TILES, WORLD_UPDATE_TILES, type WorldMoveUpdate } from './world-move-pacing';
 
 const model = worldPositionModel(), nodes = buildWorldNavigation(CONTINUOUS_WORLD_SPACE).byId;
@@ -13,7 +14,7 @@ const ends = [`${road.a.sector}:${road.a.tile}`, `${road.b.sector}:${road.b.tile
 /** The rule this replaced: wait once 1.4 tiles past the last acknowledged update. */
 const BEFORE = { update: Infinity, unanswered: 1.4 };
 
-type Walk = { rtt: number; jitter?: number; interval?: number; seconds?: number; seed?: number; govern?: boolean;
+type Walk = { rtt: number; jitter?: number; interval?: number; seconds?: number; seed?: number; govern?: boolean; tilesPerSecond?: number;
     limits?: { update: number; unanswered: number }; drop?: (arrival: number) => boolean };
 /**
  * The controller's send loop (continuous-world-controller.ts) at 60 fps against the
@@ -21,7 +22,7 @@ type Walk = { rtt: number; jitter?: number; interval?: number; seconds?: number;
  * one-way trip half the round trip, give or take half of `jitter`. `stalls` is the
  * share of frames the walker had somewhere to go but stood still.
  */
-function walk({ rtt, jitter = 40, interval = 125, seconds = 20, seed = 7, govern = true, limits, drop = () => false }: Walk) {
+function walk({ rtt, jitter = 40, interval = 125, seconds = 20, seed = 7, govern = true, tilesPerSecond = WORLD_WALK_SPEED, limits, drop = () => false }: Walk) {
     const random = () => (seed = seed * 16807 % 2147483647) / 2147483647;
     const gate = createWorldMovementGate(), walker = createWorldWalker(nodes, ends[0]!), pace = createWorldMovePacer(WORLD_WALK_SPEED, limits);
     const start = model.read({ layoutVersion: WORLD_LAYOUT_VERSION, from: ends[0]!, to: ends[0]!, progress: 0 })!;
@@ -32,7 +33,8 @@ function walk({ rtt, jitter = 40, interval = 125, seconds = 20, seed = 7, govern
     for (let now = 0; now < seconds * 1000; now += 1000 / 60) {
         for (const event of pending.filter(e => e.at <= now)) { pending.splice(pending.indexOf(event), 1); event.run(); }
         if (!walker.moving) { goal = 1 - goal; assert(walker.go(ends[goal]!)); }
-        const before = walker.travelled; walker.tick(Math.min(govern ? pace.rate(interval / 1000) / 60 : 1 / 60, pace.room));
+        const before = walker.travelled;
+        walker.tick(Math.min(tilesPerSecond / WORLD_WALK_SPEED / 60, govern ? pace.rate(interval / 1000) / 60 : 1 / 60, pace.room));
         pace.advance((walker.travelled - before) / WORLD_WALK_SPEED);
         frames++; if (walker.travelled === before) stalls++;
         if (inFlight || now - lastSend <= interval) continue;
@@ -52,6 +54,14 @@ function walk({ rtt, jitter = 40, interval = 125, seconds = 20, seed = 7, govern
     }
     return { speed: walker.travelled / seconds / WORLD_WALK_SPEED, stalls: stalls / frames, refused, carried };
 }
+
+test('the server admits both player gaits at their configured speed over a variable round trip', () => {
+    for (const tilesPerSecond of Object.values(playerGaitTilesPerSecond)) {
+        const { speed, refused } = walk({ tilesPerSecond, rtt: 120, jitter: 80 });
+        assert.equal(refused, 0);
+        assert.ok(Math.abs(speed * WORLD_WALK_SPEED - tilesPerSecond) < .05);
+    }
+});
 
 test('a phone round trip no longer freezes the walk between replies', () => {
     // [round trip ms, least share of full speed now, most share under the old rule]

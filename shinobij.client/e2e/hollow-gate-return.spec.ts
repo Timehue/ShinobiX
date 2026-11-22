@@ -6,6 +6,50 @@ import { resolve } from 'node:path';
 import { isPlayerModel } from '../../shared/player-model-ref';
 import { HOLLOW_GATE_STEP_MS } from '../src/features/hollowGate/use-hollow-gate-walk';
 
+test('holding the controller stick on the shrine floor moves one tile per run step and releasing stops it', async ({ page }) => {
+    await page.route('https://shinobijourney.com/**', route => route.fulfill({ json: [] }));
+    await page.goto('/hgpreview.html?seed=controller-run');
+    const x = () => page.evaluate(() => (window as Window & { __hg: { run: { playerX: number } } }).__hg.run.playerX);
+    await expect(page.getByRole('grid', { name: 'Floor 1 dungeon grid' })).toBeVisible();
+    const start = await x();
+    await page.clock.install();
+    await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
+    await page.evaluate(async moduleUrl => {
+        const pad = { index: 0, mapping: 'standard', connected: true, axes: [1, 0], buttons: [] };
+        Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] });
+        const { installGamepadNavigation } = await import(moduleUrl);
+        installGamepadNavigation();
+    }, '/src/lib/gamepad-navigation.ts');
+
+    await page.clock.runFor(16);
+    await expect.poll(x).toBe(start + 1);
+    const beforeRepeat = Math.floor((HOLLOW_GATE_STEP_MS - 1) / 16) * 16;
+    await page.clock.runFor(beforeRepeat);
+    expect(await x()).toBe(start + 1);
+    await page.clock.runFor(16);
+    await expect.poll(x).toBe(start + 2);
+    await page.evaluate(() => { (navigator.getGamepads()[0]!.axes as number[])[0] = 0; });
+    await page.clock.runFor(HOLLOW_GATE_STEP_MS * 2);
+    expect(await x()).toBe(start + 2);
+
+    await page.keyboard.down('ArrowRight');
+    await page.getByRole('button', { name: 'Floor 5', exact: true }).evaluate(button => button.click());
+    const intro = page.getByRole('dialog');
+    await expect(intro).toBeVisible();
+    const beforeIntro = await x();
+    await page.evaluate(() => {
+        document.addEventListener('keydown', event => {
+            if (event.code === 'KeyD') document.body.dataset.shrineStepBehindDialog = 'true';
+        });
+        (navigator.getGamepads()[0]!.axes as number[])[0] = 1;
+    });
+    await page.clock.runFor(HOLLOW_GATE_STEP_MS * 2);
+    await page.keyboard.up('ArrowRight');
+    expect(await x()).toBe(beforeIntro);
+    await expect(page.locator('body')).not.toHaveAttribute('data-shrine-step-behind-dialog', 'true');
+    await expect(intro).toBeVisible();
+});
+
 test('a default shrine starter loads the selected sprint style without an equipped model', async ({ page }, info) => {
     const pin = JSON.parse(await readFile(resolve('src/data/sector-models/starter-one.json'), 'utf8'));
     const content = resolve(process.env.SECTOR_MODEL_TEST_CONTENT ?? '../.ci-evidence/sector-models', 'starter-one');
@@ -28,6 +72,8 @@ test('a default shrine starter loads the selected sprint style without an equipp
         return route.fulfill({ body: await readFile(resolve(content, file)) });
     });
     await page.goto('/e2e/fixtures/hollow-gate-consumable.html');
+    await expect(page.locator('.hg-board')).toHaveCSS('transition-duration', `${HOLLOW_GATE_STEP_MS / 1000}s`);
+    await expect(page.locator('.hg-board')).toHaveCSS('transition-timing-function', 'linear');
     const avatar = page.locator('.hg-avatar:not(.hg-wanderer)');
     await expect(avatar).toHaveClass(/has-sector-model/);
     await expect(avatar.locator('.sector-model-figure')).toHaveAttribute('data-clip', 'idle');

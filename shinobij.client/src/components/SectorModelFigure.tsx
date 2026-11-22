@@ -24,6 +24,7 @@ export type SectorModelHandle = {
 
 /** How long a figure other than the player's own waits on its next page before its motion stops waiting for the art. */
 const PAINTED_GRACE_MS = 2_000;
+const loadPoseDelivery = () => import("../lib/sector-pose-delivery");
 
 export const SectorModelFigure = forwardRef<SectorModelHandle, {
     kind: string; artBase: string; equipped?: PlayerModel; style?: SprintStyle;
@@ -170,9 +171,12 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 return Object.values(bank).find(clip =>
                     (clip.source ?? clip.entryGait) === pageName && clip.target === "idle")?.page;
             }
+            function loadPage(spec: NonNullable<SpriteClip["page"]>) {
+                return loadPoseDelivery().then(delivery => delivery.loadPackedImage(folder, spec, decodePriority));
+            }
             function retainPage(slot: typeof releaseArt, spec: SpriteClip["page"], onFailure?: () => void) {
                 return !spec || slot.ready(spec.file,
-                    () => import("../lib/sector-pose-delivery").then(m => m.loadPackedImage(folder, spec, decodePriority)), onFailure);
+                    () => loadPage(spec), onFailure);
             }
             function prepareGaitChange(bank: SpriteView, from: MovingGait) {
                 if (preparedChange === bank[from]) return;
@@ -188,7 +192,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 const spec = clip?.page;
                 if (!spec || nextPage===spec.file) return;
                 nextPage=spec.file;
-                void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec,decodePriority))
+                void loadPage(spec)
                     .then(image=>image.release(),()=>{if(nextPage===spec.file) nextPage="";});
             }
             function waitForArt(grace = 400) {
@@ -219,7 +223,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 if (speculative && performance.now()<facingRetryAt[facing]!) return bank;
                 pendingFacings.add(facing);
                 const file = model.packed.styles[style][facing];
-                void import("../lib/sector-pose-delivery").then(m=>m.loadFacing(folder,file,decodePriority)).then(bank=>{
+                void loadPoseDelivery().then(m=>m.loadFacing(folder,file,decodePriority)).then(bank=>{
                     pendingFacings.delete(facing);
                     if (model && live) { model.banks[facing]=bank; if (!driven) draw(); }
                 }).catch(error=>{
@@ -245,8 +249,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                     };
                     const fail = (error?: unknown) => {if (live && currentUrl===clip.url) {pendingUrl=""; failed("page", error);}};
                     if (clip.page) {
-                        const spec=clip.page;
-                        void import("../lib/sector-pose-delivery").then(m=>m.loadPackedImage(folder,spec,decodePriority)).then(ready,fail);
+                        void loadPage(clip.page).then(ready,fail);
                     } else {
                         const image=new Image();
                         image.onload=()=>ready({image,release:()=>{}});
@@ -295,7 +298,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 releaseWarmStarts();
                 warmKey = key;
                 const run = ++warmRun, origin = view, banks = model!.banks;
-                void import("../lib/sector-pose-delivery").then(async delivery => {
+                void loadPoseDelivery().then(async delivery => {
                     let remainingBytes = 12 * 1024 ** 2;
                     for (const facing of [origin, ...[2, 6, 4, 0, 1, 3, 5, 7].filter(to => to !== origin)]) {
                         if (!live || run !== warmRun) return;
@@ -460,8 +463,11 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                         if (!bank[stride.page]) stride = {page:"idle", time:0};
                         gait = pos.moving ? pos.gait ?? (distance/dt > (gait === "run" ? 55 : 78) ? "run" : "walk") : "idle";
                         const desired = gait === "idle" ? null : gait;
-                        // On a loop the actual ground displacement sets the clock, including network pacing.
-                        const elapsed = desired && !bank[stride.page]?.times ? distance / bank[desired]!.speed! : dt;
+                        // Loops follow ground travel. A route with a known gait also carries its
+                        // starts and gait changes at that pace, even during a short sprint.
+                        const followsGround = !bank[stride.page]?.times || (pos.routed && pos.gait);
+                        const speed = desired && bank[desired]?.speed;
+                        const elapsed = followsGround && speed ? distance / speed : dt;
                         const pose = advanceSectorStride(bank, stride, desired, elapsed);
                         stride = pose;
                         index = pose.cell;

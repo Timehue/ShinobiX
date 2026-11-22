@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { peerWorldPath, advancePeerPath, advanceTimedPeerPath, peerPoseInMotion, type PeerWaypoint } from './world-peer-motion';
-import { sectorGaitTilesPerSecond } from '../../../shared/sector-model-motion';
+import { playerGaitTilesPerSecond, sectorGaitTilesPerSecond } from '../../../shared/sector-model-motion';
 import type { WorldNode } from '../../../shared/continuous-world-navigation';
 const nodes = new Map<string, WorldNode>([
     ['a', { id: 'a', sector: 1, x: 0, y: 0, neighbors: ['b'] }],
@@ -22,7 +22,7 @@ test('reversed partial-edge peer updates preserve the exact location', () => {
 });
 
 test('a later sprint packet preserves the walking speed and facing up to the corner', () => {
-    const { walk, run } = sectorGaitTilesPerSecond;
+    const { walk, run } = playerGaitTilesPerSecond;
     const path = [{x:0,y:0}, {x:walk,y:0,rate:walk}, {x:walk,y:run,rate:run}];
     assert.deepEqual(advanceTimedPeerPath(path,.5),{x:walk/2,y:0,rate:walk});
     assert.deepEqual(advanceTimedPeerPath(path,.75),{x:walk,y:run/4,rate:run});
@@ -38,7 +38,7 @@ test('a portrait catches up at its presentation speed while preserving the next 
 });
 
 test('jittered peer packets keep one motion intent while ground travel stays within accepted points', () => {
-    for (const rate of Object.values(sectorGaitTilesPerSecond)) {
+    for (const rate of [...Object.values(playerGaitTilesPerSecond), ...Object.values(sectorGaitTilesPerSecond)]) {
         const arrivals=[150,320,505,710,850,1040,1215];
         const path: PeerWaypoint[]=[{x:0,y:0}];
         let lastMovementAt: number | undefined, received=0, movingSamples=0, heldSamples=0;

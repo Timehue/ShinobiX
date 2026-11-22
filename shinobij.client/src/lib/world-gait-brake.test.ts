@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createGaitBrake } from './world-gait-brake';
+import { playerGaitPace } from '../../../shared/sector-gait-rates';
 
 test('a full-speed release uses the authored ground distance at phone and desktop frame rates', () => {
     for (const [gait, speed, distance] of [['walk',31,3.224],['run',120,8.034]] as const) {
@@ -22,7 +23,7 @@ test('a full-speed release uses the authored ground distance at phone and deskto
 
 test('a paced player brake covers the authored distance in a fraction of the time', () => {
     for (const [gait, speed, distance] of [['walk',31,3.224],['run',120,8.034]] as const) {
-        const pace = 3, slow = createGaitBrake(speed, gait), fast = createGaitBrake(speed*pace, gait, pace);
+        const pace = playerGaitPace[gait], slow = createGaitBrake(speed, gait), fast = createGaitBrake(speed*pace, gait, pace);
         let seconds = 0, total = 0;
         while (!fast.done) { total += fast.advance(1/120); seconds += 1/120; }
         let slowSeconds = 0;
