@@ -86,7 +86,16 @@ async function returnToTerrain(back: Locator) {
     try { await back.click({timeout:15000}); }
     catch (error) {
         // The login restore can finish the same navigation while the button is settling.
-        if (await back.isVisible() || !await back.page().locator(".continuous-world-map > canvas").isVisible()) throw error;
+        if (!await back.isVisible()) {
+            if (await back.page().locator(".continuous-world-map > canvas").isVisible()) return;
+            throw error;
+        }
+        // On CI's software-rendered WebKit the actionability click has stalled at
+        // "scrolling into view if needed" for the whole timeout, with the button
+        // already reported visible, enabled and stable (PR #150, 2026-11-22). The
+        // button is plainly there, so activate it directly, the way the Run toggle
+        // is clicked in the walk/run test.
+        await back.evaluate((button: HTMLElement) => button.click());
     }
 }
 
@@ -796,7 +805,28 @@ test.describe("equipped player upload", () => {
         await returnToTerrain(back);
         await missing;
         const marker = page.locator('[data-world-self]');
-        await expect(marker.locator('.sector-avatar-body')).toBeVisible();
+        // On CI's WebKit this has failed with the body "hidden" although every model
+        // manifest 404'd and the standing figure loaded (PR #150, 2026-11-22). The
+        // body's box comes from the marker, which the world controller sizes on its
+        // first frame, so record the state that would say why before failing.
+        await expect(marker.locator('.sector-avatar-body')).toBeVisible().catch(async (error: unknown) => {
+            const state = await page.evaluate(() => {
+                const box = (el: Element | null) => { const r = el?.getBoundingClientRect(); return r ? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } : null; };
+                const self = document.querySelector('[data-world-self]');
+                const body = self?.querySelector('.sector-avatar-body') ?? null;
+                const map = document.querySelector('.continuous-world-map');
+                const canvas = map?.querySelector('canvas') ?? null;
+                return {
+                    marker: { box: box(self), className: self?.className, style: self?.getAttribute('style') },
+                    body: { box: box(body), visibility: body ? getComputedStyle(body).visibility : null, display: body ? getComputedStyle(body).display : null },
+                    sprite: { box: box(self?.querySelector('.sector-avatar-sprite') ?? null), visibility: self?.querySelector('.sector-avatar-sprite') ? getComputedStyle(self.querySelector('.sector-avatar-sprite')!).visibility : null },
+                    world: { busy: map?.getAttribute('aria-busy'), status: document.querySelector('.continuous-world-status')?.textContent, x: canvas?.dataset.worldX, sector: canvas?.dataset.worldSector },
+                    page: { visibility: document.visibilityState, now: Date.now(), perf: Math.round(performance.now()) },
+                };
+            }).catch((evaluateError: unknown) => ({ evaluateError: String(evaluateError) }));
+            await test.info().attach('world-self-state', { body: JSON.stringify(state, null, 2), contentType: 'application/json' });
+            throw error;
+        });
         await expect(marker).not.toHaveClass(/has-sector-model/);
         const run = page.getByRole('button', { name: 'Run', exact: true });
         await expect(run).toBeEnabled();
