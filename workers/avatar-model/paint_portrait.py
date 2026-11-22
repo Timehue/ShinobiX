@@ -45,6 +45,13 @@ Keep the animal species and its recognizable muzzle, ears, and fur markings. Kee
 UPRIGHT_ANIMAL = """
 Keep the animal species and its recognizable head, muzzle or beak, ears, and fur, feather or scale markings. Complete the outfit, armor and colors visible on the portrait in the same design. Use the humanoid body and separate upright legs of the rig, with animal hands and feet in the portrait's colors. Remove portrait lettering, flashes, sparks and light trails. Keep the hands empty."""
 
+# Only for an upright animal whose portrait shows no clothing (animal_build.py). A dressed animal never gets it,
+# so its painting is unchanged. On 2026-11-21 a bare cartoon dinosaur came back in invented boots and a red scarf,
+# with its hips painted as a coat hem: in game it read as a green dress on stick legs. The cutout outlines are
+# the same either way, so the rig check judges this painting exactly as any other.
+BARE_ANIMAL = """
+The portrait shows this character without clothing. Paint its own bare body in the portrait's skin, scales, feathers or fur and markings, and keep any small accessory the portrait shows. Add no boots, shoes, scarf, belt, pouch, armor or garment the portrait does not show. Each leg cutout is the character's own leg, ending in its own foot with toes or claws in place of a boot. The flared bottom of each torso cutout is the character's hips and the tops of its thighs, with a clear split between the legs, never a skirt or a coat hem. Paint any tail thick at its base, in the character's own colors and markings, clear of the legs."""
+
 # The rig measures each torso's width against its guide outline and refuses one far
 # outside it (TORSO_ASPECT in register_painted_kit.py). Saying so up front saves a repaint.
 TORSO_FIT = """
@@ -99,7 +106,8 @@ def layout_png(template):
 
 def edit_request(upload, source_hash, template, correction, previous=None, *, sector_guide=SECTOR_GUIDE,
                  head_turnaround=True, closeup=False, armored_raccoon=False, upright_animal=False,
-                 palette_prompt=False, torso_fit=False, tail_fit=False, reference_identity=False, attempt=2):
+                 palette_prompt=False, torso_fit=False, tail_fit=False, reference_identity=False, attempt=2,
+                 bare_animal=False):
     from avatar_worker.portrait import prepare_portrait
 
     with upload.open("rb") as source:
@@ -118,6 +126,8 @@ def edit_request(upload, source_hash, template, correction, previous=None, *, se
         prompt += ANIMAL_CLOSEUP
     if upright_animal:
         prompt += UPRIGHT_ANIMAL
+    if bare_animal:
+        prompt += BARE_ANIMAL
     if palette_prompt:
         prompt += costume_palette.prompt_line(portrait.png)
     if torso_fit:
@@ -177,7 +187,7 @@ def portrait_palette(pixels, upload):
 
 
 def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armored_raccoon=False, upright_animal=False,
-                    palette=None):
+                    palette=None, bare_animal=False):
     """Use durable per-job scratch. reserve(job, operation) must cover one high-quality edit.
     palette(pixels, upload) may correct a new painting's colors before it is recorded."""
     directory = Path(directory)
@@ -203,6 +213,8 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
             binding["armoredRaccoon"] = True
         if upright_animal:
             binding["uprightAnimal"] = True
+        if bare_animal:
+            binding["bareAnimal"] = True
         # The portrait-palette prompt line arrived later; a job whose first edit was billed
         # without it must replay and repair with the same prompt.
         palette_prompt = first["binding"].get("portraitPalette", False) if first else palette is not None
@@ -237,6 +249,7 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
                                head_turnaround=head_turnaround, **({"closeup": True} if closeup else {}),
                                **({"armored_raccoon": True} if armored_raccoon else {}),
                                **({"upright_animal": True} if upright_animal else {}),
+                               **({"bare_animal": True} if bare_animal else {}),
                                **({"palette_prompt": True} if palette_prompt else {}),
                                **({"torso_fit": True} if torso_fit else {}),
                                **({"tail_fit": True} if tail_fit else {}),

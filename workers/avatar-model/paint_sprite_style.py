@@ -2,6 +2,7 @@
 import argparse
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -29,9 +30,17 @@ def painted_battle_sprite(path):
         return None
 
 
-def paint(entry, master, digest, style, blender, work, expected_movement=None, battle_sprite_path=None):
+def paint(entry, master, digest, style, blender, work, expected_movement=None, battle_sprite_path=None,
+          painted_legs=False):
+    """painted_legs keeps an animal's legs at their painted width (modal_sprite_worker.painted_legs); every other
+    model renders them at the movement bundle's LEG_SLIM. The bundle's renderers read it from the environment,
+    which the style's render and turn processes inherit."""
     if style not in ("A", "B", "C"):
         raise ValueError("invalid-run-style")
+    if painted_legs:
+        os.environ["SHINOBIX_LEG_SLIM"] = "1"
+    else:
+        os.environ.pop("SHINOBIX_LEG_SLIM", None)
     sys.path.insert(0, str(entry.resolve(strict=True).parent))
     from make_masked_avatar import bake_style, read_fitted_master, TEMPLATES
     from package_motion_worker import movement_revision
@@ -71,10 +80,11 @@ if __name__ == "__main__":
     parser.add_argument("--style", choices=("A", "B", "C"), required=True)
     parser.add_argument("--expected-movement", help="Movement revision recorded by a previous style of this job")
     parser.add_argument("--battle-sprite", type=Path, help="Painted combat sprite for style A, in place of the posed model")
+    parser.add_argument("--painted-legs", action="store_true", help="An animal: keep its legs at their painted width")
     args = parser.parse_args()
     try:
         paint(args.entry, args.master, args.master_sha256, args.style, args.blender, args.work, args.expected_movement,
-              args.battle_sprite)
+              args.battle_sprite, args.painted_legs)
     except MovementRevisionMismatch as error:
         print(error, file=sys.stderr)
         sys.exit(78)

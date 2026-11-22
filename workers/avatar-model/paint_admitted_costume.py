@@ -123,8 +123,9 @@ def likeness_checked(painter, upload, template, asker, refuse):
 REFUSED = 3
 
 
-def paint(entry, work, asset, master, source, reader_python, submit, likeness=None, round_number=1):
+def paint(entry, work, asset, master, source, reader_python, submit, likeness=None, round_number=1, build=None):
     """likeness(portrait_png, row_png) asks the vision model; None skips the post-paint check.
+    build(portrait_png) answers "bare" or "dressed" for an upright animal (animal_build.ask); None paints it dressed.
     round_number 2 is a fresh painting after a first round the rig refused three times: its edits keep their own
     folder and billing identity, so nothing of the first round is replayed or overwritten."""
     if round_number not in (1, 2):
@@ -155,10 +156,17 @@ def paint(entry, work, asset, master, source, reader_python, submit, likeness=No
     screened = json.loads(descriptor)["fit"]
     closeup = screened.get("requiresPainting") is True
     edits = work/"edits" if round_number == 1 else work/f"edits-{round_number}"
+    upright_animal = closeup and screened.get("style") == "upright-animal"
+    bare_animal = False
+    if upright_animal and build is not None:
+        # Asked once per job; a dressed animal (or any failure) paints exactly as before.
+        import animal_build
+        from avatar_worker.portrait import prepare_portrait
+        bare_animal = animal_build.decide(work, prepare_portrait(upload.read_bytes()).png, build) == "bare"
     painter = costume_painter(edits, job, reserve, submit, closeup=closeup,
                               armored_raccoon=closeup and screened.get("style") == "armored-raccoon",
-                              upright_animal=closeup and screened.get("style") == "upright-animal",
-                              palette=portrait_palette)
+                              upright_animal=upright_animal,
+                              palette=portrait_palette, **({"bare_animal": True} if bare_animal else {}))
     if likeness is not None:
         painter = likeness_checked(painter, upload, template, likeness, PaintingGeometryError)
     painter = explained(painter)
@@ -176,6 +184,7 @@ if __name__ == "__main__":
     parser.add_argument("--round", type=int, choices=(1, 2), default=1, dest="round_number")
     args = parser.parse_args()
     from paint_portrait import submit_edit
+    import animal_build
     import painted_likeness
     sys.path.insert(0, str(args.entry.resolve(strict=True).parent))
     from register_painted_kit import PaintingGeometryError
@@ -183,7 +192,8 @@ if __name__ == "__main__":
         paint(args.entry, args.work, args.asset, args.master, args.source, args.reader_python,
               lambda body, operation: submit_edit(body, os.environ["OPENAI_API_KEY"], operation),
               likeness=lambda portrait, row: painted_likeness.ask(portrait, row, os.environ["OPENAI_API_KEY"]),
-              round_number=args.round_number)
+              round_number=args.round_number,
+              build=lambda portrait: animal_build.ask(portrait, os.environ["OPENAI_API_KEY"]))
     except PaintingGeometryError:
         import traceback
         traceback.print_exc()

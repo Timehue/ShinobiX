@@ -56,8 +56,33 @@ existing pinned Blender tarball. Without it, the image build fetches that exact
 tarball and verifies its checksum.
 
 The local painted release archives are `portable-fit-worker/painted-sleeves-tail.zip`
-and `portable-motion-worker/painted-sleeves-tail-legs.zip` under the avatar-model
-evidence folder. Their hashes match `sprite-worker-painted-review.json`. The legs
+and `portable-motion-worker/painted-sleeves-tail-animal-legs.zip` under the avatar-model
+evidence folder. Their hashes match `sprite-worker-painted-review.json`. The animal-legs
+movement archive (2026-11-21, movement `e6816a5d…`) is `painted-sleeves-tail-legs.zip`
+(movement `10e9fe95…`, the rollback) with only `render_fitted_roster.py` replaced by
+`painted-sleeves-tail-animal-legs.render_fitted_roster.py`: `leg_slim()` reads
+`SHINOBIX_LEG_SLIM` (0.5–1), and an animal keeps its painted legs. Narrowed, a bare
+cartoon dinosaur's thighs made its flared torso read as a skirt on stick legs, and the
+armored raccoon was built with full legs. The costume call records every animal portrait
+(`upright-animal` and `armored-raccoon` close-ups; `modal_sprite_worker.record_painted_legs`)
+in the `shinobix-avatar-leg-builds` Dict for its fitted master; each style render reads it
+(`painted_legs`, which fails the render rather than guess when the Dict is unreadable, since
+the three styles must agree) and passes `--painted-legs` to `paint_sprite_style.py`, which
+sets `SHINOBIX_LEG_SLIM=1` for the style's render and turn processes. Proven on real
+paintings: a human renders byte-identical to `10e9fe95…`, the armored raccoon with painted
+legs byte-identical to `ad5f2d05…` (how it was built), and the bare dinosaur's front
+trouser radius returns from about 39 to about 50.
+
+Painting: an upright animal is asked one more question at paint time (`animal_build.py`,
+the screen's pinned model, once per job, kept in the work folder): is it dressed? A
+dressed animal (the armored raccoon, a tiger in a coat) is painted with exactly the
+prompt it had before. A bare one gets `BARE_ANIMAL` (binding `bareAnimal`): its own skin,
+scales or fur, its own feet in the boot cutouts, hips and thighs in the torso's flared
+bottom instead of a coat hem, no invented boots, scarf or belt, and a tail thick at its
+base. The tail's length rule (`TAIL_FIT`) is unchanged on purpose: the rig reads a tail at
+hip height as torso width, and a wider torso is refused. Any failure of the question paints
+the animal dressed. The legs
+movement archive (2026-11-21, movement `10e9fe95…`) is `painted-sleeves-tail-uncapped.zip`
 movement archive (2026-11-21, movement `10e9fe95…`) is `painted-sleeves-tail-uncapped.zip`
 (movement `ad5f2d05…`, the rollback) with only `render_fitted_roster.py` replaced by
 `painted-sleeves-tail-legs.render_fitted_roster.py` and its hash updated in

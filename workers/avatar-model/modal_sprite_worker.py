@@ -49,8 +49,8 @@ def worker_image():
     if painted:
         image = image.env({"SPRITE_PAINTED_COSTUMES":"1"})
         for name in ("paint_admitted_costume.py", "limb_repair.py", "paint_portrait.py", "closeup_portrait.py", "armored_raccoon.py",
-                     "upright_animal.py", "painted_likeness.py", "costume_palette.py", "sector-costume-light.png",
-                     "paint_battle_sprite.py", "battle-stance-reference.png"):
+                     "upright_animal.py", "animal_build.py", "painted_likeness.py", "costume_palette.py",
+                     "sector-costume-light.png", "paint_battle_sprite.py", "battle-stance-reference.png"):
             image = image.add_local_file(HERE / name, "/opt/sprite/" + name, copy=True)
     image = image.run_commands(
         'python -c "import platform,pathlib; assert platform.python_version() == pathlib.Path(\'/opt/sprite/.python-version\').read_text().strip()"',
@@ -255,6 +255,44 @@ def painted_battle_sprite(asset, master):
     return sprite if isinstance(sprite, bytes) and sprite else None
 
 
+# Every model's legs render at 78% of their painted width below the hip (render_fitted_roster.LEG_SLIM), except
+# an animal's (owner, 2026-11-21): a dinosaur's thick thighs read as haunches, and the armored raccoon was built
+# with full legs and should stay that way. The costume call that knows the portrait's style records the animal
+# here, keyed by asset, for the three style renders of that exact fitted master. An entry expires after 7 days
+# without a read; a model with no entry renders like any other.
+LEG_BUILDS = "shinobix-avatar-leg-builds"
+ANIMAL_STYLES = ("upright-animal", "armored-raccoon")
+
+
+def animal_portrait(descriptor):
+    fit = json.loads(descriptor)["fit"]
+    return fit.get("requiresPainting") is True and fit.get("style") in ANIMAL_STYLES
+
+
+def record_painted_legs(asset, master):
+    try:
+        modal.Dict.from_name(LEG_BUILDS, create_if_missing=True).put(asset, {"master": master, "legs": "painted"})
+        print("leg-build painted", flush=True)
+    except Exception as error:  # noqa: BLE001
+        print("leg-build-unrecorded", type(error).__name__, flush=True)  # The model renders with the usual legs.
+
+
+def painted_legs(asset, master):
+    """True when this exact fitted master is an animal's. The three styles of a job must agree, or their
+    shared walking frames differ and the job cannot be assembled: an unreadable store fails the render
+    (the server retries it) rather than guessing."""
+    for wait in (0, 2, 5):
+        time.sleep(wait)
+        try:
+            entry = modal.Dict.from_name(LEG_BUILDS, create_if_missing=True).get(asset)
+            break
+        except Exception as error:  # noqa: BLE001
+            print("leg-build-unavailable", type(error).__name__, flush=True)
+    else:
+        raise ValueError("leg-build-unavailable")
+    return isinstance(entry, dict) and entry.get("master") == master and entry.get("legs") == "painted"
+
+
 def forget_battle_sprite(asset):
     try:
         modal.Dict.from_name(BATTLE_SPRITES).pop(asset)
@@ -300,6 +338,8 @@ if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
                     print("costume-repaint round 2", flush=True)
                     subprocess.run(command+["--round","2"],check=True)
                 receipt = json.loads((out/"read.json").read_bytes())
+                if animal_portrait(descriptor):
+                    record_painted_legs(asset, receipt["fittedMasterSha256"])
                 battle = paint_battle_sprite(entry, work, asset, source, receipt["fittedMasterSha256"], started)
             finally:
                 edits = []
@@ -411,6 +451,8 @@ def render_style(descriptor: bytes, sheet: bytes, master_sha256: str, style: str
         if painted is not None:
             (work / "painted-battle.webp").write_bytes(painted)
             command.extend(["--battle-sprite", work / "painted-battle.webp"])
+        if owner and painted_legs(owner, master_sha256):
+            command.append("--painted-legs")
         render = subprocess.run(command)
         if render.returncode == 78:
             raise ValueError("movement-worker-revision-mismatch")
