@@ -6,6 +6,10 @@ import { clanBossWeekId, clanBossWeekKey, type ClanBossWeek } from './clan-boss/
 import { ensureCurrentWeek, runClanBossWeekly } from './cron/_clan-boss-weekly.js';
 import { withScheduledJobLease } from './cron/_job-lease.js';
 import { seedHomeSectorOwnership } from './world-state.js';
+import { NPC_ACCOUNT_SLUGS } from '../shared/npc-village-roster.js';
+import { seedNpcVillage } from './_npc-village-seed.js';
+import { readNpcVillageScaling, refreshNpcVillageScaling } from './_npc-village-scaling.js';
+import { isNpcPossessed } from './_npc-possession.js';
 
 // Separate from the daily 20-hour cadence lease. A dead startup owner expires
 // within five minutes; every guarded operation still checks ownership/expiry.
@@ -63,6 +67,44 @@ export async function initializeTerritory(): Promise<boolean> {
     return result.acquired && result.value;
 }
 
+// Held after a clean seed so a second container booting alongside does not
+// rebuild the thirty accounts again (the scheduler's old boot seed used this).
+export const NPC_VILLAGE_SEED_LEASE_SECONDS = 10 * 60;
+
+/**
+ * Cinderhold: on a fresh server (or after a reset that skipped its own seed)
+ * the thirty NPC accounts do not exist yet. Seed them when any is missing; the
+ * 03:00 daily pass rescales them.
+ *
+ * This used to run inline in the scheduler as thirty parallel kv.get calls at
+ * the moment a deploy starts. During Railway's container swap the old container
+ * still holds its pg sessions, so that burst crossed the Supabase pooler's
+ * session cap and every deploy logged EMAXCONNSESSION and skipped the seed. It
+ * is now ONE mget, and a transient failure (pool full, connection reset) or a
+ * partial seed is retried by the same bounded startup recovery as the other
+ * boot jobs, instead of waiting for 03:00.
+ */
+export async function initializeNpcVillage(): Promise<boolean> {
+    if (scheduledJobsDisabled() || process.env.DISABLE_NPC_VILLAGE === '1') return true;
+    const authRows = await kv.mget(...NPC_ACCOUNT_SLUGS.map((slug) => `auth:${slug}`));
+    if (authRows.every(Boolean)) return true;
+    const result = await withScheduledJobLease('npc-village-seed', async () => {
+        // Follow the live players from the first boot, not the floor level.
+        if (!await readNpcVillageScaling()) await refreshNpcVillageScaling();
+        const seeded = await seedNpcVillage(Date.now(), (slug) => isNpcPossessed(slug));
+        console.log(`[startup] Cinderhold seed: ${seeded.seeded.length} seeded${seeded.failures.length ? `, ${seeded.failures.length} failures: ${seeded.failures.slice(0, 3).join('; ')}` : ''}.`);
+        return seeded.failures.length === 0;
+    }, {
+        ttlSec: NPC_VILLAGE_SEED_LEASE_SECONDS,
+        holdUntilExpiryOnSuccess: true,
+        // A partial seed releases the lease, so the retry is not locked out.
+        holdUntilExpiryWhen: (clean) => clean,
+    });
+    // Contended means another process is seeding: the retry then finds the rows.
+    return result.acquired && result.value;
+}
+
 export function startClanBossInitialization() { return recovery.start('clan-boss', initializeClanBoss); }
 export function startTerritoryInitialization() { return recovery.start('territory', initializeTerritory); }
+export function startNpcVillageInitialization() { return recovery.start('npc-village', initializeNpcVillage); }
 export function stopStartupInitialization() { recovery.stop(); }

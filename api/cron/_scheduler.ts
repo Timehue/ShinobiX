@@ -26,7 +26,7 @@ import {
 } from './snapshot-saves.js';
 import { runRankedSeasonRollover } from './_ranked-season.js';
 import { runClanBossWeekly } from './_clan-boss-weekly.js';
-import { ensureCurrentClanBossWeek, startClanBossInitialization } from '../_startup-initialization.js';
+import { ensureCurrentClanBossWeek, startClanBossInitialization, startNpcVillageInitialization } from '../_startup-initialization.js';
 import { runVillageWarDailyCatchUp, runVillageWarDailyPass, type VillageWarDailyResult } from '../_war-daily.js';
 import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
@@ -37,13 +37,12 @@ import { recoverPendingMentorSettlements } from '../clan/_mentor-settlement.js';
 import { recoverPendingPlayerTrades } from '../player/_trade-settlement.js';
 import { withScheduledJobLease } from './_job-lease.js';
 import { runGuestSweep } from './_guest-sweep.js';
-import { readNpcVillageScaling, refreshNpcVillageScaling } from '../_npc-village-scaling.js';
+import { refreshNpcVillageScaling } from '../_npc-village-scaling.js';
 import { decayNpcAggression } from '../_npc-village-aggression.js';
 import { seedNpcVillage } from '../_npc-village-seed.js';
 import { proposeNpcWar, seedNpcVillageTerritory } from '../_npc-village-war.js';
 import { runNpcWarParty } from '../_npc-war-party.js';
 import { isNpcPossessed } from '../_npc-possession.js';
-import { NPC_ACCOUNT_SLUGS } from '../../shared/npc-village-roster.js';
 import { runClanWarCampaignSweep } from '../clan/war/_campaign-sweep.js';
 import { runKageInactivityPass } from '../village/_kage-inactivity.js';
 import { sweepClanBossPartyRegistry } from '../clan-boss/_party.js';
@@ -113,7 +112,7 @@ const LEASE_TTL = {
     clanWarCampaignSweep: 20 * 60 * 60,
     kageInactivity: 20 * 60 * 60,
     npcVillage: 20 * 60 * 60,
-    npcVillageSeed: 10 * 60,
+    // The boot seed's lease lives with it (api/_startup-initialization.ts).
     npcWarParty: 9 * 60,
 } as const;
 
@@ -801,16 +800,10 @@ export function startSnapshotCron(): void {
         void seedNpcVillageTerritory()
             .then((r) => { if (r.seeded) console.log(`[cron-scheduler] Cinderhold territory: ${r.seeded} sector${r.seeded === 1 ? '' : 's'} seeded.`); })
             .catch((err) => console.error('[cron-scheduler] Cinderhold territory seed threw:', (err as Error).message));
-        void (async () => {
-            const missing = await Promise.all(NPC_ACCOUNT_SLUGS.map(async (slug) => !(await kv.get(`auth:${slug}`))));
-            if (!missing.some(Boolean)) return;
-            const r = await runLeasedJob('npc-village-seed', LEASE_TTL.npcVillageSeed, async () => {
-                // Follow the live players from the first boot, not the floor level.
-                if (!await readNpcVillageScaling()) await refreshNpcVillageScaling();
-                return seedNpcVillage(Date.now(), (slug) => isNpcPossessed(slug));
-            });
-            if (r) console.log(`[cron-scheduler] Cinderhold boot seed: ${r.seeded.length} seeded${r.failures.length ? `, ${r.failures.length} failures` : ''}.`);
-        })().catch((err) => console.error('[cron-scheduler] Cinderhold boot seed threw:', (err as Error).message));
+        // The thirty accounts: one batched read, retried through startup
+        // recovery like the Clan Boss and territory boot jobs
+        // (api/_startup-initialization.ts initializeNpcVillage).
+        void startNpcVillageInitialization();
     }
     // Village War mercenary auto-snipe — a frequent tick so active merc bands hunt
     // low-HP enemy defenders on their own. The Sector Map kill switch makes it a no-op.
