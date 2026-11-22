@@ -460,8 +460,11 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                         if (!bank[stride.page]) stride = {page:"idle", time:0};
                         gait = pos.moving ? pos.gait ?? (distance/dt > (gait === "run" ? 55 : 78) ? "run" : "walk") : "idle";
                         const desired = gait === "idle" ? null : gait;
-                        // On a loop the actual ground displacement sets the clock, including network pacing.
-                        const elapsed = desired && !bank[stride.page]?.times ? distance / bank[desired]!.speed! : dt;
+                        // Loops follow ground travel. A route with a known gait also carries its
+                        // starts and gait changes at that pace, even during a short sprint.
+                        const followsGround = !bank[stride.page]?.times || (pos.routed && pos.gait);
+                        const speed = desired && bank[desired]?.speed;
+                        const elapsed = followsGround && speed ? distance / speed : dt;
                         const pose = advanceSectorStride(bank, stride, desired, elapsed);
                         stride = pose;
                         index = pose.cell;

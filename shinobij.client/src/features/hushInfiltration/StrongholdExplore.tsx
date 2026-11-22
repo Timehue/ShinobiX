@@ -39,16 +39,15 @@ function visibilityForStrongholdTile(base: ReturnType<typeof buildVaultInterior>
 }
 
 /**
- * One tile pace: the sector RUN pace (playerGaitTilesPerSecond.run, ~300 ms a
- * tile), so the figure covers ground and plays its run clip exactly as it does
- * in a sector. The camera glides over the same time (stronghold.css; the
+ * Each step uses the sector run pace, so the figure covers ground and plays
+ * its run clip as it does in a sector. The camera glides over the same time (stronghold.css; the
  * Hollow Gate pace test holds both to the rate). A step
  * leaves no sooner than the previous glide ends, or when the server answers if
  * that is later. It also keeps a held key well inside the stronghold-walk
  * request limit.
  */
 const STEP_MS = Math.round(1000 / playerGaitTilesPerSecond.run);
-/** Taps that can wait behind the step in flight: about 1.2 s of walking. */
+/** Number of taps that can wait behind the step in flight. */
 const MAX_QUEUED_INPUTS = 4;
 const sameTiles = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((tile, i) => tile === b[i]);
 

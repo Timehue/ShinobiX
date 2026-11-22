@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { createServer, type Server } from "node:http";
-import { playerGaitPace } from "../../shared/sector-gait-rates";
+import { playerGaitPace, playerGaitTilesPerSecond } from "../../shared/sector-gait-rates";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
@@ -730,11 +730,32 @@ test("Profile previews an owned model, equips it after a lapse and restores the 
     await expect(dialog.getByText('Your new world model is ready to preview and equip.')).toBeVisible({timeout:25_000});
     await select.selectOption(ref.assetId);
     if (artBase && roster?.Patrol) {
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
         const sprite = dialog.locator(".sector-model-figure");
         await expect(sprite).toHaveAttribute("data-gait","idle",{timeout:20000});
         await dialog.getByRole("button",{name:"Preview walk"}).click();
         await expect(sprite).toHaveAttribute("data-clip","walk",{timeout:20000});
         await expect(sprite).toHaveAttribute("data-facing","2");
+        const folder = resolve(content, "players", ref.assetId);
+        const manifest = JSON.parse(await readFile(resolve(folder, ref.version + ".json"), "utf8"));
+        const bank = manifest.format === "sector-motion-v2"
+            ? JSON.parse(gunzipSync(await readFile(resolve(folder, manifest.styles.A[2]))).toString()).clips
+            : manifest.banks[2];
+        const count = bank.walk.count ?? bank.walk.origins.length;
+        const rate = await sprite.evaluate(async (el, clip: { count: number; period: number }) => {
+            const nextFrame = () => new Promise<number>(done => requestAnimationFrame(done));
+            const start = await nextFrame();
+            let now = start, previous = Number(el.dataset.frame), frames = 0;
+            while (now - start < 1000) {
+                now = await nextFrame();
+                const current = Number(el.dataset.frame);
+                frames += (current - previous + clip.count) % clip.count;
+                previous = current;
+            }
+            return frames / clip.count * clip.period * 1000 / (now - start);
+        }, { count, period: bank.walk.period });
+        expect(rate).toBeGreaterThan(playerGaitPace.walk * .75);
+        expect(rate).toBeLessThan(playerGaitPace.walk * 1.1);
         await dialog.getByRole("button",{name:"Preview walk"}).click();
         await expect(sprite).toHaveAttribute("data-clip","idle",{timeout:20000});
         await expect(sprite).toHaveAttribute("data-facing","2");
@@ -754,6 +775,49 @@ test("Profile previews an owned model, equips it after a lapse and restores the 
 
 test.describe("equipped player upload", () => {
     test.use({ contextOptions: { reducedMotion: "no-preference" } });
+    test("a missing player model still walks and runs at the configured ground speeds", async ({ page }) => {
+        const save = uiAuditSave();
+        save.currentSector = 46;
+        save.currentTile = 66;
+        save.character = { ...save.character, starterCardsClaimed: true, wandererCooldowns: quietRoadCooldowns([46]) };
+        await installUiAuditRuntime(page, save);
+        const art = 'https://models.test/sector-models';
+        await page.route(art + '/**', route => route.fulfill({ status: 404, body: '' }));
+        await page.route('**/api/world/sector-layout', route => route.fulfill({ json: {
+            obstaclesEnabled: true, playerGaitsEnabled: true, modelArtBase: art,
+        } }));
+        await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', '[10,20,30,40,45]'));
+        await page.clock.install();
+        const missing = page.waitForResponse(response => response.url().startsWith(art + '/starter-') && response.status() === 404);
+        await page.goto('/#/worldMap');
+        const back = page.getByRole('button', { name: /Return to Sector 46/ });
+        const canvas = page.locator('.continuous-world-map > canvas');
+        await expect(back.or(canvas).first()).toBeVisible();
+        await returnToTerrain(back);
+        await missing;
+        const marker = page.locator('[data-world-self]');
+        await expect(marker.locator('.sector-avatar-body')).toBeVisible();
+        await expect(marker).not.toHaveClass(/has-sector-model/);
+        const run = page.getByRole('button', { name: 'Run', exact: true });
+        await expect(run).toBeEnabled();
+        await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
+        const x = async () => Number(await canvas.getAttribute('data-world-x'));
+        for (const gait of ['walk', 'run'] as const) {
+            if (gait === 'run') await run.evaluate(button => button.click());
+            await expect(run).toHaveAttribute('aria-pressed', String(gait === 'run'));
+            await canvas.focus();
+            await page.keyboard.down('ArrowRight');
+            try {
+                await page.clock.runFor(16);
+                const start = await x();
+                await page.clock.runFor(160);
+                expect(await x() - start).toBeCloseTo(playerGaitTilesPerSecond[gait] * .16, 1);
+            } finally {
+                await page.keyboard.up('ArrowRight');
+            }
+            await page.clock.runFor(200);
+        }
+    });
     test("a moving NPC holds its last pose during a delayed facing and restores its fitted animation",async({page},info)=>{
         test.setTimeout(90_000);
         test.skip(!artBase,"Mount the local NPC packages");
@@ -1082,8 +1146,8 @@ test.describe("equipped player upload", () => {
         // The peer walks east from FROM to WALK_TO, then the sprint packet sends it running
         // on to RUN_TO, all along row 5. Peers are polled every 2 s and replayed at the
         // player walk pace, so the walk leg must outlast a poll for the sprint packet to
-        // land mid-walk: 4 tiles is ~3.9 s at 1.03 tiles/s.
-        const FROM=63, WALK_TO=67, RUN_TO=70;
+        // land mid-walk. Seven tiles give it over three seconds at the player walk pace.
+        const FROM=60, WALK_TO=67, RUN_TO=71;
         let equipped=true, tile=FROM, atSprintUpdate: number | undefined, walkIssuedAt: number | undefined;
         const peer=page.locator(".continuous-world-peer").filter({hasText:"Test Scout"});
         const markerX=()=>peer.evaluate(el=>new DOMMatrixReadOnly(getComputedStyle(el).transform).m41);
@@ -1106,7 +1170,8 @@ test.describe("equipped player upload", () => {
         const sprite=peer.locator(".sector-model-figure");
         await expect(sprite).toHaveAttribute("data-clip","idle",{timeout:15000});
         const start=await markerX();
-        const tileWidth=await page.locator(".continuous-world-map").evaluate(el=>el.clientWidth/12);
+        // The peer layer spans the whole sector, including the tiles outside a phone's viewport.
+        const tileWidth=await page.locator(".continuous-world-peers").evaluate(el=>el.clientWidth/12);
         await sprite.evaluate(el=>{
             const firstRun=new MutationObserver(()=>{
                 if (el.getAttribute("data-gait")!=="run") return;
@@ -1158,9 +1223,9 @@ test.describe("equipped player upload", () => {
         await page.route("**/api/world/sector-layout",route=>route.fulfill({json:{
             obstaclesEnabled:true,playerGaitsEnabled:true,modelArtBase:artBase,
         }}));
-        let resume!:()=>void;
+        let resume!:()=>void, requested=false;
         const gate=new Promise<void>(resolve=>{resume=resolve;});
-        await page.route("**/"+root.styles.A[2],async route=>{await gate;await route.continue();});
+        await page.route("**/"+root.styles.A[2],async route=>{requested=true;await gate;await route.continue();});
         await page.addInitScript(()=>localStorage.setItem("legacyRumors.seen.v1:auditninja","[10,20,30,40,45]"));
         await page.goto("/#/worldMap");
         const canvas=page.locator(".continuous-world-map > canvas");
@@ -1170,10 +1235,10 @@ test.describe("equipped player upload", () => {
         const marker=page.locator("[data-world-self]"), actor=marker.locator(".sector-model-figure");
         await expect(actor).toHaveAttribute("data-clip","idle",{timeout:15000});
         await canvas.focus();
-        const request=page.waitForRequest(url=>url.url().endsWith(root.styles.A[2]));
         await page.keyboard.down("ArrowRight");
         try {
-            await request;
+            // Focusing the canvas can prefetch the facing before the first keydown.
+            await expect.poll(()=>requested).toBe(true);
             const start=Number(await canvas.getAttribute("data-world-x"));
             await expect.poll(async()=>Number(await canvas.getAttribute("data-world-x"))-start,{timeout:3000}).toBeGreaterThan(.04);
             // Travel went ahead without the page, and the standing pose stayed up.
@@ -1495,8 +1560,14 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
                     const {rate,samples} = await sample();
                     await writeFile(info.outputPath((running ? "run" : "walk")+"-samples.json"),JSON.stringify(samples));
                     rates.push(rate);
-                    // Players play the authored clips faster (feet stay planted).
-                    const target = running ? 120 * playerGaitPace.run : 31 * playerGaitPace.walk;
+                    // The average includes the start and any pause for art. The median
+                    // frame also checks the speed the player actually sustains.
+                    const tilesPerSecond = playerGaitTilesPerSecond[running ? 'run' : 'walk'];
+                    const frameRates = samples.map(([ms, tiles]) => tiles * 1000 / ms).sort((a, b) => a - b);
+                    const median = frameRates[Math.floor(frameRates.length / 2)];
+                    expect(median).toBeGreaterThan(tilesPerSecond * .9);
+                    expect(median).toBeLessThan(tilesPerSecond * 1.1);
+                    const target = tilesPerSecond * 90;
                     expect(rate).toBeGreaterThan(target * .65);
                     expect(rate).toBeLessThan(target * 1.10);
                     await page.screenshot({path: info.outputPath((running ? "run" : "walk")+".png")});

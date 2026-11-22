@@ -69,9 +69,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
-        // 480/min: click-to-move and held keys both walk one tile per
-        // HOLLOW_GATE_STEP_MS (175ms) = ~343 steps/min, and each tile is one
-        // request. The old 240 cut off any walk longer than ~40 seconds.
+        // At five tiles per second, held keys and click-to-move send up to
+        // 300 step requests per minute. The limit leaves room for retries.
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-step', 480, 60_000, identity.name))) return;
 
         const runKey = hollowGateRunKey(playerName, token);

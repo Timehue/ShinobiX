@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
 import { starterModel, type PlayerModel } from '../lib/player-model';
+import { playerGaitTilesPerSecond } from '../../../shared/sector-gait-rates';
+
+// The preview places the figure on the same 12-tile reference map as the sector.
+const previewMapWidth = 1080;
+const walkPixelsPerSecond = playerGaitTilesPerSecond.walk * (previewMapWidth / 12);
 
 export function ProfileModelPreview({ artBase, avatar, model, starterWorldModel, self = false }: {
     artBase: string; avatar: string; model?: PlayerModel;
@@ -13,7 +18,7 @@ export function ProfileModelPreview({ artBase, avatar, model, starterWorldModel,
     const [walking, setWalking] = useState(false);
     const [slow, setSlow] = useState(false);
     useEffect(() => {
-        figure.current?.place(0, 0, 1080, false);
+        figure.current?.place(0, 0, previewMapWidth, false);
         const timer = window.setTimeout(() => setSlow(true), 8000);
         return () => window.clearTimeout(timer);
     }, []);
@@ -25,8 +30,8 @@ export function ProfileModelPreview({ artBase, avatar, model, starterWorldModel,
                 return;
             }
             if (!document.hidden) {
-                x.current += Math.min(0.1, (now - last) / 1000) * 31;
-                figure.current?.place(x.current, 0, 1080, true, 'walk');
+                x.current += Math.min(0.1, (now - last) / 1000) * walkPixelsPerSecond;
+                figure.current?.place(x.current, 0, previewMapWidth, true, 'walk', true);
             }
             last = now;
             frame = requestAnimationFrame(tick);

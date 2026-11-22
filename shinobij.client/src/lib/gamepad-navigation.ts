@@ -1,3 +1,5 @@
+import { playerGaitTilesPerSecond } from '../../../shared/sector-gait-rates';
+
 type Direction = 'up' | 'down' | 'left' | 'right';
 type ControllerState = {
     confirm: boolean;
@@ -33,6 +35,7 @@ const ACTIONABLE = [
 ].join(',');
 
 const REPEAT_DELAY_MS = 220;
+const SECTOR_STEP_MS = Math.round(1000 / playerGaitTilesPerSecond.run);
 const ANALOG_DEAD_ZONE = 0.62;
 
 function isTextEntry(element: Element | null): boolean {
@@ -118,7 +121,7 @@ function isNavigable(element: HTMLElement): boolean {
 function activeModal(): HTMLElement | null {
     // Modal portals are normally appended after the app root. Prefer the last
     // visible modal so nested dialogs keep navigation in the topmost layer.
-    return [...document.querySelectorAll<HTMLElement>('[aria-modal="true"]')]
+    return [...document.querySelectorAll<HTMLElement>('dialog:modal, [aria-modal="true"]')]
         .filter(isVisibleOnScreen)
         .at(-1) ?? null;
 }
@@ -364,7 +367,8 @@ export function installGamepadNavigation(): () => void {
                 dispatchKey(previous.movement.code, previous.movement.key, 'keyup');
             }
             const movementEdge = movement !== null && movementChanged;
-            const movementRepeat = movement !== null && !movementChanged && now - lastMovementAt >= REPEAT_DELAY_MS;
+            const movementDelay = mode === 'sector' ? SECTOR_STEP_MS : REPEAT_DELAY_MS;
+            const movementRepeat = movement !== null && !movementChanged && now - lastMovementAt >= movementDelay;
             if (movement && (movementEdge || movementRepeat) && !isTextEntry(document.activeElement)) {
                 dispatchKey(movement.code, movement.key, 'keydown');
                 lastMovementAt = now;

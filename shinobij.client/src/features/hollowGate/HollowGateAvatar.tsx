@@ -18,15 +18,9 @@ import { SectorModelFigure, type SectorModelHandle } from "../../components/Sect
 import { WorldStandingFigure } from '../../components/WorldStandingFigure';
 import type { PlayerModel, SprintStyle } from "../../lib/player-model";
 
-// Base glide speed: one tile per step, which is the sector run speed
-// (HOLLOW_GATE_STEP_MS is held to it by use-hollow-gate-walk.pace.test.ts).
-// Each step is issued only after the previous one commits plus
-// HOLLOW_GATE_STEP_MS, so the sprite still arrives at each tile before the
-// next step lands.
-const TILES_PER_SEC = 1000 / HOLLOW_GATE_STEP_MS;
-// A glide completes just before the next scheduled tile. Allow two display
-// frames for its React update before starting a planted stop.
-const STEP_GAP_MS = HOLLOW_GATE_STEP_MS - 1000 / TILES_PER_SEC + 1000 / 30;
+const RESIDENT_STEP_MS = 300;
+// Allow two display frames for the next waypoint before playing the stop clip.
+const STEP_GAP_MS = 1000 / 30;
 
 function prefersReducedMotion(): boolean {
     return typeof window !== "undefined"
@@ -109,11 +103,13 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, name, onSelect, disposi
 
         lastTsRef.current = 0;
         let lastTravel = 0;
+        const stepMs = self ? HOLLOW_GATE_STEP_MS : RESIDENT_STEP_MS;
+        const tilesPerSecond = 1000 / stepMs;
         const tick = (ts: number) => {
             if (!lastTsRef.current) lastTsRef.current = ts;
             // A slow display can present a whole step in one frame. The single
             // queue head below still prevents crossing a corner in that frame.
-            const dt = Math.min(HOLLOW_GATE_STEP_MS, ts - lastTsRef.current) / 1000;
+            const dt = Math.min(stepMs, ts - lastTsRef.current) / 1000;
             lastTsRef.current = ts;
             const queue = waypointsRef.current;
             const head = queue[0];
@@ -131,7 +127,7 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, name, onSelect, disposi
             const dy = head.y - p.y;
             const dist = Math.hypot(dx, dy);
             // Catch-up: a long queue means the walk is outpacing us — hustle.
-            const speed = TILES_PER_SEC * (queue.length > 2 ? 1.8 : queue.length > 1 ? 1.3 : 1);
+            const speed = tilesPerSecond * (queue.length > 2 ? 1.8 : queue.length > 1 ? 1.3 : 1);
             const step = speed * dt;
             if (Math.abs(dx) > 0.02) { facingRef.current = dx < 0 ? -1 : 1; }
             if (dist <= step || dist < 0.02) {
@@ -147,7 +143,7 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, name, onSelect, disposi
         rafRef.current = requestAnimationFrame(tick);
         // No cleanup between waypoints — the loop drains the queue and stops
         // itself; unmount cleanup below cancels for real.
-    }, [tileX, tileY, tilePx]);
+    }, [tileX, tileY, tilePx, self]);
 
     // rAF suspends in hidden tabs, which would freeze a glide mid-stride and
     // replay the backlog on return. Snap to the newest waypoint instead.

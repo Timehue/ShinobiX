@@ -2,6 +2,7 @@ import { buildSync } from "esbuild";
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { playerGaitTilesPerSecond } from "../../shared/sector-gait-rates";
 
 const gamepadSource = fileURLToPath(new URL("../src/lib/gamepad-navigation.ts", import.meta.url));
 const firstPactSource = readFileSync(new URL("../src/screens/FirstPact.tsx", import.meta.url), "utf8");
@@ -125,6 +126,9 @@ for (const target of controllerTargets) {
 }
 
 test("sector left stick uses WASD movement while the D-pad still navigates controls", async ({ page }) => {
+    const start = new Date('2030-01-01T00:00:00Z');
+    await page.clock.install({ time: start });
+    await page.clock.pauseAt(new Date(start.getTime() + 1000));
     await page.setViewportSize({ width: 800, height: 600 });
     await page.setContent(`<!doctype html><html><body><main data-gamepad-mode="sector"><button id="first">Move</button><button id="second" style="position:fixed;left:480px;top:330px">Map</button></main></body></html>`);
     await page.addStyleTag({ content: "body { margin: 0 } #first { position: fixed; left: 320px; top: 330px }" });
@@ -151,9 +155,15 @@ test("sector left stick uses WASD movement while the D-pad still navigates contr
     await page.evaluate(() => {
         (window as Window & { testGamepad: { axes: number[] } }).testGamepad.axes[0] = 1;
     });
+    // The first frame presses the stick. The next sector step is due on the
+    // first animation frame at or after one tile of running.
+    await page.clock.runFor(16);
+    const stepFrames = Math.ceil(1000 / playerGaitTilesPerSecond.run / 16);
+    await page.clock.runFor(stepFrames * 16);
     await expect.poll(() => page.evaluate(() =>
         (window as Window & { movementEvents: Array<{ code: string; key: string }> }).movementEvents,
-    )).toContainEqual({ code: "KeyD", key: "d" });
+    )).toEqual([{ code: "KeyD", key: "d" }, { code: "KeyD", key: "d" }]);
+    await page.clock.resume();
     await page.evaluate(() => {
         const pad = (window as Window & { testGamepad: { axes: number[]; buttons: Array<{ pressed: boolean; value: number }> } }).testGamepad;
         pad.axes[0] = 0;
