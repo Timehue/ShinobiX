@@ -70,16 +70,16 @@ it('a full connection pool at boot is retried by startup recovery and the villag
     for (const key of authKeys()) assert.ok(await kv.get(key), key);
 });
 
-it('reads the thirty account rows in ONE batch and seeds nothing when they all exist', async (t) => {
+it('reads every account AND save row in ONE batch and seeds nothing when they all exist', async (t) => {
     t.mock.method(console, 'log', () => undefined);
-    for (const key of authKeys()) await kv.set(key, { npcVillage: true });
+    assert.equal(await init.initializeNpcVillage(), true, 'a real seeded village');
     const mget = t.mock.method(kv, 'mget');
     const get = t.mock.method(kv, 'get');
     const set = t.mock.method(kv, 'set');
     assert.equal(await init.initializeNpcVillage(), true);
     assert.equal(mget.mock.callCount(), 1);
-    assert.deepEqual(mget.mock.calls[0]!.arguments, authKeys());
-    assert.equal(get.mock.calls.filter((call) => String(call.arguments[0]).startsWith('auth:')).length, 0, 'no per-account reads');
+    assert.deepEqual(mget.mock.calls[0]!.arguments, roster.NPC_ACCOUNT_SLUGS.flatMap((slug) => [`auth:${slug}`, `save:${slug}`]));
+    assert.equal(get.mock.calls.filter((call) => /^(auth|save):/.test(String(call.arguments[0]))).length, 0, 'no per-account reads');
     assert.equal(set.mock.callCount(), 0, 'no lease and no seed when nothing is missing');
 });
 
@@ -97,6 +97,85 @@ it('a partial seed reports incomplete and releases its lease so the retry can ru
     broken = false;
     assert.equal(await init.initializeNpcVillage(), true);
     for (const key of authKeys()) assert.ok(await get(key), key);
+});
+
+// The seed stamps `auth:` BEFORE it commits `save:`, so a save commit that
+// fails leaves an account with no character. Readiness must not count it.
+function faultSaveCommit(t: import('node:test').TestContext, saveKey: string) {
+    const compareSet = kv.compareSet.bind(kv);
+    let broken = true;
+    t.mock.method(kv, 'compareSet', async (...args: Parameters<typeof kv.compareSet>) => {
+        if (broken && args[0] === saveKey) throw new Error('simulated save commit failure');
+        return compareSet(...args);
+    });
+    // The ledger path commits through compareSetMany (optional on the store type).
+    type Many = NonNullable<typeof kv.compareSetMany>;
+    const compareSetMany = kv.compareSetMany?.bind(kv) as Many | undefined;
+    if (compareSetMany) {
+        t.mock.method(kv as { compareSetMany: Many }, 'compareSetMany', async (...args: Parameters<Many>) => {
+            if (broken && JSON.stringify(args[0]).includes(`"${saveKey}"`)) throw new Error('simulated save commit failure');
+            return compareSetMany(...args);
+        });
+    }
+    return () => { broken = false; };
+}
+
+it('a save that fails AFTER its account was stamped is restored by the retry', async (t) => {
+    t.mock.method(console, 'log', () => undefined);
+    const victim = roster.NPC_ACCOUNT_SLUGS[5]!;
+    const heal = faultSaveCommit(t, `save:${victim}`);
+    assert.equal(await init.initializeNpcVillage(), false, 'the failed save makes the seed incomplete');
+    assert.ok(await kv.get(`auth:${victim}`), 'the account row was written first');
+    assert.equal(await kv.get(`save:${victim}`), null, 'and the save is missing');
+    heal();
+    assert.equal(await init.initializeNpcVillage(), true);
+    assert.ok(await kv.get(`save:${victim}`), 'the retry restored the missing save');
+    for (const slug of roster.NPC_ACCOUNT_SLUGS) {
+        assert.ok(await kv.get(`auth:${slug}`), `auth:${slug}`);
+        assert.ok(await kv.get(`save:${slug}`), `save:${slug}`);
+    }
+});
+
+it('an account without its save is not counted as seeded, even on a fresh process', async (t) => {
+    t.mock.method(console, 'log', () => undefined);
+    // A clean village first, then lose one save as a crash between the two writes would.
+    assert.equal(await init.initializeNpcVillage(), true);
+    const victim = roster.NPC_ACCOUNT_SLUGS[9]!;
+    await kv.del(`save:${victim}`);
+    assert.ok(await kv.get(`auth:${victim}`));
+    // A clean seed holds its lease for ten minutes against a second container;
+    // a later boot finds it expired.
+    await kv.del('cron:lease:npc-village-seed');
+    assert.equal(await init.initializeNpcVillage(), true);
+    assert.ok(await kv.get(`save:${victim}`), 'the missing save was rebuilt');
+});
+
+it('after an incomplete seed the retry re-runs the seed even when every row is present', async (t) => {
+    const lines: string[] = [];
+    t.mock.method(console, 'log', (...args: unknown[]) => { lines.push(args.map(String).join(' ')); });
+    // The village registry write fails once, after all thirty accounts and
+    // saves were committed.
+    const hset = kv.hset.bind(kv);
+    let broken = true;
+    t.mock.method(kv, 'hset', async (...args: Parameters<typeof kv.hset>) => {
+        if (broken) { broken = false; throw new Error('simulated registry write failure'); }
+        return hset(...args);
+    });
+    assert.equal(await init.initializeNpcVillage(), false, 'a failed registry step makes the seed incomplete');
+    // Every row exists, so the presence check alone would stop here.
+    for (const slug of roster.NPC_ACCOUNT_SLUGS) {
+        assert.ok(await kv.get(`auth:${slug}`), `auth:${slug}`);
+        assert.ok(await kv.get(`save:${slug}`), `save:${slug}`);
+    }
+    const seedRuns = () => lines.filter((line) => line.includes('[startup] Cinderhold seed:')).length;
+    const before = seedRuns();
+    assert.equal(await init.initializeNpcVillage(), true);
+    assert.equal(seedRuns(), before + 1, 'the retry re-ran the seed instead of trusting the rows');
+    // A clean seed clears the flag: the next boot check is a single read again.
+    const mget = t.mock.method(kv, 'mget');
+    assert.equal(await init.initializeNpcVillage(), true);
+    assert.equal(mget.mock.callCount(), 1);
+    assert.equal(seedRuns(), before + 1);
 });
 
 it('stays off under DISABLE_NPC_VILLAGE and DISABLE_SCHEDULED_JOBS without touching storage', async (t) => {

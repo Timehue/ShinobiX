@@ -83,16 +83,27 @@ export const NPC_VILLAGE_SEED_LEASE_SECONDS = 10 * 60;
  * is now ONE mget, and a transient failure (pool full, connection reset) or a
  * partial seed is retried by the same bounded startup recovery as the other
  * boot jobs, instead of waiting for 03:00.
+ *
+ * "Present" means BOTH rows of every NPC: the seed stamps `auth:` first and
+ * commits `save:` second (api/_npc-village-seed.ts rebuildNpcAccount), so a
+ * failed save commit leaves an account with no character. And after a seed in
+ * this process came back incomplete (a save, a clan, the registry or the
+ * avatar index), the retry re-runs the whole idempotent seed rather than trust
+ * a presence check that only sees accounts and saves.
  */
+let npcSeedIncomplete = false;
 export async function initializeNpcVillage(): Promise<boolean> {
     if (scheduledJobsDisabled() || process.env.DISABLE_NPC_VILLAGE === '1') return true;
-    const authRows = await kv.mget(...NPC_ACCOUNT_SLUGS.map((slug) => `auth:${slug}`));
-    if (authRows.every(Boolean)) return true;
+    if (!npcSeedIncomplete) {
+        const rows = await kv.mget(...NPC_ACCOUNT_SLUGS.flatMap((slug) => [`auth:${slug}`, `save:${slug}`]));
+        if (rows.every(Boolean)) return true;
+    }
     const result = await withScheduledJobLease('npc-village-seed', async () => {
         // Follow the live players from the first boot, not the floor level.
         if (!await readNpcVillageScaling()) await refreshNpcVillageScaling();
         const seeded = await seedNpcVillage(Date.now(), (slug) => isNpcPossessed(slug));
         console.log(`[startup] Cinderhold seed: ${seeded.seeded.length} seeded${seeded.failures.length ? `, ${seeded.failures.length} failures: ${seeded.failures.slice(0, 3).join('; ')}` : ''}.`);
+        npcSeedIncomplete = seeded.failures.length > 0;
         return seeded.failures.length === 0;
     }, {
         ttlSec: NPC_VILLAGE_SEED_LEASE_SECONDS,
