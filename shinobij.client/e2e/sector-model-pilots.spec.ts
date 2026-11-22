@@ -796,6 +796,15 @@ test.describe("equipped player upload", () => {
             obstaclesEnabled: true, playerGaitsEnabled: true, modelArtBase: art,
         } }));
         await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', '[10,20,30,40,45]'));
+        // Everything that can stop the walker mid-step from outside the clock
+        // (lib/continuous-world-controller.ts: window blur, a hidden page), with
+        // page time, for the diagnostics attached when a measured step comes up short.
+        await page.addInitScript(() => {
+            const log: string[] = [];
+            (window as unknown as { __walkEvents: string[] }).__walkEvents = log;
+            for (const type of ['blur', 'focus', 'keydown', 'keyup', 'visibilitychange'])
+                addEventListener(type, (event) => { if (log.length < 200) log.push(`${Math.round(performance.now())} ${type}${event instanceof KeyboardEvent ? ' ' + event.key : ''}`); }, true);
+        });
         await page.clock.install();
         const missing = page.waitForResponse(response => response.url().startsWith(art + '/starter-') && response.status() === 404);
         await page.goto('/#/worldMap');
@@ -852,11 +861,23 @@ test.describe("equipped player upload", () => {
         page.on('requestfailed', answered);
         // A real task turn (MessageChannel is not faked) lets the page read the reply.
         const pageTurn = () => page.evaluate(() => new Promise<void>(done => { const channel = new MessageChannel(); channel.port1.onmessage = () => done(); channel.port2.postMessage(0); }));
+        // One sample per frame of what can stop the walker: CI's WebKit still came up
+        // short (0.56 and 0.71 of a 0.8-tile run) after the replies were settled.
+        let frames: unknown[] = [];
+        const sample = () => page.evaluate(() => {
+            const world = document.querySelector<HTMLCanvasElement>('.continuous-world-map > canvas');
+            const active = document.activeElement;
+            return { t: Math.round(performance.now()), x: Number(world?.dataset.worldX), hasFocus: document.hasFocus(),
+                active: active ? `${active.tagName.toLowerCase()}.${active.className}` : null,
+                modal: Boolean(document.querySelector('[aria-modal=true],dialog[open]')),
+                status: document.querySelector('.continuous-world-status')?.textContent ?? '' };
+        });
         const advance = async (ms: number) => {
             for (let elapsed = 0; elapsed < ms; elapsed += 16) {
                 await page.clock.runFor(Math.min(16, ms - elapsed));
                 await expect.poll(() => movesInFlight, { timeout: 10_000 }).toBe(0);
                 await pageTurn(); await pageTurn();
+                frames.push({ ...await sample(), inFlight: movesInFlight });
             }
         };
         const x = async () => Number(await canvas.getAttribute('data-world-x'));
@@ -866,10 +887,17 @@ test.describe("equipped player upload", () => {
             await canvas.focus();
             await page.keyboard.down('ArrowRight');
             try {
+                frames = [];
                 await advance(16);
                 const start = await x();
                 await advance(160);
-                expect(await x() - start).toBeCloseTo(playerGaitTilesPerSecond[gait] * .16, 1);
+                const moved = await x() - start, expected = playerGaitTilesPerSecond[gait] * .16;
+                // toBeCloseTo(_, 1) passes within 0.05; record the evidence first when it won't.
+                if (Math.abs(moved - expected) >= 0.05) {
+                    const events = await page.evaluate(() => (window as unknown as { __walkEvents?: string[] }).__walkEvents ?? []);
+                    await test.info().attach(`walk-frames-${gait}`, { body: JSON.stringify({ gait, start, moved, expected, frames, events }, null, 2), contentType: 'application/json' });
+                }
+                expect(moved).toBeCloseTo(expected, 1);
             } finally {
                 await page.keyboard.up('ArrowRight');
             }
