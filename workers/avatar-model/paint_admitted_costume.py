@@ -7,6 +7,8 @@ from pathlib import Path
 import re
 import sys
 
+from animal_build import STOCKY_TEMPLATE
+
 
 def admitted_rig(asset, descriptor, expected_master, raw, source):
     if not re.fullmatch("[a-f0-9]{32}", asset) or not 0 < len(raw) <= 3 * 1024**2:
@@ -17,7 +19,9 @@ def admitted_rig(asset, descriptor, expected_master, raw, source):
     fit = master["fit"]
     if (master["version"] != 1 or fit["sourceSha256"] != source or fit["declined"] is not None
             or fit.get("paintingSha256") or fit["template"] not in (
-                "male-coat-template.json", "female-coat-template.json", "masked-collar-template.json")):
+                "male-coat-template.json", "female-coat-template.json", "masked-collar-template.json", STOCKY_TEMPLATE)
+            or (fit["template"] == STOCKY_TEMPLATE and
+                (fit.get("style") != "upright-animal" or fit.get("requiresPainting") is not True))):
         raise ValueError("invalid-admitted-rig")
     return fit["template"], master["templateSha256"]
 
@@ -157,8 +161,9 @@ def paint(entry, work, asset, master, source, reader_python, submit, likeness=No
     closeup = screened.get("requiresPainting") is True
     edits = work/"edits" if round_number == 1 else work/f"edits-{round_number}"
     upright_animal = closeup and screened.get("style") == "upright-animal"
-    bare_animal = False
-    if upright_animal and build is not None:
+    stocky = rig == STOCKY_TEMPLATE
+    bare_animal = stocky
+    if upright_animal and not stocky and build is not None:
         # Asked once per job; a dressed animal (or any failure) paints exactly as before.
         import animal_build
         from avatar_worker.portrait import prepare_portrait
@@ -166,7 +171,8 @@ def paint(entry, work, asset, master, source, reader_python, submit, likeness=No
     painter = costume_painter(edits, job, reserve, submit, closeup=closeup,
                               armored_raccoon=closeup and screened.get("style") == "armored-raccoon",
                               upright_animal=upright_animal,
-                              palette=portrait_palette, **({"bare_animal": True} if bare_animal else {}))
+                              palette=portrait_palette, **({"bare_animal": True} if bare_animal else {}),
+                              **({"stocky": True} if stocky else {}))
     if likeness is not None:
         painter = likeness_checked(painter, upload, template, likeness, PaintingGeometryError)
     painter = explained(painter)

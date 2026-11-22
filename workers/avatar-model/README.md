@@ -55,9 +55,43 @@ does not read files from the owner's PC. `SPRITE_BLENDER_ARCHIVE` can supply the
 existing pinned Blender tarball. Without it, the image build fetches that exact
 tarball and verifies its checksum.
 
-The local painted release archives are `portable-fit-worker/painted-sleeves-tail.zip`
+The stocky candidate is pinned in `sprite-worker-painted-review.json`. Its guide and
+source patches live in `stocky/`. To reproduce the two archives, run
+`python stocky/package_bundles.py <previous-intake.zip> <previous-movement.zip> <new-directory>`
+from this directory. The command verifies the base hashes and writes both ZIPs, their
+changed members and the new manifest. Unchanged entries are copied byte for byte and
+changed entries are stored uncompressed, so the ZIP hashes match the pins on any machine
+and Python version. Verify the ZIP pair with `install_sprite_worker.install`
+before building a worker image. A built copy is kept in the main checkout under
+`.ci-evidence/avatar-model/stocky-release/`.
+
+Only an admitted upright animal can take the stocky route. The portrait screen checks
+for a visible bare two-legged body, a large head, a rounded belly and short legs.
+It asks three proportion reads and the dressed-or-bare question together. Each read states
+the head's and legs' share of standing height before answering, and those numbers must agree
+with its answers. At least two reads must call the portrait stocky, and the build question
+must answer bare. On 2026-11-22 this rule routed both chibi dinosaurs and none of 22 other
+upright animals (dressed ninjas, long-legged birds, borderline chibis) in two full passes.
+It seals the selected guide in the ordinary fitted master. A missing guide, uncertain
+answer or unavailable proportion screen uses the existing animal template. People and
+armored close-ups skip the proportion question. Repairs use the first edit's stocky
+prompt binding. The shorter leg follows the calibrated joint path at a faster cadence.
+Planted travel and clip times scale together. The working upper canvas gains 60 pixels
+above the figure. When a pitched head reaches the side edge, the renderer draws the
+pose on a wider canvas and offsets the ground anchor by the added margin.
+The stocky Blender pass bends the bare leg painting from hip to sole in one mesh.
+It follows the existing knee and foot contacts and blends adjacent paintings during
+planted turns. Each new stocky painting requests the portrait's toes and rear heel.
+Paint repairs replay that request only when the first painting used it.
+
+Production screening enables this route only when the pinned recognition pool supplies
+three distinct approved comparison portraits for `stocky-template.json`, excluding the
+upload itself. The standalone portrait trial can qualify candidate art ahead of pool
+approval. Publishing still uses the ordinary recognition check.
+
+The previous painted release archives are `portable-fit-worker/painted-sleeves-tail.zip`
 and `portable-motion-worker/painted-sleeves-tail-animal-legs.zip` under the avatar-model
-evidence folder. Their hashes match `sprite-worker-painted-review.json`. The animal-legs
+evidence folder. Their hashes are the base pins in `stocky/package_bundles.py`. The animal-legs
 movement archive (2026-11-21, movement `e6816a5d…`) is `painted-sleeves-tail-legs.zip`
 (movement `10e9fe95…`, the rollback) with only `render_fitted_roster.py` replaced by
 `painted-sleeves-tail-animal-legs.render_fitted_roster.py`: `leg_slim()` reads

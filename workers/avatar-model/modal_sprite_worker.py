@@ -77,11 +77,18 @@ paint_image = None
 recognition_image = None
 if modal.is_local():
     pool = os.environ.get("SPRITE_RECOGNITION_POOL_ZIP")
+    stocky_sources = []
     if pool:
         pool_hash = os.environ["SPRITE_RECOGNITION_POOL_SHA256"]
         pool_path = Path(pool).resolve(strict=True)
         if not re.fullmatch(r"[a-f0-9]{64}", pool_hash) or hashlib.sha256(pool_path.read_bytes()).hexdigest() != pool_hash:
             raise ValueError("recognition-pool-deployment-binding")
+        from zipfile import ZipFile
+        from animal_build import STOCKY_TEMPLATE
+        from recognition_worker import pool_entries
+        with ZipFile(pool_path) as archive:
+            stocky_sources = sorted({row["sourceSha256"] for row in pool_entries(archive)
+                                     if STOCKY_TEMPLATE in row["templates"]})
         recognition_image = cpu_image.add_local_file(pool_path, "/opt/sprite/recognition-pool.zip", copy=True).env({
             "SPRITE_RECOGNITION_POOL_SHA256":pool_hash, "SPRITE_RECOGNITION_MODEL":os.environ["SPRITE_RECOGNITION_MODEL"]
         }).run_commands("python -m pip install --no-cache-dir -r /opt/sprite/requirements-recognition.txt", "python -m pip check")
@@ -99,6 +106,8 @@ if modal.is_local():
         "/opt/sprite/reader/bin/python -c 'from transformers import AutoModelForZeroShotObjectDetection'",
     )
     paint_image = cpu_image
+    if stocky_sources:
+        gpu_image = gpu_image.env({"SPRITE_STOCKY_DECOY_SOURCES": ",".join(stocky_sources)})
     if os.environ.get("SPRITE_WORKER_PLAN_PREWARM") != "0":
         paint_image = paint_image.add_local_file(HERE / "warm_sprite_plans.py",
                                                 "/opt/sprite/warm_sprite_plans.py", copy=True).run_commands(
@@ -121,7 +130,8 @@ if modal.is_local():
     )
 
 
-def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python, frame_hash=None, *, painted_costumes=False):
+def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python, frame_hash=None, *,
+                        painted_costumes=False, stocky=False):
     if not isinstance(raw, bytes) or not 0 < len(raw) <= MAX_UPLOAD:
         raise ValueError("portrait-size")
     if hashlib.sha256(raw).hexdigest() != expected_sha256:
@@ -150,7 +160,8 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
             animal_only = [] if declined == "portrait-bust-fit-uncertain" else ["--animal-only"]
             try:
                 subprocess.run([paint_python, INSTALL / "closeup_portrait.py", entry, upload, master,
-                                reader_python, expected_sha256, *animal_only], stdout=subprocess.DEVNULL, check=True)
+                                reader_python, expected_sha256, *animal_only, *(["--stocky"] if stocky else [])],
+                               stdout=subprocess.DEVNULL, check=True)
             except subprocess.CalledProcessError as error:
                 # An uncertain decline always went through this fallback, and its failure still fails
                 # the read. A decline that only reaches it since every bipedal character is screened
@@ -192,8 +203,14 @@ def read_portrait(raw: bytes, expected_sha256: str, frame_hash: str, operation: 
         acknowledge_reserved_call(f"portrait/{operation}/{expected_sha256}/{frame_hash}", "portrait")
     entry = Path((INSTALL / "entry.txt").read_text().strip())
     release = json.loads((INSTALL / "sprite-worker-release.json").read_bytes())
+    stocky = False
+    if release.get("paintedCostumes"):
+        from animal_build import stocky_review_available
+        stocky = stocky_review_available(release, expected_sha256,
+                                        os.environ.get("SPRITE_STOCKY_DECOY_SOURCES", "").split(","))
     result = read_private_upload(raw, expected_sha256, entry, INSTALL / "paint/bin/python",
-                                 INSTALL / "reader/bin/python", frame_hash, painted_costumes=release.get("paintedCostumes",False))
+                                 INSTALL / "reader/bin/python", frame_hash, painted_costumes=release.get("paintedCostumes",False),
+                                 stocky=stocky)
     result["pipelineVersion"] = release["intake"]
     if release.get("paintedCostumes"):
         result["paintedCostumes"] = True

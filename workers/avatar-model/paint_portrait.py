@@ -62,6 +62,12 @@ Fit armor, padding, fur and loose garments inside each torso's guide outline. A 
 TAIL_FIT = """
 If the character has a tail, keep it simple: one plain shape on the torso cutout, joined at the base of the spine. Paint it only in the side and back views, columns three to seven. In the front view and the two front three-quarter views, columns one, two and eight, the body hides the tail, so paint no tail there at all. Keep it short and close to the body: it ends no lower than the bottom of the torso cutout and trails behind the hips by no more than half the torso's width."""
 
+STOCKY_BODY = """
+Follow the stocky guide: keep the portrait's large round head, broad belly and short hips. Paint small separate arms and short legs with broad bare feet and visible toes. A visible tail joins the back of the hips, trailing left when the snout faces right and right when the snout faces left. Keep it clear of other cutouts. Use the animal's own skin and markings on all forty pieces."""
+
+STOCKY_FEET = """
+Match the portrait's leg thickness, toes and claw size. The bare leg flows into the ankle and forefoot in a single painted cutout. In profile show the forward toe reach. In rear views show the heel and only the toes visible around it. Keep scales, pads, fur or claws specific to the portrait."""
+
 SECTOR_MATERIALS = """
 Image 3 gives the world camera, lighting and level of detail. Apply that treatment to the portrait character.
 Keep the portrait's face, hair silhouette, distinctive garment shapes and main colors recognizable at a standing height of 73 pixels.
@@ -107,7 +113,7 @@ def layout_png(template):
 def edit_request(upload, source_hash, template, correction, previous=None, *, sector_guide=SECTOR_GUIDE,
                  head_turnaround=True, closeup=False, armored_raccoon=False, upright_animal=False,
                  palette_prompt=False, torso_fit=False, tail_fit=False, reference_identity=False, attempt=2,
-                 bare_animal=False):
+                 bare_animal=False, stocky=False, stocky_feet=False):
     from avatar_worker.portrait import prepare_portrait
 
     with upload.open("rb") as source:
@@ -120,6 +126,11 @@ def edit_request(upload, source_hash, template, correction, previous=None, *, se
         clean = io.BytesIO()
         frame.save(clean, "PNG")
     prompt = PROMPT + HEAD_TURNAROUND if head_turnaround else PROMPT
+    if stocky:
+        prompt = prompt.replace("each leg includes its boot", "each leg includes its bare foot")
+        prompt += STOCKY_BODY
+        if stocky_feet:
+            prompt += STOCKY_FEET
     if closeup:
         prompt += CLOSEUP
     if armored_raccoon:
@@ -187,7 +198,7 @@ def portrait_palette(pixels, upload):
 
 
 def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armored_raccoon=False, upright_animal=False,
-                    palette=None, bare_animal=False):
+                    palette=None, bare_animal=False, stocky=False):
     """Use durable per-job scratch. reserve(job, operation) must cover one high-quality edit.
     palette(pixels, upload) may correct a new painting's colors before it is recorded."""
     directory = Path(directory)
@@ -199,6 +210,12 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
         binding = dict(job=job_id,source=digest,template=sha256(template.read_bytes()).hexdigest())
         first_receipt = directory/"edit-1/completed.json"
         first = json.loads(first_receipt.read_bytes()) if first_receipt.is_file() else None
+        stocky_body = first["binding"].get("stockyBody", False) if first else stocky
+        if stocky_body:
+            binding["stockyBody"] = True
+        stocky_feet = stocky_body and (first["binding"].get("stockyFeet", False) if first else True)
+        if stocky_feet:
+            binding["stockyFeet"] = True
         # Resume using the same inputs billed on the first edit, including jobs
         # created before the sector reference was added.
         sector_guide = first["binding"].get("sectorGuide") if first else SECTOR_GUIDE
@@ -225,7 +242,7 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
         if torso_fit:
             binding["torsoFit"] = True
         # And for the tail line, which only an animal character is given.
-        tail_fit = first["binding"].get("tailFit", False) if first else armored_raccoon or upright_animal
+        tail_fit = first["binding"].get("tailFit", False) if first else (armored_raccoon or upright_animal) and not stocky_body
         if tail_fit:
             binding["tailFit"] = True
         # And for the line that says the style reference is an unrelated person.
@@ -250,6 +267,8 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
                                **({"armored_raccoon": True} if armored_raccoon else {}),
                                **({"upright_animal": True} if upright_animal else {}),
                                **({"bare_animal": True} if bare_animal else {}),
+                               **({"stocky": True} if stocky_body else {}),
+                               **({"stocky_feet": True} if stocky_feet else {}),
                                **({"palette_prompt": True} if palette_prompt else {}),
                                **({"torso_fit": True} if torso_fit else {}),
                                **({"tail_fit": True} if tail_fit else {}),

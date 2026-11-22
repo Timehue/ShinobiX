@@ -155,6 +155,27 @@ def validate_operation(op):
         raise ValueError("recognition-operation-binding")
 
 
+def pool_entries(source):
+    entries = source.infolist()
+    names = {entry.filename for entry in entries}
+    if (len(names) != len(entries) or len(names) > 40000 or sum(e.file_size for e in entries) > 512 * 1024**2
+            or any(not re.fullmatch(r"(?:pool.json|[a-f0-9]{32}/[a-f0-9]{64}/[a-f0-9]{64}\.(?:json|gz|264|webp))", e.filename)
+                   for e in entries) or source.getinfo("pool.json").file_size > 128 * 1024):
+        raise ValueError("recognition-pool-shape")
+    pool = json.loads(source.read("pool.json"))
+    if pool.get("version") != 1 or not isinstance(pool.get("entries"), list) or len(pool["entries"]) > 64:
+        raise ValueError("recognition-pool-manifest")
+    for entry in pool["entries"]:
+        if (not isinstance(entry, dict) or not re.fullmatch(r"[a-f0-9]{32}", entry.get("assetId", ""))
+                or any(not re.fullmatch(r"[a-f0-9]{64}", entry.get(k, "")) for k in ("sourceSha256", "version"))
+                or entry.get("approved") is not True or not isinstance(entry.get("templates"), list)
+                or not entry["templates"] or any(not isinstance(t, str) or len(t) > 128 for t in entry["templates"])
+                or not isinstance(entry.get("ownerApprovedAt"), str)
+                or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z", entry["ownerApprovedAt"])):
+            raise ValueError("recognition-pool-unapproved-entry")
+    return pool["entries"]
+
+
 def approved_decoys(archive, expected, template, target, ffmpeg):
     """The operator pins an owner-approved pool; never promote local candidates here."""
     from browser_motion import checked_browser_objects
@@ -163,25 +184,9 @@ def approved_decoys(archive, expected, template, target, ffmpeg):
     if archive.stat().st_size > 256 * 1024**2 or sha256(archive.read_bytes()).hexdigest() != expected:
         raise ValueError("recognition-pool-binding")
     with ZipFile(archive) as source:
-        entries = source.infolist()
-        names = {entry.filename for entry in entries}
-        if (len(names) != len(entries) or len(names) > 40000 or sum(e.file_size for e in entries) > 512 * 1024**2
-                or any(not re.fullmatch(r"(?:pool.json|[a-f0-9]{32}/[a-f0-9]{64}/[a-f0-9]{64}\.(?:json|gz|264|webp))", e.filename)
-                       for e in entries) or source.getinfo("pool.json").file_size > 128 * 1024):
-            raise ValueError("recognition-pool-shape")
-        pool = json.loads(source.read("pool.json"))
-        if pool.get("version") != 1 or not isinstance(pool.get("entries"), list) or len(pool["entries"]) > 64:
-            raise ValueError("recognition-pool-manifest")
         choices = []
         seen = {target["sourceSha256"]}
-        for entry in pool["entries"]:
-            if (not isinstance(entry, dict) or not re.fullmatch(r"[a-f0-9]{32}", entry.get("assetId", ""))
-                    or any(not re.fullmatch(r"[a-f0-9]{64}", entry.get(k, "")) for k in ("sourceSha256", "version"))
-                    or entry.get("approved") is not True or not isinstance(entry.get("templates"), list)
-                    or not entry["templates"] or any(not isinstance(t, str) or len(t) > 128 for t in entry["templates"])
-                    or not isinstance(entry.get("ownerApprovedAt"), str)
-                    or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z", entry["ownerApprovedAt"])):
-                raise ValueError("recognition-pool-unapproved-entry")
+        for entry in pool_entries(source):
             if template in entry["templates"] and entry["sourceSha256"] not in seen:
                 seen.add(entry["sourceSha256"])
                 choices.append(entry)

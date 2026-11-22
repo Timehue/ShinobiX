@@ -62,13 +62,26 @@ def single_closeup(read):
                for x, y, end_x, end_y in hair for other in other_hair)
 
 
-def prepare(entry, upload, master, reader_python, digest, animal_only=False, ask_style=None):
+def screened_layout(templates, style, portrait, stocky_question):
+    from animal_build import STOCKY_TEMPLATE
+    from paint_portrait import layout_png
+    if style == "upright-animal" and stocky_question is not None:
+        template = templates / STOCKY_TEMPLATE
+        try:
+            if template.is_file() and stocky_question(portrait) is True:
+                return template, layout_png(template)
+        except Exception as error:
+            print("stocky-screen-skipped", type(error).__name__, flush=True)
+    template = templates / "male-coat-template.json"
+    return template, layout_png(template)
+
+
+def prepare(entry, upload, master, reader_python, digest, animal_only=False, ask_style=None, stocky_question=None):
     """ask_style(png) returns "upright-animal", "upright-character" or None (upright_animal.style)."""
     sys.path.insert(0, str(entry.parent))
     from motion_worker_paths import TEMPLATES
     from avatar_worker.portrait import prepare_portrait
     from avatar_worker.saved_kit import write_fitted_master
-    from paint_portrait import layout_png
     from PIL import Image
     from armored_raccoon import face_and_muzzle, confirms_armor
     import upright_animal
@@ -105,17 +118,15 @@ def prepare(entry, upload, master, reader_python, digest, animal_only=False, ask
                 raise ValueError("armored-raccoon-read-mismatch")
             if confirms_armor(*subject, armor["regions"]):
                 style = "armored-raccoon"
-        # Any other illustrated character that walks on two legs is painted on the same rig: an
-        # animal with the animal prompt, anyone else (a bald, helmeted, masked, horned or animated
-        # human, an elf, a robot) with the human close-up prompt.
+        # The upright screen chooses the painting prompt. Only an admitted upright animal
+        # is eligible for the additional stocky proportion check.
         if style is None:
             style = ask_style(portrait.png)
             if style not in (None, "upright-animal", "upright-character"):
                 raise ValueError("upright-style-unknown")
         if style is None:
             return
-        template = TEMPLATES / "male-coat-template.json"
-        guide = layout_png(template)
+        template, guide = screened_layout(TEMPLATES, style, portrait.png, stocky_question)
         (master / "candidate.png").write_bytes(guide)
         fit = {"sourceSha256": digest, "declined": None, "style": style,
                "sheetSha256": sha256(guide).hexdigest(), "template": template.name, "requiresPainting": True}
@@ -131,7 +142,13 @@ if __name__ == "__main__":
     for name in ("entry", "upload", "master", "reader_python"):
         parser.add_argument(name, type=Path)
     parser.add_argument("digest")
+    parser.add_argument("--stocky", action="store_true")
     parser.add_argument("--animal-only", action="store_true",
                         help="the intake declined for a reason other than an uncertain bust fit")
     args = parser.parse_args()
-    prepare(args.entry, args.upload, args.master, args.reader_python, args.digest, animal_only=args.animal_only)
+    import animal_build
+    prepare(args.entry, args.upload, args.master, args.reader_python, args.digest, animal_only=args.animal_only,
+            stocky_question=(lambda png: animal_build.stocky(
+                png, lambda image: animal_build.ask(image, os.environ.get("OPENAI_API_KEY"), proportions=True),
+                lambda image: animal_build.ask(image, os.environ.get("OPENAI_API_KEY"))))
+            if args.stocky else None)
