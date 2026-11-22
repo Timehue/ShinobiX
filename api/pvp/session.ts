@@ -1120,7 +1120,19 @@ const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
     'storyTraits', 'storyTitle', 'storyProgress',
     // Pets are huge and not needed for a 1v1 PvP fight
     'pets', 'editablePets',
+    // World and side-mode state. On a developed save, together with the
+    // ledgers below, this was ~250 KB per fighter,
+    // sealed into a record every turn re-reads and spectators can fetch.
+    'sunscarCaravan', 'sunscarRally', 'resourceGathering', 'keeperPath',
+    'storyChoices', 'wandererCooldowns', 'wandererMoves', 'aiKills',
+    'battleTowerRecords', 'worldAiChainWins', 'cardClashDeck',
+    'claimedAchievementRewards', 'echoesWitnessChoices', 'echoesStorySeen',
 ]);
+// Idempotency ledgers, settlement receipts and histories, matched by name so a
+// new one stays out without another edit here. Every reader of these takes them
+// from the player's SAVE record, never from a sealed
+// fighter, and a sealed fighter is never written back as a save.
+const SESSION_STRIP_LEDGER_FIELD = /^(?:redeemed|settled)[A-Z]|(?:Receipts|Settlements|SettlementStamp|Ledger|History)$/;
 // Exported so other PvP entry points that return an opponent character to the
 // attacker (e.g. village-guard/challenge) can apply the SAME combat-safe
 // projection instead of leaking the opponent's full private save (currencies,
@@ -1129,7 +1141,7 @@ const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
 export function stripNonCombatFields(character: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(character)) {
-        if (SESSION_STRIP_CHAR_FIELDS.has(k)) continue;
+        if (SESSION_STRIP_CHAR_FIELDS.has(k) || SESSION_STRIP_LEDGER_FIELD.test(k)) continue;
         // Gathering tools ride in the loadout for fishing and mining only.
         out[k] = k === 'equipment' ? combatEquipment(v) : v;
     }
@@ -1385,8 +1397,14 @@ function resolveEquippedPvpItems(
     adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
 ): unknown[] | null {
     if (!save) return null;
+    // A save-backed fighter with nothing in a gear slot fights unarmed, the way
+    // resolveEquippedLoadout answers [] for an empty jutsu loadout. Returning
+    // null here fell through to the REQUEST BODY's pvpItems (pvpItems is never
+    // persisted), so a crafted create could arm either fighter with items the
+    // save never held. pvpItems is not persisted, and the honest client already
+    // sent [] for a fighter with nothing equipped.
     const equipment = saveCharacter.equipment;
-    if (!equipment || typeof equipment !== 'object') return null;
+    if (!equipment || typeof equipment !== 'object') return [];
     // A named piece outside the gear slots is never armed (shared/named-gear-rules.ts),
     // the same rule the stat sums in _multipliers.ts apply to a stored legacy save.
     const ids = [...new Set(
@@ -1394,7 +1412,7 @@ function resolveEquippedPvpItems(
             .filter(([slot, v]) => typeof v === 'string' && namedGearFitsEquipSlot(slot, v))
             .map(([, v]) => v as string),
     )];
-    if (ids.length === 0) return null;
+    if (ids.length === 0) return [];
     const getItem = buildItemLookup(save.creatorItems, adminItems);
     // Elemental Core attunement overlay: api/weapon/apply-elemental-core.ts
     // stores the attuned element in character.weaponElements (weaponId →

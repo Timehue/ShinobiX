@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { sanitizePvpItems, sanitizeJutsuList, stripNonCombatFields } from './session.js';
+import { hydrateCharacterFromSave, sanitizePvpItems, sanitizeJutsuList, stripNonCombatFields } from './session.js';
+import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 
 type Item = Record<string, unknown>;
 
@@ -10,6 +11,61 @@ it('opponent combat snapshots omit council win history and ranked settlement rec
     const character = { name: 'Rin', stats: { speed: 20 }, elderWinDays: [{ pvp: 1 }], elderRankedWinReceipts: [{ id: 'private-match' }] };
     assert.deepEqual(stripNonCombatFields(character), { name: 'Rin', stats: { speed: 20 } });
     assert.equal(character.elderWinDays.length, 1);
+});
+
+it('a sealed fighter keeps everything combat and its sprite read, and none of the save ledgers', () => {
+    const combat = {
+        name: 'Rin', level: 60, village: 'Leaf', specialty: 'Ninjutsu', stats: { speed: 20 },
+        maxHp: 900, maxChakra: 400, maxStamina: 400, hp: 850,
+        equipment: { hand: 'w1', body: 'a1' }, pvpItems: [{ id: 'w1' }], jutsu: [{ id: 'j1' }],
+        jutsuMastery: [{ jutsuId: 'j1', level: 10 }], legacy: { legacyId: 'x', stage: 2 },
+        bloodlineMult: 1.2, armorFactor: 0.8, weaponElements: { w1: 'Fire' },
+        avatarImage: '/avatars/rin.webp', starterWorldModel: 'starter-two',
+    };
+    // The heaviest fields of a developed save.
+    const ledgers = {
+        battleHistory: [{ id: 'b' }], redeemedSectorExplorations: ['s'], settledHollowGateCombatIds: ['h'],
+        serverSettlementReceipts: [{}], serverFreeDungeonProbeReceipts: [{}], pvpRewardSettlementReceipts: {},
+        combatMissionClaimSettlements: {}, playerRankedSettlementStamp: {}, brokerCrateLedger: [], clanPointHistory: [],
+        sunscarCaravan: {}, sunscarRally: {}, resourceGathering: {}, keeperPath: {}, storyChoices: {},
+        wandererCooldowns: {}, wandererMoves: [], aiKills: {}, battleTowerRecords: {}, worldAiChainWins: {},
+        cardClashDeck: [], claimedAchievementRewards: [], echoesWitnessChoices: {}, echoesStorySeen: {},
+    };
+    const model = { assetId: 'a'.repeat(32), version: 'b'.repeat(64) };
+    const out = stripNonCombatFields({ ...combat, ...ledgers, playerModel: { ...model, frames: ['heavy'] }, playerModelSlots: [model] });
+    // Combat inputs pass through untouched; only the world model is cut to the pointer the battle sprite loads.
+    assert.deepEqual(out, { ...combat, starterWorldModel: 'starter-two', playerModel: model });
+});
+
+it('a save-backed fighter is sealed from the save alone, so a name-only create body loses nothing', () => {
+    // The client sends sector attacks and player challenges name-only
+    // (shinobij.client/src/lib/pvp-session-create.ts). Every field the body's
+    // copy could fill is present on every save, so a
+    // whole and even a tampered body must seal the identical fighter.
+    const jutsuIds = Object.keys(JUTSU_CATALOG).slice(0, 3);
+    const character = {
+        name: 'rin', level: 42, village: 'Leaf', specialty: 'Ninjutsu', hp: 700, chakra: 300, stamina: 250,
+        maxHp: 900, maxChakra: 400, maxStamina: 400,
+        stats: { strength: 40, speed: 55, intelligence: 30, willpower: 35, ninjutsuOffense: 90, ninjutsuDefense: 60 },
+        jutsuMastery: [{ jutsuId: jutsuIds[0], level: 12 }], equippedJutsuIds: jutsuIds, equipment: {},
+        avatarImage: '/avatars/rin.webp', starterWorldModel: 'starter-one',
+        battleHistory: [{ id: 'b1' }], redeemedSectorExplorations: ['s1'],
+    };
+    const save = { character, savedBloodlines: [], creatorJutsus: [], creatorItems: [] };
+    const tampered = {
+        name: 'rin', stats: { strength: 2500, speed: 2500 }, maxHp: 10_000, maxChakra: 9_999, maxStamina: 9_999,
+        jutsuMastery: [{ jutsuId: jutsuIds[0], level: 50 }], jutsu: [{ id: 'forged', effectPower: 60 }],
+        pvpItems: [{ id: 'forged-blade', slot: 'hand', weaponEp: 999 }], bloodlineMult: 3, armorFactor: 0.25,
+        armorRawDR: 1.5, itemDamagePct: 200, itemAbsorbPct: 100, itemReflectPct: 100, itemLifeStealPct: 100, itemShield: 5_000,
+    };
+    const fromName = hydrateCharacterFromSave(structuredClone(character), { name: 'rin' }, structuredClone(save), null);
+    assert.deepEqual(hydrateCharacterFromSave(structuredClone(character), tampered, structuredClone(save), null), fromName);
+    // Nothing is equipped on this save, so a body-supplied weapon must not arm it.
+    assert.deepEqual(fromName.pvpItems, []);
+    assert.deepEqual(fromName.stats, { ...Object.fromEntries(Object.keys(fromName.stats as object).map((k) => [k, 0])), ...character.stats });
+    assert.equal(fromName.maxHp, 900);
+    assert.equal(fromName.starterWorldModel, 'starter-one');
+    assert.equal('battleHistory' in fromName || 'redeemedSectorExplorations' in fromName, false);
 });
 
 describe('sanitizePvpItems', () => {

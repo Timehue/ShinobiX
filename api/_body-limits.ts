@@ -46,7 +46,15 @@ export const ADMIN_LARGE_BODY_RE = /(?:^|\/)(?:admin\/content-publish|game-state
 // can reach ~2.7 MB). The handlers discard that character and rebuild it from
 // the save, so the real fix is a client that stops sending it; until then they
 // keep the old 5 MB.
-export const LARGE_BODY_RE = /(?:^|\/)(?:player\/challenge|village-guard\/challenge)(?:\/|$)/;
+//   • pvp/session — the PvP create. Clients built before 2026-11-22 post both
+//     fighters' whole characters (battle history, receipts and ledgers included),
+//     and a developed save is past 256 KB on its own, so most creates were
+//     refused with a 413 until this was added. Today's client
+//     names each fighter and nothing else, as ranked and clan-war creates
+//     already did (shinobij.client/src/lib/pvp-session-create.ts
+//     slimPvpSessionRequestBody), so this allowance only has to outlive tabs
+//     still running an older client.
+export const LARGE_BODY_RE = /(?:^|\/)(?:player\/challenge|village-guard\/challenge|pvp\/session)(?:\/|$)/;
 
 // One image in the body: the 1024 px profile portrait (validated at ≤1 MiB
 // decoded, ~1.4 MB of base64) and a starter pet that may carry its art inline.
