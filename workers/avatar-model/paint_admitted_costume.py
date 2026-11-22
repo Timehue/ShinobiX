@@ -124,7 +124,7 @@ REFUSED = 3
 
 
 def paint(entry, work, asset, master, source, reader_python, submit, likeness=None, round_number=1, build=None):
-    """likeness(portrait_png, row_png) asks the vision model; None skips the post-paint check.
+    """likeness(portrait_png, row_png, reference_png) asks the vision model; None skips the post-paint check.
     build(portrait_png) answers "bare" or "dressed" for an upright animal (animal_build.ask); None paints it dressed.
     round_number 2 is a fresh painting after a first round the rig refused three times: its edits keep their own
     folder and billing identity, so nothing of the first round is replayed or overwritten."""
@@ -191,7 +191,8 @@ if __name__ == "__main__":
     try:
         paint(args.entry, args.work, args.asset, args.master, args.source, args.reader_python,
               lambda body, operation: submit_edit(body, os.environ["OPENAI_API_KEY"], operation),
-              likeness=lambda portrait, row: painted_likeness.ask(portrait, row, os.environ["OPENAI_API_KEY"]),
+              likeness=lambda portrait, row, reference: painted_likeness.ask(portrait, row, reference,
+                                                                             os.environ["OPENAI_API_KEY"]),
               round_number=args.round_number,
               build=lambda portrait: animal_build.ask(portrait, os.environ["OPENAI_API_KEY"]))
     except PaintingGeometryError:

@@ -188,6 +188,12 @@ the same sheet with the check's note, and a third refusal ends the job at once
 (a system failure, so the creation is returned). This exists because a raccoon
 was painted on 2026-11-19 as the black-haired human in a dark coat and red scarf
 from `sector-costume-light.png`, and only the blind review an hour later noticed.
+On 2026-11-22 Snow White was painted as that same person and the check passed
+her, because species, black hair and a red accent all matched. So the check is
+also shown the style reference itself: it describes both outfits, then says
+whether the garment is the same kind (a dress stays a dress) and whether the
+painting copies the reference's person instead of the portrait. Either one
+refuses the painting with a note that names what to change.
 The check asks twice at most. A provider error or a malformed answer accepts the
 painting, and the final review still decides.
 
