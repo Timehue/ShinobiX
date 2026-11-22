@@ -837,7 +837,7 @@
           },
           {
             "type": "p",
-            "text": "Scheduled weather can change every 40 real minutes and may hold for several windows. Check the forecast and current combat modifier before fighting. A clan that holds a sector can set local weather there."
+            "text": "Scheduled weather can change every 40 real minutes and may hold for several windows. Check the forecast and current combat modifier before fighting. The Unmapped Coast has the same weather, and a clan that holds a sector there can fix the sky over it."
           },
           {
             "type": "callout",
@@ -890,6 +890,44 @@
           {
             "type": "p",
             "text": "The pet trial keeps the Colosseum's normal cost and reward limit. Circuit rewards are recorded honours and a place in the event archive, with no extra currency or rating. Use the event board to check what you still need."
+          }
+        ]
+      },
+      {
+        "id": "unmapped-coast",
+        "heading": "The Unmapped Coast at level 75",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "At level 75 a shuttered boat appears off Stormveil Harbor, and the Wandering Sage starts to notice it wherever you travel. Take his quest, The Shuttered Boat. Finishing it makes the boat sail. From then on, selecting the boat carries you across the sea to the Unmapped Coast, a second map of 50 sectors in five regions. A boat on the coast brings you home, and Village returns you at once from anywhere."
+          },
+          {
+            "type": "p",
+            "text": "Quests open the coast one region at a time. They are long and can be done once, and you can carry three at a time. Most send you to gather a material at a marked site, make a tool from it at a counter, and then face a boss guarded by a Hold. The boss cannot fall while the Hold stands. Only the tool the quest had you make breaks it, so the fight will not start until you carry one. A tool is spent when you use it, win or lose, and you can make more. The Last Crown, the final sector of Hushcrown Heights, stays shut until The Crossing War V is finished."
+          },
+          {
+            "type": "p",
+            "text": "A quest site is worked like any gathering node. You need the right tool equipped and enough skill. Sites in the first two regions need skill 1, the next two regions need skill 4, and Hushcrown Heights needs skill 7. Keep Mining, Fishing and Harvesting moving as you level, because a quest waives nothing. The World Quests tab lists every quest, the step you are on, and where it happens."
+          },
+          {
+            "type": "p",
+            "text": "Finished quests add marks to your Coast Record, which later quests ask for. They pay ryo and stat points, and some add a Fate Shard, Bone Charms or Aura Stones. Ten of them also carry a 20% chance of a gear piece. Clans can take coast sectors from the Unmoored through posted contests and raise a Clan Landing on ground they hold. A Landing falls with its sector."
+          },
+          {
+            "type": "p",
+            "text": "Some quests ask you to choose, and a choice is sealed once made. In The Uncounted, the slower paper pays a quarter more ryo and makes the last fight harder. In the finale, The Unmoored, your choice decides which of two relics you are given: the Ridgewarden Bracer or the Quiet Crown Mantle. Both need level 95 and add 9% to all damage against PvE enemies. Neither does anything against players, and you can wear only one relic at a time. The relic is yours alone: it cannot be sold, listed on the Exchange or given to a treasury."
+          },
+          {
+            "type": "p",
+            "text": "Each region's keeper also offers Rounds, a list of four tiers. The first has you walk the region, the second supply its counter, the third clear three trails, and the fourth break the Unmoored on its hardest ground. The fourth tier waits for that region's Crossing War quest. Rounds are worth no marks, so nothing waits on them. Each tier pays ryo and a badge, and the fourth also pays 10 stat points. The keepers also tell ten side tales, two in each region. A tale is short, needs no tool, and pays ryo. Most end in a choice. Neither answer pays more, and what you chose is kept on your record."
+          },
+          {
+            "type": "p",
+            "text": "A Landing can also hold three works, built once each from its stores by an officer who has finished the matching Raise the Clan Gate quest. The Store Shed lets each member give 60 units a week in place of 40. The Drying Racks cut weekly upkeep by a quarter. The Watch Fire makes a contest declared on your ground open 12 hours later. Works fall with the Landing and can be built again on the next one."
+          },
+          {
+            "type": "p",
+            "text": "Keepers and foes speak at every step, and the World Quests tab keeps what they say. A quest's offer, its choices, the words before its boss and its ending play as scenes, once each. A few steps are questions with the clue in what you were just shown, and a wrong answer can send you back. Later quests remember your earlier choices. Each quest's boss changes form as its health falls, and the last one changes twice. A stance turns most attacks but opens to two kinds named on the fight screen. A gathered strike can be broken by hitting hard or by a stun. A burning form costs the boss its own health every turn. Each tier of a region's Rounds is also an achievement."
           }
         ]
       }
@@ -1109,11 +1147,11 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Sector Wars decide village control of land. A clan can plant its banner only in a sector its village already controls. The clan needs at least ten members, no other held sector, and 75 Territory Control Scrolls in its treasury. Leadership spends all 75 together to capture; partial deposits do not reserve a claim. A Sector War also pays a purse to the fighters who won its battles: 20 points a win, at least two wins, counted up to ten. The side that captures or holds the sector earns the higher rate, and an account must be 72 hours old or level 20 to be paid. A war its attackers abandon pays only if it ran for 48 hours, with the defenders at the higher rate."
+            "text": "Sector Wars decide village control of land on the home map. Clans hold land on the Unmapped Coast only. There a clan needs five members who have earned the right to contest land, no other held sector, and 75 Territory Control Scrolls in its treasury. Leadership spends the 75 to declare a contest for a sector, and gets them back if it withdraws before the fighting opens. A Sector War also pays a purse to the fighters who won its battles: 20 points a win, at least two wins, counted up to ten. The side that captures or holds the sector earns the higher rate, and an account must be 72 hours old or level 20 to be paid. A war its attackers abandon pays only if it ran for 48 hours, with the defenders at the higher rate."
           },
           {
             "type": "p",
-            "text": "Once a sector is held, check its HP and guard status. Reinforcement scrolls repair damage. A breached sector has a fixed repair deadline and stops producing rewards or bonuses until restored. Weather and terrain choices matter only while the hold is active."
+            "text": "A held coast sector produces 100 War Supply a day, and leadership collects it in the Clan Hall. Leadership can also choose one school for the sector on the Territory tab. Members of the clan then hit 10% harder with that school in open fights on that ground. The Clan Landing raised on that ground is the clan’s own place there. A member who walks into it is safe from attack until they step back onto the sector. Another clan can declare for the sector once its protection ends, and the Landing falls with it."
           }
         ]
       },

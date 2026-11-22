@@ -2206,6 +2206,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rawTerritory = body?.territory && typeof body.territory === 'object'
                     ? body.territory as Record<string, unknown>
                     : {};
+                // A sector past the home map (the Unmapped Coast is 101 to 150) has no
+                // village territory. Refuse it: the clamp in normalizeSectorTerritory
+                // would otherwise turn the write into one on sector 74.
+                if (Number(rawTerritory.sector) > MAX_WILD_SECTOR) {
+                    return res.status(400).json({ error: 'That sector has no village territory.' });
+                }
                 const ownerVillageProvided = Object.prototype.hasOwnProperty.call(rawTerritory, 'ownerVillage');
                 const ownerClanProvided = Object.prototype.hasOwnProperty.call(rawTerritory, 'ownerClan');
                 const incomingTerritory = normalizeSectorTerritory({ ...rawTerritory, updatedAt: Date.now() });

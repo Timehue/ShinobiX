@@ -9,6 +9,7 @@
  * passed through.
  */
 import { isPlayableWildSector } from './sector-geo.js';
+import { isCoastSector } from './world-maps.js';
 
 /** Death's Gate: a map-travel arena with its own board, so it has a voice too. */
 const DEATHS_GATE_SECTOR = 99;
@@ -32,10 +33,14 @@ export type SectorChatMessage = {
     level?: number;
 };
 
-/** The sectors that have a chat: every walkable wild board, plus Death's Gate. */
+/**
+ * The sectors that have a chat: every walkable wild board, Death's Gate, and
+ * every sector of the Unmapped Coast. Speaking and listening both need live
+ * presence in the sector, so a coast sector that is not open yet stays silent.
+ */
 export function isSectorChatSector(sector: unknown): sector is number {
     return typeof sector === 'number' && Number.isInteger(sector)
-        && (isPlayableWildSector(sector) || sector === DEATHS_GATE_SECTOR);
+        && (isPlayableWildSector(sector) || sector === DEATHS_GATE_SECTOR || isCoastSector(sector));
 }
 
 /** Lines still inside their lifetime at `now`, oldest first. */

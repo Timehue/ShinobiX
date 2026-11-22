@@ -12,8 +12,9 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { saveUnchangedSince } from '../save/_save-unchanged.js';
-import { applySectorExploreReward, rollSectorExploreOutcome } from './_explore.js';
-import { isPlayableWildSector } from '../../shared/sector-geo.js';
+import { applySectorExploreReward, rollCoastExploreOutcome, rollSectorExploreOutcome } from './_explore.js';
+import { isCoastSector, isExplorableSector } from '../../shared/world-maps.js';
+import { COAST_AMBUSH_NAMES } from '../coast/_patrols.js';
 import { DAILY_ANCIENT_CHEST_LIMIT } from './_chest.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { kv } from '../_storage.js';
@@ -40,12 +41,17 @@ import { addPendingWorldReward, settlePendingWorldReward } from './_pending-rewa
 import { fieldActionBlockedByClaimedBattle } from '../_sector-presence-gate.js';
 import { unresolvedExploreBattle } from './_pending-battle.js';
 import { deliverWorldEffect, drainWorldEffects } from './_effects-outbox.js';
-import { rollOrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
+import { rollOrdinaryPveEncounter, type OrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
 import { computeAiFightBaseReward } from '../missions/_ai-fight-token.js';
 
 function cleanRequestId(value: unknown): string {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
     return /^[A-Za-z0-9_-]{8,96}$/.test(id) ? id : '';
+}
+
+/** An ambush on the coast is the Unmoored's, so it is named as theirs. The fight itself is the ordinary one. */
+function coastAmbush(onCoast: boolean, encounter: OrdinaryPveEncounter): OrdinaryPveEncounter {
+    return onCoast ? { ...encounter, displayName: COAST_AMBUSH_NAMES[encounter.archetype] } : encounter;
 }
 
 type ExternalExploreProof = { kind: 'dungeon' | 'pet'; token: string };
@@ -139,7 +145,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // it inside spent part of that lock's 5s TTL on KV round-trips under
         // exactly the crowd the pool exists for.
         const requestedSector = Math.floor(Number(body.sector));
-        if (poolEnabled && isPlayableWildSector(requestedSector)) {
+        // The Unmapped Coast: the same tile, daily limits and shared sector
+        // pool as at home, but its own outcome roll, and none of the home
+        // map's village intel or sector contracts.
+        const onCoast = isCoastSector(requestedSector);
+        if (poolEnabled && isExplorableSector(requestedSector)) {
             pool.frame = await loadSectorPoolFrame(requestedSector).catch(() => null);
         }
         const result = await withKvLock(activePetKey, async () => {
@@ -333,7 +343,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // minting a chest the pool can't back, are both worse.
             const chestPoolHasRoom = !pool.frame || sectorPoolHasRoom(pool.frame, 'chests', pool.village);
             const rolledOutcome = resolveOutcome
-                ? rollSectorExploreOutcome(
+                ? (onCoast ? rollCoastExploreOutcome : rollSectorExploreOutcome)(
                     () => randomInt(1_000_000_000) / 1_000_000_000,
                     chestsToday < DAILY_ANCIENT_CHEST_LIMIT && chestPoolHasRoom,
                     Number(character.level) || 1,
@@ -360,7 +370,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : rolledOutcome?.kind === 'gather'
                     ? { kind: 'gather' as const, find: sealGatherFind(requestId, requestedSector, () => randomInt(1_000_000_000) / 1_000_000_000,Date.now(),gatherGroundOrigin(gatheringPresence.get(playerName),requestedSector,Date.now()))! }
                     : rolledOutcome?.kind === 'battle'
-                        ? { kind: 'battle' as const, encounter: rollOrdinaryPveEncounter({
+                        ? { kind: 'battle' as const, encounter: coastAmbush(onCoast, rollOrdinaryPveEncounter({
                             sourceId: requestId, playerLevel: Number(character.level), sector: requestedSector,
                             // The client chooses requestId for idempotency. It
                             // must never choose combat odds by precomputing ids.
@@ -368,7 +378,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             // as the exploration cost and replayed unchanged.
                             seed: randomUUID(),
                             reward: computeAiFightBaseReward(character),
-                        }) }
+                        })) }
                     : rolledOutcome;
             // Once the server resolves the branch, a chest or battle counts as
             // the explored tile but cannot also collect the quiet-tile ryo.
@@ -509,7 +519,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // `pool.frame.owner` — this request's already-read territory row, so the
         // credit does not re-read `world:territory:<sector>`. Credit rules are
         // unchanged: a fresh explore scouts, a replay never did and still does not.
-        if (!result.value.replayed) {
+        // Neither applies on the coast: no village owns ground there, and the
+        // sector contracts are posted for home sectors only.
+        if (!result.value.replayed && !onCoast) {
             const scoutedSector = Math.floor(Number((result.value.reward as Record<string, unknown>)?.sector ?? body.sector));
             // Both are OBLIGATIONS of the committed exploration (_effects-outbox):
             // attempted now, parked on failure, drained on the next exploration.
@@ -521,7 +533,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // New receipt generations can redeliver after an outbox write fails or
         // a process stops between the save commit and delivery. Older receipts
         // lack deduplication proof, so replaying those must not mint a new tick.
-        if (!result.value.replayed || result.value.contractEffectVersion === 1) {
+        if (!onCoast && (!result.value.replayed || result.value.contractEffectVersion === 1)) {
             const scoutedSector = Math.floor(Number((result.value.reward as Record<string, unknown>)?.sector ?? body.sector));
             await deliverWorldEffect(playerName, { kind: 'contract', requestId, sector: scoutedSector,
                 at: Math.floor(Number(result.value.exploreReceiptAt) || Date.now()) });

@@ -1,0 +1,16 @@
+.clan-town { color: var(--sj-text-primary); }
+.clan-town header { justify-content: flex-start; }
+.clan-town .clan-image-mark { width: 40px; height: 40px; object-fit: contain; }
+.clan-town-map, .clan-town-paint { position: relative; }
+.clan-town-paint { aspect-ratio: 1672/941; overflow: hidden; background-size: cover; }
+.clan-town-standard { position: absolute; left: 6%; bottom: 13%; z-index: 2; padding: 4px 3px 10px; border-top: 3px solid #bb9262; background: #322730; clip-path: polygon(0 0,100% 0,100% 100%,50% 87%,0 100%); }
+.clan-town-standard .clan-image-mark { width: clamp(20px,3vw,34px); height: auto; aspect-ratio: 1; }
+.clan-town-tiles { position: absolute; inset: 0; }
+.clan-town footer, .clan-town-works { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .6rem; }
+.clan-town-works:empty { display: none; }
+.clan-town-works figure { margin: 0; display: flex; align-items: center; gap: .4rem; }
+.clan-town-works img { width: 46px; height: 46px; object-fit: contain; }
+@media(max-width:979px) {
+    .clan-town-tiles { position: relative; display: grid; grid-template-columns: repeat(auto-fit,minmax(74px,1fr)); justify-items: center; gap: .7rem .25rem; padding: .75rem .25rem; background: var(--sj-surface-low); }
+}
+

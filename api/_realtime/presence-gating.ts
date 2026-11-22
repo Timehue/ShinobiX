@@ -1,4 +1,4 @@
-import { sameStrongholdLocation } from '../_stronghold-presence.js';
+import { inSafeRoom, sameStrongholdLocation } from '../_stronghold-presence.js';
 /**
  * Pure anti-grief gating predicates over an online-player record.
  *
@@ -131,6 +131,11 @@ export function worldInteractionBlock(actor: OnlinePlayer | null, target: Online
     if (actor.travelingUntil && actor.travelingUntil > now) return { status: 409, error: 'You cannot attack while traveling.' };
     if (actor.inBattle) return { status: 409, error: 'You are already in a battle.' };
     if (actor.sector < 1 || target.sector < 1) {
+        return { status: 409, error: 'World attacks are disabled in safe zones.' };
+    }
+    // A clan's town on the coast is a safe zone inside a field sector: a member who has entered it is
+    // as safe as one standing in a village, and cannot attack out of it either.
+    if (inSafeRoom(actor, now) || inSafeRoom(target, now)) {
         return { status: 409, error: 'World attacks are disabled in safe zones.' };
     }
     if (actor.sector !== target.sector) return { status: 409, error: 'Target is no longer in your sector.' };

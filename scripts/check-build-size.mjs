@@ -1126,7 +1126,14 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // with the trim; on main 62351e741 (image: 398,260 B) it reads 396,235 B. The
 // gate stays at 399,000 B for ~2.7 KB of variance; reverting aa8d2840c would
 // leave only ~265 B.
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 399_000;
+// 2026-11-20 UNMAPPED COAST: owner-approved ("Yes, approve it" to 4 KB on the total
+// and 1 KB here). With the image's VITE_* env the coast branch read 399,424 B, 424 B
+// over, while a local build read 398,928 B and passed. No coast screen is in the
+// startup graph; what startup gained is the way in (the wild-or-coast sector check
+// in lib/screen-guards.ts and App.tsx) and the file names of the coast's lazy
+// chunks, which the entry chunk lists. Re-baselined to 400,000 B, which leaves
+// ~575 B. The next startup addition should still trim its own code first.
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 400_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 // Three.js, React Three Fiber, Drei, and postprocessing are intentionally one
@@ -1466,11 +1473,85 @@ const FIGURE_LOADING_JS_CSS_FAIL_BYTES = AVATAR_MODE_JS_CSS_FAIL_BYTES + 3 * 102
 // rule left); that PR already folded 17 duplicate screen-reader-only rules into .ui-sr-only.
 // Allow 2 KiB. The startup gzip gate is unchanged.
 const LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES = FIGURE_LOADING_JS_CSS_FAIL_BYTES + 2 * 1024;
+// Owner-approved 2026-11-19: the Unmapped Coast, the second world at level 50. Its first
+// client slice is the quest-line panel (World Quests tab, Sector Info, the Sage's dialog),
+// the boat on the world map, the coast's own atlas and sector screen, and the Hold chip.
+// A local build measures 9,910,637 B, 28,557 B more than before; the production env reads
+// about 2 KB above a local build. None of it is in the startup graph (398,396 B gzip
+// against the unchanged 399,000 B gate), and the coast's map data is served by
+// /api/coast/world rather than bundled. Allow 30 KiB. Revert this line to drop it.
+const COAST_JS_CSS_FAIL_BYTES = LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES + 30 * 1024;
+// Owner-approved 2026-11-19 ("Yes, approve it" to a 16 KB step so the remaining quests
+// fit). The coast's quest catalogue grew from three quests to nine, and the interiors,
+// journal paintings and Hold art were wired in: a local build reads 9,915,240 B, 268 B
+// under the step above. Each further quest adds about 500 B, all of it the names and
+// descriptions of its quest items (shared/quest-items.ts), which load only on screens
+// that show a quest item. Eleven of the plan's twenty quests are still to come. None of
+// this is in the startup graph (398,453 B gzip against the unchanged 399,000 B gate).
+// Allow 16 KiB. Revert this line to drop it.
+const COAST_QUESTS_JS_CSS_FAIL_BYTES = COAST_JS_CSS_FAIL_BYTES + 16 * 1024;
+// Owner-approved 2026-11-20 ("Yes, approve it" to 4 KB here and 1 KB on the startup
+// gate). The coast's remaining screens landed: patrols, exploring, the clan and
+// Landing screen, and the choice of dock. A local build read 9,931,698 B, 194 B under
+// the step above, but the image's VITE_* env adds about 2 KB and read 9,934,296 B,
+// 2,404 B over, so no deploy could pass. All of it loads only on the coast. Allow
+// 4 KiB, which leaves ~1.7 KB with the image's env. Revert this line to drop it.
+const COAST_SCREENS_JS_CSS_FAIL_BYTES = COAST_QUESTS_JS_CSS_FAIL_BYTES + 4 * 1024;
+// Owner: "Let Codex apply final measured allowances" for the coast works, journal, map states and full-admin screen.
+// With production-length settings product JS/CSS went from 9,934,662 to 9,945,965 B.
+// The owner was also shown, in the server session, that the step covers more than the
+// works and admin screens first agreed to, and kept it (2026-11-20, "Yes, keep both").
+const COAST_WORKS_ADMIN_JS_CSS_FAIL_BYTES = COAST_SCREENS_JS_CSS_FAIL_BYTES + 11_303;
+// 2026-11-21: the coast's quests named people and places the screen never showed. Each keeper now stands in
+// the doorway of the counter they keep, a quest's boss stands where it is fought, and the game's own painted
+// scroll marks the sectors and sites where a quest has something to do (api/quests/_coast-presence.ts decides
+// who and where; CoastWorld and CoastPatrols draw it). Owner approved a step for exactly this in the server
+// session, shown the estimate first: "Yes, up to 3 KB". With production-length settings product JS/CSS went
+// from 9,946,911 to 9,947,740 B, so the step is the 829 B it cost and not the 3 KB offered. All of it loads
+// only on the coast; the startup graph did not change. Revert this line to drop it.
+const COAST_FIGURES_JS_CSS_FAIL_BYTES = COAST_WORKS_ADMIN_JS_CSS_FAIL_BYTES + 829;
+// 2026-11-21: a finished coast quest can be heard again from its first line ("Hear it again" in the journal,
+// the server's read-only `recall`), and a coast scene plays a story theme the game already ships, picked by
+// region on the server (REGION_SCORES in api/quests/_views.ts), over road ambience. No music file was added.
+// Owner was shown both as work that needs client bytes and said "build the rest of them", then for the music
+// "pick music currently in the game". With production-length settings product JS/CSS went from 9,947,740 to
+// 9,948,282 B, so the step is the 542 B it cost. The replay loads with the journal; the startup graph grew by
+// 2 B gzip. Revert this line to drop it.
+const COAST_REPLAY_SCORE_JS_CSS_FAIL_BYTES = COAST_FIGURES_JS_CSS_FAIL_BYTES + 542;
+// The eight coast achievement rows and their journal art lookup add 1,069 bytes with production settings.
+// Measured 9,948,525 to 9,949,594 bytes. Owner approved the measured code allowance on 2026-11-21.
+const COAST_ACHIEVEMENT_JS_CSS_FAIL_BYTES = COAST_REPLAY_SCORE_JS_CSS_FAIL_BYTES + 1_069;
+// 2026-11-21: the people of the coast. The story speaks of families, fishers and sixty people waiting at a cairn,
+// and the map showed nobody. The server now says who stands where for each player and the one line each says
+// (api/quests/_coast-residents.ts); the client draws them with the figure the keepers already use and shows the
+// line where patrol messages show. Owner approved the plan with its size step named ("Yes, start"). With
+// production-length settings product JS/CSS went from 9,949,594 to 9,949,818 B, so the step is the 224 B it
+// cost. Loads only on the coast. Revert this line to drop it.
+const COAST_PEOPLE_JS_CSS_FAIL_BYTES = COAST_ACHIEVEMENT_JS_CSS_FAIL_BYTES + 224;
+// Settlement and hall pass. Owner: "Apply the measured allowances" (2026-11-21).
+// Shown the figure in the server session as well (16,336 B), the owner said "i approve the size increase".
+// With production-length settings the tree then read 9,961,299 B, 4,992 B under this cap.
+const COAST_STREET_AND_HALLS_JS_CSS_FAIL_BYTES = COAST_PEOPLE_JS_CSS_FAIL_BYTES + 14_176 + 1_968 + 192;
+// Measured with the production-image VITE_* values and HEAD. The owner was shown the exact 2,728 B excess
+// (9,969,019 B total) and delegated the decision: "do what is best for the game" (2026-11-21).
+const COAST_TOWN_JS_CSS_FAIL_BYTES = COAST_STREET_AND_HALLS_JS_CSS_FAIL_BYTES + 2_728;
+// 2026-11-22: the rest of the clan town, the Attack button for players met on the coast, and the
+// clues found inside the Hollow Sentinel and the Leash Garrison. With production-length settings
+// product JS/CSS read 9,973,578 B after the town and 9,974,371 B after the attack and the clues.
+// The story-fight overlay then moved out of the startup download (StoryBossFightView, -3,363 B
+// gzip at startup, now 397,780 of 400,000) at a cost of 1,420 B here, reading 9,975,791 B,
+// 6,772 B over. No unused CSS was found in any new or changed stylesheet. The owner was shown
+// the figure and a step of about 7 KB and said "I accept the size decision". Allow 7 KiB, which
+// leaves 396 B with the production settings. All of it loads only on the coast or with a story
+// fight. Revert this line to drop it.
+const COAST_CLUES_JS_CSS_FAIL_BYTES = COAST_TOWN_JS_CSS_FAIL_BYTES + 7 * 1024;
 const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,
     BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
     DIRECT_STRIKE_JS_CSS_FAIL_BYTES, COMBAT_SPRITE_JS_CSS_FAIL_BYTES, PLAYER_GAIT_JS_CSS_FAIL_BYTES,
     AVATAR_MODE_JS_CSS_FAIL_BYTES, FIGURE_LOADING_JS_CSS_FAIL_BYTES, LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES,
+    COAST_JS_CSS_FAIL_BYTES, COAST_QUESTS_JS_CSS_FAIL_BYTES, COAST_SCREENS_JS_CSS_FAIL_BYTES, COAST_WORKS_ADMIN_JS_CSS_FAIL_BYTES,
+    COAST_FIGURES_JS_CSS_FAIL_BYTES, COAST_REPLAY_SCORE_JS_CSS_FAIL_BYTES, COAST_ACHIEVEMENT_JS_CSS_FAIL_BYTES, COAST_PEOPLE_JS_CSS_FAIL_BYTES, COAST_STREET_AND_HALLS_JS_CSS_FAIL_BYTES, COAST_TOWN_JS_CSS_FAIL_BYTES, COAST_CLUES_JS_CSS_FAIL_BYTES,
 );
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);

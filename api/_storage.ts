@@ -135,6 +135,12 @@ const _noCachePrefixes = [
     'legacy:',
     // Exchange reservations and transfer journals must be fresh across workers.
     'sunscar-exchange:',
+    // Land on the Unmapped Coast (api/coast/_land.ts): claims, contests, their
+    // results and clan generations are all decided under a distributed lock. A
+    // worker-local copy of a contest would drop another worker's garrison win,
+    // and a cached missing claim would let two clans be handed one sector. The
+    // whole namespace is uncached so a later coast key is safe by default.
+    'coast:',
     'offline-notices:',
     // Legacy completion fans out through retry-safe world-history RMW stores.
     // Their distributed locks only work when the lock holder reads the shared

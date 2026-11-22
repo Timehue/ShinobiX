@@ -25,6 +25,7 @@ import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { clearSleeperCamp, getSleeperCamp } from '../_realtime/sleeper-camps.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
+import { inSafeRoom } from '../_stronghold-presence.js';
 import { pushOfflineNotice } from './_offline-notices.js';
 import { announce } from '../_announce.js';
 import { settleBountyForSessionlessKill } from '../pvp/_bounty-settle.js';
@@ -97,6 +98,8 @@ export function sleeperAttackerBlock(
     if ((attacker.travelingUntil ?? 0) > now) return { status: 409, error: 'You cannot attack while traveling.' };
     if (attacker.inBattle) return { status: 409, error: 'You are already in a battle.' };
     if (attacker.sector !== campSector) return { status: 409, error: 'That camp is no longer in your sector.' };
+    // Inside their clan's town a shinobi is in a safe zone, and nobody attacks out of one.
+    if (inSafeRoom(attacker, now)) return { status: 409, error: 'World attacks are disabled in safe zones.' };
     return null;
 }
 

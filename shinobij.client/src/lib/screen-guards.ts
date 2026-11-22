@@ -7,8 +7,14 @@
 
 import type { Screen } from "../types/core";
 import { isWildSector } from "../../../shared/sector-geo";
+import { isCoastSector } from "../../../shared/world-maps";
 
 export { isWildSector };
+
+/** Out in the world on either map: a home wild sector, or a sector of the Unmapped Coast. */
+export function isFieldSector(sector: number): boolean {
+    return isWildSector(sector) || isCoastSector(sector);
+}
 
 // ─── Refresh-restore routing ────────────────────────────────────────────────
 //
@@ -88,8 +94,13 @@ export const TRANSIENT_SCREEN_PARENT: Readonly<Partial<Record<Screen, Screen>>> 
 // the hospital (you were carried there).
 export const TOWN_SCREENS: ReadonlySet<Screen> = new Set<Screen>(["village", "centralHub", "hospital"]);
 
-export function screenResetsSector(screen: Screen): boolean {
-    return TOWN_SCREENS.has(screen);
+export type TownFacilityStop = { player: string; sector: number; clan?: string; screen: Screen };
+export function atTownStop(stop: TownFacilityStop | null, screen: Screen, player: { name: string; clan?: string; hospitalized?: boolean } | null, sector: number) {
+    return !!stop && !!player && !player.hospitalized && stop.player === player.name && stop.clan === player.clan && stop.sector === sector && stop.screen === screen;
+}
+
+export function screenResetsSector(screen: Screen, visitingTownHospital = false): boolean {
+    return TOWN_SCREENS.has(screen) && !(screen === "hospital" && visitingTownHospital);
 }
 
 /** Where a player lands when no screen can be restored: the world if they are in it, else town. */

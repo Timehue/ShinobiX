@@ -38,7 +38,8 @@ type CatalogEntry = { id: string; slot: string; rarity: string; weaponEp?: numbe
 /** The full points table for one side's item catalog (step ids come from it). */
 export function buildCraftPointTable(catalog: Iterable<CatalogEntry>): Record<string, number> {
     const table: Record<string, number> = { ...MATERIAL_CRAFT_POINTS };
-    for (const relic of NON_STORY_RELICS) table[relic.id] = RELIC_CRAFT_POINTS_PER_TIER * relic.tier;
+    // A relic a quest gives is a one-time reward, like a story relic: it has no points and cannot be given away.
+    for (const relic of NON_STORY_RELICS) if (relic.source.kind !== 'quest') table[relic.id] = RELIC_CRAFT_POINTS_PER_TIER * relic.tier;
     for (const item of catalog) {
         if (!isStepItemId(item.id)) continue;
         const tier = gearTierOf(item)?.tier;

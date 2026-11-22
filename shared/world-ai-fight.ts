@@ -6,6 +6,13 @@
 import type { WorldCrisisVillage } from './world-crisis.js';
 import type { OrdinaryPveEncounter } from './ordinary-pve-encounter.js';
 
+// 'quest-line' is a drop or boss fight of a quest line (api/quests/_fight.ts);
+// its sourceId is the quest id. 'coast-garrison' is a garrison fight for a land
+// contest on the coast (api/coast/_land.ts); its sourceId is the contest id, and
+// a win scores for the clan and pays nothing. 'coast-patrol' is one of the coast's
+// daily patrols or beasts (api/coast/_patrols.ts); its sourceId is the patrol id, and
+// it pays the ordinary purse. Keep comments out of the list itself: the
+// runtime inventory test reads the kinds from this source by their quotes.
 export const WORLD_AI_FIGHT_KINDS = [
     'wanderer',
     'wanderer-ambush',
@@ -16,6 +23,9 @@ export const WORLD_AI_FIGHT_KINDS = [
     'questbook-boss',
     'story-reckoning',
     'world-crisis',
+    'quest-line',
+    'coast-garrison',
+    'coast-patrol',
 ] as const;
 
 export type WorldAiFightKind = typeof WORLD_AI_FIGHT_KINDS[number];
@@ -57,6 +67,12 @@ export type WorldAiFightContext = {
     sealVersion?: string;
     /** Server-derived home-village binding for a global outskirts defense. */
     crisisVillage?: WorldCrisisVillage;
+    /**
+     * A quest boss's Hold: the foe cannot fall until the named tool is used.
+     * `charges` is how many the player held when the fight was sealed. `next`
+     * lists the Holds that rise after it, in order, each with its own tool.
+     */
+    questHold?: { breakerItemId: string; name: string; charges: number; next?: Array<{ breakerItemId: string; name: string; charges: number }> };
 };
 
 export type WorldAiFightActivePointer = {

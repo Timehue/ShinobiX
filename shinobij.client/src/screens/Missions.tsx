@@ -1,7 +1,7 @@
 import { gainXp } from "../lib/character-level-projection";
 import { gameToast } from "../components/GameToast";
 import { gameConfirm } from "../components/GameAlert";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
 import type { CSSProperties } from "react";
@@ -42,6 +42,7 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { reportPveFightOutcome } from "../lib/pve-outcome-api";
 import { sectorPhrase } from "../lib/hollow-rifts";
 import { playableFieldObjectiveSector } from "../../../shared/sector-geo";
+import { COAST_MIN_LEVEL } from "../../../shared/world-maps";
 import { MissionArenaFight } from "./MissionArenaFight";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
@@ -59,6 +60,7 @@ import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { useFirstContractMissionTab } from "../lib/use-first-contract-mission-tab";
 import { ScreenHint } from "../components/ScreenHint";
 import { companionCoachName, firstFightLessonForMission } from "../lib/first-fight-coach";
+const QuestLinesPanel = lazy(() => import("../components/QuestLinesPanel"));
 
 // Missions' own clock snapshot while the hall (not an inline fight) is shown:
 // constant, so a tick of the shared clock never re-renders the whole hall.
@@ -808,6 +810,8 @@ export function Missions({
                 <h3 className="mh-section-title">World Quests</h3>
                 <p className="hint">Quests you pick up out in the world. Wanderers and rift-seers <strong>roam the sectors</strong> — find a <strong>Wandering Sage</strong> (<GameArtIcon kind="scroll" size={14} />) on the World Map to continue or claim, or travel to a <strong>marked sector</strong> to enter a Hollow Gate rift. Epic boss stages start from the Sage's journal.</p>
                 {!hasWanderingQuest && !activeRift && <p className="hint">You haven't taken any world quests yet. Look for a wanderer or a rift-seer out in the sectors and accept one.</p>}
+                {/* Quest lines: the long one-time quests that open the crossing (level 75 or higher). */}
+                {character.level >= COAST_MIN_LEVEL && <Suspense fallback={null}><QuestLinesPanel playerName={character.name} mode="journal" sector={null} onVersionedCharacter={onVersionedCharacter} character={character} sharedImages={sharedImages} /></Suspense>}
 
                 {activeRift && (
                     <div className="mh-fetch-card">

@@ -51,6 +51,7 @@ import {
 import { roadFleeCost, type RoadFleeCost } from '../../shared/road-flee.js';
 import { banditTollMutation } from './_road-toll.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
+import { isCoastSector } from '../../shared/world-maps.js';
 
 const OPAQUE_ID = /^[A-Za-z0-9_-]{8,96}$/;
 // A day, so a reply lost late in a long session still replays rather than
@@ -93,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!kind || !fleeId) return res.status(400).json({ error: 'Missing flee details.' });
         const requestId = kind === 'explore' ? opaqueId(body.requestId) : '';
         const sector = Math.floor(num(body.sector));
-        if (kind === 'explore' && (!requestId || !Number.isSafeInteger(sector) || sector < 1 || sector > MAX_WILD_SECTOR)) {
+        if (kind === 'explore' && (!requestId || !Number.isSafeInteger(sector) || sector < 1 || (sector > MAX_WILD_SECTOR && !isCoastSector(sector)))) {
             return res.status(400).json({ error: 'Missing ambush details.' });
         }
 

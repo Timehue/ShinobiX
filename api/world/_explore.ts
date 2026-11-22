@@ -1,6 +1,7 @@
 import { gainXp } from '../_xp-engine.js';
 import { recordFirstContractActivity } from '../../shared/first-contract.js';
-import { isPlayableWildSector, sectorBiomeOf, sectorRewardTier } from '../../shared/sector-geo.js';
+import { isPlayableWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { isExplorableSector, worldRewardTier } from '../../shared/world-maps.js';
 import { WILD_HIT_CEILING } from '../pet/_encounter.js';
 
 export const DAILY_SECTOR_EXPLORE_LIMIT = 100;
@@ -61,19 +62,38 @@ export function sectorExplorePostChestRates(level: number, chestAvailable: boole
     return { battle: (0.8 * d - 0.15) / d, quiet: (0.2 * d - 0.05) / d, gather: 0.20 / d, survival, d };
 }
 
+/**
+ * A tile explored on the Unmapped Coast. The coast has no wild companions, no
+ * dungeon mouths and no gather finds, and its fights and chests are the same
+ * as at home. So the chest and ambush shares are exactly the home map's, and
+ * the share the home map gives to pets, dungeons and gathering is quiet ground
+ * here: nothing on the coast is found more often than at home.
+ */
+export function rollCoastExploreOutcome(
+    random: () => number,
+    chestAvailable = true,
+    level = 50,
+): SectorExploreOutcome {
+    const roll = Math.max(0, Math.min(0.999999999, Number(random()) || 0));
+    if (roll >= sectorExplorePostChestRates(level, chestAvailable).survival) return { kind: 'none' };
+    const outcome = rollSectorExploreOutcome(random, chestAvailable, level);
+    return outcome.kind === 'gather' ? { kind: 'none' } : outcome;
+}
+
 export function sectorExploreReward(sectorRaw: unknown): { sector: number; xp: number; ryo: number } | null {
     const sector = Math.floor(Number(sectorRaw));
     // Bounds come from the shared world registry, not a literal: the 2026-07
     // renumbering widened the world past 60, and a stale ceiling here would
     // refuse to settle the outermost sectors — which now fails the explore
     // outright rather than silently paying nothing.
-    if (!isPlayableWildSector(sector)) return null;
+    if (!isExplorableSector(sector)) return null;
     // Character XP is retired (leveling-without-xp map): explore is an
     // unlimited-ish repeat channel, so the old xp line (20 + sector/5) folds
     // into ryo instead — the discovery/loot layer stays the draw. `xp` stays in
     // the shape as 0 for old clients.
-    // sectorRewardTier: Cinderhold (67-74) pays as sector 66, never more.
-    const tier = sectorRewardTier(sector);
+    // worldRewardTier: Cinderhold (67-74) pays as sector 66, never more, and the
+    // coast pays as home sectors 32 to 66.
+    const tier = worldRewardTier(sector);
     return { sector, xp: 0, ryo: 10 + Math.floor(tier / 4) + 10 + Math.floor(tier / 10) };
 }
 

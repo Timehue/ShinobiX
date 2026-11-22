@@ -6,6 +6,7 @@ import { BOUNTY_KEY, creditBountyPlacement, normalizeBoard, type BountyBoard, ty
 import { applyTreasuryCredit, type TreasuryCreditPlan } from './_treasury-donate.js';
 import { addClanXpServer } from './clan/_mission-catalog.js';
 import {applyClanProjectFunding,type ClanProjectPlan} from './clan/_program-rules.js';
+import { applyCoastLandingContribution, type CoastLanding, type CoastLandingContribution } from './coast/_landing-rules.js';
 
 /*
  * The credit side of every retry-safe "player save -> shared record" debit
@@ -202,7 +203,27 @@ export const KAGE_CHALLENGE_DECLARE_SAGA: SaveDebitDefinition<Record<string, unk
     refund: (character, plan) => ({ ...character, ryo: ryoOf(character) + plan.cost }),
 };
 
+/**
+ * /api/coast/landing action 'contribute': a member's materials into their
+ * clan's Landing stores (api/coast/_landing-rules.ts). The Landing row is only
+ * ever replaced by exact compare-and-set. If the Landing has fallen since the
+ * debit, the credit changes nothing and the saga still records its receipt, so
+ * the materials are burned rather than carried to the clan's next Landing.
+ */
+export const COAST_LANDING_SAGA: SaveDebitDefinition<Record<string, unknown>, CoastLandingContribution> = {
+    kind: 'coast-landing-contribute',
+    load: (key) => kv.get<Record<string, unknown>>(key),
+    save: async (key, next) => {
+        const current = await kv.get<Record<string, unknown>>(key);
+        if (!current || !(await kv.compareSet(key, current, next))) throw new Error('The Landing changed before credit.');
+    },
+    applyCredit: (landing, plan) => applyCoastLandingContribution(landing as unknown as CoastLanding, plan) as unknown as Record<string, unknown>,
+    // The Landing write failed outright, so nothing was received: the materials come back.
+    refund: (character, plan) => ({ ...character, itemStacks: [...(Array.isArray(character.itemStacks) ? character.itemStacks : []), { itemId: plan.itemId, count: plan.count }] }),
+};
+
 export const SAVE_DEBIT_SAGAS: Readonly<Record<string, SaveDebitDefinition<Record<string, unknown>, unknown>>> = {
+    [COAST_LANDING_SAGA.kind]: COAST_LANDING_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [SHRINE_OFFER_SAGA.kind]: SHRINE_OFFER_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [BOUNTY_PLACE_SAGA.kind]: BOUNTY_PLACE_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [CLAN_DONATION_SAGA.kind]: CLAN_DONATION_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,

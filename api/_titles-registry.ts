@@ -17,6 +17,7 @@ import { LEGACY_DEFS } from './_legacy-defs.js';
 import { ERA_DEFS } from './_era-defs.js';
 import { ERA_CHAPTERS } from '../shared/era-chapters.js';
 import { SUNSCAR_TITLES } from '../shared/sunscar/prestige.js';
+import { ALL_QUEST_LINE_TITLES } from '../shared/quest-line-titles.js';
 import { provenTitleFor, mythicTitleFor } from './_legacy-core.js';
 import { PLAY_GAMES_REWARD_TITLES } from '../shared/play-games-rewards.js';
 
@@ -126,7 +127,11 @@ export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
     KEEPER_PATH_TITLE,
     ...SUNSCAR_TITLES,
     ...PLAY_GAMES_REWARD_TITLES,
+    ...ALL_QUEST_LINE_TITLES,
 ].map((t) => t.toLowerCase()));
+
+/** Quest-line titles, lowercased. Server-credited: see isServerCreditedTitle. */
+const QUEST_LINE_TITLE_SET: ReadonlySet<string> = new Set(ALL_QUEST_LINE_TITLES.map((t) => t.toLowerCase()));
 
 /**
  * LEGACY titles demand the STRICT ownership source: stored
@@ -193,6 +198,7 @@ export function isServerCreditedTitle(text: string): boolean {
         || ERA_CHAPTERS.some(chapter => chapter.rewardTitle.toLowerCase() === key)
         || LIBERATOR_TITLE_SET.has(key) || FIRST_PACT_TITLE_SET.has(key)
         || PLAY_GAMES_REWARD_TITLE_SET.has(key)
+        || QUEST_LINE_TITLE_SET.has(key)
         || SUNSCAR_TITLES.some(title => title.toLowerCase() === key);
 }
 

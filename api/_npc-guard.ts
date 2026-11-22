@@ -73,6 +73,12 @@ export const NPC_BLOCKED_ROUTES: readonly string[] = [
     // controlled NPC could otherwise open a Cinderhold Kage seat or challenge.
     '/village/kage',
     '/village/kage-challenge',
+    // Quest lines pay one-time stat points, titles and gear, and open the
+    // crossing. Those are a player's own progress; NPCs earn none.
+    '/quests/lines',
+    // Land on the coast is for player clans; a Cinderhold clan never contests it.
+    '/coast/land',
+    '/coast/landing',
     // Cinderhold's clans (shared/npc-clans.ts) are permanent and earn nothing.
     // They never declare a war (owner ruling 2026-11-10); a player clan
     // declares on one, and it is fought through the queue, which stays open to

@@ -5,7 +5,7 @@ import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS } from './screen-guards';
 // again. Only independently usable panels and lobbies belong in the trail.
 export const RETURN_SCREENS: ReadonlySet<Screen> = new Set([
     ...DEEP_LINKABLE_SCREENS,
-    'arena', 'battleArena', 'arenaDistrict', 'userHub', 'battleTowers',
+    'clanTown', 'arena', 'battleArena', 'arenaDistrict', 'userHub', 'battleTowers',
     'petArena', 'petShowdown', 'petColiseum', 'weeklyBoss', 'endlessTower', 'firstPact',
 ]);
 export interface NavigationTrail { screen: Screen; trail: Screen[] }

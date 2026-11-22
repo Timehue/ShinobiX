@@ -27,7 +27,9 @@ export const STORY_REWARDS = [
 ] as const;
 
 // Grant one-time stat-pool points and recompute the derived level in one step.
-function grantPoolPoints(character: PlayerCharacter, points: number): PlayerCharacter {
+// Exported for the quest lines (api/quests/lines.ts), whose one-time rewards
+// are paid the same way: once, by construction, outside any daily budget.
+export function grantPoolPoints(character: PlayerCharacter, points: number): PlayerCharacter {
     const granted = {
         ...character,
         unspentStats: Math.max(0, Math.floor(Number(character.unspentStats) || 0)) + Math.max(0, Math.floor(points)),

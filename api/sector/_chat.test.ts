@@ -15,12 +15,15 @@ import { appendSectorChat, cleanSectorChatText, sectorChatKey, withoutBlockedAut
 const line = (id: string, ts: number, name = 'Kaze'): SectorChatMessage => ({ id, name, text: `line ${id}`, ts });
 
 describe('sector chat rules', () => {
-    it('opens on every walkable wild board and Death\'s Gate, and nowhere else', () => {
+    it('opens on every walkable wild board, Death\'s Gate and the coast, and nowhere else', () => {
         for (let sector = 1; sector <= MAX_WILD_SECTOR; sector++) {
             assert.equal(isSectorChatSector(sector), sector !== FESTIVAL_SECTOR, `sector ${sector}`);
         }
         assert.equal(isSectorChatSector(99), true);
-        for (const bad of [0, -1, MAX_WILD_SECTOR + 1, 98, 1.5, '12', null, undefined, Number.NaN]) {
+        // The Unmapped Coast is sectors 101 to 150, each with its own voice.
+        for (const coast of [101, 125, 150]) assert.equal(isSectorChatSector(coast), true, `coast sector ${coast}`);
+        assert.equal(sectorChatKey(101), 'chat:sector:101');
+        for (const bad of [0, -1, MAX_WILD_SECTOR + 1, 98, 100, 151, 1.5, '12', null, undefined, Number.NaN]) {
             assert.equal(isSectorChatSector(bad), false, `rejects ${String(bad)}`);
         }
     });

@@ -35,6 +35,8 @@ export const GEAR_DROP_CHANCE_BP = {
     boss: 500,
     normalFight: 50,
     clanCache: 2000,
+    /** A quest line whose reward names a gear chance (api/quests/_gear.ts). Once per quest, ever. */
+    questLine: 2000,
 } as const;
 
 const MAX_TIER = 3;

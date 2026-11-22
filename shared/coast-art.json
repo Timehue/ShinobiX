@@ -1,0 +1,828 @@
+{
+ "floorBytes": 12193470,
+ "floors": {
+  "101": {
+   "bytes": 247922,
+   "sha256": "392f6c184f4386f32d8cb21758b30647045306bf6fae73b42a276e4ef979b9ec"
+  },
+  "102": {
+   "bytes": 249204,
+   "sha256": "4b4370b7a08e1c473ce11bb249a1fe1902dddc7f8f6cc7fde51a3e0bd7c1b812"
+  },
+  "103": {
+   "bytes": 246460,
+   "sha256": "65a3b1f201447acaf39e20c28ce1f3e69769ed54e0caa9dba890294942c41195"
+  },
+  "104": {
+   "bytes": 247376,
+   "sha256": "60aeffb5f77be112215942b45299e548c638b3d5641d0da2dc7e6e5977a07fbf"
+  },
+  "105": {
+   "bytes": 247368,
+   "sha256": "5cca3e7231c68c070cac8192f4b2cfc1794bf5474f52357e15ac7f1f32982bd7"
+  },
+  "106": {
+   "bytes": 244820,
+   "sha256": "ccc5ee5c2d0548d2e525eb2b0e5e1e76781fa73ce276cf8ea7c226fb16b02989"
+  },
+  "107": {
+   "bytes": 247212,
+   "sha256": "a0ba713989ec9710c6e3d7bd09e6ed68a5a50b8fbdb18deb3c4d06c2341328f6"
+  },
+  "108": {
+   "bytes": 249378,
+   "sha256": "476118bcc84739544122b8ba9e8765ec46a1733bc0743358dca181e05a5b069a"
+  },
+  "109": {
+   "bytes": 249912,
+   "sha256": "15085859efe583c5eae8dc47aa049171bf3714ebbaec0784d0caf937139dc1ce"
+  },
+  "110": {
+   "bytes": 247070,
+   "sha256": "351268f35ec5b081ebfd470657bdde148fbc988fe59329ef7dd82009a00eeb59"
+  },
+  "111": {
+   "bytes": 239372,
+   "sha256": "21355c9760efe6ea68ff8b2aeac31e1d05669e407bd36eae3bd4691cdd6df12d"
+  },
+  "112": {
+   "bytes": 245608,
+   "sha256": "f49da73ad3d1780d0147503e0efb52fa38cfe0c884c5cee25f9d6614f440178e"
+  },
+  "113": {
+   "bytes": 235176,
+   "sha256": "f236596575f14b0f5d2ee42bb30b782dadf9039ece265c10fec02c5b215cdece"
+  },
+  "114": {
+   "bytes": 244460,
+   "sha256": "fff841667584b176261403156ac48e832630c953218b71f28f0666f5b0b46150"
+  },
+  "115": {
+   "bytes": 238790,
+   "sha256": "5faf5e4c4fb76b848a41af4ef8a2885f2a624bfc05674d15b563f4cb16be61e3"
+  },
+  "116": {
+   "bytes": 243800,
+   "sha256": "c04ec00fe0a9525f0ee86b9997ded0cdd378f22e76a8fb8838fb2f2086721a38"
+  },
+  "117": {
+   "bytes": 243126,
+   "sha256": "1a0943944dbae10789bcba49d48b297ebd6accc8fa0cc91503809c505c0cc484"
+  },
+  "118": {
+   "bytes": 242072,
+   "sha256": "130fded4c00161391feb8bee74978e0635f23b363f47a896a130962f7b32f606"
+  },
+  "119": {
+   "bytes": 244508,
+   "sha256": "31e502abd6e2786047bee10d32a6f1004481725ed0ed1a9a0ab3f86154a060bb"
+  },
+  "120": {
+   "bytes": 248992,
+   "sha256": "89423149f8292ccb0adcc3a6837f8042db9ad17325049d27bf1e65de67cff965"
+  },
+  "121": {
+   "bytes": 242422,
+   "sha256": "c07e278cb6c8608292bf72f2acfbd88ab7406e904c9b6112afb7a85b059c2b3c"
+  },
+  "122": {
+   "bytes": 242994,
+   "sha256": "ebd424bb7f7369963c873998cd03b094008d4dfc7d995d935a9f38cef147515e"
+  },
+  "123": {
+   "bytes": 246402,
+   "sha256": "87d29e699d9b9d49dd1599215c3b5aa7e4a0400db99d2cf253a7ed9dca6d5814"
+  },
+  "124": {
+   "bytes": 236134,
+   "sha256": "f51e83f2231b91b7ccacd7aaae7c8febdc0a0a236e30a370e09ccddaacd3aa69"
+  },
+  "125": {
+   "bytes": 243244,
+   "sha256": "1b287c865e7b46e908bc6a3a20801948ccdbc66c8aa5dfec5003dd5a31c9c52b"
+  },
+  "126": {
+   "bytes": 249240,
+   "sha256": "c4c9be9ecb570de9a9eddf8d9e7a767cfe7cd50fa9f90f2ea03bd274f4f715be"
+  },
+  "127": {
+   "bytes": 246920,
+   "sha256": "0a6f91e9c002fe87a80c8f3c2a348fb4701ac7be390ec68b07123a60446a8083"
+  },
+  "128": {
+   "bytes": 248162,
+   "sha256": "3d9428f086f3918da596a75abae451929c9f6793089a03221cdde0c340c11b43"
+  },
+  "129": {
+   "bytes": 234828,
+   "sha256": "2b49b75a4298a2ec3a2190bbcfe8e32396e10a6295ee8015768fca3943fffcf4"
+  },
+  "130": {
+   "bytes": 244204,
+   "sha256": "6556a9c076526b1888437d08c94d46df2085abe2f1d516eee75492fbb21f23cf"
+  },
+  "131": {
+   "bytes": 240970,
+   "sha256": "71894c856d3ce0ab8e5fe61e9399cf7d43495ee822ad7653f98db9e4e41a6d5e"
+  },
+  "132": {
+   "bytes": 242746,
+   "sha256": "c5d204a613047ce0c2d8aa8727b7ca6ab6e95fc4e83631ad41b9aaa25189331d"
+  },
+  "133": {
+   "bytes": 248192,
+   "sha256": "842ca9475322b9d9208ac14d737cef4177e5a425b4a9eedd3d6015173254f236"
+  },
+  "134": {
+   "bytes": 245534,
+   "sha256": "8b2f7d4de6f4917a1eabe2adf39bf80afe50ce7880845820d6746de63783c2ac"
+  },
+  "135": {
+   "bytes": 245156,
+   "sha256": "fc3c660188979004ec769535d7f645b381d04780797c9a2092f4ebdb407940c6"
+  },
+  "136": {
+   "bytes": 243474,
+   "sha256": "411337333aeaf6028d3db8c7ac122ac8170601d2d02188a9980120a6037c6aff"
+  },
+  "137": {
+   "bytes": 244900,
+   "sha256": "b8aefd3d7e9f6d56fcb0384de3f6ac088bf9bad2954e69237d8d1de1c2a9c42b"
+  },
+  "138": {
+   "bytes": 237218,
+   "sha256": "5d64b984ed8cfa75f735fbe15ffd3dcbf04bec780593de55754316ea685379ec"
+  },
+  "139": {
+   "bytes": 234438,
+   "sha256": "e175061916a6d37346e49f46331776388f481a1868b50b082ba9b1e40d225c69"
+  },
+  "140": {
+   "bytes": 249896,
+   "sha256": "46c333ee1a05777fc19f861b448bc3913f72466df4d47a808044dd61098ddfa3"
+  },
+  "141": {
+   "bytes": 239786,
+   "sha256": "3b4250413995e5fdfa325b2528e9710d5a1c9da05de4db8a551424a68a2f9ee8"
+  },
+  "142": {
+   "bytes": 243064,
+   "sha256": "cb09812f816d8bb7563e368ad2e7a0e33a20c954fcf2a4389db0f8aedbfdf3f5"
+  },
+  "143": {
+   "bytes": 243762,
+   "sha256": "df82e2d7706d305bc57cff8ae102dfae3d55083fbc0f3e233e7714b2e6c99df6"
+  },
+  "144": {
+   "bytes": 240992,
+   "sha256": "49e9bea4dc535c75f1d71e5f215d3317ad5799b4698ecf6e1dbe27d840e13174"
+  },
+  "145": {
+   "bytes": 240824,
+   "sha256": "331aef0fd5a01f2d2b88aabebf0e00625cf2996a20e90d0a68889cf8ca47c85f"
+  },
+  "146": {
+   "bytes": 244360,
+   "sha256": "6e48c03afcadb071591bd484019d8dc364b5b1d66c513ad0afc052b25bc3b601"
+  },
+  "147": {
+   "bytes": 239732,
+   "sha256": "a738f3ff7b6434bd2b28dda07d37996704184ba6a92f9abeb0f75d4672d692fd"
+  },
+  "148": {
+   "bytes": 239498,
+   "sha256": "080173f506f98d10a0c10789c2b55dc8abce81707bc51179340c830eee230ddd"
+  },
+  "149": {
+   "bytes": 246792,
+   "sha256": "a1b1198e0b2f01e0212286afea8b4530c8f9580cd12996b866b8e286b87576cc"
+  },
+  "150": {
+   "bytes": 244960,
+   "sha256": "4350cc549a002c73e40c3749f561cca29ec1128dbbaa7b92c20839e114136781"
+  }
+ },
+ "siteBytes": 19686662,
+ "files": {
+  "atlas/hushstone-basin-v2.webp": {
+   "bytes": 525230,
+   "sha256": "4c570a4170cfc4a6f447c8680b91c145792de979387e9ce57b2f6411dcb0e500"
+  },
+  "boats/shard-crossing-v1.webp": {
+   "bytes": 55426,
+   "sha256": "538c5c93e241ff81238fb9c69b5ef22cf4db6919f9868194f386a26101d51ae2"
+  },
+  "boats/shuttered-boat-coast-v1.webp": {
+   "bytes": 18010,
+   "sha256": "6c94dac14171135b16ac86976c876f5f2ab4c4a8df4f806a843f0bafbc1de155"
+  },
+  "boats/shuttered-boat-home-v1.webp": {
+   "bytes": 16928,
+   "sha256": "5ba0ee6a28f60e52a25d21a24eef4cdbd5d947824db6f195285493671bb36c3c"
+  },
+  "brackwater-fields/interiors/relay-v1.webp": {
+   "bytes": 245794,
+   "sha256": "87198bde3515e51ee5b5038aedbebad2f9c34cab63913f64651e5804fa33ff29"
+  },
+  "brackwater-fields/interiors/tree1-v1.webp": {
+   "bytes": 234594,
+   "sha256": "f491b37c7891bd8aa93ca5c1c626814c0706b003e202d955dd50538963b234bb"
+  },
+  "brackwater-fields/interiors/tree2-v1.webp": {
+   "bytes": 244944,
+   "sha256": "5cce2fca5f5ea6b36a9025ef1e3e565483916fda3e7dfaed07ac69abda6e925c"
+  },
+  "brackwater-fields/interiors/tree3-v1.webp": {
+   "bytes": 248220,
+   "sha256": "0f2960a3950ef2594830c49f14d4e18e87956f03eba8d407282775eaf6615227"
+  },
+  "brackwater-fields/interiors/watch1-v1.webp": {
+   "bytes": 234654,
+   "sha256": "913dbd53a4e34c7c399e4c3724170be21bfa2f1acb61aaccdd5b0129b4be17c3"
+  },
+  "brackwater-fields/interiors/watch2-v1.webp": {
+   "bytes": 237080,
+   "sha256": "1eac7b50c7af1abbc409cf5b795bcac48f4e83da6894f249b63c153ea098cc29"
+  },
+  "brackwater-fields/landmarks/s111-site-v1.webp": {
+   "bytes": 80084,
+   "sha256": "fd0687ee8891c46ab4b12245a034664712c61d367b43a11a6816e29c66ed23f2"
+  },
+  "brackwater-fields/landmarks/s112-site-v1.webp": {
+   "bytes": 98302,
+   "sha256": "285e2e47a6b55e6230db662e91e0da26985a3fe78c264a227d732dc66bcd7d94"
+  },
+  "brackwater-fields/landmarks/s113-site-v1.webp": {
+   "bytes": 76450,
+   "sha256": "b7b2e7583db677b21bbcdd6afc35ea43553732d0bdc7536b5d7428a074b0f6ed"
+  },
+  "brackwater-fields/landmarks/s114-site-v1.webp": {
+   "bytes": 58424,
+   "sha256": "945d60f4c8f8e74453b2d74a4c433201f37391ed8053f85f2d36bcc82c078b96"
+  },
+  "brackwater-fields/landmarks/s115-site-v1.webp": {
+   "bytes": 73614,
+   "sha256": "1653fefdd87b7218e9dae187ab3904bdd29c5b9e751850518a54e035335e75b0"
+  },
+  "brackwater-fields/landmarks/s116-site-v1.webp": {
+   "bytes": 81830,
+   "sha256": "24ce9e3d91bde1415438c1eaf74b3ede9beec37af924ca9bdb5622933b36bc7c"
+  },
+  "brackwater-fields/landmarks/s117-site-v1.webp": {
+   "bytes": 106838,
+   "sha256": "f2b9ceae075d9e7ed6414dc9861c78f140ee573e1cc68683c498c377b56112a9"
+  },
+  "brackwater-fields/landmarks/s118-site-v1.webp": {
+   "bytes": 74816,
+   "sha256": "4b6372c788018f076e75f8b59b909a6ba555375eb91b205004dfce2480b77c68"
+  },
+  "brackwater-fields/landmarks/s119-site-v1.webp": {
+   "bytes": 79536,
+   "sha256": "32a8d151e9ed57bf8c6af38b81bfdc20469fe373ce164c5a60318ff411c5762a"
+  },
+  "brackwater-fields/landmarks/s120-site-v1.webp": {
+   "bytes": 125182,
+   "sha256": "12ff0085bbb41fc90adfba3b5b7a622f293fa37e057bc97dc5395b4a18f4a1a9"
+  },
+  "brackwater-fields/scenes/s111-entry-v1.webp": {
+   "bytes": 127958,
+   "sha256": "55f7dde05c3c7d29a60f31fa608b6e8c116377e0e6ba0d99b71030dd2793fd04"
+  },
+  "brackwater-fields/scenes/s112-entry-v1.webp": {
+   "bytes": 126926,
+   "sha256": "db54ac9f5424d806bcc33f21cf972fb5a2dea97daca4af4a90da3cdd6dfa3a6d"
+  },
+  "brackwater-fields/scenes/s113-entry-v1.webp": {
+   "bytes": 127654,
+   "sha256": "64ac00b6ae01006bbdf2dddfba790ca9deed808fe86cf4000ab38b7fa2291e23"
+  },
+  "brackwater-fields/scenes/s114-entry-v1.webp": {
+   "bytes": 122918,
+   "sha256": "a9db88b48006a733eade112dfac0e0a311a4682f7f69bffbd1ed731d0f9e64ae"
+  },
+  "brackwater-fields/scenes/s115-entry-v1.webp": {
+   "bytes": 126056,
+   "sha256": "d6eb316f336fc9119d98dcd1663fee3ecd52596cfd0bc036ba50cc9662bfc448"
+  },
+  "brackwater-fields/scenes/s116-entry-v1.webp": {
+   "bytes": 122350,
+   "sha256": "3e1858d7e230fb60bce50f74a9bfa13ee16c960685e82b4a2980feb10207caaa"
+  },
+  "brackwater-fields/scenes/s117-entry-v1.webp": {
+   "bytes": 123410,
+   "sha256": "57669c7c4230e766676f217e5babed4a0b6fc8c920465fb599de174bf266494e"
+  },
+  "brackwater-fields/scenes/s118-entry-v1.webp": {
+   "bytes": 121272,
+   "sha256": "ad6cee22543ed931b493d88e4f634bd6cdbf8e567a45891fbc0b80f95a8ba0c2"
+  },
+  "brackwater-fields/scenes/s119-entry-v1.webp": {
+   "bytes": 124050,
+   "sha256": "910f9981fb692f793aa8f38903b6b926d8a7a4a7a93c222c62e6013dd549c962"
+  },
+  "brackwater-fields/scenes/s120-entry-v1.webp": {
+   "bytes": 124832,
+   "sha256": "448c01baded745e384de3270f30d6eb599d15fbf118f4ebdfcd13e35d9fa8e9e"
+  },
+  "briarwood-deep/interiors/ruin1-v1.webp": {
+   "bytes": 244110,
+   "sha256": "85251973fc1a7ba19dd476bd37c747f419555cd4894b210c966a84927dc28e2c"
+  },
+  "briarwood-deep/interiors/ruin2-v1.webp": {
+   "bytes": 249432,
+   "sha256": "cdcc25d2c2e197a8cb04f2f8edf69b8caf442aa3a507a2e68d98e6bc2e77fe36"
+  },
+  "briarwood-deep/interiors/shrine-v1.webp": {
+   "bytes": 239304,
+   "sha256": "d8c6b8a2dfbff3428f7ca9346fcea1f5d90fb1730c1746e14505b35b3dc1f1ae"
+  },
+  "briarwood-deep/interiors/ward1-v1.webp": {
+   "bytes": 236188,
+   "sha256": "73d75ea71156a73b10451a5fce1f9d13a5090e44598ca7f5df0e743966b67e71"
+  },
+  "briarwood-deep/interiors/ward2-v1.webp": {
+   "bytes": 239464,
+   "sha256": "c9238fe323ded4e2ac1a423c2e1a5d7284656ac3e4b851317163139b038da736"
+  },
+  "briarwood-deep/landmarks/s121-site-v1.webp": {
+   "bytes": 122096,
+   "sha256": "062a55ecf4adba37232e2c54c6d3c92af0cbf2e3e32ffdf0785efd7bf5697de0"
+  },
+  "briarwood-deep/landmarks/s122-site-v1.webp": {
+   "bytes": 99956,
+   "sha256": "2111f701dab8210b914fc8be9875c8a07edad4502c77f5503040165f61daad36"
+  },
+  "briarwood-deep/landmarks/s123-site-v1.webp": {
+   "bytes": 127606,
+   "sha256": "520d5a3ad1ebf1e61b58eb9d9d3c89936b88a1503015f8bf5bcc4b85bd6f90cc"
+  },
+  "briarwood-deep/landmarks/s124-site-v1.webp": {
+   "bytes": 125270,
+   "sha256": "66cd23d88fa87ebe70881551bcd69e816caa75cb29c9a3f9d8c73470fde0e370"
+  },
+  "briarwood-deep/landmarks/s125-site-v1.webp": {
+   "bytes": 124708,
+   "sha256": "6f2aca46117c982ab7d7c61fb321af6e6b7ca17b51ceb51377b8163e80b58dac"
+  },
+  "briarwood-deep/landmarks/s126-site-v1.webp": {
+   "bytes": 125294,
+   "sha256": "464bdeb0fe117f0ff47c6dc3faeef7dd10ad291123e18ca183fb73e0db337a45"
+  },
+  "briarwood-deep/landmarks/s127-site-v1.webp": {
+   "bytes": 90344,
+   "sha256": "90a6d8be6f1fa9d01dad920ab0ce2792f960ec93a0905cb5a3c7cb3cf4ca5f7e"
+  },
+  "briarwood-deep/landmarks/s128-site-v1.webp": {
+   "bytes": 104210,
+   "sha256": "0a5b71c144742b5b70e48571c0786c47eaca6ee34c04b3b75fa3db1e8e436263"
+  },
+  "briarwood-deep/landmarks/s129-site-v1.webp": {
+   "bytes": 124400,
+   "sha256": "2c8957ac7ddc5c5868a2db4480f03dc35bc3402ba71176ee363211998c3ea653"
+  },
+  "briarwood-deep/landmarks/s130-site-v1.webp": {
+   "bytes": 116786,
+   "sha256": "b9c82f87247531a98aa5487961cb906273746cc5c2bba9ea002b4e7ba34e0037"
+  },
+  "briarwood-deep/scenes/s121-entry-v1.webp": {
+   "bytes": 124832,
+   "sha256": "9635f4a13a53ca860fd5a0a8ad438ff0db33f6ca6c9665a718cd20a9c99a0065"
+  },
+  "briarwood-deep/scenes/s122-entry-v1.webp": {
+   "bytes": 117316,
+   "sha256": "8701b9d29aac39eb7fc5ff6992093835fcd99c094098a9240ad4d543603b76b1"
+  },
+  "briarwood-deep/scenes/s123-entry-v1.webp": {
+   "bytes": 122924,
+   "sha256": "db01f7b636e596badab4be42b5e7fcc450443519b8dd2b45295eb3ec3ad6d8a6"
+  },
+  "briarwood-deep/scenes/s124-entry-v1.webp": {
+   "bytes": 124444,
+   "sha256": "542136c20ca0309122aa97da05c9f74a3c61429bca60803fca6751cc6af156ba"
+  },
+  "briarwood-deep/scenes/s125-entry-v1.webp": {
+   "bytes": 125628,
+   "sha256": "e4361ea93b683850b07720e5a5fa5810c53eb2f8f49d69f8a0b56f87ef9e6d68"
+  },
+  "briarwood-deep/scenes/s126-entry-v1.webp": {
+   "bytes": 121522,
+   "sha256": "229c8aeaaf5a3f7a7bafa74f970469880d068a70307ee10873b8e30bdb6d8e33"
+  },
+  "briarwood-deep/scenes/s127-entry-v1.webp": {
+   "bytes": 126304,
+   "sha256": "21164e5f5afea5b36b884e54abcf9325c4df08a66723a80030ec07244fd01dc4"
+  },
+  "briarwood-deep/scenes/s128-entry-v1.webp": {
+   "bytes": 127328,
+   "sha256": "9761843aad48ba91b306c27fe1b1dbc71a34d89baa97099cea56d4c4ead4207f"
+  },
+  "briarwood-deep/scenes/s129-entry-v1.webp": {
+   "bytes": 127792,
+   "sha256": "bb756fae71785e08fc7448f9e3252ed256faabafd3c4782933da9217e86c5e98"
+  },
+  "briarwood-deep/scenes/s130-entry-v1.webp": {
+   "bytes": 121448,
+   "sha256": "24a5ffb4efabfacdeff839d641e76d64a5012429332956e5f5f8cf811a418db0"
+  },
+  "hushcrown-heights/interiors/bench-v1.webp": {
+   "bytes": 240134,
+   "sha256": "90c69e3246d4be8401cfa4082fd2044515dd37510934d717a50dffbaf5815857"
+  },
+  "hushcrown-heights/interiors/court-v1.webp": {
+   "bytes": 249826,
+   "sha256": "9235702fe7f020d47756fc32fe1295ac946f642a330cfa5cf03716a888fa7518"
+  },
+  "hushcrown-heights/interiors/gallery-v1.webp": {
+   "bytes": 234858,
+   "sha256": "f3be73cde91e69a6769f47c4cc2a428d47c84584ee537a7f4a158d64516e4919"
+  },
+  "hushcrown-heights/interiors/hall-v1.webp": {
+   "bytes": 241738,
+   "sha256": "51a879f616c779016820e2cf5d9a7711e11691e3d44e50b792ba111fc219b3de"
+  },
+  "hushcrown-heights/interiors/loft-v1.webp": {
+   "bytes": 239258,
+   "sha256": "d891df6a2d8e1f881475d01d5eb7475f7e706f3e489657736481fe18784dbadd"
+  },
+  "hushcrown-heights/interiors/watch1-v1.webp": {
+   "bytes": 242386,
+   "sha256": "78a1bc75044ba9ff73dcbac44be7b34982d2199828cb209e0babb2b74e9f281e"
+  },
+  "hushcrown-heights/interiors/watch2-v1.webp": {
+   "bytes": 249014,
+   "sha256": "beb1d130387cc5eca85656890aa15248245e1a32a27d3ee772066a891d50e115"
+  },
+  "hushcrown-heights/landmarks/s141-site-v1.webp": {
+   "bytes": 72112,
+   "sha256": "7ebb38faa9b9756094eb0e675c44443d2b2dd5b5418c423b56d28b67317a1a81"
+  },
+  "hushcrown-heights/landmarks/s142-site-v1.webp": {
+   "bytes": 74008,
+   "sha256": "9bcb654b3997365035720c31c5279eff5ebf82e4cf1274e9444f0613367d1028"
+  },
+  "hushcrown-heights/landmarks/s143-site-v1.webp": {
+   "bytes": 67076,
+   "sha256": "95c41fe764b06a65ccc0792b82a9d459d01764d078a55f33c1d2e82f89ba747a"
+  },
+  "hushcrown-heights/landmarks/s144-site-v1.webp": {
+   "bytes": 91804,
+   "sha256": "3c124dbe40bd522c00be8f9dfc5a30852a7f770a5866b9d6dcd9e839226771e5"
+  },
+  "hushcrown-heights/landmarks/s145-site-v1.webp": {
+   "bytes": 90200,
+   "sha256": "781f08d6228099db170540a6821aecb5d744204572f08a2bcb3b3d429c083870"
+  },
+  "hushcrown-heights/landmarks/s146-site-v1.webp": {
+   "bytes": 111690,
+   "sha256": "45038ea06233e1c0445d854bb4fd994d1d2d5576a945d3e6ebc0b266c1ad5898"
+  },
+  "hushcrown-heights/landmarks/s147-site-v1.webp": {
+   "bytes": 65724,
+   "sha256": "2fdd3150e8c92b0ee441cef399ebe6cf672fe04204fad734174bcb6bb5bf501f"
+  },
+  "hushcrown-heights/landmarks/s148-site-v1.webp": {
+   "bytes": 75088,
+   "sha256": "a22484655b0cb2e818a40516e0bc800ea2a5a02fd6ea345c8e896b376bdd1ba2"
+  },
+  "hushcrown-heights/landmarks/s149-site-v1.webp": {
+   "bytes": 59258,
+   "sha256": "5a584afac5a83c680ea5130afdc4178f3899376b447cefc3d06f53781a0445a3"
+  },
+  "hushcrown-heights/landmarks/s150-site-v1.webp": {
+   "bytes": 125244,
+   "sha256": "8e75f1e56f6094d98606f2663142347db2375a785dcc91b4b4fe99fb0711bb33"
+  },
+  "hushcrown-heights/scenes/s141-entry-v1.webp": {
+   "bytes": 124854,
+   "sha256": "d7c4170688eb8cf54b06fc36ad4c4af0e089754e21658191a5f0f070f88c648d"
+  },
+  "hushcrown-heights/scenes/s142-entry-v1.webp": {
+   "bytes": 124250,
+   "sha256": "66a9be89cf101b7969819d10cdc2226443a58ddbcc6cf2eb5f203d574d145c13"
+  },
+  "hushcrown-heights/scenes/s143-entry-v1.webp": {
+   "bytes": 126428,
+   "sha256": "76b484149f3b1f850b7785255dd12507e90e14c74c5a9b7edc9732853d0558ab"
+  },
+  "hushcrown-heights/scenes/s144-entry-v1.webp": {
+   "bytes": 127160,
+   "sha256": "0afcb65af87b0361a5ba0e51f2746ddea4979ca5ae222ce76e09af77993d27c3"
+  },
+  "hushcrown-heights/scenes/s145-entry-v1.webp": {
+   "bytes": 128000,
+   "sha256": "dac29d488e2ad2c28353174ccd77d43769b94dde099c16e9edd13ca104a6ca4d"
+  },
+  "hushcrown-heights/scenes/s146-entry-v1.webp": {
+   "bytes": 125350,
+   "sha256": "1ffce8abf5b0a4b0bc7f9cfdb052a9472853c9af20dc0dd07f3ceef28dc100fe"
+  },
+  "hushcrown-heights/scenes/s147-entry-v1.webp": {
+   "bytes": 125408,
+   "sha256": "a5a1ca1ccf549a001d5c55c169df0147d8a5c9c2bcc2c65f6594df398dcaa93d"
+  },
+  "hushcrown-heights/scenes/s148-entry-v1.webp": {
+   "bytes": 121722,
+   "sha256": "03c3d5316d37eff8bde0bfaf411523c9ccf65487e42b6617fb8355aa31234752"
+  },
+  "hushcrown-heights/scenes/s149-entry-v1.webp": {
+   "bytes": 125812,
+   "sha256": "1de749cb4126b76a7ad8cbc0ef0f127ca96669d69df9a5334e9bcd28d8e916d4"
+  },
+  "hushcrown-heights/scenes/s150-entry-v1.webp": {
+   "bytes": 126788,
+   "sha256": "434a8b94a5cc5867eb1fe184cbc6aeb3933e826502653378971bf1bdec451c30"
+  },
+  "landing/dormant-gate-v1.webp": {
+   "bytes": 34832,
+   "sha256": "6de41a8c06c8abe5d7f44ac6fbb2141b22e33b7a31fa67c853fd70de3a6281dc"
+  },
+  "landing/drying-racks-v1.webp": {
+   "bytes": 57794,
+   "sha256": "5addde9007862716a2ec1df5591c2ec9ce6f94b60902d035aebf18c559078533"
+  },
+  "landing/fallen-landing-entry-v1.webp": {
+   "bytes": 87576,
+   "sha256": "f1d262beef047a62050af59deddc146be5561056ae55484700f1e138e51d1bcd"
+  },
+  "landing/fallen-landing-v1.webp": {
+   "bytes": 57842,
+   "sha256": "f5529c41495b57224e67855645cad73e154a0aafbc0c022791f63a0e62718d46"
+  },
+  "landing/notice-post-v1.webp": {
+   "bytes": 26436,
+   "sha256": "ff10dcc7545fe8d65591842eff86d21faf73a6491a90aef0750b60cd1fc22a1a"
+  },
+  "landing/staked-plot-v1.webp": {
+   "bytes": 54496,
+   "sha256": "ffb8529ef8ea4084e24361f5e413d8057465e8926c5bdd506e0a0bffd8013361"
+  },
+  "landing/store-shed-v1.webp": {
+   "bytes": 57808,
+   "sha256": "69f4427d91b121a6f925d2816d0c1877340d5ac0636ca5d25966745f36f0c7de"
+  },
+  "landing/war-standards-v1.webp": {
+   "bytes": 49056,
+   "sha256": "f09d2908b6e734e09290277b96da795638c696e63c8a50babaf386c9af8a1c70"
+  },
+  "landing/watch-fire-v1.webp": {
+   "bytes": 43094,
+   "sha256": "12131ef2bb35208fcf9f7f098b05ea62dd53b9b1bcb9198a4c9d0ca20dc5c119"
+  },
+  "markers/atlas-contested-v1.webp": {
+   "bytes": 14322,
+   "sha256": "e9e034c0266ed2f112e3106e899ac9aa27a1a3a1dfdf5ffade7299135b55df89"
+  },
+  "markers/atlas-held-v1.webp": {
+   "bytes": 10992,
+   "sha256": "188ab8efd3ff6fbddaa9e39d829f9747bdad7e74f15e220394d9df88af0d7019"
+  },
+  "markers/atlas-here-v1.webp": {
+   "bytes": 12292,
+   "sha256": "ad26de4f20b87857ba4cb8a9a151563b618801dd91cd40d68b216ea63a52aa38"
+  },
+  "markers/atlas-open-v1.webp": {
+   "bytes": 11088,
+   "sha256": "998d8769b20babdec266ab45cc3b4835213695a39895689ea23136ae1ba88708"
+  },
+  "markers/atlas-sealed-v1.webp": {
+   "bytes": 8700,
+   "sha256": "38846b7441704eb4b570030f4262ac59fc2e9bd7cbf5c1237dff29473d7a16d5"
+  },
+  "markers/atlas-shut-v1.webp": {
+   "bytes": 10804,
+   "sha256": "9fe667f3eaf4ac4003f6c66669890472af4f1f37d722b428aaf9b96827e178d7"
+  },
+  "markers/fish-v1.webp": {
+   "bytes": 24620,
+   "sha256": "829e3ede204ec599f9365174c620fb8b4e6f5435240372958e14ad51ded7d186"
+  },
+  "markers/harvest-v1.webp": {
+   "bytes": 30764,
+   "sha256": "97b4fe3604ecbd7defd82c87c42efe665f85ae279237efc42b68b76449a4d329"
+  },
+  "markers/mine-v1.webp": {
+   "bytes": 22278,
+   "sha256": "644a07d940a010fc23429ea941da7dc4ecc243d993948f40d5bef270fa959bd5"
+  },
+  "markers/outcrop-v1.webp": {
+   "bytes": 25864,
+   "sha256": "a30daba6edba3167f1991cf197db2277c69c6447ec3e05920449af143d7bed9a"
+  },
+  "markers/tracks-v1.webp": {
+   "bytes": 31408,
+   "sha256": "f43bcea9288ddc9816c83e3eac8ff3d9b705459ada7e974926247ab40d5bb4fa"
+  },
+  "saltstair-landing/floors/s105-v2.webp": {
+   "bytes": 248448,
+   "sha256": "ab2aef4eb7183439c80d9c10dcf0aa96539923f4d81c737431df7cf066f68670"
+  },
+  "saltstair-landing/interiors/s101-floor-v1.webp": {
+   "bytes": 235236,
+   "sha256": "23f3d7575df9b9fb2a0349e2c0cba04103caf8642850295639543968c04f5fe4"
+  },
+  "saltstair-landing/interiors/s105-floor-v1.webp": {
+   "bytes": 241688,
+   "sha256": "89425681fa2b77483d35c2e49c5635f22e02cc9505896dc8bbe8bfaf60446f47"
+  },
+  "saltstair-landing/interiors/s105-houses-floor-v1.webp": {
+   "bytes": 206806,
+   "sha256": "184a53ccba49656969c572f086328f670f8eefc211c2c12985c9cfdf73660c22"
+  },
+  "saltstair-landing/interiors/s107-floor-v1.webp": {
+   "bytes": 236218,
+   "sha256": "406b27258f1b476a675921cc74664e1f7dd87b1daea5aac559e8dbfef4ed8b03"
+  },
+  "saltstair-landing/landmarks/s101-site-v1.webp": {
+   "bytes": 93116,
+   "sha256": "b2420e3f6720424c8b4e0379fd8b58285b32d0ccb5fa00a7e1d9c357ba332acc"
+  },
+  "saltstair-landing/landmarks/s102-site-v1.webp": {
+   "bytes": 120814,
+   "sha256": "4eef19f57e921e0cecded294ee479acce1ec6bd1e35be7a04018b982524bc26d"
+  },
+  "saltstair-landing/landmarks/s103-site-v1.webp": {
+   "bytes": 93934,
+   "sha256": "311f2976ac17b028e9350fac90860c6c9124430f1cc5a027ec90cba239db7e86"
+  },
+  "saltstair-landing/landmarks/s104-site-v1.webp": {
+   "bytes": 107648,
+   "sha256": "989e2502082c5bda2a71ba46bb976c30d9f95898e858af8e0b081b7a66653bc1"
+  },
+  "saltstair-landing/landmarks/s105-houses-v1.webp": {
+   "bytes": 78718,
+   "sha256": "f70faf3054b588f06012f815c650cc8bb7c27b504fdddd450fc4738c2a2f0cf3"
+  },
+  "saltstair-landing/landmarks/s105-site-v1.webp": {
+   "bytes": 110296,
+   "sha256": "153028166c2f16103db5424453c590306c35b304be1191eb1cde867af13a80eb"
+  },
+  "saltstair-landing/landmarks/s106-site-v1.webp": {
+   "bytes": 123696,
+   "sha256": "6eb6704bcb273ec90824ce7ba108692d5a1b4de2facccfa11cdcf3dea3696b5b"
+  },
+  "saltstair-landing/landmarks/s107-site-v1.webp": {
+   "bytes": 111572,
+   "sha256": "9594011a063d3cc7887bd52b476bf55f6780d6b687d93be6af04e93ab12ca67b"
+  },
+  "saltstair-landing/landmarks/s108-site-v1.webp": {
+   "bytes": 116270,
+   "sha256": "32070bab2c8b8fbbb6d5563c740863e448346ded04788bccd3fa63b011b76a73"
+  },
+  "saltstair-landing/landmarks/s109-site-v1.webp": {
+   "bytes": 118666,
+   "sha256": "3d01675b135099d1e64660a815ed2b0a8b1e3926b20f0989676d4a0a0496b59b"
+  },
+  "saltstair-landing/landmarks/s110-site-v1.webp": {
+   "bytes": 109284,
+   "sha256": "0ec95db3e2ce6c53c8e3aed25992566a9ebcc80a7af5f3834feadb23e1209ee7"
+  },
+  "saltstair-landing/scenes/s101-entry-v1.webp": {
+   "bytes": 115718,
+   "sha256": "03f042ab10386215f97eff9b8e4c5b414b0bf335fce8b42562bc204ada325338"
+  },
+  "saltstair-landing/scenes/s102-entry-v1.webp": {
+   "bytes": 116552,
+   "sha256": "6f0dfff9a8abafac65d35d1683cc45d28a4b6146e9e69c3ca8aa172fbcef16a0"
+  },
+  "saltstair-landing/scenes/s103-entry-v1.webp": {
+   "bytes": 126370,
+   "sha256": "cb0f7f80912e2058e78a19e3481bf7e54c48dfd666f535f21ad4fb2d458e6654"
+  },
+  "saltstair-landing/scenes/s104-entry-v1.webp": {
+   "bytes": 123808,
+   "sha256": "19059c54ae4c5bb9353985eedce803f0b9b332fae0151a57074a837b5b314c00"
+  },
+  "saltstair-landing/scenes/s105-entry-v1.webp": {
+   "bytes": 109134,
+   "sha256": "728e49887e0fff6ea7f55343b35c0b23cb05d2fde69ad4c57b9b036f5beb7e89"
+  },
+  "saltstair-landing/scenes/s105-houses-v1.webp": {
+   "bytes": 117218,
+   "sha256": "08b6c7fde94e99a15f56a5c3d37df547e26a0bc13e0909ff88eb36d9ad67bd01"
+  },
+  "saltstair-landing/scenes/s106-entry-v1.webp": {
+   "bytes": 113516,
+   "sha256": "e5f79840b6ecf50cceec375154ffccc33c969e7aa09a694ac3230905012ef8db"
+  },
+  "saltstair-landing/scenes/s107-entry-v1.webp": {
+   "bytes": 113014,
+   "sha256": "96ffb278b2906d5565fe735afb252875afbc58cc5740761b4942c6558fb22307"
+  },
+  "saltstair-landing/scenes/s108-entry-v1.webp": {
+   "bytes": 127716,
+   "sha256": "b92129d70f5b49ed6aef6e69af5530c313635b2f800a8db632647eb57de0f12b"
+  },
+  "saltstair-landing/scenes/s109-entry-v1.webp": {
+   "bytes": 125242,
+   "sha256": "548f954480a6ebf6e921388ff00667d1650bbf7071b1a628a9209aca9060ff3c"
+  },
+  "saltstair-landing/scenes/s110-entry-v1.webp": {
+   "bytes": 125900,
+   "sha256": "c577fb13477683b7c705614b798be2463a50250cf2c1e91489e198fd8825e687"
+  },
+  "whitecrown-passes/interiors/assay-v1.webp": {
+   "bytes": 246866,
+   "sha256": "af9c17093055509c54ace67d4cd39a4abdc5908618bb9fecbf62e1a2e46c02df"
+  },
+  "whitecrown-passes/interiors/gate1-v1.webp": {
+   "bytes": 234874,
+   "sha256": "f2b9e5f97c65aec1fd858510aa1cf9e4df420381964f8909a93112bf2626a361"
+  },
+  "whitecrown-passes/interiors/gate2-v1.webp": {
+   "bytes": 244978,
+   "sha256": "09a4956a638e70077fd092d5917f195abd10952629925a502a7c6ec703ff9845"
+  },
+  "whitecrown-passes/interiors/gate3-v1.webp": {
+   "bytes": 249974,
+   "sha256": "33fa580b1134c0297484fbd43f58f693e454d9c816689aad9c14f63ad3565470"
+  },
+  "whitecrown-passes/interiors/record1-v1.webp": {
+   "bytes": 232792,
+   "sha256": "48ccdfa907321954fef190e1ac70cb95bab676cfaed7eddf91a6c50635bb43cf"
+  },
+  "whitecrown-passes/interiors/record2-v1.webp": {
+   "bytes": 245156,
+   "sha256": "65fcf6ce1cbbc9c65d640ae9e8c35ed01b3a5fe89094b9b371d242a4a0bc1005"
+  },
+  "whitecrown-passes/landmarks/s131-site-v1.webp": {
+   "bytes": 105886,
+   "sha256": "e13b5ac3d578e392806af2757db0fbde379e29350d3bbef8831c05a76d198239"
+  },
+  "whitecrown-passes/landmarks/s132-site-v1.webp": {
+   "bytes": 115094,
+   "sha256": "b8cdb52fb1da54ede5ca3a6c11e6bd7f1230ff49719a5ad736a97ce6859a52ae"
+  },
+  "whitecrown-passes/landmarks/s133-site-v1.webp": {
+   "bytes": 81194,
+   "sha256": "40b7a26c79f228ab10e792984f28aaeee356d6b3f3788045b851139bbb7a5527"
+  },
+  "whitecrown-passes/landmarks/s134-site-v1.webp": {
+   "bytes": 117910,
+   "sha256": "8311f0be6f914e58cbee22a878b88334b54cc237ab035abcd059431772433180"
+  },
+  "whitecrown-passes/landmarks/s135-site-v1.webp": {
+   "bytes": 110492,
+   "sha256": "6c2b3e08c05238100daf472d5f632574ea22383ace2bef698c319148e522a437"
+  },
+  "whitecrown-passes/landmarks/s136-site-v1.webp": {
+   "bytes": 103734,
+   "sha256": "c284a09b06fd204c4089f3223171ab6f8b58cc0baf3e5a691cb14fd00a616da5"
+  },
+  "whitecrown-passes/landmarks/s137-site-v1.webp": {
+   "bytes": 109202,
+   "sha256": "fb6d4aeced64f071c5f5b613a8d093485a81782718f150223a0a49e7a638bfee"
+  },
+  "whitecrown-passes/landmarks/s138-site-v1.webp": {
+   "bytes": 126806,
+   "sha256": "a8e5bdb505a72edfcff951742234a40e66ca74a4d166796abd0ccb9b3991d799"
+  },
+  "whitecrown-passes/landmarks/s139-site-v1.webp": {
+   "bytes": 116230,
+   "sha256": "041da033a1b54834e5e7afe45bd8bf67d6bbd3d2162f6ae64691032a9e27824e"
+  },
+  "whitecrown-passes/landmarks/s140-site-v1.webp": {
+   "bytes": 93062,
+   "sha256": "e60ff997b36b4282684254d6098c422c8ba5cc9a7f828dac6704ec1e999ba929"
+  },
+  "whitecrown-passes/scenes/s131-entry-v1.webp": {
+   "bytes": 122598,
+   "sha256": "daf3cec3478d20dc5de4e96c9ee5065d72d4815212600dcd0c2e700e23dc09f3"
+  },
+  "whitecrown-passes/scenes/s132-entry-v1.webp": {
+   "bytes": 126064,
+   "sha256": "7b98c5587920b5cde9f68b0173ad20e6a6df1297535eb9754d7a9952c1df16b4"
+  },
+  "whitecrown-passes/scenes/s133-entry-v1.webp": {
+   "bytes": 127438,
+   "sha256": "5d0e7195e78d70ebabe1e0959892258d248eff0087311c5c7b8797815c15118b"
+  },
+  "whitecrown-passes/scenes/s134-entry-v1.webp": {
+   "bytes": 127390,
+   "sha256": "d4270af161fe7c34a52a1c716138b0df64f082de07aaf821980d4eee3da2af4f"
+  },
+  "whitecrown-passes/scenes/s135-entry-v1.webp": {
+   "bytes": 124308,
+   "sha256": "b0cf99ba183721828d00c3ef31f99d535d96ee947da6ff4860bf32b32733783a"
+  },
+  "whitecrown-passes/scenes/s136-entry-v1.webp": {
+   "bytes": 124334,
+   "sha256": "4bf2d488f01f200b48e2a7d5a502f059a43378037eae234b08b0af902d9b5355"
+  },
+  "whitecrown-passes/scenes/s137-entry-v1.webp": {
+   "bytes": 126804,
+   "sha256": "2c3fa25c89f0827afc2ccc9420274a22f21915145e0842df957160478c377114"
+  },
+  "whitecrown-passes/scenes/s138-entry-v1.webp": {
+   "bytes": 127768,
+   "sha256": "f6747477b5e448703dd470abbb6aaef67e583b8d65e2a226b0c17ce4f31102a2"
+  },
+  "whitecrown-passes/scenes/s139-entry-v1.webp": {
+   "bytes": 126482,
+   "sha256": "b63eb279db902b110c487dd84bf24d55beca9d418a1c4080793c90eac52098d8"
+  },
+  "whitecrown-passes/scenes/s140-entry-v1.webp": {
+   "bytes": 123284,
+   "sha256": "085c2574d30522aa6a556b1f4799d3dfc443097cc58cada70c46250215f8eb01"
+  }
+ }
+}

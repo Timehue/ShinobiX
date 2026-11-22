@@ -13,6 +13,7 @@ resources, statuses and cooldowns are untouched; only the boss changes.
 | Solo-PvE adapter (story fights) | `api/solo-pve/_boss-forms.ts` |
 | Which solo-PvE bosses transform | `api/solo-pve/_boss-transformation-registry.ts` |
 | Final Kage plans | `api/story/_kage-transformations.ts` |
+| Unmapped Coast quest boss plans (by cast id, joined onto the quest fights) | `api/quests/_coast-boss-forms.ts` |
 | Phase chip, aura, cut-scene, reveal order | `shinobij.client/src/components/BossFormStatus.tsx`, `BossFormCutscene.tsx`, `src/lib/boss-form-view.ts`, `src/lib/boss-form-reveal.ts`, `src/styles/boss-forms.css` |
 | Form art | portraits: `public/portraits/cinematic/storywide/*-{thunder-shroud,ember-cloak,oath-gate,moon-hermit}.webp`, `public/portraits/towers/forms/*.webp`; battle sprites: `public/combat-actors/forms/*-idle.webp`. All painted over each boss's own art by `scripts/paint-boss-forms.py` |
 
@@ -77,6 +78,8 @@ rejects bad data when a fight is sealed.
 - **Tower floor:** author a plan (and any new form jutsu) in
   `api/towers/_boss-forms.ts`, then set `boss.transformation: '<plan id>'` on
   the floor in `api/towers/_floor-catalog.ts`.
+- **Coast quest boss:** add a plan under the boss's cast id in
+  `api/quests/_coast-boss-forms.ts`, using one of its three builders.
 - **Solo-PvE boss:** add the plan to the registry under the encounter kind and
   AI profile id, or give the profile a `bossTransformation`. Key by kind as
   well as id: raid village guards reuse the story finale ids and must not
@@ -88,3 +91,25 @@ The story finales and tower milestone floors sit behind simulation gates
 (`scripts/story-late-balance.test.ts`, `scripts/tower-story-balance.test.ts`).
 A form that heals or hits harder must pay for it, through more damage taken or
 an upkeep/limit burn, or those gates fail. Re-run both after changing a plan.
+
+The coast's quest bosses have their own gate, `scripts/coast-boss-balance.test.ts`
+(table: `node --import tsx scripts/coast-boss-balance-audit.ts`). Those bosses are
+hard by the owner's ruling ("Leave them hard", repeated 2026-11-21) and the story
+gate's reference builds lose to all of them with or without forms, so that gate
+holds a different line. Most reference fights end before the boss is low enough
+to change, so each fight is started one point above the boss's first form and
+played with and without it (`--from-form`). Every build must see the form, no
+boss may end more than 10 points of its health easier or harder, and the mean
+over all of them must stay within 3. A coast form is one of three trades
+(stance, charge, burn; numbers in `COAST_FORM_TUNING`), never heals and never
+changes the kit. The simulator is noisy at the scale of one boss, which is why
+the gate is a band.
+
+## With a Hold
+
+A coast quest boss also has a Hold (`api/solo-pve/_boss-hold.ts`): it cannot
+fall until the player uses the quest's tool. The two rules are separate and both
+guards run in `checkWinner`. One rule joins them: a charge is broken by taking
+health off the boss, and a Hold boss stops at 1 HP, so while the Hold stands a
+charge's break point is capped at the health the boss can still lose, and a boss
+on its last point gathers nothing (`soloPveBossTurnStart`).

@@ -5,6 +5,7 @@ import { cors, safeName, clanBareSlug, clanRecordKey } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
+import { liveCoastClaimOf } from '../../coast/_land.js';
 import { awardClanPointsToPlayerSave, clanPointWeekKey } from '../../_clan-points.js';
 import { isEconomicReceiptStorageError } from '../../_economic-receipt.js';
 import { settleMissionCredit, finishMissionReceipt, missionProofs } from './_settlement.js';
@@ -178,6 +179,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const territories = territoryKeys.length
             ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])
             : [];
+        // Clans hold land on the Unmapped Coast only (api/_home-clan-territory.ts), so the sector a clan holds
+        // there is its territory for the `territory` mission. Read before the clan lock: the coast's lock and a
+        // clan's are never held together.
+        const coastClaim = await liveCoastClaimOf(clan).catch(() => null);
 
         const outcome = await withKvLock(clanSaveKey, async () => {
             const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
@@ -188,12 +193,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 fingerprint: `clan-mission:${slug}:${weekKey}:${missionKey}`,
                 weekKey, missionKey, ttlSeconds: CLAIM_TTL,
                 prepare: () => {
-                    const progress = clanMissionProgressServer(clanRec, String(clanRec.name ?? clan), territories, missionKey);
+                    const land = coastClaim ? [...territories, { ownerClan: String(clanRec.name ?? clan), sector: coastClaim.sector, guards: [] }] : territories;
+                    const progress = clanMissionProgressServer(clanRec, String(clanRec.name ?? clan), land, missionKey);
                     if (progress < CLAN_MISSION_TARGETS[missionKey]) return null;
                     const members = Array.isArray(clanRec.members) ? clanRec.members.length : 0;
                     return {clanXp: scaledClanXp(reward.clanXp, members), treasury: reward.treasury ?? {},
                         pointAmount: CLAN_MISSION_POINT_AMOUNTS[missionKey] ?? 0,
-                        pointMembers: pointEligibleMembers(clanRec, String(clanRec.name ?? clan), territories, missionKey)};
+                        pointMembers: pointEligibleMembers(clanRec, String(clanRec.name ?? clan), land, missionKey)};
                 },
             });
         }, { failClosed: true });

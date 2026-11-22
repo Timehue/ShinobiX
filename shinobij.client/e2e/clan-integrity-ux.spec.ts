@@ -17,22 +17,6 @@ function treasury(scrolls: number) {
     };
 }
 
-function territory(owner = false) {
-    return {
-        sector: 40,
-        ownerClan: owner ? "Shadow Cell" : undefined,
-        ownerVillage: owner ? "Stormveil Village" : undefined,
-        controlScore: owner ? 75_000 : 0,
-        hp: 20_000,
-        weather: "clear",
-        terrainBuffStat: "bukijutsuOffense",
-        guards: [],
-        warSupply: 0,
-        lastSupplyAt: Date.now(),
-        updatedAt: Date.now(),
-    };
-}
-
 test("Clan Hall territory and dissolution controls preserve authoritative player feedback", async ({ page }, testInfo) => {
     test.skip(
         !["chromium-desktop", "chromium-mobile"].includes(testInfo.project.name),
@@ -72,14 +56,20 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
         warHistory: [],
     };
 
-    let worldTerritory = territory(false);
-    let assignmentMode: "forbidden" | "success" = "forbidden";
-    const assignmentBodies: Array<Record<string, unknown>> = [];
+    // What the coast's own routes answer. `held` flips once the clan has taken the ground.
+    let held = false;
+    let contest: Record<string, unknown> | null = null;
+    let school: string | undefined;
+    let fixedSky: string | undefined;
+    let declareMode: "refused" | "success" = "refused";
+    const landBodies: Array<Record<string, unknown>> = [];
+    let supplyRequests = 0;
     let deleteRequests = 0;
-    // Deferred gate for the in-flight claim window; released by the test once it
-    // has seen the button go busy. See the assign-scrolls route below.
-    let releaseAssignment: () => void = () => {};
-    const assignmentHeld = new Promise<void>((resolve) => { releaseAssignment = resolve; });
+    // Deferred gate for the in-flight declaration; released by the test once it
+    // has seen the button go busy. A fixed sleep here loses that race on a
+    // loaded machine. Awaiting an already-resolved gate is a no-op.
+    let releaseDeclare: () => void = () => {};
+    const declareHeld = new Promise<void>((resolve) => { releaseDeclare = resolve; });
 
     await page.route("**/api/save/clan-shadowcell", async (route) => {
         if (route.request().method() === "DELETE") {
@@ -94,34 +84,47 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
         }
         return json(route, clan);
     });
-    await page.route("**/api/world-state**", (route) => json(route, {
-        territories: [worldTerritory],
-        wars: [],
-        standings: [],
-    }));
-    await page.route("**/api/clan/territory/assign-scrolls", async (route) => {
-        assignmentBodies.push(route.request().postDataJSON() as Record<string, unknown>);
-        if (assignmentMode === "forbidden") {
-            return json(route, { ok: false, error: "Only clan leadership can assign Territory Control Scrolls." }, 403);
+    await page.route("**/api/world-state**", (route) => json(route, { territories: [], wars: [], standings: [] }));
+    await page.route("**/api/coast/land", async (route) => {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        if (body.action !== "status") landBodies.push(body);
+        if (body.action === "declare") {
+            if (declareMode === "refused") return json(route, { error: "The clan hall needs 75 Territory Control Scrolls to declare for land." }, 409);
+            await declareHeld;
+            const now = Date.now();
+            contest = { id: "contest-1", clan: "Shadow Cell", phase: "posted", opensAt: now + 86_400_000, closesAt: now + 3 * 86_400_000, score: 0, target: 15, roster: 5 };
+            return json(route, { ok: true, contest });
         }
-        // Hold the successful claim open until the test has actually observed the
-        // in-flight UI. This used to be a fixed 150 ms sleep, which lost the race
-        // on a loaded machine: the response landed before Playwright could query
-        // for the transient "Claiming…" button, and the spec failed with
-        // "element(s) not found" about one run in three under `--repeat-each`.
-        // The assertion it protects is worth keeping deterministic — it is what
-        // proves a player cannot double-spend 75 Territory Scrolls by
-        // double-clicking. Awaiting an already-resolved gate is a no-op, so any
-        // later claim in this spec passes straight through.
-        await assignmentHeld;
-        worldTerritory = territory(true);
+        if (body.action === "terrain") {
+            school = String(body.terrainBuffStat);
+            return json(route, { ok: true, claim: { sector: 102, terrainBuffStat: school } });
+        }
+        if (body.action === "weather") {
+            fixedSky = body.weather === "scheduled" ? undefined : String(body.weather);
+            return json(route, { ok: true, claim: { sector: 102, weather: fixedSky } });
+        }
         return json(route, {
             ok: true,
-            territory: worldTerritory,
-            treasury: treasury(0),
-            captured: true,
-            spent: 75,
+            rules: { noticeMs: 86_400_000, windowMs: 2 * 86_400_000, minMembers: 5, target: 15, perPlayerCap: 5, declareScrolls: 75 },
+            sectors: [{
+                sector: 102, name: "Wrack Strand", region: 1,
+                sky: { weather: held && fixedSky ? fixedSky : "tornado", fixed: held && !!fixedSky },
+                holder: held ? { clan: "Shadow Cell", since: Date.now() - 3 * 86_400_000, immuneUntil: 0, ...(school ? { terrainBuffStat: school } : {}), ...(fixedSky ? { weather: fixedSky } : {}) } : null,
+                contest: held ? null : contest,
+            }],
+            paused: false,
         });
+    });
+    await page.route("**/api/coast/landing", (route) => json(route, {
+        ok: true,
+        rules: { tiers: [], materials: [], materialNames: {}, memberWeeklyCap: 0, perContribution: 0 },
+        clan: "Shadow Cell", officer: true, canFound: false,
+        holds: held ? { sector: 102, name: "Wrack Strand", supply: 200 } : null,
+        landing: null, fallen: null, inTown: false,
+    }));
+    await page.route("**/api/clan/territory/collect-supply", (route) => {
+        supplyRequests += 1;
+        return json(route, { ok: true, collected: 200, treasury: { ...treasury(75), warSupply: 500 } });
     });
 
     await page.goto("/#/clan", { waitUntil: "domcontentloaded" });
@@ -134,78 +137,57 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await page.getByRole("button", { name: "Territory", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Clan Territory Control" })).toBeVisible();
     await expect(page.getByText(/Clan Hall Scrolls:\s*75/)).toBeVisible();
-    await expect(page.getByText("Control Score: 0 / 75,000")).toBeVisible();
-    await expect(page.getByText(/Village Control:\s*No village control recorded/)).toBeVisible();
-    await expect(page.getByText(/Clan Banner:\s*No clan banner planted/)).toBeVisible();
-    await expect(page.getByText(/Claim Status:\s*Eligible — leadership may spend 75 scrolls/)).toBeVisible();
+    // Clans hold land on the coast only: nothing on the home map is offered for capture.
+    await expect(page.getByRole("button", { name: /Capture sector/ })).toHaveCount(0);
+    const coast = page.getByRole("region", { name: "Coast land and Landing" });
+    await expect(coast.getByText("Held by the Unmoored.")).toBeVisible();
+    await expect(coast.getByText("Declaring takes 75 Territory Control Scrolls from the clan hall.", { exact: false })).toBeVisible();
 
-    await page.getByRole("button", { name: "Capture sector (75 scrolls)", exact: true }).click();
-    let captureConfirmation = page.getByRole("alertdialog", { name: "Capture Sector 40" });
-    await expect(captureConfirmation).toContainText("Village control: Stormveil Village");
-    await expect(captureConfirmation).toContainText("Clan banner: Shadow Cell");
-    await expect(captureConfirmation).toContainText("Weather: Clear Skies");
-    await expect(captureConfirmation).toContainText("Terrain bonus: bukijutsu Offense +10%");
-    await expect(captureConfirmation).toContainText("cannot be refunded");
-    await captureConfirmation.getByRole("button", { name: "Cancel" }).click();
-    expect(assignmentBodies).toHaveLength(0);
+    // A refusal is shown in the server's own words, and nothing changes.
+    const declare = coast.getByRole("button", { name: "Declare contest", exact: true });
+    await declare.click();
+    await expect(coast.getByText("The clan hall needs 75 Territory Control Scrolls to declare for land.")).toBeVisible();
+    expect(landBodies.filter((body) => body.action === "declare")).toHaveLength(1);
+    await expect(coast.getByText("Held by the Unmoored.")).toBeVisible();
 
-    await page.getByRole("button", { name: "Capture sector (75 scrolls)", exact: true }).click();
-    captureConfirmation = page.getByRole("alertdialog", { name: "Capture Sector 40" });
-    await captureConfirmation.getByRole("button", { name: "Spend 75 scrolls" }).click();
-    const notice = page.getByRole("alertdialog", { name: "Notice" });
-    await expect(notice).toContainText("Only clan leadership can assign Territory Control Scrolls.");
-    expect(assignmentBodies).toHaveLength(1);
-    await expect(page.getByText(/Clan Hall Scrolls:\s*75/)).toBeVisible();
-    await expect(page.getByText("Control Score: 0 / 75,000")).toBeVisible();
-    await notice.getByRole("button", { name: "OK" }).click();
-
-    assignmentMode = "success";
-    await page.getByRole("button", { name: "Capture sector (75 scrolls)", exact: true }).evaluate((button) => {
+    // A double click posts one declaration, so the scrolls cannot be spent twice.
+    declareMode = "success";
+    await declare.evaluate((button) => {
         (button as HTMLButtonElement).click();
         (button as HTMLButtonElement).click();
     });
-    captureConfirmation = page.getByRole("alertdialog", { name: "Capture Sector 40" });
-    await expect(captureConfirmation).toHaveCount(1);
-    expect(assignmentBodies).toHaveLength(1);
-    await captureConfirmation.getByRole("button", { name: "Spend 75 scrolls" }).click();
-    // The claim is held open by `assignmentHeld`, so this window cannot close
+    // The declaration is held open by `declareHeld`, so this window cannot close
     // before the assertion runs no matter how loaded the machine is.
-    const busyButtons = page.getByRole("button", { name: "Claiming…" });
-    await expect(busyButtons.first()).toBeDisabled();
-    releaseAssignment();
-    await expect.poll(() => assignmentBodies.length).toBe(2);
-    await expect(page.getByText(/Clan Hall Scrolls:\s*0/)).toBeVisible();
-    await expect(page.getByText("Control Score: 75,000 / 75,000")).toBeVisible();
-    await expect(page.getByText(/Village Control:\s*Stormveil Village/)).toBeVisible();
-    await expect(page.getByText(/Clan Banner:\s*Shadow Cell/)).toBeVisible();
-    await expect(page.getByText(/Claim Status:\s*Owned by your clan/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Reinforce with 1 scroll", exact: true })).toBeDisabled();
-    expect(assignmentBodies[1]).toMatchObject({
-        playerName: "AuditNinja",
-        clan: "Shadow Cell",
-        sector: 40,
-        count: 75,
-        weather: "clear",
-        terrainBuffStat: "bukijutsuOffense",
-    });
-    expect(assignmentBodies[1]?.requestId).toEqual(expect.any(String));
+    await expect(declare).toBeDisabled();
+    releaseDeclare();
+    await expect(coast.getByText("Contest posted.")).toBeVisible();
+    const declares = landBodies.filter((body) => body.action === "declare");
+    expect(declares).toHaveLength(2);
+    expect(declares[1]).toMatchObject({ action: "declare", sector: 102 });
+    await expect(coast.getByText("Shadow Cell · posted · 0/15 points · 5 on roster.")).toBeVisible();
+    await expect(coast.getByRole("button", { name: "Withdraw contest", exact: true })).toBeVisible();
 
-    const breachedAt = Date.now();
-    worldTerritory = {
-        ...worldTerritory,
-        hp: 0,
-        breachedAt,
-        breachEndsAt: breachedAt + 12 * 60 * 60 * 1000,
-        updatedAt: breachedAt,
-    };
-    await page.getByRole("button", { name: "← Village" }).click();
-    await page.reload({ waitUntil: "domcontentloaded" });
-    const breachChip = page.getByRole("button", { name: /Sector 40 breached · 12h left/ });
-    await expect(breachChip).toBeVisible({ timeout: 10_000 });
-    await breachChip.click();
-    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "clan");
-    await expect(page.getByRole("heading", { name: "Clan Territory Control" })).toBeVisible();
-    await expect(page.getByText(/BREACHED:.*restore HP before/i)).toBeVisible();
+    // The clan takes the ground. Its officers choose the school it favours there.
+    held = true;
+    await coast.getByRole("button", { name: "Refresh coast status", exact: true }).click();
+    await expect(coast.getByText("Held by Shadow Cell.")).toBeVisible();
+    await expect(coast.getByText("Shadow Cell holds Wrack Strand. 200 War Supply is ready to collect in the Clan Hall.")).toBeVisible();
+    await coast.getByLabel("Favoured school").selectOption("Ninjutsu");
+    await expect(coast.getByText("Favoured school saved.")).toBeVisible();
+    expect(landBodies.filter((body) => body.action === "terrain")).toEqual([{ action: "terrain", sector: 102, terrainBuffStat: "ninjutsuOffense" }]);
+    await expect(coast.getByText("Shadow Cell favours Ninjutsu here.", { exact: false })).toBeVisible();
+
+    // The sky over the sector is the coast's own until the clan's officers fix it.
+    await expect(coast.getByText("Weather: Tornado. Wind damage +5%. Earth damage -2%.")).toBeVisible();
+    await coast.getByLabel("Sector weather").selectOption("Rainstorm");
+    await expect(coast.getByText("Sector weather saved.")).toBeVisible();
+    expect(landBodies.filter((body) => body.action === "weather")).toEqual([{ action: "weather", sector: 102, weather: "rain" }]);
+    await expect(coast.getByText("Weather: Rainstorm. Water damage +5%. Fire damage -2%. Shadow Cell keeps it so.")).toBeVisible();
+
+    // War Supply comes from the coast sector, through the same collection as before.
+    await page.getByRole("button", { name: "Collect Sector War Supply", exact: true }).click();
+    await expect(page.getByText(/Clan War Supply:\s*500/)).toBeVisible();
+    expect(supplyRequests).toBe(1);
     if (await contextualTipDismiss.isVisible()) await contextualTipDismiss.click();
 
     const deleteButton = page.getByRole("button", { name: "Delete clan", exact: true });
@@ -233,7 +215,8 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await expect.poll(() => deleteRequests).toBe(1);
     await expect(page.getByRole("heading", { name: "Create Clan" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Delete clan", exact: true })).toHaveCount(0);
-    expect(runtimeErrors.filter((message) => !/Failed to load resource:.*403 \(Forbidden\)/.test(message))).toEqual([]);
+    // The one refused declaration above is the only failed request this journey makes.
+    expect(runtimeErrors.filter((message) => !/Failed to load resource:.*409 \(Conflict\)/.test(message))).toEqual([]);
 });
 
 // The Clan Hall loads the clan once and does not poll, yet every change writes

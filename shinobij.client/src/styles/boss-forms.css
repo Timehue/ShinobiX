@@ -2,6 +2,9 @@
    boss (fallback when a form has no alternate art). Reduced Motion drops the pulse. */
 .boss-form-chip{--bf:#f0a15a;display:inline-flex;flex:none;align-items:center;gap:6px;padding:3px 9px;border:1px solid var(--bf);border-radius:999px;background:rgba(6,10,20,.86);color:#f5efe6;font-size:.75rem;white-space:nowrap}
 .boss-form-chip strong{color:var(--bf);text-transform:uppercase}
+.boss-form-chip img{width:18px;height:18px;border-radius:50%;object-fit:cover}
+/* A Hold chip with a phase chip beside it drops its hint so both fit a 390px strip; its title keeps the words. */
+.boss-form-chip:has(+.boss-form-chip)>span{display:none}
 .tower-enemy-rail .boss-form-chip{flex-wrap:wrap;white-space:normal;border-radius:10px}
 .boss-form-charge{position:relative;padding-bottom:4px;color:#ffe2a8}
 .boss-form-charge i{position:absolute;left:0;bottom:0;height:3px;background:var(--bf)}

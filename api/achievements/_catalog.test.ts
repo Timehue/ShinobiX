@@ -1,18 +1,34 @@
+import coastQuestBadges from '../../shared/coast-quest-badges.json';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ACHIEVEMENT_RULES, ACHIEVEMENT_TITLES, achievementRewardForIds, eligibleAchievementIds } from './_catalog.js';
+import { ACHIEVEMENT_RULES, ACHIEVEMENT_TITLES, COAST_ROUND_ACHIEVEMENT_IDS, achievementRewardForIds, eligibleAchievementIds } from './_catalog.js';
+import { COAST_ROUND_LINES } from '../quests/_coast-rounds.js';
 
 describe('achievement authority catalog', () => {
     it('has exact ID parity with the client catalog', () => {
         const source = readFileSync('shinobij.client/src/constants/achievements.ts', 'utf8');
-        const clientIds = [...source.matchAll(/\bid:\s*"([^"]+)"/g)].map((match) => match[1]);
+        // The coast rows are generated on the client, so they are not in its source as
+        // literals; shinobij.client/src/constants/achievements.test.ts compares the two
+        // real tables id for id.
+        const clientIds = [...[...source.matchAll(/\bid:\s*"([^"]+)"/g)].map((match) => match[1]), ...COAST_ROUND_ACHIEVEMENT_IDS, ...coastQuestBadges.map(badge => badge.id)];
         assert.deepEqual(new Set(ACHIEVEMENT_RULES.map((rule) => rule.id)), new Set(clientIds));
         assert.equal(ACHIEVEMENT_RULES.length, clientIds.length);
         const titleBlock = source.match(/TITLE_ACHIEVEMENT_IDS[\s\S]*?\]\);/)?.[0] ?? '';
         const clientTitleIds = [...titleBlock.matchAll(/"([a-z0-9-]+)"/g)].map((match) => match[1]);
         assert.deepEqual(new Set(Object.keys(ACHIEVEMENT_TITLES)), new Set(clientTitleIds));
-        assert.equal(ACHIEVEMENT_RULES.length, 145, 'the full RPG catalog includes four career distinctions');
+        assert.equal(ACHIEVEMENT_RULES.length, 173, 'the full catalog includes twenty coast Rounds and eight coast quest achievements');
+    });
+    it('a coast Rounds achievement is proven by the server-written badge list, and every Rounds tier earns exactly one', () => {
+        const tiers = Object.values(COAST_ROUND_LINES);
+        assert.equal(tiers.length, 20);
+        assert.deepEqual(new Set(tiers.flatMap((line) => line.rewards.badges ?? [])), new Set(COAST_ROUND_ACHIEVEMENT_IDS));
+        for (const line of tiers) assert.equal(line.rewards.badges?.length, 1, line.id);
+        const id = COAST_ROUND_ACHIEVEMENT_IDS[0];
+        assert.equal(eligibleAchievementIds({ coastBadges: [id] }).includes(id), true);
+        assert.equal(eligibleAchievementIds({ coastBadges: [] }).includes(id), false);
+        // A finished quest the client reports proves nothing: only the server's list is read.
+        assert.equal(eligibleAchievementIds({ questLines: { done: { 'saltstair-rounds-1': { at: 1 } } }, unlockedAchievements: [id] }).includes(id), false);
     });
     it('evaluates numeric and compound rules from stored state', () => {
         const ids = eligibleAchievementIds({ level: 100, ryo: 1_000_000, bankRyo: 0, itemStacks: [{ itemId: 'x', count: 100 }], weeklyBossKills: { a: 1, b: 1, c: 1, d: 1, e: 1 }, unspentStats: 0 });

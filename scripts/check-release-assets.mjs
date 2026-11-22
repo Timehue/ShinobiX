@@ -15,6 +15,9 @@ if (tableStart < 0 || tableEnd < 0) throw new Error('Could not locate ACHIEVEMEN
 const achievementIds = [...source.slice(tableStart, tableEnd).matchAll(/\bid:\s*"([a-z0-9-]+)"/g)]
     .map((match) => match[1]);
 if (achievementIds.length === 0) throw new Error('No achievement ids discovered.');
+const coastQuests = JSON.parse(await readFile(path.join(root, 'shared', 'coast-quest-badges.json'), 'utf8'));
+achievementIds.push(...coastQuests.map(badge => badge.id));
+if (achievementIds.length === 0) throw new Error('No achievement ids discovered.');
 if (new Set(achievementIds).size !== achievementIds.length) throw new Error('Duplicate achievement id discovered.');
 
 // Badges are WebP, not PNG. They shipped as 165 uncompressed 256px PNGs

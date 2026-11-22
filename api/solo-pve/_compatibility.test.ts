@@ -40,7 +40,19 @@ describe('solo-PvE published content compatibility', () => {
         // 333 to 334: Hollow Beast Cache is a non-combat reward item.
         // 334 to 336: the basic and golden Harvest Kama, gathering tools that
         // combatEquipment strips from every fight (no combat fields).
-        assert.equal(items.length, 336, 'update the compatibility report when the generated catalog changes');
+        // 336 to 344: the first eight quest-only items (shared/quest-items.ts):
+        // four materials and proofs with no combat fields, and four tools that
+        // use only the existing thrown and item fields, with no tags.
+        // 344 to 350: the quest items of The Crossing War II and III: four
+        // materials with no combat fields, and two thrown tools (Clouding Ink,
+        // Pact-Cutter Snare) on the same thrown fields as the first four.
+        // 350 to 353: The Crossing War IV: two materials and the thrown Ember Senbon.
+        // 353 to 356: The Boatwright's Tools: three materials, no combat fields.
+        // 356 to 360: Untamed Coast: three fish and the Scent Lure, all materials.
+        // 360 to 363: Hushcrown Heights: three materials for the remade tools.
+        // 363 to 365: the coast finale's two relics. A relic has no combat field
+        // of its own: its PvE percentage is read by the multiplier layer.
+        assert.equal(items.length, 365, 'update the compatibility report when the generated catalog changes');
     });
 
     it('resolves every catalog AI loadout to compatible server-sealed jutsu', () => {

@@ -128,3 +128,39 @@ This document describes the authorized implementation baseline and source owners
 - **Evidence:** Local source, final backend tests, release builds, responsive browser coverage, strict combat checks and authoritative desktop/mobile clan journeys. Exact outcomes and rechecks are recorded in the working state; no deployed-state verification.
 - **Review outcome:** Implemented baseline ready for owner review. Pacing and fun require player evidence.
 - **Canonical boundary:** This document owns the plan and confirmed planning scope, not current live gameplay rules.
+
+## Amendment: the Unmapped Coast (2026-11-19)
+
+The second world at level 50 gives clans land of their own. Tyler ruled on 2026-11-18 that land there is held by clans only and that village wars stay on the home map. Four statements above are therefore amended **for the coast only**. Nothing in this section changes a rule on the home map.
+
+| Statement above | On the coast |
+| --- | --- |
+| The war design is queues plus a golden shrine. | A clan also takes a sector by a posted contest: a day's notice, a two-day window, and a score its members earn. |
+| Clan territory requires ten members and respects village ownership. | A contest needs five members who are each level 75 or higher and have finished The Crossing War. No village owns coast ground. A clan may hold one sector. |
+| There are no defended objectives or AI copies. | A sector nobody has taken is held by the Unmoored, and its garrison is fought as an AI fight. |
+| CW-05: AI defense is excluded; no points when an opponent does not participate. | Garrison wins score against the Unmoored. Each member's wins are capped per contest, and a garrison fight pays no purse. |
+
+A clan that holds a coast sector may raise a **Clan Landing** on it (`api/coast/_landing.ts`): an officer stakes the plot, members pool materials into its stores, and an officer raises it through three tiers (Founding Camp, Landing Hall, Defended Landing). It draws upkeep from the stores each week. It is fully losable: it falls with its sector, and after two unpaid weeks the sector itself goes back to the Unmoored. Nothing passes to whoever takes the land. It grants no combat or reward bonus.
+
+The boundary that existing sector and village war owners keep their rules is honoured: coast land lives in its own `coast:*` records (`api/coast/_land.ts`), never in `world:territory`, and no home handler reads it.
+
+On 2026-11-20 Tyler asked for the open numbers to be decided for the game and its players. They are now: 15 garrison wins take a sector, with at most 5 from one member. The Founding Camp costs 20 each of Field Herb, Binding Fiber and Iron Sand. The Landing Hall costs 60 of each, plus 20 Wrack Cord and 20 Splitstone Fittings. The Defended Landing costs 120 of each, plus 30 Pitchwood and 30 Caulk Eel. The four coast materials come from the sites The Boatwright's Tools leaves open. Upkeep is 6, 15 and 30 common materials a week by tier. The constants in `api/coast/_land.ts` and `api/coast/_landing-rules.ts` are the record; this paragraph is a summary.
+
+Also on 2026-11-20 Tyler asked for the remaining coast features to be built. A Landing can hold three works, each built once from its stores by an officer who has finished the matching Raise the Clan Gate quest: the Store Shed (a member may give 60 units a week, not 40), the Drying Racks (a quarter off weekly upkeep) and the Watch Fire (a contest declared on that ground opens 12 hours later). They give utility only and fall with the Landing. A full admin has tools for the coast at `/api/coast/admin`: force-settle or cancel a contest, release or grant a sector, set a sector's protection, stand a fallen Landing up again, and pause every land contest. A pause stops declaring, garrison fights, all scoring, settlement and Landing upkeep. Each contest's clock stands still while it lasts and gets its lost time back when it is lifted. Every use is written to the audit log. The two relics the coast finale gives are bound to whoever earned them: they cannot be sold, listed on the Exchange or given to a treasury.
+
+A sector another clan holds is taken by the same posted contest, and the holder answers it. Both rosters are frozen at the declaration. An open-world duel fought in the sector between one member of each roster scores for the winner's side, once per pair per day, and only between accounts that have not shared an address or a browser. The attackers can also fight the holder's garrison. A duel the game pays nothing for (the loser fled or went quiet in the opening rounds) scores nothing, and neither side scores after the close. The contest runs its full two days, and the sector changes hands only if the attackers met the target and outscored the defence. Held ground cannot be declared on for three days after it is taken or defended, or for seven days after its Landing is staked. Clan-war queue matches never score a land contest.
+
+## Clan land is on the coast only (owner, 2026-11-21)
+
+The owner reversed the older decision that let a clan capture a home sector: "clans can only claim territories on this new map not the old one and when they do they can build a little town there that players of that clan can access".
+
+- A clan can no longer capture or reinforce a home sector. The sectors clans held there are released by the territory lifecycle sweep. `api/_home-clan-territory.ts` is the one switch, and it explains what was left in place.
+- War Supply comes from the sector a clan holds on the coast, at the same 100 a day, through the same collect endpoint.
+- Declaring a coast contest costs the clan 75 Territory Control Scrolls, what a home capture cost.
+- The `territory` clan mission is met by holding a coast sector.
+- The Clan Landing is the clan's town: a member enters it on the ground, and it offers village facilities a tier at a time (`COAST_TOWN_FACILITIES` in `api/coast/_landing-rules.ts`). The screen and its art are briefed in `output/coast/CODEX-CLAN-TOWN.md`.
+- Inside its town a member is in a safe zone, as in a village: nobody attacks them, they attack nobody, and a logout there leaves no sleeper camp. The server issues it and ends it the moment they step back onto the sector (`api/coast/_town-presence.ts`).
+- The +10% a clan's members had with one chosen school on a home sector is chosen by officers and applied on the coast sector instead, in player fights and AI fights (`setCoastClaimSchool` and `coastHomeSchool` in `api/coast/_land.ts`). Quest bosses are included.
+- The coast has the home map's scheduled weather, sealed into every fight there, and the holding clan's officers can fix the sky over their sector as a clan could over a home sector (`api/_sector-weather-seal.ts`, `setCoastClaimWeather` in `api/coast/_land.ts`). A fixed sky is sealed for a player fight only when the server has placed that fight on the sector.
+- Village sector wars are unchanged: a village still owns home sectors, and only a sector war moves them.
+- The row above that says "Clan territory requires ten members, allows one sector and respects village ownership" describes the home rule that is now closed.

@@ -1028,6 +1028,11 @@ app.get(/^\/items\/([^/]+)$/, (req, res, next) => {
     res.redirect(302, `/items/${renamed}`);
 });
 
+// A fight sealed before the hound was repainted still carries its first portrait URL.
+app.get('/portraits/cinematic/coast/brinejaw-v1.webp', (_req, res) => {
+    res.redirect(302, '/portraits/cinematic/coast/brinejaw-v2.webp');
+});
+
 // Old open tabs and saved image overrides keep working after the duplicate
 // Chronicle files are removed. Only known catalog identities can redirect.
 app.get(/^\/chronicle\/(?:cards|figures)\//, chronicleLegacyArtRedirect);

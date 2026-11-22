@@ -11,6 +11,7 @@ import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, presenceBroadcastSignature, toPlayerRecord } from '../_realtime/presence-input.js';
 import { queuePresenceUpdate } from '../_realtime/presence-broadcast.js';
 import { clearSleeperCampOnBeat } from '../_realtime/sleeper-camps.js';
+import { refreshCoastTownVisit } from '../coast/_town-presence.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
 import { readSavedLocation } from '../_realtime/saved-location.js';
 import { durablePresenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
@@ -381,6 +382,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Kage accept-obligation clock). See _realtime/_presence-beat.ts.
         stampPresenceBeat(name);
         void clearSleeperCampOnBeat(name, now).catch(() => undefined);
+        // A member inside their clan's town on the coast stays in its safe zone only while
+        // this renews it. Nothing is read for anyone else (api/coast/_town-presence.ts).
+        void refreshCoastTownVisit(name, now).catch(() => undefined);
 
         // Socket clients take the whole sector roster only now and then (below),
         // so push what this beat changed that they can see: a first appearance,

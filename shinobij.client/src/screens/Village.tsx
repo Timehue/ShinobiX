@@ -8,8 +8,7 @@ import { DayNightSky } from "../components/DayNightSky";
 import { JourneyGuide } from "../components/JourneyGuide";
 import { preloadScreen } from "../lib/screen-preload";
 import { VILLAGE_FACILITIES } from "../lib/facility-presentation";
-import { facilityThumb } from "../lib/facility-thumbs";
-import type { CSSProperties } from "react";
+import { VillageFacilityTile } from "../components/VillageFacilityTile";
 import { CircuitNotice } from '../features/dojo-circuit/CircuitEntry';
 
 // Ambience tuned to each village's painted scene: snow over Frostfang, drifting
@@ -42,26 +41,9 @@ export function Village({ character, setScreen }: { character: Character; setScr
                 <SceneCritters className="amb-under" biome={ambience.biome} density={0.9} />
                 <JourneyGuide key={character.name} character={character} setScreen={setScreen} />
                 {VILLAGE_FACILITIES.map((location) => (
-                    <button
-                        key={location.screen}
-                        className="stormveil-map-button facility-tile"
-                        style={{
-                            left: location.mapX,
-                            top: location.mapY,
-                            // Restores the desktop spot on portrait tablets, where the phone grid overrides left/top.
-                            "--map-x": location.mapX,
-                            "--map-y": location.mapY,
-                            "--facility-accent": location.accent,
-                        } as CSSProperties}
-                        onPointerDown={() => preloadScreen(location.screen, character.storyVillage || character.village)}
-                        onClick={() => setScreen(location.screen)}
-                        aria-label={`Enter ${location.name}`}
-                    >
-                        <span className="stormveil-map-icon-frame">
-                            <img className="stormveil-map-icon" src={facilityThumb(characterVillage, location.id)} alt="" draggable={false} />
-                        </span>
-                        <strong className="stormveil-map-label">{location.name}</strong>
-                    </button>
+                    <VillageFacilityTile key={location.screen} id={location.id} village={characterVillage}
+                        preload={() => preloadScreen(location.screen, character.storyVillage || character.village)}
+                        enter={() => setScreen(location.screen)} />
                 ))}
             </div>
         </div>

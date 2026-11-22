@@ -52,11 +52,11 @@ function poolPercent(current: number, max: number) {
 export function Cafeteria({
     character,
     onVersionedCharacter,
-    onBack,
+    onBack, settlement,
 }: {
     character: Character;
     onVersionedCharacter: VersionedCharacterCommit;
-    onBack: () => void;
+    onBack: () => void; settlement?: string;
 }) {
     const [busyMeal, setBusyMeal] = useState<CafeteriaMealId | null>(null);
     const [busyRecipe, setBusyRecipe] = useState<CookRecipeId | null>(null);
@@ -139,7 +139,7 @@ export function Cafeteria({
         <div className="card civic-facility-screen cafeteria-screen">
             <FacilityHero
                 facility="cafeteria"
-                eyebrow={`${character.village} · Commons`}
+                eyebrow={settlement ?? `${character.village} · Commons`} backLabel={settlement}
                 title="Noodle Den"
                 description="Hot food, fast recovery, and a place to reset before the next mission."
                 onBack={onBack}
@@ -215,7 +215,7 @@ export function Cafeteria({
                 })}
             </div>
 
-            <section className="summary-box cafe-kitchen">
+            {!settlement && <section className="summary-box cafe-kitchen">
                 <h3>Cook for the village</h3>
                 <p className="hint">Cook fish and gathered Field Herbs into ration packs. Higher-grade fish yields more food. Village stores also accept hunt spoils while open.</p>
                 <>
@@ -260,7 +260,7 @@ export function Cafeteria({
                     <p className="hint cafe-kitchen-empty">Bring back fish from water nodes or spoils from hunting to cook ration packs.</p>
                 )}
                 </>
-            </section>
+            </section>}
         </div>
     );
 }

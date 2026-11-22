@@ -10,6 +10,10 @@ import { packedPoseDecoder } from './scripts/packed-pose-decoder.mjs';
 /** Pure-literal tables shipped packed (values unchanged; see pack-static-catalog.mjs).
  *  Lazy chunks only: packed data gzips worse, so startup modules stay literal. */
 const STATIC_LITERAL_TABLES: ReadonlyArray<readonly [string, readonly string[]]> = [
+    // The journal, mission lists and walkable map landmarks are opened on demand.
+    ['/src/lib/coast-journal-art.ts', ['rewards']],
+    ['/src/data/missions.ts', ['builtinFetchMissions', 'builtinHuntMissions']],
+    ['/src/lib/first-pact-world.ts', ['FIRST_PACT_ARCHITECTURE', 'FIRST_PACT_NPCS']],
     ['/shared/resource-nodes.ts', ['placements']],
     ['/src/data/sector-structure-placements.ts', ['STRONGHOLD_BY_ART', 'RIFT_BY_ART']],
 ];

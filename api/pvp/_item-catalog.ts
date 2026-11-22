@@ -24,6 +24,8 @@ export type CatalogItem = {
     saleBasis?: number;
     levelReq?: number;
     serviceItem?: boolean;
+    /** Belongs to a quest line and must stay inside it (shared/quest-items.ts). */
+    questOnly?: boolean;
     stackable?: boolean;
     armorQuality?: string;
     armorReduction?: number;
@@ -102,6 +104,8 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "cloth-sash-s1": {"id":"cloth-sash-s1","name":"Crimson Knot Sash","slot":"waist","rarity":"common","cost":0,"levelReq":1,"armorQuality":"Standard","armorReduction":0.015,"bonuses":{"ninjutsuOffense":10,"taijutsuOffense":10,"bukijutsuOffense":10,"genjutsuOffense":10,"ninjutsuDefense":10,"taijutsuDefense":10,"bukijutsuDefense":10,"genjutsuDefense":10}},
     "cloth-sash-s2": {"id":"cloth-sash-s2","name":"Bloodpetal Sash","slot":"waist","rarity":"common","cost":0,"levelReq":1,"armorQuality":"Standard","armorReduction":0.02,"bonuses":{"ninjutsuOffense":10,"taijutsuOffense":10,"bukijutsuOffense":10,"genjutsuOffense":10,"ninjutsuDefense":10,"taijutsuDefense":10,"bukijutsuDefense":10,"genjutsuDefense":10}},
     "cloth-sash-s3": {"id":"cloth-sash-s3","name":"Scarlet Guard Sash","slot":"waist","rarity":"common","cost":0,"levelReq":1,"armorQuality":"Standard","armorReduction":0.025,"bonuses":{"ninjutsuOffense":10,"taijutsuOffense":10,"bukijutsuOffense":10,"genjutsuOffense":10,"ninjutsuDefense":10,"taijutsuDefense":10,"bukijutsuDefense":10,"genjutsuDefense":10}},
+    "coast-quiet-crown-mantle": {"id":"coast-quiet-crown-mantle","name":"Quiet Crown Mantle","slot":"relic","rarity":"legendary","cost":0,"levelReq":95,"bonuses":{"pveDamagePercent":9}},
+    "coast-ridgewarden-bracer": {"id":"coast-ridgewarden-bracer","name":"Ridgewarden Bracer","slot":"relic","rarity":"legendary","cost":0,"levelReq":95,"bonuses":{"pveDamagePercent":9}},
     "collar-amber": {"id":"collar-amber","name":"Sunflare Collar","slot":"item","rarity":"legendary","cost":50,"bonuses":{}},
     "collar-amethyst": {"id":"collar-amethyst","name":"Twilight Collar","slot":"item","rarity":"mythic","cost":200,"bonuses":{}},
     "collar-azure": {"id":"collar-azure","name":"Skywarden Collar","slot":"item","rarity":"legendary","cost":50,"bonuses":{}},
@@ -275,6 +279,33 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "pvp-spiked-war-harness": {"id":"pvp-spiked-war-harness","name":"Spiked War Harness","slot":"item","rarity":"legendary","cost":100,"bonuses":{}},
     "pvp-tortoise-shell-plating": {"id":"pvp-tortoise-shell-plating","name":"Tortoise Shell Plating","slot":"item","rarity":"legendary","cost":110,"bonuses":{}},
     "pvp-venomfang-bit": {"id":"pvp-venomfang-bit","name":"Venomfang Bit","slot":"item","rarity":"mythic","cost":130,"bonuses":{}},
+    "quest-binding-thorn": {"id":"quest-binding-thorn","name":"Binding Thorn","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-caulk-eel": {"id":"quest-caulk-eel","name":"Caulk Eel","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-clouding-ink": {"id":"quest-clouding-ink","name":"Clouding Ink","slot":"thrown","rarity":"rare","cost":0,"questOnly":true,"stackable":true,"weaponRange":4,"weaponCooldown":5,"weaponEp":15,"apCost":40,"bonuses":{}},
+    "quest-ember-senbon": {"id":"quest-ember-senbon","name":"Ember Senbon","slot":"thrown","rarity":"rare","cost":0,"questOnly":true,"stackable":true,"weaponRange":4,"weaponCooldown":5,"weaponEp":15,"apCost":40,"bonuses":{}},
+    "quest-emberglass": {"id":"quest-emberglass","name":"Emberglass","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-frost-splinter": {"id":"quest-frost-splinter","name":"Frost Splinter","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-garrison-seal": {"id":"quest-garrison-seal","name":"Garrison Seal","slot":"item","rarity":"rare","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-icebell-smelt": {"id":"quest-icebell-smelt","name":"Icebell Smelt","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-ink-loach": {"id":"quest-ink-loach","name":"Ink Loach","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-inkseed": {"id":"quest-inkseed","name":"Inkseed","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-keelroot": {"id":"quest-keelroot","name":"Keelroot","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-mirror-silt": {"id":"quest-mirror-silt","name":"Mirror Silt","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-needle-fish": {"id":"quest-needle-fish","name":"Needle Fish","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-pact-cutter-snare": {"id":"quest-pact-cutter-snare","name":"Pact-Cutter Snare","slot":"thrown","rarity":"rare","cost":0,"questOnly":true,"stackable":true,"weaponRange":4,"weaponCooldown":5,"weaponEp":15,"apCost":40,"bonuses":{}},
+    "quest-pitchwood": {"id":"quest-pitchwood","name":"Pitchwood","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-runner-tally": {"id":"quest-runner-tally","name":"Runner's Tally","slot":"item","rarity":"rare","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-scent-carp": {"id":"quest-scent-carp","name":"Scent Carp","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-scent-lure": {"id":"quest-scent-lure","name":"Scent Lure","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-signal-shard": {"id":"quest-signal-shard","name":"Stormglass Signal Shard","slot":"thrown","rarity":"rare","cost":0,"questOnly":true,"stackable":true,"weaponRange":4,"weaponCooldown":5,"weaponEp":15,"apCost":40,"bonuses":{}},
+    "quest-silver-grit": {"id":"quest-silver-grit","name":"Silver Grit","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-splitstone-fittings": {"id":"quest-splitstone-fittings","name":"Splitstone Fittings","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-stand-down-order": {"id":"quest-stand-down-order","name":"Forged Stand-Down Order","slot":"item","rarity":"rare","cost":0,"questOnly":true,"stackable":true,"apCost":35,"bonuses":{}},
+    "quest-tether-link": {"id":"quest-tether-link","name":"Tether Link","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-windroot": {"id":"quest-windroot","name":"Windroot","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-woundroot": {"id":"quest-woundroot","name":"Woundroot","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
+    "quest-woundroot-vial": {"id":"quest-woundroot-vial","name":"Woundroot Vial","slot":"thrown","rarity":"rare","cost":0,"questOnly":true,"stackable":true,"weaponRange":4,"weaponCooldown":5,"weaponEp":15,"apCost":40,"bonuses":{}},
+    "quest-wrack-cord": {"id":"quest-wrack-cord","name":"Wrack Cord","slot":"item","rarity":"common","cost":0,"questOnly":true,"stackable":true,"bonuses":{}},
     "ranked-format-crown": {"id":"ranked-format-crown","name":"Ranked Seal Crown","slot":"head","rarity":"legendary","cost":0,"levelReq":65,"armorQuality":"Legendary","bonuses":{"ninjutsuOffense":30,"taijutsuOffense":30,"bukijutsuOffense":30,"genjutsuOffense":30,"ninjutsuDefense":30,"taijutsuDefense":30,"bukijutsuDefense":30,"genjutsuDefense":30}},
     "ranked-format-greaves": {"id":"ranked-format-greaves","name":"Ranked Seal Greaves","slot":"legs","rarity":"legendary","cost":0,"levelReq":65,"armorQuality":"Legendary","bonuses":{"ninjutsuOffense":30,"taijutsuOffense":30,"bukijutsuOffense":30,"genjutsuOffense":30,"ninjutsuDefense":30,"taijutsuDefense":30,"bukijutsuDefense":30,"genjutsuDefense":30}},
     "ranked-format-kunai": {"id":"ranked-format-kunai","name":"Kunai","slot":"thrown","rarity":"legendary","cost":0,"weaponCooldown":5,"weaponEp":20,"weaponEffect":"Wound","weaponEffectValue":25,"apCost":20,"bonuses":{}},

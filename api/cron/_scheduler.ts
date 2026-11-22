@@ -52,6 +52,7 @@ import { runTerritoryLifecycleSweep } from '../_territory-lifecycle-store.js';
 import { runBattleLapseSweep } from './_battle-lapse-sweep.js';
 import { runPlayerRankedSettlementSweep } from './_player-ranked-settlement-sweep.js';
 import { settleDueSectorWars } from '../_sector-war-settle.js';
+import { runCoastLandTick } from '../coast/_landing.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import { runCurrencyLedgerSweep } from './_currency-ledger-sweep.js';
 
@@ -64,6 +65,7 @@ const TERRITORY_LIFECYCLE_TICK_MS = 5 * 60_000;
 // 72h sector wars end at whatever hour they were declared. Settling only in the
 // 03:00 daily pass left a finished war unflipped for up to a day.
 const SECTOR_WAR_SETTLE_TICK_MS = 5 * 60_000;
+const COAST_LAND_SETTLE_TICK_MS = 5 * 60_000;
 const BATTLE_LAPSE_TICK_MS = 10 * 60_000; // F08 backstop: fights nobody came back to
 // Player-ranked sagas nobody came back to finish (restart mid-saga, lost gate admission).
 const RANKED_SETTLEMENT_TICK_MS = 5 * 60_000;
@@ -106,6 +108,7 @@ const LEASE_TTL = {
     clanBossPartySweep: 4 * 60,
     territoryLifecycle: 4 * 60,
     sectorWarSettle: 4 * 60,
+    coastLandSettle: 4 * 60,
     battleLapse: 9 * 60,
     rankedSettlement: 4 * 60,
     currencyLedgerSweep: 9 * 60,
@@ -128,6 +131,7 @@ let _settlementInterval: ReturnType<typeof setInterval> | null = null;
 let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
 let _territoryLifecycleInterval: ReturnType<typeof setInterval> | null = null;
 let _sectorWarSettleInterval: ReturnType<typeof setInterval> | null = null;
+let _coastLandSettleInterval: ReturnType<typeof setInterval> | null = null;
 let _battleLapseInterval: ReturnType<typeof setInterval> | null = null;
 let _battleLapseBootTimeout: ReturnType<typeof setTimeout> | null = null;
 let _rankedSettlementInterval: ReturnType<typeof setInterval> | null = null;
@@ -145,6 +149,7 @@ let _settlementScanRunning = false;
 let _clanBossPartySweepRunning = false;
 let _territoryLifecycleRunning = false;
 let _sectorWarSettleRunning = false;
+let _coastLandSettleRunning = false;
 let _battleLapseRunning = false;
 let _rankedSettlementRunning = false;
 // Pre-pointer journals are discovered once per process until a pass completes.
@@ -274,6 +279,32 @@ async function fireSectorWarSettlement(): Promise<void> {
         console.error('[cron-scheduler] sector-war settlement threw:', (err as Error).message);
     } finally {
         _sectorWarSettleRunning = false;
+    }
+}
+
+/**
+ * Land on the Unmapped Coast (api/coast/_land.ts): close the contests whose time
+ * is up, and hand back to the Unmoored any sector whose clan is gone. A contest
+ * that reaches its target settles at once from the winning fight; this pass is
+ * for the ones that run out the clock. It then settles each Clan Landing's
+ * weekly upkeep (api/coast/_landing.ts).
+ */
+async function fireCoastLandSettlement(): Promise<void> {
+    if (_coastLandSettleRunning) return;
+    _coastLandSettleRunning = true;
+    try {
+        const leased = await withScheduledJobLease(
+            'coast-land-settle',
+            () => runCoastLandTick(),
+            { ttlSec: LEASE_TTL.coastLandSettle, holdUntilExpiryOnSuccess: true },
+        );
+        if (leased.acquired && (leased.value.settled.length > 0 || leased.value.released.length > 0 || leased.value.fallen.length > 0)) {
+            console.log(`[cron-scheduler] coast land: settled ${leased.value.settled.length}, released ${leased.value.released.length}, Landings fallen ${leased.value.fallen.length}.`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] coast land settlement threw:', (err as Error).message);
+    } finally {
+        _coastLandSettleRunning = false;
     }
 }
 
@@ -720,6 +751,11 @@ export function startSnapshotCron(): void {
         _sectorWarSettleInterval.unref?.();
         void fireSectorWarSettlement();
     }
+    if (!_coastLandSettleInterval) {
+        _coastLandSettleInterval = setInterval(() => void fireCoastLandSettlement(), COAST_LAND_SETTLE_TICK_MS);
+        _coastLandSettleInterval.unref?.();
+        void fireCoastLandSettlement();
+    }
     if (!_villageWarCatchUpInterval) {
         _villageWarCatchUpInterval = setInterval(() => void fireVillageWarDailyCatchUp(), VILLAGE_WAR_CATCHUP_TICK_MS);
         _villageWarCatchUpInterval.unref?.();
@@ -851,6 +887,7 @@ export function stopSnapshotCron(): void {
     if (_clanBossPartySweepInterval) { clearInterval(_clanBossPartySweepInterval); _clanBossPartySweepInterval = null; }
     if (_territoryLifecycleInterval) { clearInterval(_territoryLifecycleInterval); _territoryLifecycleInterval = null; }
     if (_sectorWarSettleInterval) { clearInterval(_sectorWarSettleInterval); _sectorWarSettleInterval = null; }
+    if (_coastLandSettleInterval) { clearInterval(_coastLandSettleInterval); _coastLandSettleInterval = null; }
     if (_villageWarCatchUpInterval) { clearInterval(_villageWarCatchUpInterval); _villageWarCatchUpInterval = null; }
     if (_villageWarCatchUpBootTimeout) { clearTimeout(_villageWarCatchUpBootTimeout); _villageWarCatchUpBootTimeout = null; }
     if (_dailyPassCatchUpBootTimeout) { clearTimeout(_dailyPassCatchUpBootTimeout); _dailyPassCatchUpBootTimeout = null; }

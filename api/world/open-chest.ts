@@ -18,6 +18,7 @@ import { loadSectorPoolOwner, readSectorPool, reserveSectorPool, type SectorPool
 import { creditSectorIntel, INTEL_PER_CHEST } from '../_village-intel.js';
 import { villageStoresEnabled } from '../_release-flags.js';
 import { settlePendingWorldReward } from './_pending-rewards.js';
+import { isCoastSector } from '../../shared/world-maps.js';
 
 const cleanId = (value: unknown) => {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
@@ -156,7 +157,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // `poolOwner` is this request's already-read territory row, so the
             // credit reuses it instead of re-reading `world:territory:<sector>`
             // (one KV round-trip saved per chest-open). Credit rules unchanged.
-            await creditSectorIntel(pool.village, Math.floor(Number(body.sector)), INTEL_PER_CHEST, Date.now(), poolOwner).catch(() => undefined);
+            // Never on the Unmapped Coast: no village holds ground there to scout.
+            if (!isCoastSector(sectorId)) await creditSectorIntel(pool.village, Math.floor(Number(body.sector)), INTEL_PER_CHEST, Date.now(), poolOwner).catch(() => undefined);
             const settled = settleAncientChestLoot(character, loot);
             const receipt = {
                 id: worldExploreRequestId,

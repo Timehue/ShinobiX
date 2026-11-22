@@ -1,3 +1,4 @@
+import { questItem } from "../../../shared/quest-items";
 import { LEGENDARY_WAR_CRATE_ID } from "../constants/game";
 import { armorReductionForItem, consolidateItemBonuses } from "../lib/equipment";
 import { getAllItems, getItemById } from "../lib/items";
@@ -293,15 +294,16 @@ export function Inventory({
             if (!itemsByName.has(candidate.name)) itemsByName.set(candidate.name, candidate);
         }
         return unifiedItemStacks(character).map(({ itemId, count }) => {
-            const item = itemsById.get(itemId) ?? itemsByName.get(itemId);
+            const quest = questItem(itemId);
+            const item = quest ?? itemsById.get(itemId) ?? itemsByName.get(itemId);
             const category = itemCategory(itemId, item);
             // The row's type and summary lines are pure functions of the item
             // and module tables, so they are worked out here once per stack
             // rather than on every render of every visible row.
-            const itemType = item
+            const itemType = quest ? "Quest " + quest.kind : item
                 ? presentItem(item, petFeedXpForItem(item.id)).category
                 : ITEM_CATEGORY_META[category].label;
-            const itemSummary = item
+            const itemSummary = quest ? quest.description : item
                 ? describeBonuses(item)
                 : itemId === "Soldier Pill"
                     ? "Restores 25 stamina."
@@ -327,7 +329,7 @@ export function Inventory({
     const visibleBackpackStacks = useMemo(() => backpackStacks
         .filter(({ item, category }) => {
             if (slotFilter) {
-                return item && (
+                return item && !questItem(item.id) && (
                     isCombatItemSlot(slotFilter)
                         ? isCombatConsumable(item)
                         : equipSlotForItem(item) === slotFilter
@@ -718,6 +720,7 @@ export function Inventory({
 
     const selected = selectedInventoryItem;
     const selectedGameItem = selected?.item;
+    const selectedQuest = questItem(selectedGameItem?.id);
     const selectedGatheringTool = gatheringTool(selectedGameItem?.id);
     async function checkExchangeEligibility() {
         if (!selected || checkingExchange) return;
@@ -1234,6 +1237,14 @@ export function Inventory({
                             label="Close item details"
                         />
 
+                        {selectedQuest ? <div className="item-popup-top">
+                            <div className="item-popup-art-box"><img src={selectedQuest.image} alt={selectedQuest.name} /></div>
+                            <div className="item-popup-main">
+                                <h2>{selectedQuest.name}</h2>
+                                <p>Quest {selectedQuest.kind} · Owned ×{selected.count}</p>
+                                <p>{selectedQuest.description}</p>
+                            </div>
+                        </div> : <>
                         <div className="item-popup-top">
                             <div className="item-popup-art-box">
                                 {selectedGameItem?.image ? (
@@ -1543,6 +1554,7 @@ export function Inventory({
                                 </div>
                             </div>
                         </div>
+                        </>}
                     </div>
                 </Modal>
             )}

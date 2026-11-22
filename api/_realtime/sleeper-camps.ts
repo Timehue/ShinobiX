@@ -5,6 +5,7 @@ import { onlineStore } from './online-store.js';
 import { getTravelLease, settleTravelLease, sleeperSectorForTravelLease } from './travel-lease.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from './battle-authority.js';
 import { isNpcAccount } from '../../shared/npc-village-roster.js';
+import { endCoastTownVisitAtLogout } from '../coast/_town-presence.js';
 
 export const SLEEPER_CAMPS_KEY = 'world:sleeper-camps';
 
@@ -177,7 +178,9 @@ export async function materializeSleeperCamps(players: OnlinePlayer[]): Promise<
             player = { ...player, sector: Number(saved.currentSector) || 0,
                 inBattle: battle.inBattle, locationUnverified: false };
         }
-        const camp = sleeperCampForPresence(player, now);
+        // A logout inside a clan's town on the coast is a logout in a safe zone: no camp,
+        // as none is minted in a village (api/coast/_town-presence.ts).
+        const camp = endCoastTownVisitAtLogout(player) ? null : sleeperCampForPresence(player, now);
         if (!camp) {
             uncamped.push(player.name);
             continue;

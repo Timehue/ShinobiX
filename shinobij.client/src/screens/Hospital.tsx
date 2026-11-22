@@ -23,7 +23,7 @@ function discountLabel(percent: number): string {
 }
 
 export
-function Hospital({ character, updateCharacter, setScreen, playerRoster, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen, authoritativeCharacter?: Character) => void; playerRoster: PlayerRecord[]; onServerVersion: (version: unknown) => boolean; onVersionedCharacter: VersionedCharacterCommit }) {
+function Hospital({ town, character, updateCharacter, setScreen, playerRoster, onServerVersion, onVersionedCharacter }: { town?: boolean; character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen, authoritativeCharacter?: Character) => void; playerRoster: PlayerRecord[]; onServerVersion: (version: unknown) => boolean; onVersionedCharacter: VersionedCharacterCommit }) {
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hospitalDiscount = getHospitalDiscountPercent(character);
@@ -286,8 +286,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
         <div className="card civic-facility-screen hospital-screen">
             <FacilityHero
                 facility="hospital"
-                eyebrow={`${character.village} · Medical Quarter`}
-                title="Village Hospital"
+                eyebrow={`${town ? character.clan : character.village} · Medical Quarter`}
+                title={town ? "Clan Town Hospital" : "Village Hospital"}
+                backLabel={town ? "Return to clan town" : undefined}
                 description="A quiet ward for recovery, triage, and the village healer corps."
                 onBack={() => setScreen("village")}
                 metrics={[

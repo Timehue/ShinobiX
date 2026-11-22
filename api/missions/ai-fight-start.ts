@@ -14,6 +14,7 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAiFightProfile } from './_ai-fight-encounter.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { attachHuntCombat } from '../solo-pve/_hunt-combat.js';
+import { sealQuestFightKit } from '../solo-pve/_quest-kit.js';
 import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
@@ -21,6 +22,8 @@ import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { settleHeldFights } from '../pve/_held-fights.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import { sealedSectorWeather } from '../_sector-weather-seal.js';
+import { coastHomeSchoolFor } from '../coast/_land.js';
+import { stepOutForFieldAction } from '../_sector-presence-gate.js';
 import { resolveAiFightScaling } from './_ai-fight-scaling.js';
 import {
     EXPLORE_BATTLE_MARKER_TTL_SECONDS,
@@ -219,6 +222,10 @@ async function sealAiFightEncounter(
             const save = await augmentSaveWithForgedDefs(fresh);
             if (!save?.character) throw new Error('Authoritative player save is unavailable.');
             const sessionId = `aifight-${randomUUID().replace(/-/g, '')}`;
+            // A fight on the open sector (a patrol, a beast, an ambush) is fought on the open sector:
+            // starting one from inside a clan's town ends the visit, so the member is not back in its
+            // safe zone the moment the fight is over. A mission or a spar from a town facility is not one.
+            if (worldSpec || (genericAuthority?.battleKind ?? body.battleKind) === 'explore') stepOutForFieldAction(playerName);
 
             // Step 3c: scaling from SERVER state. `body.opponentLevel` is never read
             // for the encounter — a client-chosen level is a client-chosen
@@ -268,7 +275,16 @@ async function sealAiFightEncounter(
                 // turn planner (api/solo-pve/_ai-turn-policy.ts).
                 aiTurnPolicy: STANDARD_PVE_AI_POLICY,
             });
+            // The holding clan's school on its coast sector: the same +10% a player fight seals
+            // (api/pvp/session.ts), read from the same claim, so the two cannot differ. Quest bosses are
+            // included (owner, 2026-11-21: "dont leave bosses out of the 10%"): a clan that holds the
+            // ground a boss stands on has earned its edge there.
+            const school = await coastHomeSchoolFor(worldSpec ? worldSpec.context.sector : genericAuthority?.sector, save).catch(() => '');
+            if (school) session.player.character = { ...session.player.character, homeTerrainType: school };
             if (worldSpec?.context.huntFormation) attachHuntCombat(session, worldSpec.context);
+            // A quest boss with a Hold: seal the Hold and hand the fight its tool,
+            // with the charge count the spec read from the save.
+            if (worldSpec?.context.questHold) sealQuestFightKit(session, worldSpec.context.questHold);
             await writeSoloPveSession(session);
             return { sessionId, session };
         });

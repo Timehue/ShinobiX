@@ -69,6 +69,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   professionPicker: companion,
   professions: companion,
   village: civic,
+  clanTown: civic,
   profile: archive,
   settings: archive,
   inventory: archive,

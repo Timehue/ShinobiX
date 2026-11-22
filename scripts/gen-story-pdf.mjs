@@ -30,6 +30,7 @@ import { storyEpiloguesByVillage } from "../shinobij.client/src/data/story-epilo
 import { storyRoadEvents } from "../shinobij.client/src/data/story-road-events.ts";
 import { splitDialogueLine } from "../shinobij.client/src/lib/vn.ts";
 import { buildCorpus } from "./narrative-corpus.mts";
+import { questLinePdfScenes } from "./story-pdf-quest-lines.mts";
 import { storyFieldBackdrop } from "../shinobij.client/src/lib/story-field-work.ts";
 import { hollowRifts } from "../shinobij.client/src/data/hollow-rifts.ts";
 import { ECHOES_OPPONENTS } from "../shinobij.client/src/data/echoes-of-war.ts";
@@ -209,6 +210,16 @@ const sideStories = SIDE_SECTIONS.map((section) => ({
         pages: renderPages(s.pages),
     })),
 }));
+
+// The long one-time quests (api/quests/_catalog.ts): one scene per quest, one
+// page per stage. Cross-village, so omitted when a single village is selected.
+if (!villageFilter) {
+    sideStories.push({
+        heading: "Quest Lines",
+        caption: "The long one-time quests, from the Wandering Sage's first notice to the end of the Unmapped Coast, then each region's four Rounds and the ten side tales. Under each quest, the first page is what is heard before it is taken and the last is what is heard before the reward. Every page between is one stage: the shaded line is what the server asks for, then what is said there, then the journal line the player reads. A line marked [only if: ...] is heard only by a player who made that choice earlier.",
+        scenes: questLinePdfScenes(),
+    });
+}
 
 // Transcode every scene's backdrop + speaker portraits (skipped under --no-images).
 for (const v of villages) for (const sc of [...v.chapters, ...v.interludes, ...v.epilogues]) await attachImages(sc);

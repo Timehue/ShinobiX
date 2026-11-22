@@ -4,6 +4,7 @@ import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { applyHuntCombatAction } from './_hunt-combat.js';
 import { guardBossFormLethal, soloPveBossFormMultiplier, soloPveBossTurnEnd, soloPveBossTurnStart, syncSoloPveBossForms } from './_boss-forms.js';
+import { breakBossHold, guardBossHoldLethal, isBossHoldBreaker } from './_boss-hold.js';
 import { appendSoloPveCombatEvent } from './_legacy-totals.js';
 import { hollowGateSessionDirective, sealHollowGateTelegraph } from '../../shared/hollow-gate-telegraph.js';
 import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, hollowGateShinobiRoundLimit } from '../../shared/hollow-gate-round-limit.js';
@@ -536,6 +537,7 @@ function appendFx(session: SoloPveSession, side: SoloPveSide, events: CombatFxEv
 function checkWinner(session: SoloPveSession): void {
     if (session.status === 'done') return;
     guardBossFormLethal(session);
+    guardBossHoldLethal(session);
     if (session.player.hp <= 0 && session.enemy.hp <= 0) {
         session.terminalReason = 'knockout';
         session.status = 'done';
@@ -1091,7 +1093,11 @@ function spendItemCharge(session: SoloPveSession, itemId: string, side: SoloPveS
         session.enemy.character.inventory = inventory;
         return true;
     }
-    if (session.itemCharges[itemId] === undefined) return true;
+    // An item with no sealed charge count is unlimited, which is how unsealed
+    // test and legacy sessions behave. A Hold's tool is never that: it must
+    // have been sealed with the charges the player really holds, or it cannot
+    // be used at all.
+    if (session.itemCharges[itemId] === undefined) return !isBossHoldBreaker(session, itemId);
     if (session.itemCharges[itemId] <= 0) return false;
     session.itemCharges[itemId] -= 1;
     session.itemsUsed[itemId] = (session.itemsUsed[itemId] ?? 0) + 1;
@@ -1428,6 +1434,8 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             suppressBloodline: !characterOwnsElement(self.character, item.weaponElement),
         };
         session.log.push(`${self.name} uses ${weapon.name}:`);
+        // The Hold breaks before the hit resolves, so this hit can end the fight.
+        breakBossHold(session, side, item.id);
         const resolution = resolutionFacts(applyCast(session, side, weapon));
         if (cooldown > 0) session.cooldowns[side][cooldownKey] = cooldown;
         spendAction(session, side, cost);
@@ -1444,6 +1452,9 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         if (!canAct(session, side, cost)) return { applied: false, reason: 'cannot-act' };
         if ((session.cooldowns[side][cooldownKey] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
         if (!spendItemCharge(session, item.id ?? '', side)) return { applied: false, reason: 'out-of-item' };
+        // Read before the break: once a chained Hold has risen, the tool just used no longer names it.
+        const holdTool = isBossHoldBreaker(session, item.id);
+        breakBossHold(session, side, item.id);
         const restoreChakra = Math.max(0, Number(item.restoreChakra ?? 0));
         const restoreStamina = Math.max(0, Number(item.restoreStamina ?? 0));
         let resolution: CombatResolutionFacts | undefined;
@@ -1480,6 +1491,11 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
                 : item.id === 'item-attack-pill'
                     ? 'deals 15% more damage for 2 rounds, starting next round.'
                     : 'takes 15% less direct-hit damage for 2 rounds, starting next round.'}`);
+        } else if (holdTool && !item.weaponTags?.length && !item.weaponEffect) {
+            // A Hold's tool that is shown or read out, not thrown (a forged order).
+            // Breaking the Hold is all it does. Without this it would fall to the
+            // plain-item default below and heal whoever used it.
+            session.log.push(`${self.name} uses ${item.name ?? 'the quest tool'}.`);
         } else {
             const tags = item.weaponTags?.length ? item.weaponTags : item.weaponEffect ? [{ name: item.weaponEffect, percent: item.weaponEffectValue }] : [{ name: 'Heal' }];
             // weaponSwing: true mirrors the PvP item fix (api/pvp/move.ts) — a

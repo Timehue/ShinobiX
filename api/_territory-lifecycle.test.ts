@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { _makeMemoryKv } from './_storage.js';
 import { clanRecordKey } from './_utils.js';
 import { runTerritoryLifecycleSweep } from './_territory-lifecycle-store.js';
+import { setHomeClanTerritoryOpenForTest } from './_home-clan-territory.js';
 import {
     beginTerritoryBreach,
     settleExpiredTerritoryBreach,
@@ -13,6 +14,9 @@ import {
 
 const NOW = Date.UTC(2026, 7, 22, 12);
 const passLock = async <T>(_key: string, fn: () => Promise<T>) => fn();
+// These tests pin how a clan-held home sector lived and lapsed. Clans hold land on the coast only now, so the
+// switch is turned on for them; the last test in this file runs the sweep as it ships.
+setHomeClanTerritoryOpenForTest(true);
 
 function owned(overrides: Record<string, unknown> = {}) {
     return {
@@ -162,5 +166,36 @@ describe('territory inactivity sweep', () => {
         assert.equal(row?.warSupply, 600);
         assert.equal(row?.lastSupplyAt, NOW);
         assert.equal(row?.rewardSuspendedAt, undefined);
+    });
+});
+
+describe('clans hold land on the coast only (2026-11-21)', () => {
+    it('as shipped, the sweep gives back every clan-held home sector once, and leaves a village its sector', async () => {
+        setHomeClanTerritoryOpenForTest(null);
+        try {
+            const store = _makeMemoryKv();
+            // An active clan with members seen today: under the old rules nothing would release it.
+            await store.set(clanRecordKey('Storm Clan'), { name: 'Storm Clan', founderName: 'Alice', members: [{ name: 'Alice' }] });
+            await store.hset('player:registry', { alice: { name: 'Alice', lastSeen: NOW } });
+            await store.set('world:territory:40', {
+                sector: 40, ownerClan: 'Storm Clan', ownerVillage: 'Stormveil Village', backgroundImage: 'x', controlScore: 75_000, hp: 20_000,
+                terrainBuffStat: 'ninjutsuOffense', weather: 'rain', guards: ['Alice'], warSupply: 300, lastSupplyAt: NOW - 86_400_000, updatedAt: NOW - 1,
+            });
+            const village = { sector: 41, ownerVillage: 'Frostfang Village', controlScore: 0, hp: 20_000, terrainBuffStat: 'bukijutsuOffense', guards: [], warSupply: 0, updatedAt: NOW - 1 };
+            await store.set('world:territory:41', village);
+
+            const swept = await runTerritoryLifecycleSweep({ store, lock: passLock, now: NOW });
+            assert.deepEqual([swept.coastOnlyReleased, swept.inactiveReleased, swept.missingClanReleased, swept.errors], [1, 0, 0, []]);
+            const held = await store.get<Record<string, unknown>>('world:territory:40');
+            assert.deepEqual([held?.ownerClan, held?.releaseReason, held?.controlScore, held?.guards, held?.warSupply], [undefined, 'coast-only', 0, [], 0]);
+            // The village layer is a different owner and is not touched: a sector war is still the only thing that moves it.
+            assert.equal(held?.ownerVillage, 'Stormveil Village');
+            assert.deepEqual(await store.get('world:territory:41'), village);
+
+            const again = await runTerritoryLifecycleSweep({ store, lock: passLock, now: NOW + 60_000 });
+            assert.equal(again.coastOnlyReleased, 0, 'there is nothing left to give back');
+        } finally {
+            setHomeClanTerritoryOpenForTest(true);
+        }
     });
 });

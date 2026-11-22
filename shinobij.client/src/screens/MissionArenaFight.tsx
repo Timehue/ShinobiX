@@ -16,7 +16,7 @@ import { retryArenaSettlement } from "../lib/arena-settlement-retry";
 import "../styles/mission-arena-fight.css";
 // CombatSideHud's portrait frame (it is node-tested, so it cannot import CSS).
 import "../styles/art-backdrop.css";
-import { BossFormChip, BossFormCutsceneGate } from "../components/BossFormStatus";
+import { BossFormChip, BossFormCutsceneGate, BossHoldChip } from "../components/BossFormStatus";
 import { useBossFormReveal } from "../lib/boss-form-reveal";
 import { bossFormAuraClass, bossFormViewFor } from "../lib/boss-form-view";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
@@ -1457,8 +1457,8 @@ export function MissionArenaFight({
 
                     <CombatEnvironmentStrip className="combat-grid-environment">
                         <div className={`combat-grid-environment-details${gateDirective ? ' hg-arena-rules' : ''}`}>
-                        {/* First, so a phone's narrow strip always shows the boss's phase. */}
-                        <BossFormChip view={bossForm} />
+                        {/* First, so a phone's narrow strip always shows them: the Hold (the one rule the player must answer), then the boss's phase. */}
+                        <BossHoldChip hold={session.bossHold} /><BossFormChip view={bossForm} />
                         {encounter && <EncounterDifficultyBadge encounter={encounter} />}
                         {(encounterNotice || typeof enemy?.character?.tacticalTell === 'string') && <button type="button" id="encounter-details-trigger" aria-haspopup="dialog" aria-controls="encounter-details" aria-expanded={encounterDetailsOpen}
                             onClick={() => setEncounterDetailsOpen(true)} title={encounterNotice}>{encounterNotice ? 'Resumed encounter' : 'Opponent tells'}</button>}

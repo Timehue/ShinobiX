@@ -313,12 +313,15 @@ export function playerOwnedSideRowKeys(slug: string): string[] {
  * `|`, so each pattern can only match this account's rows.
  * - `pet-sanctuary:` holds stored companions; a newcomer could withdraw them.
  * - `tower-firstclear:` receipts would deny the newcomer every first clear.
+ * - `coast:patrol-beaten:` lists the coast patrols driven off that day
+ *   (api/coast/_patrols.ts); a newcomer would find them already gone.
  */
 export function playerOwnedSideRowPatterns(slug: string): string[] {
     return [
         `pet-sanctuary:${slug}:*`,
         `tower-firstclear:${slug}:*`,
         `pet:showdown-played:${slug}:*`,
+        `coast:patrol-beaten:${slug}:*`,
     ];
 }
 
@@ -424,6 +427,15 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
     }
 
     if (clanName) await detachFromClan(slug, clanName, result);
+    // The coast's contests and Clan Landings name players too, and a contest's
+    // roster is frozen: whoever registered this name next would be on it.
+    // Loaded lazily for the same reason as the village modules below.
+    try {
+        const { releaseCoastRecordsOfPlayer } = await import('./coast/_player-erasure.js');
+        for (const note of await releaseCoastRecordsOfPlayer(slug, clanName)) result.detached.push(note);
+    } catch (err) {
+        result.failures.push(`coast records: ${(err as Error).message}`);
+    }
     // A deleted Kage would otherwise hold the seat forever (and a reused slug
     // would inherit it). Loaded lazily: the village modules pull in the save
     // pipeline, which this module's importers must not depend on.

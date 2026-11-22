@@ -860,6 +860,9 @@ export type Character = {
     // server-credited titles). Sanitizer re-injects the stored copy — client
     // edits never persist. Wearable-title ownership is verified against it.
     serverTitles?: string[];
+    // Achievement ids earned by finishing a tier of a coast region's Rounds.
+    // Server-owned: written only at the quest-line claim.
+    coastBadges?: string[];
     eraJourneys?: import('../../../shared/era-chapters').EraJourneys;
     // Custom-title cosmetics (paid, cosmetic-only). Server allowlists both:
     // style ∈ TITLE_STYLES ids, icon ∈ TITLE_ICONS (lib/legacy.ts).

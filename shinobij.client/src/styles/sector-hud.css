@@ -128,7 +128,7 @@
         grid-template-columns: minmax(0, 1fr) clamp(250px, 27%, 300px); grid-template-rows: auto; gap: 16px;
     }
     .map-instance .instance-frame.sector-instance-frame > main.tile-scene > .sector-image-map { inline-size: min(100%, var(--sector-board-size, calc(100dvh - 96px))); border-radius: 8px !important; }
-    .sector-hud { grid-column: 2; grid-row: 1; border-radius: 5px; inline-size: 100%; }
+    .sector-hud { grid-column: 2; grid-row: 1; border-radius: 5px; }
     .sector-hud-panel { right: calc(100% + 12px); top: 0; bottom: auto; width: 352px; }
 }
 @media (min-width: 980px) {
@@ -147,11 +147,11 @@
     .sector-hud-heading > strong { font-size: 25px; line-height: 1.25; }
     .sector-hud-region { font-size: 10px; letter-spacing: .04em; }
     .sector-hud-location { margin: 0 18px 18px; padding-top: 14px; border-top: 1px solid #66484e; display: flex; align-items: start; justify-content: space-between; gap: 12px; }
-    .sector-hud-location > b { order: 2; font-size: 10px; }
+    .sector-hud-location > b { order: 2; }
     .sector-hud-weather { font-size: 13px; gap: 3px; }
     .sector-hud-weather small { display: block; color: #c1aeb5; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
     .sector-hud-weather .sector-sky-forecast { display: block; margin-top: 4px; color: #c2b6bf; font-size: 11px; }
-    .sector-hud-controls { grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 18px 18px; }
+    .sector-hud-controls { gap: 8px; padding: 0 18px 18px; }
     .sector-hud-controls > .sector-hud-explore { grid-column: 1 / -1; }
     .sector-hud-controls > .sector-hud-info { grid-column: 1 / -1; justify-content: space-between; padding-inline: 12px; }
     .map-instance .sector-hud-controls > .sector-hud-explore { min-height: 64px; font-family: var(--font-display); font-size: 20px; }

@@ -82,7 +82,8 @@ async function read(
         // from the moment the sector opens, often a beat before presence
         // settles, and a 409 there would only be console noise. Nothing from
         // the sector is returned. Speaking still refuses with the 409 below.
-        const away = sectorPresenceBlock(identity.name, sector);
+        // Talking is not a field action: it does not take a member out of their clan's town.
+        const away = sectorPresenceBlock(identity.name, sector, { shelterKept: true });
         if (away) return res.status(200).json({ messages: [], now, away: away.reason });
     }
     const since = Math.max(0, Math.floor(Number(req.query.since ?? 0)) || 0);
@@ -109,7 +110,7 @@ async function post(
     if (await rejectUnclaimedGuest(res, identity)) return;
     const silence = await getActiveSilence(name);
     if (silence) return res.status(403).json(silenceRefusal(silence));
-    const away = sectorPresenceBlock(name, sector);
+    const away = sectorPresenceBlock(name, sector, { shelterKept: true });
     if (away) return res.status(away.status).json({ error: away.error, reason: away.reason });
 
     const text = cleanSectorChatText(rawText);

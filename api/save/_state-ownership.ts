@@ -438,6 +438,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // ── Titles / legacy / server vaults ─────────────────────────────────────
     f('eraJourneys', 'character', 'server-owned', 'eras', ['server-mirror-char', 'combat-strip-char'], 'Permanent campaigns and chapters; journey admission/completion and mission, Gate, Tower settlements write server proof.'),
     f('serverTitles', 'character', 'server-owned', 'titles', [], 'era grants; stored copy always wins'),
+    f('coastBadges', 'character', 'server-owned', 'quest-lines', [], 'achievement ids earned by finishing a Rounds tier; written only at the quest-line claim (api/quests/_engine.ts); the coast achievement rules read nothing else'),
     f('firstPactAuraPaid', 'character', 'server-payout-stamp', 'first-pact', ['server-mirror-char', 'combat-strip-char'], 'which First Pact Aura Stone parts (crossing, every writ, Vale Stable) first-pact/state has paid; written with the payout'),
     f('legacy', 'character', 'server-owned', 'legacy', [], 'legacy endpoints only; stored copy always wins'),
     f('customTitleStyle', 'character', 'cosmetic-ref', 'titles', [], 'allowlisted when legacy live; non-first saves frozen to stored'),
@@ -488,6 +489,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('activeStoryReckoningSeal', 'top', 'server-payout-stamp', 'story', ['ledger-toplevel']),
     f('activeRiftQuestSeal', 'top', 'server-payout-stamp', 'hollow-gate', ['ledger-toplevel']),
     f('activeQuestbookSeal', 'top', 'server-payout-stamp', 'wanderers', ['ledger-toplevel']),
+    f('questLines', 'top', 'server-payout-stamp', 'quest-lines', ['ledger-toplevel'], 'Active quest-line stages and permanent completion receipts (api/quests/_record.ts); written only by quests/lines and the quest fight settlement, in the same save write as the reward.'),
     f('banditTollReceipts', 'top', 'server-payout-stamp', 'wanderers', ['ledger-toplevel', 'combat-strip-toplevel']),
     f('creatorJutsus', 'top', 'shared-admin-content', 'authored-content', ['ledger-toplevel', 'shared-admin-content', 'public-combat-toplevel'], 'players: frozen to stored (mirror); admin slots: published content'),
     f('creatorAis', 'top', 'shared-admin-content', 'authored-content', ['ledger-toplevel', 'shared-admin-content', 'combat-strip-toplevel']),

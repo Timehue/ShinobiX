@@ -906,7 +906,10 @@ describe('current flat runtime-mode audit projection', () => {
       }],
       ['World-context wanderers', {
         contract: WORLD_MAP_AI_FLOW_CONTRACTS.worldContext,
-        worldKinds: ['wanderer', 'wanderer-ambush', 'patrol', 'bounty-hunter', 'questbook-boss', 'story-reckoning'],
+        // 'quest-line' is a quest line's drop or boss fight, 'coast-garrison' a land-contest garrison
+        // fight on the coast and 'coast-patrol' one of the coast's daily patrols: the same start,
+        // Solo engine and settlement.
+        worldKinds: ['wanderer', 'wanderer-ambush', 'patrol', 'bounty-hunter', 'questbook-boss', 'story-reckoning', 'quest-line', 'coast-garrison', 'coast-patrol'],
         requiredClients: ['screens/WorldMap.tsx'],
       }],
       ['World-context village crisis', {

@@ -5,6 +5,7 @@ import { withKvLock } from '../_lock.js';
 import { clanBareSlug, safeName } from '../_utils.js';
 import { mutatePlayerSaveLocked } from '../save/_mutate-player-save.js';
 import { releaseTerritory } from '../_territory-lifecycle.js';
+import { releaseCoastHoldingsForClan } from '../coast/_land.js';
 import {
     CLAN_WAR_KEY_PREFIX,
     CLAN_WAR_REMATCH_COOLDOWN_SEC,
@@ -208,6 +209,12 @@ export async function dissolveClanUnderLock(
     // its donate/declare writers take.
     const sealPoolKey = `clan-seal-pool:${receipt.clanName.toLowerCase()}`;
     await withKvLock(sealPoolKey, () => kv.del(sealPoolKey), { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
+
+    // Land on the Unmapped Coast is keyed by clan name too. What the clan held
+    // or had posted there goes back to the Unmoored, and its coast identity is
+    // dropped, so the next clan under this name starts with nothing. Runs under
+    // the coast's own lock (api/coast/_land.ts), which never takes a clan lock.
+    await releaseCoastHoldingsForClan(receipt.clanName);
 
     const founder = receipt.founder;
     const orderedMembers = [...receipt.memberNames].sort((a, b) => {

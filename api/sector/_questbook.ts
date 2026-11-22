@@ -20,6 +20,15 @@
  * defeated", the same PvE trust model the shipped ambush/nemesis fights use.
  */
 
+import {
+    aggregateStageChoiceEffects,
+    choiceOption as coreChoiceOption,
+    stageComplete,
+    stageIsChoice as coreStageIsChoice,
+    stageTimerMs as coreStageTimerMs,
+    timerResetStage as coreTimerResetStage,
+} from '../quests/_stage-core.js';
+
 export type QuestMetric = "totalAiKills" | "totalPetWins" | "cardClashWins" | "totalTilesExplored";
 
 /** One branch option. Its effects are SEALED at choice-time and applied at claim. */
@@ -231,32 +240,31 @@ export function finalStageIndex(entry: QuestBookEntry): number {
     return entry.stages.length - 1;
 }
 
+// The stage math below lives in api/quests/_stage-core.ts, shared with the
+// quest lines. These wrappers keep every Quest Book name and signature.
+
 /** A counter stage's objective is met when (current − baseline) reaches count. */
 export function questStageComplete(baseline: number, current: number, count: number): boolean {
-    return (Number(current) || 0) - (Number(baseline) || 0) >= (Number(count) || 0);
+    return stageComplete(baseline, current, count);
 }
 
 /** A branch stage — the player must pick an option to advance. */
 export function stageIsChoice(stage: QuestStage | null | undefined): boolean {
-    return !!stage?.choice && Array.isArray(stage.choice.options) && stage.choice.options.length > 0;
+    return coreStageIsChoice(stage);
 }
 
 export function choiceOption(stage: QuestStage | null | undefined, optionKey: string): QuestChoiceOption | null {
-    if (!stageIsChoice(stage)) return null;
-    return stage!.choice!.options.find(o => o.key === optionKey) ?? null;
+    return coreChoiceOption<QuestChoiceOption>(stage, optionKey);
 }
 
 /** Milliseconds a timed stage allows, or 0 if the stage is untimed. */
 export function stageTimerMs(stage: QuestStage | null | undefined): number {
-    return Math.max(0, Math.floor(Number(stage?.timer?.durationMs) || 0));
+    return coreStageTimerMs(stage);
 }
 
 /** Where a failed timer resets to (defaults to the timed stage itself). */
 export function timerResetStage(entry: QuestBookEntry, stageIdx: number): number {
-    const stage = entry.stages[stageIdx];
-    const to = stage?.timer?.failResetToStage;
-    if (typeof to === "number" && to >= 0 && to < entry.stages.length) return Math.floor(to);
-    return stageIdx;
+    return coreTimerResetStage(entry.stages, stageIdx);
 }
 
 export function bandMatches(entry: QuestBookEntry, level: number): boolean {
@@ -279,19 +287,5 @@ export function aggregateChoiceEffects(
     entry: QuestBookEntry,
     choices: Record<string, string> | null | undefined,
 ): { ryoMult: number; bonusFateShards: number; titleOverride: string | null; standings: string[] } {
-    let ryoMult = 1;
-    let bonusFateShards = 0;
-    let titleOverride: string | null = null;
-    const standings: string[] = [];
-    const made = choices ?? {};
-    for (const stage of entry.stages) {
-        if (!stageIsChoice(stage)) continue;
-        const opt = choiceOption(stage, String(made[stage.key] ?? ""));
-        if (!opt) continue;
-        if (opt.bonusRyoPct) ryoMult *= 1 + opt.bonusRyoPct / 100;
-        if (opt.bonusFateShards) bonusFateShards += opt.bonusFateShards;
-        if (opt.title) titleOverride = opt.title;
-        if (opt.standing) standings.push(opt.standing);
-    }
-    return { ryoMult, bonusFateShards, titleOverride, standings };
+    return aggregateStageChoiceEffects(entry.stages, choices);
 }

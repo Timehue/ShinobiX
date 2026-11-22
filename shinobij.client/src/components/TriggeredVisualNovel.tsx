@@ -151,6 +151,10 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
     // The Chronicle Scribe's traveler's-codex event (lib/chronicle-scribe).
     const isScribeEvent = event.id === "chronicle-scribe";
     const isFieldStory = event.id.startsWith("story-reckoning-field:");
+    // A coast quest's scene (components/CoastQuestScene) leads straight into
+    // what the player asked for, so it ends on its last line like a field story.
+    const isCoastScene = event.id.startsWith("coast-quest:");
+    const endsOnLastLine = isFieldStory || isCoastScene;
     const isPetEncounterEvent = event.id === "sys-pet-encounter";
     const isAncientChestEvent = event.id === "sys-ancient-chest";
     // Catch-all for pure conversation scenes: a zero-reward visualNovel event
@@ -189,6 +193,8 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                     ? "Road Story"
                     : isStoryEpilogue
                         ? "Epilogue"
+                        : isCoastScene
+                            ? "Coast Quest"
                         : isStoryInterlude
                             ? "Story Interlude"
                             : isStoryChapterEvent
@@ -352,7 +358,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
         setArmedChoiceKey("");
         if (lineIndex < pageDialogue.length - 1) return moveTo(pageIndex, lineIndex + 1);
         if (pageIndex < pages.length - 1) { moveTo(pageIndex + 1, 0); return; }
-        if (isFieldStory) { onComplete(); return; }
+        if (endsOnLastLine) { onComplete(); return; }
         setShowFinale(true);
     }
     function chooseOption(choice: VnChoice) {
@@ -390,7 +396,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             // The caller already holds the action lock, so complete directly.
             // The scribe ends the same way: Ihara speaks her own goodbye in the
             // choice conclusion, so a SCENE COMPLETE panel after it is filler.
-            if (isRiftEvent || isScribeEvent || isFieldStory) { onComplete(); return; }
+            if (isRiftEvent || isScribeEvent || endsOnLastLine) { onComplete(); return; }
             setShowFinale(true);
             return;
         }
@@ -614,7 +620,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             <div className="visual-novel admin-vn-play">
                 <div className="vn-header">
                     <div>
-                        <p className="act-label">{event.id.startsWith("story-road-") ? "ROAD STORY" : isStoryEpilogue ? "EPILOGUE" : isStoryInterlude ? "STORY INTERLUDE" : "TRIGGERED STORY EVENT"}</p>
+                        <p className="act-label">{event.id.startsWith("story-road-") ? "ROAD STORY" : isStoryEpilogue ? "EPILOGUE" : isCoastScene ? "COAST QUEST" : isStoryInterlude ? "STORY INTERLUDE" : "TRIGGERED STORY EVENT"}</p>
                         <h2>{page.title || event.vnTitle || event.name}</h2>
                     </div>
                     <div className="vn-header-actions">

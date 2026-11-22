@@ -194,6 +194,7 @@ const Missions = lazyWithRetry(() => import("./screens/Missions").then(m => ({ d
 const StoryHall = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryArchiveHall })));
 const StoryBoss = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryBoss })));
 const TownHall = lazyWithRetry(() => import("./screens/TownHall").then(m => ({ default: m.TownHall })));
+const ClanTown = lazyWithRetry(() => import("./screens/world-map/ClanTown"));
 const ClanHall = lazyWithRetry(() => import("./screens/ClanHall").then(m => ({ default: m.ClanHall })));
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
 import { notifyFieldTrailStateChanged, postFieldTrail } from "./lib/field-trail-api";
@@ -238,7 +239,7 @@ const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
-import { isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
+import { isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, atTownStop, type TownFacilityStop, isWildSector, isFieldSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
 import { readScreenPreference } from "./lib/navigation-trail";
 import { usePlayerAccountNameMirror } from "./lib/use-player-account-name-mirror";
 import { useAiFightCloseNavigation } from "./lib/use-ai-fight-close-navigation";
@@ -1658,6 +1659,10 @@ export default function App() {
     useHollowGateRunMirror({ screen, run: hollowGateRun, characterRef, setCharacter });
     const currentAccountNameRef = useRef(currentAccountName);
     useLayoutEffect(() => { currentAccountNameRef.current = currentAccountName; }, [currentAccountName]);
+    const townStop = useRef<TownFacilityStop | null>(null);
+    const atTownFacility = atTownStop(townStop.current, screen, character, currentSector);
+    const visitingTownHospital = atTownFacility && screen === "hospital";
+    useEffect(() => { if (!atTownFacility) townStop.current = null; }, [atTownFacility, screen]);
     const screenRef = useRef<Screen>(screen);
     useEffect(() => { screenRef.current = screen; }, [screen]);
     // Step 3 realtime: true while the Socket.IO presence channel is connected.
@@ -1823,7 +1828,7 @@ export default function App() {
             const presenceBody = {
                 name: char.name,
                 sector: currentSector,
-                enterTown: screenResetsSector(screenRef.current),
+                enterTown: screenResetsSector(screenRef.current, atTownStop(townStop.current, screenRef.current, char, currentSector)),
                 character: presenceCharacter(char),
                 travelingUntil: isTraveling ? travelingUntil : 0,
                 inBattle: inBattleNow,
@@ -2562,7 +2567,7 @@ export default function App() {
             } catch { /* corrupt or missing — ignore */ }
 
             (() => {
-                let target = restoreScreenForSave(null, !!normalized.hollowGateRun && !normalized.hollowGateRun.completed, normalized.hospitalized, !!normalized.activeDungeonRun?.token, isWildSector(Number(snap.currentSector ?? 0)), normalizePendingTravel(snap.pendingTravel) !== null);
+                let target = restoreScreenForSave(null, !!normalized.hollowGateRun && !normalized.hollowGateRun.completed, normalized.hospitalized, !!normalized.activeDungeonRun?.token, isFieldSector(Number(snap.currentSector ?? 0)), normalizePendingTravel(snap.pendingTravel) !== null);
                 const recovery = decideBootBattleRecovery({
                     pvpSessionAliveOnServer, restoredPvpBattleId, hasPendingPetPvp: Boolean(restoredPendingPetPvp), bootLock,
                     readRecentlyResolved: () => { try { return localStorage.getItem(BATTLE_LOCK_RESOLVED_KEY) ?? ""; } catch { return ""; } },
@@ -2630,7 +2635,7 @@ export default function App() {
                         // pointer below resumes the server-owned Solo PvE session.
                         void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                         if (normalized.hollowGateRun) setHollowGateRun(normalized.hollowGateRun);
-                        setScreen(normalized.hollowGateRun ? "hollowGateShrine" : safeFallbackScreen(isWildSector(Number(snap.currentSector ?? 0))));
+                        setScreen(normalized.hollowGateRun ? "hollowGateShrine" : safeFallbackScreen(isFieldSector(Number(snap.currentSector ?? 0))));
                         recoverBoardlessHollowGateRun();
                         return;
                     } else if (recovery === "dungeon") {
@@ -2770,7 +2775,7 @@ export default function App() {
                     const inDungeonRun = Boolean(normalized.activeDungeonRun?.token);
                     const arrivalTile = (snap as { currentTile?: unknown }).currentTile;
                     if (typeof arrivalTile === 'number' && Number.isFinite(arrivalTile)) setLocalSectorTile(arrivalTile); // null means no server-issued tile, not tile zero
-                    target = restoreScreenForSave(persisted, inHollowGateRun, normalized.hospitalized, inDungeonRun, isWildSector(Number(snap.currentSector ?? 0)), normalizePendingTravel(snap.pendingTravel) !== null);
+                    target = restoreScreenForSave(persisted, inHollowGateRun, normalized.hospitalized, inDungeonRun, isFieldSector(Number(snap.currentSector ?? 0)), normalizePendingTravel(snap.pendingTravel) !== null);
                     if (inHollowGateRun) {
                         try {
                             localStorage.removeItem("shinobix:towerRunId");
@@ -2789,14 +2794,14 @@ export default function App() {
                 } else if (target === "hollowGateShrine") {
                     // No active run — bounce back to where the player IS
                     // (world if in a sector) rather than an empty shrine screen.
-                    target = safeFallbackScreen(isWildSector(Number(snap.currentSector ?? 0)));
+                    target = safeFallbackScreen(isFieldSector(Number(snap.currentSector ?? 0)));
                 } else if (target === "dungeon" && normalized.activeDungeonRun?.token) {
                     setActiveDungeonRunToken(normalized.activeDungeonRun.token);
                     setActiveDungeonEvent(canonicalNarrativeEvent(hiddenDungeonVnEvent, creatorEvents.find((event) => event.id === DUNGEON_VN_ID)));
                     setDungeonLine(0);
                     setDungeonReturnScreen(normalized.activeDungeonRun.entry === "key" ? "centralHub" : "worldMap");
                 } else if (target === "dungeon") {
-                    target = safeFallbackScreen(isWildSector(Number(snap.currentSector ?? 0)));
+                    target = safeFallbackScreen(isFieldSector(Number(snap.currentSector ?? 0)));
                 }
                 setScreen(target);
                 recoverBoardlessHollowGateRun();
@@ -3189,8 +3194,8 @@ export default function App() {
 
     useEffect(() => {
         // Your sector is WHERE YOU ARE; menus don't move you. Only entering a town resets it (lib/screen-guards).
-        if (screenResetsSector(screen)) setCurrentSector(0);
-    }, [screen]);
+        if (screenResetsSector(screen, visitingTownHospital)) setCurrentSector(0);
+    }, [screen, visitingTownHospital]);
 
     const hasPendingNarrativeDelivery = !!character && !!nextNarrativeDelivery(character, triggeredEvents);
     useEffect(() => {
@@ -4396,7 +4401,7 @@ export default function App() {
     const petHomeReturnScreen = usePetHomeReturn(screen, character?.name, currentSector);
     const leavePetHome = () => navigate(petHomeReturnScreen);
     const { canGoBack, goBack, inBattleRef } = useBattleNavigationGuard({
-        screen, screenRef, setScreen, hospitalized: !!character?.hospitalized, fallbackScreen: () => safeFallbackScreen(isWildSector(currentSectorRef.current)),
+        screen, screenRef, setScreen, hospitalized: !!character?.hospitalized, fallbackScreen: () => safeFallbackScreen(isFieldSector(currentSectorRef.current)),
         account: character?.name,
         navigationBlocked: () => isTraveling || homeVillageTravel.isBusy() || storyFightOpen || sealedFightEngagedRef.current,
         navigateBack: navigate,
@@ -4410,7 +4415,7 @@ export default function App() {
         arenaBattleActive: false, petBattleActive, missionBattleActive,
     });
     useAppHistory(screen, navigate, () => isPresenceBattleActive(screenRef.current, true) || isTraveling || homeVillageTravel.isBusy() || !!character?.hospitalized,
-        () => safeFallbackScreen(isWildSector(currentSectorRef.current)), character?.name);
+        () => safeFallbackScreen(isFieldSector(currentSectorRef.current)), character?.name);
 
     // Stable identities for the memo'd RightMenu/MobileNav: navigate/logoutPlayer get a
     // fresh identity each render, defeating their memo. These latest-ref wrappers delegate
@@ -4497,6 +4502,7 @@ export default function App() {
         return true;
     }
 
+    const navigateFacility = (next: Screen, updated?: Character) => navigate(atTownFacility && next === "village" && !updated?.hospitalized ? "clanTown" : next, updated);
     const openWorldMapOverview = useWorldMapOverview(navigate);
     useRiftClaim(character, setCharacter, commitVersionedCharacter);
 
@@ -5630,6 +5636,10 @@ export default function App() {
                     </Suspense>
                     <Village character={character} setScreen={navigate} />
                 </>)}
+                {!activeTriggeredEvent && screen === "clanTown" && character && <ClanTown key={[character.name, character.clan, currentSector].join("/")} character={character} sector={currentSector} leave={() => navigate("worldMap")} open={next => {
+                    if (navigate(next)) townStop.current = { player: character.name, clan: character.clan, sector: currentSector, screen: next };
+                }} />}
+                {!activeTriggeredEvent && atTownFacility && !visitingTownHospital && <button type="button" onClick={() => navigate("clanTown")}>Return to clan town</button>}
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
                     <WorldMap
                         key={worldMapKey} onLaunchClanWarBattle={launchClanWarBattle}
@@ -5757,7 +5767,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={navigate} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={navigate} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={navigate} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} savedBloodlines={savedBloodlines} setScreen={navigate} sharedImages={sharedImages} onRecordBattle={recordBattle} onLaunchClanWarBattle={launchClanWarBattle} />}
+                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} savedBloodlines={savedBloodlines} setScreen={navigateFacility} sharedImages={sharedImages} onRecordBattle={recordBattle} onLaunchClanWarBattle={launchClanWarBattle} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} creatorItems={creatorItems} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "premiumShop" && character && <PremiumShop character={character} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
@@ -5783,7 +5793,7 @@ export default function App() {
                         })}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} onVersionedCharacter={commitVersionedCharacter} />}
+                {!activeTriggeredEvent && screen === "hospital" && character && <Hospital town={visitingTownHospital} character={character} updateCharacter={setCharacter} setScreen={navigateFacility} playerRoster={playerRoster} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "professions" && character && <Professions sharedImages={sharedImages} character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={() => navigate("village")} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}

@@ -31,6 +31,7 @@
  * where the client already reports that exact sector every heartbeat.
  */
 import { onlineStore } from './_realtime/online-store.js';
+import { leaveCoastTown } from './coast/_town-presence.js';
 
 export type SectorPresenceBlock = { status: number; error: string; reason: string };
 
@@ -40,8 +41,16 @@ export type SectorPresenceBlock = { status: number; error: string; reason: strin
  *
  * `claimedSector` below 1 is not gated: town-side actions are not wild-field
  * rewards and have their own rules.
+ *
+ * A clan's town on the Unmapped Coast is a safe zone INSIDE a field sector
+ * (api/coast/_town-presence.ts), so it could reopen the hole this file closes:
+ * presence says "in the sector", and nobody can attack. So a member who passes
+ * this gate from inside their town has walked out of it: the field's rewards
+ * are taken from the field, where they can be attacked for them. An honest
+ * client never sends a field request from the town screen. `shelterKept` is
+ * for the one caller that is not a field action (sector chat).
  */
-export function sectorPresenceBlock(playerName: string, claimedSector: unknown): SectorPresenceBlock | null {
+export function sectorPresenceBlock(playerName: string, claimedSector: unknown, options: { shelterKept?: boolean } = {}): SectorPresenceBlock | null {
     const sector = Math.floor(Number(claimedSector));
     if (!Number.isFinite(sector) || sector < 1) return null;
 
@@ -64,7 +73,17 @@ export function sectorPresenceBlock(playerName: string, claimedSector: unknown):
             reason: 'sector-mismatch',
         };
     }
+    if (!options.shelterKept) leaveCoastTown(playerName);
     return null;
+}
+
+/**
+ * The same rule for a field action that does not come through the gate above
+ * (gathering, a world fight): taking it from inside a clan's town ends the
+ * visit. Does nothing for anyone who is not in a town.
+ */
+export function stepOutForFieldAction(playerName: string): void {
+    leaveCoastTown(playerName);
 }
 
 /**

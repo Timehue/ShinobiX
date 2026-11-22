@@ -35,6 +35,7 @@ import { releaseBattleChallengeNotices } from './_challenge-inbox-release.js';
 import { settlePvpTerminalVitals } from './_vitals-settlement.js';
 import { settleTerminalWorldRaid, type TerminalWorldSettlement } from './_terminal-world-raid.js';
 import { pvpWorldBattleSector, settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
+import { settleCoastContestDuel } from '../coast/_land-duel.js';
 import { damageRuinsForWorldBattle } from '../sector/_ruin-battle-damage.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { cancelUnjoinedClanWarChallenge, settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
@@ -332,6 +333,13 @@ async function runCommittedPvpTerminalEffects(
             .catch(error => console.error('[pvp/terminal] ruin damage failed', error));
     }
     mark('ruin-damage');
+
+    // A duel fought in a coast sector whose holder is defending it scores for
+    // the winner's clan (api/coast/_land-duel.ts). Counted once per battle id.
+    // A failure never blocks the settlement. This runs again when the other
+    // fighter's settlement is read, so a transient failure usually still lands.
+    await settleCoastContestDuel(session).catch(error => console.error('[pvp/terminal] coast contest duel failed', error));
+    mark('coast-contest');
 
     if (isPlayerRankedV2Session(session)) {
         const playerRankedJournal = await confirmPlayerRankedTerminalEffects(kv, session, {

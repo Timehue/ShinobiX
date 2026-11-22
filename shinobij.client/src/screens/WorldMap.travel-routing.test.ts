@@ -456,3 +456,40 @@ test('leaving the map retires a late travel response and its encounter action', 
     assert.equal(h.state.selectedSector, 12);
     assert.equal(h.state.dialog, null);
 });
+
+test('a coast trail waits for the server to confirm the exit tile before sending travel', async () => {
+    const file = readFileSync(new URL('./world-map/CoastWorld.tsx', import.meta.url), 'utf8');
+    const coast = ts.createSourceFile('CoastWorld.tsx', file, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    let handler: string | undefined;
+    function findCross(node: import('typescript').Node) {
+        if (ts.isFunctionDeclaration(node) && node.name?.text === 'cross') handler = node.getText(coast);
+        ts.forEachChild(node, findCross);
+    }
+    findCross(coast);
+    assert.ok(handler);
+    const js = ts.transpileModule(handler, { compilerOptions: { target: ts.ScriptTarget.ES2023 } }).outputText;
+    for (const accepted of [false, true]) {
+        const confirmation = Promise.withResolvers<boolean>();
+        const calls: string[] = [];
+        const state = createContext({
+            world: { sectors: { '111': {} } }, character: { name: 'Rill' }, sector: 101,
+            alive: { current: true }, journey: { current: 1 }, busy: null,
+            exit: { id: '101:east:111', tile: 95, destinationSector: 111, destinationTile: 85 },
+            walkTo: async (tile: number) => { calls.push('walk ' + tile); return true; },
+            confirmRoadPosition: (name: string, sector: number, tile: number) => {
+                calls.push([name, sector, tile].join(' '));
+                return confirmation.promise;
+            },
+            coastTravel: async () => { calls.push('cross'); return { ok: true, arrivalTile: 85 }; },
+            setCurrentSector: (sector: number) => calls.push('sector ' + sector),
+            setLocalSectorTile: (tile: number) => calls.push('tile ' + tile),
+            setBusy() {}, setStatus() {},
+        });
+        const crossing: Promise<void> = runInContext(js + '\ncross(exit)', state);
+        await new Promise<void>(resolve => setImmediate(resolve));
+        assert.deepEqual(calls, ['walk 95', 'Rill 101 95']);
+        confirmation.resolve(accepted);
+        await crossing;
+        assert.deepEqual(calls.slice(2), accepted ? ['cross', 'tile 85', 'sector 111'] : []);
+    }
+});

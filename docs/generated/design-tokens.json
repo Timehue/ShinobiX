@@ -4487,6 +4487,10 @@
             "line": 73
           },
           {
+            "source": "shinobij.client/src/screens/world-map/CoastWorld.css",
+            "line": 64
+          },
+          {
             "source": "shinobij.client/src/styles/bloodline-awakening.css",
             "line": 546
           },
@@ -4728,6 +4732,14 @@
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
             "line": 1514
+          },
+          {
+            "source": "shinobij.client/src/screens/world-map/ClanTown.css",
+            "line": 13
+          },
+          {
+            "source": "shinobij.client/src/screens/world-map/CoastWorld.css",
+            "line": 86
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",

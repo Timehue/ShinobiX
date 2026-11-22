@@ -10,6 +10,7 @@
  * Extracted from App.tsx.
  */
 
+import coastQuestBadges from "../../../shared/coast-quest-badges.json";
 import type { Character } from "../types/character";
 import { MAX_LEVEL } from "./game";
 import { totalItemCount } from "../lib/inventory";
@@ -263,6 +264,18 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "secret-tile-cards-1000",  name: "Tile Collector",    desc: "Collect 1,000 tile cards.",                     category: "Exploration",icon: "🀄", hidden: true, check: c => (c.tileCards?.length ?? 0) >= 1000 },
     { id: "secret-minmaxer",         name: "Min-Maxer",         desc: "Reach level 50+ with zero unspent stat points.",category: "Progression",icon: "🧮", hidden: true, check: c => c.level >= 50 && c.unspentStats === 0 },
     { id: "secret-war-crates-10",    name: "Salvager",          desc: "Claim 10 war crates.",                          category: "Village",    icon: "📦", hidden: true, check: c => warCratesClaimed(c.claimedWarCrateIds) >= 10 },
+
+    ...coastQuestBadges.map(({ id, name, goal }): Achievement => ({
+        id, name, desc: `Finish ${goal}.`, category: "Story", icon: "🧭", check: c => !!c.coastBadges?.includes(id),
+    })),
+
+    // The Unmapped Coast: one for each tier of each region's Rounds. The id is
+    // the painted badge's file name, and the server writes `coastBadges` when
+    // the tier is claimed (api/achievements/_catalog.ts has the same twenty).
+    ...["Saltstair", "Brackwater", "Briarwood", "Whitecrown", "Hushcrown"].flatMap(region => ["I", "II", "III", "IV"].map((tier, i): Achievement => {
+        const id = `coast-${region.toLowerCase()}-tier-${i + 1}-v1`;
+        return { id, name: `${region} Rounds ${tier}`, desc: `Finish ${region} Rounds ${tier} on the Unmapped Coast.`, category: "Exploration", icon: "🧭", check: c => !!c.coastBadges?.includes(id) };
+    })),
 ];
 
 /** Permanent ledger truth for presentation; live predicates only discover new unlocks. */

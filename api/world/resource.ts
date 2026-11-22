@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { stepOutForFieldAction } from '../_sector-presence-gate.js';
 import { harvestNodeAt, resourceNode, resourceNodeAtLevel, WORLD_BOSS_CRYSTAL_NODES, type ResourceNodeLevel } from '../../shared/resource-nodes.js';
 import { readResourceGathering, type ResourceReceipt } from '../../shared/resource-gathering.js';
 import { reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx, economyTxKey, type EconomyTxRecord } from '../_economy-tx.js';
@@ -20,6 +21,8 @@ import { battleLockedFor } from '../_elapsed-state.js';
 import { applyWorldBossCrystalHarvest, worldBossCrystalCanBeMined } from '../world-boss-event/_crystals.js';
 import { readActiveWorldBossEvent } from '../world-boss-event/_event.js';
 import { rememberMinedGround } from './_harvest-ground.js';
+import { questSite } from '../../shared/quest-sites.js';
+import { gatherNode, questSiteRefusal } from '../quests/_sites.js';
 import { resourceBattleActive } from './_resource-battle.js';
 import { legacyActivityCommit } from '../_legacy-activity-commit.js';
 import { withPlayerResourceNodes, reserveSharedResourceNode, finishSharedResourceAdmission,
@@ -40,7 +43,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!['nodes', 'status', 'start', 'resolve', 'cancel', 'equip', 'refine'].includes(String(action))) return res.status(400).json({ error: 'Unknown Outpost action.' });
     const id = typeof body.requestId === 'string' ? body.requestId : '';
     if (action !== 'nodes' && action !== 'status' && action !== 'equip' && !/^[A-Za-z0-9_-]{16,80}$/.test(id)) return res.status(400).json({ error: 'A valid attempt ID is required.' });
-    const node = resourceNode(body.nodeId);
+    const node = gatherNode(body.nodeId);
+    // A quest site (api/quests/_sites.ts): the same gathering, but the attempts
+    // are the player's own, so it takes no shared claim and no sector pool slot.
+    const site = node ? questSite(node.id) : undefined;
     if (action === 'start' && (!node || !['active', 'relaxed'].includes(String(body.mode)))) return res.status(400).json({ error: 'Choose a valid node and gathering mode.' });
     const now = Date.now();
     if (action === 'start' && node?.worldBossCrystal && !(await worldBossCrystalCanBeMined(node.id, now))) {
@@ -55,11 +61,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!player || player.locationUnverified) return res.status(409).json({ error: 'Connect to the world before checking nodes.' });
             return res.status(200).json({ ok: true, sector: player.sector, nodes: await sharedResourceViews(player.sector, Date.now()) });
         }
-        const poolEnabled = villageStoresEnabled();
+        // Gathering is done on the open sector: starting it from inside a clan's town ends the visit.
+        if (action === 'start') stepOutForFieldAction(identity.name);
+        const poolEnabled = villageStoresEnabled() && !site;
         const owner = action === 'start' && node && poolEnabled ? await loadSectorPoolOwner(node.sector) : { ownerVillage: undefined };
         const requestJournal = id ? await kv.get<EconomyTxRecord>(economyTxKey(resourceTxId(identity.name, id))) : null;
         const requestSeal = requestJournal?.meta?.seal as ResourceSeal | undefined;
-        const result = await withPlayerResourceNodes(identity.name, [node?.id, requestSeal?.nodeId], assertActive => mutatePlayerSave<Record<string, unknown>>(identity.name, async ({ character }) => {
+        const result = await withPlayerResourceNodes(identity.name, [node?.id, requestSeal?.nodeId], assertActive => mutatePlayerSave<Record<string, unknown>>(identity.name, async ({ record, character }) => {
             assertActive(character);
             const now = Date.now();
             if (action === 'start' || action === 'resolve' || action === 'status') {
@@ -91,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await release();
             };
             if (state.active && (action === 'status' || action === 'start')) {
-                const active = state.active, activeNode = resourceNode(active.nodeId)!;
+                const active = state.active, activeNode = gatherNode(active.nodeId)!;
                 const player = onlineStore.get(identity.name);
                 if (claimLost || now >= active.expiresAt || resourcePositionError(player, activeNode)
                     || !activeSeal || (player ? player.movementSeq ?? 0 : -1) !== active.movementSequence || (player ? player.resourceEpoch ?? 0 : -1) !== activeSeal.authorityEpoch) {
@@ -160,9 +168,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The seal snapshots this level, so a rotation cannot change a started
             // attempt. A retry must reach its reservation, so it checks the sealed level.
             // A meadow retry also checks the bloom its first try was sealed in.
-            const offered = requestSeal?.nodeId === node.id && requestSeal.rules
+            // A quest site keeps the level it was authored at and never rotates.
+            const offered = site ? node : requestSeal?.nodeId === node.id && requestSeal.rules
                 ? harvestNodeAt(resourceNodeAtLevel(node, requestSeal.rules.difficulty as ResourceNodeLevel), requestSeal.startedAt) : await sharedResourceOffer(node, now);
-            const error = resourcePositionError(player, node) || resourceAdmissionError(current, offered, now, true);
+            // The quest check reads the stored save, so it comes before anything is reserved.
+            const error = resourcePositionError(player, node) || (site ? questSiteRefusal(record, site.id) : null)
+                || resourceAdmissionError(current, offered, now, !site);
             if (error || !player) return { ok: false, status: 409, error: error ?? 'Connect to the world first.' };
             let worldBossEventId: string | undefined;
             if (node.worldBossCrystal) {
@@ -174,7 +185,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 creditKey: `save:${identity.name}`, resource: 'explores', amount: 1,
                 meta: { fingerprint, nodeId: node.id, playerName: identity.name, poolEnabled,
                     seal: { ...mintResourceSeal(current, offered, id, body.mode as 'active' | 'relaxed', player, now, body.miningGameVersion === 2),
-                        sharedNode: true,
+                        ...(site ? {} : { sharedNode: true as const }),
                         ...(worldBossEventId ? { worldBossEventId } : {}) } } });
             if (journal.meta?.fingerprint !== fingerprint) return { ok: false, status: 409, error: 'This attempt ID was already used for another action.' };
             if (journal.state === 'complete' || journal.state === 'refunded') return { ok: false, status: 409, error: 'This attempt has already closed. Choose the node again to start another.' };

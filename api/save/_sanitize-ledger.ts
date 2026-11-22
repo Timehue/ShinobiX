@@ -4,6 +4,7 @@ import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { FORGED_ITEM_ID } from './_forged-items.js';
 import { meetsItemLevelReq } from '../../shared/item-level-gate.js';
 import { namedGearFitsEquipSlot } from '../../shared/named-gear-rules.js';
+import { isQuestOnlyItem } from '../../shared/quest-items.js';
 import {
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS,
     SERVER_PAYOUT_CHARACTER_FIELDS,
@@ -248,6 +249,11 @@ function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record
         // held to the gear slots by id. Not grandfathered: the client never puts a
         // named piece anywhere else, and the piece stays in the backpack.
         if (!namedGearFitsEquipSlot(slot, id)) continue;
+        // A quest item is never worn. Its own quest's fight is handed the tool
+        // by the server for that fight alone (shared/quest-items.ts), so an
+        // equipped one could only be a way to carry it into an ordinary fight
+        // or into PvP. Not grandfathered; the item stays in the backpack.
+        if (isQuestOnlyItem(id)) continue;
         const grandfathered = String(storedEquipment[slot] ?? '') === id;
         const builtin = ITEM_CATALOG[id];
         if (!grandfathered && builtin && !slotAcceptsItemKind(slot, builtin.slot)) continue;
@@ -452,6 +458,20 @@ function enforceRawSaveLedgerBoundary(
                 inventory.push(id);
                 retainedBackpackIds.add(id);
                 remaining.set(id, left - 1);
+            }
+            continue;
+        }
+        if (isQuestOnlyItem(id)) {
+            // A quest item is never worn (see enforceEquipmentOwnership). Any
+            // unit the client listed as worn goes back to its stack, so a save
+            // that already wears one loses nothing when it is taken off.
+            const left = remaining.get(id) ?? 0;
+            if (left > 0) {
+                const stack = stacks.find(entry => entry.itemId === id);
+                if (stack) stack.count += left;
+                else stacks.push({ itemId: id, count: left });
+                retainedBackpackIds.add(id);
+                remaining.set(id, 0);
             }
             continue;
         }

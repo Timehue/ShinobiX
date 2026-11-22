@@ -67,6 +67,14 @@ export function strongholdLocation(name: string, sector: number, now = Date.now(
     return location && location.sector === sector && isPresent(name, location, now)
         ? { sector: location.sector, tile: location.tile, ...(location.room ? { room: location.room } : {}), ...(location.visitId ? { visitId: location.visitId } : {}) } : undefined;
 }
+/**
+ * Rooms that are safe zones: nobody inside one attacks or is attacked, whoever else is inside. A clan's town on
+ * the Unmapped Coast is the one such room (api/coast/_town-presence.ts issues it and says who may enter).
+ */
+export const SAFE_ROOM_PREFIX = 'clan-town:';
+export function inSafeRoom(player: { name: string; sector: number }, now = Date.now()): boolean {
+    return !!strongholdLocation(player.name, player.sector, now)?.room?.startsWith(SAFE_ROOM_PREFIX);
+}
 export function sameStrongholdLocation(actor: { name: string; sector: number }, target: { name: string; sector: number }, now = Date.now()): boolean {
     const a = strongholdLocation(actor.name, actor.sector, now), b = strongholdLocation(target.name, target.sector, now);
     return !!a === !!b && a?.room === b?.room;

@@ -19,6 +19,7 @@ export const RECONCILABLE_SAGA_KINDS = [
     'pvp-bounty-place',
     'clan-treasury-donate',
     'clan-project-fund',
+    'coast-landing-contribute',
     'village-treasury-donate',
     'village-tax',
     'village-hollow-gate-unlock',

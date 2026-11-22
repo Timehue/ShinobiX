@@ -36,10 +36,17 @@ function normalized(value: string): string {
     return value.toLowerCase().replace(/[_\s]+/g, "-");
 }
 
-/** Select only authored village-story music; unrelated VN events stay silent. */
+/** Select only authored story music (the village stories and the coast's quests); unrelated VN events stay silent. */
 export function resolveVnScoreKey(eventId: string, eventLabel = ""): VnScoreKey | null {
     const normalizedId = normalized(eventId);
     const normalizedLabel = normalized(eventLabel);
+    // A coast quest's scene names its theme after an "@" (lib/coast-quest-scene.ts): the server picks one by
+    // region (REGION_SCORES in api/quests/_views.ts). Stormveil's, the harbor the boat leaves from, is the
+    // fallback, and the Hollow Gate's is never played there.
+    if (normalizedId.startsWith("coast-quest:")) {
+        const named = normalizedId.split("@")[1];
+        return Object.hasOwn(VN_SCORE_TRACKS, named) && named !== "hollow" ? named as VnScoreKey : "stormveil";
+    }
     const haystack = `${normalizedId} ${normalizedLabel}`;
     const isStory = normalizedId.startsWith("story-") || normalizedLabel.includes("storyline");
     if (!isStory) return null;

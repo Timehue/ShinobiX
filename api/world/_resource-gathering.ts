@@ -1,7 +1,10 @@
 import { randomInt } from 'node:crypto';
 import { addOwned, countOwned, removeOwned } from '../craft/_forge.js';
 import { gatheringTool, gatheringToolRemaining, useGatheringTool } from '../../shared/gathering-tools.js';
-import { resourceNode, validResourceNodeTerrain, type GatherFamily, type GatherTrace, type ResourceNode } from '../../shared/resource-nodes.js';
+import { validResourceNodeTerrain, type GatherFamily, type GatherTrace, type ResourceNode } from '../../shared/resource-nodes.js';
+import { isQuestOnlyItem } from '../../shared/quest-items.js';
+import { questSite } from '../../shared/quest-sites.js';
+import { gatherNode, questSiteWorkable } from '../quests/_sites.js';
 import { readResourceGathering, resourceSkillLevel, resourceSuccessRate, resourceQuality, resourceItemId,
     resourceAttemptsToday, DAILY_RESOURCE_ATTEMPT_LIMIT, RESOURCE_SUCCESS_XP, RESOURCE_FAILURE_XP, RESOURCE_ACTIVITY_INFO,
     resourceNodeState, RESOURCE_ATTEMPT_MS, RESOURCE_REFILL_MS, type ResourcePublicAttempt,
@@ -29,7 +32,8 @@ export function resourcePositionError(player: OnlinePlayer | null, node: Resourc
     return null;
 }
 export function resourceAdmissionError(character: Record<string, unknown>, node: ResourceNode, now: number, shared = false) {
-    if (!validResourceNodeTerrain(node)) return 'This gathering spot is no longer available.';
+    // A quest site stands on the coast, which has its own floors (api/quests/_sites.ts).
+    if (!(questSite(node.id) ? questSiteWorkable(node) : validResourceNodeTerrain(node))) return 'This gathering spot is no longer available.';
     if (node.dormant) return 'Nothing is growing here right now. Wild plants spring up somewhere new every half hour.';
     const state = readResourceGathering(character.resourceGathering);
     if (state.active) return 'Finish or cancel your current gathering attempt first.';
@@ -63,7 +67,7 @@ export function mintResourceSeal(character: Record<string, unknown>, node: Resou
         successDraw: resourceDraw(), qualityDraw: resourceDraw(), traceDraw: resourceDraw(), toolBroke: false };
 }
 export function admitResourceAttempt(character: Record<string, unknown>, seal: ResourceSeal, now: number) {
-    const node = resourceNode(seal.nodeId)!;
+    const node = gatherNode(seal.nodeId)!;
     const tool = useGatheringTool(character, RESOURCE_ACTIVITY_INFO[node.activity].slot);
     if (!tool) return null;
     const state = readResourceGathering(character.resourceGathering), prior = resourceNodeState(state.nodes[node.id], now);
@@ -79,7 +83,8 @@ export function admitResourceAttempt(character: Record<string, unknown>, seal: R
             skillLevel: seal.skillLevel, mode: seal.mode, template: seal.template, hookAt: seal.hookAt,
             ...(seal.fishingStyle ? { fishingStyle: seal.fishingStyle } : {}),
             ...(seal.fishingShoal ? { fishingShoal: seal.fishingShoal } : {}),
-            ...(seal.activity === 'mining' ? { deposit: (seal.rules.trace ?? seal.rules.family) as ResourceFamily } : {}),
+            // A quest site's seam holds a quest material, which is not one of the ore families the map draws.
+            ...(seal.activity === 'mining' && !isQuestOnlyItem(seal.rules.family) ? { deposit: (seal.rules.trace ?? seal.rules.family) as ResourceFamily } : {}),
             ...(seal.harvest ? { harvest: seal.harvest } : {}),
             movementSequence: seal.movementSequence, toolBroke: tool.broke, toolId: seal.toolId } } };
 }
@@ -95,7 +100,7 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
     // The public save contains no reward draws. Only the server journal can
     // supply them; cancellation and expiry can still close a missing journal.
     const active = { ...(validSeal ? seal : saved), toolBroke: saved.toolBroke ?? false } as ResourceSeal;
-    const node = resourceNode(active.nodeId)!;
+    const node = gatherNode(active.nodeId)!;
     // Keep the admitted reward table across a deployment. The fallback only
     // covers short-lived attempts created before rule snapshots were added.
     const rules = active.rules ?? { version: 1, difficulty: node.difficulty, ceiling: node.ceiling, family: node.family, trace: node.trace };
@@ -138,7 +143,12 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
         ...(active.activity === 'mining' && outcome === 'failed' ? { miningFailure: gameFailed ? 'fracture' as const : 'extraction' as const } : {}),
         ...(node.worldBossCrystal && active.worldBossEventId ? { worldBossEventId: active.worldBossEventId } : {}), settledAt: now };
     let receipt: ResourceReceipt, next = character;
-    if (active.activity === 'harvesting') {
+    if (isQuestOnlyItem(rules.family)) {
+        // A quest site pays one of its quest material per success, from the
+        // SEALED rules: ungraded, with no trace find and nothing else.
+        receipt = { ...settled, ...(outcome === 'success' ? { itemId: rules.family, count: 1 } : {}) };
+        if (outcome === 'success') next = addOwned(next, rules.family, 1, true);
+    } else if (active.activity === 'harvesting') {
         // Owner-approved table (shared/harvesting.ts), paid from the SEALED rules
         // and trace draw. Harvest ids are plain and ungraded.
         const payout = outcome === 'success' && isHarvestCommonId(rules.family) ? harvestPayout({

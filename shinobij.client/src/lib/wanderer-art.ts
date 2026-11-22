@@ -38,16 +38,7 @@ import maplessOjiiImg from "../assets/wanderers/legacy/mapless-ojii.webp";
 import beastImg from "../assets/coliseum/demo-emberfox.webp";
 import bossImg from "../assets/wanderers/bandit-warlord.webp";
 // Bespoke Quest Book bestiary bosses (gpt-image-1), keyed by bossId.
-import ashboundRaiderImg from "../assets/wanderers/bosses/ashbound-raider.webp";
-import bellWraithImg from "../assets/wanderers/bosses/bell-wraith.webp";
-import banditCaptainGoroImg from "../assets/wanderers/bosses/bandit-captain-goro.webp";
-import puppeteerItoguchiImg from "../assets/wanderers/bosses/puppeteer-itoguchi.webp";
 import raijuStormHoundImg from "../assets/wanderers/bosses/raiju-storm-hound.webp";
-import hunterShirakawaImg from "../assets/wanderers/bosses/hunter-shirakawa.webp";
-import houseKurobanImg from "../assets/wanderers/bosses/house-kuroban.webp";
-import ashboundCinderImg from "../assets/wanderers/bosses/ashbound-cinder.webp";
-import ashboundSlagImg from "../assets/wanderers/bosses/ashbound-slag.webp";
-import kazanAshboundImg from "../assets/wanderers/bosses/kazan-ashbound.webp";
 
 /** Portrait for the ambush boss (Bandit Warlord). */
 export const WANDERER_BOSS_PORTRAIT = bossImg;
@@ -55,22 +46,12 @@ export const WANDERER_BOSS_PORTRAIT = bossImg;
 // Each Quest Book bestiary boss has its own painted portrait. Keyed by the bossId
 // in api/sector/_questbook.ts. WorldMap falls back to the generic wanderer art if a
 // bossId ever lacks a bespoke face.
-const QUEST_BOSS_PORTRAITS: Record<string, string> = {
-    "ashbound-raider": ashboundRaiderImg,
-    "bell-wraith": bellWraithImg,
-    "bandit-captain-goro": banditCaptainGoroImg,
-    "puppeteer-itoguchi": puppeteerItoguchiImg,
-    "raiju-storm-hound": raijuStormHoundImg,
-    "hunter-shirakawa": hunterShirakawaImg,
-    "house-kuroban": houseKurobanImg,
-    "ashbound-cinder": ashboundCinderImg,
-    "ashbound-slag": ashboundSlagImg,
-    "kazan-ashbound": kazanAshboundImg,
-};
+const QUEST_BOSSES = new Set([
+    "ashbound-raider", "bell-wraith", "bandit-captain-goro", "puppeteer-itoguchi", "hunter-shirakawa", "house-kuroban", "ashbound-cinder", "ashbound-slag", "kazan-ashbound"
+]);
 export function questBossPortrait(bossId: string | null | undefined): string | null {
-    return bossId && Object.prototype.hasOwnProperty.call(QUEST_BOSS_PORTRAITS, bossId)
-        ? QUEST_BOSS_PORTRAITS[bossId]
-        : null;
+    if (bossId === "raiju-storm-hound") return raijuStormHoundImg;
+    return bossId && QUEST_BOSSES.has(bossId) ? "/portraits/quest-bosses/" + bossId + ".webp" : null;
 }
 
 /** The scarred face Quest Book bosses fall back on (portraitKey "nemesis"). */

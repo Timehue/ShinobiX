@@ -290,7 +290,7 @@ function ShopBase({
         <div className={`card shop-screen${currency === "fateShards" ? " grand-marketplace-screen" : ""}`}>
             <CentralDestinationHeader
                 backLabel={backLabel?.replace(/^←\s*/, "") ?? (currency === "fateShards" ? "Central" : "Village")}
-                eyebrow={currency === "fateShards" ? "The Thousand Gates · Merchant Quarter" : "Village Quartermaster · Approved Stock"}
+                eyebrow={currency === "fateShards" ? "The Thousand Gates · Merchant Quarter" : backLabel ?? "Village Quartermaster · Approved Stock"}
                 icon={<GameIcon name={currency === "fateShards" ? "crystal" : "bag"} size={30} />}
                 onBack={onBack}
                 statusLabel={currency === "fateShards" ? "Fate Shards" : "Ryo wallet"}
@@ -575,13 +575,13 @@ function ShopBase({
     );
 }
 
-export function Shop({ character, creatorItems, onBack, onVersionedCharacter }: { character: Character; creatorItems: GameItem[]; onBack: () => void; onVersionedCharacter: VersionedCharacterCommit }) {
+export function Shop({ character, creatorItems, onBack, onVersionedCharacter, settlement }: { settlement?: string; character: Character; creatorItems: GameItem[]; onBack: () => void; onVersionedCharacter: VersionedCharacterCommit }) {
     return (
         <>
             <ShopBase
                 character={character}
                 creatorItems={creatorItems}
-                title="Shop"
+                title={settlement ? "Provisions shop" : "Shop"} backLabel={settlement}
                 subtitle="Standard gear for everyday shinobi."
                 filterRarities={VILLAGE_SHOP_RARITIES}
                 currency="ryo"

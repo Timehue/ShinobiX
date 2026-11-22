@@ -5,8 +5,8 @@ import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 import { RELIC_ROSTER } from '../shared/relics.js';
 
-test('all 20 relics ship distinct, decodable, nonblank inventory artwork', async () => {
-    assert.equal(RELIC_ROSTER.length, 20);
+test('all 22 relics ship distinct, decodable, nonblank inventory artwork', async () => {
+    assert.equal(RELIC_ROSTER.length, 22);
     const filenames = new Set(await readdir('shinobij.client/public/items'));
     const paths = new Set<string>();
     const hashes = new Set<string>();
