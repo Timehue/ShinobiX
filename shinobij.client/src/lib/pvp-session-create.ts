@@ -19,6 +19,32 @@ export function pvpStableBattleIdFromRequestBody(requestBody: string): string {
     }
 }
 
+/**
+ * Send each fighter of a sector attack or a player challenge as its name alone,
+ * the way ranked and clan-war creates already do. The server refuses these
+ * creates unless both saves load (`requiresTwoPlayerSaves`, api/pvp/session.ts)
+ * and then builds each fighter from the save: stats, vitals, gear, jutsu
+ * loadout, bloodline, legacy and the combat sprite's model, starter and
+ * portrait. The body's copy is read only for a field the save lacks, and every
+ * save carries those fields (api/pvp/_sanitize.test.ts proves a name-only body
+ * seals the same fighter).
+ * The whole character carried battle history, receipts and ledgers (~250 KB on
+ * a developed save) and put the create past the server's body limit. Any other
+ * body is sent unchanged. Kept terse: the production bundle had ~200 B of
+ * headroom when this landed.
+ */
+export function slimPvpSessionRequestBody(requestBody: string): string {
+    try {
+        const body = JSON.parse(requestBody);
+        if (body.requireWorldCoLocation !== true && !body.challengeId?.trim?.()) return requestBody;
+        body.p1Character = { name: body.p1Character.name };
+        body.p2Character = { name: body.p2Character.name };
+        return JSON.stringify(body);
+    } catch {
+        return requestBody;
+    }
+}
+
 function abortError(): DOMException {
     return new DOMException("PvP session creation was aborted.", "AbortError");
 }
@@ -59,7 +85,7 @@ function canonicalClanResumeMatches(
 export async function createPvpSessionWithRecovery(
     fetchFn: typeof fetch,
     playerName: string,
-    requestBody: string,
+    fullRequestBody: string,
     options: {
         signal?: AbortSignal;
         isCurrent?: () => boolean;
@@ -68,6 +94,8 @@ export async function createPvpSessionWithRecovery(
         requestTimeoutMs?: number;
     } = {},
 ): Promise<PvpSessionCreateRecoveryResult> {
+    // Slimmed once, so every retry below still posts the exact same body.
+    const requestBody = slimPvpSessionRequestBody(fullRequestBody);
     const stableBattleId = pvpStableBattleIdFromRequestBody(requestBody);
     if (!stableBattleId) return { kind: "rejected", error: "PvP create intent is missing its stable battle id." };
     const isCurrent = options.isCurrent ?? (() => true);

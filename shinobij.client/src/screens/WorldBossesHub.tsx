@@ -3,10 +3,7 @@ import type { Character, PlayerRecord, VersionedCharacterCommit, BattleHistoryEn
 import type { GameItem, SavedBloodline } from '../types/combat';
 import type { CreatorAi } from '../types/creator-ai';
 import type { Screen } from '../types/core';
-import type { TowerHostLoadout } from '../lib/towers-api';
-import { getBloodlineMultiplier } from '../lib/combat-math';
-import { getAllItems } from '../lib/items';
-import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from '../lib/equipment-stats';
+import { buildHostLoadout } from '../lib/host-loadout';
 import { WeeklyBossArena } from './WeeklyBossArena';
 import { WorldBossEvent } from './WorldBossEvent';
 import { WorldBossTabs, type WorldBossTab } from '../components/WorldBossTabs';
@@ -55,8 +52,10 @@ export function WorldBossesHub({
     }, [tabStorageKey]);
     const tabBar = <WorldBossTabs active={activeTab} onSelect={selectTab} />;
     // Hoisted above the early return (hooks must run unconditionally); the
-    // catalog only changes with creatorItems, not on each idle-regen render.
-    const allItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
+    // loadout only changes with these inputs, not on each idle-regen render.
+    // The same builder as Towers, Clan Hall and World Crisis, so the boss queue
+    // also posts its items without inline forge art.
+    const hostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
 
     if (activeTab === 'weekly') {
         return <WeeklyBossArena
@@ -70,18 +69,6 @@ export function WorldBossesHub({
             screenGuardKey="weeklyBoss"
         />;
     }
-
-    const hostLoadout: TowerHostLoadout = {
-        pvpItems: getPvpItemLoadout(character, allItems),
-        bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
-        armorFactor: getCharacterArmorFactor(character, allItems),
-        armorRawDR: getCharacterArmorRawDR(character, allItems),
-        itemDamagePct: getEquippedItemBonus(character, allItems, 'damagePercent'),
-        itemAbsorbPct: getEquippedItemBonus(character, allItems, 'absorbPercent'),
-        itemReflectPct: getEquippedItemBonus(character, allItems, 'reflectPercent'),
-        itemLifeStealPct: getEquippedItemBonus(character, allItems, 'lifeStealPercent'),
-        itemShield: getEquippedItemBonus(character, allItems, 'shield'),
-    };
 
     return <WorldBossEvent
         character={character}
