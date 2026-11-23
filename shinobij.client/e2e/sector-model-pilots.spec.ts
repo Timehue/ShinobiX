@@ -881,6 +881,34 @@ test.describe("equipped player upload", () => {
             }
         };
         const x = async () => Number(await canvas.getAttribute('data-world-x'));
+        // The pacer's round trip is smoothed (each answer weighs 0.3), and the first
+        // answer sets it outright. One slow answer while the page was still loading
+        // (a full second on CI) keeps rate() under the run's share of full speed for
+        // several updates: CI's WebKit then ran a uniform 0.47 or 0.65 of the 0.8
+        // tiles, and delaying only the first local reply by 1.5 s ran 0.44. That is
+        // the pacer doing its job on a slow link, not the speed this test measures.
+        // Walk a few updates left and back first, at the walk's pace (under the
+        // pacer's slowest rate, so unaffected), so each answer, given while page
+        // time is frozen, settles the estimate before anything is measured.
+        let acceptedMoves = 0;
+        page.on('response', response => {
+            if (!isMove(response.request()) || !response.ok()) return;
+            void response.json().then((body: { ok?: boolean }) => { if (body?.ok) acceptedMoves++; }, () => undefined);
+        });
+        await canvas.focus();
+        for (const key of ['ArrowLeft', 'ArrowRight']) {
+            const target = acceptedMoves + 4;
+            await page.keyboard.down(key);
+            try {
+                for (let frame = 0; acceptedMoves < target; frame++) {
+                    if (frame >= 120) throw new Error(`pacer warm-up: ${acceptedMoves} movement updates answered after ${frame} frames ${key}`);
+                    await advance(16);
+                }
+            } finally {
+                await page.keyboard.up(key);
+            }
+            await advance(200);
+        }
         for (const gait of ['walk', 'run'] as const) {
             if (gait === 'run') await run.evaluate(button => button.click());
             await expect(run).toHaveAttribute('aria-pressed', String(gait === 'run'));
