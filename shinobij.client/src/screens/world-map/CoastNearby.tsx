@@ -9,12 +9,12 @@
  * The coast keeps no sleeper camps in a list, so there is no Strike down here.
  */
 import { useLiveSectorRoster, getLiveSectorRoster, useSectorRosterState, getSectorRosterState } from "../../lib/presence-store";
-import { projectSectorPlayers, sectorPlayerKey, sectorPlayerRoster } from "../../lib/sector-player-roster";
+import { projectSectorPlayers, sectorPlayerRoster } from "../../lib/sector-player-roster";
 import { useSectorPlayerAction } from "../../lib/use-sector-player-action";
 import { isRecentlyStruckDown } from "../../lib/sleeper-kill";
 import { useLiveCapabilities } from "../../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed, mutationAdmissionMessage } from "../../lib/live-capability-admission";
-import { SectorPlayerList } from "../../components/SectorPlayerList";
+import { SectorNearby } from "../../components/SectorNearby";
 import type { PlayerRecord } from "../../types/character";
 
 export function CoastNearby({ sector, name, village, images = {}, present, attack, spectate }: {
@@ -35,14 +35,6 @@ export function CoastNearby({ sector, name, village, images = {}, present, attac
     const action = useSectorPlayerAction({ sector, present, rows: () => rows(getLiveSectorRoster()),
         attack: target => attack?.(target), strike: async () => { throw new Error("There is no camp to strike here."); },
         spectate: (target, isCurrent) => spectate?.(target, isCurrent) });
-    const players = rows();
-    const rowError = action.error && players.some(player => sectorPlayerKey(player.name) === action.error?.key);
-    return <><header className="sector-nearby-heading"><strong>Nearby players</strong>
-        {state === "current" && <span>{players.length} in sector</span>}</header>
-        <div className="sector-nearby-scroll" tabIndex={0} role="region" aria-label="Scroll nearby players" onWheel={event => event.stopPropagation()}>
-            {(state !== "current" || !players.length) && <p className="sector-roster-note" role="status">
-                {state === "loading" ? "Checking who is here…" : state === "reconnecting" ? "Reconnecting. Last known players are read only." : "No other players are here."}</p>}
-            {action.error && !rowError && <p className="sector-row-feedback" role="status">{action.error.message}</p>}
-            {state === "current" && players.length > 0 && <SectorPlayerList key={sector} players={players} action={action} sector={sector} onAction={action.run} />}
-        </div></>;
+    // The home map's own roster markup; the coast has no sky forecast or road list under an empty roster.
+    return <SectorNearby sector={sector} biome="central" players={rows()} present rosterState={state} action={action} onAction={action.run} conditions={false} />;
 }
