@@ -6421,3 +6421,15 @@ button.chronicle-card {
   line-height: 1.2;
   pointer-events: none;
 }
+
+/* Lite presentation (html.lite-fx: Reduce Motion, weak phones, liteFx.v1).
+   While choosing a target, every zone that is not a legal target was dimmed
+   with opacity AND a filter (saturate + brightness): eighteen filtered buttons
+   on the playmat, each drawn through its own offscreen buffer on every
+   repaint. On software-rendered WebKit that cut the frame rate by about 40%
+   and is where the Snare e2e stalled and crashed. Lite dims those zones with
+   opacity alone, deep enough to read the same. */
+.lite-fx .chronicle-playmat.targeting .chronicle-zone:not(.legal-target):not(.selected) {
+  filter: none;
+  opacity: 0.46;
+}

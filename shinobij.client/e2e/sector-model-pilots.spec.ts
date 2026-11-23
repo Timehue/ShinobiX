@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page, type Request } from "@playwright/test";
 import { createServer, type Server } from "node:http";
 import { playerGaitPace, playerGaitTilesPerSecond } from "../../shared/sector-gait-rates";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -86,7 +86,16 @@ async function returnToTerrain(back: Locator) {
     try { await back.click({timeout:15000}); }
     catch (error) {
         // The login restore can finish the same navigation while the button is settling.
-        if (await back.isVisible() || !await back.page().locator(".continuous-world-map > canvas").isVisible()) throw error;
+        if (!await back.isVisible()) {
+            if (await back.page().locator(".continuous-world-map > canvas").isVisible()) return;
+            throw error;
+        }
+        // On CI's software-rendered WebKit the actionability click has stalled at
+        // "scrolling into view if needed" for the whole timeout, with the button
+        // already reported visible, enabled and stable (PR #150, 2026-11-22). The
+        // button is plainly there, so activate it directly, the way the Run toggle
+        // is clicked in the walk/run test.
+        await back.evaluate((button: HTMLElement) => button.click());
     }
 }
 
@@ -787,6 +796,15 @@ test.describe("equipped player upload", () => {
             obstaclesEnabled: true, playerGaitsEnabled: true, modelArtBase: art,
         } }));
         await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', '[10,20,30,40,45]'));
+        // Everything that can stop the walker mid-step from outside the clock
+        // (lib/continuous-world-controller.ts: window blur, a hidden page), with
+        // page time, for the diagnostics attached when a measured step comes up short.
+        await page.addInitScript(() => {
+            const log: string[] = [];
+            (window as unknown as { __walkEvents: string[] }).__walkEvents = log;
+            for (const type of ['blur', 'focus', 'keydown', 'keyup', 'visibilitychange'])
+                addEventListener(type, (event) => { if (log.length < 200) log.push(`${Math.round(performance.now())} ${type}${event instanceof KeyboardEvent ? ' ' + event.key : ''}`); }, true);
+        });
         await page.clock.install();
         const missing = page.waitForResponse(response => response.url().startsWith(art + '/starter-') && response.status() === 404);
         await page.goto('/#/worldMap');
@@ -796,11 +814,72 @@ test.describe("equipped player upload", () => {
         await returnToTerrain(back);
         await missing;
         const marker = page.locator('[data-world-self]');
-        await expect(marker.locator('.sector-avatar-body')).toBeVisible();
+        // On CI's WebKit this has failed with the body "hidden" although every model
+        // manifest 404'd and the standing figure loaded (PR #150, 2026-11-22). The
+        // body's box comes from the marker, which the world controller sizes on its
+        // first frame, so record the state that would say why before failing.
+        await expect(marker.locator('.sector-avatar-body')).toBeVisible().catch(async (error: unknown) => {
+            const state = await page.evaluate(() => {
+                const box = (el: Element | null) => { const r = el?.getBoundingClientRect(); return r ? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } : null; };
+                const self = document.querySelector('[data-world-self]');
+                const body = self?.querySelector('.sector-avatar-body') ?? null;
+                const map = document.querySelector('.continuous-world-map');
+                const canvas = map?.querySelector('canvas') ?? null;
+                return {
+                    marker: { box: box(self), className: self?.className, style: self?.getAttribute('style') },
+                    body: { box: box(body), visibility: body ? getComputedStyle(body).visibility : null, display: body ? getComputedStyle(body).display : null },
+                    sprite: { box: box(self?.querySelector('.sector-avatar-sprite') ?? null), visibility: self?.querySelector('.sector-avatar-sprite') ? getComputedStyle(self.querySelector('.sector-avatar-sprite')!).visibility : null },
+                    world: { busy: map?.getAttribute('aria-busy'), status: document.querySelector('.continuous-world-status')?.textContent, x: canvas?.dataset.worldX, sector: canvas?.dataset.worldSector },
+                    page: { visibility: document.visibilityState, now: Date.now(), perf: Math.round(performance.now()) },
+                };
+            }).catch((evaluateError: unknown) => ({ evaluateError: String(evaluateError) }));
+            await test.info().attach('world-self-state', { body: JSON.stringify(state, null, 2), contentType: 'application/json' });
+            throw error;
+        });
         await expect(marker).not.toHaveClass(/has-sector-model/);
         const run = page.getByRole('button', { name: 'Run', exact: true });
         await expect(run).toBeEnabled();
-        await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
+        // The page clock keeps running until it is paused, so on a loaded WebKit
+        // runner more than the one-second margin could pass between reading it
+        // and pausing ("Cannot fast-forward to the past"). Take a fresh reading.
+        for (let attempt = 1; ; attempt++) {
+            try { await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000)); break; }
+            catch (error) { if (attempt >= 5 || !/past/i.test(String(error))) throw error; }
+        }
+        // The walker paces itself on the answers to its world-move updates
+        // (lib/world-move-pacing.ts): a slow answer lowers its rate, and too many
+        // unanswered tiles hold it still. Those answers arrive over the real
+        // network while page time is frozen, so a reply landing late in the
+        // measured window used to shorten the step on a busy runner. Advance a
+        // frame at a time and let each in-flight update be answered first, the
+        // round trip this assertion assumes.
+        let movesInFlight = 0;
+        const isMove = (request: Request) => request.method() === 'POST' && request.url().includes('/api/player/world-move');
+        page.on('request', request => { if (isMove(request)) movesInFlight++; });
+        const answered = (request: Request) => { if (isMove(request)) movesInFlight--; };
+        page.on('requestfinished', answered);
+        page.on('requestfailed', answered);
+        // A real task turn (MessageChannel is not faked) lets the page read the reply.
+        const pageTurn = () => page.evaluate(() => new Promise<void>(done => { const channel = new MessageChannel(); channel.port1.onmessage = () => done(); channel.port2.postMessage(0); }));
+        // One sample per frame of what can stop the walker: CI's WebKit still came up
+        // short (0.56 and 0.71 of a 0.8-tile run) after the replies were settled.
+        let frames: unknown[] = [];
+        const sample = () => page.evaluate(() => {
+            const world = document.querySelector<HTMLCanvasElement>('.continuous-world-map > canvas');
+            const active = document.activeElement;
+            return { t: Math.round(performance.now()), x: Number(world?.dataset.worldX), hasFocus: document.hasFocus(),
+                active: active ? `${active.tagName.toLowerCase()}.${active.className}` : null,
+                modal: Boolean(document.querySelector('[aria-modal=true],dialog[open]')),
+                status: document.querySelector('.continuous-world-status')?.textContent ?? '' };
+        });
+        const advance = async (ms: number) => {
+            for (let elapsed = 0; elapsed < ms; elapsed += 16) {
+                await page.clock.runFor(Math.min(16, ms - elapsed));
+                await expect.poll(() => movesInFlight, { timeout: 10_000 }).toBe(0);
+                await pageTurn(); await pageTurn();
+                frames.push({ ...await sample(), inFlight: movesInFlight });
+            }
+        };
         const x = async () => Number(await canvas.getAttribute('data-world-x'));
         for (const gait of ['walk', 'run'] as const) {
             if (gait === 'run') await run.evaluate(button => button.click());
@@ -808,14 +887,21 @@ test.describe("equipped player upload", () => {
             await canvas.focus();
             await page.keyboard.down('ArrowRight');
             try {
-                await page.clock.runFor(16);
+                frames = [];
+                await advance(16);
                 const start = await x();
-                await page.clock.runFor(160);
-                expect(await x() - start).toBeCloseTo(playerGaitTilesPerSecond[gait] * .16, 1);
+                await advance(160);
+                const moved = await x() - start, expected = playerGaitTilesPerSecond[gait] * .16;
+                // toBeCloseTo(_, 1) passes within 0.05; record the evidence first when it won't.
+                if (Math.abs(moved - expected) >= 0.05) {
+                    const events = await page.evaluate(() => (window as unknown as { __walkEvents?: string[] }).__walkEvents ?? []);
+                    await test.info().attach(`walk-frames-${gait}`, { body: JSON.stringify({ gait, start, moved, expected, frames, events }, null, 2), contentType: 'application/json' });
+                }
+                expect(moved).toBeCloseTo(expected, 1);
             } finally {
                 await page.keyboard.up('ArrowRight');
             }
-            await page.clock.runFor(200);
+            await advance(200);
         }
     });
     test("a moving NPC holds its last pose during a delayed facing and restores its fitted animation",async({page},info)=>{
