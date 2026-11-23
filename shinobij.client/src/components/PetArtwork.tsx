@@ -22,14 +22,15 @@ function ArtworkSource({ pet, sources, alt, className, fallbackClassName, loadin
 }
 
 /** Shared pet art resolution for roster cards and their selected-pet panels. */
-export function PetArtwork({ pet, sharedImages, alt = "", className, fallbackClassName, loading = "lazy" }: {
+export function PetArtwork({ pet, sharedImages = {}, preferredSrc, alt = "", className, fallbackClassName, loading = "lazy" }: {
     pet: Pet;
-    sharedImages: Record<string, string>;
+    sharedImages?: Record<string, string>;
+    preferredSrc?: string;
     alt?: string;
     className?: string;
     fallbackClassName?: string;
     loading?: "eager" | "lazy";
 }) {
-    const sources = [...new Set([petCardImage(pet, sharedImages), petPoseImage(pet, sharedImages)].filter(Boolean))];
+    const sources = [...new Set([preferredSrc || "", petCardImage(pet, sharedImages), petPoseImage(pet, sharedImages)].filter(Boolean))];
     return <ArtworkSource key={`${pet.id}:${sources.join("|")}`} pet={pet} sources={sources} alt={alt} className={className} fallbackClassName={fallbackClassName} loading={loading} />;
 }

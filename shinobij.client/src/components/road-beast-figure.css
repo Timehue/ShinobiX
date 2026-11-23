@@ -1,0 +1,37 @@
+/* Each sheet has four square columns. Idle occupies the first row and
+   the first two cells on the next row hold the two walking poses. */
+.road-beast-frame {
+    position: absolute;
+    /* The baked feet sit 82% down a cell. Align them with the ground ring. */
+    bottom: -20%;
+    left: -15%;
+    width: 130%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    transform: scaleX(-1);
+}
+
+.sector-avatar-body .road-beast-frame > img {
+    width: 400%;
+    height: 400%;
+    max-width: none;
+    max-height: none;
+    animation: roadBeastIdle 1.6s steps(4, end) infinite;
+}
+
+.sector-wanderer-figure.is-walking .road-beast-frame > img {
+    animation: roadBeastWalk .48s steps(2, end) infinite;
+}
+
+@keyframes roadBeastIdle {
+    to { transform: translateX(-100%); }
+}
+
+@keyframes roadBeastWalk {
+    from { transform: translate(0, -25%); }
+    to { transform: translate(-50%, -25%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sector-wanderer-figure .sector-avatar-body .road-beast-frame > img { animation: none; }
+}

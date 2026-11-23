@@ -1,18 +1,13 @@
-import { Suspense, useCallback, useRef, useState } from 'react';
-import { lazyWithRetry } from '../lib/lazyWithRetry';
+import { useCallback, useRef, useState } from 'react';
 import { petCurrentHappiness, petDisplayName } from '../lib/pet';
 import { PetArtwork } from './PetArtwork';
-import { PetModelBoundary } from './PetModelBoundary';
+import { PetPreviewStage } from './PetPreviewStage';
 import { Modal } from './ui/Modal';
 import type { TacticsBuild } from '../../../shared/pet-tactics-contract';
 import { PetRankedTechniques } from './PetRankedTechniques';
 import '../styles/pet-yard-model-preview.css';
 import { PetYardInspectorActions, type PetYardInspectorActionsProps } from './PetYardInspectorActions';
 import type { PetAppearancePreview, PetCareCue } from '../lib/pet-yard-interactions';
-
-// No runtime Three.js imports in the Yard. Opening the inspector is the only
-// thing that requests the stage chunk or a model; roster cards stay pictures.
-const Stage = lazyWithRetry(() => import('./PetYardModelStage').then(m => ({ default: m.PetYardModelStage })));
 
 function Inspector({ pet, sharedImages, careCue, onSaveLoadout, ...actions }: PetYardInspectorActionsProps & {
     sharedImages: Record<string, string>; careCue?: PetCareCue; onSaveLoadout: (build: TacticsBuild) => Promise<void>;
@@ -33,12 +28,9 @@ function Inspector({ pet, sharedImages, careCue, onSaveLoadout, ...actions }: Pe
             <div className="pet-yard-inspector-stage-labels" aria-hidden="true"><span>{failed ? 'Companion artwork' : paused ? 'Paused' : 'Live preview'}</span>
                 {!failed && (appearance !== 'current' || collarId !== currentCollar) && <span>Appearance preview</span>}
             </div>
-            {failed ? artwork : <PetModelBoundary onFail={failPreview}>
-                <Suspense fallback={<>{artwork}<p role="status">Loading companion…</p></>}>
-                    <Stage pet={pet} paused={paused} turn={turn} take={0} appearance={appearance} collarId={collarId}
-                        careCue={careCue} onFail={failPreview} />
-                </Suspense>
-            </PetModelBoundary>}
+            {failed ? artwork : <PetPreviewStage fallback={<>{artwork}<p role="status">Loading companion…</p></>}
+                pet={pet} paused={paused} turn={turn} take={0} appearance={appearance} collarId={collarId}
+                careCue={careCue} onFail={failPreview} />}
             {careCue && careCue.serial > initialCareSerial && <span key={careCue.serial}
                 className={`pet-yard-inspector-reaction pet-yard-inspector-reaction--${careCue.kind}`}
                 style={{ animationPlayState: paused ? 'paused' : 'running' }} aria-hidden="true">

@@ -16,9 +16,9 @@ async function moduleFrom(source, file) {
     return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`);
 }
 
-test('on-demand catalog delivery retains every lesson, rumor choice, portrait URL and row order', async () => {
-    for (const name of ['pet-tutorial', 'legacy-rumors', 'pet-portrait-assets.generated']) {
-        const file = fileURLToPath(new URL(`../src/lib/${name}.ts`, import.meta.url));
+test('on-demand catalog delivery retains lessons, rumors, portrait and model URLs, and row order', async () => {
+    for (const name of ['lib/pet-tutorial', 'lib/legacy-rumors', 'lib/pet-portrait-assets.generated', 'generated/pet-warfront-lod-manifest']) {
+        const file = fileURLToPath(new URL(`../src/${name}.ts`, import.meta.url));
         const source = readFileSync(file, 'utf8');
         const transformed = progressionCatalogDelivery().transform(source, file).code;
         const before = await moduleFrom(source, file);
@@ -29,7 +29,7 @@ test('on-demand catalog delivery retains every lesson, rumor choice, portrait UR
             assert.deepEqual(after[key], value, `${name}/${key}`);
             assert.equal(Object.isFrozen(after[key]), Object.isFrozen(value), `${name}/${key}: freezing`);
         }
-        if (name === 'pet-tutorial') {
+        if (name === 'lib/pet-tutorial') {
             for (const level of [1, 10, 50, 100]) for (const count of [0, 1, 3]) {
                 const character = { level, pets: Array.from({ length: count }, () => ({})) };
                 assert.deepEqual(after.nextPetTutorialLesson(character), before.nextPetTutorialLesson(character));
@@ -39,7 +39,7 @@ test('on-demand catalog delivery retains every lesson, rumor choice, portrait UR
                 }
             }
         }
-        if (name === 'legacy-rumors') {
+        if (name === 'lib/legacy-rumors') {
             for (const category of [...before.RUMOR_CATEGORIES, 'unknown', undefined]) {
                 assert.deepEqual(after.rumorArc(category), before.rumorArc(category));
                 for (const level of [1, 10, 20, 30, 40, 45, 100]) for (const playerName of ['', 'Maple', 'River']) {

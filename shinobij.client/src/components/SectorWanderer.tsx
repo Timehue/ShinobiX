@@ -32,6 +32,7 @@ import { lifeActorPosition,lifeActivityAt,lifeActivityAtPosition } from '../../.
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
 import { useSectorModelPins } from '../lib/sector-model-pins';
 import { WorldStandingFigure } from './WorldStandingFigure';
+import { RoadBeastFigure } from './RoadBeastFigure';
 import { sectorTrackerAway } from '../lib/sector-life-art';
 import { isCoveredByCombat, subscribeCombatCover } from '../lib/combat-cover';
 import {useSectorServiceRoutine} from '../lib/sector-service-routine';
@@ -188,7 +189,7 @@ export function SectorWanderer({
     const fittedTravel = useRef(false);
     useLayoutEffect(() => { fittedTravel.current = worldPlayer !== null && playerGaits; }, [worldPlayer,playerGaits]);
     const img = wanderer.avatarImage || wandererAvatar(wanderer.avatarKey);
-    const modelKind = portraitModels.get(img);
+    const modelKind = wanderer.roadBeastArt ? undefined : portraitModels.get(img);
     const standingKind = modelKind ?? portraitModels.get(wandererAvatar(wanderer.avatarKey))
         ?? (wanderer.avatarKey === 'beast' ? 'ember-fox' : wanderer.avatarKey === 'riftspawn' ? 'riftspawn' : 'patrol');
     const modelWalking = useRef(false);
@@ -482,7 +483,9 @@ export function SectorWanderer({
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />
                 <span className="sector-avatar-sprite" ref={spriteRef}>
                     <span className="sector-avatar-body">
-                        <WorldStandingFigure kind={standingKind} name={wanderer.name} />
+                        {wanderer.roadBeastArt
+                            ? <RoadBeastFigure key={wanderer.roadBeastArt.speciesId} art={wanderer.roadBeastArt} name={wanderer.name} />
+                            : <WorldStandingFigure kind={standingKind} name={wanderer.name} />}
                     </span>
                 </span>
                 <span className="sector-wanderer-label" style={{ ["--label-lane"]: labelLane } as CSSProperties}>

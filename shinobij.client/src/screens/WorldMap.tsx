@@ -733,7 +733,11 @@ function WorldMapContent({
     // A beast is per player: it locks onto one of your ready pets and is a wild
     // pet of that rarity, the same rule the server fields (lib/road-beast.ts).
     // Dressing it here gives the billboard, the dialog and the duel one name.
-    const roadBeastPets = useMemo(() => roadBeastReadyPets(character), [character]);
+    // A completed hatchery timer releases its parents without a save update.
+    // Refresh at that boundary on the map's existing visible clock.
+    const hatcheryDeadline = character.petBreeding?.readyAt ?? 0;
+    const releasedAt = serverNow() >= hatcheryDeadline ? hatcheryDeadline : undefined;
+    const roadBeastPets = useMemo(() => roadBeastReadyPets(character, releasedAt), [character, releasedAt]);
     const roadCast = useRoadCast(selectedSector, naturalWanderers, character); // + angler/miner, rift creature, Kagero; patrols answer to the road's village
     const sectorWanderers = useMemo(
         () => roadCast.map((wanderer) => withRoadBeastIdentity(withOrdinaryPvePreview(wanderer, character.level, selectedSector), roadBeastPets, sharedImages)),
@@ -2134,8 +2138,10 @@ function WorldMapContent({
     }
     function startWandererPetDuel(w: Wanderer) {
         // Keep the challenge on the road when there is no team to field.
-        if (!character.pets.length) {
-            setWandererDialog({ w, msg: `The beast waits for a challenger that never comes. You have no pet to send out. Tame one first, and it will still be prowling this road.` });
+        if (!roadBeastReadyPets(character).length) {
+            setWandererDialog({ w, msg: character.pets.length
+                ? "None of your carried pets can answer yet. Return when a companion is ready."
+                : "The beast waits for a challenger that never comes. You have no pet to send out. Tame one first, and it will still be prowling this road." });
             return;
         }
         if (selectedSector == null || !isWildSector(selectedSector)) return;
@@ -4516,6 +4522,10 @@ function WorldMapContent({
             const definition = shrineForSector(selectedSector);
             return definition ? { definition, tier: sectorTraces?.shrine?.tier ?? 0 } : null;
         })();
+        const currentBeast = wandererDialog?.w.verb === "petDuel" && !wandererDialog.msg
+            ? sectorWanderers.find(w => w.id === wandererDialog.w.id)
+            : undefined;
+        const encounterDialog = currentBeast && wandererDialog ? { ...wandererDialog, w: currentBeast } : wandererDialog;
         const wandererDialogEmissary = !wandererDialog?.msg && wandererDialog?.w.verb === "legacyQuest"
             ? EMISSARY_BY_SLUG.get(wandererDialog.w.archetype as EmissarySlug)
             : undefined;
@@ -4773,10 +4783,10 @@ function WorldMapContent({
                                     onClose={() => setWhisper(null)}
                                 />
                             )}
-                            {wandererDialog && createPortal(
-                                <ModalDialogScrim label={`${wandererDialog.w.name} — encounter`} onBackdrop={handleWandererBackdropClick} onEscape={dismissWandererDialog}>
+                            {encounterDialog && createPortal(
+                                <ModalDialogScrim label={`${encounterDialog.w.name} — encounter`} onBackdrop={handleWandererBackdropClick} onEscape={dismissWandererDialog}>
                                     <WorldWandererDialog
-                                        wandererDialog={wandererDialog}
+                                        wandererDialog={encounterDialog}
                                         character={character}
                                         now={wandererDialogNow}
                                         emissaryDayBucket={wandererDialogDayBucket}
