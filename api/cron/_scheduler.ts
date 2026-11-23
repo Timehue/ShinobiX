@@ -27,6 +27,7 @@ import {
 import { runRankedSeasonRollover } from './_ranked-season.js';
 import { runClanBossWeekly } from './_clan-boss-weekly.js';
 import { ensureCurrentClanBossWeek, startClanBossInitialization, startNpcVillageInitialization } from '../_startup-initialization.js';
+import { startupFailureKind } from '../_startup-recovery.js';
 import { runVillageWarDailyCatchUp, runVillageWarDailyPass, type VillageWarDailyResult } from '../_war-daily.js';
 import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
@@ -251,7 +252,9 @@ async function fireTerritoryLifecycleSweep(): Promise<void> {
             console.log(`[cron-scheduler] territory lifecycle: ${result.scanned} scanned, ${result.breachesRecovered} recovered, ${result.breachesReleased} breached releases, ${result.rewardsSuspended} suspended, ${result.rewardsResumed} resumed, ${result.inactiveReleased} inactive releases, ${result.missingClanReleased} missing-clan releases, ${result.errors.length} errors.`);
         }
     } catch (err) {
-        console.error('[cron-scheduler] territory lifecycle sweep threw:', (err as Error).message);
+        // The sweep runs every 5 min, so a deploy's refused connection only defers it.
+        if (startupFailureKind(err) === 'transient') console.warn('[cron-scheduler] territory lifecycle sweep deferred to the next tick (storage busy):', (err as Error).message);
+        else console.error('[cron-scheduler] territory lifecycle sweep threw:', (err as Error).message);
     } finally {
         _territoryLifecycleRunning = false;
     }
@@ -429,7 +432,8 @@ function runBootSnapshotCatchUp(): Promise<void> {
     return runBackgroundWork(runBootSnapshotCatchUpCore).then(() => undefined);
 }
 
-async function runBootSnapshotCatchUpCore(): Promise<void> {
+/** One boot/recovery catch-up pass (exported so tests drive the real entry point). */
+export async function runBootSnapshotCatchUpCore(): Promise<void> {
     let staleMarkerExists = false;
     try {
         const marker = await readSnapshotSuccessMarker();
@@ -440,6 +444,16 @@ async function runBootSnapshotCatchUpCore(): Promise<void> {
         staleMarkerExists = !!marker;
         console.warn('[cron-scheduler] no complete snapshot run in the last 26h; starting boot catch-up.');
     } catch (err) {
+        // A deploy's container swap can refuse this one read (EMAXCONNSESSION:
+        // the old container still holds its pooler sessions). Unknown is not
+        // stale: on 2026-11-23 that refusal ran a full snapshot pass against the
+        // full pool although the nightly had run 22 h earlier. Read again on the
+        // recovery retry; the pass still runs then if the marker really is stale.
+        if (startupFailureKind(err) === 'transient') {
+            console.warn('[cron-scheduler] backup marker read deferred (storage busy); retrying in 5 min:', (err as Error).message);
+            scheduleSnapshotRecoveryRetry();
+            return;
+        }
         console.error('[cron-scheduler] backup marker read failed; attempting boot catch-up:', (err as Error).message);
     }
 
