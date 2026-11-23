@@ -6,12 +6,19 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
+import { statSync } from "node:fs";
+import { PET_CATALOG } from "../../../api/pet/_catalog";
 import { roadBeastIdentity, roadBeastReadyPets, withRoadBeastIdentity } from "./road-beast";
 import { rawPetPool } from "../data/pet-pool";
+import { petPoseImage } from "./pet-battle-anim";
 import type { Wanderer } from "./wanderers";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
-import { wandererBeastRival, wandererBeastSpecies } from "../../../shared/wanderer-beast";
+import { isWildSpeciesOfRarity, wandererBeastRival, wandererBeastSpecies } from "../../../shared/wanderer-beast";
+import { petCloseupPresentationModel, petCombatModel } from "./pet-3d-models";
+import { warfrontPetModelConfig } from "./pet-warfront-model-lod";
+import { warfrontImpostorAtlasUrl } from "./pet-warfront-impostor-url";
+import { petScenicPortraitImage } from "./pet-scenic-portrait";
 
 function beast(id: string, overrides: Partial<Wanderer> = {}): Wanderer {
     return {
@@ -32,6 +39,22 @@ const CHARACTER = { name: "beastqa", pets: PETS, activePetId: "a" } as unknown a
 const IDS = Array.from({ length: 30 }, (_, i) => `w-${1 + i}-81234-${i % 2}`);
 
 describe("road beast identity", () => {
+    it("matches the server's wild roster and ships each species' map art, portrait, cutout and lightweight model", () => {
+        const wild = rawPetPool.filter(pet => isWildSpeciesOfRarity(pet, pet.rarity));
+        const serverWild = Object.values(PET_CATALOG).filter(pet => isWildSpeciesOfRarity(pet, pet.rarity));
+        const identity = (pet: { id?: unknown; name?: unknown; rarity?: unknown }) => JSON.stringify([pet.id, pet.name, pet.rarity]);
+        assert.deepEqual(wild.map(identity).sort(), serverWild.map(identity).sort());
+        assert.ok(wild.length > 0);
+        for (const pet of wild) {
+            const atlas = warfrontImpostorAtlasUrl(petCombatModel(pet)!.url);
+            const model = warfrontPetModelConfig(petCloseupPresentationModel(pet), true)?.url;
+            assert.ok(atlas?.includes("/warfront-impostors/") && model?.includes("/warfront-lod/"), pet.id);
+            for (const url of [atlas, model, petPoseImage(pet), petScenicPortraitImage(pet)]) {
+                assert.ok(url && url.startsWith("/"), pet.id);
+                assert.ok(statSync(new URL("../../public" + url.split("?")[0], import.meta.url)).size > 0, url);
+            }
+        }
+    });
     it("names the beast after the species of its rival's rarity", () => {
         for (const id of IDS) {
             const identity = roadBeastIdentity(beast(id), PETS)!;
@@ -47,6 +70,9 @@ describe("road beast identity", () => {
             const identity = roadBeastIdentity(beast(id), PETS)!;
             const dressed = withRoadBeastIdentity(beast(id), PETS);
             assert.equal(dressed.name, identity.name);
+            assert.equal(dressed.roadBeastArt?.speciesId, identity.species.id);
+            assert.equal(dressed.roadBeastArt?.pose, petPoseImage(identity.species));
+            assert.ok(dressed.roadBeastArt?.atlas?.includes(`/${identity.species.id}.webp`));
             assert.equal(dressed.level, identity.rival.level, "the beast's lead is levelled to its rival");
             assert.match(dressed.greeting, new RegExp(`${identity.rival.name}\\.$`));
             assert.equal(dressed.id, id, "the server is still asked for the same wanderer");

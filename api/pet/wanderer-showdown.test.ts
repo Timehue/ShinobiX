@@ -140,16 +140,17 @@ test('road challenge enters one interactive, unpaid Colosseum session and resume
 });
 
 test('a busy lone pet leaves the encounter untouched, then starts a 1v1 when ready', async (t) => {
+    // Same roster window and opponent as the road-to-duel browser journey.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-29T03:00:00Z') });
     const playerName = 'roadshowdownsolo';
     const pet = {
-        id: 'solo-road-pet', name: 'Solo Road Pet', rarity: 'rare', element: 'Earth', level: 20,
+        id: 'kite', templateId: 'standard-38', name: 'Kite Magpie', rarity: 'standard', element: 'Earth', level: 100,
         xp: 0, maxLevel: 100, hp: 400, attack: 70, defense: 60, speed: 45,
         jutsus: [{ name: 'Solo Fang', power: 55, cooldown: 2, currentCooldown: 0, kind: 'damage' }],
         unlockedForPve: true, expedition: { endsAt: Date.now() + 60_000 },
     };
     const base = { name: playerName, level: 20, starterCardsClaimed: true, pets: [pet], ryo: 50 };
-    const wanderer = findBeast(base);
-    if (!wanderer) return t.skip('No natural pet challenger rolled in the current wanderer window.');
+    const wanderer = { id: 'w-72-83020-0', sector: 72 };
     await kv.set(`save:${playerName}`, { _saveVersion: 1, currentSector: wanderer.sector, character: { ...base, currentSector: wanderer.sector } });
     onlineStore.upsert({ name: playerName, sector: wanderer.sector, character: { name: playerName, hp: 100, maxHp: 100 } });
     const token = issuePlayerToken(playerName)!;
@@ -165,5 +166,8 @@ test('a busy lone pet leaves the encounter untouched, then starts a 1v1 when rea
     const ready = await post(playerName, token, { action: 'wanderer', wanderer });
     assert.equal(ready.status, 200, JSON.stringify(ready.body));
     assert.equal(ready.body.state.format, '1v1');
-    assert.equal(ready.body.petIds.length, 1);
+    assert.deepEqual(ready.body.petIds, ['kite']);
+    assert.equal(ready.body.state.enemyTeamName, 'Lone Black Cat');
+    assert.equal(ready.body.state.enemy[0].templateId, 'standard-2');
+    assert.equal(ready.body.state.enemy[0].level, 100);
 });

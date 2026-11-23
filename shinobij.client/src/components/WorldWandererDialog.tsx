@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { GameArtIcon } from "./GameArtIcon";
+import { RoadBeastPreview } from "./RoadBeastPreview";
 import type { Character } from "../types/character";
 import {
     QUEST_BOSSES,
@@ -101,6 +102,7 @@ export type WorldWandererDialogProps = Readonly<{
 
 function memoryLine(character: Character, wanderer: Wanderer): string | null {
     const met = character.wandererMemories?.[wanderer.archetype] ?? 0;
+    if (wanderer.verb === "petDuel") return met >= 1 ? "You recognize the stance from an earlier encounter." : null;
     if (met >= 3) return "You've dealt with several wanderers who do this kind of work.";
     if (met >= 1) return "You've met this kind of wanderer before.";
     return null;
@@ -149,12 +151,10 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
     const toll = offersBanditToll(wandererDialog);
 
     return (
-        <div className="card world-wanderer-dialog" style={{ maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 }} onClick={(event) => event.stopPropagation()}>
-            <img
-                src={w.avatarImage || wandererAvatar(w.avatarKey)}
-                alt={w.name}
-                style={{ width: 96, height: 96, objectFit: "contain", borderRadius: "50%", border: `2px solid ${w.tellTint}`, margin: "0 auto 8px" }}
-            />
+        <div className="card world-wanderer-dialog" style={{ "--wanderer-tint": w.tellTint, maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 } as CSSProperties} onClick={(event) => event.stopPropagation()}>
+            {w.roadBeastArt
+                ? <RoadBeastPreview key={w.roadBeastArt.speciesId} speciesId={w.roadBeastArt.speciesId} name={w.name} portraitUrl={w.avatarImage} />
+                : <img className="world-wanderer-portrait" src={w.avatarImage || wandererAvatar(w.avatarKey)} alt={w.name} />}
             <h3 style={{ margin: "0 0 2px" }}>{w.name}</h3>
             {wandererDialog.encounter && <EncounterDifficultyBadge encounter={wandererDialog.encounter} showTell />}
             <p style={{ fontSize: ".75rem", color: mutedTextColor, margin: noteMargin }}>{nemesis ? <><GameArtIcon kind="attack" size={15} /> Your rival · Lv {Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}</> : w.verb === "trackerTrail" ? "On the trail" : `${wandererKindLabel(w)} · Lv ${w.level}`}</p>

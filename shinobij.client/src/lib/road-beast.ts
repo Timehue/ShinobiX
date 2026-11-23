@@ -10,7 +10,10 @@
 import { rawPetPool } from "../data/pet-pool";
 import { activeCarriedPets } from "./entitlements";
 import { isPetAvailableForColosseum } from "./pet";
-import { petPortraitImage } from "./pet-battle-anim";
+import { petPoseImage } from "./pet-battle-anim";
+import { petScenicPortraitImage } from "./pet-scenic-portrait";
+import { petCombatModel } from "./pet-3d-models";
+import { warfrontImpostorAtlasUrl } from "./pet-warfront-impostor-url";
 import { activeClientBreedingParentIds } from "./pet-breeding";
 import { serverNow } from "./server-clock";
 import type { Wanderer } from "./wanderers";
@@ -54,12 +57,20 @@ export function withRoadBeastIdentity(
 ): Wanderer {
     const identity = roadBeastIdentity(wanderer, readyPets);
     if (!identity) return wanderer;
-    const portrait = petPortraitImage({ ...identity.species, templateId: identity.species.id }, sharedImages);
+    const species = { ...identity.species, templateId: identity.species.id };
+    const portrait = sharedImages[`petcard:${species.id}`] || sharedImages[`pet:${species.id}`]
+        || petScenicPortraitImage(species, sharedImages);
+    const model = petCombatModel(species);
     return {
         ...wanderer,
         name: identity.name,
         level: Math.max(1, Math.min(100, Math.round(Number(identity.rival.level) || 1))),
-        greeting: `${wanderer.greeting} It has singled out ${identity.rival.name}.`,
+        greeting: `It holds its ground, eyes fixed on ${identity.rival.name}.`,
+        roadBeastArt: {
+            speciesId: species.id,
+            pose: petPoseImage(species, sharedImages),
+            atlas: model && warfrontImpostorAtlasUrl(model.url),
+        },
         ...(portrait ? { avatarImage: portrait } : {}),
     };
 }

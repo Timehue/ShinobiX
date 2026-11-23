@@ -25,6 +25,7 @@ export function progressionCatalogDelivery() {
             if (file.endsWith('/src/lib/pet-tutorial.ts')) return { code: packStaticCatalogLiteral(source, 'PET_TUTORIAL_LESSONS'), map: null };
             if (file.endsWith('/src/lib/legacy-rumors.ts')) return { code: packStaticCatalogLiteral(source, 'RUMORS'), map: null };
             if (file.endsWith('/src/lib/pet-portrait-assets.generated.ts')) return { code: packStaticCatalogLiteral(source, 'PET_SCENIC_PORTRAITS'), map: null };
+            if (file.endsWith('/src/generated/pet-warfront-lod-manifest.ts')) return { code: packStaticCatalogLiteral(source, 'modelRows'), map: null };
             if (file.endsWith('/src/data/legacy-jutsu.ts')) return { code: packStaticCatalogLiteral(source, 'ROWS'), map: null };
         },
     };
