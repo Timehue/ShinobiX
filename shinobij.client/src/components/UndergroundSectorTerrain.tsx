@@ -36,7 +36,7 @@ const NO_BREACHES: readonly RiftBreachSite[] = [];
 const MEMORY_OPACITY = .2;
 
 const FORTRESS_ROOM_ART = ['entry-hall', 'watch-barracks', 'armory', 'signal-chamber', 'supply-depot', 'training-hall',
-    'war-archives', 'officer-quarters', 'cistern', 'seal-workshop', 'inner-guard', 'anbu-vault'];
+    'war-archives', 'officer-quarters', 'cistern', 'seal-workshop', 'inner-guard', 'hush-vault'];
 
 /** Painted room floors use the same overhead map approach as sector floors.
  * Their built-in stations match shared collision bays; only the authoritative

@@ -44,7 +44,9 @@ self.onmessage = async event => {
     try {
         const {cols,frames,cell:[w,h],bytes,encodePng} = event.data;
         const width = cols*w, height = Math.ceil(frames/cols)*h;
-        if (![w,h,cols,frames].every(n=>Number.isSafeInteger(n)&&n>0) || width*height*4>12*1024**2)
+        // The same cap the worker publishes under (workers/avatar-model/browser_motion.py ATLAS_BYTES): a page
+        // it accepts must never fail to draw here. Real pages peak near 6 MB.
+        if (![w,h,cols,frames].every(n=>Number.isSafeInteger(n)&&n>0) || width*height*4>32*1024**2)
             throw Error('Invalid atlas dimensions');
         const units = accessUnits(new Uint8Array(bytes));
         if (units.length !== frames) throw Error('Unexpected frame count');

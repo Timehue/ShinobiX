@@ -35,6 +35,7 @@ import { handOffLiveStreams } from './api/pvp/_stream-handoff.js';
 import { flushBetaMetrics } from './api/_beta-metrics.js';
 import { drainBackgroundWork, stopBackgroundWork } from './api/_background-work.js';
 import { startTerritoryInitialization, stopStartupInitialization } from './api/_startup-initialization.js';
+import { startupFailureKind } from './api/_startup-recovery.js';
 import { drainRuntime } from './api/_graceful-shutdown.js';
 import { runtimeTimeouts } from './api/_runtime-timeouts.js';
 import compression from 'compression';
@@ -975,7 +976,7 @@ const _HASHED_ASSET_RE = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/i;
 const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf|glb|gltf|bin|ktx2|basis|hdr)$/i;
 const _STATIC_ASSET_URL_RE = /^\/(?:assets|badges|music|sfx|sector-map|scenes)\/.+\.[a-z0-9]+$/i;
 // Any request for a file with a real asset extension, wherever it lives
-// (/pet-models/roster/*.glb, /combat-vfx/*.webp, /anbu/*, …). Client routes never
+// (/pet-models/roster/*.glb, /combat-vfx/*.webp, /hush/*, …). Client routes never
 // carry a file extension, so matching on extension alone cannot shadow one.
 const _ASSET_EXT_URL_RE = /\.(?:js|mjs|css|map|json|png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf|glb|gltf|bin|ktx2|basis|hdr)$/i;
 
@@ -1167,13 +1168,25 @@ server.listen(PORT, () => {
     // wrong DATABASE_URL / PG_SSL boots "healthy" while every gameplay request
     // fails, and the first explicit signal used to be the 03:00 snapshot finding
     // zero saves. One read here says so in the deploy log instead.
-    void kv.get('startup:storage-probe').then(
-        () => console.log('[startup] storage reachable'),
-        (err: unknown) => console.error(
-            '[startup] STORAGE UNREACHABLE: every save, login and reward request will fail until '
-            + 'DATABASE_URL / PG_SSL are fixed and the service is redeployed:', safeLogValue(err),
-        ),
+    // A transient refusal is not that: during Railway's container swap the old
+    // container still holds its pooler sessions, and EMAXCONNSESSION used to be
+    // reported here as a configuration fault that "needs a redeploy". Re-check
+    // those (the same classifier the startup jobs retry on) before alarming.
+    const probeStorage = (attempt: number): void => void kv.get('startup:storage-probe').then(
+        () => console.log(`[startup] storage reachable${attempt > 1 ? ` (attempt ${attempt})` : ''}`),
+        (err: unknown) => {
+            if (attempt < 4 && startupFailureKind(err) === 'transient') {
+                console.warn(`[startup] storage busy at boot (attempt ${attempt}), re-checking in 30s:`, safeLogValue(err));
+                setTimeout(() => probeStorage(attempt + 1), 30_000).unref();
+                return;
+            }
+            console.error(
+                '[startup] STORAGE UNREACHABLE: every save, login and reward request will fail until '
+                + 'DATABASE_URL / PG_SSL are fixed and the service is redeployed:', safeLogValue(err),
+            );
+        },
     );
+    probeStorage(1);
     // Tebex: a storefront with a public token but no webhook secret shows prices
     // and takes money, then refuses every delivery webhook (api/tebex/webhook.ts
     // fails closed on an empty secret). That is a paid purchase nobody receives.

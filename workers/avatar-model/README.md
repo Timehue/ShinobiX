@@ -55,27 +55,136 @@ does not read files from the owner's PC. `SPRITE_BLENDER_ARCHIVE` can supply the
 existing pinned Blender tarball. Without it, the image build fetches that exact
 tarball and verifies its checksum.
 
-The local painted release archives are `portable-fit-worker/painted-sleeves-fit.zip`
-and `portable-motion-worker/painted-sleeves-wide-torso.zip` under the avatar-model
-evidence folder. Their hashes match `sprite-worker-painted-review.json`. Each is
+The stocky candidate is pinned in `sprite-worker-painted-review.json`. Its guide and
+source patches live in `stocky/`. To reproduce the two archives, run
+`python stocky/package_bundles.py <previous-intake.zip> <previous-movement.zip> <new-directory>`
+from this directory. The command verifies the base hashes and writes both ZIPs, their
+changed members and the new manifest. Unchanged entries are copied byte for byte and
+changed entries are stored uncompressed, so the ZIP hashes match the pins on any machine
+and Python version. Verify the ZIP pair with `install_sprite_worker.install`
+before building a worker image. A built copy is kept in the main checkout under
+`.ci-evidence/avatar-model/stocky-release/`.
+
+Only an admitted upright animal can take the stocky route. The portrait screen checks
+for a visible bare two-legged body, a large head, a rounded belly and short legs.
+It asks three proportion reads and the dressed-or-bare question together. Each read states
+the head's and legs' share of standing height before answering, and those numbers must agree
+with its answers. At least two reads must call the portrait stocky, and the build question
+must answer bare. On 2026-11-22 this rule routed both chibi dinosaurs and none of 22 other
+upright animals (dressed ninjas, long-legged birds, borderline chibis) in two full passes.
+It seals the selected guide in the ordinary fitted master. A missing guide, uncertain
+answer or unavailable proportion screen uses the existing animal template. People and
+armored close-ups skip the proportion question. Repairs use the first edit's stocky
+prompt binding. The shorter leg follows the calibrated joint path at a faster cadence.
+Planted travel and clip times scale together. The working upper canvas gains 60 pixels
+above the figure. When a pitched head reaches the side edge, the renderer draws the
+pose on a wider canvas and offsets the ground anchor by the added margin.
+The stocky Blender pass bends the bare leg painting from hip to sole in one mesh.
+It follows the existing knee and foot contacts and blends adjacent paintings during
+planted turns. Each new stocky painting requests the portrait's toes and rear heel.
+Paint repairs replay that request only when the first painting used it.
+
+Production screening enables this route only when the pinned recognition pool supplies
+three distinct approved comparison portraits for `stocky-template.json`, excluding the
+upload itself. The standalone portrait trial can qualify candidate art ahead of pool
+approval. Publishing still uses the ordinary recognition check.
+
+The previous painted release archives are `portable-fit-worker/painted-sleeves-tail.zip`
+and `portable-motion-worker/painted-sleeves-tail-animal-legs.zip` under the avatar-model
+evidence folder. Their hashes are the base pins in `stocky/package_bundles.py`. The animal-legs
+movement archive (2026-11-21, movement `e6816a5d…`) is `painted-sleeves-tail-legs.zip`
+(movement `10e9fe95…`, the rollback) with only `render_fitted_roster.py` replaced by
+`painted-sleeves-tail-animal-legs.render_fitted_roster.py`: `leg_slim()` reads
+`SHINOBIX_LEG_SLIM` (0.5–1), and an animal keeps its painted legs. Narrowed, a bare
+cartoon dinosaur's thighs made its flared torso read as a skirt on stick legs, and the
+armored raccoon was built with full legs. The costume call records every animal portrait
+(`upright-animal` and `armored-raccoon` close-ups; `modal_sprite_worker.record_painted_legs`)
+in the `shinobix-avatar-leg-builds` Dict for its fitted master; each style render reads it
+(`painted_legs`, which fails the render rather than guess when the Dict is unreadable, since
+the three styles must agree) and passes `--painted-legs` to `paint_sprite_style.py`, which
+sets `SHINOBIX_LEG_SLIM=1` for the style's render and turn processes. Proven on real
+paintings: a human renders byte-identical to `10e9fe95…`, the armored raccoon with painted
+legs byte-identical to `ad5f2d05…` (how it was built), and the bare dinosaur's front
+trouser radius returns from about 39 to about 50.
+
+Painting: an upright animal is asked one more question at paint time (`animal_build.py`,
+the screen's pinned model, once per job, kept in the work folder): is it dressed? A
+dressed animal (the armored raccoon, a tiger in a coat) is painted with exactly the
+prompt it had before. A bare one gets `BARE_ANIMAL` (binding `bareAnimal`): its own skin,
+scales or fur, its own feet in the boot cutouts, hips and thighs in the torso's flared
+bottom instead of a coat hem, no invented boots, scarf or belt, and a tail thick at its
+base. The tail's length rule (`TAIL_FIT`) is unchanged on purpose: the rig reads a tail at
+hip height as torso width, and a wider torso is refused. Any failure of the question paints
+the animal dressed. The legs
+movement archive (2026-11-21, movement `10e9fe95…`) is `painted-sleeves-tail-uncapped.zip`
+movement archive (2026-11-21, movement `10e9fe95…`) is `painted-sleeves-tail-uncapped.zip`
+(movement `ad5f2d05…`, the rollback) with only `render_fitted_roster.py` replaced by
+`painted-sleeves-tail-legs.render_fitted_roster.py` and its hash updated in
+`motion-worker.json`: every painted leg fills the rig's baggy-trouser cutout, so every
+model walked on legs as thick as the template's. `slim_painted_leg` narrows each leg
+texture about its hip-knee-ankle chain when the parts are read, after the rig has
+accepted the painting, so it can never refuse one: full width at the hip (the leg still
+meets the torso), 78% (`LEG_SLIM`) from mid-thigh to three quarters down the shin, back
+to full at the ankle, and the boot below it untouched (foot, sole and foot span keep
+their shape). The Blender leg pass measures its trouser and boot-shaft radii from that
+texture, so walking and running legs narrow with it; the planted turns read the same
+parts. On Nero's 2026-11-21 painting the front trouser radii went from about 48 to 38.
+Models published before the change keep their legs until remade. The uncapped
+movement archive (2026-11-20, movement `ad5f2d05…`) is `painted-sleeves-tail.zip`
+(movement `bcd49663…`, the rollback) with the 8 MiB whole-model checks deleted from
+`avatar_worker/motion_delivery.py` and `avatar_worker/game_package.py` and their two
+hashes updated in `motion-worker.json`: an 8 MiB cap failed a finished 8,431,780 B
+model, and a player model now has no total size cap. Before that, each is
 the matching `painted-sleeves.zip` with one file changed, and its index carries
 the new file hash (`intake.json` also a recomputed `paintingRevision`); every
-other entry is byte-identical.
+other entry is byte-identical. The release before them, and the rollback, is
+`painted-sleeves-fit.zip` (intake `88b82b0d…`) with
+`painted-sleeves-wide-torso.zip` (movement `6fc5ea69…`).
 
 - `register_painted_kit.py` (intake) checks each painted torso's width-to-height
   ratio against its guide at paint time. Every view outside 0.6–1.75 is named in
   one `PaintingGeometryError` that says how much narrower or wider to paint it.
   A costume gets one painting and up to two repairs (`PAINT_ATTEMPTS`), each shown
   the sheet just rejected. On the last one, a torso up to 30% past the range is
-  drawn at the nearest bound; further out, the job fails and the slot is refunded.
-  Before this, the sheet was accepted and `render_fitted_roster.py` refused it on
+  drawn at the nearest bound. A round whose three paintings are all refused exits
+  `paint_admitted_costume.py` with code 3, and `paint_costume` paints one fresh round
+  (`--round 2`, its own `edits-2` folder and billing identity) while `REPAINT_ROOM`
+  is left; only a refused second round fails the job and refunds the slot. Each
+  repair is told the rig's codes in words (`explain`: "ne/leg1:silhouette" names the
+  second leg in column 4, row 5), since the bare code got the same leg repainted
+  twice on 2026-11-21. Before any repair is paid for, `limb_repair.py` (hooked between
+  `register_sheet` and the rig check by `paint_admitted_costume.with_limb_repair`)
+  redraws each refused arm or leg from the same painting: a leg bent to the rig's
+  leg line, or the best matching limb of its kind from the mirror view (flipped) or
+  the same view, whichever fits its cutout best. It only runs when every refusal is
+  a limb, keeps a change only if the check then accepts that piece and refuses
+  nothing new, and never touches an accepted sheet. Before this, the sheet was accepted and `render_fitted_roster.py` refused it on
   every render retry ("Invalid painted body proportions").
 - `render_fitted_roster.py` (movement) accepts the same 0.6–1.75 range, up from
   0.72–1.45, so bulky armor keeps its painted breadth. The renderer widens the
   torso about the hip axis and moves the sleeve sockets with it; at 1.75 the
   figure stays well inside the 400 px render frame.
 
-`paint_portrait.py` adds the torso-fit rule to the first prompt for new jobs, and
+- A tail has no rig piece of its own, so the painter attaches it to the torso
+  cutout. Counted as torso width it pushed the trunk off the hips and left the
+  sleeve socket on the tail side out past the shoulder, with ground showing
+  between arm and body. `register_painted_kit.py` now tells a part that trails
+  off one side from the trunk (`trailing_part`): it compares the painted chest
+  with the guide's chest, and only a one-sided excess of 0.2 chest widths or
+  more counts, so a costume that is broader on both sides fits as before. The
+  measure runs from the cutout's edges, so anything one-sided counts, not only a
+  tail: a ponytail or a cape end streaming to one side is kept off the trunk the
+  same way, which centres those characters better than before. The
+  torso range is judged on the trunk alone, and the trailing part is recorded
+  per view as `bodyOverhang` (trunk widths per side). `render_fitted_roster.py`
+  places the trunk on the hips, keeps the sockets on the painted shoulders and
+  lets the trailing part hang past the trunk. A fitted master with no trailing
+  part has no `bodyOverhang` and renders byte-identical to before. A part that
+  would leave the render frame is sent back for a repaint; on the last attempt
+  it is trimmed.
+
+`paint_portrait.py` adds the torso-fit rule to the first prompt for new jobs
+(and, for an animal character, where its tail goes), and
 `paint_admitted_costume.py` reserves three edits. The packer's source tree must
 carry the same bundle edits, or a later repack drops them; the edited files sit
 next to the archives with the archive's name as a prefix. For the earlier
@@ -87,13 +196,40 @@ For painted costumes, the dedicated secret `shinobix-avatar-costume-paint`
 contains that feature's OpenAI key as `OPENAI_API_KEY` by default.
 Set `SPRITE_OPENAI_SECRET` at deployment to reuse an existing Modal secret
 for painting and recognition. The portrait reader uses the same key for one
-upright-animal question (`upright_animal.py`, pinned model, no retries). That
-question is asked only when the intake declines a portrait as uncertain, and it
-is never asked about a human close-up or an armored raccoon that the detector
+two-legged-character question (`upright_animal.py`, pinned model, no retries).
+Every model is painted on the same human-shaped rig, so the question admits any
+single illustrated character that walks on two legs: an animal becomes
+`upright-animal` (painted with the species, muzzle, fur and tail prompt), anyone
+else becomes `upright-character` (painted with the human close-up prompt), which
+covers the bald, helmeted, masked, horned and animated humans, elves and robots
+that the detector's strict human checks decline. It refuses photos, groups and
+four-legged animals. The question is asked after any intake decline. If the
+fallback fails on a decline that is not `*-uncertain` (the ones it reaches only
+since every bipedal character is screened), the original decline stands, so the
+player keeps the monthly model instead of seeing a failure. It is
+never asked about a human close-up or an armored raccoon that the detector
 already admits. A
 provider error fails the read and never admits a portrait. The game server must
-know the `upright-animal` style (`api/avatar-model/read.ts`) before a worker that
-emits it is deployed.
+know both styles (`api/avatar-model/read.ts`) before a worker that emits them is
+deployed.
+
+Every painted sheet is checked for likeness before the rig accepts it
+(`painted_likeness.py`, same key and pinned model). The head-and-torso row of
+all eight directions goes to the vision model beside the portrait, which says
+whether the species, the head and the main costume colors still match. A
+mismatch is refused like a geometry failure, so `paint_screened_upload` repairs
+the same sheet with the check's note, and a third refusal ends the job at once
+(a system failure, so the creation is returned). This exists because a raccoon
+was painted on 2026-11-19 as the black-haired human in a dark coat and red scarf
+from `sector-costume-light.png`, and only the blind review an hour later noticed.
+On 2026-11-22 Snow White was painted as that same person and the check passed
+her, because species, black hair and a red accent all matched. So the check is
+also shown the style reference itself: it describes both outfits, then says
+whether the garment is the same kind (a dress stays a dress) and whether the
+painting copies the reference's person instead of the portrait. Either one
+refuses the painting with a note that names what to change.
+The check asks twice at most. A provider error or a malformed answer accepts the
+painting, and the final review still decides.
 
 Painted costumes keep the portrait's colors (`costume_palette.py`). The edit
 prompt names the portrait's main colors. The returned sheet is then corrected
@@ -121,7 +257,8 @@ environment, kit/movement hashes and pool/model pins before enabling admission.
 
 The server needs the scoped private/public R2 configuration, moderation key,
 Modal interpreter/environment and a server-owned reservation policy. The policy
-must cover every paid stage and retry, with separate provider billing cycles.
+holds one job's Modal cost while it runs, in the current UTC month; OpenAI spend is
+guarded by the OpenAI account's own limit, not by the policy. There is no daily cap.
 Display, creation and dispatch are independent flags. Missing configuration must
 be handled without preventing login, travel or NPC display.
 
@@ -130,9 +267,28 @@ can publish both existing motion-only revisions and new revisions with a combat
 WebP. Use the existing dispatch pause if you need to hold new finishes between
 the two deployments.
 
-Style A renders the fitted character's combat guard and binds the WebP checksum
-to its stage receipt. Assembly includes that WebP in the new public revision.
-Previously completed stages and published revisions retain their original art.
+Style A binds the combat sprite's WebP checksum to its stage receipt. Assembly
+includes that WebP in the new public revision. Previously completed stages and
+published revisions retain their original art.
+
+The combat sprite is its own painting (`paint_battle_sprite.py`). The world
+model is drawn to read at 73 pixels, so posing it for the battle board gave a
+soft, stiff fighter. After the costume sheet is accepted, the costume call sends
+one more image edit: the portrait for identity, the accepted sheet for the rest
+of the outfit, and `battle-stance-reference.png` (one of the bundled fighters)
+for stance, camera and finish. The result is refused unless it is one whole
+figure on a transparent ground; a refused painting gets one repair, shown the
+refused art and told what was wrong. It is then framed like a bundled fighter (384 px
+canvas, figure on the 368 px line), moderated with the same check the server
+runs on the sheet, mirrored if a vision check says it faces right, and saved as
+WebP. It waits in the Modal Dict `shinobix-avatar-battle-sprites`, keyed by
+asset and bound to the painted master, until style A publishes it; assembly then
+drops the waiting copy, and an entry that is never collected expires after
+seven days. The edit shares the costume call's single execution, so it is never
+sent twice, and each edit's billing record joins that call's `edits`. Any failure, a
+flagged sprite, or too little time left in the call leaves the job on the posed
+world model (`battle_pose.py`), framed on the same canvas; the combat painting never fails a job. Deploy
+the worker before or after the game server; neither depends on the other.
 
 ### Standalone online portrait trial
 
@@ -203,7 +359,15 @@ the style being polled. An early start cannot know the first style's movement
 revision, so polls leave that check to the dispatcher: a style that finishes on
 another revision (a worker redeploy mid-job) is rendered again, bound to the
 job's revision.
-`render_style` allows three containers for this. Ending a job does not stop
+`render_style` runs the three in one container, three inputs at a time, not in
+three containers. The styles share their walking and standing frames, assembly
+requires those to match byte for byte, and the leg renderer's output differs by
+a few edge pixels between machines: a 2026-11-18 trial on three containers
+rendered every style and then failed assembly with "Incompatible movement
+banks". Keep it at one container unless that check is first made tolerant, or a
+job's three styles are rendered inside one call. Every other step runs up to
+`PARALLEL_JOBS` (3) machines, so several players' checks, paintings,
+recognitions and assemblies run side by side; renders still go one job at a time. Ending a job does not stop
 style calls already running, so one cancelled early can still bill up to three
 renders, all recorded on the job.
 

@@ -80,11 +80,14 @@ import { TOWER_ENVIRONMENT_PROP_SCALE } from "../../../shared/tower-environment"
 import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 import { towerFeatureTerrain, towerFeatureProp, towerObstacleProp } from "../lib/tower-terrain";
 import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
-import { battlefieldAiSprite, defaultAiRivalSprite } from "../lib/battlefield-actor-art";
-import { bundledFighterSprite, generatedFighterModel } from "../lib/battlefield-fighter-art";
+import { battlefieldAiSprite, defaultAiRivalSprite, publishedAiBattleSprite } from "../lib/battlefield-actor-art";
+import { bundledFighterSprite, DEFAULT_PLAYER_BATTLE_SPRITE, generatedFighterModel } from "../lib/battlefield-fighter-art";
 import { worldBossRaidResult, type WorldBossRaidReceipt } from "../lib/world-boss-raid-result";
 import { aiFightHistoryOutcome } from "../lib/ai-fight-result";
+import { petSummonBattleArt } from "../lib/pet-summon-art";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { petScenicPortraitImage as petPortraitImage } from "../lib/pet-scenic-portrait";
+import { petVisualId } from "../data/pet-evolutions";
 import { clanBossResult as clanBossReceiptResult } from "../lib/clan-boss-result";
 import { clanBossAssaultResult, clanBossSettlementError } from "../lib/clan-boss-assault-result";
 import { settleWorldBossEvent } from "../lib/world-boss-event-api";
@@ -487,7 +490,7 @@ export function BattleTowerFight({
     settleOnAnyDone?: boolean;
     // Optional action-sender override — the Anbu Vault Infiltration reuses this
     // whole fight screen but submits moves to its own route
-    // (api/village/anbu-infiltration action:'act') instead of /api/towers/action.
+    // (api/village/hush-infiltration action:'act') instead of /api/towers/action.
     // Same request/response shape (the server runs the shared tower engine).
     actionFn?: typeof submitTowerAction;
     /** Retry-aware transport for modes that require the current optimistic revision. */
@@ -1494,15 +1497,16 @@ export function BattleTowerFight({
         // Player's own actor → the live avatar prop; allies → their sealed avatar if present;
         // PvP rivals are live players, so prefer their server-sealed avatar before
         // interpreting an enemy-side actor as a Tower NPC sprite.
-        if (ownedByMe(a.ownerSlug)) {
+        if (a.id === myActor?.id) {
             const ownAvatar = resolveOwnAvatar(character, sharedImages);
             if (ownAvatar) return ownAvatar;
         }
-        // A summoned pet seals only its id; the art lives on the player's own save.
-        if ((a.character as Record<string, unknown> | undefined)?.companion === true) {
-            const pet = (character.pets ?? []).find(entry => entry.id === String(a.character?.visual ?? ""));
-            const portrait = pet ? petPortraitImage(pet, sharedImages ?? {}) : "";
-            if (portrait) return portrait;
+        if (a.character?.companion === true) {
+            const visual = String(a.character.visual ?? "");
+            const pet = character.pets?.find(entry => entry.id === visual);
+            const species = a.character.companionSpecies;
+            if (pet && (!species || species === petVisualId(pet))) return petPortraitImage(pet, sharedImages);
+            return petSummonBattleArt(pet, visual, species, sharedImages).sprite;
         }
         const sealed = a.character?.avatarImage;
         if (isTeamPvp) {
@@ -2126,15 +2130,22 @@ export function BattleTowerFight({
                                     const actorActionable = targetable || selfTargetable || inspectable;
                                     const inspected = a.id === actorInspection?.id;
                                     const isActive = a.id === activeId;
-                                    const img = avatarFor(a);
-                                    const appearance = ownedByMe(a.ownerSlug) ? character : a.character;
+                                    const isCompanion = a.character?.companion === true;
+                                    const img = isCompanion ? null : avatarFor(a);
+                                    const visual = String(a.character?.visual ?? "");
+                                    const companionPet = isCompanion ? character.pets?.find(pet => pet.id === visual) : undefined;
+                                    const petArt = isCompanion ? petSummonBattleArt(companionPet, visual, a.character?.companionSpecies, sharedImages) : undefined;
+                                    const appearance = a.id === myActor?.id ? character : a.character;
                                     const fighterSprite = bundledFighterSprite(appearance, img);
-                                    const battleSprite = (isBoss && towerBossForm?.sprite) || fighterSprite
-                                        || (a.side === "enemy" && !isTeamPvp ? battlefieldAiSprite(String(a.character?.visual ?? ""), sharedImages, { name: a.name, portrait: img }) : null);
-                                    const model = generatedFighterModel(appearance);
-                                    const spriteFacing = battleSprite || model
-                                        ? battlefieldFacingTowardNearest(a, session.actors, w)
-                                        : undefined;
+                                    const aiVisual = !isCompanion && (a.side === "npc" || (a.side === "enemy" && !isTeamPvp));
+                                    const identity = { name: a.name, portrait: img };
+                                    const fallbackSprite = petArt?.fallback || fighterSprite || (aiVisual && visual
+                                        ? battlefieldAiSprite(visual, undefined, identity) || defaultAiRivalSprite()
+                                        : DEFAULT_PLAYER_BATTLE_SPRITE);
+                                    const battleSprite = petArt?.sprite || (isBoss && towerBossForm?.sprite) || fighterSprite
+                                        || (aiVisual && publishedAiBattleSprite(visual, sharedImages)) || fallbackSprite;
+                                    const model = isCompanion || (isBoss && towerBossForm?.sprite) ? undefined : generatedFighterModel(appearance);
+                                    const spriteFacing = battlefieldFacingTowardNearest(a, session.actors, w);
                                     const unknownCombatant = isUnknownCombatant(a);
                                     const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "var(--gold)" : "#fb7185";
                                     const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
@@ -2149,11 +2160,10 @@ export function BattleTowerFight({
                                                     side={a.side === "enemy" ? "enemy" : "player"}
                                                     actorId={a.id}
                                                     label={a.name}
-                                                    portrait={img}
+                                                    fallbackSprite={fallbackSprite}
                                                     sprite={battleSprite}
                                                     model={model}
                                                     facing={spriteFacing}
-                                                    fallback={<img src={fallbackArtFor(a)} alt="" />}
                                                     style={{ width: size, height: size }}
                                                 />
                                             </span>
@@ -2175,13 +2185,12 @@ export function BattleTowerFight({
                                                 side={a.side === "enemy" ? "enemy" : "player"}
                                                 actorId={a.id}
                                                 label={a.name}
-                                                summon={a.side !== "enemy" && (a.character as Record<string, unknown> | undefined)?.companion === true}
-                                                portrait={img}
+                                                summon={isCompanion}
+                                                fallbackSprite={fallbackSprite}
                                                 sprite={battleSprite}
                                                 model={model}
                                                 facing={spriteFacing}
-                                                fallback={<img src={fallbackArtFor(a)} alt="" />}
-                                                className={isActive ? "tower-actor-highlight--active" : targetable ? "tower-actor-highlight--target" : selfTargetable ? "tower-actor-highlight--self" : inspected ? "tower-actor-highlight--inspected" : ""}
+                                                className={[isActive ? "tower-actor-highlight--active" : targetable ? "tower-actor-highlight--target" : selfTargetable ? "tower-actor-highlight--self" : inspected ? "tower-actor-highlight--inspected" : "", companionPet && petVisualVariantClass(companionPet)].filter(Boolean).join(" ")}
                                                 style={{
                                                     width: size, height: size,
                                                 }}>

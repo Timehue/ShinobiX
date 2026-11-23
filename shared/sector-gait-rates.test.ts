@@ -6,8 +6,9 @@ import { WORLD_WALK_SPEED } from '../api/_realtime/world-movement';
 test('players move faster than the authored NPC stroll but stay under the server movement cap', () => {
     for (const gait of ['walk', 'run'] as const) {
         assert.ok(playerGaitTilesPerSecond[gait] > sectorGaitTilesPerSecond[gait]);
-        assert.ok(playerGaitTilesPerSecond[gait] < WORLD_WALK_SPEED * .75, `${gait} leaves room for network jitter`);
+        assert.ok(WORLD_WALK_SPEED - playerGaitTilesPerSecond[gait] >= 1.5, `${gait} leaves at least 1.5 tiles/s for network jitter`);
     }
-    assert.ok(playerGaitTilesPerSecond.walk >= 1, 'a walk crosses a sector in about twelve seconds or less');
+    assert.ok(Math.abs(playerGaitTilesPerSecond.walk - 31 / 15) < 1e-9);
+    assert.equal(playerGaitTilesPerSecond.run, 5);
     assert.ok(playerGaitTilesPerSecond.run > playerGaitTilesPerSecond.walk * 2);
 });

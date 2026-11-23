@@ -1,4 +1,4 @@
-import { readVillageAnbu } from '../village/_anbu.js';
+import { readVillageHush } from '../village/_hush.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import type { ActionReceipt } from '../_receipts.js';
 import { createHash, randomUUID, randomBytes } from 'crypto';
@@ -249,7 +249,7 @@ export type PvpSession = {
         observedAt: number;
     };
     /** Immutable server role evidence used by village-war continuation. Seats
-     * or ANBU appointments granted after battle creation cannot amplify it. */
+     * or Anbu appointments granted after battle creation cannot amplify it. */
     warRoleEvidence?: SealedWarRoleEvidence;
     challengeId?: string;
     /** Server-derived official Kage duel prerequisite. Moves help it forward
@@ -1125,7 +1125,19 @@ const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
     'storyTraits', 'storyTitle', 'storyProgress',
     // Pets are huge and not needed for a 1v1 PvP fight
     'pets', 'editablePets',
+    // World and side-mode state. On a developed save, together with the
+    // ledgers below, this was ~250 KB per fighter,
+    // sealed into a record every turn re-reads and spectators can fetch.
+    'sunscarCaravan', 'sunscarRally', 'resourceGathering', 'keeperPath',
+    'storyChoices', 'wandererCooldowns', 'wandererMoves', 'aiKills',
+    'battleTowerRecords', 'worldAiChainWins', 'cardClashDeck',
+    'claimedAchievementRewards', 'echoesWitnessChoices', 'echoesStorySeen',
 ]);
+// Idempotency ledgers, settlement receipts and histories, matched by name so a
+// new one stays out without another edit here. Every reader of these takes them
+// from the player's SAVE record, never from a sealed
+// fighter, and a sealed fighter is never written back as a save.
+const SESSION_STRIP_LEDGER_FIELD = /^(?:redeemed|settled)[A-Z]|(?:Receipts|Settlements|SettlementStamp|Ledger|History)$/;
 // Exported so other PvP entry points that return an opponent character to the
 // attacker (e.g. village-guard/challenge) can apply the SAME combat-safe
 // projection instead of leaking the opponent's full private save (currencies,
@@ -1134,7 +1146,7 @@ const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
 export function stripNonCombatFields(character: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(character)) {
-        if (SESSION_STRIP_CHAR_FIELDS.has(k)) continue;
+        if (SESSION_STRIP_CHAR_FIELDS.has(k) || SESSION_STRIP_LEDGER_FIELD.test(k)) continue;
         // Gathering tools ride in the loadout for fishing and mining only.
         out[k] = k === 'equipment' ? combatEquipment(v) : v;
     }
@@ -1257,10 +1269,12 @@ export function resolveEquippedLoadout(
             safeLogValue(unlearned.join(',')),
         );
     }
-    // A save can temporarily retain 15 persisted slot preferences after a
-    // supporter lapse. Resolve only the active 12/15 account entitlement here;
-    // never truncate the stored preference itself, so reactivation is lossless.
-    // Real-player PvP keeps the active 12/15 account entitlement after
+    // A stored save can still have 15 slot preferences immediately after a
+    // supporter lapse. Resolve only the active 14/15 entitlement here without
+    // mutating that input. Client hydration and the next save normalize to 14;
+    // learned ownership survives, but after normalization renewal requires
+    // re-equipping slot 15.
+    // Real-player PvP keeps the active 14/15 account entitlement after
     // hydration; the separate Legacy signature slot is sealed later. PvE
     // callers retain the same entitlement behavior, while save-less NPC
     // callers keep their server-authored list unchanged.
@@ -1388,8 +1402,14 @@ function resolveEquippedPvpItems(
     adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
 ): unknown[] | null {
     if (!save) return null;
+    // A save-backed fighter with nothing in a gear slot fights unarmed, the way
+    // resolveEquippedLoadout answers [] for an empty jutsu loadout. Returning
+    // null here fell through to the REQUEST BODY's pvpItems (pvpItems is never
+    // persisted), so a crafted create could arm either fighter with items the
+    // save never held. pvpItems is not persisted, and the honest client already
+    // sent [] for a fighter with nothing equipped.
     const equipment = saveCharacter.equipment;
-    if (!equipment || typeof equipment !== 'object') return null;
+    if (!equipment || typeof equipment !== 'object') return [];
     // A named piece outside the gear slots is never armed (shared/named-gear-rules.ts),
     // the same rule the stat sums in _multipliers.ts apply to a stored legacy save.
     const ids = [...new Set(
@@ -1399,7 +1419,7 @@ function resolveEquippedPvpItems(
             .filter(([slot, v]) => typeof v === 'string' && namedGearFitsEquipSlot(slot, v) && !isQuestOnlyItem(v))
             .map(([, v]) => v as string),
     )];
-    if (ids.length === 0) return null;
+    if (ids.length === 0) return [];
     const getItem = buildItemLookup(save.creatorItems, adminItems);
     // Elemental Core attunement overlay: api/weapon/apply-elemental-core.ts
     // stores the attuned element in character.weaponElements (weaponId →
@@ -1610,8 +1630,8 @@ export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknow
     // BALANCE (owner-documented, intentional): this is a strictly-additive slot
     // on top of the regular loadout — a Legacy player fields one more jutsu than
     // a no-Legacy player, with no offsetting loadout cost. Human PvP later seals
-    // the regular portion to 12 for both players while retaining this earned
-    // signature. That is accepted
+    // the regular portion to the active 14/15 entitlement while retaining this
+    // earned signature. That is accepted
     // prestige power: it is EARNED (achievement floors + a 5-stage trial arc),
     // never bought or RNG'd, so it stays inside the skill-gated-power pillar. Its
     // only in-combat cost is AP contention (it shares the 100 AP/turn) and its
@@ -1660,7 +1680,7 @@ export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknow
  * entitlement. This is defense in depth for session hydration: the primary
  * resolver already applies the same cap, while this preserves the dedicated
  * Legacy signature slot outside it. Supporters therefore retain all 15 of
- * their equipped techniques in PvP instead of losing slots 13–15 at sealing.
+ * their equipped techniques in PvP instead of losing slot 15 at sealing.
  */
 export function normalizeHumanPvpLoadout(character: Record<string, unknown>): Record<string, unknown> {
     if (!Array.isArray(character.jutsu)) return character;
@@ -2825,10 +2845,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : [];
                     let raidDamage = 0;
                     if (ownerClan && !controls) {
-                        const anbu = new Set((await readVillageAnbu(ownerVillage)).members.map(safeName));
-                        const anbuCount = guards.filter((guard) => anbu.has(guard)).length;
-                        raidDamage = anbuCount > 0
-                            ? Math.max(50, 250 - anbuCount * 50)
+                        const hush = new Set((await readVillageHush(ownerVillage)).members.map(safeName));
+                        const hushCount = guards.filter((guard) => hush.has(guard)).length;
+                        raidDamage = hushCount > 0
+                            ? Math.max(50, 250 - hushCount * 50)
                             : guards.length > 0 ? 150 : 250;
                     }
                     worldTerritoryEvidence = {

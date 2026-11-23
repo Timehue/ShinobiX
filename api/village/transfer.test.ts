@@ -133,12 +133,12 @@ describe('village transfer scroll', { concurrency: false }, () => {
     });
     it('clears appointments and personal focus without disturbing other villagers', async () => {
         await seed({ elderFocus: 'trade' });
-        await kv.set(STATE, { anbuAppointees: [PLAYER, 'other', ''], elderAppointees: [PLAYER, '', ''], treasury: { ryo: 500 } });
+        await kv.set(STATE, { hushAppointees: [PLAYER, 'other', ''], elderAppointees: [PLAYER, '', ''], treasury: { ryo: 500 } });
         await kv.set(COUNCIL, { version: 1, startedAt: Date.now(), nextSelectionAt: Date.now() + 86400000, seats: [PLAYER, 'other', ''], winningScores: [3, 4] });
         assert.equal((await post(intent)).status, 200);
         assert.equal((await readCharacter()).elderFocus, undefined);
         assert.deepEqual((await kv.get<Record<string, unknown>>(COUNCIL))?.seats, ['', 'other', '']);
-        assert.deepEqual((await kv.get<Record<string, unknown>>(STATE))?.anbuAppointees, ['', 'other', '']);
+        assert.deepEqual((await kv.get<Record<string, unknown>>(STATE))?.hushAppointees, ['', 'other', '']);
         assert.deepEqual((await kv.get<Record<string, unknown>>(STATE))?.treasury, { ryo: 500 });
     });
     it('replays safely without another save, rejects reused ids for a different destination', async () => {
@@ -198,7 +198,7 @@ describe('village transfer scroll', { concurrency: false }, () => {
         assert.deepEqual((await readCharacter()).inventory, ['keepsake']);
     });
     it('recovers a committed transfer when appointment cleanup fails, without consuming again', async () => {
-        await kv.set(STATE, { anbuAppointees: [PLAYER, '', ''] });
+        await kv.set(STATE, { hushAppointees: [PLAYER, '', ''] });
         const originalSet = kv.set.bind(kv);
         let fail = true;
         kv.set = (async (key: string, value: unknown, options?: Parameters<typeof kv.set>[2]) => {
@@ -213,7 +213,7 @@ describe('village transfer scroll', { concurrency: false }, () => {
             assert.equal(replay.status, 200);
             assert.equal(replay.body.replayed, true);
             assert.equal(replay.body._saveVersion, 5);
-            assert.deepEqual((await kv.get<Record<string, unknown>>(STATE))?.anbuAppointees, ['', '', '']);
+            assert.deepEqual((await kv.get<Record<string, unknown>>(STATE))?.hushAppointees, ['', '', '']);
         } finally { kv.set = originalSet; }
     });
 });

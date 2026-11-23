@@ -23,6 +23,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 
 test('a warmed floor and its biome ground are handed over once, and only after they decode', () => withImages(async decodes => {
     warmWorldFloors(9);
+    warmWorldFloors(9);
     assert.equal(decodes.length, 2, 'the floor and the ground start decoding during the wait');
     assert.equal(takeWarmImage(worldFloorSource(9)), undefined, 'an undecoded floor is not handed over');
     decodes.forEach(decode => decode.resolve()); await tick();

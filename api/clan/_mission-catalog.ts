@@ -13,7 +13,7 @@ import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 
 export type ClanMissionKey =
     | 'battle' | 'mission' | 'guard' | 'territory'
-    | 'anbu' | 'donation' | 'training' | 'raid';
+    | 'hush' | 'donation' | 'training' | 'raid';
 
 // Targets — identical to clanMissionDefinitions[].target on the client.
 export const CLAN_MISSION_TARGETS: Record<ClanMissionKey, number> = {
@@ -21,7 +21,7 @@ export const CLAN_MISSION_TARGETS: Record<ClanMissionKey, number> = {
     mission: 50,
     guard: 10,
     territory: 1,
-    anbu: 10,
+    hush: 10,
     donation: 25_000,
     training: 100,
     raid: 5,
@@ -40,7 +40,7 @@ export const CLAN_MISSION_REWARDS: Partial<Record<ClanMissionKey, ClanMissionRew
     battle:   { clanXp: 450, treasury: { ryo: 2_500 } },
     mission:  { clanXp: 650, treasury: { ryo: 3_500 } },
     guard:    { clanXp: 500, treasury: { ryo: 2_000 } },
-    anbu:     { clanXp: 300 },
+    hush:     { clanXp: 300 },
     donation: { clanXp: 700, treasury: { auraStones: 1 } },
     training: { clanXp: 600 },
     // No Mythic Seal: S-rank is locked and its faucet is zero (economy
@@ -79,7 +79,7 @@ export function memberMonthCounters(member: Member | null | undefined, now: numb
 
 /**
  * Credit `amount` event contribution to one roster row from a server writer
- * (ANBU raid wins). A stale row starts the current month from zero first, so
+ * (Anbu raid wins). A stale row starts the current month from zero first, so
  * the credit counts instead of reviving last month's totals.
  */
 export function withRosterEventContrib(member: Record<string, unknown>, amount: number, now: number): Record<string, unknown> {
@@ -126,7 +126,7 @@ export function clanMissionProgressServer(
         case 'mission': return mission;
         case 'guard': return Math.min(10, territoryGuards + members.filter((m) => activeGuard(m, now)).length);
         case 'territory': return Math.min(1, owned.length);
-        case 'anbu': return Math.min(10, territoryGuards + Math.floor(battle / 5));
+        case 'hush': return Math.min(10, territoryGuards + Math.floor(battle / 5));
         // This month's donations at 1,000 ryo-equivalent per contribution
         // point (I-15). A standing treasury balance used to pay it every week.
         case 'donation': return event * 1_000;
@@ -140,7 +140,7 @@ export function clanMissionProgressServer(
  * Whether one roster member earns the mission's Clan Points on a claim, from
  * this month's counters only. Clan Points cannot come from donations
  * (DISALLOWED_CLAN_POINT_SOURCES in api/_clan-points.ts), so donation-fed
- * event contribution never qualifies on its own: `anbu` reads battles and
+ * event contribution never qualifies on its own: `hush` reads battles and
  * guard duty, and `raid` also needs battle or mission activity.
  */
 export function clanMissionPointEligible(
@@ -154,7 +154,7 @@ export function clanMissionPointEligible(
         case 'battle': return battle > 0;
         case 'mission': return mission > 0;
         case 'guard': return activeGuard(member, now) || isSectorGuard;
-        case 'anbu': return battle > 0 || isSectorGuard;
+        case 'hush': return battle > 0 || isSectorGuard;
         case 'raid': return event > 0 && (battle > 0 || mission > 0);
         default: return false;
     }

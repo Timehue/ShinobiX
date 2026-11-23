@@ -9,7 +9,9 @@ import {
 import { activeCarriedPets } from '../_entitlements.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
 import { projectCurrentPetSpecies } from '../pet/_owned-pet.js';
+import { currentStage } from '../pet/_evolution.js';
 import { currentPetHappiness } from '../pet/_happiness.js';
+import { petAbilitySpeciesId } from '../../shared/pet-ability-progression.js';
 import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
 import { petSignatureMastery, petUnmasteredPower } from '../../shared/pet-ability-mastery.js';
 import { petBattleChannels } from '../../shared/pet-battle-stats.js';
@@ -107,6 +109,7 @@ export type CompanionSeal = {
     /** Alpha Bond belongs to this admitted summon, once for the whole fight. */
     reviveOnce?: boolean;
     petId: string;
+    speciesId?: string;
     name: string;
     hp: number;
     damage: number;
@@ -166,8 +169,10 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
     const damageMult = char.profession === 'petTamer'
         ? 1 + (5 + rank * 1.5 + masteryBonus(char.profession, char.masterySpec, 'petPveDamagePct')) / 100 : 1;
     const hpMult = 1 + masteryBonus(char.profession, char.masterySpec, 'petPveHpPct') / 100;
+    const stage = currentStage({ evolutionStage: pet.evolutionStage ?? undefined, rarity: pet.rarity });
     return {
         petId: String(pet.id ?? ''),
+        speciesId: petAbilitySpeciesId({ id: pet.id, templateId: pet.templateId, evolutionStage: stage }) ?? undefined,
         summonApCost: petSummonApCost(char),
         ...(masteryHasCapstone(char.profession, char.masterySpec, 'alpha-bond') ? { reviveOnce: true } : {}),
         rulesetVersion: 'progression-v3',

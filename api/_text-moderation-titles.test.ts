@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hasReservedTitleTerm, isAllowedCustomTitle } from './_text-moderation.js';
+import { createHash } from 'node:crypto';
+import { hasHashedTerm, hasReservedTitleTerm, isAllowedCustomTitle, RESERVED_TITLE_TERM_HASHES } from './_text-moderation.js';
 import { KNOWN_EARNED_TITLES, ACHIEVEMENT_TITLES, isKnownEarnedTitle, isServerCreditedTitle, isLegacyOnlyTitle, normalizeTitleKey } from './_titles-registry.js';
 import { LEGACY_DEFS } from './_legacy-defs.js';
 import { ownsKnownProfileTitle } from './player/_profile-title-ownership.js';
@@ -19,7 +20,7 @@ test('era chapter titles require server ownership rather than a forged earned li
 test('reserved terms catch authority/impersonation, leet + homoglyph + zero-width included', () => {
     for (const bad of [
         'Admin', 'ADMIN', 'admin of pain', 'The Moderator', 'server first',
-        'Hokage', 'Official Staff', '4dmin', 'Game Master', 'hall of legends',
+        'Official Staff', '4dmin', 'Game Master', 'hall of legends',
         'Ádmín',                    // diacritics folded
         'Ad​min',              // zero-width space
         'аdmin',               // Cyrillic 'а'
@@ -27,6 +28,62 @@ test('reserved terms catch authority/impersonation, leet + homoglyph + zero-widt
     ]) {
         assert.equal(hasReservedTitleTerm(bad), true, `should reserve: ${bad}`);
     }
+});
+
+// The reserved leader titles from another series are stored as hashes only.
+// These tests drive the same matcher with an invented term, so the real words
+// never have to be written down here.
+const sha256 = (text: string) => createHash('sha256').update(text).digest('hex');
+const CANARY_HASHES = new Set([sha256('velmorakage'), sha256('dusk')]);
+
+test('hashed reserved terms match every spelling of the canonical word', () => {
+    for (const spelling of [
+        'Velmorakage', 'VELMORAKAGE', 'the velmorakage', 'Velmorakage of the Mist',
+        'Velmora Kage', 'Velmora-Kage', 'Velmora.Kage', 'velmora_kage', 'Vel-mora-kage',
+        'V3lm0rak4ge', 'Velmoraakage', 'Vélmorakage', 'Velm​orakage', 'Vеlmorakage',
+        'Velmora Kage?', '"Velmorakage"', '[Velmora:Kage]', 'x Dusk x', 'D.U.S.K',
+    ]) {
+        assert.equal(hasHashedTerm(spelling, CANARY_HASHES), true, `should match: ${spelling}`);
+    }
+});
+
+test('hashed reserved terms only match whole words', () => {
+    for (const ok of ['Velmora', 'Kage Slayer', 'Velmorakagemusha', 'Duskwalker', 'Velmora the Kage', 'Velmorak Agent', '']) {
+        assert.equal(hasHashedTerm(ok, CANARY_HASHES), false, `should not match: ${ok}`);
+    }
+    assert.equal(hasHashedTerm('Velmorakage', new Set()), false);
+});
+
+test('reserved title hashes are pinned so none can silently disappear', () => {
+    // Removing a hash from the module must fail here, and the same hashes must
+    // also stay guarded by scripts/ip-hygiene.test.mjs. Changing this list is a
+    // deliberate act that needs a reason in review.
+    assert.deepEqual([...RESERVED_TITLE_TERM_HASHES].sort(), [
+        '332cde01112429bacd16b06ef342ac283ab78ca5721260fbc919afad3587765f',
+        '379ee033aa10b319a18fd2750715bd1bfc483502e2f251347dc22fdc504e0ce0',
+        '9c466412766035c349dd53f9862eeeff9093d5c3c62ba236e209b7f79af372b4',
+        '9d05784afac36a2a0499e50a4345ee6fed252d4d964f942404f253935b195c95',
+        'eba2ead8ff67d87403ceab1202f451edbd61958c85615a1197f5fdf197d0bc15',
+    ]);
+    for (const hash of RESERVED_TITLE_TERM_HASHES) assert.match(hash, /^[0-9a-f]{64}$/);
+});
+
+test('reserved title hashes are wired into the title gate', () => {
+    // Put a canary into the module's own hashed list for the length of this
+    // test: the title gate must then refuse it, so the list cannot be
+    // disconnected from hasReservedTitleTerm without failing here.
+    const live = RESERVED_TITLE_TERM_HASHES as Set<string>;
+    const canary = sha256('velmorakage');
+    assert.equal(hasReservedTitleTerm('Velmora Kage'), false);
+    live.add(canary);
+    try {
+        assert.equal(hasReservedTitleTerm('Velmora Kage'), true);
+        assert.equal(hasReservedTitleTerm('V3lmora-Kage'), true);
+        assert.equal(isAllowedCustomTitle('Velmorakage'), false);
+    } finally {
+        live.delete(canary);
+    }
+    assert.equal(hasReservedTitleTerm('Velmora Kage'), false);
 });
 
 test('game vocabulary and normal titles pass (tightened reserved list)', () => {

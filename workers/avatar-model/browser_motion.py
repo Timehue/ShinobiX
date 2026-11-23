@@ -6,11 +6,19 @@ from math import isfinite
 import re
 
 
+# The bundled NPC roster's per-character budget (scripts/sector-model-release.py). A player model has no
+# total size cap (owner, 2026-11-20: an 8 MiB cap failed a finished model at 8,431,780 B); every file
+# below keeps its own limit, so the browser still never fetches an oversized page.
 PACKAGE_BYTES = 8 * 1024**2
+# The client reads a revision header up to 8 MiB (shinobij.client/src/lib/sector-model-manifest.ts).
+HEADER_BYTES = 8 * 1024**2
 INDEX_BYTES = 128 * 1024
 PAGE_BYTES = 512 * 1024
 BATTLE_SPRITE_BYTES = 256 * 1024
-ATLAS_BYTES = 12 * 1024**2
+# One decoded pose page. Real pages peak near 6 MB, so 12 MiB failed any costume about twice as wide (owner,
+# 2026-11-20: keep every limit above five avatars' worth). The client's decoder refuses a page over the same
+# figure (shinobij.client/src/lib/sector-pose.worker.ts); scripts/model-atlas-parity.test.mjs keeps them equal.
+ATLAS_BYTES = 32 * 1024**2
 DIRECTIONS = ["s", "se", "e", "ne", "n", "nw", "w", "sw"]
 
 
@@ -80,22 +88,19 @@ def worker_delivery_objects(result, asset_id, portrait):
 
 def checked_browser_objects(read_bytes, revision, portrait):
     objects = {}
-    total = 0
 
     def read(name, extension, limit):
-        nonlocal total
         if not isinstance(name, str) or not re.fullmatch(r"[a-f0-9]{64}\." + extension, name):
             raise ValueError("Invalid fitted object name")
-        data = read_bytes(name, min(limit, PACKAGE_BYTES - total))
-        if len(data) > limit or total + len(data) > PACKAGE_BYTES:
+        data = read_bytes(name, limit)
+        if len(data) > limit:
             raise ValueError("Fitted object exceeds browser delivery budget: " + name)
         if sha256(data).hexdigest() != name[:64]:
             raise ValueError("Fitted object checksum mismatch: " + name)
-        total += len(data)
         return data
 
     root = revision + ".json"
-    header = read(root, "json", PACKAGE_BYTES)
+    header = read(root, "json", HEADER_BYTES)
     model = json.loads(header)
     if (model["format"] != "sector-motion-v2" or model["portraitSha256"] != portrait or
             model["mapWidth"] != 1080 or model["heightFraction"] != .068 or model["directions"] != DIRECTIONS or

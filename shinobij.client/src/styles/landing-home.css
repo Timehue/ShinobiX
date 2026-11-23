@@ -34,6 +34,7 @@ html.landing-lightbox-open { overflow: hidden; scrollbar-gutter: stable; }
 .landing-brand { display: flex; align-items: center; background: none; border: 0; padding: 0; flex-shrink: 0; box-shadow: none; }
 .landing-logo { display: block; }
 .landing-logo-art { display: block; width: 100%; height: auto; object-fit: contain; }
+.landing-root img:not([src]) { opacity: 0; }
 .landing-logo--nav { width: 144px; }
 .landing-logo--nav .landing-logo-art { height: 78px; }
 .landing-topnav, .landing-nav-actions { display: flex; align-items: center; gap: clamp(12px, 2vw, 32px); }

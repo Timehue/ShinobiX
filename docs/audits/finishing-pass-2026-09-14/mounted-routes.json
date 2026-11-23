@@ -450,9 +450,9 @@
     "handler": "villageSectorPetHandler"
   },
   {
-    "route": "/village/anbu-infiltration",
-    "file": "api/village/anbu-infiltration.ts",
-    "handler": "anbuInfiltrationHandler"
+    "route": "/village/hush-infiltration",
+    "file": "api/village/hush-infiltration.ts",
+    "handler": "hushInfiltrationHandler"
   },
   {
     "route": "/village/war-map",
@@ -1365,9 +1365,9 @@
     "handler": "villageOrdersHandler"
   },
   {
-    "route": "/village/anbu",
-    "file": "api/village/anbu.ts",
-    "handler": "villageAnbuHandler"
+    "route": "/village/hush",
+    "file": "api/village/hush.ts",
+    "handler": "villageHushHandler"
   },
   {
     "route": "/village/hollow-gate-unlock",

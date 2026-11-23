@@ -368,7 +368,7 @@ export function sanitizeCharacterSave(
     // un-forgeable flag and these caps are the final word regardless of
     // STRICT_RAW_SAVE_LEDGER. The base tier is intentionally lower than the
     // subscriber tier (see api/_entitlements.ts):
-    //   • jutsu loadout: 12 (base) / 15 (subscriber). The legacy 16th slot is a
+    //   • jutsu loadout: 14 (base) / 15 (subscriber). The legacy 16th slot is a
     //     separate additive field and is unaffected.
     //   • custom avatar: subscribers only. A non-subscriber may keep an already-
     //     stored avatar (grandfathered), switch to a preset, or carry the

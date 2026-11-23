@@ -38,7 +38,12 @@ test('full account deletion fences jobs, revokes assets, queues erasure and keep
     await f.kv.set('avatar-model:asset:'+assetId,{assetId,version,owner:f.owner,accountId:f.accountId,
         status:'ready',sourceSha256:f.source,masterSha256:'d'.repeat(64),jobId:'old-finished-job'});
     await pushOfflineNotice(f.owner,{kind:'world-model-removed',by:'moderation',sector:0,at:1,modelAccountId:f.accountId});
+    // A check the model loop is finishing, beside another player's, and an old check result (_auto-start.ts).
+    await f.kv.set('avatar-model:checks',[{owner:'someoneelse',since:1},{owner:f.owner,since:2}]);
+    await f.kv.set('avatar-model:check-result:'+f.owner,'declined');
     const result=await withKvLock('save:'+f.owner,()=>deletePlayerAccount(f.owner),{failClosed:true});
+    assert.deepEqual(await f.kv.get('avatar-model:checks'),[{owner:'someoneelse',since:1}]);
+    assert.equal(await f.kv.get('avatar-model:check-result:'+f.owner),null);
     assert.deepEqual(result.failures,[]);
     assert.equal(await f.kv.get('auth:'+f.owner),null);assert.equal(await f.kv.get('save:'+f.owner),null);
     assert.equal(await f.kv.get(offlineNoticesKey(f.owner)),null);
@@ -52,8 +57,9 @@ test('full account deletion fences jobs, revokes assets, queues erasure and keep
     assert.deepEqual(await f.kv.get(thisMonth),slotBefore);
     assert.deepEqual(await f.kv.keys('avatar-model:idem:'+f.owner+':*'),[]);
     assert.equal((await f.kv.get<{state:string}>(f.key))?.state,'cancelled');
-    for(const provider of ['modal','openai']) assert.deepEqual(await f.kv.get('avatar-model:budget:'+provider+':'+f.owner),
+    assert.deepEqual(await f.kv.get('avatar-model:budget:modal:'+f.owner),
         {spentMicros:0,reservedMicros:0},'An unclaimed deleted job cannot strand a reservation');
+    assert.equal(await f.kv.get('avatar-model:budget:openai:'+f.owner),null,'OpenAI is never held');
     await f.kv.set('save:'+f.owner,{character:{name:f.owner,ryo:7,patreon:{source:'promo',tier:'supporter'}}});
     const replacement=await ensureModelOwner(f.owner);assert.ok(replacement.ok);assert.notEqual(replacement.value.id,f.accountId);
     assert.deepEqual(await admitModelJob(f.owner,f.token,f.token,f.policy),{error:'read-expired'});
@@ -71,7 +77,8 @@ test('account deletion during submission settles the fixed cost, keeps a late pr
         settledCosts:Record<string,{basis:string}>}>(f.key);
     assert.equal(ended?.state,'cancelled');assert.deepEqual(ended.providerCalls,{'A/1':'fc-afterdeletion'});
     assert.deepEqual(ended.reserved,[],'A dispatched job settles its fixed cost instead of holding the budget');
-    assert.deepEqual(Object.keys(ended.settledCosts).sort(),['modal','openai']);
+    // Only Modal is held and settled; the OpenAI account's own limit guards that spend.
+    assert.deepEqual(Object.keys(ended.settledCosts).sort(),['modal']);
     assert.ok(Object.values(ended.settledCosts).every(receipt=>receipt.basis==='fixed'));
     await advanceSpriteJob(f.jobId,f.policy,async()=>{throw Error('Deleted account resumed rendering');});
     await publishSpriteJob(f.jobId,async()=>{throw Error('Deleted account published a model');});

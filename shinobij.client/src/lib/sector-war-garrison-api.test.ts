@@ -38,11 +38,11 @@ test("a finished assault is shown again on a remount, never started over", () =>
     // What VillageWarMap writes to launch one.
     assert.deepEqual(garrisonMountPlan({ sector: 12 }), { kind: "start", sector: 12 });
     // Opened, not finished: garrison-start resumes it.
-    assert.deepEqual(garrisonMountPlan({ sector: 12, runId: "garrison-a", anbuName: "Frostfang Anbu #1" }), { kind: "start", sector: 12 });
+    assert.deepEqual(garrisonMountPlan({ sector: 12, runId: "garrison-a", hushName: "Frostfang Anbu #1" }), { kind: "start", sector: 12 });
     // Finished: its result comes back, and no new assault is minted behind it.
     assert.deepEqual(
-        garrisonMountPlan({ sector: 12, runId: "garrison-a", anbuName: "Frostfang Anbu #1", done: true }),
-        { kind: "show-result", runId: "garrison-a", anbuName: "Frostfang Anbu #1" },
+        garrisonMountPlan({ sector: 12, runId: "garrison-a", hushName: "Frostfang Anbu #1", done: true }),
+        { kind: "show-result", runId: "garrison-a", hushName: "Frostfang Anbu #1" },
     );
 });
 
@@ -50,8 +50,8 @@ test("the stash round-trips through storage and keeps the War Map's own shape re
     const store = memoryStore();
     store.setItem(GARRISON_STASH_KEY, JSON.stringify({ sector: 7 }));
     assert.deepEqual(readGarrisonStash(store), { sector: 7 });
-    writeGarrisonStash({ sector: 7, runId: "garrison-b", anbuName: "The Frostfang Kage", done: true }, store);
-    assert.deepEqual(readGarrisonStash(store), { sector: 7, runId: "garrison-b", anbuName: "The Frostfang Kage", done: true });
+    writeGarrisonStash({ sector: 7, runId: "garrison-b", hushName: "The Frostfang Kage", done: true }, store);
+    assert.deepEqual(readGarrisonStash(store), { sector: 7, runId: "garrison-b", hushName: "The Frostfang Kage", done: true });
     clearGarrisonStash(store);
     assert.equal(readGarrisonStash(store), null);
     store.setItem(GARRISON_STASH_KEY, "{not json");

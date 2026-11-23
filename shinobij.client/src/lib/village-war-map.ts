@@ -154,7 +154,7 @@ export class WarMapRequestError extends Error {
     }
 }
 
-/** ~2h with no live-player battle unlocks the sector's ANBU garrison. MUST match
+/** ~2h with no live-player battle unlocks the sector's Anbu garrison. MUST match
  *  api/_sector-war.ts GARRISON_UNLOCK_IDLE_MS. */
 export const GARRISON_UNLOCK_IDLE_MS = 2 * 60 * 60 * 1000;
 
@@ -294,7 +294,7 @@ export function declareSectorWar(playerName: string, village: string, sector: nu
     return postJson("/api/village/sector-war", { action: "declare", playerName, village, sector }) as Promise<DeclareSectorWarResponse>;
 }
 /** Village Stores — toggle the garrison-feed (15 rations/day) on an active
- *  contest. Kage or ANBU appointee of either participant; the server re-checks. */
+ *  contest. Kage or Anbu appointee of either participant; the server re-checks. */
 export function setGarrisonFeed(playerName: string, sectorWarId: string, on: boolean): Promise<{ ok?: boolean; village?: string; garrisonFed?: boolean; contest?: SectorWarContest }> {
     return postJson("/api/village/sector-war", { action: "garrison-feed", playerName, sectorWarId, on }) as Promise<{ ok?: boolean; village?: string; garrisonFed?: boolean; contest?: SectorWarContest }>;
 }

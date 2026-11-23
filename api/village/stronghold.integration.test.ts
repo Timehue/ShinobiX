@@ -214,7 +214,7 @@ test('War Archives intel cannot be claimed during combat', async () => {
 });
 
 test('the authenticated public route drives entry, movement and exit and rejects another identity', async () => {
-    const { default: handler } = await import('./anbu-infiltration.js');
+    const { default: handler } = await import('./hush-infiltration.js');
     const { issuePlayerToken } = await import('../_auth.js');
     const name = 'shhttproute'; await seed(name, 50, sector, homeVillageForSector(sector));
     async function post(operation: string, fields: Record<string, unknown> = {}) {

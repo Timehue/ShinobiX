@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
+import { cinderholdBattleModels } from '../src/lib/cinderhold-battle-models.ts';
 
 const registry = 'virtual:sector-model-pins';
 
@@ -31,6 +32,12 @@ export function sectorModelPins(client: string): Plugin {
             if (id === registry) return '\0' + registry;
         },
         load(id) {
+            // Materialize only the exact model-to-fighter lookup in browser builds.
+            // The source catalog also contains portrait hashes for offline verification.
+            if (!serving && id.endsWith('/src/lib/cinderhold-battle-models.ts')) {
+                this.addWatchFile(path.join(client, '../shared/cinderhold-world-models.json'));
+                return 'export const cinderholdBattleModels = ' + JSON.stringify(cinderholdBattleModels);
+            }
             if (id !== '\0' + registry) return;
             const imports: string[] = [];
             const models: [string,string][] = [];

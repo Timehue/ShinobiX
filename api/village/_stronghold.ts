@@ -212,7 +212,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
                     const profile = builtinAiProfile(profiles[(Math.floor(visit.steps / 25) - 1) % profiles.length]);
                     if (!profile) return { failure: fail('The patrol could not be prepared.', 503) };
                     // The sector's sky, the same one the vault fight in this
-                    // stronghold seals (api/village/anbu-infiltration.ts).
+                    // stronghold seals (api/village/hush-infiltration.ts).
                     const sky = await sealedSectorWeather(sector, Date.now());
                     session = buildSoloPveAiEncounter({ sessionId: patrolId, playerName, save, now: Date.now(),
                         admin: await loadAdminCombatContent(), profile: { ...profile, name: (isDeathsGateStronghold(sector)

@@ -9,7 +9,7 @@ import { LandingAtmosphere } from "./start/LandingAtmosphere";
 import { useLandingReveals } from "./start/useLandingReveals";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { LEGAL_PAGE_LINKS, legalPageForPath, type LegalPageSlug } from "../data/legal";
-import { LegalPage } from "./LegalPage";
+import { LandingImage } from './start/LandingImage';
 import { LoginGate } from "./start/LoginGate";
 import { rememberedShinobi } from "../lib/player-accounts";
 import { DISCORD_INVITE_URL, PLAY_STORE_URL } from "../constants/game";
@@ -29,6 +29,7 @@ import {
 const PRODUCT_ANALYTICS_ENABLED = import.meta.env.VITE_PRODUCT_ANALYTICS_ENABLED === "1";
 
 const CharacterCreator = lazyWithRetry(() => import("./CharacterCreator").then(m => ({ default: m.CharacterCreator })));
+const LegalPage = lazyWithRetry(() => import('./LegalPage').then(m => ({ default: m.LegalPage })));
 const PublicLeaderboard = lazyWithRetry(() => import("./PublicLeaderboard").then(m => ({ default: m.PublicLeaderboard })));
 
 const GuidesLibrary = lazyWithRetry(() => import("../components/GuidesLibrary").then(m => ({ default: m.GuidesLibrary })));
@@ -49,15 +50,17 @@ function BrandLockup({ variant = "nav" }: { variant?: BrandLockupVariant }) {
     const hero = variant === "hero";
     // Both assets contain the complete emblem; the former wide asset cut off
     // its top and bottom. Small placements use a separate, lighter export.
-    const src = hero ? "/landing/logo-complete.webp" : "/landing/logo-small.webp";
+    const src = hero ? "/landing/logo-complete.webp?v=2" : "/landing/logo-small.webp";
     return (
         <span className={`landing-logo landing-logo--${variant}`}>
             <img
                 className="landing-logo-art"
                 src={src}
+                srcSet={hero ? `/landing/logo-small.webp 360w, /landing/logo-medium.webp 640w, ${src} 1100w` : undefined}
+                sizes={hero ? '(max-width: 560px) 315px, (max-width: 800px) 410px, 500px' : undefined}
                 alt={APP_NAME}
-                width={1688}
-                height={932}
+                width={hero ? 1100 : 360}
+                height={hero ? 607 : 199}
                 loading={variant === "footer" ? "lazy" : "eager"}
                 decoding="async"
                 fetchPriority={hero ? "high" : "auto"}
@@ -141,7 +144,7 @@ export function StartScreen({ onCreate, onLogin, onAdmin, onContinueAs, initialN
     }
 
     if (view.startsWith("legal:")) {
-        return <LegalPage slug={view.slice("legal:".length) as LegalPageSlug} />;
+        return <Suspense fallback={<p role="status">Loading policy…</p>}><LegalPage slug={view.slice("legal:".length) as LegalPageSlug} /></Suspense>;
     }
 
     if (view === "leaderboard") {
@@ -339,15 +342,15 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                 </div>
                 <div className="landing-feature-grid">
                     <button type="button" className="landing-feature-card landing-feature-card--world" data-landing-reveal="card" onClick={() => scrollTo('landing-story')}>
-                        <img src="/landing-hero-village-v2.webp" alt="A hidden mountain village connected by bridges and waterfalls" loading="lazy" width="1829" height="860" />
+                        <LandingImage src="/landing-hero-village-v2.webp" alt="A hidden mountain village connected by bridges and waterfalls" loading="lazy" width="1829" height="860" />
                         <div className="landing-feature-text"><h3>Choose Your Village</h3><p>Take missions for your village and help it control territory on the world map.</p><span className="landing-text-link">Read the story</span></div>
                     </button>
                     <button type="button" className="landing-feature-card" data-landing-reveal="card" onClick={() => scrollTo('landing-companions')}>
-                        <img src="/landing/companion.webp" alt="A shinobi and his fox companion beneath golden autumn leaves" loading="lazy" width="1024" height="1536" />
+                        <LandingImage src="/landing/companion.webp?v=2" alt="A shinobi and his fox companion beneath golden autumn leaves" loading="lazy" width="1024" height="1536" />
                         <div className="landing-feature-text"><h3>Join a Clan</h3><p>Team up with other players in clan wars, and raise a pet that fights with you.</p><span className="landing-text-link">Meet the companions</span></div>
                     </button>
                     <button type="button" className="landing-feature-card" data-landing-reveal="card" onClick={() => scrollTo('landing-gameplay')}>
-                        <img src="/landing-clanwar-v2.webp" alt="Shinobi gather beneath crimson banners overlooking a mountain fortress" loading="lazy" width="1448" height="1086" />
+                        <LandingImage src="/landing-clanwar-v2.webp" alt="Shinobi gather beneath crimson banners overlooking a mountain fortress" loading="lazy" width="1448" height="1086" />
                         <div className="landing-feature-text"><h3>Climb the Rankings</h3><p>Improve your jutsu, win ranked PvP matches, and get your name on the leaderboard.</p><span className="landing-text-link">See the battles</span></div>
                     </button>
                 </div>
@@ -358,13 +361,13 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
             <section className="landing-clan landing-story" id="landing-story" aria-labelledby="landing-story-title" tabIndex={-1}>
                 <div className="landing-clan-inner">
                     <div className="landing-clan-copy" data-landing-reveal><h2 id="landing-story-title" className="landing-section-title">A Story for Each Village</h2><p>Each village has its own story, told in illustrated chapters. The choices you make change what happens later.</p><button type="button" className="landing-text-link" onClick={onOpenGuides}>Read the starter guide</button></div>
-                    <figure className="landing-clan-media" data-landing-reveal><img src="/landing/story.webp" alt="Actual gameplay: the What Came Back epilogue in a snow-dusted village" loading="lazy" width="1366" height="768" /><figcaption>In-game capture from the What Came Back epilogue.</figcaption></figure>
+                    <figure className="landing-clan-media" data-landing-reveal><LandingImage src="/landing/story.webp" alt="Actual gameplay: the What Came Back epilogue in a snow-dusted village" loading="lazy" width="1366" height="768" /><figcaption>In-game capture from the What Came Back epilogue.</figcaption></figure>
                 </div>
             </section>
 
             <section className="landing-clan landing-clan--reverse" id="landing-companions" aria-labelledby="landing-companion-title" tabIndex={-1}>
                 <div className="landing-clan-inner">
-                    <div className="landing-companion-art" data-landing-reveal><img src="/landing/companion.webp" alt="A fox companion leans into a shinobi's hand in the golden light of a mountain village" loading="lazy" width="1024" height="1536" /></div>
+                    <div className="landing-companion-art" data-landing-reveal><LandingImage src="/landing/companion.webp?v=2" alt="A fox companion leans into a shinobi's hand in the golden light of a mountain village" loading="lazy" width="1024" height="1536" /></div>
                     <div className="landing-clan-copy" data-landing-reveal><h2 id="landing-companion-title" className="landing-section-title">Raise a Pet Companion</h2><p>Train your pet, send it on expeditions, and battle other players' pets in the arena.</p><div className="landing-companion-traits"><span><GameIcon name="map" />Expeditions</span><span><GameIcon name="paw" />Training</span><span><GameIcon name="sword" />Pet arena</span><span><GameIcon name="medal" />Ranked ladder</span></div><button type="button" className="landing-text-link" onClick={onOpenGuides}>Open the guides</button></div>
                 </div>
             </section>

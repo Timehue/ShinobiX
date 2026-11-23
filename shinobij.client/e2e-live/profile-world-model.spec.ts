@@ -293,7 +293,7 @@ test('a player submits a world model, closes the tab, then equips the finished s
     await expect(avatarActions.getByRole('button', { name: 'Upload avatar', exact: true })).toBeVisible();
     await avatarActions.getByRole('button', { name: 'Make Model', exact: true }).click();
     const creation = page.getByRole('dialog', { name: 'Make Model' });
-    await expect(creation.getByText(/sends your saved portrait to OpenAI and Modal/)).toBeVisible();
+    await expect(creation.getByText(/sent to OpenAI and Modal/)).toBeVisible();
     const submitted = page.waitForResponse(response => new URL(response.url()).pathname === '/api/avatar-model/jobs' &&
         response.request().method() === 'POST');
     const viewport = page.viewportSize() ?? undefined;
@@ -440,7 +440,7 @@ if (process.env.SECTOR_MODEL_TEST_PORTRAITS) {
             const checked=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/avatar-model/read');
             await dialog.getByRole('button',{name:'Check portrait',exact:true}).click();
             expect(await (await checked).json()).toEqual({state:'declined'});
-            await expect(dialog.getByText(/Your monthly creation is still available/)).toBeVisible();
+            await expect(dialog.getByText(/Your model for this month is still available/)).toBeVisible();
         }
     });
 }

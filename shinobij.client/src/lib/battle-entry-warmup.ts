@@ -3,7 +3,7 @@ import type { Screen } from "../types/core";
 import { isAcademyOnboardingActive } from "./onboarding-step";
 
 const COMBAT_ENTRY_SCREENS = new Set<Screen>([
-    "worldMap", "arenaDistrict", "arena", "battleTowers", "villageWar", "villageWarMap", "clanWar2v2",
+    "arenaDistrict", "arena", "battleTowers", "villageWar", "villageWarMap", "clanWar2v2",
 ]);
 
 /** Warm likely combat entry without competing with restoration or the Academy.

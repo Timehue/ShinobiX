@@ -6,11 +6,25 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import test from "node:test";
+import sharp from "sharp";
 
 const client = new URL("../shinobij.client/", import.meta.url);
 const manifests = new URL("src/data/sector-models/", client);
 const content = resolve(process.env.SECTOR_MODEL_TEST_CONTENT || fileURLToPath(new URL("../.ci-evidence/sector-models/", client)));
 const hash = data => createHash("sha256").update(data).digest("hex");
+
+test("each pinned actor has a small transparent standing figure for the map", async () => {
+    const figures = new URL("public/world-figures/v1/", client);
+    const pins = (await readdir(manifests)).filter(name => name.endsWith(".json"));
+    for (const pin of pins) {
+        const name = pin.replace(/\.json$/, ".webp");
+        const bytes = await readFile(new URL(name, figures));
+        const { data, info } = await sharp(bytes).raw().toBuffer({ resolveWithObject: true });
+        assert.ok(bytes.length < 8192 && info.channels === 4 && info.height > 20, name);
+        const alpha = data.filter((_, i) => i % 4 === 3);
+        assert.ok(alpha.includes(0) && alpha.includes(255), name);
+    }
+});
 
 async function verifyPackedNpc(model, slug) {
     assert.equal(model.heightFraction, .068);

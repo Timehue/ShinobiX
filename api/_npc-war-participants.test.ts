@@ -3,8 +3,8 @@ import { before, describe, it } from 'node:test';
 
 // Owner ruling 2026-11-11: like a player village, where anyone level 15+ can
 // fight in a war, Cinderhold's Genin and Chunin whose LIVE level is 15 or more
-// take the war jobs its ANBU take, at villager weight. Under 15 they stay out.
-// The ANBU set itself (Commanders, Elites, Jonin) is unchanged. Every NPC here
+// take the war jobs its Anbu take, at villager weight. Under 15 they stay out.
+// The Anbu set itself (Commanders, Elites, Jonin) is unchanged. Every NPC here
 // is picked by rank and live level, never by id or name.
 
 process.env.NODE_ENV = 'test';
@@ -45,11 +45,11 @@ before(async () => {
 });
 
 describe('who takes war jobs', { concurrency: false }, () => {
-    it('the ANBU always, first; a Genin or Chunin only at live level 15+ and still in Cinderhold', async () => {
+    it('the Anbu always, first; a Genin or Chunin only at live level 15+ and still in Cinderhold', async () => {
         const now = Date.now();
         const list = await war.npcWarParticipants(now);
         const ids = list.map((n) => n.id);
-        assert.deepEqual(ids.slice(0, war.NPC_WAR_DEFENDERS.length), war.NPC_WAR_DEFENDERS.map((n) => n.id), 'the ANBU lead the list');
+        assert.deepEqual(ids.slice(0, war.NPC_WAR_DEFENDERS.length), war.NPC_WAR_DEFENDERS.map((n) => n.id), 'the Anbu lead the list');
         assert.ok(ids.includes(high.id), 'a level-20 Chunin fights');
         assert.ok(!ids.includes(low.id), 'a level-12 Genin stays out');
         assert.equal(list.length, war.NPC_WAR_DEFENDERS.length + 1);
@@ -60,7 +60,7 @@ describe('who takes war jobs', { concurrency: false }, () => {
         assert.equal(pure(14), false);
         assert.equal(pure(15), true);
         assert.equal(pure(40, MOON), false);
-        assert.equal(war.npcWarParticipantsFrom(() => null).length, war.NPC_WAR_DEFENDERS.length, 'no saves: the ANBU alone');
+        assert.equal(war.npcWarParticipantsFrom(() => null).length, war.NPC_WAR_DEFENDERS.length, 'no saves: the Anbu alone');
     });
 
     it('one read serves a minute; a level-up shows after it', async () => {
@@ -75,22 +75,22 @@ describe('who takes war jobs', { concurrency: false }, () => {
         assert.ok(!(await war.npcWarParticipants(t0)).some((n) => n.id === low.id));
     });
 
-    it('the ANBU list itself is unchanged: readVillageAnbu and the AI-copy defender see only Commanders, Elites and Jonin', async () => {
-        const { readVillageAnbu } = await import('./village/_anbu.js');
-        const anbu = await readVillageAnbu(CH);
-        assert.deepEqual(anbu.members, war.NPC_WAR_DEFENDERS.map((n) => n.id));
-        assert.ok(!anbu.members.includes(high.id));
+    it('the Anbu list itself is unchanged: readVillageHush and the AI-copy defender see only Commanders, Elites and Jonin', async () => {
+        const { readVillageHush } = await import('./village/_hush.js');
+        const hush = await readVillageHush(CH);
+        assert.deepEqual(hush.members, war.NPC_WAR_DEFENDERS.map((n) => n.id));
+        assert.ok(!hush.members.includes(high.id));
         assert.ok(war.NPC_WAR_DEFENDERS.every((n) => ['commander', 'elite', 'jonin'].includes(n.rank)));
     });
 });
 
 describe('a war-eligible Genin or Chunin scores as a villager', () => {
-    it('Commander Elder, Jonin ANBU, a level-15+ Chunin and a Genin villagers', async () => {
-        const { sectorWarRoleOf, ROLE_ELDER, ROLE_ANBU, ROLE_VILLAGER } = await import('./_war-role.js');
+    it('Commander Elder, Jonin Anbu, a level-15+ Chunin and a Genin villagers', async () => {
+        const { sectorWarRoleOf, ROLE_ELDER, ROLE_HUSH, ROLE_VILLAGER } = await import('./_war-role.js');
         const commander = all.find((n) => n.rank === 'commander')!;
         const jonin = all.find((n) => n.rank === 'jonin')!;
         assert.deepEqual(await sectorWarRoleOf(commander.id, CH), ROLE_ELDER);
-        assert.deepEqual(await sectorWarRoleOf(jonin.id, CH), ROLE_ANBU);
+        assert.deepEqual(await sectorWarRoleOf(jonin.id, CH), ROLE_HUSH);
         assert.deepEqual(await sectorWarRoleOf(high.id, CH), ROLE_VILLAGER, 'a level-20 Chunin fights, but at villager weight');
         assert.deepEqual(await sectorWarRoleOf(low.id, CH), ROLE_VILLAGER);
         assert.deepEqual(ROLE_VILLAGER, { win: 5, loss: 0 });
@@ -98,7 +98,7 @@ describe('a war-eligible Genin or Chunin scores as a villager', () => {
 });
 
 describe('war fronts', () => {
-    it('the ANBU take the front first; a level-15+ Chunin fills in for them; a level-12 Genin never stands there', async () => {
+    it('the Anbu take the front first; a level-15+ Chunin fills in for them; a level-12 Genin never stands there', async () => {
         const { npcPosts, NPC_FRONT_SQUAD } = await import('./_npc-presence.js');
         const now = Date.now();
         const eligible = new Set((await war.npcWarParticipants(now)).map((n) => n.id));
@@ -106,18 +106,18 @@ describe('war fronts', () => {
 
         const healthy = at(npcPosts(now, all, [18], new Set(), { warParticipants: eligible }));
         assert.equal(healthy.length, NPC_FRONT_SQUAD);
-        assert.ok(healthy.every((id) => war.NPC_WAR_DEFENDERS.some((n) => n.id === id)), 'the ANBU lead while they can');
+        assert.ok(healthy.every((id) => war.NPC_WAR_DEFENDERS.some((n) => n.id === id)), 'the Anbu lead while they can');
 
-        // Every ANBU beaten: the eligible Chunin holds the front, the Genin does not.
-        const anbuDown = new Set(war.NPC_WAR_DEFENDERS.map((n) => n.id));
-        const front = at(npcPosts(now, all, [18], anbuDown, { warParticipants: eligible }));
+        // Every Anbu beaten: the eligible Chunin holds the front, the Genin does not.
+        const hushDown = new Set(war.NPC_WAR_DEFENDERS.map((n) => n.id));
+        const front = at(npcPosts(now, all, [18], hushDown, { warParticipants: eligible }));
         assert.deepEqual(front, [high.id]);
         assert.ok(!front.includes(low.id));
         // Without the participants set (the old call), the front stands empty.
-        assert.deepEqual(at(npcPosts(now, all, [18], anbuDown)), []);
+        assert.deepEqual(at(npcPosts(now, all, [18], hushDown)), []);
     });
 
-    it('the war party strikes with a level-15+ Chunin when no ANBU is free, never a level-12 Genin; ANBU first when free', async () => {
+    it('the war party strikes with a level-15+ Chunin when no Anbu is free, never a level-12 Genin; Anbu first when free', async () => {
         const party = await import('./_npc-war-party.js');
         const sw = await import('./_sector-war.js');
         const contest = sw.newSectorWarSession({ sector: 18, attackerVillage: CH, defenderVillage: MOON, winCondition: 'combat', now: Date.now() - 3_600_000 });
@@ -137,9 +137,9 @@ describe('war fronts', () => {
             });
             return duels.map((d) => d.npc);
         };
-        const anbu = new Set(war.NPC_WAR_DEFENDERS.map((n) => n.id));
-        assert.ok(anbu.has((await run(() => true, 'moonwpa'))[0]!), 'an ANBU strikes while one is free');
-        assert.deepEqual(await run((id) => !anbu.has(id), 'moonwpb'), [high.id], 'the Chunin strikes in their place');
+        const hush = new Set(war.NPC_WAR_DEFENDERS.map((n) => n.id));
+        assert.ok(hush.has((await run(() => true, 'moonwpa'))[0]!), 'an Anbu strikes while one is free');
+        assert.deepEqual(await run((id) => !hush.has(id), 'moonwpb'), [high.id], 'the Chunin strikes in their place');
         assert.deepEqual(await run((id) => id === low.id, 'moonwpc'), [], 'a Genin under 15 never strikes');
     });
 });

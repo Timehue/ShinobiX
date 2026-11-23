@@ -60,7 +60,7 @@ export function garrisonSessionBinding(run: GarrisonRun): GarrisonSessionBinding
     return {
         runId: run.runId, attackerName: run.attackerName, sector: run.sector, contestId: run.contestId,
         attackerVillage: run.attackerVillage, defenderVillage: run.defenderVillage,
-        anbuSlug: run.anbuSlug, terrain: run.terrain,
+        hushSlug: run.hushSlug, terrain: run.terrain,
     };
 }
 

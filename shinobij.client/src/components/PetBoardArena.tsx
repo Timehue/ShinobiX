@@ -1,7 +1,7 @@
 /*
  * PetBoardArena — the Pet Gauntlet BOARD fight view, rendered in 3D (r3f).
  *
- * A real tilted game board (Dota-Underlords style): the approved roster GLBs
+ * A real tilted 3D game board: the approved roster GLBs
  * fight on raised flagstone cells in their actual formation (3 deep × 5 across
  * per side), with pose-art standees retained only as a resilient fallback. It
  * plays a deterministic BoardResult
@@ -19,7 +19,7 @@ import { Billboard, Html, Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import type { BoardResult } from "../lib/pet-board-sim";
 import { BOARD_COLS } from "../lib/pet-board-sim";
-import { petPoseImage, elementVfxKey } from "../lib/pet-battle-anim";
+import { petBattlefieldArt, elementVfxKey } from "../lib/pet-battle-anim";
 import { spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds } from "../lib/pet-coliseum-scene";
 import type { Pet } from "../types/pet";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
@@ -75,7 +75,7 @@ const boardModelHeight = (pet: Pet) => subjectHeightFor(pet) * 1.08;
 
 type BoardSprite = { texture: THREE.Texture; bounds: SpriteBounds; aspect: number };
 /** Load a pose image, scan its alpha bbox (for sizing/grounding), build a texture. */
-function loadBoardSprite(url: string): Promise<BoardSprite> {
+function loadBoardSprite(url: string, fallback: string): Promise<BoardSprite> {
     return new Promise((resolve) => {
         const img = new Image();
         img.crossOrigin = "anonymous";
@@ -96,7 +96,12 @@ function loadBoardSprite(url: string): Promise<BoardSprite> {
             const out: BoardSprite = { texture, bounds, aspect: w / Math.max(1, h) };
             resolve(out);
         };
-        img.onerror = () => resolve({ texture: new THREE.Texture(), bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 });
+        img.onerror = () => {
+            if (url !== fallback) {
+                url = fallback;
+                img.src = fallback;
+            } else resolve({ texture: new THREE.Texture(), bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 });
+        };
         img.src = url;
     });
 }
@@ -854,10 +859,10 @@ function PetBoardArenaView({ result, sharedImages = {}, stars, onDone }: { resul
         // deduplicates repeated species before their image decode completes.
         const loads = new Map<string, Promise<BoardSprite>>();
         for (const u of result.roster) {
-            const url = petPoseImage(u.pet, sharedImages);
-            if (!url) continue;
-            let load = loads.get(url);
-            if (!load) { load = loadBoardSprite(url); loads.set(url, load); }
+            const art = petBattlefieldArt(u.pet, u.pet.id, sharedImages);
+            const key = JSON.stringify([art.sprite, art.fallback]);
+            let load = loads.get(key);
+            if (!load) { load = loadBoardSprite(art.sprite, art.fallback); loads.set(key, load); }
             void load.then((s) => { if (live) setSpriteMap((prev) => new Map(prev).set(u.id, s)); });
         }
         return () => {

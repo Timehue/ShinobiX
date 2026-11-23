@@ -85,7 +85,7 @@ Bring this list so the hour covers everything:
 4. The UK Online Safety Act: the illegal-content and children's-access risk assessments that chat brings into scope.
 5. The trademark search results from section 4.
 6. AI-assisted art: what records of human creative work to keep.
-7. The purchase claims in the Terms (v1.15). The old wording ("Everything Fate Shards buy can also be earned by playing", Supporter "grants no combat advantage") was untrue and has been replaced. The page now says Shards can be earned by playing but more slowly than bought, names the Shard-only items, and says Supporter's 15-slot loadout also applies in PvP. Ask whether that disclosure is enough under EU consumer law and the FTC rules, or whether the Shard-only gear needs a play path. Details: `docs/launch-readiness-plan-2026-11.md` section 3.B item 14.
+7. The purchase claims in the Terms (v1.16). The old wording ("Everything Fate Shards buy can also be earned by playing", Supporter "grants no combat advantage") was untrue and has been replaced. The page now says Shards can be earned by playing but more slowly than bought, names the Shard-only items, and says Supporter adds one regular jutsu slot (15 instead of 14), also in PvP. Ask whether that disclosure is enough under EU consumer law and the FTC rules, or whether the Shard-only gear needs a play path. Details: `docs/launch-readiness-plan-2026-11.md` section 3.B item 14.
 
 ## 7. Real-phone check after a deploy (about 5 minutes)
 

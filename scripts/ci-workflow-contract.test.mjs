@@ -21,7 +21,7 @@ test('the iPhone device matrix gates the built release through required responsi
     assert.match(iphone[0], /IPHONE_AUDIT_BUILT: '1'/, 'the shipping bundle must be tested');
     assert.match(iphone[0], /iphone-experience\.spec\.ts --forbid-only/);
     assert.match(iphone[0], /tee \.ci-evidence\/e2e-responsive-flows-\$\{\{ matrix\.shard \}\}\/iphone\.log/);
-    assert.match(workflow, /needs: \[e2e_responsive_matrix, e2e_responsive_flows\]/);
+    assert.match(workflow, /needs: \[e2e_responsive_matrix, e2e_responsive_flows, e2e_responsive_chronicle_webkit\]/);
     const config = readFileSync(new URL('../shinobij.client/playwright.iphone.config.ts', import.meta.url), 'utf8');
     assert.match(config, /IPHONE_AUDIT_BUILT === '1'/);
     assert.match(config, /prepare-e2e-preview\.mjs/, 'the audit must use the verified immutable release snapshot');
@@ -98,6 +98,9 @@ test('blind sprite recognition tests run without provider access and gate the fi
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_cleanup_\*\.py' -v/);
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_browser_motion\.py' -v/);
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_dispatch_result\.py' -v/);
+    // The painted combat sprite and the costume prompts spend real money per model; keep them gated.
+    assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_battle_sprite\.py' -v/);
+    assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_paint_\*\.py' -v/);
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_roster_release\.py' -v/);
     assert.match(job, /^\s+\/scripts\/sector-model-release\.py$/m);
     assert.match(job, /OPENAI_API_KEY: ''/);
@@ -253,9 +256,35 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
     for(let shard=1;shard<=12;shard++)assert(flows.includes(`lifeShard: ${shard}/12`),'every living-sector slice must be gated');
     assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
-    assert.match(aggregate, /needs: \[e2e_responsive_matrix, e2e_responsive_flows\]/);
+    assert.match(aggregate, /needs: \[e2e_responsive_matrix, e2e_responsive_flows, e2e_responsive_chronicle_webkit\]/);
     assert.ok(aggregate.includes('test "$RESPONSIVE_MATRIX" = success'));
     assert.ok(aggregate.includes('test "$RESPONSIVE_FLOWS" = success'), 'the required aggregate must fail when a flow shard fails');
+    assert.ok(aggregate.includes('test "$RESPONSIVE_CHRONICLE_WEBKIT" = success'), 'the required aggregate must fail when the Chronicle WebKit lane fails');
+});
+
+test('the WebKit Chronicle Snare cases run once, required, in their own one-worker lane', () => {
+    const lane = workflow.split('  e2e_responsive_chronicle_webkit:\n')[1]?.split('\n  e2e_responsive_matrix:\n')[0];
+    assert.ok(lane, 'Chronicle WebKit lane job is missing');
+    assert.equal(occurrences('name: CI / e2e-responsive-chronicle-webkit\n'), 1);
+    assert.match(lane, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
+    assert.doesNotMatch(lane, /continue-on-error: true\n\s+run: npm run test:e2e/, 'the lane must enforce its result');
+    // Same verified build as the smoke shards, not a fresh client build.
+    assert.ok(lane.includes('sha256sum -c release-dist.tgz.sha256'));
+    assert.ok(lane.includes('tar -xzf .ci-artifacts/release/release-dist.tgz'));
+    assert.doesNotMatch(lane, /npm run build\b/);
+    assert.ok(lane.includes("grep -Fx 'Total: 4 tests in 1 file'"), 'the lane must prove all four cases are scheduled');
+    assert.match(lane, /--project=webkit-mobile-chronicle-snare --project=webkit-desktop-chronicle-snare --workers=1 --forbid-only/);
+    assert.ok(lane.includes('s.expected + s.flaky !== 4'), 'the lane must prove all four cases ran and passed');
+    assert.match(lane, /name: Retain Chronicle WebKit evidence\n\s+if: always\(\)/);
+    // The smoke shards skip the lane projects, and webkit-mobile and webkit-desktop always skip the cases.
+    const smoke = responsiveShards().split('      - name: ').find(value => value.startsWith('Cross-browser responsive and accessibility smoke\n'));
+    assert.match(smoke, /E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE: '1'/);
+    const config = readFileSync(new URL('../shinobij.client/playwright.config.ts', import.meta.url), 'utf8');
+    assert.match(config, /name: 'webkit-mobile', grepInvert: CHRONICLE_SNARE_TITLE,/);
+    assert.match(config, /name: 'webkit-desktop', testIgnore: SCREEN_WALK_SPEC, grepInvert: CHRONICLE_SNARE_TITLE,/);
+    assert.match(config, /name: 'webkit-desktop-chronicle-snare',/);
+    assert.match(config, /process\.env\.E2E_EXCLUDE_CHRONICLE_WEBKIT_LANE === '1' \? \[\] : \[CHRONICLE_WEBKIT_LANE, CHRONICLE_WEBKIT_DESKTOP_LANE\]/);
+    assert.match(config, /\.\.\.chronicleWebkitLane,/);
 });
 
 test('dedicated world suites run once without sharing living-sector job budgets', () => {

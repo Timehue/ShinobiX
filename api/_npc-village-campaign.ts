@@ -115,7 +115,7 @@ export function npcOperationMs(npcId: string, missionId: string): number {
  * (hospital or Field Recovery shield), not already in a server-played fight,
  * and not under admin control (unless `allowPossessed`: the admin then plays
  * it, as with a queued defender). `forCopy`: an AI copy of it (the stronghold
- * ANBU defense) needs no live NPC, so DISABLE_NPC_VILLAGE does not stop it.
+ * Anbu defense) needs no live NPC, so DISABLE_NPC_VILLAGE does not stop it.
  */
 export async function npcCampaignFighterFree(npcId: string, opts: { allowPossessed?: boolean; forCopy?: boolean; now?: number } = {}): Promise<boolean> {
     const id = safeName(npcId);
@@ -310,7 +310,7 @@ async function campaignStep(war: CampaignWarRow, state: NpcCampaignState, now: n
     const c = war.campaign!;
     const generation = war.declarationGeneration ?? 1;
     const enemy = war.villages.find((village) => village !== NPC_VILLAGE)!;
-    // Who fights: its ANBU, and its Genin and Chunin at level 15 or more (owner
+    // Who fights: its Anbu, and its Genin and Chunin at level 15 or more (owner
     // ruling 2026-11-11). Each minute reads only the two facts that decide it;
     // a whole save is read only for an NPC weighed for a raid (its kit).
     const participants = await npcWarParticipants(now);
@@ -338,7 +338,7 @@ async function campaignStep(war: CampaignWarRow, state: NpcCampaignState, now: n
     };
     const ordersOf = (kind: NpcCampaignAssignment['kind']) => Object.entries(state.assignments)
         .filter(([, a]) => a.warId === war.id && a.kind === kind);
-    // Its ANBU first, so the strongest fill the squads; the Genin and Chunin after them.
+    // Its Anbu first, so the strongest fill the squads; the Genin and Chunin after them.
     const tier = (npc: NpcShinobi) => (isNpcWarDefenderRank(npc.rank) ? 0 : 1);
     const rotation = (salt: string) => [...participants]
         .sort((a, b) => tier(a) - tier(b) || hash32(`${a.id}:${salt}`) - hash32(`${b.id}:${salt}`) || a.id.localeCompare(b.id));

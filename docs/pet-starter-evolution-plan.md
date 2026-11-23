@@ -1,4 +1,4 @@
-# Starter Pet Evolution + Digivolution-Style Cutscene — Full Plan
+# Starter Pet Evolution + Evolution Cutscene — Full Plan
 
 > **Historical document.** It was written while Vercel and cPanel were still hosts. Both are retired: Railway is the only host, `dist/` is never committed, and new endpoints are registered in `server-api-routes.ts`. Instructions below about committing `dist/`, cPanel or Vercel parity, or `server.ts` registration no longer apply. Current rules live in `CLAUDE.md`.
 
@@ -47,7 +47,7 @@ _Last updated 2026-06-13._
 > deploy, rebuild + commit `dist/`.
 
 A foolproof, end-to-end plan for evolving the 5 starter pets twice each, with a
-Digimon-style cinematic evolution cutscene (name → tube of light → new name →
+cinematic evolution cutscene (name → tube of light → new name →
 360° hero turntable). Covers the mechanic, the server authority, the cutscene,
 **all the art the pet arenas need**, the UI, fallbacks, build phases, tests, and
 cost.
@@ -63,13 +63,13 @@ cost.
 | Currency | **Fate Shards** (`fateShards`) — there is no "Fate Stones" in code; Fate Shards is the existing premium pet currency |
 | Items | **Two universal stones**: **Awakening Stone** (1st evo), **Ascension Stone** (2nd evo) |
 | Item prices (proposed, tunable) | Awakening Stone **150** Fate Shards · Ascension Stone **400** Fate Shards |
-| Cutscene | Digivolution-style: old name → tube of light + silhouette morph → burst → new name → **full 360° turntable of the new form's 3D model** |
+| Cutscene | Cinematic: old name → tube of light + silhouette morph → burst → new name → **full 360° turntable of the new form's 3D model** |
 
 ---
 
 ## 1. Codebase reality check (verified against origin repo)
 
-**Pets are 2D sprites composited in 3D (HD-2D) — there are ZERO real 3D models.**
+**Pets are 2D sprites composited in 3D (2.5D) — there are ZERO real 3D models.**
 `grep` for `useGLTF` / `gltf` / `glb` / `GLTFLoader` returns nothing. Every pet
 in the coliseum is a Y-locked **billboard** (`<Billboard lockX lockZ>` +
 `<planeGeometry>`) with a texture. This is the single most important fact for the
@@ -310,12 +310,12 @@ prefix), while remaining fully editable in their own admin section.
 
 ---
 
-## 4. The evolution cutscene (Digimon-style)
+## 4. The evolution cutscene
 
-### 4.1 Reference — the canonical digivolution beats
+### 4.1 Reference — the canonical evolution beats
 
 From research (see Sources): the classic sequence is the rookie **glowing and
-slowly spinning in a black void**, a **name call-out** ("X digivolve to…!"), the
+slowly spinning in a black void**, a **name call-out** ("X evolves to…!"), the
 camera **crash-zooming** while the body reads as a **silhouette/wireframe with
 data being rewritten** ("skin peeling/reforming"), a **burst of light**, then the
 camera **pulling out to reveal the new, larger form**, the **new name slamming
@@ -560,10 +560,6 @@ first; art (Phase 4) backfills the visuals.
 ---
 
 ## Sources (research)
-
-- Digivolution — DigimonWiki (Fandom)
-- [Best Digimon Transformation Sequences, Ranked — CBR](https://www.cbr.com/digimon-best-digivolution-sequences/)
-- [Digimon Adventure's New Transformation Sequences — Gizmodo](https://gizmodo.com/digimon-adventure-s-new-transformation-sequences-are-go-1844217870)
 - [Hunyuan3D Image-to-3D API on fal.ai](https://fal.ai/models/fal-ai/hunyuan3d/v2/api)
 - [Best Image-to-3D Tools 2026 — 3DAI Studio](https://www.3daistudio.com/3d-generator-ai-comparison-alternatives-guide/best-image-to-3d-tools-2026)
 - [SV3D — Stability AI (single image → multi-view turntable)](https://stability.ai/news/introducing-stable-video-3d)

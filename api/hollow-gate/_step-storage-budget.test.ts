@@ -6,7 +6,7 @@ import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
 import { projectKvValue } from '../_storage-projection.js';
 
 // A Hollow Gate step is the hottest write in the game: one request per tile,
-// one tile every 175 ms while walking. It used to read the whole player save
+// including during a continuous run. It used to read the whole player save
 // twice and compare-and-set it once on every tile, which made a step about
 // 150 ms of database time in production and let the browser's step queue fall
 // behind the walk. These cases pin the budget: a step touches the run row, and

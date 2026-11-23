@@ -1,3 +1,6 @@
+import { WorldStandingFigure } from '../../components/WorldStandingFigure';
+import { shrineFigurePositions } from '../../lib/shrine-figure-positions';
+import { starterModel } from '../../lib/player-model';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { shrineRules, type CampaignObjective, type VillageCampaignVersion } from '../../../../shared/village-war-campaign';
 import { ShrineControlTimes } from './ShrineControlTimes';
@@ -122,11 +125,11 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
                 aria-label={`Walk to shrine tile ${tile % 12 + 1}, ${Math.floor(tile / 12) + 1}`} tabIndex={-1}
                 disabled={busy || closed || !me || !onShrineFloor(tile)}
                 onClick={() => void walkTo(tile)} />)}</div>
-            {room?.players.map((player, i) => { const tile = player === me ? stepping ?? player.tile : player.tile;
+            {shrineFigurePositions(room?.players ?? [], me, stepping).map(({ player, left, top }) => {
                 const portrait = player === me ? avatar : sharedAvatarFor(sharedImages, player.displayName);
                 return <span key={player.name} className={`war-shrine-player ${player.village === character.village ? 'is-ally' : 'is-enemy'}`}
-                style={{ left: `${((tile % 12 + .5) / 12) * 100}%`, top: `${((Math.floor(tile / 12) + .5) / 12) * 100}%`, transform: `translate(-50%, -50%) translateX(${i * 6}px)` }}>
-                {portrait ? <img src={portrait} alt='' /> : <b>{player.displayName.slice(0, 2).toUpperCase()}</b>}
+                style={{ left: `${left}%`, top: `${top}%`, transform: 'translate(-50%, -100%)' }}>
+                <WorldStandingFigure kind={starterModel(portrait || '', player === me ? character.starterWorldModel ?? player.starterWorldModel : player.starterWorldModel)} />
                 <small>{player === me ? 'You' : player.displayName}</small></span>; })}
         </div>
         <aside aria-label='Shrine control'><p className='war-shrine-input-hint'>Select a tile, or move with WASD or the arrow keys.</p>
@@ -140,7 +143,7 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
             {player.inBattle ? `${player.displayName} is fighting` : `Fight ${player.displayName}`}</button>)}</div>}
         <details className='war-shrine-rules'><summary>How Scoring Works</summary>
             <p>The first {target.limit} enemy-player victories inside earn {rules.winPoints} {campaignVersion === 3 ? 'extra War Points' : 'War Points'} each, shared across both villages. Combat stays open until the window closes.</p>
-            {campaignVersion === 3 && <p>Every victory also awards normal role points and deducts the defeated player's role penalty from the enemy score, down to zero. These continue after the extra-point cap: Kage wins earn 30, Elder 20, ANBU 15 and villager 5 points; losing a Kage costs 50 and an Elder 20.</p>}
+            {campaignVersion === 3 && <p>Every victory also awards normal role points and deducts the defeated player's role penalty from the enemy score, down to zero. These continue after the extra-point cap: Kage wins earn 30, Elder 20, Anbu 15 and villager 5 points; losing a Kage costs 50 and an Elder 20.</p>}
             <p>The village with the most uncontested time across the window earns {rules.controlBonus.toLocaleString()} points at closing, even if it has left. Empty and contested time does not count. Tied or zero totals award no bonus.</p>
         </details></aside></div>
     </section></dialog>;

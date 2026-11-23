@@ -2,7 +2,7 @@
  * Clan Exchange item art — the generated illustration for each exchange item,
  * keyed by item id. Mirrors ClanHallTierArt / DoctrineCrest: a bundled webp with
  * the composed-glyph plate (ExchangeProductArt) as fallback for any id without
- * art. Art lives in src/assets/clan-exchange/<id>.webp (transparent HD-2D icons,
+ * art. Art lives in src/assets/clan-exchange/<id>.webp (transparent 2.5D icons,
  * same style family as the clan-hall / doctrine / upgrade art). KEEP the keys in
  * sync with the exchange item ids in ClanExchange.tsx / api/clan/_exchange.ts.
  */

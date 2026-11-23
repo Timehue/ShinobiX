@@ -6,13 +6,12 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { getIo } from '../_realtime/socket.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
 import { randomUUID } from 'node:crypto';
-import { sectorExitById, travelArrivalTile, SECTOR_TILE_COUNT, type SectorExit } from '../../shared/sector-links.js';
+import { arrivalStandTile, sectorExitById, travelArrivalTile, SECTOR_TILE_COUNT, type SectorExit } from '../../shared/sector-links.js';
 import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { clearTravelLeaseIfSame, setTravelLease, TravelLeaseHeldError, type TravelLease } from '../_realtime/travel-lease.js';
 import { engagedInWorldDuel } from '../_realtime/world-duel-engagement.js';
 import { kv } from '../_storage.js';
 import { sectorObstaclesEnabled } from '../_release-flags.js';
-import { serverWalkTile } from '../_sector-obstacles.js';
 import { COAST_SECOND_DOCK, coastEntryRefusalFor, coastSecondDockOpenFor } from '../_coast-admission.js';
 import { coastArrivalTile, coastExitById, coastExitWalkable, coastSite } from '../../shared/coast-world.js';
 import type { CoastExit } from '../../shared/coast-world-rules.js';
@@ -200,8 +199,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } else if (toCoast) {
             arrivalTile = coastArrivalTile(player.sector, destinationSector) ?? undefined;
         } else if (destinationSector === HOME_HARBOR_SECTOR) {
-            // The boat home puts you down by the Western Piers duty house.
-            arrivalTile = serverWalkTile(HOME_HARBOR_SECTOR, HOME_HARBOR_ARRIVAL_TILE);
+            // The boat home puts you down by the Western Piers duty house, grounded and
+            // stepped off any resident's tile like every other arrival.
+            arrivalTile = arrivalStandTile(HOME_HARBOR_SECTOR, HOME_HARBOR_ARRIVAL_TILE, sectorObstaclesEnabled());
         }
     } else if (mode === 'edge') {
         // The origin is the SERVER's sector — lease-gated presence, never the
@@ -221,7 +221,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!exit || !edgeOriginTileAllowed(player.tile, exit.tile)) {
             return res.status(409).json({ error: 'Move onto that road exit before crossing sectors.' });
         }
-        arrivalTile = serverWalkTile(destinationSector, exit.destinationTile);
+        // Grounded and stepped off any resident's tile, like every other arrival.
+        arrivalTile = arrivalStandTile(destinationSector, exit.destinationTile, sectorObstaclesEnabled());
         edgeOriginSector = exit.sector;
     } else {
         // A MAP jump arrives on the edge facing the sector it came from, same as

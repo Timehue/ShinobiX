@@ -50,6 +50,8 @@ async function waitHealthy(timeoutMs = 60_000) {
 }
 
 const INIT = () => {
+    // A restored world requests more than the browser's default 250 entries.
+    performance.setResourceTimingBufferSize(4096);
     window.__probe = { longTasks: [], lcp: 0, fcp: 0, cls: 0 };
     try { new PerformanceObserver(l => { for (const e of l.getEntries()) window.__probe.longTasks.push({ s: Math.round(e.startTime), d: Math.round(e.duration) }); }).observe({ type: 'longtask', buffered: true }); } catch {}
     try { new PerformanceObserver(l => { const es = l.getEntries(); const last = es[es.length - 1]; if (last) window.__probe.lcp = Math.round(last.renderTime || last.loadTime || last.startTime); }).observe({ type: 'largest-contentful-paint', buffered: true }); } catch {}

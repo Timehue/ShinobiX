@@ -47,20 +47,20 @@ export async function warmSectorArrival({ sector, player, self, cast }: {
     warmWorldFloors(sector);
     void loadContinuousWorld().catch(() => {});
     // Only sectors that run a road scene ask for one (the same gate useSectorLife uses).
-    const life = isPlayableWildSector(sector) ? prefetchSectorLife(player, sector) : Promise.resolve(undefined);
-    void import("./sector-pose-delivery").catch(() => {});
+    const peopleReady = isPlayableWildSector(sector) ? prefetchSectorLife(player, sector).then(reply => {
+        if (reply?.view?.painting) warmLifePainting(reply.view.painting);
+        return reply?.view?.actors.map(actor => actor.wanderer) ?? [];
+    }, () => []) : Promise.resolve([]);
     // After a reload the flags may still be on their way; one answer serves both.
     await Promise.all([prefetchSectorPresentation(), loadPins()]).catch(() => {});
     const artBase = worldModelArtBase();
     if (!artBase) return;
+    void import("./sector-pose-delivery").catch(() => {});
     // The player's own figure (shown only with fitted gaits) does not wait on the road's reply.
     let budget = ARRIVAL_WARM_BYTES;
     const own = arrivalFigures(sectorPlayerGaitsOn() ? self : null, [], () => undefined);
     for (const figure of own) budget -= await warmFigure(artBase, figure, budget).catch(() => 0);
-    const people = await life.then(reply => {
-        if (reply?.view?.painting) warmLifePainting(reply.view.painting);
-        return reply?.view?.actors.map(actor => actor.wanderer) ?? [];
-    }, () => []);
+    const people = await peopleReady;
     const others = arrivalFigures(own[0] ?? null, [...people, ...cast], modelForPerson).slice(own.length);
     for (const figure of others) {
         if (budget <= 0) break;

@@ -51,7 +51,8 @@ describe('classifyBodyLimit', () => {
     });
 
     it('leaves hot gameplay/poll routes on the default parser', () => {
-        for (const p of ['/api/pvp/move', '/api/pvp/session', '/api/player/heartbeat', '/api/player/challenge-notice',
+        // `pvp/session-x` proves the pvp/session allowance stops at its own path.
+        for (const p of ['/api/pvp/move', '/api/pvp/session-x', '/api/player/heartbeat', '/api/player/challenge-notice',
             '/api/village-guard/queue', '/api/admin/content-publish-status', '/api/game-stateful']) {
             assert.equal(classifyBodyLimit(p), 'default', p);
         }
@@ -63,6 +64,8 @@ describe('classifyBodyLimit', () => {
             'game-state': 'admin-large',
             'player/challenge': 'large',
             'village-guard/challenge': 'large',
+            // A client older than 2026-11-22 posts both whole characters here.
+            'pvp/session': 'large',
             'avatar-model/profile-portrait': 'medium',
             'pet/choose-starter': 'medium',
         };
@@ -115,6 +118,7 @@ describe('JSON body limits over HTTP', () => {
 
     it('keeps the larger parsers on the routes that need them', async () => {
         assert.equal((await post('/api/player/challenge', 450 * 1024)).status, 200, 'a challenge with an inline avatar');
+        assert.equal((await post('/api/pvp/session', 450 * 1024)).status, 200, 'a PvP create from a client that still sends whole characters');
         assert.equal((await post('/api/avatar-model/profile-portrait', 1_400_000)).status, 200, 'a 1 MiB portrait as base64');
         assert.equal((await post('/api/save/rill', 900 * 1024)).status, 200);
         assert.equal((await post('/api/save/rill', 1_100_000)).status, 413);

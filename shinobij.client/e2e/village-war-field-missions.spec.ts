@@ -48,7 +48,7 @@ for (const [mode, label] of [['combat', 'Shinobi PvP'], ['pet', 'Pet battles onl
         await expect(panel.getByRole('heading', { name: 'Enemy stronghold · Sector 18', exact: true })).toBeVisible();
         await expect(panel.getByText(label, { exact: true })).toBeVisible();
         expect(actions.find(a => a.action === 'enter')?.objectiveId).toBe(objective.id);
-        await panel.getByRole('button', { name: 'Attack the ANBU defense', exact: true }).click();
+        await panel.getByRole('button', { name: 'Attack the Anbu defense', exact: true }).click();
         await expect(panel.getByRole('alert')).toHaveText('Finish your current combat settlement first.');
         expect(actions.find(a => a.action === 'start')?.objectiveId).toBe(objective.id);
         await page.screenshot({ path: info.outputPath(`${mode}-physical-stronghold.png`) });

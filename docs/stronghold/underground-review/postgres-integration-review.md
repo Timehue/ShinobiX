@@ -2,7 +2,7 @@
 
 > Raw evidence files linked from this page (logs, transcripts, screenshots) were removed on 2026-10-16 to cut repository weight. Retrieve one with `git show 5124ba3f2:<path>`.
 
-October 12, 2026. Follow-up to the [Anbu async/queue CI review](anbu-async-queue-ci-review.md).
+October 12, 2026. Follow-up to the [Hush async/queue CI review](hush-async-queue-ci-review.md).
 
 ## Database and isolation
 

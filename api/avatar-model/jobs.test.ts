@@ -49,9 +49,14 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
     const withoutReview=JSON.parse(configuredPolicy); delete withoutReview.recognition;
     process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(withoutReview);
     assert.equal((await post(owner,read)).error,'disabled');
+    // OpenAI is guarded by its own account limit, so a policy without an OpenAI budget stays on.
     const withoutReviewBudget=JSON.parse(configuredPolicy);
     withoutReviewBudget.providers=withoutReviewBudget.providers.filter((p:{provider:string})=>p.provider!=='openai');
     process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(withoutReviewBudget);
+    assert.equal(modelCreationPolicy().enabled,true);
+    const withoutModal=JSON.parse(configuredPolicy);
+    withoutModal.providers=withoutModal.providers.filter((p:{provider:string})=>p.provider!=='modal');
+    process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(withoutModal);
     assert.equal((await post(owner,read)).error,'disabled');
     process.env.AVATAR_MODEL_RESERVATIONS_JSON = '{';
     assert.deepEqual(await post(third,await token(third)), { status: 503, error: 'disabled' });
@@ -84,8 +89,12 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
     assert.ok(dispatch.includes(jobId));
     const day=new Date().toISOString().slice(0,10);
     assert.equal(await kv.get('avatar-model:daily:'+day),2);
-    assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:600,spentMicros:0});
-    assert.deepEqual(await kv.get('avatar-model:budget:openai:another-cycle'),{reservedMicros:12,spentMicros:0});
+    // A job holds one realistic job's cost, in the calendar month's row whatever `cycle` the config names.
+    const budgetKey='avatar-model:budget:modal:'+day.slice(0,7);
+    assert.deepEqual(await kv.get(budgetKey),{reservedMicros:200,spentMicros:0});
+    assert.equal(await kv.get('avatar-model:budget:modal:test-cycle'),null);
+    // The configured OpenAI entry is ignored: the OpenAI account's own limit guards that spend.
+    assert.equal(await kv.get('avatar-model:budget:openai:another-cycle'),null);
     assert.equal(await kv.get('avatar-model:active:'+owner),jobId);
     assert.equal(await kv.get('avatar-model:read:'+createHash('sha256').update(read).digest('hex')),null);
     const job=await kv.get<{state:string;sourceKey:string;entitlement:{source:string};recognition:{model:string;poolSha256:string;nonce:string}}>('avatar-model:job:'+jobId);
@@ -96,18 +105,12 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
     assert.equal(job.recognition.poolSha256,'9'.repeat(64));
     assert.match(job.recognition.nonce,/^[a-f0-9]{64}$/);
     const {endModelJob} = await import('./_settlement.js');
-    const cancel = (await import('./jobs/cancel.js')).default as unknown as typeof handler;
-    async function cancelAs(slug:string) {
-        let status = 0;
-        const res = {setHeader(){},status(code:number){status=code;return res;},json(){},end(){}};
-        await cancel({method:'POST', query:{id:jobId}, headers:{'x-player-token':issuePlayerToken(slug)}} as never,res as never);
-        return status;
-    }
-    assert.equal(await cancelAs(other),404);
-    assert.deepEqual(await Promise.all([cancelAs(owner),cancelAs(owner)]),[200,200]);
+    // Players cannot cancel (owner, 2026-11-20). A moderator removal ends a job the same way: the month stays used.
+    assert.equal(await endModelJob(jobId,other,'moderator-removed'),'unavailable');
+    assert.deepEqual(await Promise.all([endModelJob(jobId,owner,'moderator-removed'),endModelJob(jobId,owner,'moderator-removed')]),['cancelled','cancelled']);
     assert.equal(await kv.get('avatar-model:active:'+owner),null);
     assert.equal((await post(owner,another,'second-request')).error,'quota');
-    assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:300,spentMicros:0});
+    assert.deepEqual(await kv.get(budgetKey),{reservedMicros:100,spentMicros:0});
     const winner = rival[0].status === 202 ? other : third;
     let failedId = rival.find(x=>x.status===202)!.jobId!;
     // A failed, already dispatched attempt settles its fixed cost (settleMicros) and frees the rest of its hold.
@@ -120,18 +123,18 @@ test('admission binds the authenticated portrait, slot, reserved costs and dispa
         assert.deepEqual(await kv.get('avatar-model:failures:'+winner+':'+hash),{count:i});
         assert.equal(await kv.get('avatar-model:slot:'+winner+':'+day.slice(0,7)),null);
         // Only the first job was dispatched; the retries end unclaimed and release their whole hold free.
-        assert.deepEqual(await kv.get('avatar-model:budget:modal:test-cycle'),{reservedMicros:0,spentMicros:10});
-        assert.deepEqual(await kv.get('avatar-model:budget:openai:another-cycle'),{reservedMicros:0,spentMicros:1});
+        assert.deepEqual(await kv.get(budgetKey),{reservedMicros:0,spentMicros:10});
+        assert.equal(await kv.get('avatar-model:budget:openai:another-cycle'),null);
         const failed=await kv.get<{reserved:unknown[];settledCosts?:Record<string,{spentMicros:number;basis:string}>}>('avatar-model:job:'+failedId);
         assert.deepEqual(failed?.reserved,[]);
         if (i===1) { assert.equal(failed.settledCosts?.modal.spentMicros,10); assert.equal(failed.settledCosts?.modal.basis,'fixed'); }
         else assert.equal(failed.settledCosts,undefined);
-        const config=JSON.parse(process.env.AVATAR_MODEL_RESERVATIONS_JSON!);
-        config.dailyLimit=10;
-        process.env.AVATAR_MODEL_RESERVATIONS_JSON=JSON.stringify(config);
+        // The refund gave back the failed job's place in today's count (the cancelled job, a player
+        // choice, still counts). The count only feeds the admin view: nothing caps it.
+        assert.equal(await kv.get('avatar-model:daily:'+day),1);
         const next = await post(winner,await token(winner),'retry-after-'+i);
         if (i === 3) assert.equal(next.error,'input');
         else { assert.equal(next.status,202); failedId=next.jobId!; }
     }
-    assert.equal(await kv.get('avatar-model:daily:'+day),4);
+    assert.equal(await kv.get('avatar-model:daily:'+day),1);
 });

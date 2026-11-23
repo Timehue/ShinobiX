@@ -66,7 +66,7 @@ describe('sanitizeUserText', () => {
     });
 
     it('passes innocent strings', () => {
-        assert.equal(isCleanText('Hidden Leaf Village'), true);
+        assert.equal(isCleanText('Cinderhold Village'), true);
         assert.equal(isCleanText('Crimson Dragons'), true);
         assert.equal(isCleanText('Title with numbers 123'), true);
     });
@@ -95,7 +95,7 @@ describe('sanitizeUserText', () => {
 
     it('rejects blocked terms embedded in normalized player names without blocking normal fantasy names', () => {
         assert.equal(isCleanPlayerName('n1gger-ninja'), false);
-        assert.equal(isCleanPlayerName('Hidden Leaf'), true);
+        assert.equal(isCleanPlayerName('Cinderhold'), true);
         assert.equal(isCleanPlayerName('SkyStorm'), true);
     });
 
@@ -128,7 +128,7 @@ describe('player-name profanity', () => {
         for (const name of [
             'Assassin', 'Peacock', 'Arsenal', 'Canal', 'Scrap', 'Classic', 'Titan',
             'Bass', 'Shiro', 'Mishima', 'Pistol', 'Sussex', 'Cassandra', 'Analise',
-            'Hidden Leaf', 'Stormveil', 'Kunoichi', 'Eastwatch', 'The last watch',
+            'Cinderhold', 'Stormveil', 'Kunoichi', 'Eastwatch', 'The last watch',
             'Yamashita', 'Kinoshita', 'Thorny Vale', 'Swanky', 'Bob',
         ]) {
             assert.equal(isCleanPlayerName(name), true, `"${name}" must remain usable`);

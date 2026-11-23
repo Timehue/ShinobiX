@@ -256,9 +256,9 @@ describe('step B wiring — every armed entry point still calls the seal', () =>
     it('the weekly boss and Anbu Vault stay deliberately unarmed', () => {
         // Documented in the _pve-band-seal.ts header. Weekly boss needs its own
         // (much tighter) weeklyBossGuardedHit port; Anbu's opponent is a real
-        // player's sealed ANBU defender. If either is armed later, that is a
+        // player's sealed Anbu defender. If either is armed later, that is a
         // deliberate decision — update this test with it.
-        for (const file of ['api/weekly-boss.ts', 'api/village/anbu-infiltration.ts']) {
+        for (const file of ['api/weekly-boss.ts', 'api/village/hush-infiltration.ts']) {
             const src = readFileSync(join(root, file), 'utf8');
             assert.ok(!src.includes('sealPveDifficultyBand'), `${file} armed the standard band — see the _pve-band-seal.ts header`);
         }

@@ -41,6 +41,7 @@ export function companionActor(
             ...(seal.rulesetVersion === 'progression-v3' ? { companionSignatureReadyAfter: 2, companionOrdinaryActions: 0 } : {}),
             companionPveGear: seal.pveGearId,
             visual: seal.petId,
+            ...(seal.speciesId ? { companionSpecies: seal.speciesId } : {}),
             specialty: 'Taijutsu',
             level: 1,
             stats: seal.rulesetVersion === 'progression-v3' ? {

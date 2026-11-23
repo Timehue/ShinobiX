@@ -148,7 +148,7 @@ export const stackableItemIds = new Set<string>([
     WARFORGED_RELIC_ID,
     DUNGEON_LEGENDARY_RELIC_ID,
     // Anbu Vault Infiltration war caches (server-minted; cap 9999/stack).
-    // KEEP IN SYNC with api/_anbu-infiltration.ts CACHE_ITEM_IDS.
+    // KEEP IN SYNC with api/_hush-infiltration.ts CACHE_ITEM_IDS.
     "war-supply-cache", "war-resource-cache",
     // Village Stores rations (cooked in bulk, donated in bulk).
     "gather-field-herb",

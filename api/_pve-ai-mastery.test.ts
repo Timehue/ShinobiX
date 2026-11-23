@@ -269,7 +269,7 @@ describe('step C wiring', () => {
         // Weekly boss has NO server boss->player clamp, so tripling its damage is
         // exactly the "mastery before the guard" failure the ruling forbids.
         // Anbu's opponent is a real player whose own mastery is already sealed.
-        for (const file of ['api/weekly-boss.ts', 'api/village/anbu-infiltration.ts']) {
+        for (const file of ['api/weekly-boss.ts', 'api/village/hush-infiltration.ts']) {
             assert.ok(!read(file).includes('sealPveAiMastery'), `${file} armed AI mastery — see the _pve-ai-mastery.ts header`);
         }
     });

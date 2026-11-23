@@ -4,8 +4,8 @@ The live Colosseum runs the server-owned Showdown engine. This pass adjusts 12 s
 
 ## Research and approach
 
-- Riot's [balance framework](https://www.leagueoflegends.com/en-us/news/dev/dev-balance-framework-update/) evaluates performance in separate populations and uses results to identify outliers while preserving character identity. Here, the relevant slices are format and progression level. Broad role and element rates were already healthy, so this pass uses small species corrections instead of changing the element wheel or flattening roles.
-- Riot's [gameplay clarity principles](https://www.leagueoflegends.com/en-us/news/dev/clarity-in-league/) prioritize readable mechanics, visual hierarchy, and restrained noise. This pass makes the acting pet, signature charge, guard and status effects explicit, and corrects inaccurate target badges.
+- A sound balance framework evaluates performance in separate populations and uses results to identify outliers while preserving character identity. Here, the relevant slices are format and progression level. Broad role and element rates were already healthy, so this pass uses small species corrections instead of changing the element wheel or flattening roles.
+- Good gameplay clarity principles prioritize readable mechanics, visual hierarchy, and restrained noise. This pass makes the acting pet, signature charge, guard and status effects explicit, and corrects inaccurate target badges.
 - [Demonstrating the Feasibility of Automatic Game Balancing](https://arxiv.org/abs/1603.03795) investigates simulation-based balancing in a card game. It supports using simulation as a design tool; it does not establish that bot win rates predict human play. The numbers below are reproducible diagnostics, not player telemetry.
 
 ## Measured changes

@@ -32,8 +32,7 @@ import "../components/WorldWandererDialog.css";
 import { useWorldMapLayout } from "../lib/use-world-map-layout";
 import { getWorldMapRegionForPoint, WORLD_MAP_REGIONS } from "../lib/world-map-regions";
 import { visiblePoll } from "../lib/poll";
-import "../styles/chronicle-duel.css";
-import "../styles/card-pack-opening.css";
+import { lazyWithRetry } from '../lib/lazyWithRetry';
 import {
     GiCardPickup,
     GiPawPrint,
@@ -96,6 +95,8 @@ import { aiRaidLaunchFailureMessage, mintAiRaidToken } from "../lib/ai-raid-api"
 import { raidStartActionScope } from "../lib/action-deadline-store";
 import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
+import { preloadScreen } from "../lib/screen-preload";
+import { WorldStandingFigure } from "../components/WorldStandingFigure";
 import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 import { ordinaryWandererEncounter } from '../../../shared/wanderer-roster';
@@ -116,16 +117,15 @@ import { StoryFieldJournal } from "../components/StoryFieldJournal";
 import { StoryFieldRouteBoundary } from "../components/StoryFieldRouteBoundary";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, sectorPhrase, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
-import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, CODEX_FLIP_LIMIT, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
+import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
 import { usePetMentorGuide } from "../lib/use-pet-mentor-guide";
-import { CardPackOpening } from "../components/CardPackOpening";
-import { displayCardsById } from "../lib/chronicle-duel";
+const CodexOpening = lazyWithRetry(() => import('./world-map/CodexOpening').then(m => ({ default: m.CodexOpening })));
 // The RAW count, not lib/chronicle-duel's ownedChronicleCounts: that one applies
 // the permanent starter floor, so it would report the whole teaching set as
 // already owned and every card in Ihara's hand-off would lose its NEW badge.
 import { countChronicleCards } from "../../../shared/chronicle-duel";
 import { cardGameLockStatus } from "../lib/chronicle-lock";
-import { anbuInfiltrationAdmissionEnabled } from "../lib/anbu-infiltration-api";
+import { hushInfiltrationAdmissionEnabled } from "../lib/hush-infiltration-api";
 import {
     useCapabilityMutationAvailability,
     useCapabilityViewAvailability,
@@ -136,7 +136,7 @@ import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
-const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
+const HushVaultRaid = lazy(() => import("../features/hushInfiltration/HushVaultRaid").then(m => ({ default: m.HushVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
 const CoastCrossing = lazy(() => import("./world-map/CoastCrossing"));
 const QuestLinesPanel = lazy(() => import("../components/QuestLinesPanel")); const CoastWorld = lazy(() => import("./world-map/CoastWorld")); // the Unmapped Coast (lazy)
 import { useQuestLines, questStepHere, mooredBoatToast, BOAT_LANDMARK } from "../lib/use-quest-lines"; import { isCoastSector, COAST_LANDING_SECTOR, COAST_MIN_LEVEL } from "../../../shared/world-maps";
@@ -148,7 +148,7 @@ import { WorldToast } from "../components/WorldToast";
 import { TravelingOverlay } from "../components/TravelingOverlay";
 
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
-import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
+import { arrivalStandTile, sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { startWildPetEncounter, wildPetEncounterFailureMessage } from "../lib/wild-pet-encounter-api";
 import { WildPetBinding, useWarmWildPetBinding } from "../lib/wild-pet-binding-loader";
@@ -409,14 +409,14 @@ function WorldMapContent({
     const { mutationAvailability } = useLiveCapabilities();
     const villageWarViewAvailability = useCapabilityViewAvailability("villageWar");
     const villageWarMutationAvailability = useCapabilityMutationAvailability("villageWar");
-    const anbuViewAvailability = useCapabilityViewAvailability("anbuInfiltration");
-    const anbuMutationAvailability = useCapabilityMutationAvailability("anbuInfiltration");
+    const hushViewAvailability = useCapabilityViewAvailability("hushInfiltration");
+    const hushMutationAvailability = useCapabilityMutationAvailability("hushInfiltration");
     const globalViewAvailability = useCapabilityViewAvailability();
     const globalMutationAvailability = useCapabilityMutationAvailability();
     const villageWarViewOpen = capabilityAdmissionAllowed(villageWarViewAvailability);
     const villageWarAdmissionOpen = capabilityAdmissionAllowed(villageWarMutationAvailability);
-    const anbuViewOpen = anbuInfiltrationAdmissionEnabled(anbuViewAvailability);
-    const anbuAdmissionOpen = anbuInfiltrationAdmissionEnabled(anbuMutationAvailability);
+    const hushViewOpen = hushInfiltrationAdmissionEnabled(hushViewAvailability);
+    const hushAdmissionOpen = hushInfiltrationAdmissionEnabled(hushMutationAvailability);
     const villageCampaign = useVillageCampaign(character.name, character.village);
     const globalViewOpen = capabilityAdmissionAllowed(globalViewAvailability);
     const globalMutationsOpen = capabilityAdmissionAllowed(globalMutationAvailability);
@@ -848,6 +848,7 @@ function WorldMapContent({
         rows: () => selectedSectorPlayerRows(getLiveSectorRoster()),
         attack: handleSelectedSectorPlayerAttack, strike: handleSelectedSectorSleeperAttack,
         spectate: async (target, isCurrent) => {
+            preloadScreen("pvpBattle");
             const battleId = await findSectorSpectatorBattle(target.name, character.name);
             if (!isCurrent()) throw new Error("This player is no longer available to spectate.");
             if (!setPvpBattleId || !setPvpRole) throw new Error("Spectating is currently unavailable.");
@@ -886,10 +887,7 @@ function WorldMapContent({
         // Paused while the tab is hidden; one catch-up tick when it returns.
         return visiblePoll(() => setRoamBossTick((t) => t + 1), 15000, 0);
     }, []);
-    // The sector the boss is rampaging in right now — the world map highlights this
-    // node (a pulsing ring + 👹 flag) instead of a floating portrait marker, per
-    // owner feedback ("the highlighted area it is in is enough"). Recomputes on the
-    // poll (roamingBoss) and the slow tick (roamBossTick).
+    // The pulse and boss figure travel with the active sector on each poll or roam tick.
     const weeklyBossSector = useMemo(() => {
         if (!isWeeklyBossRoamEnabled() || !roamingBoss) return null;
         const r = weeklyBossRoamState(roamingBoss, serverNow());
@@ -1127,9 +1125,6 @@ function WorldMapContent({
     const [codexReveal, setCodexReveal] = useState<{ nonce: string; cards: string[]; ownedBefore: Map<string, number>; grantedCount: number } | null>(null);
     const pendingCodexRevealRef = useRef<typeof codexReveal>(null);
     const codexSceneClosedRef = useRef(false);
-    // Builtin catalog only, like the other card lookups on this screen: the codex
-    // and the progression backfill grant builtin ids, never creator cards.
-    const codexCardsById = useMemo(() => displayCardsById(getAllTileCards([])), []);
     /** Called when Ihara's scene closes, by either exit path. */
     function closeCodexScene() {
         codexSceneClosedRef.current = true;
@@ -1143,17 +1138,10 @@ function WorldMapContent({
     // what re-renders once her scene closes. Rendered in the world view too so a
     // reveal can never be stranded by a mid-cinematic exit.
     const codexRevealOverlay = codexReveal ? (
-        <CardPackOpening
-            key={codexReveal.nonce}
-            packType="standard"
-            cards={codexReveal.cards}
-            cardsById={codexCardsById}
-            ownedBefore={codexReveal.ownedBefore}
-            title="The Traveler's Codex"
-            countLabel={`${codexReveal.grantedCount} card${codexReveal.grantedCount === 1 ? "" : "s"} from Ihara`}
-            flipLimit={CODEX_FLIP_LIMIT}
-            onClose={() => setCodexReveal(null)}
-        />
+        <Suspense fallback={null}>
+            <CodexOpening key={codexReveal.nonce} cards={codexReveal.cards} ownedBefore={codexReveal.ownedBefore}
+                grantedCount={codexReveal.grantedCount} onClose={() => setCodexReveal(null)} />
+        </Suspense>
     ) : null;
     // The rate-gated roaming givers, thinned to what actually stands here. Each
     // memo above only knows its OWN odds, so before this they stacked — a sector
@@ -2553,7 +2541,7 @@ function WorldMapContent({
     const [petVnLine, setPetVnLine] = useState(0);
     const sectorObstacles = useSectorTileGrounding(selectedSector, sectorPlayerPos, setSectorPlayerPos);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
-    // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
+    // Anbu Vault Infiltration (hushInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
     const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string; warEntry?: boolean } | null>(null);
     const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
@@ -2561,8 +2549,8 @@ function WorldMapContent({
     const warShrine = useWarShrine({ character, state: villageCampaign.state, sharedImages, onVersionedCharacter,
         sector: selectedSector, currentSector, blocked: isTraveling || !villageWarAdmissionOpen, onEnterStronghold: target => { setSelectedSector(target.sector); setVaultRaid(target); } });
     useEffect(() => {
-        if (!anbuViewOpen) setVaultPrompt(null);
-    }, [anbuViewOpen]);
+        if (!hushViewOpen) setVaultPrompt(null);
+    }, [hushViewOpen]);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
     const [creatorEventLine, setCreatorEventLine] = useState(0);
     type ChestLoot = AncientChestLoot & { replayed?: boolean };
@@ -2872,7 +2860,7 @@ function WorldMapContent({
     function triggerTravelPoint(sector: number) {
         const originSector = getWorldPosition().sector;
         const road = originSector == null ? undefined : roadExitsForSector(originSector).find(exit => exit.destinationSector === sector);
-        if (road && requestContinuousWorldWalk(sector, road.destinationTile)) return;
+        if (road && requestContinuousWorldWalk(sector, arrivalStandTile(sector, road.destinationTile))) return;
         if (sector === FESTIVAL_SECTOR) {
             setSelectedSector(null);
             setScreen("sunscarFestival");
@@ -2917,7 +2905,7 @@ function WorldMapContent({
     function crossSectorExit(exit: SectorExit) {
         if (!sameSector(currentSector, exit.sector) || sectorPlayerPos !== exit.tile) return;
         beginSectorTravel(exit.destinationSector, (arrivalTile) => {
-            const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : exit.destinationTile;
+            const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : arrivalStandTile(exit.destinationSector, exit.destinationTile);
             const destinationBiome = biomeForSector(exit.destinationSector);
             // Match the incoming road edge and stop; further movement is input.
             setSectorPlayerPos(destinationTile);
@@ -3840,6 +3828,7 @@ function WorldMapContent({
         focusSectorCombat(environment.sector, environment.biome, environment.weather);
         // sectorAttackPlayer owns routing and only navigates after its sealed PvP
         // session request succeeds.
+        preloadScreen("pvpBattle");
         return sectorAttackPlayer(player);
     }
 
@@ -4392,6 +4381,7 @@ function WorldMapContent({
                 level: p.level,
                 sleeping: true,
                 avatar: sharedAvatarFor(sharedImages, p.name) || (p.character.avatarImage as string) || '',
+                starterWorldModel: p.character.starterWorldModel,
             }))
             : [];
         const activeHuntTrailForSector = isWildSector(selectedSector)
@@ -4520,7 +4510,7 @@ function WorldMapContent({
             };
         })();
         const sectorOverlayVault = sectorVaultMarker({ campaign: villageCampaign.state?.campaign, mission: villageCampaign.state?.mission, sector: selectedSector,
-            village: character.village, level: character.level ?? 0, anbuViewOpen, ownerVillage: territory.ownerVillage, onOpen: setVaultPrompt });
+            village: character.village, level: character.level ?? 0, hushViewOpen, ownerVillage: territory.ownerVillage, onOpen: setVaultPrompt });
         const sectorOverlayShrine = (() => {
             if (!isSectorTracesEnabled()) return null;
             const definition = shrineForSector(selectedSector);
@@ -4578,6 +4568,7 @@ function WorldMapContent({
                             level: player.level,
                             sleeping: Boolean(player.__sleeping),
                             avatarImage: sharedAvatarFor(sharedImages, player.name) || (player.character.avatarImage as string) || '',
+                            starterWorldModel: player.character.starterWorldModel,
                         }))}
                         sharedImages={sharedImages}
                         sleeperPeers={sleeperPeers}
@@ -4662,11 +4653,11 @@ function WorldMapContent({
 
                             {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
                             {warShrine.overlay}
-                            {vaultPrompt && anbuViewOpen && createPortal(
+                            {vaultPrompt && hushViewOpen && createPortal(
                                 <WarStrongholdEntrance character={character} target={vaultPrompt} campaign={villageCampaign.state?.campaign}
-                                    mission={villageCampaign.state?.mission} admissionOpen={anbuAdmissionOpen}
+                                    mission={villageCampaign.state?.mission} admissionOpen={hushAdmissionOpen}
                                     onClose={() => setVaultPrompt(null)} onEnter={() => {
-                                        if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
+                                        if (!hushInfiltrationAdmissionEnabled(mutationAvailability("hushInfiltration"))) return;
                                         setVaultRaid(vaultPrompt); setVaultPrompt(null);
                                     }} />,
                                 document.body,
@@ -4676,9 +4667,9 @@ function WorldMapContent({
                                 portaled full-screen so the bottom nav can't paint over it. */}
                             {vaultRaid && createPortal(
                                 <div className="stronghold-overlay">
-                                    {anbuAdmissionOpen ? (
+                                    {hushAdmissionOpen ? (
                                         <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "var(--slate-300)" }}>Slipping past the perimeter…</div>}>
-                                            <AnbuVaultRaid
+                                            <HushVaultRaid
                                                 key={`${character.name}:${vaultRaid.sector}`}
                                                 character={character}
                                                 sharedImages={sharedImages} initialCampaign={villageCampaign}
@@ -4695,7 +4686,7 @@ function WorldMapContent({
                                     ) : (
                                         <div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", padding: 24 }}>
                                             <div className="card" role="status" style={{ maxWidth: 460, textAlign: "center", padding: 20 }}>
-                                                <h3>ANBU operation paused</h3>
+                                                <h3>Anbu operation paused</h3>
                                                 <p>The vault run remains recoverable, but moving, fighting, and saving results are paused until live actions return.</p>
                                                 <button type="button" onClick={() => setVaultRaid(null)}>Leave operation view</button>
                                             </div>
@@ -5096,7 +5087,7 @@ function WorldMapContent({
                         )}
                         {legacyAvailable && sageOffer?.status === "spawned" && sageOffer.sector === sector.id && (
                             <img
-                                src="/legacy/sage-marker.webp"
+                                src="/world-figures/v1/wandering-sage.webp"
                                 alt=""
                                 style={{ position: "absolute", top: -12, left: -12, width: 22, height: 22, pointerEvents: "none", filter: "drop-shadow(0 0 5px var(--purple-400))" }}
                                 title="A Wandering Sage waits here"
@@ -5106,7 +5097,7 @@ function WorldMapContent({
                             <span
                                 className="atlas-boss-flag"
                                 title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here. Travel in to challenge it`}
-                            ><img src="/portraits/hollow-warden.webp" alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "contain" }} /></span>
+                            ><WorldStandingFigure kind="hollow-warden" /></span>
                         )}
                         {huntTrail && (
                             <span
@@ -5131,12 +5122,6 @@ function WorldMapContent({
                     sector markers. Flag-gated (villageWarMap.v1) + pointer-events:none,
                     so it stays inert/invisible on the default world map. */}
                 {warMapOn && <SectorOwnershipOverlay sectorPoints={sectorPoints} counterScalePins={wmZoom.active} />}
-
-                {/* Roaming weekly boss: the boss's current sector NODE is highlighted
-                    in-place (pulsing ring + 👹 flag, see weeklyBossSector above and
-                    .atlas-sector-weekly-boss in index.css) rather than a floating
-                    portrait marker — per owner feedback that the sector highlight
-                    alone is enough. The tracker screen still shows the hop countdown. */}
 
                 {/* (War Ground beacons were removed from the world map.
                     The Central Hub banner + the explicit Village War

@@ -116,6 +116,13 @@ export async function detachModelAccount(owner:string,{freeMonthlySlot=false}:{f
             ops.push(key===currentSlotKey && !freeMonthlySlot ? {op:'cas',key,expected:value,value,ex:32*86400} : {op:'delete',key,expected:value});
         }
         disposable.add(prefix+'active:'+owner);disposable.add(prefix+'last-refund:'+owner);
+        // A check the model loop was finishing for this player (_auto-start.ts) ends with the account.
+        disposable.add(prefix+'check-result:'+owner);
+        const checksKey=prefix+'checks',checks=await kv.get<{owner?:string}[]>(checksKey);
+        if(Array.isArray(checks) && checks.some(waiting=>waiting?.owner===owner)) {
+            const rest=checks.filter(waiting=>waiting?.owner!==owner);
+            ops.push(rest.length ? {op:'cas',key:checksKey,expected:checks,value:rest} : {op:'delete',key:checksKey,expected:checks});
+        }
         reads.forEach((row,i)=>{if(row?.slug===owner && row.accountId===id) disposable.add(readKeys[i]);});
         for(const key of disposable) {
             const value=await kv.get(key);

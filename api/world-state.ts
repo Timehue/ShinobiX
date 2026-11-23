@@ -1,4 +1,4 @@
-import { readVillageAnbu } from './village/_anbu.js';
+import { readVillageHush } from './village/_hush.js';
 import { advanceCampaignWar, awardCampaignBattle, createVillageCampaign } from './_village-war-campaign.js';
 import { applyEspionageBattleEvidence } from './_village-war-field-operations.js';
 import { campaignScore, npcAcceptsPeace, type VillageCampaign } from '../shared/village-war-campaign.js';
@@ -544,9 +544,9 @@ function clanActorCanManageTerritory(clan: Record<string, unknown>, actor: strin
     return role === 'Leader' || role === 'Officer';
 }
 
-async function actorIsAppointedVillageAnbu(actor: string, actorVillage: string, territoryVillage: string): Promise<boolean> {
+async function actorIsAppointedVillageHush(actor: string, actorVillage: string, territoryVillage: string): Promise<boolean> {
     if (!actorVillage || actorVillage.toLowerCase() !== territoryVillage.toLowerCase()) return false;
-    return (await readVillageAnbu(territoryVillage)).members.some(name => safeName(name) === actor);
+    return (await readVillageHush(territoryVillage)).members.some(name => safeName(name) === actor);
 }
 
 function preserveServerTerritoryLifecycle(
@@ -2256,9 +2256,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const actorSlug = safeName(identity.name);
                             const actorInOwnerClan = clanBareSlug(actorClan) === clanBareSlug(prevClan)
                                 && clanActorIsMember(clanRec, actorSlug);
-                            const actorIsAnbu = await actorIsAppointedVillageAnbu(actorSlug, actorVillage, prevVillage);
-                            if (!actorInOwnerClan && !actorIsAnbu) {
-                                return res.status(403).json({ error: 'Only the owning clan or a current village ANBU may update this territory.' });
+                            const actorIsHush = await actorIsAppointedVillageHush(actorSlug, actorVillage, prevVillage);
+                            if (!actorInOwnerClan && !actorIsHush) {
+                                return res.status(403).json({ error: 'Only the owning clan or a current village Anbu may update this territory.' });
                             }
 
                             // HP is combat/economy authority. Raids apply damage

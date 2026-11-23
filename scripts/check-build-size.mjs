@@ -1473,6 +1473,13 @@ const FIGURE_LOADING_JS_CSS_FAIL_BYTES = AVATAR_MODE_JS_CSS_FAIL_BYTES + 3 * 102
 // rule left); that PR already folded 17 duplicate screen-reader-only rules into .ui-sr-only.
 // Allow 2 KiB. The startup gzip gate is unchanged.
 const LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES = FIGURE_LOADING_JS_CSS_FAIL_BYTES + 2 * 1024;
+// Owner-approved 2026-11-18. Main c4a0c3281c's Production Image read 9,884,479 B (309 B
+// left), and the NPC arrival + depth-layer fix adds 2,168 B with the production env: the
+// arrival step off residents' tiles (shared with the server), one depth-sorted NPC layer
+// per board, and the resident tile table splitting into its own chunk. Either half alone
+// is still over, and dead CSS is exhausted. Allow 3 KiB; 2 KiB would leave under 100 B
+// after the Docker image's extra ~93 B. The startup gzip gate is unchanged.
+const NPC_ARRIVAL_LAYER_JS_CSS_FAIL_BYTES = LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES + 3 * 1024;
 // Owner-approved 2026-11-19: the Unmapped Coast, the second world at level 50. Its first
 // client slice is the quest-line panel (World Quests tab, Sector Info, the Sage's dialog),
 // the boat on the world map, the coast's own atlas and sector screen, and the Hold chip.
@@ -1480,7 +1487,10 @@ const LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES = FIGURE_LOADING_JS_CSS_FAIL_BYTES + 2
 // about 2 KB above a local build. None of it is in the startup graph (398,396 B gzip
 // against the unchanged 399,000 B gate), and the coast's map data is served by
 // /api/coast/world rather than bundled. Allow 30 KiB. Revert this line to drop it.
-const COAST_JS_CSS_FAIL_BYTES = LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES + 30 * 1024;
+// Re-based 2026-11-22 when main merged in: the coast steps below were measured on a main
+// that did not yet have the NPC arrival step above, so they stack on it. Both were
+// approved by the owner for their own cost; this adds no allowance of its own.
+const COAST_JS_CSS_FAIL_BYTES = NPC_ARRIVAL_LAYER_JS_CSS_FAIL_BYTES + 30 * 1024;
 // Owner-approved 2026-11-19 ("Yes, approve it" to a 16 KB step so the remaining quests
 // fit). The coast's quest catalogue grew from three quests to nine, and the interiors,
 // journal paintings and Hold art were wired in: a local build reads 9,915,240 B, 268 B
@@ -1550,6 +1560,7 @@ const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
     DIRECT_STRIKE_JS_CSS_FAIL_BYTES, COMBAT_SPRITE_JS_CSS_FAIL_BYTES, PLAYER_GAIT_JS_CSS_FAIL_BYTES,
     AVATAR_MODE_JS_CSS_FAIL_BYTES, FIGURE_LOADING_JS_CSS_FAIL_BYTES, LAUNCH_COMPLIANCE_JS_CSS_FAIL_BYTES,
+    NPC_ARRIVAL_LAYER_JS_CSS_FAIL_BYTES,
     COAST_JS_CSS_FAIL_BYTES, COAST_QUESTS_JS_CSS_FAIL_BYTES, COAST_SCREENS_JS_CSS_FAIL_BYTES, COAST_WORKS_ADMIN_JS_CSS_FAIL_BYTES,
     COAST_FIGURES_JS_CSS_FAIL_BYTES, COAST_REPLAY_SCORE_JS_CSS_FAIL_BYTES, COAST_ACHIEVEMENT_JS_CSS_FAIL_BYTES, COAST_PEOPLE_JS_CSS_FAIL_BYTES, COAST_STREET_AND_HALLS_JS_CSS_FAIL_BYTES, COAST_TOWN_JS_CSS_FAIL_BYTES, COAST_CLUES_JS_CSS_FAIL_BYTES,
 );

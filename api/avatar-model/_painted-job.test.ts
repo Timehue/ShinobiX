@@ -23,7 +23,7 @@ async function costumeFixture() {
 
 test('confirmed jobs paint once, bind the replacement to the screened rig and render every style from it',async t=>{
     Object.assign(process.env,{NODE_ENV:'test',SHINOBIX_QA_MEMORY_KV:'1',AVATAR_MODEL_CREATION_ENABLED:'1',
-        AVATAR_MODEL_READ_DAILY_LIMIT:'3',AVATAR_MODEL_READ_PLAYER_DAILY_LIMIT:'1',AVATAR_MODEL_PAINTED_COSTUMES_ENABLED:'1',
+        AVATAR_MODEL_PAINTED_COSTUMES_ENABLED:'1',
         AVATAR_MODEL_R2_ACCOUNT_ID:'a'.repeat(32),AVATAR_MODEL_R2_PRIVATE_BUCKET:'test-private',
         AVATAR_MODEL_R2_ACCESS_KEY_ID:'fixture',AVATAR_MODEL_R2_SECRET_ACCESS_KEY:'fixture'});
     const {kv}=await import('../_storage.js');
@@ -60,10 +60,11 @@ test('confirmed jobs paint once, bind the replacement to the screened rig and re
     const providers:ProviderReservation[]=[{provider:'modal',cycle:'cycle',limitMicros:30,perAttemptMicros:10}];
     const policy={enabled:true,dailyLimit:1,recognition:{model:'local-vision-fixture',poolSha256:'9'.repeat(64)},providers};
     const confirm=()=>admitModelJob(owner,screenedResult.readToken!,screenedResult.readToken!,policy);
-    assert.deepEqual(await confirm(),{error:'budget'});
-    assert.deepEqual(await kv.keys(prefix+'slot:*'),[]);
-    providers.push({...providers[0],provider:'openai'});
+    // OpenAI spend is guarded by the OpenAI account itself, so a Modal-only policy admits a painted
+    // job and the job holds no OpenAI money.
     const job=await confirm(); assert.ok('jobId' in job);
+    assert.deepEqual((await kv.get<{reserved:{provider:string}[]}>(prefix+'job:'+job.jobId))?.reserved.map(r=>r.provider),['modal']);
+    assert.deepEqual(await kv.keys(prefix+'budget:openai:*'),[]);
     assert.deepEqual(await confirm(),job);
     const stages:string[]=[];
     let reviewed=0;

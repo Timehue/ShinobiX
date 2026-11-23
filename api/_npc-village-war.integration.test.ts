@@ -125,25 +125,25 @@ describe('Cinderhold is a sector-war village, not a player war village', () => {
 });
 
 describe('Cinderhold war roles come from its roster', () => {
-    it('its ANBU are its Commanders, Elites and Jonin; no Kage stands in (the roster has none)', async () => {
-        const { readVillageAnbu } = await import('./village/_anbu.js');
+    it('its Anbu are its Commanders, Elites and Jonin; no Kage stands in (the roster has none)', async () => {
+        const { readVillageHush } = await import('./village/_hush.js');
         const { seatedKageOf } = await import('./_sector-war-garrison-defender.js');
-        const anbu = await readVillageAnbu(CH);
-        assert.deepEqual(anbu.members, roster.NPC_WAR_DEFENDERS.map((n) => n.id));
+        const hush = await readVillageHush(CH);
+        assert.deepEqual(hush.members, roster.NPC_WAR_DEFENDERS.map((n) => n.id));
         assert.ok(roster.NPC_WAR_DEFENDERS.every((n) => ['commander', 'elite', 'jonin'].includes(n.rank)));
         assert.equal(roster.NPC_WAR_DEFENDERS.length, 15);
         assert.equal(await seatedKageOf(CH), '');
     });
 
-    it('fights at roster weight: Commanders as Elders, Elites and Jonin as ANBU, the rest as villagers', async () => {
-        const { sectorWarRoleOf, ROLE_ELDER, ROLE_ANBU, ROLE_VILLAGER } = await import('./_war-role.js');
+    it('fights at roster weight: Commanders as Elders, Elites and Jonin as Anbu, the rest as villagers', async () => {
+        const { sectorWarRoleOf, ROLE_ELDER, ROLE_HUSH, ROLE_VILLAGER } = await import('./_war-role.js');
         const { NPC_VILLAGE_ROSTER } = await import('../shared/npc-village-roster.js');
         const commander = roster.NPC_WAR_DEFENDERS.find((n) => n.rank === 'commander')!;
         const jonin = roster.NPC_WAR_DEFENDERS.find((n) => n.rank === 'jonin')!;
         const genin = NPC_VILLAGE_ROSTER.find((n) => n.rank === 'genin')!;
         for (const npc of [commander, jonin, genin]) await kv.set(`save:${npc.id}`, { character: { name: npc.name, village: CH } });
         assert.deepEqual(await sectorWarRoleOf(commander.id, CH), ROLE_ELDER);
-        assert.deepEqual(await sectorWarRoleOf(jonin.id, CH), ROLE_ANBU);
+        assert.deepEqual(await sectorWarRoleOf(jonin.id, CH), ROLE_HUSH);
         assert.deepEqual(await sectorWarRoleOf(genin.id, CH), ROLE_VILLAGER);
     });
 });
@@ -281,7 +281,7 @@ describe('Cinderhold proposes; an admin approves or rejects', { concurrency: fal
 
     it('a player token cannot approve, and an NPC token cannot touch the war routes', async () => {
         const { NPC_BLOCKED_ROUTES } = await import('./_npc-guard.js');
-        for (const route of ['/war/claim-reward', '/village/claim-map-control', '/village/claim-war-crate', '/village/open-war-crate', '/village/sector-war', '/village/war-merc', '/village/anbu-infiltration']) {
+        for (const route of ['/war/claim-reward', '/village/claim-map-control', '/village/claim-war-crate', '/village/open-war-crate', '/village/sector-war', '/village/war-merc', '/village/hush-infiltration']) {
             assert.ok(NPC_BLOCKED_ROUTES.includes(route), route);
         }
         await kv.set('save:someone', { character: { name: 'someone', village: MOON } });
@@ -291,7 +291,7 @@ describe('Cinderhold proposes; an admin approves or rejects', { concurrency: fal
 });
 
 describe('the war party presses Cinderhold\'s wars', () => {
-    const { ROLE_ANBU, ROLE_VILLAGER } = { ROLE_ANBU: { win: 15, loss: 0 }, ROLE_VILLAGER: { win: 5, loss: 0 } };
+    const { ROLE_HUSH, ROLE_VILLAGER } = { ROLE_HUSH: { win: 15, loss: 0 }, ROLE_VILLAGER: { win: 5, loss: 0 } };
     const npc = () => roster.NPC_WAR_DEFENDERS[0]!;
 
     function harness(contest: import('./_sector-war.js').SectorWarSession, opts: { targets?: string[]; winner: 'merc' | 'player' | 'stall'; free?: boolean; garrison?: boolean; away?: boolean; refuse?: boolean }) {
@@ -307,9 +307,9 @@ describe('the war party presses Cinderhold\'s wars', () => {
             npcFree: async () => opts.free !== false,
             sealNpc: async (n) => ({ npc: n, name: n.name, level: 60, character: { name: n.name } }),
             sealPlayer: async () => ({ name: 'p' }),
-            garrisonOf: async () => (opts.garrison === false ? null : { slug: 'moonanbu', character: { name: 'garrison' } }),
+            garrisonOf: async () => (opts.garrison === false ? null : { slug: 'moonhush', character: { name: 'garrison' } }),
             runFight: (args) => { fights.push(args as never); return { winner: opts.winner, mercWon: opts.winner === 'merc', playerWon: opts.winner === 'player', rounds: 5, log: [] }; },
-            roleOf: async (name) => (name === npc().id || roster.NPC_WAR_DEFENDERS.some((d) => d.id === name) ? ROLE_ANBU : ROLE_VILLAGER),
+            roleOf: async (name) => (name === npc().id || roster.NPC_WAR_DEFENDERS.some((d) => d.id === name) ? ROLE_HUSH : ROLE_VILLAGER),
             standsIn: () => opts.away !== true,
             openDuel: async (n, target, sector) => {
                 duels.push({ npc: n.id, target, sector });

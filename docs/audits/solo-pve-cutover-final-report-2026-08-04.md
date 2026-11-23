@@ -48,8 +48,8 @@ Implementation commits after the starting SHA, oldest first:
 8. `2472ca2e5` — `Harden Hollow Gate dungeon authority and recovery`
 9. `6e453ab76` — `Migrate Weekly Boss combat to solo PvE`
 10. `6fc693228` — `Harden Weekly Boss start recovery`
-11. `d4e81808b` — `Migrate ANBU infiltration combat to solo PvE`
-12. `53801dc2f` — `Harden ANBU start and settlement recovery`
+11. `d4e81808b` — `Migrate Hush infiltration combat to solo PvE`
+12. `53801dc2f` — `Harden Hush start and settlement recovery`
 13. `5ea4d3b6b` — `test: ratchet solo pve cutover contracts`
 14. `d47c049a7` — `test: certify academy spar on solo pve`
 15. `95d8fe81a` — `feat: add authored AI and combat event foundations`
@@ -77,7 +77,7 @@ created for this work.
 | Normal Endless waves | Tower/runtime coupling | Solo-PvE wave session | Durable Endless run, wave binding, Solo result |
 | Hollow Gate shinobi fights | Client Arena/run-token bridge | Solo-PvE combat binding | Solo result plus HG ledger/manifest/receipt |
 | Weekly Boss attempt | Client-reported damage | Solo-PvE score attack | Server terminal damage and contribution receipt |
-| ANBU infiltration | Custom one-off action/state combat | Solo-PvE | Solo result plus infiltration recovery/settle record |
+| Hush infiltration | Custom one-off action/state combat | Solo-PvE | Solo result plus infiltration recovery/settle record |
 | Battle Towers | Tower | Tower retained | N-actor objectives and queue |
 | Endless Spire | Tower | Tower retained | N-actor Tower rules and leaderboard |
 | Clan Boss | Party Tower | Tower retained | Multi-actor party assault and clan receipt |
@@ -189,7 +189,7 @@ one-human PvE mode remains in Tower merely to obtain server authority.
 - Story/Academy client winner and reward authority.
 - Normal Endless Tower coupling and client wave result authority.
 - Hollow Gate shinobi client outcome/haul bridge.
-- ANBU custom client action authority; the retired operation returns 410.
+- Hush custom client action authority; the retired operation returns 410.
 - The obsolete Weekly Boss client-damage release flag and its dead helper.
 
 ## 18. Local fallback paths remaining and proof they cannot reward
@@ -375,12 +375,12 @@ incomplete:
 - Real built-browser start/action/invalid-action/win/loss-or-flee/refresh/
   reconnect/duplicate/stale/duplicate-settle/lost-response/return/persistence
   journeys are missing for generic AI, story/Academy UI, normal Endless,
-  Hollow Gate shinobi, Weekly Boss, ANBU infiltration, Battle Towers, Endless
+  Hollow Gate shinobi, Weekly Boss, Hush infiltration, Battle Towers, Endless
   Spire, and Clan Boss. Only combat missions have the complete desktop/mobile
   browser journey; Academy has real-server HTTP certification.
 - The exact external blocker for deployed certification is the absence of a
   supplied staging deployment URL, authenticated test accounts/admin access,
-  deep-health token, seeded clan/Weekly Boss/Hollow Gate/ANBU state, and a
+  deep-health token, seeded clan/Weekly Boss/Hollow Gate/Hush state, and a
   rollback-capable operator context. Local fixture engineering for the remaining
   mode journeys is also unfinished and therefore is not mischaracterized as an
   external blocker.

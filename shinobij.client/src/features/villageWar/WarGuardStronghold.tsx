@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { Character, PlayerRecord } from '../../types/character';
 import { campaignRequest } from '../../lib/village-war-campaign';
 import { visiblePoll } from '../../lib/poll';
-import { StrongholdDialog } from '../anbuInfiltration/StrongholdDialog';
+import { StrongholdDialog } from '../hushInfiltration/StrongholdDialog';
 import './village-campaign.css';
 
 export function WarGuardStronghold({ character, warId, sector, onAttackPlayer, onExit }: {

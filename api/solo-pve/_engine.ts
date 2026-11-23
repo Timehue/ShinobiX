@@ -1298,7 +1298,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             maxStamina: 999,
             shield: 0,
             statuses: [],
-            character: { companion: true, visual: seal.petId, specialty: 'Taijutsu', level: 1, stats:
+            character: { companion: true, visual: seal.petId, ...(seal.speciesId ? { companionSpecies: seal.speciesId } : {}), specialty: 'Taijutsu', level: 1, stats:
                 seal.rulesetVersion === 'progression-v3' ? {
                     taijutsuDefense: seal.defense ?? 0, bukijutsuDefense: seal.defense ?? 0,
                     ninjutsuDefense: seal.spDefense ?? 0, genjutsuDefense: seal.spDefense ?? 0,

@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+import time
 
 import modal
 
@@ -15,6 +16,18 @@ HERE = Path(__file__).resolve().parent
 INSTALL = Path("/opt/sprite")
 MAX_UPLOAD = 20 * 1024 * 1024
 app = modal.App("shinobix-avatar-sprites")
+# Machines per step, so several players' checks, paintings and assemblies run side by side instead of
+# queueing behind one another (a check queued 11 minutes on 2026-11-20). Each one is billed only while it
+# runs. render_style stays at one: a job's three styles must share a machine (see its decorator).
+PARALLEL_JOBS = 3
+# GPUs a check or a costume painting may run on, in order of preference. Pinned to L4 alone, a check sat
+# 20+ minutes in Modal's queue with no machine started on 2026-11-20 while L4s were scarce (a bare L4 probe
+# took 167 s that hour, 34 s that morning). Any free one of these starts it instead. The trial harness
+# (modal_portrait_trial.py) already runs this same reader image on this list.
+GPUS = ["L4", "A10", "T4"]
+# A job's highest attempt (api/avatar-model/_dispatch.ts MAX_ATTEMPTS, dispatch_stage.py): a style retry plus a
+# full rebuild of the three styles after a failed assembly must not use up a job (owner, 2026-11-20).
+MAX_ATTEMPT = 5
 openai_secret_name = os.environ.get("SPRITE_OPENAI_SECRET", "").strip()
 
 
@@ -35,8 +48,9 @@ def worker_image():
         image = image.add_local_file(HERE / name, "/opt/sprite/" + name, copy=True)
     if painted:
         image = image.env({"SPRITE_PAINTED_COSTUMES":"1"})
-        for name in ("paint_admitted_costume.py", "paint_portrait.py", "closeup_portrait.py", "armored_raccoon.py",
-                     "upright_animal.py", "costume_palette.py", "sector-costume-light.png"):
+        for name in ("paint_admitted_costume.py", "limb_repair.py", "paint_portrait.py", "closeup_portrait.py", "armored_raccoon.py",
+                     "upright_animal.py", "animal_build.py", "painted_likeness.py", "costume_palette.py",
+                     "sector-costume-light.png", "paint_battle_sprite.py", "battle-stance-reference.png"):
             image = image.add_local_file(HERE / name, "/opt/sprite/" + name, copy=True)
     image = image.run_commands(
         'python -c "import platform,pathlib; assert platform.python_version() == pathlib.Path(\'/opt/sprite/.python-version\').read_text().strip()"',
@@ -63,11 +77,18 @@ paint_image = None
 recognition_image = None
 if modal.is_local():
     pool = os.environ.get("SPRITE_RECOGNITION_POOL_ZIP")
+    stocky_sources = []
     if pool:
         pool_hash = os.environ["SPRITE_RECOGNITION_POOL_SHA256"]
         pool_path = Path(pool).resolve(strict=True)
         if not re.fullmatch(r"[a-f0-9]{64}", pool_hash) or hashlib.sha256(pool_path.read_bytes()).hexdigest() != pool_hash:
             raise ValueError("recognition-pool-deployment-binding")
+        from zipfile import ZipFile
+        from animal_build import STOCKY_TEMPLATE
+        from recognition_worker import pool_entries
+        with ZipFile(pool_path) as archive:
+            stocky_sources = sorted({row["sourceSha256"] for row in pool_entries(archive)
+                                     if STOCKY_TEMPLATE in row["templates"]})
         recognition_image = cpu_image.add_local_file(pool_path, "/opt/sprite/recognition-pool.zip", copy=True).env({
             "SPRITE_RECOGNITION_POOL_SHA256":pool_hash, "SPRITE_RECOGNITION_MODEL":os.environ["SPRITE_RECOGNITION_MODEL"]
         }).run_commands("python -m pip install --no-cache-dir -r /opt/sprite/requirements-recognition.txt", "python -m pip check")
@@ -85,6 +106,8 @@ if modal.is_local():
         "/opt/sprite/reader/bin/python -c 'from transformers import AutoModelForZeroShotObjectDetection'",
     )
     paint_image = cpu_image
+    if stocky_sources:
+        gpu_image = gpu_image.env({"SPRITE_STOCKY_DECOY_SOURCES": ",".join(stocky_sources)})
     if os.environ.get("SPRITE_WORKER_PLAN_PREWARM") != "0":
         paint_image = paint_image.add_local_file(HERE / "warm_sprite_plans.py",
                                                 "/opt/sprite/warm_sprite_plans.py", copy=True).run_commands(
@@ -107,7 +130,8 @@ if modal.is_local():
     )
 
 
-def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python, frame_hash=None, *, painted_costumes=False):
+def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python, frame_hash=None, *,
+                        painted_costumes=False, stocky=False):
     if not isinstance(raw, bytes) or not 0 < len(raw) <= MAX_UPLOAD:
         raise ValueError("portrait-size")
     if hashlib.sha256(raw).hexdigest() != expected_sha256:
@@ -128,12 +152,25 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
                        stdout=subprocess.DEVNULL, check=True)
         receipt = json.loads((master / "read.json").read_bytes())
         declined = receipt["declined"]
-        if painted_costumes and isinstance(declined, str) and declined.endswith("-uncertain"):
-            # Only an uncertain bust fit may still become a human close-up; any uncertain
-            # decline may be an upright animal character.
+        if painted_costumes and isinstance(declined, str):
+            # Only an uncertain bust fit may still become a detector-checked human close-up. Any
+            # decline may still be a two-legged character the vision check admits (upright_animal.py),
+            # which itself refuses photos, groups and four-legged animals: the rig takes every
+            # bipedal character, so the intake's narrower families are not the last word.
             animal_only = [] if declined == "portrait-bust-fit-uncertain" else ["--animal-only"]
-            subprocess.run([paint_python, INSTALL / "closeup_portrait.py", entry, upload, master,
-                            reader_python, expected_sha256, *animal_only], stdout=subprocess.DEVNULL, check=True)
+            try:
+                subprocess.run([paint_python, INSTALL / "closeup_portrait.py", entry, upload, master,
+                                reader_python, expected_sha256, *animal_only, *(["--stocky"] if stocky else [])],
+                               stdout=subprocess.DEVNULL, check=True)
+            except subprocess.CalledProcessError as error:
+                # An uncertain decline always went through this fallback, and its failure still fails
+                # the read. A decline that only reaches it since every bipedal character is screened
+                # keeps its original decline instead: the player keeps the monthly model and reads
+                # "could not use this portrait", never "something went wrong". closeup_portrait
+                # replaces read.json only as its last step, so the intake's receipt is still there.
+                if declined.endswith("-uncertain"):
+                    raise
+                print("closeup-fallback-skipped", declined, error.returncode, flush=True)
             receipt = json.loads((master / "read.json").read_bytes())
         if receipt["sourceSha256"] != expected_sha256:
             raise ValueError("portrait-read-mismatch")
@@ -150,7 +187,7 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
 # Modal's durable calls use HTTPS blob storage for portraits, fitted sheets and
 # movement packages. The reader, renderer and assemblers need that transport.
 @app.function(image=gpu_image,
-              gpu="L4", max_containers=1, min_containers=0,
+              gpu=GPUS, max_containers=PARALLEL_JOBS, min_containers=0,
               timeout=600, retries=0, block_network=False,
               # The upright-animal check asks the costume key's model. The list has one entry in
               # both the deploy and the container, whichever name the deploy chose.
@@ -166,8 +203,14 @@ def read_portrait(raw: bytes, expected_sha256: str, frame_hash: str, operation: 
         acknowledge_reserved_call(f"portrait/{operation}/{expected_sha256}/{frame_hash}", "portrait")
     entry = Path((INSTALL / "entry.txt").read_text().strip())
     release = json.loads((INSTALL / "sprite-worker-release.json").read_bytes())
+    stocky = False
+    if release.get("paintedCostumes"):
+        from animal_build import stocky_review_available
+        stocky = stocky_review_available(release, expected_sha256,
+                                        os.environ.get("SPRITE_STOCKY_DECOY_SOURCES", "").split(","))
     result = read_private_upload(raw, expected_sha256, entry, INSTALL / "paint/bin/python",
-                                 INSTALL / "reader/bin/python", frame_hash, painted_costumes=release.get("paintedCostumes",False))
+                                 INSTALL / "reader/bin/python", frame_hash, painted_costumes=release.get("paintedCostumes",False),
+                                 stocky=stocky)
     result["pipelineVersion"] = release["intake"]
     if release.get("paintedCostumes"):
         result["paintedCostumes"] = True
@@ -178,12 +221,109 @@ def read_portrait(raw: bytes, expected_sha256: str, frame_hash: str, operation: 
     return result
 
 
+# A painted combat sprite waits here, keyed by asset, between the costume call that paints it
+# and the style A render that publishes it. An entry expires after 7 days without a read.
+BATTLE_SPRITES = "shinobix-avatar-battle-sprites"
+PAINT_TIMEOUT = 2400
+# Start the combat painting only with this long left: one edit, one repair (360 s each at most) and their checks.
+BATTLE_PAINT_ROOM = 1000
+# paint_admitted_costume.py REFUSED: the rig or the likeness check refused all three paintings of a round.
+PAINT_REFUSED = 3
+# Start a second painting round only with this long left. A round takes about 4 minutes; three edits at their
+# 360 s timeout and the checks fit in 20. A combat painting that no longer fits is skipped and the posed model used.
+REPAINT_ROOM = 1200
+
+
+def paint_battle_sprite(entry, work, asset, source, painted_master, started):
+    """The combat sprite: one more edit, and one repair. Returns the billing record of each edit sent.
+    Any failure keeps the posed world model as the combat sprite; it never fails the costume."""
+    if PAINT_TIMEOUT - (time.monotonic() - started) < BATTLE_PAINT_ROOM:
+        print("battle-sprite-skipped no-time", flush=True)
+        return []
+    try:
+        subprocess.run([INSTALL/"paint/bin/python", INSTALL/"paint_battle_sprite.py", entry, work, asset, source],
+                       check=True, timeout=BATTLE_PAINT_ROOM - 100)
+        sprite = (work/"battle"/"sprite.webp").read_bytes()
+        modal.Dict.from_name(BATTLE_SPRITES, create_if_missing=True).put(
+            asset, {"master": painted_master, "sprite": sprite})
+    except Exception as error:  # noqa: BLE001
+        print("battle-sprite-skipped", type(error).__name__, flush=True)
+    # A sent edit is billed whether or not its painting was usable.
+    records = []
+    for number in (1, 2):
+        try:
+            record = json.loads((work/"battle"/f"edit-{number}"/"provider.json").read_bytes())
+            records.append({k: record[k] for k in ("operation","requestId","model","size","quality","usage")})
+        except Exception:  # noqa: BLE001
+            pass  # No edit was sent for this attempt, or its record is unreadable.
+    return records
+
+
+def painted_battle_sprite(asset, master):
+    """The combat sprite painted for this exact fitted master, or None to pose the world model."""
+    try:
+        entry = modal.Dict.from_name(BATTLE_SPRITES).get(asset)
+    except Exception as error:  # noqa: BLE001
+        print("battle-sprite-unavailable", type(error).__name__, flush=True)
+        return None
+    if not isinstance(entry, dict) or entry.get("master") != master:
+        return None
+    sprite = entry.get("sprite")
+    return sprite if isinstance(sprite, bytes) and sprite else None
+
+
+# Every model's legs render at 78% of their painted width below the hip (render_fitted_roster.LEG_SLIM), except
+# an animal's (owner, 2026-11-21): a dinosaur's thick thighs read as haunches, and the armored raccoon was built
+# with full legs and should stay that way. The costume call that knows the portrait's style records the animal
+# here, keyed by asset, for the three style renders of that exact fitted master. An entry expires after 7 days
+# without a read; a model with no entry renders like any other.
+LEG_BUILDS = "shinobix-avatar-leg-builds"
+ANIMAL_STYLES = ("upright-animal", "armored-raccoon")
+
+
+def animal_portrait(descriptor):
+    fit = json.loads(descriptor)["fit"]
+    return fit.get("requiresPainting") is True and fit.get("style") in ANIMAL_STYLES
+
+
+def record_painted_legs(asset, master):
+    try:
+        modal.Dict.from_name(LEG_BUILDS, create_if_missing=True).put(asset, {"master": master, "legs": "painted"})
+        print("leg-build painted", flush=True)
+    except Exception as error:  # noqa: BLE001
+        print("leg-build-unrecorded", type(error).__name__, flush=True)  # The model renders with the usual legs.
+
+
+def painted_legs(asset, master):
+    """True when this exact fitted master is an animal's. The three styles of a job must agree, or their
+    shared walking frames differ and the job cannot be assembled: an unreadable store fails the render
+    (the server retries it) rather than guessing."""
+    for wait in (0, 2, 5):
+        time.sleep(wait)
+        try:
+            entry = modal.Dict.from_name(LEG_BUILDS, create_if_missing=True).get(asset)
+            break
+        except Exception as error:  # noqa: BLE001
+            print("leg-build-unavailable", type(error).__name__, flush=True)
+    else:
+        raise ValueError("leg-build-unavailable")
+    return isinstance(entry, dict) and entry.get("master") == master and entry.get("legs") == "painted"
+
+
+def forget_battle_sprite(asset):
+    try:
+        modal.Dict.from_name(BATTLE_SPRITES).pop(asset)
+    except Exception:  # noqa: BLE001
+        pass  # Already gone, or it expires by itself.
+
+
 if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
-    @app.function(image=gpu_image, gpu="L4", max_containers=1, min_containers=0, retries=0, timeout=1800,
+    @app.function(image=gpu_image, gpu=GPUS, max_containers=PARALLEL_JOBS, min_containers=0, retries=0, timeout=PAINT_TIMEOUT,
                   secrets=[modal.Secret.from_name(openai_secret_name or "shinobix-avatar-costume-paint",
                                                   required_keys=["OPENAI_API_KEY"])])
     def paint_costume(asset: str, descriptor: bytes, master: str, portrait: bytes, source: str):
         import sys
+        started = time.monotonic()
         sys.path.insert(0, str(INSTALL))
         from paint_admitted_costume import admitted_rig
         admitted_rig(asset, descriptor, master, portrait, source)
@@ -200,26 +340,41 @@ if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
             work = Path(directory)
             (work/"portrait").write_bytes(portrait)
             (work/"screened.json").write_bytes(descriptor)
+            out = work/"painted"
+            battle = []
+            command = [INSTALL/"paint/bin/python",INSTALL/"paint_admitted_costume.py",
+                       entry,work,INSTALL/"reader/bin/python",asset,master,source]
             try:
-                subprocess.run([INSTALL/"paint/bin/python",INSTALL/"paint_admitted_costume.py",
-                                entry,work,INSTALL/"reader/bin/python",asset,master,source],check=True)
+                try:
+                    subprocess.run(command,check=True)
+                except subprocess.CalledProcessError as error:
+                    # All three paintings of the first round were refused (Nero, 2026-11-21: the same leg three
+                    # times, which ended a model at the first step). Paint one fresh round while there is time.
+                    if error.returncode != PAINT_REFUSED or PAINT_TIMEOUT-(time.monotonic()-started) < REPAINT_ROOM:
+                        raise
+                    print("costume-repaint round 2", flush=True)
+                    subprocess.run(command+["--round","2"],check=True)
+                receipt = json.loads((out/"read.json").read_bytes())
+                if animal_portrait(descriptor):
+                    record_painted_legs(asset, receipt["fittedMasterSha256"])
+                battle = paint_battle_sprite(entry, work, asset, source, receipt["fittedMasterSha256"], started)
             finally:
                 edits = []
-                for number in (1, 2, 3):
-                    report = work/"edits"/f"edit-{number}"/"provider.json"
-                    if report.is_file():
-                        record = json.loads(report.read_bytes())
-                        edits.append({k: record[k] for k in ("operation","requestId","model","size","quality","usage")})
-                claims.put(asset, {**claim, "edits": edits})
-            out = work/"painted"
-            return {"assetId":asset,"screened":master,"receipt":json.loads((out/"read.json").read_bytes()),
+                for folder in ("edits", "edits-2"):
+                    for number in (1, 2, 3):
+                        report = work/folder/f"edit-{number}"/"provider.json"
+                        if report.is_file():
+                            record = json.loads(report.read_bytes())
+                            edits.append({k: record[k] for k in ("operation","requestId","model","size","quality","usage")})
+                claims.put(asset, {**claim, "edits": edits + battle})
+            return {"assetId":asset,"screened":master,"receipt":receipt,
                     "descriptor":(out/"fitted-master.json").read_bytes(),"sheet":(out/"candidate.png").read_bytes()}
 
 
 def acknowledge_movement(asset, master, stage, attempt):
     if (not isinstance(asset, str) or not re.fullmatch(r"[a-f0-9]{32}", asset)
             or not re.fullmatch(r"[a-f0-9]{64}", master) or stage not in ("A", "B", "C", "finish")
-            or type(attempt) is not int or not 1 <= attempt <= 3):
+            or type(attempt) is not int or not 1 <= attempt <= MAX_ATTEMPT):
         raise ValueError("invalid-movement-operation")
     acknowledge_reserved_call(f"{asset}/{master}/{stage}/{attempt}", "movement")
 
@@ -247,7 +402,7 @@ if openai_secret_name:
     recognition_secrets.append(modal.Secret.from_name(openai_secret_name, required_keys=["OPENAI_API_KEY"]))
 
 
-@app.function(image=recognition_image, cpu=1, memory=2048, max_containers=1, min_containers=0,
+@app.function(image=recognition_image, cpu=1, memory=2048, max_containers=PARALLEL_JOBS, min_containers=0,
               timeout=600, retries=0, secrets=recognition_secrets)
 def recognize_sprite(asset, descriptor, master, portrait, source, finished_call, model, operation, attempt):
     import sys
@@ -257,7 +412,7 @@ def recognize_sprite(asset, descriptor, master, portrait, source, finished_call,
     validate_operation(op)
     if (operation.get("model") != os.environ.get("SPRITE_RECOGNITION_MODEL")
             or operation.get("poolSha256") != os.environ.get("SPRITE_RECOGNITION_POOL_SHA256")
-            or type(attempt) is not int or not 1 <= attempt <= 3
+            or type(attempt) is not int or not 1 <= attempt <= MAX_ATTEMPT
             or not re.fullmatch(r"fc-[A-Za-z0-9]{1,100}", finished_call)):
         raise ValueError("recognition-release-unavailable")
     acknowledge_reserved_call(f"{asset}/{master}/recognize/{attempt}", "recognition")
@@ -273,12 +428,20 @@ def recognize_sprite(asset, descriptor, master, portrait, source, finished_call,
     return execute_review(op, prepare, claims, lambda payload:post_response(payload, os.environ.get("OPENAI_API_KEY")))
 
 
-# Three containers: the game server starts a job's A, B and C renders together, so one job's
-# styles finish in the time of its slowest instead of the sum of all three.
-@app.function(image=paint_image, cpu=4, memory=8192, max_containers=3, min_containers=0,
+# The game server starts a job's A, B and C renders together, so one job's styles finish in the
+# time of its slowest instead of the sum of all three. They run side by side in ONE container.
+# The styles share their walking and standing frames, and assembly requires those to be
+# byte-identical (run_style_package.combine: "Incompatible movement banks"). The leg renderer's
+# output differs by a few edge pixels between machines: with three containers, a 2026-11-18 trial
+# rendered every style correctly and then could not be assembled, because one container's
+# walking pages differed from the other two by 1 to 8 pixels. One machine gives one answer.
+@app.function(image=paint_image, cpu=12, memory=24576, max_containers=1, min_containers=0,
               timeout=6 * 3600, retries=0, block_network=False)
+@modal.concurrent(max_inputs=3)
 def render_style(descriptor: bytes, sheet: bytes, master_sha256: str, style: str,
-                 expected_movement: str | None = None, asset_id: str | None = None, attempt: int | None = None):
+                 expected_movement: str | None = None, asset_id: str | None = None, attempt: int | None = None,
+                 painted_for: str | None = None):
+    """painted_for names the asset whose painted combat sprite to use when no server job reserved this call."""
     if style not in ("A", "B", "C"):
         raise ValueError("invalid-run-style")
     if json.loads(descriptor)["fit"].get("requiresPainting"):
@@ -300,6 +463,13 @@ def render_style(descriptor: bytes, sheet: bytes, master_sha256: str, style: str
                    "--style", style]
         if expected_movement is not None:
             command.extend(["--expected-movement", expected_movement])
+        owner = asset_id or painted_for
+        painted = painted_battle_sprite(owner, master_sha256) if style == "A" and owner else None
+        if painted is not None:
+            (work / "painted-battle.webp").write_bytes(painted)
+            command.extend(["--battle-sprite", work / "painted-battle.webp"])
+        if owner and painted_legs(owner, master_sha256):
+            command.append("--painted-legs")
         render = subprocess.run(command)
         if render.returncode == 78:
             raise ValueError("movement-worker-revision-mismatch")
@@ -359,7 +529,7 @@ def deliver(asset_id, descriptor, master_sha256, *, styles=None, archive=None, a
         return {"model": delivery, "objects": objects}
 
 
-@app.function(image=cpu_image, cpu=2, memory=4096, max_containers=1, min_containers=0,
+@app.function(image=cpu_image, cpu=2, memory=4096, max_containers=PARALLEL_JOBS, min_containers=0,
               timeout=1800, retries=0, block_network=False)
 def finish_sprite(asset_id: str, descriptor: bytes, master_sha256: str,
                   archive: bytes, archive_sha256: str):
@@ -367,7 +537,7 @@ def finish_sprite(asset_id: str, descriptor: bytes, master_sha256: str,
     return deliver(asset_id, descriptor, master_sha256, archive=archive, archive_sha256=archive_sha256)
 
 
-@app.function(image=cpu_image, cpu=2, memory=4096, max_containers=1, min_containers=0,
+@app.function(image=cpu_image, cpu=2, memory=4096, max_containers=PARALLEL_JOBS, min_containers=0,
               timeout=1800, retries=0, block_network=False)
 def finish_styles(asset_id: str, descriptor: bytes, master_sha256: str, styles: dict,
                   attempt: int | None = None, movement: str | None = None):
@@ -396,4 +566,8 @@ def finish_styles(asset_id: str, descriptor: bytes, master_sha256: str, styles: 
                 raise ValueError("invalid-style-binding")
             archives[style] = result
         styles = archives
-    return deliver(asset_id, descriptor, master_sha256, styles=styles)
+    delivery = deliver(asset_id, descriptor, master_sha256, styles=styles)
+    if movement is not None:
+        # The combat sprite now travels in the style A result. Drop the waiting copy.
+        forget_battle_sprite(asset_id)
+    return delivery

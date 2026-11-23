@@ -10,18 +10,22 @@ export const worldTerrainSource = (sector: number) => `/sector-map/world-terrain
 
 /** Images decoded during the travel wait, by source, until the arriving renderer takes them. */
 const warm = new Map<string, HTMLImageElement>();
+const decoding = new Set<string>();
 
 function start(source: string) {
-    if (warm.has(source)) return;
+    if (warm.has(source) || decoding.has(source)) return;
     const image = new Image();
     image.src = source;
     // Without decode() (an older engine) the request alone still warms the HTTP cache. A failed
     // decode is forgotten, and the renderer loads that image as before. One nobody takes is let
     // go after 30 s: decoded, each floor is several MB.
-    image.decode?.().then(() => {
+    if (!image.decode) return;
+    decoding.add(source);
+    image.decode().then(() => {
+        decoding.delete(source);
         warm.set(source, image);
         setTimeout(() => { if (warm.get(source) === image) warm.delete(source); }, 30_000);
-    }, () => {});
+    }, () => { decoding.delete(source); });
 }
 
 /**

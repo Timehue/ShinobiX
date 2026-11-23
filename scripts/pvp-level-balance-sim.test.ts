@@ -416,13 +416,13 @@ describe('level-aware PvP balance harness integrity', () => {
         }
     });
 
-    it('isolates the intended A-rank edge with identical 12-button loadouts', () => {
+    it('isolates the intended A-rank edge with identical base loadouts', () => {
         const report = runRankIsolationControl(50);
         assert.equal(report.games, COMPETITIVE_PROFILES.length * COMPETITIVE_ARCHETYPES.length * 4);
         assert.ok(scoredRate(report) >= 0.50 && scoredRate(report) <= 0.70, `${scoredRate(report)}`);
     });
 
-    it('verifies that human PvP preserves the active 12-slot and 15-slot entitlements', () => {
+    it('verifies that human PvP preserves the active 14-slot and 15-slot entitlements', () => {
         const normal = makeLevelRoster(25, { loadoutSize: LOADOUT_CAP_BASE });
         const supporter = makeLevelRoster(25, { loadoutSize: LOADOUT_CAP_SUB });
         assert.equal(normal.length, supporter.length);
@@ -438,9 +438,8 @@ describe('level-aware PvP balance harness integrity', () => {
         assert.equal(report.fights, ARCHETYPES.length * BLOODLINE_RANKS.length * 4);
         assert.equal(report.base.games, report.fights);
         assert.equal(report.supporter.games, report.fights);
-        // Wind utility and starter AOE tuning moves one of the 64 crossed fights.
-        // The opening hit on damaging fields moves two more.
-        assert.equal(scoredRate(report.supporter), 45 / 64, 'supporter-origin builds retain their three additional human-PvP techniques');
+        // The base roster's two newly available techniques change this fixed sample.
+        assert.equal(scoredRate(report.supporter), 42 / 64, 'supporter-origin builds retain their one additional human-PvP technique');
         assert.deepEqual(report.issues, []);
     });
 });

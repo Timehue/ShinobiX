@@ -4,7 +4,7 @@ export const STRONGHOLD_DIMS = { width: 37, height: 23 } as const;
 export const STRONGHOLD_LAYOUT_VERSION = 1;
 export const STRONGHOLD_MIN_LEVEL = 50;
 /** Treasury raids remain endgame activities even when exploration unlocks earlier. */
-export const ANBU_RAID_MIN_LEVEL = 100;
+export const HUSH_RAID_MIN_LEVEL = 100;
 export function strongholdLevelEligible(level: unknown): boolean {
     const value = Number(level);
     return Number.isFinite(value) && value >= STRONGHOLD_MIN_LEVEL;

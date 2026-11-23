@@ -343,7 +343,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // ── Lifetime / leaderboard counters (client delta 0) ────────────────────
     f('elderWinDays', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'Verified combat wins by UTC day and village; council elections use the completed 30-day term'),
     f('elderRankedWinReceipts', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'Ranked win election credit replay protection'),
-    f('villageMerit', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'Kage-challenge gate (KAGE_MIN_MERIT); credited only by the daily agenda, map control, village treasury donations, ANBU cache turn-ins and war crates, and reset by a village transfer; never accepted from a generic save'),
+    f('villageMerit', 'character', 'server-owned', 'village', ['server-mirror-char', 'combat-strip-char'], 'Kage-challenge gate (KAGE_MIN_MERIT); credited only by the daily agenda, map control, village treasury donations, Anbu cache turn-ins and war crates, and reset by a village transfer; never accepted from a generic save'),
     f('totalPvpKills', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
     f('totalAiKills', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
     f('totalVillageRaids', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
@@ -398,7 +398,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('dailyPetWins', 'character', 'server-clamped', 'dailies', ['combat-strip-char'], 'floored at stored within the same UTC day; bounds the pet-arena ryo faucet'),
     f('dailyTilesExplored', 'character', 'client-state', 'dailies', ['combat-strip-char']),
     f('dailyFateSpins', 'character', 'server-clamped', 'dailies', ['combat-strip-char'], 'floored at stored within the same UTC day; bounds the free Sunscar Fate Dice (api/festival/sunscar.ts)'),
-    f('pvpKillMonth', 'character', 'server-owned', 'pvp', ['server-mirror-char', 'combat-strip-char'], 'PvP settlement owns the month paired with monthlyPvpKills; clients cannot roll old kills into a new ANBU month'),
+    f('pvpKillMonth', 'character', 'server-owned', 'pvp', ['server-mirror-char', 'combat-strip-char'], 'PvP settlement owns the month paired with monthlyPvpKills; clients cannot roll old kills into a new Anbu month'),
     f('villageWarMissionDate', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned daily war-ground progress day; claim-rewards and village war-mission only'),
     f('villageWarRaidProgress', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned war-ground progress; cannot be forged through generic save'),
     f('professionChosenAt', 'character', 'server-owned', 'profession', ['server-mirror-char', 'combat-strip-char'], 'profession choice generation; only /api/profession/choose advances it, including scroll changes'),

@@ -66,7 +66,7 @@ import {
     ScarLayer, ResidueFx, ClimateLayer, KindAccentFx, CastGlyphFx, ChargeOrbFx, StreakBurstFx, DebrisFx, kindAccentFamily,
     type BattleScar, type ResidueSpawn, type ClimateState, type KindAccentSpawn, type StreakBurstSpawn,
 } from "./PetShowdownVfx3d";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petBattlefieldArt, petCardImage } from "../lib/pet-battle-anim";
 import { startBattleMusic, stopBattleMusic, setBattleMusicIntensity } from "../lib/pet-music";
 import { playPetSfx, primePetSfx, petHaptic } from "../lib/pet-sfx";
 import { appendCapped, petDuelImpactStrength } from "../lib/pet-duel-presentation";
@@ -375,7 +375,8 @@ interface FighterSlotInfo {
     side: "player" | "enemy";
     basePos: [number, number, number];
     model: PetCombatModelConfig | null;
-    fallbackImage: string;
+    cardImage: string;
+    art: ReturnType<typeof petBattlefieldArt>;
     collarId?: string;
     surface?: PetModelSurfaceTreatment;
 }
@@ -1278,12 +1279,16 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     });
     const statusKinds = useMemo(() => statuses.map(status => status.kind), [statuses]);
     const recallScene = usePetRecallController();
+    const [failedSprite, setFailedSprite] = useState<string>();
+    const sprite = failedSprite === info.art.sprite ? info.art.fallback : info.art.sprite;
     const fallbackTexture = useMemo(() => {
         if (info.model && !modelFailed) return null;
-        const t = new THREE.TextureLoader().load(info.fallbackImage);
+        const t = new THREE.TextureLoader().load(sprite, undefined, undefined, () => {
+            if (sprite !== info.art.fallback) setFailedSprite(sprite);
+        });
         t.colorSpace = THREE.SRGBColorSpace;
         return t;
-    }, [info.model, modelFailed, info.fallbackImage]);
+    }, [info.model, modelFailed, sprite, info.art.fallback]);
     useEffect(() => () => fallbackTexture?.dispose(), [fallbackTexture]);
 
     useFrame((_, delta) => {
@@ -1685,7 +1690,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                     </Suspense>
                 </PetModelBoundary>
             ) : (
-                // No approved 3D model: full-body card art on a grounded billboard.
+                // The battle sprite stands in when the model is unavailable.
                 <PetSummon3D dynamicLight={quality.dynamicPetLight} enabled={info.side === 'player'} summonOnMount={introActive && !info.view.benched && !ko} presence={cardPresence} reducedMotion={reduced} onRecallComplete={() => { cardGone.current = ko; }}><Billboard lockX lockZ>
                     <mesh position={[0, 1.05, 0]}>
                         <planeGeometry args={[2.0, 2.0]} />
@@ -2543,7 +2548,8 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
             map.set(view.id, {
                 view, side: "player", basePos: playerPos[i],
                 model: petCombatModel(petLike),
-                fallbackImage: petCardImage(petLike, sharedImages),
+                cardImage: petCardImage(petLike, sharedImages),
+                art: petBattlefieldArt(petLike, view.id, sharedImages),
                 collarId: petLike.loadout?.collar, surface: petModelVariantSurface(petLike),
             });
         });
@@ -2552,7 +2558,8 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
             map.set(view.id, {
                 view, side: "enemy", basePos: enemyPos[i],
                 model: petCombatModel(petLike),
-                fallbackImage: petCardImage(petLike, sharedImages),
+                cardImage: petCardImage(petLike, sharedImages),
+                art: petBattlefieldArt(petLike, view.id, sharedImages),
                 collarId: petLike.loadout?.collar, surface: petModelVariantSurface(petLike),
             });
         });
@@ -3560,7 +3567,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
     }, [activeHover, phase]);
 
     const panelArt = useMemo(
-        () => Object.fromEntries([...slots.values()].map((i) => [i.view.id, i.fallbackImage])),
+        () => Object.fromEntries([...slots.values()].map((i) => [i.view.id, i.cardImage])),
         [slots],
     );
     const playerBenchedIds = useMemo(() => new Set(lineup.playerBench), [lineup.playerBench]);

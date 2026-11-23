@@ -10,7 +10,7 @@ import { runInNewContext } from 'node:vm';
 // A Windows checkout (core.autocrlf) has CRLF; the boundaries below are LF.
 const source = readFileSync(new URL('./SectorWanderer.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const start = source.indexOf('const GRID_W =');
-const end = source.lastIndexOf('    return (\n');
+const end = source.lastIndexOf('    return inNpcLayer(npcLayer, (\n');
 assert.ok(start >= 0 && end > start, 'component fixture boundaries must exist');
 const executable = stripTypeScriptTypes(source.slice(start, end).replace('export function SectorWanderer', 'function SectorWanderer') + '\n}\nSectorWanderer;', { mode: 'strip' });
 
@@ -48,6 +48,9 @@ function mount({ reduced = false, width = 0, height = width, near = false, routi
         SECTOR_MARKER_ANCHOR: 80, SECTOR_RING_AI: 'ring',
         sectorMarkerBox: (tile: number) => ({ w: tile * 0.58, h: tile }),
         publishFigureGroundPosition() {}, layoutWandererLabels() {}, paintGroundWorkTool() {},
+        // No board layer: the NPC measures its own parent, as on any host without one.
+        useSectorNpcLayer: () => undefined, layerNpcByDepth() {},
+        npcBoard: (overlay: { parentElement?: unknown } | null) => overlay?.parentElement ?? null,
         groundWorkPresentation: (_life: unknown, presentation: unknown) => presentation,
         lifeActivityAtPosition: () => ({ activity: 'rest' }), lifeActivityAt: () => ({ activity: 'rest' }),
         sectorTrackerAway: () => false, isCoveredByCombat: () => false, subscribeCombatCover: () => () => {},

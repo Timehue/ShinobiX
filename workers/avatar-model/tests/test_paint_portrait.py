@@ -25,7 +25,7 @@ class CostumePromptTest(unittest.TestCase):
         asset = "2" * 32
 
         def request(_portrait, _source, _template, correction, _previous, *, sector_guide, head_turnaround,
-                    torso_fit=False):
+                    torso_fit=False, reference_identity=False):
             return {"guide": sector_guide, "prompt": paint_portrait.PROMPT + (
                 paint_portrait.HEAD_TURNAROUND if head_turnaround else ""), "correction": correction}
 
@@ -75,7 +75,7 @@ class RepairTest(unittest.TestCase):
 
     @staticmethod
     def request(_portrait, _source, _template, correction, previous, *, sector_guide, head_turnaround,
-                torso_fit=False, attempt=2):
+                torso_fit=False, reference_identity=False, attempt=2):
         return {"correction": correction, "previous": sha256(previous).hexdigest() if previous else None,
                 "torsoFit": torso_fit, "attempt": attempt}
 
@@ -125,7 +125,7 @@ class PaletteTest(unittest.TestCase):
 
     @staticmethod
     def request(_portrait, _source, _template, correction, _previous, *, sector_guide, head_turnaround,
-                palette_prompt=False, torso_fit=False):
+                palette_prompt=False, torso_fit=False, reference_identity=False):
         return {"guide": sector_guide, "correction": correction, "palette": palette_prompt}
 
     def test_new_jobs_name_the_palette_and_correct_the_painting(self):
@@ -162,6 +162,108 @@ class PaletteTest(unittest.TestCase):
                                                      Mock(return_value=("fixture", self.result)), palette=Mock(side_effect=lambda p, _u: p))
             painter(root / "portrait", source, template, 2, "Repair detached sleeve")
             self.assertNotIn("palette_prompt", build.call_args.kwargs)
+
+    def test_only_an_animal_character_is_told_where_its_tail_goes(self):
+        def request(_portrait, _source, _template, correction, _previous, *, sector_guide, head_turnaround,
+                    torso_fit=False, tail_fit=False, **animal):
+            return {"tail": tail_fit, "animal": sorted(animal)}
+
+        with TemporaryDirectory() as temporary, patch.object(paint_portrait, "edit_request", side_effect=request) as build:
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            for label, flags in (("human", {}), ("raccoon", {"armored_raccoon": True}), ("animal", {"upright_animal": True})):
+                with self.subTest(label=label):
+                    painter = paint_portrait.costume_painter(root / label, "6" * 32, Mock(return_value=True),
+                                                             Mock(return_value=("fixture", self.result)), **flags)
+                    painter(root / "portrait", "1" * 64, template, 1, None)
+                    self.assertEqual(build.call_args.kwargs.get("tail_fit", False), bool(flags))
+                    binding = json.loads((root / label / "edit-1/completed.json").read_bytes())["binding"]
+                    self.assertEqual(binding.get("tailFit", False), bool(flags))
+
+    def test_an_animal_job_first_billed_without_the_tail_line_repairs_with_the_same_prompt(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            asset, source = "7" * 32, "1" * 64
+            first = root / "job/edit-1"
+            first.mkdir(parents=True)
+            (first / "painting.png").write_bytes(self.art)
+            (first / "completed.json").write_text(json.dumps({
+                "operation": "earlier", "painting": sha256(self.art).hexdigest(),
+                "binding": {"job": asset, "source": source, "template": sha256(b"template").hexdigest(),
+                            "sectorGuide": paint_portrait.SECTOR_GUIDE, "headTurnaround": True,
+                            "uprightAnimal": True, "torsoFit": True}}))
+            painter = paint_portrait.costume_painter(root / "job", asset, Mock(return_value=True),
+                                                     Mock(return_value=("fixture", self.result)), upright_animal=True)
+            with patch.object(paint_portrait, "edit_request", side_effect=lambda *a, **k: {"k": sorted(k)}) as build:
+                painter(root / "portrait", source, template, 2, "Repair detached sleeve")
+            self.assertNotIn("tail_fit", build.call_args.kwargs)
+            self.assertTrue(build.call_args.kwargs["upright_animal"])
+
+    def test_new_jobs_say_the_style_reference_is_an_unrelated_person(self):
+        with TemporaryDirectory() as temporary, \
+                patch.object(paint_portrait, "edit_request", side_effect=lambda *a, **k: {"k": sorted(k)}) as build:
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            painter = paint_portrait.costume_painter(root / "job", "8" * 32, Mock(return_value=True),
+                                                     Mock(return_value=("fixture", self.result)), armored_raccoon=True)
+            painter(root / "portrait", "1" * 64, template, 1, None)
+            painter(root / "portrait", "1" * 64, template, 2, "Likeness check: wrong species")
+            self.assertEqual([call.kwargs.get("reference_identity") for call in build.call_args_list], [True, True])
+            binding = json.loads((root / "job/edit-1/completed.json").read_bytes())["binding"]
+            self.assertTrue(binding["referenceIdentity"])
+
+    def test_a_job_first_billed_without_the_reference_line_repairs_with_the_same_prompt(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            template = root / "template.json"
+            template.write_bytes(b"template")
+            asset, source = "9" * 32, "1" * 64
+            first = root / "job/edit-1"
+            first.mkdir(parents=True)
+            (first / "painting.png").write_bytes(self.art)
+            (first / "completed.json").write_text(json.dumps({
+                "operation": "earlier", "painting": sha256(self.art).hexdigest(),
+                "binding": {"job": asset, "source": source, "template": sha256(b"template").hexdigest(),
+                            "sectorGuide": paint_portrait.SECTOR_GUIDE, "headTurnaround": True,
+                            "armoredRaccoon": True, "torsoFit": True, "tailFit": True}}))
+            painter = paint_portrait.costume_painter(root / "job", asset, Mock(return_value=True),
+                                                     Mock(return_value=("fixture", self.result)), armored_raccoon=True)
+            with patch.object(paint_portrait, "edit_request", side_effect=lambda *a, **k: {"k": sorted(k)}) as build:
+                painter(root / "portrait", source, template, 2, "Repair detached sleeve")
+            self.assertNotIn("reference_identity", build.call_args.kwargs)
+
+    def test_the_reference_line_follows_the_style_reference_into_the_real_prompt(self):
+        import types
+        portrait = BytesIO()
+        Image.new("RGB", (64, 64), (20, 40, 200)).save(portrait, "PNG")
+        prepared = types.SimpleNamespace(png=portrait.getvalue(), source_sha256="1" * 64)
+        module = types.ModuleType("avatar_worker.portrait")
+        module.prepare_portrait = lambda raw: prepared
+        with TemporaryDirectory() as temporary, \
+                patch.dict(sys.modules, {"avatar_worker": types.ModuleType("avatar_worker"),
+                                         "avatar_worker.portrait": module}):
+            root = Path(temporary)
+            upload = root / "portrait"
+            upload.write_bytes(b"raw")
+            guide = BytesIO()
+            Image.new("RGBA", (64, 40), (90, 90, 90, 255)).save(guide, "PNG")
+            template = root / "male-coat-template.json"
+            template.with_suffix(".png").write_bytes(guide.getvalue())
+            template.write_text(json.dumps({"guideSha256": sha256(guide.getvalue()).hexdigest(),
+                                            "views": {"s": {"body": {"guideRect": [0, 0, 32, 40]}}}}))
+            prompts = {flag: paint_portrait.edit_request(upload, "1" * 64, template, None, reference_identity=flag)["prompt"]
+                       for flag in (False, True)}
+            # Without the style reference there is no image 3 to warn about.
+            bare = paint_portrait.edit_request(upload, "1" * 64, template, None, sector_guide=None,
+                                               reference_identity=True)["prompt"]
+        self.assertNotIn(paint_portrait.REFERENCE_IDENTITY, prompts[False])
+        self.assertTrue(prompts[True].endswith(paint_portrait.SECTOR_MATERIALS + paint_portrait.REFERENCE_IDENTITY))
+        self.assertNotIn(paint_portrait.REFERENCE_IDENTITY, bare)
+        self.assertIn("Image 3 shows an unrelated person", paint_portrait.REFERENCE_IDENTITY)
 
     def test_a_failed_correction_keeps_the_paid_painting(self):
         with TemporaryDirectory() as temporary:

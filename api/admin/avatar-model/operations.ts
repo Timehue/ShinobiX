@@ -92,11 +92,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
                     totals.billing.workerMilliseconds = (totals.billing.workerMilliseconds ?? 0) + modal.billedMilliseconds;
                 }
                 // The average is of real statements only: a fixed settlement (basis 'fixed') is an estimate.
+                // Since 2026-11-19 a job holds no OpenAI money, so a Modal statement alone counts; an
+                // OpenAI receipt, when an older job has one, must be real too.
                 if (job.state === 'ready' && Array.isArray(job.reserved) && job.reserved.length === 0 &&
-                    amount(modal?.spentMicros) && amount(openai?.spentMicros) &&
-                    modal.basis !== 'fixed' && openai.basis !== 'fixed') {
+                    amount(modal?.spentMicros) && modal.basis !== 'fixed' &&
+                    (openai === undefined || (amount(openai.spentMicros) && openai.basis !== 'fixed'))) {
                     totals.billing.settledReady++;
-                    readyMicros += modal.spentMicros + openai.spentMicros;
+                    readyMicros += modal.spentMicros + (openai?.spentMicros ?? 0);
                 }
             }
         }

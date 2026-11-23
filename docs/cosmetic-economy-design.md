@@ -4,7 +4,7 @@
 
 **Status:** Plan / not built. Read-only survey + implementation-ready design.
 **Author target:** Lead Systems Designer + engineer.
-**Model:** Dota 2 / a deep action RPG cosmetic economy — deep, lively, monetized, **zero pay-to-win**.
+**Model:** a cosmetic economy that is deep, lively, monetized, **zero pay-to-win**.
 
 ---
 
@@ -205,7 +205,7 @@ defense — see §9.
   **soulbound** — it can never be re-traded (prevents RMT laundering; §9). The exception:
   cosmetics flagged `tradeable: true` can be **re-listed on the auction house** *before* first
   equip (a deep action RPG "mirror-free" model). Once **equipped**, a tradeable cosmetic becomes account-bound
-  ("bind-on-equip"). This mirrors a deep action RPG/Dota: the marketplace stays liquid, but equipping ends
+  ("bind-on-equip"). The marketplace stays liquid, but equipping ends
   tradeability.
 - **Storage** — a new sub-object on the player save (NOT a new top-level KV key, so it rides the
   existing save lock + clamp pipeline):

@@ -3,9 +3,13 @@ import { strict as assert } from 'node:assert';
 import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, canCustomAvatar, maxLoadout, maxPets, maxStoredBloodlines } from './_entitlements.js';
 
 describe('supporter entitlement caps', () => {
-    it('keeps three additional jutsu slots as a supporter perk', () => {
-        assert.equal(maxLoadout({}), 12);
+    it('keeps only one additional regular jutsu slot as a supporter perk', () => {
+        for (const character of [undefined, null, {}, { patreon: { active: false } },
+            { patreon: { active: true, expiresAt: Date.now() - 1 } }]) {
+            assert.equal(maxLoadout(character), 14);
+        }
         assert.equal(maxLoadout({ patreon: { active: true } }), 15);
+        assert.equal(maxLoadout({ patreon: { active: true, expiresAt: Date.now() + 60_000 } }), 15);
     });
 
     it('keeps one reserve carried pet as a supporter perk', () => {

@@ -1,6 +1,11 @@
 {
-  "intake": "88b82b0da52d1b60be52b1c6f31d3cc4c524d057598d837fe55b95c047b2ace9",
-  "movement": "6fc5ea69b176385c6e82004ff105e2a1555eced4b445f7fc988af7ec1c86868e",
+  "intake": "c6f2530a44af089ed958bf4820d87ce480b9d81b022cee64267318eee488dfb1",
+  "movement": "d79f4cb185a2ac33e1fa360b036f493be6a6949a0ecbd9cb14a8bdc886586965",
   "paintedCostumes": true,
-  "paintedTemplates": ["male-coat-template.json", "female-coat-template.json", "masked-collar-template.json"]
+  "paintedTemplates": [
+    "male-coat-template.json",
+    "female-coat-template.json",
+    "masked-collar-template.json",
+    "stocky-template.json"
+  ]
 }

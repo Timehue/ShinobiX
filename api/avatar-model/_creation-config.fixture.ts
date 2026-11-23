@@ -2,8 +2,7 @@ export const modelCreationFixture = {
     DISABLE_SCHEDULED_JOBS: '0',
     AVATAR_MODEL_CREATION_ENABLED: '1',
     AVATAR_MODEL_KILL_SWITCH: '0',
-    AVATAR_MODEL_READ_DAILY_LIMIT: '3',
-    AVATAR_MODEL_READ_PLAYER_DAILY_LIMIT: '1',
+    // No daily caps: portrait checks and models need none (owner, 2026-11-20).
     AVATAR_MODEL_DISPATCH_ENABLED: '1',
     AVATAR_MODEL_CLEANUP_ENABLED: '1',
     AVATAR_MODEL_MODAL_PYTHON: 'test-python',
@@ -24,10 +23,10 @@ export const modelCreationFixture = {
     R2_PUBLIC_BASE: 'https://art.example.invalid',
     R2_BUCKET: 'test-main-art',
     AVATAR_MODEL_RESERVATIONS_JSON: JSON.stringify({
-        dailyLimit: 3,
         recognition: { model: 'local-vision-fixture', poolSha256: '9'.repeat(64) },
         providers: [
-            { provider: 'modal', cycle: 'test-cycle', perAttemptMicros: 100, limitMicros: 600, settleMicros: 10 },
+            // Room for two running jobs: a job holds one perAttemptMicros, in the current UTC month's row.
+            { provider: 'modal', cycle: 'test-cycle', perAttemptMicros: 100, limitMicros: 200, settleMicros: 10 },
             { provider: 'openai', cycle: 'another-cycle', perAttemptMicros: 2, limitMicros: 12, settleMicros: 1 },
         ],
     }),

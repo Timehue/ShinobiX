@@ -67,7 +67,7 @@ import { clampNumber, makeId } from "../lib/utils";
 import { normalizeJutsu } from "../lib/jutsu";
 import { normalizeJutsuTags, percentageTags } from "../lib/tags";
 import { petDisplayName } from "../lib/pet";
-import { maxPets } from "../lib/entitlements";
+import { maxLoadout, maxPets } from "../lib/entitlements";
 import { rankTitleForLevel } from "../lib/character-progress";
 import { aiJutsuLoadout, aiLoadoutFromJutsus, aiLoadoutLabels, blankAiRule, buildBasicCombatAiRules, builtinAis, normalizeAiProfile, starterAiProfile } from "../lib/combat-ai";
 import {
@@ -3924,7 +3924,7 @@ export function AdminPanel({
                                 <>
                                     <button onClick={() => loadAdminJutsu(jutsu)}>Load In Editor</button>
                                     {deletable && <button className="danger-button" onClick={() => deleteAdminJutsu(jutsu.id)}>Delete</button>}
-                                    <button onClick={() => updateCharacter({ ...character, equippedJutsuIds: [...new Set([...liveEquippedJutsuIds(allGameJutsus, character.equippedJutsuIds), jutsu.id])].slice(0, 15) })}>Equip</button>
+                                    <button onClick={() => updateCharacter({ ...character, equippedJutsuIds: [...new Set([...liveEquippedJutsuIds(allGameJutsus, character.equippedJutsuIds), jutsu.id])].slice(0, maxLoadout(character)) })}>Equip</button>
                                 </>
                             );
                         }}

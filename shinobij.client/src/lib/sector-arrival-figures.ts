@@ -13,7 +13,7 @@ export type ArrivalFigure = { kind: string; equipped?: PlayerModel; style: Sprin
 /**
  * The fitted figures an arrival shows first: the player's own, then the road's
  * people, each model once, in that order, at most ARRIVAL_WARM_FIGURES. People
- * without a fitted model (they stay portraits) are skipped.
+ * without a fitted model keep their lightweight standing figures.
  */
 export function arrivalFigures<P>(self: ArrivalFigure | null, people: readonly P[], modelFor: (person: P) => string | undefined): ArrivalFigure[] {
     const figures: ArrivalFigure[] = self ? [self] : [];

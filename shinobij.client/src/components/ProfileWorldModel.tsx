@@ -8,6 +8,8 @@ import type { Character, VersionedCharacterCommit } from '../types/character';
 import { Modal } from './ui/Modal';
 import { ProfileModelPreview } from './ProfileModelPreview';
 import { ProfileModelCreation } from './ProfileModelCreation';
+// A check the server finishes once the player closes the window, or how the last one ended.
+import { checkText } from '../lib/model-check-text';
 import { isPendingModelJob, isEndedModelJob, modelJobStages, modelMonthPattern as monthPattern,
     type PendingModelJob, type EndedModelJob } from '../../../shared/avatar-model-job';
 import { readPlayerModelSlots } from '../../../shared/player-model-ref';
@@ -40,6 +42,7 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
         accessibleSlots.find(m => m?.assetId === selected) ?? (selected === equipped ? character.playerModel : undefined);
     const [busy, setBusy] = useState(false);
     const [creationAvailable, setCreationAvailable] = useState(false);
+    const [check, setCheck] = useState('');
     const [message, setMessage] = useState('');
     const request = useRef<AbortController | null>(null);
     const opener = useRef<HTMLButtonElement>(null);
@@ -90,7 +93,12 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
             controller.abort();
         };
     }, [open, jobId, jobMonth, character.name]);
-    async function change(action: 'list' | 'older' | 'equip' | 'cancel') {
+    // While the server finishes a check, refresh until the model starts (or the check ends).
+    useEffect(() => {
+        if (!open || check !== 'checking') return;
+        return visiblePoll(() => change('list'), 15_000, 0.1);
+    }, [open, check]); // eslint-disable-line react-hooks/exhaustive-deps
+    async function change(action: 'list' | 'older' | 'equip') {
         if (request.current) return;
         const controller = new AbortController();
         request.current = controller;
@@ -99,13 +107,6 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
         try {
             const options = { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]),
                 headers: { 'x-player-name': character.name, 'Content-Type': 'application/json' }, cache: 'no-store' as const };
-            if (action === 'cancel' && pending) {
-                const res = await fetch('/api/avatar-model/jobs/' + pending.id + '/cancel', {...options, method:'POST'});
-                if (!res.ok) throw new Error('Could not confirm cancellation. Check the request again.');
-                setEnded({id:pending.id, month:pending.month, state:'cancelled', slot:'used'});
-                setPending(null);
-                return;
-            }
             if (action === 'equip') {
                 const res = await fetch('/api/avatar-model/equip?snapshot=1', {
                     ...options, method: 'POST', body: JSON.stringify({ assetId: selected || null,
@@ -133,6 +134,7 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
                 if (page.ended !== undefined && !isEndedModelJob(page.ended)) throw new Error('Could not read the model result.');
                 if (action === 'list') {
                     setCreationAvailable(page.creationAvailable === true);
+                    setCheck(Object.hasOwn(checkText, page.check) ? page.check : '');
                     setEnded(page.ended ?? null);
                     rememberModelRequest(character.name, page.pending?.id ?? page.ended?.id ?? null);
                 }
@@ -159,6 +161,7 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
         setPending(null);
         setEnded(null);
         setCreationAvailable(false);
+        setCheck('');
         void change('list');
     }
 
@@ -179,11 +182,9 @@ export function ProfileWorldModel({ character, canUploadAvatar, onVersionedChara
             onClose={() => setView(null)} returnFocusRef={opener}>
           {open && <div className="profile-model-controls">
             {pending && <small role="status">{monthLabel(pending.month)} model · {modelJobStages[pending.state]}</small>}
-            {pending && <button type="button" disabled={busy} onClick={() => {
-                if (window.confirm('Cancel this model? This month’s creation will stay used.')) void change('cancel');
-            }}>Cancel model request</button>}
             {ended && <small role="status">{modelRequestOutcome(ended)}</small>}
-            {view === 'create' && creationAvailable && !pending && <ProfileModelCreation name={character.name} onCreated={id => {
+            {check && !pending && <small role="status">{checkText[check]}</small>}
+            {view === 'create' && creationAvailable && !pending && check !== 'checking' && <ProfileModelCreation name={character.name} onCreated={id => {
                 rememberModelRequest(character.name, id);
                 setCreationAvailable(false);
                 setEnded(null);

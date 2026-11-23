@@ -6,12 +6,12 @@
  *     They used to be localStorage switches, which meant two browsers — or a
  *     browser and the server's Node replay — could resolve the same seeded fight
  *     under different rules. Never reintroduce a localStorage read for those.
- * The HD-2D coliseum renderer (PetColiseum.tsx, PetColiseumDuel) was retired on
+ * The 2.5D coliseum renderer (PetColiseum.tsx, PetColiseumDuel) was retired on
  * 2026-10-16; the comments below that name it describe the old renderer.
  */
 
 /*
- * Experimental BLOOM (HDR glow) postprocessing flag for the HD-2D coliseum/arena
+ * Experimental BLOOM (HDR glow) postprocessing flag for the 2.5D coliseum/arena
  * Canvases. When ON, an EffectComposer + threshold Bloom pass makes the bright,
  * additive signature / ultimate / KO effects GLOW so big moves read bigger; basic
  * hits stay below the luminance threshold and don't bloom. DEFAULT OFF: bloom adds
@@ -35,7 +35,7 @@ export function petBloomEnabled(): boolean {
 }
 
 /*
- * Pet EVOLUTION cutscene flag (the Digimon-style reveal — see
+ * Pet EVOLUTION cutscene flag (the cinematic evolution reveal — see
  * docs/pet-starter-evolution-plan.md §4). When ON, evolving a starter in the Pet
  * Yard plays a short cinematic (old name → tube of light + silhouette morph →
  * burst → new name → 360° hero spin) before returning to the yard. The

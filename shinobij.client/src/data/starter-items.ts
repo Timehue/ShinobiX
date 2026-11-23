@@ -25,6 +25,8 @@ import {
     PROFESSION_CHANGE_SCROLL_IMAGE,
 } from "../../../shared/profession-change";
 
+const petItemImage = (id: string) => `/items/item-${id}-v1.webp`;
+
 type LegendarySetEffect = "damagePercent" | "pveDamagePercent" | "absorbPercent" | "lifeStealPercent" | "shield" | "reflectPercent";
 
 function legendarySetBonuses(effect: LegendarySetEffect, value: number, offense = 30): GameItem["bonuses"] {
@@ -240,6 +242,7 @@ const baseStarterItems: GameItem[] = [
     // them in the Grand Marketplace; cost is in Fate Shards.
     ...petCollars.map((collar): GameItem => ({
         id: collar.id,
+        image: petItemImage(collar.id),
         name: collar.name,
         slot: "item",
         rarity: collar.rarity,
@@ -253,6 +256,7 @@ const baseStarterItems: GameItem[] = [
     // on any pet (the last copy stays while a pet wears it: api/pet/_pet-unlocks.ts).
     ...petPvpGear.map((gear): GameItem => ({
         id: gear.id,
+        image: petItemImage(gear.id),
         name: gear.name,
         slot: "item",
         rarity: gear.rarity,
@@ -265,6 +269,7 @@ const baseStarterItems: GameItem[] = [
     // after 20 summons. Sold here for ryo and craftable in the Crafter.
     ...petPveGear.map((gear): GameItem => ({
         id: gear.id,
+        image: petItemImage(gear.id),
         name: gear.name,
         slot: "item",
         rarity: gear.rarity,
@@ -276,6 +281,7 @@ const baseStarterItems: GameItem[] = [
     // spent the next time the pet fights (pet battle or PvE summon).
     ...petConsumables.map((c): GameItem => ({
         id: c.id,
+        image: petItemImage(c.id),
         name: c.name,
         slot: "item",
         rarity: c.rarity,
@@ -311,21 +317,21 @@ const baseStarterItems: GameItem[] = [
     { id: "village-supply-bundle", name: "Village Supply Bundle", slot: "item", rarity: "common", cost: 0, image: "/items/village-supply-bundle-v1.webp", description: "Donate at your village Town Hall for 10 provisions. Shares the 40-provisions daily limit. Cannot be sold or donated to clans.", bonuses: {} },
     { id: "village-supply-crate", name: "Village Supply Crate", slot: "item", rarity: "uncommon", cost: 0, image: "/items/village-supply-crate-v1.webp", description: "Donate at your village Town Hall for 40 provisions. Shares the 40-provisions daily limit. Cannot be sold or donated to clans.", bonuses: {} },
     { id: "ration-pack", name: "Ration Pack", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-beast-meat-v1.webp", description: "Donate at your village Town Hall for 1 provision per pack. Village provision donations share a limit of 40 per day.", bonuses: {} },
-    // -- Anbu Vault Infiltration war caches (anbuInfiltration.v1) ---------------
+    // -- Anbu Vault Infiltration war caches (hushInfiltration.v1) ---------------
     // Server-minted ONLY (raid settle; the save sanitizer blocks client mints).
-    // Ids KEEP IN SYNC with api/_anbu-infiltration.ts CACHE_ITEM_IDS.
+    // Ids KEEP IN SYNC with api/_hush-infiltration.ts CACHE_ITEM_IDS.
     { id: "war-supply-cache", name: "War Supply Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-supply-cache.webp", description: "War supplies skimmed from an enemy sector's vault. Turn in at your Clan Hall. 2 caches earn 1 clan point.", bonuses: {} },
     { id: "war-resource-cache", name: "War Resource Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-resource-cache.webp", description: "War resources bled from an enemy village's war chest. Turn in at your Town Hall for 1 village merit each.", bonuses: {} },
     // -- Weapon forging materials ----------------------------------------------
-    { id: "weekly-boss-core", name: "Weekly Boss Core", slot: "item", rarity: "legendary", cost: 0, description: "A core earned from boss rewards. A crafting material used to forge epic and legendary weapons: it stands in for an epic weapon's Stormglass catalyst or a legendary weapon's relic at the Crafter. The Village Stores take it for 150 materials.", bonuses: {} },
+    { id: "weekly-boss-core", name: "Weekly Boss Core", image: "/items/item-weekly-boss-core-v1.webp", slot: "item", rarity: "legendary", cost: 0, description: "A core earned from boss rewards. A crafting material used to forge epic and legendary weapons: it stands in for an epic weapon's Stormglass catalyst or a legendary weapon's relic at the Crafter. The Village Stores take it for 150 materials.", bonuses: {} },
     { id: HOLLOW_BEAST_CACHE_ID, name: "Hollow Beast Cache", slot: "item", rarity: "legendary", cost: 0, image: "/items/war-supply-cache.webp", description: "A sealed reward cache earned by the top 15 contributors when The Hollow Beast is defeated. Open it from your backpack.", bonuses: {} },
     { id: "dungeon-key", name: "Dungeon Key", slot: "item", rarity: "rare", cost: 0, image: "/items/starter-dungeon-key-v2.webp", description: "A key that opens one Hidden Dungeon run. Drops from weekly bosses and war crates.", bonuses: {} },
-    { id: "dungeon-legendary-relic", name: "Dungeon Legendary Relic", slot: "item", rarity: "legendary", cost: 0, description: "A relic recovered from a Hidden Dungeon. Used to forge legendary weapons.", bonuses: {} },
-    { id: "dungeon-legendary-fragment", name: "Dungeon Legendary Fragment", slot: "item", rarity: "epic", cost: 0, description: "A chakra-burnt fragment shed by a Hollow Gate or Rift boss. Combine fragments to forge a Dungeon Legendary Relic.", bonuses: {} },
-    { id: "veil-of-the-hollow", name: "Veil of the Hollow", slot: "item", rarity: "legendary", cost: 0, description: "A relic claimed from a Hollow Gate Hidden Chamber or final Alpha, or earned by closing a Rift report. Whispers of the Hollow Hounds cling to it. Substitutes for a Warforged Relic when forging legendary weapons.", bonuses: {} },
-    { id: "hollow-gate-key", name: "Hollow Gate Key", slot: "item", rarity: "rare", cost: 0, description: "A bone-pale key etched with Hollow Gate sigils. Starting an ordinary five-floor run consumes one key and requires your village's active 30-day access seal. Resuming that run spends no new key; accepted rift assignments are free. Crafted at the Crafter from 5 Dungeon Keys or 15 Fate Shards; granted on completing your village story.", bonuses: {} },
-    { id: "warforged-relic", name: "Warforged Relic", slot: "item", rarity: "legendary", cost: 0, description: "A battle-marked relic from a war crate. Used to forge legendary weapons.", bonuses: {} },
-    { id: "legendary-war-crate", name: "Legendary War Crate", slot: "item", rarity: "legendary", cost: 0, description: "A crate awarded for major clan or village war victories. Open for a Warforged Relic and a chance at a Dungeon Key. At level 100, each of the four +14% PvE offense relics has a 0.10% bonus chance.", bonuses: {} },
+    { id: "dungeon-legendary-relic", name: "Dungeon Legendary Relic", image: "/items/item-dungeon-legendary-relic-v1.webp", slot: "item", rarity: "legendary", cost: 0, description: "A relic recovered from a Hidden Dungeon. Used to forge legendary weapons.", bonuses: {} },
+    { id: "dungeon-legendary-fragment", name: "Dungeon Legendary Fragment", image: "/items/item-dungeon-legendary-fragment-v1.webp", slot: "item", rarity: "epic", cost: 0, description: "A chakra-burnt fragment shed by a Hollow Gate or Rift boss. Combine fragments to forge a Dungeon Legendary Relic.", bonuses: {} },
+    { id: "veil-of-the-hollow", name: "Veil of the Hollow", image: "/items/item-veil-of-the-hollow-v1.webp", slot: "item", rarity: "legendary", cost: 0, description: "A relic claimed from a Hollow Gate Hidden Chamber or final Alpha, or earned by closing a Rift report. Whispers of the Hollow Hounds cling to it. Substitutes for a Warforged Relic when forging legendary weapons.", bonuses: {} },
+    { id: "hollow-gate-key", name: "Hollow Gate Key", image: "/items/item-hollow-gate-key-v1.webp", slot: "item", rarity: "rare", cost: 0, description: "A bone-pale key etched with Hollow Gate sigils. Starting an ordinary five-floor run consumes one key and requires your village's active 30-day access seal. Resuming that run spends no new key; accepted rift assignments are free. Crafted at the Crafter from 5 Dungeon Keys or 15 Fate Shards; granted on completing your village story.", bonuses: {} },
+    { id: "warforged-relic", name: "Warforged Relic", image: "/items/item-warforged-relic-v2.webp", slot: "item", rarity: "legendary", cost: 0, description: "A battle-marked relic from a war crate. Used to forge legendary weapons.", bonuses: {} },
+    { id: "legendary-war-crate", name: "Legendary War Crate", image: "/items/item-legendary-war-crate-v1.webp", slot: "item", rarity: "legendary", cost: 0, description: "A crate awarded for major clan or village war victories. Open for a Warforged Relic and a chance at a Dungeon Key. At level 100, each of the four +14% PvE offense relics has a 0.10% bonus chance.", bonuses: {} },
     // -- Elemental attunement (Shards → Core → weapon element) ------------------
     { id: "elemental-shard", name: "Elemental Shard", slot: "item", rarity: "epic", cost: 0, image: "/item-elemental-shard.webp", description: "A jagged mote of crystallized elemental chakra shed by a Hollow Gate boss. Combine 10 at the Crafter to forge an Elemental Core.", bonuses: {} },
     { id: "elemental-core", name: "Elemental Core", slot: "item", rarity: "legendary", cost: 0, image: "/item-elemental-core.webp", description: "Forged from 10 Elemental Shards at the Crafter. Use it to attune a legendary or mythic weapon to an element you have awakened. Matching attunement allows the weapon to use your bloodline damage bonus.", bonuses: {} },
@@ -387,6 +393,7 @@ const baseStarterItems: GameItem[] = [
     {
         id: "ranked-format-kunai",
         name: "Kunai",
+        image: "/items/ranked-format-kunai-v1.webp",
         slot: "thrown",
         rarity: "legendary",
         cost: 0,
@@ -460,58 +467,58 @@ const baseStarterItems: GameItem[] = [
     },
     // -- Legendary armor sets (Grand Marketplace — fate shards) -------------------
     // Set 1: Void Sovereign — +1% damage given per piece (6% max)
-    { id: "legendary-crown", name: "Void Sovereign's Crown", slot: "head", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
-    { id: "legendary-gloves", name: "Void Sovereign's Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: damageSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("damagePercent", 1, 75) },
-    { id: "legendary-chest", name: "Void Sovereign's Mantle", slot: "body", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
-    { id: "legendary-waist", name: "Void Sovereign's Obi", slot: "waist", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
-    { id: "legendary-legs", name: "Void Sovereign's Greaves", slot: "legs", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
-    { id: "legendary-feet", name: "Void Sovereign's Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
+    { id: "legendary-crown", name: "Void Sovereign's Crown", image: "/items/shop-void-sovereign-crown-v1.webp", slot: "head", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
+    { id: "legendary-gloves", name: "Void Sovereign's Gauntlets", image: "/items/shop-void-sovereign-gauntlets-v1.webp", slot: "hand", rarity: "legendary", cost: 150, description: damageSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("damagePercent", 1, 75) },
+    { id: "legendary-chest", name: "Void Sovereign's Mantle", image: "/items/shop-void-sovereign-mantle-v1.webp", slot: "body", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
+    { id: "legendary-waist", name: "Void Sovereign's Obi", image: "/items/shop-void-sovereign-obi-v1.webp", slot: "waist", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
+    { id: "legendary-legs", name: "Void Sovereign's Greaves", image: "/items/shop-void-sovereign-greaves-v1.webp", slot: "legs", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
+    { id: "legendary-feet", name: "Void Sovereign's Sabatons", image: "/items/shop-void-sovereign-sabatons-v1.webp", slot: "feet", rarity: "legendary", cost: 150, description: damageSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("damagePercent", 1) },
     // Set 2: Eternal Bulwark — +1% absorb per piece (6% max)
-    { id: "bulwark-crown", name: "Eternal Bulwark's Crown", slot: "head", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
-    { id: "bulwark-gloves", name: "Eternal Bulwark's Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: absorbSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("absorbPercent", 1, 75) },
-    { id: "bulwark-chest", name: "Eternal Bulwark's Mantle", slot: "body", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
-    { id: "bulwark-waist", name: "Eternal Bulwark's Obi", slot: "waist", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
-    { id: "bulwark-legs", name: "Eternal Bulwark's Greaves", slot: "legs", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
-    { id: "bulwark-feet", name: "Eternal Bulwark's Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
+    { id: "bulwark-crown", name: "Eternal Bulwark's Crown", image: "/items/shop-bulwark-crown-v1.webp", slot: "head", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
+    { id: "bulwark-gloves", name: "Eternal Bulwark's Gauntlets", image: "/items/shop-bulwark-gauntlets-v1.webp", slot: "hand", rarity: "legendary", cost: 150, description: absorbSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("absorbPercent", 1, 75) },
+    { id: "bulwark-chest", name: "Eternal Bulwark's Mantle", image: "/items/shop-bulwark-mantle-v1.webp", slot: "body", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
+    { id: "bulwark-waist", name: "Eternal Bulwark's Obi", image: "/items/shop-bulwark-obi-v1.webp", slot: "waist", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
+    { id: "bulwark-legs", name: "Eternal Bulwark's Greaves", image: "/items/shop-bulwark-greaves-v1.webp", slot: "legs", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
+    { id: "bulwark-feet", name: "Eternal Bulwark's Sabatons", image: "/items/shop-bulwark-sabatons-v1.webp", slot: "feet", rarity: "legendary", cost: 150, description: absorbSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("absorbPercent", 1) },
     // Set 3: Crimson Tide — +1% lifesteal per piece (6% max)
-    { id: "crimson-crown", name: "Crimson Tide Crown", slot: "head", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
-    { id: "crimson-gloves", name: "Crimson Tide Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: lifestealSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("lifeStealPercent", 1, 75) },
-    { id: "crimson-chest", name: "Crimson Tide Mantle", slot: "body", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
-    { id: "crimson-waist", name: "Crimson Tide Obi", slot: "waist", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
-    { id: "crimson-legs", name: "Crimson Tide Greaves", slot: "legs", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
-    { id: "crimson-feet", name: "Crimson Tide Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
+    { id: "crimson-crown", name: "Crimson Tide Crown", image: "/items/shop-crimson-crown-v1.webp", slot: "head", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
+    { id: "crimson-gloves", name: "Crimson Tide Gauntlets", image: "/items/shop-crimson-gauntlets-v1.webp", slot: "hand", rarity: "legendary", cost: 150, description: lifestealSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("lifeStealPercent", 1, 75) },
+    { id: "crimson-chest", name: "Crimson Tide Mantle", image: "/items/shop-crimson-mantle-v1.webp", slot: "body", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
+    { id: "crimson-waist", name: "Crimson Tide Obi", image: "/items/shop-crimson-obi-v1.webp", slot: "waist", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
+    { id: "crimson-legs", name: "Crimson Tide Greaves", image: "/items/shop-crimson-greaves-v1.webp", slot: "legs", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
+    { id: "crimson-feet", name: "Crimson Tide Sabatons", image: "/items/shop-crimson-sabatons-v1.webp", slot: "feet", rarity: "legendary", cost: 150, description: lifestealSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("lifeStealPercent", 1) },
     // Set 4: Ironwall — +100 shield per piece (600 total shield at combat start)
-    { id: "ironwall-crown", name: "Ironwall Crown", slot: "head", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
-    { id: "ironwall-gloves", name: "Ironwall Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: shieldSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("shield", 100, 75) },
-    { id: "ironwall-chest", name: "Ironwall Mantle", slot: "body", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
-    { id: "ironwall-waist", name: "Ironwall Obi", slot: "waist", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
-    { id: "ironwall-legs", name: "Ironwall Greaves", slot: "legs", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
-    { id: "ironwall-feet", name: "Ironwall Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
+    { id: "ironwall-crown", name: "Ironwall Crown", image: "/items/shop-ironwall-crown-v1.webp", slot: "head", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
+    { id: "ironwall-gloves", name: "Ironwall Gauntlets", image: "/items/shop-ironwall-gauntlets-v1.webp", slot: "hand", rarity: "legendary", cost: 150, description: shieldSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("shield", 100, 75) },
+    { id: "ironwall-chest", name: "Ironwall Mantle", image: "/items/shop-ironwall-mantle-v1.webp", slot: "body", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
+    { id: "ironwall-waist", name: "Ironwall Obi", image: "/items/shop-ironwall-obi-v1.webp", slot: "waist", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
+    { id: "ironwall-legs", name: "Ironwall Greaves", image: "/items/shop-ironwall-greaves-v1.webp", slot: "legs", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
+    { id: "ironwall-feet", name: "Ironwall Sabatons", image: "/items/shop-ironwall-sabatons-v1.webp", slot: "feet", rarity: "legendary", cost: 150, description: shieldSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("shield", 100) },
     // Set 5: Mirror Soul — +1% reflect per piece (6% max)
-    { id: "mirror-crown", name: "Mirror Soul Crown", slot: "head", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
-    { id: "mirror-gloves", name: "Mirror Soul Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: reflectSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("reflectPercent", 1, 75) },
-    { id: "mirror-chest", name: "Mirror Soul Mantle", slot: "body", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
-    { id: "mirror-waist", name: "Mirror Soul Obi", slot: "waist", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
-    { id: "mirror-legs", name: "Mirror Soul Greaves", slot: "legs", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
-    { id: "mirror-feet", name: "Mirror Soul Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
+    { id: "mirror-crown", name: "Mirror Soul Crown", image: "/items/shop-mirror-crown-v1.webp", slot: "head", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
+    { id: "mirror-gloves", name: "Mirror Soul Gauntlets", image: "/items/shop-mirror-gauntlets-v1.webp", slot: "hand", rarity: "legendary", cost: 150, description: reflectSetDescription, levelReq: 40, weaponCooldown: 5, bonuses: legendarySetBonuses("reflectPercent", 1, 75) },
+    { id: "mirror-chest", name: "Mirror Soul Mantle", image: "/items/shop-mirror-mantle-v1.webp", slot: "body", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
+    { id: "mirror-waist", name: "Mirror Soul Obi", image: "/items/shop-mirror-obi-v1.webp", slot: "waist", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
+    { id: "mirror-legs", name: "Mirror Soul Greaves", image: "/items/shop-mirror-greaves-v1.webp", slot: "legs", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
+    { id: "mirror-feet", name: "Mirror Soul Sabatons", image: "/items/shop-mirror-sabatons-v1.webp", slot: "feet", rarity: "legendary", cost: 150, description: reflectSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("reflectPercent", 1) },
     // Set 6: Sennin God — +1.5% damage against PvE enemies per piece (7.5% max), none
     // in PvP. The PvE twin of Void Sovereign, whose 1% applies everywhere (2026-10
     // item-use pass: the two sets were identical, piece for piece).
-    { id: "sennin-crown", name: "Sennin God's Crown", slot: "head", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
-    { id: "sennin-chest", name: "Sennin God's Mantle", slot: "body", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
-    { id: "sennin-waist", name: "Sennin God's Obi", slot: "waist", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
-    { id: "sennin-legs", name: "Sennin God's Greaves", slot: "legs", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
-    { id: "sennin-feet", name: "Sennin God's Sandals", slot: "feet", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
+    { id: "sennin-crown", name: "Sennin God's Crown", image: "/items/shop-sennin-crown-v1.webp", slot: "head", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
+    { id: "sennin-chest", name: "Sennin God's Mantle", image: "/items/shop-sennin-mantle-v1.webp", slot: "body", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
+    { id: "sennin-waist", name: "Sennin God's Obi", image: "/items/shop-sennin-obi-v1.webp", slot: "waist", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
+    { id: "sennin-legs", name: "Sennin God's Greaves", image: "/items/shop-sennin-greaves-v1.webp", slot: "legs", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
+    { id: "sennin-feet", name: "Sennin God's Sandals", image: "/items/shop-sennin-sandals-v1.webp", slot: "feet", rarity: "legendary", cost: 150, description: pveSetDescription, armorQuality: "Legendary", levelReq: 40, bonuses: legendarySetBonuses("pveDamagePercent", 1.5) },
     // Set 7: Ranked Seal — Ranked Format's fixed neutral armor
     // (api/pvp/_ranked-format.ts). Not shop-purchasable (cost 0). Same
     // +30-all-stats magnitude as every other legendary set, but deliberately
     // carries NO passive: ranked equalizes gear without adding a new always-on
     // combat effect that doesn't exist anywhere else in the game.
-    { id: "ranked-format-crown", name: "Ranked Seal Crown", slot: "head", rarity: "legendary", cost: 0, description: "Ceremonial headpiece worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
-    { id: "ranked-format-mantle", name: "Ranked Seal Mantle", slot: "body", rarity: "legendary", cost: 0, description: "Ceremonial armor worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
-    { id: "ranked-format-obi", name: "Ranked Seal Obi", slot: "waist", rarity: "legendary", cost: 0, description: "Ceremonial sash worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
-    { id: "ranked-format-greaves", name: "Ranked Seal Greaves", slot: "legs", rarity: "legendary", cost: 0, description: "Ceremonial leg guards worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
-    { id: "ranked-format-sabatons", name: "Ranked Seal Sabatons", slot: "feet", rarity: "legendary", cost: 0, description: "Ceremonial footwear worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
+    { id: "ranked-format-crown", name: "Ranked Seal Crown", image: "/items/ranked-seal-crown-v1.webp", slot: "head", rarity: "legendary", cost: 0, description: "Ceremonial headpiece worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
+    { id: "ranked-format-mantle", name: "Ranked Seal Mantle", image: "/items/ranked-seal-mantle-v1.webp", slot: "body", rarity: "legendary", cost: 0, description: "Ceremonial armor worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
+    { id: "ranked-format-obi", name: "Ranked Seal Obi", image: "/items/ranked-seal-obi-v1.webp", slot: "waist", rarity: "legendary", cost: 0, description: "Ceremonial sash worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
+    { id: "ranked-format-greaves", name: "Ranked Seal Greaves", image: "/items/ranked-seal-greaves-v1.webp", slot: "legs", rarity: "legendary", cost: 0, description: "Ceremonial leg guards worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
+    { id: "ranked-format-sabatons", name: "Ranked Seal Sabatons", image: "/items/ranked-seal-sabatons-v1.webp", slot: "feet", rarity: "legendary", cost: 0, description: "Ceremonial footwear worn by every combatant entering a ranked match.", armorQuality: "Legendary", levelReq: 65, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30 } },
     // -- Head armor ----------------------------------------------------------
     {
         id: "cloth-hood",
@@ -964,99 +971,6 @@ const baseStarterItems: GameItem[] = [
         bonuses: { bukijutsuOffense: 168 },
     },
 ];
-
-const catalogArtwork: Record<string, string> = {
-    "ranked-format-kunai": "/items/ranked-format-kunai-v1.webp",
-    "ranked-format-crown": "/items/ranked-seal-crown-v1.webp",
-    "ranked-format-mantle": "/items/ranked-seal-mantle-v1.webp",
-    "ranked-format-obi": "/items/ranked-seal-obi-v1.webp",
-    "ranked-format-greaves": "/items/ranked-seal-greaves-v1.webp",
-    "ranked-format-sabatons": "/items/ranked-seal-sabatons-v1.webp",
-    "legendary-crown": "/items/shop-void-sovereign-crown-v1.webp",
-    "legendary-gloves": "/items/shop-void-sovereign-gauntlets-v1.webp",
-    "legendary-chest": "/items/shop-void-sovereign-mantle-v1.webp",
-    "legendary-waist": "/items/shop-void-sovereign-obi-v1.webp",
-    "legendary-legs": "/items/shop-void-sovereign-greaves-v1.webp",
-    "legendary-feet": "/items/shop-void-sovereign-sabatons-v1.webp",
-    "bulwark-crown": "/items/shop-bulwark-crown-v1.webp",
-    "bulwark-gloves": "/items/shop-bulwark-gauntlets-v1.webp",
-    "bulwark-chest": "/items/shop-bulwark-mantle-v1.webp",
-    "bulwark-waist": "/items/shop-bulwark-obi-v1.webp",
-    "bulwark-legs": "/items/shop-bulwark-greaves-v1.webp",
-    "bulwark-feet": "/items/shop-bulwark-sabatons-v1.webp",
-    "crimson-crown": "/items/shop-crimson-crown-v1.webp",
-    "crimson-gloves": "/items/shop-crimson-gauntlets-v1.webp",
-    "crimson-chest": "/items/shop-crimson-mantle-v1.webp",
-    "crimson-waist": "/items/shop-crimson-obi-v1.webp",
-    "crimson-legs": "/items/shop-crimson-greaves-v1.webp",
-    "crimson-feet": "/items/shop-crimson-sabatons-v1.webp",
-    "ironwall-crown": "/items/shop-ironwall-crown-v1.webp",
-    "ironwall-gloves": "/items/shop-ironwall-gauntlets-v1.webp",
-    "ironwall-chest": "/items/shop-ironwall-mantle-v1.webp",
-    "ironwall-waist": "/items/shop-ironwall-obi-v1.webp",
-    "ironwall-legs": "/items/shop-ironwall-greaves-v1.webp",
-    "ironwall-feet": "/items/shop-ironwall-sabatons-v1.webp",
-    "mirror-crown": "/items/shop-mirror-crown-v1.webp",
-    "mirror-gloves": "/items/shop-mirror-gauntlets-v1.webp",
-    "mirror-chest": "/items/shop-mirror-mantle-v1.webp",
-    "mirror-waist": "/items/shop-mirror-obi-v1.webp",
-    "mirror-legs": "/items/shop-mirror-greaves-v1.webp",
-    "mirror-feet": "/items/shop-mirror-sabatons-v1.webp",
-    "sennin-crown": "/items/shop-sennin-crown-v1.webp",
-    "sennin-chest": "/items/shop-sennin-mantle-v1.webp",
-    "sennin-waist": "/items/shop-sennin-obi-v1.webp",
-    "sennin-legs": "/items/shop-sennin-greaves-v1.webp",
-    "sennin-feet": "/items/shop-sennin-sandals-v1.webp",
-    "collar-crimson": "/items/item-collar-crimson-v1.webp",
-    "collar-amber": "/items/item-collar-amber-v1.webp",
-    "collar-emerald": "/items/item-collar-emerald-v1.webp",
-    "collar-azure": "/items/item-collar-azure-v1.webp",
-    "collar-inferno": "/items/item-collar-inferno-v1.webp",
-    "collar-verdant": "/items/item-collar-verdant-v1.webp",
-    "collar-rose": "/items/item-collar-rose-v1.webp",
-    "collar-tidal": "/items/item-collar-tidal-v1.webp",
-    "collar-amethyst": "/items/item-collar-amethyst-v1.webp",
-    "collar-void": "/items/item-collar-void-v1.webp",
-    "collar-prismatic": "/items/item-collar-prismatic-v1.webp",
-    "pvp-spiked-war-harness": "/items/item-pvp-spiked-war-harness-v1.webp",
-    "pvp-ironhide-barding": "/items/item-pvp-ironhide-barding-v1.webp",
-    "pvp-berserkers-muzzle": "/items/item-pvp-berserkers-muzzle-v1.webp",
-    "pvp-tortoise-shell-plating": "/items/item-pvp-tortoise-shell-plating-v1.webp",
-    "pvp-aegis-pendant": "/items/item-pvp-aegis-pendant-v1.webp",
-    "pvp-venomfang-bit": "/items/item-pvp-venomfang-bit-v1.webp",
-    "pvp-executioners-talon": "/items/item-pvp-executioners-talon-v1.webp",
-    "pvp-final-bastion-charm": "/items/item-pvp-final-bastion-charm-v1.webp",
-    "pvp-bloodthirster-fang": "/items/item-pvp-bloodthirster-fang-v1.webp",
-    "pvp-arena-champion-regalia": "/items/item-pvp-arena-champion-regalia-v1.webp",
-    "pve-hunters-bond-harness": "/items/item-pve-hunters-bond-harness-v1.webp",
-    "pve-loyal-companion-bell": "/items/item-pve-loyal-companion-bell-v1.webp",
-    "pve-frenzy-claw": "/items/item-pve-frenzy-claw-v1.webp",
-    "pve-guardians-blessing": "/items/item-pve-guardians-blessing-v1.webp",
-    "pve-sanguine-charm": "/items/item-pve-sanguine-charm-v1.webp",
-    "pve-predators-fang": "/items/item-pve-predators-fang-v1.webp",
-    "pve-avengers-pendant": "/items/item-pve-avengers-pendant-v1.webp",
-    "pve-bloodbond-totem": "/items/item-pve-bloodbond-totem-v1.webp",
-    "pve-pack-alpha-crest": "/items/item-pve-pack-alpha-crest-v1.webp",
-    "pve-apex-predator-fang": "/items/item-pve-apex-predator-fang-v1.webp",
-    "consum-phantom-charm": "/items/item-consum-phantom-charm-v1.webp",
-    "consum-smoke-pellet": "/items/item-consum-smoke-pellet-v1.webp",
-    "consum-cleansing-incense": "/items/item-consum-cleansing-incense-v1.webp",
-    "consum-thornmail-oil": "/items/item-consum-thornmail-oil-v1.webp",
-    "consum-lifeline-elixir": "/items/item-consum-lifeline-elixir-v1.webp",
-    "consum-second-wind": "/items/item-consum-second-wind-v1.webp",
-    "weekly-boss-core": "/items/item-weekly-boss-core-v1.webp",
-    "dungeon-legendary-relic": "/items/item-dungeon-legendary-relic-v1.webp",
-    "dungeon-legendary-fragment": "/items/item-dungeon-legendary-fragment-v1.webp",
-    "veil-of-the-hollow": "/items/item-veil-of-the-hollow-v1.webp",
-    "hollow-gate-key": "/items/item-hollow-gate-key-v1.webp",
-    "warforged-relic": "/items/item-warforged-relic-v2.webp",
-    "legendary-war-crate": "/items/item-legendary-war-crate-v1.webp",
-};
-
-for (const item of baseStarterItems) {
-    const artwork = catalogArtwork[item.id];
-    if (artwork) item.image = artwork;
-}
 
 /**
  * Base items plus their gear step drops (shared/gear-steps.ts). Step items use

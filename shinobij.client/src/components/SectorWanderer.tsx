@@ -31,6 +31,7 @@ import type { LifeActor } from '../../../shared/sector-life';
 import { lifeActorPosition,lifeActivityAt,lifeActivityAtPosition } from '../../../shared/sector-life-motion';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
 import { useSectorModelPins } from '../lib/sector-model-pins';
+import { WorldStandingFigure } from './WorldStandingFigure';
 import { sectorTrackerAway } from '../lib/sector-life-art';
 import { isCoveredByCombat, subscribeCombatCover } from '../lib/combat-cover';
 import {useSectorServiceRoutine} from '../lib/sector-service-routine';
@@ -39,6 +40,7 @@ import {publishFigureGroundPosition} from '../lib/figure-ground-position';
 import {GroundWorkTool} from './GroundWorkTool';
 import {paintGroundWorkTool} from '../lib/ground-work-tool';
 import {groundWorkPresentation} from '../lib/ground-work-surface';
+import {inNpcLayer,layerNpcByDepth,npcBoard,useSectorNpcLayer} from '../lib/sector-npc-layer';
 
 const GRID_W = 12;
 const GRID_H = 12;
@@ -136,6 +138,7 @@ export function SectorWanderer({
     const homeTile = safeSectorTile(sector, wanderer.homeTile);
     const walkable = (tile: number) => isWalkableTile(sector, tile, sectorObstaclesOn());
     const worldPlayer = useContext(WorldPlayerPosition);
+    const npcLayer = useSectorNpcLayer();
     const nativeWork=worldPlayer!==null&&wanderer.verb==='angler'&&(sector===6||sector===18);
     const service=useSectorServiceRoutine(sector,wanderer.id,nativeWork),routine=suppliedRoutine??service??undefined;
     const initialPose = routine ? lifeActorPosition(sector, routine, serverNow()) : wanderer.movement === "stationary"
@@ -185,7 +188,9 @@ export function SectorWanderer({
     const fittedTravel = useRef(false);
     useLayoutEffect(() => { fittedTravel.current = worldPlayer !== null && playerGaits; }, [worldPlayer,playerGaits]);
     const img = wanderer.avatarImage || wandererAvatar(wanderer.avatarKey);
-    const modelKind = modelArtBase && portraitModels.get(img);
+    const modelKind = portraitModels.get(img);
+    const standingKind = modelKind ?? portraitModels.get(wandererAvatar(wanderer.avatarKey))
+        ?? (wanderer.avatarKey === 'beast' ? 'ember-fox' : wanderer.avatarKey === 'riftspawn' ? 'riftspawn' : 'patrol');
     const modelWalking = useRef(false);
     const travelGait = useRef<SectorGait | undefined>(undefined);
     function tileSizePx(): number {
@@ -206,6 +211,7 @@ export function SectorWanderer({
         const cx = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
         const cy = cellCentre(h, GRID_H, posRef.current.row, padY, gapY);
         fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -${BASE_ANCHOR}%)`;
+        layerNpcByDepth(wrapRef.current,posRef.current.row);
         publishFigureGroundPosition(fig,posRef.current);
         modelRef.current?.place(cx,cy,w,modelWalking.current && !reducedTool.current,travelGait.current);
         layoutWandererLabels(fig);
@@ -213,7 +219,7 @@ export function SectorWanderer({
         const fishing=routineRef.current?.fishing;
         if(tackleRef.current)tackleRef.current.style.visibility=fishing&&now>=fishing.startsAt&&now<fishing.until&&Math.hypot(posRef.current.col-fishing.bank%12,posRef.current.row-Math.floor(fishing.bank/12))<.18?'visible':'hidden';
     },[nativeWork]);
-    useLayoutEffect(()=>{paint();},[paint,routine,modelKind]);
+    useLayoutEffect(()=>{paint();},[paint,routine,modelKind,modelArtBase]);
     function setWalking(on: boolean, modelMoving = on, gait?: SectorGait) {
         figRef.current?.classList.toggle("is-walking", on);
         modelWalking.current = modelMoving;
@@ -224,7 +230,7 @@ export function SectorWanderer({
 
     // Measure the parent .pixel-map grid (same approach as SectorAvatar).
     useLayoutEffect(() => {
-        const grid = wrapRef.current?.parentElement;
+        const grid = npcBoard(wrapRef.current, npcLayer);
         if (!grid) return;
         const ro = new ResizeObserver(() => {
             const r = grid.getBoundingClientRect();
@@ -246,7 +252,7 @@ export function SectorWanderer({
         });
         ro.observe(grid);
         return () => ro.disconnect();
-    }, [paint]);
+    }, [paint, npcLayer]);
 
     // The movement loop.
     useEffect(() => {
@@ -435,7 +441,6 @@ export function SectorWanderer({
         onEngageRef.current(nativeWork&&current?{...wanderer,greeting:current.line}:wanderer,current);
     }
 
-    const initials = wanderer.name.slice(0, 2).toUpperCase();
     const presentation=routine?lifeActivityAt(routine,serverNow()):undefined,tackle=routine?.fishing;
     // Name pills used to be one fixed height above every figure, so two
     // wanderers standing near each other printed overlapping, unreadable text.
@@ -447,7 +452,7 @@ export function SectorWanderer({
     // near their owners rather than adding a second static vertical offset.
     const labelLane = routine ? 0 : labelLaneFor(wanderer.id);
 
-    return (
+    return inNpcLayer(npcLayer, (
         <div className="sector-wanderer-overlay" ref={wrapRef} aria-hidden={routine ? undefined : true}>
             {routine?.workTool&&<GroundWorkTool toolRef={workToolRef} tool={routine.workTool}/>}
             {tackle&&<svg ref={tackleRef} className="sector-fishing-tackle" viewBox="0 0 1200 1200" aria-hidden="true" data-water={tackle.water}>
@@ -477,11 +482,7 @@ export function SectorWanderer({
                 <span className="sector-avatar-aura" style={{ ["--aura"]: AURA[biome] } as CSSProperties} />
                 <span className="sector-avatar-sprite" ref={spriteRef}>
                     <span className="sector-avatar-body">
-                        <span className="sector-wanderer-tell" style={{ ["--tell"]: wanderer.tellTint } as CSSProperties} />
-                        {img
-                            ? <img src={img} alt={wanderer.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : <span className="sector-avatar-initials">{initials}</span>}
-                        <span className="sector-avatar-pin" />
+                        <WorldStandingFigure kind={standingKind} name={wanderer.name} />
                     </span>
                 </span>
                 <span className="sector-wanderer-label" style={{ ["--label-lane"]: labelLane } as CSSProperties}>
@@ -490,5 +491,5 @@ export function SectorWanderer({
             </div>
 
         </div>
-    );
+    ));
 }

@@ -49,7 +49,7 @@ function makeRun(over: Partial<GarrisonRun> = {}): GarrisonRun {
     return {
         runId: 'garrison-r1', attackerName: 'attacker', attackerVillage: 'Moonshadow Village',
         sector: SECTOR, contestId: CONTEST_ID, defenderVillage: 'Frostfang Village',
-        anbuSlug: 'anbu-one', anbuName: 'The Frostfang Anbu', terrain: 'snow',
+        hushSlug: 'hush-one', hushName: 'The Frostfang Anbu', terrain: 'snow',
         createdAt: NOW,
         ...over,
     };
@@ -63,8 +63,8 @@ function terminalSession(outcome: 'win' | 'loss' = 'win') {
             slug: 'attacker', name: 'attacker', itemCharges: { potion: 1 },
             character: { level: 100, maxHp: 9000, maxChakra: 100, maxStamina: 100, stats: {}, jutsu: [], pvpItems: [], equipment: {} },
         },
-        anbu: {
-            slug: 'anbu-one', name: 'The Frostfang Anbu',
+        hush: {
+            slug: 'hush-one', name: 'The Frostfang Anbu',
             character: { level: 100, maxHp: 9000, maxChakra: 100, maxStamina: 100, stats: {}, jutsu: [], pvpItems: [], equipment: {} },
         },
     });

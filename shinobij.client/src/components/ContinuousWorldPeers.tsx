@@ -6,7 +6,7 @@ import { playerNameTile } from '../lib/sector-tile';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
 import { usePlayerGaits, useWorldModelArtBase } from '../lib/sector-obstacles';
 import { isPlayerModel, starterModel, type PlayerModel } from '../lib/player-model';
-import { SectorPortrait } from './SectorPortrait';
+import { WorldStandingFigure } from './WorldStandingFigure';
 import type { WorldPosition } from '../../../shared/world-position';
 import type { PlayerRecord } from '../types/character';
 import { worldPeerRoster, sameContinuousWorldPeersProps, type ContinuousWorldPeersProps } from '../lib/world-peer-roster';
@@ -20,25 +20,24 @@ const peerGait = (rate: number) => rate !== playerGaitTilesPerSecond.walk && rat
 // `peer` is the record last reconciled; `element`/`x`/`y` the transform last written.
 type Motion = { cursor: WorldPosition; point: PeerWaypoint; points: PeerWaypoint[]; sequence: number;
     peer: PlayerRecord; updated:number; lastMovementAt?: number; element?: HTMLDivElement; x?: number; y?: number };
-type PeerFigure = { name: string; level: PlayerRecord['level']; src: string; sleeping: boolean; local: boolean; starter: ReturnType<typeof starterModel>;
+type PeerFigure = { name: string; level: PlayerRecord['level']; sleeping: boolean; local: boolean; starter: ReturnType<typeof starterModel>;
     model?: PlayerModel; style?: NonNullable<PlayerRecord['gaitPresentation']>['style'] };
 // A poll reply is plain JSON, so equal text means equal records.
 const samePlayers = (a: PlayerRecord[], b: PlayerRecord[]) => a.length === b.length && JSON.stringify(a) === JSON.stringify(b);
 const sameFigures = (a: PeerFigure[], b: PeerFigure[]) => a.length === b.length
-    && a.every((figure, i) => figure.name === b[i].name && Object.is(figure.level, b[i].level) && figure.src === b[i].src && figure.starter === b[i].starter && figure.local === b[i].local && figure.sleeping === b[i].sleeping && figure.style === b[i].style && figure.model?.assetId===b[i].model?.assetId && figure.model?.version===b[i].model?.version);
+    && a.every((figure, i) => figure.name === b[i].name && Object.is(figure.level, b[i].level) && figure.starter === b[i].starter && figure.local === b[i].local && figure.sleeping === b[i].sleeping && figure.style === b[i].style && figure.model?.assetId===b[i].model?.assetId && figure.model?.version===b[i].model?.version);
 /** The figures alone: a peer walking changes none of their inputs, so a move message skips this subtree. */
 const PeerFigures = memo(function PeerFigures({ figures, elements, models, artBase }: {
     figures: PeerFigure[]; elements: RefObject<Map<string, HTMLDivElement>>;
     models: RefObject<Map<string,SectorModelHandle>>; artBase: string;
 }) {
-    return <>{figures.map(({ name, level, src, sleeping, local, model, starter, style }) => <div key={name}
+    return <>{figures.map(({ name, level, sleeping, local, model, starter, style }) => <div key={name}
         ref={node => { if (node) elements.current.set(name, node); else elements.current.delete(name); }}
         className="sector-avatar-figure continuous-world-peer" title={`${name} (Lv ${level})${sleeping ? ' — Sleeping' : ''}`}>
         {artBase && local && !sleeping && <SectorModelFigure kind={starter} equipped={model} style={style} artBase={artBase}
             ref={figure=>{if(figure) models.current.set(name,figure);else models.current.delete(name);}} />}
         <span className="sector-avatar-shadow" /><span className="sector-avatar-sprite"><span className="sector-avatar-body">
-            <SectorPortrait src={src} name={name} />
-            <span className="sector-avatar-pin" /></span></span><span className="sector-peer-label">{name}{sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
+            <WorldStandingFigure kind={starter} /></span></span><span className="sector-peer-label">{name}{sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
     </div>)}</>;
 }, (a, b) => a.artBase === b.artBase && a.models === b.models && a.elements === b.elements && sameFigures(a.figures, b.figures));
 /**
@@ -67,13 +66,16 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
     }, [selfName]);
     const allPeers = worldPeerRoster(sector, selfName, nearby, live, sleepers);
     const peers = allPeers.slice(0, 48);
-    const figures = peers.map((peer): PeerFigure => ({ name: peer.name, level: peer.level,
+    // Mounted by name, not in the server's nearest-first order: that order changes
+    // as anyone moves, and two peers on one tile then swapped in front every poll.
+    const figures = [...peers].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0).map((peer): PeerFigure => ({ name: peer.name, level: peer.level,
         local: peer.currentSector===sector, style: peer.gaitPresentation?.style,
-        starter: starterModel(peer.character?.avatarImage ?? '', peer.character?.starterWorldModel),
+        starter: starterModel(peer.character?.avatarImage || sharedAvatarFor(sharedImages, peer.name) || '', peer.character?.starterWorldModel),
         model: isPlayerModel(peer.character?.playerModel) ? peer.character.playerModel : undefined,
-        src: sharedAvatarFor(sharedImages, peer.name) || peer.character?.avatarImage || '', sleeping: peer.sleeping === true }));
+        sleeping: peer.sleeping === true }));
     const latest = useRef(peers), elements = useRef(new Map<string, HTMLDivElement>()), root = useRef<HTMLDivElement>(null);
-    useLayoutEffect(() => { latest.current = peers; });
+    const wake = useRef<(() => void) | null>(null);
+    useLayoutEffect(() => { latest.current = peers; wake.current?.(); });
     useEffect(() => {
         let alive = true, frame = 0, last = 0;
         const motion = new Map<string, Motion>();
@@ -82,12 +84,17 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
         // world controller writes its styles, forced a layout every frame.
         const parent = root.current?.parentElement;
         let width = parent?.clientWidth ?? 0;
-        const resize = parent && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { width = parent.clientWidth; }) : null;
+        const resize = parent && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => {
+            width = parent.clientWidth;
+            wake.current?.();
+        }) : null;
         if (parent) resize?.observe(parent);
         void loadContinuousWorld().then(world => {
             if (!alive) return;
             const chunk = world.space.chunks.find(c => c.sector === sector)!;
             const tick = (now: number) => {
+                frame = 0;
+                let animating = false;
                 // The buffered road ends at the last server position. A slow phone frame
                 // can consume its elapsed time without predicting beyond that point.
                 const dt = (now - (last || now)) / 1000; last = now;
@@ -128,6 +135,7 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
                     const element = elements.current.get(peer.name);
                     if (!element) continue;
                     element.classList.toggle('is-walking', item.points.length > 1);
+                    if (item.points.length > 1) animating = true;
                     const x = (item.point.x - chunk.x) * scale, y = (item.point.y - chunk.y) * scale;
                     if (sprite && (dt > 1 || (item.point.rate === undefined && previous !== item.point))) {
                         item.lastMovementAt=undefined;
@@ -136,20 +144,27 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
                         if (previous.x!==item.point.x || previous.y!==item.point.y) item.lastMovementAt=now;
                         // A zero-distance moving update holds the painted foot. A brief
                         // missing packet must not restart the authored stop/start graph.
-                        sprite?.place(x,y,width,!reduced.matches && peerPoseInMotion(item.lastMovementAt,now),
+                        const moving = !reduced.matches && peerPoseInMotion(item.lastMovementAt,now);
+                        sprite?.place(x,y,width,moving,
                             peerGait(item.point.rate ?? sectorGaitTilesPerSecond.walk),true);
+                        if (sprite && (moving || sprite.stop())) animating = true;
                     }
                     // A standing peer would be handed the very same transform string again.
                     if (element === item.element && x === item.x && y === item.y) continue;
                     element.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`;
+                    // Nearer the bottom draws in front; the peer layer is isolated, so this
+                    // orders peers only among themselves.
+                    element.style.zIndex = String(Math.round(y));
                     item.element = element; item.x = x; item.y = y;
                 }
                 for (const name of motion.keys()) if (!present.has(name)) motion.delete(name);
-                frame = requestAnimationFrame(tick);
+                if (animating) frame = requestAnimationFrame(tick);
+                else last = 0;
             };
-            frame = requestAnimationFrame(tick);
+            wake.current = () => { if (!frame) frame = requestAnimationFrame(tick); };
+            if (latest.current.length) wake.current();
         }).catch(() => { /* The terrain connection shows its own retry state. */ });
-        return () => { alive = false; cancelAnimationFrame(frame); resize?.disconnect(); };
+        return () => { alive = false; wake.current = null; cancelAnimationFrame(frame); resize?.disconnect(); };
     }, [sector]);
     return <div className="continuous-world-peers" ref={root} aria-hidden="true"><PeerFigures figures={figures} elements={elements} models={models} artBase={gaits && artBase || ''} />
         {allPeers.length > peers.length && <div className="sector-peers-overflow">+{allPeers.length - peers.length} more here</div>}</div>;

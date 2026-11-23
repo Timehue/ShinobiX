@@ -138,19 +138,19 @@ describe("mixed-feature public capability wiring", () => {
         assert.match(arena, /disabled=\{startingFight \|\| !weeklyBossActionsAvailable \|\| expired \|\| lockedOut \|\| contributionDisabled \|\| staminaBlocked\}/);
     });
 
-    it("keeps cached World Map operations visible but blocks fresh Village War, ANBU, and Legacy mutations", () => {
+    it("keeps cached World Map operations visible but blocks fresh Village War, Anbu, and Legacy mutations", () => {
         const worldMap = source("../screens/WorldMap.tsx");
         const sageModal = source("../components/SageOfferModal.tsx");
         const wandererDialog = source("../components/WorldWandererDialog.tsx");
 
         assert.match(worldMap, /useCapabilityViewAvailability\("villageWar"\)/);
         assert.match(worldMap, /useCapabilityMutationAvailability\("villageWar"\)/);
-        assert.match(worldMap, /useCapabilityViewAvailability\("anbuInfiltration"\)/);
-        assert.match(worldMap, /useCapabilityMutationAvailability\("anbuInfiltration"\)/);
+        assert.match(worldMap, /useCapabilityViewAvailability\("hushInfiltration"\)/);
+        assert.match(worldMap, /useCapabilityMutationAvailability\("hushInfiltration"\)/);
         const mercenaryAdmission = between(worldMap, "async function engageRoamingMerc", "function dismissWandererDialog");
         assert.ok(mercenaryAdmission.indexOf('mutationAvailability("villageWar")') < mercenaryAdmission.indexOf("engageMerc("));
-        assert.match(worldMap, /mutationAvailability\("anbuInfiltration"\)[\s\S]*setVaultRaid\(vaultPrompt\)/);
-        assert.match(worldMap, /vaultRaid && createPortal\([\s\S]*anbuAdmissionOpen \? \([\s\S]*<AnbuVaultRaid[\s\S]*ANBU operation paused[\s\S]*vault run remains recoverable/);
+        assert.match(worldMap, /mutationAvailability\("hushInfiltration"\)[\s\S]*setVaultRaid\(vaultPrompt\)/);
+        assert.match(worldMap, /vaultRaid && createPortal\([\s\S]*hushAdmissionOpen \? \([\s\S]*<HushVaultRaid[\s\S]*Anbu operation paused[\s\S]*vault run remains recoverable/);
         assert.match(worldMap, /if \(legacyAvailable\) return;[\s\S]*setSageOffer\(null\);[\s\S]*setSageVnEvent\(null\);[\s\S]*setSageChoiceOpen\(false\)/);
         assert.match(worldMap, /legacyAvailable && sageChoiceOpen && sageOffer/);
         assert.match(worldMap, /const wandererLegacyTrial = legacyAvailable && character\.legacy && wandererDialogEmissary/);

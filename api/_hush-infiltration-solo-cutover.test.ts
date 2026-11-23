@@ -1,0 +1,56 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { RUNTIME_AUTHORITY_ENGINES, runtimeModeById } from '../shared/runtime-mode-registry.js';
+
+const root = process.cwd();
+const read = (path: string) => readFile(resolve(root, path), 'utf8');
+
+test('Anbu combat has no Tower runtime dependency and retires its custom action channel', async () => {
+    const [encounter, store, handler, client, screen] = await Promise.all([
+        read('api/_hush-infiltration-encounter.ts'),
+        read('api/_hush-infiltration-store.ts'),
+        read('api/village/hush-infiltration.ts'),
+        read('shinobij.client/src/lib/hush-infiltration-api.ts'),
+        read('shinobij.client/src/features/hushInfiltration/HushVaultRaid.tsx'),
+    ]);
+    for (const [name, source] of Object.entries({ encounter, store, handler, client, screen })) {
+        assert.doesNotMatch(source, /(?:from|import\()\s*['"][^'"]*(?:towers\/|towers-api|tower-arena-adapter)/i, `${name} still imports Tower combat`);
+    }
+    assert.match(handler, /case 'act': return res\.status\(410\)/);
+    assert.match(handler, /hydrateCharacterFromSave\(char, \{\}, rec \?\? null/);
+    assert.doesNotMatch(handler, /raiderLoadout|hostLoadout|sealTowerFighter|sealTowerItemCharges/);
+    assert.doesNotMatch(client, /infiltrationAct|raiderLoadout|hostLoadout/);
+    assert.match(screen, /const guardedArenaTransport = useMemo\(\(\) => \(\{[\s\S]*\.\.\.soloPveArenaTransport/);
+    assert.match(screen, /soloPveArenaTransport\.(?:fetchState|submitAction)/);
+    assert.match(screen, /transport=\{guardedArenaTransport\}/);
+    assert.doesNotMatch(screen, /infiltrationAct|towerSessionForArena|createTowerArenaTransport/);
+});
+
+test('Anbu start and report paths retain durable replay state', async () => {
+    const [handler, store] = await Promise.all([
+        read('api/village/hush-infiltration.ts'),
+        read('api/_hush-infiltration-store.ts'),
+    ]);
+    assert.match(handler, /infilActiveRunKey\(playerName, sector\)/);
+    assert.match(handler, /reserveInfilStartAttempt\(playerName, activeRun\.runId/);
+    assert.match(handler, /startState: 'prepared'/);
+    assert.match(handler, /withKvLock\(infilRunKey\(runId\), \(\) => doReportLocked/);
+    assert.match(handler, /if \(run\.settlement\) \{[\s\S]*deliverInfiltrationLegacy\([\s\S]*return res\.status\(200\)\.json\(run\.settlement\.response\)[\s\S]*\}/,
+        'a replay must finish its exact-once Legacy receipt before returning the cached settlement');
+    assert.match(handler, /settlement: \{ settledAt, response/);
+    assert.doesNotMatch(handler, /deleteInfilRun/);
+    assert.match(store, /inspectSettlementReceipt\(char, receiptId, fingerprint\)/);
+    assert.match(store, /debitApplied: true/);
+    assert.doesNotMatch(store, /infilPaidKey|INFIL_PAID_TTL/);
+});
+
+test('runtime mode registry records the Anbu participant and Solo authority decision', () => {
+    const mode = runtimeModeById('hush-infiltration');
+    assert.ok(mode);
+    assert.equal(mode.authorityEngine, RUNTIME_AUTHORITY_ENGINES.SOLO_PVE);
+    assert.equal(mode.participantModel, 'solo');
+    assert.equal(mode.status, 'match');
+    assert.ok(mode.routes.some((route) => route.path === '/solo-pve/action' && route.roles.includes('action')));
+});

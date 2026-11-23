@@ -3,7 +3,7 @@
  * player is queued to defend it (owner ruling 2026-11-10: "they should raid
  * player strongholds").
  *
- * A player meets the defending village's AI copy of its ANBU or Kage there in
+ * A player meets the defending village's AI copy of its Anbu or Kage there in
  * a solo PvE garrison battle they play themselves. A server-played NPC has no
  * browser to play that seat, so its assault resolves the way Cinderhold's
  * sector-war garrison assaults already do (api/_npc-war-party.ts): both sealed

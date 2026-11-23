@@ -45,10 +45,28 @@ Keep the animal species and its recognizable muzzle, ears, and fur markings. Kee
 UPRIGHT_ANIMAL = """
 Keep the animal species and its recognizable head, muzzle or beak, ears, and fur, feather or scale markings. Complete the outfit, armor and colors visible on the portrait in the same design. Use the humanoid body and separate upright legs of the rig, with animal hands and feet in the portrait's colors. Remove portrait lettering, flashes, sparks and light trails. Keep the hands empty."""
 
+# Only for an upright animal whose portrait shows no clothing (animal_build.py). A dressed animal never gets it,
+# so its painting is unchanged. On 2026-11-21 a bare cartoon dinosaur came back in invented boots and a red scarf,
+# with its hips painted as a coat hem: in game it read as a green dress on stick legs. The cutout outlines are
+# the same either way, so the rig check judges this painting exactly as any other.
+BARE_ANIMAL = """
+The portrait shows this character without clothing. Paint its own bare body in the portrait's skin, scales, feathers or fur and markings, and keep any small accessory the portrait shows. Add no boots, shoes, scarf, belt, pouch, armor or garment the portrait does not show. Each leg cutout is the character's own leg, ending in its own foot with toes or claws in place of a boot. The flared bottom of each torso cutout is the character's hips and the tops of its thighs, with a clear split between the legs, never a skirt or a coat hem. Paint any tail thick at its base, in the character's own colors and markings, clear of the legs."""
+
 # The rig measures each torso's width against its guide outline and refuses one far
 # outside it (TORSO_ASPECT in register_painted_kit.py). Saying so up front saves a repaint.
 TORSO_FIT = """
 Fit armor, padding, fur and loose garments inside each torso's guide outline. A torso may be a little broader or slimmer than its outline, but never widen it with shoulder plates, capes or bulk past the outline's edges."""
+
+# The rig has no tail piece, so a tail rides on the torso cutout. The rig tells it from
+# the torso (trailing_part in register_painted_kit.py) and refuses one that reaches too far.
+TAIL_FIT = """
+If the character has a tail, keep it simple: one plain shape on the torso cutout, joined at the base of the spine. Paint it only in the side and back views, columns three to seven. In the front view and the two front three-quarter views, columns one, two and eight, the body hides the tail, so paint no tail there at all. Keep it short and close to the body: it ends no lower than the bottom of the torso cutout and trails behind the hips by no more than half the torso's width."""
+
+STOCKY_BODY = """
+Follow the stocky guide: keep the portrait's large round head, broad belly and short hips. Paint small separate arms and short legs with broad bare feet and visible toes. A visible tail joins the back of the hips, trailing left when the snout faces right and right when the snout faces left. Keep it clear of other cutouts. Use the animal's own skin and markings on all forty pieces."""
+
+STOCKY_FEET = """
+Match the portrait's leg thickness, toes and claw size. The bare leg flows into the ankle and forefoot in a single painted cutout. In profile show the forward toe reach. In rear views show the heel and only the toes visible around it. Keep scales, pads, fur or claws specific to the portrait."""
 
 SECTOR_MATERIALS = """
 Image 3 gives the world camera, lighting and level of detail. Apply that treatment to the portrait character.
@@ -56,6 +74,11 @@ Keep the portrait's face, hair silhouette, distinctive garment shapes and main c
 Group the scarf or collar, jacket, sleeves, belt and legs into distinct material shapes where they exist in the portrait.
 Use soft daylight from above, broad planes of light on the face and upper shoulders, and two or three large folds per garment.
 Simplify fine trim and surface texture. Keep the street, outfit, equipment and identity of the style reference out of the sheet."""
+
+# The style reference is a black-haired human in a dark coat and red scarf. On 2026-11-19 a raccoon
+# portrait came back as that person, the line above notwithstanding, so new jobs say it plainly.
+REFERENCE_IDENTITY = """
+Image 3 shows an unrelated person. Use it only for the camera, lighting and level of detail, and copy nothing of that person: take the face, head, hair or fur, outfit and colors from image 2 alone."""
 
 
 def image_input(png):
@@ -89,7 +112,8 @@ def layout_png(template):
 
 def edit_request(upload, source_hash, template, correction, previous=None, *, sector_guide=SECTOR_GUIDE,
                  head_turnaround=True, closeup=False, armored_raccoon=False, upright_animal=False,
-                 palette_prompt=False, torso_fit=False, attempt=2):
+                 palette_prompt=False, torso_fit=False, tail_fit=False, reference_identity=False, attempt=2,
+                 bare_animal=False, stocky=False, stocky_feet=False):
     from avatar_worker.portrait import prepare_portrait
 
     with upload.open("rb") as source:
@@ -102,16 +126,25 @@ def edit_request(upload, source_hash, template, correction, previous=None, *, se
         clean = io.BytesIO()
         frame.save(clean, "PNG")
     prompt = PROMPT + HEAD_TURNAROUND if head_turnaround else PROMPT
+    if stocky:
+        prompt = prompt.replace("each leg includes its boot", "each leg includes its bare foot")
+        prompt += STOCKY_BODY
+        if stocky_feet:
+            prompt += STOCKY_FEET
     if closeup:
         prompt += CLOSEUP
     if armored_raccoon:
         prompt += ANIMAL_CLOSEUP
     if upright_animal:
         prompt += UPRIGHT_ANIMAL
+    if bare_animal:
+        prompt += BARE_ANIMAL
     if palette_prompt:
         prompt += costume_palette.prompt_line(portrait.png)
     if torso_fit:
         prompt += TORSO_FIT
+    if tail_fit:
+        prompt += TAIL_FIT
     images = [image_input(guide),image_input(clean.getvalue())]
     if sector_guide is not None:
         reference = Path(__file__).with_name("sector-costume-light.png").read_bytes()
@@ -119,6 +152,8 @@ def edit_request(upload, source_hash, template, correction, previous=None, *, se
             raise ValueError("image-edit-style-binding")
         images.append(image_input(reference))
         prompt += SECTOR_MATERIALS
+        if reference_identity:
+            prompt += REFERENCE_IDENTITY
     if correction:
         if previous is None:
             raise ValueError("missing-first-painting")
@@ -163,7 +198,7 @@ def portrait_palette(pixels, upload):
 
 
 def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armored_raccoon=False, upright_animal=False,
-                    palette=None):
+                    palette=None, bare_animal=False, stocky=False):
     """Use durable per-job scratch. reserve(job, operation) must cover one high-quality edit.
     palette(pixels, upload) may correct a new painting's colors before it is recorded."""
     directory = Path(directory)
@@ -175,6 +210,12 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
         binding = dict(job=job_id,source=digest,template=sha256(template.read_bytes()).hexdigest())
         first_receipt = directory/"edit-1/completed.json"
         first = json.loads(first_receipt.read_bytes()) if first_receipt.is_file() else None
+        stocky_body = first["binding"].get("stockyBody", False) if first else stocky
+        if stocky_body:
+            binding["stockyBody"] = True
+        stocky_feet = stocky_body and (first["binding"].get("stockyFeet", False) if first else True)
+        if stocky_feet:
+            binding["stockyFeet"] = True
         # Resume using the same inputs billed on the first edit, including jobs
         # created before the sector reference was added.
         sector_guide = first["binding"].get("sectorGuide") if first else SECTOR_GUIDE
@@ -189,6 +230,8 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
             binding["armoredRaccoon"] = True
         if upright_animal:
             binding["uprightAnimal"] = True
+        if bare_animal:
+            binding["bareAnimal"] = True
         # The portrait-palette prompt line arrived later; a job whose first edit was billed
         # without it must replay and repair with the same prompt.
         palette_prompt = first["binding"].get("portraitPalette", False) if first else palette is not None
@@ -198,6 +241,15 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
         torso_fit = first["binding"].get("torsoFit", False) if first else True
         if torso_fit:
             binding["torsoFit"] = True
+        # And for the tail line, which only an animal character is given.
+        tail_fit = first["binding"].get("tailFit", False) if first else (armored_raccoon or upright_animal) and not stocky_body
+        if tail_fit:
+            binding["tailFit"] = True
+        # And for the line that says the style reference is an unrelated person.
+        reference_identity = (first["binding"].get("referenceIdentity", False) if first
+                              else sector_guide is not None)
+        if reference_identity:
+            binding["referenceIdentity"] = True
         previous = None
         if attempt > 1:
             # Each repair shows the painter the sheet the rig just rejected.
@@ -214,8 +266,13 @@ def costume_painter(directory, job_id, reserve, submit, *, closeup=False, armore
                                head_turnaround=head_turnaround, **({"closeup": True} if closeup else {}),
                                **({"armored_raccoon": True} if armored_raccoon else {}),
                                **({"upright_animal": True} if upright_animal else {}),
+                               **({"bare_animal": True} if bare_animal else {}),
+                               **({"stocky": True} if stocky_body else {}),
+                               **({"stocky_feet": True} if stocky_feet else {}),
                                **({"palette_prompt": True} if palette_prompt else {}),
                                **({"torso_fit": True} if torso_fit else {}),
+                               **({"tail_fit": True} if tail_fit else {}),
+                               **({"reference_identity": True} if reference_identity else {}),
                                **({"attempt": 3} if attempt == 3 else {}))
         body = json.dumps(request,sort_keys=True,separators=(",",":")).encode()
         operation = sha256(job_id.encode() + b"\0" + str(attempt).encode() + b"\0" + body).hexdigest()

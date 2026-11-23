@@ -6,7 +6,7 @@
  * to an NPC and lost, and a siege on Cinderhold could be won by never meeting
  * one. Each tick, for every live Combat sector war with Cinderhold on one side,
  * ONE free Cinderhold war participant (api/_npc-war-roster.ts
- * npcWarParticipants: its ANBU first, then its Genin and Chunin at level 15+)
+ * npcWarParticipants: its Anbu first, then its Genin and Chunin at level 15+)
  * strikes:
  *   - an enemy player standing in the contested sector (lowest HP first,
  *     honouring the shared 15-minute merc-target cooldown) is ATTACKED for
@@ -14,7 +14,7 @@
  *     world duel exactly as a player would (api/_npc-war-strike.ts), which the
  *     server plays and which scores the war like any duel there; or
  *   - when Cinderhold is attacking and no defender has fought for the garrison
- *     idle window, the defending village's garrison (its sealed ANBU or Kage),
+ *     idle window, the defending village's garrison (its sealed Anbu or Kage),
  *     auto-resolved on the server (resolveMercBattle) as a player's garrison
  *     assault is: an NPC win scores at garrison weight under the war's cap, a
  *     garrison that holds scores the defence like a merc repel, a stall nothing.
@@ -30,13 +30,13 @@ import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 import { sealTowerFighter } from './towers/_seal.js';
 import { resolveMercBattle, type MercBattleResult } from './towers/_merc-fighters.js';
 import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
-import { ROLE_ANBU, sectorControlSwing, sectorWarRoleOf, type RoleWeights } from './_war-role.js';
+import { ROLE_HUSH, sectorControlSwing, sectorWarRoleOf, type RoleWeights } from './_war-role.js';
 import { defenderPointsMultiplier, sectorWarDamageMultiplier } from './_war-structures.js';
 import { applySectorWarBattle, isGarrisonAssaultable, sectorWarInstanceTag, type SectorWarSession } from './_sector-war.js';
 import { commitSectorWarBattle, listActiveSectorWars, type SectorWarBattleDecision } from './_sector-war-store.js';
 import { mercTargetsOnCooldown, pickMercTarget, setMercTargetCooldown, type RoamTarget } from './_merc-roam.js';
 import { fieldGarrisonDefender } from './_sector-war-garrison-defender.js';
-import { getOrSealAnbuSnapshot } from './_anbu-infiltration-store.js';
+import { getOrSealHushSnapshot } from './_hush-infiltration-store.js';
 import { onlineStore } from './_realtime/online-store.js';
 import { villageWarMapEnabled } from './_release-flags.js';
 import { npcVillageClosed } from './_npc-village-switch.js';
@@ -74,7 +74,7 @@ export type NpcWarPartyDeps = {
     standsIn?: (npc: NpcShinobi, sector: number) => boolean;
     /** Opens the real world duel (api/_npc-war-strike.ts). */
     openDuel?: (npc: NpcShinobi, target: string, sector: number) => Promise<NpcWarDuel>;
-    /** Who may strike (npcWarParticipants: the ANBU, then Genin and Chunin at level 15+). */
+    /** Who may strike (npcWarParticipants: the Anbu, then Genin and Chunin at level 15+). */
     participants?: (now: number) => Promise<readonly NpcShinobi[]>;
 };
 
@@ -108,7 +108,7 @@ async function defaultSealPlayer(player: string, village: string): Promise<Recor
 }
 
 async function defaultGarrisonOf(village: string): Promise<{ slug: string; character: Record<string, unknown> } | null> {
-    const fielded = await fieldGarrisonDefender(village, (slug) => getOrSealAnbuSnapshot(village, slug));
+    const fielded = await fieldGarrisonDefender(village, (slug) => getOrSealHushSnapshot(village, slug));
     return fielded.ok ? { slug: fielded.defender.slug, character: fielded.fielded.character } : null;
 }
 
@@ -119,7 +119,7 @@ async function gapClosingJutsu(): Promise<AiOpponentJutsu[]> {
 
 /**
  * The free war participant whose turn it is (rotation by tick), sealed from its
- * save. Its ANBU first, then (owner ruling 2026-11-11) its Genin and Chunin at
+ * save. Its Anbu first, then (owner ruling 2026-11-11) its Genin and Chunin at
  * level 15 or more, each group rotating on its own. `where` keeps it to one
  * that can reach the target.
  */
@@ -255,7 +255,7 @@ async function strikeOnce(
     const striker = await pickStriker(contest, now, d, used, participants);
     if (!striker) return null;
     const battle = d.runFight({ playerName: `${enemyVillage} garrison`, playerSlug: garrison.slug, playerSealedChar: garrison.character, mercLevel: striker.level, seed, now, gapClosingJutsu: gapJutsu, mercSealed: { name: striker.name, character: striker.character } });
-    return finish(contest, striker, garrison.slug, 'garrison', battle, npcSide, now, instance, d, ROLE_ANBU);
+    return finish(contest, striker, garrison.slug, 'garrison', battle, npcSide, now, instance, d, ROLE_HUSH);
 }
 
 async function finish(

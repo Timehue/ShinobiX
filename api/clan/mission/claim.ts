@@ -66,7 +66,7 @@ const CLAN_MISSION_POINT_AMOUNTS: Partial<Record<ClanMissionKey, number>> = {
     battle: 40,
     mission: 50,
     guard: 35,
-    anbu: 40,
+    hush: 40,
     raid: 75,
 };
 
@@ -174,7 +174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Load the canonical territory sectors up front (read-only; progress for
-        // guard/territory/anbu depends on them). Stale-by-a-moment is fine.
+        // guard/territory/hush depends on them). Stale-by-a-moment is fine.
         const territoryKeys = await kv.keys(`${TERRITORY_KEY_PREFIX}*`).catch(() => [] as string[]);
         const territories = territoryKeys.length
             ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])

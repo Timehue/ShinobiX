@@ -264,7 +264,8 @@
 }
 
 .hg-avatar.hg-wanderer { z-index: 5; pointer-events: auto; cursor: pointer; }
-.hg-avatar.has-sector-model { --hg-avatar-anchor: -100%; }
+.hg-avatar { --hg-avatar-anchor: -100%; }
+.hg-avatar-sprite > .world-standing-figure { width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
 .hg-avatar.has-sector-model > .hg-avatar-sprite,
 .hg-avatar.has-sector-model > .hg-avatar-aura { visibility: hidden; }
 .hg-avatar.has-sector-model > .hg-avatar-shadow { top: 100%; bottom: auto; transform: translate(-50%, -50%); }

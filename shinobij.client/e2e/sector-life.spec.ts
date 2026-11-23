@@ -211,9 +211,10 @@ for(const sector of [2,15,23,31])test(`ownership cloth sector ${sector}: live se
     await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);if(await back.isVisible())await back.click();
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');await expect.poll(()=>polls).toBeGreaterThan(0);
     const terrain=page.locator('.continuous-world-map>canvas'),map=page.locator('.continuous-world-map');
-    const stable=async()=>{let last='',count=0;await expect.poll(async()=>{const next=await terrain.evaluate(el=>(el as HTMLCanvasElement).toDataURL());count=next===last?count+1:0;last=next;return count;},{intervals:[150]}).toBeGreaterThanOrEqual(3);return last;};
-    // Let floor decoding and native raster-cache arrival finish before the baseline.
-    await expect.poll(()=>floorLoaded).toBe(true);
+    // Run the page clock between samples: a stalled frame loop repeats a mid-glide camera frame (see the gathering test).
+    const stable=async()=>{let last='',count=0;await expect.poll(async()=>{await page.clock.runFor(250);const next=await terrain.evaluate(el=>(el as HTMLCanvasElement).toDataURL());count=next===last?count+1:0;last=next;return count;},{intervals:[150]}).toBeGreaterThanOrEqual(3);return last;};
+    // Let floor decoding and native raster-cache arrival finish, and the camera's 1.5 s aim window close, before the baseline.
+    await expect.poll(()=>floorLoaded).toBe(true);await page.clock.runFor(1_500);
     const initial=await stable(),states=new Set([initial]);let previous=initial;
     for(const [id,village] of [['moonshadow','Moonshadow Village'],['stormveil','Stormveil Village'],['ashen-leaf','Ashen Leaf Village'],['frostfang','Frostfang Village'],['neutral',undefined]] as const){
         const before=polls;ownerVillage=village;await page.clock.fastForward(16_000);await expect.poll(()=>polls).toBeGreaterThan(before);
@@ -289,23 +290,29 @@ for(const sector of [42,15,21,31,58])test(`committed gathering ${sector}: paints
     const shot=(scene:string)=>`${evidence}/${info.project.name}-harvest-${sector}-${scene}.png`;
     await page.clock.install({time:new Date(start)});const save=uiAuditSave();save.currentSector=sector;save.currentTile=tileNeighbors(tile).find(t=>isWalkableTile(sector,t))!;
     save.character={...save.character,starterCardsClaimed:true,wandererCooldowns:quietRoadCooldowns([sector],start)};
-    await installUiAuditRuntime(page,save);let worked=false,allowPoll=true,polls=0;
+    // The worked mark lasts 35 s from the moment it is worked, however long the page took to load.
+    await installUiAuditRuntime(page,save);let workedUntil=0,allowPoll=true,polls=0;
     await page.route('**/api/sector/life**',async route=>{
         if(!allowPoll)return route.abort();polls++;const now=await page.evaluate(()=>Date.now());
         const view=lifeSceneView(sector,parseLifeState(null,now),now,'clear');
-        await route.fulfill({json:{ok:true,view:{...view,groundTrail:worked?[[tile,undefined,start+35_000]]:[]},serverNow:now}});
+        await route.fulfill({json:{ok:true,view:{...view,groundTrail:workedUntil?[[tile,undefined,workedUntil]]:[]},serverNow:now}});
     });
     await page.goto('/#/worldMap');const back=page.getByRole('button',{name:`Return to Sector ${sector}`,exact:false});
     await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);if(await back.isVisible())await back.click();
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');
     const terrain=page.locator('.continuous-world-map>canvas');
-    const settled=async()=>{let previous='',stable=0;await expect.poll(async()=>{const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===previous?stable+1:0;previous=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);return previous;};
-    const clean=await settled();await terrain.screenshot({path:shot('clean-verge')});
-    worked=true;await page.clock.fastForward(21_000);await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).not.toBe(clean);const changed=await settled();
+    // Identical frames alone do not mean the camera has arrived: on a loaded runner the frame loop can
+    // stall mid-glide, and the camera then finished its lean later, so "clean" was a frame the view never
+    // returned to. Running the page clock between samples makes the glide actually advance.
+    const pixels=()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());
+    const settled=async()=>{let previous='',stable=0;await expect.poll(async()=>{await page.clock.runFor(250);const now=await pixels();stable=now===previous?stable+1:0;previous=now;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);return previous;};
+    // The camera re-aims for 1.5 s after the player arrives and then holds still; let that window close first.
+    await page.clock.runFor(1_500);const clean=await settled();await terrain.screenshot({path:shot('clean-verge')});
+    workedUntil=await page.evaluate(()=>Date.now())+35_000;await page.clock.fastForward(21_000);await expect.poll(pixels).not.toBe(clean);const changed=await settled();
     await terrain.screenshot({path:shot('worked-verge')});
     writeFileSync(shot('clean-terrain'),Buffer.from(clean.split(',')[1],'base64'));writeFileSync(shot('worked-terrain'),Buffer.from(changed.split(',')[1],'base64'));
     allowPoll=false;const before=polls;await page.clock.fastForward(16_000);
-    await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).toBe(clean);expect(polls).toBe(before);
+    await expect.poll(async()=>{await page.clock.runFor(100);return pixels();}).toBe(clean);expect(polls).toBe(before);
     await terrain.screenshot({path:shot('expired-verge')});
 });
 function shrineRoundTime() {
@@ -380,17 +387,19 @@ test('recorded duel scuffs blend into the actual ground, preserve legacy reports
     await page.route('**/api/sector/traces**',route=>route.fulfill({json:{ok:true,sector:15,footfallToday:2,signs:[],mySparked:[],scars}}));
     await page.route('**/api/sector/life**',async route=>{const now=await page.evaluate(()=>Date.now());await route.fulfill({json:{ok:true,view:lifeSceneView(15,parseLifeState(null,now),now,'clear',undefined,undefined,undefined,scars),serverNow:now}});});
     const terrain=page.locator('.continuous-world-map>canvas');
-    const settled=async()=>{let previous='',stable=0;await expect.poll(async()=>{const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===previous?stable+1:0;previous=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);return previous;};
-    await enterLifeSector(page,15);const clean=await settled();await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-clean-ground.png`});
+    // Run the page clock between samples, as in the gathering test: a stalled frame loop repeats a mid-glide frame.
+    const pixels=()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());
+    const settled=async()=>{let previous='',stable=0;await expect.poll(async()=>{await page.clock.runFor(250);const now=await pixels();stable=now===previous?stable+1:0;previous=now;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);return previous;};
+    await enterLifeSector(page,15);await page.clock.runFor(1_500);const clean=await settled();await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-clean-ground.png`});
     writeFileSync(`${evidence}/${info.project.name}-duel-clean-terrain.png`,Buffer.from(clean.split(',')[1],'base64'));
     scars=[{kind:'duel',victor:'Rin',fallen:'Kota',at:start,tile:122},{kind:'duel',victor:'Aki',fallen:'Ben',at:start}];
-    await page.clock.fastForward(21_000);await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).not.toBe(clean);const marked=await settled();
+    await page.clock.fastForward(21_000);await expect.poll(pixels).not.toBe(clean);const marked=await settled();
     await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-scuffed-ground.png`});
     writeFileSync(`${evidence}/${info.project.name}-duel-scuffed-terrain.png`,Buffer.from(marked.split(',')[1],'base64'));
     await page.locator('.sector-life-point').click();await page.getByRole('button',{name:'Read local reports'}).click();await expect(page.getByRole('dialog')).toContainText('Rin stood over Kota');
     await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
     scars=[];await page.clock.fastForward(21_000);
-    await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).toBe(clean);await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-faded-ground.png`});
+    await expect.poll(async()=>{await page.clock.runFor(100);return pixels();}).toBe(clean);await terrain.screenshot({path:`${evidence}/${info.project.name}-duel-faded-ground.png`});
 });
 test('shrine upkeep paints each lamp, keeps the previous floor during loading, and brings a visitor on a return visit',async({page},info)=>{
     const start=shrineRoundTime();await installDateOnlyClock(page,start);
@@ -482,9 +491,10 @@ test('a failed supported-shrine image preserves the loaded terrain and retries o
     await page.route('**/sector-life/heartwood-dormant-shrine-v1.webp',async route=>{baseLoads++;await route.abort('failed');});
     const initial=page.waitForResponse(response=>response.url().includes('/sector-life/heartwood-left-lamp-v1.webp'));
     await enterLifeSector(page,15);await (await initial).finished();await page.waitForTimeout(500);
-    // Wait for a still frame: on a phone the camera first settles beside the nearby residents.
-    const terrain=page.locator('.continuous-world-map>canvas');let before='',stable=0;
-    await expect.poll(async()=>{const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===before?stable+1:0;before=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);
+    // Wait for a still frame: on a phone the camera first settles beside the nearby residents. Close its
+    // 1.5 s aim window and run the page clock between samples, or a stalled frame loop repeats a mid-glide frame.
+    const terrain=page.locator('.continuous-world-map>canvas');let before='',stable=0;await page.clock.runFor(1_500);
+    await expect.poll(async()=>{await page.clock.runFor(250);const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===before?stable+1:0;before=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);
     const baseBefore=baseLoads;
     tier=1;await page.clock.fastForward(21_000);await expect.poll(()=>failed).toBe(1);await page.clock.runFor(1000);
     await expect.poll(()=>baseLoads).toBeGreaterThan(baseBefore);
@@ -532,8 +542,8 @@ test('an initial floor still decodes when a newer shrine state is waiting behind
     // The renderer deliberately fills its tile cache over several frames.
     // Wait for that budgeted repaint to settle before checking retention.
     let decodedBase='',stable=0;
-    await expect.poll(async()=>{const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===decodedBase?stable+1:0;decodedBase=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);
-    await page.waitForTimeout(100);expect(await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())===decodedBase).toBe(true);
+    await expect.poll(async()=>{await page.clock.runFor(250);const pixels=await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL());stable=pixels===decodedBase?stable+1:0;decodedBase=pixels;return stable;},{intervals:[100]}).toBeGreaterThanOrEqual(3);
+    await page.clock.runFor(100);expect(await terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())===decodedBase).toBe(true);
     releaseNew();await expect.poll(()=>terrain.evaluate(node=>(node as HTMLCanvasElement).toDataURL())).not.toBe(decodedBase);
 });
 for(const sector of Object.keys(LIFE_ROAD_CREWS).map(Number))test(`regional workers ${sector} meet a real partner at the handover and wait out bad weather`,async({page},info)=>{
@@ -848,6 +858,70 @@ test('a recurring traveler remembers a meeting and walks out along the road',asy
     await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-traveler-departure.png`});
     await page.clock.fastForward(35_000);
     await expect(nao).toHaveCount(0);
+});
+
+test('every NPC on the board shares one depth layer, and the lower one draws in front',async({page},info)=>{
+    // Each NPC used to be its own stacking context at z-index 6, so NPCs drew in
+    // mount order: a resident further up the board could cover one below it.
+    const route=travelerRoute(1);let slot=Math.floor(LIFE_SCENARIO_EPOCH/3_000_000)*10+8;
+    while(isWorldNight(slot*300_000+120_000))slot+=10;
+    const start=slot*300_000;
+    expect(route[(slot+2)%route.length]).toBe(15);
+    await page.clock.install({time:new Date(start+120_000)});
+    const save=uiAuditSave();save.currentSector=15;save.currentTile=115;
+    save.character={...save.character,wandererCooldowns:quietRoadCooldowns([15],start)};
+    await installUiAuditRuntime(page,save);
+    await page.addInitScript(()=>{localStorage.setItem('dayCycle.hour','12');localStorage.setItem('legacyRumors.seen.v1:auditninja',JSON.stringify([10,20,30,40,45]));});
+    await page.route('**/api/sector/life**',async request=>{
+        const now=await page.evaluate(()=>Date.now());
+        await request.fulfill({json:{ok:true,serverNow:now,view:lifeSceneView(15,parseLifeState(null,now),now,'clear')}});
+    });
+    await enterLifeSector(page,15);
+    await expect(page.locator('[data-life-resident="nao"]')).toBeVisible();
+    await page.clock.runFor(1_000);
+    const layering=await page.evaluate(()=>{
+        const chunk=document.querySelector('.continuous-world-chunk')!;
+        const overlays=[...chunk.querySelectorAll<HTMLElement>('.sector-wanderer-overlay')];
+        return {layers:chunk.querySelectorAll(':scope > .sector-npc-layer').length,
+            outside:overlays.filter(overlay=>!overlay.parentElement?.classList.contains('sector-npc-layer')).length,
+            figures:overlays.map(overlay=>({z:Number(getComputedStyle(overlay).zIndex),
+                foot:overlay.querySelector('.sector-wanderer-figure')!.getBoundingClientRect().bottom}))};
+    });
+    expect(layering.layers).toBe(1);
+    expect(layering.outside,'no NPC draws outside the board layer').toBe(0);
+    expect(layering.figures.length).toBeGreaterThanOrEqual(2);
+    for(const a of layering.figures)for(const b of layering.figures)
+        if(b.foot-a.foot>2)expect(b.z,'the NPC lower on the board is in front').toBeGreaterThanOrEqual(a.z);
+    // What a tap actually hits, not what the z-index says: at every NPC's centre the
+    // hit lands on the NPC that draws in front there, and every NPC can still be tapped.
+    const taps=await page.evaluate(()=>{
+        const figures=[...document.querySelectorAll<HTMLElement>('.continuous-world-chunk .sector-npc-layer .sector-wanderer-figure')];
+        const view=document.querySelector('.continuous-world-map')!.getBoundingClientRect();
+        const z=(figure:HTMLElement)=>Number(getComputedStyle(figure.parentElement!).zIndex);
+        const centre=(figure:HTMLElement)=>{const r=figure.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};};
+        // A phone shows about 7 tiles: an NPC whose centre is off the map view cannot be tapped at all.
+        return figures.filter(figure=>{const {x,y}=centre(figure);return x>view.left&&x<view.right&&y>view.top&&y<view.bottom;}).map(figure=>{
+            const {x,y}=centre(figure);
+            const under=figures.filter(other=>{const o=other.getBoundingClientRect();return x>=o.left&&x<=o.right&&y>=o.top&&y<=o.bottom;});
+            // Two walkers on the same row share a z-index; then the later one in the layer draws on top.
+            const above=(a:HTMLElement,b:HTMLElement)=>z(a)>z(b)||(z(a)===z(b)&&figures.indexOf(a)>figures.indexOf(b));
+            const front=under.reduce((best,other)=>above(other,best)?other:best);
+            const top=document.elementFromPoint(x,y),hit=top?.closest<HTMLElement>('.sector-wanderer-figure')??null;
+            // A lower NPC's portrait can overhang its own figure box, so the tap may land on an NPC
+            // that is not in `under`. That is still right as long as it draws above `front`; the
+            // bug this guards against is an NPC further up the board taking the tap.
+            const ok=hit===front||(hit!==null&&above(hit,front));
+            const label=(el:HTMLElement|null)=>el?.closest('[aria-label]')?.getAttribute('aria-label')??null;
+            return {name:label(figure),hitFront:ok,hitSomeNpc:!!hit,
+                over:hit?null:`${top?.tagName}.${top?.className}`,
+                debug:ok?null:{front:label(front),frontZ:z(front),hit:label(hit),hitZ:hit?z(hit):null,
+                    under:under.map(u=>`${label(u)} z${z(u)} #${figures.indexOf(u)}`),hitIndex:hit?figures.indexOf(hit):null}};
+        });
+    });
+    expect(taps.length,'at least one NPC is on screen to tap').toBeGreaterThan(0);
+    expect(taps.filter(tap=>!tap.hitSomeNpc),'nothing outside the NPC layer covers an NPC here').toEqual([]);
+    expect(taps.filter(tap=>!tap.hitFront),'a tap lands on the NPC drawn in front').toEqual([]);
+    await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-npc-depth-layer.png`});
 });
 
 test('tea staff follow server weather and night while staying beside the painted table',async({page},info)=>{

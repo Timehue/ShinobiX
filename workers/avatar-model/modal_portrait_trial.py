@@ -28,7 +28,14 @@ if modal.is_local() and sys.argv[1:2] != ["collect"]:
 
     cached_reader = os.environ.get("SPRITE_TRIAL_READER_IMAGE_ID")
     if cached_reader:
-        gpu_image = modal.Image.from_id(cached_reader)
+        manifest = Path(os.environ.get("SPRITE_WORKER_RELEASE_MANIFEST",
+                                       WORKER.with_name("sprite-worker-painted-review.json")))
+        intake_hash = json.loads(manifest.read_bytes())["intake"]
+        if not re.fullmatch(r"im-[A-Za-z0-9]+", cached_reader) or not re.fullmatch(r"[a-f0-9]{64}", intake_hash):
+            raise ValueError("invalid-cached-reader-image")
+        gpu_image = modal.Image.from_id(cached_reader).run_commands(
+            f"echo '{intake_hash}  /opt/sprite/intake.zip' | sha256sum -c -",
+        )
     cached_assembly = os.environ.get("SPRITE_TRIAL_ASSEMBLY_IMAGE_ID")
     if cached_assembly:
         cpu_image = modal.Image.from_id(cached_assembly)
@@ -48,12 +55,13 @@ if modal.is_local() and sys.argv[1:2] != ["collect"]:
         for image in (gpu_image, paint_image, cpu_image)
     )
     for name in ("closeup_portrait.py", "armored_raccoon.py", "paint_admitted_costume.py", "paint_portrait.py",
-                 "upright_animal.py", "costume_palette.py"):
-        reader_image = reader_image.add_local_file(WORKER.with_name(name), str(INSTALL / name), copy=True)
+                 "upright_animal.py", "animal_build.py", "limb_repair.py", "painted_likeness.py", "costume_palette.py",
+                 "paint_battle_sprite.py", "battle-stance-reference.png"):
+        reader_image = reader_image.add_local_file(WORKER.with_name(name), (INSTALL / name).as_posix(), copy=True)
     for name in ("paint_sprite_style.py", "battle_pose.py"):
-        motion_image = motion_image.add_local_file(WORKER.with_name(name), str(INSTALL / name), copy=True)
+        motion_image = motion_image.add_local_file(WORKER.with_name(name), (INSTALL / name).as_posix(), copy=True)
     for name in ("modal_trial_preview.py", "finish_sprite.py", "browser_motion.py"):
-        assembly_image = assembly_image.add_local_file(WORKER.with_name(name), str(INSTALL / name), copy=True)
+        assembly_image = assembly_image.add_local_file(WORKER.with_name(name), (INSTALL / name).as_posix(), copy=True)
     assembly_image = assembly_image.add_local_file(WORKER.parents[2] / "shinobij.client/public/sector-map/s46.webp",
                      "/opt/sprite/trial-sector.webp", copy=True)
     combiner = os.environ.get("SPRITE_TRIAL_ASSEMBLY_COMBINER")
@@ -61,17 +69,19 @@ if modal.is_local() and sys.argv[1:2] != ["collect"]:
         assembly_image = assembly_image.add_local_file(combiner, "/opt/sprite/run_style_package.py", copy=True)
 
 
-@app.function(image=reader_image, gpu=TRIAL_GPUS, cpu=2, memory=6144, timeout=600, retries=0, max_containers=1)
+@app.function(image=reader_image, gpu=TRIAL_GPUS, cpu=2, memory=6144, timeout=600, retries=0, max_containers=1,
+              secrets=[modal.Secret.from_name(PAINT_SECRET, environment_name=ENVIRONMENT, required_keys=["OPENAI_API_KEY"])])
 def read_trial(portrait, source):
     sys.path.insert(0, str(INSTALL))
     from modal_sprite_worker import read_private_upload
 
     entry = Path((INSTALL / "entry.txt").read_text().strip())
     return read_private_upload(portrait, source, entry, INSTALL / "paint/bin/python",
-                               INSTALL / "reader/bin/python", painted_costumes=True)
+                               INSTALL / "reader/bin/python", painted_costumes=True, stocky=True)
 
 
-@app.function(image=reader_image, gpu=TRIAL_GPUS, timeout=1800, retries=0, max_containers=1,
+# The same limit as the deployed costume call (PAINT_TIMEOUT), which budgets the combat painting against it.
+@app.function(image=reader_image, gpu=TRIAL_GPUS, timeout=2400, retries=0, max_containers=1,
               secrets=[modal.Secret.from_name(PAINT_SECRET, environment_name=ENVIRONMENT,
                                               required_keys=["OPENAI_API_KEY"])])
 def paint_trial(asset, descriptor, master, portrait, source):
@@ -81,12 +91,15 @@ def paint_trial(asset, descriptor, master, portrait, source):
     return paint_costume.local(asset, descriptor, master, portrait, source)
 
 
-@app.function(image=motion_image, cpu=4, memory=8192, timeout=6 * 3600, retries=0, max_containers=3)
-def render_trial(descriptor, sheet, master, style):
+# One container for the three styles, as in the deployed worker: their shared walking frames only
+# match byte for byte when one machine renders them (see render_style in modal_sprite_worker.py).
+@app.function(image=motion_image, cpu=12, memory=24576, timeout=6 * 3600, retries=0, max_containers=1)
+@modal.concurrent(max_inputs=3)
+def render_trial(descriptor, sheet, master, style, asset=None):
     sys.path.insert(0, str(INSTALL))
     from modal_sprite_worker import render_style
 
-    return render_style.local(descriptor, sheet, master, style)
+    return render_style.local(descriptor, sheet, master, style, painted_for=asset)
 
 
 @app.function(image=assembly_image, cpu=2, memory=4096, timeout=1800, retries=0, max_containers=1)
@@ -142,7 +155,7 @@ def run_fitted_trial(portrait, source, asset, fit):
             or sha256(descriptor).hexdigest() != master or sha256(sheet).hexdigest() != painted["receipt"]["sheetSha256"]):
         raise ValueError("invalid-trial-paint-result")
     print("Painting registered. Rendering all three styles.", flush=True)
-    stages = {style: render_trial.spawn(descriptor, sheet, master, style) for style in "ABC"}
+    stages = {style: render_trial.spawn(descriptor, sheet, master, style, asset) for style in "ABC"}
     movement = None
     for style, call in stages.items():
         stage = call.get()["receipt"]

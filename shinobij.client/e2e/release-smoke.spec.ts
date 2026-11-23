@@ -35,7 +35,7 @@ test.beforeEach(async ({ page }) => {
             ok: true,
             capabilities: Object.fromEntries([
                 'gameplay', 'gameplayMutations', 'registrations', 'googleSignIn', 'guestPlay',
-                'villageWar', 'anbuInfiltration', 'clanBoss',
+                'villageWar', 'hushInfiltration', 'clanBoss',
                 'clanBossParties', 'legacy', 'petBreedingStarts', 'weeklyBossGuardCycle',
             ].map((id) => [id, { state: 'available', reason: 'available' }])),
         }),
@@ -131,6 +131,10 @@ test('phone and open-fold storage notice dismissal preserves landing actions', a
 
         const notice = page.locator('.storage-notice');
         await expect(notice).toBeVisible();
+        const actions = page.locator('#landing-home .landing-hero-actions .landing-cta');
+        await expect(actions).toHaveCount(2);
+        await expect(actions.last()).toBeVisible();
+        await page.evaluate(() => document.fonts.ready);
         const measureActions = () => page.evaluate(() => {
             const notice = document.querySelector<HTMLElement>('.storage-notice')?.getBoundingClientRect();
             const actions = [...document.querySelectorAll<HTMLElement>('#landing-home .landing-hero-actions .landing-cta')]
@@ -156,7 +160,6 @@ test('phone and open-fold storage notice dismissal preserves landing actions', a
             expect(Math.abs(after.actions[index].top - before.actions[index].top)).toBeLessThanOrEqual(1);
         }
 
-        const actions = page.locator('#landing-home .landing-hero-actions .landing-cta');
         for (let index = 0; index < await actions.count(); index++) {
             const action = actions.nth(index);
             await action.scrollIntoViewIfNeeded();

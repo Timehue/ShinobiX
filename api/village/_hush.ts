@@ -1,0 +1,32 @@
+import { kv, type KvLike } from '../_storage.js';
+import { safeName } from '../_utils.js';
+import { readPublicPlayerIndex } from '../player/_public-index-store.js';
+import { earnedHushCandidates, normalizeHushSeats, leadershipVillageKey, type HushCandidate } from '../../shared/village-hush.js';
+import { elderVillageKey } from './_elders.js';
+import { withHushSeatField } from './_hush-seat-field.js';
+import { isNpcVillage } from '../../shared/npc-village.js';
+import { npcVillageHush } from '../_npc-war-roster.js';
+
+type Store = Pick<KvLike, 'get'>;
+export async function readVillageHush(village: string, snapshot?: Record<string, unknown>, store: Store = kv, indexedCandidates?: HushCandidate[]): Promise<{ appointed: [string, string, string]; earned: string[]; members: string[] }> {
+    // Cinderhold appoints nobody: its Anbu are its roster Commanders, Elites
+    // and Jonin (api/_npc-war-roster.ts), so its garrisons always have defenders.
+    if (isNpcVillage(village)) return npcVillageHush();
+    const state = withHushSeatField(snapshot ?? await store.get<Record<string, unknown>>(elderVillageKey(village)));
+    const validMember = async (name: string) => {
+        if (!name) return '';
+        const save = await store.get<{ character?: { village?: string } }>(`save:${safeName(name)}`);
+        return save?.character && leadershipVillageKey(save.character.village) === leadershipVillageKey(village) ? name : '';
+    };
+    const appointed = await Promise.all(normalizeHushSeats(state?.hushAppointees).map(validMember)) as [string, string, string];
+    // The public index is server-written and cheaply read as a hash. Old index
+    // entries get a one-time backfill from saves for the new monthly fields.
+    const candidates = indexedCandidates ?? (store === kv ? [...(await readPublicPlayerIndex({ backfill: true, logContext: 'hush-roster' })).entries.values()] : []);
+    const eligible = earnedHushCandidates(candidates, village, appointed, new Date(Date.now()).toISOString().slice(0, 7), candidates.length);
+    const earned: string[] = [];
+    // A moved/deleted player must not occupy a seat or block the next eligible member.
+    for (let offset = 0; offset < eligible.length && earned.length < 7; offset += 7) {
+        earned.push(...(await Promise.all(eligible.slice(offset, offset + 7).map(player => validMember(player.name)))).filter(Boolean).slice(0, 7 - earned.length));
+    }
+    return { appointed, earned, members: [...appointed.filter(Boolean), ...earned] };
+}

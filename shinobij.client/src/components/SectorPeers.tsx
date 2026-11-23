@@ -1,7 +1,10 @@
 import { sharedAvatarFor } from "../lib/shared-avatar";
 import { displayPlayerName } from "../../../shared/player-name";
-import { SectorPortrait } from "./SectorPortrait";
+import { WorldStandingFigure } from "./WorldStandingFigure";
+import { starterModel } from "../lib/player-model";
+import type { StarterWorldModel } from "../../../shared/player-model-ref";
 import { GameIcon } from "./icons/GameIcon";
+import { GameArtIcon } from "./GameArtIcon";
 /*
  * SectorPeers — live "walking" overlay for OTHER players in your sector (2D).
  *
@@ -15,23 +18,8 @@ import { GameIcon } from "./icons/GameIcon";
  * Renderer-only: pointer-events:none, never touches game logic / saves / the
  * attack flow (which lives in the separate "Players Here" panel). Matches the
  * grid's exact tile centres (padding + gap aware), mirroring <SectorAvatar>. The
- * whole overlay is gated by isSectorLivePeersEnabled() at the call site, so
- * turning the flag off restores the original dot rendering with zero code change.
- *
- * A peer is drawn with the SAME map-pin markup, size and anchoring as your own
- * <SectorAvatar> — see lib/sector-marker. It used to be its own thing: a bobbing
- * disc sized `tile * 0.86` and then multiplied AGAIN by the shared
- * `.tiny-map-avatar { width: 88% }`, centred by its MIDDLE on the tile rather
- * than planted by a pin tip. On a phone that made another player 1.30x your
- * portrait (1.55x once their red outline and glow were counted) and planted them
- * ~0.4 tiles lower than you on the same tile, so the person you were actually
- * playing as read as the smallest figure on the board.
- *
- * One thing is deliberately NOT copied from <SectorAvatar>: the biome aura. It
- * is a blurred glow, and up to MAX_MARKERS peers can be on screen at once —
- * 48 simultaneous blur filters is exactly the kind of mobile frame cost this
- * overlay is capped to avoid. The player, the wanderers and the boss are few, so
- * they keep theirs.
+ * peer overlay hands hit testing to the grid. The simpler tile view uses the same standing figures.
+ * Peers omit the biome aura to avoid stacking up to 48 blur filters.
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLiveSectorPlayers } from "../lib/presence-store";
@@ -57,22 +45,27 @@ export type SectorPeer = {
     level: number;
     sleeping: boolean;
     avatar?: string;
+    starterWorldModel?: StarterWorldModel;
 };
+
+export type ScoutedSectorPlayer = Pick<SectorPeer, 'name' | 'level' | 'sleeping' | 'starterWorldModel'> & { avatarImage: string };
+
+export function ScoutedSectorPlayers({ players }: { players: readonly ScoutedSectorPlayer[] }) {
+    return <span className="other-players-map-stack">
+        {players.map(player => (
+            <span key={player.name} className="other-player-map-dot" title={`${player.name} Lv ${player.level}`}>
+                <WorldStandingFigure kind={starterModel(player.avatarImage, player.starterWorldModel)} name={player.name} />
+                <span className="other-player-map-name">{player.name}{player.sleeping && <> <GameArtIcon kind="biomeShadow" size={12} title="Sleeping" /></>}</span>
+            </span>
+        ))}
+    </span>;
+}
 
 type Item = SectorPeer & { leaving: boolean };
 
 function cellCentre(size: number, count: number, n: number, pad: number, gap: number): number {
     const tile = (size - 2 * pad - (count - 1) * gap) / count;
     return pad + n * (tile + gap) + tile / 2;
-}
-
-// Per-peer idle-bob phase offset (negative animation-delay, 0..-3.4s) derived from
-// the name, so a crowd of peers bobs out of sync instead of breathing in lockstep.
-// The range matches the 3.4s `sectorAvatarIdle` cycle they now share with you.
-function bobDelay(name: string): number {
-    let h = 0;
-    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-    return -((h % 3400) / 1000);
 }
 
 function prefersReducedMotion(): boolean {
@@ -152,7 +145,9 @@ export function SectorPeers({ peers, sector }: { peers: SectorPeer[]; sector?: n
         return 0;
     });
     const markerBudget = metrics.w < 260 ? 6 : metrics.w < 360 ? 12 : metrics.w < 500 ? 25 : MAX_MARKERS;
-    const shown = ordered.slice(0, markerBudget);
+    // Drawn by name, then layered by row, so a peer leaving or waking never
+    // pops in front of the one it shares a tile with.
+    const shown = ordered.slice(0, markerBudget).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     const overflow = Math.max(0, peers.length - markerBudget);
 
     return (
@@ -172,6 +167,7 @@ export function SectorPeers({ peers, sector }: { peers: SectorPeer[]; sector?: n
                         style={{
                             width: `${box.w}px`,
                             height: `${box.h}px`,
+                            zIndex: row + 1,
                             transform: `translate(var(--peer-x, ${cx}px), var(--peer-y, ${cy}px)) translate(-50%, -${SECTOR_MARKER_ANCHOR}%)`,
                             ["--marker-ring"]: SECTOR_RING_PEER,
                         } as CSSProperties}
@@ -181,13 +177,10 @@ export function SectorPeers({ peers, sector }: { peers: SectorPeer[]; sector?: n
                             className={`sector-peer-body ${it.leaving ? "is-leaving" : "is-entering"}`}
                             onAnimationEnd={() => { if (it.leaving) drop(it.name); }}
                         >
-                            {/* Grounded look: a planted contact shadow at the pin tip under a
-                                gently bobbing portrait — identical to your own marker. */}
                             <span className="sector-avatar-shadow" />
                             <span className="sector-avatar-sprite">
-                                <span className="sector-avatar-body" style={{ animationDelay: `${bobDelay(it.name)}s` }}>
-                                    <SectorPortrait key={it.avatar} src={it.avatar} name={it.name} />
-                                    <span className="sector-avatar-pin" />
+                                <span className="sector-avatar-body">
+                                    <WorldStandingFigure kind={starterModel(it.avatar ?? '', it.starterWorldModel)} />
                                 </span>
                             </span>
                             <span className="sector-peer-label">{displayPlayerName(it.name)}{it.sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
@@ -225,6 +218,7 @@ export function SectorPeersLive({ selectedSector, selfName, sharedImages, sleepe
             tile: safeSectorTile(selectedSector, typeof p.tile === "number" ? p.tile : playerNameTile(p.name)),
             level: p.level,
             sleeping: false,
+            starterWorldModel: p.character?.starterWorldModel,
             avatar: sharedAvatarFor(sharedImages, p.name) || ((p.character?.avatarImage as string) || ""),
         }));
     const liveNames = new Set(liveMarkers.map((m) => m.name.toLowerCase()));

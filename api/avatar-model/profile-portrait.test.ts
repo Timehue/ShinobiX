@@ -4,8 +4,8 @@ import sharp from 'sharp';
 
 test('Profile publishes a small avatar and Make Model moderates its private detail', async t => {
     Object.assign(process.env,{NODE_ENV:'test', SHINOBIX_QA_MEMORY_KV:'1', SESSION_SECRET:'local-profile-detail-secret',
-        AVATAR_MODEL_PROFILE_DETAIL_ENABLED:'1', AVATAR_MODEL_CREATION_ENABLED:'1', AVATAR_MODEL_READ_DAILY_LIMIT:'6',
-        AVATAR_MODEL_READ_PLAYER_DAILY_LIMIT:'6', AVATAR_MODEL_R2_ACCOUNT_ID:'a'.repeat(32),
+        AVATAR_MODEL_PROFILE_DETAIL_ENABLED:'1', AVATAR_MODEL_CREATION_ENABLED:'1',
+        AVATAR_MODEL_R2_ACCOUNT_ID:'a'.repeat(32),
         AVATAR_MODEL_R2_PRIVATE_BUCKET:'test-private', AVATAR_MODEL_R2_ACCESS_KEY_ID:'test-id', AVATAR_MODEL_R2_SECRET_ACCESS_KEY:'test-secret'});
     const {kv} = await import('../_storage.js');
     const {issuePlayerToken} = await import('../_auth.js');

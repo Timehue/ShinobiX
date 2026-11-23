@@ -57,9 +57,9 @@ for (const portrait of ['canonical', 'public', 'fallback']) test(`${portrait} we
     expect(errors).toEqual([]);
 });
 
-test('an unrelated custom weekly portrait keeps its appearance', async ({ page }) => {
+test('a custom weekly portrait without a fitted model uses a standing figure', async ({ page }) => {
     const { actor, requests, errors } = await prepare(page, 'custom');
-    await expect(actor.locator('.sector-avatar-body img')).toHaveAttribute('src', /^data:image\/svg\+xml,/);
+    await expect(actor.locator('.sector-avatar-body img')).toHaveAttribute('src', '/world-figures/v1/patrol.webp');
     await expect(actor.locator('.sector-model-figure')).toHaveCount(0);
     await expect.poll(async () => Number(await page.getByTestId('engagements').textContent())).toBeGreaterThan(0);
     expect([...requests].filter(path => path.startsWith('/fixture-art/'))).toEqual([]);

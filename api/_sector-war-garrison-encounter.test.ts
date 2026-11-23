@@ -37,7 +37,7 @@ function build() {
         runId: 'garrison-test-1',
         now: NOW,
         attacker: { ...fighter('attacker', 'Attacker', 9_000), itemCharges: { kunai: 5, 'soldier-pill': 2 } },
-        anbu: fighter('anbu-one', 'The Frostfang Anbu', 12_000),
+        hush: fighter('hush-one', 'The Frostfang Anbu', 12_000),
         terrain: 'forest',
         sector: 12,
         contestId: '12:moonshadowvillage-vs-frostfangvillage',
@@ -67,7 +67,7 @@ test('buildGarrisonEncounter seals a one-human Solo PvE session and exact contes
     assert.deepEqual(session.encounter, {
         kind: GARRISON_ENCOUNTER_KIND,
         id: '12',
-        sourceId: 'anbu-one',
+        sourceId: 'hush-one',
         bindingId: 'garrison-test-1',
         level: 100,
         metadata: {
@@ -75,14 +75,14 @@ test('buildGarrisonEncounter seals a one-human Solo PvE session and exact contes
             contestId: '12:moonshadowvillage-vs-frostfangvillage',
             attackerVillage: 'Moonshadow Village',
             defenderVillage: 'Frostfang Village',
-            anbuSlug: 'anbu-one',
+            hushSlug: 'hush-one',
             terrain: 'forest',
             roundBudget: GARRISON_ROUND_BUDGET,
         },
     });
     // Distinguishable from Anbu Infiltration's session shape even though the
     // two share a builder pattern.
-    assert.notEqual(GARRISON_ENCOUNTER_KIND, 'anbu-infiltration');
+    assert.notEqual(GARRISON_ENCOUNTER_KIND, 'hush-infiltration');
     assert.equal('actors' in session, false);
     assert.equal('towerId' in session, false);
 });
@@ -93,9 +93,9 @@ test('the attacker walks in with the HP their save holds, never a free full pool
     const at = (hp: unknown) => buildGarrisonEncounter({
         runId: 'garrison-hp', now: NOW,
         attacker: fighter('attacker', 'Attacker', 9_000, { hp }),
-        // The sealed ANBU's own save HP is irrelevant: it is content and always
+        // The sealed Anbu's own save HP is irrelevant: it is content and always
         // stands at full strength.
-        anbu: fighter('anbu-one', 'The Frostfang Anbu', 12_000, { hp: 10 }),
+        hush: fighter('hush-one', 'The Frostfang Anbu', 12_000, { hp: 10 }),
         terrain: 'forest', sector: 12, contestId: '12:moonshadowvillage-vs-frostfangvillage',
         attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
     });
@@ -108,7 +108,7 @@ test('the attacker walks in with the HP their save holds, never a free full pool
     assert.equal(at(undefined).player.hp, 9_000, 'a save with no HP field is a full pool');
 });
 
-test('attacker and ANBU start on opposing halves with tight duel spacing', () => {
+test('attacker and Anbu start on opposing halves with tight duel spacing', () => {
     const session = build();
     const width = GARRISON_MAP.width;
     const middle = Math.floor(width / 2);
@@ -124,7 +124,7 @@ test('builder is deterministic for the same authoritative inputs', () => {
 test('the sealed sector sky rides along while the defender\'s terrain stays the board', () => {
     const session = buildGarrisonEncounter({
         runId: 'garrison-sky', now: NOW,
-        attacker: fighter('attacker', 'Attacker', 9_000), anbu: fighter('anbu-one', 'The Frostfang Anbu', 12_000),
+        attacker: fighter('attacker', 'Attacker', 9_000), hush: fighter('hush-one', 'The Frostfang Anbu', 12_000),
         terrain: 'forest', sector: 12, contestId: '12:moonshadowvillage-vs-frostfangvillage',
         attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
         weather: { weatherPositiveElement: 'Lightning', weatherNegativeElement: 'Wind' },
@@ -144,7 +144,7 @@ test('garrisonSessionMatches rejects every hostile binding substitution', () => 
         contestId: '12:moonshadowvillage-vs-frostfangvillage',
         attackerVillage: 'Moonshadow Village',
         defenderVillage: 'Frostfang Village',
-        anbuSlug: 'anbu-one',
+        hushSlug: 'hush-one',
         terrain: 'forest',
     };
     assert.equal(garrisonSessionMatches(run, session), true);
@@ -154,23 +154,23 @@ test('garrisonSessionMatches rejects every hostile binding substitution', () => 
     assert.equal(garrisonSessionMatches({ ...run, contestId: '13:x-vs-y' }, session), false);
     assert.equal(garrisonSessionMatches({ ...run, attackerVillage: 'Ashen Leaf Village' }, session), false);
     assert.equal(garrisonSessionMatches({ ...run, defenderVillage: 'Stormveil Village' }, session), false);
-    assert.equal(garrisonSessionMatches({ ...run, anbuSlug: 'other-anbu' }, session), false);
+    assert.equal(garrisonSessionMatches({ ...run, hushSlug: 'other-hush' }, session), false);
     assert.equal(garrisonSessionMatches({ ...run, terrain: 'snow' }, session), false);
     // A finished-but-foreign solo-pve session (e.g. an Anbu Infiltration run
     // reusing the same runId by coincidence) must never satisfy the binding —
     // this is the anti-cheat backbone the resolve endpoint relies on.
     assert.equal(garrisonSessionMatches(run, null), false);
-    assert.equal(garrisonSessionMatches(run, { ...session, encounter: { ...session.encounter, kind: 'anbu-infiltration' } }), false);
+    assert.equal(garrisonSessionMatches(run, { ...session, encounter: { ...session.encounter, kind: 'hush-infiltration' } }), false);
 });
 
-test('shared Solo PvE engine drives the sealed ANBU (the "smart AI") and terminates the duel', () => {
+test('shared Solo PvE engine drives the sealed Anbu (the "smart AI") and terminates the duel', () => {
     let session = buildGarrisonEncounter({
         runId: 'garrison-sim',
         now: NOW,
         attacker: fighter('attacker', 'Attacker', 3_000, {
             stats: { taijutsuOffense: 100, taijutsuDefense: 50, speed: 100, willpower: 100 },
         }),
-        anbu: fighter('anbu-one', 'The Frostfang Anbu', 12_000),
+        hush: fighter('hush-one', 'The Frostfang Anbu', 12_000),
         terrain: 'snow',
         sector: 12,
         contestId: '12:moonshadowvillage-vs-frostfangvillage',
@@ -185,5 +185,5 @@ test('shared Solo PvE engine drives the sealed ANBU (the "smart AI") and termina
     }
     assert.equal(session.status, 'done');
     assert.ok(session.outcome);
-    assert.ok(session.player.hp < session.player.maxHp, 'the sealed ANBU must act against the idle attacker');
+    assert.ok(session.player.hp < session.player.maxHp, 'the sealed Anbu must act against the idle attacker');
 });

@@ -7,11 +7,12 @@ const camp = (name: string) => ({ name, level: 40, tile: 78, sleeping: true });
 
 test('world terrain includes sleeping camps and canonicalizes live/self identities', () => {
     const rows = worldPeerRoster(22, 'My Ninja', [peer('myninja'), peer('shadowfox')],
-        [peer('Shadow Fox')], [camp('shadowfox'), camp('Sleeper')]);
+        [peer('Shadow Fox')], [camp('shadowfox'), { ...camp('Sleeper'), starterWorldModel: 'starter-two' }]);
     assert.deepEqual(rows.map(p => p.name), ['Shadow Fox', 'Sleeper']);
     assert.equal(rows[0].sleeping, undefined);
     assert.equal(rows[1].sleeping, true);
     assert.equal(rows[1].tile, 78);
+    assert.equal(rows[1].character.starterWorldModel, 'starter-two');
 });
 
 test('fresh camp replaces stale nearby presence; local players precede neighboring markers', () => {

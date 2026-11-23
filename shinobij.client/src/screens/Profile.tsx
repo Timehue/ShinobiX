@@ -119,7 +119,7 @@ export function Profile({
     // row), and such a dead id must not consume a loadout slot the player can
     // never fill or see. Rebuilding the loadout from this list also prunes the
     // dead id the next time the player edits their loadout.
-    const liveEquippedIds = liveEquippedJutsuIds(allJutsus, character.equippedJutsuIds);
+    const liveEquippedIds = liveEquippedJutsuIds(allJutsus, character.equippedJutsuIds).slice(0, maxLoadout(character));
     const allItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
     // Jutsu tab lists: learned (any element), learned and equippable, and the
     // jutsu id -> granting bloodline name map for the loadout panel's labels.

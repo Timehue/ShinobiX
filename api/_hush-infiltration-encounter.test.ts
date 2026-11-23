@@ -1,0 +1,173 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { applySoloPveAction } from './solo-pve/_engine.js';
+import { hexDistance } from './combat-core/grid.js';
+import {
+    buildInfiltrationEncounter,
+    biomeForTerrain,
+    infiltrationSessionMatches,
+    INFILTRATION_MAP,
+    INFILTRATION_ROUND_BUDGET,
+    type InfiltrationFighter,
+} from './_hush-infiltration-encounter.js';
+
+const NOW = Date.UTC(2026, 6, 10, 12, 0, 0);
+
+function fighter(slug: string, name: string, maxHp: number, extra: Record<string, unknown> = {}): InfiltrationFighter {
+    return {
+        slug,
+        name,
+        character: {
+            level: 100,
+            specialty: 'Taijutsu',
+            maxHp,
+            maxChakra: 8_000,
+            maxStamina: 8_000,
+            stats: { taijutsuOffense: 4_000, taijutsuDefense: 2_000, speed: 1_000, willpower: 1_000 },
+            jutsu: [],
+            pvpItems: [],
+            equipment: {},
+            ...extra,
+        },
+    };
+}
+
+function build() {
+    return buildInfiltrationEncounter({
+        runId: 'infil-test-1',
+        now: NOW,
+        raider: { ...fighter('raider', 'Raider', 9_000), itemCharges: { kunai: 5, 'soldier-pill': 2 } },
+        hush: fighter('hush-one', 'The Frostfang Anbu', 12_000),
+        terrain: 'forest',
+        sector: 12,
+        targetVillage: 'Frostfang Village',
+    });
+}
+
+test('biomeForTerrain accepts sealed terrain values and falls back to central', () => {
+    assert.equal(biomeForTerrain('forest'), 'forest');
+    assert.equal(biomeForTerrain('SNOW'), 'snow');
+    assert.equal(biomeForTerrain('volcano'), 'volcano');
+    assert.equal(biomeForTerrain('shadow'), 'shadow');
+    assert.equal(biomeForTerrain('central'), 'central');
+    assert.equal(biomeForTerrain('swamp'), 'central');
+    assert.equal(biomeForTerrain(undefined), 'central');
+});
+
+test('buildInfiltrationEncounter seals a one-human Solo PvE session and exact raid binding', () => {
+    const session = build();
+    assert.equal(session.runtime, 'solo-pve');
+    assert.equal(session.sessionId, 'infil-test-1');
+    assert.equal(session.ownerSlug, 'raider');
+    assert.equal(session.status, 'active');
+    assert.equal(session.player.name, 'Raider');
+    assert.equal(session.player.hp, 9_000);
+    assert.equal(session.enemy.name, 'The Frostfang Anbu');
+    assert.equal(session.enemy.hp, 12_000);
+    assert.equal(session.enemy.character.boss, true);
+    assert.equal(session.enemy.character.aiTargetMode, 'lowest-hp');
+    assert.deepEqual(session.itemCharges, { kunai: 5, 'soldier-pill': 2 });
+    assert.equal(session.environment.biome, 'forest');
+    assert.deepEqual(session.environment.blockedTiles, []);
+    assert.deepEqual(session.encounter, {
+        kind: 'hush-infiltration',
+        id: '12',
+        sourceId: 'hush-one',
+        bindingId: 'infil-test-1',
+        level: 100,
+        metadata: {
+            sector: 12,
+            targetVillage: 'Frostfang Village',
+            hushSlug: 'hush-one',
+            terrain: 'forest',
+            roundBudget: INFILTRATION_ROUND_BUDGET,
+        },
+    });
+    assert.equal('actors' in session, false);
+    assert.equal('towerId' in session, false);
+});
+
+test('the raider walks in with the HP their save holds, never a free full pool', () => {
+    // The raid settles the fight's end HP onto the raider's save, so a
+    // full-pool seed made "start a raid, walk out" a free heal.
+    const at = (hp: unknown) => buildInfiltrationEncounter({
+        runId: 'infil-hp', now: NOW,
+        raider: fighter('raider', 'Raider', 9_000, { hp }),
+        hush: fighter('hush-one', 'The Frostfang Anbu', 12_000, { hp: 10 }),
+        terrain: 'forest', sector: 12, targetVillage: 'Frostfang Village',
+    });
+    const wounded = at(1_200);
+    assert.equal(wounded.player.hp, 1_200);
+    assert.equal(wounded.enemy.hp, 12_000, 'the sealed Anbu always starts full');
+    assert.equal(at(50_000).player.hp, 9_000);
+    assert.equal(at(-1).player.hp, 0);
+    assert.equal(at(undefined).player.hp, 9_000);
+});
+
+test('raider and Anbu start on opposing halves with tight duel spacing', () => {
+    const session = build();
+    const width = INFILTRATION_MAP.width;
+    const middle = Math.floor(width / 2);
+    assert.ok(session.player.pos % width < middle);
+    assert.ok(session.enemy.pos % width >= middle);
+    assert.equal(hexDistance(session.player.pos, session.enemy.pos), 4);
+});
+
+test('builder is deterministic for the same authoritative inputs', () => {
+    assert.deepEqual(build(), build());
+});
+
+test('the sealed sector sky rides along while the Kage-set terrain stays the board', () => {
+    const session = buildInfiltrationEncounter({
+        runId: 'infil-sky', now: NOW,
+        raider: fighter('raider', 'Raider', 9_000), hush: fighter('hush-one', 'The Frostfang Anbu', 12_000),
+        terrain: 'forest', sector: 12, targetVillage: 'Frostfang Village',
+        weather: { weatherPositiveElement: 'Water', weatherNegativeElement: 'Fire' },
+    });
+    assert.equal(session.environment.biome, 'forest');
+    assert.equal(session.environment.weatherPositiveElement, 'Water');
+    assert.equal(session.environment.weatherNegativeElement, 'Fire');
+    assert.equal(build().environment.weatherPositiveElement, undefined, 'no sky passed, none sealed');
+});
+
+test('infiltrationSessionMatches rejects every hostile binding substitution', () => {
+    const session = build();
+    const run = {
+        runId: 'infil-test-1',
+        raiderSlug: 'raider',
+        sector: 12,
+        targetVillage: 'Frostfang Village',
+        hushSlug: 'hush-one',
+        terrain: 'forest',
+    };
+    assert.equal(infiltrationSessionMatches(run, session), true);
+    assert.equal(infiltrationSessionMatches({ ...run, runId: 'other' }, session), false);
+    assert.equal(infiltrationSessionMatches({ ...run, raiderSlug: 'attacker' }, session), false);
+    assert.equal(infiltrationSessionMatches({ ...run, sector: 13 }, session), false);
+    assert.equal(infiltrationSessionMatches({ ...run, targetVillage: 'Moonshadow Village' }, session), false);
+    assert.equal(infiltrationSessionMatches({ ...run, hushSlug: 'other-hush' }, session), false);
+    assert.equal(infiltrationSessionMatches({ ...run, terrain: 'snow' }, session), false);
+});
+
+test('shared Solo PvE engine drives the sealed Anbu and terminates the duel', () => {
+    let session = buildInfiltrationEncounter({
+        runId: 'infil-sim',
+        now: NOW,
+        raider: fighter('raider', 'Raider', 3_000, {
+            stats: { taijutsuOffense: 100, taijutsuDefense: 50, speed: 100, willpower: 100 },
+        }),
+        hush: fighter('hush-one', 'The Frostfang Anbu', 12_000),
+        terrain: 'snow',
+        sector: 12,
+        targetVillage: 'Frostfang Village',
+    });
+    let guard = 0;
+    while (session.status === 'active' && guard++ < INFILTRATION_ROUND_BUDGET + 2) {
+        const result = applySoloPveAction(session, { type: 'wait' });
+        assert.equal(result.applied, true);
+        session = result.session;
+    }
+    assert.equal(session.status, 'done');
+    assert.ok(session.outcome);
+    assert.ok(session.player.hp < session.player.maxHp, 'the AI defender must act against the idle raider');
+});

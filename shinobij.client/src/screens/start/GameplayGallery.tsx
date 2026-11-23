@@ -1,3 +1,4 @@
+import { LandingImage } from './LandingImage';
 import { useEffect, useRef, useState } from "react";
 
 type GameplayScreenshot = { id: string; label: string; alt: string; width: number; height: number };
@@ -55,11 +56,11 @@ export function GameplayGallery() {
             <div className="landing-gallery-panel" data-landing-reveal role="tabpanel" id="landing-gallery-panel" aria-labelledby={`scene-tab-${scene.id}`} tabIndex={0}>
                 {scene.id === 'mobile-combat' ? <div className="landing-mobile-gallery">
                     {MOBILE_SCENES.map((item) => <button key={item.id} type="button" className="landing-mobile-scene" aria-label={`Enlarge mobile ${item.label} screenshot`} onClick={(event) => openScreenshot(item, event.currentTarget)}>
-                        <span className={`landing-mobile-screen${item.id === 'mobile-pet-arena' ? ' landing-mobile-screen--arena' : ''}`}><img src={`/landing/${item.id}.webp`} alt={item.alt} width={item.width} height={item.height} loading="lazy" decoding="async" /></span>
+                        <span className={`landing-mobile-screen${item.id === 'mobile-pet-arena' ? ' landing-mobile-screen--arena' : ''}`}><LandingImage src={`/landing/${item.id}.webp`} alt={item.alt} width={item.width} height={item.height} loading="lazy" decoding="async" /></span>
                         <span className="landing-mobile-label">{item.label}</span>
                     </button>)}
                 </div> : <button type="button" className="landing-gallery-image" aria-label={`Enlarge ${scene.label} screenshot`} onClick={(event) => openScreenshot(scene, event.currentTarget)}>
-                    <img key={scene.id} src={`/landing/${scene.id}.webp`} alt={scene.alt} width={scene.width} height={scene.height} loading="lazy" decoding="async" />
+                    <LandingImage key={scene.id} src={`/landing/${scene.id}.webp`} alt={scene.alt} width={scene.width} height={scene.height} loading="lazy" decoding="async" />
                     <span className="landing-gallery-enlarge" aria-hidden="true">View full size</span>
                 </button>}
                 <div className="landing-gallery-caption"><h3>{scene.title}</h3><p>{scene.description}</p></div>

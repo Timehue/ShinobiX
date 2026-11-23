@@ -39,7 +39,7 @@ All 20 new V9 clips were reviewed at 30 sampled frames per second. Every clip pa
 
 - Reviewed the complete 2:12 master at eight sampled frames per second across 22 dense contact sheets.
 - Opening contains only the real Shinobi Journey logo; the generic `CINEMATIC TRAILER` image is gone.
-- No Naruto-style symbol, metal forehead plate, headband, or glyph appears on the fox in any new close shot.
+- No forehead symbol, metal forehead plate, headband, or glyph appears on the fox in any new close shot.
 - Both duel scenes preserve one sword per fighter, opposing eyelines, stable hands, and correct directional movement.
 - Feature coverage includes companion combat, companion roster, squad loadout, bloodline awakening, four distinct squad bosses, four-clan siege, raid victory, and a world-event leviathan.
 - End card reads `JOIN THE BETA` and `SHINOBIJOURNEY.COM`.

@@ -77,7 +77,7 @@ export function TownHallWarDisplay({ village, sectorMapOpen, sectorMapStatus, se
                     <details><summary>How village war works</summary><ol>
                         <li>Travel to the shrine’s sector during a scoring window and enter its golden shrine. The first {limit} victories award {rules.winPoints} {primaryVillageWar?.campaignVersion === 2 ? 'points' : 'extra points'} each, shared across both villages. Combat continues until closing. {primaryVillageWar?.campaignVersion !== 2 && 'Normal role victory points and enemy score deductions continue after the extra-point cap. '}The village with the most uncontested time earns {rules.controlBonus.toLocaleString()} points at closing. Empty and contested time does not count; tied or zero totals award no bonus. New declarations have one two-hour window per campaign day, five hours later each day. The locked schedule shows all opening and closing times in your local time.</li>
                         <li>Find the enemy’s three strongholds through Supply, Sabotage and Espionage. Each stronghold permits only its assigned combat, pet or card battle type.</li>
-                        <li>From level 15, queue from Town Hall’s Guard tab to defend a matching stronghold and stay online and available. Attacking its ANBU calls a queued defender; strongholds use ANBU fallback when nobody can defend. Shrine fighters must physically enter the shrine.</li>
+                        <li>From level 15, queue from Town Hall’s Guard tab to defend a matching stronghold and stay online and available. Attacking its Anbu calls a queued defender; strongholds use Anbu fallback when nobody can defend. Shrine fighters must physically enter the shrine.</li>
                         <li>Enemy player wins anywhere in the world count. Spars and ranked matches do not. PvE missions have personal daily caps and contribute at most 20% of the final score.</li>
                     </ol></details>
                 </div>
@@ -101,8 +101,8 @@ export function TownHallWarDisplay({ village, sectorMapOpen, sectorMapStatus, se
                     <details><summary>How sector war works</summary><ol>
                         <li>The Kage declares a 72-hour contest over one enemy-held sector.</li>
                         <li>Fight in that sector’s chosen shinobi combat, pet or card mode. The most kill points at closing wins the sector; a tie keeps it with the defender.</li>
-                        <li>Use the Sector Map to join battles and manage defenses. Combat sectors can offer an ANBU garrison assault after two hours without live player battles.</li>
-                        <li>Donate Provisions and Materials in Treasury to support the war. The Kage manages structures and spending; ANBU can manage garrison feeding.</li>
+                        <li>Use the Sector Map to join battles and manage defenses. Combat sectors can offer an Anbu garrison assault after two hours without live player battles.</li>
+                        <li>Donate Provisions and Materials in Treasury to support the war. The Kage manages structures and spending; Anbu can manage garrison feeding.</li>
                     </ol></details>
                 </div>
             </article>

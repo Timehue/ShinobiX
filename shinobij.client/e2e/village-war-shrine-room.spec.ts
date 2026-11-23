@@ -40,7 +40,7 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
         if (body.action === 'shrine-step' && refuseSteps) return route.fulfill({ status: 409, json: { error: 'The shrine window has closed.' } });
         if (body.action === 'shrine-step') { if (holdStep) await holdStep; tile = body.tile; }
         const players = [{ name: 'auditninja', displayName: 'AuditNinja', village, tile, inBattle: false },
-            ...(rivalInside ? [{ name: 'moonshinobi', displayName: 'MoonShinobi', village: enemy, tile: 65, inBattle: false }] : [])];
+            ...(rivalInside ? [{ name: 'moonshinobi', displayName: 'MoonShinobi', village: enemy, tile: 65, inBattle: false, starterWorldModel: 'starter-two' }] : [])];
         return route.fulfill({ json: { campaign, defense: null, run: null,
             ...(String(body.action).startsWith('shrine-') ? { room: { objective: { ...objective, ...(!rivalInside ? { controlVillage: village } : {}),
                 ...(closedAt ? { closesAt: closedAt, bonusSettled: true, ...(scoredBouts === 0 ? { bonusWinner: village } : { controlTimeMs: { [village]: 120_000, [enemy]: 120_000 } }) } : {}) },
@@ -67,6 +67,9 @@ for (const version of [2, 3] as const) for (const capped of [false, true]) test(
     await expect(room.getByLabel('Uncontested control time')).toContainText(`${enemy} 0h 1m 0s`);
     await expect(room.getByRole('button', { name: 'Fight MoonShinobi', exact: true })).toBeEnabled();
     await expect.poll(() => room.locator('.war-shrine-floor-art').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    const rival = room.locator('.war-shrine-player.is-enemy img');
+    await expect(rival).toHaveAttribute('src', '/world-figures/v1/starter-two.webp');
+    await expect.poll(() => rival.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     const headingBounds = await room.getByRole('heading', { name: 'Golden War Shrine' }).boundingBox();
     const leaveBounds = await room.getByRole('button', { name: 'Leave shrine', exact: true }).boundingBox();
     expect(leaveBounds!.width).toBeLessThanOrEqual(80);

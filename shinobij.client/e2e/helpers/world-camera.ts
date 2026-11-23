@@ -29,6 +29,15 @@ export async function walkUntilOnMap(page: Page, target: Locator, advance?: (ms:
         const x = body!.x + body!.width / 2, y = body!.y + body!.height / 2;
         const inside = (v: number, from: number, size: number) => v >= from + margin && v <= from + size - margin;
         if (inside(x, view!.x, view!.width) && inside(y, view!.y, view!.height)) return;
+        // Wholly on the map and the top thing under its centre: a player can tap it right here. At night the
+        // camera leans toward a resident talking by the docks, which parks the Dockside shoal near the bottom
+        // edge, and every step toward it lands on water, so the player cannot get it any further in.
+        const onMap = body!.x >= view!.x && body!.y >= view!.y &&
+            body!.x + body!.width <= view!.x + view!.width && body!.y + body!.height <= view!.y + view!.height;
+        if (onMap && await target.evaluate(node => {
+            const r = node.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+            return !!hit && (hit === node || node.contains(hit));
+        })) return;
         // The point of the target nearest the player, and how far away it is.
         const near = { x: Math.min(body!.x + body!.width, Math.max(body!.x, centre.x)), y: Math.min(body!.y + body!.height, Math.max(body!.y, centre.y)) };
         const distance = Math.hypot(near.x - centre.x, near.y - centre.y);

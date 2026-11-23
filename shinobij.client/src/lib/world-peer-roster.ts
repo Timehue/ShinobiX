@@ -6,7 +6,7 @@ export type ContinuousWorldPeersProps = { sector: number; selfName: string; shar
 
 function sameSleepers(a: readonly SectorPeer[], b: readonly SectorPeer[]): boolean {
     return a === b || (a.length === b.length && a.every((s, i) => s.name === b[i].name && s.tile === b[i].tile
-        && Object.is(s.level, b[i].level) && s.sleeping === b[i].sleeping && s.avatar === b[i].avatar));
+        && Object.is(s.level, b[i].level) && s.sleeping === b[i].sleeping && s.avatar === b[i].avatar && s.starterWorldModel === b[i].starterWorldModel));
 }
 
 /**
@@ -31,7 +31,7 @@ export function worldPeerRoster(sector: number, selfName: string, nearby: readon
         if (liveNames.has(key)) continue;
         byName.set(key, { name: sleeper.name, level: sleeper.level, currentSector: sector,
             tile: sleeper.tile, sleeping: true, village: '', specialty: 'Ninjutsu',
-            character: { avatarImage: sleeper.avatar || '' } as PlayerRecord['character'] });
+            character: { avatarImage: sleeper.avatar || '', starterWorldModel: sleeper.starterWorldModel } as PlayerRecord['character'] });
     }
     return [...byName.values()].filter(p => playerSlug(p.name) !== playerSlug(selfName) && !p.stronghold)
         .sort((a, b) => Number(b.currentSector === sector) - Number(a.currentSector === sector));

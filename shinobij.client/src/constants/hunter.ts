@@ -18,7 +18,7 @@ export const HUNTER_RANK_LABELS: ReadonlyArray<string> = [
     "Novice Hunter",
     "Tracker",
     "Beast Slayer",
-    "Monster Hunter",
+    "Beastbane",
     "Elite Huntsman",
     "Chakra Beast Warden",
 ];

@@ -96,7 +96,9 @@ test('one saved portrait flows through screening, monthly admission, background 
     const changed = 'data:image/png;base64,'+Buffer.from('different portrait').toString('base64');
     await kv.set(perImageKey('avatar:accepted'),image);
     await kv.set(perImageKey('avatar:ac cepted'),changed);
-    assert.equal((await checkPlayerPortrait('accepted',ports)).error,'limit');
+    // A changed portrait starts a fresh check: there is no daily cap on checks (owner, 2026-11-20).
+    // (This one is not an image, so the fresh check declines it rather than refusing it as over a limit.)
+    assert.deepEqual(await checkPlayerPortrait('accepted',ports),{state:'declined'});
     assert.deepEqual(await admitModelJob('accepted',accepted.readToken,accepted.readToken,policy),{error:'read-expired'});
     await kv.set(perImageKey('avatar:ac cepted'),image);
     const jobs = (await import('./jobs.js')).default as unknown as typeof readHandler;

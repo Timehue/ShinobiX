@@ -15,15 +15,16 @@ import { STANDARD_PVE_AI_POLICY, enemyTurnPolicyForEncounter } from '../api/solo
 import { escalationCandidate, storyPressureSummary } from './story-escalation-balance-audit.js';
 import { NARRATIVE_GROUPS } from '../shared/narrative-groups.js';
 
-test('late-story builds conserve progression, own every nature, meet gear gates and use the free loadout capacity', () => {
+test('late-story builds conserve progression, own every nature, meet gear gates and fit the free loadout capacity', () => {
     for (const level of LATE_STORY_LEVELS) for (const school of GROUP_SCHOOLS) for (const focused of [false, true]) {
         const c = lateStorySave(level, school, focused).character;
         assert.equal(allocatedStatPoints(c.stats), earnedForLevel(level));
         assert.equal(c.earnedStatPoints, earnedForLevel(level));
         assert.ok(Object.values(c.stats).every(n => n <= statCapForLevel(level)));
         assert.deepEqual(c.elements, ['Earth', 'Wind']);
-        assert.equal(c.equippedJutsuIds.length, LOADOUT_CAP_BASE);
-        assert.equal(new Set(c.equippedJutsuIds).size, LOADOUT_CAP_BASE);
+        assert.equal(c.equippedJutsuIds.length, 12, 'retain the fixed balance control');
+        assert.ok(c.equippedJutsuIds.length <= LOADOUT_CAP_BASE);
+        assert.equal(new Set(c.equippedJutsuIds).size, c.equippedJutsuIds.length);
         for (const id of c.equippedJutsuIds) {
             const j = JUTSU_CATALOG[id];
             assert.ok(j, id);

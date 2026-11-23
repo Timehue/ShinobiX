@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { createServer, type Server } from "node:http";
-import { playerGaitPace } from "../../shared/sector-gait-rates";
+import { playerGaitPace, playerGaitTilesPerSecond } from "../../shared/sector-gait-rates";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
@@ -489,33 +489,45 @@ if (process.env.SECTOR_MODEL_LIGHTING_REVIEW) test.describe("Frostfang pilot rev
     }
 });
 
-test("Profile confirms cancellation and explains the used monthly creation", async ({page}) => {
+// Players cannot cancel a model (owner, 2026-11-20): a started model runs to its end.
+test("Profile shows a model in progress with no way to cancel it", async ({page}) => {
     const runtime = await installUiAuditRuntime(page, uiAuditSave());
     await page.route("**/api/world/sector-layout", route => route.fulfill({json:{
         obstaclesEnabled:true, modelArtBase:'https://models.test/sector-models',
     }}));
-    const pending = {id:'cancel-profile-job', month:'2026-12', state:'queued'};
+    const pending = {id:'progress-profile-job', month:'2026-12', state:'queued'};
     await page.route(/\/api\/avatar-model\/models(?:\?.*)?$/, route => route.fulfill({json:{models:[],before:null,pending}}));
-    await page.route("**/jobs/cancel-profile-job", route => route.fulfill({json:pending}));
-    let requests = 0;
-    await page.route("**/jobs/cancel-profile-job/cancel", route => {
-        expect(route.request().method()).toBe('POST');
-        requests++;
-        return route.fulfill({json:{state:'cancelled'}});
-    });
+    await page.route("**/jobs/progress-profile-job", route => route.fulfill({json:pending}));
     await expectUiAuditBoot(page,runtime,"profile");
     await page.getByRole("button",{name:"Equip Model",exact:true}).click();
     const dialog=page.getByRole("dialog",{name:"World model"});
-    const cancel=dialog.getByRole('button',{name:'Cancel model request'});
-    page.once('dialog', prompt => prompt.dismiss());
-    await cancel.click();
-    await expect(cancel).toBeVisible();
-    expect(requests).toBe(0);
-    page.once('dialog', prompt => prompt.accept());
-    await cancel.click();
-    await expect(dialog.getByText(/Model creation was cancelled.*creation was used/)).toBeVisible();
-    await expect(cancel).toHaveCount(0);
-    expect(requests).toBe(1);
+    await expect(dialog.getByText(/Queued for creation/)).toBeVisible();
+    await expect(dialog.getByRole('button',{name:/cancel/i})).toHaveCount(0);
+});
+
+// The server finishes a check and starts the model after the player closes the window.
+test("Profile follows a portrait check the server finishes on its own", async ({page}) => {
+    const save = uiAuditSave();
+    save.character = {...save.character, patreon:{active:true,tier:'shinobi-supporter'}};
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route("**/api/world/sector-layout", route => route.fulfill({json:{
+        obstaclesEnabled:true,modelArtBase:'https://models.test/sector-models',worldModelCreationAvailable:true,
+    }}));
+    const job = {id:'background-profile-job', month:'2026-12', state:'queued'};
+    let started = false;
+    await page.route(/\/api\/avatar-model\/models(?:\?.*)?$/, route => route.fulfill({json:{models:[],before:null,
+        ...(started ? {pending:job} : {creationAvailable:true,check:'checking'})}}));
+    await page.route("**/jobs/background-profile-job", route => route.fulfill({json:job}));
+    let checks = 0;
+    await page.route("**/api/avatar-model/read", route => { checks++; return route.abort(); });
+    await expectUiAuditBoot(page,runtime,"profile");
+    await page.locator('.profile-avatar-upload').getByRole("button",{name:"Make Model",exact:true}).click();
+    const dialog = page.getByRole("dialog",{name:"Make Model"});
+    await expect(dialog.getByText('Checking your portrait… You can close this window. Your model starts on its own.')).toBeVisible();
+    await expect(dialog.getByRole("button",{name:"Check portrait",exact:true})).toHaveCount(0);
+    started = true;
+    await expect(dialog.getByText(/Queued for creation/)).toBeVisible({timeout:40_000});
+    expect(checks, 'a running check needs no second press').toBe(0);
 });
 
 test("Profile recovers a refunded request after the player leaves", async ({page}) => {
@@ -544,12 +556,16 @@ test("Profile recovers a refunded request after the player leaves", async ({page
     await expect(dialog.getByRole('button', { name: 'Equip', exact: true })).toBeDisabled();
 });
 
-test("the top-left run button expires and refills automatically", async ({page}, info) => {
+test("the bottom-left run button expires and refills automatically", async ({page}, info) => {
     await page.clock.install();
     const save = uiAuditSave();
     save.currentSector = 46;
     save.currentTile = 66;
-    save.character = {...save.character, starterCardsClaimed:true, wandererCooldowns:quietRoadCooldowns([46])};
+    save.character = {...save.character, starterCardsClaimed:true, wandererCooldowns:quietRoadCooldowns([46]),
+        storyFieldRecords: {'story-reckoning-mira-marker': {
+            version: 1, visits: [{pointId: 'sv-ridge-gate', choiceId: 'sv-take-high-line'}],
+        }},
+    };
     const runtime = await installUiAuditRuntime(page, save);
     if (!artBase) await page.route('https://models.test/**', route => route.abort());
     await page.route('**/api/world/sector-layout', route => route.fulfill({json:{
@@ -566,21 +582,25 @@ test("the top-left run button expires and refills automatically", async ({page},
     if (artBase) await expect(map.locator('[data-world-self]')).toHaveClass(/has-sector-model/);
     const mapBounds = (await map.boundingBox())!, buttonBounds = (await run.boundingBox())!;
     expect(buttonBounds.x - mapBounds.x).toBeCloseTo(8, 0);
-    expect(buttonBounds.y - mapBounds.y).toBeCloseTo(8, 0);
+    expect(mapBounds.y + mapBounds.height - buttonBounds.y - buttonBounds.height).toBeCloseTo(8, 0);
     // Firefox reports this exact 44px button as 43.99999809px inside the scaled
     // map board; round like the other 44px touch-target checks (android-qa-report).
     expect(Math.round(buttonBounds.width)).toBeGreaterThanOrEqual(44);
     expect(Math.round(buttonBounds.height)).toBeGreaterThanOrEqual(44);
+    const journal = map.getByRole('complementary', {name:'Personal quest'});
+    const disclosure = journal.locator('.story-field-journal-disclosure');
+    await disclosure.locator('summary').first().click();
+    await expect(disclosure).toHaveAttribute('open', '');
     await run.click();
     await expect(run).toHaveAttribute('data-run-state','running');
     await expect(run).toHaveAttribute('aria-pressed','true');
     await map.screenshot({path:info.outputPath('run-active.png')});
-    await page.clock.fastForward(15_100);
+    await page.clock.fastForward(30_100);
     await expect(run).toHaveAttribute('data-run-state','refilling');
     await expect(run).toHaveAttribute('aria-pressed','false');
     await expect(run).toBeDisabled();
     await run.screenshot({path:info.outputPath('run-refilling.png')});
-    await page.clock.fastForward(20_100);
+    await page.clock.fastForward(10_100);
     await expect(run).toHaveAttribute('data-run-state','ready');
     await expect(run).toBeEnabled();
 });
@@ -624,10 +644,11 @@ test("Profile opens Make Model next to Upload avatar and creates one monthly mod
         .screenshot({path: info.outputPath('profile-model-placement.png')});
     await opener.click();
     const dialog = page.getByRole("dialog",{name:"Make Model"});
-    await expect(dialog.getByText(/sends your saved portrait to OpenAI and Modal/)).toBeVisible();
+    await expect(dialog.getByText(/sent to OpenAI and Modal/)).toBeVisible();
+    await expect(dialog.getByText(/You can close this window at any time/)).toBeVisible();
     expect(checks).toBe(0);
     await dialog.getByRole("button",{name:"Check portrait",exact:true}).click();
-    await expect(dialog.getByText('Checking your portrait…')).toBeVisible();
+    await expect(dialog.getByRole('status')).toHaveText(/^Checking your portrait…/);
     // An accepted portrait submits its model with no second click.
     const library = page.getByRole("dialog",{name:"World model"});
     await expect(library.getByText(/Queued for creation/)).toBeVisible({timeout:15000});
@@ -709,11 +730,32 @@ test("Profile previews an owned model, equips it after a lapse and restores the 
     await expect(dialog.getByText('Your new world model is ready to preview and equip.')).toBeVisible({timeout:25_000});
     await select.selectOption(ref.assetId);
     if (artBase && roster?.Patrol) {
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
         const sprite = dialog.locator(".sector-model-figure");
         await expect(sprite).toHaveAttribute("data-gait","idle",{timeout:20000});
         await dialog.getByRole("button",{name:"Preview walk"}).click();
         await expect(sprite).toHaveAttribute("data-clip","walk",{timeout:20000});
         await expect(sprite).toHaveAttribute("data-facing","2");
+        const folder = resolve(content, "players", ref.assetId);
+        const manifest = JSON.parse(await readFile(resolve(folder, ref.version + ".json"), "utf8"));
+        const bank = manifest.format === "sector-motion-v2"
+            ? JSON.parse(gunzipSync(await readFile(resolve(folder, manifest.styles.A[2]))).toString()).clips
+            : manifest.banks[2];
+        const count = bank.walk.count ?? bank.walk.origins.length;
+        const rate = await sprite.evaluate(async (el, clip: { count: number; period: number }) => {
+            const nextFrame = () => new Promise<number>(done => requestAnimationFrame(done));
+            const start = await nextFrame();
+            let now = start, previous = Number(el.dataset.frame), frames = 0;
+            while (now - start < 1000) {
+                now = await nextFrame();
+                const current = Number(el.dataset.frame);
+                frames += (current - previous + clip.count) % clip.count;
+                previous = current;
+            }
+            return frames / clip.count * clip.period * 1000 / (now - start);
+        }, { count, period: bank.walk.period });
+        expect(rate).toBeGreaterThan(playerGaitPace.walk * .75);
+        expect(rate).toBeLessThan(playerGaitPace.walk * 1.1);
         await dialog.getByRole("button",{name:"Preview walk"}).click();
         await expect(sprite).toHaveAttribute("data-clip","idle",{timeout:20000});
         await expect(sprite).toHaveAttribute("data-facing","2");
@@ -733,6 +775,49 @@ test("Profile previews an owned model, equips it after a lapse and restores the 
 
 test.describe("equipped player upload", () => {
     test.use({ contextOptions: { reducedMotion: "no-preference" } });
+    test("a missing player model still walks and runs at the configured ground speeds", async ({ page }) => {
+        const save = uiAuditSave();
+        save.currentSector = 46;
+        save.currentTile = 66;
+        save.character = { ...save.character, starterCardsClaimed: true, wandererCooldowns: quietRoadCooldowns([46]) };
+        await installUiAuditRuntime(page, save);
+        const art = 'https://models.test/sector-models';
+        await page.route(art + '/**', route => route.fulfill({ status: 404, body: '' }));
+        await page.route('**/api/world/sector-layout', route => route.fulfill({ json: {
+            obstaclesEnabled: true, playerGaitsEnabled: true, modelArtBase: art,
+        } }));
+        await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', '[10,20,30,40,45]'));
+        await page.clock.install();
+        const missing = page.waitForResponse(response => response.url().startsWith(art + '/starter-') && response.status() === 404);
+        await page.goto('/#/worldMap');
+        const back = page.getByRole('button', { name: /Return to Sector 46/ });
+        const canvas = page.locator('.continuous-world-map > canvas');
+        await expect(back.or(canvas).first()).toBeVisible();
+        await returnToTerrain(back);
+        await missing;
+        const marker = page.locator('[data-world-self]');
+        await expect(marker.locator('.sector-avatar-body')).toBeVisible();
+        await expect(marker).not.toHaveClass(/has-sector-model/);
+        const run = page.getByRole('button', { name: 'Run', exact: true });
+        await expect(run).toBeEnabled();
+        await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1000));
+        const x = async () => Number(await canvas.getAttribute('data-world-x'));
+        for (const gait of ['walk', 'run'] as const) {
+            if (gait === 'run') await run.evaluate(button => button.click());
+            await expect(run).toHaveAttribute('aria-pressed', String(gait === 'run'));
+            await canvas.focus();
+            await page.keyboard.down('ArrowRight');
+            try {
+                await page.clock.runFor(16);
+                const start = await x();
+                await page.clock.runFor(160);
+                expect(await x() - start).toBeCloseTo(playerGaitTilesPerSecond[gait] * .16, 1);
+            } finally {
+                await page.keyboard.up('ArrowRight');
+            }
+            await page.clock.runFor(200);
+        }
+    });
     test("a moving NPC holds its last pose during a delayed facing and restores its fitted animation",async({page},info)=>{
         test.setTimeout(90_000);
         test.skip(!artBase,"Mount the local NPC packages");
@@ -1061,8 +1146,8 @@ test.describe("equipped player upload", () => {
         // The peer walks east from FROM to WALK_TO, then the sprint packet sends it running
         // on to RUN_TO, all along row 5. Peers are polled every 2 s and replayed at the
         // player walk pace, so the walk leg must outlast a poll for the sprint packet to
-        // land mid-walk: 4 tiles is ~3.9 s at 1.03 tiles/s.
-        const FROM=63, WALK_TO=67, RUN_TO=70;
+        // land mid-walk. Seven tiles give it over three seconds at the player walk pace.
+        const FROM=60, WALK_TO=67, RUN_TO=71;
         let equipped=true, tile=FROM, atSprintUpdate: number | undefined, walkIssuedAt: number | undefined;
         const peer=page.locator(".continuous-world-peer").filter({hasText:"Test Scout"});
         const markerX=()=>peer.evaluate(el=>new DOMMatrixReadOnly(getComputedStyle(el).transform).m41);
@@ -1085,7 +1170,8 @@ test.describe("equipped player upload", () => {
         const sprite=peer.locator(".sector-model-figure");
         await expect(sprite).toHaveAttribute("data-clip","idle",{timeout:15000});
         const start=await markerX();
-        const tileWidth=await page.locator(".continuous-world-map").evaluate(el=>el.clientWidth/12);
+        // The peer layer spans the whole sector, including the tiles outside a phone's viewport.
+        const tileWidth=await page.locator(".continuous-world-peers").evaluate(el=>el.clientWidth/12);
         await sprite.evaluate(el=>{
             const firstRun=new MutationObserver(()=>{
                 if (el.getAttribute("data-gait")!=="run") return;
@@ -1137,9 +1223,9 @@ test.describe("equipped player upload", () => {
         await page.route("**/api/world/sector-layout",route=>route.fulfill({json:{
             obstaclesEnabled:true,playerGaitsEnabled:true,modelArtBase:artBase,
         }}));
-        let resume!:()=>void;
+        let resume!:()=>void, requested=false;
         const gate=new Promise<void>(resolve=>{resume=resolve;});
-        await page.route("**/"+root.styles.A[2],async route=>{await gate;await route.continue();});
+        await page.route("**/"+root.styles.A[2],async route=>{requested=true;await gate;await route.continue();});
         await page.addInitScript(()=>localStorage.setItem("legacyRumors.seen.v1:auditninja","[10,20,30,40,45]"));
         await page.goto("/#/worldMap");
         const canvas=page.locator(".continuous-world-map > canvas");
@@ -1149,10 +1235,10 @@ test.describe("equipped player upload", () => {
         const marker=page.locator("[data-world-self]"), actor=marker.locator(".sector-model-figure");
         await expect(actor).toHaveAttribute("data-clip","idle",{timeout:15000});
         await canvas.focus();
-        const request=page.waitForRequest(url=>url.url().endsWith(root.styles.A[2]));
         await page.keyboard.down("ArrowRight");
         try {
-            await request;
+            // Focusing the canvas can prefetch the facing before the first keydown.
+            await expect.poll(()=>requested).toBe(true);
             const start=Number(await canvas.getAttribute("data-world-x"));
             await expect.poll(async()=>Number(await canvas.getAttribute("data-world-x"))-start,{timeout:3000}).toBeGreaterThan(.04);
             // Travel went ahead without the page, and the standing pose stayed up.
@@ -1474,8 +1560,14 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
                     const {rate,samples} = await sample();
                     await writeFile(info.outputPath((running ? "run" : "walk")+"-samples.json"),JSON.stringify(samples));
                     rates.push(rate);
-                    // Players play the authored clips faster (feet stay planted).
-                    const target = running ? 120 * playerGaitPace.run : 31 * playerGaitPace.walk;
+                    // The average includes the start and any pause for art. The median
+                    // frame also checks the speed the player actually sustains.
+                    const tilesPerSecond = playerGaitTilesPerSecond[running ? 'run' : 'walk'];
+                    const frameRates = samples.map(([ms, tiles]) => tiles * 1000 / ms).sort((a, b) => a - b);
+                    const median = frameRates[Math.floor(frameRates.length / 2)];
+                    expect(median).toBeGreaterThan(tilesPerSecond * .9);
+                    expect(median).toBeLessThan(tilesPerSecond * 1.1);
+                    const target = tilesPerSecond * 90;
                     expect(rate).toBeGreaterThan(target * .65);
                     expect(rate).toBeLessThan(target * 1.10);
                     await page.screenshot({path: info.outputPath((running ? "run" : "walk")+".png")});

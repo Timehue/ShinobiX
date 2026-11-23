@@ -25,5 +25,5 @@ Subject/action: On the left, a Fire-and-Earth village army charges toward screen
 Style/medium: premium AAA-quality 2D anime feature-film concept art, crisp anatomy and silhouettes, detailed cel-painted rendering, cinematic depth and motion energy, consistent with the reference.
 Composition/framing: ultra-wide battlefield, strong left-versus-right visual grammar, low heroic camera, readable foreground champions on both edges, armies converging toward the center. Keep the lower central title-safe area relatively dark and uncluttered for a later caption, while keeping the elemental collision above it.
 Lighting/mood: violent elemental illumination, orange fire and ochre earth versus cobalt water and violet-blue lightning, rain catching colored light, epic desperate war.
-Constraints: no text, no captions, no logos, no watermarks, no UI, no modern objects, no Naruto or copyrighted symbols, no headband emblems, no characters facing away from the enemy, no armies attacking architecture, no duplicated heroes, no malformed hands or extra limbs.
+Constraints: no text, no captions, no logos, no watermarks, no UI, no modern objects, no emblems or symbols of any kind, no headband plates, no characters facing away from the enemy, no armies attacking architecture, no duplicated heroes, no malformed hands or extra limbs.
 ```

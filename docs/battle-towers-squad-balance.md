@@ -318,8 +318,8 @@ has no final summary and is not counted as a pass. Exact logs and source scopes
 are recorded in the certification artifact. The current counterplay follow-up
 is validated separately above.
 
-The [research audit](battle-towers-research-audit-2026-10-24.md) records first-party
-FFXIV, Guild Wars 2, Destiny and Left 4 Dead comparisons. Its older weak-gear
+The [research audit](battle-towers-research-audit-2026-10-24.md) records the
+co-op design principles behind the towers. Its older weak-gear
 numbers are superseded by this document and the current numeric owner.
 
 Before the v5 rollout, the integrated release still required exact production

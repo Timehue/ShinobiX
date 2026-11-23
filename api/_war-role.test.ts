@@ -4,7 +4,7 @@ import { kv } from './_storage.js';
 import {
     ROLE_KAGE,
     ROLE_ELDER,
-    ROLE_ANBU,
+    ROLE_HUSH,
     ROLE_VILLAGER,
     ROLE_MERC,
     sealedSectorWarRoleOf,
@@ -30,10 +30,10 @@ async function withKvRecords<T>(records: Map<string, unknown>, run: () => Promis
 }
 
 describe('war-role: weights mirror the village-war model', () => {
-    it('Kage 30/50, Elder 20/20, ANBU 15/0, villager 5/0; a merc is a villager', () => {
+    it('Kage 30/50, Elder 20/20, Anbu 15/0, villager 5/0; a merc is a villager', () => {
         assert.deepEqual(ROLE_KAGE, { win: 30, loss: 50 });
         assert.deepEqual(ROLE_ELDER, { win: 20, loss: 20 });
-        assert.deepEqual(ROLE_ANBU, { win: 15, loss: 0 });
+        assert.deepEqual(ROLE_HUSH, { win: 15, loss: 0 });
         assert.deepEqual(ROLE_VILLAGER, { win: 5, loss: 0 });
         assert.deepEqual(ROLE_MERC, ROLE_VILLAGER);
     });
@@ -86,7 +86,7 @@ describe('war-role: the Kage seat key', () => {
 });
 
 describe('war-role: sealed village authority', () => {
-    it('does not let a post-battle Kage/ANBU appointment amplify sealed villager evidence', async () => {
+    it('does not let a post-battle Kage/Anbu appointment amplify sealed villager evidence', async () => {
         const createdAt = 1_800_000_000_000;
         const evidence = {
             version: 1 as const,
@@ -97,7 +97,7 @@ describe('war-role: sealed village authority', () => {
         const appointedAfterBattle = new Map<string, unknown>([
             ['save:fighter', { character: { village: 'Leaf' } }],
             ['village:kage:leaf', { seatedKage: 'fighter' }],
-            ['game:village-state:leaf', { anbuAppointees: ['fighter'] }],
+            ['game:village-state:leaf', { hushAppointees: ['fighter'] }],
         ]);
         assert.deepEqual(
             await withKvRecords(appointedAfterBattle, () => sectorWarRoleOf('fighter', 'Leaf')),
@@ -116,7 +116,7 @@ describe('war-role: sealed village authority', () => {
         );
     });
 
-    it('does not import Kage, ANBU, or clan-leader weight after a village switch', async () => {
+    it('does not import Kage, Anbu, or clan-leader weight after a village switch', async () => {
         const roleCases: Array<{
             label: string;
             seat: Record<string, unknown>;
@@ -124,7 +124,7 @@ describe('war-role: sealed village authority', () => {
             character?: Record<string, unknown>;
         }> = [
             { label: 'seated Kage', seat: { seatedKage: 'switcher' }, villageState: {} },
-            { label: 'appointed ANBU', seat: {}, villageState: { anbuAppointees: ['switcher'] } },
+            { label: 'appointed Anbu', seat: {}, villageState: { hushAppointees: ['switcher'] } },
             { label: 'client-claimed clan leader', seat: {}, villageState: {}, character: { clan: 'Cloud Guard', clanFounder: true } },
         ];
 
@@ -150,21 +150,21 @@ describe('war-role: sealed village authority', () => {
             ROLE_KAGE,
         );
 
-        const anbuRecords = new Map<string, unknown>([
+        const hushRecords = new Map<string, unknown>([
             ['save:operative', { character: { village: 'Mist' } }],
             ['village:kage:mist', {}],
-            ['game:village-state:mist', { anbuAppointees: ['operative'] }],
+            ['game:village-state:mist', { hushAppointees: ['operative'] }],
         ]);
         assert.deepEqual(
-            await withKvRecords(anbuRecords, () => sectorWarRoleOf('operative', 'Mist')),
-            ROLE_ANBU,
+            await withKvRecords(hushRecords, () => sectorWarRoleOf('operative', 'Mist')),
+            ROLE_HUSH,
         );
 
         const multiWordNames = new Map<string, unknown>([
             ['save:ladyraine', { character: { village: 'Mist' } }],
             ['save:hiddenblade', { character: { village: 'Mist' } }],
             ['village:kage:mist', { seatedKage: 'Lady Raine' }],
-            ['game:village-state:mist', { anbuAppointees: ['Hidden Blade'] }],
+            ['game:village-state:mist', { hushAppointees: ['Hidden Blade'] }],
         ]);
         assert.deepEqual(
             await withKvRecords(multiWordNames, () => sectorWarRoleOf('Lady Raine', 'Mist')),
@@ -172,17 +172,17 @@ describe('war-role: sealed village authority', () => {
         );
         assert.deepEqual(
             await withKvRecords(multiWordNames, () => sectorWarRoleOf('Hidden Blade', 'Mist')),
-            ROLE_ANBU,
+            ROLE_HUSH,
         );
 
     });
 
-    it('ignores forged Kage, Elder, and ANBU titles', async () => {
-        for (const storyTitle of ['Kage', 'Second Elder', 'ANBU Captain']) {
+    it('ignores forged Kage, Elder, and Anbu titles', async () => {
+        for (const storyTitle of ['Kage', 'Second Elder', 'Anbu Captain']) {
             const records = new Map<string, unknown>([
                 ['save:forger', { character: { village: 'Mist', storyTitle, rankTitle: storyTitle } }],
                 ['village:kage:mist', {}],
-                ['game:village-state:mist', { anbuAppointees: [] }],
+                ['game:village-state:mist', { hushAppointees: [] }],
             ]);
             assert.deepEqual(
                 await withKvRecords(records, () => sectorWarRoleOf('forger', 'Mist')),

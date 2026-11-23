@@ -5,7 +5,7 @@ import { sanitizeCharacterSave } from './[name].js';
 /*
  * Village Merit gates a Kage challenge (KAGE_MIN_MERIT 250), and only server
  * endpoints may credit it: the daily agenda, map control, treasury donations,
- * ANBU cache turn-ins and war crates. Valuing donated items at their NPC sale
+ * Anbu cache turn-ins and war crates. Valuing donated items at their NPC sale
  * value (economy rebalance 2026-10, I-7) closes nothing if a generic save can
  * simply write 9,999 merit, which it could: the field had no ownership entry.
  * The stored value must win whatever the client sends, omits or zeroes.

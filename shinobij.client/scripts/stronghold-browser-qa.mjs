@@ -89,7 +89,7 @@ async function prepare(browser, viewport, state, query = '', beforeNavigate, { h
         if (action === 'state' && state.failResume) return fail('Connection temporarily unavailable.');
         if (action === 'start') { state.starts++; if (state.onStart) return state.onStart(route); }
         if (route.request().url().includes('/api/qa/stronghold-attack')) { state.attacks++; return state.onAttack ? state.onAttack(route) : route.fulfill({ json: { ok: true } }); }
-        if (action === 'state' || action === 'start' || action === 'recover') return route.fulfill({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', anbu: { name: 'The Moonshadow Anbu' } } });
+        if (action === 'state' || action === 'start' || action === 'recover') return route.fulfill({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', hush: { name: 'The Moonshadow Anbu' } } });
         if (action === 'stronghold-patrol-report' || action === 'report') {
             state.reports++;
             if (state.failReport) return fail('Settlement temporarily unavailable.');
@@ -194,15 +194,18 @@ try {
             while (!state.releaseStart) await page.waitForTimeout(10);
             state.releaseStart();
             await page.locator('.hex-grid-layer').waitFor();
-            checks.push({ engine: engineName, pendingAnbuDismissal: true, admittedBattlePreserved: true });
+            checks.push({ engine: engineName, pendingHushDismissal: true, admittedBattlePreserved: true });
             await page.close();
         }
         for (const sector of [12, 99]) {
             const state = fixture({ sector });
             const page = await prepare(browser, { width: 390, height: 844 }, state, `?host=1&sector=${sector}&cachedAvatar=1`);
             await ready(page); await fits(page);
-            assert.equal(await page.locator('.stronghold-player img').getAttribute('src'), '/anbu/frostfang.webp');
-            assert.equal(await page.locator('.stronghold-peer-avatar img').getAttribute('src'), '/anbu/moonshadow.webp');
+            for (const [actor, kind] of [['.stronghold-player', 'starter-one'], ['.stronghold-peer-avatar', 'starter-two']]) {
+                const figure = page.locator(actor).locator('img.world-standing-figure');
+                assert.equal(await figure.getAttribute('src'), `/world-figures/v1/${kind}.webp`);
+                await figure.evaluate(image => image.decode());
+            }
             // The transparent padding must open inspection without walking onto the tile.
             const target = await page.locator('.stronghold-peer').boundingBox();
             await page.locator('.stronghold-peer').click({ position: { x: 1, y: target.height / 2 } });
@@ -210,7 +213,7 @@ try {
             assert.equal(state.steps, 0);
             await page.keyboard.press('Escape');
             await page.getByRole('dialog').waitFor({ state: 'hidden' });
-            checks.push({ engine: engineName, sector, cachedPortraits: true, avatarSizeParity: true, transparentTouchTarget: true });
+            checks.push({ engine: engineName, sector, cachedAvatarStandingFigures: true, avatarSizeParity: true, transparentTouchTarget: true });
             await page.close();
         }
         for (const [width, height] of [[320, 568], [390, 844], [430, 932], [844, 390], [1920, 1080]]) {
@@ -241,14 +244,14 @@ try {
         {
             const state = fixture({ sector: 99, tile: 697, visited: [697], crowd: 0 });
             const page = await prepare(browser, { width: 390, height: 844 }, state, '?host=1&sector=99', page =>
-                page.addInitScript(() => localStorage.setItem('anbuInfiltration.activeRun:scout', 'unrelated-saved-anbu')));
+                page.addInitScript(() => localStorage.setItem('hushInfiltration.activeRun:scout', 'unrelated-saved-hush')));
             await ready(page);
             await page.getByRole('button', { name: 'Move right', exact: true }).click();
             await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '4');
             assert.equal(state.visit.tile, 698, 'the altar must be walkable');
             assert.equal(await page.getByRole('dialog').count(), 0, 'no village Anbu in Death’s Gate');
-            assert.equal(await page.evaluate(() => localStorage.getItem('anbuInfiltration.activeRun:scout')), 'unrelated-saved-anbu');
-            checks.push({ engine: engineName, obsidianAltar: true, savedAnbuIsolated: true });
+            assert.equal(await page.evaluate(() => localStorage.getItem('hushInfiltration.activeRun:scout')), 'unrelated-saved-hush');
+            checks.push({ engine: engineName, obsidianAltar: true, savedHushIsolated: true });
             await page.close();
         }
         for (const [width, height] of [[320, 568], [390, 844], [430, 932], [844, 390], [1920, 1080]]) {
@@ -314,9 +317,9 @@ try {
         // for those old-document fetches before any API request is dispatched).
         const recovery = fixture({ failResume: true });
         const retry = await prepare(browser, { width: 390, height: 844 }, recovery, '?host=1', page =>
-            page.addInitScript(() => localStorage.setItem('anbuInfiltration.activeRun:scout', 'qa-patrol')));
+            page.addInitScript(() => localStorage.setItem('hushInfiltration.activeRun:scout', 'qa-patrol')));
         await retry.getByRole('button', { name: 'Retry connection' }).waitFor();
-        assert.equal(await retry.evaluate(() => localStorage.getItem('anbuInfiltration.activeRun:scout')), 'qa-patrol');
+        assert.equal(await retry.evaluate(() => localStorage.getItem('hushInfiltration.activeRun:scout')), 'qa-patrol');
         recovery.failResume = false; await retry.getByRole('button', { name: 'Retry connection' }).click();
         await retry.getByRole('heading', { name: 'Rejoining your infiltration' }).waitFor({ state: 'hidden' });
         checks.push(`${engineName}: failed recovery retains account-scoped fight and retries`); await retry.close();
@@ -349,7 +352,7 @@ try {
         {
             const lostResponse = fixture({ recoverActive: true });
             const page = await prepare(browser, { width: 390, height: 844 }, lostResponse, '?host=1');
-            await page.waitForFunction(() => localStorage.getItem('anbuInfiltration.activeRun:scout') === 'qa-patrol');
+            await page.waitForFunction(() => localStorage.getItem('hushInfiltration.activeRun:scout') === 'qa-patrol');
             await page.locator('.stronghold-shell').waitFor({ state: 'hidden' });
             assert.equal(lostResponse.starts, 0, 'server recovery cannot start a second raid');
             await page.reload();

@@ -734,7 +734,7 @@ textarea:focus-visible,
     top: 0;
     left: 0;
     display: grid;
-    transition: transform 340ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    transition: transform var(--hg-step-duration) linear;
     will-change: transform;
 }
 

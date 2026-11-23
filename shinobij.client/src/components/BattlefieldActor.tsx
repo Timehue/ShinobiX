@@ -1,4 +1,5 @@
 import React, { useState, type CSSProperties, type ReactNode } from "react";
+import { DEFAULT_PLAYER_BATTLE_SPRITE } from '../lib/battlefield-fighter-art';
 import { isImageAvatar } from "../lib/avatar";
 import { PetSummonEntrance } from './PetSummonEntrance';
 import { useBattlefieldModelSprite } from '../lib/use-battlefield-model-sprite';
@@ -16,13 +17,12 @@ type BattlefieldActorProps = {
      *  layer (lib/battlefield-reactions) can find this anchor without React state. */
     actorId?: string;
     label: string;
-    portrait?: string | null;
+    fallbackSprite?: string | null;
     sprite?: string | null;
     model?: PlayerModel;
     spriteKind?: BattlefieldSpriteKind;
     facing?: BattlefieldSpriteFacing;
     nativeFacing?: BattlefieldSpriteFacing;
-    fallback?: ReactNode;
     className?: string;
     style?: CSSProperties;
     children?: ReactNode;
@@ -35,51 +35,34 @@ type BattlefieldActorProps = {
 export type { BattlefieldSpriteKind };
 
 /**
- * Presentation-only combatant marker. The outer actor anchor remains the source
- * of truth for movement, HP badges, targeting, and board scaling; only the art
- * inside it changes between a grounded portrait pin and an optional full-body
- * sprite. The wrapper never receives pointer events, so the hex/button beneath
- * it keeps owning every combat interaction.
+ * Each fighter's fixed anchor carries movement, reactions and targeting.
+ * The equipped model can finish loading after the bundled battle sprite.
  */
 export function BattlefieldActor({
     side,
     actorId,
     label,
-    portrait,
+    fallbackSprite,
     sprite,
     model,
     spriteKind,
     facing,
     nativeFacing,
-    fallback,
     className = "",
     style,
     children,
     summon = false,
 }: BattlefieldActorProps) {
-    const [failedSprite, setFailedSprite] = useState<string | null>(null);
-    const [failedModelSprite, setFailedModelSprite] = useState<string | null>(null);
-    const [failedPortrait, setFailedPortrait] = useState<string | null>(null);
+    const [failed, setFailed] = useState<readonly string[]>([]);
     const modelSprite = useBattlefieldModelSprite(model);
-    const modelSrc = modelSprite && modelSprite !== failedModelSprite ? modelSprite : "";
-    const spriteSrc = modelSrc || (isImageAvatar(sprite) && failedSprite !== sprite ? sprite : "");
-    const portraitSrc = isImageAvatar(portrait) && failedPortrait !== portrait ? portrait : "";
-    const initials = fallback ?? label.trim().slice(0, 2).toUpperCase();
-    const resolvedSpriteKind = spriteSrc ? spriteKind ?? inferSpriteKind(spriteSrc) : undefined;
-    const resolvedNativeFacing = nativeFacing ?? (spriteSrc ? inferSpriteNativeFacing(spriteSrc) : "left");
-    const resolvedFacing = spriteSrc ? facing ?? resolvedNativeFacing : undefined;
-    const mirrored = spriteSrc ? resolvedFacing !== resolvedNativeFacing : undefined;
-
-    const art = spriteSrc ? (
-        <img className="battlefield-actor-sprite" src={spriteSrc} alt="" draggable={false} onError={() => (modelSrc ? setFailedModelSprite : setFailedSprite)(spriteSrc)} />
-    ) : (
-        <span className="battlefield-actor-marker">
-            <span className="battlefield-actor-pin" />
-            <span className="battlefield-actor-portrait">
-                <span className="battlefield-actor-fallback">{initials}</span>
-                {portraitSrc && <img className="battlefield-actor-portrait-image" src={portraitSrc} alt="" draggable={false} onError={() => setFailedPortrait(portraitSrc)} />}
-            </span>
-        </span>
+    const spriteSrc = [modelSprite, sprite, fallbackSprite ?? DEFAULT_PLAYER_BATTLE_SPRITE]
+        .find((url): url is string => !!url && isImageAvatar(url) && !failed.includes(url));
+    const resolvedSpriteKind = spriteKind ?? inferSpriteKind(spriteSrc ?? "");
+    const resolvedNativeFacing = nativeFacing ?? inferSpriteNativeFacing(spriteSrc ?? "");
+    const resolvedFacing = facing ?? resolvedNativeFacing;
+    const art = spriteSrc && (
+        <img key={spriteSrc} className="battlefield-actor-sprite" src={spriteSrc} alt={label} draggable={false}
+            onError={() => setFailed(urls => urls.includes(spriteSrc) ? urls : [...urls, spriteSrc])} />
     );
 
     return (
@@ -89,16 +72,16 @@ export function BattlefieldActor({
                 "avatar-orb",
                 "battlefield-actor",
                 side === "enemy" ? "enemy-orb battlefield-actor--enemy" : "battlefield-actor--player",
-                spriteSrc ? "battlefield-actor--sprite" : "battlefield-actor--marker",
+                "battlefield-actor--sprite",
                 className,
             ].filter(Boolean).join(" ")}
             data-battlefield-actor={side}
             data-battlefield-actor-id={actorId}
-            data-battlefield-presentation={spriteSrc ? "sprite" : "marker"}
+            data-battlefield-presentation="sprite"
             data-battlefield-sprite-kind={resolvedSpriteKind}
             data-battlefield-facing={resolvedFacing}
-            data-battlefield-native-facing={spriteSrc ? resolvedNativeFacing : undefined}
-            data-battlefield-mirrored={spriteSrc ? String(mirrored) : undefined}
+            data-battlefield-native-facing={resolvedNativeFacing}
+            data-battlefield-mirrored={String(resolvedFacing !== resolvedNativeFacing)}
             style={style}
         >
             {summon ? <PetSummonEntrance>{art}</PetSummonEntrance> : art}

@@ -23,6 +23,7 @@ import "../../styles/index/33-hollow-gate-cinematic.css";
 import "../../styles/index/29-clan-exchange-storefront.css";
 import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
+import { HOLLOW_GATE_STEP_MS } from "./use-hollow-gate-walk";
 import { HollowHoundFigure } from "./HollowHoundFigure";
 import { useSectorModelPins } from "../../lib/sector-model-pins";
 import { isPlayerModel, starterModel, useSprintStyle } from "../../lib/player-model";
@@ -174,7 +175,8 @@ function iconSlotIdFor(k: HollowGateTileKind): string | null {
 }
 
 type HollowGateCellProps = {
-    houndArtBase: string | null;
+    /** Undefined for other encounters. A null base uses the bundled hound pose. */
+    houndArtBase?: string | null;
     i: number; x: number; y: number; tile: HollowGateTile;
     wall: boolean; wallFace: boolean;
     visible: boolean; known: boolean; isPlayer: boolean; isDest: boolean; clickable: boolean;
@@ -272,7 +274,7 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tile, wall, wallF
                      aria-hidden="true"
                      className="hg-icon-img"
                  />
-             ) : houndArtBase && showHound ? <HollowHoundFigure key={houndArtBase} artBase={houndArtBase}>{fallbackIcon}</HollowHoundFigure>
+             ) : showHound && houndArtBase !== undefined ? <HollowHoundFigure key={houndArtBase} artBase={houndArtBase} />
              : fallbackIcon}
         </div>
     );
@@ -425,7 +427,7 @@ export function HollowGateShrineView({
     const isFinalFloor = run.floor >= maxFloor;
     const isHoundBoss = bossName.toLowerCase().includes("hound");
     const houndArtBase = !isQuestRift && hollowGateHoundCombatImage(sharedImages) === HOLLOW_GATE_HOUND_COMBAT
-        && !sharedImages['hollow-gate:hound:combat'] ? modelArtBase : null;
+        && !sharedImages['hollow-gate:hound:combat'] ? modelArtBase : undefined;
     const bossIntroKey = `${run.runToken || run.serverSeed || character.name || "local"}:${run.floor}`;
     const [dismissedBossIntroKey, setDismissedBossIntroKey] = useState<string | null>(null);
     const showBossIntro = hollowGateIntroPage === null
@@ -437,6 +439,7 @@ export function HollowGateShrineView({
         && dismissedBossIntroKey !== bossIntroKey
         && !bossIntroWasSeen(bossIntroKey);
     const floorStyle = {
+        "--hg-step-duration": `${HOLLOW_GATE_STEP_MS}ms`,
         ...(!isQuestRift ? {
             "--hg-floor-accent": floorProfile.accent,
             "--hg-floor-accent-soft": floorProfile.accentSoft,
@@ -643,6 +646,7 @@ export function HollowGateShrineView({
                                      <div
                                          key={`${run.runToken ?? 'local'}:${run.floor}`}
                                          className="hg-board"
+                                         data-gamepad-mode="sector"
                                          data-tile-size={tilePx}
                                          role="grid"
                                          aria-label={`Floor ${run.floor} dungeon grid`}
@@ -676,7 +680,7 @@ export function HollowGateShrineView({
                                         const wall = isWallAt(x, y);
                                         const secret = hollowGateSecretSealed(tile);
                                         return <HollowGateCell key={i} i={i} x={x} y={y} tile={tile}
-                                            houndArtBase={tile.kind === 'boss' && !isHoundBoss ? null : houndArtBase}
+                                            houndArtBase={tile.kind === 'boss' && !isHoundBoss ? undefined : houndArtBase}
                                             wall={wall} wallFace={wall && !isWallAt(x, y + 1)} visible={visible} known={known} isPlayer={isPlayer} isDest={walkTarget === i}
                                             secret={secret}
                                             fissure={fissures.has(i) ? hollowGateFissureState(fissures.get(i)!, arenaNow) : undefined}
@@ -687,14 +691,14 @@ export function HollowGateShrineView({
                                     })}
                                     {run.tiles.map((tile, index) => tile.kind === 'npc' && !tile.resolved && visibleSet.has(index)
                                         ? <HollowGateAvatar key={`keeper-${index}`} tileX={index % w} tileY={Math.floor(index / w)} tilePx={tilePx}
-                                            avatarImage="/underground/wanderer-medic-v1.webp" name="Shrine Keeper" disposition="friendly"
+                                            name="Shrine Keeper" disposition="friendly"
                                             artBase={modelArtBase} modelKind={portraitModels.get('/underground/wanderer-medic-v1.webp')}
                                             label="Friendly · One blessing" onSelect={() => onTileClick(index)} /> : null)}
                                     {run.wanderers?.filter(npc => !npc.spent && visibleSet.has(npc.tile)).map(npc => {
                                         const friendly = hollowGateWandererFriendly(npc), name = hollowGateWandererName(npc);
                                         const portrait = hollowGateWandererArt(npc);
                                         return <HollowGateAvatar key={npc.nodeId} tileX={npc.tile % w} tileY={Math.floor(npc.tile / w)} tilePx={tilePx}
-                                            avatarImage={portrait} name={name} disposition={friendly ? 'friendly' : 'hostile'}
+                                            name={name} disposition={friendly ? 'friendly' : 'hostile'}
                                             artBase={modelArtBase} modelKind={portraitModels.get(portrait)}
                                             label={friendly ? 'Friendly · Talk' : npc.hunting ? 'Hostile · Hunting you' : 'Hostile patrol'} onSelect={() => onTileClick(npc.tile)} />;
                                     })}
@@ -702,8 +706,8 @@ export function HollowGateShrineView({
                                         tileX={run.playerX}
                                         tileY={run.playerY}
                                         tilePx={tilePx}
-                                        avatarImage={playerPortrait} artBase={playerGaits ? modelArtBase : null}
-                                        modelKind={starterModel(playerPortrait || '')} equipped={equipped} sprintStyle={sprintStyle}
+                                        artBase={playerGaits ? modelArtBase : null}
+                                        modelKind={starterModel(playerPortrait || '', character.starterWorldModel)} equipped={equipped} sprintStyle={sprintStyle}
                                         name={character.name} self
                                     />
                                     </div>
@@ -835,7 +839,7 @@ export function HollowGateShrineView({
 
                             {/* Movement and always-available recovery controls. */}
                             <div className="hg-controls" style={{ marginTop: 12, display: "flex", justifyContent: "center", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-                                <div style={{ fontSize: 12, color: "#c4b5fd" }}>Tap a tile to walk there · WASD / arrows step · or:</div>
+                                <div style={{ fontSize: 12, color: "#c4b5fd" }}>Tap a tile to walk there, or move with WASD, arrow keys, or the left stick.</div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 44px)", gap: 4 }}>
                                     <div />
                                     <button aria-label="Move up" onClick={() => moveHollowGatePlayer(0, -1)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▲</button>

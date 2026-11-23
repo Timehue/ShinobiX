@@ -4,15 +4,14 @@
  *
  * The battle screens position a FIXED-size `.avatar-orb` anchor per fighter and
  * hang everything else off it: movement, targeting, board scaling, and the
- * floating HP badge. Player pins stay inside that anchor, but AI body art is
- * drawn taller than it and pinned near its bottom, so a sprite always overflows
- * the anchor UPWARD — which is why an overlay pinned to the anchor's top edge
- * lands on the fighter's head instead of above it.
+ * floating HP badge. Full-body sprites stand taller than the anchor, so the
+ * overlay must clear the top of the painted fighter.
  *
  * This module lives apart from BattlefieldActor.tsx so the component file keeps
  * exporting only its component (react-refresh), and so the numbers have one home.
  */
 
+import { LEFT_FACING_PETS } from "./pet-summon-index";
 import { isImageAvatar } from "./avatar";
 import { towerHexPixel } from "./tower-grid";
 
@@ -54,6 +53,8 @@ const SPRITE_BOX: Record<BattlefieldSpriteKind, { heightPct: number; bottomPx: n
 };
 
 export function inferSpriteKind(src: string): BattlefieldSpriteKind {
+    const petKind = /\/combat-actors\/pets\/(flying|serpentine|quadruped|humanoid)\//.exec(src)?.[1];
+    if (petKind) return petKind as BattlefieldSpriteKind;
     if (/forest-hawk/i.test(src)) return "flying";
     if (/(moon-serpent|leviathan)/i.test(src)) return "serpentine";
     if (/(wild-boar|wolf|lizard|panther|bear|chakra-beast|warren-alpha|hollow-hound)/i.test(src)) return "quadruped";
@@ -66,6 +67,8 @@ export function inferSpriteKind(src: string): BattlefieldSpriteKind {
 /** Authored direction of body art; the existing facing system mirrors from it. */
 export function inferSpriteNativeFacing(src: string): BattlefieldSpriteFacing {
     const path = src.split(/[?#]/, 1)[0];
+    const pet = /\/combat-actors\/pets\/[^/]+\/([\w-]+)-guard\.webp$/.exec(path)?.[1];
+    if (pet) return LEFT_FACING_PETS.has(pet) ? "left" : "right";
     const cinderhold = /\/combat-actors\/cinderhold\/([a-z]+)-idle\.webp$/.exec(path)?.[1];
     if (cinderhold && cinderholdCombatantId(cinderhold)) return CINDERHOLD_NATIVE_FACING[cinderhold]!;
     const filename = path.split("/").pop() ?? "";

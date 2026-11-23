@@ -122,7 +122,7 @@ test('Town Hall intel fills live and reveals only the earned enemy specialties w
             await card.locator('img').scrollIntoViewIfNeeded();
             await expect.poll(() => card.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(640);
         }
-        await expect(panel.getByRole('button', { name: 'Attack the ANBU defense' })).toHaveCount(0);
+        await expect(panel.getByRole('button', { name: 'Attack the Anbu defense' })).toHaveCount(0);
     }
     await expectViewportSafe(page, { horizontalScrollers: ['.town-tabs'] });
     await testInfo.attach('intel-fully-revealed', { body: await orders.screenshot({ path: testInfo.outputPath('intel-fully-revealed.png') }), contentType: 'image/png' });
@@ -137,7 +137,7 @@ test('village campaign shows a locked shrine, mode-specific strongholds and capp
     await expect(campaign.getByText('Five-day Village War', { exact: true })).toBeVisible();
     await expect(campaign.getByText(/Locked · opens in/)).toBeVisible();
     await expect(campaign.getByRole('button', { name: 'Contest the shrine' })).toHaveCount(0);
-    await expect(campaign.getByRole('button', { name: 'Attack the ANBU defense' })).toHaveCount(0);
+    await expect(campaign.getByRole('button', { name: 'Attack the Anbu defense' })).toHaveCount(0);
     await expect(campaign.getByText(/Travel to Sector 47 and enter its golden shrine/)).toBeVisible();
     await expect(campaign.getByText('Pet battles only', { exact: true })).toBeVisible();
     await expect(campaign.getByText('Card battles only', { exact: true })).toBeVisible();
