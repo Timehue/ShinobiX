@@ -21,7 +21,7 @@ import {
     loadQuestLines, questLineAction, questRefusal,
     type QuestAction, type QuestLine, type QuestLinesList, type QuestRecipe,
 } from "../lib/quest-lines-api";
-import { castPortrait, coastSceneEvent, coastSceneSeen, markCoastSceneSeen } from "../lib/coast-quest-scene";
+import { castPortrait, coastSceneEvent, coastSceneSeen, markCoastSceneSeen, OFFER_TAKE } from "../lib/coast-quest-scene";
 import { CoastQuestScene } from "./CoastQuestScene";
 import "./QuestLinesPanel.css";
 
@@ -134,7 +134,8 @@ export function QuestLinesPanel({ playerName, mode, sector, onVersionedCharacter
         if (playing.current) return;
         if (!hasScene(line)) return void then();
         const key = sceneKey(line);
-        const pick = !!line.stage?.choice;
+        // An offer ends on "Take the quest" or "Not now" (coastSceneEvent): leaving it takes nothing.
+        const pick = !!line.stage?.choice || line.state === "open";
         if (pick) markCoastSceneSeen(key);
         playing.current = {
             event: coastSceneEvent(line, playerName, line.stage?.choice?.place || placeLine(line.stage?.place ?? line.offerAt) || line.title), pick,
@@ -149,6 +150,14 @@ export function QuestLinesPanel({ playerName, mode, sector, onVersionedCharacter
         setScene(null);
         if (ended && (optionKey || !ended.pick)) ended.then(optionKey);
     }
+    /** An offer: its scene asks, and only "Take the quest" takes it. Once heard, the card's own button takes it. */
+    const offer = (line: QuestLine) => play(line, key => key === undefined || key === OFFER_TAKE ? act(line, "accept") : false);
+    // The Wandering Sage tells his offer as a scene the moment he is spoken to (it plays once per device).
+    const heard = useRef(false);
+    useEffect(() => {
+        const line = mode === "sage" && !heard.current ? list?.lines.find(entry => entry.state === "open" && entry.giver === "wandering-sage") : undefined;
+        if (line && hasScene(line)) { heard.current = true; offer(line); }
+    });
 
     /** A finished quest told again from its first line (the server's `recall`). It asks nothing and changes nothing. */
     async function recall(line: QuestLine) {
@@ -197,8 +206,8 @@ export function QuestLinesPanel({ playerName, mode, sector, onVersionedCharacter
                                 <strong>{line.title}</strong>
                                 {line.state === "active" && stage && <span className="mh-fetch-meta">Step {stage.index + 1} of {line.stages}</span>}
                                 {/* Where the quest stands when it is not under way, worded by the server (questStateNote). */}
-                                {line.note && <span className="mh-fetch-meta">{line.note}</span>}
-                                {line.talk?.map((say, i) => <span key={i} className="mh-fetch-meta quest-line-text">{say.speaker && <b>{say.speaker}: </b>}{say.text}</span>)}
+                                {line.note && mode !== "sage" && <span className="mh-fetch-meta">{line.note}</span>}
+                                {!(line.state === "open" && hasScene(line)) && line.talk?.map((say, i) => <span key={i} className="mh-fetch-meta quest-line-text">{say.speaker && <b>{say.speaker}: </b>}{say.text}</span>)}
                                 {stage && <span className="mh-fetch-meta quest-line-text">{stage.choice?.prompt ?? stage.text}</span>}
                                 {stage?.place && !atStage && <span className="mh-fetch-meta">Where: {placeLine(stage.place)}</span>}
                             </div>
@@ -225,7 +234,7 @@ export function QuestLinesPanel({ playerName, mode, sector, onVersionedCharacter
                             {note?.id === line.id && <p role="status" className={note.good ? "quest-line-note is-good" : "quest-line-note"}>{note.text}</p>}
 
                             <div className="quest-line-actions">
-                                {line.state === "open" && (mode === "sage" || here(line.offerAt, sector)) && <button type="button" disabled={waiting} onClick={() => play(line, () => act(line, "accept"))}>Take the quest</button>}
+                                {line.state === "open" && (mode === "sage" || here(line.offerAt, sector)) && <button type="button" disabled={waiting} onClick={() => offer(line)}>{hasScene(line) ? "Talk to " + line.giverName : "Take the quest"}</button>}
                                 {line.state === "ready" && <button type="button" disabled={waiting} onClick={() => play(line, () => act(line, "claim"))}>Claim reward</button>}
                                 {line.state === "done" && mode === "journal" && character && line.talk && <button type="button" disabled={waiting} onClick={() => void recall(line)}>Hear it again</button>}
                                 {stage?.kind === "choice" && stage.choice && hasScene(line)

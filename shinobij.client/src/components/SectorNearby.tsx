@@ -6,11 +6,15 @@ import { SectorPlayerList } from './SectorPlayerList';
 import { SectorSkyForecast } from './SectorSkyForecast';
 import { SectorRoutes } from './SectorRoutes';
 
-/** One complete roster, bounded by the space beneath the sector controls. */
-export function SectorNearby({ sector, biome, players, present, rosterState, action, onAction }:
+/**
+ * One complete roster, bounded by the space beneath the sector controls. An empty roster shows the home sector's
+ * sky and roads; the Unmapped Coast (CoastNearby) shows neither, so it passes `conditions={false}`.
+ */
+export function SectorNearby({ sector, biome, players, present, rosterState, action, onAction, conditions = true }:
     Pick<WorldSectorCommandPanelProps, 'sector' | 'biome' | 'players' | 'present'> & {
         rosterState: SectorRosterState; action: SectorPlayerActionState;
         onAction: (key: string, sector: number, intent: SectorPlayerIntent) => void;
+        conditions?: boolean;
     }) {
     const showPlayers = present && players.length > 0;
     const hasRowError = action.error && players.some(p => sectorPlayerKey(p.name) === action.error?.key);
@@ -23,7 +27,7 @@ export function SectorNearby({ sector, biome, players, present, rosterState, act
                     : rosterState === 'reconnecting' ? 'Reconnecting. Last known players are read only.' : 'No other players are here.'}
             </p>}
             {action.error && !hasRowError && <p className="sector-row-feedback" role="status">{action.error.message}</p>}
-            {showPlayers ? <SectorPlayerList key={sector} players={players} action={action} sector={sector} onAction={onAction} /> : <div className="sector-nearby-conditions">
+            {showPlayers ? <SectorPlayerList key={sector} players={players} action={action} sector={sector} onAction={onAction} /> : conditions && <div className="sector-nearby-conditions">
                 <SectorSkyForecast sector={sector} biome={biome} variant="effect" />
                 <SectorRoutes sector={sector} />
             </div>}

@@ -41,9 +41,9 @@ test('busy NPC choices retain the established disabled and leave behavior',()=>{
     assert.equal(dialog('trackerTrail',true).actions[1].disabled,true);
 });
 
-function renderedDialog(verb:string,busy:boolean,character:Record<string,unknown>,extra:Record<string,unknown>={}) {
+function renderedDialog(verb:string,busy:boolean,character:Record<string,unknown>,extra:Record<string,unknown>={},top:Record<string,unknown>={}) {
     const calls:unknown[][]=[],w={id:'test',name:'Road NPC',verb,archetype:'questgiver',greeting:'Hello',level:20};
-    const props=new Proxy({wandererDialog:{w,busy,...extra},character:{level:30,...character},now:0,atWar:false,legacyTrial:null,emissaryDayBucket:0},
+    const props=new Proxy({wandererDialog:{w,busy,...extra},character:{level:30,...character},now:0,atWar:false,legacyTrial:null,emissaryDayBucket:0,...top},
         {get:(target,key)=>key in target?Reflect.get(target,key):(...args:unknown[])=>calls.push([key,...args])}) as unknown as WorldWandererDialogProps;
     const buttons:{label:string;disabled:unknown;click:()=>unknown}[]=[];
     const text=(node:ReactNode):string=>Array.isArray(node)?node.map(text).join(''):isValidElement<{children?:ReactNode}>(node)?text(node.props.children):typeof node==='string'||typeof node==='number'?String(node):'';
@@ -108,6 +108,19 @@ test('epic continue and final reward retain their callbacks, while leave and aba
         assert.equal(buttons[0].disabled,busy);assert.equal(buttons[1].disabled,undefined);buttons[0].click();
         assert.deepEqual(calls[0],index===0?['advanceEpic',false]:['claimEpic',w]);buttons[1].click();assert.deepEqual(calls[1],['abandonEpic',w]);
     }
+});
+test('the Wandering Sage offers the coast quest himself, with his Legacy offer beside it only when it waits',()=>{
+    const sage={id:'legacy-sage',name:'Wandering Sage',verb:'quest',archetype:'wanderingSage',greeting:'An old man checks your name.',level:99};
+    const offer=React.createElement('p',null,'The Shuttered Boat');
+    const both=renderedDialog('quest',false,{},{w:sage},{sageOffer:offer});
+    assert.match(both.text,/The Shuttered Boat/);
+    assert.deepEqual(both.buttons.map(b=>b.label),['Ask about your Legacy','Leave']);
+    both.buttons[0].click();assert.deepEqual(both.calls[0],['sageLegacy']);
+    const coastOnly=renderedDialog('quest',false,{},{w:sage},{sageOffer:offer,sageLegacy:undefined});
+    assert.deepEqual(coastOnly.buttons.map(b=>b.label),['Leave']);
+    // Another quest-giver no longer carries the sage's offer.
+    const giver=renderedDialog('quest',false,{},{},{sageOffer:offer});
+    assert.doesNotMatch(giver.text,/The Shuttered Boat/);
 });
 test('an unrecognized emissary still renders a Leave button, rather than an object',()=>{
     const {buttons}=renderedDialog('legacyQuest',false,{});assert.deepEqual(buttons.map(b=>b.label),['Leave']);

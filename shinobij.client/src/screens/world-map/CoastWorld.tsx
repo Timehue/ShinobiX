@@ -415,11 +415,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                         </section>
                             <button type="button" onClick={() => setScreen("village")}>Return to your home village</button>
                         </div>} />
-                    {/* A read-out, as on the home map (components/SectorRoutes.tsx): a player crosses by walking to the end of a painted road. */}
-                    <section className="sector-routes sector-stage-routes" aria-label="Sector exits"><strong>Paths from here</strong>
-                        <ul>{layout.exits.map(exit => <li key={exit.id}><span>{exit.direction}</span>
-                            <b>{world.sectors[exit.destinationSector]?.name ?? "Uncharted country"}</b></li>)}</ul>
-                    </section>
+                    {/* No list of exits (owner, 2026-11-23): a player crosses by walking to the end of a painted road. */}
                 </main>
                 </div>
             )}

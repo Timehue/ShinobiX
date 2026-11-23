@@ -69,8 +69,10 @@ export type WorldWandererDialogProps = Readonly<{
     emissaryDayBucket: number;
     atWar: boolean;
     legacyTrial: ReactNode;
-    /** What a Wandering Sage has noticed for this player: the quest lines he offers. */
+    /** What a Wandering Sage has noticed for this player: the quest lines he offers. Only the sage shows it. */
     sageOffer?: ReactNode;
+    /** Opens the sage's Legacy offer, when it waits in this sector too. */
+    sageLegacy?: () => void;
     closeWandererDialog: () => void;
     dismissWandererDialog: () => void;
     startWandererAttack: (wanderer: Wanderer, nemesis?: boolean) => ActionResult;
@@ -123,6 +125,7 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
         atWar,
         legacyTrial,
         sageOffer,
+        sageLegacy,
         closeWandererDialog,
         dismissWandererDialog,
         startWandererAttack,
@@ -183,7 +186,11 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
                 <div style={wrappingChoiceRow}>
                     {ordinary.map((item,index)=><button key={index} disabled={item.disabled} onClick={item.run} style={item.muted?mutedAction:undefined}>{item.label}</button>)}
                 </div>
-            ) : !msg && w.verb === "quest" ? <>{sageOffer}{(() => {
+            ) : !msg && w.archetype === "wanderingSage" ? <>
+                {/* The sage has two topics: the coast's first quest, and his Legacy offer when it waits here too. */}
+                {sageOffer}
+                <div style={choiceRow}>{sageLegacy && <button onClick={sageLegacy}>Ask about your Legacy</button>}{leaveButton}</div>
+            </> : !msg && w.verb === "quest" ? <>{(() => {
                 const epic = character.activeQuestbook;
                 if (epic) {
                     const entry = questbookEntry(epic.id);

@@ -29,6 +29,15 @@ export function mooredBoatToast() {
     return { id: Date.now(), kicker: "The shuttered boat", text: "Her hatches are shut, and nobody on the pier will say why. A Wandering Sage may have noticed more." };
 }
 
+/**
+ * True while the Wandering Sage carries a quest the player has not taken (The Shuttered Boat). He has no
+ * counter: until it is taken he stands in the home map's field sectors and offers it himself, beside his
+ * Legacy offer when that is waiting too.
+ */
+export function coastSageWaiting(list: QuestLinesList | null): boolean {
+    return !!list?.lines.some(line => line.state === "open" && line.giver === "wandering-sage");
+}
+
 /** True when a quest has something to do in this sector: a step, a remake, or an offer. */
 export function questStepHere(list: QuestLinesList | null, sector: number | null): boolean {
     if (!list || sector === null) return false;

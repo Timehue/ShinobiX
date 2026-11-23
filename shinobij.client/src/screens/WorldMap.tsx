@@ -139,7 +139,7 @@ import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
 const HushVaultRaid = lazy(() => import("../features/hushInfiltration/HushVaultRaid").then(m => ({ default: m.HushVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
 const CoastCrossing = lazy(() => import("./world-map/CoastCrossing"));
 const QuestLinesPanel = lazy(() => import("../components/QuestLinesPanel")); const CoastWorld = lazy(() => import("./world-map/CoastWorld")); // the Unmapped Coast (lazy)
-import { useQuestLines, questStepHere, mooredBoatToast, BOAT_LANDMARK } from "../lib/use-quest-lines"; import { isCoastSector, COAST_LANDING_SECTOR, COAST_MIN_LEVEL } from "../../../shared/world-maps";
+import { useQuestLines, questStepHere, mooredBoatToast, BOAT_LANDMARK, coastSageWaiting } from "../lib/use-quest-lines"; import { isCoastSector, COAST_LANDING_SECTOR, COAST_MIN_LEVEL } from "../../../shared/world-maps";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
@@ -1035,10 +1035,13 @@ function WorldMapContent({
         });
         return () => { alive = false; };
     }, [legacyAvailable, character.name, character.level]);
+    // He stands where his Legacy offer spawned, and in every home field sector while he carries the coast's first quest.
+    const sageLegacyHere = !!(legacyAvailable && sageOffer && sageOffer.status === "spawned" && selectedSector === sageOffer.sector);
+    const openSageVn = () => { if (sageOffer) { setWandererDialog(null); setSageVnPage(0); setSageVnLine(0); setSageVnEvent(buildSageVnEvent(sageOffer, character.name)); } };
     const sageWanderers = useMemo(
-        () => (legacyAvailable && sageOffer && sageOffer.status === "spawned" && selectedSector === sageOffer.sector
-            ? [synthSageWanderer(sageOffer.sector)] : []),
-        [legacyAvailable, sageOffer, selectedSector],
+        () => (selectedSector != null && (sageLegacyHere || (isWildSector(selectedSector) && coastSageWaiting(questList)))
+            ? [synthSageWanderer(selectedSector)] : []),
+        [sageLegacyHere, questList, selectedSector],
     );
     // Legacy Emissaries — the eight roaming quest-givers (lib/legacy-emissaries).
     // Spawn is deterministic per (player, 6h window), like the natural roster;
@@ -1936,13 +1939,10 @@ function WorldMapContent({
         rememberWanderer(w);
         // A directly closed rift VN can leave a giver verdict; retire it for this scene.
         if (isRoamingGiverEventId(w.id)) giverAcceptedRef.current = null;
-        // The Wandering Sage opens his Legacy-offer VN instead of the dialog.
+        // The Wandering Sage opens his Legacy-offer VN, or, while he carries the coast's first quest, his dialog with both.
         if (w.id === LEGACY_SAGE_WANDERER_ID) {
-            if (legacyAvailable && sageOffer) {
-                setSageVnPage(0);
-                setSageVnLine(0);
-                setSageVnEvent(buildSageVnEvent(sageOffer, character.name));
-            }
+            if (coastSageWaiting(questList)) setWandererDialog({ w });
+            else if (legacyAvailable) openSageVn();
             return;
         }
         // Story road events open their VN directly and remain available until a choice.
@@ -4792,6 +4792,7 @@ function WorldMapContent({
                                         emissaryDayBucket={wandererDialogDayBucket}
                                         atWar={wandererDialogAtWar}
                                         legacyTrial={wandererLegacyTrial} sageOffer={questLines("sage")}
+                                        sageLegacy={sageLegacyHere ? openSageVn : undefined}
                                         closeWandererDialog={() => setWandererDialog(null)}
                                         dismissWandererDialog={dismissWandererDialog}
                                         startWandererAttack={startWandererAttack}

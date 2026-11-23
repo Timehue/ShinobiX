@@ -17,6 +17,8 @@ type Pages = NonNullable<CreatorEvent["vnPages"]>;
 
 /** The event id every coast scene starts with. The reader (TriggeredVisualNovel) ends these on their last line. */
 export const COAST_SCENE_ID = "coast-quest:";
+/** The answer at the end of an offer's scene that takes the quest. */
+export const OFFER_TAKE = "take";
 
 /**
  * The picture a member of the coast's cast is shown with. The server sends
@@ -52,6 +54,8 @@ export function coastSceneEvent(line: QuestLine, playerName: string, caption: st
     }
     const last = pages.at(-1);
     if (last && choice) last.choices = choice.options.map(option => ({ id: option.key, text: `${option.label}. ${option.blurb}`, nextPage: pages.length - 1 }));
+    // An offer ends on the decision itself, so the quest is taken in the scene and never by skipping it.
+    else if (last && line.state === "open") last.choices = [{ id: OFFER_TAKE, text: "Take the quest", nextPage: pages.length - 1 }, { id: "later", text: "Not now", nextPage: pages.length - 1 }];
     return {
         // The id ends with the theme the server named, which is how the reader's score finds it (resolveVnScoreKey).
         id: COAST_SCENE_ID + line.id + "@" + line.score, name: line.title, biome: "central", icon: "", eventKind: "visualNovel", image,

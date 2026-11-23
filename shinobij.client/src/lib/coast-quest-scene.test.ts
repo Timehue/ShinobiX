@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { COAST_SCENE_ID, castPortrait, coastSceneEvent } from "./coast-quest-scene";
+import { COAST_SCENE_ID, OFFER_TAKE, castPortrait, coastSceneEvent } from "./coast-quest-scene";
 import type { QuestLine } from "./quest-lines-api";
 import { resolveVnScoreKey } from "./vn-cinematic-score";
 import { resolveVnPresentation } from "./vn-presentation";
@@ -36,7 +36,11 @@ test("a quest's lines become a scene with one page per speaker and the player's 
     assert.deepEqual(pages[0].lines!.map(line => line.speaker), ["Narrator", "Urabe", "Kaede", "Urabe"]);
     assert.equal(pages[0].scene, "Saltstair Slip");
     for (const page of pages) assert.equal(page.dialogue.length, page.lines!.length, "the reader counts lines from `dialogue`");
-    assert.equal(pages.some(page => page.choices), false);
+    // An offer ends on the decision: only "Take the quest" takes it, so skipping the scene takes nothing.
+    assert.deepEqual(pages.at(-1)!.choices!.map(choice => [choice.id, choice.text]), [[OFFER_TAKE, "Take the quest"], ["later", "Not now"]]);
+    assert.ok(pages.slice(0, -1).every(page => !page.choices));
+    const underway = coastSceneEvent(quest({ state: "active", talk: [{ speaker: "Urabe", text: "Go on, then.", face: "angler" }] }), "Kaede", "");
+    assert.equal(underway.vnPages!.some(page => page.choices), false, "a quest already under way asks nothing");
 });
 
 test("a choice step ends on its options, each carrying the server's key", () => {
