@@ -785,6 +785,8 @@ test("Profile previews an owned model, equips it after a lapse and restores the 
 test.describe("equipped player upload", () => {
     test.use({ contextOptions: { reducedMotion: "no-preference" } });
     test("a missing player model still walks and runs at the configured ground speeds", async ({ page }) => {
+        // A loaded CI WebKit runner has spent 35 s of the default 45 on setup alone.
+        test.setTimeout(90_000);
         const save = uiAuditSave();
         save.currentSector = 46;
         save.currentTile = 66;
@@ -881,6 +883,44 @@ test.describe("equipped player upload", () => {
             }
         };
         const x = async () => Number(await canvas.getAttribute('data-world-x'));
+        // The pacer's round trip is smoothed (each answer weighs 0.3), and the first
+        // answer sets it outright. One slow answer while the page was still loading
+        // keeps rate() under the run's share of full speed for several updates: CI's
+        // WebKit then ran a uniform 0.47 or 0.65 of the 0.8 tiles, and delaying only
+        // the first local reply by 1.5 s ran 0.44. That is the pacer doing its job on
+        // a slow link, not the speed this test measures. Walk five updates left and
+        // five back first, at the walk's pace (under the pacer's slowest rate, so
+        // unaffected), so each answer, given while page time is frozen, settles the
+        // estimate: ten answers shrink it to 3% of a first reply, which has taken
+        // 5.4 s on a loaded CI runner. Each step runs frames only until an update
+        // leaves, then answers it with page time held, so it adds a frame at most;
+        // and it skips the per-frame sampling, which outran the test's time there.
+        let acceptedMoves = 0, movesSent = 0;
+        page.on('request', request => { if (isMove(request)) movesSent++; });
+        page.on('response', response => {
+            if (!isMove(response.request()) || !response.ok()) return;
+            void response.json().then((body: { ok?: boolean }) => { if (body?.ok) acceptedMoves++; }, () => undefined);
+        });
+        const step = async () => {
+            const sent = movesSent;
+            for (let frame = 0; frame < 30 && movesSent === sent; frame++) await page.clock.runFor(16);
+            await expect.poll(() => movesInFlight, { timeout: 10_000 }).toBe(0);
+            await pageTurn(); await pageTurn();
+        };
+        await canvas.focus();
+        for (const key of ['ArrowLeft', 'ArrowRight']) {
+            const target = acceptedMoves + 5;
+            await page.keyboard.down(key);
+            try {
+                for (let steps = 0; acceptedMoves < target; steps++) {
+                    if (steps >= 40) throw new Error(`pacer warm-up: ${acceptedMoves} movement updates answered after ${steps} steps ${key}`);
+                    await step();
+                }
+            } finally {
+                await page.keyboard.up(key);
+            }
+            await step();
+        }
         for (const gait of ['walk', 'run'] as const) {
             if (gait === 'run') await run.evaluate(button => button.click());
             await expect(run).toHaveAttribute('aria-pressed', String(gait === 'run'));
@@ -891,7 +931,20 @@ test.describe("equipped player upload", () => {
                 await advance(16);
                 const start = await x();
                 await advance(160);
-                const moved = await x() - start, expected = playerGaitTilesPerSecond[gait] * .16;
+                // Road nodes sit at every tile centre here, and a stride ends at one, so
+                // the frame that reaches a node walks only the rest of its segment (27 of
+                // a run frame's 80 thousandths). A 0.8-tile run crosses one unless it
+                // starts just past a node, so where the warm-up left the walker used to
+                // decide this check. Measure the speed over the frames that don't end on
+                // a node instead, and allow one such frame a window.
+                const xs = (frames as { x: number }[]).map(frame => frame.x);
+                const atNode = (at: number) => Math.abs(at - .5 - Math.round(at - .5)) < 1e-6;
+                const strides = xs.slice(1).map((at, i) => ({ dx: at - xs[i], node: atNode(at) }));
+                const kept = strides.filter(stride => !stride.node);
+                expect(xs[0]).toBe(start);
+                expect(strides.length - kept.length, 'measured frames that ended on a road node').toBeLessThanOrEqual(1);
+                const moved = kept.reduce((sum, stride) => sum + stride.dx, 0) * strides.length / kept.length;
+                const expected = playerGaitTilesPerSecond[gait] * .16;
                 // toBeCloseTo(_, 1) passes within 0.05; record the evidence first when it won't.
                 if (Math.abs(moved - expected) >= 0.05) {
                     const events = await page.evaluate(() => (window as unknown as { __walkEvents?: string[] }).__walkEvents ?? []);

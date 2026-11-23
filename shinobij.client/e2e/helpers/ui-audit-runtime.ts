@@ -314,6 +314,17 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
         if (path === "/api/legacy/definitions") return json(route, { minLevel: 50, legacies: [] });
         if (path === "/api/legacy/sage") return json(route, { spawn: false, reason: "not-due" });
         if (path.startsWith("/api/legacy/")) return json(route, { ok: true });
+        // The coast reads (screens/world-map/coast-service.ts) take any `ok: true`
+        // reply as their record, and the fallback below has no `rules`, which the
+        // server's status always sends (api/coast/landing.ts). The clan Territory
+        // tab then crashed reading `rules.materials` whenever that reply landed
+        // before the next tab was clicked, as it did on a slow CI runner.
+        if (path === "/api/coast/landing") return json(route, {
+            ok: true,
+            rules: { tiers: [], materials: [], materialNames: {}, memberWeeklyCap: 40, perContribution: 20 },
+            clan: save.character?.clan || null, officer: false, canFound: false, holds: null, fallen: null, landing: null, inTown: false,
+        });
+        if (path === "/api/coast/land") return json(route, { ok: true, sectors: [], paused: false, rules: {} });
 
         return json(route, {
             ok: true,
