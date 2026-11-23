@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { tsImport } from 'tsx/esm/api';
+
+const { tacticsSpecies, TACTICS_MOVES } = await tsImport('../../shared/pet-tactics-roster.ts', import.meta.url);
 
 const output = resolve(import.meta.dirname, '../.tmp/pet-yard-model-review');
 const base = process.env.PET_TECHNIQUES_QA_URL ?? 'http://127.0.0.1:4318';
@@ -53,7 +56,8 @@ try {
         await dialog.getByRole('button', { name: 'Resume preview', exact: true }).click();
         await dialog.locator('summary').filter({ hasText: 'Edit loadout' }).click();
         const editor = dialog.locator('.pet-techniques-editor');
-        assert.equal(await editor.getByRole('checkbox').count(), 8);
+        const expectedMoves = tacticsSpecies('standard-0').pool.map(id => `Equip ${TACTICS_MOVES[id].name}`);
+        assert.deepEqual(await editor.getByRole('checkbox').evaluateAll(inputs => inputs.map(input => input.getAttribute('aria-label'))), expectedMoves);
         assert.equal(await dialog.getByRole('button', { name: 'Play technique', exact: true }).count(), 0);
         await editor.getByRole('checkbox').filter({ visible: true }).first().waitFor();
         await editor.getByRole('button', { name: 'Tactics build', exact: true }).click();

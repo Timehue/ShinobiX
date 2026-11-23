@@ -86,6 +86,8 @@ export interface Wanderer {
     avatarKey: WandererArchetypeId;
     /** Optional exact portrait override for authored/story NPCs. */
     avatarImage?: string;
+    /** Presentation for the wild species selected for this player's pet duel. */
+    roadBeastArt?: { speciesId: string; pose: string; atlas: string | null };
     /** Optional synthetic metadata for chained encounters. */
     targetName?: string;
     bountyAmount?: number;

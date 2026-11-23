@@ -445,10 +445,11 @@ test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected
     assert.match(projections, /const wandererDialogDayBucket[\s\S]*currentWandererDayBucket\(\)/u);
     assert.match(projections, /const wandererDialogAtWar[\s\S]*activeVillageWarsFor\(character\.village\)/u);
 
-    const portal = sliceBetween(worldMapSource, "{wandererDialog && createPortal(", "document.body,");
+    const portal = sliceBetween(worldMapSource, "{encounterDialog && createPortal(", "document.body,");
     assertOrdered(portal, [
         "onBackdrop={handleWandererBackdropClick}",
         "<WorldWandererDialog",
+        "wandererDialog={encounterDialog}",
         "now={wandererDialogNow}",
         "emissaryDayBucket={wandererDialogDayBucket}",
         "atWar={wandererDialogAtWar}",
@@ -461,7 +462,7 @@ test("WorldMap owns the wanderer portal, backdrop policy, actions, and projected
     // player action (a pursuer arms itself and walks to you), so it must not go
     // back to being a bare div: announced and focusable, with Escape delegated
     // to the encounter's dismissal policy.
-    assert.match(portal, /<ModalDialogScrim label=\{`\$\{wandererDialog\.w\.name\}/u,
+    assert.match(portal, /<ModalDialogScrim label=\{`\$\{encounterDialog\.w\.name\}/u,
         "the wanderer portal must render through the accessible scrim, labelled with the wanderer");
     assert.match(portal, /onEscape=\{dismissWandererDialog\}/u,
         "Escape must follow the owning encounter's dismissal policy");

@@ -3,3 +3,12 @@
 .card.world-wanderer-dialog {
     background: #111827 !important;
 }
+
+.world-wanderer-portrait {
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+    border-radius: 50%;
+    border: 2px solid var(--wanderer-tint);
+    margin: 0 auto 8px;
+}
