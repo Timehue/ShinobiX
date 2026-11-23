@@ -363,7 +363,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         clientEntries: ['screens/WorldMap.tsx', 'components/AiFightHost.tsx', 'lib/ai-fight-api.ts', ...SOLO_CLIENT],
         routes: soloRoutes('/missions/ai-fight-start', 'missions/ai-fight-start', '/missions/report-ai-fight', 'missions/report-ai-fight'),
         participantModel: 'solo', rewardPolicy: 'server-settled', replayKind: 'expiring-solo-session-log', status: 'match', migrationStatus: 'migrated',
-        compatibility: { ...WORLD_MAP_AI_FLOW_CONTRACTS.worldContext, worldKinds: ['wanderer', 'wanderer-ambush', 'patrol', 'bounty-hunter', 'questbook-boss', 'story-reckoning'] },
+        compatibility: { ...WORLD_MAP_AI_FLOW_CONTRACTS.worldContext, worldKinds: ['wanderer', 'wanderer-ambush', 'patrol', 'bounty-hunter', 'questbook-boss', 'story-reckoning', 'quest-line', 'coast-garrison', 'coast-patrol'] },
     }),
     defineMode({
         id: 'world-context-village-crisis', label: 'World-context village crisis', category: 'solo-pve', authorityEngine: E.SOLO_PVE,

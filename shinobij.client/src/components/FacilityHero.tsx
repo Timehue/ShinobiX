@@ -16,7 +16,7 @@ export function FacilityHero({
     description,
     metrics,
     onBack,
-    compact = false,
+    backLabel, compact = false,
 }: {
     facility: FacilityId;
     eyebrow: string;
@@ -24,7 +24,7 @@ export function FacilityHero({
     description: string;
     metrics: FacilityHeroMetric[];
     onBack?: () => void;
-    compact?: boolean;
+    compact?: boolean; backLabel?: string;
 }) {
     const presentation = FACILITY_PRESENTATION[facility];
     const style = {
@@ -38,7 +38,7 @@ export function FacilityHero({
             style={style}
         >
             <div className="facility-hero-main">
-                {onBack && <BackToVillageButton onClick={onBack} />}
+                {onBack && <BackToVillageButton onClick={onBack} label={backLabel} />}
                 <div className="facility-hero-copy">
                     <p className="facility-hero-kicker">{eyebrow}</p>
                     <h2>{title}</h2>

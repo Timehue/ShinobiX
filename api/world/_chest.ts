@@ -1,6 +1,8 @@
 import { RELIC_ROSTER, RELICS_BY_ID, DUPLICATE_RELIC_SHARDS, ownsRelic } from '../../shared/relics.js';
 import { gainXp } from '../_xp-engine.js';
-import { isWildSector, sectorBiomeOf, sectorRewardTier } from '../../shared/sector-geo.js';
+import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { isCoastSector, worldRewardTier } from '../../shared/world-maps.js';
+import { coastBiomeOf } from '../../shared/coast-world.js';
 import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
 import { WILD_BINDING_CHEST_DROP_CHANCE } from '../../shared/wild-binding.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
@@ -88,8 +90,17 @@ export const WILD_RELIC_IDS: readonly string[] = [...CHEST_RELIC_IDS, 'relic-hol
 export const DUPLICATE_RELIC_FATE_SHARDS = DUPLICATE_RELIC_SHARDS;
 function isRelicId(id: string): boolean { return RELICS_BY_ID.has(id); }
 
+/**
+ * The biome a chest is opened in. A coast sector reads its own table, where
+ * every sector is one of the home map's five biomes, so a coast chest can hold
+ * the same relics as home ground of that kind, at the same odds.
+ */
+function chestBiomeOf(sector: number): string {
+    return coastBiomeOf(sector) ?? sectorBiomeOf(sector);
+}
+
 export function relicBandForSector(sector: number): { width: number; pool: readonly string[] } {
-    const pool = chestRelics.filter(item => item.source.kind === 'chest' && item.source.biome === sectorBiomeOf(sector));
+    const pool = chestRelics.filter(item => item.source.kind === 'chest' && item.source.biome === chestBiomeOf(sector));
     return { width: pool.reduce((sum, item) => sum + (item.source.kind === 'chest' ? item.source.chance : 0), 0), pool: pool.map(item => item.id) };
 }
 
@@ -98,7 +109,7 @@ export function wildRelicForRoll(roll: number, sector: number): string | null {
     if (!Number.isFinite(roll) || roll < 0 || roll >= 1) return null;
     let ceiling = 0;
     for (const item of chestRelics) {
-        if (item.source.kind !== 'chest' || item.source.biome !== sectorBiomeOf(sector)) continue;
+        if (item.source.kind !== 'chest' || item.source.biome !== chestBiomeOf(sector)) continue;
         ceiling += item.source.chance;
         if (roll < ceiling) return item.id;
     }
@@ -107,13 +118,15 @@ export function wildRelicForRoll(roll: number, sector: number): string | null {
 
 export function rollAncientChestLoot(sectorRaw: unknown, random: () => number): AncientChestLoot | null {
     const sector = Math.floor(Number(sectorRaw));
-    // Shared world registry, not a literal — see the note in _explore.ts.
-    if (!isWildSector(sector)) return null;
+    // Shared world registry, not a literal — see the note in _explore.ts. A
+    // coast sector must be one that is open: only those have a biome.
+    if (!isWildSector(sector) && !(isCoastSector(sector) && coastBiomeOf(sector))) return null;
     const unit = () => Math.max(0, Math.min(0.999999999, Number(random()) || 0));
     // Character XP is retired (leveling-without-xp map): the old xp line
     // (50 + sector·2) folds into a guaranteed ryo floor; the roll table below
-    // is unchanged. `xp` stays in the shape as 0 for old clients.
-    const loot: AncientChestLoot = { xp: 0, ryo: 40 + sectorRewardTier(sector) * 2 };
+    // is unchanged. `xp` stays in the shape as 0 for old clients. The coast
+    // pays as home sectors 32 to 66 (worldRewardTier).
+    const loot: AncientChestLoot = { xp: 0, ryo: 40 + worldRewardTier(sector) * 2 };
     if (unit() < 0.5) loot.ryo = (loot.ryo ?? 0) + 100 + Math.floor(unit() * 401);
     const roll = unit();
     // The relic band is carved off the BOTTOM of the treats band, the most

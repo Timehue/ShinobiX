@@ -211,8 +211,8 @@ export function ClanWarManual({ onClose,legacy=false }: { onClose: () => void;le
         </strong>
         <br />• <strong>Winning a shinobi PvP challenge:</strong> 20% chance for
         exactly 1 Territory Control Scroll. Pet and Chronicle challenges do not drop them.
-        Clan leadership must bank 75 and commit them together to claim a sector
-        already controlled by the clan's village; partial capture deposits are not used.
+        Clan leadership banks 75 in the clan hall to declare a contest for a sector
+        on the Unmapped Coast; withdrawing before the fighting opens returns them.
         <br />• <strong>Winning clan:</strong> 1× Legendary War Crate per
         member.
         <br />• <strong>MVP each side:</strong> +10,000 ryo, +50 Honor Seals (or

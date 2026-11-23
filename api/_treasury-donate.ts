@@ -19,6 +19,8 @@
 
 import { NAMED_GEAR_DONATE_BLOCK_MESSAGE } from '../shared/named-gear-rules.js';
 import { wasEverEquipped } from './save/_named-gear-equipped.js';
+import { isQuestOnlyItem } from '../shared/quest-items.js';
+import { isQuestRewardRelic } from '../shared/relics.js';
 import { PET_UNLOCK_WORN_ERROR, petUnlockLeftWithoutCopy } from './pet/_pet-unlocks.js';
 
 export type TreasuryItemStack = { itemId: string; count: number };
@@ -165,6 +167,11 @@ export function applyTreasuryDonation(
     // Named gear that has been worn cannot be sold at the Sunscar Exchange. Letting it into a
     // treasury would let a leader gift it to a member whose account never recorded wearing it.
     if (wasEverEquipped(donorChar, itemId)) return { ok: false, status: 400, error: NAMED_GEAR_DONATE_BLOCK_MESSAGE };
+    // A treasury can hand its items to any member, so a quest item given to one
+    // would be a way to pass a quest's materials or tool to another player.
+    if (isQuestOnlyItem(itemId)) return { ok: false, status: 400, error: 'Quest items cannot be donated.' };
+    // The same door, for a relic a quest gave: a treasury could hand it to a member who never finished that quest.
+    if (isQuestRewardRelic(itemId)) return { ok: false, status: 400, error: 'A relic earned from a quest cannot be donated.' };
     const owned = countOwned(donorChar, itemId);
     if (owned < count) {
         return { ok: false, status: 400, error: `You do not own ${count} of that item (have ${owned}).` };

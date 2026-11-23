@@ -18,7 +18,8 @@ import { readFileSync } from "node:fs";
  * only answers "is this hooked up".
  */
 
-const host = readFileSync(new URL("../components/StoryBossFightHost.tsx", import.meta.url), "utf8");
+const host = readFileSync(new URL("../components/StoryBossFightHost.tsx", import.meta.url), "utf8")
+    + readFileSync(new URL("../components/StoryBossFightView.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const arena = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const coach = readFileSync(new URL("./first-fight-coach.ts", import.meta.url), "utf8");

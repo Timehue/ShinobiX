@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
-import { BATTLE_SCREENS, RESTORABLE_SCREENS, TRANSIENT_SCREEN_PARENT, isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, safeFallbackScreen, screenResetsSector, setScreenFightActive, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
+import { BATTLE_SCREENS, RESTORABLE_SCREENS, TRANSIENT_SCREEN_PARENT, isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, safeFallbackScreen, screenResetsSector, atTownStop, setScreenFightActive, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
 import { isBattleFlowScreen } from "./battle-flow-screen";
 
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
@@ -223,11 +223,19 @@ describe("screen navigation guards", () => {
         assert.equal(screenResetsSector("village"), true);
         assert.equal(screenResetsSector("centralHub"), true);
         assert.equal(screenResetsSector("hospital"), true);
+        const stop = { player: "Maki", clan: "Tide", sector: 108, screen: "hospital" as const };
+        const member = { name: "Maki", clan: "Tide" };
+        assert.equal(screenResetsSector("hospital", atTownStop(stop, "hospital", member, 108)), false);
+        for (const invalid of [null, { ...stop, player: "Rei" }, { ...stop, sector: 109 }, { ...stop, clan: "Pine" }]) {
+            assert.equal(screenResetsSector("hospital", atTownStop(invalid, "hospital", member, 108)), true);
+        }
+        assert.equal(screenResetsSector("hospital", atTownStop(stop, "hospital", { ...member, hospitalized: true }, 108)), true);
+        assert.equal(screenResetsSector("village", true), true);
         for (const s of ["inventory", "profile", "pets", "messages", "worldMap", "weeklyBoss", "clan", "shop"] as const) {
             assert.equal(screenResetsSector(s), false, s);
         }
         // The App effect must consult the guard rather than its own screen list.
-        assert.match(appSource, /if \(screenResetsSector\(screen\)\) setCurrentSector\(0\);/);
+        assert.match(appSource, /if \(screenResetsSector\(screen, visitingTownHospital\)\) setCurrentSector\(0\);/);
         assert.doesNotMatch(appSource, /if \(!inField\) setCurrentSector\(0\)/);
     });
 

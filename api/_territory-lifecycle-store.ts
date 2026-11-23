@@ -5,6 +5,7 @@ import { withKvLock } from './_lock.js';
 import { clanRecordKey, safeName } from './_utils.js';
 import { REGISTRY_KEY, parsePublicPlayerIndexEntry, publicIndexKey } from './player/_public-index.js';
 import { collectTerritorySupply } from './_territory-supply.js';
+import { homeClanTerritoryOpen } from './_home-clan-territory.js';
 import {
     releaseTerritory,
     settleExpiredTerritoryBreach,
@@ -25,6 +26,8 @@ export type TerritoryLifecycleSweepResult = {
     rewardsResumed: number;
     inactiveReleased: number;
     missingClanReleased: number;
+    /** Clan-held home sectors released because clans hold land on the coast only (api/_home-clan-territory.ts). */
+    coastOnlyReleased: number;
     errors: string[];
 };
 
@@ -73,6 +76,7 @@ export async function runTerritoryLifecycleSweep(
         rewardsResumed: 0,
         inactiveReleased: 0,
         missingClanReleased: 0,
+        coastOnlyReleased: 0,
         errors: [],
     };
     const [keys, rawRegistry] = await Promise.all([
@@ -98,6 +102,15 @@ export async function runTerritoryLifecycleSweep(
                 const ownerClan = String(row.ownerClan ?? '').trim();
                 if (!ownerClan) {
                     if (breach.changed) await compareSetExact(store, key, before, row);
+                    return;
+                }
+                // Clans hold land on the coast only now. Whatever a clan still holds on the home map is given
+                // back, once, the first time the sweep meets it. Supply the sector had not paid out is not
+                // banked: a member could collect it up to this moment, and the coast sector pays from here on.
+                if (!homeClanTerritoryOpen()) {
+                    row = releaseTerritory(row, now, 'coast-only');
+                    await compareSetExact(store, key, before, row);
+                    result.coastOnlyReleased += 1;
                     return;
                 }
                 const clan = await store.get<Record<string, unknown>>(clanRecordKey(ownerClan));

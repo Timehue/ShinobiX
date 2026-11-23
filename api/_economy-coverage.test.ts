@@ -111,6 +111,7 @@ const INSTRUMENTED: { file: string; sources: string[] }[] = [
     // The road: favours, merchant and medic, quests, ambushes, gifts; chests.
     { file: 'api/sector/wanderer-service.ts', sources: ['wanderer.favor', 'wanderer.merchant', 'wanderer.medic'] },
     { file: 'api/sector/wanderer-quest.ts', sources: ['wanderer.quest'] },
+    { file: 'api/quests/lines.ts', sources: ['quest.line'] },
     { file: 'api/sector/wanderer-ambush.ts', sources: ['wanderer.ambush'] },
     { file: 'api/sector/wanderer-gift.ts', sources: ['wanderer.gift'] },
     { file: 'api/world/open-chest.ts', sources: ['world.chest'] },

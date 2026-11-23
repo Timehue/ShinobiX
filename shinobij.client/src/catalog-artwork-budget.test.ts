@@ -72,7 +72,12 @@ test('catalog artwork stays within its rendered size budget', () => {
     assert.deepEqual(oversized, [], 'these item images exceed the 320px render budget');
 
     const totalBytes = files.reduce((sum, f) => sum + statSync(join(dir, f)).size, 0);
-    const budget = 6 * 1024 * 1024;
+    // 2026-11-20: 6 MB became 6.5 MB for the Unmapped Coast's 29 quest and reward
+    // icons (697 KB in all, each 320px and under 30 KB, the same as every other
+    // icon). The owner asked for the coast's art allowances to be decided for the
+    // game and its players; twenty quests cannot show a material with no picture.
+    // The 320px check above is the real guard and is unchanged.
+    const budget = 6.5 * 1024 * 1024;
     assert.ok(
         totalBytes <= budget,
         `item artwork totals ${(totalBytes / 1048576).toFixed(2)} MB, over the ${budget / 1048576} MB budget`,
@@ -93,10 +98,15 @@ test('badge art ships as WebP, never PNG', () => {
     assert.ok(webp.length >= 165, `expected the full badge set, found ${webp.length}`);
 
     const totalBytes = webp.reduce((sum, f) => sum + statSync(join(dir, f)).size, 0);
-    const budget = 4 * 1024 * 1024;
+    // 2026-11-21: the folder stood 2,118 B under 4 MiB, which is why the twenty coast
+    // Rounds badges had to ship at 96 px. The owner raised the limit for eight more,
+    // one for each coast quest achievement ("raise the badge limit and give codex the
+    // handoff for achievements/art"): the eight delivered WebPs total 208,432 bytes.
+    const COAST_QUEST_BADGE_BYTES = 208_432;
+    const budget = 4 * 1024 * 1024 + COAST_QUEST_BADGE_BYTES;
     assert.ok(
         totalBytes <= budget,
-        `badge art totals ${(totalBytes / 1048576).toFixed(2)} MB, over the ${budget / 1048576} MB budget`,
+        `badge art totals ${(totalBytes / 1048576).toFixed(2)} MB, over the ${(budget / 1048576).toFixed(2)} MB budget`,
     );
 });
 

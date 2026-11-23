@@ -19,7 +19,8 @@ import { reportPveFightOutcome } from "./pve-outcome-api";
  */
 
 const arena = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
-const storyHost = readFileSync(new URL("../components/StoryBossFightHost.tsx", import.meta.url), "utf8");
+const storyHost = readFileSync(new URL("../components/StoryBossFightHost.tsx", import.meta.url), "utf8")
+    + readFileSync(new URL("../components/StoryBossFightView.tsx", import.meta.url), "utf8");
 const missions = readFileSync(new URL("../screens/Missions.tsx", import.meta.url), "utf8");
 
 test("the arena shell reports the outcome on ANY resolution, not just a win", () => {

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "coast-crossing-v1",
+    "name": "Across the Water",
+    "goal": "The Shuttered Boat"
+  },
+  {
+    "id": "coast-crossing-war-v1",
+    "name": "Five Garrisons",
+    "goal": "The Crossing War: Twin Ward"
+  },
+  {
+    "id": "coast-finale-v1",
+    "name": "The Name in the Record",
+    "goal": "The Unmoored"
+  },
+  {
+    "id": "coast-boatwright-v1",
+    "name": "The Boatwright's Trust",
+    "goal": "The Boatwright's Tools III"
+  },
+  {
+    "id": "coast-uncounted-v1",
+    "name": "Off the Register",
+    "goal": "The Uncounted III"
+  },
+  {
+    "id": "coast-clan-gate-v1",
+    "name": "The Gate Holds",
+    "goal": "Raise the Clan Gate III"
+  },
+  {
+    "id": "coast-untamed-v1",
+    "name": "Three Great Beasts",
+    "goal": "Untamed Coast III"
+  },
+  {
+    "id": "coast-tales-v1",
+    "name": "Ten Small Things",
+    "goal": "all ten coast side tales"
+  }
+]

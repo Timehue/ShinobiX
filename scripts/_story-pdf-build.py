@@ -126,15 +126,24 @@ def render_scene(sc, header):
     blk.append(Paragraph("EDIT: " + esc(sc["editLocator"]) + extra, S["locator"]))
     if sc.get("sceneImage"):
         blk.extend([Spacer(1,3), scaled_image(sc["sceneImage"], 5.4*inch, 3.5*inch)])
-    flow.append(KeepTogether(blk))
+    # A heading is never left alone at the foot of a sheet: the scene title stays
+    # with its first page, and each page head stays with its caption and first line.
+    lead = blk
+    if sc.get("cast") or not sc["pages"]:
+        flow.append(KeepTogether(blk)); lead = []
     if sc.get("cast"):
         cast_strip(sc["cast"])
     for pg in sc["pages"]:
+        start = len(flow)
         flow.append(Paragraph(f'Page {pg["index"]+1} &nbsp;·&nbsp; {esc(pg["title"])}', S["page_head"]))
         scene_caption_box(pg["scene"])
-        for ln in pg["lines"]:
+        for at, ln in enumerate(pg["lines"]):
             sp, tx = esc(ln["speaker"]), esc(ln["text"])
             flow.append(Paragraph(f'<i>{tx}</i>' if sp.lower() in ("narrator","") else f'<b>{sp}:</b> {tx}', S["line"]))
+            if at == 0:
+                flow[start:] = [KeepTogether(lead + flow[start:])]; lead = []
+        if not pg["lines"]:
+            flow[start:] = [KeepTogether(lead + flow[start:])]; lead = []
         lanes = [c for c in pg["choices"] if c["isLane"]]
         for c in [c for c in pg["choices"] if not c["isLane"]]:
             gate = f' <font color="#0a5a8a">[only if: {esc(c["requireTrait"])}]</font>' if c["requireTrait"] else ""

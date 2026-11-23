@@ -42,7 +42,8 @@ export function SectorHudPanel({ id, title, children, rootRef, onClose }: {
         window.addEventListener('scroll', scrolled, { capture: true, passive: true });
         window.visualViewport?.addEventListener('resize', size);
         let outsidePointer = false;
-        const blocked = () => Boolean(document.querySelector('[aria-modal="true"], dialog[open]'));
+        const questReader = () => document.querySelector('.coast-quest-scene');
+        const blocked = () => Boolean(questReader() || document.querySelector('[aria-modal="true"], dialog[open]'));
         const contains = (event: Event) => event.target instanceof Node && rootRef.current?.contains(event.target);
         const consume = (event: Event) => { event.preventDefault(); event.stopImmediatePropagation(); };
         const down = (event: PointerEvent) => {
@@ -74,7 +75,10 @@ export function SectorHudPanel({ id, title, children, rootRef, onClose }: {
         };
         // Existing modal primitives own their own focus and Escape. Retire this
         // surface when one takes over, without stealing focus from that dialog.
-        const dialogs = new MutationObserver(() => { if (blocked()) closeRef.current(false); });
+        // A quest card owns its portaled reader. Its completion launches the fight, so keep the card mounted.
+        const dialogs = new MutationObserver(() => {
+            if (!questReader() && blocked()) closeRef.current(false);
+        });
         dialogs.observe(document.body, { childList: true, subtree: true });
         document.addEventListener('pointerdown', down, true);
         document.addEventListener('pointerup', up, true);

@@ -81,6 +81,8 @@ import {
 import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
 import { applyDungeonWardenSettlement } from '../dungeon/_ai-fight.js';
 import { recordWorldCrisisDefense } from '../world-crisis/_state.js';
+import { recordCoastGarrisonWin } from '../coast/_land.js';
+import { recordCoastPatrolWin } from '../coast/_patrols.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 const genericAiFightActiveKey = (playerName: string) => `ai-fight-active:${playerName}`;
@@ -199,7 +201,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const settledUsageSession = usage.session;
         // Mission outpost victories only stamp the accepted contract. The
         // contract claim is their reward authority, not generic AI farming.
-        const paysReward = aiFightPaysReward(outcome, sealedBattleKind) && !sealedRaidMissionId;
+        // A land-contest garrison fight on the coast scores for the clan and
+        // pays no purse (api/coast/_land.ts), so it cannot be farmed for ryo.
+        const paysReward = aiFightPaysReward(outcome, sealedBattleKind) && !sealedRaidMissionId && sealedWorldContext?.kind !== 'coast-garrison';
         const requestedDailyDate = utcDateKey();
         let dailyCounterKey = aiFightDailyCounterKey(playerName, requestedDailyDate);
         // The upgrade gear piece this settle granted, for the result card. Reset
@@ -669,6 +673,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         proofId: aiFightToken,
                         outcome,
                     });
+                }
+                if (sealedWorldContext.kind === 'coast-garrison' && outcome === 'win') {
+                    // One point for the clan's contest, counted once per fight token.
+                    await recordCoastGarrisonWin({
+                        playerName,
+                        sector: sealedWorldContext.sector,
+                        contestId: sealedWorldContext.sourceId,
+                        proofId: aiFightToken,
+                    });
+                }
+                if (sealedWorldContext.kind === 'coast-patrol' && outcome === 'win') {
+                    // Driven off for the day: the same patrol cannot be fought again until tomorrow.
+                    await recordCoastPatrolWin(playerName, sealedWorldContext.sourceId);
                 }
                 if (sealedWorldContext.kind === 'bounty-hunter') {
                     await kv.set(worldAiBountyCooldownKey(playerName, sealedWorldContext.sourceId), {

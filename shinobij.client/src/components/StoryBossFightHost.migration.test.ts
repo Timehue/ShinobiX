@@ -7,7 +7,9 @@ import test from "node:test";
 // are solo defeat-boss TowerSessions, so the screen is shared; only the theme +
 // settle endpoint differ. This guards the migration from silently regressing back
 // to the tower shell (which showed "Floor 9200 · defeat boss" tower chrome).
-const host = readFileSync(new URL("./StoryBossFightHost.tsx", import.meta.url), "utf8");
+// The host holds the request listener and the fight's state; what the open fight draws is in its lazy view.
+const host = readFileSync(new URL("./StoryBossFightHost.tsx", import.meta.url), "utf8")
+    + readFileSync(new URL("./StoryBossFightView.tsx", import.meta.url), "utf8");
 const missionFight = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const storyApi = readFileSync(new URL("../lib/story-combat-api.ts", import.meta.url), "utf8");
 const rewardSummary = readFileSync(new URL("./StoryRewardSummary.tsx", import.meta.url), "utf8");

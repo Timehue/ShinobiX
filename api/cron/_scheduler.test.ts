@@ -25,6 +25,16 @@ test('sector wars settle on their own leased 5-minute tick, not only at 03:00', 
     assert.match(source, /clearInterval\(_sectorWarSettleInterval\)/);
 });
 
+test('coast land settles on its own leased 5-minute tick, with an overlap guard', () => {
+    // A contest closes 72 hours after it was declared, at whatever hour that is.
+    const source = readFileSync('api/cron/_scheduler.ts', 'utf8');
+    assert.match(source, /const COAST_LAND_SETTLE_TICK_MS = 5 \* 60_000;/);
+    assert.match(source, /setInterval\(\(\) => void fireCoastLandSettlement\(\), COAST_LAND_SETTLE_TICK_MS\)/);
+    assert.match(source, /withScheduledJobLease\(\s*'coast-land-settle',\s*\(\) => runCoastLandTick\(\),/);
+    assert.match(source, /if \(_coastLandSettleRunning\) return;/);
+    assert.match(source, /clearInterval\(_coastLandSettleInterval\)/);
+});
+
 test('the village-war daily pass releases its lease on an unfinished day and is caught up after restarts', () => {
     // The day's lease used to be held for 20 hours after ANY run, so a village
     // that failed (a contended lock, a storage blip) waited a whole day, and a

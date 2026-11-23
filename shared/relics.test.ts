@@ -6,10 +6,16 @@ import { starterItems } from '../shinobij.client/src/data/starter-items.js';
 import { eventItems } from '../shinobij.client/src/data/event-items.js';
 import { STORY_RECKONINGS } from '../api/sector/_story-reckoning.js';
 
-test('exactly 20 equippable relics, one equal story reward per village, all art present', () => {
+test('exactly 22 equippable relics, one equal story reward per village, all art present', () => {
     const equipped = [...starterItems, ...eventItems].filter(item => item.slot === 'relic');
-    assert.equal(equipped.length, 20);
-    assert.equal(new Set(equipped.map(item => item.id)).size, 20);
+    assert.equal(equipped.length, 22);
+    assert.equal(new Set(equipped.map(item => item.id)).size, 22);
+    // The coast finale gives one of two equal relics, by the choice sealed in it.
+    const capstones = RELIC_ROSTER.filter(item => item.source.kind === 'quest');
+    assert.deepEqual(capstones.map(item => [item.id, item.levelReq, item.bonuses]), [
+        ['coast-quiet-crown-mantle', 95, { pveDamagePercent: 9 }],
+        ['coast-ridgewarden-bracer', 95, { pveDamagePercent: 9 }],
+    ]);
     assert.deepEqual(equipped.map(item => item.id).sort(), RELIC_ROSTER.map(item => item.id).sort());
     assert.equal(Object.keys(VILLAGE_RELICS).length, 4);
     for (const item of RELIC_ROSTER) {

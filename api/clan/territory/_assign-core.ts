@@ -11,6 +11,23 @@ export const TERRITORY_SCROLL_VALUE = 1_000;
 export const TERRITORY_CAPTURE_SCROLLS = TERRITORY_CONTROL_MAX / TERRITORY_SCROLL_VALUE;
 
 export type TerritoryBuffStat = 'bukijutsuOffense' | 'taijutsuOffense' | 'ninjutsuOffense' | 'genjutsuOffense';
+export const TERRITORY_BUFF_STATS: readonly TerritoryBuffStat[] = ['bukijutsuOffense', 'taijutsuOffense', 'ninjutsuOffense', 'genjutsuOffense'];
+
+/**
+ * The jutsu TYPE that a holding clan's chosen offense stat favours by 10% on its own ground, or '' for an
+ * unknown or empty stat. The one mapping for player fights (api/pvp/session.ts), AI fights on the coast
+ * (api/missions/ai-fight-start.ts) and the coast claim that stores the choice (api/coast/_land.ts). The
+ * multiplier itself is `homeTerrainMultiplier` in api/combat-core/formulas.ts.
+ */
+export function terrainBuffStatToJutsuType(stat: unknown): string {
+    switch (stat) {
+        case 'bukijutsuOffense': return 'Bukijutsu';
+        case 'taijutsuOffense':  return 'Taijutsu';
+        case 'ninjutsuOffense':  return 'Ninjutsu';
+        case 'genjutsuOffense':  return 'Genjutsu';
+        default:                 return '';
+    }
+}
 export type TerritoryWeather = 'clear' | 'rain' | 'thunderstorm' | 'ashfall' | 'tornado' | 'desertHaze';
 
 export type AssignableTerritory = Record<string, unknown> & {

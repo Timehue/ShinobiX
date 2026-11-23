@@ -68,6 +68,8 @@ export type WorldWandererDialogProps = Readonly<{
     emissaryDayBucket: number;
     atWar: boolean;
     legacyTrial: ReactNode;
+    /** What a Wandering Sage has noticed for this player: the quest lines he offers. */
+    sageOffer?: ReactNode;
     closeWandererDialog: () => void;
     dismissWandererDialog: () => void;
     startWandererAttack: (wanderer: Wanderer, nemesis?: boolean) => ActionResult;
@@ -118,6 +120,7 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
         emissaryDayBucket,
         atWar,
         legacyTrial,
+        sageOffer,
         closeWandererDialog,
         dismissWandererDialog,
         startWandererAttack,
@@ -180,7 +183,7 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
                 <div style={wrappingChoiceRow}>
                     {ordinary.map((item,index)=><button key={index} disabled={item.disabled} onClick={item.run} style={item.muted?mutedAction:undefined}>{item.label}</button>)}
                 </div>
-            ) : !msg && w.verb === "quest" ? (() => {
+            ) : !msg && w.verb === "quest" ? <>{sageOffer}{(() => {
                 const epic = character.activeQuestbook;
                 if (epic) {
                     const entry = questbookEntry(epic.id);
@@ -265,7 +268,7 @@ export function WorldWandererDialog(props:WorldWandererDialogProps) {
                         </div>
                     </>
                 );
-            })() : !msg && w.verb === "legacyQuest" ? (() => {
+            })()}</> : !msg && w.verb === "legacyQuest" ? (() => {
                 const em = EMISSARY_BY_SLUG.get(w.archetype as EmissarySlug);
                 if (!em) return leaveButton;
                 const active = character.activeWandererQuest;

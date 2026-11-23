@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { CINDERHOLD_SECTORS, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS } from '../../../shared/sector-geo.js';
 import { safeLogValue } from '../../_safe-log.js';
+import { HOME_CLAN_TERRITORY_CLOSED, homeClanTerritoryOpen } from '../../_home-clan-territory.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { storedValueEquals } from '../../_stored-value.js';
@@ -128,6 +129,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const terrainBuffStat = body.terrainBuffStat as TerritoryBuffStat;
         const requestId = typeof body.requestId === 'string' ? body.requestId.trim() : '';
         if (!playerName || !clan) return res.status(400).json({ error: 'Missing playerName or clan.' });
+        // Clans hold land on the coast only (api/_home-clan-territory.ts): nothing on the home map is captured or reinforced.
+        if (!homeClanTerritoryOpen()) return res.status(403).json({ error: HOME_CLAN_TERRITORY_CLOSED, reason: 'coast-only' });
         if (!Number.isSafeInteger(sector) || sector < 1 || sector > MAX_WILD_SECTOR) return res.status(400).json({ error: 'Invalid sector.' });
         // Cinderhold's eight sectors are the NPC village's home, held by no clan.
         if (OUTSKIRTS_SECTORS.includes(sector) || CINDERHOLD_SECTORS.includes(sector)) return res.status(400).json({ error: 'Village sectors cannot be captured.' });

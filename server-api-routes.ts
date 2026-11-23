@@ -274,6 +274,12 @@ import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
 import sectorWandererServiceHandler   from './api/sector/wanderer-service.js';
 import sectorRoadFleeHandler          from './api/sector/road-flee.js';
 import sectorQuestbookHandler         from './api/sector/questbook.js';
+import questLinesHandler              from './api/quests/lines.js';
+import coastWorldHandler              from './api/coast/world.js';
+import coastLandHandler               from './api/coast/land.js';
+import coastLandingHandler            from './api/coast/landing.js';
+import coastPatrolsHandler            from './api/coast/patrols.js';
+import coastAdminHandler              from './api/coast/admin.js';
 import sectorStoryReckoningHandler    from './api/sector/story-reckoning.js';
 import sectorMercRoamHandler          from './api/sector/merc-roam.js';
 import sectorTracesHandler            from './api/sector/traces.js';
@@ -776,6 +782,14 @@ export function registerApiRoutes(registerRoute: (path: string, handler: AnyHand
     route('/sector/wanderer-service',   sectorWandererServiceHandler);
     route('/sector/road-flee',          sectorRoadFleeHandler);
     route('/sector/questbook',          sectorQuestbookHandler);
+    route('/quests/lines',              questLinesHandler);
+    // The Unmapped Coast's map data, drawn by the client (api/coast/world.ts)
+    route('/coast/world',               coastWorldHandler);
+    route('/coast/land',                coastLandHandler);
+    route('/coast/landing',             coastLandingHandler);
+    route('/coast/patrols',             coastPatrolsHandler);
+    // Full admin only: the owner's tools for land contests and Landings (api/coast/admin.ts)
+    route('/coast/admin',               coastAdminHandler);
     route('/sector/story-reckoning',    sectorStoryReckoningHandler);
     route('/sector/merc-roam',          sectorMercRoamHandler);
     // Sector traces — footfall + trail signs + shrine offerings (world remembers you)

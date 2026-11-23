@@ -1,7 +1,7 @@
 import type { Screen } from "../types/core";
 import { useLayoutEffect, useRef, useState } from 'react';
 import { readNavigationTrail } from './navigation-trail';
-import { isWildSector, safeFallbackScreen } from './screen-guards';
+import { isFieldSector, safeFallbackScreen } from './screen-guards';
 
 export function usePetHomeReturn(screen: Screen, account: string | undefined, sector: number): Screen {
     const [target, setTarget] = useState<Screen>('village');
@@ -10,7 +10,7 @@ export function usePetHomeReturn(screen: Screen, account: string | undefined, se
         if (isPetHomeScreen(screen) && !isPetHomeScreen(previous.current)) {
             const trail = account ? readNavigationTrail(account)?.trail : undefined;
             const origin = previous.current !== 'start' ? previous.current : trail?.filter(candidate => !isPetHomeScreen(candidate)).at(-1);
-            setTarget(origin ?? safeFallbackScreen(isWildSector(sector)));
+            setTarget(origin ?? safeFallbackScreen(isFieldSector(sector)));
         }
         previous.current = screen;
     }, [account, screen, sector]);

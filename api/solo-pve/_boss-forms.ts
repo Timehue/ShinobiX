@@ -34,6 +34,7 @@ import {
 } from '../../shared/boss-transformations.js';
 import type { ServerAiRule } from '../combat-core/ai-authoring.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
+import { bossHoldStands } from './_boss-hold.js';
 import type { SoloPveJutsu, SoloPveSession } from './_session.js';
 
 export function isBossTransformationPlan(value: unknown): value is BossTransformationPlan {
@@ -144,6 +145,17 @@ export function soloPveBossTurnStart(session: SoloPveSession): void {
     const turn = bossChargeTurn(state, session.enemy, session.round);
     if (!turn) return;
     if (turn.kind === 'armed') {
+        // A charge is broken by taking health off the boss, and while a Hold
+        // stands the boss stops at 1 HP. So a Hold boss never gathers a charge
+        // that it has too little health left to be made to pay for: the break
+        // point is capped at the health it can still lose, and a boss already
+        // on its last point gathers nothing. Once the Hold is broken this rule
+        // is gone, because the next blow simply ends the fight.
+        if (bossHoldStands(session)) {
+            const room = Math.floor(session.enemy.hp) - 1;
+            if (room < 1) { delete state.charge; return; }
+            turn.charge.breakAt = Math.min(turn.charge.breakAt, room);
+        }
         session.log.push(`${session.enemy.name} begins gathering ${turn.charge.name}! Deal ${turn.charge.breakAt} damage or stun them before their next turn to break it.`);
         return;
     }

@@ -1,4 +1,4 @@
-import { sectorRewardTier } from './sector-geo';
+import { worldRewardTier } from './world-maps';
 
 /** Ordinary combat rolls only. This does not participate in Explore's choice
  * between combat, gathering, pets, chests, and quiet tiles. Server receipts
@@ -53,7 +53,7 @@ function levelOf(value: number): number { return Math.max(1, Math.min(100, Math.
  * first fifteen levels retain player-level onboarding protection. */
 export function ordinaryPveLevel(playerLevel: number, sector: number, difficulty: OrdinaryPveDifficulty, fraction: number): number {
     const player = levelOf(playerLevel);
-    const region = Math.max(1, Math.min(100, Math.round(6 + sectorRewardTier(sector) * 1.4)));
+    const region = Math.max(1, Math.min(100, Math.round(6 + worldRewardTier(sector) * 1.4)));
     const ratio = Math.max(0, Math.min(.999999999, Number(fraction) || 0));
     const target = difficulty === 'weaker' ? Math.floor(player * (.65 + ratio * .20))
         : difficulty === 'standard' ? Math.floor(player * (.90 + ratio * .10))

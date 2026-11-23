@@ -125,8 +125,22 @@ describe('/api/sector/chat', () => {
         assert.equal((await say('faraway', 'Hello?')).status, 409);
     });
 
+    it('carries a voice on the Unmapped Coast, heard only by those who crossed', async () => {
+        const COAST = 102;
+        onlineStore.upsert({ name: 'rin', sector: COAST, character: { name: 'Rin', village: 'Stormveil Village', level: 55 } });
+        const posted = await say('rin', 'The garrison gate is open.', COAST);
+        assert.equal(posted.status, 200);
+        assert.equal(emitted[0].room, `sector:${COAST}`);
+        assert.deepEqual(texts(await hear('rin', 0, COAST)), ['The garrison gate is open.']);
+        // A player still on the home map hears nothing from across the water and cannot speak there.
+        const home = await hear(LISTENER, 0, COAST);
+        assert.deepEqual([texts(home), home.body.away], [[], 'sector-mismatch']);
+        assert.equal((await say(SPEAKER, 'Hello over there?', COAST)).status, 409);
+        assert.deepEqual(texts(await hear(LISTENER)), [], 'and the coast is not heard at home');
+    });
+
     it('refuses places with no sector chat, and anonymous callers', async () => {
-        for (const sector of [0, 54, 98, 1000]) assert.equal((await say(SPEAKER, 'hi', sector)).status, 400, `sector ${sector}`);
+        for (const sector of [0, 54, 98, 100, 151, 1000]) assert.equal((await say(SPEAKER, 'hi', sector)).status, 400, `sector ${sector}`);
         assert.equal((await call('GET', null, { sector: String(SECTOR) })).status, 401);
     });
 

@@ -7,6 +7,7 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { collectTerritorySupply } from '../../_territory-supply.js';
+import { collectCoastClaimSupply, liveCoastClaimOf } from '../../coast/_land.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 
 /*
@@ -91,7 +92,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])
             : [];
         const owned = territories.filter((t) => String(t.ownerClan ?? '') === clan);
-        if (owned.length > 0) {
+        // The sector the clan holds on the coast. Clans hold land there only now, so this is where
+        // War Supply comes from; the home sectors above are whatever is left to pay out before release.
+        const coastClaim = await liveCoastClaimOf(clan);
+        if (owned.length > 0 || coastClaim) {
             txId = makeEconomyTxId('clan-territory-collect-supply');
             await reserveEconomyTx({
                 id: txId,
@@ -100,7 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 creditKey: clanSaveKey,
                 resource: 'warSupply',
                 amount: 0,
-                meta: { clan, sectors: owned.map((t) => Number(t.sector)).filter(Number.isFinite) },
+                meta: { clan, sectors: [...owned.map((t) => Number(t.sector)).filter(Number.isFinite), ...(coastClaim ? [coastClaim.sector] : [])] },
             });
             txState = 'reserved';
         }
@@ -130,6 +134,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }, { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
         }
+
+        // The coast sector: paid out and marked under the coast's own lock, debit first, like the sectors above.
+        if (coastClaim) total += (await collectCoastClaimSupply(clan, now)).collected;
 
         // Apply the Treasury Vault collection bonus to the raw collected total.
         const credited = total > 0 ? Math.floor(total * (1 + collectionBonusPct / 100)) : 0;

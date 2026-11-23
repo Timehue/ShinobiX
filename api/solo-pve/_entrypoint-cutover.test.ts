@@ -26,7 +26,8 @@ test('migrated mission and story endpoints have no Tower or client-trust authori
 
 test('all built-in mission ranks and both story lanes use the solo-PvE arena adapter', () => {
     const missions = source('../../shinobij.client/src/screens/Missions.tsx');
-    const storyHost = source('../../shinobij.client/src/components/StoryBossFightHost.tsx');
+    // The host holds the request listener; the open fight is drawn by its lazy view.
+    const storyHost = source('../../shinobij.client/src/components/StoryBossFightHost.tsx') + source('../../shinobij.client/src/components/StoryBossFightView.tsx');
     const storyApi = source('../../shinobij.client/src/lib/story-combat-api.ts');
     for (const [name, text] of [['Missions', missions], ['StoryBossFightHost', storyHost], ['story-combat-api', storyApi]] as const) {
         assert.doesNotMatch(text, /towers-api|towerArenaTransport|TowerSession|TowerHostLoadout|hostLoadout/, `${name} retains Tower wire semantics`);

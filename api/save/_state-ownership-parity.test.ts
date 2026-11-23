@@ -188,7 +188,7 @@ const FROZEN = {
         'currentSector', 'currentTile', 'worldPosition', 'worldTravelReceipt', 'pendingTravel',
         '_trainingReceipts', 'activeTraining',
         'activeWandererQuestSeal', 'activeStoryReckoningSeal',
-        'activeRiftQuestSeal', 'activeQuestbookSeal',
+        'activeRiftQuestSeal', 'activeQuestbookSeal', 'questLines',
         'creatorJutsus', 'creatorAis', 'creatorMissions', 'creatorEvents',
         'creatorCards', 'creatorRaids',
     ],

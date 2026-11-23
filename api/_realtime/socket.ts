@@ -43,6 +43,7 @@ import { setOnSweep } from './game-loop.js';
 import { wireChatRooms } from './chat-rooms.js';
 import { setRealtimeDisconnector, setRealtimeEmitter } from './notify.js';
 import { clearSleeperCampOnBeat } from './sleeper-camps.js';
+import { refreshCoastTownVisit } from '../coast/_town-presence.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from './travel-lease.js';
 import { readSavedLocation } from './saved-location.js';
 import { durablePresenceSectorForWrite } from './world-duel-engagement.js';
@@ -328,6 +329,8 @@ function wireRealtime(io: IOServer): void {
             // Throttled cross-worker presence beat (see _realtime/_presence-beat.ts).
             stampPresenceBeat(displayName);
             void clearSleeperCampOnBeat(displayName).catch(() => undefined);
+            // Renews a clan-town visit; reads nothing for a player who is not in one.
+            void refreshCoastTownVisit(displayName).catch(() => undefined);
             const newSector = stored.sector;
 
             if (newSector !== prevSector) {

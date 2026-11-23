@@ -131,7 +131,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'mentorRewardReceipts',
     // Inventory, jutsu, pets, titles, legacy
     'professionChosenAt', 'jutsu', 'jutsuMastery', 'pets', 'tileCards', 'lastHollowGateStart',
-    'serverTitles', 'legacy', 'masterySpec', 'examsPassed', 'eraJourneys',
+    'serverTitles', 'coastBadges', 'legacy', 'masterySpec', 'examsPassed', 'eraJourneys',
     // Forbidden at character scope (deleted from the character on every save)
     'creatorJutsus', 'creatorItems', 'creatorAis', 'creatorMissions', 'creatorEvents',
     'creatorCards', 'creatorRaids',
@@ -140,7 +140,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
 /** Top-level fields a generic player save cannot durably change. */
 export const SERVER_OWNED_TOPLEVEL_FIELDS: ReadonlySet<string> = new Set([
     '_trainingReceipts', 'activeTraining', 'activeJutsuTraining', 'activeWandererQuestSeal',
-    'activeStoryReckoningSeal', 'activeRiftQuestSeal', 'activeQuestbookSeal', 'banditTollReceipts',
+    'activeStoryReckoningSeal', 'activeRiftQuestSeal', 'activeQuestbookSeal', 'questLines', 'banditTollReceipts',
     'creatorJutsus', 'creatorAis', 'creatorMissions', 'creatorEvents', 'creatorCards',
     'creatorRaids', 'editablePets', 'petEncounterVn', 'ancientChestVn',
     'hollowGateEventConfig', 'pendingBloodlineForges', 'worldGeoV', '_saveVersion', '_saveAt',

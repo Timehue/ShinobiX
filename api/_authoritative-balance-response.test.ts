@@ -130,7 +130,8 @@ describe('authoritative balance response migration', () => {
         const core = read('api/story/_settle.ts');
         const saveApi = read('api/save/_sanitize-progression.ts');
         const client = read('shinobij.client/src/lib/story-combat-api.ts');
-        const host = read('shinobij.client/src/components/StoryBossFightHost.tsx');
+        // The host holds the request listener; the open fight (settle included) is drawn by its lazy view.
+        const host = read('shinobij.client/src/components/StoryBossFightHost.tsx') + read('shinobij.client/src/components/StoryBossFightView.tsx');
         const app = read('shinobij.client/src/App.tsx');
         assert.match(api, /const session = await readSoloPveSession\(runId\)/);
         assert.match(api, /const redemptionKey = `run:\$\{runId\}`/);

@@ -12,6 +12,7 @@ const commandPanelBody = readFileSync(new URL("../components/WorldSectorCommandP
 // two tight ones cannot be dodged by moving code across the pair.
 const commandPanelTypes = readFileSync(new URL("../components/WorldSectorCommandPanel.types.ts", import.meta.url), "utf8");
 const commandPanelSource = commandPanelBody + "\n" + commandPanelTypes;
+const frameSource = readFileSync(new URL("../components/SectorHudFrame.tsx", import.meta.url), "utf8");
 const hudSource = readFileSync(new URL("../components/SectorHud.tsx", import.meta.url), "utf8");
 const nearbySource = readFileSync(new URL("../components/SectorNearby.tsx", import.meta.url), "utf8");
 const rowSource = readFileSync(new URL("../components/SectorPlayerRow.tsx", import.meta.url), "utf8");
@@ -477,7 +478,8 @@ test("sector details retain all secondary content while the HUD owns primary act
     assert.match(hudSource, /disabled=\{!gatherDepleted && \(!present \|\| dailyCapped \|\| props\.exploreBusy\)\}/u);
     assert.match(hudSource, /onClick=\{onHunt\}/u);
     assert.doesNotMatch(hudSource, /Players Here|onRecover|onLeave/u);
-    assert.match(hudSource, /Sector Info/u);
+    assert.match(hudSource, /<SectorHudFrame/u);
+    assert.match(frameSource, /Sector Info/u);
     assert.match(hudSource, /<SectorNearby/u);
     assert.match(hudSource, /<WorldSectorCommandPanel/u);
     assert.match(rowSource, /'Strike down'[\s\S]*sectorContestLabel[\s\S]*'Attack'/u);
@@ -496,10 +498,10 @@ test("the sector HUD stays mounted across sectors and resets what a remount rese
     const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedLandmark) {");
     assert.match(projection, /<SectorHud\s/u);
     assert.doesNotMatch(projection, /<SectorHud key=/u, "a key remounts the whole HUD at every crossing");
-    assert.match(hudSource, /if \(sheetSector !== sector\) \{ setSheetSector\(sector\); setSheet\(null\); \}/u, "an open sheet closes on crossing");
+    assert.match(frameSource, /if \(sheetSector !== sector\) \{ setSheetSector\(sector\); setSheet\(null\); \}/u, "an open sheet closes on crossing");
     assert.match(hudSource, /useLayoutEffect\(\(\) => \(\) => \{ originVersion\.current \+= 1; \}, \[sector\]\)/u,
         "leaving a sector retires its read-only navigation");
-    assert.match(hudSource, /<SectorChat key=\{sector\}/u, "chat draft, notice and read position stay per sector");
+    assert.match(frameSource, /<SectorChat key=\{sector\}/u, "chat draft, notice and read position stay per sector");
     assert.match(nearbySource, /<SectorPlayerList key=\{sector\}/u, "each sector's roster batches in from the top");
 });
 

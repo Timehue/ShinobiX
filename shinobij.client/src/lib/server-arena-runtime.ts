@@ -116,6 +116,8 @@ export type ServerArenaSession = {
     hollowGateRoundLimit?: number;
     /** A transforming boss's sealed form state; the screen derives its view from it. */
     bossForms?: import('../../../shared/boss-transformations').BossTransformationState;
+    /** A quest boss's Hold: it cannot fall until the quest tool breaks this. */
+    bossHold?: { breakerItemId: string; name: string; broken: boolean };
     terminalReason?: import('../../../shared/solo-pve-terminal').SoloPveTerminalReason;
     sessionId: string;
     /** Opaque runtime revision used only by the selected transport. */

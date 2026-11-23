@@ -1,0 +1,91 @@
+[
+  {
+    "id": "coast-crossing-v1",
+    "name": "Across the Water",
+    "earned": "The Shuttered Boat",
+    "prompt": "Paint a single square edge-to-edge miniature scene for an achievement in this coastal shinobi RPG. The attached three existing badges are STYLE references only: match their finely painted, grounded dark fantasy material detail, rich dark ground, warm and cool practical light, strong form and tactile highlights. One decisive composition readable down to 48 pixels. Restrained amber, parchment and blue-grey shadows, with the local accent stated below. No ornamental border, emblem medallion, lettering, number, UI, watermark, collage, modern equipment or purple void glow. Full bleed, completely opaque, one scene. A three-quarter low view of the familiar coastal sailboat underway across open water at night. Match the little wooden hull, single square ochre sail and open-sided shelter in reference 4. All shutters are off. The one bright struck shard of stormglass fixed at the bow throws a hot pearl-gold light over the prow and spray. A strong dark sail and diagonal white wake against deep blue water. No coast or buildings.",
+    "referenceFiles": [
+      "public/badges/story-chapter-9.webp",
+      "public/badges/questbook-5.webp",
+      "public/badges/dungeon-clear-1.webp",
+      "public/coast-map/boats/shard-crossing-v1.webp"
+    ]
+  },
+  {
+    "id": "coast-crossing-war-v1",
+    "name": "Five Garrisons",
+    "earned": "The Crossing War: Twin Ward",
+    "prompt": "Paint a single square edge-to-edge miniature scene for an achievement in this coastal shinobi RPG. The attached three existing badges are STYLE references only: match their finely painted, grounded dark fantasy material detail, rich dark ground, warm and cool practical light, strong form and tactile highlights. One decisive composition readable down to 48 pixels. Restrained amber, parchment and blue-grey shadows, with the local accent stated below. No ornamental border, emblem medallion, lettering, number, UI, watermark, collage, modern equipment or purple void glow. Full bleed, completely opaque, one scene. A bundled trophy of FIVE small, tattered, captured garrison standards, cut shafts below, bound at a single clearly visible cord knot. Fan the five cloths outward so their silhouette reads as five distinct shapes. Left to right salt-stiff tan canvas, marsh reed ochre weave, muted deep briar-green cloth, frost-white cloth, crown-grey. Cut edges and wind, cold steel-blue environment, one low amber shaft of light catching cloth, against dark stone. No crests, letters, flags of real peoples, extra flags or upright army.",
+    "referenceFiles": [
+      "public/badges/story-chapter-9.webp",
+      "public/badges/questbook-5.webp",
+      "public/badges/dungeon-clear-1.webp"
+    ]
+  },
+  {
+    "id": "coast-finale-v1",
+    "name": "The Name in the Record",
+    "earned": "The Unmoored",
+    "prompt": "Paint a single square edge-to-edge miniature scene for an achievement in this coastal shinobi RPG. The attached three existing badges are STYLE references only: match their finely painted, grounded dark fantasy material detail, rich dark ground, warm and cool practical light, strong form and tactile highlights. One decisive composition readable down to 48 pixels. Restrained amber, parchment and blue-grey shadows, with the local accent stated below. No ornamental border, emblem medallion, lettering, number, UI, watermark, collage, modern equipment or purple void glow. Full bleed, completely opaque, one scene. A substantial open, handbound Record House ledger on a pale wind-scoured stone sill, high above Hushcrown. It fills most of the frame; just a sliver of distant cold blue peaks above it. Heavy ochre parchment catches a low ray of warm sunlight. Single long still-wet black ink stroke among faint old grey marks on the right-hand page; fresh wet ink visibly catches silver light. A just-laid ink brush lies diagonally beside the gutter. Solemn, neutral ending. Optically abstract smudges only. No letters, seal, red wax, people, victorious banners or suggestion of who won.",
+    "referenceFiles": [
+      "public/badges/story-chapter-9.webp",
+      "public/badges/questbook-5.webp",
+      "public/badges/dungeon-clear-1.webp"
+    ]
+  },
+  {
+    "id": "coast-boatwright-v1",
+    "name": "The Boatwright's Trust",
+    "earned": "The Boatwright's Tools III",
+    "prompt": "Paint a single square edge-to-edge miniature scene for an achievement in this coastal shinobi RPG. The attached three existing badges are STYLE references only: match their finely painted, grounded dark fantasy material detail, rich dark ground, warm and cool practical light, strong form and tactile highlights. One decisive composition readable down to 48 pixels. Restrained amber, parchment and blue-grey shadows, with the local accent stated below. No ornamental border, emblem medallion, lettering, number, UI, watermark, collage, modern equipment or purple void glow. Full bleed, completely opaque, one scene. Close detail of a split wooden keel clamped across a salt-worn slip bench, freshly mended. Strong broad diagonal of dark wood; golden cord whipping tightly wraps the split against two dark forged iron fittings. A short wooden mallet resting beside it, and a black pitch pot with a fine wisp of smoke far back. Warm light catches taut binding, moody slate-blue waterfront light along the lower wood. Keel repair is a single graphic shape, not a boat scene. No people or lettering.",
+    "referenceFiles": [
+      "public/badges/story-chapter-9.webp",
+      "public/badges/questbook-5.webp",
+      "public/badges/dungeon-clear-1.webp"
+    ]
+  },
+  {
+    "id": "coast-uncounted-v1",
+    "name": "Off the Register",
+    "earned": "The Uncounted III",
+    "prompt": "Paint a single square edge-to-edge miniature scene for an achievement in this coastal shinobi RPG. The attached three existing badges are STYLE references only: match their finely painted, grounded dark fantasy material detail, rich dark ground, warm and cool practical light, strong form and tactile highlights. One decisive composition readable down to 48 pixels. Restrained amber, parchment and blue-grey shadows, with the local accent stated below. No ornamental border, emblem medallion, lettering, number, UI, watermark, collage, modern equipment or purple void glow. Full bleed, completely opaque, one scene. A large carved vermilion hand seal lying on its side against a shallow lacquer dish of rich red sealing wax on a quay clerk’s desk. Behind the bold foreground seal, a flat narrow pass-register sheet has a conspicuously empty lighter row between rows of barely-there ink dashes; no marks that read as letters. Tight off-center still life, dominated by the glowing red wax and diagonal seal, warm lamplight, cool blue light at a dark quay window. No large open book or legible print.",
+    "referenceFiles": [
+      "public/badges/story-chapter-9.webp",
+      "public/badges/questbook-5.webp",
+      "public/badges/dungeon-clear-1.webp"
+    ]
+  },
+  {
+    "id": "coast-clan-gate-v1",
+    "name": "The Gate Holds",
+    "earned": "Raise the Clan Gate III",
+    "prompt": "Paint a single square edge-to-edge miniature scene for an achievement in this coastal shinobi RPG. The attached three existing badges are STYLE references only: match their finely painted, grounded dark fantasy material detail, rich dark ground, warm and cool practical light, strong form and tactile highlights. One decisive composition readable down to 48 pixels. Restrained amber, parchment and blue-grey shadows, with the local accent stated below. No ornamental border, emblem medallion, lettering, number, UI, watermark, collage, modern equipment or purple void glow. Full bleed, completely opaque, one scene. A low, near-front view from OUTSIDE a stout coastal timber gatehouse still shut at daybreak. The scarred closed planked doors and braced lintel dominate the center; glancing amber dawn cuts across battle-scarred wood, blue mist hangs at the foot. One simple weathered strip of plain undyed banner cloth hangs above the lintel. Stark readable crenellated roof silhouette, no armies, no people, no crest, no seal, no text, no torii, no open doors.",
+    "referenceFiles": [
+      "public/badges/story-chapter-9.webp",
+      "public/badges/questbook-5.webp",
+      "public/badges/dungeon-clear-1.webp"
+    ]
+  },
+  {
+    "id": "coast-untamed-v1",
+    "name": "Three Great Beasts",
+    "earned": "Untamed Coast III",
+    "prompt": "Paint a single square edge-to-edge miniature scene for an achievement in this coastal shinobi RPG. The attached three existing badges are STYLE references only: match their finely painted, grounded dark fantasy material detail, rich dark ground, warm and cool practical light, strong form and tactile highlights. One decisive composition readable down to 48 pixels. Restrained amber, parchment and blue-grey shadows, with the local accent stated below. No ornamental border, emblem medallion, lettering, number, UI, watermark, collage, modern equipment or purple void glow. Full bleed, completely opaque, one scene. A tracker has set out three large recognizably different trophies on indigo cloth, held in a single loop of cord: a thick broken, curved deep-plum horn tip with a pale cut end from Old Brinejaw; a long straight dark bramble thorn with smaller backward barbs from Thornmother; and a bright silky lock of white mane from Whitemane. Strong triangular arrangement, sun grazes the left edges, cool indigo shadows. Silhouettes separated. No beasts, faces, companions, skeletal heads, words or other trophies.",
+    "referenceFiles": [
+      "public/badges/story-chapter-9.webp",
+      "public/badges/questbook-5.webp",
+      "public/badges/dungeon-clear-1.webp"
+    ]
+  },
+  {
+    "id": "coast-tales-v1",
+    "name": "Ten Small Things",
+    "earned": "all ten coast side tales",
+    "prompt": "Paint a single square edge-to-edge miniature scene for an achievement in this coastal shinobi RPG. The attached three existing badges are STYLE references only: match their finely painted, grounded dark fantasy material detail, rich dark ground, warm and cool practical light, strong form and tactile highlights. One decisive composition readable down to 48 pixels. Restrained amber, parchment and blue-grey shadows, with the local accent stated below. No ornamental border, emblem medallion, lettering, number, UI, watermark, collage, modern equipment or purple void glow. Full bleed, completely opaque, one scene. A top-down, closely cropped keeper’s old timber counter, with a single shallow black counting tray holding TEN separate modest keepsakes in two loose, carefully spaced rows of five, all facing different angles. Upper row: a cream sealed folded letter with wax, a small brass handbell, a worn buckled pet collar, a small squat glass jar containing a single glowing ember, a short knotted cord. Lower row: a narrow tally docket with faded illegible marks, a pointed dark sounding lead with an eyelet, a round copper toll coin, a bulky wrapped square packet tied crosswise, and a light folded paper pattern with cut edges. Single amber ember and cool windowlight unify the arrangement into one readable badge. All ten must be visible and distinct. No compartments, titles, numbers, lettering or additional objects.",
+    "referenceFiles": [
+      "public/badges/story-chapter-9.webp",
+      "public/badges/questbook-5.webp",
+      "public/badges/dungeon-clear-1.webp"
+    ]
+  }
+]

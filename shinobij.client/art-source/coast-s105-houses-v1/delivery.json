@@ -1,0 +1,47 @@
+{
+  "settlement": 651190,
+  "portraits": 370930,
+  "portraitTotal": 3504648,
+  "records": [
+    {
+      "file": "coast-map/saltstair-landing/floors/s105-v2.webp",
+      "bytes": 248448,
+      "sha256": "ab2aef4eb7183439c80d9c10dcf0aa96539923f4d81c737431df7cf066f68670"
+    },
+    {
+      "file": "coast-map/saltstair-landing/interiors/s105-houses-floor-v1.webp",
+      "bytes": 206806,
+      "sha256": "184a53ccba49656969c572f086328f670f8eefc211c2c12985c9cfdf73660c22"
+    },
+    {
+      "file": "coast-map/saltstair-landing/landmarks/s105-houses-v1.webp",
+      "bytes": 78718,
+      "sha256": "f70faf3054b588f06012f815c650cc8bb7c27b504fdddd450fc4738c2a2f0cf3"
+    },
+    {
+      "file": "coast-map/saltstair-landing/scenes/s105-houses-v1.webp",
+      "bytes": 117218,
+      "sha256": "08b6c7fde94e99a15f56a5c3d37df547e26a0bc13e0909ff88eb36d9ad67bd01"
+    },
+    {
+      "file": "portraits/cinematic/coast/crown-guard-v1.webp",
+      "bytes": 97070,
+      "sha256": "7fb14084b7364ff64b9e40671ce82ed5379be668117fc59590d9d2ccfceedfea"
+    },
+    {
+      "file": "portraits/cinematic/coast/runner-lookout-v1.webp",
+      "bytes": 92934,
+      "sha256": "b9f23277c59c27eb35f37533f75aa5c417e2160dca5f6888e6febde9ce69fa75"
+    },
+    {
+      "file": "portraits/cinematic/coast/unmoored-courier-v1.webp",
+      "bytes": 90984,
+      "sha256": "01b571276235775c5ed9b98f72b6efc45a836c2a00559b140f5c9c49f23e1973"
+    },
+    {
+      "file": "portraits/cinematic/coast/unmoored-patrol-v1.webp",
+      "bytes": 89942,
+      "sha256": "8c7998e5635a106a0372e08ae160306378e517c7c8052d6dc17a9553ed5bf578"
+    }
+  ]
+}

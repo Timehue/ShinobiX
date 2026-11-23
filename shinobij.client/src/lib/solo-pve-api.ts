@@ -145,6 +145,8 @@ export type SoloPveSession = {
     hollowGateRoundLimit?: number;
     /** Sealed multi-stage boss transformation state (shared/boss-transformations.ts). */
     bossForms?: import('../../../shared/boss-transformations').BossTransformationState;
+    /** A quest boss's Hold (api/solo-pve/_boss-hold.ts): it cannot fall until the quest tool breaks this. */
+    bossHold?: { breakerItemId: string; name: string; broken: boolean };
     huntCombat?: { purpose?: 'story-twins' | 'narrative-group'; groupId?: string; requiredEnemyIds?: string[]; formation: Omit<import('../../../shared/hunt-combat').HuntFormation, 'count'> & { count: number }; battle: import('./towers-api').TowerSession };
     runtime: 'solo-pve';
     schemaVersion: 1;

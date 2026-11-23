@@ -15,6 +15,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { sealedSessionBiome } from './session.js';
 import { sectorBiomeOf, isWildSector, MAX_WILD_SECTOR, FESTIVAL_SECTOR } from '../../shared/sector-geo.js';
+import { OPEN_COAST_SECTOR_IDS, coastBiomeOf } from '../../shared/coast-world.js';
 
 describe('sealedSessionBiome', () => {
     it('seals a wild sector to the ground the world map paints, whatever the body says', () => {
@@ -26,6 +27,17 @@ describe('sealedSessionBiome', () => {
                     truth,
                     `sector ${sector}: a client claiming "${claimed}" must still be sealed ${truth}`,
                 );
+            }
+        }
+    });
+
+    it('seals a coast sector to the coast\'s own ground, whatever the body says', () => {
+        assert.ok(OPEN_COAST_SECTOR_IDS.length > 0);
+        for (const sector of OPEN_COAST_SECTOR_IDS) {
+            const truth = coastBiomeOf(sector);
+            assert.ok(truth, `sector ${sector} has no biome`);
+            for (const claimed of ['volcano', 'forest', 'snow', 'shadow', 'central']) {
+                assert.equal(sealedSessionBiome(sector, claimed, false), truth, `coast sector ${sector} claiming "${claimed}"`);
             }
         }
     });

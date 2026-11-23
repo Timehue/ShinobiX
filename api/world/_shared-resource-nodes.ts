@@ -57,7 +57,8 @@ export async function withPlayerResourceNodes<T>(name: string, requested: string
         ? withKvLock(sharedResourceNodeKey(ids[index]), () => enter(index + 1), { failClosed: true, ttlSec: 15 })
         : run(character => {
             const nodeId = readResourceGathering(character.resourceGathering).active?.nodeId;
-            if (nodeId && !ids.includes(nodeId)) throw new Error('Gathering changed while acquiring node locks. Retry.');
+            // A quest site is never shared (api/quests/_sites.ts), so it has no node lock to hold.
+            if (nodeId && resourceNode(nodeId) && !ids.includes(nodeId)) throw new Error('Gathering changed while acquiring node locks. Retry.');
         });
     return enter(0);
 }

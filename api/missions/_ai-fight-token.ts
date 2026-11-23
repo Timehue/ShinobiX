@@ -2,6 +2,7 @@ import { MAX_AI_FIGHT_RYO, MAX_AI_FIGHT_XP, aiFightPurseForLevel } from './_ai-f
 import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
 import { cleanOrdinaryPveEncounter, type OrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
+import { isCoastSector } from '../../shared/world-maps.js';
 
 // Matches the active Solo-PvE session lifetime so a terminal fight never loses
 // its settlement/reconnect authority during the final ten minutes.
@@ -93,7 +94,7 @@ export function createAiFightTokenRecord(
         ? Math.min(250, opponentLevelNum)
         : undefined;
     const sectorNum = Math.floor(Number(context.sector));
-    const sector = Number.isSafeInteger(sectorNum) && sectorNum >= 1 && sectorNum <= MAX_WILD_SECTOR ? sectorNum : undefined;
+    const sector = Number.isSafeInteger(sectorNum) && sectorNum >= 1 && (sectorNum <= MAX_WILD_SECTOR || isCoastSector(sectorNum)) ? sectorNum : undefined;
     const baseXp = Math.max(0, Math.min(MAX_AI_FIGHT_XP, Math.floor(Number(context.baseXp ?? NaN))));
     const baseRyo = Math.max(0, Math.min(MAX_AI_FIGHT_RYO, Math.floor(Number(context.baseRyo ?? NaN))));
     const battleKindRaw = typeof context.battleKind === 'string' ? context.battleKind : '';

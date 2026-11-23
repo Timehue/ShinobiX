@@ -1,0 +1,98 @@
+[
+  {
+    "id": "atlas-open",
+    "kind": "pin",
+    "file": "coast-map/markers/atlas-open-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. A single square-format atlas UI icon for a mysterious fantasy shinobi frontier, an original finely hand-painted tangible metal insignia seen face-on. Thick, well-defined silhouette, legible in 30 pixels, restrained detail, generous dark central space for an overlaid number, entire object in frame and large. An open trail token, a rounded iron plaque edged in warm weathered bronze, twin small projecting ears and a tiny open arch cut at the top. The centre is a broad, dark, unmarked charcoal face for a game number. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "atlas-here",
+    "kind": "pin",
+    "file": "coast-map/markers/atlas-here-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. A single square-format atlas UI icon for a mysterious fantasy shinobi frontier, an original finely hand-painted tangible metal insignia seen face-on. Thick, well-defined silhouette, legible in 30 pixels, restrained detail, generous dark central space for an overlaid number, entire object in frame and large. The player’s location: a bright warm hammered-gold eight-point compass rosette backed by a blue-black iron ring, a bold gleaming sunward point above the rim. Broad dark empty central hub for a game number. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "atlas-shut",
+    "kind": "pin",
+    "file": "coast-map/markers/atlas-shut-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. A single square-format atlas UI icon for a mysterious fantasy shinobi frontier, an original finely hand-painted tangible metal insignia seen face-on. Thick, well-defined silhouette, legible in 30 pixels, restrained detail, generous dark central space for an overlaid number, entire object in frame and large. An unmistakably closed square iron gate token with squared shoulders, an iron crossbar and a small padlock at its bottom. Cold ashen iron, pale worn rim, broad dark empty centre to receive a game number. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "atlas-sealed",
+    "kind": "pin",
+    "file": "coast-map/markers/atlas-sealed-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. A single square-format atlas UI icon for a mysterious fantasy shinobi frontier, an original finely hand-painted tangible metal insignia seen face-on. Thick, well-defined silhouette, legible in 30 pixels, restrained detail, generous dark central space for an overlaid number, entire object in frame and large. A forbidden talisman with a tall pointed diamond silhouette in dark antique iron, a knotted red ward cord wrapping the corners and a red wax seal at the very bottom point. Broad dark empty centre for a game number. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "atlas-held",
+    "kind": "pin",
+    "file": "coast-map/markers/atlas-held-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. A single square-format atlas UI icon for a mysterious fantasy shinobi frontier, an original finely hand-painted tangible metal insignia seen face-on. Thick, well-defined silhouette, legible in 30 pixels, restrained detail, generous dark central space for an overlaid number, entire object in frame and large. Shield-shaped iron clan crest plaque, a folded indigo banner falling from its brass rim with two short split tails. Rounded top, tapered foot, broad dark blank centre for a game number. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "atlas-contested",
+    "kind": "pin",
+    "file": "coast-map/markers/atlas-contested-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. A single square-format atlas UI icon for a mysterious fantasy shinobi frontier, an original finely hand-painted tangible metal insignia seen face-on. Thick, well-defined silhouette, legible in 30 pixels, restrained detail, generous dark central space for an overlaid number, entire object in frame and large. Two copper-red pointed war standards crossing behind a small round blackened shield. The two diagonal flag tips project distinctly above the silhouette. Broad empty dark shield face is for a game number. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "staked-plot",
+    "kind": "stand",
+    "file": "coast-map/landing/staked-plot-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. An individual square-format isometric world-map standee for a grounded fantasy shinobi coast, subtly elevated three-quarter view, broad clear silhouette, entire asset and its small integral footing fully inside the image with 8% padding. Naturalistic hand-painted miniature in weathered cedar, slate-indigo, limestone and aged bronze. Warm light from the upper left, crisp silhouettes. A recently surveyed foundation: four weathered wood stakes and a taut hemp survey line around a low patch of rough salt-stained earth, rolled survey parchment and a little plumb bob at one corner. A few short stones. No building. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "fallen-landing",
+    "kind": "stand",
+    "file": "coast-map/landing/fallen-landing-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. An individual square-format isometric world-map standee for a grounded fantasy shinobi coast, subtly elevated three-quarter view, broad clear silhouette, entire asset and its small integral footing fully inside the image with 8% padding. Naturalistic hand-painted miniature in weathered cedar, slate-indigo, limestone and aged bronze. Warm light from the upper left, crisp silhouettes. Ruined coast clan gatehouse reduced to a ragged gable and splintered dark beams, a torn indigo pennant draped over rubble, fractured sandstone footings, no complete doorway or intact habitable room. Irregular broken triangular silhouette. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "dormant-gate",
+    "kind": "stand",
+    "file": "coast-map/landing/dormant-gate-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. An individual square-format isometric world-map standee for a grounded fantasy shinobi coast, subtly elevated three-quarter view, broad clear silhouette, entire asset and its small integral footing fully inside the image with 8% padding. Naturalistic hand-painted miniature in weathered cedar, slate-indigo, limestone and aged bronze. Warm light from the upper left, crisp silhouettes. A low three-plank barricade with an iron chain and small padlock, salt-weathered brown timber lashed diagonally between two short posts, a little faded blue-cloth tie. Wide, low, directly front-facing with a slight view of the top edge, designed to sit across an existing building doorway. No building behind it. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "notice-post",
+    "kind": "stand",
+    "file": "coast-map/landing/notice-post-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. An individual square-format isometric world-map standee for a grounded fantasy shinobi coast, subtly elevated three-quarter view, broad clear silhouette, entire asset and its small integral footing fully inside the image with 8% padding. Naturalistic hand-painted miniature in weathered cedar, slate-indigo, limestone and aged bronze. Warm light from the upper left, crisp silhouettes. One plain timber notice post with a small dark-edged peaked rain cap, blank curled tan challenge paper, a red wax seal and a tied slate-blue ribbon; isolated upright clean silhouette, no lettering or symbols resembling text. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "war-standards",
+    "kind": "stand",
+    "file": "coast-map/landing/war-standards-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. An individual square-format isometric world-map standee for a grounded fantasy shinobi coast, subtly elevated three-quarter view, broad clear silhouette, entire asset and its small integral footing fully inside the image with 8% padding. Naturalistic hand-painted miniature in weathered cedar, slate-indigo, limestone and aged bronze. Warm light from the upper left, crisp silhouettes. Two crossed black-lacquered poles flying short triangular rust-red and indigo war standards over a squat rope-laced coastal war drum. Clearly readable opposing diagonals and one drum, no writing. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "store-shed",
+    "kind": "stand",
+    "file": "coast-map/landing/store-shed-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. An individual square-format isometric world-map standee for a grounded fantasy shinobi coast, subtly elevated three-quarter view, broad clear silhouette, entire asset and its small integral footing fully inside the image with 8% padding. Naturalistic hand-painted miniature in weathered cedar, slate-indigo, limestone and aged bronze. Warm light from the upper left, crisp silhouettes. A compact salt-weathered timber store shed, low dark slate-blue shingle roof, open front with neatly stacked bound crates, baskets and one rope coil, short stone foundation. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "drying-racks",
+    "kind": "stand",
+    "file": "coast-map/landing/drying-racks-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. An individual square-format isometric world-map standee for a grounded fantasy shinobi coast, subtly elevated three-quarter view, broad clear silhouette, entire asset and its small integral footing fully inside the image with 8% padding. Naturalistic hand-painted miniature in weathered cedar, slate-indigo, limestone and aged bronze. Warm light from the upper left, crisp silhouettes. Two timber drying racks joined by a horizontal pole, large hanging silver fish on one side and several loops of coiled tan rope on the other, short legs and no roof. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "watch-fire",
+    "kind": "stand",
+    "file": "coast-map/landing/watch-fire-v1.webp",
+    "prompt": "Production sprite master on a pure uniform solid chroma magenta RGB 255,0,255 background; edge to edge flat magenta outside one asset, no checkerboard, drop shadow or ground plane. An individual square-format isometric world-map standee for a grounded fantasy shinobi coast, subtly elevated three-quarter view, broad clear silhouette, entire asset and its small integral footing fully inside the image with 8% padding. Naturalistic hand-painted miniature in weathered cedar, slate-indigo, limestone and aged bronze. Warm light from the upper left, crisp silhouettes. A lit coastal signal brazier, strong warm ochre flame rising from stacked dark split wood in a short circular platform of weathered gray stones, a compact spark-free flame silhouette. No smoke plume, no wide glow. No letters, numbers, typography, shadows on the backdrop, extra items, frame or watermark. Magenta is reserved exclusively for the key background."
+  },
+  {
+    "id": "fallen-landing-entry",
+    "kind": "scene",
+    "file": "coast-map/landing/fallen-landing-entry-v1.webp",
+    "prompt": "A finished 16:9 environment painting for the Unmapped Coast in a grounded dark fantasy shinobi RPG, hand-painted naturalistic fantasy illustration. An intimate deserted ruined coast outpost after its loss. Looking through the broken gate, a collapsed slate-blue tarpaulin and split timbers lean across the courtyard; a torn indigo standard snagged in rubble. Cold daylight, subtle warm sand highlights, windswept cliff and dark pines beyond. Quiet rather than fiery. Detailed, painterly environment, stage the major ruin centrally, edges compose naturally. Matching the game's limestone headlands, muted indigo, aged gold, worn cedar, desaturated pines and charcoal palette. Cohesive oil-brush texture, clear value grouping, no words, no interface, no frame or watermark. Edge-to-edge wide landscape."
+  },
+  {
+    "id": "shard-crossing",
+    "kind": "scene",
+    "file": "coast-map/boats/shard-crossing-v1.webp",
+    "prompt": "A finished 16:9 environment painting for the Unmapped Coast in a grounded dark fantasy shinobi RPG, hand-painted naturalistic fantasy illustration. At night a small original coastal ferry crosses open slate-blue water. The hull is narrow dark timber with honey-brass gunwales, one short mast and muted ochre square sail, a blue-canopied passenger shelter and a red pennant. The bow holds a single faceted stormglass shard emitting an elegant, clean white light on foamy waves. Haunted limestone coastline and a natural rock arch in the distance, no harbor or village. Slightly elevated three-quarter view, boat at left middle, eye guided across the water toward moonlit cliffs. Moody yet legible, restrained detail. Matching the game's limestone headlands, muted indigo, aged gold, worn cedar, desaturated pines and charcoal palette. Cohesive oil-brush texture, clear value grouping, no words, no interface, no frame or watermark. Edge-to-edge wide landscape."
+  }
+]

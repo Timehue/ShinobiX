@@ -518,6 +518,14 @@ store-art/
 !/shinobij.client/art-source/chronicle-refresh/review/integration-recheck-mobile-cards.png
 !/shinobij.client/art-source/chronicle-refresh/review/integration-duel-recheck-duel-desktop.png
 
+# Unmapped Coast painting masters stay local, like the Chronicle masters above:
+# 161 PNGs, 355 MB, that the game never loads (it ships the WebPs made from
+# them). The repository's size has already broken deploys, so they are not added
+# to it (owner, 2026-11-22: "make the best decision for the game and players").
+# Each folder's README, prompts, delivery receipt and export script ARE tracked.
+# Where the masters are kept: shinobij.client/art-source/COAST-MASTERS.md.
+/shinobij.client/art-source/coast-*/**/*.png
+
 # Flutter Android shell (mobile/). Its template keeps a debug-only manifest in a
 # folder the Visual Studio `[Dd]ebug/` rule above would silently drop. Build
 # output and keystores are ignored by mobile/.gitignore and

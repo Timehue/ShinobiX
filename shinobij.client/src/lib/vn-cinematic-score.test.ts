@@ -17,6 +17,19 @@ test("each village reckoning resolves to the shared Hollow Gate motif", () => {
     assert.equal(resolveVnScoreKey("preview", "Hollow Gate Storyline"), "hollow");
 });
 
+test("a coast quest's scene plays the theme its id names, and Stormveil's when it names none it may play", () => {
+    assert.equal(resolveVnScoreKey("coast-quest:first-footing@stormveil", "First Footing"), "stormveil");
+    assert.equal(resolveVnScoreKey("coast-quest:crossing-war-3@ashen"), "ashen");
+    assert.equal(resolveVnScoreKey("coast-quest:crossing-war-4@frostfang"), "frostfang");
+    assert.equal(resolveVnScoreKey("coast-quest:the-unmoored@moonshadow", "The Unmoored"), "moonshadow");
+    // The coast is not where the Hollow Gate came from, so its theme is never played there, whatever is asked.
+    assert.equal(resolveVnScoreKey("coast-quest:the-unmoored@hollow"), "stormveil");
+    for (const id of ["coast-quest:first-footing", "coast-quest:first-footing@", "coast-quest:first-footing@undefined", "coast-quest:x@toString", "coast-quest:x@nothing"]) {
+        assert.equal(resolveVnScoreKey(id), "stormveil", id);
+    }
+    assert.equal(resolveVnScoreKey("a-coast-quest:lookalike@ashen"), null);
+});
+
 test("unrelated visual novels do not receive a chapter score", () => {
     assert.equal(resolveVnScoreKey("arena-bandit-ambush", "Forest encounter"), null);
     assert.equal(resolveVnScoreKey("sage-offer", "Legacy Choice"), null);

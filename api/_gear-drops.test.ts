@@ -188,6 +188,7 @@ describe('gear drops', () => {
     });
 
     it('uses the owner set drop chances', () => {
-        assert.deepEqual(GEAR_DROP_CHANCE_BP, { ancientChest: 500, boss: 500, normalFight: 50, clanCache: 2000 });
+        // questLine: owner, 2026-11-20, "some of them can have like a 20% chance to drop gear" (api/quests/_gear.ts).
+        assert.deepEqual(GEAR_DROP_CHANCE_BP, { ancientChest: 500, boss: 500, normalFight: 50, clanCache: 2000, questLine: 2000 });
     });
 });

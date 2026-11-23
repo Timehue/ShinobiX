@@ -1,7 +1,12 @@
+import coastQuestBadges from '../../shared/coast-quest-badges.json';
 import { CAREER_MILESTONES, achievementMetaCount, hasCareerExam, isCareerAchievement } from '../../shared/career-milestones.js';
 
 type Character = Record<string, unknown>;
 type Rule = { id: string; hidden?: boolean; check: (character: Character) => boolean };
+
+/** `coast-<region>-tier-<1-4>-v1`, region by region (api/quests/_coast-rounds.ts `coastRoundBadgeId`). */
+export const COAST_ROUND_ACHIEVEMENT_IDS: readonly string[] = ['saltstair', 'brackwater', 'briarwood', 'whitecrown', 'hushcrown']
+    .flatMap(region => [1, 2, 3, 4].map(tier => `coast-${region}-tier-${tier}-v1`));
 
 const n = (character: Character, field: string): number => Math.max(0, Number(character[field]) || 0);
 const countItems = (character: Character): number => {
@@ -106,6 +111,10 @@ export function achievementTitlesForIds(ids: Iterable<string>): string[] {
 export const ACHIEVEMENT_RULES: Rule[] = [
     ...CAREER_MILESTONES.map((milestone): Rule => ({
         id: milestone.id, check: c => hasCareerExam(c.examsPassed, milestone.examKey),
+    })),
+    // The server records Rounds and quest badges when their rewards are claimed.
+    ...[...COAST_ROUND_ACHIEVEMENT_IDS, ...coastQuestBadges.map(badge => badge.id)].map((id): Rule => ({
+        id, check: c => Array.isArray(c.coastBadges) && c.coastBadges.includes(id),
     })),
     { id: 'tower-clean-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-clean-clear']) },
     { id: 'tower-par-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-par-clear']) },

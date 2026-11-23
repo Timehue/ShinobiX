@@ -18,6 +18,9 @@ before(async () => {
     ({ kv } = await import('../../_storage.js'));
     ({ issuePlayerToken } = await import('../../_auth.js'));
     handler = (await import('./assign-scrolls.js')).default as unknown as typeof handler;
+    // These tests pin how capture behaved while clans could hold home sectors. That is closed now
+    // (api/_home-clan-territory.ts), and the last test in this file checks the refusal with the switch as shipped.
+    (await import('../../_home-clan-territory.js')).setHomeClanTerritoryOpenForTest(true);
 });
 
 beforeEach(async () => {
@@ -135,5 +138,24 @@ describe('Cinderhold land is never captured (2026-11-09)', () => {
             assert.equal(await kv.get(`world:territory:${sector}`), null);
         }
         assert.equal(await scrollsLeft(), 75);
+    });
+});
+
+describe('clans hold land on the coast only (2026-11-21)', () => {
+    it('as shipped, a clan cannot capture a home sector, and nothing is spent or written', async () => {
+        const gate = await import('../../_home-clan-territory.js');
+        gate.setHomeClanTerritoryOpenForTest(null);
+        try {
+            assert.equal(gate.homeClanTerritoryOpen(), false, 'the switch ships off');
+            const out = await capture('coast-only-request-1');
+            assert.deepEqual([out.statusCode, out.body?.reason], [403, 'coast-only']);
+            assert.match(String(out.body?.error), /Unmapped Coast/);
+            assert.match(String(out.body?.error), /level 75 or higher/);
+            assert.equal(await kv.get(TERRITORY_KEY), null, 'no sector was taken');
+            assert.equal(await scrollsLeft(), 75, 'no scroll was spent');
+            assert.deepEqual(await kv.keys('clan-territory-assign:*'), [], 'and no receipt was started');
+        } finally {
+            gate.setHomeClanTerritoryOpenForTest(true);
+        }
     });
 });

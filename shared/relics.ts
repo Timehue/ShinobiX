@@ -1,4 +1,4 @@
-/** Canonical 20-item relic roster. All bonuses are PvE-only percentages. */
+/** Canonical relic roster: 20 found in the world and 2 given by a quest. All bonuses are PvE-only percentages. */
 export const RELIC_OFFENSES = ['Ninjutsu', 'Taijutsu', 'Bukijutsu', 'Genjutsu'] as const;
 export const RELIC_ELEMENTS = ['Fire', 'Water', 'Wind', 'Earth', 'Lightning'] as const;
 export const PVE_SPECIALIST_FIELDS = [
@@ -13,7 +13,9 @@ export type RelicSource =
     | { kind: 'pvp'; chance: number }
     | { kind: 'tower'; minFloor: number; chance: number }
     | { kind: 'war-crate'; chance: number }
-    | { kind: 'weekly-boss'; chance: number };
+    | { kind: 'weekly-boss'; chance: number }
+    /** Given once by a quest line and nowhere else: never dropped, never crafted. */
+    | { kind: 'quest'; quest: string };
 export type RelicDef = {
     id: string; name: string; slot: 'relic'; rarity: 'rare' | 'epic' | 'legendary';
     cost: number; levelReq: number; image: string; description: string;
@@ -55,8 +57,25 @@ export const RELIC_ROSTER: readonly RelicDef[] = [
     relic('relic-worldroot-heart', 'Worldroot Heart', 90, 5, { pveEarthDamagePercent: 14 }, { kind: 'tower', minFloor: 14, chance: 0.004 }),
     relic('relic-zenith-lotus', 'Zenith Lotus', 100, 6, { pveDamagePercent: 10 }, { kind: 'tower', minFloor: 15, chance: 0.002 }),
     relic('relic-hollow-gate-cinder', 'Hollow-Gate Cinder', 75, 5, { pveDamagePercent: 8 }, { kind: 'weekly-boss', chance: 0.08 }),
+    // The Unmapped Coast's capstone (2026-11-20). The finale's sealed choice gives
+    // one of the two (api/quests/_catalog.ts), and one relic is worn at a time,
+    // and the two are equal, so the choice is about the story and costs no
+    // build anything. Nine percent to all damage at level 95 sits between the
+    // Hollow-Gate Cinder (8 at level 75, a weekly-boss drop) and the Zenith
+    // Lotus (10 at level 100, a rare tower drop). It is guaranteed because the
+    // quest line that ends in it is weeks long.
+    relic('coast-quiet-crown-mantle', 'Quiet Crown Mantle', 95, 5, { pveDamagePercent: 9 }, { kind: 'quest', quest: 'the-unmoored' }, '/items/coast-mantle-v1.webp'),
+    relic('coast-ridgewarden-bracer', 'Ridgewarden Bracer', 95, 5, { pveDamagePercent: 9 }, { kind: 'quest', quest: 'the-unmoored' }, '/items/coast-bracer-v1.webp'),
 ];
 export const RELICS_BY_ID = new Map(RELIC_ROSTER.map(item => [item.id, item]));
+/**
+ * True for a relic a quest line gives once. It is bound to whoever earned it:
+ * it cannot be listed on the Exchange or given to a clan treasury, because
+ * either would hand a finished quest's reward to someone who has not done it.
+ */
+export function isQuestRewardRelic(id: unknown): boolean {
+    return typeof id === 'string' && RELICS_BY_ID.get(id)?.source.kind === 'quest';
+}
 export const NON_STORY_RELICS = RELIC_ROSTER.filter(item => item.source.kind !== 'story');
 export const DUPLICATE_RELIC_SHARDS = 15;
 export const RETIRED_RELIC_IDS = ['event-true-roll-page', 'event-unsworn-page', 'event-forged-die'] as const;

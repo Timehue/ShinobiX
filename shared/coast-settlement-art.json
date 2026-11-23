@@ -1,0 +1,118 @@
+{
+  "halls/gale.webp": {
+    "bytes": 42926,
+    "sha256": "e253e0b42d04461d33eb5eaa53045f44ed4fe6f0276bf6bf8d890c21e6d7d934"
+  },
+  "halls/gale-cloth.webp": {
+    "bytes": 7014,
+    "sha256": "48066abd9d3053b88cefedcb15f59c5600961a3e21bec5b882b43dc1a5c0e492"
+  },
+  "halls/heron.webp": {
+    "bytes": 48704,
+    "sha256": "efe75e98f0d4f766e690d5cb7507fa4dcfdba9c8add6cecf9f977d7a8e89ea54"
+  },
+  "halls/heron-cloth.webp": {
+    "bytes": 2214,
+    "sha256": "63d3ead2cc20ac192cd64f4d442ddbe2e7fa143d41863cdc360000b78faa0598"
+  },
+  "halls/kiln.webp": {
+    "bytes": 62548,
+    "sha256": "e3005a51e19afd2523957c5f1efc653e2105264b5062cb3042751c655512e8cf"
+  },
+  "halls/kiln-cloth.webp": {
+    "bytes": 8486,
+    "sha256": "45edb98fc6ca61e460301da9e1ed19b1f986d42efc3e70e42fef299a812533d4"
+  },
+  "halls/pine.webp": {
+    "bytes": 55148,
+    "sha256": "67490e0d0b5e0925934c78b7f9d27a0dfe2b2ca02fe2d5610105a3ca0ef81c56"
+  },
+  "halls/pine-cloth.webp": {
+    "bytes": 7090,
+    "sha256": "84f1f17097af1b4746a9120f89734f1eaff9edfe7926bdf37a35dc250c7d294a"
+  },
+  "halls/tide.webp": {
+    "bytes": 55522,
+    "sha256": "224efff9d3d328e76e15906ada94b33cc785f0619aa2e7f6c62336cf3ab01690"
+  },
+  "halls/tide-cloth.webp": {
+    "bytes": 5802,
+    "sha256": "0822b3113b9243bfb95db1fe2d0c87b573689bd0d58d42ce6aebb05af55ab02f"
+  },
+  "residents/courier.webp": {
+    "bytes": 4222,
+    "sha256": "c715877a8e2090d5c75a2b69d5c07d1662ff20d5c379d39acd932c8fa057136d"
+  },
+  "residents/gambler.webp": {
+    "bytes": 4402,
+    "sha256": "e4773ed856e17a222622e86169cb5a842a46dcb9ce5d6725f9ddd91e8cbfa38d"
+  },
+  "residents/gambler-seated-v1.webp": {
+    "bytes": 26144,
+    "sha256": "b7301ee925df0c62328efe643840fc78328c23e38c89985e30c7f8d7d90c5789"
+  },
+  "residents/medic.webp": {
+    "bytes": 3250,
+    "sha256": "2e736a6fe03454c170a60a209893bebd600e19673b69395f6528b7e2263bfd12"
+  },
+  "residents/merchant.webp": {
+    "bytes": 4514,
+    "sha256": "d7534044347c784eee11aba854ff5d2f12846f39ddc46c56b253246b19e5b9cf"
+  },
+  "residents/merchant-room-v1.webp": {
+    "bytes": 25974,
+    "sha256": "9abb9155aab6ceda635f1aafb0abafe1e0e6a14cffaf2f66309fc8b2bba74d95"
+  },
+  "residents/pilgrim.webp": {
+    "bytes": 4730,
+    "sha256": "5435d6bcbda84113c97eb922a42bcfb24351891810699ffc726497e9c7b90fe3"
+  },
+  "residents/starter-one.webp": {
+    "bytes": 3074,
+    "sha256": "404420faac0d9990d27db6167be91d6f4f3ecbc0c589b1235fbaa862d7c4973e"
+  },
+  "residents/starter-one-room-v1.webp": {
+    "bytes": 21618,
+    "sha256": "f2cbc9211dcfc9e3f12ec0ad6ba9dff867ef8982a3d317c9a93b9c0adc53e23f"
+  },
+  "residents/starter-two.webp": {
+    "bytes": 4266,
+    "sha256": "e58a067c43f08505fbf3280e36fb202fd00a35c9942a24716c64b5ac6c39a22c"
+  },
+  "residents/starter-two-room-v1.webp": {
+    "bytes": 20292,
+    "sha256": "bad7b927d2a4c408947cb06a9eede2ba8487e80a02fea834e28445291e81ca56"
+  },
+  "residents/tracker.webp": {
+    "bytes": 3802,
+    "sha256": "d5161f1399468e38e298d60bfa35109bd86124be29ebf70a795c1f170e2ada9a"
+  },
+  "residents/tracker-room-v1.webp": {
+    "bytes": 23196,
+    "sha256": "29508aee04fe1b3270490232d030aa485f65c89cd11ae70d5fcbcf6e823e4d74"
+  },
+  "saltstair-landing/interiors/stair-houses-den-v1.webp": {
+    "bytes": 64652,
+    "sha256": "96b39db9a8c88330c7554a325009043d3bf35e47a7beb5a45fe9c3765ddefc7c"
+  },
+  "saltstair-landing/interiors/stair-houses-store-v1.webp": {
+    "bytes": 67208,
+    "sha256": "3db6e41d88b335b11e41a91b399dc928a5abc550c9e0dfa3e480eb572966583f"
+  },
+  "saltstair-landing/scenes/stair-houses-street-v1.webp": {
+    "bytes": 364914,
+    "sha256": "3e53d7f0c8de882d4395ef44e24ad952af0284b0d551f7a5d08bb6f6fe2e20b7"
+  },
+  "town/tier-1.webp": {
+    "bytes": 184172,
+    "sha256": "4ea690bc87748c4dd705bf236e45e1a5b4789c5a7618482204f0533c4b0f2ed6"
+  },
+  "town/tier-2.webp": {
+    "bytes": 196196,
+    "sha256": "30b7294a7647307bd4aa76a9245370ad58d1b465edbf518710a79331e98e4c2b"
+  },
+  "town/tier-3.webp": {
+    "bytes": 196006,
+    "sha256": "ba95117167429d49f691030d8c884616722b44a68b455b63e60dc2979c6658b6"
+  }
+}

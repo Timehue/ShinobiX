@@ -13,6 +13,8 @@ import { NAMED_GEAR_EXCHANGE_BLOCK_MESSAGE } from '../../shared/named-gear-rules
 import { wasEverEquipped } from '../save/_named-gear-equipped.js';
 import { weaponTagEffectText } from '../pvp/_weapon-tags.js';
 import { isStackedMaterialId } from '../../shared/stacked-materials.js';
+import { isQuestOnlyItem } from '../../shared/quest-items.js';
+import { isQuestRewardRelic } from '../../shared/relics.js';
 import { PET_UNLOCK_WORN_ERROR, petUnlockLeftWithoutCopy } from '../pet/_pet-unlocks.js';
 
 type Obj = Record<string, unknown>;
@@ -56,6 +58,9 @@ export function sealAsset(record: Obj, catalogs: SettlementCatalogs, kind: Excha
     }
     if (kind === 'resource' && Object.hasOwn(EXCHANGE_RESOURCES, id)) definition = { id, name: EXCHANGE_RESOURCES[id], rarity: 'rare' };
     if (!definition || definition.serviceItem) throw new ExchangeError('This asset could not be verified in the game catalog.', 400);
+    if (kind === 'item' && isQuestOnlyItem(id)) throw new ExchangeError('Quest items cannot be listed on the Exchange.', 400);
+    // A relic a quest gave is bound to whoever earned it (shared/relics.ts).
+    if (kind === 'item' && isQuestRewardRelic(id)) throw new ExchangeError('A relic earned from a quest cannot be listed on the Exchange.', 400);
     definition = structuredClone(definition);
     const attunement = kind === 'item' && FORGED_ITEM_ID.test(id) ? (c.weaponElements as Obj | undefined)?.[id] : undefined;
     if (typeof attunement === 'string') definition.weaponElement = attunement;

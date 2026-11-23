@@ -18,6 +18,13 @@ import { maxHpForLevel } from '../_xp-engine.js';
 import { pveDifficultyHpMultiplier } from '../_pve-difficulty.js';
 import { computeAiFightBaseReward } from './_ai-fight-token.js';
 import { MAX_WILD_SECTOR, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { coastBiomeOf } from '../../shared/coast-world.js';
+import { coastCastPortrait } from '../../shared/coast-cast.js';
+import { COAST_MIN_LEVEL, COAST_REGION_LEVELS, coastRegionOf, isCoastSector } from '../../shared/world-maps.js';
+import { applyQuestFightWin, questFightStart } from '../quests/_fight.js';
+import { assertQuestClanStanding } from '../quests/_clan-facts.js';
+import { coastGarrisonFightStart, coastGarrisonGuard } from '../coast/_land.js';
+import { coastPatrolFightStart, coastPatrolName, coastPatrolStanding } from '../coast/_patrols.js';
 import { ordinaryWandererEncounter, parseWandererId, WANDERER_MAX_INDEX, WANDERER_NIGHT_INDEX } from '../../shared/wanderer-roster.js';
 import { ROAD_NEMESIS_NAME, roadNemesisPresentAt, roadNemesisTier, roadNemesisTitle } from '../../shared/road-nemesis.js';
 import { riftSealOf, riftSpawnCombatLevel, type RiftSealView } from '../../shared/wanderer-extra-slots.js';
@@ -37,6 +44,8 @@ import {
 } from '../../shared/world-ai-fight.js';
 
 const MAX_WORLD_SECTOR = MAX_WILD_SECTOR;
+/** The lowest level a coast garrison guard stands at in each region. */
+const COAST_GARRISON_LEVEL_FLOOR = COAST_REGION_LEVELS.map(([low]) => low);
 /** World fights must remain resumable/payable for at least the active solo-PvE
  * session's 30-minute lifetime. Ordinary AI tokens keep their existing TTL. */
 export const WORLD_AI_FIGHT_TTL_SECONDS = 30 * 60;
@@ -133,7 +142,15 @@ export function cleanWorldAiFightRequest(raw: unknown): WorldAiFightRequest | nu
     if (!isWorldAiFightKind(value.kind)) return null;
     const sourceId = typeof value.sourceId === 'string' ? value.sourceId.trim().slice(0, 96) : '';
     const crisis = value.kind === 'world-crisis';
-    const sector = finiteInt(value.sector, crisis ? 0 : 1, MAX_WORLD_SECTOR);
+    // A quest line's fights are the one kind that can stand on the Unmapped
+    // Coast, whose sectors sit outside the home range. Every other kind keeps
+    // the home bound, so no home encounter can be started from the coast.
+    // A land contest's garrison fight is the other; it exists only on the coast.
+    const onCoast = isCoastSector(Math.floor(Number(value.sector)));
+    const coastOnly = value.kind === 'coast-garrison' || value.kind === 'coast-patrol';
+    if (coastOnly && !onCoast) return null;
+    const coastSector = (value.kind === 'quest-line' || coastOnly) && onCoast ? Math.floor(Number(value.sector)) : null;
+    const sector = coastSector ?? finiteInt(value.sector, crisis ? 0 : 1, MAX_WORLD_SECTOR);
     if (!sourceId || !/^[A-Za-z0-9:_-]+$/.test(sourceId) || sector == null) return null;
     if (crisis && sector !== 0) return null;
     const stage = value.stage == null ? undefined : finiteInt(value.stage, 0, 9);
@@ -230,6 +247,13 @@ export function applyWorldAiDurableProgression(
     now = Date.now(),
 ): { character: Record<string, unknown>; recordPatch?: Record<string, unknown> } {
     if (outcome !== 'win' || !context.sealVersion) return { character };
+
+    if (context.kind === 'quest-line') {
+        // The win passes the quest stage, and grants a drop, in this same save
+        // write. A stale or retried settlement finds a different seal and
+        // changes nothing (api/quests/_fight.ts).
+        return applyQuestFightWin(record, character, { questId: context.sourceId, stage: context.stage, sealVersion: context.sealVersion }, now);
+    }
 
     if (context.kind === 'questbook-boss') {
         const seal = parseQuestbookSeal(record.activeQuestbookSeal);
@@ -567,7 +591,58 @@ export async function buildWorldAiFightSpec(params: {
         };
     }
 
-    const environment = { biome: sectorBiomeOf(request.sector) };
+    const environment = { biome: coastBiomeOf(request.sector) ?? sectorBiomeOf(request.sector) };
+
+    if (request.kind === 'quest-line') {
+        // Everything about the fight comes from the stored quest stage. The
+        // request names the quest and the sector the player is standing in.
+        // A clan quest's fight asks what its other stages ask: the same clan, and long enough in it.
+        await assertQuestClanStanding(params.playerName, params.save, request.sourceId);
+        const start = questFightStart(params.save, request.sourceId, request.sector);
+        const { fight } = start;
+        const profileId = `world-questline-${start.questId}-${fight.id}`;
+        const portrait = coastCastPortrait(fight.castId);
+        return {
+            // A boss with forms carries its plan on the profile; the fight seals it as it is built (api/solo-pve/_ai-encounter.ts).
+            // Its cut-out portrait, when it has one, is sealed the same way: the fight screen draws the foe from the
+            // sealed profile and from nothing the client sends, and a form's cut-scene is played over that picture.
+            profile: { ...runtimeProfile(profileId, start.displayName, level + fight.levelOffset, fight.statBonus, fight.loadoutId, true),
+                ...(portrait ? { avatarImage: portrait } : {}),
+                ...(fight.forms ? { bossTransformation: fight.forms } : {}) },
+            environment,
+            context: {
+                kind: request.kind, sourceId: start.questId, sector: request.sector, stage: start.stage,
+                displayName: start.displayName, finalStage: true, sealVersion: start.sealVersion,
+                ...(start.hold ? { questHold: start.hold } : {}),
+            },
+        };
+    }
+
+    if (request.kind === 'coast-garrison') {
+        // A garrison fight for a land contest. Whether this player may fight it is
+        // read from the contest itself: its window, its frozen roster, their own cap.
+        const contest = await coastGarrisonFightStart(params.playerName, params.save, request.sector, request.sourceId, now);
+        // The Unmoored post their own guard. A clan's is stronger the taller its Landing stands.
+        const guard = await coastGarrisonGuard(contest);
+        const floor = COAST_GARRISON_LEVEL_FLOOR[coastRegionOf(request.sector) - 1] ?? COAST_MIN_LEVEL;
+        return {
+            profile: runtimeProfile(`world-coast-garrison-${request.sector}`, guard.name, Math.min(100, Math.max(level, floor)), guard.statBonus, 'defender', false),
+            environment,
+            context: { kind: request.kind, sourceId: contest.id, sector: request.sector, stage: 0, displayName: guard.name, finalStage: true },
+        };
+    }
+
+    if (request.kind === 'coast-patrol') {
+        // One of the coast's daily patrols or beasts. Its level is the sector's own, never the player's.
+        const patrol = await coastPatrolFightStart(params.playerName, request.sector, request.sourceId, now);
+        // The same name the board showed: who the Unmoored are to this player depends on the quests they have finished.
+        const name = coastPatrolName(patrol.kind, coastPatrolStanding(request.sector, params.save));
+        return {
+            profile: runtimeProfile(`world-coast-patrol-${patrol.kind.id}`, name, patrol.level, patrol.kind.statBonus, patrol.kind.loadoutId, false),
+            environment,
+            context: { kind: request.kind, sourceId: patrol.id, sector: request.sector, stage: 0, displayName: name, finalStage: true },
+        };
+    }
 
     if (request.kind === 'wanderer') {
         if (request.sourceId === 'nemesis') {

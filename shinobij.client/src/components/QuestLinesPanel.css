@@ -1,0 +1,25 @@
+/* Quest lines. The card, meta and progress bar are the Mission Hall's own
+   (.mh-fetch-card); only what a quest line adds is styled here. */
+.quest-lines { display: grid; gap: 10px; text-align: left; }
+.quest-line-text { color: var(--sj-text-primary); }
+.quest-line-recipe { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: .8rem; }
+.quest-line-recipe li { display: flex; justify-content: space-between; gap: 12px; color: var(--sj-text-secondary); }
+.quest-line-recipe li.is-met { color: var(--green-300, #86efac); }
+.quest-line-recipe .quest-line-recipe-out { color: var(--sj-gold-bright); }
+.quest-line-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.quest-line-actions button { min-height: 44px; }
+.quest-line-option { display: grid; gap: 2px; text-align: left; flex: 1 1 100%; }
+.quest-line-option span { font-size: .76rem; opacity: .85; }
+.quest-line-note { margin: 0; font-size: .82rem; color: var(--red-300, #fca5a5); }
+.quest-line-note.is-good { color: var(--green-300, #86efac); }
+.quest-lines--sage .quest-line-card, .quest-lines--sector .quest-line-card { margin: 0; }
+
+.quest-line-scene { width: 100%; max-height: 10rem; object-fit: cover; border-radius: .25rem; }
+.quest-line-card img[width="32"] { vertical-align: middle; object-fit: contain; }
+/* A quest scene opened from a card. The cinematic reader portals itself to the
+   body at z-index 1000000 (styles/cinematic-vn.css); this sits one layer under
+   it and holds the classic reader, which is an ordinary card, above the game. */
+.coast-quest-scene { position: fixed; inset: 0; z-index: 999999; overflow: auto; background: #070c1b; }
+
+/* The classic portrait slot draws a fallback face behind its image. */
+.coast-quest-scene .hero-character img[src^="/portraits/cinematic/coast/"] { background: #121820; }

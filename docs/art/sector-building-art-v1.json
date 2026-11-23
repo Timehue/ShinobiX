@@ -436,6 +436,66 @@
       "sourceSha256": "8a78bbaeda5f61125277bb289c26e7d6530189c2703a6fffd2dd39d527ab03b6",
       "sha256": "048e6e912a27f28b4b2605a9d499e2f76fa6b36c95b90c2e2571af5a98843cb5",
       "bytes": 86024
+    },
+    {
+      "id": "clan-landing-camp-v1",
+      "transparent": false,
+      "prompt": "Hand-painted production artwork for Shinobi Journey. Match the supplied coast art: naturalistic miniature environmental painting, crisply brushed cedar, slate and ivory limestone, muted ochre grass, charcoal shadows, restrained indigo fabric and dull brass. Quiet frontier mystery. No lettering, UI, people, skyline of houses, or decorative villages. Paint a single widescreen 16:9 exterior entry plate for Founding Camp at Saltstair Landing. Show a single low indigo-canvas survey tent under a lashed cedar ridgepole, small ochre waxed awning over its open south-facing door, coil of line, two limestone foundation pads. Same small plot as the reference: left cedar, pale sea arch distant on the right, dirt approach reaching the bottom center; entrance clearly readable. Mid-distance three-quarter front view; building fills central 55%, afternoon maritime light.",
+      "source": "shinobij.client/art-source/coast-quest-expansion-v1/paintings/header-camp.png",
+      "file": "shinobij.client/public/sector-buildings/clan-landing-camp-v1.webp",
+      "sourceSha256": "6e5d171fcc12ad70ba093f795294b7cd2f378719abfd293a2772c039acdebee6",
+      "sha256": "5767b0c3e9dcf56c5dd833e96d6d8f58933f6cf517b458990addedae537f1129",
+      "bytes": 124366
+    },
+    {
+      "id": "clan-landing-camp-map-v1",
+      "transparent": true,
+      "prompt": "Extract and repaint the single Founding Camp structure visible in the first image as a square, transparent isometric map standee, matching the exact construction, fabric, awning, color and upgrade stage of the pictured building. Retain the compact left/right palisade wings only if present. Use the higher bird's-eye perspective, painted material clarity and detached silhouette of the second reference. Entire roof and footprint inside the canvas; southern entrance faces viewer. Narrow irregular footprint with its immediate foundation only, isolated on actual RGBA transparency, no broad patch of land, shore, trees, landscape, sky, rectangle or additional buildings. No people, text, labels or watermark.",
+      "source": "shinobij.client/art-source/coast-quest-expansion-v1/paintings/sprite-camp.png",
+      "file": "shinobij.client/public/sector-buildings/clan-landing-camp-map-v1.webp",
+      "sourceSha256": "f84acd2cc51a0a79a67a0011dd007d3f6df6afca53f3ae73472038768ef32750",
+      "sha256": "bfce3f4b6daf1b4c59154a2d60b32c12f27eac8980a6818557738a83ebb32c3a",
+      "bytes": 75432
+    },
+    {
+      "id": "clan-landing-hall-v1",
+      "transparent": false,
+      "prompt": "Hand-painted production artwork for Shinobi Journey. Match the supplied coast art: naturalistic miniature environmental painting, crisply brushed cedar, slate and ivory limestone, muted ochre grass, charcoal shadows, restrained indigo fabric and dull brass. Quiet frontier mystery. No lettering, UI, people, skyline of houses, or decorative villages. Paint a single widescreen 16:9 exterior entry plate for Landing Hall at Saltstair Landing. Show a single small enclosed one-story cedar hall on those foundation pads, low gabled shingle roof with a central brass ridge pin, tiny ochre awning over its open south-facing door, coil of line. Same small plot as the reference: left cedar, pale sea arch distant on the right, dirt approach reaching the bottom center; entrance clearly readable. Mid-distance three-quarter front view; building fills central 55%, afternoon maritime light.",
+      "source": "shinobij.client/art-source/coast-quest-expansion-v1/paintings/header-hall.png",
+      "file": "shinobij.client/public/sector-buildings/clan-landing-hall-v1.webp",
+      "sourceSha256": "a22dd392335f38c39eb9afbb46f2c3a2fb634bdd2edbc15f090278c9353feb20",
+      "sha256": "b9bc62cff18c8b4ec96b2e56c58f4f827eb98f9fb269f63bf5c2dae096e8508b",
+      "bytes": 123760
+    },
+    {
+      "id": "clan-landing-hall-map-v1",
+      "transparent": true,
+      "prompt": "Extract and repaint the single Landing Hall structure visible in the first image as a square, transparent isometric map standee, matching the exact construction, fabric, awning, color and upgrade stage of the pictured building. Retain the compact left/right palisade wings only if present. Use the higher bird's-eye perspective, painted material clarity and detached silhouette of the second reference. Entire roof and footprint inside the canvas; southern entrance faces viewer. Narrow irregular footprint with its immediate foundation only, isolated on actual RGBA transparency, no broad patch of land, shore, trees, landscape, sky, rectangle or additional buildings. No people, text, labels or watermark.",
+      "source": "shinobij.client/art-source/coast-quest-expansion-v1/paintings/sprite-hall.png",
+      "file": "shinobij.client/public/sector-buildings/clan-landing-hall-map-v1.webp",
+      "sourceSha256": "18f62fc4ef06263cd6f433d91db09094734137ac1e311b710375a81e35d93340",
+      "sha256": "26e7ec3707ab5fb675b3462ab17fff3cd4269bb36a2895c11e01075956db659b",
+      "bytes": 91574
+    },
+    {
+      "id": "clan-landing-gate-v1",
+      "transparent": false,
+      "prompt": "Hand-painted production artwork for Shinobi Journey. Match the supplied coast art: naturalistic miniature environmental painting, crisply brushed cedar, slate and ivory limestone, muted ochre grass, charcoal shadows, restrained indigo fabric and dull brass. Quiet frontier mystery. No lettering, UI, people, skyline of houses, or decorative villages. Paint a single widescreen 16:9 exterior entry plate for Defended Landing at Saltstair Landing. Show the same hall strengthened into a compact two-story gate lodge with one west wing of palisade and one short east wing, south-facing doorway under ochre awning, upper shutters for the lookout, dark slate eaves; the hall remains the one building. Same small plot as the reference: left cedar, pale sea arch distant on the right, dirt approach reaching the bottom center; entrance clearly readable. Mid-distance three-quarter front view; building fills central 55%, afternoon maritime light.",
+      "source": "shinobij.client/art-source/coast-quest-expansion-v1/paintings/header-gate.png",
+      "file": "shinobij.client/public/sector-buildings/clan-landing-gate-v1.webp",
+      "sourceSha256": "c2f48db811d141a38eab1d2e730bd9a7ce6e8a0eb59045f717c9a354c18dbaea",
+      "sha256": "6111589242dfc23ac3683e6e5ad8cc0a6658602141490c31b1292f55cd893101",
+      "bytes": 124998
+    },
+    {
+      "id": "clan-landing-gate-map-v1",
+      "transparent": true,
+      "prompt": "Extract and repaint the single Defended Landing structure visible in the first image as a square, transparent isometric map standee, matching the exact construction, fabric, awning, color and upgrade stage of the pictured building. Retain the compact left/right palisade wings only if present. Use the higher bird's-eye perspective, painted material clarity and detached silhouette of the second reference. Entire roof and footprint inside the canvas; southern entrance faces viewer. Narrow irregular footprint with its immediate foundation only, isolated on actual RGBA transparency, no broad patch of land, shore, trees, landscape, sky, rectangle or additional buildings. No people, text, labels or watermark.",
+      "source": "shinobij.client/art-source/coast-quest-expansion-v1/paintings/sprite-gate.png",
+      "file": "shinobij.client/public/sector-buildings/clan-landing-gate-map-v1.webp",
+      "sourceSha256": "bcbd8ebd94e66202a59fb59461d2f7d417757a527c17c6a5595641f2691f0e8c",
+      "sha256": "a1a1329b4b9d5cb56509288671bea15a4944f0122b74eeeeaff81255904d447b",
+      "bytes": 97168
     }
   ]
 }

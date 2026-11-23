@@ -8,13 +8,14 @@ import { kv } from '../_storage.js';
 import { storedValueEquals } from '../_stored-value.js';
 import { withKvLock } from '../_lock.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { coastBiomeOf } from '../../shared/coast-world.js';
 import { sealDuelGround,type DuelGround } from './_duel-ground.js';
 import { withDuelWitnesses } from './_duel-witnesses.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
 import { shieldExpiryForGrant } from '../combat-core/shields.js';
 import { isCancelledUnstartedPvpDuel, PVP_OPPONENT_UNAVAILABLE, pvpJoinWindowLapsed } from '../../shared/pvp-cancellation.js';
-import { cors, safeName } from '../_utils.js';
+import { clanBareSlug, cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin, playerSessionsEnabled } from '../_auth.js';
 import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
@@ -64,8 +65,12 @@ import { legacySignatureMasteryLevel } from '../../shared/legacy-signature.js';
 import { legacyEnabled, LEGACY_PVP_RECEIPT_TTL_SECONDS } from '../_legacy-track.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses, derivePveBonuses, buildItemLookup } from './_multipliers.js';
 import { namedGearFitsEquipSlot } from '../../shared/named-gear-rules.js';
+import { isQuestOnlyItem } from '../../shared/quest-items.js';
 import { combatEquipment } from '../../shared/gathering-tools.js';
 import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
+import { terrainBuffStatToJutsuType } from '../clan/territory/_assign-core.js';
+import { coastHomeSchool } from '../coast/_land.js';
+import { sealedSectorWeather } from '../_sector-weather-seal.js';
 import { carriedBloodlines, characterMayUseJutsu } from './_bloodline-gate.js';
 import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
 import { safeLogValue } from '../_safe-log.js';
@@ -1409,7 +1414,9 @@ function resolveEquippedPvpItems(
     // the same rule the stat sums in _multipliers.ts apply to a stored legacy save.
     const ids = [...new Set(
         Object.entries(equipment as Record<string, unknown>)
-            .filter(([slot, v]) => typeof v === 'string' && namedGearFitsEquipSlot(slot, v))
+            // A quest item is never armed from a save, even one that predates the
+            // equip refusal: only its own quest's fight seals it in, by hand.
+            .filter(([slot, v]) => typeof v === 'string' && namedGearFitsEquipSlot(slot, v) && !isQuestOnlyItem(v))
             .map(([, v]) => v as string),
     )];
     if (ids.length === 0) return [];
@@ -1875,6 +1882,9 @@ export function sealedSessionBiome(rewardSector: unknown, bodyBiome: unknown, is
     if (isRanked) return 'central';
     const sector = Math.floor(Number(rewardSector));
     if (isWildSector(sector) || sector === 99) return normalizeBiome(sectorBiomeOf(sector));
+    // The coast has its own table of ground, and it is just as server-known.
+    const coastBiome = coastBiomeOf(sector);
+    if (coastBiome) return normalizeBiome(coastBiome);
     return normalizeBiome(bodyBiome);
 }
 function normalizeElement(e: unknown): string {
@@ -1882,19 +1892,9 @@ function normalizeElement(e: unknown): string {
     return '';
 }
 
-// Map a captured sector's leader-chosen offense stat (territory.terrainBuffStat)
-// to the jutsu TYPE that earns the +10% home-terrain buff. Returns '' for an
-// unknown/empty stat. KEEP IN SYNC with the client (Arena.tsx buffByType) and
-// the applier in api/pvp/move.ts homeTerrainMultiplier.
-function terrainBuffStatToJutsuType(stat: unknown): string {
-    switch (stat) {
-        case 'bukijutsuOffense': return 'Bukijutsu';
-        case 'taijutsuOffense':  return 'Taijutsu';
-        case 'ninjutsuOffense':  return 'Ninjutsu';
-        case 'genjutsuOffense':  return 'Genjutsu';
-        default:                 return '';
-    }
-}
+// The map from a holder's chosen offense stat to the jutsu TYPE that earns the
+// +10% home-terrain buff is `terrainBuffStatToJutsuType`, imported from
+// api/clan/territory/_assign-core.ts so the coast uses the same one.
 
 // ── Town Defense guard mitigation (server-authoritative) ─────────────────────
 // A Village Guard's "Town Defense" upgrade is meant to reduce the damage they
@@ -3018,6 +3018,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const elements = sectorWeatherElements(weather);
                         sealedWeatherPos = normalizeElement(elements.positiveElement);
                         sealedWeatherNeg = normalizeElement(elements.negativeElement);
+                    } else if (coastBiomeOf(secNum)) {
+                        // The coast has the same weather, drawn from the same schedule with its own
+                        // ground. The sky a holding clan has FIXED over its sector is a modifier that
+                        // clan picked for its own element, so it is sealed only for a world fight the
+                        // server has proved is on that sector; a fight that only names the sector gets
+                        // the scheduled sky everyone there has (api/_sector-weather-seal.ts).
+                        const sky = await sealedSectorWeather(secNum, Date.now(), { stamped: worldAttackVerified && claimedRewardSector === secNum });
+                        sealedWeatherPos = normalizeElement(sky.weatherPositiveElement);
+                        sealedWeatherNeg = normalizeElement(sky.weatherNegativeElement);
                     }
                     try {
                         const ownerClan = String(territory?.ownerClan ?? '').trim();
@@ -3029,6 +3038,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             if (clanOf(p2Save) === ownerClan) p2HomeTerrain = buffType;
                         }
                     } catch { /* territory read failed — grant no buff (fail-safe; never blocks the fight) */ }
+                    // Clans hold land on the Unmapped Coast now (api/_home-clan-territory.ts), so the
+                    // same buff is read from the coast claim there: the school the holding clan's
+                    // officers chose, for members of that clan, on that sector. Null for any other
+                    // sector, for unheld ground, and for a holder that has chosen no school.
+                    //
+                    // `secNum` is the request's own word for where the fight is. That is not enough
+                    // here: a member could name their clan's sector from anywhere, in a clan-war
+                    // duel or an accepted challenge, and be handed +10%. So the coast school is
+                    // sealed only for a world fight the server has proved: both fighters' live
+                    // presence in that sector (worldAttackVerified, above).
+                    try {
+                        const coast = worldAttackVerified && claimedRewardSector === secNum ? await coastHomeSchool(secNum) : null;
+                        if (coast) {
+                            const clanSlugOf = (save: Record<string, unknown> | null) =>
+                                clanBareSlug(String(((save?.character ?? null) as Record<string, unknown> | null)?.clan ?? ''));
+                            if (clanSlugOf(p1Save) === coast.clanSlug) p1HomeTerrain = coast.school;
+                            if (clanSlugOf(p2Save) === coast.clanSlug) p2HomeTerrain = coast.school;
+                        }
+                    } catch { /* claim read failed: no buff, and the fight still starts */ }
                 }
             }
 

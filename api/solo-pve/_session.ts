@@ -250,6 +250,12 @@ export type SoloPveSession = {
     bossForms?: import('../../shared/boss-transformations.js').BossTransformationState;
     /** The techniques the boss's forms learn, sealed with the kit's own costs. */
     bossFormKit?: { jutsu: Record<string, SoloPveJutsu>; masteryLevel: number };
+    /**
+     * A quest boss's Hold (api/solo-pve/_boss-hold.ts). While it stands the
+     * enemy cannot fall; the player using the named quest tool breaks it.
+     * Sealed by the host when the fight starts. Absent for every other encounter.
+     */
+    bossHold?: import('./_boss-hold.js').SoloPveBossHold;
 };
 
 export type CreateSoloPveSessionParams = {

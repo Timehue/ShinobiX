@@ -125,7 +125,62 @@ const maxBossFormArtBytes = 664_320;
 // floor by 12,644 B and shrinks its thumbnail by 232 B: +12,412 B, credited the
 // same way after the owner asked for the village ("Yes, paint it").
 const maxCinderholdArtBytes = 1_764_766 + 12_412;
-const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes + maxHarvestingArtBytes + maxBossFormArtBytes + maxCinderholdArtBytes;
+// Measured WebP totals for all five coast regions. Room and quest art load on demand.
+//
+// The owner approved the first four regions on 2026-11-19 (9,769,700 B of floors
+// and 14,657,724 B of site art) and, on 2026-11-20, asked for the rest to be
+// decided for the game and its players. Decided: allow all of it, 33.5 MB in
+// these three lines plus the six Clan Landing paintings below. The reasons:
+//   - It is the art of the fifty sectors the owner asked for. Region five cannot
+//     open without its ten floors, and a quest cannot show a tool with no icon.
+//   - Nothing here is in the startup download. A player fetches one sector floor
+//     (none over 250 KB, the same ceiling as a home sector) and one room at a
+//     time, and only on the coast.
+//   - Every floor, building painting and standee is inside the plan's per-file
+//     ceiling; the totals grew because there are fifty sectors, not because any
+//     painting is oversized.
+// The numbers are exact, so any further art still fails here until it is named.
+const maxCoastFloorArtBytes = 12_193_470;
+// Coast state paintings: six atlas markers, eight standees and two scenes add exactly
+// 592,558 B. Owner-approved 2026-11-20: shown the sixteen files and their total in the
+// server session, the owner kept the allowance ("Yes, keep both").
+const maxCoastSiteArtBytes = 19_035_472;
+// Four approved Stair Houses paintings, including the versioned floor.
+const maxCoastSettlementArtBytes = 651_190;
+// Settlement and hall pass. Owner: "Apply the measured allowances" (2026-11-21). Includes the courtyard, halls, rooms and residents.
+// In the server session the owner was shown 660,368 B of this (courtyard and halls) and said "i approve the size increase".
+// The rooms and residents (281,344 B) were added after that figure was quoted; they stand on the sentence above.
+const maxCoastStreetAndHallsArtBytes = 364_914 + 295_454 + 131_860 + 32_260 + 117_224;
+// The owner saw the exact production partition increase of 641,986 B and delegated the decision:
+// "do what is best for the game" (2026-11-21). Only these three backdrop files count as town art.
+const maxCoastTownArtBytes = 576_374;
+// Remaining 65,612 B of that measured distribution excess. Owner: "do what is best for the game".
+const maxCoastTownProductionRuntimeBytes = 65_612;
+// Six Clan Landing exteriors and standees are counted in the separate building receipt.
+const maxCoastQuestArtBytes = 2_909_350;
+// 2026-11-21: 25 painted cut-out portraits for the coast's quest scenes, one per
+// speaking character, in public/portraits/cinematic/coast (733 x 1100 with alpha,
+// the largest 117,386 B). Before them 26 speakers shared 13 square wanderer
+// paintings. Owner asked for them ("improve the portraits to bespoke") and
+// approved the bytes in the server session before any were painted: "Yes, up to
+// 3 MB". Credited: exactly the 2,817,854 B delivered, so the headroom left for
+// everything else is unchanged. A portrait loads only when its scene opens.
+// shared/coast-cast-portraits.test.ts holds each file to its size and its list.
+// Same day, three more: the beast bosses of Untamed Coast (Old Brinejaw, Thornmother,
+// Whitemane). They do not speak, so they were not in the first list, and their fights
+// showed two initials where the boss should be. The owner approved them separately
+// ("Yes, add them", for about 350 KB): 325,678 B delivered. Old Brinejaw was then
+// repainted as a head-and-chest cut-out that reads in the small combat frame
+// (brinejaw-v2.webp, 100,502 B, replacing v1): 9,814 B smaller, so the three now
+// come to 315,864 B and all 28 portraits to 3,133,718 B, credited exactly.
+const maxCoastPortraitArtBytes = 2_817_854 + 315_864 + 370_930;
+// 2026-11-21: eight painted badges for the coast quest achievements, in
+// public/badges (256 x 256, each at most 36,250 B). Owner asked for them and
+// raised the badge limit: "raise the badge limit and give codex the handoff for
+// achievements/art". The eight files total 208,432 bytes.
+// See output/coast/CODEX-BADGE-PASS.md.
+const maxCoastQuestBadgeBytes = 208_432;
+const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes + maxHarvestingArtBytes + maxBossFormArtBytes + maxCinderholdArtBytes + maxCoastFloorArtBytes + maxCoastSiteArtBytes + maxCoastSettlementArtBytes + maxCoastStreetAndHallsArtBytes + maxCoastTownArtBytes + maxCoastTownProductionRuntimeBytes + maxCoastQuestArtBytes + maxCoastPortraitArtBytes + maxCoastQuestBadgeBytes;
 // The 161 scenic companion portraits ship separately from their unchanged
 // battle/model assets. Keep unrelated runtime growth under the existing cap.
 const maxPetPortraitBytes = 16 * 1024 * 1024;
@@ -143,8 +198,9 @@ const maxPetPortraitBytes = 16 * 1024 * 1024;
 // which replaces its signpost.
 // 2026-11-11: -7,560 B. Ashbrook Hills (60) became Midlands ground, so its two
 // ruins' restorations were re-baked to clear their plots to its new grass.
-const sectorBuildingArtCount = 39;
-const maxSectorBuildingArtBytes = 2_573_836;
+// The Clan Landing adds three entry paintings and their three map standees.
+const sectorBuildingArtCount = 45;
+const maxSectorBuildingArtBytes = 3_211_134;
 // 2026-11-04 (owner approved): the painted Hollow Gate cave set (five chamber
 // floors, the passage floor and three decals; shinobij.client/art-source/hollow-gate-cavern-chambers.json)
 // gets the same exact-byte partition, so it neither consumes nor relaxes the
@@ -424,7 +480,7 @@ const otherClientBytes = clientArtifactBytes - chronicleArtBytes - companionArtB
 if (otherClientBytes > maxOtherClientBytes) {
     fail(`client excluding Chronicle art and scenic companions is ${otherClientBytes} B (${(otherClientBytes / 1024 / 1024).toFixed(3)} MiB); ceiling is ${maxOtherClientBytes} B; over by ${otherClientBytes - maxOtherClientBytes} B`);
 }
-console.log(`[verify:dist] Chronicle art ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} / ${(maxChronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; other runtime assets ${(otherClientBytes / 1024 / 1024).toFixed(1)} / ${(maxOtherClientBytes / 1024 / 1024).toFixed(1)} MiB.`);
+console.log(`[verify:dist] Chronicle art ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} / ${(maxChronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; other runtime assets ${otherClientBytes} / ${maxOtherClientBytes} B.`);
 if (clientArtifactBytes > maxClientArtifactBytes) {
     fail(`client dist is ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB; runtime artifact ceiling is ${maxClientArtifactBytes / 1024 / 1024} MB`);
 }

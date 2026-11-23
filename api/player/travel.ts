@@ -12,6 +12,10 @@ import { clearTravelLeaseIfSame, setTravelLease, TravelLeaseHeldError, type Trav
 import { engagedInWorldDuel } from '../_realtime/world-duel-engagement.js';
 import { kv } from '../_storage.js';
 import { sectorObstaclesEnabled } from '../_release-flags.js';
+import { COAST_SECOND_DOCK, coastEntryRefusalFor, coastSecondDockOpenFor } from '../_coast-admission.js';
+import { coastArrivalTile, coastExitById, coastExitWalkable, coastSite } from '../../shared/coast-world.js';
+import type { CoastExit } from '../../shared/coast-world-rules.js';
+import { COAST_LANDING_SECTOR, HOME_HARBOR_SECTOR, isCoastSector, sectorMapOf } from '../../shared/world-maps.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
 // The server mints the timer so clients cannot claim an arbitrary destination
@@ -83,6 +87,34 @@ export function tileDistance(a: number, b: number): number {
     return Math.max(Math.abs(ax - bx), Math.abs(ay - by));
 }
 
+/** Where the boat home lands in the harbor sector: the approach of the Western Piers duty house. */
+export const HOME_HARBOR_ARRIVAL_TILE = 64;
+
+/**
+ * The two maps are joined only by the boat. Going out, it lands at the coast's
+ * slip; coming home, at the harbor. "Village" from the coast is the same instant
+ * return home it is from any wild sector. Returns what to tell the player when
+ * a journey would cross any other way, or null when it may go ahead.
+ */
+export function crossMapRefusal(originSector: number, destinationSector: number, secondDock = false): string | null {
+    const from = sectorMapOf(originSector), to = sectorMapOf(destinationSector);
+    if (from === null || to === null || from === to) return null;
+    if (to === 'coast') {
+        // The Low Water Quay, once The Uncounted has opened it (api/_coast-admission.ts).
+        if (secondDock && destinationSector === COAST_SECOND_DOCK.sector) return null;
+        return destinationSector === COAST_LANDING_SECTOR ? null : 'The boat lands at Saltstair Slip. Travel on from there.';
+    }
+    return destinationSector === 0 || destinationSector === HOME_HARBOR_SECTOR ? null : 'Take the boat home first.';
+}
+
+/** A trail crossing on the coast: the exit must be the origin's own, lead where claimed, and be walkable at both ends. */
+export function coastEdgeTravelExit(input: EdgeTravelInput): CoastExit | null {
+    const exit = coastExitById(input.exitId);
+    if (!exit || exit.sector !== input.originSector || exit.destinationSector !== input.destinationSector) return null;
+    if (input.originTile !== exit.tile || !coastExitWalkable(exit)) return null;
+    return exit;
+}
+
 /** Whether the server's last-known tile (if any) is close enough to the exit. */
 export function edgeOriginTileAllowed(serverTile: number | undefined, exitTile: number): boolean {
     if (serverTile === undefined || !Number.isFinite(serverTile)) return true;
@@ -106,7 +138,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         60_000, identity.name)) return;
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
     const destinationSector = typeof body.destinationSector === 'number' ? body.destinationSector : NaN;
-    if (!isPlayableWorldSector(destinationSector)) {
+    const toCoast = isCoastSector(destinationSector);
+    if (!toCoast && !isPlayableWorldSector(destinationSector)) {
         return res.status(400).json({ error: 'Invalid travel destination.' });
     }
 
@@ -114,7 +147,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!player) return res.status(409).json({ error: 'World presence is not ready. Please try again.' });
     let arrivalTile: number | undefined;
     let edgeOriginSector: number | undefined;
-    if (mode === 'edge') {
+    const fromCoast = isCoastSector(player.sector);
+    if (toCoast || fromCoast) {
+        // The Unmapped Coast (shared/world-maps.ts). It has its own tables, so
+        // none of the home-map rules below know its sectors; this branch is the
+        // whole of coast travel. It ends by falling through to the lease, which
+        // is the same for both maps.
+        // Only a crossing to the quay itself asks whether the second dock is open.
+        const toSecondDock = !fromCoast && destinationSector === COAST_SECOND_DOCK.sector;
+        let secondDock = false;
+        if (toSecondDock) {
+            try {
+                secondDock = await coastSecondDockOpenFor(identity.name);
+            } catch {
+                return res.status(503).json({ error: 'Travel could not be secured. Please try again.' });
+            }
+        }
+        const crossing = crossMapRefusal(player.sector, destinationSector, secondDock);
+        if (crossing) return res.status(409).json({ error: crossing });
+        if (toCoast) {
+            // Standing on the coast is decided from the durable save: level, the
+            // boat, the region. Checked for every coast destination, so a region
+            // opened by a quest is honoured and one never opened is refused.
+            let refusal;
+            try {
+                refusal = await coastEntryRefusalFor(identity.name, destinationSector);
+            } catch {
+                return res.status(503).json({ error: 'Travel could not be secured. Please try again.' });
+            }
+            if (refusal) return res.status(403).json({ error: refusal.error, reason: refusal.reason });
+        }
+        if (mode === 'edge') {
+            const claimedOrigin = Number(body.originSector);
+            if (Number.isFinite(claimedOrigin) && claimedOrigin !== player.sector) {
+                return res.status(409).json({ error: 'You are not in that sector.' });
+            }
+            const exit = coastEdgeTravelExit({
+                originSector: player.sector,
+                originTile: Number(body.originTile),
+                destinationSector,
+                exitId: String(body.exitId ?? ''),
+            });
+            if (!exit || !edgeOriginTileAllowed(player.tile, exit.tile)) {
+                return res.status(409).json({ error: 'Move onto that trail before crossing sectors.' });
+            }
+            arrivalTile = exit.destinationTile;
+            edgeOriginSector = exit.sector;
+        } else if (toSecondDock) {
+            // The boat puts you down at the quay's own landing.
+            arrivalTile = coastSite(COAST_SECOND_DOCK.siteId)?.approach;
+        } else if (toCoast) {
+            arrivalTile = coastArrivalTile(player.sector, destinationSector) ?? undefined;
+        } else if (destinationSector === HOME_HARBOR_SECTOR) {
+            // The boat home puts you down by the Western Piers duty house, grounded and
+            // stepped off any resident's tile like every other arrival.
+            arrivalTile = arrivalStandTile(HOME_HARBOR_SECTOR, HOME_HARBOR_ARRIVAL_TILE, sectorObstaclesEnabled());
+        }
+    } else if (mode === 'edge') {
         // The origin is the SERVER's sector — lease-gated presence, never the
         // request body. The body used to be the only source, so a client in
         // sector 5 could name any road "from 30 to 31" and be leased across the

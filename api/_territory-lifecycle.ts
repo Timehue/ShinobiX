@@ -79,7 +79,7 @@ export function beginTerritoryBreach(
 export function releaseTerritory(
     row: TerritoryLifecycleRow,
     now: number,
-    reason: 'breached' | 'clan-inactive' | 'clan-missing' | 'clan-dissolved',
+    reason: 'breached' | 'clan-inactive' | 'clan-missing' | 'clan-dissolved' | 'coast-only',
 ): TerritoryLifecycleRow {
     const released: TerritoryLifecycleRow = {
         ...row,

@@ -30,6 +30,9 @@ import { starterItems } from "../shinobij.client/src/data/starter-items.ts";
 import { eventItems } from "../shinobij.client/src/data/event-items.ts";
 import { starterSavedBloodlines } from "../shinobij.client/src/data/jutsu.ts";
 import { stackableItemIds } from "../shinobij.client/src/data/pet-config.ts";
+// Quest-only items live in shared/, not in the client's startup item table
+// (see the header of shared/quest-items.ts). They join the server catalog here.
+import { QUEST_ITEMS } from "../shared/quest-items.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "api", "pvp", "_item-catalog.ts");
@@ -54,6 +57,8 @@ function pickCombatFields(item) {
     if (item.saleBasis != null) out.saleBasis = Math.max(0, Math.floor(Number(item.saleBasis) || 0));
     if (item.levelReq != null) out.levelReq = Math.max(1, Math.floor(Number(item.levelReq) || 1));
     if (item.serviceItem === true) out.serviceItem = true;
+    // Quest materials, tools and proofs: always stacked, never worn or traded.
+    if (item.questOnly === true) { out.questOnly = true; out.stackable = true; }
     if (stackableItemIds.has(item.id)) out.stackable = true;
     if (item.armorQuality != null) out.armorQuality = item.armorQuality;
     if (item.armorReduction != null) out.armorReduction = item.armorReduction;
@@ -91,6 +96,10 @@ export function buildItemCatalog() {
     // [...starterItems, ...eventItems]) — without them here an equipped event
     // piece is dropped (with a warn) from every server-run fight.
     for (const item of [...starterItems, ...eventItems]) {
+        catalog[item.id] = pickCombatFields(item);
+    }
+    for (const item of QUEST_ITEMS) {
+        if (catalog[item.id]) throw new Error(`Quest item ${item.id} collides with a built-in item id.`);
         catalog[item.id] = pickCombatFields(item);
     }
     return catalog;
@@ -138,6 +147,8 @@ export type CatalogItem = {
     saleBasis?: number;
     levelReq?: number;
     serviceItem?: boolean;
+    /** Belongs to a quest line and must stay inside it (shared/quest-items.ts). */
+    questOnly?: boolean;
     stackable?: boolean;
     armorQuality?: string;
     armorReduction?: number;

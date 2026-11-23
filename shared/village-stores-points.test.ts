@@ -21,12 +21,16 @@ describe('Village Stores material points (2026-10 item-use pass)', () => {
 
     it('gives every non-story relic 50 points per tier, and story relics none', () => {
         assert.equal(RELIC_CRAFT_POINTS_PER_TIER, 50);
-        assert.equal(NON_STORY_RELICS.length, 16);
-        for (const relic of NON_STORY_RELICS) {
+        const found = NON_STORY_RELICS.filter((r) => r.source.kind !== 'quest');
+        assert.equal(found.length, 16);
+        for (const relic of found) {
             assert.equal(CRAFT_POINTS[relic.id], 50 * relic.tier, relic.id);
             assert.deepEqual(storesDonationRouting(relic.id, 1, CRAFT_POINTS), { store: 'materialPoints', amount: 50 * relic.tier, perItem: 50 * relic.tier });
         }
-        for (const relic of RELIC_ROSTER.filter((r) => r.source.kind === 'story')) assert.equal(CRAFT_POINTS[relic.id], undefined, relic.id);
+        // A relic given once, by the story or by a quest line, has no points: it cannot be given to the stores.
+        const given = RELIC_ROSTER.filter((r) => r.source.kind === 'story' || r.source.kind === 'quest');
+        assert.equal(given.length, 6);
+        for (const relic of given) assert.equal(CRAFT_POINTS[relic.id], undefined, relic.id);
     });
 
     it('gives every gear step drop 50 / 75 / 100 points by tier, so an outgrown step has a use besides the NPC', () => {

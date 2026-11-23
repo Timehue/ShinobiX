@@ -2,7 +2,7 @@ import { kv } from '../_storage.js';
 import { economyTxKey, completeEconomyTx, markEconomyTx, type EconomyTxRecord } from '../_economy-tx.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { readResourceGathering } from '../../shared/resource-gathering.js';
-import { resourceNode } from '../../shared/resource-nodes.js';
+import { gatherNode } from '../quests/_sites.js';
 import { finishResourcePool } from './_resource-pool.js';
 import type { ResourceSeal } from './_resource-gathering.js';
 import { withPlayerResourceNodes, finishSharedResourceAdmission } from './_shared-resource-nodes.js';
@@ -12,7 +12,7 @@ import { withPlayerResourceNodes, finishSharedResourceAdmission } from './_share
 export async function reconcileResourceAdmission(txId: string) {
     const tx = await kv.get<EconomyTxRecord>(economyTxKey(txId));
     const name = tx?.meta?.playerName, seal = tx?.meta?.seal as ResourceSeal | undefined;
-    const node = seal && resourceNode(seal.nodeId);
+    const node = seal && gatherNode(seal.nodeId);
     if (!tx || tx.kind !== 'resource-gathering' || typeof name !== 'string' || !seal || !node) return { ok: false, error: 'Invalid gathering journal.' };
     const result = await withPlayerResourceNodes(name, node.id, assertActive => mutatePlayerSave<Record<string, unknown>>(name, async ({ character }) => {
         assertActive(character);

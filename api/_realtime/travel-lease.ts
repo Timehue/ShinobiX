@@ -8,6 +8,8 @@ import { recordArrivalTile } from './walked-tile.js';
 import { pushSaveVersion } from './notify.js';
 import { footfallKey, FOOTFALL_TTL_SEC } from '../sector/_traces.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { coastBiomeOf } from '../../shared/coast-world.js';
+import { isCoastSector } from '../../shared/world-maps.js';
 import { SECTOR_TILE_COUNT } from '../../shared/sector-links.js';
 import { randomUUID } from 'node:crypto';
 import { worldPositionModel } from '../../shared/continuous-world-layout.js';
@@ -50,7 +52,11 @@ function sector(value: unknown, allowSafeZone: boolean): number | null {
     const parsed = Math.floor(Number(value));
     if (!Number.isFinite(parsed)) return null;
     if (allowSafeZone && parsed === 0) return 0;
-    return parsed === 99 || isWildSector(parsed) ? parsed : null;
+    // The coast's sectors (shared/world-maps.ts) are valid at either end. A
+    // lease is only a record of a journey the travel handler already admitted;
+    // refusing them here would turn every coast trip, and the "Village" return
+    // from the coast, into a 503.
+    return parsed === 99 || isWildSector(parsed) || isCoastSector(parsed) ? parsed : null;
 }
 
 export function parseTravelLease(value: unknown): TravelLease | null {
@@ -215,7 +221,7 @@ export async function settleTravelLease(
             value: true,
             recordPatch: {
                 currentSector: lease.destinationSector,
-                currentBiome: sectorBiomeOf(lease.destinationSector),
+                currentBiome: coastBiomeOf(lease.destinationSector) ?? sectorBiomeOf(lease.destinationSector),
                 pendingTravel: null,
                 currentTile: lease.arrivalTile ?? null,
                 worldPosition: lease.worldPosition ?? null,

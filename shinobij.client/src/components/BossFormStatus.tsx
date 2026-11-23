@@ -6,6 +6,28 @@ import type { BossFormReveal } from "../lib/boss-form-reveal";
 const BossFormCutscene = lazy(() => import("./BossFormCutscene"));
 
 /** Current phase, the form's mechanic, and a live charge-break meter. */
+/** A quest boss's Hold (api/solo-pve/_boss-hold.ts): while it stands the boss cannot fall. Not a status, so nothing clears it but its tool. */
+const holdArt: Record<string, string> = {
+    "quest-signal-shard": "smoke-hold",
+    "quest-stand-down-order": "oath-guard",
+    "quest-woundroot-vial": "bitter-tide",
+    "quest-clouding-ink": "mirror-hold",
+    "quest-pact-cutter-snare": "beast-bond",
+    "quest-ember-senbon": "rime-lock"
+};
+
+export function BossHoldChip({ hold }: { hold: { name: string; breakerItemId: string; broken: boolean } | undefined }) {
+    if (!hold) return null;
+    return (
+        <span className="boss-form-chip" role="status" aria-live="polite"
+            title={hold.broken ? `The ${hold.name} is broken. They can fall now.` : `They cannot fall while the ${hold.name} stands. Use your quest tool to break it.`}>
+            {holdArt[hold.breakerItemId] && <img src={`/combat-vfx/coast-${holdArt[hold.breakerItemId]}${hold.broken ? "-break" : ""}-v1.webp`} width="48" height="48" alt="" />}
+            <strong>{hold.name}</strong>
+            <span>{hold.broken ? "Broken" : "Use your quest tool"}</span>
+        </span>
+    );
+}
+
 export function BossFormChip({ view }: { view: BossFormView | undefined }) {
     if (!view) return null;
     const phaseLabel = `Phase ${view.phase + 1}/${view.phaseCount + 1}`;

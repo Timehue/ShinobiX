@@ -9,9 +9,9 @@ import { PVE_SPECIALIST_FIELDS, RELIC_ROSTER } from '../../../shared/relics';
 
 const relics = [...starterItems, ...eventItems].filter(item => item.slot === 'relic');
 describe('equippable relic roster', () => {
-    it('matches all 20 canonical relics, including the four village rewards', () => {
+    it('matches all 22 canonical relics, including the four village rewards and the two the coast finale gives', () => {
         assert.deepEqual(relics.map(item => item.id).sort(), RELIC_ROSTER.map(item => item.id).sort());
-        assert.equal(relics.length, 20);
+        assert.equal(relics.length, 22);
     });
     it('grants only PvE percentages, with no flat stats or PvP passives', () => {
         const allowed = new Set<string>(['pveDamagePercent', ...PVE_SPECIALIST_FIELDS]);

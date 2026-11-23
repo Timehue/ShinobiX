@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { Character } from '../types/character.js';
 import { ACHIEVEMENTS, achievementReward, isAchievementUnlocked, unlockedAchievementCount } from './achievements.js';
 import { CAREER_MILESTONES } from '../../../shared/career-milestones.js';
-import { eligibleAchievementIds } from '../../../api/achievements/_catalog.js';
+import { ACHIEVEMENT_RULES, COAST_ROUND_ACHIEVEMENT_IDS, eligibleAchievementIds } from '../../../api/achievements/_catalog.js';
 
 const character = (values: Partial<Character>): Character => ({
     level: 1,
@@ -46,6 +46,26 @@ describe('achievement presentation truth', () => {
             assert.deepEqual(achievementReward(badge), { ryo: 0, fateShards: 0 });
         }
     });
+    it('lists exactly the achievements the server verifies, each once', () => {
+        const clientIds = ACHIEVEMENTS.map(entry => entry.id);
+        assert.equal(new Set(clientIds).size, clientIds.length);
+        assert.deepEqual([...clientIds].sort(), ACHIEVEMENT_RULES.map(rule => rule.id).sort());
+    });
+
+    it('shows a coast Rounds badge only from the list the server writes at the claim', () => {
+        assert.equal(COAST_ROUND_ACHIEVEMENT_IDS.length, 20);
+        for (const id of COAST_ROUND_ACHIEVEMENT_IDS) {
+            const badge = ACHIEVEMENTS.find(entry => entry.id === id);
+            assert.ok(badge, id);
+            assert.match(badge.name, /^(Saltstair|Brackwater|Briarwood|Whitecrown|Hushcrown) Rounds (I|II|III|IV)$/);
+            assert.equal(badge.desc, `Finish ${badge.name} on the Unmapped Coast.`);
+            const earned = character({ coastBadges: [id] });
+            assert.equal(badge.check(earned), true);
+            assert.equal(badge.check(character({})), false);
+            assert.ok(eligibleAchievementIds(earned as unknown as Record<string, unknown>).includes(id));
+        }
+    });
+
     it('keeps a ledger unlock visible after a live-state predicate becomes false', () => {
         const wealth = ACHIEVEMENTS.find((entry) => entry.id === 'ryo-25k');
         assert.ok(wealth);

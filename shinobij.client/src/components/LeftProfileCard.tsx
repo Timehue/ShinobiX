@@ -46,6 +46,7 @@ import { PatchNotesModal } from "./PatchNotesModal";
 import { RankBadge } from "./RankBadge";
 import { NextGoalPin } from "./NextGoalPin";
 import { openPetExpedition } from "../lib/pet-expedition-navigation";
+import { isCoastSector } from "../../../shared/world-maps";
 import { SectorSkyForecast } from "./SectorSkyForecast";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { getCharacterElements } from "../lib/elements";
@@ -168,7 +169,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             <div className="left-profile-stat">Chakra {character.chakra}/{character.maxChakra}</div>
             <div className="left-profile-stat">Stamina {character.stamina}/{character.maxStamina}</div>
             <div className="left-profile-stat">Sector {currentSector}</div>
-            <div className="left-profile-stat">Weather <SectorSkyForecast sector={currentSector} biome={currentBiome} variant="name" /></div>
+            {!isCoastSector(currentSector) && <div className="left-profile-stat">Weather <SectorSkyForecast sector={currentSector} biome={currentBiome} variant="name" /></div>}
 
             {/* Core currencies — bloodline materials live on the character page. */}
             <div className="left-currencies">

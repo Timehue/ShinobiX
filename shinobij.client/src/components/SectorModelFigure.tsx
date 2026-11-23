@@ -9,6 +9,20 @@ import { loadSectorModel as loadModel, sectorModelFolder, type SectorModel as Mo
 import { createPosePrerequisite } from "../lib/sector-pose-prerequisite";
 import { missingSectorModelFeature, reportSectorModelUnavailable, reportSectorModelUnsupported, type SectorModelStage } from "../lib/sector-model-health";
 
+function trackRoomDetail(image: HTMLImageElement | null) {
+    const actor = image?.parentElement?.parentElement;
+    if (!image || !actor) return;
+    const sync = () => actor.classList.toggle("has-room-detail", image.complete && image.naturalWidth > 0);
+    sync();
+    image.addEventListener("load", sync);
+    image.addEventListener("error", sync);
+    return () => {
+        image.removeEventListener("load", sync);
+        image.removeEventListener("error", sync);
+        actor.classList.remove("has-room-detail");
+    };
+}
+
 type MovingGait = "walk" | "run";
 type Position = { x: number; y: number; width: number; moving: boolean; now: number; gait?: MovingGait; snapped?: boolean; routed?: boolean };
 export type SectorModelHandle = {
@@ -26,12 +40,15 @@ export type SectorModelHandle = {
 const PAINTED_GRACE_MS = 2_000;
 const loadPoseDelivery = () => import("../lib/sector-pose-delivery");
 
+export type FrontIdleDetail = { revision: string; src: string; bounds: [number, number, number, number] };
+
 export const SectorModelFigure = forwardRef<SectorModelHandle, {
     kind: string; artBase: string; equipped?: PlayerModel; style?: SprintStyle;
     /** The player's own figure: its pages decode ahead of every other figure's. */
     self?: boolean;
+    frontIdleDetail?: FrontIdleDetail;
 }>(
-    function SectorModelFigure({ kind, artBase, equipped, style = "A", self = false }, ref) {
+    function SectorModelFigure({ kind, artBase, equipped, style = "A", self = false, frontIdleDetail }, ref) {
         const decodePriority: DecodePriority = self ? 0 : 1;
         const {revisions} = useSectorModelPins();
         const revision = equipped?.version ?? revisions[kind];
@@ -587,6 +604,11 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 figure.style.removeProperty("--sector-model-height");
             };
         }, [folder, revision, style, decodePriority]);
-        return <span aria-hidden="true" className="sector-model-figure" ref={element} />;
+        const detail = !equipped && frontIdleDetail?.revision === revision ? frontIdleDetail : undefined;
+        return <span aria-hidden="true" className="sector-model-figure" ref={element}>
+            {detail && <img key={detail.src} className="sector-model-detail" src={detail.src} alt="" draggable={false}
+                style={{ left: detail.bounds[0] + "%", top: detail.bounds[1] + "%", width: detail.bounds[2] + "%", height: detail.bounds[3] + "%" }}
+                ref={trackRoomDetail} />}
+        </span>;
     },
 );

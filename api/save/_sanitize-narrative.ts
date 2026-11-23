@@ -261,6 +261,16 @@ export function sanitizeNarrativeIdentity(
         else delete char.serverTitles;
     }
 
+    // Coast Rounds badges. The coast achievement rules read only this list
+    // (api/achievements/_catalog.ts) and each one pays ryo, so the STORED copy
+    // always wins here too. The quest-line claim (api/quests/_engine.ts) is the
+    // only writer, and it commits through mutatePlayerSave, not this sanitizer.
+    {
+        const exBadges = (existing?.character as Record<string, unknown> | undefined)?.coastBadges;
+        if (Array.isArray(exBadges)) char.coastBadges = exBadges;
+        else delete char.coastBadges;
+    }
+
     // Custom-title cosmetics — allowlist only (TITLE_STYLE_IDS/TITLE_ICON_SET
     // in _titles-registry.ts, mirroring the client's lib/legacy.ts). Cosmetic;
     // anything off-list clamps to ''. Legacy-wave feature: while ENABLE_LEGACY

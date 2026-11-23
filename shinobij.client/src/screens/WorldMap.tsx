@@ -137,6 +137,9 @@ import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
 const HushVaultRaid = lazy(() => import("../features/hushInfiltration/HushVaultRaid").then(m => ({ default: m.HushVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
+const CoastCrossing = lazy(() => import("./world-map/CoastCrossing"));
+const QuestLinesPanel = lazy(() => import("../components/QuestLinesPanel")); const CoastWorld = lazy(() => import("./world-map/CoastWorld")); // the Unmapped Coast (lazy)
+import { useQuestLines, questStepHere, mooredBoatToast, BOAT_LANDMARK } from "../lib/use-quest-lines"; import { isCoastSector, COAST_LANDING_SECTOR, COAST_MIN_LEVEL } from "../../../shared/world-maps";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
@@ -184,7 +187,7 @@ import { takeFieldMissionNavigationIntent } from "../lib/field-mission-navigatio
 import { makeId, playerSlug, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen, takeSectorTravelIntent, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
-import { useLiveSectorRoster, getLocalSectorTile, getLiveSectorRoster, useSectorRosterState, getSectorRosterState } from "../lib/presence-store";
+import { useLiveSectorRoster, getLocalSectorTile, setLocalSectorTile, getLiveSectorRoster, useSectorRosterState, getSectorRosterState } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
@@ -428,6 +431,8 @@ function WorldMapContent({
     const [storyReckoningAbandonBusy, setStoryReckoningAbandonBusy] = useState(false);
     const fieldObjective = storyFieldObjective(character);
     const sectorIntelPlate = useSectorIntelPlate(selectedSector, character.village); // pure projection; the refresh is its effect, never a render
+    const [questList, setQuestList] = useQuestLines(character.name, character.level >= COAST_MIN_LEVEL); // the boat's state, and quest steps in this sector
+    const questLines = (mode: "sage" | "sector") => character.level >= COAST_MIN_LEVEL ? <Suspense fallback={null}><QuestLinesPanel playerName={character.name} mode={mode} sector={currentSector} onVersionedCharacter={onVersionedCharacter} onLoaded={setQuestList} character={character} sharedImages={sharedImages} /></Suspense> : null;
     const sectorOrder = useSectorOrder(character.village, selectedSector); // orders are members-only: read from the village's own record
     // Only the ~6 posted sectors ever reach the network (the board itself is a
     // pure local computation over the same shared module the server uses).
@@ -2585,6 +2590,7 @@ function WorldMapContent({
         // Cinderhold — the NPC village on the volcano cone (2026-11-08). Nobody
         // can join it; the crest walks you to its gate sector instead.
         { name: NPC_VILLAGE, type: "npcVillage", biome: "volcano" as Biome, x: 47, y: 8, art: cinderholdLandmarkArt },
+        ...(character.level >= COAST_MIN_LEVEL ? [BOAT_LANDMARK] : []), // the boat to the Unmapped Coast: moored from level 75, sails after the first quest line
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const [hollowGateMenu, setHollowGateMenu] = useState(false);   // Enter / Attune choice
@@ -2662,12 +2668,14 @@ function WorldMapContent({
         return biomeForWorldSector(sector);
     }
 
-    // Sector adjacent to each home village (used for Outskirts)
     function villageOutskirtsSector(villageName: string): number {
         return villageOutskirtsSectorNumber(villageName);
     }
 
+    const docks = questList?.coast.docks ?? (questList?.coast.boat ? [{ sector: COAST_LANDING_SECTOR, name: "Saltstair Slip" }] : []);
+    function sail(destination: number) { setSelectedLandmark(null); beginSectorTravel(destination, tile => { if (tile !== undefined) setLocalSectorTile(tile); setCurrentBiome("central"); setCurrentSector(destination); }); }
     function enterLandmark(location: typeof locations[number]) {
+        if (location.type === "boat") return docks.length > 1 ? setSelectedLandmark(location) : docks.length ? sail(docks[0].sector) : setTravelToast(mooredBoatToast());
         if (location.type === "village") {
             const home = location.name === character.village;
             const outskirts = villageOutskirtsSector(location.name);
@@ -2724,7 +2732,7 @@ function WorldMapContent({
             /* best-effort: a failed preload just means arrival loads it normally */
         }
     }
-    function prefetchTravelDestination(sector: number) {
+    function prefetchTravelDestination(sector: number) { if (isCoastSector(sector)) return; // the coast's screen loads its own art
         // A field sector opens its scene panel on arrival: warm the exact
         // background + depth image (and, when the flag is on, the top-down map) it
         // will paint. Only the floor is warmed — the vista stack no longer renders
@@ -4583,7 +4591,7 @@ function WorldMapContent({
                         traces={sectorTraces}
                         sectorContest={sectorWarContest} onOpenSectorContest={() => handleOpenSectorContest(false)}
                         sectorGarrisonReady={sectorContestGarrisonReady(sectorWarContest, Date.now())} onFightSectorGarrison={() => handleOpenSectorContest(true)}
-                        rosterState={rosterState} playerAction={playerAction} onPlayerAction={playerAction.run} chatName={character.name}
+                        rosterState={rosterState} playerAction={playerAction} onPlayerAction={playerAction.run} chatName={character.name} quest={questLines("sector")} questHere={questStepHere(questList, selectedSector)}
                         players={commandPlayers}
                         hunt={commandHunt}
                         onRaidEnemyVillage={handleSelectedSectorVillageWarRaid}
@@ -4773,7 +4781,7 @@ function WorldMapContent({
                                         now={wandererDialogNow}
                                         emissaryDayBucket={wandererDialogDayBucket}
                                         atWar={wandererDialogAtWar}
-                                        legacyTrial={wandererLegacyTrial}
+                                        legacyTrial={wandererLegacyTrial} sageOffer={questLines("sage")}
                                         closeWandererDialog={() => setWandererDialog(null)}
                                         dismissWandererDialog={dismissWandererDialog}
                                         startWandererAttack={startWandererAttack}
@@ -4904,6 +4912,7 @@ function WorldMapContent({
         );
     }
 
+    if (selectedLandmark?.type === "boat") return <Suspense fallback={null}><CoastCrossing docks={docks} sail={sail} leave={() => setSelectedLandmark(null)} /></Suspense>;
     if (selectedLandmark) {
         const villageImage =
             selectedLandmark.name === "Ashen Leaf Village" ? houseImg :
@@ -4917,9 +4926,6 @@ function WorldMapContent({
                 <div className="village-full-scene">
                     <img src={villageImage} alt={selectedLandmark.name} />
 
-                    {/* Living preview: time-of-day wash + drifting biome ambience +
-                        wildlife behind the menu, so the village breathes while you
-                        decide where to go. */}
                     <DayNightSky className="amb-under" />
                     <SceneAmbience className="amb-under" biome={selectedLandmark.biome} weather={weatherForBiome(selectedLandmark.biome)} />
                     <SceneCritters className="amb-under" biome={selectedLandmark.biome} density={0.85} />
@@ -5231,6 +5237,7 @@ export function WorldMap(props: WorldMapProps) {
     // The map has its own zoom and its geometry is tuned to the real phone
     // width, so it keeps full scale while the menus around it shrink.
     useFullScaleViewport();
+    if (isCoastSector(props.currentSector)) return <Suspense fallback={null}><CoastWorld {...props} sector={props.currentSector} /></Suspense>; // across the sea the coast has its own screen
     return <StoryFieldRouteBoundary onReturn={() => props.setScreen("village")}>
         <WorldMapContent {...props} />
     </StoryFieldRouteBoundary>;

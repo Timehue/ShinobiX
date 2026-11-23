@@ -9,7 +9,7 @@ import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn
 import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { AdminProfessionImagesPanel } from './admin-panel/AdminProfessionImagesPanel';
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import { lazy, Suspense, useState, useEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AdminRole, Biome, JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank, Screen } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord, RewardCurrencyKey, ServerPlayerSummary, VersionedCharacterCommit } from "../types/character";
 import { visiblePoll } from "../lib/poll";
@@ -115,6 +115,7 @@ import {
 
 const VILLAGE_ELDER_ROLE_LABELS = ["War Elder", "Trade Elder", "Training Elder"];
 
+const AdminCoastPanel = lazy(() => import("./admin-panel/AdminCoastPanel"));
 export function AdminPanel({
     character,
     updateCharacter,
@@ -921,8 +922,8 @@ export function AdminPanel({
     // game-state arenaTournament/weeklyBossOverride, and the
     // weekly-boss reset operation) gate on isFullAdmin — so even if a content
     // admin somehow reached the controls, the underlying actions reject them.
-    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'worldEvents', 'moderation', 'legacy']);
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "worldEvents" | "professions" | "moderation" | "legacy" | "diagnostics">("jutsuBloodlines");
+    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'worldEvents', 'moderation', 'legacy', 'coast']);
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "worldEvents" | "professions" | "moderation" | "legacy" | "coast" | "diagnostics">("jutsuBloodlines");
     const [adminStoryContent, setAdminStoryContent] = useState<StoryContentPayload[]>([]);
     const [adminStoryStatus, setAdminStoryStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
     const [adminStoryError, setAdminStoryError] = useState("");
@@ -2732,6 +2733,7 @@ export function AdminPanel({
                         🌠 Legacy
                     </button>
                 )}
+                {adminRole === "full" && <button className={activeAdminPanel === "coast" ? "active" : ""} onClick={() => setActiveAdminPanel("coast")}>Unmapped Coast</button>}
                 <button className={activeAdminPanel === "diagnostics" ? "active" : ""} onClick={() => setActiveAdminPanel("diagnostics")}>
                     🛠️ Diagnostics
                 </button>
@@ -6227,6 +6229,7 @@ export function AdminPanel({
                 <AdminLegacyPanel adminPw={adminPw} />
             )}
 
+            {activeAdminPanel === "coast" && adminRole === "full" && <Suspense fallback={<p>Reading coast records…</p>}><AdminCoastPanel adminPw={adminPw} /></Suspense>}
             {activeAdminPanel === "diagnostics" && (
                 <AdminDiagnosticsPanel adminPw={adminPw} fullAdmin={adminRole === 'full'} />
             )}

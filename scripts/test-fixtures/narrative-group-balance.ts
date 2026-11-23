@@ -29,8 +29,14 @@ export function groupBalanceSave(level: number, school: GroupSchool, focused: bo
     return save;
 }
 
-export function pilotGroup(initial: SoloPveSession, tactical = true, retainLog = false, healBelow = .45, useUtilities = false, answerSetups = false, windFirst = false) {
-    if (!initial.huntCombat) return pilotStorySolo(initial, tactical, retainLog, healBelow, useUtilities, answerSetups, windFirst);
+/**
+ * `first`, when given, is asked before every Solo action for something the
+ * fight itself calls for (a quest tool against a standing Hold). An action the
+ * engine refuses falls through to the pilot's ordinary priorities.
+ */
+export function pilotGroup(initial: SoloPveSession, tactical = true, retainLog = false, healBelow = .45, useUtilities = false, answerSetups = false, windFirst = false,
+    first?: (session: SoloPveSession) => SoloPveAction | undefined) {
+    if (!initial.huntCombat) return pilotStorySolo(initial, tactical, retainLog, healBelow, useUtilities, answerSetups, windFirst, first);
     let session = structuredClone(initial), actions = 0, rejected = 0, minHp = session.player.hp;
     const commands: Record<string, number> = {};
     const hpByRound: Array<{ round: number; hp: number; alive: number }> = [];
@@ -121,7 +127,8 @@ export function pilotGroup(initial: SoloPveSession, tactical = true, retainLog =
 
 /** Same visible-state priorities, through Solo's own actions and movement rules.
  * Do not turn a single story opponent into a Tower actor just for the audit. */
-function pilotStorySolo(initial: SoloPveSession, tactical: boolean, retainLog: boolean, healBelow: number, useUtilities: boolean, answerSetups: boolean, windFirst: boolean) {
+function pilotStorySolo(initial: SoloPveSession, tactical: boolean, retainLog: boolean, healBelow: number, useUtilities: boolean, answerSetups: boolean, windFirst: boolean,
+    first?: (session: SoloPveSession) => SoloPveAction | undefined) {
     let session = structuredClone(initial), actions = 0, rejected = 0, minHp = session.player.hp;
     const commands: Record<string, number> = {};
     const hpByRound: Array<{ round: number; hp: number; alive: number }> = [];
@@ -141,8 +148,10 @@ function pilotStorySolo(initial: SoloPveSession, tactical: boolean, retainLog: b
             if (result.applied) { chosen = result; command = action; return true; }
             rejected++; return false;
         };
+        const called = first?.(session);
+        if (called) attempt(called);
         const wounded = foe.hp < foe.maxHp * .35 && dist(foe.pos) <= 1 && !active('Reflect', foe) && player.hp > player.maxHp * .2;
-        if (!smoked && !answerSetups && wounded) {
+        if (!chosen && !smoked && !answerSetups && wounded) {
             const result=applySoloPveAction(session,{type:'basicAttack'});
             const hit=result.session.events.find(e=>e.seq>session.eventSeq&&e.actor==='player');
             if(result.applied&&hit?.after.enemy.hp===0){chosen=result;command={type:'basicAttack'};}
@@ -197,6 +206,7 @@ function pilotStorySolo(initial: SoloPveSession, tactical: boolean, retainLog: b
     }
     return { outcome: session.outcome ?? 'unfinished', rounds: session.round, hp: session.player.hp, maxHp: session.player.maxHp, minHp,
         healingDone: session.legacyTotals?.healingDone ?? 0,
+        enemyHp: session.enemy.hp, enemyMaxHp: session.enemy.maxHp, formsEntered: session.bossForms?.triggered.length ?? 0,
         chakra: session.player.chakra, stamina: session.player.stamina, actions, rejected, commands, hpByRound,
         enemiesDefeated: Number(session.enemy.hp <= 0), enemies: 1, ...(retainLog ? { log: session.log } : {}) };
 }
