@@ -149,6 +149,23 @@ let _battleLapseRunning = false;
 let _rankedSettlementRunning = false;
 // Pre-pointer journals are discovered once per process until a pass completes.
 let _rankedSettlementDiscoveryPending = true;
+// The settlement legacy scan and mentor pointer discovery, likewise: they used
+// to run on the boot pass only, so a boot pass refused by a deploy's full
+// connection pool (or whose lease the draining old container held) skipped
+// them for the life of the process.
+let _settlementLegacyScanPending = true;
+
+/**
+ * For a recurring job whose next tick re-runs it. A deploy's container swap
+ * can refuse boot-time connections (EMAXCONNSESSION: the draining container
+ * still holds its pooler sessions); that only defers the job, so it is a
+ * warning. Anything else keeps the "<job> threw:" error line.
+ */
+export function logTickFailure(job: string, err: unknown): void {
+    const message = err instanceof Error ? err.message : String(err);
+    if (startupFailureKind(err) === 'transient') console.warn(`[cron-scheduler] ${job} deferred to the next tick (storage busy):`, message);
+    else console.error(`[cron-scheduler] ${job} threw:`, message);
+}
 
 async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promise<T>, holdLeaseWhen?: (value: T) => boolean): Promise<T | null> {
     const leased = await withScheduledJobLease(jobName, fn, { ttlSec, holdUntilExpiryOnSuccess: true, holdUntilExpiryWhen: holdLeaseWhen });
@@ -159,6 +176,9 @@ async function runLeasedJob<T>(jobName: string, ttlSec: number, fn: () => Promis
 export async function fireSettlementReconciliation(includeLegacyScan = false): Promise<void> {
     if (_settlementScanRunning) return;
     _settlementScanRunning = true;
+    // Until one pass completes the legacy work, every tick includes it.
+    const legacy = includeLegacyScan || _settlementLegacyScanPending;
+    let mentorDiscovered = false;
     try {
         const leased = await withScheduledJobLease(
             'settlement-reconciliation',
@@ -173,7 +193,8 @@ export async function fireSettlementReconciliation(includeLegacyScan = false): P
                 // browser that claimed them may be long gone). Bounded per run;
                 // the boot pass also re-publishes any missing discovery pointer.
                 try {
-                    const mentor = await recoverPendingMentorSettlements({ discover: includeLegacyScan });
+                    const mentor = await recoverPendingMentorSettlements({ discover: legacy });
+                    mentorDiscovered = true;
                     if (mentor.completed.length || mentor.unfinished.length || mentor.exceptions.length || mentor.failures.length) {
                         console.log(`[cron-scheduler] mentor settlements: ${mentor.completed.length} completed, ${mentor.unfinished.length} retrying, ${mentor.exceptions.length} held for review, ${mentor.deferred} backing off${mentor.truncated ? ' (budget reached)' : ''}.`);
                     }
@@ -191,17 +212,20 @@ export async function fireSettlementReconciliation(includeLegacyScan = false): P
                     for (const held of trades.heldForReview.slice(0, 5)) console.warn(`[cron-scheduler] player trade ${held.txId} needs review: ${held.reason}`);
                     if (trades.failures.length) console.warn('[cron-scheduler] player trade recovery failures:', trades.failures.slice(0, 5));
                 } catch (error) { console.warn('[cron-scheduler] player trade recovery deferred:', (error as Error).message); }
-                return runSettlementReconciliation({ includeLegacyScan });
+                return runSettlementReconciliation({ includeLegacyScan: legacy });
             },
             { ttlSec: LEASE_TTL.settlementReconciliation, holdUntilExpiryOnSuccess: true },
         );
         if (!leased.acquired) return;
         const result = leased.value;
+        // Both halves ran to the end (per-item failures are reported, not thrown):
+        // later ticks drop back to the cheap pass, as the ranked sweep does.
+        if (legacy && mentorDiscovered) _settlementLegacyScanPending = false;
         if (result.markedRequired > 0 || result.alreadyRequired > 0 || result.failures.length > 0) {
             console.warn(`[cron-scheduler] durable settlements: ${result.markedRequired} newly stale, ${result.alreadyRequired} awaiting reconciliation, ${result.failures.length} scan failures.`);
         }
     } catch (err) {
-        console.error('[cron-scheduler] durable-settlement reconciliation threw:', (err as Error).message);
+        logTickFailure('durable-settlement reconciliation', err);
     } finally {
         _settlementScanRunning = false;
     }
@@ -216,9 +240,7 @@ async function fireClanBossPartySweep(): Promise<void> {
     _clanBossPartySweepRunning = true;
     try {
         // A week that began since the last tick opens here, not at 03:00.
-        await ensureCurrentClanBossWeek().catch((err) => {
-            console.error('[cron-scheduler] clan-boss week open threw:', (err as Error).message);
-        });
+        await ensureCurrentClanBossWeek().catch((err) => logTickFailure('clan-boss week open', err));
         const leased = await withScheduledJobLease(
             'clan-boss-party-sweep',
             () => sweepClanBossPartyRegistry(),
@@ -230,7 +252,7 @@ async function fireClanBossPartySweep(): Promise<void> {
             console.log(`[cron-scheduler] clan-boss party registry: scanned ${result.scanned}/${result.total}, repaired ${result.repaired}, discovered ${result.discovered}, removed ${result.removed}, released ${result.terminalIndicesCleared} terminal indices.`);
         }
     } catch (err) {
-        console.error('[cron-scheduler] clan-boss party sweep threw:', (err as Error).message);
+        logTickFailure('clan-boss party sweep', err);
     } finally {
         _clanBossPartySweepRunning = false;
     }
@@ -252,9 +274,7 @@ async function fireTerritoryLifecycleSweep(): Promise<void> {
             console.log(`[cron-scheduler] territory lifecycle: ${result.scanned} scanned, ${result.breachesRecovered} recovered, ${result.breachesReleased} breached releases, ${result.rewardsSuspended} suspended, ${result.rewardsResumed} resumed, ${result.inactiveReleased} inactive releases, ${result.missingClanReleased} missing-clan releases, ${result.errors.length} errors.`);
         }
     } catch (err) {
-        // The sweep runs every 5 min, so a deploy's refused connection only defers it.
-        if (startupFailureKind(err) === 'transient') console.warn('[cron-scheduler] territory lifecycle sweep deferred to the next tick (storage busy):', (err as Error).message);
-        else console.error('[cron-scheduler] territory lifecycle sweep threw:', (err as Error).message);
+        logTickFailure('territory lifecycle sweep', err);
     } finally {
         _territoryLifecycleRunning = false;
     }
@@ -273,7 +293,7 @@ async function fireSectorWarSettlement(): Promise<void> {
             console.log(`[cron-scheduler] sector wars: settled ${leased.value.length}.`);
         }
     } catch (err) {
-        console.error('[cron-scheduler] sector-war settlement threw:', (err as Error).message);
+        logTickFailure('sector-war settlement', err);
     } finally {
         _sectorWarSettleRunning = false;
     }

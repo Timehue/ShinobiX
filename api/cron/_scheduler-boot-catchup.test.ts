@@ -4,7 +4,10 @@ import { after, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { kv } from '../_storage.js';
 import { SNAPSHOT_SUCCESS_KEY, type SnapshotSuccessMarker } from './snapshot-saves.js';
-import { runBootSnapshotCatchUpCore, stopSnapshotCron } from './_scheduler.js';
+import { fireSettlementReconciliation, logTickFailure, runBootSnapshotCatchUpCore, stopSnapshotCron } from './_scheduler.js';
+import {
+    beginDurableSettlement, DURABLE_SETTLEMENT_PENDING_PREFIX, durableSettlementKey, getDurableSettlement, settlementTransactionId,
+} from '../_durable-settlement.js';
 
 // The boot catch-up reads the backup-freshness marker first. On 2026-11-23 a
 // deploy's container swap refused that one read (EMAXCONNSESSION), and the
@@ -53,6 +56,42 @@ test('a permanent marker-read failure still runs the catch-up, as before', async
     await runBootSnapshotCatchUpCore();
     assert.ok(lines.some((line) => line.startsWith('error') && line.includes('attempting boot catch-up')), lines.join('\n'));
     assert.ok(lines.some((line) => line.includes('boot catch-up:') || line.includes('snapshot recovery deferred')), 'the catch-up was attempted');
+});
+
+test('a recurring job logs a deploy-time refusal as deferred, and anything else as the usual error', (t) => {
+    const lines = capture(t);
+    logTickFailure('territory lifecycle sweep', POOL_FULL());
+    logTickFailure('territory lifecycle sweep', new Error('relation "kv_store" does not exist'));
+    assert.match(lines[0]!, /^warn \[cron-scheduler\] territory lifecycle sweep deferred to the next tick \(storage busy\):/);
+    assert.match(lines[1]!, /^error \[cron-scheduler\] territory lifecycle sweep threw: relation/);
+});
+
+test('a refused boot settlement pass does not lose the legacy scan: the next tick runs it', async (t) => {
+    capture(t);
+    // A legacy journal: stale, with no pending pointer, so only a legacy scan finds it.
+    const transactionId = settlementTransactionId('test-legacy-scan', 'boot-refused');
+    const created = await beginDurableSettlement({
+        transactionId, idempotencyKey: 'boot-refused', operationType: 'test-legacy-scan',
+        fingerprint: 'legacy-fingerprint', actorIds: ['alice'], resource: 'ryo', amount: 1,
+    }, { kv });
+    const old = Date.now() - 24 * 60 * 60 * 1000;
+    await kv.set(durableSettlementKey(transactionId), { ...created.record, createdAt: old, updatedAt: old });
+    await kv.del(`${DURABLE_SETTLEMENT_PENDING_PREFIX}${transactionId}`);
+
+    // The boot pass (the only one that asked for the legacy scan) is refused.
+    const set = kv.set.bind(kv);
+    let refused = false;
+    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+        if (!refused && String(args[0]).includes('settlement-reconciliation')) { refused = true; throw POOL_FULL(); }
+        return set(...args);
+    });
+    await fireSettlementReconciliation(true);
+    assert.ok(refused, 'the boot pass hit the refusal');
+    assert.notEqual((await getDurableSettlement(transactionId, { kv }))?.state, 'reconciliation-required');
+
+    // An ordinary tick, which used to run without the legacy scan.
+    await fireSettlementReconciliation(false);
+    assert.equal((await getDurableSettlement(transactionId, { kv }))?.state, 'reconciliation-required', 'the legacy scan ran on the next tick');
 });
 
 test('a fresh marker still short-circuits the catch-up', async (t) => {
