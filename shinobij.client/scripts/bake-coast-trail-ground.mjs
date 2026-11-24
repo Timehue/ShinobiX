@@ -2,6 +2,8 @@
 // measured on 300 px proofs of the original square paintings, away from roads.
 import sharp from 'sharp';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+import { readFile, writeFile } from 'node:fs/promises';
 
 const dir = fileURLToPath(new URL('../public/coast-map/', import.meta.url));
 // In sector tiles: a straight horizontal run and the centre of a turn. Turn
@@ -61,3 +63,12 @@ const boards = await sharp(plate).composite(parts).png().toBuffer();
 const shadow = await sharp(boards).linear([0, 0, 0, .46], [22, 19, 12, 0]).blur(3).png().toBuffer();
 await sharp(plate).composite([{ input: await sharp(shadow).extract({ left: 0, top: 0, width: 236, height: 132 }).png().toBuffer(), left: 5, top: 8 },
     { input: boards }]).webp({ quality: 92 }).toFile(dir + 'trail-bridge.webp');
+
+const names = ['trail-bridge.webp', ...trails.flatMap((_, i) =>
+    ['straight', 'corner', 'relief'].map(kind => `trail-${kind}-${i + 1}.webp`))].sort();
+const receipt = {};
+for (const name of names) {
+    const bytes = await readFile(dir + name);
+    receipt[name] = { bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+}
+await writeFile(new URL('../../shared/coast-trail-art.json', import.meta.url), JSON.stringify(receipt, null, 2) + '\n');

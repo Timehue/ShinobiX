@@ -1,0 +1,66 @@
+{
+  "trail-bridge.webp": {
+    "bytes": 9060,
+    "sha256": "a1460f8291693195f36952c587de07da24f55c71b994e233825c3ba46ffcb198"
+  },
+  "trail-corner-1.webp": {
+    "bytes": 10238,
+    "sha256": "bcb597dbd1ae9476a2b1dcf7196f7ea04c27ee16297b8fe372594ba0e40fef4c"
+  },
+  "trail-corner-2.webp": {
+    "bytes": 7366,
+    "sha256": "d803efd41ced9c82ff31ac7a1495f98690cf2d5298fee9112180ac06a4e999e0"
+  },
+  "trail-corner-3.webp": {
+    "bytes": 7162,
+    "sha256": "1694a7b6cd916249bd90673f997255cf30fa89131b13ee50d1099a0c21d0e01d"
+  },
+  "trail-corner-4.webp": {
+    "bytes": 7044,
+    "sha256": "ce1a2728731154444f65d709d2c1afd689e4f2a691e6a8203727ea846835b795"
+  },
+  "trail-corner-5.webp": {
+    "bytes": 8368,
+    "sha256": "6bb0ec4d78198bfc3a396a0022a6c48ac5cab6185092f0d8b83ab85657168b11"
+  },
+  "trail-relief-1.webp": {
+    "bytes": 10468,
+    "sha256": "2193ea6253884572a2c417e87e32617efdbd02f0aeea493a965581884e0643a4"
+  },
+  "trail-relief-2.webp": {
+    "bytes": 7498,
+    "sha256": "aabada58118b2876656231410a240876a82773588ce13c1344d5d36b987b6372"
+  },
+  "trail-relief-3.webp": {
+    "bytes": 6866,
+    "sha256": "1f58945414e1cc4d0b5dc6350cb134ea625270b62117e90d77f4b1c157bb643e"
+  },
+  "trail-relief-4.webp": {
+    "bytes": 7408,
+    "sha256": "13c8fb19c13a1c26e8fa31acd11dac94491ffe10fe6a914524e4ef1b308e85d9"
+  },
+  "trail-relief-5.webp": {
+    "bytes": 8438,
+    "sha256": "7c840f727e267ecb4486c007b801bd2991bfe42908051c4fe12e7fe849426d88"
+  },
+  "trail-straight-1.webp": {
+    "bytes": 18984,
+    "sha256": "ff66ca44a47e23130ae82eca2ff2cc15c7f0d9317cd25272a9e6cc26aeb12608"
+  },
+  "trail-straight-2.webp": {
+    "bytes": 4884,
+    "sha256": "bef00634b930f20a6f3561571e16f5ca7b2e77fcec5a5ca4754e743284b9ae46"
+  },
+  "trail-straight-3.webp": {
+    "bytes": 6294,
+    "sha256": "94b0d93536357dde8c37b7841fec6d6eb13bc72c66fb81d3209d798a1bd9bf2e"
+  },
+  "trail-straight-4.webp": {
+    "bytes": 4292,
+    "sha256": "a5d474efdfe1392b969f5930cda8787013b408e9c323521e8ec69f00831ab0a0"
+  },
+  "trail-straight-5.webp": {
+    "bytes": 19036,
+    "sha256": "58b40907e91eb148ec7afeff91a581de9de1651c093e91acfec9e2e54f295a9c"
+  }
+}
