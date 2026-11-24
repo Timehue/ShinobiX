@@ -1,5 +1,5 @@
 import { expect, type BrowserContext, type APIRequestContext, type Page } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { test } from './helpers/reconnecting-request';
@@ -80,7 +80,9 @@ if (process.env.COAST_FULL_WALK === '1') test('walk every coast trail in both di
             tile = trail.destinationTile;
             console.log(`Walked ${index + 1}/${tour.length - 1}: ${from} to ${to}, arrived at tile ${trail.destinationTile}.`);
         }).catch(async error => {
-            await info.attach('last-movement-replies', { body: JSON.stringify(replies), contentType: 'application/json' });
+            const path = info.outputPath('last-movement-replies.json');
+            await writeFile(path, JSON.stringify(replies));
+            await info.attach('last-movement-replies', { path, contentType: 'application/json' });
             throw error;
         });
     }
@@ -88,20 +90,23 @@ if (process.env.COAST_FULL_WALK === '1') test('walk every coast trail in both di
     expect(tour.at(-1)).toBe(COAST_DOCK.sector);
 });
 
-test('follow the painted return trail from the west entrance to the landing', async ({ page, request, context }, info) => {
+for (const [from, entryTile, to, title] of [
+    [102, 49, COAST_DOCK.sector, 'follow the painted return trail from the west entrance to the landing'],
+    [136, 123, 139, 'walk the painted road past the Cinder Assay patrols'],
+] as const) test(title, async ({ page, request, context }, info) => {
     test.setTimeout(240_000);
-    const trail = coastExits(102).find(exit => exit.destinationSector === COAST_DOCK.sector)!;
-    const driver = await actor(request, context, model.fallback(102, 49)!, { veteran: true });
+    const trail = coastExits(from).find(exit => exit.destinationSector === to)!;
+    const driver = await actor(request, context, model.fallback(from, entryTile)!, { veteran: true });
     const replies = watchMovement(page);
     await openWorld(page);
     const canvas = page.locator('.continuous-world-map > canvas[tabindex]');
-    await expect(canvas).toHaveAttribute('data-world-sector', '102');
+    await expect(canvas).toHaveAttribute('data-world-sector', String(from));
     try {
-        await takeCoastTrail(page, 49, trail, !!info.project.use.hasTouch);
+        await takeCoastTrail(page, entryTile, trail, !!info.project.use.hasTouch);
         await expect(canvas).toHaveAttribute('data-world-sector', String(trail.destinationSector), { timeout: 90_000 });
         await expectSavedArrival(request, driver.headers, `${trail.destinationSector}:${trail.destinationTile}`);
-        await page.screenshot({ path: info.outputPath('return-to-landing.png') });
-        console.log(`Confirmed return on ${info.project.name}: 102 to ${trail.destinationSector}, arrived at tile ${trail.destinationTile}.`);
+        await page.screenshot({ path: info.outputPath(`arrived-${to}.png`) });
+        console.log(`Confirmed crossing on ${info.project.name}: ${from} to ${to}, arrived at tile ${trail.destinationTile}.`);
     } finally {
         await info.attach('last-movement-replies', { body: JSON.stringify(replies), contentType: 'application/json' });
     }
