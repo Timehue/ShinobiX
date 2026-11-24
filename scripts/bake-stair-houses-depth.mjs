@@ -36,9 +36,10 @@ const layers = {
 
 async function writeMask(name, body) {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024">' + body + '</svg>';
-    const output = fileURLToPath(new URL('street-' + name + '-mask-v1.png', art));
-    await sharp(Buffer.from(svg)).resize(name === 'hearth' ? 256 : 512)
-        .png({ palette: true, colours: 64, dither: 0 }).toFile(output);
+    const output = fileURLToPath(new URL('street-' + name + '-mask-v1.webp', art));
+    const mask = await sharp(Buffer.from(svg)).resize(name === 'hearth' ? 256 : 512)
+        .png({ palette: true, colours: 64, dither: 0 }).toBuffer();
+    await sharp(mask).webp({ lossless: true, effort: 6 }).toFile(output);
 }
 
 for (const [layer, paths] of Object.entries(layers)) {

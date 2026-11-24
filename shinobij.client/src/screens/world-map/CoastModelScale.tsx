@@ -67,7 +67,7 @@ export function SettlementPlayer({ character, avatar, tile, scale, gait }: { cha
     const { anchor, figure, base } = useCoastFigure<HTMLSpanElement>(scale, tile, undefined, gait);
     const style = useSprintStyle();
     const kind = starterModel(avatar ?? "", character.starterWorldModel);
-    const fallback = "/coast-map/residents/" + kind + ".webp";
+    const fallback = "/world-figures/v1/" + kind + ".webp";
     const equipped = isPlayerModel(character.playerModel) ? character.playerModel : undefined;
     const detail = !equipped && scale === ROOM_MODEL_SCALE ? roomModelDetail(kind) : undefined;
     return <span ref={anchor} className="stairs-player" style={centre(tile)} aria-hidden="true">

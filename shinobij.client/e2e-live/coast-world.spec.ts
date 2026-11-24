@@ -307,6 +307,13 @@ for (const equipped of [false, true]) test(equipped ? 'the equipped Make Model w
 
 test('the painted starter fits the Boatwright’s Slip room in 2D mode', async ({ page, context, request }, info) => {
     const slip = coastLayout(101)!.sites['saltstair-dock-101'];
+    for (const kind of ['starter-one', 'starter-two']) {
+        const pose = '/world-figures/v1/' + kind + '.webp';
+        const legacy = await request.get('/coast-map/residents/' + kind + '.webp', { maxRedirects: 0 });
+        expect(legacy.status()).toBe(302);
+        expect(legacy.headers().location).toBe(pose);
+        expect((await request.get(pose)).headers()['content-type']).toContain('image/webp');
+    }
     await context.addInitScript(() => localStorage.setItem('worldAvatarMode.v1', '2d'));
     await actor(request, context, model.fallback(101, slip.approach)!);
     await openWorld(page);

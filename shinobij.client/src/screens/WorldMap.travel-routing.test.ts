@@ -460,20 +460,28 @@ test('leaving the map retires a late travel response and its encounter action', 
 test('choosing a coast trail gives the continuous walker a destination without changing the sector', () => {
     const file = readFileSync(new URL('./world-map/CoastWorld.tsx', import.meta.url), 'utf8');
     const coast = ts.createSourceFile('CoastWorld.tsx', file, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    let handler: string | undefined;
+    let exits: string | undefined;
     function visit(node: import('typescript').Node) {
-        if (ts.isFunctionDeclaration(node) && node.name?.text === 'followTrail') handler = node.getText(coast);
+        if (ts.isCallExpression(node) && node.expression.getText(coast) === 'layout.exits.map') exits = node.getText(coast);
         ts.forEachChild(node, visit);
     }
     visit(coast);
-    assert.ok(handler);
-    const js = ts.transpileModule(handler, { compilerOptions: { target: ts.ScriptTarget.ES2023 } }).outputText;
+    assert.ok(exits);
+    const js = ts.transpileModule(exits, { fileName: 'exits.tsx', compilerOptions: {
+        target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.React, jsxFactory: 'button',
+    } }).outputText;
     const calls: number[][] = [];
-    const state = createContext({ world: { sectors: { 111: {} } }, busy: false,
+    const state = createContext({ world: { sectors: { 111: { name: 'Landing' } } }, busy: false,
+        layout: { exits: [{ id: 'road', direction: 'east', tile: 12, destinationSector: 111, destinationTile: 85 }] },
+        footprintStyle: () => ({}), button: (_tag: string, props: object) => props,
         requestContinuousWorldWalk: (...args: number[]) => calls.push(args) });
-    runInContext(js + ';followTrail({ destinationSector: 111, destinationTile: 85 })', state);
+    const trail = () => runInContext(js, state)[0] as { disabled: boolean; onClick: () => void };
+    assert.equal(trail().disabled, false);
+    trail().onClick();
     assert.deepEqual(calls, [[111, 85]]);
     state.busy = true;
-    runInContext('followTrail({ destinationSector: 111, destinationTile: 85 })', state);
-    assert.equal(calls.length, 1);
+    assert.equal(trail().disabled, true);
+    state.busy = false;
+    state.world.sectors = {};
+    assert.equal(trail().disabled, true);
 });

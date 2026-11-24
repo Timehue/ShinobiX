@@ -132,7 +132,7 @@ export default function CoastInterior({ floors, avatar, leave, keeper, onStation
             {painting && <img className="coast-floor" src={painting} alt={room.title} draggable={false} />}
             {street && painting && Object.entries(streetDepth).map(([layer, zIndex]) =>
                 <img key={layer} alt="" draggable={false} className={"coast-floor street-layer " + layer} src={painting}
-                    style={{ zIndex, maskImage: `url(/coast-map/street-${layer}-mask-v1.png)` }} />)}
+                    style={{ zIndex, maskImage: `url(/coast-map/street-${layer}-mask-v1.webp)` }} />)}
             {actions.map(({ label, target: [x, y, width, height], activate }) => <button key={label} aria-label={label} title={label} className="coast-site" type="button"
                 style={footprintStyle(x, y, width, height)}
                 onClick={event => { event.stopPropagation(); activate(); }}>{onStation && <span>{label}</span>}</button>)}

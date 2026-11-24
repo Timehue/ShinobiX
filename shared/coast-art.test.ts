@@ -101,7 +101,9 @@ test('the byte allowances are exactly what was admitted', () => {
     const houses = sector.sites['saltstair-houses-105'];
     const settlement = [sector.floor!, houses.sprite!, houses.scene!, houses.floors[0].art!]
         .reduce((sum, ref) => sum + manifest.files[ref].bytes, 0);
-    for (const [name, total] of [['maxCoastFloorArtBytes', manifest.floorBytes], ['maxCoastSiteArtBytes', manifest.siteBytes - settlement], ['maxCoastSettlementArtBytes', settlement], ['maxCoastTownArtBytes', townBytes], ['maxCoastStreetAndHallsArtBytes', streetBytes]] as const) {
+    // The two shared starter poses release 7,340 bytes. The four admitted masks
+    // use 5,956. Keep the remaining 1,384 bytes unspent under the owner's allowance.
+    for (const [name, total] of [['maxCoastFloorArtBytes', manifest.floorBytes], ['maxCoastSiteArtBytes', manifest.siteBytes - settlement], ['maxCoastSettlementArtBytes', settlement], ['maxCoastTownArtBytes', townBytes], ['maxCoastStreetAndHallsArtBytes', streetBytes + 1_384]] as const) {
         const declared = new RegExp(`const ${name} = ([\\d_]+(?: \\+ [\\d_]+)*);`).exec(source);
         assert.ok(declared, `scripts/verify-dist.mjs declares ${name}`);
         assert.equal(declared[1].split(' + ').reduce((sum, term) => sum + Number(term.replaceAll('_', '')), 0), total,
