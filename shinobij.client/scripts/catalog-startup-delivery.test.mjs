@@ -16,6 +16,14 @@ async function moduleFrom(source, file) {
     return import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString('base64')}`);
 }
 
+test('packed room layouts preserve every door, tile, resident and dialogue line', async () => {
+    const file = fileURLToPath(new URL('../src/lib/first-pact-interiors.ts', import.meta.url));
+    const source = readFileSync(file, 'utf8');
+    const original = await moduleFrom(source, file);
+    const packed = await moduleFrom(packStaticCatalogLiteral(source, 'FIRST_PACT_INTERIORS'), file);
+    assert.deepEqual(packed.FIRST_PACT_INTERIORS, original.FIRST_PACT_INTERIORS);
+});
+
 test('on-demand catalog delivery retains lessons, rumors, portrait and model URLs, and row order', async () => {
     for (const name of ['lib/pet-tutorial', 'lib/legacy-rumors', 'lib/pet-portrait-assets.generated', 'generated/pet-warfront-lod-manifest']) {
         const file = fileURLToPath(new URL(`../src/${name}.ts`, import.meta.url));

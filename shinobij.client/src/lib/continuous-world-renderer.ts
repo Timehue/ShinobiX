@@ -2,6 +2,7 @@ import type { ContinuousWorldSpace, WorldChunk, WorldPoint } from '../../../shar
 import type { WorldNavigation } from '../../../shared/continuous-world-navigation';
 import { sectorWalkMask,isWalkableTile } from '../../../shared/sector-walk-mask';
 import { sectorBiomeOf } from '../../../shared/sector-geo';
+import { coastRegionOf } from '../../../shared/world-maps';
 import { sectorFloorImage } from './sector-floor-layout';
 import { sectorLifePainting,sectorLifePaintingRevision,sectorGroundMarks,sectorGroundRevision } from './sector-life-art';
 import { worldRoadCrossings } from '../../../shared/world-road-crossings';
@@ -45,6 +46,9 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     type FloorImage=HTMLImageElement&{floorSource:string;failedRevision?:number};
     const images = new Map<number, FloorImage>(), pending=new Map<number,FloorImage>(), ground = new Map<string, HTMLCanvasElement>(), rock = new Map<string, HTMLCanvasElement>();
     const roadTextures = new Map<number, CanvasPattern>(), chunks = new Map(space.chunks.map(c => [c.sector, c]));
+    const coast = space.chunks[0]?.floor?.startsWith('/coast-map/');
+    const terrainKey = (chunk: WorldChunk) => coast ? String(coastRegionOf(chunk.sector)) : chunk.biome ?? sectorBiomeOf(chunk.sector);
+    const coastGroundSource = (region: string) => `/coast-map/trail-ground-${region}.webp`;
     const materials = new Map<string, HTMLImageElement>(), fieldSources = new Map<string, string>();
     const paintings = new Map<number, HTMLCanvasElement>();
     const crossings = worldRoadCrossings(space.roads);
@@ -83,14 +87,14 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     // Without decode() (an older engine) a loaded image is used as before.
     const usable = (image: HTMLImageElement | undefined): image is HTMLImageElement => !!image && image.complete && image.naturalWidth > 0
         && (decoded.has(image) || typeof image.decode !== 'function');
-    const material = (name: string) => {
-        let image = materials.get(name);
+    const material = (source: string) => {
+        let image = materials.get(source);
         if (!image) {
-            const source = `/sector-map/world-terrain/${name}.webp`, ready = takeWarmImage(source);
+            const ready = takeWarmImage(source);
             // Decoded during the travel wait: usable on this very frame.
             if (ready) { image = ready; decoded.add(image); revision++; }
             else { image = new Image(); whenDecoded(image, () => { revision++; }); image.src = source; }
-            materials.set(name, image);
+            materials.set(source, image);
         }
         return image;
     };
@@ -102,7 +106,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     const biomeNear = (x: number, y: number) => {
         const key = Math.floor(x / 4) * 4096 + Math.floor(y / 4);
         let biome = blockBiome.get(key);
-        if (!biome) { const chunk = nearestChunk(Math.floor(x / 4) * 4 + 2, Math.floor(y / 4) * 4 + 2); biome = chunk.biome ?? sectorBiomeOf(chunk.sector); blockBiome.set(key, biome); }
+        if (!biome) { biome = terrainKey(nearestChunk(Math.floor(x / 4) * 4 + 2, Math.floor(y / 4) * 4 + 2)); blockBiome.set(key, biome); }
         return biome;
     };
     const floorSource = (sector: number) => chunks.get(sector)?.floor ?? worldFloorSource(sector);
@@ -166,27 +170,34 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         }
         return result;
     }
+    function fieldPainting(image: HTMLImageElement, tile?: number) {
+        const field = document.createElement('canvas');
+        const size = field.width = field.height = coast ? image.naturalWidth : 768;
+        const context = field.getContext('2d')!;
+        if (tile === undefined) context.drawImage(image, 0, 0, size, size);
+        else { context.fillStyle = context.createPattern(patch(image, tile), 'repeat')!; context.fillRect(0, 0, size, size); }
+        const radius = size / 2, fade = context.createRadialGradient(radius, radius, radius * 310 / 384, radius, radius, radius);
+        fade.addColorStop(0, '#fff'); fade.addColorStop(1, '#fff0');
+        context.globalCompositeOperation = 'destination-in'; context.fillStyle = fade; context.fillRect(0, 0, size, size);
+        return field;
+    }
     function texture(chunk: WorldChunk, image: HTMLImageElement) {
-        const biome = chunk.biome ?? sectorBiomeOf(chunk.sector), mask = chunk.mask ?? sectorWalkMask(chunk.sector);
+        const biome = terrainKey(chunk), mask = chunk.mask ?? sectorWalkMask(chunk.sector);
         if (!mask || !usable(image)) return;
-        const terrain = material(worldTerrainName(chunk.sector, biome));
+        const terrain = material(coast ? coastGroundSource(biome) : `/sector-map/world-terrain/${worldTerrainName(chunk.sector, biome)}.webp`);
         const ready = usable(terrain), sourceKey = ready ? terrain.src : image.src;
         // Until the material arrives, the first map's stand-in holds. Each map of the biome
         // used to rebuild it from its own art in turn, every frame, so the screen never went
         // idle (and never would, had the material's request failed).
         if (fieldSources.get(biome) !== sourceKey && (ready || !fieldSources.has(biome))) {
-            const candidates = mask.flatMap((row, y) => [...row].flatMap((c, x) => c === '.' ? [{ tile: y * 12 + x,
-                score: [-1, 0, 1].flatMap(dy => [-1, 0, 1].map(dx => mask[y + dy]?.[x + dx] === '.' ? 1 : 0)).reduce<number>((a, b) => a + b, 0) }] : []));
-            candidates.sort((a, b) => b.score - a.score);
-            const tile = candidates[0]?.tile ?? 78, field = document.createElement('canvas'); field.width = field.height = 768;
-            const fieldContext = field.getContext('2d')!;
-            if (sourceKey === terrain.src) fieldContext.drawImage(terrain, 0, 0, 768, 768);
-            else { const pattern = fieldContext.createPattern(patch(image, tile), 'repeat')!; fieldContext.fillStyle = pattern; fieldContext.fillRect(0, 0, 768, 768); }
-            fieldContext.globalCompositeOperation = 'destination-in';
-            const fade = fieldContext.createRadialGradient(384, 384, 310, 384, 384, 384); fade.addColorStop(0, '#fff'); fade.addColorStop(1, '#fff0');
-            fieldContext.fillStyle = fade; fieldContext.fillRect(0, 0, 768, 768);
-            const replaced = ground.get(biome); if (replaced) shrink(replaced);
-            ground.set(biome, field); fieldSources.set(biome, sourceKey);
+            if (!coast) {
+                const candidates = ready ? [] : mask.flatMap((row, y) => [...row].flatMap((c, x) => c === '.' ? [{ tile: y * 12 + x,
+                    score: [-1, 0, 1].flatMap(dy => [-1, 0, 1].map(dx => mask[y + dy]?.[x + dx] === '.' ? 1 : 0)).reduce<number>((a, b) => a + b, 0) }] : []));
+                candidates.sort((a, b) => b.score - a.score);
+                const replaced = ground.get(biome); if (replaced) shrink(replaced);
+                ground.set(biome, ready ? fieldPainting(terrain) : fieldPainting(image, candidates[0]?.tile ?? 78));
+            }
+            fieldSources.set(biome, sourceKey);
             // The densest blocked window, unless it is a lava pool (see continuous-world-rock.ts).
             for (const cliff of rockWindows(mask).slice(0, 12)) {
                 const sprite = patch(image, cliff, true, 3);
@@ -204,19 +215,33 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         // Overlapping feathered fields have fixed world coordinates and blend biome boundaries.
         ctx.fillStyle = '#3b4238'; ctx.fillRect(left, top, right - left, bottom - top);
         for (let y = Math.floor(top / 8) * 8 - 8; y < bottom + 8; y += 8) for (let x = Math.floor(left / 8) * 8 - 8; x < right + 8; x += 8) {
-            const chunk = nearestChunk(x, y), biome = chunk.biome ?? sectorBiomeOf(chunk.sector), field = ground.get(biome);
-            if (field) ctx.drawImage(field, x - 8, y - 8, 16, 16);
+            const chunk = nearestChunk(x, y), biome = chunk.biome ?? sectorBiomeOf(chunk.sector), key = terrainKey(chunk);
+            let field = ground.get(key);
+            if (coast && !field) {
+                const artwork = material(coastGroundSource(key));
+                if (usable(artwork)) { field = fieldPainting(artwork); ground.set(key, field); }
+            }
+            if (coast && field) {
+                ctx.save(); ctx.translate(x, y); ctx.rotate(Math.floor(hash(x, y) * 4) * Math.PI / 2);
+                ctx.drawImage(field, -8, -8, 16, 16); ctx.restore();
+            } else if (field) ctx.drawImage(field, x - 8, y - 8, 16, 16);
             else { const fade = ctx.createRadialGradient(x, y, 5.5, x, y, 8); fade.addColorStop(0, colors[biome]!); fade.addColorStop(1, `${colors[biome]}00`); ctx.fillStyle = fade; ctx.fillRect(x - 8, y - 8, 16, 16); }
         }
         // Closed terrain is visible as organic cliff clusters; open land and roads stay clear.
         for (let y = Math.floor(top / 3) * 3 - 3; y < bottom + 3; y += 3) for (let x = Math.floor(left / 3) * 3 - 3; x < right + 3; x += 3) {
             const n = hash(x, y), px = x + n * 1.3, py = y + hash(y, x) * 1.3;
-            if (!closedAround(Math.floor(px), Math.floor(py), 2)) continue;
-            const sprite = rock.get(biomeNear(px, py)); if (!sprite) continue;
+            if ((coast && n < .68) || !closedAround(Math.floor(px), Math.floor(py), 2)) continue;
+            const key = biomeNear(px, py);
+            if (coast) {
+                const relief = material(`/coast-map/trail-relief-${key}.webp`);
+                if (usable(relief)) ctx.drawImage(relief, px - 1.5, py - 1.5, 3, 3);
+                continue;
+            }
+            const sprite = rock.get(key); if (!sprite) continue;
             const size = 3.6 + n * .5; ctx.save(); ctx.translate(px, py); ctx.rotate(Math.floor(n * 4) * Math.PI / 2); ctx.drawImage(sprite, -size / 2, -size / 2, size, size); ctx.restore();
         }
         // A rocky rim on closed ground beside open land, so every edge reads as a wall.
-        for (let y = Math.floor(top) - 1; y < bottom + 1; y++) for (let x = Math.floor(left) - 1; x < right + 1; x++) {
+        if (!coast) for (let y = Math.floor(top) - 1; y < bottom + 1; y++) for (let x = Math.floor(left) - 1; x < right + 1; x++) {
             if (terrain.kind(x, y) || closedAround(x, y, 1)) continue;
             const sprite = rock.get(biomeNear(x, y)); if (!sprite) continue;
             const n = hash(x, y), size = 1.55 + n * .45;
@@ -225,6 +250,33 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         }
         for (const road of roads) {
             if (road.left > right + 2 || road.right < left - 2 || road.top > bottom + 2 || road.bottom < top - 2) continue;
+            if (coast) {
+                const region = coastRegionOf(road.a.sector);
+                const straight = material(`/coast-map/trail-straight-${region}.webp`);
+                let trail = roadTextures.get(region);
+                if (!trail && usable(straight)) {
+                    trail = ctx.createPattern(straight, 'repeat')!;
+                    trail.setTransform(new DOMMatrix().translate(0, -.8).scale(1 / 80));
+                    roadTextures.set(region, trail);
+                }
+                for (let i = 1; i < road.points.length; i++) {
+                    const a = road.points[i - 1], b = road.points[i];
+                    ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(Math.atan2(b.y - a.y, b.x - a.x));
+                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.hypot(b.x - a.x, b.y - a.y), 0);
+                    ctx.lineCap = 'butt'; ctx.lineWidth = trail ? 1.6 : .65;
+                    ctx.strokeStyle = trail ?? '#a69576'; ctx.stroke(); ctx.restore();
+                }
+                const corner = material(`/coast-map/trail-corner-${region}.webp`);
+                for (let i = 1; usable(corner) && i < road.points.length - 1; i++) {
+                    const a = road.points[i - 1], b = road.points[i], c = road.points[i + 1];
+                    // The source elbow opens north and west. Rotate its bisector onto the two road arms.
+                    const dx = Math.sign(a.x - b.x) + Math.sign(c.x - b.x), dy = Math.sign(a.y - b.y) + Math.sign(c.y - b.y);
+                    if (!dx || !dy) continue;
+                    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(dy, dx) + Math.PI * .75);
+                    ctx.drawImage(corner, -1.5, -1.5, 3, 3); ctx.restore();
+                }
+                continue;
+            }
             const image = images.get(road.a.sector) ?? images.get(road.b.sector);
             const source = images.has(road.a.sector) ? road.a : road.b;
             let pattern = roadTextures.get(source.sector);
@@ -237,6 +289,11 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             const road = roads.find(r => `${r.a.sector}-${r.b.sector}` === crossing.over)!;
             const pattern = roadTextures.get(road.a.sector) ?? roadTextures.get(road.b.sector);
             ctx.save(); ctx.translate(crossing.x, crossing.y); if (!crossing.horizontal) ctx.rotate(Math.PI / 2);
+            if (coast) {
+                const bridge = material('/coast-map/trail-bridge.webp');
+                if (usable(bridge)) ctx.drawImage(bridge, -1.21, -.65, 2.42, 1.4);
+                ctx.restore(); continue;
+            }
             ctx.fillStyle = '#101715a8'; ctx.fillRect(-1.7, -.8, 3.4, 1.9);
             ctx.fillStyle = pattern ?? '#8f8773'; ctx.fillRect(-1.7, -.65, 3.4, 1.3);
             // Paired stone parapets and their cast shadows identify a raised deck.
