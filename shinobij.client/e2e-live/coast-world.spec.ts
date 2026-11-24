@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import { test } from './helpers/reconnecting-request';
 import { openWorld, seedWorldActor } from './helpers/world-actor';
 import { uiAuditSave } from '../e2e/helpers/ui-audit-runtime';
+import { takeCoastTrail } from './helpers/coast-walk';
 import { coastWalkSpace, sectorPositionModel } from '../../api/_coast-walk-space';
 import { coastPatrolsIn } from '../../api/coast/_patrols';
 import { COAST_DOCK, COAST_WORLD, coastExits, coastLayout } from '../../shared/coast-world';
@@ -38,16 +39,12 @@ if (process.env.COAST_FULL_WALK === '1') test('walk every coast trail in both di
     await openWorld(page);
     const canvas = page.locator('.continuous-world-map > canvas[tabindex]');
     const visited = new Set<number>();
+    let tile = COAST_DOCK.tile;
     for (const [index, to] of tour.slice(1).entries()) {
         const from = tour[index], trail = coastExits(from).find(exit => exit.destinationSector === to)!;
         await test.step(`Trail ${index + 1}: ${from} to ${to}`, async () => {
             await expect(canvas).toHaveAttribute('data-world-sector', String(from));
-            const label = 'Follow the ' + trail.direction + ' trail to ' + coastLayout(to)!.name;
-            if (info.project.use.hasTouch) {
-                await page.getByRole('button', { name: /^Sector info/ }).tap();
-                await page.locator('.coast-side').getByRole('button', { name: label, exact: true }).tap();
-            } else await page.getByRole('button', { name: label, exact: true }).press('Enter');
-            await canvas.scrollIntoViewIfNeeded();
+            await takeCoastTrail(page, tile, trail, !!info.project.use.hasTouch);
             await expect(canvas).toHaveAttribute('data-world-sector', String(to), { timeout: 180_000 });
             const target = `${to}:${trail.destinationTile}`;
             await expect.poll(async () => {
@@ -57,6 +54,7 @@ if (process.env.COAST_FULL_WALK === '1') test('walk every coast trail in both di
             }, { timeout: 120_000, intervals: [1000, 2000, 4000] }).toBe(true);
             if (!visited.has(to)) await page.screenshot({ path: info.outputPath(`sector-${to}.png`) });
             visited.add(to);
+            tile = trail.destinationTile;
             console.log(`Walked ${index + 1}/${tour.length - 1}: ${from} to ${to}, arrived at tile ${trail.destinationTile}.`);
         });
     }
@@ -64,27 +62,24 @@ if (process.env.COAST_FULL_WALK === '1') test('walk every coast trail in both di
     expect(tour.at(-1)).toBe(COAST_DOCK.sector);
 });
 
-test('choose a named trail from sector info and walk directly into the neighbouring sector', async ({ page, request, context }, info) => {
-    const start = model.fallback(132, 135)!;
+test('choose between two southward trails at their painted road ends', async ({ page, request, context }, info) => {
+    const start = model.fallback(131, 140)!;
     await actor(request, context, start, { veteran: true });
     await openWorld(page);
     const canvas = page.locator('.continuous-world-map > canvas[tabindex]');
-    await expect(canvas).toHaveAttribute('data-world-sector', '132');
+    await expect(canvas).toHaveAttribute('data-world-sector', '131');
     const history = await canvas.evaluateHandle(element => {
         const sectors = new Set([element.getAttribute('data-world-sector')]);
         new MutationObserver(() => sectors.add(element.getAttribute('data-world-sector')))
             .observe(element, { attributes: true, attributeFilter: ['data-world-sector'] });
         return sectors;
     });
-    await page.getByRole('button', { name: /^Sector info/ }).click();
-    const trail = coastExits(132).find(exit => exit.destinationSector === 133)!;
-    const choice = page.locator('.coast-side').getByRole('button', { name: 'Follow the ' + trail.direction + ' trail to ' + coastLayout(133)!.name });
-    await choice.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: info.outputPath('trail-choices.png') });
-    if (info.project.use.hasTouch) await choice.tap(); else await choice.click();
-    await canvas.scrollIntoViewIfNeeded();
+    const trail = coastExits(131).find(exit => exit.destinationSector === 133)!;
+    await expect(page.getByRole('button', { name: /^Follow the south trail to / })).toHaveCount(2);
+    await page.screenshot({ path: info.outputPath('painted-trailheads.png') });
+    await takeCoastTrail(page, 140, trail, !!info.project.use.hasTouch);
     await expect(canvas).toHaveAttribute('data-world-sector', '133', { timeout: 120_000 });
-    expect(await history.evaluate(sectors => Array.from(sectors))).toEqual(['132', '133']);
+    expect(await history.evaluate(sectors => Array.from(sectors))).toEqual(['131', '133']);
     await page.screenshot({ path: info.outputPath('direct-trail-133.png') });
 });
 async function actor(request: APIRequestContext, context: BrowserContext, position: WorldPosition, { equipped, veteran }: { equipped?: boolean; veteran?: boolean } = {}) {

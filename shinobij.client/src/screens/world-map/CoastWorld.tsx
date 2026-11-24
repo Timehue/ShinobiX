@@ -218,14 +218,6 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     }
 
     const region = coastRegionOf(sector);
-    const trails = (onMap: boolean) => layout.exits.map(({ id, tile, direction, destinationSector, destinationTile }) => {
-        const destination = world.sectors[destinationSector];
-        const label = 'Follow the ' + direction + ' trail to ' + (destination?.name ?? destinationSector);
-        return <button key={id} type="button" title={label} disabled={!!busy || !destination}
-            className={onMap ? 'coast-site' : undefined}
-            style={onMap ? footprintStyle(tile % 12, Math.floor(tile / 12), 1) : undefined}
-            onClick={() => requestContinuousWorldWalk(destinationSector, destinationTile)}>{!onMap && label}</button>;
-    });
     const openRegion = quests?.coast.region ?? 0;
     const questSite = site ? quests?.sites.find(entry => entry.id === site.id) : undefined;
     /** True where a quest can be taken or moved on: a whole sector for the atlas, or one site in the sector the player stands in. */
@@ -281,7 +273,11 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                         setLocalSectorTile(at); setTile(at);
                         if (next !== sector) setCurrentSector(next);
                     }} overlayLayer={<>
-                        {trails(true)}
+                        {layout.exits.map(({ id, tile, direction, destinationSector, destinationTile }) => <button
+                            key={id} type="button" className="coast-site" style={footprintStyle(tile % 12, Math.floor(tile / 12), 1)}
+                            title={'Follow the ' + direction + ' trail to ' + (world.sectors[destinationSector]?.name ?? destinationSector)}
+                            disabled={!!busy || !world.sectors[destinationSector]}
+                            onClick={() => requestContinuousWorldWalk(destinationSector, destinationTile)} />)}
                         {layout.sites.map(entry => {
                             const [x, y, size] = entry.footprint;
                             return (
@@ -325,7 +321,6 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                             {settlement && <button type="button" disabled={!!busy} onClick={() => void visit(settlement)}>Enter {settlement.name}</button>}
                             {statusLine}</>}
                         details={<div className="coast-side">
-                            <h3>Trails</h3><div className="coast-list">{trails(false)}</div>
                             {layout.contestable && !site && clanPanel}
                             {!site && questPanel}
                             <section>
