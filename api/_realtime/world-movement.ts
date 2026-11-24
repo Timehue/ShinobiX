@@ -1,4 +1,4 @@
-import { worldPositionModel } from '../../shared/continuous-world-layout.js';
+import { sectorPositionModel } from '../_coast-walk-space.js';
 import type { WorldPosition } from '../../shared/world-position.js';
 import type { OnlinePlayer } from './types.js';
 
@@ -24,7 +24,7 @@ export function createWorldMovementGate() {
             if (player.locationUnverified || player.inBattle
                 || (player.travelingUntil !== undefined && player.travelingUntil > now)) return { ok: false, reason: 'locked' };
             if (!Number.isSafeInteger(expectedSequence) || expectedSequence !== (player.movementSeq ?? 0)) return { ok: false, reason: 'sequence' };
-            const model = worldPositionModel(), position = model.read(rawPosition);
+            const model = sectorPositionModel(player.sector), position = model.read(rawPosition);
             const prior = model.read(player.worldPosition) ?? model.fallback(player.sector, player.tile ?? 78);
             if (!position || !prior || model.location(prior).sector !== player.sector) return { ok: false, reason: 'position' };
             // A missing clock means the player has rested at least since the idle sweep

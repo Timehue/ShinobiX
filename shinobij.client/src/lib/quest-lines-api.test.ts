@@ -57,7 +57,7 @@ test("the coast's map is fetched once, and a failed fetch is tried again", async
     globalThis.fetch = (async () => {
         calls += 1;
         if (fail) throw new Error("offline");
-        return new Response(JSON.stringify({ version: "v", atlas: { width: 1, height: 1, image: "a.webp" }, regions: [], points: [], roads: [], sectors: {} }), { status: 200 });
+        return new Response(JSON.stringify({ version: "v", space: { layoutVersion: "v", chunks: [], roads: [] }, atlas: { width: 1, height: 1, image: "a.webp" }, regions: [], points: [], roads: [], sectors: {} }), { status: 200 });
     }) as typeof fetch;
     try {
         assert.equal(await loadCoastWorld(), null);

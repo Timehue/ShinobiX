@@ -31,12 +31,7 @@
 import { requireServerSettlement } from "./server-settlement-gate";
 import { claimWorldAttack, releaseWorldAttack } from "./world-attack-claim";
 import { getAllItems } from "./items";
-import {
-    getCharacterArmorFactor,
-    getCharacterArmorRawDR,
-    getEquippedItemBonus,
-    getPvpItemLoadout,
-} from "./equipment-stats";
+import { pvpFighterLoadout } from "./equipment-stats";
 import { getBloodlineMultiplier } from "./combat-math";
 import { pvpSessionEnvironment, stringifyPvpSessionPayload } from "./pvp-session";
 import { makeId } from "./utils";
@@ -116,7 +111,6 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
     // Heartbeat roster characters can be avatar-only. The session server loads
     // the opponent's full save and named gear by name before publication.
     const oppChar = normalizeCharacter({ ...(opponent.character as Character | undefined), name: opponent.name } as Character);
-    const opponentAllItems = selfAllItems;
     const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, oppChar);
 
     const createBody = stringifyPvpSessionPayload({
@@ -125,8 +119,8 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
         baseRewards: true,
         rewardSector: currentSector,
         ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
-        p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
-        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
+        p1Character: { ...selfChar, jutsu: p1Jutsus, ...pvpFighterLoadout(selfChar, selfAllItems, getBloodlineMultiplier(selfChar, savedBloodlines)) },
+        p2Character: { ...oppChar, jutsu: p2Jutsus, ...pvpFighterLoadout(oppChar, selfAllItems, getBloodlineMultiplier(oppChar, savedBloodlines)) },
     });
     setPvpBattleId((await loadPvpSessionCreate()).pvpStableBattleIdFromRequestBody(createBody));
     setPvpRole("p1");

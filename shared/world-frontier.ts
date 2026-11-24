@@ -1,6 +1,5 @@
 import type { ContinuousWorldSpace, WorldPoint } from './continuous-world-space';
 import type { WorldNode } from './continuous-world-navigation';
-import { sectorExits } from './sector-links';
 import { nearestInMask, sectorWalkMask } from './sector-walk-mask';
 import { worldRoadCrossings } from './world-road-crossings';
 
@@ -47,8 +46,11 @@ export function* frontierSteps(space: ContinuousWorldSpace, nodes: Map<string, W
     const owner = new Int16Array(w * h).fill(-1), slot = new Int32Array(w * h).fill(-1);
     const lists: WorldNode[][] = [], listCells: number[] = [], links = new Set<number>();
     const nodesAt = (i: number) => i >= 0 && slot[i]! >= 0 ? lists[slot[i]!]! : NONE;
+    for (const { a, b } of space.roads) {
+        links.add(a.sector * 256 + b.sector);
+        links.add(b.sector * 256 + a.sector);
+    }
     for (const chunk of space.chunks) {
-        for (const exit of sectorExits(chunk.sector)) links.add(chunk.sector * 256 + exit.destinationSector);
         for (let y = chunk.y; y < chunk.y + chunk.size; y++) for (let x = chunk.x; x < chunk.x + chunk.size; x++) painted[at(x, y)] = 1;
     }
     const linked = (a: number, b: number) => a === b || links.has(a * 256 + b);
@@ -114,7 +116,7 @@ export function* frontierSteps(space: ContinuousWorldSpace, nodes: Map<string, W
         const x = xOf(i), y = yOf(i), sector = owner[i]!, chunk = chunks.get(sector)!;
         const key = sector * 144 + Math.max(0, Math.min(11, y - chunk.y)) * 12 + Math.max(0, Math.min(11, x - chunk.x));
         let tile = anchors.get(key);
-        if (tile === undefined) { tile = nearestInMask(sectorWalkMask(sector), key % 144); anchors.set(key, tile); }
+        if (tile === undefined) { tile = nearestInMask(chunk.mask ?? sectorWalkMask(sector), key % 144); anchors.set(key, tile); }
         const node: WorldNode = { id: `l:${x}:${y}`, sector, tile, land: true, x: x + .5, y: y + .5, neighbors: [] };
         index[i] = created.length; nodes.set(node.id, node); created.push(node);
     }

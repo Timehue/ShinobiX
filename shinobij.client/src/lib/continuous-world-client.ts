@@ -1,11 +1,11 @@
 import layoutUrl from '../../../shared/continuous-world-layout.json?url';
 import { buildWorldNavigationInSlices, worldGraphVersion } from '../../../shared/continuous-world-navigation';
 import { createWorldPositionModel, type WorldPosition } from '../../../shared/world-position';
-import type { ContinuousWorldSpace } from '../../../shared/continuous-world-space';
+import type { VersionedWorldSpace } from '../../../shared/continuous-world-space';
 import type { PlayerRecord } from '../types/character';
 import type { WorldRunAction, WorldRunWindow } from '../../../shared/world-run';
 
-export type WorldMovementReply = { ok: boolean; reason?: string; sector?: number; tile?: number; sequence?: number; worldPosition?: WorldPosition | null; players?: PlayerRecord[]; run?: WorldRunWindow };
+export type WorldMovementReply = { ok: boolean; reason?: string; error?: string; sector?: number; tile?: number; sequence?: number; worldPosition?: WorldPosition | null; players?: PlayerRecord[]; run?: WorldRunWindow };
 let loaded: Promise<Awaited<ReturnType<typeof readLayout>>> | undefined;
 /** A fresh task: unlike setTimeout(0), a channel message is not clamped to 4 ms once nested. */
 const nextTask = () => new Promise<void>(resolve => {
@@ -16,13 +16,22 @@ const nextTask = () => new Promise<void>(resolve => {
 async function readLayout() {
     const response = await fetch(layoutUrl);
     if (!response.ok) throw new Error('World layout unavailable');
-    const raw = await response.json() as ContinuousWorldSpace & { layoutVersion: string };
+    const raw = await response.json() as VersionedWorldSpace;
     const space = { ...raw, layoutVersion: worldGraphVersion(raw.layoutVersion) };
+    return prepareSpace(space);
+}
+async function prepareSpace(space: VersionedWorldSpace) {
     // About 33k walkable cells: built in short slices so a phone keeps painting meanwhile.
     const navigation = await buildWorldNavigationInSlices(space, nextTask), nodes = navigation.byId;
-    return { space, nodes, navigation, model: createWorldPositionModel(space.layoutVersion, nodes, space.roads) };
+    return { space, nodes, navigation, model: createWorldPositionModel(space.layoutVersion, nodes, space.roads, space.chunks) };
 }
-export function loadContinuousWorld() {
+const planes = new WeakMap<VersionedWorldSpace, ReturnType<typeof prepareSpace>>();
+export function loadContinuousWorld(space?: VersionedWorldSpace) {
+    if (space) {
+        const world = planes.get(space) ?? prepareSpace(space).catch(error => { planes.delete(space); throw error; });
+        planes.set(space, world);
+        return world;
+    }
     loaded ??= readLayout().catch(error => { loaded = undefined; throw error; });
     return loaded;
 }

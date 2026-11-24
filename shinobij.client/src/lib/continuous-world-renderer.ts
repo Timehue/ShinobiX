@@ -102,12 +102,13 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     const biomeNear = (x: number, y: number) => {
         const key = Math.floor(x / 4) * 4096 + Math.floor(y / 4);
         let biome = blockBiome.get(key);
-        if (!biome) { biome = sectorBiomeOf(nearestChunk(Math.floor(x / 4) * 4 + 2, Math.floor(y / 4) * 4 + 2).sector); blockBiome.set(key, biome); }
+        if (!biome) { const chunk = nearestChunk(Math.floor(x / 4) * 4 + 2, Math.floor(y / 4) * 4 + 2); biome = chunk.biome ?? sectorBiomeOf(chunk.sector); blockBiome.set(key, biome); }
         return biome;
     };
+    const floorSource = (sector: number) => chunks.get(sector)?.floor ?? worldFloorSource(sector);
     const imageFor = (sector: number) => {
         let image = images.get(sector);
-        const source=worldFloorSource(sector);
+        const source=floorSource(sector);
         const loading=pending.get(sector);
         if ((image?.floorSource!==source||image.failedRevision!==undefined&&image.failedRevision!==sectorLifePaintingRevision())&&(loading?.floorSource!==source||loading.failedRevision!==undefined&&loading.failedRevision!==sectorLifePaintingRevision())) {
             // A floor decoded during the travel wait is drawn at once, on the arrival frame.
@@ -122,7 +123,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
                     return;
                 }
                 pending.delete(sector);
-                if(worldFloorSource(sector)!==source)return;
+                if(floorSource(sector)!==source)return;
                 const old=paintings.get(sector);if(old)shrink(old);
                 paintings.delete(sector);roadTextures.delete(sector);images.set(sector,created);
                 painting(sector,created);revision++;
@@ -166,7 +167,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         return result;
     }
     function texture(chunk: WorldChunk, image: HTMLImageElement) {
-        const biome = sectorBiomeOf(chunk.sector), mask = sectorWalkMask(chunk.sector);
+        const biome = chunk.biome ?? sectorBiomeOf(chunk.sector), mask = chunk.mask ?? sectorWalkMask(chunk.sector);
         if (!mask || !usable(image)) return;
         const terrain = material(worldTerrainName(chunk.sector, biome));
         const ready = usable(terrain), sourceKey = ready ? terrain.src : image.src;
@@ -203,7 +204,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         // Overlapping feathered fields have fixed world coordinates and blend biome boundaries.
         ctx.fillStyle = '#3b4238'; ctx.fillRect(left, top, right - left, bottom - top);
         for (let y = Math.floor(top / 8) * 8 - 8; y < bottom + 8; y += 8) for (let x = Math.floor(left / 8) * 8 - 8; x < right + 8; x += 8) {
-            const biome = sectorBiomeOf(nearestChunk(x, y).sector), field = ground.get(biome);
+            const chunk = nearestChunk(x, y), biome = chunk.biome ?? sectorBiomeOf(chunk.sector), field = ground.get(biome);
             if (field) ctx.drawImage(field, x - 8, y - 8, 16, 16);
             else { const fade = ctx.createRadialGradient(x, y, 5.5, x, y, 8); fade.addColorStop(0, colors[biome]!); fade.addColorStop(1, `${colors[biome]}00`); ctx.fillStyle = fade; ctx.fillRect(x - 8, y - 8, 16, 16); }
         }

@@ -1034,6 +1034,13 @@ app.get('/portraits/cinematic/coast/brinejaw-v1.webp', (_req, res) => {
     res.redirect(302, '/portraits/cinematic/coast/brinejaw-v2.webp');
 });
 
+// Open settlement tabs can still request the former local starter poses.
+for (const kind of ['starter-one', 'starter-two']) {
+    app.get('/coast-map/residents/' + kind + '.webp', (_req, res) => {
+        res.redirect(302, '/world-figures/v1/' + kind + '.webp');
+    });
+}
+
 // Old open tabs and saved image overrides keep working after the duplicate
 // Chronicle files are removed. Only known catalog identities can redirect.
 app.get(/^\/chronicle\/(?:cards|figures)\//, chronicleLegacyArtRedirect);

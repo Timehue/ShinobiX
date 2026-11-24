@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { type CoastFloor } from "../../../../shared/coast-world-rules";
-import { GRID, col, row, open, pathTo } from "./coast-grid";
+import { GRID, col, row, open, pathTo, coastRoutine } from "./coast-grid";
 import { DEN, KITCHEN, SHOP, den, residentSpots, shop, street } from "./stair-houses-rooms";
 
 test("all six residents can be approached in their own room and the occupied cushion stays blocked", () => {
@@ -23,6 +23,13 @@ test("all six residents can be approached in their own room and the occupied cus
             assert(!open(room.mask, 61), "The player can cross the tabletop");
         } else {
             assert(pathTo(room.mask, room.spawn, tile), label + " stands beyond the walkable area");
+            const route = coastRoutine(room.mask, tile, false, approach);
+            assert(route, label + " needs space to walk");
+            for (const [, at] of route.frames) {
+                assert.notEqual(at, approach, label + " walks into the player's speaking position");
+                assert.notEqual(at, room.spawn, label + " walks onto the entrance");
+                assert(pathTo(room.mask, tile, at)!.length <= 2, label + " wanders away from their station");
+            }
             if (place === KITCHEN) {
                 assert.deepEqual([x, y], [34.8, 48], "The cook stays beside the stove");
                 assert.equal(approach, 93, "Speak from the open floor toward the fish bench");

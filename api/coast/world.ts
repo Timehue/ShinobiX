@@ -3,6 +3,7 @@ import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { COAST_WORLD, COAST_WORLD_VERSION, coastExits } from '../../shared/coast-world.js';
+import { coastWalkSpace } from '../_coast-walk-space.js';
 import { QUEST_SITES } from '../../shared/quest-sites.js';
 
 /*
@@ -51,6 +52,7 @@ function buildPayload() {
         regions: COAST_WORLD.regions,
         points: COAST_WORLD.points,
         roads: COAST_WORLD.roads,
+        space: coastWalkSpace,
         sectors,
     };
 }

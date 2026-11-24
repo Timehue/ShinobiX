@@ -1,7 +1,7 @@
 import type { KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import type { WorldPosition } from '../../shared/world-position.js';
-import { worldPositionModel } from '../../shared/continuous-world-layout.js';
+import { sectorPositionModel } from '../_coast-walk-space.js';
 
 /*
  * The tile a player last STOOD ON inside a sector (F03).
@@ -48,16 +48,16 @@ export function isWalkedTile(value: unknown): value is WalkedTile {
 export async function readWalkedTile(store: Pick<KvLike, 'get'>, playerName: string): Promise<WalkedTile | null> {
     const value = await store.get<unknown>(walkedTileKey(playerName));
     if (!isWalkedTile(value)) return null;
-    const position = value.worldPosition && worldPositionModel().read(value.worldPosition);
+    const position = value.worldPosition && sectorPositionModel(value.sector).read(value.worldPosition);
     return { sector: value.sector, tile: serverWalkTile(value.sector, value.tile)!, at: value.at,
-        ...(position && worldPositionModel().location(position).sector === value.sector ? { worldPosition: position } : {}) };
+        ...(position && sectorPositionModel(value.sector).location(position).sector === value.sector ? { worldPosition: position } : {}) };
 }
 
 /** A newer legacy checkpoint deliberately clears an older continuous cursor. */
 export function resumeWorldPositionFor(walked: WalkedTile | null | undefined, sector: number, saved: unknown): WorldPosition | undefined {
     const candidate = walked?.sector === sector ? walked.worldPosition : saved;
     if (!candidate) return undefined;
-    const model = worldPositionModel(), position = model.read(candidate);
+    const model = sectorPositionModel(sector), position = model.read(candidate);
     return position && model.location(position).sector === sector ? position : undefined;
 }
 
@@ -103,8 +103,8 @@ export function noteWalkedTile(
     const slug = safeName(playerName);
     if (!slug || !Number.isInteger(sector) || sector < 1 || tile === undefined || !Number.isInteger(tile)) return Promise.resolve(false);
     tile = serverWalkTile(sector, tile)!;
-    const parsed = worldPosition && worldPositionModel().read(worldPosition);
-    const position = parsed && worldPositionModel().location(parsed).sector === sector ? parsed : undefined;
+    const parsed = worldPosition && sectorPositionModel(sector).read(worldPosition);
+    const position = parsed && sectorPositionModel(sector).location(parsed).sector === sector ? parsed : undefined;
     const worldSignature = position ? JSON.stringify(position) : undefined;
     const prior = throttles.get(slug);
     const changed = !prior || prior.sector !== sector || prior.tile !== tile || prior.worldSignature !== worldSignature;
@@ -146,8 +146,8 @@ export async function recordArrivalTile(
         return;
     }
     tile = serverWalkTile(sector, tile)!;
-    const parsed = worldPosition && worldPositionModel().read(worldPosition);
-    const position = parsed && worldPositionModel().location(parsed).sector === sector ? parsed : undefined;
+    const parsed = worldPosition && sectorPositionModel(sector).read(worldPosition);
+    const position = parsed && sectorPositionModel(sector).location(parsed).sector === sector ? parsed : undefined;
     // Continuous travel can keep walking before the crossing lease settles.
     // Its arrival timestamp must not replace a checkpoint already accepted later.
     if (position && (throttles.get(slug)?.writtenAt ?? -Infinity) > now) return;

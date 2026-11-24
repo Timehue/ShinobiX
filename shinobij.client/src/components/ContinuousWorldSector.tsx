@@ -16,24 +16,20 @@ import { SectorBuildings } from './SectorBuildings';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
 import { usePlayerGaits, useWorldModelArtBase } from '../lib/sector-obstacles';
 import { useSprintStyle, isPlayerModel, starterModel } from '../lib/player-model';
-import { WorldRunButton, type WorldRunTimers } from './WorldRunButton';
-import type { WorldRunWindow } from '../../../shared/world-run';
+import { WorldRunButton, useWorldRun } from './WorldRunButton';
 
 /** Current normal-world view. Existing HUD/encounter components retain their owners. */
-export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
+type SectorViewProps = Pick<WorldSectorCanvasProps, 'sector' | 'playerName' | 'playerTile' | 'playerAvatarImage' | 'playerModel' | 'starterWorldModel' | 'suspended' | 'paused' | 'onWorldAuthority' | 'worldMovementBlocked' | 'biome' | 'showLivePeers' | 'sharedImages' | 'sleeperPeers'> & Partial<WorldSectorCanvasProps> & {
+    children?: import('react').ReactNode;
+    inspectTile?: (tile: number) => void;
+    space?: import('../../../shared/continuous-world-space').VersionedWorldSpace;
+};
+export function ContinuousWorldSector(props: SectorViewProps) {
     const canvas = useRef<HTMLCanvasElement>(null), chunk = useRef<HTMLDivElement>(null), marker = useRef<HTMLDivElement>(null);
     const latest = useRef(props), engine = useRef<Awaited<ReturnType<typeof mountContinuousWorld>> | null>(null);
     const model = useRef<SectorModelHandle>(null);
     const modelArtBase = useWorldModelArtBase(), gaits = usePlayerGaits();
-    const [timers, setTimers] = useState<WorldRunTimers>({ endsAt: 0, readyAt: 0 });
-    const runningUntil = useRef(0), lastRunResponse = useRef(0);
-    const onRunWindow = useCallback(({ endsAt, readyAt, serverTime }: WorldRunWindow) => {
-        if (serverTime < lastRunResponse.current) return;
-        lastRunResponse.current = serverTime;
-        const now = performance.now();
-        runningUntil.current = endsAt > serverTime ? now + endsAt - serverTime : 0;
-        setTimers({ endsAt: runningUntil.current, readyAt: readyAt > serverTime ? now + readyAt - serverTime : 0 });
-    }, []);
+    const { timers, runningUntilRef, lastRunResponseRef, onRunWindow } = useWorldRun();
     const equipped = isPlayerModel(props.playerModel) ? props.playerModel : undefined;
     const sprintStyle = useSprintStyle();
     const peerStyle = useRef(sprintStyle);
@@ -42,18 +38,18 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     useLayoutEffect(() => { gaitEnabled.current = gaits; }, [gaits]);
     const starter = starterModel(props.playerAvatarImage, props.starterWorldModel);
     const [status, setStatus] = useState('Connecting to world…'), [retry, setRetry] = useState(0), [ready, setReady] = useState(false);
-    const name = props.playerName;
+    const name = props.playerName, space = props.space;
     const position = useRef<{ sector: number; col: number; row: number } | null>(null);
     // Off the painting, the server's tile is only the nearest painted anchor; don't mark it as underfoot.
     const [onPainting, setOnPainting] = useState(true);
     useLayoutEffect(() => { latest.current = props; });
     useEffect(() => {
         const abort = new AbortController(); let alive = true;
-        lastRunResponse.current = 0;
-        runningUntil.current = 0;
+        lastRunResponseRef.current = 0;
+        runningUntilRef.current = 0;
         const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
-        void mountContinuousWorld({ canvas: canvas.current!, chunk: chunk.current!, marker: marker.current!, signal: abort.signal,
-            gait: () => gaitEnabled.current ? performance.now() < runningUntil.current ? 'run' : 'walk' : undefined,
+        void mountContinuousWorld({ space, canvas: canvas.current!, chunk: chunk.current!, marker: marker.current!, signal: abort.signal,
+            gait: () => gaitEnabled.current ? performance.now() < runningUntilRef.current ? 'run' : 'walk' : undefined,
             onRunWindow, sprintStyle: () => peerStyle.current,
             // The tile the player is arriving on: its ground paints during the position round trip.
             provisional: { sector: latest.current.sector, tile: latest.current.playerTile },
@@ -79,27 +75,27 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
         }).then(value => { if (!alive) { value.dispose(); return; } engine.current = value; value.externalSector(latest.current.sector); setStatus(''); setReady(true); })
             .catch(error => { if (alive && !abort.signal.aborted) setStatus(error instanceof Error ? error.message : 'World connection unavailable.'); });
         return () => { alive = false; abort.abort(); engine.current?.dispose(); engine.current = null; };
-    }, [name, retry, onRunWindow]);
+    }, [name, retry, onRunWindow, space, runningUntilRef, lastRunResponseRef]);
     useEffect(() => { void engine.current?.externalSector(props.sector); }, [props.sector, props.suspended]);
     // Stable across renders (reads the engine ref at click time), so the memoized grid below can bail.
     const go = useCallback((sector: number, tile: number) => { engine.current?.go(sector, tile); }, []);
-    return <main className="tile-scene sector-stage-panel">
+    return <main className={space ? "coast-sector tile-scene sector-stage-panel" : "tile-scene sector-stage-panel"}>
         {!props.suspended && props.hudLayer}
-        <div className="pixel-map walkable-sector-map sector-image-map continuous-world-map" data-ground-floor="true" aria-busy={!ready} data-suspended={props.suspended || undefined}>
-            <canvas ref={canvas} className={props.suspended ? undefined : "world-terrain-visible"} tabIndex={0}
+        <div className="pixel-map walkable-sector-map sector-image-map continuous-world-map" data-tile={space && props.playerTile} data-ground-floor="true" aria-busy={!ready} data-suspended={props.suspended || undefined}>
+            <canvas ref={canvas} onKeyDown={event => { if (event.key === 'Enter') props.inspectTile?.(props.playerTile); }} className={props.suspended ? undefined : "world-terrain-visible"} tabIndex={0}
                 aria-label="World terrain. Hold WASD or arrows to walk; tap a destination or drag to steer." />
             <DayNightSky className="on-floor" />
-            {!props.suspended && !props.paused && <SceneAmbience biome={props.ambienceBiome} weather={props.weather} weatherSector={props.sector} weatherBiome={props.biome} />}
-            {props.regionSplash && <RegionSplash {...props.regionSplash} onDone={props.onRegionSplashDone} />}
+            {!props.suspended && !props.paused && props.ambienceBiome && props.weather && <SceneAmbience biome={props.ambienceBiome} weather={props.weather} weatherSector={props.sector} weatherBiome={props.biome} />}
+            {props.regionSplash && props.onRegionSplashDone && <RegionSplash {...props.regionSplash} onDone={props.onRegionSplashDone} />}
             <div className="pixel-map continuous-world-chunk" ref={chunk} data-world-chunk={props.sector}>
                 {/* A stronghold covers a suspended world: its tiles would only re-render, unseen, on every map update. */}
-                {!props.suspended && <ContinuousWorldTiles sector={props.sector} playerTile={props.playerTile} onPainting={onPainting} ready={ready} roadExits={props.roadExits} go={go} />}
-                {props.showLivePeers && !props.suspended && <ContinuousWorldPeers sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} sleepers={props.sleeperPeers} />}
+                {!props.suspended && props.roadExits && <ContinuousWorldTiles sector={props.sector} playerTile={props.playerTile} onPainting={onPainting} ready={ready} roadExits={props.roadExits} go={go} />}
+                {props.showLivePeers && !props.suspended && <ContinuousWorldPeers space={space} sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} sleepers={props.sleeperPeers} />}
                 <SectorNpcLayerHost>
                 <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
                     {/* Held for `ready`: the road's people and their work points are interactive, so they
                         appear once the world can be walked and tapped, not during the first-frame preview. */}
-                    {!props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}
+                    {!space && !props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}
                         traces={props.lifeTraces} openReports={props.onOpenLifeTraces} onTrack={props.onLifeTrack} commit={props.onGatheringCommit} walk={(sector, tile) => engine.current?.go(sector, tile)} />}
                     {!props.suspended && ready && props.gatheringCharacter && props.onGatheringCommit && <SectorBuildings key={props.gatheringCharacter.name} character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} onAtlas={props.onOpenAtlas} walk={(sector,tile)=>engine.current?.go(sector,tile)} />}
                 </WorldPlayerPosition.Provider>
@@ -121,5 +117,6 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
                     : !ready && status !== 'Connecting to world…' && <button type="button" onClick={() => { setStatus('Connecting to world…'); setRetry(value => value + 1); }}>Retry</button>}
             </div>
         </div>
+        {props.children}
     </main>;
 }

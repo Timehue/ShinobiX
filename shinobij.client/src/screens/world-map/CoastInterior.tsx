@@ -3,16 +3,24 @@ import type { Character } from "../../types/character";
 import { CoastFigure } from "./CoastPatrols";
 import { useEffect, useRef, useState } from "react";
 import type { CoastFloor, CoastStation } from "../../../../shared/coast-world-rules";
-import { centre, footprintStyle, GRID, neighbours, open, pathTo, STEP } from "./coast-grid";
+import { WorldRunButton, useWorldRun } from '../../components/WorldRunButton';
+import { usePlayerGaits } from '../../lib/sector-obstacles';
+import { worldMovementRequest } from '../../lib/continuous-world-client';
+import { playerGaitTilesPerSecond } from '../../../../shared/sector-gait-rates';
+import { footprintStyle, GRID, neighbours, open, pathTo, STEP } from "./coast-grid";
+
+const movementTime = () => performance.now();
+// Percent down the painting at which feet pass in front of each landmark.
+const streetDepth = { shops: 51, terrace: 70, gate: 90, hearth: 1 };
 
 type Props = {
-    floors: CoastFloor[]; avatar?: string | null; name: string; leave: () => void;
+    floors: CoastFloor[]; avatar?: string | null; leave: () => void;
     /** Who keeps this place, standing at their station on the ground floor (`coast.figures` in the quest list). */
-    player?: Character; initialTile?: number; street?: boolean;
+    player: Character; initialTile?: number; street?: boolean;
     residents?: { label: string; model: string; feet: [number, number]; approach: number; seatedArt?: string }[];
     onSpeak?: (label: string) => void;
     onStation?: (station: CoastStation) => void;
-    keeper?: { label: string; image?: string; room?: [number, number] };
+    keeper?: { label: string; model: string; image?: string; room?: [number, number] };
     /**
      * A quest step that is found in this building. Its stations are examined on the server, which keeps what
      * was found, so leaving does not lose it; `examine` answers with what to show.
@@ -20,15 +28,25 @@ type Props = {
     clues?: { floor: number; station: string; examine: () => Promise<{ text: string; order?: boolean }> }[];
 };
 
-export default function CoastInterior({ floors, avatar, name, leave, keeper, onStation, residents, onSpeak, initialTile, street, player, clues }: Props) {
+export default function CoastInterior({ floors, avatar, leave, keeper, onStation, residents, onSpeak, initialTile, street, player, clues }: Props) {
     const [level, setLevel] = useState(0);
     const [tile, setTile] = useState(initialTile !== undefined && open(floors[0].mask, initialTile) ? initialTile : floors[0].spawn);
     const [message, setMessage] = useState("");
     const position = useRef(tile);
+    const { timers, runningUntilRef, onRunWindow } = useWorldRun();
+    const gaits = usePlayerGaits();
+    const [gait, setGait] = useState<'walk' | 'run'>('walk');
+    const nextStep = useRef(0);
+    useEffect(() => {
+        const abort = new AbortController();
+        void worldMovementRequest(undefined, undefined, abort.signal).then(reply => { if (reply.run && !abort.signal.aborted) onRunWindow(reply.run); }).catch(() => {});
+        return () => abort.abort();
+    }, [onRunWindow]);
     const clue = useRef(0);
     const journey = useRef(0);
     const board = useRef<HTMLDivElement>(null);
     const room = floors[level];
+    const painting = room.art && (room.art.startsWith("/") ? room.art : "/coast-map/" + room.art);
     const figureScale = street ? COURTYARD_MODEL_SCALE : ROOM_MODEL_SCALE;
     useEffect(() => {
         board.current?.focus({ preventScroll: true });
@@ -36,6 +54,9 @@ export default function CoastInterior({ floors, avatar, name, leave, keeper, onS
     }, [level]);
     function move(next: number) {
         position.current = next;
+        const style = gaits && movementTime() < runningUntilRef.current ? 'run' : 'walk';
+        setGait(style);
+        nextStep.current = movementTime() + 1000 / playerGaitTilesPerSecond[style];
         setTile(next);
     }
     function arrive(at: number, station?: CoastStation) {
@@ -65,31 +86,38 @@ export default function CoastInterior({ floors, avatar, name, leave, keeper, onS
         const route = pathTo(room.mask, position.current, to);
         if (!route) { setMessage("There is no open path to that spot."); return; }
         setMessage("");
-        const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 85;
+        // Finish the step already on screen before following a replacement route.
+        if (nextStep.current > movementTime()) await waitForStep();
         for (const next of route) {
             if (token !== journey.current) return;
             move(next);
-            if (delay) await new Promise(resolve => window.setTimeout(resolve, delay));
+            await waitForStep();
         }
         if (token === journey.current) { if (then) then(); else arrive(to, station); }
     }
+    function waitForStep() {
+        return new Promise(resolve => window.setTimeout(resolve, nextStep.current - movementTime()));
+    }
     function key(event: React.KeyboardEvent<HTMLDivElement>) {
-        if (event.currentTarget !== event.target || event.altKey || event.ctrlKey || event.metaKey) return;
+        if (event.altKey || event.ctrlKey || event.metaKey) return;
         const at = position.current;
         if (event.key === "Enter") {
-            event.preventDefault(); journey.current++;
-            arrive(at, room.stations.find(entry => entry.approach === at));
+            if (event.currentTarget !== event.target) return;
+            event.preventDefault();
+            void walk(at, room.stations.find(entry => entry.approach === at));
             return;
         }
         const delta = STEP[event.key];
         if (!delta) return;
-        event.preventDefault(); journey.current++;
+        event.preventDefault();
+        if (movementTime() < nextStep.current) return;
+        journey.current++;
         const next = at + delta;
-        if (neighbours(at).includes(next) && open(room.mask, next)) { move(next); arrive(next); }
+        if (neighbours(at).includes(next) && open(room.mask, next)) void walk(next);
     }
     const actions = [
-        ...room.stations.map(station => ({ label: station.name, target: station.target, use: () => void walk(station.approach, station) })),
-        ...room.stairs.map(stair => ({ label: stair.label, target: stair.target, use: () => void walk(stair.tile) })),
+        ...room.stations.map(station => ({ label: station.name, target: station.target, activate: () => void walk(station.approach, station) })),
+        ...room.stairs.map(stair => ({ label: stair.label, target: stair.target, activate: () => void walk(stair.tile) })),
     ];
     return <div className={street ? "coast-room stairs-street" : onStation ? "coast-room stairs-counter-room" : "coast-room"}>
         <div className="coast-board coast-room-board" ref={board} tabIndex={0} role="application"
@@ -101,21 +129,25 @@ export default function CoastInterior({ floors, avatar, name, leave, keeper, onS
                 if (x >= 0 && x < GRID && y >= 0 && y < GRID) void walk(y * GRID + x);
                 board.current?.focus({ preventScroll: true });
             }}>
-            {room.art && <img className="coast-floor" src={room.art.startsWith("/") ? room.art : "/coast-map/" + room.art} alt={room.title} draggable={false} />}
-            {actions.map(({ label, target: [x, y, width, height], use }) => <button key={label} aria-label={label} title={label} className="coast-site" type="button"
+            {painting && <img className="coast-floor" src={painting} alt={room.title} draggable={false} />}
+            {street && painting && Object.entries(streetDepth).map(([layer, zIndex]) =>
+                <img key={layer} alt="" draggable={false} className={"coast-floor street-layer " + layer} src={painting}
+                    style={{ zIndex, maskImage: `url(/coast-map/street-${layer}-mask-v1.webp)` }} />)}
+            {actions.map(({ label, target: [x, y, width, height], activate }) => <button key={label} aria-label={label} title={label} className="coast-site" type="button"
                 style={footprintStyle(x, y, width, height)}
-                onClick={event => { event.stopPropagation(); use(); }}>{onStation && <span>{label}</span>}</button>)}
-            {residents?.map(resident => <CoastFigure key={resident.label} scale={figureScale} tile={resident.approach} feet={resident.feet} seatedArt={resident.seatedArt}
+                onClick={event => { event.stopPropagation(); activate(); }}>{onStation && <span>{label}</span>}</button>)}
+            {residents?.map(resident => <CoastFigure mask={room.mask} key={resident.label} scale={figureScale} speakingTile={resident.approach}
+                tile={Math.floor(resident.feet[1] * GRID / 100) * GRID + Math.floor(resident.feet[0] * GRID / 100)} feet={resident.feet} seatedArt={resident.seatedArt}
                 model={resident.model} label={resident.label} image={"/coast-map/residents/" + resident.model + ".webp"} disabled={false}
                 pick={() => { void walk(resident.approach, undefined, () => onSpeak?.(resident.label)); }} />)}
-            {!level && keeper?.room && keeper.image && <span className="coast-traveler" style={{ left: keeper.room[0] / GRID * 100 + "%", top: keeper.room[1] / GRID * 100 + "%" }}>
-                <img src={keeper.image} alt={keeper.label} style={{ objectPosition: "top" }} />
-            </span>}
-            {player ? <SettlementPlayer character={player} avatar={avatar} tile={tile} scale={figureScale} /> : <span className="coast-traveler" style={centre(tile)} aria-hidden="true">{avatar ? <img src={avatar} alt="" /> : <b>{name.slice(0, 2)}</b>}</span>}
+            {!level && keeper?.room && <CoastFigure mask={room.mask} tile={Math.floor(keeper.room[1]) * GRID + Math.floor(keeper.room[0])}
+                scale={figureScale} label={keeper.label} model={keeper.model} image={keeper.image} disabled={false} pick={() => setMessage(keeper.label)} />}
+            <SettlementPlayer character={player} avatar={avatar} tile={tile} scale={figureScale} gait={gait} />
+            {gaits && <WorldRunButton timers={timers} onWindow={onRunWindow} />}
         </div>
         <div className="coast-site-body">
             <h3>{room.title}{floors.length > 1 && " · Floor " + (level + 1) + " of " + floors.length}</h3>
-            <div className="coast-list">{actions.map(action => <button key={action.label} type="button" onClick={action.use}>{action.label}</button>)}
+            <div className="coast-list">{actions.map(action => <button key={action.label} type="button" onClick={action.activate}>{action.label}</button>)}
                 {!!room.doors.length && <button type="button" onClick={() => void walk(room.doors[0])}>Walk outside</button>}
             </div>
             <p className="coast-world-status" role="status">{message}</p>

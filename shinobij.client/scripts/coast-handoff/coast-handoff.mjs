@@ -89,7 +89,7 @@ async function scenario(key,sector,kind,check) {
         const list = () => post('/api/quests/lines',{action:'list',playerName:name});
         const world = await (await request.get('/api/coast/world',{headers:auth})).json();
         await page.goto(['journal','below','letter','lost-lures','one-lure','bell-hang','bell-bury'].includes(kind) ? '/#/missions' : '/#/worldMap',{waitUntil:'domcontentloaded'});
-        const board = page.locator('.coast-sector .coast-board').first();
+        const board = page.locator('.coast-sector .continuous-world-map').first();
         // Acknowledged notices can finish mounting just after the world does.
         await page.addLocatorHandler(page.locator('.game-alert-backdrop').getByRole('button',{name:'OK',exact:true}), async loc => loc.click());
         await page.addLocatorHandler(page.getByRole('button',{name:'Close briefing',exact:true}), async loc => loc.click());

@@ -5,7 +5,7 @@ import { sectorLifePainting } from './sector-life-art';
 /** The painted floor the world renderer draws for a sector: its life painting when it has one. */
 export const worldFloorSource = (sector: number) => sectorLifePainting(sector) ?? sectorFloorImage(sector);
 /** The ground material that fills the land between floors, by biome. */
-export const worldTerrainName = (sector: number, biome = sectorBiomeOf(sector)) => biome === 'snow' ? 'snow' : biome === 'volcano' || biome === 'shadow' ? 'cinder' : 'forest';
+export const worldTerrainName = (sector: number, biome: string = sectorBiomeOf(sector)) => biome === 'snow' ? 'snow' : biome === 'volcano' || biome === 'shadow' ? 'cinder' : 'forest';
 export const worldTerrainSource = (sector: number) => `/sector-map/world-terrain/${worldTerrainName(sector)}.webp`;
 
 /** Images decoded during the travel wait, by source, until the arriving renderer takes them. */

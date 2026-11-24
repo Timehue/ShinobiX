@@ -69,13 +69,10 @@ export async function checkLostLures({ page, board, world, list, readSave, captu
 
     for (const [from, to] of [[109, 106], [106, 110]]) {
         const edge = world.sectors[from].exits.find(e => e.destinationSector === to);
-        const rect = await board.boundingBox();
-        const position = { x: (edge.tile % 12 + .5) * rect.width / 12, y: (Math.floor(edge.tile / 12) + .5) * rect.height / 12 };
-        const reply = page.waitForResponse(r => r.url().endsWith('/api/player/travel') && r.request().method() === 'POST');
-        if (touch) await board.tap({ position });
-        else await board.click({ position });
-        assert((await reply).ok());
-        await expect(board).toHaveAttribute('data-tile', String(edge.destinationTile));
+        const trail = button(board, 'Follow the ' + edge.direction + ' trail');
+        await trail.press('Enter');
+        await expect(board.locator('canvas')).toHaveAttribute('data-world-sector', String(to), { timeout: 120000 });
+        await expect(board).toHaveAttribute('data-tile', String(edge.destinationTile), { timeout: 120000 });
     }
     const sill = await enter(110, 'saltstair-outcrop-110');
     await expect(button(sill, 'Make it again')).toHaveCount(0);

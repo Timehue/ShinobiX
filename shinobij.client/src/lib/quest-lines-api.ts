@@ -145,6 +145,7 @@ export async function questSiteGather(body: { action: "start" | "resolve"; reque
 }
 export type CoastSector = { name: string; biome: string; contestable: boolean; mask: string[]; floor: string; exits: CoastExit[]; sites: CoastSite[] };
 export type CoastWorld = {
+    space: import('../../../shared/continuous-world-space').VersionedWorldSpace;
     version: string;
     atlas: { width: number; height: number; image: string };
     regions: string[];
@@ -156,9 +157,9 @@ export type CoastWorld = {
 let coastWorld: Promise<CoastWorld | null> | null = null;
 /** The coast's map, fetched once a session. A failed fetch is tried again on the next call. */
 export function loadCoastWorld(): Promise<CoastWorld | null> {
-    coastWorld ??= fetch("/api/coast/world", { signal: AbortSignal.timeout(15_000) })
+    coastWorld ??= fetch("/api/coast/world", { cache: "no-cache", signal: AbortSignal.timeout(15_000) })
         .then(async response => (response.ok ? await response.json() as CoastWorld : null))
         .catch(() => null)
-        .then(world => { if (!world) coastWorld = null; return world; });
+        .then(world => { if (world?.space) return world; coastWorld = null; return null; });
     return coastWorld;
 }

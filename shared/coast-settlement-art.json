@@ -67,17 +67,9 @@
     "bytes": 4730,
     "sha256": "5435d6bcbda84113c97eb922a42bcfb24351891810699ffc726497e9c7b90fe3"
   },
-  "residents/starter-one.webp": {
-    "bytes": 3074,
-    "sha256": "404420faac0d9990d27db6167be91d6f4f3ecbc0c589b1235fbaa862d7c4973e"
-  },
   "residents/starter-one-room-v1.webp": {
     "bytes": 21618,
     "sha256": "f2cbc9211dcfc9e3f12ec0ad6ba9dff867ef8982a3d317c9a93b9c0adc53e23f"
-  },
-  "residents/starter-two.webp": {
-    "bytes": 4266,
-    "sha256": "e58a067c43f08505fbf3280e36fb202fd00a35c9942a24716c64b5ac6c39a22c"
   },
   "residents/starter-two-room-v1.webp": {
     "bytes": 20292,
@@ -102,6 +94,22 @@
   "saltstair-landing/scenes/stair-houses-street-v1.webp": {
     "bytes": 364914,
     "sha256": "3e53d7f0c8de882d4395ef44e24ad952af0284b0d551f7a5d08bb6f6fe2e20b7"
+  },
+  "street-gate-mask-v1.webp": {
+    "bytes": 1016,
+    "sha256": "f1ddee88148b3878ff4d392a6b233b613def51f9871a12f798b03c73ba52c002"
+  },
+  "street-hearth-mask-v1.webp": {
+    "bytes": 634,
+    "sha256": "880885d87189916540e77918e290689e7f0d4fbeb3b940c3518e1cc715a56612"
+  },
+  "street-shops-mask-v1.webp": {
+    "bytes": 2550,
+    "sha256": "01ace281c1c73880df85889f049d3fffd9e79a40b032ae817b0999778f3c6ffb"
+  },
+  "street-terrace-mask-v1.webp": {
+    "bytes": 1756,
+    "sha256": "64e0fe34ca6f465cfad5eb308a44ab432654ada3f05ac72a3d6fc1f161fd4ef7"
   },
   "town/tier-1.webp": {
     "bytes": 184172,

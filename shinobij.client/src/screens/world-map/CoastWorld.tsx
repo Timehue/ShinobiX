@@ -7,11 +7,9 @@
  * trails. The map itself comes from the server (/api/coast/world), so nothing
  * of the coast is carried in the bundle.
  *
- * Every move is the server's to allow. Walking publishes the tile the player
- * chose; a trail, an atlas pin and the boat all ask /api/player/travel, which
- * checks the level, the boat and the region from the durable save.
+ * Walking uses the server's continuous-world cursor. The atlas and the boat use timed travel.
  */
-import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Character, PlayerRecord } from "../../types/character";
 import { findSectorSpectatorBattle } from "../../lib/sector-spectate";
@@ -20,22 +18,21 @@ import { ModalDialogScrim } from "../../components/ModalDialogScrim";
 import { QuestLinesPanel } from "../../components/QuestLinesPanel";
 import { resolveOwnAvatar } from "../../lib/own-avatar";
 import { getLocalSectorTile, setLocalSectorTile } from "../../lib/presence-store";
-import { updatePresenceTile } from "../../lib/presence-socket";
-import { confirmRoadPosition } from "../../lib/road-position-confirmation";
+import { requestContinuousWorldWalk } from "../../lib/continuous-world-control";
+
 import { travelMaskMs } from "../../lib/travel-mask";
 import {
     coastTravel, loadCoastWorld, loadQuestLines, questLineAction, questRefusal, questSiteGather,
-    type CoastExit, type CoastSector, type CoastSite, type CoastWorld as CoastWorldData, type QuestLinesList,
+    type CoastSector, type CoastSite, type CoastWorld as CoastWorldData, type QuestLinesList,
 } from "../../lib/quest-lines-api";
 import { HOME_HARBOR_SECTOR, coastRegionOf } from "../../../../shared/world-maps";
-import { SectorAvatar } from "../../components/SectorAvatar";
+import { ContinuousWorldSector } from "../../components/ContinuousWorldSector";
 import { visiblePoll } from "../../lib/poll";
 import { CoastWeather } from "./CoastWeather";
 import { SectorHudFrame } from "../../components/SectorHudFrame";
 import { CoastNearby } from "./CoastNearby";
 import type { GameItem } from "../../types/combat";
 import { CoastFigure, CoastPatrols } from "./CoastPatrols";
-import { castPortrait } from "../../lib/coast-quest-scene";
 import { GameArtIcon } from "../../components/GameArtIcon";
 import CoastExplore from "./CoastExplore";
 import { CoastClanPanel } from "./CoastClan";
@@ -45,12 +42,13 @@ import { CoastPlotArt } from "./CoastPlotArt";
 import { atlasPlate, plotPaint } from "./coast-plot";
 import "./CoastWorld.css";
 
-import { nearestInMask } from "../../../../shared/sector-walk-mask";
-import { footprintStyle, GRID, STEP, col, row, open, neighbours, pathTo } from "./coast-grid";
+
+import { footprintStyle } from "./coast-grid";
 
 const StairHouses = lazy(() => import("./StairHouses"));
 const CoastInterior = lazy(() => import("./CoastInterior"));
 const CoastLandingPlans = lazy(() => import("./CoastLandingPlans"));
+const entering = <p role="status">Entering…</p>;
 
 export type CoastWorldProps = Readonly<{
     character: Character;
@@ -82,10 +80,6 @@ const pause = (ms: number) => new Promise<void>(resolve => { window.setTimeout(r
 const clock = () => Date.now();
 /** A fresh id for one gathering attempt, in the form the server asks for. */
 const attemptId = () => `coast-${crypto.randomUUID().replace(/-/g, "")}`;
-function inFootprint(site: CoastSite, tile: number): boolean {
-    const [x, y, size] = site.footprint;
-    return col(tile) >= x && col(tile) < x + size && row(tile) >= y && row(tile) < y + size;
-}
 
 export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiome, setScreen, onVersionedCharacter, setTravelingUntil, setPendingTravel, sharedImages, creatorItems,
     sectorAttackPlayer, setPvpBattleId, setPvpRole, setPvpBattleContext }: CoastWorldProps) {
@@ -100,12 +94,8 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     const [quests, setQuests] = useState<QuestLinesList | null>(null);
 
     const [questKey, setQuestKey] = useState(0);
-    const journey = useRef(0);
     const alive = useRef(true);
-    const boardRef = useRef<HTMLDivElement>(null);
-    const [stepMs] = useState(() => (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 16 : 92));
-
-    useEffect(() => { alive.current = true; return () => { alive.current = false; journey.current += 1; }; }, []);
+    useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
     const [attempt, setAttempt] = useState(0);
     useEffect(() => {
         void loadCoastWorld().then(next => { if (alive.current) { setWorld(next); setFailed(!next); } });
@@ -131,68 +121,40 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     const isPlot = (id: string) => id.endsWith("-plot-" + sector);
     const entryScene = site && ((isPlot(site.id) && plot.scene) || (site.scene && ART + site.scene));
 
-    // Arriving: stand on real ground. Decided while rendering, so the first frame
-    // of a sector already shows the traveller where they are.
+    // Close a site's sheet as soon as authority moves to another sector.
     const [placedIn, setPlacedIn] = useState<number | null>(null);
     if (layout && placedIn !== sector) {
         setPlacedIn(sector);
-
         setView("entry");
-        setTile(nearestInMask(layout.mask, getLocalSectorTile()));
         setSiteId(null);
         setStatus("");
     }
-    // And tell the rest of the game where that is, and what ground it is.
+
     useEffect(() => {
         if (!layout) return;
-        journey.current++;
-        setLocalSectorTile(nearestInMask(layout.mask, getLocalSectorTile()));
         setCurrentBiome(layout.biome as Biome);
     }, [layout, sector, setCurrentBiome]);
 
-    const place = useCallback((next: number) => { setTile(next); setLocalSectorTile(next); updatePresenceTile(next); }, []);
-
     function enterTown() {
         if (busy) return;
-        journey.current++;
         setScreen("clanTown");
     }
 
     function leaveSite() {
-        if (site) place(site.returnTile ?? site.approach);
         setSiteId(null);
         setView("entry");
     }
 
-    /** Walk to a tile one step at a time. Resolves true only if this walk was not replaced by another. */
-    async function walkTo(end: number): Promise<boolean> {
-        if (!layout || busy) return false;
-        const token = ++journey.current;
-        if (end === tile) return true;
-        const route = pathTo(layout.mask, tile, end);
-        if (!route) { setStatus("There is no open way there from here."); return false; }
-        setStatus("");
-        for (const next of route) {
-            if (token !== journey.current) return false;
-            setTile(next);
-            await pause(stepMs);
+    function visit(target: CoastSite) {
+        if (busy) return;
+        if (!requestContinuousWorldWalk(sector, target.approach, () => setSiteId(target.id))) {
+            setStatus("Connecting to the coast. Try again in a moment.");
         }
-        if (token !== journey.current) return false;
-        place(end);
-        return true;
-    }
-
-    async function visit(target: CoastSite) {
-        if (!await walkTo(target.approach)) return;
-        const token = journey.current;
-        await confirmRoadPosition(character.name, sector, target.approach);
-        if (alive.current && token === journey.current) setSiteId(target.id);
     }
 
     /** A timed crossing: the boat, or a pin on the atlas. The server mints the wait. */
     async function travel(destination: number, label: string) {
         if (busy) return;
-        journey.current += 1;
         setBusy(label);
         setStatus("");
         const reply = await coastTravel({ destinationSector: destination });
@@ -207,27 +169,6 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
         setTravelingUntil(0);
         setCurrentSector(destination);
         if (alive.current) { setBusy(null); setAtlasOpen(false); }
-    }
-
-    async function cross(exit: CoastExit) {
-        if (busy || !world?.sectors[exit.destinationSector]) { setStatus("That trail leads into country nobody has charted yet."); return; }
-        if (!await walkTo(exit.tile)) return;
-        setBusy("Crossing");
-        // An emitted socket move can still be in flight when the travel request arrives.
-        const token = journey.current;
-        const confirmed = await confirmRoadPosition(character.name, sector, exit.tile);
-        if (!alive.current) return;
-        if (!confirmed || token !== journey.current) {
-            setBusy(null);
-            if (token === journey.current) setStatus("Your position could not be confirmed. Try the trail again.");
-            return;
-        }
-        const reply = await coastTravel({ destinationSector: exit.destinationSector, mode: "edge", originSector: sector, originTile: exit.tile, exitId: exit.id });
-        if (!alive.current) return;
-        setBusy(null);
-        if (!reply.ok) { setStatus(reply.error ?? ""); return; }
-        setLocalSectorTile(typeof reply.arrivalTile === "number" ? reply.arrivalTile : exit.destinationTile);
-        setCurrentSector(exit.destinationSector);
     }
 
     async function gather(target: CoastSite) {
@@ -263,39 +204,6 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
         } }));
     }
 
-    function onBoardClick(event: React.MouseEvent<HTMLDivElement>) {
-        if (!layout || busy) return;
-        const box = event.currentTarget.getBoundingClientRect();
-        const x = Math.floor((event.clientX - box.left) / box.width * GRID), y = Math.floor((event.clientY - box.top) / box.height * GRID);
-        if (x < 0 || x >= GRID || y < 0 || y >= GRID) return;
-        const target = y * GRID + x;
-        const landmark = layout.sites.find(entry => inFootprint(entry, target));
-        if (landmark) { void visit(landmark); return; }
-        const exit = layout.exits.find(entry => entry.tile === target);
-        if (exit) { void cross(exit); return; }
-        if (!open(layout.mask, target)) { setStatus("Rock, water or dense brush blocks that way."); return; }
-        void walkTo(target);
-    }
-
-    function onBoardKey(event: React.KeyboardEvent<HTMLDivElement>) {
-        if (event.currentTarget !== event.target || !layout || busy || event.altKey || event.metaKey || event.ctrlKey) return;
-        if (event.key === "Enter") {
-            const here = layout.sites.find(entry => entry.approach === tile);
-            if (here) { event.preventDefault(); void visit(here); }
-            return;
-        }
-        const delta = STEP[event.key];
-        if (!delta) return;
-        event.preventDefault();
-        const next = tile + delta;
-        const edge = layout.exits.find(exit => exit.tile === next && neighbours(tile).includes(next));
-        if (edge) { void cross(edge); return; }
-        if (!neighbours(tile).includes(next) || !open(layout.mask, next)) return;
-        journey.current += 1;
-        place(next);
-        setStatus(layout.sites.some(entry => entry.approach === next) ? "Press Enter to go in." : "");
-    }
-
     const avatar = resolveOwnAvatar(character, sharedImages);
     const questPanel = <QuestLinesPanel playerName={character.name} mode="sector" sector={sector} onVersionedCharacter={onVersionedCharacter} onLoaded={setQuests} refreshKey={questKey} character={character} sharedImages={sharedImages} />;
 
@@ -320,7 +228,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     const clanPanel = <CoastClanPanel ground={ground} key={sector} plot={site?.id === "saltstair-plot-108"}
         character={character} sector={sector} commit={onVersionedCharacter} enter={busy ? undefined : enterTown} />;
     const settlement = layout.sites.find(entry => entry.id === "saltstair-houses-105");
-    if (settlement && site === settlement) return <Suspense fallback={<p role="status">Entering…</p>}>
+    if (settlement && site === settlement) return <Suspense fallback={entering}>
         <StairHouses site={site} character={character} creatorItems={creatorItems} avatar={avatar} leave={leaveSite}
             onVersionedCharacter={onVersionedCharacter} people={quests?.coast.people?.filter(person => person.sector === sector) ?? []} />
     </Suspense>;
@@ -356,11 +264,20 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                     {statusLine}
                 </section>
             ) : (
-                <div className="instance-frame sector-instance-frame"><main className="coast-sector tile-scene sector-stage-panel">
-                    <div className="coast-board pixel-map walkable-sector-map sector-image-map" data-tile={tile} ref={boardRef} tabIndex={0} role="application"
-                        aria-label={`${layout.name}. Arrow keys walk. Enter goes into a place you stand before.`}
-                        onClick={onBoardClick} onKeyDown={onBoardKey}>
-                        <img className="coast-floor" src={ART + layout.floor} alt="" draggable={false} />
+                <div className="instance-frame sector-instance-frame"><ContinuousWorldSector space={world.space} sector={sector} playerTile={tile}
+                    biome={layout.biome as Biome} playerName={character.name} playerAvatarImage={avatar || ""}
+                    playerModel={character.playerModel} starterWorldModel={character.starterWorldModel} paused={!!site || !!busy}
+                    inspectTile={at => { const place = layout.sites.find(entry => entry.approach === at); if (place) visit(place); }}
+                    worldMovementBlocked={() => !!busy || !!site} sharedImages={sharedImages ?? {}} sleeperPeers={[]} showLivePeers
+                    onWorldAuthority={(next, at) => {
+                        setLocalSectorTile(at); setTile(at);
+                        if (next !== sector) setCurrentSector(next);
+                    }} overlayLayer={<>
+                        {layout.exits.map(({ id, tile, direction, destinationSector, destinationTile }) => <button
+                            key={id} type="button" className="coast-site" style={footprintStyle(tile % 12, Math.floor(tile / 12), 1)}
+                            title={'Follow the ' + direction + ' trail to ' + (world.sectors[destinationSector]?.name ?? destinationSector)}
+                            disabled={!!busy || !world.sectors[destinationSector]}
+                            onClick={() => requestContinuousWorldWalk(destinationSector, destinationTile)} />)}
                         {layout.sites.map(entry => {
                             const [x, y, size] = entry.footprint;
                             return (
@@ -374,19 +291,18 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                                 </button>
                             );
                         })}
-                        <CoastPatrols key={sector} sector={sector} disabled={!!busy} notify={setStatus} />
+                        <CoastPatrols mask={layout.mask} key={sector} sector={sector} disabled={!!busy} notify={setStatus} />
                         {/* The keepers at their counters, and the boss a quest has brought the player to: choosing one goes to its place. */}
                         {quests?.coast.figures?.filter(figure => figure.sector === sector).map(figure => (
-                            <CoastFigure key={figure.label} tile={figure.tile} model={figure.model} label={figure.label} image={figure.image} disabled={!!busy}
+                            <CoastFigure mask={layout.mask} key={figure.label} tile={figure.tile} model={figure.model} label={figure.label} disabled={!!busy}
                                 pick={() => { const place = layout.sites.find(entry => entry.id === figure.site); if (place) void visit(place); }} />
                         ))}
                         {/* The people of the coast (api/quests/_coast-residents.ts). Choosing one shows the line the server picked for this player. */}
                         {quests?.coast.people?.filter(person => !settlement && person.sector === sector).map(person => (
-                            <CoastFigure key={person.label} tile={person.tile} model={person.model} label={person.label} image={castPortrait(person.face)} disabled={!!busy}
+                            <CoastFigure mask={layout.mask} key={person.label} tile={person.tile} model={person.model} label={person.label} disabled={!!busy}
                                 pick={() => setStatus(person.label + ": " + person.say)} />
                         ))}
-                        <SectorAvatar targetIndex={tile} sector={sector} avatarImage={avatar || undefined} name={character.name} biome={layout.biome as Biome} />
-                    </div>
+                    </>}>
 
                     <SectorHudFrame sector={sector} present={!busy} biome={layout.biome as Biome} chatName={character.name}
                         weather={layout.contestable && !areas ? (ground.lands.error ? "Weather unavailable" : "Reading weather…") :
@@ -405,29 +321,28 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                             {settlement && <button type="button" disabled={!!busy} onClick={() => void visit(settlement)}>Enter {settlement.name}</button>}
                             {statusLine}</>}
                         details={<div className="coast-side">
-                        {layout.contestable && !site && clanPanel}
-                        {!site && questPanel}
-                        <section>
-                            <h3>Places</h3>
-                            <div className="coast-list">
-                                {layout.sites.map(entry => <button key={entry.id} type="button" disabled={!!busy} onClick={() => void visit(entry)}>{entry.verb} <span>{entry.name}</span></button>)}
-                            </div>
-                        </section>
+                            {layout.contestable && !site && clanPanel}
+                            {!site && questPanel}
+                            <section>
+                                <h3>Places</h3>
+                                <div className="coast-list">
+                                    {layout.sites.map(entry => <button key={entry.id} type="button" disabled={!!busy} onClick={() => visit(entry)}>{entry.verb} <span>{entry.name}</span></button>)}
+                                </div>
+                            </section>
                             <button type="button" onClick={() => setScreen("village")}>Return to your home village</button>
                         </div>} />
-                    {/* No list of exits (owner, 2026-11-23): a player crosses by walking to the end of a painted road. */}
-                </main>
+                </ContinuousWorldSector>
                 </div>
             )}
 
             {site && createPortal(
                 <ModalDialogScrim label={site.name} onBackdrop={leaveSite} onEscape={leaveSite}>
                     <div className="card coast-site-sheet" onClick={event => event.stopPropagation()}>
-                        {view === "room" && site.floors?.length ? <Suspense fallback={<p role="status">Entering…</p>}>
-                            <CoastInterior key={site.id} floors={site.floors} avatar={avatar} name={character.name} leave={leaveSite}
+                        {view === "room" && site.floors?.length ? <Suspense fallback={entering}>
+                            <CoastInterior player={character} key={site.id} floors={site.floors} avatar={avatar} leave={leaveSite}
                                 keeper={quests?.coast.figures?.find(figure => figure.site === site.id && figure.room)} clues={siteClues(site)} />
                         </Suspense> : view === "plans" ? <Suspense fallback={<p role="status">Opening plans…</p>}>
-                            <CoastLandingPlans avatar={avatar} name={character.name} leave={leaveSite} />
+                            <CoastLandingPlans player={character} avatar={avatar} leave={leaveSite} />
                         </Suspense> : <>
                         {entryScene && <div className="coast-entry-art"><img className="coast-site-scene" src={entryScene} alt="" />
                             {isPlot(site.id) && <CoastPlotArt paint={{ ...plot, main: plot.scene ? undefined : plot.main }} area={area} />}</div>}
@@ -458,6 +373,6 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
 }
 
 export default function CoastMap(props: CoastWorldProps) {
-    const field = <CoastWorld {...props} />;
+    const field = <CoastWorld key={props.character.name} {...props} />;
     return props.character.clan ? <CoastFieldBoundary key={props.character.name + "/" + props.character.clan} resume={() => props.setScreen("clanTown")}>{field}</CoastFieldBoundary> : field;
 }

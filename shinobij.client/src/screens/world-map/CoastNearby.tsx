@@ -36,5 +36,5 @@ export function CoastNearby({ sector, name, village, images = {}, present, attac
         attack: target => attack?.(target), strike: async () => { throw new Error("There is no camp to strike here."); },
         spectate: (target, isCurrent) => spectate?.(target, isCurrent) });
     // The home map's own roster markup; the coast has no sky forecast or road list under an empty roster.
-    return <SectorNearby sector={sector} biome="central" players={rows()} present rosterState={state} action={action} onAction={action.run} conditions={false} />;
+    return <SectorNearby sector={sector} biome="central" players={rows()} present={present} rosterState={state} action={action} onAction={action.run} conditions={false} />;
 }
