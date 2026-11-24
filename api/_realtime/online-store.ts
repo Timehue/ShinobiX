@@ -24,7 +24,7 @@
 import type { OnlinePlayer, OnlineStateStore, PresenceStoreEvent, PresenceUpsert } from './types.js';
 import { safeName } from '../_utils.js';
 import { serverWalkableTile, serverWalkTile } from '../_sector-obstacles.js';
-import { worldPositionModel } from '../../shared/continuous-world-layout.js';
+import { sectorPositionModel } from '../_coast-walk-space.js';
 import type { WorldPosition } from '../../shared/world-position.js';
 import type { PlayerModel } from '../../shared/player-model-ref.js';
 
@@ -180,8 +180,8 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         }
         player.travelDestinationSector = destinationSector;
         player.travelDestinationTile = serverWalkTile(destinationSector, arrivalTile);
-        const position = worldPosition && worldPositionModel().read(worldPosition);
-        player.travelDestinationWorldPosition = position && worldPositionModel().location(position).sector === destinationSector ? position : undefined;
+        const position = worldPosition && sectorPositionModel(destinationSector).read(worldPosition);
+        player.travelDestinationWorldPosition = position && sectorPositionModel(destinationSector).location(position).sector === destinationSector ? position : undefined;
         if (player.travelDestinationWorldPosition) player.movementSeq = (player.movementSeq ?? 0) + 1;
         player.travelingUntil = arrivalAt;
         player.lastSeenAt = this.now();
@@ -299,8 +299,8 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             ...(prev?.activity && sector === prev.sector ? { activity: prev.activity } : {}),
         };
         if (!prev && entry.restoredWorldPosition) {
-            const restored = worldPositionModel().read(entry.restoredWorldPosition);
-            if (restored && worldPositionModel().location(restored).sector === sector) next.worldPosition = restored;
+            const restored = sectorPositionModel(sector).read(entry.restoredWorldPosition);
+            if (restored && sectorPositionModel(sector).location(restored).sector === sector) next.worldPosition = restored;
         }
         const movedFrom = prev && prev.sector !== next.sector ? prev.sector : undefined;
         if (movedFrom !== undefined) this.removeFromSector(key, movedFrom);
@@ -521,7 +521,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
 
     commitWorldPosition(name: string, rawPosition: WorldPosition, expectedSequence: number, gaitPresentation?: OnlinePlayer['gaitPresentation']): OnlinePlayer | null {
         if (this === onlineStore) checkpointOnlinePresence();
-        const p = this.get(name), model = worldPositionModel(), position = model.read(rawPosition);
+        const p = this.get(name), model = sectorPositionModel(p?.sector ?? 0), position = model.read(rawPosition);
         if (!p || !position || p.inBattle || (p.movementSeq ?? 0) !== expectedSequence
             || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
         const location = model.location(position);

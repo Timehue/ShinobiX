@@ -1,6 +1,5 @@
 import { createWorldWalker } from '../../../shared/continuous-world-navigation';
 import type { WorldPoint } from '../../../shared/continuous-world-space';
-import { nearestWalkableTile } from '../../../shared/sector-walk-mask';
 import { cameraLean, createContinuousWorldRenderer, worldTilesAcross, type LeanBox } from './continuous-world-renderer';
 import { loadContinuousWorld, worldMovementRequest, type WorldMovementReply } from './continuous-world-client';
 import { bindContinuousWorldControl } from './continuous-world-control';
@@ -13,7 +12,7 @@ import { createGaitBrake } from './world-gait-brake';
 import { MOVEMENT_KEYS, heldDirection } from './held-direction';
 import type { WorldRunWindow } from '../../../shared/world-run';
 
-type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivElement;
+type Host = { space?: import('../../../shared/continuous-world-space').VersionedWorldSpace; canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivElement;
     groundStride?: GroundStride;
     sprintStyle?: () => import('../../../shared/player-model-ref').SprintStyle;
     gait?: () => 'walk' | 'run' | undefined;
@@ -36,7 +35,7 @@ const directions = MOVEMENT_KEYS;
 export async function mountContinuousWorld(host: Host) {
     const asked = worldMovementRequest(undefined, undefined, host.signal);
     asked.catch(() => {}); // awaited below; this only keeps an early failure from going unhandled
-    const world = await loadContinuousWorld();
+    const world = await loadContinuousWorld(host.space);
     host.signal.throwIfAborted();
     const renderer = createContinuousWorldRenderer(host.canvas, world.space, world.navigation);
     /** Lays the DOM layers (figure, landmarks, residents) over a drawn view. */
@@ -123,6 +122,17 @@ export async function mountContinuousWorld(host: Host) {
         return [...spots, ...speakers, ...landmarks, ...residents.slice(0, 1)];
     };
     const resumable = (reply: WorldMovementReply) => refusedInRow === 1 && (reply.reason === 'speed' || reply.reason === 'busy');
+    let coastRefusal = '';
+    let arrival: { id: string; done: () => void } | undefined;
+    let confirmed = initialPosition;
+    function checkArrival() {
+        if (arrival && !walker.moving && ((arrival.id === confirmed.from && confirmed.progress < 1e-9)
+            || (arrival.id === confirmed.to && confirmed.progress > 1 - 1e-9))) {
+            const { done } = arrival;
+            arrival = undefined;
+            done();
+        }
+    }
     function accept(reply: WorldMovementReply) {
         if (staleReply(reply, world.space.layoutVersion)) { stale = true; walker.stop(); held = null; host.onStatus(STALE_WORLD_STATUS); return false; }
         const cursor = world.model.read(reply.worldPosition);
@@ -138,7 +148,10 @@ export async function mountContinuousWorld(host: Host) {
             if (!resumable(reply)) { walker.stop(); held = null; }
             walker.restore(cursor); pace.reset();
         }
-        host.onAuthority(sector, tile); return true;
+        confirmed = cursor;
+        host.onAuthority(sector, tile);
+        if (reply.ok) checkArrival(); else if (!resumable(reply)) arrival = undefined;
+        return true;
     }
     async function send(force = false, gait = host.gait?.()) {
         if (inFlight || resyncing || disposed || stale || host.signal.aborted) return false;
@@ -150,7 +163,8 @@ export async function mountContinuousWorld(host: Host) {
             const reply = await worldMovementRequest(update.cursor, sequence, host.signal, presentation);
             if (disposed || host.signal.aborted) return false;
             startupThrottled = reply.reason === 'throttled';
-            if (accept(reply)) { if (reply.ok) pace.accepted(update, performance.now() / 1000); if (requestedSector === sentSector) requestedSector = sector; sentCursor = reply.ok ? signature : ''; host.onStatus(reply.ok || resumable(reply) ? '' : 'Movement paused. Choose a new destination.'); return true; }
+            if (reply.reason === 'coast-locked') coastRefusal = reply.error ?? 'That trail is closed.';
+            if (accept(reply)) { if (reply.ok) pace.accepted(update, performance.now() / 1000); if (requestedSector === sentSector) requestedSector = sector; sentCursor = reply.ok ? signature : ''; host.onStatus(coastRefusal || (reply.ok || resumable(reply) ? '' : 'Movement paused. Choose a new destination.')); return true; }
             if (!stale) pace.dropped(update);
             return false;
         } catch { if (!disposed) { pace.dropped(update); walker.stop(); held = null; host.onStatus('Connection interrupted. Movement paused.'); } }
@@ -171,17 +185,24 @@ export async function mountContinuousWorld(host: Host) {
     if (!adopted || host.signal.aborted) { renderer.dispose(); host.marker.style.visibility = ''; }
     if (!adopted) throw new Error('World presence is not ready. Try again.');
     if (host.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-    const chooseDestination = (destination: string) => {
+    const chooseDestination = (destination: string, arrived?: () => void) => {
         if (host.blocked()) return;
+        coastRefusal = '';
+        arrival = arrived ? { id: destination, done: arrived } : undefined;
         held = null; brake = null;
         // Closing a modal refreshes authority. Keep an input received during
         // that refresh instead of letting it discard the chosen route.
         if (resumed || resyncing || requestedSector !== sector) { pendingDestination = destination; return; }
-        pendingDestination = null; walker.go(destination);
+        pendingDestination = null; walker.go(destination); checkArrival();
     };
-    const go = (targetSector: number, targetTile: number) => chooseDestination(`${targetSector}:${nearestWalkableTile(targetSector, targetTile)}`);
-    const unbind = bindContinuousWorldControl(destination => go(destination.sector, destination.tile));
+    const go = (targetSector: number, targetTile: number, arrived?: () => void) => {
+        const target = world.model.fallback(targetSector, targetTile);
+        if (target) chooseDestination(target.from, arrived);
+    };
+    const unbind = bindContinuousWorldControl(destination => go(destination.sector, destination.tile, destination.arrived));
     function steer(direction: WorldPoint, replace: boolean) {
+        coastRefusal = '';
+        arrival = undefined;
         const gait=host.gait?.();
         // Only a reversal brakes to a stop and restarts. A 90-degree turn keeps the
         // stride: the walker finishes the tile it is on (walker.step re-routes to
@@ -204,7 +225,7 @@ export async function mountContinuousWorld(host: Host) {
         const target = event.target as HTMLElement, key = event.key.toLowerCase();
         if (host.blocked() || target.closest('input,textarea,select,[contenteditable],[data-sector-hud],[role=dialog]')) return;
         if (key.startsWith('arrow') && target.closest('button,a,[role=button],[tabindex]:not(canvas):not([tabindex="-1"])')) return;
-        if (key === 'e' || key === 'escape') { heldKeys.length = 0; held = null; brake = null; pendingDestination = null; walker.stop(); return; }
+        if (key === 'e' || key === 'escape') { arrival = undefined; heldKeys.length = 0; held = null; brake = null; pendingDestination = null; walker.stop(); return; }
         const direction = directions[key]; if (!direction) return;
         // Cmd+D, Ctrl+Arrow and the like are shortcuts, not steps. macOS also sends
         // no keyup for a key let go while Cmd is down, so it would stay "held".
@@ -277,7 +298,7 @@ export async function mountContinuousWorld(host: Host) {
             if (staleReply(reply, world.space.layoutVersion)) { stale = true; resumed = false; host.onStatus(STALE_WORLD_STATUS); }
             else if (reply.ok && cursor && !disposed) {
                 if (reply.run) host.onRunWindow?.(reply.run);
-                walker.restore(cursor); sequence = reply.sequence ?? 0; sector = reply.sector!; tile = reply.tile!; resumed = false;
+                walker.restore(cursor); confirmed = cursor; sequence = reply.sequence ?? 0; sector = reply.sector!; tile = reply.tile!; resumed = false;
                 requestedSector = sector; pace.reset(); sentCursor = ''; host.onAuthority(sector, tile); host.onStatus('');
                 const destination = pendingDestination; pendingDestination = null;
                 if (destination && !host.blocked()) walker.go(destination);

@@ -63,6 +63,21 @@ test('crossing roads never invent an adjacency between unrelated sector pairs', 
     }
 });
 
+test('a destination on the admitted side lets a player walk back from a closed boundary', () => {
+    const from = [...nodes.values()].find(n => n.neighbors.some(id => nodes.get(id)!.sector !== n.sector))!;
+    const to = from.neighbors.find(id => nodes.get(id)!.sector !== from.sector)!;
+    const walker = createWorldWalker(nodes, from.id);
+    assert(walker.restore({ layoutVersion: 'test', from: from.id, to, progress: .49 }));
+    const position = walker.position;
+    assert(walker.go(from.id));
+    assert.deepEqual(walker.position, position);
+    while (walker.moving) {
+        walker.tick(.05);
+        assert(worldDistance(walker.position, from) <= worldDistance(position, from));
+    }
+    assert.equal(walker.node.id, from.id);
+});
+
 test('a cursor restores the exact intermediate position after a reload', () => {
     const road = space.roads[0]!, a = `${road.a.sector}:${road.a.tile}`, b = `${road.b.sector}:${road.b.tile}`;
     const walker = createWorldWalker(nodes, a); walker.go(b); walker.tick(.05);

@@ -47,7 +47,7 @@ const PeerFigures = memo(function PeerFigures({ figures, elements, models, artBa
  * and the poll arrive through this component's own store subscription and
  * state, which re-render it regardless of the memo.
  */
-export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector, selfName, sharedImages, sleepers }: ContinuousWorldPeersProps) {
+export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ space, sector, selfName, sharedImages, sleepers }: ContinuousWorldPeersProps) {
     const live = useLiveSectorPlayers();
     const artBase=useWorldModelArtBase(), gaits=usePlayerGaits();
     const models=useRef(new Map<string,SectorModelHandle>());
@@ -69,7 +69,7 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
     // Mounted by name, not in the server's nearest-first order: that order changes
     // as anyone moves, and two peers on one tile then swapped in front every poll.
     const figures = [...peers].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0).map((peer): PeerFigure => ({ name: peer.name, level: peer.level,
-        local: peer.currentSector===sector, style: peer.gaitPresentation?.style,
+        local: Boolean(space) || peer.currentSector===sector, style: peer.gaitPresentation?.style,
         starter: starterModel(peer.character?.avatarImage || sharedAvatarFor(sharedImages, peer.name) || '', peer.character?.starterWorldModel),
         model: isPlayerModel(peer.character?.playerModel) ? peer.character.playerModel : undefined,
         sleeping: peer.sleeping === true }));
@@ -89,7 +89,7 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
             wake.current?.();
         }) : null;
         if (parent) resize?.observe(parent);
-        void loadContinuousWorld().then(world => {
+        void loadContinuousWorld(space).then(world => {
             if (!alive) return;
             const chunk = world.space.chunks.find(c => c.sector === sector)!;
             const tick = (now: number) => {
@@ -165,7 +165,7 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ sector,
             if (latest.current.length) wake.current();
         }).catch(() => { /* The terrain connection shows its own retry state. */ });
         return () => { alive = false; wake.current = null; cancelAnimationFrame(frame); resize?.disconnect(); };
-    }, [sector]);
+    }, [sector, space]);
     return <div className="continuous-world-peers" ref={root} aria-hidden="true"><PeerFigures figures={figures} elements={elements} models={models} artBase={gaits && artBase || ''} />
         {allPeers.length > peers.length && <div className="sector-peers-overflow">+{allPeers.length - peers.length} more here</div>}</div>;
 }, sameContinuousWorldPeersProps);

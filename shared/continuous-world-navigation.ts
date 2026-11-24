@@ -34,7 +34,7 @@ function* navigationSteps(space: ContinuousWorldSpace): Generator<void, WorldNav
     const nodes = new Map<string, WorldNode>();
     const tileId = (sector: number, tile: number) => `${sector}:${tile}`;
     for (const chunk of space.chunks) {
-        const tiles = new Set(walkableTiles(chunk.sector));
+        const tiles = new Set(walkableTiles(chunk.sector, true, chunk.mask));
         for (const tile of tiles) {
             const id = tileId(chunk.sector, tile);
             nodes.set(id, { id, sector: chunk.sector, tile, ...paintedTilePoint(chunk, tile),
@@ -184,9 +184,15 @@ export function createWorldWalker(nodes: ReadonlyMap<string, WorldNode>, start: 
             return true;
         },
         go(to: string) {
-            const anchor = segmentTarget ?? id;
+            // A refused boundary can leave the cursor halfway to the closed sector.
+            // A destination back in the current sector must use the admitted endpoint.
+            const retreat = segmentTarget && nodes.get(segmentTarget)!.sector !== nodes.get(id)!.sector
+                && nodes.get(to)?.sector === nodes.get(id)!.sector
+                && worldDistance(position, nodes.get(id)!) <= worldDistance(position, nodes.get(segmentTarget)!);
+            const anchor = retreat ? id : segmentTarget ?? id;
             const path = worldRoute(nodes, anchor, to);
             if (!path) return false;
+            if (retreat) { id = segmentTarget!; segmentTarget = anchor; }
             pivot = null;
             // Complete the current segment before replacing a route, avoiding a mid-step jump.
             route = worldDistance(position, nodes.get(anchor)!) > 1e-8 ? [anchor, ...path.slice(1)] : path.slice(1);

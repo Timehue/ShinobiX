@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { readWorldGaitPresentation } from '../../shared/player-model-ref.js';
-import { worldPositionModel } from '../../shared/continuous-world-layout.js';
+import { sectorPositionModel } from '../_coast-walk-space.js';
+import { coastExits } from '../../shared/coast-world.js';
+import { sameWorldMap, isCoastSector } from '../../shared/world-maps.js';
+import { coastEntryRefusalFor } from '../_coast-admission.js';
 import { sectorExits } from '../../shared/sector-links.js';
 import { onlineStore } from './online-store.js';
 import { createWorldMovementGate } from './world-movement.js';
@@ -16,16 +19,18 @@ import { sectorPlayerGaitsEnabled } from '../_release-flags.js';
 
 const gate = createWorldMovementGate(), pending = new Set<string>();
 export function worldMovementSnapshot(player: OnlinePlayer) {
-    return { sector: player.sector, tile: player.tile, sequence: player.movementSeq ?? 0,
-        worldPosition: worldPositionModel().read(player.worldPosition) ?? worldPositionModel().fallback(player.sector, player.tile ?? 78) };
+    const model = sectorPositionModel(player.sector);
+    const worldPosition = model.read(player.worldPosition) ?? model.fallback(player.sector, player.tile ?? 78);
+    return { sector: player.sector, tile: player.tile ?? (worldPosition ? model.location(worldPosition).tile : undefined),
+        sequence: player.movementSeq ?? 0, worldPosition };
 }
 
 /** Owner approved nearby presentation. Combat still uses authoritative sectors. */
 export function nearbyWorldPlayers(viewer: OnlinePlayer) {
-    const model = worldPositionModel(), cursor = worldMovementSnapshot(viewer).worldPosition;
+    const model = sectorPositionModel(viewer.sector), cursor = worldMovementSnapshot(viewer).worldPosition;
     if (!cursor) return [];
     const origin = model.point(cursor), now = Date.now();
-    return onlineStore.list().filter(p => p.name !== viewer.name && (p.travelingUntil ?? 0) <= now).flatMap(player => {
+    return onlineStore.list().filter(p => p.name !== viewer.name && sameWorldMap(viewer.sector, p.sector) && (p.travelingUntil ?? 0) <= now).flatMap(player => {
         const position = model.read(player.worldPosition) ?? model.fallback(player.sector, player.tile ?? 78);
         if (!position) return [];
         const distance = worldDistance(origin, model.point(position));
@@ -52,8 +57,15 @@ export async function applyWorldMovement(name: string, payload: unknown) {
         const origin = player.sector;
         let moved: OnlinePlayer | null;
         if (admitted.sector !== origin) {
-            const exit = sectorExits(origin).find(e => e.destinationSector === admitted.sector);
+            const exit = (isCoastSector(origin) ? coastExits(origin) : sectorExits(origin)).find(e => e.destinationSector === admitted.sector);
             if (!exit) return { ok: false as const, reason: 'road', ...worldMovementSnapshot(player) };
+            if (isCoastSector(admitted.sector)) {
+                const refusal = await coastEntryRefusalFor(name, admitted.sector, now);
+                if (refusal) return { ok: false as const, reason: 'coast-locked', error: refusal.error, ...worldMovementSnapshot(player) };
+                const current = onlineStore.get(name);
+                if (!current || current.sector !== origin || (current.movementSeq ?? 0) !== sequence || current.inBattle || (current.travelingUntil ?? 0) > now)
+                    return { ok: false as const, reason: 'superseded', ...(current ? worldMovementSnapshot(current) : {}) };
+            }
             const lease: TravelLease = { originSector: origin, destinationSector: admitted.sector, arrivalAt: now,
                 arrivalTile: admitted.tile, worldPosition: admitted.position, moveId: randomUUID().replace(/-/g, '') };
             await setTravelLease(name, lease, now);

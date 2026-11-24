@@ -66,3 +66,17 @@ export function getPvpItemLoadout(character: Character, allItems: GameItem[]): G
     const equippedIds = new Set(Object.values(combatEquipment(character.equipment ?? {})).filter((id): id is string => Boolean(id)));
     return allItems.filter((item) => equippedIds.has(item.id));
 }
+
+export function pvpFighterLoadout(fighter: Character, items: GameItem[], bloodlineMult: number) {
+    return {
+        pvpItems: getPvpItemLoadout(fighter, items),
+        bloodlineMult,
+        armorFactor: getCharacterArmorFactor(fighter, items),
+        armorRawDR: getCharacterArmorRawDR(fighter, items),
+        itemDamagePct: getEquippedItemBonus(fighter, items, "damagePercent"),
+        itemAbsorbPct: getEquippedItemBonus(fighter, items, "absorbPercent"),
+        itemReflectPct: getEquippedItemBonus(fighter, items, "reflectPercent"),
+        itemLifeStealPct: getEquippedItemBonus(fighter, items, "lifeStealPercent"),
+        itemShield: getEquippedItemBonus(fighter, items, "shield"),
+    };
+}

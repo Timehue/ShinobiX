@@ -84,17 +84,16 @@ export async function checkResidents({page,board,world,sector,post,list,capture,
                 const pose=seated ? 'gambler-seated-v1.webp' : p.model+(room==='Street'?'.webp':'-room-v1.webp');
                 await expect(sprite).toHaveAttribute('src','/coast-map/residents/'+pose);
                 assert(await picture(actor.locator('img.sector-avatar-sprite'))>0);
-                if(seated) await expect(actor.locator('.sector-model-figure')).toHaveCount(0);
-                else if(models) await expect(actor).toHaveClass(/has-sector-model/,{timeout:85000});
+                if(models) await expect(actor).toHaveClass(/has-sector-model/,{timeout:85000});
                 const traveler=floor.locator('.stairs-player');
                 if(models) await expect(traveler).toHaveClass(/has-sector-model/,{timeout:85000});
                 const selector=models ? '.sector-model-figure' : '.sector-avatar-sprite';
                 const scene=await floor.boundingBox();
-                const actorBox=await (seated ? sprite : actor.locator(selector)).boundingBox();
+                const actorBox=await actor.locator(selector).boundingBox();
                 const actorHeight=actorBox.height/scene.height;
                 const playerHeight=(await traveler.locator(selector).boundingBox()).height/scene.height;
                 const low=room==='Street'?.068:.18, high=room==='Street'?.135:.29;
-                if(seated){
+                if(seated && !models){
                     const centerX=(actorBox.x+actorBox.width/2-scene.x)/scene.width;
                     const kneesY=(actorBox.y+actorBox.height-scene.y)/scene.height;
                     assert(Math.abs(centerX-.131)<.005 && Math.abs(kneesY-.352)<.005,'Diner misses the cushion');
@@ -210,7 +209,7 @@ export async function checkRoom({page,board,world,sector,prepared,capture,expect
     const entry=page.locator('.coast-site-sheet');
     await button(entry,'Enter '+site.name).click();
     const room=entry.locator('.coast-room-board');
-    await expect(room.locator('.coast-traveler')).toHaveCount(2);
+    await expect(room.locator('.stairs-player, .coast-patrol')).toHaveCount(2);
     const face=room.getByRole('img',{name:keeper.label,exact:true});
     assert(await picture(face)>0);
     await expect(face).toHaveAttribute('src',keeper.image);
@@ -224,7 +223,7 @@ export async function checkRoom({page,board,world,sector,prepared,capture,expect
         const up=site.floors[floor-1].stairs.find(s=>s.to===floor);
         await button(room,up.label).click();
         await expect(room).toHaveAttribute('data-floor',String(floor+1));
-        await expect(room.locator('.coast-traveler')).toHaveCount(1);
+        await expect(room.locator('.stairs-player, .coast-patrol')).toHaveCount(1);
         for(const clue of site.floors[floor].stations.filter(s=>s.clue)) {
             await button(room,clue.name).click();
             await expect(entry.locator('[role=status]')).toHaveText(clue.detail);
@@ -248,7 +247,7 @@ export async function checkRoom({page,board,world,sector,prepared,capture,expect
         } else await stair.click();
         await expect(room).toHaveAttribute('data-floor',String(floor));
     }
-    await expect(room.locator('.coast-traveler')).toHaveCount(2);
+    await expect(room.locator('.stairs-player, .coast-patrol')).toHaveCount(2);
     await button(entry,'Walk outside').click();
     await expect(entry).toHaveCount(0);
     await expect(board).toHaveAttribute('data-tile',String(site.returnTile??site.approach));

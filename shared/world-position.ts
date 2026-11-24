@@ -1,11 +1,12 @@
 import type { WorldNode } from './continuous-world-navigation';
-import { worldDistance, type WorldPoint, type WorldRoad } from './continuous-world-space';
-import { nearestWalkableTile } from './sector-walk-mask';
+import { worldDistance, type WorldChunk, type WorldPoint, type WorldRoad } from './continuous-world-space';
+import { nearestInMask, sectorWalkMask } from './sector-walk-mask';
 
 /** Server-owned cursor on a versioned, walkable world edge. Never raw client x/y. */
 export type WorldPosition = { layoutVersion: string; from: string; to: string; progress: number };
 
-export function createWorldPositionModel(layoutVersion: string, nodes: ReadonlyMap<string, WorldNode>, roads: readonly WorldRoad[]) {
+export function createWorldPositionModel(layoutVersion: string, nodes: ReadonlyMap<string, WorldNode>, roads: readonly WorldRoad[], chunks?: readonly WorldChunk[]) {
+    const masks = new Map(chunks?.map(chunk => [chunk.sector, chunk.mask]));
     const roadById = new Map(roads.map(r => [`${r.a.sector}-${r.b.sector}`, r]));
     const read = (value: unknown): WorldPosition | null => {
         if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -27,7 +28,7 @@ export function createWorldPositionModel(layoutVersion: string, nodes: ReadonlyM
         return { sector: node.sector, tile };
     };
     const fallback = (sector: number, tile: number): WorldPosition | null => {
-        const id = `${sector}:${nearestWalkableTile(sector, tile)}`;
+        const id = `${sector}:${nearestInMask(masks.get(sector) ?? sectorWalkMask(sector), tile)}`;
         return nodes.has(id) ? { layoutVersion, from: id, to: id, progress: 0 } : null;
     };
     /** Bounded graph distance prevents a short XY jump across two unrelated roads. */

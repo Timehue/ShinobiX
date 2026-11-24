@@ -61,21 +61,11 @@ export async function checkRoads({page,board,world,sector,capture,expect,readSav
     const crossings=[];
     async function follow(from,edge) {
         const title=world.sectors[edge.destinationSector].name;
-        const wait=page.waitForResponse(r=>r.url().endsWith('/api/player/travel') && r.request().method()==='POST');
-        const bounds=await board.boundingBox();
-        const x=(edge.tile%12+.5)*bounds.width/12, y=(Math.floor(edge.tile/12)+.5)*bounds.height/12;
-        if(crossings.length===0) {
-            const direction={north:['ArrowUp',12],south:['ArrowDown',-12],east:['ArrowRight',-1],west:['ArrowLeft',1]}[edge.direction];
-            const near=edge.tile+direction[1];
-            await board.click({position:{x:(near%12+.5)*bounds.width/12,y:(Math.floor(near/12)+.5)*bounds.height/12}});
-            await expect(board).toHaveAttribute('data-tile',String(near));
-            await board.focus(); await page.keyboard.press(direction[0]);
-        } else await board.click({position:{x,y}});
-        const response=await wait, reply=await response.json();
-        assert(response.ok(),JSON.stringify(reply)); assert.equal(reply.arrivalTile,edge.destinationTile);
+        await button(board,'Follow the '+edge.direction+' trail').press('Enter');
+        await expect(board.locator('canvas')).toHaveAttribute('data-world-sector',String(edge.destinationSector),{timeout:120000});
         await expect(page.locator('.sector-hud-heading strong')).toHaveText(title);
-        await expect(board).toHaveAttribute('data-tile',String(edge.destinationTile));
-        crossings.push({from,to:edge.destinationSector,arrival:reply.arrivalTile});
+        await expect(board).toHaveAttribute('data-tile',String(edge.destinationTile),{timeout:120000});
+        crossings.push({from,to:edge.destinationSector,arrival:edge.destinationTile});
     }
     for(const out of layout.exits) {
         await follow(sector,out);

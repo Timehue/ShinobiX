@@ -2,7 +2,7 @@ import type { PlayerRecord } from '../types/character';
 import type { SectorPeer } from '../components/SectorPeers';
 import { playerSlug } from './utils';
 
-export type ContinuousWorldPeersProps = { sector: number; selfName: string; sharedImages: Record<string, string>; sleepers: SectorPeer[] };
+export type ContinuousWorldPeersProps = { space?: import('../../../shared/continuous-world-space').VersionedWorldSpace; sector: number; selfName: string; sharedImages: Record<string, string>; sleepers: SectorPeer[] };
 
 function sameSleepers(a: readonly SectorPeer[], b: readonly SectorPeer[]): boolean {
     return a === b || (a.length === b.length && a.every((s, i) => s.name === b[i].name && s.tile === b[i].tile
@@ -14,7 +14,7 @@ function sameSleepers(a: readonly SectorPeer[], b: readonly SectorPeer[]): boole
  * render, so it is compared by content; the other props by identity.
  */
 export function sameContinuousWorldPeersProps(a: ContinuousWorldPeersProps, b: ContinuousWorldPeersProps): boolean {
-    return a.sector === b.sector && a.selfName === b.selfName && a.sharedImages === b.sharedImages && sameSleepers(a.sleepers, b.sleepers);
+    return a.space === b.space && a.sector === b.sector && a.selfName === b.selfName && a.sharedImages === b.sharedImages && sameSleepers(a.sleepers, b.sleepers);
 }
 
 /** Cosmetic world markers. The action roster remains complete and uncapped. */

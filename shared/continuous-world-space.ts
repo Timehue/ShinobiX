@@ -1,7 +1,8 @@
 import { SECTOR_POINTS, SECTOR_ROAD_PAIRS, sectorExits, type SectorExit } from './sector-links';
 
 export type WorldPoint = { x: number; y: number };
-export type WorldChunk = WorldPoint & { sector: number; size: number };
+export type WorldChunk = WorldPoint & { sector: number; size: number; mask?: readonly string[]; floor?: string; biome?: string };
+export type VersionedWorldSpace = ContinuousWorldSpace & { layoutVersion: string };
 export type WorldRoad = { a: SectorExit; b: SectorExit; points: WorldPoint[]; length: number };
 export type ContinuousWorldSpace = { chunks: WorldChunk[]; roads: WorldRoad[] };
 const SIZE = 12;

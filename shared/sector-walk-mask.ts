@@ -65,6 +65,6 @@ export function walkPath(sector: number, from: number, to: number, enabled = tru
     return pathInMask(sectorWalkMask(sector, enabled), from, to);
 }
 
-export function walkableTiles(sector: number, enabled = true): number[] {
-    return Array.from({ length: TILE_COUNT }, (_, tile) => tile).filter(tile => isWalkableTile(sector, tile, enabled));
+export function walkableTiles(sector: number, enabled = true, mask = sectorWalkMask(sector, enabled)): number[] {
+    return Array.from({ length: TILE_COUNT }, (_, tile) => tile).filter(tile => walkableInMask(mask, tile));
 }

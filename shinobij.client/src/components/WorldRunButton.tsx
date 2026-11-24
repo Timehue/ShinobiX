@@ -1,9 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameArtIcon } from './GameArtIcon';
 import { worldRunRequest } from '../lib/continuous-world-client';
 import { WORLD_RUN_MS, type WorldRunWindow } from '../../../shared/world-run';
 
 export type WorldRunTimers = { endsAt: number; readyAt: number };
+
+export function useWorldRun() {
+    const [timers, setTimers] = useState<WorldRunTimers>({ endsAt: 0, readyAt: 0 });
+    const runningUntilRef = useRef(0), lastRunResponseRef = useRef(0);
+    const onRunWindow = useCallback(({ endsAt, readyAt, serverTime }: WorldRunWindow) => {
+        if (serverTime < lastRunResponseRef.current) return;
+        lastRunResponseRef.current = serverTime;
+        const now = performance.now();
+        runningUntilRef.current = endsAt > serverTime ? now + endsAt - serverTime : 0;
+        setTimers({ endsAt: runningUntilRef.current, readyAt: readyAt > serverTime ? now + readyAt - serverTime : 0 });
+    }, []);
+    return { timers, runningUntilRef, lastRunResponseRef, onRunWindow };
+}
 
 export function WorldRunButton({ timers, onWindow }: {
     timers: WorldRunTimers;

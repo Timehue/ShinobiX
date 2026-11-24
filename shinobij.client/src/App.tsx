@@ -454,10 +454,7 @@ export type SharedPvpBattleContext = PvpRecoveryContext;
 // Equipment/armor-derived combat stats (armor factor, raw DR, item-bonus sum,
 // PvP loadout) + the active-pet trait helper extracted to ./lib/equipment-stats.
 import {
-    getCharacterArmorFactor,
-    getCharacterArmorRawDR,
-    getEquippedItemBonus,
-    getPvpItemLoadout,
+    pvpFighterLoadout,
 } from "./lib/equipment-stats";
 
 // GameItem / EquipmentSlots / SavedBloodline / ReviewBloodline /
@@ -2401,29 +2398,12 @@ export default function App() {
                     p1Character: {
                         ...p1Character,
                         jutsu: p1Jutsus,
-                        pvpItems: getPvpItemLoadout(p1Character, p1AllItems),
-                        bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines),
-                        armorFactor: getCharacterArmorFactor(p1Character, p1AllItems),
-                        armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems),
-                        itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent"),
-                        // Named-armor passives — server clamps these in session.ts.
-                        itemAbsorbPct:    getEquippedItemBonus(p1Character, p1AllItems, "absorbPercent"),
-                        itemReflectPct:   getEquippedItemBonus(p1Character, p1AllItems, "reflectPercent"),
-                        itemLifeStealPct: getEquippedItemBonus(p1Character, p1AllItems, "lifeStealPercent"),
-                        itemShield:       getEquippedItemBonus(p1Character, p1AllItems, "shield"),
+                        ...pvpFighterLoadout(p1Character, p1AllItems, challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines)),
                     },
                     p2Character: {
                         ...p2Character,
                         jutsu: p2Jutsus,
-                        pvpItems: getPvpItemLoadout(p2Character, p2AllItems),
-                        bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines),
-                        armorFactor: getCharacterArmorFactor(p2Character, p2AllItems),
-                        armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems),
-                        itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent"),
-                        itemAbsorbPct:    getEquippedItemBonus(p2Character, p2AllItems, "absorbPercent"),
-                        itemReflectPct:   getEquippedItemBonus(p2Character, p2AllItems, "reflectPercent"),
-                        itemLifeStealPct: getEquippedItemBonus(p2Character, p2AllItems, "lifeStealPercent"),
-                        itemShield:       getEquippedItemBonus(p2Character, p2AllItems, "shield"),
+                        ...pvpFighterLoadout(p2Character, p2AllItems, getBloodlineMultiplier(p2Character, p2SavedBloodlines)),
                     },
                 });
             const createScope = capturePvpCreateScope(acceptingCharacter.name);

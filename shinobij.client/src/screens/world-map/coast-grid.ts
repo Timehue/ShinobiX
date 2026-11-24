@@ -1,4 +1,5 @@
-import { SECTOR_GRID_WIDTH as GRID, tileNeighbors as neighbours, walkableInMask as open } from "../../../../shared/sector-walk-mask";
+import { sectorGaitTilesPerSecond } from '../../../../shared/sector-gait-rates';
+import { SECTOR_GRID_WIDTH as GRID, tileNeighbors as neighbours, walkableInMask as open, pathInMask, nearestInMask } from "../../../../shared/sector-walk-mask";
 export { GRID, neighbours, open };
 export const STEP = { ArrowUp: -GRID, ArrowDown: GRID, ArrowLeft: -1, ArrowRight: 1, w: -GRID, s: GRID, a: -1, d: 1 } as Record<string, number>;
 export const col = (tile: number) => tile % GRID, row = (tile: number) => Math.floor(tile / GRID);
@@ -12,15 +13,25 @@ export function footprintStyle(x: number, y: number, width: number, height = wid
 
 /** Shortest walk over open ground, or null when there is none. */
 export function pathTo(mask: readonly string[], from: number, to: number): number[] | null {
-    if (!open(mask, to)) return null;
-    const parent = new Map<number, number | null>([[from, null]]), queue = [from];
-    for (const here of queue) {
-        if (here === to) {
-            const trail: number[] = [];
-            for (let step = to; step !== from; step = parent.get(step)!) trail.push(step);
-            return trail.reverse();
+    return pathInMask(mask, from, to)?.slice(1) ?? null;
+}
+
+/** A patrol follows the painted trail. A resident paces a short stretch near their station. */
+export function coastRoutine(mask: readonly string[], tile: number, patrol: boolean) {
+    const road = patrol ? mask.map(row => row.replaceAll(".", "#")) : mask;
+    const start = nearestInMask(road, tile);
+    const radius = patrol ? 7 : 2;
+    const candidates = Array.from({ length: 144 }, (_, i) => i).filter(i => open(road, i)
+        && Math.abs(col(i) - col(start)) + Math.abs(row(i) - row(start)) <= radius);
+    const distance = (i: number) => Math.abs(col(i) - col(start)) + Math.abs(row(i) - row(start));
+    for (const end of candidates.sort((a, b) => distance(b) - distance(a))) {
+        const path = pathInMask(road, start, end);
+        if (path && path.length > 1) {
+            const circuit = [...path, ...path.toReversed(), start];
+            const step = 1000 / sectorGaitTilesPerSecond.walk;
+            return { start: tile * 1000, repeat: (circuit.length - 1) * step,
+                frames: circuit.map((at, i) => [i * step, at] as const) };
         }
-        for (const next of neighbours(here)) if (!parent.has(next) && open(mask, next)) { parent.set(next, here); queue.push(next); }
     }
-    return null;
+    return undefined;
 }

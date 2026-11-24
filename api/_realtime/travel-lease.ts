@@ -12,7 +12,7 @@ import { coastBiomeOf } from '../../shared/coast-world.js';
 import { isCoastSector } from '../../shared/world-maps.js';
 import { SECTOR_TILE_COUNT } from '../../shared/sector-links.js';
 import { randomUUID } from 'node:crypto';
-import { worldPositionModel } from '../../shared/continuous-world-layout.js';
+import { sectorPositionModel } from '../_coast-walk-space.js';
 import type { WorldPosition } from '../../shared/world-position.js';
 
 const TRAVEL_LEASE_PREFIX = 'world:travel-lease:';
@@ -74,8 +74,8 @@ export function parseTravelLease(value: unknown): TravelLease | null {
     const rawTile = typeof input.arrivalTile === 'number' ? Math.floor(input.arrivalTile) : NaN;
     const arrivalTile = Number.isFinite(rawTile) && rawTile >= 0 && rawTile < SECTOR_TILE_COUNT ? rawTile : undefined;
     const moveId = typeof input.moveId === 'string' && MOVE_ID_PATTERN.test(input.moveId) ? input.moveId : undefined;
-    const position = input.worldPosition && worldPositionModel().read(input.worldPosition);
-    const worldPosition = position && worldPositionModel().location(position).sector === destinationSector ? position : undefined;
+    const position = input.worldPosition && sectorPositionModel(destinationSector).read(input.worldPosition);
+    const worldPosition = position && sectorPositionModel(destinationSector).location(position).sector === destinationSector ? position : undefined;
     return {
         originSector,
         destinationSector,
