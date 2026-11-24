@@ -21,6 +21,41 @@ const TILE = 256;
 export const worldTilesAcross = (width: number) => width >= 528 ? 12 : Math.max(7, width / 52);
 /** A box [left, top, right, bottom] in tiles, measured from the player's feet. */
 export type LeanBox = number[];
+// Ground samples measured on 300 px proofs of the existing square Coast paintings.
+const coastBrushes = [
+    [[101,125,76], [101,171,108], [103,155,129], [103,27,148]],
+    [[111,52,64], [111,119,151], [112,143,131], [112,187,166]],
+    [[121,104,153], [121,125,180], [122,89,177], [122,130,183]],
+    [[131,58,148], [131,114,170], [132,138,166], [132,175,187]],
+    [[142,79,149], [142,113,155], [142,150,170], [142,182,155]],
+] as const;
+/** Assemble the field once from the original paint. Release the small brush canvases afterwards. */
+function paintCoastGround(ctx: CanvasRenderingContext2D, region: number, floors: HTMLImageElement[]) {
+    const size = ctx.canvas.width, cell = 213, radius = cell / 2;
+    const brushes = coastBrushes[region - 1]!.map(([, x, y], i) => {
+        const brush = document.createElement('canvas'); brush.width = brush.height = cell;
+        const context = brush.getContext('2d')!, floor = floors[i], unit = floor.naturalWidth / 300;
+        context.drawImage(floor, Math.round(x * unit), Math.round(y * unit), Math.round(65 * unit), Math.round(65 * unit), 0, 0, cell, cell);
+        const fade = context.createRadialGradient(radius, radius, radius - 25, radius, radius, radius);
+        fade.addColorStop(0, '#fff'); fade.addColorStop(1, '#fff0'); context.globalCompositeOperation = 'destination-in';
+        context.fillStyle = fade; context.fillRect(0, 0, cell, cell);
+        return brush;
+    });
+    let seed = [731, 1668815131, 3914624859, 3553953179, 2772032475][region - 1]!;
+    const random = () => (seed = (Math.imul(1664525, seed) + 1013904223) >>> 0) / 2 ** 32;
+    for (let row = 0; row < 12; row++) for (let col = 0; col < 12; col++) {
+        const brush = Math.floor(random() * 4), flip = random() < .5;
+        const x = col * size / 12 + Math.floor(random() * 38), y = row * size / 12 + Math.floor(random() * 38);
+        // A sample crossing the rim also paints the opposite rim, making the field tileable.
+        for (let left = x; left + cell > 0; left -= size) for (let top = y; top + cell > 0; top -= size) {
+            ctx.save(); ctx.translate(flip ? left + cell : left, top);
+            if (flip) ctx.scale(-1, 1);
+            ctx.drawImage(brushes[brush], 0, 0);
+            ctx.restore();
+        }
+    }
+    for (const brush of brushes) brush.width = brush.height = 0;
+}
 /** Where a zoomed-in camera centres, relative to the player's feet: on the player plus as many of
  *  `boxes` (most important first) as fit in the `across` × `down` tile view, with a margin. */
 export function cameraLean(boxes: LeanBox[], across: number, down: number) {
@@ -48,7 +83,6 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     const roadTextures = new Map<number, CanvasPattern>(), chunks = new Map(space.chunks.map(c => [c.sector, c]));
     const coast = space.chunks[0]?.floor?.startsWith('/coast-map/');
     const terrainKey = (chunk: WorldChunk) => coast ? String(coastRegionOf(chunk.sector)) : chunk.biome ?? sectorBiomeOf(chunk.sector);
-    const coastGroundSource = (region: string) => `/coast-map/trail-ground-${region}.webp`;
     const materials = new Map<string, HTMLImageElement>(), fieldSources = new Map<string, string>();
     const paintings = new Map<number, HTMLCanvasElement>();
     const crossings = worldRoadCrossings(space.roads);
@@ -170,11 +204,12 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         }
         return result;
     }
-    function fieldPainting(image: HTMLImageElement, tile?: number) {
+    function fieldPainting(image: HTMLImageElement | ((ctx: CanvasRenderingContext2D) => void), tile?: number) {
         const field = document.createElement('canvas');
-        const size = field.width = field.height = coast ? image.naturalWidth : 768;
+        const size = field.width = field.height = coast ? 1152 : 768;
         const context = field.getContext('2d')!;
-        if (tile === undefined) context.drawImage(image, 0, 0, size, size);
+        if (typeof image === 'function') image(context);
+        else if (tile === undefined) context.drawImage(image, 0, 0, size, size);
         else { context.fillStyle = context.createPattern(patch(image, tile), 'repeat')!; context.fillRect(0, 0, size, size); }
         const radius = size / 2, fade = context.createRadialGradient(radius, radius, radius * 310 / 384, radius, radius, radius);
         fade.addColorStop(0, '#fff'); fade.addColorStop(1, '#fff0');
@@ -184,8 +219,8 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     function texture(chunk: WorldChunk, image: HTMLImageElement) {
         const biome = terrainKey(chunk), mask = chunk.mask ?? sectorWalkMask(chunk.sector);
         if (!mask || !usable(image)) return;
-        const terrain = material(coast ? coastGroundSource(biome) : `/sector-map/world-terrain/${worldTerrainName(chunk.sector, biome)}.webp`);
-        const ready = usable(terrain), sourceKey = ready ? terrain.src : image.src;
+        const terrain = coast ? image : material(`/sector-map/world-terrain/${worldTerrainName(chunk.sector, biome)}.webp`);
+        const ready = usable(terrain), sourceKey = coast ? biome : ready ? terrain.src : image.src;
         // Until the material arrives, the first map's stand-in holds. Each map of the biome
         // used to rebuild it from its own art in turn, every frame, so the screen never went
         // idle (and never would, had the material's request failed).
@@ -218,8 +253,14 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             const chunk = nearestChunk(x, y), biome = chunk.biome ?? sectorBiomeOf(chunk.sector), key = terrainKey(chunk);
             let field = ground.get(key);
             if (coast && !field) {
-                const artwork = material(coastGroundSource(key));
-                if (usable(artwork)) { field = fieldPainting(artwork); ground.set(key, field); }
+                const region = Number(key);
+                const sources = coastBrushes[region - 1]!.map(([id]) => `/coast-map/s${id}.webp`);
+                const floors = sources.map(material);
+                if (floors.every(usable)) {
+                    field = fieldPainting(context => paintCoastGround(context, region, floors));
+                    ground.set(key, field);
+                    for (const source of sources) materials.delete(source);
+                }
             }
             if (coast && field) {
                 ctx.save(); ctx.translate(x, y); ctx.rotate(Math.floor(hash(x, y) * 4) * Math.PI / 2);
@@ -256,7 +297,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
                 let trail = roadTextures.get(region);
                 if (!trail && usable(straight)) {
                     trail = ctx.createPattern(straight, 'repeat')!;
-                    trail.setTransform(new DOMMatrix().translate(0, -.8).scale(1 / 80));
+                    trail.setTransform(new DOMMatrix().translate(0, -.8).scale(1 / 64, 1.6 / straight.naturalHeight));
                     roadTextures.set(region, trail);
                 }
                 for (let i = 1; i < road.points.length; i++) {
