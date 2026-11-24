@@ -115,6 +115,18 @@ test('both players see across the seam', async ({ context, browser, request, pag
         await expect(peer.locator('.continuous-world-peer').getByText(first.name, { exact: true })).toBeVisible();
         await page.screenshot({ path: info.outputPath('neighbour-101.png') });
         await peer.screenshot({ path: info.outputPath('neighbour-102.png') });
+        const canvas = page.locator('.continuous-world-map > canvas[tabindex]');
+        await canvas.scrollIntoViewIfNeeded();
+        const far = graph.byId.get(b)!;
+        const target = await canvas.evaluate((element, delta) => {
+            const self = element.parentElement!.querySelector('[data-world-self]')!;
+            const feet = self.getBoundingClientRect();
+            const size = parseFloat(getComputedStyle(self).getPropertyValue('--world-tile-px'));
+            return { x: feet.x + feet.width / 2 + delta.x * size, y: feet.bottom + delta.y * size };
+        }, { x: far.x - a.x, y: far.y - a.y });
+        if (info.project.use.hasTouch) await page.touchscreen.tap(target.x, target.y);
+        else await page.mouse.click(target.x, target.y);
+        await expect(canvas).toHaveAttribute('data-world-sector', '102');
     } finally { await other.close(); }
 });
 test('the starter and residents walk at the Stair Houses', async ({ page, context, request }, info) => {
