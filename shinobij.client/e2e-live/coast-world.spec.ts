@@ -1,6 +1,7 @@
 import { expect, type BrowserContext, type APIRequestContext } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { test } from './helpers/reconnecting-request';
 import { openWorld, seedWorldActor } from './helpers/world-actor';
 import { coastWalkSpace, sectorPositionModel } from '../../api/_coast-walk-space';
@@ -141,15 +142,144 @@ test('the starter and residents walk at the Stair Houses', async ({ page, contex
     await page.screenshot({ path: info.outputPath('stair-houses-resident.png') });
     if (process.env.SECTOR_MODEL_TEST_CONTENT) {
         const figure = room.locator('.stairs-player .sector-model-figure');
-        await room.focus(); await page.keyboard.down('ArrowUp');
+        await expect(figure).toBeVisible();
+        const floor = (await room.boundingBox())!;
+        const plaza = { position: { x: floor.width * 6.5 / 12, y: floor.height * 5.5 / 12 } };
+        if (info.project.use.hasTouch) await room.tap(plaza); else await room.click(plaza);
         await expect(figure).toHaveAttribute('data-gait', 'walk');
         await page.screenshot({ path: info.outputPath('starter-walking.png') });
-        await page.keyboard.up('ArrowUp');
-        const run = page.getByRole('button', { name: 'Run', exact: true });
-        await run.click();
+        await expect(room).toHaveAttribute('data-tile', '66');
+        await expect(figure).toHaveAttribute('data-gait', 'idle');
+        const run = room.getByRole('button', { name: 'Run', exact: true });
+        const control = (await run.boundingBox())!;
+        expect(control.width).toBeGreaterThanOrEqual(44);
+        expect(control.width).toBeLessThanOrEqual(48);
+        expect(control.height).toBe(control.width);
+        const standing = await room.getAttribute('data-tile');
+        if (info.project.use.hasTouch) await run.tap(); else await run.click();
         await expect(run).toHaveAttribute('data-run-state', 'running');
-        await room.getByRole('button', { name: 'Cook house', exact: true }).click();
+        await expect(room).toHaveAttribute('data-tile', standing!);
+        const tiles = await room.evaluate(async element => {
+            const floor = element as HTMLElement;
+            const before = Number(floor.dataset.tile);
+            const bounds = floor.getBoundingClientRect();
+            // Three choices of the same patch of ground beside the well, before
+            // the next paint. Keep the destination on the street to see the run.
+            for (let tap = 0; tap < 3; tap++) floor.dispatchEvent(new MouseEvent('click', {
+                bubbles: true, clientX: bounds.x + bounds.width * 2.5 / 12, clientY: bounds.y + bounds.height * 8.5 / 12
+            }));
+            await new Promise(requestAnimationFrame);
+            return [before, Number(floor.dataset.tile)];
+        });
+        expect(Math.abs(tiles[0] % 12 - tiles[1] % 12) +
+            Math.abs(Math.floor(tiles[0] / 12) - Math.floor(tiles[1] / 12))).toBeLessThanOrEqual(1);
         await expect(figure).toHaveAttribute('data-gait', 'run');
         await page.screenshot({ path: info.outputPath('starter-running.png') });
+    }
+});
+
+test('the painted starter fits the Boatwright’s Slip room in 2D mode', async ({ page, context, request }, info) => {
+    const slip = coastLayout(101)!.sites['saltstair-dock-101'];
+    await context.addInitScript(() => localStorage.setItem('worldAvatarMode.v1', '2d'));
+    await actor(request, context, model.fallback(101, slip.approach)!);
+    await openWorld(page);
+    await page.getByRole('button', { name: slip.verb + ': ' + slip.name, exact: true }).press('Enter');
+    await page.getByRole('button', { name: 'Enter ' + slip.name, exact: true }).click();
+    const room = page.locator('.coast-room-board');
+    const sprite = room.locator('.stairs-player > img');
+    await expect(sprite).toBeVisible();
+    await expect.poll(() => sprite.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    const pose = await sprite.evaluate(image => {
+        const rect = image.getBoundingClientRect();
+        return { scale: rect.height / image.closest('.coast-room-board')!.clientWidth,
+            feet: rect.bottom - image.parentElement!.getBoundingClientRect().bottom };
+    });
+    expect(pose.scale).toBeCloseTo(.22, 2);
+    expect(Math.abs(pose.feet)).toBeLessThan(1);
+    await page.screenshot({ path: info.outputPath('boatwright-room-2d.png') });
+});
+
+for (const fitted of [false, true]) test('the street roof hides a passing figure and clears the front of the shop (' +
+    (fitted ? 'fitted model' : '2D') + ')', async ({ page, context, request }, info) => {
+    test.skip(fitted && !process.env.SECTOR_MODEL_TEST_CONTENT, 'The fitted model needs the published model pages.');
+    const houses = coastLayout(105)!.sites['saltstair-houses-105'];
+    if (!fitted) await context.addInitScript(() => localStorage.setItem('worldAvatarMode.v1', '2d'));
+    await actor(request, context, model.fallback(105, houses.approach)!);
+    await openWorld(page);
+    await page.getByRole('button', { name: 'Enter ' + houses.name, exact: true }).first().click();
+    const room = page.locator('.stairs-street .coast-room-board');
+    const sprite = room.locator('.stairs-player > img');
+    const figure = room.locator('.stairs-player .sector-model-figure');
+    if (fitted) await expect(figure).toBeVisible(); else await expect(sprite).toBeVisible();
+    await expect.poll(() => sprite.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    const playerAnchor = room.locator('.stairs-player');
+    async function stand(tile: number) {
+        await room.scrollIntoViewIfNeeded();
+        // A resident can be on the tile. Choose exposed ground so a tap means
+        // "walk here" instead of starting the resident's conversation.
+        const openGround = () => room.evaluate((floor, tile) => {
+            const board = floor.getBoundingClientRect(), cell = board.width / 12;
+            for (const dy of [0, -.28, .28]) for (const dx of [0, -.28, .28]) {
+                const x = board.x + (tile % 12 + .5 + dx) * cell;
+                const y = board.y + (Math.floor(tile / 12) + .5 + dy) * cell;
+                if ([[-5, -5], [5, -5], [-5, 5], [5, 5]].every(([i, j]) => document.elementFromPoint(x + i, y + j) === floor))
+                    return { x, y };
+            }
+            return null;
+        }, tile);
+        await expect(async () => {
+            const point = await openGround();
+            if (!point) throw new Error('Waiting for a resident to clear the street tile');
+            await room.evaluate(floor => {
+                floor.removeAttribute('data-test-ground-tap');
+                floor.addEventListener('click', event => floor.setAttribute('data-test-ground-tap', String(event.target === floor)),
+                    { capture: true, once: true });
+            });
+            if (info.project.use.hasTouch) await page.touchscreen.tap(point.x, point.y); else await page.mouse.click(point.x, point.y);
+            expect(await room.getAttribute('data-test-ground-tap'), 'The tap reached the walkable ground').toBe('true');
+        }).toPass({ timeout: 20_000 });
+        if (fitted) await expect(figure).toHaveAttribute('data-gait', 'walk');
+        await expect(room).toHaveAttribute('data-tile', String(tile));
+        await expect.poll(async () => {
+            return playerAnchor.evaluate((element, tile) => {
+                const board = element.parentElement!.getBoundingClientRect(), feet = element.getBoundingClientRect();
+                return Math.hypot(feet.x - board.x - (tile % 12 + .5) * board.width / 12,
+                    feet.y - board.y - (Math.floor(tile / 12) + .5) * board.height / 12);
+            }, tile);
+        }).toBeLessThan(2);
+    }
+    async function roofCoverage() {
+        const clip = (await sprite.boundingBox())!;
+        const still = '.stairs-person {visibility:hidden!important}';
+        const pixels = async (style: string) => sharp(await page.screenshot({ clip, style })).removeAlpha().raw().toBuffer();
+        const displayed = await pixels(still);
+        const uncovered = await pixels(still + '.street-layer.shops {visibility:hidden!important}');
+        let different = 0;
+        for (let i = 0; i < displayed.length; i += 3) {
+            if (Math.abs(displayed[i] - uncovered[i]) + Math.abs(displayed[i + 1] - uncovered[i + 1]) +
+                Math.abs(displayed[i + 2] - uncovered[i + 2]) > 40) different++;
+        }
+        return different;
+    }
+    const record = fitted && process.env.COAST_QA_RECORD === '1';
+    if (record) await page.screencast.start({ path: info.outputPath('stair-houses-walk.webm'), size: page.viewportSize()! });
+    try {
+        await stand(45);
+        const height = () => sprite.evaluate(element => element.getBoundingClientRect().height);
+        const farHeight = await height();
+        if (!fitted) expect(await roofCoverage()).toBeGreaterThan(10);
+        await page.screenshot({ path: info.outputPath('behind-noodle-den-roof.png') });
+        await stand(80);
+        if (!fitted) expect(await roofCoverage()).toBeLessThan(5);
+        expect(await height()).toBeGreaterThan(farHeight);
+        await page.screenshot({ path: info.outputPath('in-front-of-noodle-den.png') });
+        if (!fitted) {
+            const hearth = room.locator('.street-layer.hearth');
+            await expect(hearth).toHaveCSS('animation-name', 'stair-hearth');
+            await page.emulateMedia({ reducedMotion: 'reduce' });
+            await expect(hearth).toHaveCSS('animation-name', 'none');
+        }
+    } finally {
+        if (record) await page.screencast.stop();
     }
 });

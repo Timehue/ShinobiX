@@ -21,6 +21,7 @@ export function useCoastFigure<T extends HTMLElement>(scale: number, tile: numbe
         const floor = anchor.current?.parentElement;
         const element = anchor.current;
         if (!element || !floor) return;
+        const street = scale === COURTYARD_MODEL_SCALE;
         let width = floor.clientWidth, frame = 0;
         const reduced = matchMedia('(prefers-reduced-motion: reduce)');
         const start = performance.now();
@@ -43,6 +44,11 @@ export function useCoastFigure<T extends HTMLElement>(scale: number, tile: numbe
                 element.style.top = (y + .5) / 12 * 100 + '%';
             }
             last.current = { x, y };
+            if (street) {
+                const depth = (y + .5) / 12;
+                element.style.zIndex = String(Math.round(depth * 100));
+                element.style.scale = String(.84 + depth * .3);
+            }
             figure.current?.place(x * width / 12, y * width / 12, width * scale, moving && !reduced.matches, gait, true);
             if (motion || moving || figure.current?.stop()) frame = requestAnimationFrame(draw);
         };

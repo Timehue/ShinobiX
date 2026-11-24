@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameArtIcon } from './GameArtIcon';
 import { worldRunRequest } from '../lib/continuous-world-client';
 import { WORLD_RUN_MS, type WorldRunWindow } from '../../../shared/world-run';
+import './world-run-button.css';
 
 export type WorldRunTimers = { endsAt: number; readyAt: number };
 
@@ -65,7 +66,7 @@ export function WorldRunButton({ timers, onWindow }: {
 
     return <button type="button" className="world-run-toggle" aria-label="Run" aria-pressed={running}
         aria-description={hint} title={hint} disabled={status === 'pending' || refilling}
-        data-run-state={running ? 'running' : refilling ? 'refilling' : 'ready'} onClick={() => void change()}>
+        data-run-state={running ? 'running' : refilling ? 'refilling' : 'ready'} onClick={event => { event.stopPropagation(); void change(); }}>
         <GameArtIcon kind="speed" size={28} />
         {seconds > 0 && <span className="world-run-count" aria-hidden="true">{seconds}</span>}
     </button>;
