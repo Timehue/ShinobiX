@@ -1,4 +1,4 @@
-import { test,expect,type Page } from '@playwright/test';
+import { test,expect,type Locator,type Page } from '@playwright/test';
 import { visiblePageSize } from './helpers/visible-page-size';
 import { mkdirSync,writeFileSync } from 'node:fs';
 import { installUiAuditRuntime,uiAuditSave } from './helpers/ui-audit-runtime';
@@ -666,10 +666,21 @@ for(const visitor of ['Ashen Leaf Village','Frostfang Village'])test(`village re
     await expect(dialog).toContainText('checking the blankets');
     await dialog.screenshot({path:`${evidence}/${info.project.name}-frostfang-${rival?'rival':'home'}-quartermaster.png`});
 });
+/** A life point rides on its resident, who may still be walking, and a phone camera eases toward
+ *  residents nearby, so the point can drift for seconds. A player's tap lands on it anyway, but
+ *  Playwright's click waits for two identical frames, which a slow drift never gives (sector 42 on
+ *  the phone timed out this way in CI). Wait until it moves under 3 px between checks, then tap
+ *  where it is; walkUntilOnMap has already made it the top thing under its centre. */
+async function clickDrifting(target:Locator) {
+    let last=await target.boundingBox();
+    await expect.poll(async()=>{const box=await target.boundingBox(),moved=box&&last?Math.hypot(box.x-last.x,box.y-last.y):Infinity;last=box;return moved;},
+        {timeout:15_000,intervals:[200]}).toBeLessThan(3);
+    await target.click({force:true});
+}
 async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocked=false,target=page.locator('.sector-life-point')) {
     const {action,tile}=view;
     await walkUntilOnMap(page,target,clocked?ms=>page.clock.runFor(ms):undefined);
-    await target.click();
+    await clickDrifting(target);
     const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
     const walk=dialog.getByRole('button',{name:'Walk to the work point',exact:true});
     if(await walk.isVisible()) {
@@ -681,7 +692,7 @@ async function doRoadWork(page:Page,view:ReturnType<typeof lifeEventView>,clocke
             if(!me||!goal)return Infinity;
             return Math.hypot(goal.x+goal.width/2-me.x-me.width/2,goal.y+goal.height/2-me.y-me.height)/goal.width;
         },{timeout:30_000,intervals:[1000]}).toBeLessThan(1.5);
-        await target.click();
+        await clickDrifting(target);
     }
     await page.getByRole('dialog').getByRole('button',{name:action,exact:true}).click();
     await page.getByRole('dialog').getByRole('button',{name:/Close/}).click();
