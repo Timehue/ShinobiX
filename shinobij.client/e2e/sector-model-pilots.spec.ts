@@ -785,8 +785,8 @@ test("Profile previews an owned model, equips it after a lapse and restores the 
 test.describe("equipped player upload", () => {
     test.use({ contextOptions: { reducedMotion: "no-preference" } });
     test("a missing player model still walks and runs at the configured ground speeds", async ({ page }) => {
-        // A loaded CI WebKit runner has spent 35 s of the default 45 on setup alone.
-        test.setTimeout(90_000);
+        // World startup and the frame-by-frame measurements both use real browser time on CI.
+        test.setTimeout(180_000);
         const save = uiAuditSave();
         save.currentSector = 46;
         save.currentTile = 66;
@@ -815,6 +815,9 @@ test.describe("equipped player upload", () => {
         await expect(back.or(canvas).first()).toBeVisible();
         await returnToTerrain(back);
         await missing;
+        // The missing manifest can arrive while the world is still building its navigation.
+        // The player is intentionally hidden until the controller has placed the figure.
+        await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'false', { timeout: 60_000 });
         const marker = page.locator('[data-world-self]');
         // On CI's WebKit this has failed with the body "hidden" although every model
         // manifest 404'd and the standing figure loaded (PR #150, 2026-11-22). The
@@ -861,12 +864,19 @@ test.describe("equipped player upload", () => {
         const answered = (request: Request) => { if (isMove(request)) movesInFlight--; };
         page.on('requestfinished', answered);
         page.on('requestfailed', answered);
-        // A real task turn (MessageChannel is not faked) lets the page read the reply.
-        const pageTurn = () => page.evaluate(() => new Promise<void>(done => { const channel = new MessageChannel(); channel.port1.onmessage = () => done(); channel.port2.postMessage(0); }));
         // One sample per frame of what can stop the walker: CI's WebKit still came up
         // short (0.56 and 0.71 of a 0.8-tile run) after the replies were settled.
         let frames: unknown[] = [];
-        const sample = () => page.evaluate(() => {
+        const settleAndSample = () => page.evaluate(async () => {
+            // Give the page two real task turns to apply a reply before sampling.
+            // Keep both turns and the read in one browser call for each simulated frame.
+            const turn = () => new Promise<void>(done => {
+                const channel = new MessageChannel();
+                channel.port1.onmessage = () => { channel.port1.close(); channel.port2.close(); done(); };
+                channel.port2.postMessage(0);
+            });
+            await turn();
+            await turn();
             const world = document.querySelector<HTMLCanvasElement>('.continuous-world-map > canvas');
             const active = document.activeElement;
             return { t: Math.round(performance.now()), x: Number(world?.dataset.worldX), hasFocus: document.hasFocus(),
@@ -878,8 +888,7 @@ test.describe("equipped player upload", () => {
             for (let elapsed = 0; elapsed < ms; elapsed += 16) {
                 await page.clock.runFor(Math.min(16, ms - elapsed));
                 await expect.poll(() => movesInFlight, { timeout: 10_000 }).toBe(0);
-                await pageTurn(); await pageTurn();
-                frames.push({ ...await sample(), inFlight: movesInFlight });
+                frames.push({ ...await settleAndSample(), inFlight: movesInFlight });
             }
         };
         const x = async () => Number(await canvas.getAttribute('data-world-x'));
@@ -905,7 +914,7 @@ test.describe("equipped player upload", () => {
             const sent = movesSent;
             for (let frame = 0; frame < 30 && movesSent === sent; frame++) await page.clock.runFor(16);
             await expect.poll(() => movesInFlight, { timeout: 10_000 }).toBe(0);
-            await pageTurn(); await pageTurn();
+            await settleAndSample();
         };
         await canvas.focus();
         for (const key of ['ArrowLeft', 'ArrowRight']) {
