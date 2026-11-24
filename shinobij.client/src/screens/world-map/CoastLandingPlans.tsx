@@ -5,7 +5,7 @@ import unmoored from "../../assets/village-war/owned-sector-unmoored.webp";
 import clan from "../../assets/village-war/owned-sector-clan-neutral.webp";
 
 type Plan = { name: string; scene: string; sprite: string; description: string; floors: CoastFloor[] };
-export default function CoastLandingPlans({ avatar, name, leave, tier, player }: { player: import('../../types/character').Character; tier?: number; avatar?: string | null; name: string; leave: () => void }) {
+export default function CoastLandingPlans({ avatar, leave, tier, player }: { player: import('../../types/character').Character; tier?: number; avatar?: string | null; leave: () => void }) {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [failed, setFailed] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -23,7 +23,7 @@ export default function CoastLandingPlans({ avatar, name, leave, tier, player }:
     if (!plan) return <div className="coast-site-body">{failed
         ? <button type="button" onClick={() => { setFailed(false); setAttempt(value => value + 1); }}>Retry loading plans</button>
         : <p role="status">Opening the building plans…</p>}</div>;
-    if (inside) return <CoastInterior player={player} floors={plan.floors} avatar={avatar} name={name} leave={leave} />;
+    if (inside) return <CoastInterior player={player} floors={plan.floors} avatar={avatar} leave={leave} />;
     return <>
         <img className="coast-site-scene" src={plan.scene} alt={plan.name} />
         <div className="coast-site-body">

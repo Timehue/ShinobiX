@@ -97,7 +97,7 @@ function* diagonalSteps(nodes: Map<string, WorldNode>): Generator<void, void> {
 }
 
 /** A* over the world graph. Open land costs a little more, so routes keep to roads where they can. */
-export function worldRoute(nodes: ReadonlyMap<string, WorldNode>, from: string, to: string): string[] | null {
+export function worldRoute(nodes: ReadonlyMap<string, WorldNode>, from: string, to: string, preferDirect = false): string[] | null {
     const start = nodes.get(from), goal = nodes.get(to);
     if (!start || !goal) return null;
     const cost = new Map([[from, 0]]), parent = new Map<string, string>();
@@ -123,6 +123,7 @@ export function worldRoute(nodes: ReadonlyMap<string, WorldNode>, from: string, 
         if (top.rank > cost.get(id)! + worldDistance(node, goal) + 1e-9) continue;
         for (const neighbor of node.neighbors) {
             const next = nodes.get(neighbor)!;
+            if (preferDirect && next.sector !== start.sector && next.sector !== goal.sector) continue;
             const distance = cost.get(id)! + worldDistance(node, next) * (node.land || next.land ? 1.2 : 1);
             if (distance >= (cost.get(neighbor) ?? Infinity)) continue;
             cost.set(neighbor, distance); parent.set(neighbor, id);
@@ -132,11 +133,12 @@ export function worldRoute(nodes: ReadonlyMap<string, WorldNode>, from: string, 
             heap[i] = entry;
         }
     }
-    return null;
+    // A distant ground tap can still require an intervening sector.
+    return preferDirect ? worldRoute(nodes, from, to) : null;
 }
 
 /** Deterministic travel integrator. The renderer does not own movement or zone membership. */
-export function createWorldWalker(nodes: ReadonlyMap<string, WorldNode>, start: string, speed = 6.5) {
+export function createWorldWalker(nodes: ReadonlyMap<string, WorldNode>, start: string, speed = 6.5, preferDirect = false) {
     let id = start, position: WorldPoint = { ...nodes.get(start)! }, route: string[] = [], paused = false;
     let segmentTarget: string | null = null, travelled = 0;
     // Set while stepping back to the node just left in order to turn there; it is the
@@ -180,7 +182,7 @@ export function createWorldWalker(nodes: ReadonlyMap<string, WorldNode>, start: 
             pivot = null;
             id = a.id; segmentTarget = a.id === b.id ? null : b.id;
             position = { x: a.x + (b.x - a.x) * cursor.progress, y: a.y + (b.y - a.y) * cursor.progress };
-            route = goal ? [b.id, ...(worldRoute(nodes, b.id, goal)?.slice(1) ?? [])] : [];
+            route = goal ? [b.id, ...(worldRoute(nodes, b.id, goal, preferDirect)?.slice(1) ?? [])] : [];
             return true;
         },
         go(to: string) {
@@ -190,7 +192,7 @@ export function createWorldWalker(nodes: ReadonlyMap<string, WorldNode>, start: 
                 && nodes.get(to)?.sector === nodes.get(id)!.sector
                 && worldDistance(position, nodes.get(id)!) <= worldDistance(position, nodes.get(segmentTarget)!);
             const anchor = retreat ? id : segmentTarget ?? id;
-            const path = worldRoute(nodes, anchor, to);
+            const path = worldRoute(nodes, anchor, to, preferDirect);
             if (!path) return false;
             if (retreat) { id = segmentTarget!; segmentTarget = anchor; }
             pivot = null;

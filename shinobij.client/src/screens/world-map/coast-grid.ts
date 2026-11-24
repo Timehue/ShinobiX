@@ -17,21 +17,23 @@ export function pathTo(mask: readonly string[], from: number, to: number): numbe
 }
 
 /** A patrol follows the painted trail. A resident paces a short stretch near their station. */
-export function coastRoutine(mask: readonly string[], tile: number, patrol: boolean) {
+export function coastRoutine(mask: readonly string[], tile: number, patrol: boolean, speakingTile?: number) {
     const road = patrol ? mask.map(row => row.replaceAll(".", "#")) : mask;
     const start = nearestInMask(road, tile);
-    const radius = patrol ? 7 : 2;
-    const candidates = Array.from({ length: 144 }, (_, i) => i).filter(i => open(road, i)
-        && Math.abs(col(i) - col(start)) + Math.abs(row(i) - row(start)) <= radius);
-    const distance = (i: number) => Math.abs(col(i) - col(start)) + Math.abs(row(i) - row(start));
-    for (const end of candidates.sort((a, b) => distance(b) - distance(a))) {
-        const path = pathInMask(road, start, end);
-        if (path && path.length > 1) {
-            const circuit = [...path, ...path.toReversed(), start];
-            const step = 1000 / sectorGaitTilesPerSecond.walk;
-            return { start: tile * 1000, repeat: (circuit.length - 1) * step,
-                frames: circuit.map((at, i) => [i * step, at] as const) };
+    const seen = new Set([start]), paths = [[start]];
+    // Count actual footsteps around scenery so a resident stays near their station.
+    let path = paths[0];
+    for (path of paths) {
+        if (path.length > (patrol ? 7 : 2)) break;
+        for (const next of neighbours(path.at(-1)!)) {
+            if (next === speakingTile || seen.has(next) || !open(road, next)) continue;
+            seen.add(next);
+            paths.push([...path, next]);
         }
     }
-    return undefined;
+    if (path.length < 2) return;
+    const circuit = [...path, ...path.toReversed(), start];
+    const step = 1000 / sectorGaitTilesPerSecond.walk;
+    return { start: tile * 1000, repeat: (circuit.length - 1) * step,
+        frames: circuit.map((at, i) => [i * step, at] as const) };
 }

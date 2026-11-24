@@ -1,10 +1,44 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { coastWalkSpace, sectorPositionModel } from '../_coast-walk-space.js';
-import { buildWorldNavigation } from '../../shared/continuous-world-navigation.js';
+import { buildWorldNavigation, worldRoute } from '../../shared/continuous-world-navigation.js';
+import { COAST_DOCK, coastExits, coastSitesInSector } from '../../shared/coast-world.js';
+import { coastEntryRefusal } from '../_coast-admission.js';
 
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.NODE_ENV = 'test';
+
+test('every admitted coast position connects to the dock at every stage of the crossing', () => {
+    const { byId, nodes } = buildWorldNavigation(coastWalkSpace);
+    for (const [region, lastGarrison] of [[1, false], [2, false], [3, false], [4, false], [5, false], [5, true]] as const) {
+        const admission = { level: 100, boat: true, secondDock: true, region, lastGarrison };
+        const sectors = new Set(coastWalkSpace.chunks.map(chunk => chunk.sector)
+            .filter(sector => !coastEntryRefusal(admission, sector)));
+        const queue = [`${COAST_DOCK.sector}:${COAST_DOCK.tile}`], reached = new Set(queue);
+        for (const id of queue) for (const next of byId.get(id)!.neighbors) {
+            if (!reached.has(next) && sectors.has(byId.get(next)!.sector)) {
+                reached.add(next);
+                queue.push(next);
+            }
+        }
+        for (const node of nodes) assert.equal(reached.has(node.id), sectors.has(node.sector), node.id);
+        assert.equal(sectors.size, region * 10 - Number(region === 5 && !lastGarrison));
+    }
+});
+
+test('choosing a coast trail from another trail or site walks directly to the named neighbour', () => {
+    const { byId } = buildWorldNavigation(coastWalkSpace);
+    for (const { sector } of coastWalkSpace.chunks) {
+        const exits = coastExits(sector);
+        const starts = new Set([...exits.map(exit => exit.tile), ...coastSitesInSector(sector).map(site => site.approach)]);
+        for (const tile of starts) for (const exit of exits) {
+            const route = worldRoute(byId, `${sector}:${tile}`, `${exit.destinationSector}:${exit.destinationTile}`, true);
+            assert.ok(route, exit.id);
+            const crossed = route.map(id => byId.get(id)!.sector).filter((s, i, all) => s !== all[i - 1]);
+            assert.deepEqual(crossed, [sector, exit.destinationSector], exit.id + ' from tile ' + tile);
+        }
+    }
+});
 
 test('coast seam uses the saved region, a durable cursor and a coast-only nearby roster', async () => {
     const { applyWorldMovement, nearbyWorldPlayers } = await import('./world-movement-service.js');

@@ -4,16 +4,90 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { test } from './helpers/reconnecting-request';
 import { openWorld, seedWorldActor } from './helpers/world-actor';
+import { uiAuditSave } from '../e2e/helpers/ui-audit-runtime';
 import { coastWalkSpace, sectorPositionModel } from '../../api/_coast-walk-space';
 import { coastPatrolsIn } from '../../api/coast/_patrols';
-import { coastExits, coastLayout } from '../../shared/coast-world';
+import { COAST_DOCK, COAST_WORLD, coastExits, coastLayout } from '../../shared/coast-world';
 import { buildWorldNavigation } from '../../shared/continuous-world-navigation';
 import type { WorldPosition } from '../../shared/world-position';
 
 test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 const model = sectorPositionModel(101);
 const charter = { v: 1, active: {}, done: { 'shuttered-boat': { at: 1, marks: 1, opensRegion: 1, unlocks: ['boat'] } } };
-async function actor(request: APIRequestContext, context: BrowserContext, position: WorldPosition, equipped = false) {
+const unlockedCoast = { ...charter, done: { ...charter.done,
+    'crossing-war-1': { at: 3, marks: 2, opensRegion: 2, unlocks: ['contest-land'] },
+    'crossing-war-2': { at: 4, marks: 2, opensRegion: 3 },
+    'crossing-war-3': { at: 5, marks: 3, opensRegion: 4 },
+    'crossing-war-4': { at: 12, marks: 3, opensRegion: 5 },
+    'crossing-war-5': { at: 14, marks: 4, unlocks: ['last-garrison'] } } };
+
+// Long release walkthrough. Each directed trail is used once, on one account, starting and ending at the slip.
+if (process.env.COAST_FULL_WALK === '1') test('walk every coast trail in both directions', async ({ page, request, context }, info) => {
+    test.setTimeout(3 * 60 * 60_000);
+    const start = model.fallback(COAST_DOCK.sector, COAST_DOCK.tile)!;
+    const driver = await actor(request, context, start, { veteran: true });
+    const remaining = new Map(coastWalkSpace.chunks.map(({ sector }) => [sector, [...coastExits(sector)]]));
+    const stack = [COAST_DOCK.sector], tour: number[] = [];
+    while (stack.length) {
+        const next = remaining.get(stack.at(-1)!)!.pop();
+        if (next) stack.push(next.destinationSector);
+        else tour.push(stack.pop()!);
+    }
+    tour.reverse();
+    expect(tour.length).toBe(2 * COAST_WORLD.roads.length + 1);
+    await openWorld(page);
+    const canvas = page.locator('.continuous-world-map > canvas[tabindex]');
+    const visited = new Set<number>();
+    for (const [index, to] of tour.slice(1).entries()) {
+        const from = tour[index], trail = coastExits(from).find(exit => exit.destinationSector === to)!;
+        await test.step(`Trail ${index + 1}: ${from} to ${to}`, async () => {
+            await expect(canvas).toHaveAttribute('data-world-sector', String(from));
+            const label = 'Follow the ' + trail.direction + ' trail to ' + coastLayout(to)!.name;
+            if (info.project.use.hasTouch) {
+                await page.getByRole('button', { name: /^Sector info/ }).tap();
+                await page.locator('.coast-side').getByRole('button', { name: label, exact: true }).tap();
+            } else await page.getByRole('button', { name: label, exact: true }).press('Enter');
+            await canvas.scrollIntoViewIfNeeded();
+            await expect(canvas).toHaveAttribute('data-world-sector', String(to), { timeout: 180_000 });
+            const target = `${to}:${trail.destinationTile}`;
+            await expect.poll(async () => {
+                const reply = await request.get('/api/player/world-move', { headers: driver.headers });
+                const position: WorldPosition | undefined = (await reply.json()).worldPosition;
+                return position?.from === target && position.progress === 0 || position?.to === target && position.progress === 1;
+            }, { timeout: 120_000, intervals: [1000, 2000, 4000] }).toBe(true);
+            if (!visited.has(to)) await page.screenshot({ path: info.outputPath(`sector-${to}.png`) });
+            visited.add(to);
+            console.log(`Walked ${index + 1}/${tour.length - 1}: ${from} to ${to}, arrived at tile ${trail.destinationTile}.`);
+        });
+    }
+    expect(visited.size).toBe(coastWalkSpace.chunks.length);
+    expect(tour.at(-1)).toBe(COAST_DOCK.sector);
+});
+
+test('choose a named trail from sector info and walk directly into the neighbouring sector', async ({ page, request, context }, info) => {
+    const start = model.fallback(132, 135)!;
+    await actor(request, context, start, { veteran: true });
+    await openWorld(page);
+    const canvas = page.locator('.continuous-world-map > canvas[tabindex]');
+    await expect(canvas).toHaveAttribute('data-world-sector', '132');
+    const history = await canvas.evaluateHandle(element => {
+        const sectors = new Set([element.getAttribute('data-world-sector')]);
+        new MutationObserver(() => sectors.add(element.getAttribute('data-world-sector')))
+            .observe(element, { attributes: true, attributeFilter: ['data-world-sector'] });
+        return sectors;
+    });
+    await page.getByRole('button', { name: /^Sector info/ }).click();
+    const trail = coastExits(132).find(exit => exit.destinationSector === 133)!;
+    const choice = page.locator('.coast-side').getByRole('button', { name: 'Follow the ' + trail.direction + ' trail to ' + coastLayout(133)!.name });
+    await choice.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath('trail-choices.png') });
+    if (info.project.use.hasTouch) await choice.tap(); else await choice.click();
+    await canvas.scrollIntoViewIfNeeded();
+    await expect(canvas).toHaveAttribute('data-world-sector', '133', { timeout: 120_000 });
+    expect(await history.evaluate(sectors => Array.from(sectors))).toEqual(['132', '133']);
+    await page.screenshot({ path: info.outputPath('direct-trail-133.png') });
+});
+async function actor(request: APIRequestContext, context: BrowserContext, position: WorldPosition, { equipped, veteran }: { equipped?: boolean; veteran?: boolean } = {}) {
     const content = process.env.SECTOR_MODEL_TEST_CONTENT, playerFolder = process.env.COAST_QA_PLAYER_CONTENT;
     const receipt = equipped && playerFolder ? JSON.parse(await readFile(join(playerFolder, 'result.json'), 'utf8')).model : undefined;
     if (content) await context.route('https://coast-art.example.invalid/sector-models/**', async route => {
@@ -29,14 +103,16 @@ async function actor(request: APIRequestContext, context: BrowserContext, positi
     if (receipt) context.on('response', response => {
         if (response.ok() && response.url().endsWith('/players/' + receipt.assetId + '/' + receipt.version + '.json')) equippedManifestLoaded = true;
     });
-    const seeded = await seedWorldActor(request, context, position, model.location(position), { questLines: charter,
-        character: { level: 85, starterWorldModel: 'starter-two', ...(receipt ? { playerModel: { assetId: receipt.assetId, version: receipt.version } } : {}) } });
+    const seeded = await seedWorldActor(request, context, position, model.location(position), { questLines: veteran ? unlockedCoast : charter,
+        ...(veteran ? { triggeredEvents: [...uiAuditSave().triggeredEvents as string[],
+            'story-interlude-ashen-leaf-village-88', 'story-interlude-ashen-leaf-village-92'] } : {}),
+        character: { level: veteran ? 100 : 85, starterWorldModel: 'starter-two', ...(receipt ? { playerModel: { assetId: receipt.assetId, version: receipt.version } } : {}) } });
     return { ...seeded, equippedManifestLoaded: () => equippedManifestLoaded };
 }
 test('walk the coast roads, resume, refuse a closed region and sail home', async ({ page, request, context }, info) => {
     test.setTimeout(420_000);
     const [patrolStart] = coastPatrolsIn(104, Date.now());
-    const driver = await actor(request, context, model.fallback(104, patrolStart.tile)!, true);
+    const driver = await actor(request, context, model.fallback(104, patrolStart.tile)!, { equipped: true });
     await openWorld(page);
     const canvas = page.locator('.continuous-world-map > canvas[tabindex]');
     const self = page.locator('[data-world-self] .sector-model-figure');
@@ -45,7 +121,7 @@ test('walk the coast roads, resume, refuse a closed region and sail home', async
     const cross = async (to: number) => {
         const from = Number(await canvas.getAttribute('data-world-sector'));
         const trail = coastExits(from).find(exit => exit.destinationSector === to)!;
-        const road = page.getByRole('button', { name: 'Follow the ' + trail.direction + ' trail', exact: true });
+        const road = page.getByRole('button', { name: 'Follow the ' + trail.direction + ' trail to ' + coastLayout(to)!.name, exact: true });
         await road.press('Enter');
         await canvas.scrollIntoViewIfNeeded();
     };

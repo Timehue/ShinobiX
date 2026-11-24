@@ -19,8 +19,8 @@ const portraits: Record<string, string> = { "ambush-bandit-3": bandit, "ember-fo
  * a keeper or boss the player's quests put there (`coast.figures` in the quest
  * list, api/quests/_coast-presence.ts). What choosing it does is the caller's.
  */
-export function CoastFigure({ tile, feet, seatedArt, mask, patrol = false, scale = 1, model, label, disabled, pick, image }: { tile: number; mask?: readonly string[]; patrol?: boolean; feet?: [number, number]; seatedArt?: string; scale?: number; model: string; label: string; disabled: boolean; pick: () => void; image?: string }) {
-    const motion = useMemo(() => mask && !seatedArt ? coastRoutine(mask, tile, patrol) : undefined, [mask, tile, patrol, seatedArt]);
+export function CoastFigure({ tile, feet, seatedArt, mask, patrol = false, scale = 1, model, label, disabled, pick, image, speakingTile }: { tile: number; mask?: readonly string[]; patrol?: boolean; feet?: [number, number]; seatedArt?: string; scale?: number; model: string; label: string; disabled: boolean; pick: () => void; image?: string; speakingTile?: number }) {
+    const motion = useMemo(() => mask && !seatedArt ? coastRoutine(mask, tile, patrol, speakingTile) : undefined, [mask, tile, patrol, seatedArt, speakingTile]);
     const { anchor: button, figure, base } = useCoastFigure<HTMLButtonElement>(scale, tile, motion);
     const detail = !seatedArt && feet && scale === ROOM_MODEL_SCALE ? roomModelDetail(model) : undefined;
     return <button type="button" ref={button} className={"coast-site coast-patrol" + (feet ? " stairs-person" : "") + (seatedArt ? " stairs-seated" : "")} style={feet ? { left: feet[0] + "%", top: feet[1] + "%" } : centre(tile)} disabled={disabled}

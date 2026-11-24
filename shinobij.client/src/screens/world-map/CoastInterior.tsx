@@ -14,7 +14,7 @@ const movementTime = () => performance.now();
 const streetDepth = { shops: 51, terrace: 70, gate: 90, hearth: 1 };
 
 type Props = {
-    floors: CoastFloor[]; avatar?: string | null; name: string; leave: () => void;
+    floors: CoastFloor[]; avatar?: string | null; leave: () => void;
     /** Who keeps this place, standing at their station on the ground floor (`coast.figures` in the quest list). */
     player: Character; initialTile?: number; street?: boolean;
     residents?: { label: string; model: string; feet: [number, number]; approach: number; seatedArt?: string }[];
@@ -136,7 +136,7 @@ export default function CoastInterior({ floors, avatar, leave, keeper, onStation
             {actions.map(({ label, target: [x, y, width, height], activate }) => <button key={label} aria-label={label} title={label} className="coast-site" type="button"
                 style={footprintStyle(x, y, width, height)}
                 onClick={event => { event.stopPropagation(); activate(); }}>{onStation && <span>{label}</span>}</button>)}
-            {residents?.map(resident => <CoastFigure mask={room.mask} key={resident.label} scale={figureScale}
+            {residents?.map(resident => <CoastFigure mask={room.mask} key={resident.label} scale={figureScale} speakingTile={resident.approach}
                 tile={Math.floor(resident.feet[1] * GRID / 100) * GRID + Math.floor(resident.feet[0] * GRID / 100)} feet={resident.feet} seatedArt={resident.seatedArt}
                 model={resident.model} label={resident.label} image={"/coast-map/residents/" + resident.model + ".webp"} disabled={false}
                 pick={() => { void walk(resident.approach, undefined, () => onSpeak?.(resident.label)); }} />)}

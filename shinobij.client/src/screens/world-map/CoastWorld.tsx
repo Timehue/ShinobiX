@@ -23,7 +23,7 @@ import { requestContinuousWorldWalk } from "../../lib/continuous-world-control";
 import { travelMaskMs } from "../../lib/travel-mask";
 import {
     coastTravel, loadCoastWorld, loadQuestLines, questLineAction, questRefusal, questSiteGather,
-    type CoastExit, type CoastSector, type CoastSite, type CoastWorld as CoastWorldData, type QuestLinesList,
+    type CoastSector, type CoastSite, type CoastWorld as CoastWorldData, type QuestLinesList,
 } from "../../lib/quest-lines-api";
 import { HOME_HARBOR_SECTOR, coastRegionOf } from "../../../../shared/world-maps";
 import { ContinuousWorldSector } from "../../components/ContinuousWorldSector";
@@ -48,6 +48,7 @@ import { footprintStyle } from "./coast-grid";
 const StairHouses = lazy(() => import("./StairHouses"));
 const CoastInterior = lazy(() => import("./CoastInterior"));
 const CoastLandingPlans = lazy(() => import("./CoastLandingPlans"));
+const entering = <p role="status">Entering…</p>;
 
 export type CoastWorldProps = Readonly<{
     character: Character;
@@ -144,10 +145,6 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
         setView("entry");
     }
 
-    function followTrail(exit: CoastExit) {
-        if (!busy && world?.sectors[exit.destinationSector]) requestContinuousWorldWalk(exit.destinationSector, exit.destinationTile);
-    }
-
     function visit(target: CoastSite) {
         if (busy) return;
         if (!requestContinuousWorldWalk(sector, target.approach, () => setSiteId(target.id))) {
@@ -221,6 +218,14 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     }
 
     const region = coastRegionOf(sector);
+    const trails = (onMap: boolean) => layout.exits.map(({ id, tile, direction, destinationSector, destinationTile }) => {
+        const destination = world.sectors[destinationSector];
+        const label = 'Follow the ' + direction + ' trail to ' + (destination?.name ?? destinationSector);
+        return <button key={id} type="button" title={label} disabled={!!busy || !destination}
+            className={onMap ? 'coast-site' : undefined}
+            style={onMap ? footprintStyle(tile % 12, Math.floor(tile / 12), 1) : undefined}
+            onClick={() => requestContinuousWorldWalk(destinationSector, destinationTile)}>{!onMap && label}</button>;
+    });
     const openRegion = quests?.coast.region ?? 0;
     const questSite = site ? quests?.sites.find(entry => entry.id === site.id) : undefined;
     /** True where a quest can be taken or moved on: a whole sector for the atlas, or one site in the sector the player stands in. */
@@ -231,7 +236,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     const clanPanel = <CoastClanPanel ground={ground} key={sector} plot={site?.id === "saltstair-plot-108"}
         character={character} sector={sector} commit={onVersionedCharacter} enter={busy ? undefined : enterTown} />;
     const settlement = layout.sites.find(entry => entry.id === "saltstair-houses-105");
-    if (settlement && site === settlement) return <Suspense fallback={<p role="status">Entering…</p>}>
+    if (settlement && site === settlement) return <Suspense fallback={entering}>
         <StairHouses site={site} character={character} creatorItems={creatorItems} avatar={avatar} leave={leaveSite}
             onVersionedCharacter={onVersionedCharacter} people={quests?.coast.people?.filter(person => person.sector === sector) ?? []} />
     </Suspense>;
@@ -276,10 +281,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                         setLocalSectorTile(at); setTile(at);
                         if (next !== sector) setCurrentSector(next);
                     }} overlayLayer={<>
-                        {layout.exits.map(exit => <button key={exit.id} className="coast-site" type="button"
-                            style={footprintStyle(exit.tile % 12, Math.floor(exit.tile / 12), 1)}
-                            aria-label={'Follow the ' + exit.direction + ' trail'} disabled={!!busy || !world.sectors[exit.destinationSector]}
-                            onClick={() => followTrail(exit)} />)}
+                        {trails(true)}
                         {layout.sites.map(entry => {
                             const [x, y, size] = entry.footprint;
                             return (
@@ -323,6 +325,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                             {settlement && <button type="button" disabled={!!busy} onClick={() => void visit(settlement)}>Enter {settlement.name}</button>}
                             {statusLine}</>}
                         details={<div className="coast-side">
+                            <h3>Trails</h3><div className="coast-list">{trails(false)}</div>
                             {layout.contestable && !site && clanPanel}
                             {!site && questPanel}
                             <section>
@@ -340,11 +343,11 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
             {site && createPortal(
                 <ModalDialogScrim label={site.name} onBackdrop={leaveSite} onEscape={leaveSite}>
                     <div className="card coast-site-sheet" onClick={event => event.stopPropagation()}>
-                        {view === "room" && site.floors?.length ? <Suspense fallback={<p role="status">Entering…</p>}>
-                            <CoastInterior player={character} key={site.id} floors={site.floors} avatar={avatar} name={character.name} leave={leaveSite}
+                        {view === "room" && site.floors?.length ? <Suspense fallback={entering}>
+                            <CoastInterior player={character} key={site.id} floors={site.floors} avatar={avatar} leave={leaveSite}
                                 keeper={quests?.coast.figures?.find(figure => figure.site === site.id && figure.room)} clues={siteClues(site)} />
                         </Suspense> : view === "plans" ? <Suspense fallback={<p role="status">Opening plans…</p>}>
-                            <CoastLandingPlans player={character} avatar={avatar} name={character.name} leave={leaveSite} />
+                            <CoastLandingPlans player={character} avatar={avatar} leave={leaveSite} />
                         </Suspense> : <>
                         {entryScene && <div className="coast-entry-art"><img className="coast-site-scene" src={entryScene} alt="" />
                             {isPlot(site.id) && <CoastPlotArt paint={{ ...plot, main: plot.scene ? undefined : plot.main }} area={area} />}</div>}

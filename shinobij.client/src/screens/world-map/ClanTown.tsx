@@ -81,7 +81,7 @@ export default function ClanTown({ character, sector, leave, open }: Props) {
         finally { gate.current = false; if (mounted.current) setBusy(false); }
     }
 
-    if (room && town) return <section className="card clan-town"><CoastLandingPlans player={character} tier={town.tier} name={character.name} avatar={character.avatarImage} leave={() => { setTown(null); setError(""); setRoom(false); }} /></section>;
+    if (room && town) return <section className="card clan-town"><CoastLandingPlans player={character} tier={town.tier} avatar={character.avatarImage} leave={() => { setTown(null); setError(""); setRoom(false); }} /></section>;
     const mark = <ClanImageMark name={clan} image={image} />;
     return <main className="clan-town" aria-label="Clan town">
         {town && <><header className="stairs-header">{mark}<div><small>{clan} · Sector {sector}</small><h2>{town.name}</h2></div></header>

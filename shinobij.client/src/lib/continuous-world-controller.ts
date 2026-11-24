@@ -77,7 +77,7 @@ export async function mountContinuousWorld(host: Host) {
         cancelAnimationFrame(preview);
     }
     if (initial.run) host.onRunWindow?.(initial.run);
-    const walker = createWorldWalker(world.nodes, initialPosition.from);
+    const walker = createWorldWalker(world.nodes, initialPosition.from, undefined, !!host.space);
     walker.restore(initialPosition);
     const crossings = worldRoadCrossings(world.space.roads);
     // Built at the first tap, so a tap measures only the nodes near it, not the whole world.
