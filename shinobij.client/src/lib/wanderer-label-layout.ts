@@ -66,10 +66,11 @@ export function layoutWandererLabels(figure:HTMLElement) {
         // Keep the four-pixel gap between names, without adding another halo
         // around the portrait's already bordered silhouette.
         const occupied:Rect[]=visible.map(({body})=>({x:body.x+gap,y:body.y+gap,width:Math.max(0,body.width-gap*2),height:Math.max(0,body.height-gap*2)}));
-        // The self marker is a sibling of the moving chunk. Include it, peers
-        // and fixed building titles in the same batched geometry read; names
-        // must not cover players or turn a building title into an NPC's name.
-        for(const node of scene.querySelectorAll<HTMLElement|SVGElement>('.sector-ground-landmark-label,.sector-building-name,.sector-building-condition,.sector-village-entrance-name,.sector-village-entrance-action,.resource-world-node,.sector-life-point,.sector-avatar-figure:not(.sector-wanderer-figure) .sector-avatar-body,.continuous-world-peer .sector-avatar-body,[data-painted-name-clearance],[data-work-tool-clearance]')){
+        // Fixed building titles and work points are obstacles, so an NPC's name
+        // is never mistaken for a building's. Players are NOT: a name plate stays
+        // on its NPC and the player walks over it (the player draws above the NPC
+        // layer). Dodging the player made names slide away as you came near.
+        for(const node of scene.querySelectorAll<HTMLElement|SVGElement>('.sector-ground-landmark-label,.sector-building-name,.sector-building-condition,.sector-village-entrance-name,.sector-village-entrance-action,.resource-world-node,.sector-life-point,[data-painted-name-clearance],[data-work-tool-clearance]')){
             if(node.closest('[hidden]')||(node instanceof SVGElement?getComputedStyle(node).visibility==='hidden':!node.offsetParent))continue;
             const box=node.getBoundingClientRect();
             if(!box.width||!box.height||box.right<=bounds.left||box.left>=bounds.right||box.bottom<=bounds.top||box.top>=bounds.bottom)continue;

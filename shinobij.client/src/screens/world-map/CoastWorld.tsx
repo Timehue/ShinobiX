@@ -44,6 +44,7 @@ import "./CoastWorld.css";
 
 
 import { footprintStyle } from "./coast-grid";
+import { coastFigureMarker } from "../../lib/npc-quest-marker";
 
 const StairHouses = lazy(() => import("./StairHouses"));
 const CoastInterior = lazy(() => import("./CoastInterior"));
@@ -287,6 +288,9 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                                     {entry === settlement && <span className="coast-door-label">The Stair Houses</span>}
                                     {isPlot(entry.id) && <CoastPlotArt paint={plot} area={area} />}
                                     {entry.gather && <img src={ART + MARKER[entry.gather]} alt="" draggable={false} />}
+                                    {/* The boat that sails home, moored where the player lands, so it reads as the thing to click. */}
+                                    {(entry.boat || (entry.id === "brackwater-dock-116" && quests?.coast.docks?.some(dock => dock.sector === sector))) &&
+                                        <img className="coast-site-boat" src="/coast-map/boats/shuttered-boat-coast-v1.webp" alt="" draggable={false} />}
                                     {questHere(sector, entry.id) && questMark}
                                 </button>
                             );
@@ -294,7 +298,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                         <CoastPatrols mask={layout.mask} key={sector} sector={sector} disabled={!!busy} notify={setStatus} />
                         {/* The keepers at their counters, and the boss a quest has brought the player to: choosing one goes to its place. */}
                         {quests?.coast.figures?.filter(figure => figure.sector === sector).map(figure => (
-                            <CoastFigure mask={layout.mask} key={figure.label} tile={figure.tile} model={figure.model} label={figure.label} disabled={!!busy}
+                            <CoastFigure marker={coastFigureMarker(figure)} mask={layout.mask} key={figure.label} tile={figure.tile} model={figure.model} label={figure.label} disabled={!!busy}
                                 pick={() => { const place = layout.sites.find(entry => entry.id === figure.site); if (place) void visit(place); }} />
                         ))}
                         {/* The people of the coast (api/quests/_coast-residents.ts). Choosing one shows the line the server picked for this player. */}

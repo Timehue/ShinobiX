@@ -2,6 +2,7 @@ import type { ShrineDef } from "../../../shared/shrines";
 import type { Biome } from "../types/core";
 import type { TrailSignView } from "../lib/sector-traces";
 import type { Wanderer } from "../lib/wanderers";
+import type { NpcMarker } from "../lib/npc-quest-marker";
 import { riftPlacement, strongholdPlacement } from "../data/sector-structure-placements";
 import { SectorShrineStandee, SectorTraceMarkers } from "./SectorTraces";
 import { SectorWanderer } from "./SectorWanderer";
@@ -50,6 +51,8 @@ export type WorldSectorOverlayLayerProps = Readonly<{
     onEngageWanderer: (wanderer: Wanderer) => boolean | void;
     onOpenTrace: (signId: string) => void;
     onOpenShrine: () => void;
+    /** The quest "!" an NPC wears right now, or null when it has nothing to offer this player. */
+    markerFor?: (wanderer: Wanderer) => NpcMarker | null;
 }>;
 
 /**
@@ -74,6 +77,7 @@ export function WorldSectorOverlayLayer({
     onEngageWanderer,
     onOpenTrace,
     onOpenShrine,
+    markerFor,
 }: WorldSectorOverlayLayerProps) {
     const riftAt = riftPlacement(sector);
     const strongholdAt = strongholdPlacement(sector);
@@ -91,6 +95,7 @@ export function WorldSectorOverlayLayer({
                     playerIndex={playerTile}
                     biome={biome}
                     onEngage={onEngageWanderer}
+                    markerFor={markerFor}
                 />
             ))}
 

@@ -176,6 +176,14 @@ function runtimeSprite(id: string): string | null {
         }
     }
     if (id === "raiju-storm-hound" || (id.startsWith("world-questbook-") && id.endsWith("-raiju-storm-hound"))) return HOLLOW_HOUND_SPRITE;
+    // Coast beasts fight as the creature they walk as (world-coast-patrol-<kind>),
+    // not as the human rival body. Display only: stats come from the sealed spec.
+    const coastBeast = /^world-coast-patrol-(.+)$/.exec(id)?.[1];
+    if (coastBeast) {
+        if (coastBeast === "saltmarsh-hound" || coastBeast === "rime-hound") return HOLLOW_HOUND_SPRITE;
+        if (coastBeast === "brackwater-fox") return shadowPantherSprite;
+        if (coastBeast === "briar-stalker" || coastBeast === "crown-shade") return riftHollowStalkerSprite;
+    }
     if (id.startsWith("dungeon-warden-")) return towerArmoredBossSprite;
     if (id.startsWith("world-bounty-") || id.startsWith("world-ambush-")) return towerHeavySprite;
     // The rift-touched creature keeps its slot id, not a human roster role.

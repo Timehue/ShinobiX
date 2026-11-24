@@ -900,15 +900,7 @@
     pointer-events: none;
 }
 
-.sector-wanderer-figure:hover {
-    z-index: 3;
-}
-
-.sector-wanderer-figure:hover .sector-wanderer-label {
-    max-width: none;
-    background: rgba(20, 16, 28, 0.92);
-    border-color: rgba(255, 255, 255, 0.34);
-}
+/* No hover effect on an NPC: it does nothing until it is clicked. */
 .sector-wanderer-bubble {
     position: absolute;
     left: 50%;

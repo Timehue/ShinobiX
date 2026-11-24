@@ -87,6 +87,8 @@ test("authoritative creature and boss catalogs have exhaustive sprite policies",
         assert.equal(battlefieldAiSprite(`world-questbook-test-${id}`), `/combat-actors/named/quest-bosses/${id}-idle.webp`);
     }
     assert.equal(battlefieldAiSprite("world-questbook-test-raiju-storm-hound"), "/hollow-gate/hollow-hound-idle.webp");
+    assert.equal(battlefieldAiSprite("world-coast-patrol-saltmarsh-hound"), "/hollow-gate/hollow-hound-idle.webp");
+    assert.notEqual(battlefieldAiSprite("world-coast-patrol-brackwater-fox"), battlefieldAiSprite("world-coast-patrol-blade"));
     assert.equal(Object.keys(PERSONAL_HUNT_PORTRAITS).length, 5);
     for (const [id, portrait] of Object.entries(PERSONAL_HUNT_PORTRAITS)) {
         const name = portrait.split("/").pop()!.replace(".webp", "");
