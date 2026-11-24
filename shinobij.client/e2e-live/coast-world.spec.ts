@@ -1,4 +1,4 @@
-import { expect, type BrowserContext, type APIRequestContext } from '@playwright/test';
+import { expect, type BrowserContext, type APIRequestContext, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -22,11 +22,39 @@ const unlockedCoast = { ...charter, done: { ...charter.done,
     'crossing-war-4': { at: 12, marks: 3, opensRegion: 5 },
     'crossing-war-5': { at: 14, marks: 4, unlocks: ['last-garrison'] } } };
 
+function watchMovement(page: Page) {
+    const recent: { ok: boolean; reason?: string; sequence?: number; sector?: number; worldPosition?: WorldPosition }[] = [];
+    const record = (reply: typeof recent[number]) => {
+        if (typeof reply?.ok !== 'boolean' || !(reply.reason || reply.worldPosition)) return;
+        const { ok, reason, sequence, sector, worldPosition } = reply;
+        recent.push({ ok, reason, sequence, sector, worldPosition });
+        if (recent.length > 100) recent.shift();
+    };
+    page.on('websocket', socket => socket.on('framereceived', ({ payload }) => {
+        if (typeof payload === 'string' && /^43\d*\[/.test(payload)) {
+            record(JSON.parse(payload.slice(payload.indexOf('[')))[0]);
+        }
+    }));
+    page.on('response', response => {
+        if (new URL(response.url()).pathname === '/api/player/world-move') void response.json().then(record).catch(() => {});
+    });
+    return recent;
+}
+
+async function expectSavedArrival(request: APIRequestContext, headers: Record<string, string>, target: string) {
+    await expect.poll(async () => {
+        const reply = await request.get('/api/player/world-move', { headers });
+        const position: WorldPosition | undefined = (await reply.json()).worldPosition;
+        return position?.from === target && position.progress === 0 || position?.to === target && position.progress === 1;
+    }, { message: 'Server confirms arrival at ' + target, timeout: 120_000, intervals: [1000, 2000, 4000] }).toBe(true);
+}
+
 // Long release walkthrough. Each directed trail is used once, on one account, starting and ending at the slip.
 if (process.env.COAST_FULL_WALK === '1') test('walk every coast trail in both directions', async ({ page, request, context }, info) => {
     test.setTimeout(3 * 60 * 60_000);
     const start = model.fallback(COAST_DOCK.sector, COAST_DOCK.tile)!;
     const driver = await actor(request, context, start, { veteran: true });
+    const replies = watchMovement(page);
     const remaining = new Map(coastWalkSpace.chunks.map(({ sector }) => [sector, [...coastExits(sector)]]));
     const stack = [COAST_DOCK.sector], tour: number[] = [];
     while (stack.length) {
@@ -46,20 +74,37 @@ if (process.env.COAST_FULL_WALK === '1') test('walk every coast trail in both di
             await expect(canvas).toHaveAttribute('data-world-sector', String(from));
             await takeCoastTrail(page, tile, trail, !!info.project.use.hasTouch);
             await expect(canvas).toHaveAttribute('data-world-sector', String(to), { timeout: 180_000 });
-            const target = `${to}:${trail.destinationTile}`;
-            await expect.poll(async () => {
-                const reply = await request.get('/api/player/world-move', { headers: driver.headers });
-                const position: WorldPosition | undefined = (await reply.json()).worldPosition;
-                return position?.from === target && position.progress === 0 || position?.to === target && position.progress === 1;
-            }, { timeout: 120_000, intervals: [1000, 2000, 4000] }).toBe(true);
+            await expectSavedArrival(request, driver.headers, `${to}:${trail.destinationTile}`);
             if (!visited.has(to)) await page.screenshot({ path: info.outputPath(`sector-${to}.png`) });
             visited.add(to);
             tile = trail.destinationTile;
             console.log(`Walked ${index + 1}/${tour.length - 1}: ${from} to ${to}, arrived at tile ${trail.destinationTile}.`);
+        }).catch(async error => {
+            await info.attach('last-movement-replies', { body: JSON.stringify(replies), contentType: 'application/json' });
+            throw error;
         });
     }
     expect(visited.size).toBe(coastWalkSpace.chunks.length);
     expect(tour.at(-1)).toBe(COAST_DOCK.sector);
+});
+
+test('follow the painted return trail from the west entrance to the landing', async ({ page, request, context }, info) => {
+    test.setTimeout(240_000);
+    const trail = coastExits(102).find(exit => exit.destinationSector === COAST_DOCK.sector)!;
+    const driver = await actor(request, context, model.fallback(102, 49)!, { veteran: true });
+    const replies = watchMovement(page);
+    await openWorld(page);
+    const canvas = page.locator('.continuous-world-map > canvas[tabindex]');
+    await expect(canvas).toHaveAttribute('data-world-sector', '102');
+    try {
+        await takeCoastTrail(page, 49, trail, !!info.project.use.hasTouch);
+        await expect(canvas).toHaveAttribute('data-world-sector', String(trail.destinationSector), { timeout: 90_000 });
+        await expectSavedArrival(request, driver.headers, `${trail.destinationSector}:${trail.destinationTile}`);
+        await page.screenshot({ path: info.outputPath('return-to-landing.png') });
+        console.log(`Confirmed return on ${info.project.name}: 102 to ${trail.destinationSector}, arrived at tile ${trail.destinationTile}.`);
+    } finally {
+        await info.attach('last-movement-replies', { body: JSON.stringify(replies), contentType: 'application/json' });
+    }
 });
 
 test('choose between two southward trails at their painted road ends', async ({ page, request, context }, info) => {
@@ -201,9 +246,14 @@ test('both players see across the seam', async ({ context, browser, request, pag
         await expect(canvas).toHaveAttribute('data-world-sector', '102');
     } finally { await other.close(); }
 });
-test('the starter and residents walk at the Stair Houses', async ({ page, context, request }, info) => {
+for (const equipped of [false, true]) test(equipped ? 'the equipped Make Model walks and runs at the Stair Houses'
+    : 'the starter and residents walk at the Stair Houses', async ({ page, context, request }, info) => {
+    test.skip(equipped && !(process.env.COAST_QA_PLAYER_CONTENT && process.env.SECTOR_MODEL_TEST_CONTENT),
+        'This walkthrough uses the owned model receipt and its fitted pages.');
     const site = coastLayout(105)!.sites['saltstair-houses-105'];
-    await actor(request, context, model.fallback(105, site.approach)!);
+    const driver = await actor(request, context, model.fallback(105, site.approach)!, { equipped });
+    // A room regression that falls back to the starter must not pass the owned-model gait checks.
+    if (equipped) await context.route('**/sector-models/starter-two/**', route => route.abort());
     await openWorld(page);
     await page.getByRole('button', { name: 'Enter ' + site.name, exact: true }).first().click();
     const room = page.locator('.stairs-street .coast-room-board');
@@ -214,11 +264,12 @@ test('the starter and residents walk at the Stair Houses', async ({ page, contex
     if (process.env.SECTOR_MODEL_TEST_CONTENT) {
         const figure = room.locator('.stairs-player .sector-model-figure');
         await expect(figure).toBeVisible();
+        if (equipped) await expect.poll(driver.equippedManifestLoaded).toBe(true);
         const floor = (await room.boundingBox())!;
         const plaza = { position: { x: floor.width * 6.5 / 12, y: floor.height * 5.5 / 12 } };
         if (info.project.use.hasTouch) await room.tap(plaza); else await room.click(plaza);
         await expect(figure).toHaveAttribute('data-gait', 'walk');
-        await page.screenshot({ path: info.outputPath('starter-walking.png') });
+        await page.screenshot({ path: info.outputPath(equipped ? 'make-model-walking.png' : 'starter-walking.png') });
         await expect(room).toHaveAttribute('data-tile', '66');
         await expect(figure).toHaveAttribute('data-gait', 'idle');
         const run = room.getByRole('button', { name: 'Run', exact: true });
@@ -245,7 +296,7 @@ test('the starter and residents walk at the Stair Houses', async ({ page, contex
         expect(Math.abs(tiles[0] % 12 - tiles[1] % 12) +
             Math.abs(Math.floor(tiles[0] / 12) - Math.floor(tiles[1] / 12))).toBeLessThanOrEqual(1);
         await expect(figure).toHaveAttribute('data-gait', 'run');
-        await page.screenshot({ path: info.outputPath('starter-running.png') });
+        await page.screenshot({ path: info.outputPath(equipped ? 'make-model-running.png' : 'starter-running.png') });
     }
 });
 
@@ -286,6 +337,19 @@ for (const fitted of [false, true]) test('the street roof hides a passing figure
     const playerAnchor = room.locator('.stairs-player');
     async function stand(tile: number) {
         await room.scrollIntoViewIfNeeded();
+        // WebKit can finish a short stride before the tap returns to Playwright.
+        // Record the rendered gait from before the input, including that first frame.
+        const stride = fitted ? await figure.evaluateHandle(element => {
+            const seen = { walk: false };
+            const observer = new MutationObserver(changes => {
+                if (element.getAttribute('data-gait') === 'walk' || changes.some(change => change.oldValue === 'walk')) {
+                    seen.walk = true;
+                    observer.disconnect();
+                }
+            });
+            observer.observe(element, { attributes: true, attributeFilter: ['data-gait'], attributeOldValue: true });
+            return seen;
+        }) : null;
         // A resident can be on the tile. Choose exposed ground so a tap means
         // "walk here" instead of starting the resident's conversation.
         const openGround = () => room.evaluate((floor, tile) => {
@@ -309,7 +373,10 @@ for (const fitted of [false, true]) test('the street roof hides a passing figure
             if (info.project.use.hasTouch) await page.touchscreen.tap(point.x, point.y); else await page.mouse.click(point.x, point.y);
             expect(await room.getAttribute('data-test-ground-tap'), 'The tap reached the walkable ground').toBe('true');
         }).toPass({ timeout: 20_000 });
-        if (fitted) await expect(figure).toHaveAttribute('data-gait', 'walk');
+        if (stride) {
+            await expect.poll(() => stride.evaluate(seen => seen.walk)).toBe(true);
+            await stride.dispose();
+        }
         await expect(room).toHaveAttribute('data-tile', String(tile));
         await expect.poll(async () => {
             return playerAnchor.evaluate((element, tile) => {
