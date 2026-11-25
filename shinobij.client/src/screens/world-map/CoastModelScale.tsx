@@ -55,13 +55,12 @@ export function useCoastFigure<T extends HTMLElement>(scale: number, tile: numbe
             // A figure nobody can see (hidden tab, a fight covering the map, scrolled or
             // panned out of the view) draws nothing. Its position is a function of the
             // clock, so it is right again on the first frame after it comes back.
-            if ((motion || moving || figure.current?.stop()) && !document.hidden && onScreen && !isCoveredByCombat()) frame = requestAnimationFrame(draw);
+            if ((motion || moving || figure.current?.stop()) && shown()) frame = requestAnimationFrame(draw);
         };
         let onScreen = true;
-        const wake = () => {
-            if (frame || document.hidden || !onScreen || isCoveredByCombat()) return;
-            draw(performance.now());
-        };
+        // The browser already holds frames back in a hidden tab.
+        const shown = () => onScreen && !isCoveredByCombat();
+        const wake = () => { if (!frame && shown()) draw(performance.now()); };
         draw(start);
         const observer = new ResizeObserver(() => {
             width = floor.clientWidth;
@@ -69,17 +68,10 @@ export function useCoastFigure<T extends HTMLElement>(scale: number, tile: numbe
             draw(performance.now());
         });
         observer.observe(floor);
-        const seen = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(entries => {
-            onScreen = entries.at(-1)!.isIntersecting;
-            wake();
-        }, { rootMargin: '120px' });
-        seen?.observe(element);
-        document.addEventListener('visibilitychange', wake);
+        const seen = new IntersectionObserver(entries => { onScreen = entries.at(-1)!.isIntersecting; wake(); }, { rootMargin: '120px' });
+        seen.observe(element);
         const stopCover = subscribeCombatCover(wake);
-        return () => {
-            cancelAnimationFrame(frame); observer.disconnect(); seen?.disconnect();
-            document.removeEventListener('visibilitychange', wake); stopCover();
-        };
+        return () => { cancelAnimationFrame(frame); observer.disconnect(); seen.disconnect(); stopCover(); };
     }, [base, scale, tile, motion, gait]);
     return { anchor, figure, base };
 }
