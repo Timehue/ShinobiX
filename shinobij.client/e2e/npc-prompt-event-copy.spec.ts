@@ -78,7 +78,7 @@ for (const reducedMotion of ['no-preference','reduce'] as const) {
                 const figures = new Set<HTMLElement>();
                 for (const { target } of records) {
                     if (target instanceof HTMLElement && target.classList.contains('sector-wanderer-figure')
-                        && target.title.startsWith(`${name} · Lv `)) figures.add(target);
+                        && target.getAttribute('aria-label') === name) figures.add(target);
                 }
                 for (const figure of figures) {
                     const grid = figure.closest(chunk);
