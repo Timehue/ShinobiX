@@ -14,21 +14,18 @@
 import { LEFT_FACING_PETS } from "./pet-summon-index";
 import { isImageAvatar } from "./avatar";
 import { towerHexPixel } from "./tower-grid";
+import residentIds from "../data/cinderhold-standing-ids.json";
 
 export type BattlefieldSpriteKind = "humanoid" | "quadruped" | "flying" | "serpentine" | "boss" | "construct";
 export type BattlefieldSpriteFacing = "left" | "right";
 
-const CINDERHOLD_NATIVE_FACING: Record<string, BattlefieldSpriteFacing> = {
-    akari: "left", alisia: "right", ayame: "right", daigo: "right", hayate: "left",
-    isamu: "right", jiro: "left", kaien: "left", kairo: "right", kat: "right",
-    kohaku: "right", kuroto: "left", lumen: "left", mizuki: "left", nozomi: "left",
-    nyra: "left", raku: "right", reika: "left", renji: "left", riven: "left",
-    roy: "right", sayo: "left", seiran: "right", shion: "right", sly: "right",
-    suiren: "right", tavi: "right", vesper: "right", veyl: "right", virath: "left",
-};
+const LEFT_FACING_RESIDENTS = new Set([
+    "akari", "hayate", "jiro", "kaien", "kuroto", "lumen", "mizuki", "nozomi",
+    "nyra", "reika", "renji", "riven", "sayo", "virath",
+]);
 
 export function cinderholdCombatantId(id?: string): string | undefined {
-    return id && Object.hasOwn(CINDERHOLD_NATIVE_FACING, id) ? id : undefined;
+    return id && Object.hasOwn(residentIds, id) ? id : undefined;
 }
 
 type BattlefieldFacingActor = {
@@ -70,7 +67,7 @@ export function inferSpriteNativeFacing(src: string): BattlefieldSpriteFacing {
     const pet = /\/combat-actors\/pets\/[^/]+\/([\w-]+)-guard\.webp$/.exec(path)?.[1];
     if (pet) return LEFT_FACING_PETS.has(pet) ? "left" : "right";
     const cinderhold = /\/combat-actors\/cinderhold\/([a-z]+)-idle\.webp$/.exec(path)?.[1];
-    if (cinderhold && cinderholdCombatantId(cinderhold)) return CINDERHOLD_NATIVE_FACING[cinderhold]!;
+    if (cinderhold && cinderholdCombatantId(cinderhold)) return LEFT_FACING_RESIDENTS.has(cinderhold) ? "left" : "right";
     const filename = path.split("/").pop() ?? "";
     // Murogane, Donkaku and the Hollow Hound are drawn with their heads leading
     // to the right.

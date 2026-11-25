@@ -47,9 +47,10 @@ export function sectorModelPins(client: string): Plugin {
                     groups.set(asset, group);
                 }
                 const rows = [...groups.values()].map(({fighter, asset, versions}) =>
-                    [fighter, Buffer.from(asset + versions.join(''), 'hex').toString('base64')]);
+                    fighter + ':' + Buffer.from(asset + versions.join(''), 'hex').toString('base64')).join(' ');
                 return `export const cinderholdBattleModels = Object.create(null);
-                    for (const [fighter, packed] of ${JSON.stringify(rows)}) {
+                    for (const row of ${JSON.stringify(rows)}.split(' ')) {
+                        const [fighter, packed] = row.split(':');
                         const hex = Array.from(atob(packed), byte => byte.charCodeAt(0).toString(16).padStart(2, '0')).join('');
                         for (let i = 32; i < hex.length; i += 64)
                             cinderholdBattleModels[hex.slice(0, 32) + hex.slice(i, i + 64)] = fighter;

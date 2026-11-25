@@ -10,7 +10,7 @@ import bandit2Img from "../assets/wanderers/bandit-2.webp";
 import bandit3Img from "../assets/wanderers/bandit-3.webp";
 import nemesisImg from "../assets/wanderers/nemesis.webp";
 import gamblerImg from "../assets/wanderers/gambler.webp";
-import pilgrimImg from "../assets/wanderers/pilgrim.webp";
+const pilgrimImg = "/portraits/wanderer-pilgrim.webp";
 import sageImg from "../assets/wanderers/sage.webp";
 import merchantImg from "../assets/wanderers/merchant.webp";
 import medicImg from "../assets/wanderers/medic.webp";
