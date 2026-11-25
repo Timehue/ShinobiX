@@ -6,6 +6,7 @@ import { playerNameTile } from '../lib/sector-tile';
 import { SectorModelFigure, type SectorModelHandle } from './SectorModelFigure';
 import { usePlayerGaits, useWorldModelArtBase } from '../lib/sector-obstacles';
 import { isPlayerModel, starterModel, type PlayerModel } from '../lib/player-model';
+import { residentStrideFile } from '../lib/peer-standing-kind';
 import { WorldStandingFigure } from './WorldStandingFigure';
 import type { WorldPosition } from '../../../shared/world-position';
 import type { PlayerRecord } from '../types/character';
@@ -19,7 +20,7 @@ const peerGait = (rate: number) => rate !== playerGaitTilesPerSecond.walk && rat
 
 // `peer` is the record last reconciled; `element`/`x`/`y` the transform last written.
 type Motion = { cursor: WorldPosition; point: PeerWaypoint; points: PeerWaypoint[]; sequence: number;
-    peer: PlayerRecord; updated:number; lastMovementAt?: number; element?: HTMLDivElement; x?: number; y?: number };
+    peer: PlayerRecord; updated:number; strideDistance?: number; lastMovementAt?: number; element?: HTMLDivElement; x?: number; y?: number };
 type PeerFigure = { name: string; level: PlayerRecord['level']; sleeping: boolean; local: boolean; starter: ReturnType<typeof starterModel>;
     model?: PlayerModel; style?: NonNullable<PlayerRecord['gaitPresentation']>['style'] };
 // A poll reply is plain JSON, so equal text means equal records.
@@ -34,10 +35,12 @@ const PeerFigures = memo(function PeerFigures({ figures, elements, models, artBa
     return <>{figures.map(({ name, level, sleeping, local, model, starter, style }) => <div key={name}
         ref={node => { if (node) elements.current.set(name, node); else elements.current.delete(name); }}
         className="sector-avatar-figure continuous-world-peer" title={`${name} (Lv ${level})${sleeping ? ' — Sleeping' : ''}`}>
-        {artBase && local && !sleeping && <SectorModelFigure kind={starter} equipped={model} style={style} artBase={artBase}
+        {artBase && local && !sleeping && <SectorModelFigure kind={starter} accountName={name} equipped={model} style={style} artBase={artBase}
             ref={figure=>{if(figure) models.current.set(name,figure);else models.current.delete(name);}} />}
+        {artBase && local && !sleeping && residentStrideFile(name) && <span className="resident-stride" hidden>
+            <img src={artBase + '/strides/' + residentStrideFile(name)} alt="" /></span>}
         <span className="sector-avatar-shadow" /><span className="sector-avatar-sprite"><span className="sector-avatar-body">
-            <WorldStandingFigure kind={starter} /></span></span><span className="sector-peer-label">{name}{sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
+            <WorldStandingFigure kind={starter} accountName={name} /></span></span><span className="sector-peer-label">{name}{sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
     </div>)}</>;
 }, (a, b) => a.artBase === b.artBase && a.models === b.models && a.elements === b.elements && sameFigures(a.figures, b.figures));
 /**
@@ -131,6 +134,7 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ space, 
                     }
                     present.add(peer.name);
                     const sprite=models.current.get(peer.name), previous=item.point;
+                    const routeRate = item.points[1]?.rate;
                     item.point = advanceTimedPeerPath(item.points, dt, sprite ? undefined : 8) ?? previous;
                     const element = elements.current.get(peer.name);
                     if (!element) continue;
@@ -148,6 +152,32 @@ export const ContinuousWorldPeers = memo(function ContinuousWorldPeers({ space, 
                         sprite?.place(x,y,width,moving,
                             peerGait(item.point.rate ?? sectorGaitTilesPerSecond.walk),true);
                         if (sprite && (moving || sprite.stop())) animating = true;
+                    }
+                    // A cold streamed pose can take longer than a short server route. Draw the
+                    // same resident's native stride until the full loop paints for this heading.
+                    if (routeRate !== undefined || element.classList.contains('has-resident-stride')) {
+                        const strip = element.querySelector<HTMLElement>('.resident-stride');
+                        const image = strip?.firstElementChild as HTMLImageElement | null;
+                        if (strip && image) {
+                            const dx = item.point.x - previous.x, dy = item.point.y - previous.y;
+                            const distance = Math.hypot(dx, dy) * 90;
+                            const gait = peerGait(routeRate ?? sectorGaitTilesPerSecond.walk);
+                            const facing = (Math.round(Math.atan2(dx, dy) / (Math.PI / 4)) + 8) % 8;
+                            const model = element.querySelector<HTMLElement>('.sector-model-figure');
+                            const native = distance > 0 && !reduced.matches && image.complete && image.naturalWidth > 0 &&
+                                !(element.classList.contains('has-sector-model') && model?.dataset.clip === gait && Number(model.dataset.facing) === facing);
+                            strip.hidden = !native;
+                            element.classList.toggle('has-resident-stride', native);
+                            if (distance) item.strideDistance = (item.strideDistance ?? 0) + distance;
+                            if (native) {
+                                const phase = Math.floor((item.strideDistance ?? 0) * 8 / (gait === 'walk' ? 32.6 : 72)) % 8;
+                                strip.style.width = (width * 96 / 1080) + 'px';
+                                strip.style.height = (width * 104 / 1080) + 'px';
+                                image.style.transform = 'translate(' + (-phase * 12.5) + '%, ' + (-(facing * 2 + Number(gait === 'run')) * 6.25) + '%)';
+                                if (strip.dataset.clip !== gait) strip.dataset.clip = gait;
+                                animating = true;
+                            } else if (strip.dataset.clip) delete strip.dataset.clip;
+                        }
                     }
                     // A standing peer would be handed the very same transform string again.
                     if (element === item.element && x === item.x && y === item.y) continue;

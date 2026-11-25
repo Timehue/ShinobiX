@@ -11,5 +11,6 @@ export function cinderholdWorldModel(id: string, avatar: string) {
 }
 
 export function cinderholdPortraitForModel(model: PlayerModel): string | undefined {
-    return catalog.find(entry => entry.assetId === model.assetId && entry.version === model.version)?.avatar;
+    const matches = (ref: PlayerModel) => ref.assetId === model.assetId && ref.version === model.version;
+    return catalog.find(entry => matches(entry) || entry.previousModels?.some(matches))?.avatar;
 }

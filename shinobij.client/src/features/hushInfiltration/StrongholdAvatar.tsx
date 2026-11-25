@@ -130,9 +130,9 @@ export function StrongholdAvatar({ tileX, tileY, tileSize, size, stepMs, name, p
         title={title} disabled={onSelect ? disabled : undefined} onClick={onSelect}
         style={{ width: onSelect ? Math.max(44, size) : size, height: onSelect ? Math.max(44, size) : size }}>
         <span className={`stronghold-avatar${onSelect ? ' stronghold-peer-avatar' : ''}`} style={{ width: size, height: size }}>
-            <WorldStandingFigure kind={kind} />
+            <WorldStandingFigure kind={kind} accountName={name} />
         </span>
-        {useModel && <SectorModelFigure key={kind} ref={model} kind={kind} equipped={equipped}
+        {useModel && <SectorModelFigure key={kind} ref={model} kind={kind} accountName={name} equipped={equipped}
             artBase={artBase!} style={sprintStyle} self={self} />}
         {onSelect && <span className="stronghold-peer-label">{count > 1 ? `${count} shinobi` : name}</span>}
     </Element>;

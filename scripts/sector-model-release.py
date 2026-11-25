@@ -19,6 +19,21 @@ def digest(data):
     return sha256(data).hexdigest()
 
 
+def add_resident_strides(client, objects):
+    catalog = json.loads((client.parent / "shared/cinderhold-world-models.json").read_bytes())
+    strides = json.loads((client / "src/data/cinderhold-standing-ids.json").read_bytes())
+    if set(strides) != {item["id"] for item in catalog}:
+        raise ValueError("Incomplete resident stride bindings")
+    for slug, version in strides.items():
+        if not re.fullmatch(r"[a-z0-9-]+", slug):
+            raise ValueError("Invalid resident name")
+        data = (client / "art/sector-model-strides" / (slug + ".webp")).read_bytes()
+        if digest(data)[:20] != version or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+            raise ValueError("Invalid resident stride: " + slug)
+        objects[f"sector-models/strides/{slug}-{version}.webp"] = {
+            "data": data, "mime": "image/webp", "manifest": False}
+
+
 def add_cinderhold(client, roster, objects, characters):
     catalog_path = client.parent / "shared/cinderhold-world-models.json"
     catalog = json.loads(catalog_path.read_bytes())
@@ -100,6 +115,8 @@ def build_release(client, content, expected_count=BUNDLED_MODEL_COUNT, cinderhol
             key = f"sector-models/{slug}/{name}"
             mime = "application/json" if name.endswith(".json") else "image/webp" if name.endswith(".webp") else "application/octet-stream"
             objects[key] = {"data": data, "mime": mime, "manifest": name == version + ".json"}
+    if expected_count == BUNDLED_MODEL_COUNT:
+        add_resident_strides(client, objects)
     if cinderhold_roster is not None:
         add_cinderhold(client, Path(cinderhold_roster), objects, characters)
     report = {"format": "sector-model-release-v1", "characters": characters, "objects": [

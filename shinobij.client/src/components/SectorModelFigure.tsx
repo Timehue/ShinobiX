@@ -6,6 +6,7 @@ import { advanceSectorStride, fitSectorStride, sectorClipGait, sectorStartEntry,
 import type { DecodePriority, SheetImage, SpriteClip, SpriteView } from "../lib/sector-pose-delivery";
 import { sectorFetchPriority } from "../lib/sector-model-object";
 import { loadSectorModel as loadModel, sectorModelFolder, type SectorModel as Model } from "../lib/sector-model-manifest";
+import { peerStandingKind } from "../lib/peer-standing-kind";
 import { createPosePrerequisite } from "../lib/sector-pose-prerequisite";
 import { missingSectorModelFeature, reportSectorModelUnavailable, reportSectorModelUnsupported, type SectorModelStage } from "../lib/sector-model-health";
 
@@ -43,15 +44,15 @@ const loadPoseDelivery = () => import("../lib/sector-pose-delivery");
 export type FrontIdleDetail = { revision: string; src: string; bounds: [number, number, number, number] };
 
 export const SectorModelFigure = forwardRef<SectorModelHandle, {
-    kind: string; artBase: string; equipped?: PlayerModel; style?: SprintStyle;
+    kind: string; artBase: string; equipped?: PlayerModel; style?: SprintStyle; accountName?: string;
     /** The player's own figure: its pages decode ahead of every other figure's. */
     self?: boolean;
     frontIdleDetail?: FrontIdleDetail;
 }>(
-    function SectorModelFigure({ kind, artBase, equipped, style = "A", self = false, frontIdleDetail }, ref) {
+    function SectorModelFigure({ kind, artBase, equipped, style = "A", self = false, frontIdleDetail, accountName = "" }, ref) {
         const decodePriority: DecodePriority = self ? 0 : 1;
         const {revisions} = useSectorModelPins();
-        const revision = equipped?.version ?? revisions[kind];
+        const revision = equipped?.version ?? revisions[peerStandingKind(accountName, kind)];
         const folder = sectorModelFolder(artBase, kind, equipped?.assetId);
         const element = useRef<HTMLSpanElement>(null);
         const latest = useRef<Position | null>(null);

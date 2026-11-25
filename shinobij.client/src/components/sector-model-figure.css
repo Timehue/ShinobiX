@@ -7,6 +7,16 @@
     background-repeat: no-repeat;
 }
 .has-sector-model > .sector-model-figure { display: block; }
+.resident-stride {
+    overflow: hidden;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translate(-50%, -76.923077%);
+    pointer-events: none;
+}
+.resident-stride > img { display: block; width: 800%; height: 1600%; max-width: none; }
+.has-resident-stride > :is(.sector-model-figure, .sector-avatar-sprite) { visibility: hidden; }
 .has-sector-model > .sector-avatar-sprite,
 .has-sector-model > .sector-avatar-aura { visibility: hidden; }
 .sector-wanderer-figure.has-sector-model > .sector-wanderer-label {

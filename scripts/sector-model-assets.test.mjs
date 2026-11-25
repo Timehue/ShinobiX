@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { gunzipSync } from "node:zlib";
 import test from "node:test";
 import sharp from "sharp";
@@ -12,17 +14,49 @@ const client = new URL("../shinobij.client/", import.meta.url);
 const manifests = new URL("src/data/sector-models/", client);
 const content = resolve(process.env.SECTOR_MODEL_TEST_CONTENT || fileURLToPath(new URL("../.ci-evidence/sector-models/", client)));
 const hash = data => createHash("sha256").update(data).digest("hex");
+const residents = JSON.parse(await readFile(new URL("../shared/cinderhold-world-models.json", client)));
+
+test("bundled standing figures match the idle poses in the staged map revisions", { skip: !existsSync(content) }, async () => {
+    const generator = fileURLToPath(new URL("./generate-world-standing-figures.mjs", import.meta.url));
+    const withResidents = process.env.SECTOR_MODEL_CINDERHOLD_QA === "1" ||
+        residents.some(({assetId}) => existsSync(resolve(content, "players", assetId)));
+    await promisify(execFile)(process.execPath, ["--import", "tsx", generator, content, "--check", ...(withResidents ? ["--with-cinderhold"] : [])]);
+});
 
 test("each pinned actor has a small transparent standing figure for the map", async () => {
     const figures = new URL("public/world-figures/v1/", client);
     const pins = (await readdir(manifests)).filter(name => name.endsWith(".json"));
-    for (const pin of pins) {
-        const name = pin.replace(/\.json$/, ".webp");
+    const names = [...pins.map(pin => pin.replace(/\.json$/, ".webp")), ...residents.map(row => "cinderhold-" + row.id + ".webp")];
+    for (const name of names) {
         const bytes = await readFile(new URL(name, figures));
         const { data, info } = await sharp(bytes).raw().toBuffer({ resolveWithObject: true });
         assert.ok(bytes.length < 8192 && info.channels === 4 && info.height > 20, name);
         const alpha = data.filter((_, i) => i % 4 === 3);
         assert.ok(alpha.includes(0) && alpha.includes(255), name);
+    }
+});
+
+test("every resident stride has a grounded, opaque figure in all 128 samples", async () => {
+    const directory = new URL("art/sector-model-strides/", client);
+    const versions = JSON.parse(await readFile(new URL("src/data/cinderhold-standing-ids.json", client)));
+    assert.deepEqual((await readdir(directory)).sort(), residents.map(({id}) => id + ".webp").sort());
+    for (const {id} of residents) {
+        const bytes = await readFile(new URL(id + ".webp", directory));
+        assert.equal(versions[id], hash(bytes).slice(0, 20), id);
+        const {data, info} = await sharp(bytes).raw().toBuffer({resolveWithObject:true});
+        assert.deepEqual([info.width, info.height, info.channels], [768,1664,4], id);
+        for (let row = 0; row < 16; row++) {
+            const poses = new Set();
+            for (let col = 0; col < 8; col++) {
+                const cell = Buffer.alloc(96 * 104);
+                for (let y = 0; y < 104; y++)
+                    for (let x = 0; x < 96; x++)
+                        cell[y * 96 + x] = data[((row * 104 + y) * info.width + col * 96 + x) * 4 + 3];
+                assert.ok(cell.filter(a => a >= 192).length > 100 && cell.includes(0), id);
+                poses.add(hash(cell));
+            }
+            assert.ok(poses.size >= 4, id + " stride row " + row);
+        }
     }
 });
 
