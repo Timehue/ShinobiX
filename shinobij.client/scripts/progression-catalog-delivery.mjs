@@ -1,8 +1,8 @@
-import { packStaticCatalogLiteral } from './pack-static-catalog.mjs';
+import { packStaticCatalog, packStaticCatalogLiteral } from './pack-static-catalog.mjs';
 
 /** Keep identical synchronous data in app and worker builds without duplicating
  * the full literal payload. The authoritative source registry stays readable. */
-export function progressionCatalogDelivery() {
+export function progressionCatalogDelivery(supportCards) {
     return {
         name: 'progression-catalog-delivery',
         apply: 'build',
@@ -15,8 +15,12 @@ export function progressionCatalogDelivery() {
             if (file.endsWith('/shared/chronicle-painted-art.ts')) return { code: packStaticCatalogLiteral(packStaticCatalogLiteral(source, 'CHRONICLE_PAINTED_ART'), 'CHRONICLE_PAINTED_FIGURES'), map: null };
             // Keep the expansion's repeated stat fields out of the runtime budget.
             if (file.endsWith('/shared/chronicle-expansion-monsters.ts')) return { code: packStaticCatalogLiteral(source, 'CHRONICLE_COMMON_EXPANSION'), map: null };
+            if (file.endsWith('/shared/chronicle-village-monsters.ts')) return { code: packStaticCatalogLiteral(source, 'rosters'), map: null };
             if (file.endsWith('/shared/tile-cards.ts')) return { code: packStaticCatalogLiteral(source, 'shinobiTileCards'), map: null };
-            if (file.endsWith('/shared/chronicle-duel.ts')) return { code: packStaticCatalogLiteral(source, 'REVIEWED_MONSTER_EFFECTS'), map: null };
+            if (file.endsWith('/shared/chronicle-duel.ts')) {
+                const code = packStaticCatalogLiteral(source, 'REVIEWED_MONSTER_EFFECTS');
+                return { code: supportCards ? packStaticCatalog(code, 'SUPPORT_CARDS', supportCards) : code, map: null };
+            }
             if (file.endsWith('/src/data/story-reckonings.ts')) return { code: packStaticCatalogLiteral(source, 'storyReckonings'), map: null };
             if (file.endsWith('/shared/story-card-sources.ts')) return { code: packStaticCatalogLiteral(source, 'CHRONICLE_STORY_SOURCES'), map: null };
             if (file.endsWith('/shared/clan-exchange-catalog.ts')) return { code: packStaticCatalogLiteral(source, 'CLAN_EXCHANGE_ITEMS'), map: null };

@@ -21,21 +21,21 @@ type PackListing = {
 };
 
 const BASIC_PACKS: readonly PackListing[] = [
-  { type: "standard", name: "Random Pack", note: "All elements, plus Jutsu and Snares", count: 5, cost: 100, currency: "chroniclePoints", pool: 155, rarities: { common: 85, rare: 70 } },
-  { type: "fire", name: "Fire Pack", note: "Fire Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 19, rarities: { common: 14, rare: 5 } },
-  { type: "water", name: "Water Pack", note: "Water Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 21, rarities: { common: 13, rare: 8 } },
-  { type: "earth", name: "Earth Pack", note: "Earth Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 22, rarities: { common: 16, rare: 6 } },
-  { type: "wind", name: "Wind Pack", note: "Wind Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 20, rarities: { common: 15, rare: 5 } },
-  { type: "lightning", name: "Lightning Pack", note: "Lightning Monsters only", count: 5, cost: 100, currency: "chroniclePoints", pool: 21, rarities: { common: 12, rare: 9 } },
-  { type: "snare", name: "Snare Pack", note: "Five Snares for traps, counters and combat tricks", count: 5, cost: 100, currency: "chroniclePoints", pool: 25, rarities: { common: 6, rare: 19 } },
-  { type: "jutsu", name: "Jutsu Pack", note: "Five Jutsu cards for direct plays and setup", count: 5, cost: 100, currency: "chroniclePoints", pool: 27, rarities: { common: 9, rare: 18 } },
+  { type: "standard", name: "Random Pack", note: "All elements, plus Jutsu and Snares", count: 3, cost: 100, currency: "chroniclePoints", pool: 265, rarities: { common: 195, rare: 70 } },
+  { type: "fire", name: "Fire Pack", note: "Fire Monsters only", count: 3, cost: 100, currency: "chroniclePoints", pool: 39, rarities: { common: 34, rare: 5 } },
+  { type: "water", name: "Water Pack", note: "Water Monsters only", count: 3, cost: 100, currency: "chroniclePoints", pool: 41, rarities: { common: 33, rare: 8 } },
+  { type: "earth", name: "Earth Pack", note: "Earth Monsters only", count: 3, cost: 100, currency: "chroniclePoints", pool: 42, rarities: { common: 36, rare: 6 } },
+  { type: "wind", name: "Wind Pack", note: "Wind Monsters only", count: 3, cost: 100, currency: "chroniclePoints", pool: 40, rarities: { common: 35, rare: 5 } },
+  { type: "lightning", name: "Lightning Pack", note: "Lightning Monsters only", count: 3, cost: 100, currency: "chroniclePoints", pool: 41, rarities: { common: 32, rare: 9 } },
+  { type: "snare", name: "Snare Pack", note: "Three Snares for traps, counters and combat tricks", count: 3, cost: 100, currency: "chroniclePoints", pool: 30, rarities: { common: 11, rare: 19 } },
+  { type: "jutsu", name: "Jutsu Pack", note: "Three Jutsu cards for direct plays and setup", count: 3, cost: 100, currency: "chroniclePoints", pool: 32, rarities: { common: 14, rare: 18 } },
 ];
 
 const PREMIUM_PACKS: readonly PackListing[] = [
-  { type: "epic", name: "Elite Pack", note: "1 top-tier Rare or Epic card", count: 1, cost: 6, currency: "fateShards", pool: 77, rarities: { rare: 12, epic: 65 } },
+  { type: "epic", name: "Elite Pack", note: "1 top-tier Rare or Epic card", count: 1, cost: 6, currency: "fateShards", pool: 78, rarities: { rare: 12, epic: 66 } },
   { type: "legendary", name: "Legendary Pack", note: "1 guaranteed Legendary card", count: 1, cost: 20, currency: "fateShards", pool: 61, rarities: { legendary: 61 }, mythic: 1 },
-  { type: "epic-five", name: "Epic Quintet Pack", note: "5 random Epic cards · all five guaranteed Epic", count: 5, cost: 35, currency: "fateShards", pool: 65, rarities: { epic: 65 } },
-  { type: "legendary-five", name: "Legendary Quintet Pack", note: "5 random Legendary cards · all five guaranteed Legendary", count: 5, cost: 100, currency: "fateShards", pool: 61, rarities: { legendary: 61 }, mythic: 1 },
+  { type: "epic-five", name: "Epic Trio Pack", note: "3 random Epic cards", count: 3, cost: 21, currency: "fateShards", pool: 66, rarities: { epic: 66 } },
+  { type: "legendary-five", name: "Legendary Trio Pack", note: "3 random Legendary cards", count: 3, cost: 60, currency: "fateShards", pool: 61, rarities: { legendary: 61 }, mythic: 1 },
 ];
 
 const PACKS = [...BASIC_PACKS, ...PREMIUM_PACKS];
@@ -146,15 +146,15 @@ export function ChroniclePackGallery({ character, cardsById, onVersionedCharacte
         </div>
       </div>
       <p className="chronicle-pack-gallery__odds">
-        <strong>Pack odds:</strong> Elemental packs draw only matching-element Monsters. The Random Pack draws from every eligible Basic card, including Jutsu and Snares. Basic packs draw Common or Rare cards; Elite draws a Marketplace Rare or Epic; Legendary is always Legendary. Epic Quintet draws five Marketplace Epics; Legendary Quintet draws five Marketplace Legendaries. Within each eligible pool, every card is equally likely. There are no weighted tiers or pity timer. Each card is drawn independently from the full eligible pool, so duplicates can appear within a pack or across packs regardless of owned copies. A copy beyond your third of any card converts instead: Common and Rare cards give 5 Chronicle Points, Epic cards give 1 Fate Shard, and Legendary cards give 3 Fate Shards. Deck copy limits apply only when building a deck. The Legendary pool includes one Mythic-tier card, drawn at the same rate as every Legendary.
+        <strong>Pack odds:</strong> Elemental packs draw only matching-element Monsters. The Random Pack draws from every eligible Basic card, including Jutsu and Snares. Basic packs draw Common or Rare cards; Elite draws a Marketplace Rare or Epic; Legendary is always Legendary. Epic Trio draws three Marketplace Epics; Legendary Trio draws three Marketplace Legendaries. Within each eligible pool, every card is equally likely. There are no weighted tiers or pity timer. Each card is drawn independently from the full eligible pool, so duplicates can appear within a pack or across packs regardless of owned copies. A copy beyond your third of any card converts instead: Common and Rare cards give 5 Chronicle Points, Epic cards give 1 Fate Shard, and Legendary cards give 3 Fate Shards. Deck copy limits apply only when building a deck. The Legendary pool includes one Mythic-tier card, drawn at the same rate as every Legendary.
       </p>
       <div className="chronicle-pack-gallery__section-head">
-        <div><h3>Basic packs</h3><p>Five cards per pack · 100 Chronicle Points</p></div>
+        <div><h3>Basic packs</h3><p>Three cards per pack · 100 Chronicle Points</p></div>
         {onOpenEchoesOfWar ? <button type="button" onClick={onOpenEchoesOfWar}>Earn points in Echoes of War →</button> : null}
       </div>
       <div className="chronicle-pack-gallery__grid">{BASIC_PACKS.map(renderPack)}</div>
       <div className="chronicle-pack-gallery__section-head chronicle-pack-gallery__section-head--premium">
-        <div><h3>Premium packs</h3><p>Single-card pulls and five-card rarity packs from the premium card pool</p></div>
+        <div><h3>Premium packs</h3><p>Single-card pulls and three-card rarity packs from the premium card pool</p></div>
       </div>
       <div className="chronicle-pack-gallery__grid chronicle-pack-gallery__grid--premium">{PREMIUM_PACKS.map(renderPack)}</div>
       {reveal && revealPack ? <CardPackOpening

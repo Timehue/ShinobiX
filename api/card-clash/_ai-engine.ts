@@ -11,6 +11,7 @@ import {
   monsterAttack,
   monsterDefense,
   previewChronicleBattle,
+  chronicleAttacksBlocked,
   projectMatchForViewer,
   tributeCountForLevel,
   type ChronicleActionIntent,
@@ -833,6 +834,7 @@ function knownBattleMargin(
  *  unused attacker into a known-favorable or unknown target, or straight in on
  *  an empty field), then the end of the Battle Phase. */
 function battleFallbacks(state: ChronicleMatch, refused: ChronicleActionIntent): ChronicleActionIntent[] {
+  if (chronicleAttacksBlocked(state)) return [{ action: "enter-main-2" }];
   const view = projectMatchForViewer(state, "p2");
   const targets = state.p1.monsterZones.flatMap((monster, index) => (monster ? [index] : []));
   const attacks = state.p2.monsterZones.flatMap((monster, attackerZoneIndex): ChronicleActionIntent[] => {
@@ -853,6 +855,7 @@ function chooseBattleAction(
   state: ChronicleMatch,
   difficulty: ChronicleAiDifficulty,
 ): ChronicleActionIntent {
+  if (chronicleAttacksBlocked(state)) return { action: "enter-main-2" };
   const attackers = state.p2.monsterZones.flatMap((monster, index) =>
     monster?.faceUp &&
     monster.position === "attack" &&

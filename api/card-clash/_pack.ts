@@ -22,7 +22,7 @@ type PackDefinition = {
     cardClass?: 'trap' | 'magic';
 };
 
-const BASIC_PACK: PackDefinition = { currency: 'chroniclePoints', baseCost: 100, count: 5, rarities: ['common', 'rare'], pool: 'shop' };
+const BASIC_PACK: PackDefinition = { currency: 'chroniclePoints', baseCost: 100, count: 3, rarities: ['common', 'rare'], pool: 'shop' };
 const PACKS: Record<CardPackType, PackDefinition> = {
     // Basic Card Pack: Commons and the weaker Rares. Costs Chronicle Points,
     // earned from Echoes of War victories and, since 2026-10-22, PvP card duels
@@ -38,16 +38,19 @@ const PACKS: Record<CardPackType, PackDefinition> = {
     jutsu: { ...BASIC_PACK, cardClass: 'magic' },
     // Grand Marketplace (Fate Shards): the ranked premium half. The Elite pack
     // covers top Rares + Epics; the Legendary pack guarantees the top rarity.
-    // Singles are priced per card at the Quintet rate (economy rebalance
-    // 2026-10): Elite 6 / 0.842 Epic share = 7.1 FS per Epic against the Epic
-    // Quintet's 7, and Legendary 20 equals the Legendary Quintet's 100 / 5.
+    // Guaranteed packs cost 7 shards per Epic and 20 per Legendary.
+    // Keep the original pack IDs so pending purchases can replay their saved receipts.
     epic: { currency: 'fateShards', baseCost: 6, count: 1, rarities: ['rare', 'epic'], pool: 'marketplace' },
     legendary: { currency: 'fateShards', baseCost: 20, count: 1, rarities: ['legendary'], pool: 'marketplace' },
-    'epic-five': { currency: 'fateShards', baseCost: 35, count: 5, rarities: ['epic'], pool: 'marketplace' },
-    'legendary-five': { currency: 'fateShards', baseCost: 100, count: 5, rarities: ['legendary'], pool: 'marketplace' },
+    'epic-five': { currency: 'fateShards', baseCost: 21, count: 3, rarities: ['epic'], pool: 'marketplace' },
+    'legendary-five': { currency: 'fateShards', baseCost: 60, count: 3, rarities: ['legendary'], pool: 'marketplace' },
 };
 
 export { CARD_COLLECTION_CAP } from './_collection-cap.js';
+
+export function cardPackDefinition(type: CardPackType): Readonly<PackDefinition> {
+    return PACKS[type];
+}
 
 /** Copies of one card id a pack keeps before a further pulled copy converts
  *  (economy rebalance 2026-10, framework 3.6). One playset for every card, not

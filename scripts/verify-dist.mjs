@@ -95,7 +95,9 @@ const forbiddenClientExtensions = new Set([
 // The exact selected 483-file pet inventory and delivery hashes remain enforced.
 // The expansion adds 8,445,908 B of card art and 7,021,754 B of duel figures.
 // Credit the measured delivery bytes within Chronicle's partition.
-const maxChronicleArtBytes = 144 * 1024 * 1024 + 8_445_908 + 7_021_754;
+// Front and back sprites for the remaining 148 summonable cards add 9,540,968 B.
+// The village commons add 110 illustrated faces and 100 two-view figures.
+const maxChronicleArtBytes = 144 * 1024 * 1024 + 8_445_908 + 7_021_754 + 9_540_968 + 42_521_078;
 const maxPetShapeReviewGrowthBytes = 5695550;
 // 2026-11-06: the harvesting minigame (docs/harvesting-minigame-plan.md) adds
 // public/assets/harvesting (the Kama Reaping backdrop, four plant sprites and

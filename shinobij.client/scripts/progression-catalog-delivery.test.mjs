@@ -115,6 +115,14 @@ test('world catalog delivery retains every card, reviewed effect and reckoning',
     }
 });
 
+test('packed village rosters retain all playable definitions and their order', async () => {
+    const source = readFileSync(new URL('../../shared/chronicle-village-monsters.ts', import.meta.url), 'utf8');
+    const built = progressionCatalogDelivery().transform(source, '/shared/chronicle-village-monsters.ts').code;
+    const original = (await moduleFrom(source)).CHRONICLE_VILLAGE_MONSTERS;
+    assert.equal(original.length, 100);
+    assert.deepEqual((await moduleFrom(built)).CHRONICLE_VILLAGE_MONSTERS, original);
+});
+
 test('packed lazy story and clan catalogs retain every identity, price, reward, limit and row order', async () => {
     for (const [file, name] of [
         ['story-card-sources.ts', 'CHRONICLE_STORY_SOURCES'],

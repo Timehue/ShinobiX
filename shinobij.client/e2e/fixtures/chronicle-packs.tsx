@@ -18,9 +18,9 @@ Object.assign(window, { __qaOpenPack: (character: Parameters<typeof applyCardPac
 Object.assign(window, { __qaFireIds: Object.values(cardsById)
     .filter((card) => card.cardClass === 'monster' && card.element === 'Fire'
         && (card.rarity === 'common' || card.rarity === 'rare'))
-    .slice(0, 5).map((card) => card.id) });
+    .slice(0, 3).map((card) => card.id) });
 Object.assign(window, { __qaPremiumIds: Object.fromEntries(['epic', 'legendary'].map((rarity) => [rarity,
-    Object.values(cardsById).filter((card) => card.rarity === rarity).slice(0, 5).map((card) => card.id),
+    Object.values(cardsById).filter((card) => card.rarity === rarity).slice(0, 3).map((card) => card.id),
 ])) });
 const initial = {
     name: 'PackGalleryQA', level: 20, starterCardsClaimed: true,

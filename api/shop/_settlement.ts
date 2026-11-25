@@ -15,7 +15,7 @@ import { wildBindingSeal } from '../../shared/wild-binding.js';
 import { petSupplyHoldCap } from '../_pet-sim/pet-config.js';
 import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
 import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_COST, villageTransferUnlockError } from '../../shared/village-transfer.js';
-import { cardPackCost, splitSurplusCardCopies, type CardDuplicateConversion, type CardDuplicateRefund } from '../card-clash/_pack.js';
+import { cardPackCost, cardPackDefinition, splitSurplusCardCopies, type CardDuplicateConversion, type CardDuplicateRefund } from '../card-clash/_pack.js';
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
 
 export type ShopPackId = 'standard' | 'epic' | 'legendary';
@@ -33,18 +33,6 @@ export type ShopSettlementResult =
     | { ok: true; character: Record<string, unknown>; value: ShopSettlementValue; replayed: boolean }
     | { ok: false; status: 400 | 409; error: string };
 
-// Kept aligned with the LIVE pack table in api/card-clash/_pack.ts (the path
-// the shipped client actually buys through): same currencies, rarity bands and
-// storefront pool halves. The PRICE is not copied: applyCardPackPurchase reads
-// it from cardPackCost, so a re-price of the live table reaches this route too,
-// and a copy beyond the playset converts through the same splitSurplusCardCopies.
-const PACKS: Record<ShopPackId, { count: number; rarities: SettlementCard['rarity'][]; currency: ShopCurrency; pool: 'shop' | 'marketplace' }> = {
-    // The Basic Card Pack costs Chronicle Points (Echoes of War), NOT ryo —
-    // this legacy settlement path must never re-grow a ryo price for it.
-    standard: { count: 5, rarities: ['common', 'rare'], currency: 'chroniclePoints', pool: 'shop' },
-    epic: { count: 1, rarities: ['rare', 'epic'], currency: 'fateShards', pool: 'marketplace' },
-    legendary: { count: 1, rarities: ['legendary'], currency: 'fateShards', pool: 'marketplace' },
-};
 const SHOP_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'aura', 'weapon', 'thrown', 'item', 'potion', 'accessory', 'fishingPole', 'pickaxe', 'kama']);
 const RYO_RARITIES = new Set(['common', 'uncommon', 'rare', 'epic']);
 const FATE_RARITIES = new Set(['legendary', 'mythic']);
@@ -263,7 +251,7 @@ export function applyCardPackPurchase(
     now: number,
     pickIndex: (length: number) => number,
 ): ShopSettlementResult {
-    const pack = PACKS[packId];
+    const pack = cardPackDefinition(packId);
     const fingerprint = `shop:pack:${packId}`;
     const prior = inspect(character, requestId, fingerprint);
     if (!prior.fresh) return prior.result;

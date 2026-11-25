@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import sharp from "sharp";
 import { CHRONICLE_PAINTED_ART, CHRONICLE_PAINTED_FIGURES } from "../../../shared/chronicle-painted-art";
 import { CHRONICLE_TOKEN_CARDS } from "../../../shared/chronicle-duel";
-import { CHRONICLE_COMMON_EXPANSION } from "../../../shared/chronicle-expansion-monsters";
 import { CHRONICLE_CARD_CATALOG, displayCatalog, chronicleInventoryCatalog } from "../lib/chronicle-duel";
 import { buildChronicleArtManifest } from "../data/chronicle-art-manifest";
 import { chronicleFigureSources } from "../lib/chronicle-figure-art";
@@ -48,17 +49,24 @@ test("a refreshed creature never loads an unrelated old front or back figure", (
   }
 });
 
-test("every expansion monster ships both of its duel figures", () => {
-  const assets = new Set<string>();
-  for (const { id, name } of CHRONICLE_COMMON_EXPANSION) {
+test("every summonable monster and token ships two distinct transparent duel figures", async () => {
+  const seen = new Map<string, string>();
+  for (const { id, name, cardClass } of [...CHRONICLE_CARD_CATALOG, ...CHRONICLE_TOKEN_CARDS]) {
+    if (cardClass !== "monster") continue;
     const pair = CHRONICLE_PAINTED_FIGURES[id];
     assert.ok(pair, `${name} needs front and back field figures`);
     assert.deepEqual(chronicleFigureSources(id), [pair.front]);
     assert.deepEqual(chronicleFigureSources(id, true), [pair.back, pair.front]);
     for (const asset of [pair.front, pair.back]) {
-      assert.ok(existsSync(new URL("../../public" + asset, import.meta.url)), asset);
-      assert.ok(!assets.has(asset), `Duplicate field figure path: ${asset}`);
-      assets.add(asset);
+      const bytes = readFileSync(new URL("../../public" + asset, import.meta.url));
+      const hash = createHash("sha256").update(bytes).digest("hex");
+      assert.ok(!seen.has(hash), `${asset} duplicates ${seen.get(hash)}`);
+      seen.set(hash, asset);
+      const sprite = sharp(bytes);
+      const metadata = await sprite.metadata();
+      assert.ok(metadata.format === "webp" && metadata.hasAlpha, asset);
+      const alpha = (await sprite.stats()).channels[3];
+      assert.ok(alpha.min === 0 && alpha.max > 0, `${asset} needs transparent and visible pixels`);
     }
   }
 });

@@ -113,11 +113,11 @@ export function packTheme(packType: CardPackType): PackTheme {
         case "legendary":
             return { label: "Legendary Pack", accent: "#f0c463", foilA: "#3d2d10", foilB: "#130d04" };
         case "legendary-five":
-            return { label: "Legendary Quintet Pack", accent: "#f0c463", foilA: "#3d2d10", foilB: "#130d04" };
+            return { label: "Legendary Trio Pack", accent: "#f0c463", foilA: "#3d2d10", foilB: "#130d04" };
         case "epic":
             return { label: "Elite Pack", accent: "#ce93d8", foilA: "#331a4a", foilB: "#110618" };
         case "epic-five":
-            return { label: "Epic Quintet Pack", accent: "#d68cff", foilA: "#331a4a", foilB: "#110618" };
+            return { label: "Epic Trio Pack", accent: "#d68cff", foilA: "#331a4a", foilB: "#110618" };
         default:
             return { label: "Random Pack", accent: "#e9d28d", foilA: "#31334c", foilB: "#0b1019" };
     }
@@ -125,7 +125,8 @@ export function packTheme(packType: CardPackType): PackTheme {
 
 /** Bundled full-bleed wrapper illustrations for the pack foil. */
 export function packArtUrl(packType: CardPackType): string {
-    return `/chronicle/packs/${packType === "epic" ? "elite-cardgame" : packType === "legendary" ? "legendary-cardgame" : packType === "standard" ? "random" : packType}.webp`;
+    const file = packType === "epic" ? "elite-cardgame" : packType === "legendary" ? "legendary-cardgame" : packType === "standard" ? "random" : packType;
+    return `/chronicle/packs/${file}.webp?v=2`;
 }
 
 /** Rarity sting layered on top of the flip sound; commons get the flip alone. */

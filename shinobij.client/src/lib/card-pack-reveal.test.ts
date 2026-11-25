@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { CARD_PACK_TYPES } from '../../../api/card-clash/_pack';
+import { CARD_PACK_TYPES, cardPackDefinition } from '../../../api/card-clash/_pack';
 import {
     conversionLabel,
     conversionSummary,
@@ -89,24 +90,31 @@ test("packTheme labels every Card Hall pack", () => {
     }
     assert.equal(packTheme("epic").label, "Elite Pack");
     assert.equal(packTheme("legendary").label, "Legendary Pack");
-    assert.equal(packTheme("epic-five").label, "Epic Quintet Pack");
-    assert.equal(packTheme("legendary-five").label, "Legendary Quintet Pack");
+    assert.equal(packTheme("epic-five").label, "Epic Trio Pack");
+    assert.equal(packTheme("legendary-five").label, "Legendary Trio Pack");
     assert.equal(packTheme("snare").label, "Snare Pack");
     assert.equal(packTheme("jutsu").label, "Jutsu Pack");
 });
 
 test("pack wrapper art maps every Card Hall pack", () => {
-    assert.equal(packArtUrl("standard"), "/chronicle/packs/random.webp");
+    const manifest = JSON.parse(readFileSync(new URL('../../art-source/chronicle-packs/wrapper-art-revision-2.json', import.meta.url), 'utf8')) as {
+        assets: Array<{ file: string; cardsShown: number | null; sha256: string }>;
+    };
+    assert.equal(packArtUrl("standard"), "/chronicle/packs/random.webp?v=2");
     for (const element of ["fire", "water", "earth", "wind", "lightning"] as const) {
-        assert.equal(packArtUrl(element), `/chronicle/packs/${element}.webp`);
+        assert.equal(packArtUrl(element), `/chronicle/packs/${element}.webp?v=2`);
     }
-    assert.equal(packArtUrl("epic"), "/chronicle/packs/elite-cardgame.webp");
-    assert.equal(packArtUrl("legendary"), "/chronicle/packs/legendary-cardgame.webp");
-    assert.equal(packArtUrl("epic-five"), "/chronicle/packs/epic-five.webp");
-    assert.equal(packArtUrl("legendary-five"), "/chronicle/packs/legendary-five.webp");
+    assert.equal(packArtUrl("epic"), "/chronicle/packs/elite-cardgame.webp?v=2");
+    assert.equal(packArtUrl("legendary"), "/chronicle/packs/legendary-cardgame.webp?v=2");
+    assert.equal(packArtUrl("epic-five"), "/chronicle/packs/epic-five.webp?v=2");
+    assert.equal(packArtUrl("legendary-five"), "/chronicle/packs/legendary-five.webp?v=2");
     for (const type of CARD_PACK_TYPES) {
         const asset = new URL(`../../public${packArtUrl(type)}`, import.meta.url);
         assert.equal(existsSync(fileURLToPath(asset)), true, `${type} wrapper art must ship`);
+        const review = manifest.assets.find(entry => asset.pathname.endsWith('/' + entry.file));
+        assert.ok(review, type);
+        assert.equal(createHash('sha256').update(readFileSync(asset)).digest('hex'), review.sha256, type);
+        if (review.cardsShown !== null) assert.equal(review.cardsShown, cardPackDefinition(type).count, type);
     }
 });
 

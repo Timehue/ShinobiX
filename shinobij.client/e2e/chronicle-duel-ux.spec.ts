@@ -5,6 +5,7 @@ import {
   createMatch,
   projectMatchForViewer,
   type ChronicleActionIntent,
+  type ChronicleFieldMonster,
 } from "../../shared/chronicle-duel";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import { clickWithPendingDiagnostics } from "./helpers/pending-click-diagnostics";
@@ -21,6 +22,72 @@ function json(route: Route, body: unknown, status = 200) {
     body: JSON.stringify(body),
   });
 }
+
+test("duel figures load on both sides and a missing back view uses the matching front", async ({ page }) => {
+  const save = uiAuditSave();
+  save.character = { ...save.character, starterCardsClaimed: true, cardClashTutorialVersion: 999 };
+  const runtime = await installUiAuditRuntime(page, save);
+  await page.addInitScript(() => localStorage.setItem("liteFx.v1", "0"));
+
+  const deck = CHRONICLE_FIXED_FALLBACK_DECK;
+  let duel = createMatch("AuditNinja", deck, "The Veiled Keeper", deck, () => 0);
+  duel.turnNumber = 3;
+  duel.activePlayer = "p1";
+  duel.phase = "battle";
+  const sage: ChronicleFieldMonster = {
+    cardId: "story-wandering-sage", instanceId: "sage", owner: "p1", zoneIndex: 0,
+    position: "attack", faceUp: true, summonedOnTurn: 1, lastPositionChangeTurn: 1,
+    lastAttackTurn: 0, temporaryAttack: 0, temporaryDefense: 0,
+  };
+  duel.p1.monsterZones[0] = sage;
+  duel.p1.monsterZones[1] = { ...sage, cardId: "legacy-first-steps", instanceId: "steps", zoneIndex: 1 };
+  duel.p1.monsterZones[2] = { ...sage, cardId: "chronicle-kiln-door-keeper", instanceId: "kiln", zoneIndex: 2 };
+  duel.p1.monsterZones[3] = { ...sage, cardId: "chronicle-crimson-weaver", instanceId: "weaver", zoneIndex: 3 };
+  duel.p2.monsterZones[0] = { ...sage, cardId: "chronicle-shadow-double", instanceId: "double", owner: "p2" };
+  duel.p2.monsterZones[1] = { ...sage, instanceId: "set", owner: "p2", zoneIndex: 1, faceUp: false, position: "defense" };
+  duel.p2.monsterZones[2] = { ...sage, cardId: "tc-41", instanceId: "raccoon", owner: "p2", zoneIndex: 2 };
+  duel.p2.monsterZones[3] = { ...sage, cardId: "chronicle-ripple-nautilus", instanceId: "nautilus", owner: "p2", zoneIndex: 3 };
+  const matchId = "chronicle-figure-check";
+  const session = () => ({ ...projectMatchForViewer(duel, "p1"), matchId, aiDifficulty: "medium" });
+  await page.route("**/api/card-clash/sync-progression", route =>
+    json(route, { granted: [], character: save.character, _saveVersion: runtime.currentVersion() }));
+  await page.route("**/api/card-clash/ai-start", route =>
+    json(route, { ok: true, matchId, session: session() }));
+  await page.route("**/api/card-clash/ai-move", route => {
+    const result = applyAction(duel, "p1", route.request().postDataJSON() as ChronicleActionIntent);
+    if (!result.ok) return json(route, result, 400);
+    duel = result.state;
+    return json(route, { ok: true, matchId, session: session() });
+  });
+  await page.route("**/chronicle/figures/legacy-first-steps-painted-v2-back.webp", route => route.abort());
+
+  await expectUiAuditBoot(page, runtime, "shinobiTiles");
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await page.getByRole("button", { name: "Start Showdown vs AI" }).click();
+  const owned = page.getByLabel("Your Monster Zones", { exact: true });
+  const opposing = page.getByLabel("Opponent Monster Zones", { exact: true });
+  for (const [row, file] of [
+    [owned, "story-wandering-sage-painted-v2-back.webp"],
+    [owned, "legacy-first-steps-painted-v2.webp"],
+    [owned, "chronicle-kiln-door-keeper-painted-v2-back.webp"],
+    [owned, "chronicle-crimson-weaver-painted-v2-back.webp"],
+    [opposing, "chronicle-shadow-double-painted-v2.webp"],
+    [opposing, "chronicle-ripple-nautilus-painted-v2.webp"],
+  ] as const) {
+    const sprite = `.chronicle-figure-wrap.loaded img[src="/chronicle/figures/${file}"]`;
+    await expect(row.locator(sprite)).toBeVisible();
+    const zone = row.locator(".monster-zone").filter({ has: page.locator(sprite) });
+    await expect(zone.locator(".chronicle-card.compact")).toHaveCSS("opacity", "0");
+  }
+  await expect(opposing.locator(".defense-position .chronicle-card.compact")).toBeVisible();
+  await expect(opposing.locator(".defense-position .chronicle-figure")).toHaveCount(0);
+  await page.getByRole("button", { name: /Choose attacker in your Monster Zone 2/ }).click();
+  await Promise.all([
+    owned.locator('.chronicle-card-ghost.figure.destroyed[style*="legacy-first-steps-painted-v2.webp"]').waitFor({ state: "attached" }),
+    page.getByRole("button", { name: /Attack opponent Monster Zone 3/ }).click(),
+  ]);
+  expect(duel.p1.monsterZones[1]).toBeNull();
+});
 
 test("Reanimation and Guardian's Reversal resolve from their duel controls", async ({ page }) => {
   // This flow boots the client, opens a modal, then sends several duel moves.

@@ -3,6 +3,7 @@ import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { uniquePlayerName } from './helpers/player-names';
 import { writeFile } from 'node:fs/promises';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
+import { packArtUrl } from '../src/lib/card-pack-reveal';
 
 /*
  * Seeded late-feature fixture, not an organic Chronicle-unlock journey.
@@ -107,8 +108,8 @@ const pointsBalance = (page: Page) => page.locator('.chronicle-pack-gallery__bal
     .filter({ hasText: 'Chronicle Points' }).locator('strong');
 
 for (const [type, label, cost] of [
-    ['epic-five', 'Epic Quintet Pack', 35],
-    ['legendary-five', 'Legendary Quintet Pack', 100],
+    ['epic-five', 'Epic Trio Pack', 21],
+    ['legendary-five', 'Legendary Trio Pack', 60],
 ] as const) {
     test(`premium pack ${type}: built app purchases through Express and retains its cards after reload`, async ({ page, request }, info) => {
         expect(new URL(String(info.project.use.baseURL)).hostname).toBe('127.0.0.1');
@@ -129,13 +130,13 @@ for (const [type, label, cost] of [
         expect(response.request().headers()['x-player-token']).toBeTruthy();
         expect(response.request().postDataJSON().packType).toBe(type);
         expect(body.ok).toBe(true);
-        expect(body.cards).toHaveLength(5);
+        expect(body.cards).toHaveLength(3);
         expect(body.cost).toBe(cost);
         expect(body.currency).toBe('fateShards');
         const opening = page.getByRole('dialog', { name: `${label} opening` });
-        await expect(opening).toHaveCSS('--pack-art', `url("/chronicle/packs/${type}.webp")`);
+        await expect(opening).toHaveCSS('--pack-art', `url("${packArtUrl(type)}")`);
         await opening.getByRole('button', { name: /Skip/ }).click();
-        await expect(opening.locator('.pack-summary__card')).toHaveCount(5);
+        await expect(opening.locator('.pack-summary__card')).toHaveCount(3);
         await expect(opening.locator('.pack-card__missing')).toHaveCount(0);
         await opening.getByRole('button', { name: /Done/ }).click();
         const committed = economicState(await account.readSave());
@@ -226,7 +227,7 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
         await notice.getByRole('button', { name: 'OK', exact: true }).click();
         expect(observed).toHaveLength(1);
         expect(observed[0].requestId).toMatch(/^[A-Za-z0-9_-]{16,80}$/);
-        expect(observed[0].body.cards).toHaveLength(5);
+        expect(observed[0].body.cards).toHaveLength(3);
         expect(observed[0].body.cost).toBe(100);
         expect(observed[0].body.currency).toBe('chroniclePoints');
         const committed = economicState(await account.readSave());
@@ -269,7 +270,7 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
         expect(observed).toHaveLength(3);
         expect(observed[2].requestId).not.toBe(observed[0].requestId);
         expect(observed[2].body.replayed).not.toBe(true);
-        expect(observed[2].body.cards).toHaveLength(5);
+        expect(observed[2].body.cards).toHaveLength(3);
         closing = economicState(await account.readSave());
         const rebates = rebate(observed[0].body, 'chroniclePoints') + rebate(observed[2].body, 'chroniclePoints');
         expect(closing).toEqual({
