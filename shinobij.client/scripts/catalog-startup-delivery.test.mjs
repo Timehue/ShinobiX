@@ -5,6 +5,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { build, transformSync } from 'esbuild';
+import ts from 'typescript';
 import { packStaticCatalogLiteral, staticCatalogValue } from './pack-static-catalog.mjs';
 import { progressionCatalogDelivery } from './progression-catalog-delivery.mjs';
 
@@ -22,6 +23,46 @@ test('packed room layouts preserve every door, tile, resident and dialogue line'
     const original = await moduleFrom(source, file);
     const packed = await moduleFrom(packStaticCatalogLiteral(source, 'FIRST_PACT_INTERIORS'), file);
     assert.deepEqual(packed.FIRST_PACT_INTERIORS, original.FIRST_PACT_INTERIORS);
+});
+
+test('compact map delivery preserves roads, standing tiles, gathering sites and find descriptions', async () => {
+    for (const [path, names] of [
+        ['../../shared/coast-resource-nodes.ts', ['placements']],
+        ['../../shared/sector-geo.ts', ['SECTOR_PLACES']],
+        ['../../shared/sector-links.ts', ['SECTOR_POINTS', 'SECTOR_ROAD_PAIRS']],
+        ['../../shared/sector-life-standing.ts', ['LIFE_STANDING_CODES']],
+        ['../../shared/resource-node-terrain.ts', ['RESOURCE_MEADOW_TILES', 'RESOURCE_ROCK_TILES']],
+        ['../src/lib/gathering-vn.ts', ['FIND_SCENES']],
+    ]) {
+        const file = fileURLToPath(new URL(path, import.meta.url));
+        const source = readFileSync(file, 'utf8');
+        const before = await moduleFrom(source, file);
+        const after = await moduleFrom(names.reduce((text, name) => packStaticCatalogLiteral(text, name), source), file);
+        for (const [key, value] of Object.entries(before)) {
+            if (typeof value !== 'function') assert.deepEqual(after[key], value, path + '/' + key);
+        }
+    }
+});
+
+test('packed fieldwork catalogs preserve outpost guidance, professions and NPC choices', async () => {
+    for (const [path, name] of [
+        ['components/OutpostResourcePanel.tsx', 'PANEL'],
+        ['data/professions.ts', 'PROFESSION_INFO'],
+        ['lib/hunt-encounter.ts', 'SIGNS'],
+        ['lib/wanderers.ts', 'WANDERER_QUEST_CATALOG'],
+    ]) {
+        const file = fileURLToPath(new URL('../src/' + path, import.meta.url));
+        const tree = ts.createSourceFile(path, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+        const declarations = tree.statements.filter(ts.isVariableStatement).flatMap(s => [...s.declarationList.declarations]);
+        const binding = declarations.find(d => d.name.getText(tree) === name);
+        assert.ok(binding?.initializer, path);
+        const constants = declarations.filter(d => d.initializer && ts.isStringLiteral(d.initializer))
+            .map(d => 'const ' + d.getText(tree) + ';');
+        const source = [...constants, `export const ${name} = ${binding.initializer.getText(tree)};`].join('\n');
+        const original = await moduleFrom(source, file);
+        const packed = await moduleFrom(packStaticCatalogLiteral(source, name), file);
+        assert.deepEqual(packed[name], original[name], path);
+    }
 });
 
 test('on-demand catalog delivery retains lessons, rumors, portrait and model URLs, and row order', async () => {

@@ -96,8 +96,8 @@ test('every painting a coast site names was admitted', () => {
     assert.ok(named > 100, 'the coast names its art');
     assert.ok(Object.hasOwn(manifest.files, 'atlas/hushstone-basin-v2.webp'), 'the world map is admitted');
     assert.deepEqual(Object.keys(manifest.files).filter(path => path.startsWith('boats/')).sort(), [
-        'boats/shard-crossing-v1.webp', 'boats/shuttered-boat-coast-v1.webp', 'boats/shuttered-boat-home-v1.webp',
-    ], 'both boats and the shard-lit crossing are admitted');
+        'boats/reedwatch-skiff-v1.webp', 'boats/shard-crossing-v1.webp', 'boats/shuttered-boat-coast-v1.webp', 'boats/shuttered-boat-home-v1.webp',
+    ], 'the watch skiff, ferry paintings and shard-lit crossing are admitted');
 });
 
 test('the byte allowances are exactly what was admitted', () => {

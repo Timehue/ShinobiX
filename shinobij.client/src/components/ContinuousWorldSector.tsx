@@ -79,10 +79,13 @@ export function ContinuousWorldSector(props: SectorViewProps) {
     useEffect(() => { void engine.current?.externalSector(props.sector); }, [props.sector, props.suspended]);
     // Stable across renders (reads the engine ref at click time), so the memoized grid below can bail.
     const go = useCallback((sector: number, tile: number) => { engine.current?.go(sector, tile); }, []);
+    // Coast landmarks and their panel actions both send walks to the mounted controller.
+    const showLandmarks = !space || ready;
+    const overlayLayer = showLandmarks && props.overlayLayer;
     return <main className={space ? "coast-sector tile-scene sector-stage-panel" : "tile-scene sector-stage-panel"}>
         {!props.suspended && props.hudLayer}
         <div className="pixel-map walkable-sector-map sector-image-map continuous-world-map" data-tile={space && props.playerTile} data-ground-floor="true" aria-busy={!ready} data-suspended={props.suspended || undefined}>
-            <canvas ref={canvas} onKeyDown={event => { if (event.key === 'Enter') props.inspectTile?.(props.playerTile); }} className={props.suspended ? undefined : "world-terrain-visible"} tabIndex={0}
+            <canvas ref={canvas} onKeyDown={event => { if (showLandmarks && event.key === 'Enter') props.inspectTile?.(props.playerTile); }} className={props.suspended ? undefined : "world-terrain-visible"} tabIndex={0}
                 aria-label="World terrain. Hold WASD or arrows to walk; tap a destination or drag to steer." />
             <DayNightSky className="on-floor" />
             {!props.suspended && !props.paused && props.ambienceBiome && props.weather && <SceneAmbience biome={props.ambienceBiome} weather={props.weather} weatherSector={props.sector} weatherBiome={props.biome} />}
@@ -92,7 +95,7 @@ export function ContinuousWorldSector(props: SectorViewProps) {
                 {!props.suspended && props.roadExits && <ContinuousWorldTiles sector={props.sector} playerTile={props.playerTile} onPainting={onPainting} ready={ready} roadExits={props.roadExits} go={go} />}
                 {props.showLivePeers && !props.suspended && <ContinuousWorldPeers space={space} sector={props.sector} selfName={props.playerName} sharedImages={props.sharedImages} sleepers={props.sleeperPeers} />}
                 <SectorNpcLayerHost>
-                <WorldPlayerPosition.Provider value={position}>{props.overlayLayer}{props.encounterLayer}
+                <WorldPlayerPosition.Provider value={position}>{overlayLayer}{props.encounterLayer}
                     {/* Held for `ready`: the road's people and their work points are interactive, so they
                         appear once the world can be walked and tapped, not during the first-frame preview. */}
                     {!space && !props.suspended && ready && <SectorLife key={`${props.playerName}:${props.sector}`} sector={props.sector} player={props.playerName} tile={props.playerTile} biome={props.biome}
@@ -117,6 +120,6 @@ export function ContinuousWorldSector(props: SectorViewProps) {
                     : !ready && status !== 'Connecting to world…' && <button type="button" onClick={() => { setStatus('Connecting to world…'); setRetry(value => value + 1); }}>Retry</button>}
             </div>
         </div>
-        {props.children}
+        {showLandmarks && props.children}
     </main>;
 }

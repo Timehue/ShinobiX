@@ -316,6 +316,26 @@ async function seed(name: string, patch: Json = {}) {
     await kv.set(`save:${name}`, { _saveVersion: 1, _saveAt: Date.now(), currentSector: node.sector, character });
     online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
 }
+test('the ordinary splitstone seam shares claims while its quest materials stay gated', async () => {
+    const node = resourceNode('coast-resource-splitstone')!;
+    const [worker, visitor] = ['splitstoneworker', 'splitstonevisitor'];
+    for (const name of [worker, visitor]) {
+        await seed(name);
+        online.remove(name);
+        online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
+    }
+    const start = (name: string, nodeId: string, id: string) => post(name, { action: 'start', nodeId, mode: 'relaxed', requestId: id });
+    assert.equal((await start(worker, 'saltstair-mine-103', 'splitstone-quest-attempt')).status, 409);
+    const admitted = await start(worker, node.id, 'splitstone-worker-attempt');
+    assert.equal(admitted.status, 200, JSON.stringify(admitted.body));
+    const visible = (await post(visitor, { action: 'nodes' })).body.nodes as Record<string, { remaining: number; gatherer?: string }>;
+    assert.equal(visible[node.id].remaining, 2);
+    assert.equal(visible[node.id].gatherer, worker);
+    assert.equal((await start(visitor, node.id, 'splitstone-visitor-attempt')).status, 409);
+    assert.equal((await post(worker, { action: 'cancel', nodeId: node.id, requestId: 'splitstone-worker-attempt' })).status, 200);
+    assert.equal((await start(visitor, node.id, 'splitstone-next-attempt')).status, 200);
+});
+
 test('new mining formations recover only in supported clients without restarting or spending twice', async () => {
     const name = 'veincompatibility'; await seed(name);
     const requestId = 'vein-compatible-attempt-001', nodeId = 'resource-17';

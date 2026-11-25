@@ -8,6 +8,7 @@ import { uiAuditSave } from '../e2e/helpers/ui-audit-runtime';
 import { takeCoastTrail } from './helpers/coast-walk';
 import { coastWalkSpace, sectorPositionModel } from '../../api/_coast-walk-space';
 import { coastPatrolsIn } from '../../api/coast/_patrols';
+import { resourceNode } from '../../shared/resource-nodes';
 import { COAST_DOCK, COAST_WORLD, coastExits, coastLayout } from '../../shared/coast-world';
 import { buildWorldNavigation } from '../../shared/continuous-world-navigation';
 import type { WorldPosition } from '../../shared/world-position';
@@ -173,7 +174,7 @@ test('walk the coast roads, resume, refuse a closed region and sail home', async
     const snapshot = async () => (await (await request.get('/api/player/world-move', { headers: driver.headers })).json());
     await expect(canvas).toHaveAttribute('data-world-sector', '104');
 
-    const patrol = page.getByRole('button', { name: /^Challenge / }).first();
+    const patrol = page.getByRole('button', { name: /^Inspect .*Level / }).first();
     await expect(patrol).toBeVisible();
     const footing = await patrol.getAttribute('style');
     await expect.poll(() => patrol.getAttribute('style')).not.toBe(footing);
@@ -185,6 +186,12 @@ test('walk the coast roads, resume, refuse a closed region and sail home', async
     if (process.env.COAST_QA_PLAYER_CONTENT) await expect.poll(driver.equippedManifestLoaded).toBe(true);
     await shot('sector-104');
     await shot('patrol-walking');
+    await patrol.press('Enter');
+    const encounter = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Observe', exact: true }) });
+    await encounter.getByRole('button', { name: 'Observe' }).click();
+    await expect(encounter.getByRole('status')).toBeVisible();
+    await encounter.getByRole('button', { name: 'Leave', exact: true }).click();
+    await expect(canvas).toHaveAttribute('data-world-sector', '104');
     await cross(103);
     if (process.env.SECTOR_MODEL_TEST_CONTENT) {
         await expect(self).toHaveAttribute('data-gait', 'walk');
@@ -432,4 +439,268 @@ for (const fitted of [false, true]) test('the street roof hides a passing figure
     } finally {
         if (record) await page.screencast.stop();
     }
+});
+
+test.describe('working inside coast buildings', () => {
+    test.use({ contextOptions: { reducedMotion: 'reduce' } });
+    test('a second device finishes the joiner’s work and the first finds its payment', async ({ page, browser, request, context }) => {
+        const slip = coastLayout(101)!.sites['saltstair-dock-101'];
+        const worker = await actor(request, context, model.fallback(101, slip.approach)!);
+        async function enter(p: Page) {
+            await openWorld(p);
+            await p.getByRole('button', { name: slip.verb + ': ' + slip.name, exact: true }).press('Enter');
+            await p.getByRole('button', { name: 'Enter ' + slip.name }).click();
+            return p.getByRole('region', { name: 'Fit the ferry plank' });
+        }
+        const job = await enter(page);
+        const other = await browser.newContext({ baseURL: test.info().project.use.baseURL, storageState: await context.storageState(), reducedMotion: 'reduce' });
+        const count = async () => {
+            const save = await (await request.get('/api/save/' + worker.name, { headers: worker.headers })).json();
+            return save.character.itemStacks?.find((row: { itemId: string }) => row.itemId === 'gather-binding-fiber')?.count ?? 0;
+        };
+        try {
+            const before = await count();
+            await job.getByRole('button', { name: 'Take the request' }).click();
+            await job.getByRole('button', { name: 'Walk to Ferry frame' }).click();
+            await expect(job).toContainText('Two thin shims');
+            await job.getByRole('button', { name: 'Walk to Joiner’s bench' }).click();
+            await job.getByRole('button', { name: 'Add one shim' }).click();
+            await expect(job).toContainText('shims fitted · 1');
+            const second = await enter(await other.newPage());
+            await expect(second).toContainText('Two thin shims');
+            await second.getByRole('button', { name: 'Walk to Joiner’s bench' }).click();
+            await expect(second).toContainText('shims fitted · 1');
+            await second.getByRole('button', { name: 'Add one shim' }).click();
+            await second.getByRole('button', { name: 'Test the fit' }).click();
+            await expect(second).toContainText('Received · 2 Binding Fiber');
+            await expect.poll(count).toBe(before + 2);
+            await page.reload();
+            const returned = await enter(page);
+            await expect(returned).toContainText('1 request finished');
+            await expect(returned).toContainText('Received · 2 Binding Fiber');
+            expect(await count()).toBe(before + 2);
+        } finally { await other.close(); }
+    });
+    test('the signal tender gives a second order and the quay follows the public pennants', async ({ page, request, context, browser }, info) => {
+        const post = coastLayout(118)!.sites['brackwater-counter-118'];
+        await actor(request, context, model.fallback(118, post.approach)!, { veteran: true });
+        const enter = async () => {
+            await openWorld(page);
+            await page.getByRole('button', { name: post.verb + ': ' + post.name, exact: true }).press('Enter');
+            await page.getByRole('button', { name: 'Enter ' + post.name, exact: true }).click();
+        };
+        await enter();
+        const job = page.getByRole('region', { name: 'Rig the watch signal' });
+        await job.getByRole('button', { name: 'Take the request', exact: true }).click();
+        await job.getByRole('button', { name: 'Walk to Muster ledger' }).click();
+        await expect(job).toContainText('one pennant');
+        await page.getByRole('button', { name: 'Climb to the signal loft', exact: true }).last().click();
+        await job.getByRole('button', { name: 'Walk to Signal reel' }).click();
+        await job.getByRole('button', { name: 'Cross the pennants' }).click();
+        await expect(job).toContainText('does not match');
+        await job.getByRole('button', { name: 'Hoist one pennant' }).click();
+        await expect(job).toContainText('The skiff noses into the channel');
+        await page.reload();
+        await enter();
+        await expect(job).toContainText('1 request finished');
+        await job.getByRole('button', { name: 'Take the next request' }).click();
+        await job.getByRole('button', { name: 'Walk to Muster ledger' }).click();
+        await expect(job).toContainText('timber tow');
+        const other = await browser.newContext({ baseURL: info.project.use.baseURL, viewport: info.project.use.viewport, isMobile: info.project.use.isMobile, hasTouch: info.project.use.hasTouch, reducedMotion: 'reduce' });
+        try {
+            const quay = coastLayout(116)!.sites['brackwater-dock-116'];
+            await actor(request, other, model.fallback(116, quay.approach)!, { veteran: true });
+            const visitor = await other.newPage();
+            await openWorld(visitor);
+            const skiff = visitor.locator('.coast-watch-skiff');
+            await expect(skiff).toHaveAttribute('data-order', '0');
+            await page.getByRole('button', { name: 'Climb to the signal loft', exact: true }).last().click();
+            await job.getByRole('button', { name: 'Walk to Signal reel' }).click();
+            await job.getByRole('button', { name: 'Cross the pennants' }).click();
+            await expect(job).toContainText('waits outside the tow');
+            await expect(skiff).toHaveAttribute('data-order', '1', { timeout: 40_000 });
+            await expect(skiff.locator('img')).toHaveJSProperty('naturalWidth', 224);
+            await skiff.press('Enter');
+            await expect(visitor.locator('.coast-world-status')).toContainText('hold the skiff');
+            await visitor.screenshot({ path: info.outputPath('quay-under-hold.png') });
+        } finally { await other.close(); }
+    });
+    test('the atlas finds reachable work and a quartermaster checks the fitted kit', async ({ page, request, context }, info) => {
+        const fort = coastLayout(107)!.sites['saltstair-fort-107'];
+        await actor(request, context, model.fallback(107, fort.approach)!);
+        await openWorld(page);
+        await page.getByRole('button', { name: 'Coast map', exact: true }).click();
+        await page.getByText('Find work and gathering', { exact: true }).click();
+        const routes = page.locator('.coast-work-routes');
+        await routes.getByRole('combobox').selectOption('Mining');
+        await expect(routes).toContainText('Splitstone outcrop');
+        await expect(routes).not.toContainText('Silver outcrop');
+        await routes.getByRole('combobox').selectOption('Building jobs');
+        await expect(routes).toContainText('Outfit the relief watch');
+        const entrance = page.getByRole('button', { name: fort.verb + ': ' + fort.name, exact: true });
+        let resume!: () => void;
+        const delayed = new Promise<void>(resolve => { resume = resolve; });
+        await page.route('**/api/player/world-move', async route => {
+            if (route.request().method() === 'GET') await delayed;
+            await route.continue();
+        });
+        try {
+            await routes.getByRole('button', { name: /^Here/ }).click();
+            await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'true');
+            await expect(entrance).toHaveCount(0);
+        } finally {
+            resume();
+        }
+        await entrance.press('Enter');
+        await page.getByRole('button', { name: 'Enter ' + fort.name, exact: true }).click();
+        const job = page.getByRole('region', { name: 'Outfit the relief watch' });
+        await job.getByRole('button', { name: 'Take the request' }).click();
+        await job.getByRole('button', { name: 'Walk to Command table' }).click();
+        await job.getByRole('button', { name: 'Walk to Kit rack' }).click();
+        await job.getByRole('button', { name: 'Waxed cloth' }).click();
+        await job.getByRole('button', { name: 'Wrap the dispatches' }).click();
+        await expect(job).toContainText('Waxed cloth · Wrap the dispatches');
+        await job.screenshot({ path: info.outputPath('fitted-watch-kit.png') });
+        await job.getByRole('button', { name: 'Check the work' }).click();
+        await expect(job).toContainText('Received · 1 Torn Hide');
+    });
+    test('the shared cook house lets a visitor taste and correct a batch', async ({ page, request, context }) => {
+        const houses = coastLayout(105)!.sites['saltstair-houses-105'];
+        await actor(request, context, model.fallback(105, houses.approach)!);
+        await openWorld(page);
+        await page.getByRole('button', { name: houses.verb + ': ' + houses.name, exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Cook house', exact: true }).last().click();
+        const job = page.getByRole('region', { name: 'Finish the crew’s broth' });
+        await job.getByRole('button', { name: 'Take the request' }).click();
+        await job.getByRole('button', { name: 'Walk to Soup kettle' }).click();
+        await job.getByRole('button', { name: 'Walk to Salt cupboard' }).click();
+        await job.getByRole('button', { name: 'Taste the sample' }).click();
+        await expect(job).toContainText('Stir in plain stock');
+        await job.getByRole('button', { name: 'Add plain stock' }).click();
+        await job.getByRole('button', { name: 'Add plain stock' }).click();
+        await job.getByRole('button', { name: 'Taste the sample' }).click();
+        await expect(job).toContainText('fills the crew’s bowls');
+        await expect(job).toContainText('Received · a restorative crew meal and 1 Ration Pack');
+    });
+    test('the paired watch takes a three-part reply from the ward loft', async ({ page, request, context }) => {
+        const post = coastLayout(148)!.sites['hushcrown-fort-148'];
+        await actor(request, context, model.fallback(148, post.approach)!, { veteran: true });
+        await openWorld(page);
+        await page.getByRole('button', { name: post.verb + ': ' + post.name, exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Enter ' + post.name, exact: true }).click();
+        const job = page.getByRole('region', { name: 'Answer the paired watch' });
+        await job.getByRole('button', { name: 'Take the request' }).click();
+        await job.getByRole('button', { name: 'Examine the lower ward disk' }).click();
+        await expect(job).toContainText('flash, hold, flash');
+        await page.getByRole('button', { name: post.floors[0].stairs[0].label, exact: true }).last().click();
+        await job.getByRole('button', { name: 'Read the paired ward case' }).click();
+        const send = job.getByRole('button', { name: 'Send signal' });
+        await expect(send).toBeDisabled();
+        for (const name of ['Flash', 'Flash', 'Flash']) await job.getByRole('button', { name, exact: true }).click();
+        await send.click();
+        await expect(job).toContainText('second beat');
+        await job.getByRole('button', { name: 'Clear signal' }).click();
+        for (const name of ['Flash', 'Hold', 'Flash']) await job.getByRole('button', { name, exact: true }).click();
+        await send.click();
+        await expect(job).toContainText('flash comes back');
+    });
+});
+
+test.describe('coastal work on arrival', () => {
+    test.use({ contextOptions: { reducedMotion: 'reduce' } });
+    test('a visitor can watch a patrol, leave, and then choose a fight', async ({ page, request, context }) => {
+        const [patrol] = coastPatrolsIn(104, Date.now());
+        await actor(request, context, model.fallback(104, patrol.tile)!);
+        await openWorld(page);
+        const figure = page.getByRole('button', { name: new RegExp('^Inspect .*Level ' + patrol.level + '$') }).first();
+        const sheet = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: 'Observe', exact: true }) });
+        await figure.press('Enter');
+        await sheet.getByRole('button', { name: 'Observe' }).click();
+        await expect(sheet.getByRole('status')).toBeVisible();
+        await sheet.getByRole('button', { name: 'Leave' }).click();
+        await expect(sheet).toHaveCount(0);
+        await expect(page.locator('.app-shell')).toHaveAttribute('data-sealed-fight-engaged', 'false');
+        await figure.press('Enter');
+        const started = page.waitForResponse(response => response.request().method() === 'POST'
+            && response.request().postData()?.includes('"kind":"coast-patrol"') === true);
+        await sheet.getByRole('button', { name: 'Challenge' }).click();
+        expect((await started).ok()).toBe(true);
+        await expect(page.locator('.app-shell')).toHaveAttribute('data-sealed-fight-engaged', 'true');
+    });
+    test('find ordinary fishing at the slip and inspect the required equipment', async ({ page, request, context }) => {
+        await actor(request, context, model.fallback(101, COAST_DOCK.tile)!);
+        await openWorld(page);
+        await page.getByRole('button', { name: 'Slip-side shoal', exact: true }).press('Enter');
+        const shoal = page.getByRole('dialog', { name: 'Slip-side shoal' });
+        await expect(shoal).toBeVisible({ timeout: 90_000 });
+        await expect(shoal.getByText(/Equip a fishing kunai|Ready kunai/i).first()).toBeVisible();
+    });
+    test('work the spar lashings and return to the same stand with one harvest spent', async ({ page, request, context }) => {
+        const stand = resourceNode('coast-resource-pitchwood-lashings')!;
+        const position = model.fallback(stand.sector, stand.approach)!;
+        await seedWorldActor(request, context, position, model.location(position), {
+            questLines: unlockedCoast, triggeredEvents: [...uiAuditSave().triggeredEvents as string[],
+                'story-interlude-ashen-leaf-village-88', 'story-interlude-ashen-leaf-village-92'],
+            character: { level: 100, equipment: { kama: 'tool-basic-harvest-kama' },
+                gatheringToolUses: { 'tool-basic-harvest-kama': 0 } },
+        });
+        await openWorld(page);
+        const marker = page.getByRole('button', { name: stand.name, exact: true });
+        await marker.press('Enter');
+        const job = page.getByRole('dialog', { name: stand.name });
+        await job.getByRole('radio', { name: /Watch animation/ }).check();
+        await job.getByRole('button', { name: /Ready kama/ }).click();
+        const result = job.getByRole('region', { name: 'Harvesting result' });
+        await expect(result).toContainText('49 harvesting attempts left today');
+        await result.getByRole('button', { name: 'Back to map' }).click();
+        await page.reload();
+        await openWorld(page);
+        await marker.press('Enter');
+        await expect(job).toContainText('49 harvesting attempts left today');
+    });
+    test('an unequipped visitor mends a net and finds it mended after reloading', async ({ page, request, context }) => {
+        await actor(request, context, model.fallback(104, 128)!);
+        await openWorld(page);
+        await page.getByRole('button', { name: /Net mender · Stretching/ }).press('Enter');
+        const job = page.getByRole('dialog', { name: 'Mend the shoal net' });
+        await job.getByRole('button', { name: 'Trace the sagging mesh' }).click();
+        await job.getByRole('button', { name: 'Walk to the work point' }).click();
+        await job.getByRole('button', { name: 'Tighten the headrope' }).click();
+        await expect(job.getByRole('status')).toContainText('headrope is already tight');
+        await job.getByRole('button', { name: 'Lace the loose bottom loop' }).click();
+        await job.getByRole('button', { name: 'Walk to the work point' }).click();
+        await job.getByRole('button', { name: 'Help the fisher set the net' }).click();
+        await expect(job).toContainText('The knot you tied holds');
+        await page.reload();
+        await expect(page.getByRole('button', { name: /Net mender · Checking the fisher/ })).toBeVisible();
+    });
+    test('a completed net rack order reaches the other visitor and a retry counts once', async ({ browser, page, request, context }) => {
+        const position = model.fallback(101, 102)!;
+        const materials = ['gather-iron-sand','hunt-torn-hide','gather-river-fish','gather-binding-fiber'];
+        const worker = await seedWorldActor(request, context, position, model.location(position), {
+            questLines: charter, character: { level: 85, itemStacks: materials.map(itemId => ({ itemId, count: 50 })) },
+        });
+        const peer = await browser.newContext({ baseURL: test.info().project.use.baseURL, reducedMotion: 'reduce' });
+        try {
+            await actor(request, peer, position);
+            const observer = await peer.newPage();
+            await Promise.all([openWorld(page), openWorld(observer)]);
+            const rack = (p: Page) => p.getByRole('dialog', { name: 'Saltstair net rack' });
+            for (const p of [page, observer]) {
+                await p.getByRole('button', { name: 'Visit Saltstair net rack' }).press('Enter');
+                await rack(p).getByRole('button', { name: 'Repairs', exact: true }).click();
+            }
+            const before = Number(await rack(observer).getByRole('progressbar').getAttribute('value'));
+            await rack(page).getByRole('button', { name: 'Choose repair materials' }).click();
+            for (const field of await rack(page).getByRole('spinbutton').all()) await field.fill((await field.getAttribute('max'))!);
+            await rack(page).getByRole('button', { name: 'Reserve these materials' }).click();
+            for (const label of ['Brace the rack posts','Lace the net to the frame']) await rack(page).getByRole('button', { name: label, exact: true }).click();
+            const sent = page.waitForRequest(req => req.url().endsWith('/api/sector/buildings') && req.method() === 'POST' && req.postDataJSON().step === 2);
+            await rack(page).getByRole('button', { name: 'Hang the net', exact: true }).click();
+            const body = (await sent).postDataJSON();
+            await expect(rack(observer).getByRole('progressbar')).toHaveAttribute('value', String(before + 1), { timeout: 45_000 });
+            const replay = await request.post('/api/sector/buildings', { headers: worker.headers, data: body });
+            expect((await replay.json()).replayed).toBe(true);
+        } finally { await peer.close(); }
+    });
 });

@@ -50,7 +50,7 @@ export type QuestSite = {
     kept?: boolean; need: number; have: number; remaining: number; refillAt: number;
 };
 export type QuestLinesList = {
-    ok: true; marks: number; lines: QuestLine[]; sites: QuestSite[];
+    ok: true; notebook?: Record<string, { active: boolean; result?: string }>; coastWork?: Record<string, number>; marks: number; lines: QuestLine[]; sites: QuestSite[];
     coast: {
         level: number; boat: boolean; region: number; sealed?: number[]; docks?: { sector: number; name: string }[];
         /** Who stands where for this player: each keeper at their counter, and a boss a quest has reached (api/quests/_coast-presence.ts). */
@@ -63,6 +63,8 @@ export type QuestLinesList = {
     };
 };
 export type QuestActionReply = {
+    progress?: import('../../../shared/coast-room-duties').RoomDutyProgress;
+    coastWork?: Record<string, number>;
     ok: boolean; reason?: string; error?: string;
     character?: Character; _saveVersion?: number;
     [key: string]: unknown;
@@ -91,6 +93,15 @@ export async function loadQuestLines(playerName: string): Promise<QuestLinesList
 
 /** `recall` reads a finished quest's whole story back (`talk`, `backdrop`) and changes nothing. */
 export type QuestAction = "accept" | "advance" | "make" | "examine" | "choose" | "claim" | "abandon" | "recall";
+export function roomDutyRequest(player: string, questId: string, command: import('../../../shared/coast-room-duties').RoomDutyCommand,
+    data: { tick?: number; revision?: number; station?: string; answer?: string | number; legacy?: Record<string, number> } = {}) {
+    return post(player, { action: 'room-duty', questId, command, ...data });
+}
+
+export function doCoastWork(player: string, questId: string, step: number, choice: string) {
+    return post(player, { action: "work", questId, step, choice });
+}
+
 export function questLineAction(playerName: string, action: QuestAction, questId: string, extra: { optionKey?: string; stageKey?: string; clueKey?: string } = {}) {
     return post(playerName, { action, questId, ...extra });
 }
@@ -106,6 +117,8 @@ export type CoastExit = { id: string; direction: "north" | "south" | "east" | "w
 export type CoastSite = {
     id: string; name: string; role: string; verb: string; description: string;
     approach: number; returnTile?: number; floors?: CoastFloor[]; footprint: number[]; sprite?: string; scene?: string;
+    duty?: string;
+    workshop?: import("../../../shared/coast-room-duties").RoomDuty;
     gather?: "harvesting" | "mining" | "fishing";
     /** True at the slip, where the boat home is boarded. */
     boat?: boolean;
@@ -143,8 +156,10 @@ export async function questSiteGather(body: { action: "start" | "resolve"; reque
         return { ok: false, error: "The site could not be worked just now. Try again." };
     }
 }
-export type CoastSector = { name: string; biome: string; contestable: boolean; mask: string[]; floor: string; exits: CoastExit[]; sites: CoastSite[] };
+export type CoastSector = {
+    resources?: (import('../../../shared/resource-nodes').ResourceNode & { siteId: string })[]; name: string; biome: string; contestable: boolean; mask: string[]; floor: string; exits: CoastExit[]; sites: CoastSite[] };
 export type CoastWorld = {
+    jobs?: readonly import("../../../shared/coast-work").CoastJob[];
     space: import('../../../shared/continuous-world-space').VersionedWorldSpace;
     version: string;
     atlas: { width: number; height: number; image: string };

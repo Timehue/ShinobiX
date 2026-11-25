@@ -37,7 +37,7 @@ export default function StairHouses({ site, avatar, character, creatorItems, onV
         <Suspense fallback={<p role="status">Entering…</p>}>
             {atCounter && place === SHOP ? <Shop character={character} creatorItems={creatorItems} onVersionedCharacter={onVersionedCharacter} onBack={back} settlement={place} />
             : atCounter && place === DEN ? <NoodleDen character={character} onVersionedCharacter={onVersionedCharacter} onBack={back} settlement={place} />
-            : floors?.length && <><CoastInterior key={place} player={character} floors={floors} avatar={avatar} leave={back}
+            : floors?.length && <><CoastInterior commit={onVersionedCharacter} key={character.name + place} dutySite={place === KITCHEN ? site : undefined} player={character} floors={floors} avatar={avatar} leave={back}
                 initialTile={outdoors ? streetTile : counterTile} street={outdoors}
                 residents={neighbours.map(resident => ({ ...residentSpots[resident.label], label: resident.label, model: resident.model }))}
                 onSpeak={setSpeaker}

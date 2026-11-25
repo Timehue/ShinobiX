@@ -1,7 +1,7 @@
 import type { KvLike, KvCasOp } from '../_storage.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
 import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSaveWithStore } from '../save/_mutate-player-save.js';
-import { worldPositionModel } from '../../shared/continuous-world-layout.js';
+import { sectorPositionModel } from '../_coast-walk-space.js';
 import { buildingSharedKey, sectorBuilding } from '../../shared/sector-buildings.js';
 import { readBuildingProgress } from '../../shared/sector-building-state.js';
 import type { BuildingAction, BuildingReceipt } from '../../shared/sector-building-types.js';
@@ -44,7 +44,7 @@ export async function settleBuildingAction(store:BuildingStore,player:string,act
             close=!!path&&path.length<=2;
         }
     }else{
-        const model=worldPositionModel(),cursor=model.read(presence.worldPosition)??model.fallback(presence.sector,presence.tile??-1),destination=model.fallback(target.sector,target.tile);
+        const model=sectorPositionModel(target.sector),cursor=model.read(presence.worldPosition)??model.fallback(presence.sector,presence.tile??-1),destination=model.fallback(target.sector,target.tile);
         close=!!cursor&&!!destination&&model.distanceWithin(cursor,destination,1.65)!==null;
     }
     if(!close)return{ok:false,status:409,error:'Move closer to the marked public threshold before acting.'};

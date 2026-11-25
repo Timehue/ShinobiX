@@ -53,6 +53,8 @@ export interface DoneQuestLine {
 
 export interface QuestLinesRecord {
     v: number;
+    roomDuties?: Record<string, import('../../shared/coast-room-duties.js').RoomDutyProgress>;
+    coastWork?: Record<string, number>;
     active: Record<string, ActiveQuestLine>;
     done: Record<string, DoneQuestLine>;
 }
@@ -144,6 +146,22 @@ function parseDone(raw: unknown): DoneQuestLine | null {
 export function parseQuestLines(raw: unknown): QuestLinesRecord {
     const record = emptyQuestLines();
     if (!isObject(raw)) return record;
+    if (isObject(raw.roomDuties)) {
+        const duties: NonNullable<QuestLinesRecord['roomDuties']> = {};
+        for (const [id, row] of Object.entries(raw.roomDuties)) {
+            if (!ID.test(id) || !isObject(row) || typeof row.tick !== 'number' || !Number.isSafeInteger(row.tick) || row.tick < 1) continue;
+            const sample = row.bench;
+            const bench = row.tick % 4 === 2 && isObject(sample) && sample.tick === row.tick &&
+                typeof sample.revision === 'number' && Number.isSafeInteger(sample.revision) && sample.revision > 0 &&
+                (typeof sample.value === 'string' && sample.value.length <= 120 || typeof sample.value === 'number' && Number.isSafeInteger(sample.value))
+                ? { tick: row.tick, revision: sample.revision, value: sample.value } : undefined;
+            duties[id] = { tick: row.tick, ...(bench ? { bench } : {}),
+                ...(typeof row.order === 'number' && Number.isSafeInteger(row.order) && row.order >= 0 ? { order: row.order } : {}), ...(row.paidTick === row.tick && row.tick % 4 === 3 ? { paidTick: row.tick } : {}) };
+        }
+        if (Object.keys(duties).length) record.roomDuties = duties;
+    }
+    const work = countMap(raw.coastWork);
+    if (work) record.coastWork = work;
     if (isObject(raw.done)) {
         for (const [id, value] of Object.entries(raw.done)) {
             const done = ID.test(id) ? parseDone(value) : null;
@@ -181,7 +199,8 @@ export function questLinesForStorage(next: QuestLinesRecord, stored: unknown): R
         return out;
     };
     const was = isObject(stored) ? stored : {};
-    return { v: next.v, active: withTombstones(next.active, was.active), done: withTombstones(next.done, was.done) };
+    return { v: next.v, ...(next.coastWork ? { coastWork: next.coastWork } : {}), ...(next.roomDuties ? { roomDuties: next.roomDuties } : {}),
+        active: withTombstones(next.active, was.active), done: withTombstones(next.done, was.done) };
 }
 
 /** Marks on the Coast Record: the sum stored on every finished quest. */

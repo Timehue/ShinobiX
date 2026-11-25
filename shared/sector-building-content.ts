@@ -88,7 +88,11 @@ export function buildingWorkView(order: BuildingWorkOrder): BuildingWorkView | u
         return {order,target,instruction:target.description,actionLabel:order.step===2?'File the crossing report':stage===3&&order.step===1?'Confirm the lookout signal':'Inspect the watch point',readyAt,final:order.step===2};
     }
     if(order.kind==='repair'){
-        const tasks=[['Brace the frontage','Set the mineral fittings into the prepared sockets. Keep the public road clear.'],
+        const tasks=building.id==='saltstair-net-rack' ? [
+            ['Brace the rack posts','Seat the fittings and pull both posts upright.'],
+            ['Lace the net to the frame','Pull the binding fibre through each eye and knot the hanging net.'],
+            ['Hang the net','Test the knot under load and hand the crew their fish for supper.'],
+        ] : [['Brace the frontage','Set the mineral fittings into the prepared sockets. Keep the public road clear.'],
             ['Bind the shelter lining','Fit the hunting-material lining and harvested lashings to the work frame.'],
             ['Finish the crew handover','The fish supplies the crew meal. Check the braces and hand the completed work to the keeper.']];
         const task=tasks[order.step];if(!task)return;

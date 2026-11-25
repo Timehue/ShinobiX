@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // Gathering is done on the open sector: starting it from inside a clan's town ends the visit.
         if (action === 'start') stepOutForFieldAction(identity.name);
-        const poolEnabled = villageStoresEnabled() && !site;
+        const poolEnabled = villageStoresEnabled() && !site && !node?.id.startsWith('coast-resource-');
         const owner = action === 'start' && node && poolEnabled ? await loadSectorPoolOwner(node.sector) : { ownerVillage: undefined };
         const requestJournal = id ? await kv.get<EconomyTxRecord>(economyTxKey(resourceTxId(identity.name, id))) : null;
         const requestSeal = requestJournal?.meta?.seal as ResourceSeal | undefined;

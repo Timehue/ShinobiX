@@ -1,3 +1,4 @@
+import { COAST_RESOURCE_NODES } from './coast-resource-nodes.js';
 import { SECTOR_PLACES } from './sector-geo';
 import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts';
 import { WORLD_LAYOUT_VERSION } from './continuous-world-layout';
@@ -224,13 +225,13 @@ export function harvestNodeAs(node: ResourceNode, family: HarvestCommonId, prese
 }
 /** A meadow as it stands at `at`: this half hour's plant, or dormant. */
 export function harvestNodeAt(node: ResourceNode, at: number): ResourceNode {
-    if (node.activity !== 'harvesting') return node;
+    if (node.activity !== 'harvesting' || node.id.startsWith('coast-resource-')) return node;
     const bloom = harvestBloom(node, at);
     return harvestNodeAs(node, bloom.family, bloom.present);
 }
 
 export function resourceNode(id: unknown): ResourceNode | undefined {
-    return historicalNodes.find(node => node.id === id) ?? HARVEST_NODES.find(node => node.id === id)
+    return COAST_RESOURCE_NODES.find(node => node.id === id) ?? historicalNodes.find(node => node.id === id) ?? HARVEST_NODES.find(node => node.id === id)
         ?? WORLD_BOSS_CRYSTAL_NODES.find(node => node.id === id);
 }
 
@@ -251,7 +252,7 @@ function dealLevels(activity: ResourceActivity, cycle: number): ReadonlyMap<stri
 }
 const lastDeal: Partial<Record<ResourceActivity, { cycle: number; levels: ReadonlyMap<string, ResourceNodeLevel> }>> = {};
 export function resourceNodeAtLevel(node: ResourceNode, difficulty: ResourceNodeLevel): ResourceNode {
-    return node.worldBossCrystal ? node : { ...node, difficulty, ...levelRewards(node.sector, node.activity, difficulty) };
+    return node.worldBossCrystal || node.id.startsWith('coast-resource-') ? node : { ...node, difficulty, ...levelRewards(node.sector, node.activity, difficulty) };
 }
 /** What a site offers at `at`. Event crystals and retired sites keep their rules. */
 export function resourceNodeOffer(node: ResourceNode, at: number): ResourceNode {
