@@ -51,7 +51,6 @@ export type WorldSectorOverlayLayerProps = Readonly<{
     onEngageWanderer: (wanderer: Wanderer) => boolean | void;
     onOpenTrace: (signId: string) => void;
     onOpenShrine: () => void;
-    /** The quest "!" an NPC wears right now, or null when it has nothing to offer this player. */
     markerFor?: (wanderer: Wanderer) => NpcMarker | null;
 }>;
 

@@ -476,7 +476,7 @@ export function SectorWanderer({
                 ref={figRef}
                 role="button"
                 tabIndex={routine ? 0 : -1}
-                aria-label={routine ? `${routine.name}: ${presentation!.activity}. Talk` : `${wanderer.name}, level ${wanderer.level}`}
+                aria-label={routine ? `${routine.name}: ${presentation!.activity}. Talk` : wanderer.name}
                 data-life-resident={routine?.id}
                 onKeyDown={routine ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleClick(); } } : undefined}
                 onClick={handleClick}

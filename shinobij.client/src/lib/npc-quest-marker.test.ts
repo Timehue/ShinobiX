@@ -24,7 +24,8 @@ test("nothing is drawn when the player cannot take what is offered", () => {
     assert.equal(offeredMarker(w("emissary-1", "legacyQuest"), { ...free, emissaryMetrics: ["a"] })?.tier, "story");
     assert.equal(offeredMarker(w("emissary-1", "legacyQuest"), { ...free, busy: true, emissaryMetrics: ["a"] }), null);
     assert.equal(offeredMarker(w("emissary-1", "legacyQuest"), { ...free, locked: ["a"], emissaryMetrics: ["a"] }), null, "every errand locked");
-    assert.equal(offeredMarker(w("road-x", "quest"), { ...free, roadStory: true })?.tier, "story");
+    assert.equal(offeredMarker(w("story-road-x", "quest"), free)?.tier, "story");
+    assert.equal(offeredMarker(w("story-road-x", "quest"), { ...free, busy: true })?.tier, "story", "a story beat is not an errand");
     assert.equal(offeredMarker(w("w-1", "merchant"), free), null);
 });
 

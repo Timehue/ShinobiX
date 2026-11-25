@@ -20,13 +20,12 @@ export function heldQuestReady(character: Character): boolean {
 }
 
 /** The "!" / "?" each sector NPC wears for this player (lib/npc-quest-marker). */
-export function npcMarkerResolver(character: Character, roadWandererPrefix: string): (w: Wanderer) => NpcMarker | null {
+export function npcMarkerResolver(character: Character): (w: Wanderer) => NpcMarker | null {
     const busy = !!(character.activeWandererQuest || character.activeQuestbook);
     const ready = heldQuestReady(character);
     const locked = lockedQuestMetrics(character);
     return w => offeredMarker(w, {
         busy, ready, locked,
         emissaryMetrics: w.verb === "legacyQuest" ? EMISSARY_BY_SLUG.get(w.archetype as EmissarySlug)?.quests.map(q => q.metric) : undefined,
-        roadStory: w.id.startsWith(roadWandererPrefix),
     });
 }

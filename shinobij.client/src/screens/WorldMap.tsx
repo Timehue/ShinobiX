@@ -1092,7 +1092,7 @@ function WorldMapContent({
         if (!wandererPresenceGate(`road#${event.id}#${selectedSector}#${bucket}`, QUEST_GIVER_PRESENCE.road)) return [];
         return [synthRoadWanderer(event, selectedSector)];
     }, [character.level, character.storyProgress, character.storyTraits, character.name, selectedSector]);
-    const npcMarkerFor = npcMarkerResolver(character, ROAD_WANDERER_PREFIX); // the "!" / "?" over quest givers (lib/npc-marker-resolver)
+    const npcMarkerFor = npcMarkerResolver(character); // the "!" / "?" over quest givers (lib/npc-marker-resolver)
     // Named story reckonings: current-canon characters stand at their own
     // village outskirts and offer one-shot server-sealed follow-up tasks.
     const storyReckoningWanderers = useMemo(() => {
