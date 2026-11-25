@@ -445,6 +445,11 @@ test('nearby roster uses explicit actions and the shared current-roster gate', a
 test('dismissal consumes the gesture, isolates shortcuts and keeps the canvas mounted', async ({page}) => {
     await page.setViewportSize({width: 1366, height: 768});
     await boot(page);
+    // The info panel opens to the left of the HUD and overlaps the map. Its height follows
+    // how its text wraps, which differs by platform fonts: it was 281px here, so the click
+    // below (324px down) reached the map, but CI's taller panel covered it and swallowed
+    // the click. Pin the height so the click point never depends on font metrics.
+    await page.addStyleTag({content: '.sector-hud-panel{height:240px!important;min-height:0!important;max-height:240px!important}'});
     const trigger = infoTrigger(page);
     await expect(trigger).toBeVisible();
     const world = page.locator('.continuous-world-map');
