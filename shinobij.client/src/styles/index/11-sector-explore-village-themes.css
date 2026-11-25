@@ -55,18 +55,6 @@
     }
 }
 
-/* Sector travel tile avatar — fills tile with a small inset so it doesn't touch borders */
-.tiny-map-avatar {
-    width: 88% !important;
-    height: 88% !important;
-    object-fit: contain !important;
-    border-radius: 50% !important;
-    display: block !important;
-    margin: auto !important;
-    border: 2px solid rgba(255,255,255,0.55) !important;
-    box-shadow: 0 0 6px rgba(0,0,0,0.6) !important;
-}
-
 /* Sector-map avatar sizing + crop.
    The sector tile cell is wider than tall, and its grid-row height is NOT a
    containing block the avatar's `height: 88%` can resolve against — so the image
@@ -83,14 +71,6 @@
    avatar are untouched. */
 .sector-image-map .scene-tile {
     container-type: size;
-}
-.sector-image-map .tiny-map-avatar {
-    object-position: center !important;
-}
-.sector-image-map .scene-tile > .tiny-map-avatar {
-    width: 88cqmin !important;
-    height: 88cqmin !important;
-    aspect-ratio: 1 / 1 !important;
 }
 
 /* 3D orb wrapper — rendered as overlay above hex tiles so it isn't clipped */
@@ -225,38 +205,6 @@
         84%  { box-shadow: 0 0 0 3px rgba(192,132,252,1), 0 0 16px 5px rgba(192,132,252,0.7), 0 5px 14px rgba(0,0,0,0.8), inset 0 -6px 12px rgba(0,0,0,0.4); }
         100% { box-shadow: 0 0 0 3px rgba(248,113,113,1), 0 0 16px 5px rgba(248,113,113,0.7), 0 5px 14px rgba(0,0,0,0.8), inset 0 -6px 12px rgba(0,0,0,0.4); }
     }
-
-    /* Avatar inside orb — fills the orb container.
-       `object-position` is head-anchored, NOT centred. Avatars are portraits
-       (taller than wide), and a 1:1 orb crops a portrait's top and bottom
-       equally at the 50% default — which lands the window on the torso and cuts
-       the face off. 25% keeps the head in frame. Square and landscape sources
-       are unaffected (they have no vertical overflow to reposition). This
-       mirrors the crop the sector map already uses for the same reason. */
-    .avatar-orb .tiny-map-avatar {
-        width: 100% !important;
-        height: 100% !important;
-        border-radius: 50% !important;
-        object-fit: contain !important;
-        object-position: center;
-        display: block !important;
-        border: none !important;
-        box-shadow: none !important;
-        position: relative;
-        z-index: 1;
-    }
-
-/* Arena hex tile avatar — fills the hex clip-path */
-.arena-fullscreen .hex-tile .tiny-map-avatar {
-    width: 34px !important;
-    height: 34px !important;
-    border-radius: 50% !important;
-    object-fit: contain !important;
-    display: block !important;
-    margin: auto !important;
-    border: 2px solid rgba(255,255,255,0.8) !important;
-    box-shadow: 0 0 6px rgba(0,0,0,0.9) !important;
-}
 
 .generated-world-map {
     /* Lock the container to the source map's aspect and paint the image at
@@ -808,17 +756,6 @@
     .other-player-map-dot { animation: none; }
 }
 
-.other-player-map-avatar {
-    outline: 2px solid rgba(239, 68, 68, 0.8) !important;
-    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6) !important;
-}
-
-.other-player-map-emoji {
-    font-size: 1.1rem;
-    line-height: 1;
-    filter: drop-shadow(0 0 4px rgba(239,68,68,0.8));
-}
-
 .other-player-map-name {
     font-size: 0.5rem;
     color: var(--red-300);
@@ -900,15 +837,7 @@
     pointer-events: none;
 }
 
-.sector-wanderer-figure:hover {
-    z-index: 3;
-}
-
-.sector-wanderer-figure:hover .sector-wanderer-label {
-    max-width: none;
-    background: rgba(20, 16, 28, 0.92);
-    border-color: rgba(255, 255, 255, 0.34);
-}
+/* No hover effect on an NPC: it does nothing until it is clicked. */
 .sector-wanderer-bubble {
     position: absolute;
     left: 50%;

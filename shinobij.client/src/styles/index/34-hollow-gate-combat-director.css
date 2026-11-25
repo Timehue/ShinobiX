@@ -110,13 +110,6 @@
     animation: hg-hound-stalk 2.2s ease-in-out infinite;
 }
 
-.hg-hound-orb .tiny-map-avatar,
-.hg-hound-orb .avatar-orb-fallback {
-    position: relative;
-    z-index: 2;
-    filter: saturate(1.2) contrast(1.04) drop-shadow(0 0 5px rgba(216, 180, 254, 0.8));
-}
-
 .hg-hound-spectral-aura {
     position: absolute;
     z-index: 1;

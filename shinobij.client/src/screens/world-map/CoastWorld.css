@@ -21,6 +21,14 @@
 /* A site's button is only a place to press. The game's button chrome (its bevel and drop
    shadow on phones) must not be drawn over the painting. */
 .coast-site { position: absolute; transform: translate(-50%, -50%); min-height: 0 !important; padding: 0; border: 0; background: transparent; box-shadow: none !important; border-radius: 18%; display: grid; place-items: center; }
+.coast-site img.coast-site-boat { width: 130%; height: 130%; max-width: none; z-index: 2; }
+/* The global button:hover transform REPLACES the centring translate above, so a hovered
+   landmark or patrol jumped by half its size. Pin each variant's resting transform. */
+@media (hover: hover) {
+    .coast-site:hover, .coast-world .coast-pin:hover { transform: translate(-50%, -50%); }
+    .stair-houses .coast-site.stairs-person:hover { transform: translate(-50%, -100%); }
+    .coast-site.coast-patrol:hover { filter: none; }
+}
 .coast-site:focus-visible { outline: 2px solid var(--sj-gold-bright); outline-offset: 2px; }
 .coast-site img { width: 62%; height: 62%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .7)); }
 

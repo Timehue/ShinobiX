@@ -71,6 +71,7 @@ import { stepSectorTile, useSectorTileGrounding } from "../lib/sector-obstacles"
 import { warmSectorArrival } from "../lib/sector-arrival-warm";
 import { getSprintStyle, isPlayerModel, starterModel } from "../lib/player-model";
 import { WorldSectorOverlayLayer } from "../components/WorldSectorOverlayLayer";
+import { npcMarkerResolver } from "../lib/npc-marker-resolver";
 import { ModalDialogScrim } from "../components/ModalDialogScrim";
 import { WorldWandererDialog, type WorldWandererDialogState } from "../components/WorldWandererDialog";
 import {
@@ -1091,6 +1092,7 @@ function WorldMapContent({
         if (!wandererPresenceGate(`road#${event.id}#${selectedSector}#${bucket}`, QUEST_GIVER_PRESENCE.road)) return [];
         return [synthRoadWanderer(event, selectedSector)];
     }, [character.level, character.storyProgress, character.storyTraits, character.name, selectedSector]);
+    const npcMarkerFor = npcMarkerResolver(character); // the "!" / "?" over quest givers (lib/npc-marker-resolver)
     // Named story reckonings: current-canon characters stand at their own
     // village outskirts and offer one-shot server-sealed follow-up tasks.
     const storyReckoningWanderers = useMemo(() => {
@@ -4634,6 +4636,7 @@ function WorldMapContent({
                                     onOpen: () => setFieldScene({ questId: fieldObjective.questId, pointId: fieldObjective.pointId! }),
                                 } : null}
                                 onEngageWanderer={handleWandererEngage}
+                                markerFor={npcMarkerFor}
                                 onOpenTrace={(signId) => openSectorTraces({ view: "signs", focusSignId: signId })}
                                 onOpenShrine={handleOpenSectorShrine}
                             />}

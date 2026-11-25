@@ -44,6 +44,7 @@ import "./CoastWorld.css";
 
 
 import { footprintStyle } from "./coast-grid";
+import { coastFigureMarker } from "../../lib/npc-quest-marker";
 
 const StairHouses = lazy(() => import("./StairHouses"));
 const CoastInterior = lazy(() => import("./CoastInterior"));
@@ -227,6 +228,8 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     const questMark = <GameArtIcon kind="scroll" size={28} className="coast-quest-mark" title="A quest has something for you here" />;
     const clanPanel = <CoastClanPanel ground={ground} key={sector} plot={site?.id === "saltstair-plot-108"}
         character={character} sector={sector} commit={onVersionedCharacter} enter={busy ? undefined : enterTown} />;
+    const boatAt = (s: { id: string; boat?: boolean }) => s.boat || (s.id === "brackwater-dock-116" && quests?.coast.docks?.some(dock => dock.sector === sector));
+    const boatArt = "/coast-map/boats/shuttered-boat-coast-v1.webp";
     const settlement = layout.sites.find(entry => entry.id === "saltstair-houses-105");
     if (settlement && site === settlement) return <Suspense fallback={entering}>
         <StairHouses site={site} character={character} creatorItems={creatorItems} avatar={avatar} leave={leaveSite}
@@ -287,6 +290,8 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                                     {entry === settlement && <span className="coast-door-label">The Stair Houses</span>}
                                     {isPlot(entry.id) && <CoastPlotArt paint={plot} area={area} />}
                                     {entry.gather && <img src={ART + MARKER[entry.gather]} alt="" draggable={false} />}
+                                    {/* The boat that sails home, moored where the player lands, so it reads as the thing to click. */}
+                                    {boatAt(entry) && <img className="coast-site-boat" src={boatArt} alt="" draggable={false} />}
                                     {questHere(sector, entry.id) && questMark}
                                 </button>
                             );
@@ -294,7 +299,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                         <CoastPatrols mask={layout.mask} key={sector} sector={sector} disabled={!!busy} notify={setStatus} />
                         {/* The keepers at their counters, and the boss a quest has brought the player to: choosing one goes to its place. */}
                         {quests?.coast.figures?.filter(figure => figure.sector === sector).map(figure => (
-                            <CoastFigure mask={layout.mask} key={figure.label} tile={figure.tile} model={figure.model} label={figure.label} disabled={!!busy}
+                            <CoastFigure marker={coastFigureMarker(figure)} mask={layout.mask} key={figure.label} tile={figure.tile} model={figure.model} label={figure.label} disabled={!!busy}
                                 pick={() => { const place = layout.sites.find(entry => entry.id === figure.site); if (place) void visit(place); }} />
                         ))}
                         {/* The people of the coast (api/quests/_coast-residents.ts). Choosing one shows the line the server picked for this player. */}
@@ -360,7 +365,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                                     <button type="button" disabled={!!busy || questSite.remaining < 1} onClick={() => void gather(site)}>{busy === WORK[site.gather] ? "Working…" : WORK[site.gather]}</button>
                                 </div>
                             ) : <p className="hint">There is nothing here you have a use for yet. A quest will send you back.</p>)}
-                            {(site.boat || (site.id === "brackwater-dock-116" && quests?.coast.docks?.some(dock => dock.sector === sector))) && <button type="button" disabled={!!busy} onClick={() => { setSiteId(null); void travel(HOME_HARBOR_SECTOR, "Sailing home"); }}><img className="coast-slip-boat" src="/coast-map/boats/shuttered-boat-coast-v1.webp" alt="" />Sail home to the Western Piers</button>}
+                            {boatAt(site) && <button type="button" disabled={!!busy} onClick={() => { setSiteId(null); void travel(HOME_HARBOR_SECTOR, "Sailing home"); }}><img className="coast-slip-boat" src={boatArt} alt="" />Sail home to the Western Piers</button>}
                             {statusLine}
                             <button type="button" onClick={leaveSite}>Leave</button>
                         </div></>}

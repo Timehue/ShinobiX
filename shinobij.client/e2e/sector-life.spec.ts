@@ -365,7 +365,7 @@ for(const result of ['bound','unbound'] as const)test(`world tracking ${result}:
     await page.route('**/api/sector/life**',async route=>{const now=await page.evaluate(()=>Date.now());await route.fulfill({json:{ok:true,view:lifeSceneView(sector,state,now,'clear'),serverNow:now}});});
     await page.goto('/#/worldMap');const back=page.getByRole('button',{name:`Return to Sector ${sector}`,exact:false});await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);if(await back.isVisible())await back.click();
     await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');const hunter=page.locator(`[data-life-resident="hunter:${sector}"]`);await expect(hunter).toHaveAttribute('data-activity','Resting after the animal trail');
-    const original=page.locator(`.sector-wanderer-figure:not([data-life-resident])[title^="${tracker.name}"]`);await expect(original).toHaveCount(1);await expect(original).toBeHidden();
+    const original=page.locator(`.sector-wanderer-figure:not([data-life-resident])[aria-label^="${tracker.name}"]`);await expect(original).toHaveCount(1);await expect(original).toBeHidden();
     await page.clock.runFor(700);await page.locator('.continuous-world-map').screenshot({path:`${evidence}/${info.project.name}-tracking-${result}-party-returned.png`});
     await hunter.click();await expect(page.getByRole('dialog')).toContainText('back at the stop after following the animal trail');
 });
@@ -651,7 +651,7 @@ for(const visitor of ['Ashen Leaf Village','Frostfang Village'])test(`village re
     const back=page.getByRole('button',{name:'Return to Sector 31',exact:false});
     await expect.poll(async()=>await back.isVisible()||await page.locator('.continuous-world-map').isVisible(),{timeout:60_000}).toBe(true);
     if(await back.isVisible())await back.click();
-    const patrol=page.locator('.sector-wanderer-figure[title^="Frostfang Village Patrol"]');
+    const patrol=page.locator('.sector-wanderer-figure[aria-label^="Frostfang Village Patrol"]');
     await expect(patrol).toBeVisible();await patrol.click();
     const dialog=page.getByRole('dialog'),rival=visitor==='Ashen Leaf Village';
     await expect(dialog).toContainText(rival?'Leaf Rat. Keep walking.':/one of ours|friendly face|Safe travels/);

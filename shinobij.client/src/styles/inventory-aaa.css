@@ -205,7 +205,6 @@
 .inventory-page .slot-keystone,
 .inventory-page .slot-left-item-1,
 .inventory-page .slot-left-hand,
-.inventory-page .slot-left-item-2,
 .inventory-page .slot-relic,
 .inventory-page .slot-left-item-3,
 .inventory-page .slot-fishing-pole {
@@ -216,7 +215,6 @@
 .inventory-page .slot-right-item-1,
 .inventory-page .slot-right-hand,
 .inventory-page .slot-right-item-2,
-.inventory-page .slot-right-item-3,
 .inventory-page .slot-pickaxe {
     right: 10px !important;
 }

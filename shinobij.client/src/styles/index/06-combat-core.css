@@ -1239,7 +1239,6 @@
 .slot-keystone,
 .slot-left-item-1,
 .slot-left-hand,
-.slot-left-item-2,
 .slot-relic,
 .slot-left-item-3 {
     left: 18px;
@@ -1248,8 +1247,7 @@
 .slot-thrown,
 .slot-right-item-1,
 .slot-right-hand,
-.slot-right-item-2,
-.slot-right-item-3 {
+.slot-right-item-2 {
     right: 18px;
 }
 
@@ -1280,7 +1278,6 @@
     top: 210px;
 }
 
-.slot-left-item-2,
 .slot-relic,
 .slot-legs,
 .slot-right-item-2 {
@@ -1288,8 +1285,7 @@
 }
 
 .slot-left-item-3,
-.slot-feet,
-.slot-right-item-3 {
+.slot-feet {
     top: 426px;
 }
 

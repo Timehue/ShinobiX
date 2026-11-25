@@ -42,6 +42,9 @@ import {GroundWorkTool} from './GroundWorkTool';
 import {paintGroundWorkTool} from '../lib/ground-work-tool';
 import {groundWorkPresentation} from '../lib/ground-work-surface';
 import {inNpcLayer,layerNpcByDepth,npcBoard,useSectorNpcLayer} from '../lib/sector-npc-layer';
+import { NpcQuestMarker } from './NpcQuestMarker';
+import type { NpcMarker } from '../lib/npc-quest-marker';
+import { speechBubbleLine } from '../lib/speech-bubble-line';
 
 const GRID_W = 12;
 const GRID_H = 12;
@@ -119,7 +122,10 @@ export function SectorWanderer({
     biome,
     onEngage,
     routine:suppliedRoutine,
+    markerFor,
 }: {
+    /** The "!" this NPC wears, or null for none. The owner decides (it knows the player's quests); no marker is drawn without it. */
+    markerFor?: (w: Wanderer) => NpcMarker | null;
     wanderer: Wanderer;
     sector?: number;
     playerIndex: number;
@@ -177,7 +183,7 @@ export function SectorWanderer({
         const now = performance.now();
         if (now < activeRoadSpeechUntil) return;
         activeRoadSpeechUntil = now + 3600;
-        setBubble(line);
+        setBubble(speechBubbleLine(line));
         window.clearTimeout(bubbleTimer.current);
         bubbleTimer.current = window.setTimeout(() => setBubble(null), 3600);
     }
@@ -452,6 +458,7 @@ export function SectorWanderer({
     // Authored life already shares the batched collision packer. Start its names
     // near their owners rather than adding a second static vertical offset.
     const labelLane = routine ? 0 : labelLaneFor(wanderer.id);
+    const questMarker = markerFor?.(wanderer) ?? null;
 
     return inNpcLayer(npcLayer, (
         <div className="sector-wanderer-overlay" ref={wrapRef} aria-hidden={routine ? undefined : true}>
@@ -469,10 +476,9 @@ export function SectorWanderer({
                 ref={figRef}
                 role="button"
                 tabIndex={routine ? 0 : -1}
-                aria-label={routine ? `${routine.name}: ${presentation!.activity}. Talk` : undefined}
+                aria-label={routine ? `${routine.name}: ${presentation!.activity}. Talk` : wanderer.name}
                 data-life-resident={routine?.id}
                 onKeyDown={routine ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleClick(); } } : undefined}
-                title={routine?`${routine.name} · ${presentation!.activity}`:`${wanderer.name} · Lv ${wanderer.level} · ${wanderer.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"}`}
                 onClick={handleClick}
                 style={{ ["--marker-ring"]: SECTOR_RING_AI, ["--sector-model-tell"]: wanderer.tellTint,
                     visibility:nativeWork&&service===null?'hidden':undefined } as CSSProperties}
@@ -491,6 +497,7 @@ export function SectorWanderer({
                 <span className="sector-wanderer-label" style={{ ["--label-lane"]: labelLane } as CSSProperties}>
                     {wanderer.name}
                 </span>
+                {!routine && questMarker && <NpcQuestMarker marker={questMarker} />}
             </div>
 
         </div>

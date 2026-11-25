@@ -1,0 +1,9 @@
+/* The ! / ? above a quest giver's head (lib/npc-quest-marker). One colour per tier; the glyph is also the accessible name. */
+.npc-quest-marker{position:absolute;left:50%;z-index:5;width:1.5em;height:1.5em;display:grid;place-items:center;font:900 .95rem/1 Georgia,serif;color:var(--i,#fff);background:var(--f);border:2px solid #fff9;border-radius:50%;pointer-events:none;transform:translateX(-50%)}
+.npc-quest-marker[data-tier=story]{--f:#f5c542;--i:#2a1a00}
+.npc-quest-marker[data-tier=event]{--f:#a66bff}
+.npc-quest-marker[data-tier=boss]{--f:#e5483f}
+.npc-quest-marker[data-tier=side]{--f:#3cc4b4;--i:#04201c}
+.sector-wanderer-figure>.npc-quest-marker{top:calc(-16% - var(--label-lane,0)*1.95em - 2em)}
+.has-sector-model>.npc-quest-marker{top:calc(100% - var(--sector-model-height) - 3.75em - var(--label-lane,0)*1.95em)}
+.coast-site>.npc-quest-marker{top:-1.4em}

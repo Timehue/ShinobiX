@@ -10,11 +10,6 @@
     pointer-events: none;
     z-index: 6;
 }
-@media (hover: hover) {
-    .sector-npc-layer > .sector-wanderer-overlay:has(> .sector-wanderer-figure:hover) {
-        z-index: 99999 !important; /* the hovered NPC and its full name come forward */
-    }
-}
 /* Inside a peer layer the peers are layered by row/foot y; stay above them. */
 .sector-peers-overlay > .sector-peers-overflow,
 .continuous-world-peers > .sector-peers-overflow {

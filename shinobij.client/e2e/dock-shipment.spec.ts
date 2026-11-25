@@ -123,7 +123,8 @@ for(const phase of ['spilled','delivered','landscape'] as const)test(`dock shipm
         });
     })).toBe(true);
     await expect.poll(()=>page.locator('.sector-wanderer-label,.sector-wanderer-bubble').evaluateAll(labels=>{
-        const obstacles=[...document.querySelectorAll('[data-world-self] .sector-avatar-body,.resource-world-node')].map(node=>node.getBoundingClientRect());
+        // The player is deliberately not an obstacle: a name plate stays on its NPC and the player walks over it.
+        const obstacles=[...document.querySelectorAll('.resource-world-node')].map(node=>node.getBoundingClientRect());
         return labels.every(label=>{const r=label.getBoundingClientRect();return !r.width||!r.height||obstacles.every(body=>r.right<=body.left||body.right<=r.left||r.bottom<=body.top||body.bottom<=r.top);});
     })).toBe(true);
     await map.screenshot({path:`${evidence}/${info.project.name}-layout-${phase}.png`});

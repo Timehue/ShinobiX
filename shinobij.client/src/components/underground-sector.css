@@ -269,8 +269,6 @@
 .hg-avatar.has-sector-model > .hg-avatar-sprite,
 .hg-avatar.has-sector-model > .hg-avatar-aura { visibility: hidden; }
 .hg-avatar.has-sector-model > .hg-avatar-shadow { top: 100%; bottom: auto; transform: translate(-50%, -50%); }
-.hg-avatar.hg-wanderer .hg-avatar-body { border-color: var(--npc-color); background: #0c1b21; box-shadow: 0 3px 10px #0008, 0 0 8px color-mix(in srgb, var(--npc-color) 20%, transparent); }
-.hg-avatar.hg-wanderer .hg-avatar-pin { border-top-color: var(--npc-color); }
 .hg-avatar.hg-wanderer .hg-avatar-aura { background: radial-gradient(ellipse, color-mix(in srgb, var(--npc-color) 20%, transparent), transparent 70%); }
 .hg-wanderer.is-friendly { --npc-color: #9cd5bd; }.hg-wanderer.is-hostile { --npc-color: #e7a49c; }
 .hg-avatar-label { position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 140px; background: #08111bed; border: 1px solid #7b959f5c; border-radius: 5px; padding: 4px 7px; font: 10px/1.3 system-ui; text-align: center; color: var(--npc-color); pointer-events: none; }

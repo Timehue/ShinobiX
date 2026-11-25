@@ -75,7 +75,7 @@ test(refused ? 'Senna travel refusal keeps the original avatar and movement work
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
     const here = page.locator('.village-back-button').filter({ hasText: `Return to Sector ${origin}` });
     await expect(here).toBeVisible(); await here.click();
-    const senna = page.locator('[title^="Senna Graveward ·"]');
+    const senna = page.locator('.sector-wanderer-figure[aria-label="Senna Graveward"]');
     await expect(senna).toBeVisible(); await senna.click();
     const accept = page.getByRole('button', { name: 'I will recover the mark and stop the copy.', exact: true });
     for (let i = 0; i < 20 && !await accept.isVisible(); i++) {

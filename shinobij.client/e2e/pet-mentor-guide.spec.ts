@@ -295,7 +295,7 @@ test("Tomoe appears on the active road while a paced lesson is waiting", async (
     await page.goto("/#/worldMap", { waitUntil: "networkidle" });
     await page.reload({ waitUntil: "networkidle" });
 
-    const tomoe = page.locator('.sector-wanderer-figure[title^="Tamer Tomoe ·"]');
+    const tomoe = page.locator('.sector-wanderer-figure[aria-label^="Tamer Tomoe"]');
     await expect(tomoe).toBeVisible();
     const roadPrompt = page.getByRole("button", { name: /Tamer Tomoe & Kuro/ });
     await expect(roadPrompt).toBeVisible();
