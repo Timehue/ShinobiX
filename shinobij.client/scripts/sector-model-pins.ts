@@ -36,11 +36,28 @@ export function sectorModelPins(client: string): Plugin {
             // The source catalog also contains portrait hashes for offline verification.
             if (!serving && id.endsWith('/src/lib/cinderhold-battle-models.ts')) {
                 this.addWatchFile(path.join(client, '../shared/cinderhold-world-models.json'));
-                return 'export const cinderholdBattleModels = ' + JSON.stringify(cinderholdBattleModels);
+                // These keys contain 48 binary bytes written as 96 hex digits. Group by
+                // fighter and asset so earlier revisions share the same ownership prefix.
+                const groups = new Map<string, { fighter: string; asset: string; versions: string[] }>();
+                for (const [key, fighter] of Object.entries(cinderholdBattleModels)) {
+                    const asset = key.slice(0, 32);
+                    const group = groups.get(asset) ?? {fighter, asset, versions: []};
+                    if (group.fighter !== fighter) throw Error('Conflicting Cinderhold ownership');
+                    group.versions.push(key.slice(32));
+                    groups.set(asset, group);
+                }
+                const rows = [...groups.values()].map(({fighter, asset, versions}) =>
+                    [fighter, Buffer.from(asset + versions.join(''), 'hex').toString('base64')]);
+                return `export const cinderholdBattleModels = Object.create(null);
+                    for (const [fighter, packed] of ${JSON.stringify(rows)}) {
+                        const hex = Array.from(atob(packed), byte => byte.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+                        for (let i = 32; i < hex.length; i += 64)
+                            cinderholdBattleModels[hex.slice(0, 32) + hex.slice(i, i + 64)] = fighter;
+                    }`;
             }
             if (id !== '\0' + registry) return;
             const imports: string[] = [];
-            const models: [string,string][] = [];
+            const models: [string,string,string?][] = [];
             const portraits: string[] = [];
             const seen = new Set<string>();
             if (!serving) this.addWatchFile(directory);
@@ -67,7 +84,8 @@ export function sectorModelPins(client: string): Plugin {
                 seen.add(pin.portrait);
                 let url: string;
                 if (pin.portrait.startsWith('public/')) {
-                    url = JSON.stringify('/'+pin.portrait.slice('public/'.length));
+                    models[models.length - 1]![2] = '/'+pin.portrait.slice('public/'.length);
+                    url = 'null';
                 } else {
                     url = 'portrait'+imports.length;
                     imports.push('import '+url+' from '+JSON.stringify('/'+pin.portrait+'?url')+';');
