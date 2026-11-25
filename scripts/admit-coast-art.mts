@@ -35,6 +35,7 @@ import sharp from 'sharp';
 import { OPEN_COAST_SECTOR_IDS } from '../shared/coast-world.ts';
 import { coastRegionOf } from '../shared/world-maps.ts';
 import settlementArt from '../shared/coast-settlement-art.json' with { type: 'json' };
+import trailArt from '../shared/coast-trail-art.json' with { type: 'json' };
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = join(ROOT, 'output', 'coast');
@@ -141,12 +142,13 @@ if (problems.length) {
     process.exit(1);
 }
 
-// Settlement artwork ships directly from public. Verify its separate receipt before pruning stale files.
-for (const [ref, entry] of Object.entries(settlementArt)) {
+// Settlement and trail paintings ship directly from public. Verify their receipts before pruning stale files.
+const publicArt = { ...settlementArt, ...trailArt };
+for (const [ref, entry] of Object.entries(publicArt)) {
     const bytes = readFileSync(join(PUBLIC_DIR, ref));
-    if (bytes.length !== entry.bytes || createHash('sha256').update(bytes).digest('hex') !== entry.sha256) throw Error('Settlement art changed: ' + ref);
+    if (bytes.length !== entry.bytes || createHash('sha256').update(bytes).digest('hex') !== entry.sha256) throw Error('Coast art changed: ' + ref);
 }
-const retained = new Set([...pending.map(file => file.to), ...Object.keys(settlementArt).map(ref => join(PUBLIC_DIR, ref))]);
+const retained = new Set([...pending.map(file => file.to), ...Object.keys(publicArt).map(ref => join(PUBLIC_DIR, ref))]);
 for (const file of readdirSync(PUBLIC_DIR, { recursive: true, withFileTypes: true })) {
     const candidate = join(file.parentPath, file.name);
     if (file.isFile() && !retained.has(candidate)) rmSync(candidate);

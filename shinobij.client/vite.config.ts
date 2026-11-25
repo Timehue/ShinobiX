@@ -14,6 +14,7 @@ const STATIC_LITERAL_TABLES: ReadonlyArray<readonly [string, readonly string[]]>
     ['/src/lib/coast-journal-art.ts', ['rewards']],
     ['/src/data/missions.ts', ['builtinFetchMissions', 'builtinHuntMissions']],
     ['/src/lib/first-pact-world.ts', ['FIRST_PACT_ARCHITECTURE', 'FIRST_PACT_NPCS']],
+    ['/src/lib/first-pact-interiors.ts', ['FIRST_PACT_INTERIORS']],
     ['/shared/resource-nodes.ts', ['placements']],
     ['/src/data/sector-structure-placements.ts', ['STRONGHOLD_BY_ART', 'RIFT_BY_ART']],
 ];

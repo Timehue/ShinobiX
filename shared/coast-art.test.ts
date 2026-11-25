@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import art from './coast-art.json';
 import settlementArt from './coast-settlement-art.json';
+import trailArt from './coast-trail-art.json';
 import { COAST_WORLD, OPEN_COAST_SECTOR_IDS } from './coast-world.js';
 
 /*
@@ -41,8 +42,16 @@ test('every open coast sector has exactly one admitted floor painting', () => {
 });
 
 test('the art folder holds exactly the admitted files, and nothing else', () => {
-    const expected = [...OPEN_COAST_SECTOR_IDS.map(sector => `s${sector}.webp`), ...Object.keys(manifest.files), ...Object.keys(settlementArt)].sort();
+    const expected = [...OPEN_COAST_SECTOR_IDS.map(sector => `s${sector}.webp`), ...Object.keys(manifest.files), ...Object.keys(settlementArt), ...Object.keys(trailArt)].sort();
     assert.deepEqual(filesOnDisk().sort(), expected);
+});
+
+test('the bridge and five regional trail sets match the reviewed delivery', () => {
+    const expected = ['trail-bridge.webp', ...[1, 2, 3, 4, 5].flatMap(region =>
+        ['straight', 'corner', 'relief'].map(kind => `trail-${kind}-${region}.webp`))].sort();
+    assert.deepEqual(Object.keys(trailArt).sort(), expected);
+    const total = Object.entries(trailArt).reduce((sum, [path, entry]) => sum + assertMatches(path, entry), 0);
+    assert.ok(total <= 143_406, 'trail paintings must fit their measured share of the existing client ceiling');
 });
 
 test('each file on disk is the one that was admitted, within its size limit', () => {
