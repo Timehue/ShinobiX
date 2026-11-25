@@ -17,15 +17,27 @@
     "id": "virath",
     "avatar": "/npc-portraits/virath.avif",
     "portraitSha256": "ba174b67a2d85636fc6228f07c706b7d81ba2db1c5750c8f923a79d45267dd60",
-    "assetId": "888202c13e5da1e2e3ce9628d1c0406a",
-    "version": "eb0ca78a8ff87792b9b2107d90c774f240d3e76e6f77113f56c836f61f4d7c02"
+    "assetId": "40768050d0ee87224310116e51ae02bb",
+    "version": "c3ece3bd0926cb78cbaab5700c5989ac2067bd9da9e4b3ac1c402ef96ce54239",
+    "previousModels": [
+      {
+        "assetId": "888202c13e5da1e2e3ce9628d1c0406a",
+        "version": "eb0ca78a8ff87792b9b2107d90c774f240d3e76e6f77113f56c836f61f4d7c02"
+      }
+    ]
   },
   {
     "id": "kat",
     "avatar": "/npc-portraits/kat.avif",
     "portraitSha256": "e5f7433b627c8f2e171f6d4ace31f3e42a0621c9db72b66e8fba8a43854d55cb",
-    "assetId": "4cb8979f7e4c5fe79205da1479e44da0",
-    "version": "f10954ccbb972d331ca73f429ce89981ceb791ee43fffa96128c84acecf59860"
+    "assetId": "a1cc6bead5237cc524592a518885120f",
+    "version": "6826f8493cd5789c94da8caf3bd5de9a80c6d9fdf91881be5ff7ce764bb7f894",
+    "previousModels": [
+      {
+        "assetId": "4cb8979f7e4c5fe79205da1479e44da0",
+        "version": "f10954ccbb972d331ca73f429ce89981ceb791ee43fffa96128c84acecf59860"
+      }
+    ]
   },
   {
     "id": "raku",
@@ -38,15 +50,27 @@
     "id": "nozomi",
     "avatar": "/npc-portraits/nozomi.avif",
     "portraitSha256": "d2da065c6c0da34df2d5fca445d930d2e74be8bc69189311df8bbf10dd5f26a2",
-    "assetId": "53737e9007083924c6fb2c61835dd6b3",
-    "version": "c6d966d4be6d03bcc0d5a5e147fd351567ee2f9de78790a530008b015f1c926c"
+    "assetId": "00391774a695661e7aad5d686c1b0671",
+    "version": "33e01fe5f3e9775407d2ef6a48d83ee712635cf402229dfffb1426162a349945",
+    "previousModels": [
+      {
+        "assetId": "53737e9007083924c6fb2c61835dd6b3",
+        "version": "c6d966d4be6d03bcc0d5a5e147fd351567ee2f9de78790a530008b015f1c926c"
+      }
+    ]
   },
   {
     "id": "nyra",
     "avatar": "/npc-portraits/nyra.avif",
     "portraitSha256": "2eefed017e55241af3cdf01431de2e06ea5f1fd87f6109bb6f3669d6bcab5fa3",
-    "assetId": "e0ca59954012e24feb973543d5b530a9",
-    "version": "26d66e2fe0b0ffd4df822e7fd7c9443b4c575da506427a14df686e5aa7fe7cd0"
+    "assetId": "7929cb7a8cdc4e6ae83effc472e73479",
+    "version": "5e1fd848ed953c91ba0a878d8777f7ea2469426d824e01164970d7e34c49814c",
+    "previousModels": [
+      {
+        "assetId": "e0ca59954012e24feb973543d5b530a9",
+        "version": "26d66e2fe0b0ffd4df822e7fd7c9443b4c575da506427a14df686e5aa7fe7cd0"
+      }
+    ]
   },
   {
     "id": "roy",
@@ -94,8 +118,14 @@
     "id": "kairo",
     "avatar": "/npc-portraits/kairo.avif",
     "portraitSha256": "5c7ec0ec62ec27c189c22972811bfafdf34cc7faac517fbd4ae2219f40b64a91",
-    "assetId": "4540e63c98953a71c4513bb1fd429143",
-    "version": "c203690827c7bdb1f2895ae013c90cbd715408a25782f8e150cc48bb22a94d63"
+    "assetId": "65cde1c4ba6a78427f9de7a43a4f7a4a",
+    "version": "2caaa3a6825a591d419c3ebec3644607be1a0a3b03f73a5e08d1accf1f367e6f",
+    "previousModels": [
+      {
+        "assetId": "4540e63c98953a71c4513bb1fd429143",
+        "version": "c203690827c7bdb1f2895ae013c90cbd715408a25782f8e150cc48bb22a94d63"
+      }
+    ]
   },
   {
     "id": "suiren",
@@ -115,8 +145,14 @@
     "id": "sayo",
     "avatar": "/npc-portraits/sayo.avif",
     "portraitSha256": "0a5be906e4242443cf6635a9ade48f2ef2118badf15e1ed8fcf89b3566ecb8a2",
-    "assetId": "81b89845d377a7201bca6cf73c191ee0",
-    "version": "9014173643b49fc2b31125b636fe470cb09d4016f741ef3739ee96772638ae5a"
+    "assetId": "05f0d353392f3904e277828911c4a866",
+    "version": "4c7159b3bdba3e2250ec04a4db6571d8826d07fb7f31d64b907a31aefa7cef76",
+    "previousModels": [
+      {
+        "assetId": "81b89845d377a7201bca6cf73c191ee0",
+        "version": "9014173643b49fc2b31125b636fe470cb09d4016f741ef3739ee96772638ae5a"
+      }
+    ]
   },
   {
     "id": "hayate",
@@ -136,8 +172,14 @@
     "id": "alisia",
     "avatar": "/npc-portraits/alisia.avif",
     "portraitSha256": "a10c58c4f77e13819025f084ddede5ac732c6e2e47f047991791d96d6e1f3342",
-    "assetId": "9a56a7d0418375b8a711b8bd881ae1c3",
-    "version": "436f5bb1524a34c4cbc0c0af0d8480239708821a5e8edf91e31afd87f72d45b0"
+    "assetId": "2e156cde7b90240d5632ed415c21e834",
+    "version": "a57464e4cf7b6f2df90cb2ab07d2dfcbab9fff0c14776591b25234f3ca8678a6",
+    "previousModels": [
+      {
+        "assetId": "9a56a7d0418375b8a711b8bd881ae1c3",
+        "version": "436f5bb1524a34c4cbc0c0af0d8480239708821a5e8edf91e31afd87f72d45b0"
+      }
+    ]
   },
   {
     "id": "ayame",
@@ -150,8 +192,14 @@
     "id": "shion",
     "avatar": "/npc-portraits/shion.avif",
     "portraitSha256": "d57be8b9d75d8de1dbda3fa4a16b16f2a9765f3f21e78c759fc4ff20fd1e7182",
-    "assetId": "0a73241bc3480933e8ea7b240ccf4880",
-    "version": "554e4d2a9ce72213fdbc439e0dfcb91a90633ba0f0b3565fad44c1c9b5f7b7d8"
+    "assetId": "05b7e17a9dc57d2255c1cf74425ac197",
+    "version": "c0016d8acc1268c70cafdd7e4b57fef87f529f65e12e8f8dadd41fc90549b7aa",
+    "previousModels": [
+      {
+        "assetId": "0a73241bc3480933e8ea7b240ccf4880",
+        "version": "554e4d2a9ce72213fdbc439e0dfcb91a90633ba0f0b3565fad44c1c9b5f7b7d8"
+      }
+    ]
   },
   {
     "id": "veyl",
@@ -171,8 +219,14 @@
     "id": "vesper",
     "avatar": "/npc-portraits/vesper.avif",
     "portraitSha256": "6608b0d07cb8e8f791d5bdd5c9be48e3e80550ca2e3d1c4ff3d3907cd678aaba",
-    "assetId": "5553472e2d74116a1b02f6f82a5ed423",
-    "version": "9fa8898de3eea8eb69d589804dcbdcef77b8f365877aae7c8d4627ec784dec82"
+    "assetId": "c82bbd807a67b9beeb8a61bf34464bfc",
+    "version": "a1bcb8494f4e4d9125ddd3afef3ae4fdeb798aa4b0c13fb375e7325004ab4d81",
+    "previousModels": [
+      {
+        "assetId": "5553472e2d74116a1b02f6f82a5ed423",
+        "version": "9fa8898de3eea8eb69d589804dcbdcef77b8f365877aae7c8d4627ec784dec82"
+      }
+    ]
   },
   {
     "id": "reika",
@@ -199,8 +253,14 @@
     "id": "isamu",
     "avatar": "/npc-portraits/isamu.avif",
     "portraitSha256": "6a6c0f0d23f71d5be733892d9e507945d3ad52232b2c07707df851d7d08864c2",
-    "assetId": "b69da0fb5fea04d5cd7ffe48ebf7598e",
-    "version": "b4d54caebf7c1048d6f2a5f3af1f73bb9c154cac70611d0bafa9bd9788706fa7"
+    "assetId": "dd754a216886b90050ed44b4a7fc29b0",
+    "version": "10beeef7f86ae0c43c08d2d9d0651fd25cc544196df403b4a69aa67e66f5ed1d",
+    "previousModels": [
+      {
+        "assetId": "b69da0fb5fea04d5cd7ffe48ebf7598e",
+        "version": "b4d54caebf7c1048d6f2a5f3af1f73bb9c154cac70611d0bafa9bd9788706fa7"
+      }
+    ]
   },
   {
     "id": "lumen",

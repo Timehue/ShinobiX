@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { test } from 'node:test';
 import cinderhold from '../../../shared/cinderhold-world-models.json';
+import { cinderholdPortraitForModel, cinderholdWorldModel } from '../../../shared/cinderhold-world-models';
 import { NPC_VILLAGE } from '../../../shared/npc-village';
 import { NPC_VILLAGE_ROSTER } from '../../../shared/npc-village-roster';
 import { bundledFighterSprite, generatedFighterModel, playerBattleFallback } from './battlefield-fighter-art';
@@ -22,6 +23,22 @@ test('each Cinderhold fighter uses its bundled combat sprite', () => {
             assert.equal(generatedFighterModel(aliased), undefined);
         }
         assert.ok(existsSync(new URL(`../../public${sprite}`, import.meta.url)), sprite);
+    }
+});
+
+test('refreshed map models and their earlier revisions identify the same fighter', () => {
+    const refreshed = cinderhold.filter(entry => entry.previousModels?.length);
+    assert.ok(refreshed.length);
+    for (const { id, avatar, assetId, version, previousModels } of refreshed) {
+        const active = { assetId, version };
+        assert.deepEqual(cinderholdWorldModel(id, avatar), active);
+        for (const model of [active, ...previousModels!]) {
+            assert.equal(cinderholdPortraitForModel(model), avatar);
+            assert.equal(bundledFighterSprite({ playerModel: model }), `/combat-actors/cinderhold/${id}-idle.webp`);
+        }
+        const unknown = { assetId, version: '0'.repeat(64) };
+        assert.equal(cinderholdPortraitForModel(unknown), undefined);
+        assert.equal(bundledFighterSprite({ playerModel: unknown }), null);
     }
 });
 

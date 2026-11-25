@@ -176,7 +176,7 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, name, onSelect, disposi
             role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined} aria-label={onSelect ? `${name}, ${label}` : undefined}
             onClick={onSelect} onKeyDown={onSelect ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onSelect(); } } : undefined}>
             <span className="hg-avatar-shadow" />
-            {artBase && modelKind && <SectorModelFigure key={modelKind} ref={model} kind={modelKind}
+            {artBase && modelKind && <SectorModelFigure key={modelKind} ref={model} kind={modelKind} accountName={name}
                 equipped={equipped} style={sprintStyle} artBase={artBase} self={self} />}
             <span className="hg-avatar-aura" />
             <span className="hg-avatar-sprite" ref={spriteRef}>

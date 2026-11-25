@@ -103,10 +103,10 @@ export function ContinuousWorldSector(props: SectorViewProps) {
                 {!props.suspended && props.gatheringCharacter && props.onGatheringCommit && <ResourceWorld character={props.gatheringCharacter} sector={props.sector} tile={props.playerTile} commit={props.onGatheringCommit} walk={(sector, tile) => { engine.current?.go(sector, tile); }} worldBossCrystals={props.worldBossCrystals} onContest={props.onContestResource} />}
             </div>
             <div ref={marker} className="sector-avatar-figure continuous-world-self" aria-hidden="true" data-world-self="true">
-                {gaits && modelArtBase && <SectorModelFigure ref={model} kind={starter} equipped={equipped}
+                {gaits && modelArtBase && <SectorModelFigure ref={model} kind={starter} accountName={name} equipped={equipped}
                     style={sprintStyle} artBase={modelArtBase} self />}
                 <span className="sector-avatar-shadow" /><span className="sector-avatar-sprite"><span className="sector-avatar-body">
-                    <WorldStandingFigure kind={starter} />
+                    <WorldStandingFigure kind={starter} accountName={name} />
                 </span></span>
                 {gaits && modelArtBase && <span className="sector-peer-label sector-self-label">{name}</span>}
             </div>

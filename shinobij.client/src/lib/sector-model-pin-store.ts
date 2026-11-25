@@ -13,15 +13,17 @@ export function createSectorModelPinStore(portraits: readonly (string | null)[],
             const rows = value as unknown[];
             const seen = new Set<string>();
             for (const row of rows) {
-                if (!Array.isArray(row) || row.length !== 2 || typeof row[0] !== "string" ||
+                if (!Array.isArray(row) || !(row.length === 2 || (row.length === 3 && typeof row[2] === "string" &&
+                    /^\/(?!\/)[\w./-]+\.webp$/.test(row[2]) && !row[2].includes('..'))) || typeof row[0] !== "string" ||
                     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row[0]) || typeof row[1] !== "string" ||
                     !/^[a-f0-9]{64}$/.test(row[1]) || seen.has(row[0])) throw new Error("Invalid model registry");
                 seen.add(row[0]);
             }
             rows.forEach((value, index) => {
-                const [slug, revision] = value as [string,string];
+                const [slug, revision, publicPortrait] = value as [string,string,string?];
                 revisions[slug] = revision;
-                if (portraits[index]) portraitModels.set(portraits[index]!, slug);
+                const portrait = publicPortrait ?? portraits[index];
+                if (portrait) portraitModels.set(portrait, slug);
             });
             ready = 1;
             listeners.forEach(listener => listener());

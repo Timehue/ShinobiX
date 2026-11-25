@@ -129,7 +129,7 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
                 const portrait = player === me ? avatar : sharedAvatarFor(sharedImages, player.displayName);
                 return <span key={player.name} className={`war-shrine-player ${player.village === character.village ? 'is-ally' : 'is-enemy'}`}
                 style={{ left: `${left}%`, top: `${top}%`, transform: 'translate(-50%, -100%)' }}>
-                <WorldStandingFigure kind={starterModel(portrait || '', player === me ? character.starterWorldModel ?? player.starterWorldModel : player.starterWorldModel)} />
+                <WorldStandingFigure accountName={player.name} kind={starterModel(portrait || '', player === me ? character.starterWorldModel ?? player.starterWorldModel : player.starterWorldModel)} />
                 <small>{player === me ? 'You' : player.displayName}</small></span>; })}
         </div>
         <aside aria-label='Shrine control'><p className='war-shrine-input-hint'>Select a tile, or move with WASD or the arrow keys.</p>

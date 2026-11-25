@@ -9,6 +9,7 @@ import {gunzipSync} from 'node:zlib';
 import {lifeSceneView,lifeWanderer,parseLifeState,type LifeActor} from '../../shared/sector-life';
 import {worldPositionModel} from '../../shared/continuous-world-layout';
 import catalog from '../../shared/cinderhold-world-models.json';
+import residentStrides from '../src/data/cinderhold-standing-ids.json';
 import {cinderholdWorldModel} from '../../shared/cinderhold-world-models';
 import {MemoryOnlineStateStore} from '../../api/_realtime/online-store';
 import {toPlayerRecord} from '../../api/_realtime/presence-input';
@@ -70,6 +71,12 @@ test.beforeEach(({page})=>{
 test.beforeAll(async()=>{
     const allowed=new Set([...candidates.map(row=>row.slug), 'starter-one', 'starter-two']);
     server=createServer(async(req,res)=>{
+        const stride = req.url?.match(/^\/sector-models\/strides\/([a-z0-9-]+)-([a-f0-9]{20})\.webp$/);
+        if (stride && Object.hasOwn(residentStrides, stride[1]!) && residentStrides[stride[1] as keyof typeof residentStrides] === stride[2]) {
+            const bytes = await readFile(resolve('art/sector-model-strides', stride[1] + '.webp'));
+            res.writeHead(200, {'Content-Type':'image/webp','Content-Length':bytes.length,'Access-Control-Allow-Origin':'*'}).end(bytes);
+            return;
+        }
         const match=req.url?.match(/^\/sector-models\/([a-z0-9-]+|players\/[a-f0-9]{32})\/([a-f0-9]{64}\.(json|gz|264))$/);
         if(!match||!(allowed.has(match[1]!)||catalog.some(npc=>match[1]==='players/'+npc.assetId))){res.writeHead(404).end();return;}
         try{
@@ -99,6 +106,8 @@ for(let start=0; start<catalog.length; start+=6){
         const own=start===0?'starter-two':'starter-one';
         const other=own==='starter-two'?'starter-one':'starter-two';
         store.upsert({name:'Starter Observer',sector,tile:76,character:{level:10},restoredStarterWorldModel:other});
+        const standingOnly = catalog[(start + npcs.length) % catalog.length]!.id;
+        store.upsert({name:standingOnly,sector,tile:75,character:{level:10}});
         // Hold the observer's art until the local starter is drawn. This
         // catches a swapped binding even when both revisions are requested.
         let releaseObserverArt!: () => void;
@@ -107,7 +116,11 @@ for(let start=0; start<catalog.length; start+=6){
             await observerArtReady;
             await route.continue();
         });
-        const names=[...npcs.map(npc=>npc.id),'Starter Observer'];
+        await page.route(`${artBase}/players/*/*.json`, async route => {
+            await observerArtReady;
+            await route.continue();
+        });
+        const names=[...npcs.map(npc=>npc.id),'Starter Observer',standingOnly];
         const save=uiAuditSave();
         save.currentSector=sector; save.currentTile=tile;
         save.character={...save.character,starterCardsClaimed:true,starterWorldModel:own,
@@ -127,6 +140,9 @@ for(let start=0; start<catalog.length; start+=6){
         const observer = page.locator('.continuous-world-peer').filter({
             has: page.getByText('Starter Observer', {exact: true}),
         });
+        const markers=npcs.map(npc=>page.locator('.continuous-world-peer').filter({
+            has:page.getByText(npc.id,{exact:true}),
+        }));
         try {
             await expectUiAuditBoot(page,runtime,'worldMap');
             await expect(back.or(map).first()).toBeVisible({timeout:30_000});
@@ -135,14 +151,43 @@ for(let start=0; start<catalog.length; start+=6){
             await expect(page.locator('[data-world-self]')).toHaveClass(/has-sector-model/, {timeout: 30_000});
             await expect(observer).toBeAttached();
             await expect(observer).not.toHaveClass(/has-sector-model/);
+            await Promise.all(markers.map(async (marker, i) => {
+                const still = marker.locator('.world-standing-figure');
+                await expect(still).toHaveAttribute('src', '/world-figures/v1/cinderhold-' + npcs[i]!.id + '.webp');
+                await expect(still).toBeVisible();
+                await expect.poll(() => still.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+                await expect(marker).not.toHaveClass(/has-sector-model/);
+            }));
         } finally {
             releaseObserverArt();
         }
-        const markers=npcs.map(npc=>page.locator('.continuous-world-peer').filter({
-            has:page.getByText(npc.id,{exact:true}),
-        }));
         await Promise.all(markers.map(marker=>expect(marker).toHaveClass(/has-sector-model/,{timeout:30_000})));
         await expect(observer).toHaveClass(/has-sector-model/, {timeout: 30_000});
+        const unpinned = page.locator('.continuous-world-peer').filter({has:page.getByText(standingOnly,{exact:true})});
+        await expect(unpinned.locator('.world-standing-figure')).toHaveAttribute('src', '/world-figures/v1/cinderhold-' + standingOnly + '.webp');
+        await expect(unpinned).not.toHaveClass(/has-sector-model/);
+        const stride = unpinned.locator('.resident-stride');
+        const nativeFrames = await stride.evaluateHandle(strip => {
+            const image = strip.querySelector('img')!;
+            const frames = new Set<string>();
+            const sampler = new MutationObserver(() => {
+                if (image.complete && image.naturalWidth === 768 && strip.getBoundingClientRect().width > 0 &&
+                    getComputedStyle(strip).visibility === 'visible') frames.add(image.style.transform);
+            });
+            sampler.observe(image, {attributes:true, attributeFilter:['style']});
+            return {frames, sampler};
+        });
+        try {
+            const current = store.get(standingOnly)!.tile!;
+            assert.ok([current+1,current-1,current+12,current-12].some(target =>
+                world.fallback(sector,target)?.from !== world.fallback(sector,current)?.from &&
+                store.moveToTile(standingOnly,target) !== null));
+            await expect.poll(() => nativeFrames.evaluate(s => s.frames.size), {timeout:12_000}).toBeGreaterThan(1);
+            await expect(stride).toBeHidden();
+        } finally {
+            await nativeFrames.evaluate(s => s.sampler.disconnect());
+            await nativeFrames.dispose();
+        }
         for(const npc of npcs)assert.ok(requested.has('/sector-models/players/'+npc.assetId+'/'+npc.version+'.json'),npc.id);
         for(const starter of [own,other])assert.ok(requested.has('/sector-models/'+starter+'/'+built.get(starter)+'.json'),starter);
         const before=await Promise.all(markers.map(marker=>marker.getAttribute('style')));
@@ -151,18 +196,22 @@ for(let start=0; start<catalog.length; start+=6){
         const painted = await page.evaluateHandle(ids => {
             const names = new Set(ids);
             const walking = new Set<string>();
+            const clips = new Map(ids.map(id => [id, new Set<string>()]));
             const observer = new MutationObserver(records => {
                 for (const record of records) {
                     const figure = record.target as HTMLElement;
-                    if (record.oldValue !== 'walk' && figure.dataset.clip !== 'walk') continue;
                     const name = figure.parentElement?.querySelector('.sector-peer-label')?.textContent ?? '';
-                    if (names.has(name)) walking.add(name);
+                    if (!names.has(name)) continue;
+                    for (const clip of [record.oldValue, figure.dataset.clip]) {
+                        if (clip) clips.get(name)!.add(clip);
+                        if (clip === 'walk') walking.add(name);
+                    }
                 }
             });
             observer.observe(document.querySelector('.continuous-world-peers')!, {
                 subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-clip'],
             });
-            return {walking, observer};
+            return {walking, clips, observer};
         }, npcs.map(npc => npc.id));
         for(const npc of npcs){
             const current=store.get(npc.id)!.tile!;
@@ -172,10 +221,17 @@ for(let start=0; start<catalog.length; start+=6){
             assert.notEqual(next,undefined,npc.id+' has a walkable adjacent tile');
         }
         await Promise.all(markers.map((marker,i)=>expect.poll(()=>marker.getAttribute('style'),{timeout:12_000}).not.toBe(before[i])));
-        await expect.poll(() => painted.evaluate(result => [...result.walking].sort()), {timeout: 12_000})
-            .toEqual(npcs.map(npc => npc.id).sort());
-        await painted.evaluate(result => result.observer.disconnect());
-        await painted.dispose();
+        try {
+            await expect.poll(() => painted.evaluate(result => [...result.walking].sort()), {timeout: 12_000})
+                .toEqual(npcs.map(npc => npc.id).sort());
+        } finally {
+            const clips = await painted.evaluate(result => {
+                result.observer.disconnect();
+                return Object.fromEntries([...result.clips].map(([id, seen]) => [id, [...seen]]));
+            });
+            await writeFile(info.outputPath('first-step-clips.json'), JSON.stringify(clips));
+            await painted.dispose();
+        }
         await page.screenshot({path:info.outputPath('cinderhold-moving.png')});
         await Promise.all(markers.map(marker=>expect(marker.locator('.sector-model-figure'))
             .toHaveAttribute('data-clip','idle',{timeout:15_000})));

@@ -180,7 +180,7 @@ export function SectorPeers({ peers, sector }: { peers: SectorPeer[]; sector?: n
                             <span className="sector-avatar-shadow" />
                             <span className="sector-avatar-sprite">
                                 <span className="sector-avatar-body">
-                                    <WorldStandingFigure kind={starterModel(it.avatar ?? '', it.starterWorldModel)} />
+                                    <WorldStandingFigure kind={starterModel(it.avatar ?? '', it.starterWorldModel)} accountName={it.name} />
                                 </span>
                             </span>
                             <span className="sector-peer-label">{displayPlayerName(it.name)}{it.sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
