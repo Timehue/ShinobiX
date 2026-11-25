@@ -9,6 +9,7 @@ import { playerGaitTilesPerSecond } from "../../../../shared/sector-gait-rates";
 import { serverClockOffsetMs } from '../../lib/server-clock';
 import { useSprintStyle } from "../../lib/player-model";
 import { centre, col, row } from "./coast-grid";
+import { isCoveredByCombat, subscribeCombatCover } from "../../lib/combat-cover";
 
 // Sector models are authored for a 1080-unit landscape. A room shows a much shorter span of ground.
 export const COURTYARD_MODEL_SCALE = 1.34;
@@ -50,7 +51,16 @@ export function useCoastFigure<T extends HTMLElement>(scale: number, tile: numbe
                 element.style.scale = String(.84 + depth * .3);
             }
             figure.current?.place(x * width / 12, y * width / 12, width * scale, moving && !reduced.matches, gait, true);
-            if (motion || moving || figure.current?.stop()) frame = requestAnimationFrame(draw);
+            frame = 0;
+            // A figure nobody can see (hidden tab, a fight covering the map, scrolled or
+            // panned out of the view) draws nothing. Its position is a function of the
+            // clock, so it is right again on the first frame after it comes back.
+            if ((motion || moving || figure.current?.stop()) && !document.hidden && onScreen && !isCoveredByCombat()) frame = requestAnimationFrame(draw);
+        };
+        let onScreen = true;
+        const wake = () => {
+            if (frame || document.hidden || !onScreen || isCoveredByCombat()) return;
+            draw(performance.now());
         };
         draw(start);
         const observer = new ResizeObserver(() => {
@@ -59,7 +69,17 @@ export function useCoastFigure<T extends HTMLElement>(scale: number, tile: numbe
             draw(performance.now());
         });
         observer.observe(floor);
-        return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+        const seen = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(entries => {
+            onScreen = entries.at(-1)!.isIntersecting;
+            wake();
+        }, { rootMargin: '120px' });
+        seen?.observe(element);
+        document.addEventListener('visibilitychange', wake);
+        const stopCover = subscribeCombatCover(wake);
+        return () => {
+            cancelAnimationFrame(frame); observer.disconnect(); seen?.disconnect();
+            document.removeEventListener('visibilitychange', wake); stopCover();
+        };
     }, [base, scale, tile, motion, gait]);
     return { anchor, figure, base };
 }
